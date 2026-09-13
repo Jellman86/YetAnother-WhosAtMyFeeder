@@ -1593,6 +1593,42 @@
       "desc": "Das Layout, mit dem neue Geräte starten. Karten zeigen zu jedem Besuch ein Bild; eine Liste zeigt mehr auf einmal und richtet die Zeiten untereinander aus. Jedes Gerät kann im Explorer umschalten, und diese Wahl bleibt dort erhalten.",
       "cards": "Karten",
       "list": "Liste"
+    },
+    "system_health": {
+      "title": "System",
+      "description": "Was dieser Host gerade tut, und wie viel davon diese App ist.",
+      "window": "Letzte 30 Minuten, alle 5 s gemessen",
+      "legend": "Reihen",
+      "legend_cpu": "CPU, gesamter Host",
+      "cpu_now": "CPU jetzt",
+      "accelerator_now": "{label} jetzt",
+      "memory_now": "Diese App im Speicher",
+      "memory_of": "von {total}",
+      "cores": "{count} Kerne, kein CPU-Limit für den Container",
+      "cores_limited": "{count} Kerne, begrenzt auf {quota}",
+      "summary": "CPU im Mittel {average}, Spitze {peak} um {time}",
+      "share_title": "Wer die CPU gerade nutzt",
+      "share_summary": "Diese App {app} · Rest des Hosts {other} · frei {idle}",
+      "app_share": "Diese App",
+      "col_process": "Prozess",
+      "col_cpu": "CPU",
+      "col_memory": "Speicher",
+      "role_main": "YA-WAMF",
+      "role_live_worker": "Live-Worker",
+      "role_background_worker": "Hintergrund-Worker",
+      "role_video_worker": "Video-Worker",
+      "role_ffmpeg": "ffmpeg",
+      "role_other_child": "Weiterer Prozess dieser App",
+      "role_other_host": "Anderes auf diesem Host",
+      "role_other_host_note": "Nicht diese App. Ohne Docker-Socket nicht benennbar.",
+      "role_idle": "Frei",
+      "note": "Die Werte je Prozess werden bei jeder Messung aus den eigenen Prozessen dieses Containers gelesen. Alles andere auf dem Host wird nur als Rest gemessen; YA-WAMF sieht andere Container nicht und versucht es auch nicht.",
+      "loading": "Letzte halbe Stunde wird gelesen…",
+      "unavailable": "Der Lastverlauf ist gerade nicht verfügbar.",
+      "empty": "Die ersten Messwerte kommen wenige Sekunden nach dem Start.",
+      "inspect": "Einen Messpunkt ansehen",
+      "cpu_unmeasured": "Die CPU-Last kann auf diesem Host nicht gemessen werden; die nötigen Zähler sind aus dem Container heraus nicht lesbar.",
+      "no_accelerator": "Auf diesem Host ist kein Beschleuniger-Zähler lesbar, daher wird nur die CPU gezeichnet."
     }
   },
   "auth": {
@@ -1646,7 +1682,8 @@
     "audio_active": "Audio-Analyse aktiv",
     "notifications_enabled": "Benachrichtigungen aktiviert",
     "system_online": "System online",
-    "system_offline": "System offline"
+    "system_offline": "System offline",
+    "open_health": "Systemzustand"
   },
   "notifications": {
     "reclassify_fallback": "⚠️ Video nicht verfügbar - stattdessen Schnappschuss verwendet",

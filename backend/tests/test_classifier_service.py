@@ -37,6 +37,7 @@ from app.services.classifier_service import (  # noqa: E402
     _probe_onnxruntime_cuda_provider_safe,
     _provider_capability_contract,
     _reconcile_ort_active_provider,
+    _read_selected_video_frames,
     _resolve_inference_selection,
     _select_video_frame_indices,
     _summarize_numeric_array,
@@ -3674,6 +3675,28 @@ def test_recording_sampler_does_not_fill_duplicate_targets_from_clip_start():
     assert recording_indices[1] >= 10
 
 
+def test_selected_video_frames_are_read_in_one_forward_pass():
+    class _Capture:
+        def __init__(self):
+            self.reads = 0
+
+        def read(self):
+            frame = np.full((2, 2, 3), self.reads, dtype=np.uint8)
+            self.reads += 1
+            return True, frame
+
+    capture = _Capture()
+
+    selected = list(_read_selected_video_frames(capture, [0, 3, 7]))
+
+    assert capture.reads == 8
+    assert [(index, ok, int(frame[0, 0, 0])) for index, ok, frame in selected] == [
+        (0, True, 0),
+        (3, True, 3),
+        (7, True, 7),
+    ]
+
+
 def test_video_consensus_counts_only_frames_where_dynamic_crop_exists(mock_tflite, mock_os_path_exists, monkeypatch):
     class _SparseCropBirdModel:
         loaded = True
@@ -4075,6 +4098,18 @@ async def test_classify_video_accepts_three_sparse_independent_model_crops_in_a_
         assert diagnostics["sources"]["model_crop"]["evaluated_frames"] == 3
         assert diagnostics["sources"]["model_crop"]["independent_frames"] == 3
         assert diagnostics["sources"]["model_crop"]["top_candidates"][0]["supporting_frames"] == 3
+        assert diagnostics["performance"]["decode_strategy"] == "sequential_forward"
+        assert diagnostics["performance"]["candidate_counts"] == {
+            "full_frame": 30,
+            "model_crop": 3,
+        }
+        assert set(diagnostics["performance"]["stage_ms"]) == {
+            "decode",
+            "frame_preparation",
+            "candidate_generation",
+            "bird_inference",
+            "total",
+        }
         await service.shutdown()
 
 
@@ -5987,6 +6022,34 @@ def test_openvino_infer_output_tensor_can_run_during_startup_self_test_before_lo
 
     assert logits.shape == (1, 10000)
     assert np.isnan(logits).all()
+
+
+def test_openvino_classify_raw_preprocesses_each_image_once(mock_os_path_exists):
+    infer_request = MagicMock()
+    infer_request.infer.return_value = {"output0": np.array([[2.0, 1.0]], dtype=np.float32)}
+    compiled_model = MagicMock()
+    compiled_model.outputs = ["output0"]
+    compiled_model.create_infer_request.return_value = infer_request
+    compiled_model.inputs[0].get_partial_shape.side_effect = RuntimeError("shape unavailable")
+    input_tensor = np.zeros((1, 3, 224, 224), dtype=np.float32)
+
+    model = OpenVINOModelInstance(
+        "bird",
+        "/tmp/model.onnx",
+        "/tmp/labels.txt",
+        device_name="NPU",
+    )
+    model.loaded = True
+    model.compiled_model = compiled_model
+    model.input_name = "input"
+    model.labels = ["Robin", "Sparrow"]
+    model._preprocess = MagicMock(return_value=input_tensor)
+
+    scores = model.classify_raw(Image.new("RGB", (32, 32), color="white"))
+
+    assert scores.shape == (2,)
+    model._preprocess.assert_called_once()
+    infer_request.infer.assert_called_once_with({"input": input_tensor})
 
 
 def test_openvino_gpu_startup_self_test_preserves_all_nan_output_diagnostics(mock_os_path_exists):

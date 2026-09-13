@@ -8,6 +8,7 @@ import previewSource from '../components/DetectionPreview.svelte?raw';
 import recentAudioSource from '../components/RecentAudio.svelte?raw';
 import reviewQueueSource from '../components/ReviewQueueCard.svelte?raw';
 import visitorsSource from '../components/TopVisitors.svelte?raw';
+import visitGroupingSource from '../utils/visit-grouping.ts?raw';
 
 describe('dashboard field desk layout', () => {
     it('leads with the chronological log and docks the outstanding work beside it', () => {
@@ -71,6 +72,15 @@ describe('dashboard field desk layout', () => {
         // The overview ribbon is replaced by the compact day bar.
         expect(dashboardSource).not.toContain('StatsRibbon');
         expect(dashboardSource).toContain('<DayBar');
+    });
+
+    it('says in words when a visit was confirmed by a matching call', () => {
+        // The header counts cross-confirmed visits; a row confirmed by a heard call says so beside
+        // its name, on a wide screen and on a phone, with the same words the record uses.
+        expect(fieldLogSource).toContain('{#if visit.audioConfirmed}');
+        expect(fieldLogSource).toContain('data-field-log-audio');
+        expect(fieldLogSource.split("$_('detection.fact_heard_yes', { default: 'matching call' })").length).toBe(3);
+        expect(visitGroupingSource).toContain('audioConfirmed: frames.some(');
     });
 
     it('keeps every visit row reachable and shows why a row is flagged', () => {

@@ -9,7 +9,8 @@ from app.repositories.health_repository import HealthRepository
 from app.services.uptime import HEARTBEAT_INTERVAL_MINUTES, build_uptime_window
 from app.models import APIModel, DetectionResponse
 from app.config import settings
-from app.services.system_telemetry import system_telemetry_sampler
+from app.services.host_facts import collect_host_facts
+from app.services.system_telemetry import system_telemetry_history, system_telemetry_sampler
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.weather_service import weather_service
 from app.auth import AuthContext, require_owner
@@ -53,6 +54,100 @@ async def get_system_telemetry(request: Request, response: Response) -> SystemTe
         sampled_at=datetime.now(timezone.utc).isoformat(),
         cpu_percent=sample.cpu_percent,
         accelerator=accelerator,
+    )
+
+
+class SystemHostFacts(APIModel):
+    cpu_count: int | None = None
+    cpu_quota: float | None = None
+    memory_total_bytes: int | None = None
+    memory_limit_bytes: int | None = None
+    effective_cpus: float | None = None
+
+
+class SystemAcceleratorIdentity(APIModel):
+    kind: Literal["npu", "gpu"]
+    label: str
+
+
+class SystemHistoryPointResponse(APIModel):
+    at: float
+    cpu_percent: float | None = None
+    accelerator_percent: float | None = None
+    app_cpu_percent: float | None = None
+    other_cpu_percent: float | None = None
+
+
+class SystemProcessLoadResponse(APIModel):
+    pid: int
+    role: Literal["main", "live_worker", "background_worker", "video_worker", "ffmpeg", "other_child"]
+    label: str
+    detail: str | None = None
+    cpu_percent: float | None = None
+    rss_bytes: int | None = None
+
+
+class SystemTelemetryHistoryResponse(APIModel):
+    sampled_at: str
+    window_seconds: int
+    interval_seconds: float
+    host: SystemHostFacts
+    accelerator: SystemAcceleratorIdentity | None = None
+    points: list[SystemHistoryPointResponse]
+    processes: list[SystemProcessLoadResponse]
+    app_rss_bytes: int | None = None
+
+
+@router.get("/system-telemetry/history", response_model=SystemTelemetryHistoryResponse)
+async def get_system_telemetry_history(
+    response: Response, auth: AuthContext = Depends(require_owner)
+) -> SystemTelemetryHistoryResponse:
+    """The last half hour of host load and what this app's own processes took of it.
+
+    Owner only: it names this container's processes. Anything else on the host is
+    the remainder and is never identified.
+    """
+    snapshot = system_telemetry_history.snapshot()
+    facts = collect_host_facts()
+    response.headers["Cache-Control"] = "no-store"
+    accelerator = None
+    if snapshot.accelerator_kind in ("npu", "gpu") and snapshot.accelerator_label:
+        accelerator = SystemAcceleratorIdentity(kind=snapshot.accelerator_kind, label=snapshot.accelerator_label)
+    measured_rss = [load.rss_bytes for load in snapshot.processes if load.rss_bytes is not None]
+    return SystemTelemetryHistoryResponse(
+        sampled_at=datetime.now(timezone.utc).isoformat(),
+        window_seconds=snapshot.window_seconds,
+        interval_seconds=snapshot.interval_seconds,
+        host=SystemHostFacts(
+            cpu_count=facts.get("cpu_count"),
+            cpu_quota=facts.get("cpu_quota"),
+            memory_total_bytes=facts.get("memory_total_bytes"),
+            memory_limit_bytes=facts.get("memory_limit_bytes"),
+            effective_cpus=facts.get("effective_cpus"),
+        ),
+        accelerator=accelerator,
+        points=[
+            SystemHistoryPointResponse(
+                at=point.at,
+                cpu_percent=point.cpu_percent,
+                accelerator_percent=point.accelerator_percent,
+                app_cpu_percent=point.app_cpu_percent,
+                other_cpu_percent=point.other_cpu_percent,
+            )
+            for point in snapshot.points
+        ],
+        processes=[
+            SystemProcessLoadResponse(
+                pid=load.pid,
+                role=load.role,
+                label=load.label,
+                detail=load.detail,
+                cpu_percent=load.cpu_percent,
+                rss_bytes=load.rss_bytes,
+            )
+            for load in snapshot.processes
+        ],
+        app_rss_bytes=sum(measured_rss) if measured_rss else None,
     )
 
 

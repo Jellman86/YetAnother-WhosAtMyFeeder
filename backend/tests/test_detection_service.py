@@ -98,9 +98,13 @@ async def test_apply_video_result_persists_the_actual_input_source(mock_deps):
         0.82,
         123,
         video_input_source="frigate_hint_crop",
+        video_diagnostics={"performance": {"decode_strategy": "sequential_forward"}},
     )
 
     assert mock_deps["repo"].update_video_classification.await_args.kwargs["input_source"] == "frigate_hint_crop"
+    assert mock_deps["repo"].update_video_classification.await_args.kwargs["diagnostics"] == {
+        "performance": {"decode_strategy": "sequential_forward"}
+    }
 
 
 @pytest.mark.asyncio

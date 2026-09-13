@@ -615,6 +615,7 @@ class DetectionService:
         video_backend: str | None = None,
         video_model_id: str | None = None,
         video_input_source: str | None = None,
+        video_diagnostics: dict | None = None,
         persist_video_result: bool = True,
     ):
         """
@@ -663,6 +664,7 @@ class DetectionService:
                     backend=video_backend,
                     model_id=video_model_id,
                     input_source=video_input_source,
+                    diagnostics=video_diagnostics,
                     blocked=is_blocked,
                 )
 

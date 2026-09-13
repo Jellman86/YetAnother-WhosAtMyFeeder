@@ -160,6 +160,45 @@ def test_guided_classification_crop_uses_square_minimum_context_near_frame_edge(
     assert result["search_box"] == (0, 0, 160, 160)
 
 
+def test_video_guided_candidate_stops_after_one_detector_miss(monkeypatch):
+    service = BirdCropService(detector_tier="accurate", expand_ratio=0.0)
+    image = Image.new("RGB", (1000, 800), "white")
+    monkeypatch.setattr(service, "_load_model_for_tier", lambda tier: {"tier": tier})
+    calls: list[tuple[int, int]] = []
+    monkeypatch.setattr(
+        service,
+        "_infer_candidates",
+        lambda _model, candidate_image: calls.append(candidate_image.size) or [],
+    )
+
+    result = service.generate_video_classification_candidate_crop(
+        image,
+        search_box=(400, 200, 800, 600),
+    )
+
+    assert calls == [(400, 400)]
+    assert result["crop_image"] is None
+    assert result["strategy"] == "video_frigate_guided"
+
+
+def test_video_native_candidate_has_one_detector_call_bound(monkeypatch):
+    service = BirdCropService(detector_tier="accurate", expand_ratio=0.0)
+    image = Image.new("RGB", (1000, 800), "white")
+    monkeypatch.setattr(service, "_load_model_for_tier", lambda tier: {"tier": tier})
+    calls: list[tuple[int, int]] = []
+    monkeypatch.setattr(
+        service,
+        "_infer_candidates",
+        lambda _model, candidate_image: calls.append(candidate_image.size) or [],
+    )
+
+    result = service.generate_video_classification_candidate_crop(image)
+
+    assert calls == [image.size]
+    assert result["crop_image"] is None
+    assert result["strategy"] == "video_native"
+
+
 def test_classification_candidate_uses_bounded_overlapping_tiles_after_native_miss(monkeypatch):
     service = BirdCropService(detector_tier="accurate", expand_ratio=0.0)
     image = Image.new("RGB", (1000, 800), "white")

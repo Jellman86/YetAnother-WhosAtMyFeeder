@@ -19,6 +19,8 @@ export interface DetectionVisit {
     startTime: string;
     endTime: string;
     needsReview: boolean;
+    /** A matching call was heard for at least one frame; a second sensor agrees with the camera. */
+    audioConfirmed: boolean;
 }
 
 /** Frames further apart than this are separate approaches, not one visit. */
@@ -77,7 +79,12 @@ function toVisit(frames: Detection[], reviewThreshold: number | null): Detection
         best,
         startTime: oldest.detection_time,
         endTime: lead.detection_time,
-        needsReview: frames.every((frame) => needsReview(frame, reviewThreshold))
+        needsReview: frames.every((frame) => needsReview(frame, reviewThreshold)),
+        // A visit needs a person only if every frame does, but one heard call confirms it.
+        // A manual observation has no camera moment for a call to match.
+        audioConfirmed: frames.some(
+            (frame) => frame.observation_source !== 'manual_upload' && Boolean(frame.audio_confirmed)
+        )
     };
 }
 

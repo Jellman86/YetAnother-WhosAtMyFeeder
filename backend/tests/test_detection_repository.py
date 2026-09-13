@@ -815,6 +815,7 @@ async def test_update_video_classification_persists_runtime_provider_backend_and
             backend="openvino",
             model_id="convnext_large_inat21",
             input_source="frigate_hint_crop",
+            diagnostics={"performance": {"stage_ms": {"total": 1234.5}}},
         )
 
         updated = await repo.get_by_frigate_event("evt_video_runtime")
@@ -825,6 +826,7 @@ async def test_update_video_classification_persists_runtime_provider_backend_and
         assert updated.video_classification_backend == "openvino"
         assert updated.video_classification_model_id == "convnext_large_inat21"
         assert updated.video_classification_input_source == "frigate_hint_crop"
+        assert updated.video_classification_diagnostics == {"performance": {"stage_ms": {"total": 1234.5}}}
 
 
 @pytest.mark.asyncio

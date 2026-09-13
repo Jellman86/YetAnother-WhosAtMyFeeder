@@ -412,6 +412,52 @@ class BirdCropService:
         guided_reason = "unavailable" if not accurate_available else str(guided_result.get("reason") or "miss")
         return self._with_fallback_reason(fallback, f"guided_{guided_reason}")
 
+    def generate_video_classification_candidate_crop(
+        self,
+        image: Image.Image,
+        *,
+        search_box: tuple[int, int, int, int] | list[int] | None = None,
+    ) -> dict[str, Any]:
+        """Run at most one accurate-detector inference for a sampled video frame.
+
+        Video classification already retains the full frame and the Frigate
+        hint crop as independent evidence. Escalating every detector miss into
+        native, four-tile, and fast-model retries can multiply CPU work across
+        thirty sampled frames without adding a candidate. Keep that exhaustive
+        search for one-off snapshots; video gets one bounded localization pass.
+        """
+        if not isinstance(image, Image.Image):
+            return self._annotate_candidate_strategy(self._empty_result("invalid_image"), strategy="video_native")
+
+        if search_box is not None:
+            normalized_search_box = self._normalize_search_box(search_box, image.size)
+            if normalized_search_box is not None:
+                normalized_search_box = self._square_search_box(
+                    normalized_search_box,
+                    image.size,
+                    minimum_size=self.CLASSIFICATION_CANDIDATE_MIN_OUTPUT_SIZE,
+                )
+            if normalized_search_box is not None:
+                search_image = image.crop(normalized_search_box)
+                result, _available = self._generate_classification_candidate_for_tier(
+                    search_image,
+                    strategy="video_frigate_guided",
+                )
+                if result.get("reason") == "selected":
+                    return self._restore_region_result_to_image(
+                        image,
+                        result,
+                        region_box=normalized_search_box,
+                        strategy="video_frigate_guided",
+                    )
+                return result
+
+        result, _available = self._generate_classification_candidate_for_tier(
+            image,
+            strategy="video_native",
+        )
+        return result
+
     def _generate_classification_candidate_for_tier(
         self,
         image: Image.Image,

@@ -100,6 +100,7 @@
     import AuthenticationSettings from '../components/settings/AuthenticationSettings.svelte';
     import AISettings from '../components/settings/AISettings.svelte';
     import Errors from './Errors.svelte';
+    import SystemHealthPanel from '../components/settings/SystemHealthPanel.svelte';
     import {
         buildBirdModelRegionOverrideSettings,
         resolveBirdModelRegionOverrideFromSettings,
@@ -3484,7 +3485,10 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
 
             <!-- Health Tab -->
             {#if activeTab === 'health'}
-                <Errors />
+                <div class="space-y-6">
+                    <SystemHealthPanel />
+                    <Errors />
+                </div>
             {/if}
 
             <!-- Integrations Tab -->

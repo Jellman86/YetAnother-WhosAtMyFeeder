@@ -26,6 +26,7 @@ from app.auth import (
 )
 from app.config import settings
 from app.main import app
+from app.ratelimit import _is_owner_request
 
 
 @pytest_asyncio.fixture
@@ -138,6 +139,40 @@ async def test_a_media_request_with_only_the_cookie_is_the_owner():
 
     assert context.is_owner
     assert context.username == "owner"
+
+
+def test_a_media_request_with_only_the_cookie_gets_the_owner_rate_limit():
+    token = create_access_token("owner", AuthLevel.OWNER)
+    request = _request("/api/frigate/1788686951.128889-si0jon/clip.mp4", cookie=token)
+
+    assert _is_owner_request(request)
+
+
+def test_the_media_cookie_does_not_raise_limits_outside_its_read_only_scope():
+    token = create_access_token("owner", AuthLevel.OWNER)
+    request = _request("/api/events", cookie=token)
+
+    assert not _is_owner_request(request)
+
+
+@pytest.mark.parametrize(
+    "cookie",
+    [
+        "not-a-token",
+        pytest.param(None, id="no-cookie"),
+    ],
+)
+def test_a_media_request_without_a_valid_owner_cookie_keeps_the_guest_rate_limit(cookie: str | None):
+    request = _request("/api/frigate/1788686951.128889-si0jon/clip.mp4", cookie=cookie)
+
+    assert not _is_owner_request(request)
+
+
+def test_a_guest_media_cookie_keeps_the_guest_rate_limit():
+    token = create_access_token("guest", AuthLevel.GUEST)
+    request = _request("/api/frigate/1788686951.128889-si0jon/clip.mp4", cookie=token)
+
+    assert not _is_owner_request(request)
 
 
 @pytest.mark.asyncio

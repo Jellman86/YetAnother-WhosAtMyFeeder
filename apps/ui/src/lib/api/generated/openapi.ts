@@ -1893,6 +1893,10 @@ export interface components {
     expires_in_seconds: number;
     ticket: string;
 };
+    SystemAcceleratorIdentity: {
+    kind: "npu" | "gpu";
+    label: string;
+};
     SystemAcceleratorTelemetry: {
     kind: "npu" | "gpu";
     label: string;
@@ -1902,6 +1906,38 @@ export interface components {
     disk_usage: Array<unknown>;
     platform: string;
     python: string;
+};
+    SystemHistoryPointResponse: {
+    accelerator_percent?: number | null;
+    app_cpu_percent?: number | null;
+    at: number;
+    cpu_percent?: number | null;
+    other_cpu_percent?: number | null;
+};
+    SystemHostFacts: {
+    cpu_count?: number | null;
+    cpu_quota?: number | null;
+    effective_cpus?: number | null;
+    memory_limit_bytes?: number | null;
+    memory_total_bytes?: number | null;
+};
+    SystemProcessLoadResponse: {
+    cpu_percent?: number | null;
+    detail?: string | null;
+    label: string;
+    pid: number;
+    role: "main" | "live_worker" | "background_worker" | "video_worker" | "ffmpeg" | "other_child";
+    rss_bytes?: number | null;
+};
+    SystemTelemetryHistoryResponse: {
+    accelerator?: components['schemas']['SystemAcceleratorIdentity'] | null;
+    app_rss_bytes?: number | null;
+    host: components['schemas']['SystemHostFacts'];
+    interval_seconds: number;
+    points: Array<components['schemas']['SystemHistoryPointResponse']>;
+    processes: Array<components['schemas']['SystemProcessLoadResponse']>;
+    sampled_at: string;
+    window_seconds: number;
 };
     SystemTelemetryResponse: {
     accelerator?: components['schemas']['SystemAcceleratorTelemetry'] | null;
@@ -3910,6 +3946,15 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: components['schemas']['SystemTelemetryResponse'];
+    };
+  };
+  "/api/system-telemetry/history": {
+    get: {
+      operationId: "get_system_telemetry_history_api_system_telemetry_history_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['SystemTelemetryHistoryResponse'];
     };
   };
   "/api/update-status": {

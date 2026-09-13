@@ -45,6 +45,7 @@ from app.services.full_visit_clip_service import full_visit_clip_service
 from app.services.archive_service import archive_service
 from app.services.broadcaster import broadcaster
 from app.services.telemetry_service import telemetry_service
+from app.services.system_telemetry import system_telemetry_history_service
 from app.services.auto_video_classifier_service import auto_video_classifier
 from app.services.high_quality_snapshot_service import high_quality_snapshot_service
 from app.services.notification_dispatcher import notification_dispatcher
@@ -537,6 +538,14 @@ async def lifespan(app: FastAPI):
         )
         await _run_lifecycle_phase(
             app,
+            "system_telemetry_history_start",
+            system_telemetry_history_service.start,
+            fatal=False,
+            startup_phase="starting_services",
+            startup_progress=84,
+        )
+        await _run_lifecycle_phase(
+            app,
             "auto_video_classifier_start",
             auto_video_classifier.start,
             fatal=False,
@@ -656,6 +665,9 @@ async def lifespan(app: FastAPI):
         await _run_lifecycle_phase(app, "auto_video_classifier_stop", auto_video_classifier.stop, fatal=False)
         await _run_lifecycle_phase(app, "full_visit_clip_stop", full_visit_clip_service.stop, fatal=False)
         await _run_lifecycle_phase(app, "favorite_archive_stop", archive_service.stop, fatal=False)
+        await _run_lifecycle_phase(
+            app, "system_telemetry_history_stop", system_telemetry_history_service.stop, fatal=False
+        )
         await _run_lifecycle_phase(app, "telemetry_stop", telemetry_service.stop, fatal=False)
         await _run_lifecycle_phase(app, "frigate_client_close", frigate_client.close, fatal=False)
         await _run_lifecycle_phase(app, "classifier_shutdown", shutdown_classifier, fatal=False)

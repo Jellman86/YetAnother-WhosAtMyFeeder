@@ -147,18 +147,43 @@
     </nav>
 
     {#if !collapsed}
-        <div data-sidebar-status class="shrink-0 border-t border-slate-200/80 p-3 dark:border-slate-700/60 [@media(max-height:42rem)]:hidden">
-            <div class="relative overflow-hidden rounded-xl border border-slate-200/80 bg-slate-50/90 p-3 shadow-sm dark:border-slate-700/70 dark:bg-slate-800/55">
-                <SystemTelemetryGraph />
-                <div class="relative z-10">
-                    <div class="mb-2 flex items-center justify-between gap-2">
-                        <span class="text-[0.625rem] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
-                            {$_('status.title')}
-                        </span>
-                    </div>
-                    {@render status?.()}
+        {#snippet statusCard(linked: boolean)}
+            <SystemTelemetryGraph />
+            <div class="relative z-10">
+                <div class="mb-2 flex items-center justify-between gap-2">
+                    <span class="text-[0.625rem] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                        {$_('status.title')}
+                    </span>
                 </div>
+                {@render status?.()}
+                {#if linked}
+                    <span class="mt-1 flex items-center justify-end gap-1 px-2 text-[0.625rem] font-bold uppercase tracking-[0.08em] text-slate-400 transition-colors group-hover:text-brand-600 dark:text-slate-500 dark:group-hover:text-brand-300">
+                        {$_('status.open_health', { default: 'System health' })}
+                        <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
+                    </span>
+                {/if}
             </div>
+        {/snippet}
+        <div data-sidebar-status class="shrink-0 border-t border-slate-200/80 p-3 dark:border-slate-700/60 [@media(max-height:42rem)]:hidden">
+            <!-- The card opens the owner's System health; a guest cannot reach it, so for a guest the card stays a card. -->
+            {#if authStore.showSettings}
+                <a
+                    href="/settings/health"
+                    class="group relative block cursor-pointer overflow-hidden rounded-xl border border-slate-200/80 bg-slate-50/90 p-3 shadow-sm transition-colors hover:border-brand-400/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:border-slate-700/70 dark:bg-slate-800/55 dark:hover:border-brand-400/60"
+                    aria-label={$_('status.open_health', { default: 'System health' })}
+                    data-sidebar-status-link
+                    onclick={(event) => {
+                        event.preventDefault();
+                        navigateAndClose('/settings/health');
+                    }}
+                >
+                    {@render statusCard(true)}
+                </a>
+            {:else}
+                <div class="relative overflow-hidden rounded-xl border border-slate-200/80 bg-slate-50/90 p-3 shadow-sm dark:border-slate-700/70 dark:bg-slate-800/55">
+                    {@render statusCard(false)}
+                </div>
+            {/if}
         </div>
     {/if}
 

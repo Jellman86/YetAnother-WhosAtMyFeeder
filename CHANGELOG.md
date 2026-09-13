@@ -6,6 +6,31 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.20.1] - 2026-09-13
+
+### Added
+
+- **Settings → Health opens on what the host is doing.** The last thirty minutes of CPU and
+  accelerator load, sampled every five seconds and kept by the server, with the live figures
+  beside it and who is using the CPU: this app's own processes by name (the app, each classifier
+  worker, any ffmpeg it spawned) with CPU share and memory, and everything else on the host as one
+  remainder that is never named. The sidebar's System status card opens it for the owner.
+  `GET /api/system-telemetry/history` (owner).
+
+### Fixed
+
+- **Video analysis no longer burns CPU around NPU inference.** Sampled frames are decoded in one
+  forward pass instead of repeatedly seeking through inter-frame video, each frame gets at most one
+  accurate crop-detector pass, and OpenVINO input preprocessing is performed once. Successful and
+  abstained runs now retain per-stage timings plus their classifier and crop-detector providers.
+- **Signed-in video playback no longer trips the public rate limit (#451).** Media requests use
+  the scoped session cookie, and the rate limiter now recognises that same cookie as the owner only
+  on the read-only media routes where it is allowed. Clip probes and browser range requests
+  therefore receive the owner budget without widening the cookie's authority elsewhere.
+- **A visit confirmed by a matching call says so in the field log.** The day bar counted
+  cross-confirmed visits but the rows gave no sign of which ones; a confirmed visit now carries
+  "matching call" beneath its name, the words the record uses, on wide screens and on a phone.
+
 ## [2.20.0] - 2026-09-12
 
 ### Added

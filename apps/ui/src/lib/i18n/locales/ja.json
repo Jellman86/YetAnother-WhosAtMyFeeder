@@ -1593,6 +1593,42 @@
       "desc": "新しい端末が最初に使う表示です。カードは訪問ごとに写真を、リストはより多くを表示し時刻をそろえます。端末ごとにエクスプローラーで切り替えられ、その選択はその端末に残ります。",
       "cards": "カード",
       "list": "リスト"
+    },
+    "system_health": {
+      "title": "システム",
+      "description": "このホストが何をしているか、そのうちどれだけがこのアプリか。",
+      "window": "直近30分、5秒ごとに計測",
+      "legend": "系列",
+      "legend_cpu": "CPU（ホスト全体）",
+      "cpu_now": "現在のCPU",
+      "accelerator_now": "現在の{label}",
+      "memory_now": "このアプリのメモリ",
+      "memory_of": "/ {total}",
+      "cores": "{count}コア、コンテナにCPU制限なし",
+      "cores_limited": "{count}コア、{quota}に制限",
+      "summary": "CPU平均{average}、ピーク{peak}（{time}）",
+      "share_title": "今CPUを使っているのは",
+      "share_summary": "このアプリ {app} · ホストの残り {other} · アイドル {idle}",
+      "app_share": "このアプリ",
+      "col_process": "プロセス",
+      "col_cpu": "CPU",
+      "col_memory": "メモリ",
+      "role_main": "YA-WAMF",
+      "role_live_worker": "ライブワーカー",
+      "role_background_worker": "バックグラウンドワーカー",
+      "role_video_worker": "動画ワーカー",
+      "role_ffmpeg": "ffmpeg",
+      "role_other_child": "このアプリのその他のプロセス",
+      "role_other_host": "このホストのその他",
+      "role_other_host_note": "このアプリではありません。Dockerソケットなしでは名前を特定できません。",
+      "role_idle": "アイドル",
+      "note": "プロセスごとの数値は、計測のたびにこのコンテナ自身のプロセスから読み取ります。ホスト上のそれ以外は残りとしてのみ計測され、YA-WAMFは他のコンテナを見ることも、見ようとすることもありません。",
+      "loading": "直近30分を読み込んでいます…",
+      "unavailable": "負荷の履歴は現在利用できません。",
+      "empty": "最初の計測値は起動の数秒後に届きます。",
+      "inspect": "サンプルを確認",
+      "cpu_unmeasured": "このホストではCPU負荷を計測できません。必要なカウンターをコンテナ内から読み取れません。",
+      "no_accelerator": "このホストではアクセラレータのカウンターを読み取れないため、CPUのみを描画します。"
     }
   },
   "auth": {
@@ -1646,7 +1682,8 @@
     "audio_active": "音声分析中",
     "notifications_enabled": "通知有効",
     "system_online": "システムオンライン",
-    "system_offline": "システムオフライン"
+    "system_offline": "システムオフライン",
+    "open_health": "システムの状態"
   },
   "notifications": {
     "reclassify_fallback": "⚠️ ビデオが利用不可 - 代わりにスナップショットを使用しました",

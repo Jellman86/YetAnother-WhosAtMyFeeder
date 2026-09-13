@@ -185,9 +185,16 @@ See [Notifications](../features/notifications.md) for per-platform setup.
 
 ## Health
 
-Live diagnostics for the whole pipeline: system status, what happened to recent frames and why,
-inference health, the naming sources behind your species names, and a downloadable diagnostics
-bundle.
+Live diagnostics for the whole pipeline: what the host is doing, system status, what happened to
+recent frames and why, inference health, the naming sources behind your species names, and a
+downloadable diagnostics bundle.
+
+The tab opens on **System**: the last thirty minutes of CPU and accelerator load, sampled every
+five seconds and kept by the server so the graph is full when you arrive, the live figures beside
+it, and who is using the CPU. This app's own processes are named (the app, each classifier worker,
+any ffmpeg it spawned) with their CPU share and memory; everything else on the host is one
+remainder, "Other on this host", which YA-WAMF cannot name without the Docker socket and does not
+try to. The sidebar's System status card opens this tab for the owner.
 
 ![Settings → Health: a System Status card reporting all monitored services healthy, and a "What happened" timeline showing visits recorded and frames filtered out with the reason for each](../images/settings-health.png)
 
