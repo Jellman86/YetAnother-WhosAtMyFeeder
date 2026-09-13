@@ -6,6 +6,7 @@ import pytest
 
 from app.main import app
 from app.routers import stats as stats_router
+from app.services.accelerator_telemetry import AcceleratorReading, AcceleratorSampler, NpuBusyTimeProbe
 from app.services.system_telemetry import SystemTelemetrySample, SystemTelemetrySampler
 from app.services.update_service import update_service
 
@@ -14,45 +15,59 @@ def _write_cpu_stat(path: Path, *, user: int, system: int, idle: int) -> None:
     path.write_text(f"cpu  {user} 0 {system} {idle} 0 0 0 0 0 0\n", encoding="utf-8")
 
 
+def _npu(percent: float | None) -> tuple[AcceleratorReading, ...]:
+    return (AcceleratorReading(id="accel0", kind="npu", label="NPU", scope="device", utilization_percent=percent),)
+
+
+class _NoDrm:
+    def read(self, now: float, pids: object) -> list[AcceleratorReading]:
+        return []
+
+
+class _NoNvidia:
+    def read(self) -> list[AcceleratorReading]:
+        return []
+
+
 def test_sampler_reports_real_cpu_and_npu_utilization_from_counter_deltas(tmp_path: Path) -> None:
     proc_stat = tmp_path / "stat"
-    npu_busy = tmp_path / "npu_busy_time_us"
+    npu_busy = tmp_path / "accel" / "accel0" / "device" / "npu_busy_time_us"
+    npu_busy.parent.mkdir(parents=True)
     _write_cpu_stat(proc_stat, user=100, system=100, idle=800)
     npu_busy.write_text("100000\n", encoding="utf-8")
     clock_values = iter([10.0, 12.0])
 
     sampler = SystemTelemetrySampler(
         proc_stat_path=proc_stat,
-        npu_busy_path=npu_busy,
-        clock=lambda: next(clock_values),
+        accelerator_sampler=AcceleratorSampler(
+            npu_probe=NpuBusyTimeProbe(accel_root=tmp_path / "accel"),
+            drm_probe=_NoDrm(),
+            nvidia_probe=_NoNvidia(),
+            clock=lambda: next(clock_values),
+        ),
     )
 
     first = sampler.sample()
     assert first.cpu_percent is None
-    assert first.accelerator_kind == "npu"
-    assert first.accelerator_label == "NPU"
-    assert first.accelerator_percent is None
+    assert first.primary_accelerator is not None
+    assert first.primary_accelerator.label == "NPU"
+    assert first.primary_accelerator.utilization_percent is None
 
     _write_cpu_stat(proc_stat, user=150, system=150, idle=900)
     npu_busy.write_text("500000\n", encoding="utf-8")
 
     second = sampler.sample()
     assert second.cpu_percent == 50.0
-    assert second.accelerator_kind == "npu"
-    assert second.accelerator_label == "NPU"
-    assert second.accelerator_percent == 20.0
+    assert second.primary_accelerator is not None
+    assert second.primary_accelerator.kind == "npu"
+    assert second.primary_accelerator.utilization_percent == 20.0
 
 
 @pytest.mark.asyncio
 async def test_system_telemetry_endpoint_returns_live_sample_without_caching(monkeypatch: pytest.MonkeyPatch) -> None:
     class StubSampler:
         def sample(self) -> SystemTelemetrySample:
-            return SystemTelemetrySample(
-                cpu_percent=37.5,
-                accelerator_kind="npu",
-                accelerator_label="NPU",
-                accelerator_percent=18.2,
-            )
+            return SystemTelemetrySample(cpu_percent=37.5, accelerators=_npu(18.2))
 
     monkeypatch.setattr(stats_router, "system_telemetry_sampler", StubSampler(), raising=False)
     transport = httpx.ASGITransport(app=app)
@@ -166,9 +181,7 @@ def test_history_keeps_a_rolling_window_and_measures_the_rest_of_the_host() -> N
     from app.services.system_telemetry import ProcessLoad, SystemTelemetryHistory
 
     history = SystemTelemetryHistory(window_seconds=15, interval_seconds=5)
-    sample = SystemTelemetrySample(
-        cpu_percent=40.0, accelerator_kind="npu", accelerator_label="NPU", accelerator_percent=12.0
-    )
+    sample = SystemTelemetrySample(cpu_percent=40.0, accelerators=_npu(12.0))
     processes = [
         ProcessLoad(pid=1, role="main", label="YA-WAMF", detail=None, cpu_percent=5.0, rss_bytes=10),
         ProcessLoad(pid=2, role="live_worker", label="live-0", detail=None, cpu_percent=25.5, rss_bytes=20),
@@ -185,7 +198,7 @@ def test_history_keeps_a_rolling_window_and_measures_the_rest_of_the_host() -> N
 
     # The remainder can never be negative, however the per-process reads round.
     history.record(
-        SystemTelemetrySample(cpu_percent=3.0, accelerator_kind=None, accelerator_label=None, accelerator_percent=None),
+        SystemTelemetrySample(cpu_percent=3.0),
         processes,
         at=20.0,
     )
@@ -198,9 +211,7 @@ async def test_system_telemetry_history_is_for_the_owner_only(monkeypatch: pytes
 
     history = SystemTelemetryHistory(window_seconds=10, interval_seconds=5)
     history.record(
-        SystemTelemetrySample(
-            cpu_percent=16.3, accelerator_kind="npu", accelerator_label="NPU", accelerator_percent=0.0
-        ),
+        SystemTelemetrySample(cpu_percent=16.3, accelerators=_npu(0.0)),
         [ProcessLoad(pid=7, role="main", label="YA-WAMF", detail=None, cpu_percent=3.1, rss_bytes=1_000)],
         at=1_789_000_000.0,
     )
@@ -249,6 +260,9 @@ async def test_system_telemetry_history_is_for_the_owner_only(monkeypatch: pytes
         "effective_cpus": 14.0,
     }
     assert body["accelerator"] == {"kind": "npu", "label": "NPU"}
+    assert body["accelerators"] == [
+        {"id": "accel0", "kind": "npu", "label": "NPU", "scope": "device", "unreadable": None}
+    ]
     assert body["points"] == [
         {
             "at": 1_789_000_000.0,
@@ -256,6 +270,7 @@ async def test_system_telemetry_history_is_for_the_owner_only(monkeypatch: pytes
             "accelerator_percent": 0.0,
             "app_cpu_percent": 3.1,
             "other_cpu_percent": 13.2,
+            "accelerators": {"accel0": 0.0},
         }
     ]
     assert body["processes"] == [
@@ -273,10 +288,8 @@ async def test_history_service_records_a_sample_each_tick() -> None:
     )
 
     class StubSampler:
-        def sample(self) -> SystemTelemetrySample:
-            return SystemTelemetrySample(
-                cpu_percent=10.0, accelerator_kind=None, accelerator_label=None, accelerator_percent=None
-            )
+        def sample(self, pids: object = ()) -> SystemTelemetrySample:
+            return SystemTelemetrySample(cpu_percent=10.0)
 
     class StubProcesses:
         def sample(self) -> list[ProcessLoad]:

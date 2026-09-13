@@ -1897,6 +1897,13 @@ export interface components {
     kind: "npu" | "gpu";
     label: string;
 };
+    SystemAcceleratorSeries: {
+    id: string;
+    kind: "npu" | "gpu";
+    label: string;
+    scope: "device" | "app";
+    unreadable?: string | null;
+};
     SystemAcceleratorTelemetry: {
     kind: "npu" | "gpu";
     label: string;
@@ -1909,6 +1916,7 @@ export interface components {
 };
     SystemHistoryPointResponse: {
     accelerator_percent?: number | null;
+    accelerators?: Record<string, number | null>;
     app_cpu_percent?: number | null;
     at: number;
     cpu_percent?: number | null;
@@ -1931,6 +1939,7 @@ export interface components {
 };
     SystemTelemetryHistoryResponse: {
     accelerator?: components['schemas']['SystemAcceleratorIdentity'] | null;
+    accelerators?: Array<components['schemas']['SystemAcceleratorSeries']>;
     app_rss_bytes?: number | null;
     host: components['schemas']['SystemHostFacts'];
     interval_seconds: number;

@@ -118,6 +118,12 @@ curl -N "http://localhost:9852/api/sse?ticket=$TICKET"
   load, sampled every five seconds while the app runs, with what this container's own processes
   (the app, each classifier worker, any ffmpeg it spawned) took of it by CPU and memory. Anything
   else on the host is reported only as the remainder and is never named. Not cacheable.
+  `accelerators` lists every device that was found, each with a `scope` saying what its number
+  covers: `device` is every user of it (an Intel NPU busy counter), `app` is only the work this
+  app submitted (GPU engine time, which a container can read for its own processes and no
+  others). A device that is present but publishes no readable counter carries `unreadable`
+  instead of a number. Each point's `accelerators` map holds one percentage per device id;
+  `accelerator` and `accelerator_percent` remain as the single series the sidebar graph draws.
 - `GET /api/sse`: Server-Sent Events stream. Opens with a Bearer header, with a single-use
   `?ticket=` from `POST /api/auth/stream-ticket`, or as a guest when public access is on. The
   session token is **not** accepted in the query string; see [Stream ticket](#stream-ticket).

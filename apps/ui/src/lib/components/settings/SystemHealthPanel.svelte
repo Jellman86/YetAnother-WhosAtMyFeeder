@@ -7,23 +7,30 @@
     import {
         CHART_HEIGHT,
         CHART_WIDTH,
+        chartSeries,
+        cpuLoad,
         formatBytes,
         formatPercent,
+        markerFor,
         pointAt,
         seriesArea,
         seriesSegments,
         shareRows,
         timeTicks,
+        unreadableAccelerators,
         windowSummary,
+        type Accelerator,
+        type SeriesScope,
         type ShareRole,
         type ShareRow
     } from '../../utils/system-history';
     import { logger } from '../../utils/logger';
 
     /**
-     * The owner's view of what this host is doing: the last half hour of CPU and accelerator
-     * load, the live figures, and who is using the CPU, with this app's own processes named
-     * and everything else on the host as one honest remainder.
+     * The owner's view of what this host is doing: the last half hour of CPU and every
+     * accelerator counter that can be read, the live figures, and who is using the CPU,
+     * with this app's own processes named and everything else on the host as one honest
+     * remainder.
      *
      * The history is kept by the server, so the chart is full the moment it opens.
      */
@@ -32,7 +39,7 @@
     let history = $state.raw<SystemTelemetryHistory | null>(null);
     let loading = $state(true);
     let failed = $state(false);
-    let hoverIndex = $state<number | null>(null);
+    let inspectedIndex = $state<number | null>(null);
 
     async function refresh(signal: AbortSignal): Promise<void> {
         try {
@@ -67,18 +74,20 @@
     const points = $derived(history?.points ?? []);
     const windowSeconds = $derived(history?.window_seconds ?? 1800);
     const latest = $derived(points.length > 0 ? points[points.length - 1] : null);
-    const cpuSegments = $derived(seriesSegments(points, 'cpu_percent', windowSeconds));
-    const cpuArea = $derived(seriesArea(points, 'cpu_percent', windowSeconds));
-    const acceleratorSegments = $derived(
-        history?.accelerator ? seriesSegments(points, 'accelerator_percent', windowSeconds) : []
-    );
+    const cpuLabel = $derived($_('settings.system_health.legend_cpu', { default: 'CPU, whole host' }));
+    const series = $derived(history ? chartSeries(history, cpuLabel) : []);
+    const unreadable = $derived(history ? unreadableAccelerators(history) : []);
+    const cpuSegments = $derived(seriesSegments(points, cpuLoad, windowSeconds));
+    const cpuArea = $derived(seriesArea(points, cpuLoad, windowSeconds));
     const ticks = $derived(timeTicks(points, windowSeconds));
-    const cpuSummary = $derived(windowSummary(points, 'cpu_percent'));
+    const cpuSummary = $derived(windowSummary(points, cpuLoad));
     const rows = $derived(history ? shareRows(history) : []);
-    const hovered = $derived(hoverIndex !== null && points[hoverIndex] ? points[hoverIndex] : null);
-    const hoveredX = $derived.by(() => {
-        if (hoverIndex === null || points.length === 0) return null;
-        const at = points[hoverIndex]?.at;
+    const inspected = $derived(
+        inspectedIndex !== null && points[inspectedIndex] ? points[inspectedIndex] : null
+    );
+    const inspectedX = $derived.by(() => {
+        if (inspectedIndex === null || points.length === 0) return null;
+        const at = points[inspectedIndex]?.at;
         if (at === undefined) return null;
         const latestAt = points[points.length - 1].at;
         return ((at - (latestAt - windowSeconds)) / windowSeconds) * CHART_WIDTH;
@@ -92,8 +101,38 @@
         const target = event.currentTarget as SVGSVGElement;
         const box = target.getBoundingClientRect();
         const x = ((event.clientX - box.left) / box.width) * CHART_WIDTH;
-        hoverIndex = pointAt(points, x, windowSeconds)?.index ?? null;
+        inspectedIndex = pointAt(points, x, windowSeconds)?.index ?? null;
     }
+
+    /** What a line's number covers. A GPU inside a container can only be this app's own work. */
+    function scopeNote(scope: SeriesScope): string {
+        if (scope === 'host') return $_('settings.system_health.scope_host', { default: 'whole host' });
+        if (scope === 'device') return $_('settings.system_health.scope_device', { default: 'whole device' });
+        return $_('settings.system_health.scope_app', { default: 'this app only' });
+    }
+
+    function unreadableNote(accelerator: Accelerator): string {
+        if (accelerator.unreadable === 'nvidia_no_counter') {
+            return $_('settings.system_health.unreadable_nvidia', {
+                values: { label: accelerator.label },
+                default:
+                    '{label} is present, but its driver publishes no utilisation counter a container can read.'
+            });
+        }
+        return $_('settings.system_health.unreadable_accelerator', {
+            values: { label: accelerator.label },
+            default: '{label} is present, but its counter cannot be read from inside the container.'
+        });
+    }
+
+    /** The inspected sample said out loud, so the keyboard scrubber reads as values, not an index. */
+    const inspectedSpoken = $derived.by(() => {
+        if (!inspected) return undefined;
+        const parts = series.map(
+            (line) => `${line.label} ${formatPercent(line.load(inspected)) ?? $_('settings.system_health.unmeasured', { default: 'not measured' })}`
+        );
+        return `${timeOf(inspected.at)}, ${parts.join(', ')}`;
+    });
 
     function roleLabel(row: ShareRow): string {
         const keys: Record<ShareRole, [string, string]> = {
@@ -126,6 +165,7 @@
     const appShare = $derived(latest?.app_cpu_percent ?? null);
     const cpuUnmeasured = $derived(points.length > 0 && cpuSegments.length === 0);
     const shareMeasured = $derived(rows.some((row) => row.cpuPercent !== null && row.cpuPercent > 0));
+    const acceleratorSeries = $derived(series.filter((line) => line.id !== 'cpu'));
     const memberNote = (row: ShareRow): string | null =>
         row.members.length > 1 || (row.members.length === 1 && row.role !== 'main' && row.role !== 'ffmpeg')
             ? row.members.join(', ')
@@ -156,11 +196,28 @@
         {:else if history}
             <div class="grid gap-6 md:grid-cols-[minmax(0,1fr)_12rem]">
                 <div class="min-w-0">
-                    <ul class="mb-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-slate-600 dark:text-slate-300" aria-label={$_('settings.system_health.legend', { default: 'Series' })}>
-                        <li class="inline-flex items-center gap-2"><span class="h-0.5 w-4 rounded bg-blue-600 dark:bg-blue-500" aria-hidden="true"></span>{$_('settings.system_health.legend_cpu', { default: 'CPU, whole host' })}</li>
-                        {#if history.accelerator}
-                            <li class="inline-flex items-center gap-2"><span class="h-0.5 w-4 rounded bg-teal-600" aria-hidden="true"></span>{history.accelerator.label}</li>
-                        {/if}
+                    <ul
+                        class="mb-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-slate-600 dark:text-slate-300"
+                        aria-label={$_('settings.system_health.legend', { default: 'Series' })}
+                        data-system-health-legend
+                    >
+                        {#each series as line (line.id)}
+                            <li class="inline-flex items-baseline gap-2">
+                                <svg viewBox="0 0 16 2" class="h-[2px] w-4 self-center overflow-visible" aria-hidden="true">
+                                    <line
+                                        x1="0"
+                                        y1="1"
+                                        x2="16"
+                                        y2="1"
+                                        class={line.stroke}
+                                        stroke-width="2"
+                                        stroke-dasharray={line.dash}
+                                    />
+                                </svg>
+                                <span>{line.label}</span>
+                                <span class="text-[10px] text-slate-400 dark:text-slate-500">{scopeNote(line.scope)}</span>
+                            </li>
+                        {/each}
                     </ul>
 
                     {#if points.length === 0}
@@ -182,9 +239,9 @@
                                           values: { average: formatPercent(cpuSummary.average), peak: formatPercent(cpuSummary.peak), time: timeOf(cpuSummary.peakAt) },
                                           default: 'CPU average {average}, peak {peak} at {time}'
                                       })
-                                    : $_('settings.system_health.legend_cpu', { default: 'CPU, whole host' })}
+                                    : cpuLabel}
                                 onpointermove={onPointerMove}
-                                onpointerleave={() => (hoverIndex = null)}
+                                onpointerleave={() => (inspectedIndex = null)}
                                 data-system-health-chart
                             >
                                 <line x1="0" y1="0.5" x2={CHART_WIDTH} y2="0.5" class="stroke-slate-200 dark:stroke-slate-700" stroke-dasharray="3 5" />
@@ -193,54 +250,92 @@
                                 {#if cpuArea}
                                     <polygon points={cpuArea} class="fill-blue-600/10 dark:fill-blue-500/15" />
                                 {/if}
-                                {#each cpuSegments as segment (segment)}
-                                    <polyline points={segment} fill="none" class="stroke-blue-600 dark:stroke-blue-500" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round" />
+                                {#each series as line (line.id)}
+                                    {#each seriesSegments(points, line.load, windowSeconds) as segment (segment)}
+                                        <polyline
+                                            points={segment}
+                                            fill="none"
+                                            class={line.stroke}
+                                            stroke-width="2"
+                                            stroke-dasharray={line.dash}
+                                            vector-effect="non-scaling-stroke"
+                                            stroke-linejoin="round"
+                                        />
+                                    {/each}
                                 {/each}
-                                {#each acceleratorSegments as segment (segment)}
-                                    <polyline points={segment} fill="none" class="stroke-teal-600" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round" />
-                                {/each}
-                                {#if hoveredX !== null}
-                                    <line x1={hoveredX} y1="0" x2={hoveredX} y2={CHART_HEIGHT} class="stroke-slate-400 dark:stroke-slate-500" vector-effect="non-scaling-stroke" />
+                                {#if inspectedX !== null && inspectedIndex !== null}
+                                    <line x1={inspectedX} y1="0" x2={inspectedX} y2={CHART_HEIGHT} class="stroke-slate-400 dark:stroke-slate-500" vector-effect="non-scaling-stroke" />
+                                    <!-- A dot on each line says which sample the crosshair and the figures belong to. -->
+                                    {#each series as line (line.id)}
+                                        {@const marker = markerFor(points, inspectedIndex, line.load, windowSeconds)}
+                                        {#if marker}
+                                            <circle
+                                                cx={marker.x}
+                                                cy={marker.y}
+                                                r="3.5"
+                                                class="{line.stroke} fill-white dark:fill-slate-900"
+                                                stroke-width="2"
+                                                vector-effect="non-scaling-stroke"
+                                                data-system-health-marker
+                                            />
+                                        {/if}
+                                    {/each}
                                 {/if}
                             </svg>
                             <span class="pointer-events-none absolute -top-2 right-0 text-[10px] tabular-nums text-slate-400">100%</span>
                             <span class="pointer-events-none absolute right-0 top-1/2 -translate-y-3 text-[10px] tabular-nums text-slate-400">50%</span>
-                            {#if hovered}
+                            {#if inspected}
                                 <div
                                     class="pointer-events-none absolute top-2 rounded-lg border border-slate-200 bg-white/95 px-2.5 py-1.5 text-xs shadow-md dark:border-slate-700 dark:bg-slate-900/95"
-                                    style="left: {Math.min(80, Math.max(0, ((hoveredX ?? 0) / CHART_WIDTH) * 100))}%"
+                                    style="left: {Math.min(80, Math.max(0, ((inspectedX ?? 0) / CHART_WIDTH) * 100))}%"
                                     data-system-health-tooltip
                                 >
-                                    <p class="font-semibold tabular-nums text-slate-700 dark:text-slate-200">{timeOf(hovered.at)}</p>
+                                    <p class="font-semibold tabular-nums text-slate-700 dark:text-slate-200">{timeOf(inspected.at)}</p>
                                     <dl class="mt-0.5 space-y-0.5 tabular-nums text-slate-600 dark:text-slate-300">
-                                        <div class="flex justify-between gap-4"><dt class="whitespace-nowrap">{$_('settings.system_health.legend_cpu', { default: 'CPU, whole host' })}</dt><dd class="font-semibold">{formatPercent(hovered.cpu_percent) ?? '—'}</dd></div>
-                                        {#if history.accelerator}
-                                            <div class="flex justify-between gap-4"><dt class="whitespace-nowrap">{history.accelerator.label}</dt><dd class="font-semibold">{formatPercent(hovered.accelerator_percent) ?? '—'}</dd></div>
-                                        {/if}
-                                        <div class="flex justify-between gap-4"><dt class="whitespace-nowrap">{$_('settings.system_health.app_share', { default: 'This app' })}</dt><dd class="font-semibold">{formatPercent(hovered.app_cpu_percent) ?? '—'}</dd></div>
-                                        <div class="flex justify-between gap-4"><dt class="whitespace-nowrap">{$_('settings.system_health.role_other_host', { default: 'Other on this host' })}</dt><dd class="font-semibold">{formatPercent(hovered.other_cpu_percent) ?? '—'}</dd></div>
+                                        {#each series as line (line.id)}
+                                            <div class="flex justify-between gap-4"><dt class="whitespace-nowrap">{line.label}</dt><dd class="font-semibold">{formatPercent(line.load(inspected)) ?? '—'}</dd></div>
+                                        {/each}
+                                        <div class="flex justify-between gap-4"><dt class="whitespace-nowrap">{$_('settings.system_health.app_share', { default: 'This app' })}</dt><dd class="font-semibold">{formatPercent(inspected.app_cpu_percent) ?? '—'}</dd></div>
+                                        <div class="flex justify-between gap-4"><dt class="whitespace-nowrap">{$_('settings.system_health.role_other_host', { default: 'Other on this host' })}</dt><dd class="font-semibold">{formatPercent(inspected.other_cpu_percent) ?? '—'}</dd></div>
                                     </dl>
                                 </div>
                             {/if}
                         </div>
-                        <!-- The keyboard's crosshair: a real control, so it needs no invented role. -->
+                        <!--
+                            The keyboard's crosshair. A pointer already has the chart itself, so the
+                            control stays out of sight until it is focused rather than sitting under
+                            the graph as a handle with nothing visibly attached to it.
+                        -->
                         <input
                             type="range"
                             min="0"
                             max={Math.max(0, points.length - 1)}
-                            value={hoverIndex ?? points.length - 1}
-                            oninput={(event) => (hoverIndex = Number(event.currentTarget.value))}
-                            onblur={() => (hoverIndex = null)}
-                            class="system-health-scrub mt-1 block h-1 w-full cursor-crosshair appearance-none rounded-full bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                            value={inspectedIndex ?? points.length - 1}
+                            oninput={(event) => (inspectedIndex = Number(event.currentTarget.value))}
+                            onblur={() => (inspectedIndex = null)}
+                            class="system-health-scrub mt-1 block h-3 w-full cursor-crosshair appearance-none rounded-full bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-950"
                             aria-label={$_('settings.system_health.inspect', { default: 'Inspect a sample' })}
+                            aria-valuetext={inspectedSpoken}
                             data-system-health-scrub
                         />
-                        <div class="mt-1.5 flex justify-between text-[10px] tabular-nums text-slate-400">
+                        <div class="flex justify-between text-[10px] tabular-nums text-slate-400">
                             {#each ticks as tick (tick.at)}
                                 <span>{timeOf(tick.at)}</span>
                             {/each}
                         </div>
-                        {#if !history.accelerator}
+                        {#if acceleratorSeries.some((line) => line.scope === 'app')}
+                            <p class="mt-2 text-xs text-slate-500 dark:text-slate-400" data-system-health-app-scope>
+                                {$_('settings.system_health.app_scope_note', {
+                                    default: 'GPU time is published per process, so that line is the work YA-WAMF sent to the GPU. Another container sharing the same GPU is not visible here.'
+                                })}
+                            </p>
+                        {/if}
+                        {#each unreadable as accelerator (accelerator.id)}
+                            <p class="mt-2 text-xs text-slate-500 dark:text-slate-400" data-system-health-unreadable={accelerator.id}>
+                                {unreadableNote(accelerator)}
+                            </p>
+                        {/each}
+                        {#if acceleratorSeries.length === 0 && unreadable.length === 0}
                             <p class="mt-2 text-xs text-slate-500 dark:text-slate-400" data-system-health-no-accelerator>
                                 {$_('settings.system_health.no_accelerator', { default: 'No accelerator counter is readable on this host, so only the CPU is drawn.' })}
                             </p>
@@ -261,12 +356,13 @@
                         <dt class="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('settings.system_health.cpu_now', { default: 'CPU now' })}</dt>
                         <dd class="font-display text-3xl font-bold tabular-nums text-blue-700 dark:text-blue-300">{formatPercent(latest?.cpu_percent) ?? '—'}</dd>
                     </div>
-                    {#if history.accelerator}
+                    {#each acceleratorSeries as line (line.id)}
                         <div>
-                            <dt class="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('settings.system_health.accelerator_now', { values: { label: history.accelerator.label }, default: '{label} now' })}</dt>
-                            <dd class="font-display text-3xl font-bold tabular-nums text-teal-700 dark:text-teal-300">{formatPercent(latest?.accelerator_percent) ?? '—'}</dd>
+                            <dt class="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('settings.system_health.accelerator_now', { values: { label: line.label }, default: '{label} now' })}</dt>
+                            <dd class="font-display text-3xl font-bold tabular-nums {line.text}">{formatPercent(line.latest) ?? '—'}</dd>
+                            <p class="text-[10px] text-slate-400 dark:text-slate-500">{scopeNote(line.scope)}</p>
                         </div>
-                    {/if}
+                    {/each}
                     <div>
                         <dt class="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('settings.system_health.memory_now', { default: 'This app in memory' })}</dt>
                         <dd class="font-display text-2xl font-bold tabular-nums text-slate-900 dark:text-white">
@@ -359,21 +455,56 @@
 </div>
 
 <style>
-    /* The scrubber is a thumb on an invisible track; the chart above is its track. */
+    /*
+     * The scrubber is the keyboard's way onto the chart. Left visible it reads as a
+     * handle for something, with no track and nothing attached to it, so it is shown
+     * only while it is focused; the chart's own crosshair and dots are the feedback.
+     */
+    .system-health-scrub {
+        opacity: 0;
+        transition: opacity 120ms ease-out;
+    }
+
+    .system-health-scrub:focus-visible {
+        opacity: 1;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .system-health-scrub {
+            transition: none;
+        }
+    }
+
+    .system-health-scrub::-webkit-slider-runnable-track {
+        height: 2px;
+        border-radius: 9999px;
+        background: rgb(148 163 184 / 0.5);
+    }
+
+    .system-health-scrub::-moz-range-track {
+        height: 2px;
+        border-radius: 9999px;
+        background: rgb(148 163 184 / 0.5);
+    }
+
     .system-health-scrub::-webkit-slider-thumb {
         appearance: none;
         height: 12px;
         width: 12px;
+        margin-top: -5px;
         border-radius: 9999px;
-        background: rgb(100 116 139);
+        border: 2px solid rgb(255 255 255);
+        background: rgb(71 85 105);
+        box-shadow: 0 0 0 1px rgb(71 85 105);
     }
 
     .system-health-scrub::-moz-range-thumb {
         height: 12px;
         width: 12px;
-        border: 0;
+        border: 2px solid rgb(255 255 255);
         border-radius: 9999px;
-        background: rgb(100 116 139);
+        background: rgb(71 85 105);
+        box-shadow: 0 0 0 1px rgb(71 85 105);
     }
 
     /* The remainder is hatched as well as grey, so it reads as "unnamed" without colour. */
