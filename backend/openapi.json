@@ -14640,6 +14640,54 @@
         "title": "SystemAcceleratorIdentity",
         "type": "object"
       },
+      "SystemAcceleratorSeries": {
+        "description": "One accelerator the panel draws, and what its number actually covers.\n\n``scope`` is the honest part: ``device`` is every user of the accelerator, and\n``app`` is only the work this app submitted, which is all a container can see of\na GPU. ``unreadable`` names why a present device has no number at all.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "npu",
+              "gpu"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "scope": {
+            "enum": [
+              "device",
+              "app"
+            ],
+            "title": "Scope",
+            "type": "string"
+          },
+          "unreadable": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unreadable"
+          }
+        },
+        "required": [
+          "kind",
+          "label",
+          "id",
+          "scope"
+        ],
+        "title": "SystemAcceleratorSeries",
+        "type": "object"
+      },
       "SystemAcceleratorTelemetry": {
         "properties": {
           "kind": {
@@ -14721,6 +14769,20 @@
               }
             ],
             "title": "Accelerator Percent"
+          },
+          "accelerators": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Accelerators",
+            "type": "object"
           },
           "app_cpu_percent": {
             "anyOf": [
@@ -14902,6 +14964,13 @@
                 "type": "null"
               }
             ]
+          },
+          "accelerators": {
+            "items": {
+              "$ref": "#/components/schemas/SystemAcceleratorSeries"
+            },
+            "title": "Accelerators",
+            "type": "array"
           },
           "app_rss_bytes": {
             "anyOf": [

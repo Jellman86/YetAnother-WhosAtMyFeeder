@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Request, Response, Depends, Query
+from pydantic import Field
 import os
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Literal
@@ -43,12 +44,13 @@ async def get_system_telemetry(request: Request, response: Response) -> SystemTe
     """Return one live host-utilization sample for the sidebar's rolling graph."""
     sample = system_telemetry_sampler.sample()
     response.headers["Cache-Control"] = "no-store"
+    primary = sample.primary_accelerator
     accelerator = None
-    if sample.accelerator_kind and sample.accelerator_label:
+    if primary is not None:
         accelerator = SystemAcceleratorTelemetry(
-            kind=sample.accelerator_kind,
-            label=sample.accelerator_label,
-            utilization_percent=sample.accelerator_percent,
+            kind=primary.kind,
+            label=primary.label,
+            utilization_percent=primary.utilization_percent,
         )
     return SystemTelemetryResponse(
         sampled_at=datetime.now(timezone.utc).isoformat(),
@@ -70,12 +72,26 @@ class SystemAcceleratorIdentity(APIModel):
     label: str
 
 
+class SystemAcceleratorSeries(SystemAcceleratorIdentity):
+    """One accelerator the panel draws, and what its number actually covers.
+
+    ``scope`` is the honest part: ``device`` is every user of the accelerator, and
+    ``app`` is only the work this app submitted, which is all a container can see of
+    a GPU. ``unreadable`` names why a present device has no number at all.
+    """
+
+    id: str
+    scope: Literal["device", "app"]
+    unreadable: str | None = None
+
+
 class SystemHistoryPointResponse(APIModel):
     at: float
     cpu_percent: float | None = None
     accelerator_percent: float | None = None
     app_cpu_percent: float | None = None
     other_cpu_percent: float | None = None
+    accelerators: dict[str, float | None] = Field(default_factory=dict)
 
 
 class SystemProcessLoadResponse(APIModel):
@@ -92,7 +108,10 @@ class SystemTelemetryHistoryResponse(APIModel):
     window_seconds: int
     interval_seconds: float
     host: SystemHostFacts
+    # `accelerator` is the one the sidebar graph draws; `accelerators` is every device
+    # this container can see, which on an Intel host is the GPU as well as the NPU.
     accelerator: SystemAcceleratorIdentity | None = None
+    accelerators: list[SystemAcceleratorSeries] = Field(default_factory=list)
     points: list[SystemHistoryPointResponse]
     processes: list[SystemProcessLoadResponse]
     app_rss_bytes: int | None = None
@@ -126,6 +145,16 @@ async def get_system_telemetry_history(
             effective_cpus=facts.get("effective_cpus"),
         ),
         accelerator=accelerator,
+        accelerators=[
+            SystemAcceleratorSeries(
+                id=reading.id,
+                kind=reading.kind,
+                label=reading.label,
+                scope=reading.scope,
+                unreadable=reading.unreadable,
+            )
+            for reading in snapshot.accelerators
+        ],
         points=[
             SystemHistoryPointResponse(
                 at=point.at,
@@ -133,6 +162,7 @@ async def get_system_telemetry_history(
                 accelerator_percent=point.accelerator_percent,
                 app_cpu_percent=point.app_cpu_percent,
                 other_cpu_percent=point.other_cpu_percent,
+                accelerators=point.accelerators,
             )
             for point in snapshot.points
         ],

@@ -16,8 +16,28 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   worker, any ffmpeg it spawned) with CPU share and memory, and everything else on the host as one
   remainder that is never named. The sidebar's System status card opens it for the owner.
   `GET /api/system-telemetry/history` (owner).
+- **Settings → Health draws every accelerator it can read, not just one.** A host with both an
+  Intel GPU and an NPU now gets a line each, told apart by dash pattern as well as colour, and a
+  live figure each. GPU load is read from the DRM client counters in `/proc/<pid>/fdinfo`, which
+  a container can read for its own processes, so that line is what this app sent to the GPU and
+  says so; the NPU busy counter covers the whole device and says that. Every `accel*` node is
+  scanned rather than only `accel0`. An NVIDIA card is named and reported as unreadable, because
+  its driver publishes no counter a container can reach, instead of leaving a silent gap that
+  looks like a fault. `GET /api/system-telemetry/history` gains `accelerators`.
+
+### Changed
+
+- **The inspected sample on the health chart is marked on the lines it belongs to.** Moving the
+  crosshair now puts a dot on each series at that sample, and the keyboard scrubber, which used to
+  sit under the graph as a handle with nothing visibly attached to it, stays out of sight until it
+  is focused. Focused, it shows its track, its thumb and a focus ring, and a screen reader hears
+  the sample's time and every series' value rather than a sample number.
 
 ### Fixed
+
+- **The sidebar's live graph no longer eats the health history's measurements.** Both read counter
+  deltas since their own previous read, and both went through one shared sampler on different
+  intervals, so each was measuring the gap left by the other. The history now keeps its own.
 
 - **Video analysis no longer burns CPU around NPU inference.** Sampled frames are decoded in one
   forward pass instead of repeatedly seeking through inter-frame video, each frame gets at most one
