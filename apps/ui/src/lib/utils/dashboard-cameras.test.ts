@@ -20,6 +20,7 @@ function visit(camera: string, eventId: string, endTime: string): DetectionVisit
         best: detection,
         startTime: endTime,
         endTime,
+        audioConfirmed: false,
         needsReview: false
     };
 }

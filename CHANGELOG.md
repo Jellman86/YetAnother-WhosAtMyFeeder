@@ -6,6 +6,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Fixed
+
+- **A visit confirmed by a matching call says so in the field log.** The day bar counted
+  cross-confirmed visits but the rows gave no sign of which ones; a confirmed visit now carries
+  "matching call" beneath its name, the words the record uses, on wide screens and on a phone.
+
 ## [2.20.0] - 2026-09-12
 
 ### Added

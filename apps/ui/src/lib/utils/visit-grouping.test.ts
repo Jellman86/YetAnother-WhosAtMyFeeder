@@ -113,6 +113,27 @@ describe('groupDetectionsIntoVisits', () => {
         expect(visits[0].needsReview).toBe(true);
     });
 
+    it('marks a visit as confirmed by a matching call when any of its frames was', () => {
+        const visits = groupDetectionsIntoVisits([
+            detection({ frigate_event: 'c', detection_time: '2026-08-11T11:12:05Z' }),
+            detection({ frigate_event: 'b', detection_time: '2026-08-11T11:11:05Z', audio_confirmed: true }),
+            detection({ frigate_event: 'a', detection_time: '2026-08-11T11:10:05Z' })
+        ]);
+
+        expect(visits).toHaveLength(1);
+        expect(visits[0].audioConfirmed).toBe(true);
+    });
+
+    it('does not call a visit audio-confirmed without a heard call, nor a manual observation with one', () => {
+        const [silent] = groupDetectionsIntoVisits([detection({ frigate_event: 'a' })]);
+        expect(silent.audioConfirmed).toBe(false);
+
+        const [manual] = groupDetectionsIntoVisits([
+            detection({ frigate_event: 'm', audio_confirmed: true, observation_source: 'manual_upload' })
+        ]);
+        expect(manual.audioConfirmed).toBe(false);
+    });
+
     it('treats a named detection above the threshold as resolved', () => {
         const visits = groupDetectionsIntoVisits([detection({ frigate_event: 'a', score: 0.98 })]);
 

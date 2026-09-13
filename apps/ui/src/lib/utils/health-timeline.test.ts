@@ -13,7 +13,8 @@ function visit(key: string, endTime: string): DetectionVisit {
         best: {} as DetectionVisit['best'],
         startTime: endTime,
         endTime,
-        needsReview: false
+        needsReview: false,
+        audioConfirmed: false
     };
 }
 
