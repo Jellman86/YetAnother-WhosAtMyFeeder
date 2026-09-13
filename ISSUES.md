@@ -4,26 +4,20 @@ This document tracks known issues and testing gaps that have not been verified e
 
 If you find a bug, please open a GitHub issue with the steps to reproduce and any redacted logs.
 
-Last reviewed against the GitHub issue tracker on **September 7, 2026**.
+Last reviewed against the GitHub issue tracker on **September 13, 2026**.
 
 ## P0: Active Regressions
-
 
 - None currently confirmed as unresolved in current `dev`.
 
 ## Pending Verification (Fixes in Dev, Awaiting Reporter Confirmation)
 
-- **#300 Slowing interface:** reopened after the reporter found Settings still slow on a build
-  that predates every 2.19.3 pool fix. Two causes have been found and fixed. The name lookups and
-  Frigate calls that held a pooled connection shipped in 2.19.3 (#391, #392, #393, #395, #396).
-  The remaining one is the media cache statistics walk: `GET /api/cache/stats` stat'ed every cached
-  file on the event loop, and the owner system checks call it once a minute from every owner page,
-  so on a slow or network-backed filesystem the whole API stalled for the length of the walk. The
-  reporter's bundles carry 168 client-side timeouts on that request. The walk now runs on a worker
-  thread and logs itself when it exceeds a second (PR #401). The reporter wrote on August 31 that a
-  database and cache reset brought Settings from over 40 seconds down to 3 to 10 seconds. PR #401
-  merged on September 7 and is not in 2.19.3, so the issue can close on the reporter's word with a
-  note that the last fix ships in the next release.
+- **#451 Frigate clips stop after their first chunk:** the media-cookie security change made the
+  browser stop carrying the owner token in video URLs, but the rate limiter still recognised only
+  bearer/query tokens and the legacy API key. It therefore counted a signed-in owner's clip probes
+  and browser range requests against the public budget, eventually answering 429. Current `dev`
+  recognises a valid owner cookie for rate limiting only on the read-only media routes where that
+  cookie is already allowed. Awaiting a release and reporter confirmation.
 
 ## Known Remaining Exposure
 
@@ -47,15 +41,21 @@ Last reviewed against the GitHub issue tracker on **September 7, 2026**.
 
 ## Open on the Tracker
 
-- **#300** Slowing interface. See Pending Verification above.
-- **#256** Snapshot selection and classification overhaul. The two bug halves shipped (the delete
-  control names its effect; species information is stated once). What remains is unifying frame
-  choice and identification into one flow, which is a design decision and now has a roadmap entry.
-- **#178** Dedicated media retention rotation and favourite protection. Accepted; the durability
-  contract is recorded in `ROADMAP.md` and the stronger behaviour is planned, not shipped.
+- **#451** Frigate clips stop after their first chunk. See Pending Verification above.
 
 ## Recently Closed (Context)
 
+- **#178** Durable favourite media and per-species retention floors shipped in 2.20.0 (#445).
+  Favourites now acquire their photograph and available clip into `/config/archive`; cache cleanup
+  and Frigate rotation do not touch that archive, and acquisition failures and destructive actions
+  are explicit.
+- **#437** Release images could inherit the wrong channel label when concurrent main, tag and dev
+  builds promoted the same working tag. The promotion paths were separated in 2.19.6, the footer
+  now links to the running build's branch, and the reporter confirmed the fix.
+- **#300** Settings stalls from media-cache statistics walking every file on the event loop were
+  fixed by moving that walk to a worker thread (#401); closed September 8.
+- **#256** Snapshot choice and identification now share one record flow with one frame strip and
+  plain-language actions; shipped in 2.20.0 and closed September 12.
 - **#432** "YA-WAMF was updated while this tab was open" on every load of a stable image; the bundle
   kept the `-stable` label in its version string and the backend did not, so the deploy-recovery
   check saw two deployments. Fixed in dev on 10 September (#433) and shipped in 2.19.5.

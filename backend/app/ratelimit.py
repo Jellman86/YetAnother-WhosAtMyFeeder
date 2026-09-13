@@ -7,7 +7,7 @@ from fastapi import Request
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
-from app.auth import AuthLevel, verify_token
+from app.auth import AuthLevel, session_cookie_allowed, session_cookie_token, verify_token
 from app.config import settings
 
 
@@ -36,6 +36,11 @@ def _is_owner_request(request: Request) -> bool:
                 return True
         except Exception:
             pass
+
+    if session_cookie_allowed(request):
+        cookie_session = session_cookie_token(request)
+        if cookie_session is not None and cookie_session.auth_level == AuthLevel.OWNER:
+            return True
 
     legacy_key = settings.api_key
     if legacy_key:
