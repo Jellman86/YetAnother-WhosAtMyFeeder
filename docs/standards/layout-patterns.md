@@ -27,7 +27,10 @@ When you add a panel, take the already-windowed list, not `detectionsStore.detec
 
 Frigate emits several frames per approach. Users see birds, not frames. `groupDetectionsIntoVisits()`
 folds frames of one species on one camera within ten minutes into one row that shows the clearest
-frame and the best score. Anything that lists detections to a person groups first.
+frame and the best score. Anything that lists detections to a person groups first. A visit carries
+what its frames established: it needs a person only if every frame does, and it is confirmed by a
+matching call if any frame was, and the row says so in words ("matching call") so the header's
+cross-confirmed count and the rows beneath it agree.
 
 ### 1.3 Say what needs a human, and say why
 

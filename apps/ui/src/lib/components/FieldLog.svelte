@@ -221,18 +221,38 @@
                                 </span>
                             {/if}
                         </p>
-                        <p class="text-[11px] tabular-nums text-slate-500 sm:hidden dark:text-slate-400">
-                            {Math.round(score * 100)}% &middot; {visit.camera}
+                        <p class="flex flex-wrap gap-x-1 text-[11px] tabular-nums text-slate-500 sm:hidden dark:text-slate-400">
+                            <span>{Math.round(score * 100)}% &middot; {visit.camera}</span>
+                            {#if visit.audioConfirmed}
+                                <span class="font-medium text-brand-700 dark:text-brand-300">&middot; {$_('detection.fact_heard_yes', { default: 'matching call' })}</span>
+                            {/if}
+                        </p>
+                        <!-- Wraps rather than truncates, so a marker is never cut off behind the name. -->
+                        <p class="hidden flex-wrap items-baseline gap-x-1.5 text-[11px] text-slate-500 sm:flex dark:text-slate-400">
+                            {#if visit.needsReview}
+                                <span class="min-w-0 truncate font-medium text-accent-700 dark:text-accent-300">
+                                    {$_('dashboard.field_log.needs_name', {
+                                        default: 'Below the naming threshold'
+                                    })}
+                                </span>
+                            {:else if naming.secondary}
+                                <span class="min-w-0 truncate italic">{naming.secondary}</span>
+                            {/if}
+                            {#if visit.audioConfirmed}
+                                <!-- A second sensor agreed; said in words, so it is never colour alone. -->
+                                <span class="inline-flex shrink-0 items-center gap-1 font-medium text-brand-700 dark:text-brand-300" data-field-log-audio>
+                                    <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                                        <path stroke-linecap="round" d="M4 10v4M8 6v12M12 3v18M16 7v10M20 10v4" />
+                                    </svg>
+                                    {$_('detection.fact_heard_yes', { default: 'matching call' })}
+                                </span>
+                            {/if}
                         </p>
                         {#if visit.needsReview}
-                            <p class="truncate text-[11px] font-medium text-accent-700 dark:text-accent-300">
+                            <p class="truncate text-[11px] font-medium text-accent-700 sm:hidden dark:text-accent-300">
                                 {$_('dashboard.field_log.needs_name', {
                                     default: 'Below the naming threshold'
                                 })}
-                            </p>
-                        {:else if naming.secondary}
-                            <p class="truncate text-[11px] italic text-slate-500 dark:text-slate-400">
-                                {naming.secondary}
                             </p>
                         {/if}
                     </div>
