@@ -17,6 +17,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Signed-in video playback no longer trips the public rate limit (#451).** Media requests use
+  the scoped session cookie, and the rate limiter now recognises that same cookie as the owner only
+  on the read-only media routes where it is allowed. Clip probes and browser range requests
+  therefore receive the owner budget without widening the cookie's authority elsewhere.
 - **A visit confirmed by a matching call says so in the field log.** The day bar counted
   cross-confirmed visits but the rows gave no sign of which ones; a confirmed visit now carries
   "matching call" beneath its name, the words the record uses, on wide screens and on a phone.
