@@ -19,18 +19,31 @@ describe('settings health tab', () => {
     it('opens on what the host is doing, with this app named and the rest an honest remainder', () => {
         expect(settingsSource).toContain('<SystemHealthPanel />');
         expect(panelSource).toContain("fetchSystemTelemetryHistory(signal)");
-        // One axis, two named series with a legend, a crosshair tooltip, and a text summary for the window.
-        expect(panelSource).toContain("seriesSegments(points, 'cpu_percent', windowSeconds)");
-        expect(panelSource).toContain("seriesSegments(points, 'accelerator_percent', windowSeconds)");
+        // One axis, a named line per readable device with a legend, a crosshair tooltip,
+        // and a text summary for the window.
+        expect(panelSource).toContain('chartSeries(history, cpuLabel)');
+        expect(panelSource).toContain('seriesSegments(points, line.load, windowSeconds)');
         expect(panelSource).toContain('data-system-health-tooltip');
         expect(panelSource).toContain('data-system-health-summary');
+        // Every line says what its number covers: a GPU inside a container is this app's work only.
+        expect(panelSource).toContain('scopeNote(line.scope)');
+        expect(en.settings.system_health.scope_app).toBe('this app only');
+        expect(en.settings.system_health.app_scope_note).toContain('not visible here');
+        // A device that is present but unmeasurable is named rather than silently missing.
+        expect(panelSource).toContain('unreadableAccelerators(history)');
+        expect(en.settings.system_health.unreadable_nvidia).toContain('no utilisation counter');
         // A host whose counters cannot be read says so, in words, instead of drawing nothing.
         expect(panelSource).toContain('data-system-health-cpu-unmeasured');
         expect(panelSource).toContain('data-system-health-no-accelerator');
         expect(en.settings.system_health.cpu_unmeasured).toContain('cannot be measured');
-        // The keyboard's crosshair is a real range control, not a focusable picture.
+        // The keyboard's crosshair is a real range control, not a focusable picture, and it
+        // stays out of sight until focused so it is not a handle attached to nothing.
         expect(panelSource).toContain('data-system-health-scrub');
         expect(panelSource).toContain('type="range"');
+        expect(panelSource).toContain('.system-health-scrub:focus-visible');
+        expect(panelSource).toContain('aria-valuetext={inspectedSpoken}');
+        // The inspected sample is marked on each line, so the crosshair belongs to something.
+        expect(panelSource).toContain('data-system-health-marker');
         // The remainder is a row of its own, hatched as well as grey, and says why it has no name.
         expect(panelSource).toContain("other_host: 'system-health-hatched'");
         expect(en.settings.system_health.role_other_host_note).toContain('Cannot be named');

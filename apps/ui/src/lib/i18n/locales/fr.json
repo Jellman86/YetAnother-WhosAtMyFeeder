@@ -1628,7 +1628,14 @@
       "empty": "Les premières mesures arrivent quelques secondes après le démarrage.",
       "inspect": "Examiner une mesure",
       "cpu_unmeasured": "La charge CPU ne peut pas être mesurée sur cette machine ; les compteurs nécessaires ne sont pas lisibles depuis le conteneur.",
-      "no_accelerator": "Aucun compteur d’accélérateur n’est lisible sur cette machine, seule la CPU est tracée."
+      "no_accelerator": "Aucun compteur d’accélérateur n’est lisible sur cette machine, seule la CPU est tracée.",
+      "scope_host": "machine entière",
+      "scope_device": "appareil entier",
+      "scope_app": "cette application seule",
+      "unmeasured": "non mesuré",
+      "app_scope_note": "Le temps GPU est publié par processus : cette courbe montre donc le travail que YA-WAMF a envoyé au GPU. Un autre conteneur partageant le même GPU n’est pas visible ici.",
+      "unreadable_nvidia": "{label} est présent, mais son pilote ne publie aucun compteur d’utilisation lisible depuis un conteneur.",
+      "unreadable_accelerator": "{label} est présent, mais son compteur n’est pas lisible depuis le conteneur."
     }
   },
   "auth": {

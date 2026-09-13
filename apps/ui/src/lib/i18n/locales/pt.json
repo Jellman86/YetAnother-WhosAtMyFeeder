@@ -1637,7 +1637,14 @@
       "empty": "As primeiras amostras chegam poucos segundos após o arranque.",
       "inspect": "Inspecionar uma amostra",
       "cpu_unmeasured": "A carga de CPU não pode ser medida nesta máquina; os contadores necessários não são legíveis de dentro do contentor.",
-      "no_accelerator": "Nenhum contador de acelerador é legível nesta máquina, por isso só a CPU é desenhada."
+      "no_accelerator": "Nenhum contador de acelerador é legível nesta máquina, por isso só a CPU é desenhada.",
+      "scope_host": "host inteiro",
+      "scope_device": "dispositivo inteiro",
+      "scope_app": "apenas esta aplicação",
+      "unmeasured": "não medido",
+      "app_scope_note": "O tempo de GPU é publicado por processo, por isso essa linha é o trabalho que o YA-WAMF enviou para a GPU. Outro contentor a partilhar a mesma GPU não é visível aqui.",
+      "unreadable_nvidia": "{label} está presente, mas o seu controlador não publica nenhum contador de utilização que um contentor consiga ler.",
+      "unreadable_accelerator": "{label} está presente, mas o seu contador não é legível a partir de dentro do contentor."
     }
   },
   "auth": {

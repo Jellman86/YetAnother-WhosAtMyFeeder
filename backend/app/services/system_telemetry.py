@@ -2,12 +2,14 @@ import asyncio
 import os
 import time
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from threading import Lock
 from typing import Callable, Iterable, Literal
 
 import structlog
+
+from app.services.accelerator_telemetry import AcceleratorReading, AcceleratorSampler
 
 log = structlog.get_logger()
 
@@ -15,26 +17,38 @@ log = structlog.get_logger()
 @dataclass(frozen=True)
 class SystemTelemetrySample:
     cpu_percent: float | None
-    accelerator_kind: str | None
-    accelerator_label: str | None
-    accelerator_percent: float | None
+    accelerators: tuple[AcceleratorReading, ...] = ()
+
+    @property
+    def primary_accelerator(self) -> AcceleratorReading | None:
+        """The one accelerator the sidebar's single-line graph can show.
+
+        A device wide counter comes before an app scoped one, so that small graph
+        never implies this app is the only user of a device it cannot see all of.
+        """
+        measured = [reading for reading in self.accelerators if reading.utilization_percent is not None]
+        for scope in ("device", "app"):
+            for reading in measured:
+                if reading.scope == scope:
+                    return reading
+        return self.accelerators[0] if self.accelerators else None
 
 
 class SystemTelemetrySampler:
-    """Sample host CPU and supported accelerator counters without external tools."""
+    """Sample host CPU and every readable accelerator counter, without external tools."""
 
     def __init__(
         self,
         *,
         proc_stat_path: Path | str = Path("/proc/stat"),
-        npu_busy_path: Path | str = Path("/sys/class/accel/accel0/device/npu_busy_time_us"),
+        accelerator_sampler: AcceleratorSampler | None = None,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._proc_stat_path = Path(proc_stat_path)
-        self._npu_busy_path = Path(npu_busy_path)
-        self._clock = clock
+        self._accelerators = accelerator_sampler if accelerator_sampler is not None else AcceleratorSampler(clock=clock)
+        # CPU is a ratio of counter deltas, so it needs no clock of its own; only the
+        # accelerator counters divide by elapsed time.
         self._previous_cpu: tuple[int, int] | None = None
-        self._previous_npu: tuple[int, float] | None = None
         self._lock = Lock()
 
     @staticmethod
@@ -65,35 +79,16 @@ class SystemTelemetrySampler:
             return None
         return self._percent((total_delta - idle_delta) / total_delta * 100.0)
 
-    def _read_npu_busy_time(self) -> int | None:
-        try:
-            return int(self._npu_busy_path.read_text(encoding="utf-8").strip())
-        except (OSError, ValueError):
-            return None
+    def sample(self, pids: Iterable[int] = ()) -> SystemTelemetrySample:
+        """One sample of the host CPU and every accelerator counter that can be read.
 
-    def _sample_npu(self, now: float) -> float | None:
-        current_busy = self._read_npu_busy_time()
-        previous = self._previous_npu
-        self._previous_npu = (current_busy, now) if current_busy is not None else None
-        if current_busy is None or previous is None:
-            return None
-        busy_delta = current_busy - previous[0]
-        elapsed = now - previous[1]
-        if busy_delta < 0 or elapsed <= 0:
-            return None
-        return self._percent(busy_delta / (elapsed * 1_000_000.0) * 100.0)
-
-    def sample(self) -> SystemTelemetrySample:
+        ``pids`` are this app's own processes. GPU engine time is published per DRM
+        client, so without them the GPU cannot be measured at all.
+        """
         with self._lock:
-            now = self._clock()
-            cpu_percent = self._sample_cpu()
-            has_npu = self._npu_busy_path.is_file()
-            accelerator_percent = self._sample_npu(now) if has_npu else None
             return SystemTelemetrySample(
-                cpu_percent=cpu_percent,
-                accelerator_kind="npu" if has_npu else None,
-                accelerator_label="NPU" if has_npu else None,
-                accelerator_percent=accelerator_percent,
+                cpu_percent=self._sample_cpu(),
+                accelerators=tuple(self._accelerators.sample(pids)),
             )
 
 
@@ -269,6 +264,9 @@ class SystemHistoryPoint:
     accelerator_percent: float | None
     app_cpu_percent: float | None
     other_cpu_percent: float | None
+    # Every accelerator by id, so a host with both a GPU and an NPU keeps one
+    # series per device instead of collapsing them into a single line.
+    accelerators: dict[str, float | None] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -277,6 +275,7 @@ class SystemHistorySnapshot:
     interval_seconds: float
     accelerator_kind: str | None
     accelerator_label: str | None
+    accelerators: list[AcceleratorReading]
     points: list[SystemHistoryPoint]
     processes: list[ProcessLoad]
 
@@ -290,6 +289,7 @@ class SystemTelemetryHistory:
         self._points: deque[SystemHistoryPoint] = deque(maxlen=max(1, int(window_seconds / interval_seconds)))
         self._processes: list[ProcessLoad] = []
         self._accelerator: tuple[str | None, str | None] = (None, None)
+        self._accelerators: list[AcceleratorReading] = []
         self._lock = Lock()
 
     def record(self, sample: SystemTelemetrySample, processes: Iterable[ProcessLoad], *, at: float) -> None:
@@ -299,18 +299,21 @@ class SystemTelemetryHistory:
         other_cpu = None
         if sample.cpu_percent is not None and app_cpu is not None:
             other_cpu = round(max(0.0, sample.cpu_percent - app_cpu), 1)
+        primary = sample.primary_accelerator
         with self._lock:
             self._points.append(
                 SystemHistoryPoint(
                     at=at,
                     cpu_percent=sample.cpu_percent,
-                    accelerator_percent=sample.accelerator_percent,
+                    accelerator_percent=primary.utilization_percent if primary else None,
                     app_cpu_percent=app_cpu,
                     other_cpu_percent=other_cpu,
+                    accelerators={reading.id: reading.utilization_percent for reading in sample.accelerators},
                 )
             )
             self._processes = process_list
-            self._accelerator = (sample.accelerator_kind, sample.accelerator_label)
+            self._accelerators = list(sample.accelerators)
+            self._accelerator = (primary.kind, primary.label) if primary else (None, None)
 
     def snapshot(self) -> SystemHistorySnapshot:
         with self._lock:
@@ -319,6 +322,7 @@ class SystemTelemetryHistory:
                 interval_seconds=self.interval_seconds,
                 accelerator_kind=self._accelerator[0],
                 accelerator_label=self._accelerator[1],
+                accelerators=list(self._accelerators),
                 points=list(self._points),
                 processes=list(self._processes),
             )
@@ -348,7 +352,9 @@ class SystemTelemetryHistoryService:
         self._history.record(sample, processes, at=self._wall_clock())
 
     def _sample_sync(self) -> tuple[SystemTelemetrySample, list[ProcessLoad]]:
-        return self._sampler.sample(), self._process_sampler.sample()
+        # The processes come first: their pids are what makes the GPU measurable.
+        processes = self._process_sampler.sample()
+        return self._sampler.sample(load.pid for load in processes), processes
 
     async def _loop(self) -> None:
         while self._running:
@@ -377,8 +383,11 @@ class SystemTelemetryHistoryService:
 
 system_telemetry_history = SystemTelemetryHistory()
 process_load_sampler = ProcessLoadSampler()
+# The history keeps its own sampler rather than sharing the sidebar's. Every counter
+# here is a delta against the previous read, so two callers on different intervals
+# sharing one sampler would each be measuring the other's gap.
 system_telemetry_history_service = SystemTelemetryHistoryService(
     history=system_telemetry_history,
-    sampler=system_telemetry_sampler,
+    sampler=SystemTelemetrySampler(),
     process_sampler=process_load_sampler,
 )
