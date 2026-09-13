@@ -21,7 +21,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from PIL import Image
-from typing import Optional, Any, Awaitable, Callable, Literal
+from typing import Optional, Any, Awaitable, Callable, Iterable, Literal
 
 from app.services.inference_health import InferenceHealth, Outcome, RuntimeKey
 from app.services.openvino_cache import resolve_openvino_cache_dir
@@ -367,6 +367,30 @@ def _select_video_frame_indices(
             break
 
     return np.array(sorted(selected), dtype=int)
+
+
+def _read_selected_video_frames(cap: Any, frame_indices: Iterable[int]) -> Iterable[tuple[int, bool, Any]]:
+    """Read sorted target frames in one forward pass.
+
+    Repeated ``CAP_PROP_POS_FRAMES`` seeks make inter-frame codecs decode from a
+    nearby keyframe for every sample.  A full-visit clip can therefore be decoded
+    many times over.  The selected indices are already sorted, so advancing once
+    through the stream is both deterministic and substantially cheaper.
+    """
+    current_index = 0
+    exhausted = False
+    for raw_target in frame_indices:
+        target = max(0, int(raw_target))
+        selected_frame = None
+        while not exhausted and current_index <= target:
+            ok, frame = cap.read()
+            if not ok:
+                exhausted = True
+                break
+            if current_index == target:
+                selected_frame = frame
+            current_index += 1
+        yield target, selected_frame is not None, selected_frame
 
 
 def _invoke_model_classify(
@@ -2410,7 +2434,7 @@ class OpenVINOModelInstance:
         self._startup_self_test_ran = True
         image = self._build_startup_self_test_image()
         input_tensor = self._preprocess(image)
-        logits = self._infer_output_tensor(image)
+        logits = self._infer_output_tensor(image, input_tensor=input_tensor)
         self._last_startup_self_test_diagnostics = self._collect_runtime_diagnostics(
             input_tensor=input_tensor,
             logits=logits,
@@ -2557,7 +2581,7 @@ class OpenVINOModelInstance:
             "input_summary": _summarize_numeric_array(input_tensor, name="input_tensor"),
         }
         try:
-            logits = self._infer_output_tensor(image)
+            logits = self._infer_output_tensor(image, input_tensor=input_tensor)
             report["output_summary"] = _summarize_numeric_array(logits, name="output_logits")
             if logits.size == 0 or not np.isfinite(logits).any():
                 report["status"] = "invalid_output"
@@ -2585,11 +2609,17 @@ class OpenVINOModelInstance:
     def _softmax(self, x: np.ndarray) -> np.ndarray:
         return _safe_softmax(x, context=f"{self.name}:openvino")
 
-    def _infer_output_tensor(self, image: Image.Image) -> np.ndarray:
+    def _infer_output_tensor(
+        self,
+        image: Image.Image,
+        *,
+        input_tensor: np.ndarray | None = None,
+    ) -> np.ndarray:
         if self.compiled_model is None or self.input_name is None:
             return np.array([])
 
-        input_tensor = self._preprocess(image)
+        if input_tensor is None:
+            input_tensor = self._preprocess(image)
         # _preprocess emits NCHW [1,3,H,W]. Some exported models (e.g. MobileNet)
         # expect NHWC [1,H,W,3]; feed whatever the compiled model declares.
         try:
@@ -2615,8 +2645,13 @@ class OpenVINOModelInstance:
             # the caller must own a copy.
             return np.array(raw)
 
-    def _infer_logits(self, image: Image.Image) -> np.ndarray:
-        raw = self._infer_output_tensor(image)
+    def _infer_logits(
+        self,
+        image: Image.Image,
+        *,
+        input_tensor: np.ndarray | None = None,
+    ) -> np.ndarray:
+        raw = self._infer_output_tensor(image, input_tensor=input_tensor)
         if raw.ndim > 0 and raw.shape[0] == 1:
             return raw[0]
         return raw
@@ -2627,7 +2662,7 @@ class OpenVINOModelInstance:
             return []
         try:
             input_tensor = self._preprocess(image)
-            logits = self._infer_logits(image)
+            logits = self._infer_logits(image, input_tensor=input_tensor)
             if logits.size == 0:
                 return []
             probs = self._softmax(logits)
@@ -2667,7 +2702,7 @@ class OpenVINOModelInstance:
             return np.array([])
         try:
             input_tensor = self._preprocess(image)
-            logits = self._infer_logits(image)
+            logits = self._infer_logits(image, input_tensor=input_tensor)
             if logits.size == 0:
                 return np.array([])
             probs = self._softmax(logits)
@@ -5206,6 +5241,10 @@ class ClassifierService:
         crop_service = self._bird_crop_service
         if crop_service is None:
             return None
+        video_generator = getattr(crop_service, "generate_video_classification_candidate_crop", None)
+        video_declared = callable(getattr(type(crop_service), "generate_video_classification_candidate_crop", None))
+        if callable(video_generator) and video_declared:
+            return video_generator(image, search_box=search_box)
         guided_generator = getattr(crop_service, "generate_guided_classification_candidate_crop", None)
         guided_declared = callable(getattr(type(crop_service), "generate_guided_classification_candidate_crop", None))
         if search_box is not None and callable(guided_generator) and guided_declared:
@@ -6334,6 +6373,14 @@ class ClassifierService:
                 return []
 
             log.info("Analyzing video", frames=total_frames, fps=fps, max_samples=max_frames)
+            analysis_started = time.perf_counter()
+            stage_seconds = {
+                "decode": 0.0,
+                "frame_preparation": 0.0,
+                "candidate_generation": 0.0,
+                "bird_inference": 0.0,
+            }
+            candidate_counts: dict[str, int] = {}
 
             sample_count = min(max_frames, total_frames)
             clip_variant = str(self._input_context_extra(normalized_input_context, "clip_variant") or "event")
@@ -6384,10 +6431,11 @@ class ClassifierService:
             last_top_score = 0.0
             last_frame_thumb = None
 
-            for i, idx in enumerate(frame_indices, 1):
-                # Seek to frame
-                cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
-                ret, frame = cap.read()
+            frame_reader = iter(_read_selected_video_frames(cap, frame_indices))
+            for i in range(1, len(frame_indices) + 1):
+                stage_started = time.perf_counter()
+                idx, ret, frame = next(frame_reader)
+                stage_seconds["decode"] += time.perf_counter() - stage_started
                 frame_offset_sec = float(idx) / fps if fps > 0 else None
                 if not ret:
                     if progress_callback:
@@ -6407,6 +6455,7 @@ class ClassifierService:
                             pass
                     continue
 
+                stage_started = time.perf_counter()
                 # Convert BGR (OpenCV) to RGB (PIL)
                 frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 image = Image.fromarray(frame_rgb)
@@ -6416,13 +6465,18 @@ class ClassifierService:
                     normalized_input_context,
                     frame_offset_seconds=frame_offset_sec,
                 )
+                stage_seconds["frame_preparation"] += time.perf_counter() - stage_started
 
                 candidate_scores: dict[str, np.ndarray] = {}
                 candidate_images: dict[str, Image.Image] = {}
-                for input_source, candidate_image in self._video_frame_candidates(
+                stage_started = time.perf_counter()
+                frame_candidates = self._video_frame_candidates(
                     image,
                     input_context=frame_input_context,
-                ):
+                )
+                stage_seconds["candidate_generation"] += time.perf_counter() - stage_started
+                for input_source, candidate_image in frame_candidates:
+                    candidate_counts[input_source] = candidate_counts.get(input_source, 0) + 1
                     if input_source not in scores_by_input_source:
                         expected_input_sources.append(input_source)
                         scores_by_input_source[input_source] = []
@@ -6435,10 +6489,12 @@ class ClassifierService:
                             "disable_crop_resolution": True,
                         }
                     )
+                    stage_started = time.perf_counter()
                     scores, active_bird_model = self._classify_raw_with_runtime_recovery(
                         candidate_image,
                         input_context=_normalize_classification_input_context(candidate_context),
                     )
+                    stage_seconds["bird_inference"] += time.perf_counter() - stage_started
                     if active_bird_model is not None:
                         bird_model = active_bird_model
                     if len(scores) > 0:
@@ -6577,6 +6633,13 @@ class ClassifierService:
                 }
                 for input_source, assessment in source_assessments.items()
             }
+            crop_status: dict[str, Any] = {}
+            if self._bird_crop_service is not None:
+                try:
+                    crop_status = self._bird_crop_service.get_status()
+                except Exception as exc:
+                    log.debug("Could not collect crop detector status", error=str(exc))
+
             diagnostic_payload = {
                 "version": 3,
                 "outcome": "accepted" if selected_source_consensus is not None else "abstained",
@@ -6599,7 +6662,26 @@ class ClassifierService:
                         else "no_source_consensus"
                     )
                 ),
+                "runtime": self.runtime_identity(),
+                "crop_detector_runtime": {
+                    "active_providers": dict(crop_status.get("active_providers") or {}),
+                    "provider_fallbacks": dict(crop_status.get("provider_fallbacks") or {}),
+                },
+                "performance": {
+                    "decode_strategy": "sequential_forward",
+                    "candidate_counts": candidate_counts,
+                    "stage_ms": {
+                        **{name: round(seconds * 1000.0, 1) for name, seconds in stage_seconds.items()},
+                        "total": round((time.perf_counter() - analysis_started) * 1000.0, 1),
+                    },
+                },
             }
+            log.info(
+                "Video analysis stage timings",
+                processed_frames=processed_frame_count,
+                runtime=diagnostic_payload["runtime"],
+                performance=diagnostic_payload["performance"],
+            )
             include_diagnostics = bool(self._input_context_extra(normalized_input_context, "include_video_diagnostics"))
             if selected_source_consensus is None or selected_source_consensus.consensus is None:
                 log.info(

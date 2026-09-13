@@ -1965,6 +1965,7 @@ class AutoVideoClassifierService:
                     await self._save_results(
                         frigate_event,
                         top,
+                        video_diagnostics=video_diagnostics,
                         manual_tagged=(source == "manual" or frigate_event in self._manual_requested_ids),
                     )
                     self._record_success(frigate_event, source=source)
@@ -2725,6 +2726,7 @@ class AutoVideoClassifierService:
         frigate_event: str,
         result: dict,
         *,
+        video_diagnostics: dict | None = None,
         manual_tagged: bool = False,
     ):
         """Save final results via DetectionService to handle intelligent overrides."""
@@ -2741,6 +2743,7 @@ class AutoVideoClassifierService:
             video_backend=result.get("inference_backend"),
             video_model_id=result.get("model_id"),
             video_input_source=result.get("input_source"),
+            video_diagnostics=video_diagnostics,
             manual_tagged=manual_tagged,
         )
         await video_classification_waiter.publish(
