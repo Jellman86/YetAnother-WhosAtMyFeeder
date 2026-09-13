@@ -82,6 +82,32 @@ def test_manual_observation_upload_has_bounded_streaming_route(
     assert "client_max_body_size 0;" not in block
 
 
+@pytest.mark.parametrize(("config_path", "backend_upstream"), FRONTEND_NGINX_UPSTREAMS)
+def test_large_media_reads_use_bounded_memory_without_proxy_temp_files(
+    config_path: Path,
+    backend_upstream: str,
+) -> None:
+    config = config_path.read_text(encoding="utf-8")
+    location = (
+        r"location ~ ^/api/(?:frigate/.+\.jpg|about/showcase/[^/]+\.jpg|"
+        r"audio/(?:clip|spectrogram)/[0-9]+|classifier/labels)$ {"
+    )
+    block_start = config.index(location)
+    block_end = config.index("\n    }", block_start)
+    block = config[block_start:block_end]
+
+    assert f"proxy_pass {backend_upstream};" in block
+    assert "proxy_buffering on;" in block
+    assert "proxy_buffer_size 128k;" in block
+    assert "proxy_buffers 8 128k;" in block
+    assert "proxy_busy_buffers_size 256k;" in block
+    assert "proxy_max_temp_file_size 0;" in block
+
+    clip_location = config.index(r"location ~ ^/api/frigate/.+/clip\.mp4$ {")
+    generic_api_location = config.index("location /api/ {")
+    assert clip_location < block_start < generic_api_location
+
+
 def test_monolith_healthcheck_exercises_public_readiness_route() -> None:
     healthcheck = (REPOSITORY_ROOT / "docker/monolith/healthcheck.sh").read_text(encoding="utf-8")
 

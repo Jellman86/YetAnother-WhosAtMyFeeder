@@ -33,6 +33,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Large photographs, label lists and audio clips no longer spill through nginx temporary
+  files.** These read-only responses now use bounded in-memory proxy buffers and stream any
+  remainder to the browser, avoiding unnecessary container-overlay writes during busy page loads.
 - **The sidebar's live graph no longer eats the health history's measurements.** Both read counter
   deltas since their own previous read, and both went through one shared sampler on different
   intervals, so each was measuring the gap left by the other. The history now keeps its own.
