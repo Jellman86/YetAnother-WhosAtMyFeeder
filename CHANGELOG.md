@@ -6,6 +6,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Added
+
+- **Settings → Health opens on what the host is doing.** The last thirty minutes of CPU and
+  accelerator load, sampled every five seconds and kept by the server, with the live figures
+  beside it and who is using the CPU: this app's own processes by name (the app, each classifier
+  worker, any ffmpeg it spawned) with CPU share and memory, and everything else on the host as one
+  remainder that is never named. The sidebar's System status card opens it for the owner.
+  `GET /api/system-telemetry/history` (owner).
+
 ### Fixed
 
 - **A visit confirmed by a matching call says so in the field log.** The day bar counted

@@ -1602,6 +1602,42 @@
       "desc": "The layout new devices start with. Cards show a snapshot for each visit; a list fits more on screen and lines the times up so you can scan for one. Each device can switch it from the Explorer, and that choice sticks on that device.",
       "cards": "Cards",
       "list": "List"
+    },
+    "system_health": {
+      "title": "System",
+      "description": "What this host is doing, and how much of it is this app.",
+      "window": "Last 30 minutes, sampled every 5 s",
+      "legend": "Series",
+      "legend_cpu": "CPU, whole host",
+      "cpu_now": "CPU now",
+      "accelerator_now": "{label} now",
+      "memory_now": "This app in memory",
+      "memory_of": "of {total}",
+      "cores": "{count} cores, no CPU limit on the container",
+      "cores_limited": "{count} cores, limited to {quota}",
+      "summary": "CPU average {average}, peak {peak} at {time}",
+      "share_title": "Who is using the CPU right now",
+      "share_summary": "This app {app} · rest of the host {other} · idle {idle}",
+      "app_share": "This app",
+      "col_process": "Process",
+      "col_cpu": "CPU",
+      "col_memory": "Memory",
+      "role_main": "YA-WAMF",
+      "role_live_worker": "Live worker",
+      "role_background_worker": "Background worker",
+      "role_video_worker": "Video worker",
+      "role_ffmpeg": "ffmpeg",
+      "role_other_child": "Other process of this app",
+      "role_other_host": "Other on this host",
+      "role_other_host_note": "Not this app. Cannot be named without the Docker socket.",
+      "role_idle": "Idle",
+      "note": "Per-process figures are read from this container's own processes at each sample. Anything else on the host is measured only as the remainder; YA-WAMF cannot see other containers and does not try to.",
+      "loading": "Reading the last half hour…",
+      "unavailable": "Load history is not available right now.",
+      "empty": "The first samples arrive a few seconds after start.",
+      "inspect": "Inspect a sample",
+      "cpu_unmeasured": "CPU load cannot be measured on this host; the counters it needs are not readable from inside the container.",
+      "no_accelerator": "No accelerator counter is readable on this host, so only the CPU is drawn."
     }
   },
   "auth": {
@@ -1655,7 +1691,8 @@
     "audio_active": "Audio Analysis Active",
     "notifications_enabled": "Notifications Enabled",
     "system_online": "System Online",
-    "system_offline": "System Offline"
+    "system_offline": "System Offline",
+    "open_health": "System health"
   },
   "notifications": {
     "reclassify_fallback": "⚠️ Video not available - snapshot used instead",

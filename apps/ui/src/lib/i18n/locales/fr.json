@@ -1593,6 +1593,42 @@
       "desc": "L’affichage par lequel commencent les nouveaux appareils. Les cartes montrent une image de chaque visite ; la liste en affiche davantage et aligne les heures. Chaque appareil peut en changer depuis l’explorateur, et ce choix y reste.",
       "cards": "Cartes",
       "list": "Liste"
+    },
+    "system_health": {
+      "title": "Système",
+      "description": "Ce que fait cette machine, et quelle part revient à cette application.",
+      "window": "30 dernières minutes, mesurées toutes les 5 s",
+      "legend": "Séries",
+      "legend_cpu": "CPU, machine entière",
+      "cpu_now": "CPU maintenant",
+      "accelerator_now": "{label} maintenant",
+      "memory_now": "Cette application en mémoire",
+      "memory_of": "sur {total}",
+      "cores": "{count} cœurs, aucune limite de CPU sur le conteneur",
+      "cores_limited": "{count} cœurs, limité à {quota}",
+      "summary": "CPU en moyenne {average}, pic à {peak} à {time}",
+      "share_title": "Qui utilise le CPU en ce moment",
+      "share_summary": "Cette application {app} · reste de la machine {other} · inactif {idle}",
+      "app_share": "Cette application",
+      "col_process": "Processus",
+      "col_cpu": "CPU",
+      "col_memory": "Mémoire",
+      "role_main": "YA-WAMF",
+      "role_live_worker": "Worker en direct",
+      "role_background_worker": "Worker d’arrière-plan",
+      "role_video_worker": "Worker vidéo",
+      "role_ffmpeg": "ffmpeg",
+      "role_other_child": "Autre processus de cette application",
+      "role_other_host": "Autre sur cette machine",
+      "role_other_host_note": "Pas cette application. Impossible à nommer sans le socket Docker.",
+      "role_idle": "Inactif",
+      "note": "Les chiffres par processus sont lus dans les processus de ce conteneur à chaque mesure. Tout le reste sur la machine n’est mesuré que comme un reste ; YA-WAMF ne voit pas les autres conteneurs et n’essaie pas de le faire.",
+      "loading": "Lecture de la dernière demi-heure…",
+      "unavailable": "L’historique de charge n’est pas disponible pour le moment.",
+      "empty": "Les premières mesures arrivent quelques secondes après le démarrage.",
+      "inspect": "Examiner une mesure",
+      "cpu_unmeasured": "La charge CPU ne peut pas être mesurée sur cette machine ; les compteurs nécessaires ne sont pas lisibles depuis le conteneur.",
+      "no_accelerator": "Aucun compteur d’accélérateur n’est lisible sur cette machine, seule la CPU est tracée."
     }
   },
   "auth": {
@@ -1646,7 +1682,8 @@
     "audio_active": "Analyse audio active",
     "notifications_enabled": "Notifications activées",
     "system_online": "Système en ligne",
-    "system_offline": "Système hors ligne"
+    "system_offline": "Système hors ligne",
+    "open_health": "État du système"
   },
   "notifications": {
     "reclassify_fallback": "⚠️ Vidéo non disponible - capture utilisée à la place",

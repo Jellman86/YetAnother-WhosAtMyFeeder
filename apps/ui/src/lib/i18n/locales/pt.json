@@ -1602,6 +1602,42 @@
       "desc": "O esquema com que os dispositivos novos começam. Os cartões mostram uma imagem de cada visita; a lista mostra mais no ecrã e alinha as horas. Cada dispositivo pode mudá-lo no explorador, e essa escolha fica guardada aí.",
       "cards": "Cartões",
       "list": "Lista"
+    },
+    "system_health": {
+      "title": "Sistema",
+      "description": "O que esta máquina está a fazer e quanto disso é esta aplicação.",
+      "window": "Últimos 30 minutos, amostrados a cada 5 s",
+      "legend": "Séries",
+      "legend_cpu": "CPU, máquina inteira",
+      "cpu_now": "CPU agora",
+      "accelerator_now": "{label} agora",
+      "memory_now": "Esta aplicação em memória",
+      "memory_of": "de {total}",
+      "cores": "{count} núcleos, sem limite de CPU no contentor",
+      "cores_limited": "{count} núcleos, limitado a {quota}",
+      "summary": "CPU em média {average}, pico {peak} às {time}",
+      "share_title": "Quem está a usar a CPU neste momento",
+      "share_summary": "Esta aplicação {app} · resto da máquina {other} · livre {idle}",
+      "app_share": "Esta aplicação",
+      "col_process": "Processo",
+      "col_cpu": "CPU",
+      "col_memory": "Memória",
+      "role_main": "YA-WAMF",
+      "role_live_worker": "Worker em direto",
+      "role_background_worker": "Worker em segundo plano",
+      "role_video_worker": "Worker de vídeo",
+      "role_ffmpeg": "ffmpeg",
+      "role_other_child": "Outro processo desta aplicação",
+      "role_other_host": "Outro nesta máquina",
+      "role_other_host_note": "Não é esta aplicação. Não pode ser nomeado sem o socket do Docker.",
+      "role_idle": "Livre",
+      "note": "Os valores por processo são lidos dos próprios processos deste contentor em cada amostra. Tudo o resto na máquina é medido apenas como remanescente; o YA-WAMF não vê outros contentores nem tenta.",
+      "loading": "A ler a última meia hora…",
+      "unavailable": "O histórico de carga não está disponível neste momento.",
+      "empty": "As primeiras amostras chegam poucos segundos após o arranque.",
+      "inspect": "Inspecionar uma amostra",
+      "cpu_unmeasured": "A carga de CPU não pode ser medida nesta máquina; os contadores necessários não são legíveis de dentro do contentor.",
+      "no_accelerator": "Nenhum contador de acelerador é legível nesta máquina, por isso só a CPU é desenhada."
     }
   },
   "auth": {
@@ -1655,7 +1691,8 @@
     "audio_active": "Análise de Áudio Ativa",
     "notifications_enabled": "Notificações Ativadas",
     "system_online": "Sistema Online",
-    "system_offline": "Sistema Offline"
+    "system_offline": "Sistema Offline",
+    "open_health": "Estado do sistema"
   },
   "notifications": {
     "reclassify_fallback": "⚠️ Vídeo não disponível - usando snapshot",

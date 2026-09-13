@@ -114,6 +114,10 @@ curl -N "http://localhost:9852/api/sse?ticket=$TICKET"
   YA-WAMF never updates itself, and the check honours the `system.update_check_enabled` opt-out.
 - `GET /api/system-telemetry`: one live host-utilization sample (the sidebar's rolling CPU/NPU
   graph). Guest rate limits apply; the response is not cacheable.
+- `GET /api/system-telemetry/history` (owner): the last thirty minutes of host CPU and accelerator
+  load, sampled every five seconds while the app runs, with what this container's own processes
+  (the app, each classifier worker, any ffmpeg it spawned) took of it by CPU and memory. Anything
+  else on the host is reported only as the remainder and is never named. Not cacheable.
 - `GET /api/sse`: Server-Sent Events stream. Opens with a Bearer header, with a single-use
   `?ticket=` from `POST /api/auth/stream-ticket`, or as a guest when public access is on. The
   session token is **not** accepted in the query string; see [Stream ticket](#stream-ticket).
