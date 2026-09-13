@@ -3,7 +3,7 @@ import videoPlayerSource from './VideoPlayer.svelte?raw';
 import mediaApiSource from '../api/media.ts?raw';
 
 describe('video player canonical full-visit wiring', () => {
-    it('keeps playback on the canonical clip route and uses full-visit state only for indicators', () => {
+    it('uses HLS for playback while preserving the canonical MP4 for fallback and download', () => {
         expect(mediaApiSource).toContain('getRecordingClipUrl');
         expect(mediaApiSource).toContain('recording-clip.mp4');
         expect(mediaApiSource).not.toContain('clip_variant: options.clipVariant');
@@ -13,6 +13,10 @@ describe('video player canonical full-visit wiring', () => {
         expect(videoPlayerSource).not.toContain('fullVisitPromoted');
         expect(videoPlayerSource).toContain('const base = getClipUrl(frigateEvent);');
         expect(videoPlayerSource).toContain('getRecordingClipUrl');
+        expect(videoPlayerSource).toContain('getHlsUrl');
+        expect(videoPlayerSource).toContain('getRecordingHlsUrl');
+        expect(videoPlayerSource).toContain("canPlayType('application/vnd.apple.mpegurl')");
+        expect(videoPlayerSource).toContain("import('hls.js')");
         expect(videoPlayerSource).not.toContain("type ClipVariant = 'event' | 'recording'");
         expect(videoPlayerSource).not.toContain('selectedClipVariant');
         expect(videoPlayerSource).not.toContain('recordingClipAvailable');

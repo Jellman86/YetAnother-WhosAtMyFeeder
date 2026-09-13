@@ -33,6 +33,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Frigate videos now seek and play reliably across Safari, iOS, Chrome and Firefox (#459).**
+  Playback uses Frigate's HLS playlists and fragmented MP4 segments when available, with native
+  HLS on Apple browsers and `hls.js` elsewhere. The existing MP4 route remains the download,
+  cached-media and older-Frigate fallback, and no longer claims byte-range support unless Frigate
+  actually supplied it. Thanks to @kevingrubbs for reporting the failure and tracing it to the
+  progressive Frigate stream.
 - **Large photographs, label lists and audio clips no longer spill through nginx temporary
   files.** These read-only responses now use bounded in-memory proxy buffers and stream any
   remainder to the browser, avoiding unnecessary container-overlay writes during busy page loads.

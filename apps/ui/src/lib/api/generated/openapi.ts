@@ -3109,6 +3109,18 @@ export interface paths {
       response: unknown;
     };
   };
+  "/api/frigate/{event_id}/hls/{asset}": {
+    get: {
+      operationId: "proxy_event_hls_api_frigate__event_id__hls__asset__get";
+      path: {
+    asset: string;
+    event_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: unknown;
+    };
+  };
   "/api/frigate/{event_id}/recording-clip.mp4": {
     get: {
       operationId: "proxy_recording_clip_api_frigate__event_id__recording_clip_mp4_get";
@@ -3129,6 +3141,18 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: components['schemas']['RecordingClipFetchResponse'];
+    };
+  };
+  "/api/frigate/{event_id}/recording-hls/{asset}": {
+    get: {
+      operationId: "proxy_recording_hls_api_frigate__event_id__recording_hls__asset__get";
+      path: {
+    asset: string;
+    event_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: unknown;
     };
   };
   "/api/frigate/{event_id}/snapshot.jpg": {
