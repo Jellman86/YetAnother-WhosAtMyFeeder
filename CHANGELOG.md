@@ -17,6 +17,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Video analysis no longer burns CPU around NPU inference.** Sampled frames are decoded in one
+  forward pass instead of repeatedly seeking through inter-frame video, each frame gets at most one
+  accurate crop-detector pass, and OpenVINO input preprocessing is performed once. Successful and
+  abstained runs now retain per-stage timings plus their classifier and crop-detector providers.
 - **Signed-in video playback no longer trips the public rate limit (#451).** Media requests use
   the scoped session cookie, and the rate limiter now recognises that same cookie as the owner only
   on the read-only media routes where it is allowed. Clip probes and browser range requests

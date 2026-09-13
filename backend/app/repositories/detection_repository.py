@@ -1120,6 +1120,7 @@ class DetectionRepository:
         backend: Optional[str] = None,
         model_id: Optional[str] = None,
         input_source: Optional[str] = None,
+        diagnostics: Optional[dict] = None,
         blocked: bool = False,
     ) -> None:
         """Update video classification results for an event."""
@@ -1137,11 +1138,24 @@ class DetectionRepository:
                 video_classification_backend = ?,
                 video_classification_model_id = ?,
                 video_classification_input_source = ?,
-                video_classification_diagnostics = NULL,
+                video_classification_diagnostics = ?,
                 video_result_blocked = ?
             WHERE frigate_event = ?
         """,
-            (label, score, index, now, status, provider, backend, model_id, input_source, blocked, frigate_event),
+            (
+                label,
+                score,
+                index,
+                now,
+                status,
+                provider,
+                backend,
+                model_id,
+                input_source,
+                json.dumps(diagnostics, separators=(",", ":"), sort_keys=True) if diagnostics else None,
+                blocked,
+                frigate_event,
+            ),
         )
         await self.db.commit()
 
