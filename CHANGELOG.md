@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.20.1] - 2026-09-13
+
 ### Added
 
 - **Settings → Health opens on what the host is doing.** The last thirty minutes of CPU and
