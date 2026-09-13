@@ -1637,7 +1637,14 @@
       "empty": "The first samples arrive a few seconds after start.",
       "inspect": "Inspect a sample",
       "cpu_unmeasured": "CPU load cannot be measured on this host; the counters it needs are not readable from inside the container.",
-      "no_accelerator": "No accelerator counter is readable on this host, so only the CPU is drawn."
+      "no_accelerator": "No accelerator counter is readable on this host, so only the CPU is drawn.",
+      "scope_host": "whole host",
+      "scope_device": "whole device",
+      "scope_app": "this app only",
+      "unmeasured": "not measured",
+      "app_scope_note": "GPU time is published per process, so that line is the work YA-WAMF sent to the GPU. Another container sharing the same GPU is not visible here.",
+      "unreadable_nvidia": "{label} is present, but its driver publishes no utilisation counter a container can read.",
+      "unreadable_accelerator": "{label} is present, but its counter cannot be read from inside the container."
     }
   },
   "auth": {

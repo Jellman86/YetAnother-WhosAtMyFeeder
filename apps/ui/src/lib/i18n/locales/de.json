@@ -1628,7 +1628,14 @@
       "empty": "Die ersten Messwerte kommen wenige Sekunden nach dem Start.",
       "inspect": "Einen Messpunkt ansehen",
       "cpu_unmeasured": "Die CPU-Last kann auf diesem Host nicht gemessen werden; die nötigen Zähler sind aus dem Container heraus nicht lesbar.",
-      "no_accelerator": "Auf diesem Host ist kein Beschleuniger-Zähler lesbar, daher wird nur die CPU gezeichnet."
+      "no_accelerator": "Auf diesem Host ist kein Beschleuniger-Zähler lesbar, daher wird nur die CPU gezeichnet.",
+      "scope_host": "gesamter Host",
+      "scope_device": "gesamtes Gerät",
+      "scope_app": "nur diese App",
+      "unmeasured": "nicht gemessen",
+      "app_scope_note": "GPU-Zeit wird pro Prozess veröffentlicht, diese Linie zeigt also die Arbeit, die YA-WAMF an die GPU geschickt hat. Ein anderer Container an derselben GPU ist hier nicht sichtbar.",
+      "unreadable_nvidia": "{label} ist vorhanden, aber ihr Treiber veröffentlicht keinen Auslastungszähler, den ein Container lesen kann.",
+      "unreadable_accelerator": "{label} ist vorhanden, aber der Zähler ist aus dem Container heraus nicht lesbar."
     }
   },
   "auth": {

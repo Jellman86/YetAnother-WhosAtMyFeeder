@@ -8,10 +8,20 @@ import type { SystemTelemetryHistory } from '../api';
 
 export type HistoryPoint = SystemTelemetryHistory['points'][number];
 export type ProcessLoad = SystemTelemetryHistory['processes'][number];
-export type LoadSeries = 'cpu_percent' | 'accelerator_percent';
+export type Accelerator = NonNullable<SystemTelemetryHistory['accelerators']>[number];
+
+/** Reads one series' value out of a sample. A series is a line on the chart. */
+export type LoadSeries = (point: HistoryPoint) => number | null | undefined;
 
 export const CHART_WIDTH = 720;
 export const CHART_HEIGHT = 200;
+
+export const cpuLoad: LoadSeries = (point) => point.cpu_percent;
+
+/** One accelerator's load, by the id the server gave it. */
+export function acceleratorLoad(id: string): LoadSeries {
+    return (point) => point.accelerators?.[id] ?? null;
+}
 
 /** Where a sample falls across the window: the right edge is the newest sample. */
 function xFor(at: number, latest: number, windowSeconds: number, width: number): number {
@@ -29,7 +39,7 @@ function yFor(percent: number, height: number): number {
  */
 export function seriesSegments(
     points: readonly HistoryPoint[],
-    series: LoadSeries,
+    load: LoadSeries,
     windowSeconds: number,
     width: number = CHART_WIDTH,
     height: number = CHART_HEIGHT
@@ -39,7 +49,7 @@ export function seriesSegments(
     const segments: string[] = [];
     let current: string[] = [];
     for (const point of points) {
-        const value = point[series];
+        const value = load(point);
         if (value === null || value === undefined) {
             if (current.length > 0) segments.push(current.join(' '));
             current = [];
@@ -54,18 +64,18 @@ export function seriesSegments(
 /** The filled area under the CPU line, closed along the baseline. */
 export function seriesArea(
     points: readonly HistoryPoint[],
-    series: LoadSeries,
+    load: LoadSeries,
     windowSeconds: number,
     width: number = CHART_WIDTH,
     height: number = CHART_HEIGHT
 ): string | null {
-    const measured = points.filter((point) => point[series] !== null && point[series] !== undefined);
+    const measured = points.filter((point) => load(point) !== null && load(point) !== undefined);
     if (measured.length < 2) return null;
     const latest = points[points.length - 1].at;
     const first = xFor(measured[0].at, latest, windowSeconds, width).toFixed(1);
     const last = xFor(measured[measured.length - 1].at, latest, windowSeconds, width).toFixed(1);
     const body = measured
-        .map((point) => `${xFor(point.at, latest, windowSeconds, width).toFixed(1)},${yFor(point[series] as number, height).toFixed(1)}`)
+        .map((point) => `${xFor(point.at, latest, windowSeconds, width).toFixed(1)},${yFor(load(point) as number, height).toFixed(1)}`)
         .join(' ');
     return `${first},${height} ${body} ${last},${height}`;
 }
@@ -114,19 +124,19 @@ export interface WindowSummary {
 }
 
 /** What the window held, in words a screen reader or a hurried owner can take in. */
-export function windowSummary(points: readonly HistoryPoint[], series: LoadSeries): WindowSummary | null {
-    const measured = points.filter((point) => point[series] !== null && point[series] !== undefined);
+export function windowSummary(points: readonly HistoryPoint[], load: LoadSeries): WindowSummary | null {
+    const measured = points.filter((point) => load(point) !== null && load(point) !== undefined);
     if (measured.length === 0) return null;
     let peak = measured[0];
     let total = 0;
     for (const point of measured) {
-        const value = point[series] as number;
+        const value = load(point) as number;
         total += value;
-        if (value > (peak[series] as number)) peak = point;
+        if (value > (load(peak) as number)) peak = point;
     }
     return {
         average: Math.round((total / measured.length) * 10) / 10,
-        peak: peak[series] as number,
+        peak: load(peak) as number,
         peakAt: peak.at
     };
 }
@@ -197,4 +207,91 @@ export function formatBytes(bytes: number | null | undefined): string | null {
 export function formatPercent(value: number | null | undefined): string | null {
     if (value === null || value === undefined) return null;
     return `${value.toFixed(1)}%`;
+}
+
+/** What a series' number actually covers, which is not the same for every device. */
+export type SeriesScope = 'host' | 'device' | 'app';
+
+interface SeriesStyle {
+    /** SVG stroke class. */
+    stroke: string;
+    /** Text class for the live figure. */
+    text: string;
+    /** Dash pattern, so two lines are told apart without relying on colour. */
+    dash: string | null;
+}
+
+export interface ChartSeries extends SeriesStyle {
+    id: string;
+    label: string;
+    scope: SeriesScope;
+    load: LoadSeries;
+    latest: number | null;
+}
+
+const CPU_STYLE: SeriesStyle = {
+    stroke: 'stroke-blue-600 dark:stroke-blue-500',
+    text: 'text-blue-700 dark:text-blue-300',
+    dash: null
+};
+
+// Enough for the accelerators one host can present at once; the list repeats rather
+// than running out, and the dash pattern carries the difference either way.
+const ACCELERATOR_STYLES: SeriesStyle[] = [
+    { stroke: 'stroke-teal-600 dark:stroke-teal-400', text: 'text-teal-700 dark:text-teal-300', dash: '7 4' },
+    { stroke: 'stroke-violet-600 dark:stroke-violet-400', text: 'text-violet-700 dark:text-violet-300', dash: '2 3' },
+    { stroke: 'stroke-amber-700 dark:stroke-amber-500', text: 'text-amber-800 dark:text-amber-400', dash: '11 4 2 4' }
+];
+
+type HistoryLike = Pick<SystemTelemetryHistory, 'points'> & { accelerators?: Accelerator[] };
+
+/**
+ * The lines to draw: the host's CPU, then every accelerator whose counter can be read.
+ * A device that is present but unreadable is not given a line it cannot fill; it is
+ * named in words instead (see {@link unreadableAccelerators}).
+ */
+export function chartSeries(history: HistoryLike, cpuLabel: string): ChartSeries[] {
+    const latest = history.points[history.points.length - 1] ?? null;
+    const series: ChartSeries[] = [
+        { id: 'cpu', label: cpuLabel, scope: 'host', load: cpuLoad, latest: latest?.cpu_percent ?? null, ...CPU_STYLE }
+    ];
+    const readable = (history.accelerators ?? []).filter((accelerator) => !accelerator.unreadable);
+    readable.forEach((accelerator, index) => {
+        series.push({
+            id: accelerator.id,
+            label: accelerator.label,
+            scope: accelerator.scope,
+            load: acceleratorLoad(accelerator.id),
+            latest: latest?.accelerators?.[accelerator.id] ?? null,
+            ...ACCELERATOR_STYLES[index % ACCELERATOR_STYLES.length]
+        });
+    });
+    return series;
+}
+
+/** Accelerators this host has but cannot measure, so the panel can say so by name. */
+export function unreadableAccelerators(history: HistoryLike): Accelerator[] {
+    return (history.accelerators ?? []).filter((accelerator) => Boolean(accelerator.unreadable));
+}
+
+/**
+ * Where one series sits at the inspected sample, for the dot that ties the crosshair
+ * to the line. A sample the series could not measure has no dot.
+ */
+export function markerFor(
+    points: readonly HistoryPoint[],
+    index: number,
+    load: LoadSeries,
+    windowSeconds: number,
+    width: number = CHART_WIDTH,
+    height: number = CHART_HEIGHT
+): { x: number; y: number } | null {
+    const point = points[index];
+    if (!point) return null;
+    const value = load(point);
+    if (value === null || value === undefined) return null;
+    return {
+        x: xFor(point.at, points[points.length - 1].at, windowSeconds, width),
+        y: yFor(value, height)
+    };
 }

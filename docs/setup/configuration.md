@@ -196,6 +196,13 @@ any ffmpeg it spawned) with their CPU share and memory; everything else on the h
 remainder, "Other on this host", which YA-WAMF cannot name without the Docker socket and does not
 try to. The sidebar's System status card opens this tab for the owner.
 
+Each accelerator the container can read gets its own line, and each line says what its number
+covers. An NPU busy counter is the whole device, so it includes anything else on the host using
+it. GPU load is published per process, so that line is only the work YA-WAMF sent to the GPU;
+another container sharing the same card is not visible and is not guessed at. A card that is
+present but publishes no readable counter, which is the case for NVIDIA's driver inside a
+container, is named and said to be unreadable rather than left out.
+
 ![Settings → Health: a System Status card reporting all monitored services healthy, and a "What happened" timeline showing visits recorded and frames filtered out with the reason for each](../images/settings-health.png)
 
 This is the first place to look when detections stop arriving or the interface feels slow. See

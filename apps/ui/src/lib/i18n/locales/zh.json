@@ -1628,7 +1628,14 @@
       "empty": "启动几秒后会出现首批采样。",
       "inspect": "查看采样点",
       "cpu_unmeasured": "无法在此主机上测量 CPU 负载；所需的计数器无法从容器内读取。",
-      "no_accelerator": "此主机上没有可读取的加速器计数器，因此只绘制 CPU。"
+      "no_accelerator": "此主机上没有可读取的加速器计数器，因此只绘制 CPU。",
+      "scope_host": "整台主机",
+      "scope_device": "整个设备",
+      "scope_app": "仅本应用",
+      "unmeasured": "未测量",
+      "app_scope_note": "GPU 时间按进程公布，因此该线条表示 YA-WAMF 发送给 GPU 的工作。共用同一块 GPU 的其他容器在这里看不到。",
+      "unreadable_nvidia": "检测到 {label}，但其驱动不公布容器可读取的利用率计数器。",
+      "unreadable_accelerator": "检测到 {label}，但无法从容器内部读取其计数器。"
     }
   },
   "auth": {
