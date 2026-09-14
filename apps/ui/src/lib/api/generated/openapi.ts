@@ -1930,6 +1930,7 @@ export interface components {
     memory_total_bytes?: number | null;
 };
     SystemProcessLoadResponse: {
+    accelerator?: components['schemas']['SystemAcceleratorIdentity'] | null;
     cpu_percent?: number | null;
     detail?: string | null;
     label: string;

@@ -25,6 +25,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **Settings → Health now names each classifier pool's accelerator runtime.** The process table
+  adds an Accelerator column sourced from the runtime the worker actually reported, so a CPU
+  fallback is never presented as NPU/GPU work. NPU utilisation remains labelled as a whole-device
+  figure because the kernel does not expose a truthful per-process split.
 - **The inspected sample on the health chart is marked on the lines it belongs to.** Moving the
   crosshair now puts a dot on each series at that sample, and the keyboard scrubber, which used to
   sit under the graph as a handle with nothing visibly attached to it, stays out of sight until it

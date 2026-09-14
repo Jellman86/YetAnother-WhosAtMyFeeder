@@ -216,6 +216,7 @@ async def test_system_telemetry_history_is_for_the_owner_only(monkeypatch: pytes
         at=1_789_000_000.0,
     )
     monkeypatch.setattr(stats_router, "system_telemetry_history", history, raising=False)
+    monkeypatch.setattr(stats_router, "_active_worker_accelerators", lambda: {}, raising=False)
     monkeypatch.setattr(
         stats_router,
         "collect_host_facts",
@@ -274,9 +275,34 @@ async def test_system_telemetry_history_is_for_the_owner_only(monkeypatch: pytes
         }
     ]
     assert body["processes"] == [
-        {"pid": 7, "role": "main", "label": "YA-WAMF", "detail": None, "cpu_percent": 3.1, "rss_bytes": 1_000}
+        {
+            "pid": 7,
+            "role": "main",
+            "label": "YA-WAMF",
+            "detail": None,
+            "cpu_percent": 3.1,
+            "rss_bytes": 1_000,
+            "accelerator": None,
+        }
     ]
     assert body["app_rss_bytes"] == 1_000
+
+
+def test_worker_accelerators_use_reported_runtime_and_ignore_cpu_or_plans() -> None:
+    mapped = stats_router._worker_accelerators_from_status(
+        {
+            "active_provider": "intel_npu",
+            "worker_pools": {
+                "live": {"runtime": {"active_provider": "intel_npu"}},
+                "background": {"runtime": {"active_provider": "intel_cpu"}},
+                "video": {"runtime": {"active_provider": "cuda"}},
+            },
+        }
+    )
+
+    assert mapped["live_worker"].model_dump() == {"kind": "npu", "label": "NPU"}
+    assert "background_worker" not in mapped
+    assert mapped["video_worker"].model_dump() == {"kind": "gpu", "label": "NVIDIA GPU"}
 
 
 @pytest.mark.asyncio
