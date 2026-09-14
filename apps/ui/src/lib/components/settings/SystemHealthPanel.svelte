@@ -412,12 +412,12 @@
                         </div>
                     {/if}
                     <table class="mt-3 w-full text-xs sm:text-sm" data-system-health-table>
-                        <thead class="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                        <thead class="text-[11px] font-bold uppercase tracking-normal text-slate-500 sm:tracking-[0.14em] dark:text-slate-400">
                             <tr>
                                 <th scope="col" class="pb-2 text-left font-bold">{$_('settings.system_health.col_process', { default: 'Process' })}</th>
-                                <th scope="col" class="pb-2 text-right font-bold">{$_('settings.system_health.col_cpu', { default: 'CPU' })}</th>
-                                <th scope="col" class="pb-2 text-right font-bold">{$_('settings.system_health.col_accelerator', { default: 'Accelerator' })}</th>
-                                <th scope="col" class="pb-2 text-right font-bold">{$_('settings.system_health.col_memory', { default: 'Memory' })}</th>
+                                <th scope="col" class="pb-2 pl-2 text-right font-bold">{$_('settings.system_health.col_cpu', { default: 'CPU' })}</th>
+                                <th scope="col" class="pb-2 pl-2 text-right font-bold">{$_('settings.system_health.col_accelerator', { default: 'Accelerator' })}</th>
+                                <th scope="col" class="pb-2 pl-2 text-right font-bold">{$_('settings.system_health.col_memory', { default: 'Memory' })}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-200/70 dark:divide-slate-700/50">
@@ -438,8 +438,8 @@
                                                 </span>
                                             {/if}
                                         </td>
-                                        <td class="py-2 text-right font-semibold tabular-nums text-slate-800 dark:text-slate-100">{formatPercent(row.cpuPercent) ?? '—'}</td>
-                                        <td class="py-2 text-right text-slate-500 dark:text-slate-400">
+                                        <td class="py-2 pl-2 text-right font-semibold tabular-nums text-slate-800 dark:text-slate-100">{formatPercent(row.cpuPercent) ?? '—'}</td>
+                                        <td class="py-2 pl-2 text-right text-slate-500 dark:text-slate-400">
                                             {#if row.acceleratorLabels.length > 0}
                                                 <span class="block font-semibold text-slate-800 dark:text-slate-100">{row.acceleratorLabels.join(', ')}</span>
                                                 <span class="block text-[10px] uppercase tracking-wide">{$_('settings.system_health.accelerator_loaded', { default: 'loaded' })}</span>
@@ -447,7 +447,7 @@
                                                 —
                                             {/if}
                                         </td>
-                                        <td class="py-2 text-right tabular-nums text-slate-500 dark:text-slate-400">{formatBytes(row.rssBytes) ?? '—'}</td>
+                                        <td class="py-2 pl-2 text-right tabular-nums text-slate-500 dark:text-slate-400">{formatBytes(row.rssBytes) ?? '—'}</td>
                                     </tr>
                                 {/if}
                             {/each}
