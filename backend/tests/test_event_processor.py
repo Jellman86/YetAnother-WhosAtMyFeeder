@@ -221,11 +221,23 @@ async def test_process_mqtt_message_skips_new_after_false_positive_update():
 @pytest.mark.asyncio
 async def test_process_mqtt_message_skips_end_event_classification():
     processor = EventProcessor(MagicMock())
-    processor.detection_service.get_detection_by_frigate_event = AsyncMock(return_value=object())
+    existing_detection = SimpleNamespace(
+        display_name="Cardinal",
+        score=0.9,
+        audio_confirmed=False,
+        audio_species=None,
+    )
+    processor.detection_service.get_detection_by_frigate_event = AsyncMock(return_value=existing_detection)
     processor._classify_snapshot = AsyncMock(  # type: ignore[method-assign]
         return_value=([{"label": "Cardinal", "score": 0.9, "index": 1}], b"img", "frigate_snapshot_cropped")
     )
     processor._trigger_auto_full_visit_generation = AsyncMock()  # type: ignore[method-assign]
+    processor.notification_orchestrator.handle_notifications = AsyncMock()  # type: ignore[method-assign]
+
+    async def enqueue_and_run(*, job_name, job_factory):
+        assert job_name == "notify:evt-end-skip-1:end"
+        await job_factory()
+        return True
 
     end_payload = (
         b'{"type":"end","after":{"id":"evt-end-skip-1","label":"bird","camera":"cam1","start_time":1700000000}}'
@@ -235,19 +247,36 @@ async def test_process_mqtt_message_skips_end_event_classification():
         patch("app.services.event_processor.settings.frigate.recording_clip_enabled", True, create=True),
         patch("app.services.event_processor.settings.media_cache.enabled", True, create=True),
         patch("app.services.event_processor.settings.media_cache.cache_clips", True, create=True),
+        patch(
+            "app.services.event_processor.notification_dispatcher.enqueue",
+            new=AsyncMock(side_effect=enqueue_and_run),
+        ),
     ):
         await processor.process_mqtt_message(end_payload)
 
     processor._classify_snapshot.assert_not_called()
     processor._trigger_auto_full_visit_generation.assert_awaited_once()
+    processor.notification_orchestrator.handle_notifications.assert_awaited_once()
+    notification_call = processor.notification_orchestrator.handle_notifications.await_args.kwargs
+    assert notification_call["classification"] == {
+        "label": "Cardinal",
+        "score": 0.9,
+        "audio_confirmed": False,
+        "audio_species": None,
+    }
+    assert notification_call["snapshot_data"] is None
+    assert notification_call["changed"] is False
+    assert notification_call["was_inserted"] is False
+    assert notification_call["event"].type == "end"
 
 
 @pytest.mark.asyncio
 async def test_end_event_schedules_final_hq_snapshot_refresh_for_cached_detection():
     processor = EventProcessor(MagicMock())
-    processor.detection_service.get_detection_by_frigate_event = AsyncMock(return_value=object())
+    processor.detection_service.get_detection_by_frigate_event = AsyncMock(return_value=MagicMock())
     processor._classify_snapshot = AsyncMock()  # type: ignore[method-assign]
     processor._trigger_auto_full_visit_generation = AsyncMock()  # type: ignore[method-assign]
+    processor._enqueue_notification_flow = AsyncMock()  # type: ignore[method-assign]
     payload = (
         b'{"type":"end","after":{"id":"evt-final-hq","label":"bird","camera":"cam1",'
         b'"start_time":1700000000,"end_time":1700000005,"data":'
@@ -314,11 +343,12 @@ async def test_process_mqtt_message_does_not_trigger_auto_full_visit_for_new_eve
 @pytest.mark.asyncio
 async def test_process_mqtt_message_end_event_skips_auto_full_visit_when_recording_clips_disabled():
     processor = EventProcessor(MagicMock())
-    processor.detection_service.get_detection_by_frigate_event = AsyncMock(return_value=object())
+    processor.detection_service.get_detection_by_frigate_event = AsyncMock(return_value=MagicMock())
     processor._classify_snapshot = AsyncMock(  # type: ignore[method-assign]
         return_value=([{"label": "Cardinal", "score": 0.9, "index": 1}], b"img", "frigate_snapshot_cropped")
     )
     processor._trigger_auto_full_visit_generation = AsyncMock()  # type: ignore[method-assign]
+    processor._enqueue_notification_flow = AsyncMock()  # type: ignore[method-assign]
 
     end_payload = (
         b'{"type":"end","after":{"id":"evt-end-disabled","label":"bird","camera":"cam1","start_time":1700000000}}'

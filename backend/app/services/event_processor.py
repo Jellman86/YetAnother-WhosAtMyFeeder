@@ -545,6 +545,18 @@ class EventProcessor:
                 return
             if existing_detection is not None:
                 await self._handle_terminal_event_enrichment(event)
+                await self._enqueue_notification_flow(
+                    event=event,
+                    classification={
+                        "label": existing_detection.display_name,
+                        "score": existing_detection.score,
+                        "audio_confirmed": existing_detection.audio_confirmed,
+                        "audio_species": existing_detection.audio_species,
+                    },
+                    snapshot_data=None,
+                    changed=False,
+                    was_inserted=False,
+                )
                 duration_ms = (time.monotonic() - started) * 1000.0
                 self._record_completed(event.frigate_event, duration_ms)
                 self._record_recent_outcome(
@@ -1419,6 +1431,47 @@ class EventProcessor:
             "weather_snowfall": weather.get("snowfall"),
         }
 
+    async def _enqueue_notification_flow(
+        self,
+        *,
+        event: Any,
+        classification: Dict[str, Any],
+        snapshot_data: Optional[bytes],
+        changed: bool,
+        was_inserted: bool,
+    ) -> None:
+        """Queue notification policy evaluation without blocking MQTT ingest."""
+        notify_event = SimpleNamespace(
+            frigate_event=event.frigate_event,
+            camera=event.camera,
+            detection_dt=event.detection_dt,
+            type=event.type,
+            weather_condition=getattr(event, "weather_condition", None),
+        )
+        notify_classification = dict(classification)
+
+        async def _run_notification_flow() -> None:
+            await self.notification_orchestrator.handle_notifications(
+                event=notify_event,
+                classification=notify_classification,
+                snapshot_data=snapshot_data,
+                changed=changed,
+                was_inserted=was_inserted,
+            )
+
+        job_name = f"notify:{event.frigate_event}:{event.type or 'new'}"
+        try:
+            enqueued = await notification_dispatcher.enqueue(job_name=job_name, job_factory=_run_notification_flow)
+        except Exception as exc:
+            enqueued = False
+            log.warning(
+                "Detection saved but notification scheduling failed",
+                event_id=event.frigate_event,
+                error=str(exc),
+            )
+        if not enqueued:
+            log.warning("Notification queue saturated; dropping notification job", event_id=event.frigate_event)
+
     async def _handle_detection_save_and_notify(
         self,
         event: EventData,
@@ -1572,32 +1625,10 @@ class EventProcessor:
             )
 
         # Keep remote notification I/O off MQTT ingest hot path.
-        notify_event = SimpleNamespace(
-            frigate_event=event.frigate_event,
-            camera=event.camera,
-            detection_dt=event.detection_dt,
-            type=event.type,
+        await self._enqueue_notification_flow(
+            event=event,
+            classification=classification,
+            snapshot_data=snapshot_data,
+            changed=changed,
+            was_inserted=was_inserted,
         )
-        notify_classification = dict(classification)
-
-        async def _run_notification_flow() -> None:
-            await self.notification_orchestrator.handle_notifications(
-                event=notify_event,
-                classification=notify_classification,
-                snapshot_data=snapshot_data,
-                changed=changed,
-                was_inserted=was_inserted,
-            )
-
-        job_name = f"notify:{event.frigate_event}:{event.type or 'new'}"
-        try:
-            enqueued = await notification_dispatcher.enqueue(job_name=job_name, job_factory=_run_notification_flow)
-        except Exception as exc:
-            enqueued = False
-            log.warning(
-                "Detection saved but notification scheduling failed",
-                event_id=event.frigate_event,
-                error=str(exc),
-            )
-        if not enqueued:
-            log.warning("Notification queue saturated; dropping notification job", event_id=event.frigate_event)
