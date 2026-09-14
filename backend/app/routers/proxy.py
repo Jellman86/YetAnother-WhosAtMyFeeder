@@ -2125,7 +2125,7 @@ async def proxy_event_hls(
     if not _has_valid_share_context(request, event_id):
         await require_event_access(event_id, auth, lang, media="clip")
 
-    upstream_url = f"{settings.frigate.frigate_url}/api/vod/event/{event_id}/{asset}"
+    upstream_url = f"{settings.frigate.frigate_url}/vod/event/{event_id}/{asset}"
     return await _proxy_hls_asset(request, upstream_url, asset, lang)
 
 
@@ -2151,7 +2151,7 @@ async def proxy_recording_hls(
     camera_name, start_ts, end_ts = await _get_recording_clip_context(event_id, lang)
     if not validate_camera_name(camera_name):
         raise HTTPException(status_code=400, detail="Invalid Frigate camera name")
-    upstream_url = f"{settings.frigate.frigate_url}/api/vod/{camera_name}/start/{start_ts}/end/{end_ts}/{asset}"
+    upstream_url = f"{settings.frigate.frigate_url}/vod/{camera_name}/start/{start_ts}/end/{end_ts}/{asset}"
     return await _proxy_hls_asset(request, upstream_url, asset, lang)
 
 
