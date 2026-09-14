@@ -84,7 +84,7 @@ async def test_event_hls_playlist_rewrites_only_relative_allowlisted_assets(clie
     assert "index-v1.m3u8?share=share_token_123456" in response.text
     assert "ignored" not in response.text
     mock_http.get.assert_awaited_once_with(
-        "http://frigate/api/vod/event/event-1/master.m3u8",
+        "http://frigate/vod/event/event-1/master.m3u8",
         headers=proxy_module.frigate_client._get_headers(),
         timeout=10.0,
     )
@@ -180,7 +180,7 @@ async def test_recording_hls_uses_the_existing_full_visit_window(client: httpx.A
 
     assert response.status_code == 200
     mock_http.get.assert_awaited_once_with(
-        "http://frigate/api/vod/front_feeder/start/1700000000/end/1700000120/master.m3u8",
+        "http://frigate/vod/front_feeder/start/1700000000/end/1700000120/master.m3u8",
         headers=proxy_module.frigate_client._get_headers(),
         timeout=10.0,
     )
