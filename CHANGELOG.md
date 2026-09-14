@@ -33,6 +33,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Completed-event notifications are delivered again.** In the `final` notification mode, an
+  existing detection's Frigate `end` event returned after final-media work without ever running
+  notification policy. Terminal events now enter the same bounded notification queue as initial
+  detections, and snapshot attachments prefer the cached image when Frigate has already expired
+  the event.
 - **Frigate videos now seek and play reliably across Safari, iOS, Chrome and Firefox (#459).**
   Playback uses Frigate's HLS playlists and fragmented MP4 segments when available, with native
   HLS on Apple browsers and `hls.js` elsewhere. The existing MP4 route remains the download,
