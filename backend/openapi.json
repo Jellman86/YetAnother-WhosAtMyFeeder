@@ -14891,6 +14891,16 @@
       },
       "SystemProcessLoadResponse": {
         "properties": {
+          "accelerator": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SystemAcceleratorIdentity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "cpu_percent": {
             "anyOf": [
               {
