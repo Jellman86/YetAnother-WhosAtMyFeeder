@@ -595,6 +595,27 @@ acceleration, update-channel guidance, and a first-run smoke test.
 These are high-value follow-ups. A measured regression can promote a specific item into the 3.0
 exit criteria; the broad initiatives do not block the release by default.
 
+#### Telemetry-confirmed regression queue
+**Priority:** P1 | **Effort:** M | **Status:** 🔄 Two open; one fixed in `dev` and awaiting live proof
+
+The September 15 fleet-health review promoted three concrete regressions ahead of new reliability
+work. Their evidence, counting rules and completion criteria live in [`ISSUES.md`](ISSUES.md):
+
+- [REG-2026-09-15-01](ISSUES.md#reg-2026-09-15-01--accepted-detections-can-expire-before-notification-dispatch)
+  separates the durable detection commit and notification hand-off from slow optional work now
+  sharing the six-second `save_and_notify` deadline.
+- [REG-2026-09-15-02](ISSUES.md#reg-2026-09-15-02--legacy-health-batches-disappear-from-telemetry-breakdowns)
+  makes mixed v1/v3 fleet-health reporting honest without exposing cohorts below the privacy floor
+  or presenting cumulative legacy counters as fresh incidents.
+- [REG-2026-09-15-03](ISSUES.md#reg-2026-09-15-03--final-mode-detection-notifications)
+  keeps the final-mode notification fix in verification until one real accepted event reaches both
+  Telegram and the in-app timeline; the code fix is already in `dev` via PR #467 and is not in
+  stable `2.20.1`.
+
+The queue is complete when both open regressions meet their linked acceptance criteria and the
+fixed regression has end-to-end field evidence. It is a sequencing rule for reliability work, not
+an implicit promotion of unrelated backlog into the `3.0` exit criteria.
+
 #### Performance optimization 🚀
 **Priority:** P1 | **Effort:** L | **Status:** 🔄 Foundations in progress
 
@@ -645,7 +666,9 @@ takes: ONNX hardcodes `intra_op_num_threads = 4` regardless of the host, OpenVIN
 
 It is already costing detections rather than just page loads. A reporter's bundle records
 `save_and_notify` timing out after six seconds with `fault_drops: 1` and `critical_failures: 1`,
-which is a lost detection and therefore a section 1 concern.
+which is a lost detection and therefore a section 1 concern. The fleet-confirmed form and its
+completion criteria are tracked as
+[REG-2026-09-15-01](ISSUES.md#reg-2026-09-15-01--accepted-detections-can-expire-before-notification-dispatch).
 
 ✅ The first slice is delivered: hardware capability detection no longer happens on a request. It
 spawned up to three child processes, each importing an inference runtime with a five second timeout,
