@@ -4,13 +4,58 @@ This document tracks known issues and testing gaps that have not been verified e
 
 If you find a bug, please open a GitHub issue with the steps to reproduce and any redacted logs.
 
-Last reviewed against the GitHub issue tracker on **September 13, 2026**.
+Last reviewed against the GitHub issue tracker and opt-in fleet telemetry on
+**September 15, 2026**.
 
 ## P0: Active Regressions
 
 - None currently confirmed as unresolved in current `dev`.
 
+## P1: Active Regressions
+
+### REG-2026-09-15-01 — Accepted detections can expire before notification dispatch
+
+- **State:** unresolved in current `dev`.
+- **Evidence:** the September 15 fleet review found 41 underlying occurrences across two
+  installations in the preceding 30 days, including one occurrence from the current `dev` build.
+  Each failure emits both `stage_timeout/save_and_notify` and
+  `drop_save_and_notify_failed`; those 82 raw markers describe 41 failures and must not be counted
+  as separate incidents.
+- **Impact:** one six-second deadline currently covers the database upsert, optional Frigate
+  sublabel write, snapshot caching, video-classification scheduling and notification enqueue. A
+  timeout can therefore cancel an otherwise accepted detection before notification work becomes
+  durable, either losing the detection or leaving a saved detection without its notification.
+- **Roadmap:** [telemetry-confirmed regression queue](ROADMAP.md#telemetry-confirmed-regression-queue).
+- **Complete when:** the accepted detection is durably committed before optional remote and media
+  work, notification delivery is independently recoverable, and a regression test proves slow
+  optional work cannot turn a committed detection into `save_and_notify_failed`.
+
+### REG-2026-09-15-02 — Legacy health batches disappear from telemetry breakdowns
+
+- **State:** unresolved in the telemetry worker on current `dev`.
+- **Evidence:** legacy v1 batches retain aggregate `critical_count` and related count columns but
+  have no `event_groups_json`. The public severity, component and top-issue queries only expand
+  `event_groups_json`, so those batches contribute to headline totals while disappearing from the
+  breakdown. The fleet review found a still-active legacy client reporting a cumulative
+  `classify_snapshot` critical; repeated daily cumulative reports must not be presented as new
+  failures.
+- **Impact:** operators can read a clean or incomplete breakdown while older enabled clients are
+  still reporting critical health in an otherwise publishable cohort, which makes release-health
+  assessment unreliable.
+- **Roadmap:** [telemetry-confirmed regression queue](ROADMAP.md#telemetry-confirmed-regression-queue).
+- **Complete when:** mixed-schema aggregates preserve legacy severities without inventing missing
+  fingerprints or violating the public cohort threshold, cumulative reports are labelled or
+  deduplicated honestly, and integration tests cover a mixed v1/v3 reporting window.
+
 ## Pending Verification (Fixes in Dev, Awaiting Reporter Confirmation)
+
+- **REG-2026-09-15-03 — final-mode detection notifications:** stable `2.20.1` can save a final
+  Frigate event without dispatching its notification because the terminal path treated the earlier
+  preliminary classification as unchanged. PR #467 makes the terminal decision authoritative in
+  `dev`, but the reference install has not yet produced a qualifying accepted detection since that
+  build was deployed. Keep this open until Telegram and the in-app notification timeline both
+  prove one real final-mode detection end to end. Tracked in the
+  [telemetry-confirmed regression queue](ROADMAP.md#telemetry-confirmed-regression-queue).
 
 - **#451 Frigate clips stop after their first chunk:** the media-cookie security change made the
   browser stop carrying the owner token in video URLs, but the rate limiter still recognised only
