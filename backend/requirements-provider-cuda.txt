@@ -4,4 +4,4 @@
 # carry, and 1.29+ installs CUDA 13 userspace, which needs the NVIDIA 580 driver
 # series on the host. Moving is a 3.0 breaking change (ROADMAP 1.7); Dependabot
 # is told not to propose it. test_dependency_pins.py keeps the two in step.
-onnxruntime-gpu[cuda,cudnn]>=1.24.0,<1.27.0
+onnxruntime-gpu[cuda,cudnn]>=1.26.0,<1.27.0
