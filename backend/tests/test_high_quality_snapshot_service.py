@@ -173,6 +173,46 @@ def test_extract_crop_event_hints_keeps_only_valid_box_and_region():
     }
 
 
+def test_extract_crop_event_hints_keeps_frigate_retention_signals():
+    service = hq_module.HighQualitySnapshotService()
+
+    hints = service._extract_crop_event_hints(
+        {
+            "start_time": 100.0,
+            "end_time": 101.0,
+            "data": {"box": [10, 20, 30, 40]},
+            "position_changes": 0,
+            "has_snapshot": False,
+            "has_clip": False,
+        }
+    )
+
+    assert hints is not None
+    assert hints["position_changes"] == 0
+    assert hints["has_snapshot"] is False
+    assert hints["has_clip"] is False
+
+
+def test_extract_crop_event_hints_keeps_retention_signals_without_localization_data():
+    service = hq_module.HighQualitySnapshotService()
+
+    hints = service._extract_crop_event_hints(
+        {
+            "end_time": 101.0,
+            "position_changes": 0,
+            "has_snapshot": False,
+            "has_clip": False,
+        }
+    )
+
+    assert hints == {
+        "end_time": 101.0,
+        "position_changes": 0,
+        "has_snapshot": False,
+        "has_clip": False,
+    }
+
+
 def test_candidate_generation_attempts_model_crop_when_legacy_crop_flag_is_off(monkeypatch):
     service = hq_module.HighQualitySnapshotService()
     monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True, raising=False)
@@ -1686,6 +1726,106 @@ async def test_process_event_replaces_cached_snapshot_with_clip_frame(tmp_path, 
 
     assert result == "replaced"
     assert await cache_service.get_snapshot("evt_replace") == b"derived-bytes"
+
+
+@pytest.mark.asyncio
+async def test_process_event_preserves_existing_crop_when_only_full_frame_is_available(tmp_path, monkeypatch):
+    cache_service = _make_cache_service(tmp_path, monkeypatch)
+    original = _jpeg_bytes("red", size=(32, 32))
+    await cache_service.cache_snapshot(
+        "evt_preserve_crop",
+        original,
+        source="frigate_snapshot_cropped",
+    )
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True, raising=False)
+
+    async def fake_wait_for_clip(_event_id: str):
+        return b"clip-bytes", None
+
+    async def fake_generate(*_args, **_kwargs):
+        return {
+            "selected_candidate": {
+                "candidate_id": "full-frame",
+                "image_bytes": _jpeg_bytes("blue", size=(64, 64)),
+                "source_mode": "full_frame",
+                "snapshot_source": "hq_candidate_full_frame",
+            },
+            "candidates": [],
+        }
+
+    monkeypatch.setattr(hq_module.high_quality_snapshot_service, "_wait_for_clip", fake_wait_for_clip)
+    monkeypatch.setattr(
+        hq_module.high_quality_snapshot_service,
+        "generate_snapshot_candidates_from_clip_bytes",
+        fake_generate,
+    )
+    monkeypatch.setattr(
+        hq_module.high_quality_snapshot_service,
+        "_persist_snapshot_candidates",
+        AsyncMock(),
+    )
+    monkeypatch.setattr(
+        hq_module.high_quality_snapshot_service,
+        "_apply_classification_refinement",
+        AsyncMock(return_value=False),
+    )
+
+    result = await hq_module.high_quality_snapshot_service.process_event("evt_preserve_crop")
+
+    assert result == "existing_crop_preserved"
+    assert await cache_service.get_snapshot("evt_preserve_crop") == original
+
+
+@pytest.mark.asyncio
+async def test_process_event_uses_persisted_hints_when_frigate_event_is_gone(tmp_path, monkeypatch):
+    cache_service = _make_cache_service(tmp_path, monkeypatch)
+    persisted_hints = {
+        "start_time": 100.0,
+        "end_time": 105.0,
+        "data": {"box": [20, 10, 50, 30]},
+    }
+    await cache_service.cache_snapshot(
+        "evt_persisted_hint",
+        _jpeg_bytes("red"),
+        source="frigate_snapshot_cropped",
+        event_hints=persisted_hints,
+    )
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True, raising=False)
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshot_bird_crop", True, raising=False)
+
+    async def fake_wait_for_clip(_event_id: str):
+        return b"clip-bytes", None
+
+    captured: dict[str, object] = {}
+
+    async def fake_generate(_event_id, _clip_bytes, *, event_data=None, clip_variant="event"):
+        captured["event_data"] = event_data
+        captured["clip_variant"] = clip_variant
+        return None
+
+    monkeypatch.setattr(hq_module.high_quality_snapshot_service, "_wait_for_clip", fake_wait_for_clip)
+    monkeypatch.setattr(
+        hq_module.high_quality_snapshot_service, "_load_event_data_for_crop", AsyncMock(return_value=None)
+    )
+    monkeypatch.setattr(
+        hq_module.high_quality_snapshot_service,
+        "generate_snapshot_candidates_from_clip_bytes",
+        fake_generate,
+    )
+    monkeypatch.setattr(
+        hq_module.high_quality_snapshot_service,
+        "_extract_snapshot_from_clip",
+        lambda *_args: _jpeg_bytes("blue"),
+    )
+    monkeypatch.setattr(
+        hq_module.high_quality_snapshot_service,
+        "_maybe_crop_snapshot_bytes",
+        lambda _event_id, image_bytes, _event_data: (image_bytes, False),
+    )
+
+    await hq_module.high_quality_snapshot_service.process_event("evt_persisted_hint")
+
+    assert captured["event_data"] == persisted_hints
 
 
 @pytest.mark.asyncio

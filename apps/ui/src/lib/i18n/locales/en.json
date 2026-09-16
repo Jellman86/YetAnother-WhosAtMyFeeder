@@ -1856,6 +1856,8 @@
     "snapshot_best": "Best",
     "snapshot_apply_success": "Snapshot updated",
     "snapshot_generate_success": "HQ snapshot generated",
+    "snapshot_existing_crop_preserved": "No reliable new crop was found; the existing crop was kept.",
+    "snapshot_generated_full_frame": "No reliable crop was found; the best full frame was saved.",
     "snapshot_candidates_loading": "Loading…",
     "snapshot_candidates_empty": "No scored frames yet — use \"Regenerate HQ\" to analyse this clip.",
     "snapshot_model_candidates_empty": "No AI-cropped frames found. Full-frame and smart-crop candidates are available above.",

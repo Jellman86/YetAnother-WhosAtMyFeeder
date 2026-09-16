@@ -2,7 +2,7 @@ import pytest
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 from types import SimpleNamespace
-from app.services.event_processor import CLASSIFICATION_DECIDED_TOMBSTONE_TTL_SECONDS, EventProcessor
+from app.services.event_processor import CLASSIFICATION_DECIDED_TOMBSTONE_TTL_SECONDS, EventData, EventProcessor
 from app.services.classification_admission import ClassificationLeaseExpiredError
 from app.services.classifier_service import LiveImageClassificationOverloadedError
 
@@ -135,6 +135,39 @@ def test_parse_event_accepts_update_events_for_bounded_recovery():
     )
     assert event is not None
     assert event.type == "update"
+
+
+def test_event_data_snapshot_context_preserves_localization_and_retention_signals():
+    event = EventData(
+        {
+            "type": "end",
+            "after": {
+                "id": "evt-ephemeral",
+                "label": "bird",
+                "camera": "cam1",
+                "start_time": 100.0,
+                "end_time": 105.0,
+                "box": [10, 20, 30, 40],
+                "region": [0, 0, 100, 100],
+                "position_changes": 0,
+                "has_snapshot": False,
+                "has_clip": False,
+                "data": {"path_data": [[[20, 30], 102.0]]},
+            },
+        }
+    )
+
+    context = event.snapshot_context()
+
+    assert context["data"] == {
+        "box": [10, 20, 30, 40],
+        "region": [0, 0, 100, 100],
+        "path_data": [[[20, 30], 102.0]],
+    }
+    assert context["position_changes"] == 0
+    assert context["has_snapshot"] is False
+    assert context["has_clip"] is False
+    assert event.not_retained_by_frigate() is True
 
 
 @pytest.mark.asyncio
@@ -511,6 +544,39 @@ async def test_terminal_enrichment_isolates_media_queue_failures_after_durable_d
 
 
 @pytest.mark.asyncio
+async def test_terminal_enrichment_records_event_frigate_did_not_retain():
+    processor = EventProcessor(MagicMock())
+    event = EventData(
+        {
+            "type": "end",
+            "after": {
+                "id": "evt-not-retained",
+                "label": "bird",
+                "camera": "cam1",
+                "start_time": 100.0,
+                "end_time": 105.0,
+                "position_changes": 0,
+                "has_snapshot": False,
+                "has_clip": False,
+            },
+        }
+    )
+    processor._auto_full_visit_enabled = MagicMock(return_value=False)  # type: ignore[method-assign]
+    repo = MagicMock()
+    repo.mark_frigate_not_retained = AsyncMock(return_value=True)
+
+    with (
+        patch("app.services.event_processor.media_cache.has_snapshot", return_value=False),
+        patch("app.services.event_processor.get_db") as mock_get_db,
+        patch("app.services.event_processor.DetectionRepository", return_value=repo),
+    ):
+        mock_get_db.return_value.__aenter__.return_value = AsyncMock()
+        await processor._handle_terminal_event_enrichment(event)
+
+    repo.mark_frigate_not_retained.assert_awaited_once_with("evt-not-retained")
+
+
+@pytest.mark.asyncio
 async def test_enqueue_notification_flow_uses_dispatcher_queue():
     processor = EventProcessor(MagicMock())
 
@@ -696,6 +762,10 @@ async def test_detection_post_commit_schedules_high_quality_snapshot_replacement
         patch("app.services.event_processor.settings.media_cache.high_quality_event_snapshots", True, create=True),
     ):
         mock_cache.cache_snapshot = AsyncMock()
+        mock_hq.extract_event_hints.return_value = {
+            "start_time": 1700000000,
+            "data": {"box": [0.2, 0.3, 0.4, 0.5]},
+        }
         mock_hq.schedule_replacement = MagicMock(return_value=True)
 
         await processor._handle_detection_post_commit(
@@ -710,6 +780,10 @@ async def test_detection_post_commit_schedules_high_quality_snapshot_replacement
             "evt-hq-1",
             b"img",
             source="frigate_snapshot_uncropped",
+            event_hints={
+                "start_time": 1700000000,
+                "data": {"box": [0.2, 0.3, 0.4, 0.5]},
+            },
         )
     mock_hq.schedule_replacement.assert_called_once_with(
         "evt-hq-1",

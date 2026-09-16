@@ -1856,6 +1856,8 @@
     "snapshot_best": "Melhor",
     "snapshot_apply_success": "Captura atualizada",
     "snapshot_generate_success": "Captura HQ gerada",
+    "snapshot_existing_crop_preserved": "Não foi encontrado um novo recorte fiável; o recorte existente foi mantido.",
+    "snapshot_generated_full_frame": "Não foi encontrado um recorte fiável; foi guardado o melhor fotograma completo.",
     "snapshot_candidates_loading": "Carregando quadros candidatos…",
     "snapshot_candidates_empty": "Ainda não há quadros candidatos salvos.",
     "snapshot_model_candidates_empty": "Nenhum frame recortado por IA encontrado. Candidatos de quadro completo e recorte inteligente estão disponíveis acima.",

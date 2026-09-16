@@ -1847,6 +1847,8 @@
     "snapshot_best": "Mejor",
     "snapshot_apply_success": "Instantánea actualizada",
     "snapshot_generate_success": "Instantánea HQ generada",
+    "snapshot_existing_crop_preserved": "No se encontró un recorte nuevo fiable; se conservó el recorte existente.",
+    "snapshot_generated_full_frame": "No se encontró un recorte fiable; se guardó el mejor fotograma completo.",
     "snapshot_candidates_loading": "Cargando fotogramas candidatos…",
     "snapshot_candidates_empty": "Aún no hay fotogramas candidatos guardados.",
     "snapshot_model_candidates_empty": "No se encontraron fotogramas recortados por IA. Los candidatos de fotograma completo y recorte inteligente están disponibles arriba.",

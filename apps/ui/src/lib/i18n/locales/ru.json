@@ -1856,6 +1856,8 @@
     "snapshot_best": "Лучший",
     "snapshot_apply_success": "Снимок обновлён",
     "snapshot_generate_success": "HQ-снимок создан",
+    "snapshot_existing_crop_preserved": "Надёжный новый кадр не найден; сохранён существующий кадр.",
+    "snapshot_generated_full_frame": "Надёжный кадр не найден; сохранён лучший полный кадр.",
     "snapshot_candidates_loading": "Загрузка кадров-кандидатов…",
     "snapshot_candidates_empty": "Сохранённых кадров-кандидатов пока нет.",
     "snapshot_model_candidates_empty": "Кадры с ИИ-обрезкой не найдены. Кандидаты с полным кадром и умной обрезкой доступны выше.",

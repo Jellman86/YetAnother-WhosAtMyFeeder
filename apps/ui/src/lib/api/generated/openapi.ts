@@ -1754,8 +1754,10 @@ export interface components {
     cached: boolean;
     can_generate_hq_bird_crop: boolean;
     event_id: string;
+    frigate_event_state?: "available" | "not_retained" | "unavailable" | "unchecked";
     high_quality_bird_crop_enabled: boolean;
     high_quality_event_snapshots_enabled: boolean;
+    localization_hint_available?: boolean;
     original_frigate_snapshot_available?: boolean | null;
     source?: string | null;
     status: "applied";
@@ -1789,20 +1791,24 @@ export interface components {
     cached: boolean;
     can_generate_hq_bird_crop: boolean;
     event_id: string;
+    frigate_event_state?: "available" | "not_retained" | "unavailable" | "unchecked";
     high_quality_bird_crop_enabled: boolean;
     high_quality_event_snapshots_enabled: boolean;
+    localization_hint_available?: boolean;
     original_frigate_snapshot_available?: boolean | null;
     result: string;
     source?: string | null;
-    status: "already_hq_bird_crop" | "generated_hq_bird_crop" | "generated_hq_snapshot";
+    status: "already_hq_bird_crop" | "generated_hq_bird_crop" | "generated_hq_snapshot" | "existing_crop_preserved";
 };
     SnapshotStatusResponse: {
     already_hq_bird_crop: boolean;
     cached: boolean;
     can_generate_hq_bird_crop: boolean;
     event_id: string;
+    frigate_event_state?: "available" | "not_retained" | "unavailable" | "unchecked";
     high_quality_bird_crop_enabled: boolean;
     high_quality_event_snapshots_enabled: boolean;
+    localization_hint_available?: boolean;
     original_frigate_snapshot_available?: boolean | null;
     source?: string | null;
 };

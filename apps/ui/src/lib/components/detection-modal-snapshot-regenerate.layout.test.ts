@@ -18,6 +18,10 @@ describe('DetectionModal snapshot regeneration', () => {
     it('distinguishes regeneration success from no selectable candidates', () => {
         expect(detectionModalSource).toContain('detection.snapshot_regenerate_no_candidates');
         expect(detectionModalSource).toContain('snapshotCandidates.length > 0');
+        expect(detectionModalSource).toContain("result.status === 'existing_crop_preserved'");
+        expect(detectionModalSource).toContain('detection.snapshot_existing_crop_preserved');
+        expect(detectionModalSource).toContain("result.status === 'generated_hq_snapshot'");
+        expect(detectionModalSource).toContain('detection.snapshot_generated_full_frame');
     });
 
     it('exposes one regenerate control rather than duplicating it by candidate state', () => {

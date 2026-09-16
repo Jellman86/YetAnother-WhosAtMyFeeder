@@ -37,6 +37,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **A late snapshot refresh can no longer replace a useful bird crop with a full feeder frame.**
+  Event-time Frigate boxes and final retention flags are retained beside the cached photograph, so
+  clip analysis can still make an accurate crop after an ephemeral Frigate event disappears. If
+  no trustworthy replacement crop exists, YA-WAMF keeps the existing crop and reports that result
+  explicitly; Frigate events that declare no retained clip or snapshot are recorded separately
+  from ordinary missing media.
 - **Frigate's live-event boxes now produce tight bird crops instead of oversized feeder scenes.**
   MQTT reports pixel corner coordinates while the REST API reports normalized width and height;
   both representations are now restored through one tested conversion path. If every classified

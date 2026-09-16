@@ -30,6 +30,7 @@ from app.services.hq_classification_refinement import (
     crop_labels_with_independent_support,
 )
 from app.services.media_cache import media_cache
+from app.services.classification_input_provenance import cached_snapshot_input_provenance
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 from app.repositories.processing_job_repository import ProcessingJobRepository
@@ -210,6 +211,9 @@ class HighQualitySnapshotService:
 
         if event_data is None:
             event_data = await self._load_event_data_for_crop(event_id)
+        if event_data is None:
+            event_data = await self._load_persisted_event_hints(event_id)
+        await self._persist_event_hints(event_id, event_data)
         snapshot_event_data = event_data if clip_variant == "event" else None
         selected_candidate = None
         classification_candidates: list[dict[str, Any]] = []
@@ -260,6 +264,15 @@ class HighQualitySnapshotService:
                 snapshot_event_data,
             )
             snapshot_source = "high_quality_bird_crop" if crop_applied else "high_quality_snapshot"
+
+        if not crop_applied and await self._existing_snapshot_is_cropped(event_id):
+            await self._apply_classification_refinement(event_id, classification_candidates)
+            log.info(
+                "Preserved existing cropped snapshot because no replacement crop was available",
+                event_id=event_id,
+                attempted_source=snapshot_source,
+            )
+            return self._record_outcome(event_id, "existing_crop_preserved")
 
         replaced = await media_cache.replace_snapshot(
             event_id,
@@ -341,6 +354,9 @@ class HighQualitySnapshotService:
             crop_event_data = (
                 event_data if isinstance(event_data, dict) else await self._load_event_data_for_crop(event_id)
             )
+            if crop_event_data is None:
+                crop_event_data = await self._load_persisted_event_hints(event_id)
+            await self._persist_event_hints(event_id, crop_event_data)
             snapshot_event_data = crop_event_data if clip_variant == "event" else None
             selected_candidate = None
             classification_candidates: list[dict[str, Any]] = []
@@ -385,6 +401,21 @@ class HighQualitySnapshotService:
                     snapshot_event_data,
                 )
                 snapshot_source = "high_quality_bird_crop" if crop_applied else "high_quality_snapshot"
+
+            if not crop_applied and await self._existing_snapshot_is_cropped(event_id):
+                await self._apply_classification_refinement(event_id, classification_candidates)
+                if event_id not in self._final_refresh_ids and (
+                    event_id in self._queued_ids or event_id in self._deferred_ids
+                ):
+                    self._completed_ids.add(event_id)
+                log.info(
+                    "Preserved existing cropped snapshot because no replacement crop was available",
+                    event_id=event_id,
+                    attempted_source=snapshot_source,
+                )
+                result = self._record_outcome(event_id, "existing_crop_preserved")
+                await self._persist_processing_outcome(event_id, result)
+                return result
 
             replaced = await media_cache.replace_snapshot(
                 event_id,
@@ -1688,12 +1719,16 @@ class HighQualitySnapshotService:
     def _pop_crop_event_hints(self, event_id: str) -> Optional[dict[str, Any]]:
         return self._crop_event_hints.pop(event_id, None)
 
+    def extract_event_hints(self, event_data: Optional[dict[str, Any]]) -> Optional[dict[str, Any]]:
+        """Return the bounded event metadata safe to retain beside a snapshot."""
+        return self._extract_crop_event_hints(event_data)
+
     def _extract_crop_event_hints(self, event_data: Optional[dict[str, Any]]) -> Optional[dict[str, Any]]:
         if not isinstance(event_data, dict):
             return None
         raw_payload = event_data.get("data")
         if not isinstance(raw_payload, dict):
-            return None
+            raw_payload = {}
         payload: dict[str, Any] = {}
         for key in ("box", "region"):
             raw_hint = raw_payload.get(key)
@@ -1726,7 +1761,31 @@ class HighQualitySnapshotService:
             value = event_data.get(key)
             if value is not None:
                 hints[key] = value
+        for key in ("position_changes", "has_snapshot", "has_clip"):
+            value = event_data.get(key)
+            if value is not None:
+                hints[key] = value
         return hints or None
+
+    async def _load_persisted_event_hints(self, event_id: str) -> Optional[dict[str, Any]]:
+        metadata = await media_cache.get_snapshot_metadata(event_id)
+        persisted = (metadata or {}).get("event_hints")
+        return self._extract_crop_event_hints(persisted if isinstance(persisted, dict) else None)
+
+    async def _persist_event_hints(self, event_id: str, event_data: Optional[dict[str, Any]]) -> None:
+        hints = self._extract_crop_event_hints(event_data)
+        if not hints:
+            return
+        try:
+            await media_cache.update_snapshot_event_hints(event_id, hints)
+        except Exception as exc:
+            log.debug("Unable to persist snapshot event hints", event_id=event_id, error=str(exc))
+
+    async def _existing_snapshot_is_cropped(self, event_id: str) -> bool:
+        if await media_cache.get_snapshot_path(event_id) is None:
+            return False
+        metadata = await media_cache.get_snapshot_metadata(event_id)
+        return cached_snapshot_input_provenance(metadata).is_cropped
 
     async def _load_event_data_for_crop(self, event_id: str) -> Optional[dict[str, Any]]:
         """Fetch event metadata only when it can improve HQ bird-crop accuracy."""
