@@ -27,6 +27,7 @@ from app.services.inference_health import InferenceHealth, Outcome, RuntimeKey
 from app.services.openvino_cache import resolve_openvino_cache_dir
 from app.services.startup_status import startup_status
 from app.utils.canonical_species import should_hide_species_label
+from app.utils.frigate_coordinates import normalize_frigate_hint_box, restore_frigate_hint_box
 from app.utils.runtime_flavor import get_image_flavor, image_flavor_warning, packaged_inference_providers
 
 # TFLite runtime
@@ -5060,6 +5061,7 @@ class ClassifierService:
         input_context: ClassificationInputContext,
         *,
         frame_offset_seconds: float | None,
+        image_size: tuple[int, int] | None = None,
     ) -> list[float] | None:
         """Align Frigate's tracked path with the actual clip timeline."""
         raw_path_data = self._input_context_extra(input_context, "frigate_path_data")
@@ -5075,15 +5077,17 @@ class ClassifierService:
         try:
             clip_start = float(raw_clip_start)
             offset = float(frame_offset_seconds)
-            _left, _top, width, height = [float(value) for value in raw_box]
         except (TypeError, ValueError):
             return None
-        if (
-            not all(math.isfinite(value) for value in (clip_start, offset, width, height))
-            or offset < 0.0
-            or not (0.0 < width <= 1.0)
-            or not (0.0 < height <= 1.0)
-        ):
+        if not all(math.isfinite(value) for value in (clip_start, offset)) or offset < 0.0:
+            return None
+        if image_size is None:
+            image_size = (1, 1)
+        normalized_box = normalize_frigate_hint_box(raw_box, image_size)
+        if normalized_box is None:
+            return None
+        _left, _top, width, height = normalized_box
+        if width > 1.0 or height > 1.0:
             return None
 
         path_points: list[tuple[float, float, float]] = []
@@ -5121,6 +5125,7 @@ class ClassifierService:
         input_context: ClassificationInputContext,
         *,
         frame_offset_seconds: float | None,
+        image_size: tuple[int, int] | None = None,
     ) -> ClassificationInputContext:
         """Return crop hints that are valid at this frame's clip timestamp.
 
@@ -5140,6 +5145,7 @@ class ClassifierService:
             tracked_box = self._tracked_frigate_box_for_frame(
                 input_context,
                 frame_offset_seconds=frame_offset_seconds,
+                image_size=image_size,
             )
             if tracked_box is not None:
                 frame_context_payload["frigate_box"] = tracked_box
@@ -5337,37 +5343,7 @@ class ClassifierService:
         raw_hint: Any,
         image_size: tuple[int, int],
     ) -> tuple[int, int, int, int] | None:
-        if not isinstance(raw_hint, (list, tuple)) or len(raw_hint) != 4:
-            return None
-        try:
-            left = float(raw_hint[0])
-            top = float(raw_hint[1])
-            width = float(raw_hint[2])
-            height = float(raw_hint[3])
-        except (TypeError, ValueError):
-            return None
-        if not all(math.isfinite(value) for value in (left, top, width, height)):
-            return None
-
-        image_width, image_height = image_size
-        normalized = 0.0 <= left <= 1.0 and 0.0 <= top <= 1.0 and 0.0 <= width <= 1.0 and 0.0 <= height <= 1.0
-        if normalized:
-            left *= float(image_width)
-            top *= float(image_height)
-            width *= float(image_width)
-            height *= float(image_height)
-
-        right = left + width
-        bottom = top + height
-        if right <= left or bottom <= top:
-            return None
-        left_i = max(0, min(image_width, int(math.floor(left))))
-        top_i = max(0, min(image_height, int(math.floor(top))))
-        right_i = max(0, min(image_width, int(math.ceil(right))))
-        bottom_i = max(0, min(image_height, int(math.ceil(bottom))))
-        if right_i <= left_i or bottom_i <= top_i:
-            return None
-        return left_i, top_i, right_i, bottom_i
+        return restore_frigate_hint_box(raw_hint, image_size)
 
     def _expand_hint_box(
         self,
@@ -6464,6 +6440,7 @@ class ClassifierService:
                 frame_input_context = self._video_frame_input_context(
                     normalized_input_context,
                     frame_offset_seconds=frame_offset_sec,
+                    image_size=image.size,
                 )
                 stage_seconds["frame_preparation"] += time.perf_counter() - stage_started
 

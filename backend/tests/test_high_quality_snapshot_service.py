@@ -331,6 +331,28 @@ def test_expand_hint_box_keeps_more_context_around_frigate_box():
     assert expanded == (14, 14, 186, 186)
 
 
+def test_restore_frigate_hint_box_preserves_normalized_rest_xywh_contract():
+    service = hq_module.HighQualitySnapshotService()
+
+    restored = service._restore_frigate_hint_box(
+        [0.30703125, 0.22430555555555556, 0.0484375, 0.06527777777777778],
+        (2560, 1440),
+    )
+
+    assert restored == (786, 323, 910, 417)
+
+
+def test_restore_frigate_hint_box_treats_mqtt_pixel_coordinates_as_xyxy():
+    service = hq_module.HighQualitySnapshotService()
+
+    restored = service._restore_frigate_hint_box(
+        [786, 323, 910, 417],
+        (2560, 1440),
+    )
+
+    assert restored == (786, 323, 910, 417)
+
+
 def test_extract_snapshot_from_clip_path_prefers_frame_with_model_confirmed_crop(monkeypatch):
     service = hq_module.HighQualitySnapshotService()
     monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshot_bird_crop", True, raising=False)
@@ -628,6 +650,27 @@ def test_event_hint_box_tracks_the_nearest_path_point_and_rejects_stale_hints():
     assert last["data"]["box"] == pytest.approx([0.60, 0.65, 0.20, 0.10])
     assert stale is None
     assert recording is None
+
+
+def test_event_hint_box_tracks_mqtt_pixel_box_using_decoded_frame_size():
+    service = hq_module.HighQualitySnapshotService()
+    event_data = {
+        "start_time": 100.0,
+        "data": {
+            "box": [10, 20, 30, 40],
+            "path_data": [[[0.5, 0.6], 100.0]],
+        },
+    }
+
+    tracked = service._event_hints_for_frame(
+        event_data,
+        frame_offset_seconds=0.0,
+        clip_variant="event",
+        image_size=(100, 100),
+    )
+
+    assert tracked is not None
+    assert tracked["data"]["box"] == pytest.approx([0.4, 0.4, 0.2, 0.2])
 
 
 def test_path_sampling_compares_bottom_centre_points_with_the_final_box():
@@ -1279,6 +1322,55 @@ def test_select_canonical_snapshot_candidate_requires_crop_identity_consistency(
     assert selected["candidate_id"] == "matching-crop"
 
 
+def test_select_canonical_snapshot_candidate_falls_back_to_full_frame_when_every_label_conflicts():
+    service = hq_module.HighQualitySnapshotService()
+
+    selected = service._select_canonical_snapshot_candidate(
+        [
+            {
+                "candidate_id": "conflicting-full",
+                "source_mode": "full_frame",
+                "ranking_score": 0.20,
+                "image_width": 2560,
+                "image_height": 1440,
+                "classifier_label": "Cyanistes caeruleus",
+            },
+            {
+                "candidate_id": "conflicting-crop",
+                "source_mode": "frigate_hint_crop",
+                "ranking_score": 0.95,
+                "image_width": 1566,
+                "image_height": 717,
+                "classifier_label": "Cyanistes caeruleus",
+            },
+        ],
+        expected_labels={"Prunella modularis"},
+    )
+
+    assert selected is not None
+    assert selected["candidate_id"] == "conflicting-full"
+
+
+def test_select_canonical_snapshot_candidate_rejects_conflicting_crop_without_full_frame():
+    service = hq_module.HighQualitySnapshotService()
+
+    selected = service._select_canonical_snapshot_candidate(
+        [
+            {
+                "candidate_id": "conflicting-crop",
+                "source_mode": "frigate_hint_crop",
+                "ranking_score": 0.95,
+                "image_width": 320,
+                "image_height": 240,
+                "classifier_label": "Cyanistes caeruleus",
+            }
+        ],
+        expected_labels={"Prunella modularis"},
+    )
+
+    assert selected is None
+
+
 def test_persisted_candidates_reserve_selected_and_full_frame_fallback():
     service = hq_module.HighQualitySnapshotService()
     ranked = [
@@ -1362,7 +1454,7 @@ def test_maybe_crop_snapshot_bytes_prefers_event_hint_over_model_crop(monkeypatc
     cropped_bytes, crop_applied = service._maybe_crop_snapshot_bytes(
         "evt_model_crop",
         buffer.getvalue(),
-        {"data": {"box": [5, 5, 20, 20]}},
+        {"data": {"box": [5, 5, 25, 25]}},
     )
 
     assert crop_applied is True
@@ -1386,7 +1478,7 @@ def test_maybe_crop_snapshot_bytes_falls_back_to_hint_when_model_finds_no_crop(m
     cropped_bytes, crop_applied = service._maybe_crop_snapshot_bytes(
         "evt_no_model_crop",
         frame_bytes,
-        {"data": {"box": [5, 5, 20, 20]}},
+        {"data": {"box": [5, 5, 25, 25]}},
     )
 
     assert crop_applied is True
@@ -1432,7 +1524,7 @@ def test_maybe_crop_snapshot_bytes_keeps_full_frame_under_pressure(monkeypatch):
     cropped_bytes, crop_applied = service._maybe_crop_snapshot_bytes(
         "evt_pressure",
         frame_bytes,
-        {"data": {"box": [5, 5, 20, 20]}},
+        {"data": {"box": [5, 5, 25, 25]}},
     )
 
     assert crop_applied is False
@@ -1629,7 +1721,7 @@ async def test_scheduled_replacement_uses_stored_event_hints_without_refetch(tmp
 
     queued = hq_module.high_quality_snapshot_service.schedule_replacement(
         "evt_scheduled_hint",
-        event_data={"data": {"box": [20, 10, 30, 20]}},
+        event_data={"data": {"box": [20, 10, 50, 30]}},
     )
     worker_task = asyncio.create_task(hq_module.high_quality_snapshot_service._worker_loop(0))
     await asyncio.wait_for(hq_module.high_quality_snapshot_service.wait_for_idle(), timeout=1.0)
@@ -1662,7 +1754,7 @@ async def test_process_event_uses_frigate_box_hint_for_hq_bird_crop(tmp_path, mo
     monkeypatch.setattr(
         hq_module.frigate_client,
         "get_event_with_error",
-        AsyncMock(return_value=({"data": {"box": [20, 10, 30, 20]}}, None)),
+        AsyncMock(return_value=({"data": {"box": [20, 10, 50, 30]}}, None)),
     )
 
     async def fake_wait_for_clip(event_id: str):
@@ -1711,7 +1803,7 @@ async def test_process_event_prefers_frigate_hint_before_crop_model(tmp_path, mo
     monkeypatch.setattr(
         hq_module.frigate_client,
         "get_event_with_error",
-        AsyncMock(return_value=({"data": {"box": [20, 10, 30, 20]}}, None)),
+        AsyncMock(return_value=({"data": {"box": [20, 10, 50, 30]}}, None)),
     )
 
     async def fake_wait_for_clip(event_id: str):
@@ -1758,7 +1850,7 @@ async def test_process_event_ignores_legacy_model_priority_when_frigate_hint_is_
     monkeypatch.setattr(
         hq_module.frigate_client,
         "get_event_with_error",
-        AsyncMock(return_value=({"data": {"box": [20, 10, 30, 20]}}, None)),
+        AsyncMock(return_value=({"data": {"box": [20, 10, 50, 30]}}, None)),
     )
 
     async def fake_wait_for_clip(event_id: str):

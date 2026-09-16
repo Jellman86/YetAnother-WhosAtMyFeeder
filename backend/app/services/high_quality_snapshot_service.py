@@ -35,6 +35,7 @@ from app.repositories.detection_repository import DetectionRepository
 from app.repositories.processing_job_repository import ProcessingJobRepository
 from app.utils.canonical_species import should_hide_species_label
 from app.utils.classifier_labels import normalize_classifier_label
+from app.utils.frigate_coordinates import normalize_frigate_hint_box, restore_frigate_hint_box
 from app.utils.tasks import create_background_task
 from app.utils.image_io import decode_image_bytes
 
@@ -674,7 +675,8 @@ class HighQualitySnapshotService:
         """Choose the strongest identity-safe candidate within one media source."""
         if not candidates:
             return None
-        full_frames = [item for item in candidates if str(item.get("source_mode") or "full_frame") == "full_frame"]
+        all_full_frames = [item for item in candidates if str(item.get("source_mode") or "full_frame") == "full_frame"]
+        full_frames = list(all_full_frames)
         usable_crops = [
             item
             for item in candidates
@@ -706,7 +708,9 @@ class HighQualitySnapshotService:
 
         pool = full_frames + usable_crops
         if not pool:
-            pool = candidates
+            if not all_full_frames:
+                return None
+            pool = all_full_frames
         selected = max(pool, key=lambda item: float(item.get("ranking_score") or 0.0))
         if str(selected.get("source_mode") or "") != "model_crop":
             return selected
@@ -836,6 +840,7 @@ class HighQualitySnapshotService:
                     event_data,
                     frame_offset_seconds=frame_offset_seconds,
                     clip_variant=clip_variant,
+                    image_size=base_image.size,
                 )
                 for source_mode, candidate_image, crop_result in self._candidate_images_for_frame(
                     base_image,
@@ -1048,6 +1053,7 @@ class HighQualitySnapshotService:
         *,
         frame_offset_seconds: Optional[float],
         clip_variant: str,
+        image_size: tuple[int, int] | None = None,
     ) -> Optional[dict[str, Any]]:
         """Return a Frigate hint translated to the tracked position at this frame.
 
@@ -1097,17 +1103,13 @@ class HighQualitySnapshotService:
             return None
 
         raw_box = payload.get("box")
-        if not isinstance(raw_box, (list, tuple)) or len(raw_box) != 4:
+        if image_size is None:
+            image_size = (1, 1)
+        normalized_box = normalize_frigate_hint_box(raw_box, image_size)
+        if normalized_box is None:
             return None
-        try:
-            _left, _top, width, height = [float(value) for value in raw_box]
-        except (TypeError, ValueError):
-            return None
-        if (
-            not all(math.isfinite(value) for value in (width, height))
-            or not (0.0 < width <= 1.0)
-            or not (0.0 < height <= 1.0)
-        ):
+        _left, _top, width, height = normalized_box
+        if width > 1.0 or height > 1.0:
             return None
 
         # Frigate path_data stores the tracked box's bottom-centre point.
@@ -1963,37 +1965,7 @@ class HighQualitySnapshotService:
         raw_hint: Any,
         image_size: tuple[int, int],
     ) -> Optional[tuple[int, int, int, int]]:
-        if not isinstance(raw_hint, (list, tuple)) or len(raw_hint) != 4:
-            return None
-        try:
-            left = float(raw_hint[0])
-            top = float(raw_hint[1])
-            width = float(raw_hint[2])
-            height = float(raw_hint[3])
-        except (TypeError, ValueError):
-            return None
-        if not all(math.isfinite(value) for value in (left, top, width, height)):
-            return None
-
-        image_width, image_height = image_size
-        normalized = 0.0 <= left <= 1.0 and 0.0 <= top <= 1.0 and 0.0 <= width <= 1.0 and 0.0 <= height <= 1.0
-        if normalized:
-            left *= float(image_width)
-            top *= float(image_height)
-            width *= float(image_width)
-            height *= float(image_height)
-
-        right = left + width
-        bottom = top + height
-        if right <= left or bottom <= top:
-            return None
-        left_i = max(0, min(image_width, int(math.floor(left))))
-        top_i = max(0, min(image_height, int(math.floor(top))))
-        right_i = max(0, min(image_width, int(math.ceil(right))))
-        bottom_i = max(0, min(image_height, int(math.ceil(bottom))))
-        if right_i <= left_i or bottom_i <= top_i:
-            return None
-        return left_i, top_i, right_i, bottom_i
+        return restore_frigate_hint_box(raw_hint, image_size)
 
     def _expand_hint_box(
         self,

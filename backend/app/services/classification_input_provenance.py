@@ -47,11 +47,12 @@ class ClassificationInputProvenance:
 
 
 def _validated_frigate_hint(value: Any) -> list[float | int] | None:
-    """Copy a usable Frigate ``[left, top, width, height]`` hint.
+    """Copy a usable Frigate localisation hint.
 
-    Frigate emits normalized coordinates today, while the classifier also accepts
-    pixel coordinates. Keep both contracts, but reject malformed/non-finite data
-    before it crosses process boundaries or influences crop selection.
+    Frigate REST events use normalized ``x, y, width, height`` while MQTT events
+    use pixel ``left, top, right, bottom``. Keep both contracts, but reject
+    malformed/non-finite data before it crosses process boundaries or influences
+    crop selection.
     """
     if not isinstance(value, (list, tuple)) or len(value) != 4:
         return None
@@ -60,8 +61,14 @@ def _validated_frigate_hint(value: Any) -> list[float | int] | None:
     if not all(math.isfinite(float(coordinate)) for coordinate in value):
         return None
 
-    left, top, width, height = value
-    if float(left) < 0.0 or float(top) < 0.0 or float(width) <= 0.0 or float(height) <= 0.0:
+    left, top, third, fourth = (float(coordinate) for coordinate in value)
+    if left < 0.0 or top < 0.0:
+        return None
+    normalized_xywh = all(0.0 <= coordinate <= 1.0 for coordinate in (left, top, third, fourth))
+    if normalized_xywh:
+        if third <= 0.0 or fourth <= 0.0:
+            return None
+    elif third <= left or fourth <= top:
         return None
     return list(value)
 
