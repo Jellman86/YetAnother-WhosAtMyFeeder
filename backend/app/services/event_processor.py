@@ -728,22 +728,40 @@ class EventProcessor:
             self._record_stage_fallback("correlate_audio", event.frigate_event)
             top_with_audio = top
 
-        save_ok, _ = await self._run_stage(
+        save_ok, save_result = await self._run_stage(
             event_id=event.frigate_event,
             stage="save_and_notify",
             timeout_seconds=EVENT_STAGE_TIMEOUT_SAVE_AND_NOTIFY_SECONDS,
-            coro=self._handle_detection_save_and_notify(
+            coro=self._save_detection(
                 event,
                 top_with_audio,
-                snapshot_data,
                 context,
-                snapshot_source=snapshot_source,
             ),
             fallback=None,
         )
         if not save_ok:
             self._record_drop(event.frigate_event, "save_and_notify_failed")
             return
+
+        if isinstance(save_result, tuple):
+            changed, was_inserted = save_result
+            # Queue admission is outside the save deadline. Once the database
+            # commit succeeds, an overloaded optional integration must not
+            # cancel notification hand-off or classify the detection as lost.
+            await self._enqueue_notification_flow(
+                event=event,
+                classification=top_with_audio,
+                snapshot_data=snapshot_data,
+                changed=changed,
+                was_inserted=was_inserted,
+            )
+            await self._handle_detection_post_commit(
+                event=event,
+                classification=top_with_audio,
+                snapshot_data=snapshot_data,
+                changed=changed,
+                snapshot_source=snapshot_source,
+            )
 
         if recovering_terminal_event:
             await self._handle_terminal_event_enrichment(event)
@@ -1472,26 +1490,20 @@ class EventProcessor:
         if not enqueued:
             log.warning("Notification queue saturated; dropping notification job", event_id=event.frigate_event)
 
-    async def _handle_detection_save_and_notify(
+    async def _save_detection(
         self,
         event: EventData,
         classification: Dict[str, Any],
-        snapshot_data: Optional[bytes],
         context: Dict[str, Any],
-        *,
-        snapshot_source: str | None = None,
-    ):
-        """Save detection to database and send notifications.
+    ) -> tuple[bool, bool] | None:
+        """Commit a detection before any optional integration work runs.
 
         Args:
             event: Parsed event data
             classification: Classification result with audio correlation
-            snapshot_data: Snapshot image bytes (may be None)
             context: Context data (audio_match, weather_data)
         """
         label = classification["label"]
-        score = classification["score"]
-
         # Nest-mode dedupe: collapse repeat detections of the same species on a
         # nest camera within nest_dedupe_minutes. The detection_service.save
         # path is upsert-keyed by frigate_event, so two distinct events from
@@ -1545,7 +1557,21 @@ class EventProcessor:
             weather_snowfall=weather_fields["weather_snowfall"],
         )
 
-        # Update Frigate sublabel if confident
+        return changed, was_inserted
+
+    async def _handle_detection_post_commit(
+        self,
+        *,
+        event: EventData,
+        classification: Dict[str, Any],
+        snapshot_data: Optional[bytes],
+        changed: bool,
+        snapshot_source: str | None = None,
+    ) -> None:
+        """Run optional Frigate and media work after save and notification hand-off."""
+        label = classification["label"]
+        score = classification["score"]
+
         if (
             settings.classification.write_frigate_sublabel
             and classification.get("source") != "frigate_fallback"
@@ -1560,7 +1586,6 @@ class EventProcessor:
                     error=str(exc),
                 )
 
-        # Send notifications based on policy
         if changed:
             # Cache snapshot if we updated the DB (ensures image matches score)
             if snapshot_data and settings.media_cache.enabled and settings.media_cache.cache_snapshots:
@@ -1623,12 +1648,3 @@ class EventProcessor:
                 event_id=event.frigate_event,
                 score=score,
             )
-
-        # Keep remote notification I/O off MQTT ingest hot path.
-        await self._enqueue_notification_flow(
-            event=event,
-            classification=classification,
-            snapshot_data=snapshot_data,
-            changed=changed,
-            was_inserted=was_inserted,
-        )

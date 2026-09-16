@@ -13,23 +13,6 @@ Last reviewed against the GitHub issue tracker and opt-in fleet telemetry on
 
 ## P1: Active Regressions
 
-### REG-2026-09-15-01 — Accepted detections can expire before notification dispatch
-
-- **State:** unresolved in current `dev`.
-- **Evidence:** the September 15 fleet review found 41 underlying occurrences across two
-  installations in the preceding 30 days, including one occurrence from the current `dev` build.
-  Each failure emits both `stage_timeout/save_and_notify` and
-  `drop_save_and_notify_failed`; those 82 raw markers describe 41 failures and must not be counted
-  as separate incidents.
-- **Impact:** one six-second deadline currently covers the database upsert, optional Frigate
-  sublabel write, snapshot caching, video-classification scheduling and notification enqueue. A
-  timeout can therefore cancel an otherwise accepted detection before notification work becomes
-  durable, either losing the detection or leaving a saved detection without its notification.
-- **Roadmap:** [telemetry-confirmed regression queue](ROADMAP.md#telemetry-confirmed-regression-queue).
-- **Complete when:** the accepted detection is durably committed before optional remote and media
-  work, notification delivery is independently recoverable, and a regression test proves slow
-  optional work cannot turn a committed detection into `save_and_notify_failed`.
-
 ### REG-2026-09-15-02 — Legacy health batches disappear from telemetry breakdowns
 
 - **State:** unresolved in the telemetry worker on current `dev`.
@@ -49,13 +32,27 @@ Last reviewed against the GitHub issue tracker and opt-in fleet telemetry on
 
 ## Pending Verification (Fixes in Dev, Awaiting Reporter Confirmation)
 
-- **REG-2026-09-15-03 — final-mode detection notifications:** stable `2.20.1` can save a final
-  Frigate event without dispatching its notification because the terminal path treated the earlier
-  preliminary classification as unchanged. PR #467 makes the terminal decision authoritative in
-  `dev`, but the reference install has not yet produced a qualifying accepted detection since that
-  build was deployed. Keep this open until Telegram and the in-app notification timeline both
-  prove one real final-mode detection end to end. Tracked in the
-  [telemetry-confirmed regression queue](ROADMAP.md#telemetry-confirmed-regression-queue).
+### REG-2026-09-15-01 — Accepted detections can expire before notification dispatch
+
+The September 15 fleet review found 41 underlying occurrences across two installations in the
+preceding 30 days, including one occurrence from the then-current `dev` build. Each failure emits
+both `stage_timeout/save_and_notify` and `drop_save_and_notify_failed`; those 82 raw markers
+describe 41 failures and must not be counted as separate incidents. Current `dev` limits that
+deadline to the database decision, admits notification work immediately after commit, and only then
+runs optional Frigate sublabel, snapshot-cache and video-scheduling work. A regression test holds
+post-commit work beyond the old deadline and proves the detection is not dropped and notification
+hand-off has already happened. Keep this open until a real detection on the reference install
+confirms delivery without another paired timeout/drop marker. Tracked in the
+[telemetry-confirmed regression queue](ROADMAP.md#telemetry-confirmed-regression-queue).
+
+### REG-2026-09-15-03 — Final-mode detection notifications
+
+Stable `2.20.1` can save a final Frigate event without dispatching its notification because the
+terminal path treated the earlier preliminary classification as unchanged. PR #467 makes the
+terminal decision authoritative in `dev`, but the reference install has not yet produced a
+qualifying accepted detection since that build was deployed. Keep this open until Telegram and the
+in-app notification timeline both prove one real final-mode detection end to end. Tracked in the
+[telemetry-confirmed regression queue](ROADMAP.md#telemetry-confirmed-regression-queue).
 
 - **#451 Frigate clips stop after their first chunk:** the media-cookie security change made the
   browser stop carrying the owner token in video URLs, but the rate limiter still recognised only

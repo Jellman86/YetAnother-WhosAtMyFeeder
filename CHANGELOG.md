@@ -37,6 +37,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **A slow Frigate or media follow-up can no longer erase a completed detection or its
+  notification.** The six-second ingest deadline now covers only the durable save path.
+  Notification work enters its bounded queue immediately afterwards, before Frigate sublabel
+  updates, snapshot caching and video scheduling run as isolated post-commit work. Those optional
+  integrations can still report their own failures, but they no longer turn a saved detection into
+  `save_and_notify_failed`.
 - **Completed-event notifications are delivered again.** In the `final` notification mode, an
   existing detection's Frigate `end` event returned after final-media work without ever running
   notification policy. Terminal events now enter the same bounded notification queue as initial
