@@ -5,7 +5,7 @@ This document tracks known issues and testing gaps that have not been verified e
 If you find a bug, please open a GitHub issue with the steps to reproduce and any redacted logs.
 
 Last reviewed against the GitHub issue tracker and opt-in fleet telemetry on
-**September 15, 2026**.
+**September 16, 2026**.
 
 ## P0: Active Regressions
 
@@ -13,22 +13,7 @@ Last reviewed against the GitHub issue tracker and opt-in fleet telemetry on
 
 ## P1: Active Regressions
 
-### REG-2026-09-15-02 — Legacy health batches disappear from telemetry breakdowns
-
-- **State:** unresolved in the telemetry worker on current `dev`.
-- **Evidence:** legacy v1 batches retain aggregate `critical_count` and related count columns but
-  have no `event_groups_json`. The public severity, component and top-issue queries only expand
-  `event_groups_json`, so those batches contribute to headline totals while disappearing from the
-  breakdown. The fleet review found a still-active legacy client reporting a cumulative
-  `classify_snapshot` critical; repeated daily cumulative reports must not be presented as new
-  failures.
-- **Impact:** operators can read a clean or incomplete breakdown while older enabled clients are
-  still reporting critical health in an otherwise publishable cohort, which makes release-health
-  assessment unreliable.
-- **Roadmap:** [telemetry-confirmed regression queue](ROADMAP.md#telemetry-confirmed-regression-queue).
-- **Complete when:** mixed-schema aggregates preserve legacy severities without inventing missing
-  fingerprints or violating the public cohort threshold, cumulative reports are labelled or
-  deduplicated honestly, and integration tests cover a mixed v1/v3 reporting window.
+- None currently confirmed as unresolved in current `dev`.
 
 ## Pending Verification (Fixes in Dev, Awaiting Reporter Confirmation)
 
@@ -54,13 +39,6 @@ qualifying accepted detection since that build was deployed. Keep this open unti
 in-app notification timeline both prove one real final-mode detection end to end. Tracked in the
 [telemetry-confirmed regression queue](ROADMAP.md#telemetry-confirmed-regression-queue).
 
-- **#451 Frigate clips stop after their first chunk:** the media-cookie security change made the
-  browser stop carrying the owner token in video URLs, but the rate limiter still recognised only
-  bearer/query tokens and the legacy API key. It therefore counted a signed-in owner's clip probes
-  and browser range requests against the public budget, eventually answering 429. Current `dev`
-  recognises a valid owner cookie for rate limiting only on the read-only media routes where that
-  cookie is already allowed. Awaiting a release and reporter confirmation.
-
 ## Known Remaining Exposure
 
 - **The owner system checks walk the media cache once a minute.** With PR #401 the walk no longer
@@ -83,10 +61,20 @@ in-app notification timeline both prove one real final-mode detection end to end
 
 ## Open on the Tracker
 
-- **#451** Frigate clips stop after their first chunk. See Pending Verification above.
+- **#459** Frigate video playback remains open for HLS release validation. Its implementation is
+  already isolated on `dev`; no HLS work is part of this telemetry fix.
 
 ## Recently Closed (Context)
 
+### REG-2026-09-15-02 — Legacy health batches disappear from telemetry breakdowns
+
+Legacy v1 health batches no longer disappear from public severity, component and top-issue
+breakdowns. Mixed v1/v3 cohorts are combined before the three-install privacy floor is applied;
+retained legacy fingerprints and component details are used rather than invented; and cumulative
+legacy occurrence counters are included once and labelled apart from replay-safe v3 window events.
+
+- **#451** Signed-in Frigate clip requests no longer exhaust the public media rate limit. The
+  reporter confirmed the owner-cookie fix and the issue closed September 14.
 - **#178** Durable favourite media and per-species retention floors shipped in 2.20.0 (#445).
   Favourites now acquire their photograph and available clip into `/config/archive`; cache cleanup
   and Frigate rotation do not touch that archive, and acquisition failures and destructive actions
