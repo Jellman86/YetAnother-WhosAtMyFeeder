@@ -596,14 +596,15 @@ These are high-value follow-ups. A measured regression can promote a specific it
 exit criteria; the broad initiatives do not block the release by default.
 
 #### Telemetry-confirmed regression queue
-**Priority:** P1 | **Effort:** M | **Status:** 🔄 Two open; one fixed in `dev` and awaiting live proof
+**Priority:** P1 | **Effort:** M | **Status:** 🔄 One open; two fixed in `dev` and awaiting live proof
 
 The September 15 fleet-health review promoted three concrete regressions ahead of new reliability
 work. Their evidence, counting rules and completion criteria live in [`ISSUES.md`](ISSUES.md):
 
 - [REG-2026-09-15-01](ISSUES.md#reg-2026-09-15-01--accepted-detections-can-expire-before-notification-dispatch)
-  separates the durable detection commit and notification hand-off from slow optional work now
-  sharing the six-second `save_and_notify` deadline.
+  now ends the six-second deadline at the database decision, hands notification work to its queue
+  immediately after commit, and runs slower optional integrations afterwards. Field verification
+  remains.
 - [REG-2026-09-15-02](ISSUES.md#reg-2026-09-15-02--legacy-health-batches-disappear-from-telemetry-breakdowns)
   makes mixed v1/v3 fleet-health reporting honest without exposing cohorts below the privacy floor
   or presenting cumulative legacy counters as fresh incidents.
@@ -612,9 +613,9 @@ work. Their evidence, counting rules and completion criteria live in [`ISSUES.md
   Telegram and the in-app timeline; the code fix is already in `dev` via PR #467 and is not in
   stable `2.20.1`.
 
-The queue is complete when both open regressions meet their linked acceptance criteria and the
-fixed regression has end-to-end field evidence. It is a sequencing rule for reliability work, not
-an implicit promotion of unrelated backlog into the `3.0` exit criteria.
+The queue is complete when the open regression meets its linked acceptance criteria and both fixed
+regressions have end-to-end field evidence. It is a sequencing rule for reliability work, not an
+implicit promotion of unrelated backlog into the `3.0` exit criteria.
 
 #### Performance optimization 🚀
 **Priority:** P1 | **Effort:** L | **Status:** 🔄 Foundations in progress

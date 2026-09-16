@@ -326,7 +326,7 @@ async def test_process_mqtt_message_does_not_trigger_auto_full_visit_for_new_eve
             "audio_score": None,
         }
     )
-    processor._handle_detection_save_and_notify = AsyncMock()  # type: ignore[method-assign]
+    processor._save_detection = AsyncMock()  # type: ignore[method-assign]
     processor._trigger_auto_full_visit_generation = AsyncMock()  # type: ignore[method-assign]
     processor.detection_service.filter_and_label = MagicMock(  # type: ignore[attr-defined]
         return_value=({"label": "Cardinal", "score": 0.9, "index": 1}, None)
@@ -378,7 +378,7 @@ async def test_end_event_recovers_detection_when_initial_ingest_created_no_row()
             "audio_score": None,
         }
     )
-    processor._handle_detection_save_and_notify = AsyncMock()
+    processor._save_detection = AsyncMock()
     processor._handle_terminal_event_enrichment = AsyncMock()
     processor.detection_service.filter_and_label = MagicMock(
         return_value=({"label": "Cardinal", "score": 0.9, "index": 1}, None)
@@ -391,7 +391,7 @@ async def test_end_event_recovers_detection_when_initial_ingest_created_no_row()
     await processor.process_mqtt_message(payload)
 
     processor._classify_snapshot.assert_awaited_once()
-    processor._handle_detection_save_and_notify.assert_awaited_once()
+    processor._save_detection.assert_awaited_once()
     processor._handle_terminal_event_enrichment.assert_awaited_once()
 
 
@@ -406,7 +406,7 @@ def _filtered_event_processor() -> EventProcessor:
             "frigate_snapshot_cropped",
         )
     )
-    processor._handle_detection_save_and_notify = AsyncMock()  # type: ignore[method-assign]
+    processor._save_detection = AsyncMock()  # type: ignore[method-assign]
     processor._handle_terminal_event_enrichment = AsyncMock()  # type: ignore[method-assign]
     processor.detection_service.filter_and_label = MagicMock(return_value=(None, "low_confidence"))
     return processor
@@ -429,7 +429,7 @@ async def test_end_event_skips_terminal_recovery_when_classification_was_already
     await processor.process_mqtt_message(end_payload)
 
     assert processor._classify_snapshot.await_count == 1
-    processor._handle_detection_save_and_notify.assert_not_awaited()
+    processor._save_detection.assert_not_awaited()
     processor._handle_terminal_event_enrichment.assert_not_awaited()
 
 
@@ -511,7 +511,7 @@ async def test_terminal_enrichment_isolates_media_queue_failures_after_durable_d
 
 
 @pytest.mark.asyncio
-async def test_handle_detection_save_and_notify_uses_dispatcher_queue():
+async def test_enqueue_notification_flow_uses_dispatcher_queue():
     processor = EventProcessor(MagicMock())
 
     event = SimpleNamespace(
@@ -531,29 +531,80 @@ async def test_handle_detection_save_and_notify_uses_dispatcher_queue():
         "audio_species": None,
         "audio_score": None,
     }
-    context = {"weather_data": {}, "audio_match": None}
-
-    processor.detection_service.save_detection = AsyncMock(return_value=(True, True))  # type: ignore[attr-defined]
     processor.notification_orchestrator.handle_notifications = AsyncMock()  # type: ignore[method-assign]
 
-    with (
-        patch("app.services.event_processor.notification_dispatcher") as mock_dispatcher,
-        patch("app.services.event_processor.settings.classification.write_frigate_sublabel", False, create=True),
-        patch("app.services.event_processor.settings.classification.auto_video_classification", False, create=True),
-        patch("app.services.event_processor.settings.media_cache.enabled", False, create=True),
-        patch("app.services.event_processor.settings.media_cache.cache_snapshots", False, create=True),
-    ):
+    with patch("app.services.event_processor.notification_dispatcher") as mock_dispatcher:
         mock_dispatcher.enqueue = AsyncMock(return_value=True)
 
-        await processor._handle_detection_save_and_notify(
+        await processor._enqueue_notification_flow(
             event=event,
             classification=classification,
             snapshot_data=b"img",
-            context=context,
+            changed=True,
+            was_inserted=True,
         )
 
     mock_dispatcher.enqueue.assert_awaited_once()
     processor.notification_orchestrator.handle_notifications.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_slow_post_commit_work_cannot_delay_notification_handoff():
+    processor = EventProcessor(MagicMock())
+    processor._classify_snapshot = AsyncMock(
+        return_value=([{"label": "Cardinal", "score": 0.95, "index": 1}], b"img", "frigate_snapshot_cropped")
+    )
+    processor._gather_context_data = AsyncMock(return_value={"audio_match": None, "weather_data": {}})
+    processor._correlate_audio = AsyncMock(
+        return_value={
+            "label": "Cardinal",
+            "score": 0.95,
+            "index": 1,
+            "audio_confirmed": False,
+            "audio_species": None,
+            "audio_score": None,
+        }
+    )
+    processor.detection_service.filter_and_label = MagicMock(
+        return_value=({"label": "Cardinal", "score": 0.95, "index": 1}, None)
+    )
+    processor.detection_service.save_detection = AsyncMock(return_value=(True, True))
+    notification_handoff_started = asyncio.Event()
+    release_notification_handoff = asyncio.Event()
+    post_commit_started = asyncio.Event()
+    release_post_commit = asyncio.Event()
+
+    async def slow_notification_handoff(**_kwargs):
+        notification_handoff_started.set()
+        await release_notification_handoff.wait()
+
+    async def slow_post_commit(**_kwargs):
+        post_commit_started.set()
+        await release_post_commit.wait()
+
+    processor._enqueue_notification_flow = AsyncMock(side_effect=slow_notification_handoff)  # type: ignore[method-assign]
+    processor._handle_detection_post_commit = AsyncMock(side_effect=slow_post_commit)  # type: ignore[method-assign]
+    payload = (
+        b'{"type":"new","after":{"id":"evt-slow-post-commit","label":"bird","camera":"cam1","start_time":1700000000}}'
+    )
+
+    with patch("app.services.event_processor.EVENT_STAGE_TIMEOUT_SAVE_AND_NOTIFY_SECONDS", 0.01):
+        processing = asyncio.create_task(processor.process_mqtt_message(payload))
+        await asyncio.wait_for(notification_handoff_started.wait(), timeout=0.1)
+        await asyncio.sleep(0.02)
+
+        processor.detection_service.save_detection.assert_awaited_once()
+        assert processor.get_status()["fault_drop_reasons"] == {}
+
+        release_notification_handoff.set()
+        await asyncio.wait_for(post_commit_started.wait(), timeout=0.1)
+        await asyncio.sleep(0.02)
+
+        processor._enqueue_notification_flow.assert_awaited_once()
+        assert processor.get_status()["fault_drop_reasons"] == {}
+
+        release_post_commit.set()
+        await processing
 
 
 @pytest.mark.asyncio
@@ -590,18 +641,31 @@ async def test_post_commit_side_effect_failure_does_not_turn_saved_detection_int
         patch("app.services.event_processor.settings.classification.auto_video_classification", False, create=True),
         patch("app.services.event_processor.settings.media_cache.enabled", False, create=True),
     ):
-        await processor._handle_detection_save_and_notify(
+        result = await processor._save_detection(
+            event=event,
+            classification=classification,
+            context={"weather_data": {}, "audio_match": None},
+        )
+        assert result == (True, True)
+        await processor._enqueue_notification_flow(
             event=event,
             classification=classification,
             snapshot_data=None,
-            context={"weather_data": {}, "audio_match": None},
+            changed=True,
+            was_inserted=True,
+        )
+        await processor._handle_detection_post_commit(
+            event=event,
+            classification=classification,
+            snapshot_data=None,
+            changed=True,
         )
 
     processor.detection_service.save_detection.assert_awaited_once()
 
 
 @pytest.mark.asyncio
-async def test_handle_detection_save_and_notify_schedules_high_quality_snapshot_replacement():
+async def test_detection_post_commit_schedules_high_quality_snapshot_replacement():
     processor = EventProcessor(MagicMock())
 
     event = SimpleNamespace(
@@ -622,13 +686,7 @@ async def test_handle_detection_save_and_notify_schedules_high_quality_snapshot_
         "audio_species": None,
         "audio_score": None,
     }
-    context = {"weather_data": {}, "audio_match": None}
-
-    processor.detection_service.save_detection = AsyncMock(return_value=(True, True))  # type: ignore[attr-defined]
-    processor.notification_orchestrator.handle_notifications = AsyncMock()  # type: ignore[method-assign]
-
     with (
-        patch("app.services.event_processor.notification_dispatcher") as mock_dispatcher,
         patch("app.services.event_processor.media_cache") as mock_cache,
         patch("app.services.event_processor.high_quality_snapshot_service") as mock_hq,
         patch("app.services.event_processor.settings.classification.write_frigate_sublabel", False, create=True),
@@ -637,15 +695,14 @@ async def test_handle_detection_save_and_notify_schedules_high_quality_snapshot_
         patch("app.services.event_processor.settings.media_cache.cache_snapshots", True, create=True),
         patch("app.services.event_processor.settings.media_cache.high_quality_event_snapshots", True, create=True),
     ):
-        mock_dispatcher.enqueue = AsyncMock(return_value=True)
         mock_cache.cache_snapshot = AsyncMock()
         mock_hq.schedule_replacement = MagicMock(return_value=True)
 
-        await processor._handle_detection_save_and_notify(
+        await processor._handle_detection_post_commit(
             event=event,
             classification=classification,
             snapshot_data=b"img",
-            context=context,
+            changed=True,
             snapshot_source="frigate_snapshot_uncropped",
         )
 
@@ -665,7 +722,7 @@ async def test_handle_detection_save_and_notify_schedules_high_quality_snapshot_
 
 
 @pytest.mark.asyncio
-async def test_handle_detection_save_and_notify_skips_high_quality_snapshot_replacement_when_unchanged():
+async def test_detection_post_commit_skips_high_quality_snapshot_replacement_when_unchanged():
     processor = EventProcessor(MagicMock())
 
     event = SimpleNamespace(
@@ -684,13 +741,7 @@ async def test_handle_detection_save_and_notify_skips_high_quality_snapshot_repl
         "audio_species": None,
         "audio_score": None,
     }
-    context = {"weather_data": {}, "audio_match": None}
-
-    processor.detection_service.save_detection = AsyncMock(return_value=(False, False))  # type: ignore[attr-defined]
-    processor.notification_orchestrator.handle_notifications = AsyncMock()  # type: ignore[method-assign]
-
     with (
-        patch("app.services.event_processor.notification_dispatcher") as mock_dispatcher,
         patch("app.services.event_processor.media_cache") as mock_cache,
         patch("app.services.event_processor.high_quality_snapshot_service") as mock_hq,
         patch("app.services.event_processor.settings.classification.write_frigate_sublabel", False, create=True),
@@ -699,15 +750,14 @@ async def test_handle_detection_save_and_notify_skips_high_quality_snapshot_repl
         patch("app.services.event_processor.settings.media_cache.cache_snapshots", True, create=True),
         patch("app.services.event_processor.settings.media_cache.high_quality_event_snapshots", True, create=True),
     ):
-        mock_dispatcher.enqueue = AsyncMock(return_value=True)
         mock_cache.cache_snapshot = AsyncMock()
         mock_hq.schedule_replacement = MagicMock(return_value=True)
 
-        await processor._handle_detection_save_and_notify(
+        await processor._handle_detection_post_commit(
             event=event,
             classification=classification,
             snapshot_data=b"img",
-            context=context,
+            changed=False,
         )
 
     mock_cache.cache_snapshot.assert_not_awaited()
@@ -721,7 +771,7 @@ async def test_process_mqtt_message_logs_filter_drop_reason():
     processor._classify_snapshot = AsyncMock(  # type: ignore[method-assign]
         return_value=([{"label": "Sparrow", "score": 0.12, "index": 1}], b"img", "frigate_snapshot_cropped")
     )
-    processor._handle_detection_save_and_notify = AsyncMock()  # type: ignore[method-assign]
+    processor._save_detection = AsyncMock()  # type: ignore[method-assign]
     processor.detection_service.filter_and_label = MagicMock(return_value=(None, "low_confidence"))  # type: ignore[attr-defined]
 
     payload = b'{"type":"new","after":{"id":"evt-drop-1","label":"bird","camera":"cam1","start_time":1700000000}}'
@@ -729,7 +779,7 @@ async def test_process_mqtt_message_logs_filter_drop_reason():
     with patch("app.services.event_processor.log") as mock_log:
         await processor.process_mqtt_message(payload)
 
-    processor._handle_detection_save_and_notify.assert_not_called()
+    processor._save_detection.assert_not_called()
     mock_log.info.assert_any_call(
         "Dropping MQTT event after classification filter",
         event_id="evt-drop-1",
@@ -767,7 +817,7 @@ def test_record_drop_classifies_expected_filtering_as_info():
 async def test_process_mqtt_message_logs_stage_timeout_for_classification():
     classifier = MagicMock()
     processor = EventProcessor(classifier)
-    processor._handle_detection_save_and_notify = AsyncMock()  # type: ignore[method-assign]
+    processor._save_detection = AsyncMock()  # type: ignore[method-assign]
 
     async def _slow_classify(_event):
         await asyncio.sleep(0.05)
@@ -782,7 +832,7 @@ async def test_process_mqtt_message_logs_stage_timeout_for_classification():
     ):
         await processor.process_mqtt_message(payload)
 
-    processor._handle_detection_save_and_notify.assert_not_called()
+    processor._save_detection.assert_not_called()
     mock_log.warning.assert_any_call(
         "MQTT event stage timed out",
         event_id="evt-timeout-1",
@@ -799,7 +849,7 @@ async def test_process_mqtt_message_logs_stage_timeout_for_classification():
 async def test_process_mqtt_message_records_distinct_overload_drop_reason():
     classifier = MagicMock()
     processor = EventProcessor(classifier)
-    processor._handle_detection_save_and_notify = AsyncMock()  # type: ignore[method-assign]
+    processor._save_detection = AsyncMock()  # type: ignore[method-assign]
 
     async def _overloaded_classify(_event):
         raise RuntimeError("classify_snapshot_overloaded")
@@ -962,7 +1012,7 @@ async def test_process_mqtt_message_records_live_lease_expiry_as_timeout_drop():
 async def test_process_mqtt_message_audio_taxonomy_lookup_timeout_falls_back():
     classifier = MagicMock()
     processor = EventProcessor(classifier)
-    processor._handle_detection_save_and_notify = AsyncMock()  # type: ignore[method-assign]
+    processor._save_detection = AsyncMock()  # type: ignore[method-assign]
     processor._classify_snapshot = AsyncMock(  # type: ignore[method-assign]
         return_value=([{"label": "Blue Tit", "score": 0.9, "index": 1}], b"img", "frigate_snapshot_cropped")
     )
@@ -993,7 +1043,7 @@ async def test_process_mqtt_message_audio_taxonomy_lookup_timeout_falls_back():
     ):
         await processor.process_mqtt_message(payload)
 
-    processor._handle_detection_save_and_notify.assert_called_once()
+    processor._save_detection.assert_called_once()
     mock_log.warning.assert_any_call(
         "Taxonomy alias lookup timed out during audio correlation",
         event_id="evt-audio-tax-timeout",
@@ -1022,7 +1072,7 @@ async def test_process_mqtt_message_status_tracks_completed_event():
             "audio_score": None,
         }
     )
-    processor._handle_detection_save_and_notify = AsyncMock()  # type: ignore[method-assign]
+    processor._save_detection = AsyncMock()  # type: ignore[method-assign]
     processor.detection_service.filter_and_label = MagicMock(  # type: ignore[attr-defined]
         return_value=({"label": "Sparrow", "score": 0.95, "index": 1}, None)
     )
@@ -1079,7 +1129,7 @@ async def test_process_mqtt_message_does_not_drop_backlog_event_when_received_re
             "audio_score": None,
         }
     )
-    processor._handle_detection_save_and_notify = AsyncMock()  # type: ignore[method-assign]
+    processor._save_detection = AsyncMock()  # type: ignore[method-assign]
     processor.detection_service.filter_and_label = MagicMock(  # type: ignore[attr-defined]
         return_value=({"label": "Sparrow", "score": 0.95, "index": 1}, None)
     )
@@ -1124,7 +1174,7 @@ async def test_process_mqtt_message_coalesces_duplicate_live_event_while_active(
             "audio_score": None,
         }
     )
-    processor._handle_detection_save_and_notify = AsyncMock()  # type: ignore[method-assign]
+    processor._save_detection = AsyncMock()  # type: ignore[method-assign]
     processor.detection_service.filter_and_label = MagicMock(  # type: ignore[attr-defined]
         return_value=({"label": "Sparrow", "score": 0.95, "index": 1}, None)
     )
@@ -1141,7 +1191,7 @@ async def test_process_mqtt_message_coalesces_duplicate_live_event_while_active(
     release_classify.set()
     await first_task
 
-    processor._handle_detection_save_and_notify.assert_awaited_once()
+    processor._save_detection.assert_awaited_once()
     status = processor.get_status()
     assert status["started_events"] == 2
     assert status["completed_events"] == 1
@@ -1185,7 +1235,7 @@ async def test_process_mqtt_message_allows_retry_after_classification_when_first
             "audio_score": None,
         }
     )
-    processor._handle_detection_save_and_notify = _save  # type: ignore[method-assign]
+    processor._save_detection = _save  # type: ignore[method-assign]
     processor.detection_service.filter_and_label = MagicMock(  # type: ignore[attr-defined]
         return_value=({"label": "Sparrow", "score": 0.95, "index": 1}, None)
     )
