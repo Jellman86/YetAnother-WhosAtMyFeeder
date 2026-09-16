@@ -596,7 +596,7 @@ These are high-value follow-ups. A measured regression can promote a specific it
 exit criteria; the broad initiatives do not block the release by default.
 
 #### Telemetry-confirmed regression queue
-**Priority:** P1 | **Effort:** M | **Status:** 🔄 One open; two fixed in `dev` and awaiting live proof
+**Priority:** P1 | **Effort:** M | **Status:** 🔄 Code complete; two fixes await live proof
 
 The September 15 fleet-health review promoted three concrete regressions ahead of new reliability
 work. Their evidence, counting rules and completion criteria live in [`ISSUES.md`](ISSUES.md):
@@ -606,8 +606,8 @@ work. Their evidence, counting rules and completion criteria live in [`ISSUES.md
   immediately after commit, and runs slower optional integrations afterwards. Field verification
   remains.
 - [REG-2026-09-15-02](ISSUES.md#reg-2026-09-15-02--legacy-health-batches-disappear-from-telemetry-breakdowns)
-  makes mixed v1/v3 fleet-health reporting honest without exposing cohorts below the privacy floor
-  or presenting cumulative legacy counters as fresh incidents.
+  is resolved in `dev`: mixed v1/v3 fleet-health reporting now combines cohorts before applying the
+  privacy floor and labels cumulative legacy counters instead of presenting them as fresh events.
 - [REG-2026-09-15-03](ISSUES.md#reg-2026-09-15-03--final-mode-detection-notifications)
   keeps the final-mode notification fix in verification until one real accepted event reaches both
   Telegram and the in-app timeline; the code fix is already in `dev` via PR #467 and is not in

@@ -37,6 +37,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Legacy clients no longer disappear from fleet-health breakdowns.** Severity, component and
+  recurring-issue aggregates combine retained v1 issue detail with replay-safe v3 window events
+  before applying the three-install privacy floor. Cumulative legacy occurrence counters are
+  included once per retained issue and labelled explicitly, rather than being summed again for
+  every accepted snapshot or presented as fresh events.
 - **A slow Frigate or media follow-up can no longer erase a completed detection or its
   notification.** The six-second ingest deadline now covers only the durable save path.
   Notification work enters its bounded queue immediately afterwards, before Frigate sublabel
