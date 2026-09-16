@@ -13593,12 +13593,28 @@
             "title": "Event Id",
             "type": "string"
           },
+          "frigate_event_state": {
+            "default": "unchecked",
+            "enum": [
+              "available",
+              "not_retained",
+              "unavailable",
+              "unchecked"
+            ],
+            "title": "Frigate Event State",
+            "type": "string"
+          },
           "high_quality_bird_crop_enabled": {
             "title": "High Quality Bird Crop Enabled",
             "type": "boolean"
           },
           "high_quality_event_snapshots_enabled": {
             "title": "High Quality Event Snapshots Enabled",
+            "type": "boolean"
+          },
+          "localization_hint_available": {
+            "default": false,
+            "title": "Localization Hint Available",
             "type": "boolean"
           },
           "original_frigate_snapshot_available": {
@@ -13854,12 +13870,28 @@
             "title": "Event Id",
             "type": "string"
           },
+          "frigate_event_state": {
+            "default": "unchecked",
+            "enum": [
+              "available",
+              "not_retained",
+              "unavailable",
+              "unchecked"
+            ],
+            "title": "Frigate Event State",
+            "type": "string"
+          },
           "high_quality_bird_crop_enabled": {
             "title": "High Quality Bird Crop Enabled",
             "type": "boolean"
           },
           "high_quality_event_snapshots_enabled": {
             "title": "High Quality Event Snapshots Enabled",
+            "type": "boolean"
+          },
+          "localization_hint_available": {
+            "default": false,
+            "title": "Localization Hint Available",
             "type": "boolean"
           },
           "original_frigate_snapshot_available": {
@@ -13892,7 +13924,8 @@
             "enum": [
               "already_hq_bird_crop",
               "generated_hq_bird_crop",
-              "generated_hq_snapshot"
+              "generated_hq_snapshot",
+              "existing_crop_preserved"
             ],
             "title": "Status",
             "type": "string"
@@ -13929,12 +13962,28 @@
             "title": "Event Id",
             "type": "string"
           },
+          "frigate_event_state": {
+            "default": "unchecked",
+            "enum": [
+              "available",
+              "not_retained",
+              "unavailable",
+              "unchecked"
+            ],
+            "title": "Frigate Event State",
+            "type": "string"
+          },
           "high_quality_bird_crop_enabled": {
             "title": "High Quality Bird Crop Enabled",
             "type": "boolean"
           },
           "high_quality_event_snapshots_enabled": {
             "title": "High Quality Event Snapshots Enabled",
+            "type": "boolean"
+          },
+          "localization_hint_available": {
+            "default": false,
+            "title": "Localization Hint Available",
             "type": "boolean"
           },
           "original_frigate_snapshot_available": {

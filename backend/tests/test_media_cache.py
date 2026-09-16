@@ -172,6 +172,52 @@ async def test_snapshot_metadata_tracks_source_and_is_removed_with_snapshot(tmp_
 
 
 @pytest.mark.asyncio
+async def test_snapshot_metadata_preserves_event_hints_across_replacements(tmp_path, monkeypatch):
+    service, _snapshots = _make_service(tmp_path, monkeypatch)
+    event_id = "evt_ephemeral_hints"
+    event_hints = {
+        "start_time": 100.0,
+        "end_time": 105.0,
+        "data": {"box": [10, 20, 30, 40]},
+        "position_changes": 0,
+        "has_snapshot": False,
+        "has_clip": False,
+    }
+
+    await service.cache_snapshot(
+        event_id,
+        b"frigate-bytes",
+        source="frigate_snapshot_cropped",
+        event_hints=event_hints,
+    )
+    await service.replace_snapshot(event_id, b"hq-bytes", source="high_quality_bird_crop")
+
+    metadata = await service.get_snapshot_metadata(event_id)
+    assert metadata is not None
+    assert metadata["source"] == "high_quality_bird_crop"
+    assert metadata["event_hints"] == event_hints
+
+
+@pytest.mark.asyncio
+async def test_snapshot_event_hints_can_be_refreshed_without_rewriting_image(tmp_path, monkeypatch):
+    service, _snapshots = _make_service(tmp_path, monkeypatch)
+    event_id = "evt_final_hints"
+    await service.cache_snapshot(event_id, b"original", source="frigate_snapshot_cropped")
+
+    updated = await service.update_snapshot_event_hints(
+        event_id,
+        {"end_time": 105.0, "position_changes": 0, "has_snapshot": False, "has_clip": False},
+    )
+
+    assert updated is True
+    assert await service.get_snapshot(event_id) == b"original"
+    metadata = await service.get_snapshot_metadata(event_id)
+    assert metadata is not None
+    assert metadata["source"] == "frigate_snapshot_cropped"
+    assert metadata["event_hints"]["position_changes"] == 0
+
+
+@pytest.mark.asyncio
 async def test_recording_clip_cache_uses_distinct_key_from_event_clip(tmp_path, monkeypatch):
     service, _snapshots = _make_service(tmp_path, monkeypatch)
     event_id = "evt_recording"

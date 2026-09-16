@@ -121,12 +121,51 @@ class EventData:
         self.frigate_score: Optional[float] = after.get("top_score")
         self.data: Dict[str, Any] = after.get("data") if isinstance(after.get("data"), dict) else {}
         self.snapshot: Dict[str, Any] = after.get("snapshot") if isinstance(after.get("snapshot"), dict) else {}
+        self.box = after.get("box")
+        self.region = after.get("region")
+        self.path_data = after.get("path_data")
+        self.position_changes = after.get("position_changes")
+        self.has_snapshot = after.get("has_snapshot")
+        self.has_clip = after.get("has_clip")
         self.is_false_positive: bool = after.get("false_positive", False)
 
         if self.frigate_score is None and "data" in after:
             self.frigate_score = after["data"].get("top_score")
         # Create timezone-aware datetime (Frigate timestamps are in UTC)
         self.detection_dt: datetime = datetime.fromtimestamp(self.start_time_ts, tz=timezone.utc)
+
+    def snapshot_context(self) -> Dict[str, Any]:
+        """Return the bounded Frigate state needed for later crop recovery."""
+        payload = dict(self.data)
+        for key in ("box", "region", "path_data"):
+            value = getattr(self, key, None)
+            if key not in payload and value is not None:
+                payload[key] = value
+        context: Dict[str, Any] = {
+            "start_time": self.start_time_ts,
+            "data": payload,
+        }
+        if self.end_time_known:
+            context["end_time"] = self.end_time_ts
+        if self.snapshot:
+            context["snapshot"] = self.snapshot
+        for key in ("position_changes", "has_snapshot", "has_clip"):
+            value = getattr(self, key, None)
+            if value is not None:
+                context[key] = value
+        return context
+
+    def not_retained_by_frigate(self) -> bool:
+        """Whether Frigate's final event state says no durable media was kept."""
+        return bool(
+            self.end_time_known
+            and self.end_time_ts is not None
+            and isinstance(self.position_changes, int)
+            and not isinstance(self.position_changes, bool)
+            and self.position_changes == 0
+            and self.has_snapshot is False
+            and self.has_clip is False
+        )
 
 
 DROP_FAULT_SEVERITIES = frozenset({"warning", "error"})
@@ -777,15 +816,33 @@ class EventProcessor:
     async def _handle_terminal_event_enrichment(self, event: EventData) -> None:
         """Schedule final media work only after the detection is durable."""
         try:
+            retention_check = getattr(event, "not_retained_by_frigate", None)
+            if callable(retention_check) and retention_check():
+                async with get_db() as db:
+                    await DetectionRepository(db).mark_frigate_not_retained(event.frigate_event)
+        except Exception as exc:
+            log.warning(
+                "Detection saved but Frigate retention state update failed",
+                event_id=event.frigate_event,
+                error=str(exc),
+            )
+        try:
             if media_cache.has_snapshot(event.frigate_event):
+                event_context = self._snapshot_context(event)
+                try:
+                    await media_cache.update_snapshot_event_hints(
+                        event.frigate_event,
+                        high_quality_snapshot_service.extract_event_hints(event_context),
+                    )
+                except Exception as exc:
+                    log.warning(
+                        "Detection saved but final snapshot hints were not persisted",
+                        event_id=event.frigate_event,
+                        error=str(exc),
+                    )
                 high_quality_snapshot_service.schedule_final_replacement(
                     event.frigate_event,
-                    event_data={
-                        "start_time": event.start_time_ts,
-                        "end_time": getattr(event, "end_time_ts", None),
-                        "data": event.data,
-                        **({"snapshot": event.snapshot} if event.snapshot else {}),
-                    },
+                    event_data=event_context,
                 )
         except Exception as exc:
             log.warning(
@@ -802,6 +859,24 @@ class EventProcessor:
                 event_id=event.frigate_event,
                 error=str(exc),
             )
+
+    @staticmethod
+    def _snapshot_context(event: EventData) -> Dict[str, Any]:
+        context_builder = getattr(event, "snapshot_context", None)
+        if callable(context_builder):
+            return context_builder()
+        # Lightweight event stand-ins are used by maintenance callers and
+        # tests; keep the prior payload contract for those objects.
+        payload = getattr(event, "data", {})
+        context: Dict[str, Any] = {
+            "start_time": getattr(event, "start_time_ts", 0.0),
+            "end_time": getattr(event, "end_time_ts", None),
+            "data": payload if isinstance(payload, dict) else {},
+        }
+        snapshot = getattr(event, "snapshot", None)
+        if isinstance(snapshot, dict) and snapshot:
+            context["snapshot"] = snapshot
+        return context
 
     def _prune_false_positive_tombstones(self) -> None:
         now = time.monotonic()
@@ -1591,10 +1666,12 @@ class EventProcessor:
             if snapshot_data and settings.media_cache.enabled and settings.media_cache.cache_snapshots:
                 snapshot_cached = False
                 try:
+                    event_context = self._snapshot_context(event)
                     await media_cache.cache_snapshot(
                         event.frigate_event,
                         snapshot_data,
                         source=str(snapshot_source or "frigate_snapshot"),
+                        event_hints=high_quality_snapshot_service.extract_event_hints(event_context),
                     )
                     snapshot_cached = True
                 except Exception as exc:
@@ -1604,24 +1681,10 @@ class EventProcessor:
                         error=str(exc),
                     )
                 if snapshot_cached and settings.media_cache.high_quality_event_snapshots:
-                    event_payload = getattr(event, "data", {})
                     try:
                         high_quality_snapshot_service.schedule_replacement(
                             event.frigate_event,
-                            event_data={
-                                "start_time": event.start_time_ts,
-                                "end_time": (
-                                    getattr(event, "end_time_ts", None)
-                                    if getattr(event, "end_time_known", False)
-                                    else None
-                                ),
-                                "data": event_payload if isinstance(event_payload, dict) else {},
-                                **(
-                                    {"snapshot": getattr(event, "snapshot")}
-                                    if isinstance(getattr(event, "snapshot", None), dict) and getattr(event, "snapshot")
-                                    else {}
-                                ),
-                            },
+                            event_data=event_context,
                         )
                     except Exception as exc:
                         log.warning(

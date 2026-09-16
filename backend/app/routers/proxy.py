@@ -287,12 +287,13 @@ async def _build_snapshot_status(event_id: str, *, check_original_frigate_snapsh
 
     cached = False
     source: str | None = None
+    metadata: dict = {}
     original_frigate_snapshot_available: bool | None = None
 
     if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
         cached = await media_cache.get_snapshot(event_id) is not None
         if cached:
-            metadata = await media_cache.get_snapshot_metadata(event_id)
+            metadata = await media_cache.get_snapshot_metadata(event_id) or {}
             source = str((metadata or {}).get("source") or "").strip() or None
 
     if check_original_frigate_snapshot:
@@ -310,6 +311,24 @@ async def _build_snapshot_status(event_id: str, *, check_original_frigate_snapsh
         "hq_candidate_model_crop",
     }
     can_generate_hq_bird_crop = bool(_hq_bird_crop_feature_enabled() and not already_hq_bird_crop)
+    event_hints = metadata.get("event_hints") if isinstance(metadata.get("event_hints"), dict) else {}
+    hint_data = event_hints.get("data") if isinstance(event_hints.get("data"), dict) else {}
+    hint_snapshot = event_hints.get("snapshot") if isinstance(event_hints.get("snapshot"), dict) else {}
+    localization_hint_available = bool(
+        any(hint_data.get(key) for key in ("box", "region", "path_data")) or hint_snapshot.get("box")
+    )
+    explicitly_not_retained = bool(
+        event_hints.get("end_time") is not None
+        and event_hints.get("position_changes") == 0
+        and event_hints.get("has_snapshot") is False
+        and event_hints.get("has_clip") is False
+    )
+    if original_frigate_snapshot_available is True:
+        frigate_event_state = "available"
+    elif original_frigate_snapshot_available is False:
+        frigate_event_state = "not_retained" if explicitly_not_retained else "unavailable"
+    else:
+        frigate_event_state = "unchecked"
 
     return SnapshotStatusResponse(
         event_id=event_id,
@@ -320,6 +339,8 @@ async def _build_snapshot_status(event_id: str, *, check_original_frigate_snapsh
         already_hq_bird_crop=already_hq_bird_crop,
         can_generate_hq_bird_crop=can_generate_hq_bird_crop,
         original_frigate_snapshot_available=original_frigate_snapshot_available,
+        frigate_event_state=frigate_event_state,
+        localization_hint_available=localization_hint_available,
     )
 
 
@@ -587,10 +608,17 @@ class SnapshotStatusResponse(BaseModel):
     already_hq_bird_crop: bool
     can_generate_hq_bird_crop: bool
     original_frigate_snapshot_available: bool | None = None
+    frigate_event_state: Literal["available", "not_retained", "unavailable", "unchecked"] = "unchecked"
+    localization_hint_available: bool = False
 
 
 class SnapshotGenerateResponse(SnapshotStatusResponse):
-    status: Literal["already_hq_bird_crop", "generated_hq_bird_crop", "generated_hq_snapshot"]
+    status: Literal[
+        "already_hq_bird_crop",
+        "generated_hq_bird_crop",
+        "generated_hq_snapshot",
+        "existing_crop_preserved",
+    ]
     result: str
 
 
@@ -1584,6 +1612,8 @@ async def generate_hq_bird_crop_snapshot(
             status = "generated_hq_bird_crop"
         elif result == "replaced":
             status = "generated_hq_snapshot"
+        elif result == "existing_crop_preserved":
+            status = "existing_crop_preserved"
         else:
             raise HTTPException(status_code=409, detail=f"HQ bird crop generation unavailable: {result}")
 

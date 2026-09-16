@@ -1847,6 +1847,8 @@
     "snapshot_best": "Meilleur",
     "snapshot_apply_success": "Instantané mis à jour",
     "snapshot_generate_success": "Instantané HQ généré",
+    "snapshot_existing_crop_preserved": "Aucun nouveau recadrage fiable n’a été trouvé. Le recadrage existant a été conservé.",
+    "snapshot_generated_full_frame": "Aucun recadrage fiable n’a été trouvé. La meilleure image complète a été enregistrée.",
     "snapshot_candidates_loading": "Chargement des images candidates…",
     "snapshot_candidates_empty": "Aucune image candidate enregistrée pour le moment.",
     "snapshot_model_candidates_empty": "Aucune image recadrée par IA trouvée. Les candidats en image complète et recadrage intelligent sont disponibles ci-dessus.",

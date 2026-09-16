@@ -1847,6 +1847,8 @@
     "snapshot_best": "最佳",
     "snapshot_apply_success": "快照已更新",
     "snapshot_generate_success": "HQ 快照已生成",
+    "snapshot_existing_crop_preserved": "未找到可靠的新裁剪；已保留现有裁剪。",
+    "snapshot_generated_full_frame": "未找到可靠的裁剪；已保存最佳完整画面。",
     "snapshot_candidates_loading": "正在加载候选帧…",
     "snapshot_candidates_empty": "尚无已保存的候选帧。",
     "snapshot_model_candidates_empty": "未找到AI裁剪帧。完整帧和智能裁剪候选项在上方可用。",

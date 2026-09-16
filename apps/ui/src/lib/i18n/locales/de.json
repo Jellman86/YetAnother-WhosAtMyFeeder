@@ -1847,6 +1847,8 @@
     "snapshot_best": "Bester",
     "snapshot_apply_success": "Schnappschuss aktualisiert",
     "snapshot_generate_success": "HQ-Schnappschuss erzeugt",
+    "snapshot_existing_crop_preserved": "Kein zuverlässiger neuer Ausschnitt gefunden; der vorhandene Ausschnitt wurde beibehalten.",
+    "snapshot_generated_full_frame": "Kein zuverlässiger Ausschnitt gefunden; das beste Vollbild wurde gespeichert.",
     "snapshot_candidates_loading": "Kandidaten-Frames werden geladen…",
     "snapshot_candidates_empty": "Noch keine gespeicherten Kandidaten-Frames.",
     "snapshot_model_candidates_empty": "Keine KI-zugeschnittenen Frames gefunden. Gesamtbild- und Smart-Crop-Kandidaten sind oben verfügbar.",

@@ -1847,6 +1847,8 @@
     "snapshot_best": "最良",
     "snapshot_apply_success": "スナップショットを更新しました",
     "snapshot_generate_success": "HQスナップショットを生成しました",
+    "snapshot_existing_crop_preserved": "信頼できる新しい切り抜きが見つからなかったため、既存の切り抜きを保持しました。",
+    "snapshot_generated_full_frame": "信頼できる切り抜きが見つからなかったため、最適なフルフレームを保存しました。",
     "snapshot_candidates_loading": "候補フレームを読み込み中…",
     "snapshot_candidates_empty": "保存済みの候補フレームはまだありません。",
     "snapshot_model_candidates_empty": "AIトリミングフレームが見つかりません。全フレームとスマートトリミングの候補は上で利用できます。",

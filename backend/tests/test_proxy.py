@@ -1456,6 +1456,47 @@ async def test_proxy_snapshot_status_marks_missing_original_frigate_snapshot(cli
         assert body["cached"] is True
         assert body["source"] == "hq_candidate_full_frame"
         assert body["original_frigate_snapshot_available"] is False
+        assert body["frigate_event_state"] == "unavailable"
+    finally:
+        settings.media_cache.enabled = original_cache_enabled
+        settings.media_cache.cache_snapshots = original_cache_snapshots
+
+
+@pytest.mark.asyncio
+async def test_proxy_snapshot_status_distinguishes_event_frigate_did_not_retain(client: httpx.AsyncClient):
+    original_cache_enabled = settings.media_cache.enabled
+    original_cache_snapshots = settings.media_cache.cache_snapshots
+    settings.media_cache.enabled = True
+    settings.media_cache.cache_snapshots = True
+    try:
+        with (
+            patch("app.services.media_cache.media_cache.get_snapshot", new=AsyncMock(return_value=b"crop")),
+            patch(
+                "app.services.media_cache.media_cache.get_snapshot_metadata",
+                new=AsyncMock(
+                    return_value={
+                        "source": "frigate_snapshot_cropped",
+                        "event_hints": {
+                            "data": {"box": [10, 20, 30, 40]},
+                            "end_time": 105.0,
+                            "position_changes": 0,
+                            "has_snapshot": False,
+                            "has_clip": False,
+                        },
+                    }
+                ),
+            ),
+            patch(
+                "app.routers.proxy.frigate_client.get_snapshot_with_error",
+                new=AsyncMock(return_value=(None, "snapshot_not_found")),
+            ),
+        ):
+            response = await client.get("/api/frigate/test_event_id/snapshot/status")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["frigate_event_state"] == "not_retained"
+        assert body["localization_hint_available"] is True
     finally:
         settings.media_cache.enabled = original_cache_enabled
         settings.media_cache.cache_snapshots = original_cache_snapshots
@@ -1531,6 +1572,44 @@ async def test_generate_hq_bird_crop_snapshot_reuses_hq_service(client: httpx.As
             assert body["source"] == "high_quality_bird_crop"
             assert body["already_hq_bird_crop"] is True
             mock_process.assert_awaited_once_with("test_event_id")
+        finally:
+            settings.media_cache.enabled = original_cache_enabled
+            settings.media_cache.cache_snapshots = original_cache_snapshots
+            settings.media_cache.high_quality_event_snapshots = original_hq_snapshots
+            settings.media_cache.high_quality_event_snapshot_bird_crop = original_hq_crop
+
+
+@pytest.mark.asyncio
+async def test_generate_hq_bird_crop_snapshot_reports_preserved_existing_crop(client: httpx.AsyncClient):
+    original_cache_enabled = settings.media_cache.enabled
+    original_cache_snapshots = settings.media_cache.cache_snapshots
+    original_hq_snapshots = settings.media_cache.high_quality_event_snapshots
+    original_hq_crop = settings.media_cache.high_quality_event_snapshot_bird_crop
+    settings.media_cache.enabled = True
+    settings.media_cache.cache_snapshots = True
+    settings.media_cache.high_quality_event_snapshots = True
+    settings.media_cache.high_quality_event_snapshot_bird_crop = True
+
+    with (
+        patch("app.services.media_cache.media_cache.get_snapshot", new=AsyncMock(return_value=b"crop")),
+        patch(
+            "app.services.media_cache.media_cache.get_snapshot_metadata",
+            new=AsyncMock(return_value={"source": "frigate_snapshot_cropped"}),
+        ),
+        patch(
+            "app.routers.proxy.frigate_client.get_snapshot_with_error",
+            new=AsyncMock(return_value=(None, "snapshot_not_found")),
+        ),
+        patch(
+            "app.routers.proxy.high_quality_snapshot_service.process_event",
+            new=AsyncMock(return_value="existing_crop_preserved"),
+        ),
+    ):
+        try:
+            response = await client.post("/api/frigate/test_event_id/snapshot/hq-bird-crop")
+            assert response.status_code == 200
+            assert response.json()["status"] == "existing_crop_preserved"
+            assert response.json()["result"] == "existing_crop_preserved"
         finally:
             settings.media_cache.enabled = original_cache_enabled
             settings.media_cache.cache_snapshots = original_cache_snapshots

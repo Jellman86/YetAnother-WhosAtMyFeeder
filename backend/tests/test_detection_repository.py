@@ -202,6 +202,38 @@ async def test_mark_and_clear_frigate_missing_state():
 
 
 @pytest.mark.asyncio
+async def test_mark_frigate_not_retained_is_terminal_but_can_be_restored():
+    async with aiosqlite.connect(":memory:") as db:
+        await _create_detections_table(db)
+        await db.commit()
+        repo = DetectionRepository(db)
+        await repo.create(
+            Detection(
+                detection_time=datetime(2023, 1, 1, 12, 0, 0),
+                detection_index=1,
+                score=0.9,
+                display_name="Bird",
+                category_name="Bird",
+                frigate_event="evt_not_retained",
+                camera_name="cam_1",
+            )
+        )
+
+        assert await repo.mark_frigate_not_retained("evt_not_retained") is True
+        marked = await repo.get_by_frigate_event("evt_not_retained")
+        assert marked is not None
+        assert marked.frigate_status == "not_retained"
+        assert marked.frigate_last_error == "frigate_event_not_retained"
+        assert marked.frigate_missing_since is not None
+
+        assert await repo.mark_frigate_present("evt_not_retained") is True
+        restored = await repo.get_by_frigate_event("evt_not_retained")
+        assert restored is not None
+        assert restored.frigate_status == "present"
+        assert restored.frigate_last_error is None
+
+
+@pytest.mark.asyncio
 async def test_get_unknown_detections_returns_newest_first_with_limit():
     async with aiosqlite.connect(":memory:") as db:
         await _create_detections_table(db)

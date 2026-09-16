@@ -1856,6 +1856,8 @@
     "snapshot_best": "Migliore",
     "snapshot_apply_success": "Istantanea aggiornata",
     "snapshot_generate_success": "Istantanea HQ generata",
+    "snapshot_existing_crop_preserved": "Non è stato trovato un nuovo ritaglio affidabile; è stato mantenuto quello esistente.",
+    "snapshot_generated_full_frame": "Non è stato trovato un ritaglio affidabile; è stato salvato il miglior fotogramma intero.",
     "snapshot_candidates_loading": "Caricamento dei fotogrammi candidati…",
     "snapshot_candidates_empty": "Nessun fotogramma candidato salvato.",
     "snapshot_model_candidates_empty": "Nessun frame ritagliato dall'IA trovato. I candidati a frame intero e ritaglio smart sono disponibili sopra.",
