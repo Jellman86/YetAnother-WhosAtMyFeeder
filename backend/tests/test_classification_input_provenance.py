@@ -77,6 +77,32 @@ def test_completed_full_frame_context_includes_valid_frigate_localisation_hints(
     }
 
 
+def test_completed_full_frame_context_accepts_mqtt_pixel_corner_hints():
+    provenance = frigate_snapshot_input_provenance({"end_time": 1234.5})
+
+    context = build_snapshot_classification_input_context(
+        event_id="event-mqtt",
+        event_data={"data": {"box": [786, 323, 910, 417]}},
+        provenance=provenance,
+    )
+
+    assert context["frigate_box"] == [786, 323, 910, 417]
+    assert context["restore_frigate_snapshot_crop"] is True
+
+
+def test_completed_full_frame_context_rejects_inverted_pixel_corner_hints():
+    provenance = frigate_snapshot_input_provenance({"end_time": 1234.5})
+
+    context = build_snapshot_classification_input_context(
+        event_id="event-invalid-mqtt",
+        event_data={"data": {"box": [910, 417, 786, 323]}},
+        provenance=provenance,
+    )
+
+    assert "frigate_box" not in context
+    assert "restore_frigate_snapshot_crop" not in context
+
+
 def test_cropped_snapshot_context_does_not_add_hints_or_double_crop():
     provenance = frigate_snapshot_input_provenance({"end_time": None})
 

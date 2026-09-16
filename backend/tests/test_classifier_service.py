@@ -4182,6 +4182,29 @@ async def test_video_frigate_hint_follows_time_aligned_tracking_path(mock_tflite
 
 
 @pytest.mark.asyncio
+async def test_video_frigate_hint_tracks_mqtt_pixel_box_using_decoded_frame_size(mock_tflite, mock_os_path_exists):
+    with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
+        service = ClassifierService()
+        context = classifier_service_module._normalize_classification_input_context(
+            {
+                "is_cropped": False,
+                "frigate_box": [10, 20, 30, 40],
+                "frigate_path_data": [[[0.5, 0.6], 100.0]],
+                "clip_start_timestamp": 100.0,
+            }
+        )
+
+        tracked = service._tracked_frigate_box_for_frame(
+            context,
+            frame_offset_seconds=0.0,
+            image_size=(100, 100),
+        )
+
+        assert tracked == pytest.approx([0.4, 0.4, 0.2, 0.2])
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_recording_frames_never_reuse_a_static_frigate_box_outside_its_tracking_time(
     mock_tflite, mock_os_path_exists
 ):
