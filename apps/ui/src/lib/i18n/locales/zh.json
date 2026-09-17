@@ -2219,7 +2219,11 @@
       "title": "检测历史",
       "sub": "已保存的 BirdNET-Go 检测，与视觉访问记录分开。",
       "empty": "没有符合这些筛选条件的 BirdNET 检测。",
-      "showing": "显示第 {from}-{to} 项，共 {total} 项"
+      "showing": "显示第 {from}-{to} 项，共 {total} 项",
+      "hide": "在本地隐藏",
+      "undo": "撤销",
+      "hidden_message": "音频检测已隐藏。",
+      "local_only": "隐藏后，该条目将从YA-WAMF历史记录和未来的音频匹配中排除。BirdNET-Go不会更改；上游删除不会自动同步。"
     },
     "table": {
       "sound": "声音",

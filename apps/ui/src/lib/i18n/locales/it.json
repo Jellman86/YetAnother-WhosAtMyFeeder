@@ -2228,7 +2228,11 @@
       "title": "Cronologia rilevamenti",
       "sub": "Rilevamenti BirdNET-Go salvati, separati dalle visite visive.",
       "empty": "Nessun rilevamento BirdNET corrisponde a questi filtri.",
-      "showing": "Visualizzati {from}-{to} di {total}"
+      "showing": "Visualizzati {from}-{to} di {total}",
+      "hide": "Nascondi localmente",
+      "undo": "Annulla",
+      "hidden_message": "Rilevamento audio nascosto.",
+      "local_only": "Nascondere rimuove una voce dalla cronologia YA-WAMF e dalle future corrispondenze audio. BirdNET-Go resta invariato; le eliminazioni non vengono sincronizzate automaticamente."
     },
     "table": {
       "sound": "Suono",

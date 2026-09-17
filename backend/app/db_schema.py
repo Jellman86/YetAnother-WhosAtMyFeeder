@@ -98,6 +98,7 @@ audio_detections = Table(
     Column("confidence", Float, nullable=False),
     Column("sensor_id", String),
     Column("source_event_id", String),
+    Column("is_hidden", Boolean, nullable=False, server_default="0"),
     Column("raw_data", String),
     Column("created_at", TIMESTAMP, server_default=func.now()),
 )

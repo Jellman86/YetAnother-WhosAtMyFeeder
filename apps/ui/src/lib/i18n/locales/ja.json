@@ -2219,7 +2219,11 @@
       "title": "検出履歴",
       "sub": "映像による訪問とは別に保存された BirdNET-Go の検出です。",
       "empty": "このフィルターに一致する BirdNET 検出はありません。",
-      "showing": "{total} 件中 {from}～{to} 件を表示"
+      "showing": "{total} 件中 {from}～{to} 件を表示",
+      "hide": "ローカルで非表示",
+      "undo": "元に戻す",
+      "hidden_message": "音声検出を非表示にしました。",
+      "local_only": "非表示にするとYA-WAMFの履歴と今後の音声照合から除外されます。BirdNET-Goは変更されません。上流の削除は自動同期されません。"
     },
     "table": {
       "sound": "音声",

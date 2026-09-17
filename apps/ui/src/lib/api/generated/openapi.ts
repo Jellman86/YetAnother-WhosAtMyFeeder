@@ -200,6 +200,13 @@ export interface components {
     top_species: Array<components['schemas']['AudioSpeciesSummaryResponse']>;
     total: number;
 };
+    AudioVisibilityRequest: {
+    hidden: boolean;
+};
+    AudioVisibilityResponse: {
+    hidden: boolean;
+    id: number;
+};
     AuthStatusResponse: {
     accessibility_dyslexia_font?: boolean;
     accessibility_high_contrast?: boolean;
@@ -2236,6 +2243,17 @@ export interface paths {
 };
       requestBody: unknown;
       response: components['schemas']['AudioHistoryResponse'];
+    };
+  };
+  "/api/audio/history/{detection_id}": {
+    patch: {
+      operationId: "set_audio_visibility_api_audio_history__detection_id__patch";
+      path: {
+    detection_id: number;
+};
+      query: never;
+      requestBody: components['schemas']['AudioVisibilityRequest'];
+      response: components['schemas']['AudioVisibilityResponse'];
     };
   };
   "/api/audio/recent": {
