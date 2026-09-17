@@ -110,7 +110,7 @@
                     {@const naming = names(visit.lead)}
                     {@const score = visit.best.score ?? 0}
                     <li
-                        class="relative grid grid-cols-[3rem_auto_minmax(0,1fr)] items-center gap-x-2.5 gap-y-1 border-l-[3px] border-l-brand-400 bg-brand-50/25 px-2 py-2.5 sm:grid-cols-[4.5rem_0.75rem_auto_minmax(0,1fr)_auto_auto_7.5rem] sm:gap-x-3 sm:px-3 dark:border-l-brand-600 dark:bg-brand-950/10"
+                        class="relative grid grid-cols-[3rem_auto_minmax(0,1fr)] items-center gap-x-2.5 gap-y-1 border-l-[3px] border-l-brand-400 bg-brand-50/25 px-2 py-2.5 sm:grid-cols-[4.5rem_0.75rem_auto_minmax(0,1fr)_4.5rem_7.5rem] sm:gap-x-3 sm:px-3 dark:border-l-brand-600 dark:bg-brand-950/10"
                         data-health-activity-row
                         data-row-kind="recorded"
                     >
@@ -128,8 +128,9 @@
                             onopen={(frame) => onselect?.(frame)}
                         />
                         <div class="min-w-0 pr-12 sm:pr-0">
-                            <p class="flex min-w-0 items-baseline gap-1.5">
+                            <p class="flex min-w-0 items-baseline justify-between gap-2">
                                 <span class="truncate text-sm font-semibold text-slate-950 dark:text-white">{naming.primary}</span>
+                                <span class="shrink-0 text-xs font-bold tabular-nums sm:hidden {scoreTone(score)}">{Math.round(score * 100)}%</span>
                             </p>
                             <p class="flex flex-wrap items-center gap-x-1.5 text-[11px] text-slate-500 dark:text-slate-400">
                                 <span class="font-semibold text-brand-700 dark:text-brand-300">
@@ -149,9 +150,6 @@
                                 {/if}
                             </p>
                         </div>
-                        <span class="hidden rounded-full border border-brand-200 bg-brand-50 px-2.5 py-1 text-[11px] font-bold text-brand-700 sm:inline-flex dark:border-brand-800/60 dark:bg-brand-950/30 dark:text-brand-300">
-                            {$_('jobs.errors_activity_recorded_short', { default: 'Recorded' })}
-                        </span>
                         <span class="hidden flex-col items-end gap-1 sm:flex">
                             <span class="text-xs font-bold tabular-nums {scoreTone(score)}">{Math.round(score * 100)}%</span>
                             <span class="h-[3px] w-16 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
@@ -174,7 +172,7 @@
                     {@const drop = row.drop}
                     {@const isFault = row.kind === 'fault'}
                     <li
-                        class="grid grid-cols-[3rem_auto_minmax(0,1fr)] items-center gap-x-2.5 gap-y-1 border-l-[3px] px-2 py-2.5 sm:grid-cols-[4.5rem_0.75rem_auto_minmax(0,1fr)_auto_auto_7.5rem] sm:gap-x-3 sm:px-3 {dropToneClass(isFault)}"
+                        class="grid grid-cols-[3rem_auto_minmax(0,1fr)] items-center gap-x-2.5 gap-y-1 border-l-[3px] px-2 py-2.5 sm:grid-cols-[4.5rem_0.75rem_auto_minmax(0,1fr)_4.5rem] sm:gap-x-3 sm:px-3 {dropToneClass(isFault)}"
                         data-health-activity-row
                         data-row-kind={isFault ? 'fault' : 'filtered'}
                     >
@@ -196,12 +194,17 @@
                                 : null}
                         />
                         <div class="min-w-0">
-                            <p class="truncate text-sm font-semibold {isFault ? 'text-rose-900 dark:text-rose-100' : 'italic text-slate-700 dark:text-slate-200'}">
-                                {drop.label ?? $_('jobs.errors_activity_unidentified', { default: 'Unidentified detection' })}
+                            <p class="flex min-w-0 items-baseline justify-between gap-2 text-sm font-semibold {isFault ? 'text-rose-900 dark:text-rose-100' : 'italic text-slate-700 dark:text-slate-200'}">
+                                <span class="truncate">{drop.label ?? $_('jobs.errors_activity_unidentified', { default: 'Unidentified detection' })}</span>
+                                {#if drop.score !== null}
+                                    <span class="shrink-0 text-xs font-bold not-italic tabular-nums text-slate-500 sm:hidden dark:text-slate-400">{Math.round(drop.score * 100)}%</span>
+                                {/if}
                             </p>
-                            <p class="text-[11px] font-medium leading-4 {isFault ? 'text-rose-700 dark:text-rose-300' : 'text-slate-500 dark:text-slate-400'}">
+                            <p class="flex flex-wrap items-center gap-x-1.5 text-[11px] font-medium leading-4 {isFault ? 'text-rose-700 dark:text-rose-300' : 'text-slate-500 dark:text-slate-400'}">
                                 {#if isFault}
-                                    {$_(`jobs.errors_drop_reason.${drop.reason}`, { default: reasonFallback(drop.reason) })}
+                                    <span class="font-semibold">{$_('jobs.errors_activity_fault', { default: 'Pipeline fault' })}</span>
+                                    <span aria-hidden="true">·</span>
+                                    <span>{$_(`jobs.errors_drop_reason.${drop.reason}`, { default: reasonFallback(drop.reason) })}</span>
                                 {:else}
                                     {$_(`jobs.errors_drop_reason_row.${drop.reason}`, {
                                         default: $_('jobs.errors_drop_reason_row.filter_low_confidence', {
@@ -211,11 +214,6 @@
                                 {/if}
                             </p>
                         </div>
-                        <span class="hidden rounded-full border px-2.5 py-1 text-[11px] font-bold sm:inline-flex {isFault ? 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-800/60 dark:bg-rose-950/30 dark:text-rose-300' : 'border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'}">
-                            {isFault
-                                ? $_('jobs.errors_activity_fault', { default: 'Pipeline fault' })
-                                : $_('jobs.errors_activity_filtered', { default: 'Filtered out' })}
-                        </span>
                         <span class="hidden flex-col items-end gap-1 sm:flex">
                             {#if drop.score !== null}
                                 <span class="text-xs font-bold tabular-nums text-slate-500 dark:text-slate-400">{Math.round(drop.score * 100)}%</span>
@@ -223,11 +221,6 @@
                                     <span class="block h-full rounded-full bg-slate-400 dark:bg-slate-500" style="width: {Math.round(drop.score * 100)}%"></span>
                                 </span>
                             {/if}
-                        </span>
-                        <span class="hidden text-right text-[11px] font-medium text-slate-400 sm:block dark:text-slate-500">
-                            {isFault
-                                ? $_('jobs.errors_activity_not_saved', { default: 'Not saved' })
-                                : $_('jobs.errors_activity_no_record', { default: 'No record created' })}
                         </span>
                     </li>
                 {/if}

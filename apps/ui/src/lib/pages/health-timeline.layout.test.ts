@@ -110,6 +110,12 @@ describe('filtered rows', () => {
         expect(timelineSource).toContain("data-row-kind={isFault ? 'fault' : 'filtered'}");
         expect(timelineSource).toContain('border-l-rose-400');
     });
+
+    it('states each outcome once instead of repeating status at the end of the row', () => {
+        expect(timelineSource).not.toContain("jobs.errors_activity_recorded_short");
+        expect(timelineSource).not.toContain("jobs.errors_activity_no_record");
+        expect(timelineSource).not.toContain("jobs.errors_activity_not_saved");
+    });
 });
 
 describe('filtered frame preview', () => {
@@ -121,8 +127,17 @@ describe('filtered frame preview', () => {
         expect(filteredPreviewSource).toContain("event.key === 'Escape'");
         expect(filteredPreviewSource).toContain('aria-expanded');
         expect(filteredPreviewSource).toContain('focus-ring');
-        expect(filteredPreviewSource).toContain('motion-safe:');
+        expect(filteredPreviewSource).toContain('motion-reduce:animate-none');
         expect(filteredPreviewSource).toContain('show();');
+    });
+
+    it('portals the panel out of the clipped timeline card and keeps it on screen', () => {
+        expect(filteredPreviewSource).toContain("import { portal } from '../utils/portal'");
+        expect(filteredPreviewSource).toContain('use:portal');
+        expect(filteredPreviewSource).toContain("class=\"fixed z-[70]");
+        expect(filteredPreviewSource).toContain('getBoundingClientRect()');
+        expect(filteredPreviewSource).toContain("window.addEventListener('scroll', follow, true)");
+        expect(filteredPreviewSource).toContain('max-w-[calc(100vw-16px)]');
     });
 
     it('degrades a rotated-away frame to a placeholder of the same size', () => {

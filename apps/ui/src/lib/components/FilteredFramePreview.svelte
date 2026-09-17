@@ -1,6 +1,7 @@
 <script lang="ts">
     import { getThumbnailUrl } from '../api';
     import { _ } from 'svelte-i18n';
+    import { portal } from '../utils/portal';
 
     interface Props {
         /** The Frigate event the filter rejected. It has no detection record. */
@@ -21,7 +22,28 @@
     let open = $state(false);
     let failed = $state(false);
     let rootEl = $state<HTMLElement | null>(null);
+    let triggerEl = $state<HTMLButtonElement | null>(null);
     let closeTimer: ReturnType<typeof setTimeout> | null = null;
+
+    // The activity frame clips its rows to keep the rounded card edge clean. A fixed,
+    // portalled panel is the only way for this preview to escape that clipping context.
+    const PANEL_WIDTH = 224;
+    const GAP = 8;
+    const VIEWPORT_MARGIN = 8;
+    let anchor = $state<{ x: number; y: number; above: boolean } | null>(null);
+
+    function place(): void {
+        if (!triggerEl) return;
+        const rect = triggerEl.getBoundingClientRect();
+        const estimatedHeight = 180;
+        const above = rect.bottom + GAP + estimatedHeight > window.innerHeight;
+        const half = PANEL_WIDTH / 2;
+        const centre = Math.min(
+            Math.max(rect.left + rect.width / 2, half + VIEWPORT_MARGIN),
+            window.innerWidth - half - VIEWPORT_MARGIN
+        );
+        anchor = { x: centre, y: above ? rect.top - GAP : rect.bottom + GAP, above };
+    }
 
     // Same rule as the frame strip: hover for a hovering pointer, focus for the keyboard, a tap
     // by its click, so a touch browser's replayed mouseenter cannot swallow the tap.
@@ -39,7 +61,15 @@
             clearTimeout(closeTimer);
             closeTimer = null;
         }
+        place();
         open = true;
+    }
+
+    function cancelScheduledClose(): void {
+        if (closeTimer) {
+            clearTimeout(closeTimer);
+            closeTimer = null;
+        }
     }
 
     function hide(immediate = false): void {
@@ -75,6 +105,32 @@
         };
     });
 
+    // Fixed coordinates must follow the thumbnail while any page ancestor scrolls.
+    // Close once the trigger leaves the viewport so the panel never points at nothing.
+    $effect(() => {
+        if (!open) return;
+        let pending: number | null = null;
+        const follow = () => {
+            if (pending !== null) return;
+            pending = requestAnimationFrame(() => {
+                pending = null;
+                const rect = triggerEl?.getBoundingClientRect();
+                if (!rect || rect.bottom < 0 || rect.top > window.innerHeight) {
+                    hide(true);
+                    return;
+                }
+                place();
+            });
+        };
+        window.addEventListener('scroll', follow, true);
+        window.addEventListener('resize', follow);
+        return () => {
+            if (pending !== null) cancelAnimationFrame(pending);
+            window.removeEventListener('scroll', follow, true);
+            window.removeEventListener('resize', follow);
+        };
+    });
+
     const name = $derived(label ?? $_('common.unknown_species', { default: 'Unknown species' }));
 </script>
 
@@ -90,6 +146,7 @@
     role="presentation"
 >
     <button
+        bind:this={triggerEl}
         type="button"
         class="grid min-h-11 min-w-11 place-items-center rounded-lg focus-ring"
         aria-expanded={open}
@@ -126,10 +183,17 @@
         {/if}
     </button>
 
-    {#if open}
+    {#if open && anchor}
         <div
-            class="absolute bottom-full left-0 z-30 mb-2 w-56 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl motion-safe:animate-in dark:border-slate-700 dark:bg-slate-900"
-            role="presentation"
+            use:portal
+            style="left: {anchor.x}px; top: {anchor.y}px;"
+            class="fixed z-[70] w-56 max-w-[calc(100vw-16px)] rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl shadow-slate-950/20 animate-in fade-in zoom-in-95 motion-reduce:animate-none dark:border-slate-700 dark:bg-slate-900 {anchor.above
+                ? '-translate-x-1/2 -translate-y-full'
+                : '-translate-x-1/2'}"
+            role="tooltip"
+            data-filtered-frame-preview-panel
+            onmouseenter={cancelScheduledClose}
+            onmouseleave={() => hide()}
         >
             {#if failed}
                 <div class="grid aspect-video place-items-center rounded-xl bg-slate-100 px-3 text-center text-[11px] font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
@@ -145,7 +209,7 @@
                 />
             {/if}
             <p class="mt-1.5 px-0.5 text-[11px] font-semibold italic text-slate-600 dark:text-slate-300">{name}</p>
-            <p class="px-0.5 font-mono text-[10px] text-slate-400 dark:text-slate-500">{eventId}</p>
+            <p class="break-all px-0.5 font-mono text-[10px] text-slate-400 dark:text-slate-500">{eventId}</p>
         </div>
     {/if}
 </div>
