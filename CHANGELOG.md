@@ -37,6 +37,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Settings → Health now gives a truthful, working account of detection activity.** Its “What
+  happened” timeline is visually and semantically separate from the Dashboard field log, states
+  whether each event was recorded, filtered by policy, or lost to a pipeline fault, and opens a
+  recorded visit through the app's real route instead of a dead hash URL. Grouped visit frames no
+  longer inflate the hidden-event count, and rejected-frame previews now open on touch as well as
+  hover and keyboard focus.
 - **A late snapshot refresh can no longer replace a useful bird crop with a full feeder frame.**
   Event-time Frigate boxes and final retention flags are retained beside the cached photograph, so
   clip analysis can still make an accurate crop after an ephemeral Frigate event disappears. If

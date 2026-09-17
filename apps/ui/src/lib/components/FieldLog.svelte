@@ -9,14 +9,15 @@
     import { settingsStore } from '../stores/settings.svelte';
     import { _ } from 'svelte-i18n';
 
+    type FieldLogRow = Exclude<HealthTimelineRow, { kind: 'fault' }>;
+
     interface Props {
         visits?: DetectionVisit[];
         /**
-         * Pre-merged rows, used by the Health page so kept visits and filtered
-         * frames share one thread. When absent the visits prop is rendered as
-         * before, so the dashboard is unaffected.
+         * Optional pre-merged visit and expected-filter rows for legacy callers.
+         * Operational fault history belongs to HealthActivityTimeline instead.
          */
-        rows?: HealthTimelineRow[];
+        rows?: FieldLogRow[];
         /** Off when the surrounding page already titles the list and states its window. */
         showHeader?: boolean;
         /** Empty-state wording, for pages whose window is not "today". */
@@ -47,7 +48,7 @@
         onseeall
     }: Props = $props();
 
-    const renderRows = $derived<HealthTimelineRow[]>(
+    const renderRows = $derived<FieldLogRow[]>(
         rows ?? visits.map((visit) => ({ kind: 'visit' as const, key: `visit:${visit.key}`, at: 0, visit }))
     );
 

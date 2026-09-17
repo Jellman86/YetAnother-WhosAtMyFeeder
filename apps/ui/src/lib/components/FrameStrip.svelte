@@ -50,7 +50,7 @@
 
     let openIndex = $state<number | null>(null);
     let rootEl = $state<HTMLElement | null>(null);
-    let triggers: HTMLElement[] = [];
+    let triggers = $state<HTMLElement[]>([]);
     let closeTimer: ReturnType<typeof setTimeout> | null = null;
 
     // A pointer travelling from the thumbnail up into the panel crosses a gap; closing on the

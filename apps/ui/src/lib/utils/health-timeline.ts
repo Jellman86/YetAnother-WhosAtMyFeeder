@@ -1,16 +1,16 @@
 import type { DetectionVisit } from './visit-grouping';
-import type { FilteredDetection } from './pipeline-health';
+import type { FaultDetection, FilteredDetection } from './pipeline-health';
 
 /**
  * The Health page shows one thread of what the feeder did: visits it kept and
- * frames the filter rejected, in the order they happened. Both are rendered by
- * `FieldLog`, so this module's only job is deciding what belongs on the thread
- * and in what order.
+ * frames the filter rejected, and fault drops, in the order they happened. This
+ * module decides what belongs on that operational thread and in what order.
  */
 
 export type HealthTimelineRow =
     | { kind: 'visit'; key: string; at: number; visit: DetectionVisit }
-    | { kind: 'filtered'; key: string; at: number; drop: FilteredDetection };
+    | { kind: 'filtered'; key: string; at: number; drop: FilteredDetection }
+    | { kind: 'fault'; key: string; at: number; drop: FaultDetection };
 
 function parse(value: string | null | undefined): number {
     if (typeof value !== 'string') return Number.NaN;
@@ -35,17 +35,19 @@ export function instanceWindowMs(
 export interface HealthTimelineInput {
     visits?: readonly DetectionVisit[];
     filtered?: readonly FilteredDetection[];
+    faults?: readonly FaultDetection[];
     limit?: number;
 }
 
 /**
- * Merge kept visits and filtered frames into one newest-first thread. Rows
+ * Merge kept visits, filtered frames, and fault drops into one newest-first thread. Rows
  * whose time cannot be read are kept at the end rather than dropped, so a bad
  * timestamp never silently hides a real event.
  */
 export function buildHealthTimeline({
     visits = [],
     filtered = [],
+    faults = [],
     limit = 12
 }: HealthTimelineInput): HealthTimelineRow[] {
     const rows: HealthTimelineRow[] = [];
@@ -56,6 +58,9 @@ export function buildHealthTimeline({
     for (const drop of filtered) {
         rows.push({ kind: 'filtered', key: `drop:${drop.eventId}`, at: parse(drop.timestamp), drop });
     }
+    for (const drop of faults) {
+        rows.push({ kind: 'fault', key: `fault:${drop.eventId}`, at: parse(drop.timestamp), drop });
+    }
 
     rows.sort((left, right) => {
         if (Number.isNaN(left.at) && Number.isNaN(right.at)) return 0;
@@ -65,6 +70,14 @@ export function buildHealthTimeline({
     });
 
     return limit > 0 ? rows.slice(0, limit) : rows;
+}
+
+/** Number of raw pipeline events visibly represented by these timeline rows. */
+export function representedEventCount(rows: readonly HealthTimelineRow[]): number {
+    return rows.reduce((total, row) => {
+        if (row.kind !== 'visit') return total + 1;
+        return total + Math.max(1, row.visit.frames.length);
+    }, 0);
 }
 
 /**

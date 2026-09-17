@@ -3487,7 +3487,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             {#if activeTab === 'health'}
                 <div class="space-y-6">
                     <SystemHealthPanel />
-                    <Errors />
+                    <Errors {onNavigate} />
                 </div>
             {/if}
 

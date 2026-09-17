@@ -72,6 +72,11 @@ describe('the frame strip is one ordered set of moments (#256)', () => {
         }
     });
 
+    it('keeps bound trigger arrays reactive so Svelte does not warn for every thumbnail', () => {
+        expect(stripSource).toContain('let triggers = $state<HTMLElement[]>([])');
+        expect(previewSource).toContain('let triggers = $state<HTMLElement[]>([])');
+    });
+
     it('labels what the model read in a frame as a read, with one action that names its effect', () => {
         expect(stripSource).toContain('detection.frame_model_read');
         expect(stripSource).toContain('detection.frame_read_note');
