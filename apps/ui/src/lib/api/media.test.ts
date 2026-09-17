@@ -6,8 +6,17 @@ import {
     generateHighQualityBirdCropSnapshot,
     fetchSnapshotCandidates,
     applySnapshotCandidate,
-    getOriginalFrigateSnapshotUrl
+    getHlsUrl,
+    getOriginalFrigateSnapshotUrl,
+    getRecordingHlsUrl
 } from './media';
+
+describe('HLS media URLs', () => {
+    it('builds event and recording playlist URLs through the auth parameter helper', () => {
+        expect(getHlsUrl('evt/a')).toContain('/api/frigate/evt%2Fa/hls/master.m3u8');
+        expect(getRecordingHlsUrl('evt/a')).toContain('/api/frigate/evt%2Fa/recording-hls/master.m3u8');
+    });
+});
 
 describe('checkRecordingClipAvailable', () => {
     beforeEach(() => {

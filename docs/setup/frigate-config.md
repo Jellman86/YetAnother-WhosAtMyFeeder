@@ -163,6 +163,10 @@ The optional **Full-visit clips** feature uses the same recording store, but pro
 Frigate treats continuous, motion, alert, and detection retention as separate tiers. Keeping alerts or detections for 30 days does **not** provide an uninterrupted 30-day timeline: with `continuous.days: 0`, only matching event segments survive. YA-WAMF may keep a playable partial event clip as a fallback, but it does not advertise that as reliable Full-visit coverage because the requested pre/post window can start late or end early. See Frigate's [recording retention documentation](https://docs.frigate.video/configuration/record/) for the upstream semantics.
 
 Important behavior:
+- In-browser playback uses Frigate's HLS VOD endpoint when it is available. Safari and iOS use
+  native HLS; other supported browsers use Media Source Extensions through `hls.js`. Cached,
+  archived and downloaded clips continue to use YA-WAMF's MP4 endpoint, which is also the automatic
+  fallback for older Frigate versions without HLS VOD support.
 - When recording clips and the YA-WAMF media cache are enabled, YA-WAMF automatically tries to generate a full-visit clip after eligible Frigate `end` events. It waits beyond the requested end timestamp so Frigate can finalize the newest segment, validates the resulting duration, and makes bounded delayed attempts to upgrade a partial result.
 - Recording downloads are written to a staging file. A validated candidate replaces the live cache atomically only when it is longer, so a failed or shorter retry cannot corrupt or shorten an existing playable visit.
 - YA-WAMF's normal clip route (`/api/frigate/{event_id}/clip.mp4`) prefers a persisted recording automatically. A near-complete recording is presented as **Full visit**; a shorter but decodable recording remains playable and is explicitly presented as **Partial visit** instead of silently falling back to the much shorter event clip.

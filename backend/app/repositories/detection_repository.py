@@ -2813,7 +2813,7 @@ class DetectionRepository:
         FROM detections
         WHERE frigate_event IS NOT NULL
           AND frigate_event NOT LIKE 'manual\\_%' ESCAPE '\\'
-          AND COALESCE(frigate_status, 'present') != 'missing'
+          AND COALESCE(frigate_status, 'present') NOT IN ('missing', 'not_retained')
           AND (frigate_last_checked_at IS NULL OR frigate_last_checked_at < ?)
     """
 
@@ -2868,6 +2868,24 @@ class DetectionRepository:
             WHERE frigate_event = ?
             """,
             (checked, checked, error, frigate_event),
+        )
+        changed = await self._last_statement_changes()
+        await self.db.commit()
+        return changed > 0
+
+    async def mark_frigate_not_retained(self, frigate_event: str) -> bool:
+        """Record Frigate's explicit final state when it retained no event media."""
+        checked = utc_naive_now()
+        await self.db.execute(
+            """
+            UPDATE detections
+            SET frigate_status = 'not_retained',
+                frigate_missing_since = COALESCE(frigate_missing_since, ?),
+                frigate_last_checked_at = ?,
+                frigate_last_error = 'frigate_event_not_retained'
+            WHERE frigate_event = ?
+            """,
+            (checked, checked, frigate_event),
         )
         changed = await self._last_statement_changes()
         await self.db.commit()

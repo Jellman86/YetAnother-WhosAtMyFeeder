@@ -6,6 +6,7 @@ from app.config import settings
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 from app.services.frigate_client import frigate_client
+from app.services.media_cache import media_cache
 from app.services.notification_service import notification_service
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.video_classification_waiter import video_classification_waiter
@@ -79,7 +80,10 @@ class NotificationOrchestrator:
         )
 
         if snapshot_data is None and needs_snapshot:
-            snapshot_data = await frigate_client.get_snapshot(event.frigate_event, crop=True, quality=85)
+            if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
+                snapshot_data = await media_cache.get_snapshot(event.frigate_event)
+            if snapshot_data is None:
+                snapshot_data = await frigate_client.get_snapshot(event.frigate_event, crop=True, quality=85)
 
         taxonomy = await taxonomy_service.get_names(label)
 

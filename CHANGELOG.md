@@ -27,6 +27,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **Settings → Health now names each classifier pool's accelerator runtime.** The process table
+  adds an Accelerator column sourced from the runtime the worker actually reported, so a CPU
+  fallback is never presented as NPU/GPU work. NPU utilisation remains labelled as a whole-device
+  figure because the kernel does not expose a truthful per-process split.
 - **The inspected sample on the health chart is marked on the lines it belongs to.** Moving the
   crosshair now puts a dot on each series at that sample, and the keyboard scrubber, which used to
   sit under the graph as a handle with nothing visibly attached to it, stays out of sight until it
@@ -35,6 +39,48 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Settings → Health now gives a truthful, working account of detection activity.** Its “What
+  happened” timeline is visually and semantically separate from the Dashboard field log, states
+  whether each event was recorded, filtered by policy, or lost to a pipeline fault, and opens a
+  recorded visit through the app's real route instead of a dead hash URL. Grouped visit frames no
+  longer inflate the hidden-event count, and rejected-frame previews now open on touch as well as
+  hover and keyboard focus.
+- **A late snapshot refresh can no longer replace a useful bird crop with a full feeder frame.**
+  Event-time Frigate boxes and final retention flags are retained beside the cached photograph, so
+  clip analysis can still make an accurate crop after an ephemeral Frigate event disappears. If
+  no trustworthy replacement crop exists, YA-WAMF keeps the existing crop and reports that result
+  explicitly; Frigate events that declare no retained clip or snapshot are recorded separately
+  from ordinary missing media.
+- **Frigate's live-event boxes now produce tight bird crops instead of oversized feeder scenes.**
+  MQTT reports pixel corner coordinates while the REST API reports normalized width and height;
+  both representations are now restored through one tested conversion path. If every classified
+  crop contradicts the visit's identity, the full scene is retained instead of promoting a
+  misleading crop.
+- **Legacy clients no longer disappear from fleet-health breakdowns.** Severity, component and
+  recurring-issue aggregates combine retained v1 issue detail with replay-safe v3 window events
+  before applying the three-install privacy floor. Cumulative legacy occurrence counters are
+  included once per retained issue and labelled explicitly, rather than being summed again for
+  every accepted snapshot or presented as fresh events.
+- **A slow Frigate or media follow-up can no longer erase a completed detection or its
+  notification.** The six-second ingest deadline now covers only the durable save path.
+  Notification work enters its bounded queue immediately afterwards, before Frigate sublabel
+  updates, snapshot caching and video scheduling run as isolated post-commit work. Those optional
+  integrations can still report their own failures, but they no longer turn a saved detection into
+  `save_and_notify_failed`.
+- **Completed-event notifications are delivered again.** In the `final` notification mode, an
+  existing detection's Frigate `end` event returned after final-media work without ever running
+  notification policy. Terminal events now enter the same bounded notification queue as initial
+  detections, and snapshot attachments prefer the cached image when Frigate has already expired
+  the event.
+- **Frigate videos now seek and play reliably across Safari, iOS, Chrome and Firefox (#459).**
+  Playback uses Frigate's HLS playlists and fragmented MP4 segments when available, with native
+  HLS on Apple browsers and `hls.js` elsewhere. The existing MP4 route remains the download,
+  cached-media and older-Frigate fallback, and no longer claims byte-range support unless Frigate
+  actually supplied it. Thanks to @kevingrubbs for reporting the failure and tracing it to the
+  progressive Frigate stream.
+- **Large photographs, label lists and audio clips no longer spill through nginx temporary
+  files.** These read-only responses now use bounded in-memory proxy buffers and stream any
+  remainder to the browser, avoiding unnecessary container-overlay writes during busy page loads.
 - **The sidebar's live graph no longer eats the health history's measurements.** Both read counter
   deltas since their own previous read, and both went through one shared sampler on different
   intervals, so each was measuring the gap left by the other. The history now keeps its own.

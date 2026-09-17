@@ -26,6 +26,7 @@ def test_frontend_assets_are_compressed_and_immutable(config_path: Path) -> None
     assert "gzip_vary on;" in config
     assert "gzip_min_length 1024;" in config
     assert "gzip_types text/css application/javascript image/svg+xml;" in config
+    assert "worker-src 'self' blob:;" in config
 
 
 @pytest.mark.parametrize("config_path", FRONTEND_NGINX_CONFIGS)
@@ -82,6 +83,53 @@ def test_manual_observation_upload_has_bounded_streaming_route(
     assert "client_max_body_size 0;" not in block
 
 
+@pytest.mark.parametrize(("config_path", "backend_upstream"), FRONTEND_NGINX_UPSTREAMS)
+def test_large_media_reads_use_bounded_memory_without_proxy_temp_files(
+    config_path: Path,
+    backend_upstream: str,
+) -> None:
+    config = config_path.read_text(encoding="utf-8")
+    location = (
+        r"location ~ ^/api/(?:frigate/.+\.jpg|about/showcase/[^/]+\.jpg|"
+        r"audio/(?:clip|spectrogram)/[0-9]+|classifier/labels)$ {"
+    )
+    block_start = config.index(location)
+    block_end = config.index("\n    }", block_start)
+    block = config[block_start:block_end]
+
+    assert f"proxy_pass {backend_upstream};" in block
+    assert "proxy_buffering on;" in block
+    assert "proxy_buffer_size 128k;" in block
+    assert "proxy_buffers 8 128k;" in block
+    assert "proxy_busy_buffers_size 256k;" in block
+    assert "proxy_max_temp_file_size 0;" in block
+
+    clip_location = config.index(r"location ~ ^/api/frigate/.+/clip\.mp4$ {")
+    generic_api_location = config.index("location /api/ {")
+    assert clip_location < block_start < generic_api_location
+
+
+@pytest.mark.parametrize(("config_path", "backend_upstream"), FRONTEND_NGINX_UPSTREAMS)
+def test_hls_assets_stream_without_nginx_buffering(
+    config_path: Path,
+    backend_upstream: str,
+) -> None:
+    config = config_path.read_text(encoding="utf-8")
+    location = r"location ~ ^/api/frigate/[^/]+/(?:hls|recording-hls)/[^/]+$ {"
+    block_start = config.index(location)
+    block_end = config.index("\n    }", block_start)
+    block = config[block_start:block_end]
+
+    assert f"proxy_pass {backend_upstream};" in block
+    assert "proxy_buffering off;" in block
+    assert "proxy_request_buffering off;" in block
+    assert "proxy_set_header X-Accel-Buffering no;" in block
+    assert "proxy_read_timeout 300s;" in block
+
+    clip_location = config.index(r"location ~ ^/api/frigate/.+/clip\.mp4$ {")
+    assert block_start < clip_location
+
+
 def test_monolith_healthcheck_exercises_public_readiness_route() -> None:
     healthcheck = (REPOSITORY_ROOT / "docker/monolith/healthcheck.sh").read_text(encoding="utf-8")
 
@@ -112,6 +160,16 @@ def test_monolith_access_logs_omit_query_strings() -> None:
     assert "$request_uri" not in main_config
     assert "$http_referer" not in main_config
     assert "--no-access-log" in entrypoint
+
+
+def test_split_frontend_access_logs_omit_hls_credentials() -> None:
+    config = (REPOSITORY_ROOT / "apps/ui/nginx.conf").read_text(encoding="utf-8")
+
+    assert '"$request_method $uri $server_protocol"' in config
+    assert "access_log /dev/stdout yawamf_safe_access;" in config
+    assert "$args" not in config
+    assert "$request_uri" not in config
+    assert "$http_referer" not in config
 
 
 def test_monolith_compose_rotates_container_logs() -> None:

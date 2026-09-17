@@ -40,13 +40,14 @@ from app.auth import (
     api_key_header,
     api_key_query,
 )
-from app.ratelimit import guest_rate_limit, share_create_rate_limit
+from app.ratelimit import guest_rate_limit, hls_rate_limit, share_create_rate_limit
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 from app.repositories.video_share_repository import VideoShareRepository
 from app.utils.api_datetime import serialize_api_datetime
 from app.utils.public_access import effective_public_media_days
 from app.utils.integration_url import validated_http_base_url
+from app.utils.hls import is_hls_asset, rewrite_hls_playlist
 
 router = APIRouter()
 
@@ -88,6 +89,7 @@ HIGH_QUALITY_SNAPSHOT_SOURCES = {
     "hq_candidate_frigate_hint_crop",
     "hq_candidate_model_crop",
 }
+HLS_PLAYLIST_MEDIA_TYPE = "application/vnd.apple.mpegurl"
 
 
 def get_http_client() -> httpx.AsyncClient:
@@ -95,6 +97,86 @@ def get_http_client() -> httpx.AsyncClient:
     if _http_client is None:
         _http_client = httpx.AsyncClient(timeout=30.0)
     return _http_client
+
+
+async def _proxy_hls_asset(request: Request, upstream_url: str, asset: str, lang: str) -> Response:
+    if not is_hls_asset(asset):
+        raise HTTPException(status_code=400, detail="Invalid HLS asset")
+
+    client = get_http_client()
+    upstream_headers = frigate_client._get_headers()
+
+    if asset.endswith(".m3u8"):
+        try:
+            upstream = await client.get(upstream_url, headers=upstream_headers, timeout=10.0)
+            if upstream.status_code == 404:
+                raise HTTPException(status_code=404, detail=i18n_service.translate("errors.proxy.clip_not_found", lang))
+            upstream.raise_for_status()
+            try:
+                playlist = rewrite_hls_playlist(upstream.text, request.query_params)
+            except ValueError as exc:
+                raise HTTPException(status_code=502, detail="Frigate returned an invalid HLS playlist") from exc
+            return Response(
+                content=playlist,
+                media_type=HLS_PLAYLIST_MEDIA_TYPE,
+                headers=SNAPSHOT_NO_STORE_HEADERS,
+            )
+        except HTTPException:
+            raise
+        except httpx.TimeoutException as exc:
+            raise HTTPException(
+                status_code=504, detail=i18n_service.translate("errors.proxy.frigate_timeout", lang)
+            ) from exc
+        except httpx.HTTPStatusError as exc:
+            raise HTTPException(
+                status_code=exc.response.status_code,
+                detail=i18n_service.translate("errors.proxy.frigate_error", lang, status_code=exc.response.status_code),
+            ) from exc
+        except httpx.RequestError as exc:
+            raise HTTPException(
+                status_code=502,
+                detail=i18n_service.translate("errors.proxy.connection_failed", lang, url=settings.frigate.frigate_url),
+            ) from exc
+        finally:
+            if "upstream" in locals():
+                await upstream.aclose()
+
+    if range_header := request.headers.get("range"):
+        upstream_headers["Range"] = range_header
+    try:
+        upstream = await client.send(client.build_request("GET", upstream_url, headers=upstream_headers), stream=True)
+    except httpx.TimeoutException as exc:
+        raise HTTPException(
+            status_code=504, detail=i18n_service.translate("errors.proxy.frigate_timeout", lang)
+        ) from exc
+    except httpx.RequestError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=i18n_service.translate("errors.proxy.connection_failed", lang, url=settings.frigate.frigate_url),
+        ) from exc
+
+    if upstream.status_code == 404:
+        await upstream.aclose()
+        raise HTTPException(status_code=404, detail=i18n_service.translate("errors.proxy.clip_not_found", lang))
+    if upstream.status_code >= 400:
+        status_code = upstream.status_code
+        await upstream.aclose()
+        raise HTTPException(
+            status_code=status_code,
+            detail=i18n_service.translate("errors.proxy.frigate_error", lang, status_code=status_code),
+        )
+
+    response_headers = {"Cache-Control": "no-store, max-age=0", "Pragma": "no-cache"}
+    for header in ("content-length", "content-range", "accept-ranges"):
+        if header in upstream.headers:
+            response_headers[header] = upstream.headers[header]
+    response_headers["Content-Type"] = "video/mp4"
+    return StreamingResponse(
+        upstream.aiter_bytes(),
+        status_code=upstream.status_code,
+        headers=response_headers,
+        background=BackgroundTask(upstream.aclose),
+    )
 
 
 async def _cached_snapshot_allowed_for_current_settings(media_cache, event_id: str) -> bool:
@@ -205,12 +287,13 @@ async def _build_snapshot_status(event_id: str, *, check_original_frigate_snapsh
 
     cached = False
     source: str | None = None
+    metadata: dict = {}
     original_frigate_snapshot_available: bool | None = None
 
     if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
         cached = await media_cache.get_snapshot(event_id) is not None
         if cached:
-            metadata = await media_cache.get_snapshot_metadata(event_id)
+            metadata = await media_cache.get_snapshot_metadata(event_id) or {}
             source = str((metadata or {}).get("source") or "").strip() or None
 
     if check_original_frigate_snapshot:
@@ -228,6 +311,24 @@ async def _build_snapshot_status(event_id: str, *, check_original_frigate_snapsh
         "hq_candidate_model_crop",
     }
     can_generate_hq_bird_crop = bool(_hq_bird_crop_feature_enabled() and not already_hq_bird_crop)
+    event_hints = metadata.get("event_hints") if isinstance(metadata.get("event_hints"), dict) else {}
+    hint_data = event_hints.get("data") if isinstance(event_hints.get("data"), dict) else {}
+    hint_snapshot = event_hints.get("snapshot") if isinstance(event_hints.get("snapshot"), dict) else {}
+    localization_hint_available = bool(
+        any(hint_data.get(key) for key in ("box", "region", "path_data")) or hint_snapshot.get("box")
+    )
+    explicitly_not_retained = bool(
+        event_hints.get("end_time") is not None
+        and event_hints.get("position_changes") == 0
+        and event_hints.get("has_snapshot") is False
+        and event_hints.get("has_clip") is False
+    )
+    if original_frigate_snapshot_available is True:
+        frigate_event_state = "available"
+    elif original_frigate_snapshot_available is False:
+        frigate_event_state = "not_retained" if explicitly_not_retained else "unavailable"
+    else:
+        frigate_event_state = "unchecked"
 
     return SnapshotStatusResponse(
         event_id=event_id,
@@ -238,6 +339,8 @@ async def _build_snapshot_status(event_id: str, *, check_original_frigate_snapsh
         already_hq_bird_crop=already_hq_bird_crop,
         can_generate_hq_bird_crop=can_generate_hq_bird_crop,
         original_frigate_snapshot_available=original_frigate_snapshot_available,
+        frigate_event_state=frigate_event_state,
+        localization_hint_available=localization_hint_available,
     )
 
 
@@ -505,10 +608,17 @@ class SnapshotStatusResponse(BaseModel):
     already_hq_bird_crop: bool
     can_generate_hq_bird_crop: bool
     original_frigate_snapshot_available: bool | None = None
+    frigate_event_state: Literal["available", "not_retained", "unavailable", "unchecked"] = "unchecked"
+    localization_hint_available: bool = False
 
 
 class SnapshotGenerateResponse(SnapshotStatusResponse):
-    status: Literal["already_hq_bird_crop", "generated_hq_bird_crop", "generated_hq_snapshot"]
+    status: Literal[
+        "already_hq_bird_crop",
+        "generated_hq_bird_crop",
+        "generated_hq_snapshot",
+        "existing_crop_preserved",
+    ]
     result: str
 
 
@@ -1502,6 +1612,8 @@ async def generate_hq_bird_crop_snapshot(
             status = "generated_hq_bird_crop"
         elif result == "replaced":
             status = "generated_hq_snapshot"
+        elif result == "existing_crop_preserved":
+            status = "existing_crop_preserved"
         else:
             raise HTTPException(status_code=409, detail=f"HQ bird crop generation unavailable: {result}")
 
@@ -2024,6 +2136,55 @@ async def fetch_recording_clip(
     )
 
 
+@router.get("/frigate/{event_id}/hls/{asset}", response_class=Response)
+@hls_rate_limit()
+async def proxy_event_hls(
+    request: Request,
+    event_id: str = Path(..., min_length=1, max_length=64),
+    asset: str = Path(..., min_length=1, max_length=64),
+    auth: AuthContext = Depends(get_proxy_auth_context),
+):
+    """Proxy Frigate's event HLS playlists and fragmented MP4 assets."""
+    lang = get_user_language(request)
+    if not settings.frigate.clips_enabled:
+        raise HTTPException(status_code=403, detail=i18n_service.translate("errors.clip_disabled", lang))
+    if not validate_event_id(event_id):
+        raise HTTPException(status_code=400, detail=i18n_service.translate("errors.proxy.invalid_event_id", lang))
+    if not is_hls_asset(asset):
+        raise HTTPException(status_code=400, detail="Invalid HLS asset")
+    if not _has_valid_share_context(request, event_id):
+        await require_event_access(event_id, auth, lang, media="clip")
+
+    upstream_url = f"{settings.frigate.frigate_url}/vod/event/{event_id}/{asset}"
+    return await _proxy_hls_asset(request, upstream_url, asset, lang)
+
+
+@router.get("/frigate/{event_id}/recording-hls/{asset}", response_class=Response)
+@hls_rate_limit()
+async def proxy_recording_hls(
+    request: Request,
+    event_id: str = Path(..., min_length=1, max_length=64),
+    asset: str = Path(..., min_length=1, max_length=64),
+    auth: AuthContext = Depends(get_proxy_auth_context),
+):
+    """Proxy HLS for the same continuous-recording window as a full-visit clip."""
+    lang = get_user_language(request)
+    if not settings.frigate.clips_enabled or not settings.frigate.recording_clip_enabled:
+        raise HTTPException(status_code=403, detail=i18n_service.translate("errors.clip_disabled", lang))
+    if not validate_event_id(event_id):
+        raise HTTPException(status_code=400, detail=i18n_service.translate("errors.proxy.invalid_event_id", lang))
+    if not is_hls_asset(asset):
+        raise HTTPException(status_code=400, detail="Invalid HLS asset")
+    if not _has_valid_share_context(request, event_id):
+        await require_event_access(event_id, auth, lang, media="clip")
+
+    camera_name, start_ts, end_ts = await _get_recording_clip_context(event_id, lang)
+    if not validate_camera_name(camera_name):
+        raise HTTPException(status_code=400, detail="Invalid Frigate camera name")
+    upstream_url = f"{settings.frigate.frigate_url}/vod/{camera_name}/start/{start_ts}/end/{end_ts}/{asset}"
+    return await _proxy_hls_asset(request, upstream_url, asset, lang)
+
+
 @router.get("/frigate/{event_id}/clip.mp4", response_class=StreamingResponse)
 @guest_rate_limit()
 async def proxy_clip(
@@ -2217,7 +2378,6 @@ async def proxy_clip(
 
     # Stream directly from Frigate
     response_headers = {
-        "Accept-Ranges": "bytes",
         "Content-Disposition": f"{'attachment' if download_requested else 'inline'}; filename={event_id}.mp4",
     }
 
@@ -2233,6 +2393,8 @@ async def proxy_clip(
         response_headers["Content-Length"] = r.headers["content-length"]
     if "content-range" in r.headers:
         response_headers["Content-Range"] = r.headers["content-range"]
+    if "accept-ranges" in r.headers:
+        response_headers["Accept-Ranges"] = r.headers["accept-ranges"]
     if "content-type" in r.headers:
         response_headers["Content-Type"] = r.headers["content-type"]
     else:
@@ -2383,7 +2545,6 @@ async def proxy_recording_clip(
             raise HTTPException(status_code=502, detail=i18n_service.translate("errors.proxy.media_fetch_failed", lang))
 
     response_headers = {
-        "Accept-Ranges": "bytes",
         "Content-Disposition": f"{'attachment' if download_requested else 'inline'}; filename={event_id}_recording.mp4",
     }
 
@@ -2397,6 +2558,8 @@ async def proxy_recording_clip(
         response_headers["Content-Length"] = r.headers["content-length"]
     if "content-range" in r.headers:
         response_headers["Content-Range"] = r.headers["content-range"]
+    if "accept-ranges" in r.headers:
+        response_headers["Accept-Ranges"] = r.headers["accept-ranges"]
     response_headers["Content-Type"] = r.headers.get("content-type", "video/mp4")
 
     log.info(

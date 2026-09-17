@@ -28,7 +28,8 @@
 
     /**
      * The owner's view of what this host is doing: the last half hour of CPU and every
-     * accelerator counter that can be read, the live figures, and who is using the CPU,
+     * accelerator counter that can be read, the live figures, and which processes are
+     * using CPU, memory, and an accelerator runtime,
      * with this app's own processes named and everything else on the host as one honest
      * remainder.
      *
@@ -386,7 +387,7 @@
                 <div class="border-t border-slate-200/70 pt-5 dark:border-slate-700/50" data-system-health-share>
                     <div class="flex flex-wrap items-baseline justify-between gap-2">
                         <h4 class="font-display text-base font-bold text-slate-900 dark:text-white">
-                            {$_('settings.system_health.share_title', { default: 'Who is using the CPU right now' })}
+                            {$_('settings.system_health.share_title', { default: 'Resource use right now' })}
                         </h4>
                         {#if latest?.cpu_percent !== null && latest?.cpu_percent !== undefined}
                             <p class="text-xs tabular-nums text-slate-500 dark:text-slate-400">
@@ -410,12 +411,13 @@
                             {/each}
                         </div>
                     {/if}
-                    <table class="mt-3 w-full text-sm" data-system-health-table>
-                        <thead class="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                    <table class="mt-3 w-full text-xs sm:text-sm" data-system-health-table>
+                        <thead class="text-[11px] font-bold uppercase tracking-normal text-slate-500 sm:tracking-[0.14em] dark:text-slate-400">
                             <tr>
                                 <th scope="col" class="pb-2 text-left font-bold">{$_('settings.system_health.col_process', { default: 'Process' })}</th>
-                                <th scope="col" class="pb-2 text-right font-bold">{$_('settings.system_health.col_cpu', { default: 'CPU' })}</th>
-                                <th scope="col" class="pb-2 text-right font-bold">{$_('settings.system_health.col_memory', { default: 'Memory' })}</th>
+                                <th scope="col" class="pb-2 pl-2 text-right font-bold">{$_('settings.system_health.col_cpu', { default: 'CPU' })}</th>
+                                <th scope="col" class="pb-2 pl-2 text-right font-bold">{$_('settings.system_health.col_accelerator', { default: 'Accelerator' })}</th>
+                                <th scope="col" class="pb-2 pl-2 text-right font-bold">{$_('settings.system_health.col_memory', { default: 'Memory' })}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-200/70 dark:divide-slate-700/50">
@@ -436,8 +438,16 @@
                                                 </span>
                                             {/if}
                                         </td>
-                                        <td class="py-2 text-right font-semibold tabular-nums text-slate-800 dark:text-slate-100">{formatPercent(row.cpuPercent) ?? '—'}</td>
-                                        <td class="py-2 text-right tabular-nums text-slate-500 dark:text-slate-400">{formatBytes(row.rssBytes) ?? '—'}</td>
+                                        <td class="py-2 pl-2 text-right font-semibold tabular-nums text-slate-800 dark:text-slate-100">{formatPercent(row.cpuPercent) ?? '—'}</td>
+                                        <td class="py-2 pl-2 text-right text-slate-500 dark:text-slate-400">
+                                            {#if row.acceleratorLabels.length > 0}
+                                                <span class="block font-semibold text-slate-800 dark:text-slate-100">{row.acceleratorLabels.join(', ')}</span>
+                                                <span class="block text-[10px] uppercase tracking-wide">{$_('settings.system_health.accelerator_loaded', { default: 'loaded' })}</span>
+                                            {:else}
+                                                —
+                                            {/if}
+                                        </td>
+                                        <td class="py-2 pl-2 text-right tabular-nums text-slate-500 dark:text-slate-400">{formatBytes(row.rssBytes) ?? '—'}</td>
                                     </tr>
                                 {/if}
                             {/each}
@@ -445,7 +455,7 @@
                     </table>
                     <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">
                         {$_('settings.system_health.note', {
-                            default: "Per-process figures are read from this container's own processes at each sample. Anything else on the host is measured only as the remainder; YA-WAMF cannot see other containers and does not try to."
+                            default: "CPU and memory are read from this container's own processes. Accelerator cells name the runtime a classifier worker actually loaded; NPU utilisation is device-wide and cannot be divided honestly between workers. Anything else on the host is measured only as the CPU remainder."
                         })}
                     </p>
                 </div>

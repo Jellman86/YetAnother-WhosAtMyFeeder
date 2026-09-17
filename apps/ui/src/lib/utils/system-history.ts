@@ -149,6 +149,8 @@ export interface ShareRow {
     members: string[];
     cpuPercent: number | null;
     rssBytes: number | null;
+    /** Worker-reported accelerator runtimes behind this grouped row. */
+    acceleratorLabels: string[];
 }
 
 const NAMED_ROLES: ProcessLoad['role'][] = [
@@ -161,9 +163,10 @@ const NAMED_ROLES: ProcessLoad['role'][] = [
 ];
 
 /**
- * Who is using the CPU at the last sample: this app's processes grouped by what they are,
- * then everything else on the host as one remainder, then idle. Rows this app has no
- * process for are left out rather than shown as zero.
+ * Resource use at the last sample: this app's processes grouped by what they are,
+ * including the accelerator runtime each worker pool actually reported. Then everything
+ * else on the host is one CPU remainder, followed by idle. Rows this app has no process
+ * for are left out rather than shown as zero.
  */
 export function shareRows(history: Pick<SystemTelemetryHistory, 'points' | 'processes'>): ShareRow[] {
     const rows: ShareRow[] = [];
@@ -179,18 +182,30 @@ export function shareRows(history: Pick<SystemTelemetryHistory, 'points' | 'proc
                 measured.length > 0
                     ? Math.round(measured.reduce((sum, load) => sum + (load.cpu_percent as number), 0) * 10) / 10
                     : null,
-            rssBytes: rss.length > 0 ? rss.reduce((sum, load) => sum + (load.rss_bytes as number), 0) : null
+            rssBytes: rss.length > 0 ? rss.reduce((sum, load) => sum + (load.rss_bytes as number), 0) : null,
+            acceleratorLabels: Array.from(
+                new Set(
+                    members.map((load) => load.accelerator?.label).filter((label): label is string => Boolean(label))
+                )
+            )
         });
     }
     const latest = history.points[history.points.length - 1];
     if (latest) {
-        rows.push({ role: 'other_host', members: [], cpuPercent: latest.other_cpu_percent ?? null, rssBytes: null });
+        rows.push({
+            role: 'other_host',
+            members: [],
+            cpuPercent: latest.other_cpu_percent ?? null,
+            rssBytes: null,
+            acceleratorLabels: []
+        });
         if (latest.cpu_percent !== null && latest.cpu_percent !== undefined) {
             rows.push({
                 role: 'idle',
                 members: [],
                 cpuPercent: Math.round(Math.max(0, 100 - latest.cpu_percent) * 10) / 10,
-                rssBytes: null
+                rssBytes: null,
+                acceleratorLabels: []
             });
         }
     }

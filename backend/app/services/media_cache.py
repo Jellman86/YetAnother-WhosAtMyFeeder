@@ -98,6 +98,7 @@ class MediaCacheService:
         self._recording_clip_commit_locks: weakref.WeakValueDictionary[str, asyncio.Lock] = (
             weakref.WeakValueDictionary()
         )
+        self._snapshot_commit_locks: weakref.WeakValueDictionary[str, asyncio.Lock] = weakref.WeakValueDictionary()
         try:
             self._ensure_dirs()
         except Exception as e:
@@ -139,6 +140,13 @@ class MediaCacheService:
         if lock is None:
             lock = asyncio.Lock()
             self._recording_clip_commit_locks[event_id] = lock
+        return lock
+
+    def _snapshot_commit_lock(self, event_id: str) -> asyncio.Lock:
+        lock = self._snapshot_commit_locks.get(event_id)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._snapshot_commit_locks[event_id] = lock
         return lock
 
     async def _emit_recording_clip_cached(self, event_id: str) -> None:
@@ -280,7 +288,11 @@ class MediaCacheService:
             raise
 
     async def cache_snapshot(
-        self, event_id: str, image_bytes: bytes, source: str = "frigate_snapshot"
+        self,
+        event_id: str,
+        image_bytes: bytes,
+        source: str = "frigate_snapshot",
+        event_hints: Optional[dict] = None,
     ) -> Optional[Path]:
         """Cache a snapshot image.
 
@@ -295,10 +307,11 @@ class MediaCacheService:
             log.warning("Media cache unavailable; skipping snapshot cache write", error=self._init_error)
             return None
         try:
-            path = self._snapshot_path(event_id)
-            await self._write_bytes_atomic(path, image_bytes)
-            await self._write_snapshot_metadata(event_id, source=source)
-            await self.delete_thumbnail(event_id)
+            async with self._snapshot_commit_lock(event_id):
+                path = self._snapshot_path(event_id)
+                await self._write_bytes_atomic(path, image_bytes)
+                await self._write_snapshot_metadata(event_id, source=source, event_hints=event_hints)
+                await self.delete_thumbnail(event_id)
             log.debug("Cached snapshot", event_id=event_id, size=len(image_bytes))
             return path
         except Exception as e:
@@ -313,24 +326,55 @@ class MediaCacheService:
             log.warning("Media cache unavailable; skipping snapshot replacement", error=self._init_error)
             return None
         try:
-            path = self._snapshot_path(event_id)
-            await self._write_bytes_atomic(path, image_bytes)
-            await self._write_snapshot_metadata(event_id, source=source)
-            await self.delete_thumbnail(event_id)
+            async with self._snapshot_commit_lock(event_id):
+                path = self._snapshot_path(event_id)
+                await self._write_bytes_atomic(path, image_bytes)
+                await self._write_snapshot_metadata(event_id, source=source)
+                await self.delete_thumbnail(event_id)
             log.debug("Replaced cached snapshot", event_id=event_id, size=len(image_bytes))
             return path
         except Exception as e:
             log.error("Failed to replace cached snapshot", event_id=event_id, error=str(e))
             return None
 
-    async def _write_snapshot_metadata(self, event_id: str, *, source: str) -> None:
-        metadata = {
-            "source": str(source or "unknown"),
-            "updated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-        }
+    async def _write_snapshot_metadata(
+        self,
+        event_id: str,
+        *,
+        source: str,
+        event_hints: Optional[dict] = None,
+    ) -> None:
+        # Snapshot provenance changes as media is upgraded, but event-time
+        # localization does not. Preserve those bounded hints so a later clip
+        # pass can still crop accurately after Frigate has discarded the event.
+        metadata = dict(await self.get_snapshot_metadata(event_id) or {})
+        metadata.update(
+            {
+                "source": str(source or "unknown"),
+                "updated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            }
+        )
+        if isinstance(event_hints, dict):
+            metadata["event_hints"] = event_hints
         path = self._snapshot_metadata_path(event_id)
         encoded = json.dumps(metadata, sort_keys=True).encode("utf-8")
         await self._write_bytes_atomic(path, encoded)
+
+    async def update_snapshot_event_hints(self, event_id: str, event_hints: Optional[dict]) -> bool:
+        """Merge fresher event-time hints without rewriting the photograph."""
+        if not self._available or not isinstance(event_hints, dict):
+            return False
+        async with self._snapshot_commit_lock(event_id):
+            snapshot_path = await self.get_snapshot_path(event_id)
+            if snapshot_path is None:
+                return False
+            metadata = await self.get_snapshot_metadata(event_id) or {}
+            await self._write_snapshot_metadata(
+                event_id,
+                source=str(metadata.get("source") or "unknown"),
+                event_hints=event_hints,
+            )
+        return True
 
     async def get_snapshot_path(self, event_id: str) -> Optional[Path]:
         """Where the stored photograph lives, or None when there is none."""
@@ -461,19 +505,20 @@ class MediaCacheService:
     async def delete_snapshot(self, event_id: str) -> bool:
         """Delete the canonical cached snapshot for an event."""
         try:
-            snapshot_path = self._snapshot_path(event_id)
-            metadata_path = self._snapshot_metadata_path(event_id)
-            if await aiofiles.os.path.exists(snapshot_path):
-                await aiofiles.os.remove(snapshot_path)
-                removed = True
-            else:
-                removed = False
-            if await aiofiles.os.path.exists(metadata_path):
-                await aiofiles.os.remove(metadata_path)
-                removed = True
-            thumbnail_removed = await self.delete_thumbnail(event_id)
-            removed = removed or thumbnail_removed
-            return removed
+            async with self._snapshot_commit_lock(event_id):
+                snapshot_path = self._snapshot_path(event_id)
+                metadata_path = self._snapshot_metadata_path(event_id)
+                if await aiofiles.os.path.exists(snapshot_path):
+                    await aiofiles.os.remove(snapshot_path)
+                    removed = True
+                else:
+                    removed = False
+                if await aiofiles.os.path.exists(metadata_path):
+                    await aiofiles.os.remove(metadata_path)
+                    removed = True
+                thumbnail_removed = await self.delete_thumbnail(event_id)
+                removed = removed or thumbnail_removed
+                return removed
         except Exception as e:
             log.error("Failed to delete cached snapshot", event_id=event_id, error=str(e))
             return False

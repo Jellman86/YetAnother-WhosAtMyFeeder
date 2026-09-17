@@ -65,7 +65,7 @@
     const PANEL_WIDTH = 240;
     const GAP = 8;
     const VIEWPORT_MARGIN = 8;
-    let triggers: HTMLElement[] = [];
+    let triggers = $state<HTMLElement[]>([]);
     let anchor = $state<{ x: number; y: number; above: boolean } | null>(null);
 
     function place(index: number): void {

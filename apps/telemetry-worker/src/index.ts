@@ -366,6 +366,216 @@ function cohortCount(value: unknown): number | null {
   return Number.isFinite(count) && count >= PUBLIC_COHORT_MINIMUM ? count : null;
 }
 
+type HealthAggregateRow = {
+  installs?: number | null;
+  install_count?: number | null;
+  report_count?: number | null;
+  observation_count?: number | null;
+  issue_count?: number | null;
+  occurrence_count?: number | null;
+  occurrence_basis?: string | null;
+  severity?: string | null;
+  issue_component?: string | null;
+  issue_reason_code?: string | null;
+  app_version?: string | null;
+  last_seen?: string | null;
+};
+
+type HealthAggregation = {
+  totals: HealthAggregateRow;
+  bySeverity: HealthAggregateRow[];
+  byComponent: HealthAggregateRow[];
+  topIssues: HealthAggregateRow[];
+};
+
+// v3 batches contain replay-safe event identities and can be summed inside the
+// selected window. Older clients sent cumulative issue counters without event
+// identities; their latest retained issue rows are therefore included as
+// cumulative values, never summed once per snapshot. If an installation has
+// emitted any v3 batch in the window, it is treated solely as v3 so an upgrade
+// cannot count its earlier legacy state a second time.
+const HEALTH_AGGREGATION_CTES = `
+  WITH recent_batches AS (
+    SELECT *
+    FROM health_report_batches
+    WHERE reported_at > datetime('now', ?)
+  ),
+  structured_installations AS (
+    SELECT DISTINCT installation_id_hash
+    FROM recent_batches
+    WHERE event_groups_json IS NOT NULL
+  ),
+  legacy_installations AS (
+    SELECT DISTINCT batch.installation_id_hash
+    FROM recent_batches AS batch
+    WHERE batch.event_groups_json IS NULL
+      AND NOT EXISTS (
+        SELECT 1
+        FROM structured_installations AS structured
+        WHERE structured.installation_id_hash = batch.installation_id_hash
+      )
+  ),
+  structured_issues AS (
+    SELECT
+      batch.installation_id_hash,
+      CAST(json_extract(event_group.value, '$.fingerprint') AS TEXT) AS fingerprint,
+      COALESCE(
+        NULLIF(CAST(json_extract(event_group.value, '$.severity') AS TEXT), ''),
+        NULLIF(issue.severity, ''),
+        'warning'
+      ) AS severity,
+      COALESCE(NULLIF(issue.issue_component, ''), 'unknown') AS issue_component,
+      COALESCE(NULLIF(issue.issue_reason_code, ''), 'unknown_reason') AS issue_reason_code,
+      COALESCE(NULLIF(batch.app_version, ''), NULLIF(issue.app_version, ''), 'unknown') AS app_version,
+      batch.report_id,
+      1 AS observation_count,
+      COALESCE(json_array_length(json_extract(event_group.value, '$.event_ids')), 0) AS occurrence_count,
+      date(batch.reported_at) AS last_seen,
+      0 AS is_legacy
+    FROM recent_batches AS batch
+    JOIN json_each(
+      CASE WHEN json_valid(batch.event_groups_json) THEN batch.event_groups_json ELSE '[]' END
+    ) AS event_group
+    LEFT JOIN health_issue_reports AS issue
+      ON issue.installation_id_hash = batch.installation_id_hash
+     AND issue.issue_fingerprint = json_extract(event_group.value, '$.fingerprint')
+    WHERE batch.event_groups_json IS NOT NULL
+      AND json_extract(event_group.value, '$.fingerprint') IS NOT NULL
+  ),
+  legacy_issues AS (
+    SELECT
+      issue.installation_id_hash,
+      issue.issue_fingerprint AS fingerprint,
+      COALESCE(NULLIF(issue.severity, ''), 'warning') AS severity,
+      COALESCE(NULLIF(issue.issue_component, ''), 'unknown') AS issue_component,
+      COALESCE(NULLIF(issue.issue_reason_code, ''), 'unknown_reason') AS issue_reason_code,
+      COALESCE(NULLIF(issue.app_version, ''), 'unknown') AS app_version,
+      NULL AS report_id,
+      MAX(COALESCE(issue.report_count, 0), 0) AS observation_count,
+      MAX(COALESCE(issue.occurrence_count, 0), 0) AS occurrence_count,
+      date(issue.updated_at) AS last_seen,
+      1 AS is_legacy
+    FROM health_issue_reports AS issue
+    JOIN legacy_installations AS legacy
+      ON legacy.installation_id_hash = issue.installation_id_hash
+    WHERE issue.updated_at > datetime('now', ?)
+  ),
+  all_issues AS (
+    SELECT * FROM structured_issues
+    UNION ALL
+    SELECT * FROM legacy_issues
+  )
+`;
+
+function occurrenceBasisSql(): string {
+  return `CASE
+    WHEN MAX(is_legacy) = 1 AND MIN(is_legacy) = 0
+      THEN 'mixed_window_events_and_legacy_cumulative'
+    WHEN MAX(is_legacy) = 1 THEN 'legacy_cumulative'
+    ELSE 'window_events'
+  END`;
+}
+
+async function readHealthAggregation(db: D1Database, days: number): Promise<HealthAggregation> {
+  const windowModifier = `-${days} days`;
+  const totalsStatement = db.prepare(`${HEALTH_AGGREGATION_CTES}
+    SELECT
+      (SELECT count(DISTINCT installation_id_hash) FROM recent_batches) AS installs,
+      (SELECT count(*) FROM recent_batches) AS report_count,
+      count(DISTINCT installation_id_hash || ':' || fingerprint) AS issue_count,
+      COALESCE(sum(occurrence_count), 0) AS occurrence_count,
+      ${occurrenceBasisSql()} AS occurrence_basis
+    FROM all_issues
+  `).bind(windowModifier, windowModifier);
+
+  const severityStatement = db.prepare(`${HEALTH_AGGREGATION_CTES},
+    structured_severity_reports AS (
+      SELECT DISTINCT severity, report_id
+      FROM structured_issues
+    ),
+    severity_reports AS (
+      SELECT severity, report_id FROM structured_severity_reports
+      UNION ALL
+      SELECT 'critical', batch.report_id
+      FROM recent_batches AS batch
+      JOIN legacy_installations AS legacy USING (installation_id_hash)
+      WHERE batch.critical_count > 0
+      UNION ALL
+      SELECT 'error', batch.report_id
+      FROM recent_batches AS batch
+      JOIN legacy_installations AS legacy USING (installation_id_hash)
+      WHERE batch.error_count > 0
+      UNION ALL
+      SELECT 'warning', batch.report_id
+      FROM recent_batches AS batch
+      JOIN legacy_installations AS legacy USING (installation_id_hash)
+      WHERE batch.warning_count > 0
+    )
+    SELECT
+      issue.severity,
+      count(DISTINCT issue.installation_id_hash) AS install_count,
+      count(DISTINCT issue.fingerprint) AS issue_count,
+      (SELECT count(*) FROM severity_reports AS report
+       WHERE report.severity = issue.severity) AS report_count,
+      sum(issue.observation_count) AS observation_count,
+      sum(issue.occurrence_count) AS occurrence_count,
+      ${occurrenceBasisSql()} AS occurrence_basis
+    FROM all_issues AS issue
+    GROUP BY issue.severity
+    HAVING count(DISTINCT issue.installation_id_hash) >= ${PUBLIC_COHORT_MINIMUM}
+    ORDER BY occurrence_count DESC
+  `).bind(windowModifier, windowModifier);
+
+  const componentStatement = db.prepare(`${HEALTH_AGGREGATION_CTES}
+    SELECT
+      issue.issue_component,
+      count(DISTINCT issue.installation_id_hash) AS install_count,
+      count(DISTINCT issue.fingerprint) AS issue_count,
+      count(DISTINCT CASE WHEN issue.is_legacy = 0 THEN issue.report_id END) AS report_count,
+      sum(issue.observation_count) AS observation_count,
+      sum(issue.occurrence_count) AS occurrence_count,
+      ${occurrenceBasisSql()} AS occurrence_basis
+    FROM all_issues AS issue
+    GROUP BY issue.issue_component
+    HAVING count(DISTINCT issue.installation_id_hash) >= ${PUBLIC_COHORT_MINIMUM}
+    ORDER BY occurrence_count DESC
+    LIMIT 20
+  `).bind(windowModifier, windowModifier);
+
+  const topIssuesStatement = db.prepare(`${HEALTH_AGGREGATION_CTES}
+    SELECT
+      issue.issue_component,
+      issue.issue_reason_code,
+      issue.severity,
+      issue.app_version,
+      count(DISTINCT issue.installation_id_hash) AS install_count,
+      count(DISTINCT issue.fingerprint) AS issue_count,
+      count(DISTINCT CASE WHEN issue.is_legacy = 0 THEN issue.report_id END) AS report_count,
+      sum(issue.observation_count) AS observation_count,
+      sum(issue.occurrence_count) AS occurrence_count,
+      max(issue.last_seen) AS last_seen,
+      ${occurrenceBasisSql()} AS occurrence_basis
+    FROM all_issues AS issue
+    GROUP BY issue.issue_component, issue.issue_reason_code, issue.severity, issue.app_version
+    HAVING count(DISTINCT issue.installation_id_hash) >= ${PUBLIC_COHORT_MINIMUM}
+    ORDER BY install_count DESC, occurrence_count DESC
+    LIMIT 30
+  `).bind(windowModifier, windowModifier);
+
+  const [totals, bySeverity, byComponent, topIssues] = await db.batch<HealthAggregateRow>([
+    totalsStatement,
+    severityStatement,
+    componentStatement,
+    topIssuesStatement,
+  ]);
+  return {
+    totals: totals.results[0] ?? {},
+    bySeverity: bySeverity.results,
+    byComponent: byComponent.results,
+    topIssues: topIssues.results,
+  };
+}
+
 function renderRows(rows: any[], columns: Array<[string, string | ((row: any) => unknown)]>): string {
   if (!rows.length) {
     return `<tr><td colspan="${columns.length}" class="empty">No data in this window</td></tr>`;
@@ -891,72 +1101,20 @@ app.get('/dashboard', async (c) => {
   const activeThreshold = `datetime('now', '-${days} days')`;
 
   if (view === 'health') {
-    const totals = await c.env.HEALTH_DB.prepare(`
-      SELECT
-        coalesce(sum(issue_group_count), 0) as total_issues,
-        count(DISTINCT installation_id_hash) as affected_installs,
-        count(*) as reports,
-        coalesce(sum(event_count), 0) as occurrences
-      FROM health_report_batches
-      WHERE reported_at > ${activeThreshold}
-    `).first();
-
-    const severity = await c.env.HEALTH_DB.prepare(`
-      SELECT json_extract(event_group.value, '$.severity') AS severity,
-             count(DISTINCT json_extract(event_group.value, '$.fingerprint')) AS issue_count,
-             count(DISTINCT batch.report_id) AS report_count,
-             sum(json_array_length(json_extract(event_group.value, '$.event_ids'))) AS occurrence_count
-      FROM health_report_batches AS batch,
-           json_each(COALESCE(batch.event_groups_json, '[]')) AS event_group
-      WHERE batch.reported_at > ${activeThreshold}
-      GROUP BY severity
-      HAVING count(DISTINCT batch.installation_id_hash) >= ${PUBLIC_COHORT_MINIMUM}
-      ORDER BY occurrence_count DESC
-    `).all();
-
-    const components = await c.env.HEALTH_DB.prepare(`
-      SELECT issue.issue_component,
-             count(DISTINCT batch.installation_id_hash) AS install_count,
-             count(DISTINCT issue.issue_fingerprint) AS issue_count,
-             sum(json_array_length(json_extract(event_group.value, '$.event_ids'))) AS occurrence_count
-      FROM health_report_batches AS batch,
-           json_each(COALESCE(batch.event_groups_json, '[]')) AS event_group
-      JOIN health_issue_reports AS issue
-        ON issue.installation_id_hash = batch.installation_id_hash
-       AND issue.issue_fingerprint = json_extract(event_group.value, '$.fingerprint')
-      WHERE batch.reported_at > ${activeThreshold}
-      GROUP BY issue.issue_component
-      HAVING count(DISTINCT batch.installation_id_hash) >= ${PUBLIC_COHORT_MINIMUM}
-      ORDER BY occurrence_count DESC
-      LIMIT 10
-    `).all();
-
-    const topIssues = await c.env.HEALTH_DB.prepare(`
-      SELECT issue.issue_component, issue.issue_reason_code, issue.severity, batch.app_version,
-             count(DISTINCT batch.installation_id_hash) AS install_count,
-             count(DISTINCT batch.report_id) AS report_count,
-             sum(json_array_length(json_extract(event_group.value, '$.event_ids'))) AS occurrence_count,
-             max(date(batch.reported_at)) AS last_seen
-      FROM health_report_batches AS batch,
-           json_each(COALESCE(batch.event_groups_json, '[]')) AS event_group
-      JOIN health_issue_reports AS issue
-        ON issue.installation_id_hash = batch.installation_id_hash
-       AND issue.issue_fingerprint = json_extract(event_group.value, '$.fingerprint')
-      WHERE batch.reported_at > ${activeThreshold}
-      GROUP BY issue.issue_component, issue.issue_reason_code, issue.severity, batch.app_version
-      HAVING count(DISTINCT batch.installation_id_hash) >= ${PUBLIC_COHORT_MINIMUM}
-      ORDER BY install_count DESC, occurrence_count DESC
-      LIMIT 12
-    `).all();
+    const healthAggregation = await readHealthAggregation(c.env.HEALTH_DB, days);
+    const totals = healthAggregation.totals;
+    const severity = { results: healthAggregation.bySeverity };
+    const components = { results: healthAggregation.byComponent.slice(0, 10) };
+    const topIssues = { results: healthAggregation.topIssues.slice(0, 12) };
 
     const countries = await c.env.HEALTH_DB.prepare(`
       SELECT country AS ip_country, count(DISTINCT installation_id_hash) as installs,
-             sum(issue_group_count) as issue_count
+             sum(issue_group_count) as reported_groups
       FROM health_report_batches
       WHERE reported_at > ${activeThreshold}
       GROUP BY country
       HAVING count(DISTINCT installation_id_hash) >= ${PUBLIC_COHORT_MINIMUM}
-      ORDER BY installs DESC, issue_count DESC
+      ORDER BY installs DESC, reported_groups DESC
       LIMIT 18
     `).all();
 
@@ -1005,15 +1163,19 @@ app.get('/dashboard', async (c) => {
       LIMIT 10
     `).all();
 
-    const publicTotals = Number(totals?.affected_installs ?? 0) >= PUBLIC_COHORT_MINIMUM
+    const publicTotals = Number(totals?.installs ?? 0) >= PUBLIC_COHORT_MINIMUM
       ? totals
-      : { total_issues: 0, affected_installs: 0, reports: 0, occurrences: 0 };
+      : { installs: 0, issue_count: 0, report_count: 0, occurrence_count: 0, occurrence_basis: null };
     const severityByName = new Map(severity.results.map((row: any) => [String(row.severity || 'unknown').toLowerCase(), row]));
     const severityCards = ['critical', 'error', 'warning'].map((name) => {
       const row: any = severityByName.get(name) ?? {};
-      return `<div class="severity-card">${severityPill(name)}<strong>${fmt(row.issue_count ?? 0)}</strong><small>${fmt(row.report_count ?? 0)} batches · ${fmt(row.occurrence_count ?? 0)} new events</small></div>`;
+      const occurrenceLabel = row.occurrence_basis === 'legacy_cumulative'
+        || row.occurrence_basis === 'mixed_window_events_and_legacy_cumulative'
+        ? 'events · includes cumulative legacy counters'
+        : 'new events';
+      return `<div class="severity-card">${severityPill(name)}<strong>${fmt(row.issue_count ?? 0)}</strong><small>${fmt(row.report_count ?? 0)} batches · ${fmt(row.occurrence_count ?? 0)} ${occurrenceLabel}</small></div>`;
     }).join('');
-    const totalIssues = Number(publicTotals?.total_issues ?? 0);
+    const totalIssues = Number(publicTotals?.issue_count ?? 0);
     const issueRows = topIssues.results.length
       ? topIssues.results.map((row: any) => `<tr>
           <td>${html(row.issue_component || 'Unknown')}</td>
@@ -1022,9 +1184,10 @@ app.get('/dashboard', async (c) => {
           <td>${html(row.app_version || 'Unknown')}</td>
           <td>${fmt(row.install_count)}</td>
           <td>${fmt(row.occurrence_count)}</td>
+          <td>${row.occurrence_basis === 'window_events' ? 'Window events' : 'Includes cumulative legacy counters'}</td>
           <td>${html(row.last_seen || 'Unknown')}</td>
         </tr>`).join('')
-      : '<tr><td colspan="7" class="empty">No health issues in this window</td></tr>';
+      : '<tr><td colspan="8" class="empty">No health issues in this window</td></tr>';
     const criticalIssues = Number((severityByName.get('critical') as any)?.issue_count ?? 0);
     const errorIssues = Number((severityByName.get('error') as any)?.issue_count ?? 0);
     const signalTitle = criticalIssues > 0
@@ -1047,13 +1210,13 @@ app.get('/dashboard', async (c) => {
       <section class="health-command">
         <article class="panel health-signal">
           <div class="signal-state"><span class="signal-dot"></span>Operational signal board</div>
-          <div class="signal-metric">${fmt(publicTotals?.affected_installs)}</div>
+          <div class="signal-metric">${fmt(publicTotals?.installs)}</div>
           <h2>${html(signalTitle)}</h2>
-          <p>Affected installations with deduplicated issue groups in the selected window.</p>
+          <p>Affected installations with reportable issue groups in the selected window.</p>
           <div class="signal-facts">
-            <div class="signal-fact"><strong>${fmt(publicTotals?.total_issues)}</strong><span>reported groups</span></div>
-            <div class="signal-fact"><strong>${fmt(publicTotals?.reports)}</strong><span>accepted batches</span></div>
-            <div class="signal-fact"><strong>${fmt(publicTotals?.occurrences)}</strong><span>new events</span></div>
+            <div class="signal-fact"><strong>${fmt(publicTotals?.issue_count)}</strong><span>tracked groups</span></div>
+            <div class="signal-fact"><strong>${fmt(publicTotals?.report_count)}</strong><span>accepted batches</span></div>
+            <div class="signal-fact"><strong>${fmt(publicTotals?.occurrence_count)}</strong><span>${publicTotals?.occurrence_basis === 'legacy_cumulative' || publicTotals?.occurrence_basis === 'mixed_window_events_and_legacy_cumulative' ? 'events incl. legacy cumulative' : 'new events'}</span></div>
           </div>
         </article>
         <article class="panel health-severity-board">
@@ -1098,14 +1261,14 @@ app.get('/dashboard', async (c) => {
 
       <section class="panel health-geography">
         <div class="panel-heading"><div><span class="eyebrow">Anonymous footprint</span><h2>Affected-install geography</h2><p>Countries represented by installations reporting issue groups.</p></div></div>
-        <div class="country-list">${renderCountryList(countries.results, 'installs', (row) => `installs · ${fmt(row.issue_count)} issues`)}</div>
+        <div class="country-list">${renderCountryList(countries.results, 'installs', (row) => `installs · ${fmt(row.reported_groups)} reported groups`)}</div>
       </section>
 
       <section class="panel">
         <div class="section-intro" style="margin-top:0"><div><span class="eyebrow">Deduplicated detail</span><h2>Top recurring issues</h2></div><p>Highest-impact issue groups, capped at 12. Full aggregate data remains available from the JSON stats endpoint.</p></div>
         <p class="scroll-hint">Scroll horizontally for full details →</p>
         <div class="table-scroll" tabindex="0" role="region" aria-label="Top recurring issues; scroll horizontally for all columns"><table>
-          <thead><tr><th>Component</th><th>Reason</th><th>Severity</th><th>Version</th><th>Installs</th><th>Occurrences</th><th>Last seen</th></tr></thead>
+          <thead><tr><th>Component</th><th>Reason</th><th>Severity</th><th>Version</th><th>Installs</th><th>Occurrences</th><th>Counting</th><th>Last seen</th></tr></thead>
           <tbody>${issueRows}</tbody>
         </table></div>
       </section>
@@ -2258,72 +2421,16 @@ app.get('/stats/summary', async (c) => {
 });
 
 app.get('/stats/health-issues', async (c) => {
-  const activeThreshold = "datetime('now', '-30 days')";
-
-  const totals = await c.env.HEALTH_DB.prepare(`
-    SELECT count(DISTINCT installation_id_hash) AS installs,
-           count(*) AS report_count,
-           coalesce(sum(issue_group_count), 0) AS issue_count,
-           coalesce(sum(event_count), 0) AS occurrence_count
-    FROM health_report_batches
-    WHERE reported_at > ${activeThreshold}
-  `).first();
-
-  const bySeverity = await c.env.HEALTH_DB.prepare(`
-    SELECT json_extract(event_group.value, '$.severity') AS severity,
-           count(DISTINCT json_extract(event_group.value, '$.fingerprint')) AS issue_count,
-           count(DISTINCT batch.report_id) AS report_count,
-           sum(json_array_length(json_extract(event_group.value, '$.event_ids'))) AS occurrence_count
-    FROM health_report_batches AS batch,
-         json_each(COALESCE(batch.event_groups_json, '[]')) AS event_group
-    WHERE batch.reported_at > ${activeThreshold}
-    GROUP BY severity
-    HAVING count(DISTINCT batch.installation_id_hash) >= ${PUBLIC_COHORT_MINIMUM}
-    ORDER BY occurrence_count DESC
-  `).all();
-
-  const byComponent = await c.env.HEALTH_DB.prepare(`
-    SELECT issue.issue_component,
-           count(DISTINCT issue.issue_fingerprint) AS issue_count,
-           count(DISTINCT batch.report_id) AS report_count,
-           sum(json_array_length(json_extract(event_group.value, '$.event_ids'))) AS occurrence_count
-    FROM health_report_batches AS batch,
-         json_each(COALESCE(batch.event_groups_json, '[]')) AS event_group
-    JOIN health_issue_reports AS issue
-      ON issue.installation_id_hash = batch.installation_id_hash
-     AND issue.issue_fingerprint = json_extract(event_group.value, '$.fingerprint')
-    WHERE batch.reported_at > ${activeThreshold}
-    GROUP BY issue.issue_component
-    HAVING count(DISTINCT batch.installation_id_hash) >= ${PUBLIC_COHORT_MINIMUM}
-    ORDER BY occurrence_count DESC
-    LIMIT 20
-  `).all();
-
-  const topIssues = await c.env.HEALTH_DB.prepare(`
-    SELECT issue.issue_component, issue.issue_reason_code, issue.severity, batch.app_version,
-           count(DISTINCT batch.installation_id_hash) AS install_count,
-           count(DISTINCT batch.report_id) AS report_count,
-           sum(json_array_length(json_extract(event_group.value, '$.event_ids'))) AS occurrence_count,
-           max(date(batch.reported_at)) AS last_seen
-    FROM health_report_batches AS batch,
-         json_each(COALESCE(batch.event_groups_json, '[]')) AS event_group
-    JOIN health_issue_reports AS issue
-      ON issue.installation_id_hash = batch.installation_id_hash
-     AND issue.issue_fingerprint = json_extract(event_group.value, '$.fingerprint')
-    WHERE batch.reported_at > ${activeThreshold}
-    GROUP BY issue.issue_component, issue.issue_reason_code, issue.severity, batch.app_version
-    HAVING count(DISTINCT batch.installation_id_hash) >= ${PUBLIC_COHORT_MINIMUM}
-    ORDER BY install_count DESC, occurrence_count DESC
-    LIMIT 30
-  `).all();
-
-  const publicTotals = Number(totals?.installs ?? 0) >= PUBLIC_COHORT_MINIMUM ? totals : null;
+  const aggregation = await readHealthAggregation(c.env.HEALTH_DB, 30);
+  const publicTotals = Number(aggregation.totals.installs ?? 0) >= PUBLIC_COHORT_MINIMUM
+    ? aggregation.totals
+    : null;
   return c.json({
     total_issues: publicTotals?.issue_count ?? null,
     active_last_30_days: publicTotals,
-    by_severity: bySeverity.results,
-    by_component: byComponent.results,
-    top_issues: topIssues.results,
+    by_severity: aggregation.bySeverity,
+    by_component: aggregation.byComponent,
+    top_issues: aggregation.topIssues,
     cohort_minimum: PUBLIC_COHORT_MINIMUM,
   });
 });

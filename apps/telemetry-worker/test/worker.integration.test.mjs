@@ -184,6 +184,7 @@ test("health data dashboard renders severity-led trends and concise issue detail
   assert.doesNotMatch(body, /class="usage-overview"/);
   assert.match(body, /Top recurring issues/);
   assert.match(body, /class="table-scroll" tabindex="0" role="region" aria-label="Top recurring issues; scroll horizontally for all columns"/);
+  assert.doesNotMatch(body, /cumulative legacy/i);
   assert.doesNotMatch(body, /Usage Geography/);
 });
 
@@ -452,7 +453,9 @@ test("health window aggregates use accepted batches instead of lifetime issue co
     await healthDb.prepare("DELETE FROM health_report_batches WHERE report_id LIKE 'window-batch-%'").run();
   });
 
-  const response = await mf.dispatchFetch("http://worker.test/stats/health-issues");
+  const response = await mf.dispatchFetch(
+    "http://worker.test/stats/health-issues?case=window",
+  );
   const body = await response.json();
   assert.equal(response.status, 200);
   const row = body.top_issues.find((issue) => issue.issue_reason_code === "window_timeout");
@@ -460,6 +463,94 @@ test("health window aggregates use accepted batches instead of lifetime issue co
   assert.equal(row.install_count, 3);
   assert.equal(row.occurrence_count, 6);
   assert.equal(row.report_count, 3);
+});
+
+test("mixed legacy and v3 health cohorts retain real legacy issue detail", async (t) => {
+  const fingerprint = "mixed-schema-fingerprint";
+  for (const suffix of ["a", "b"]) {
+    const installation = `mixed-schema-${suffix}`;
+    await healthDb.prepare(`
+      INSERT INTO health_issue_reports (
+        report_key, installation_id_hash, issue_fingerprint, issue_component,
+        issue_reason_code, severity, app_version, occurrence_count, report_count,
+        updated_at
+      ) VALUES (?, ?, ?, 'mixed_schema_component', 'mixed_schema_failure',
+                'critical', '2.10.0', 4, 2, datetime('now'))
+    `).bind(`mixed-schema-report-${suffix}`, installation, fingerprint).run();
+    await healthDb.prepare(`
+      INSERT INTO health_report_batches (
+        report_id, installation_id_hash, report_date, reported_at, app_version,
+        schema_version, issue_group_count, event_count, critical_count,
+        event_groups_json
+      ) VALUES
+        (?, ?, date('now', '-1 day'), datetime('now', '-1 day'), '2.10.0',
+         '2026-05-03.health-issues.v1', 1, 2, 1, NULL),
+        (?, ?, date('now'), datetime('now'), '2.10.0',
+         '2026-05-03.health-issues.v1', 1, 4, 1, NULL)
+    `).bind(
+      `mixed-schema-old-${suffix}`, installation,
+      `mixed-schema-new-${suffix}`, installation,
+    ).run();
+  }
+
+  await healthDb.prepare(`
+    INSERT INTO health_issue_reports (
+      report_key, installation_id_hash, issue_fingerprint, issue_component,
+      issue_reason_code, severity, app_version, occurrence_count, report_count,
+      updated_at
+    ) VALUES ('mixed-schema-report-c', 'mixed-schema-c', ?,
+              'mixed_schema_component', 'mixed_schema_failure', 'critical',
+              '2.10.0', 2, 1, datetime('now'))
+  `).bind(fingerprint).run();
+  await healthDb.prepare(`
+    INSERT INTO health_report_batches (
+      report_id, installation_id_hash, report_date, reported_at, app_version,
+      schema_version, issue_group_count, event_count, critical_count,
+      event_groups_json
+    ) VALUES ('mixed-schema-new-c', 'mixed-schema-c', date('now'), datetime('now'),
+              '2.10.0', '2026-07-25.health-issues.v3', 1, 2, 1,
+              '[{"fingerprint":"mixed-schema-fingerprint","severity":"critical","event_ids":["mixed-event-1","mixed-event-2"]}]')
+  `).run();
+
+  t.after(async () => {
+    await healthDb.prepare(
+      "DELETE FROM health_issue_reports WHERE installation_id_hash LIKE 'mixed-schema-%'",
+    ).run();
+    await healthDb.prepare(
+      "DELETE FROM health_report_batches WHERE installation_id_hash LIKE 'mixed-schema-%'",
+    ).run();
+  });
+
+  const response = await mf.dispatchFetch(
+    "http://worker.test/stats/health-issues?case=mixed-schema",
+  );
+  const body = await response.json();
+  assert.equal(response.status, 200);
+
+  const component = body.by_component.find(
+    (row) => row.issue_component === "mixed_schema_component",
+  );
+  assert.ok(component);
+  assert.equal(component.install_count, 3);
+  assert.equal(component.issue_count, 1);
+  assert.equal(component.occurrence_count, 10);
+  assert.equal(component.occurrence_basis, "mixed_window_events_and_legacy_cumulative");
+
+  const issue = body.top_issues.find(
+    (row) => row.issue_reason_code === "mixed_schema_failure",
+  );
+  assert.ok(issue);
+  assert.equal(issue.install_count, 3);
+  assert.equal(issue.issue_count, 1);
+  assert.equal(issue.occurrence_count, 10);
+  assert.equal(issue.observation_count, 5);
+  assert.equal(issue.occurrence_basis, "mixed_window_events_and_legacy_cumulative");
+
+  const dashboard = await mf.dispatchFetch("http://worker.test/dashboard?view=health&days=90");
+  const dashboardBody = await dashboard.text();
+  assert.equal(dashboard.status, 200);
+  assert.match(dashboardBody, /includes cumulative legacy counters/i);
+  assert.match(dashboardBody, /mixed schema failure/i);
 });
 
 test("public health detail suppresses cohorts smaller than three installations", async (t) => {
