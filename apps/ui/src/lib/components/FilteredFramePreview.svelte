@@ -6,10 +6,12 @@
         /** The Frigate event the filter rejected. It has no detection record. */
         eventId: string;
         label: string | null;
+        /** Optional context-specific accessible name, for example a fault rather than filtering. */
+        previewLabel?: string | null;
         onopen?: () => void;
     }
 
-    let { eventId, label, onopen }: Props = $props();
+    let { eventId, label, previewLabel = null, onopen }: Props = $props();
 
     // Matches DetectionPreview: a pointer travelling from the thumbnail into the
     // panel crosses a gap, and closing on the first mouseleave would put the panel
@@ -91,13 +93,16 @@
         type="button"
         class="grid min-h-11 min-w-11 place-items-center rounded-lg focus-ring"
         aria-expanded={open}
-        onclick={() => onopen?.()}
+        onclick={() => {
+            show();
+            onopen?.();
+        }}
     >
         <span class="sr-only">
-            {$_('jobs.errors_filtered_preview', {
-                values: { species: name },
-                default: 'Preview the frame filtered as {species}'
-            })}
+            {previewLabel ?? $_('jobs.errors_filtered_preview', {
+                    values: { species: name },
+                    default: 'Preview the frame filtered as {species}'
+                })}
         </span>
         {#if failed}
             <!-- Frigate rotates short events away quickly, so a missing frame degrades to a

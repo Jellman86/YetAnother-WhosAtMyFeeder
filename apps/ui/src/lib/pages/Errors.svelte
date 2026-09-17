@@ -15,6 +15,7 @@
         faultDiagnostics,
         faultDropCount,
         hasExpectedDrops,
+        recentFaultDetections,
         recentFilteredDetections
     } from '../utils/pipeline-health';
     import { getFrigateMediaAdvisory, getVideoClassifierCardState } from '../errors/health';
@@ -22,8 +23,19 @@
     import { detectionsStore } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { groupDetectionsIntoVisits, withinDeskWindow } from '../utils/visit-grouping';
-    import { buildHealthTimeline, hiddenEventCount, instanceWindowMs } from '../utils/health-timeline';
-    import FieldLog from '../components/FieldLog.svelte';
+    import {
+        buildHealthTimeline,
+        hiddenEventCount,
+        instanceWindowMs,
+        representedEventCount
+    } from '../utils/health-timeline';
+    import HealthActivityTimeline from '../components/HealthActivityTimeline.svelte';
+
+    interface Props {
+        onNavigate?: (path: string) => void;
+    }
+
+    let { onNavigate }: Props = $props();
 
     const FRIGATE_MISSING_DOCS_URL =
         'https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/dev/docs/troubleshooting/frigate-event-not-found.md';
@@ -141,11 +153,16 @@
     const timelineRows = $derived(
         buildHealthTimeline({
             visits: keptVisits,
-            filtered: recentFilteredDetections(health?.event_pipeline, 12)
+            filtered: recentFilteredDetections(health?.event_pipeline, 25),
+            faults: recentFaultDetections(health?.event_pipeline, 25),
+            limit: 25
         })
     );
     const timelineHidden = $derived(
-        hiddenEventCount(asNumber(health?.event_pipeline?.started_events), timelineRows.length)
+        hiddenEventCount(
+            asNumber(health?.event_pipeline?.started_events),
+            representedEventCount(timelineRows)
+        )
     );
 
     onMount(() => {
@@ -573,7 +590,7 @@
 
     function goToDetection(eventId: string): void {
         if (!eventId) return;
-        window.location.hash = `#/events?event=${encodeURIComponent(eventId)}`;
+        onNavigate?.(`/events?event=${encodeURIComponent(eventId)}`);
     }
 
     function refreshedAgoText(): string | null {
@@ -663,7 +680,7 @@
                         </h3>
                         <p class="text-sm text-slate-500 dark:text-slate-400">
                             {$_('jobs.errors_activity_subtitle', {
-                                default: 'Visits recorded and frames filtered out, in the order they happened'
+                                default: 'Recorded visits, filtered detections and pipeline faults, in the order they happened'
                             })}
                         </p>
                     </div>
@@ -683,12 +700,11 @@
                     </p>
                 {:else}
                     <div class="mt-3">
-                        <FieldLog
+                        <HealthActivityTimeline
                             rows={timelineRows}
-                            showHeader={false}
                             emptyMessage={$_('jobs.errors_activity_empty', {
                                 values: { started: startedAgoText() },
-                                default: 'Nothing has been recorded or filtered since this instance started {started} ago.'
+                                default: 'No detection activity has been reported since this instance started {started} ago.'
                             })}
                             hiddenCount={timelineHidden}
                             hiddenLabel={$_('jobs.errors_activity_earlier', {

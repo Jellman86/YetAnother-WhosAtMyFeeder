@@ -8,6 +8,7 @@ import {
     faultDropCount,
     faultDropReasons,
     hasExpectedDrops,
+    recentFaultDetections,
     recentFilteredDetections
 } from './pipeline-health';
 
@@ -111,6 +112,18 @@ describe('recent filtered detections', () => {
     it('leaves fault drops to the pipeline card', () => {
         const reasons = recentFilteredDetections({ recent_outcomes: outcomes }).map(entry => entry.reason);
         expect(reasons).not.toContain('classifier_empty_results');
+    });
+
+    it('exposes fault drops separately for the health activity timeline', () => {
+        expect(recentFaultDetections({ recent_outcomes: outcomes })).toEqual([
+            {
+                eventId: 'c',
+                reason: 'classifier_empty_results',
+                label: null,
+                score: null,
+                timestamp: null
+            }
+        ]);
     });
 
     it('honours the limit and tolerates unusable payloads', () => {
