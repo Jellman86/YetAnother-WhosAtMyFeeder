@@ -42,6 +42,48 @@ def test_effective_video_wait_timeout_respects_larger_manual_override(monkeypatc
 
 
 @pytest.mark.asyncio
+async def test_send_notification_prefers_cached_snapshot_when_frigate_event_has_expired(monkeypatch):
+    orchestrator = NotificationOrchestrator()
+
+    monkeypatch.setattr(settings.media_cache, "enabled", True)
+    monkeypatch.setattr(settings.media_cache, "cache_snapshots", True)
+    monkeypatch.setattr(settings.notifications.telegram, "enabled", True)
+    monkeypatch.setattr(settings.notifications.telegram, "include_snapshot", True)
+
+    with (
+        patch(
+            "app.services.notification_orchestrator.media_cache.get_snapshot",
+            new=AsyncMock(return_value=b"cached-snapshot"),
+        ) as get_cached_snapshot,
+        patch(
+            "app.services.notification_orchestrator.frigate_client.get_snapshot",
+            new=AsyncMock(),
+        ) as get_frigate_snapshot,
+        patch(
+            "app.services.notification_orchestrator.taxonomy_service.get_names",
+            new=AsyncMock(return_value={}),
+        ),
+        patch(
+            "app.services.notification_orchestrator.notification_service.notify_detection",
+            new=AsyncMock(return_value=True),
+        ) as notify_detection,
+    ):
+        sent = await orchestrator._send_notification(
+            _event("evt-cached-snapshot"),
+            label="Cardinal",
+            score=0.9,
+            audio_confirmed=False,
+            audio_species=None,
+            snapshot_data=None,
+        )
+
+    assert sent is True
+    get_cached_snapshot.assert_awaited_once_with("evt-cached-snapshot")
+    get_frigate_snapshot.assert_not_awaited()
+    assert notify_detection.await_args.kwargs["snapshot_data"] == b"cached-snapshot"
+
+
+@pytest.mark.asyncio
 async def test_notify_after_video_uses_completed_video_result(monkeypatch):
     orchestrator = NotificationOrchestrator()
     event = _event()

@@ -34,7 +34,7 @@ function accelerator(overrides: Partial<Accelerator> = {}): Accelerator {
 }
 
 function load(role: ProcessLoad['role'], label: string, cpu: number | null, rss: number | null): ProcessLoad {
-    return { pid: 1, role, label, detail: null, cpu_percent: cpu, rss_bytes: rss };
+    return { pid: 1, role, label, detail: null, cpu_percent: cpu, rss_bytes: rss, accelerator: null };
 }
 
 describe('system history chart geometry', () => {
@@ -91,9 +91,22 @@ describe('who is using the host', () => {
         });
         expect(rows.map((row) => row.role)).toEqual(['main', 'live_worker', 'video_worker', 'other_host', 'idle']);
         const live = rows.find((row) => row.role === 'live_worker');
-        expect(live).toEqual({ role: 'live_worker', members: ['live-0', 'live-1'], cpuPercent: 2, rssBytes: 600 });
+        expect(live).toEqual({
+            role: 'live_worker',
+            members: ['live-0', 'live-1'],
+            cpuPercent: 2,
+            rssBytes: 600,
+            acceleratorLabels: []
+        });
         expect(rows.find((row) => row.role === 'other_host')?.cpuPercent).toBe(9.5);
         expect(rows.find((row) => row.role === 'idle')?.cpuPercent).toBe(60);
+    });
+
+    it('shows the actual accelerator runtime reported by a worker pool', () => {
+        const worker = load('video_worker', 'video-0', 4, 400);
+        worker.accelerator = { kind: 'npu', label: 'NPU' };
+        const rows = shareRows({ points: [], processes: [worker] });
+        expect(rows[0].acceleratorLabels).toEqual(['NPU']);
     });
 
     it('leaves out roles this app has no process for and never invents a remainder', () => {

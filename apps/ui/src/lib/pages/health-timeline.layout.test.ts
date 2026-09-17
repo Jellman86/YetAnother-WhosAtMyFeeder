@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import errorsSource from './Errors.svelte?raw';
-import fieldLogSource from '../components/FieldLog.svelte?raw';
+import settingsSource from './Settings.svelte?raw';
+import timelineSource from '../components/HealthActivityTimeline.svelte?raw';
 import filteredPreviewSource from '../components/FilteredFramePreview.svelte?raw';
 
 /**
@@ -10,10 +11,22 @@ import filteredPreviewSource from '../components/FilteredFramePreview.svelte?raw
  */
 
 describe('health page timeline', () => {
-    it('reuses Field log rather than growing a second timeline idiom', () => {
-        expect(errorsSource).toContain("import FieldLog from '../components/FieldLog.svelte'");
+    it('uses an operational activity timeline rather than duplicating the Dashboard field log', () => {
+        expect(errorsSource).toContain("import HealthActivityTimeline from '../components/HealthActivityTimeline.svelte'");
         expect(errorsSource).toContain('data-health-timeline');
-        expect(errorsSource).toMatch(/<FieldLog[\s\S]*?rows=\{timelineRows\}/);
+        expect(errorsSource).toMatch(/<HealthActivityTimeline[\s\S]*?rows=\{timelineRows\}/);
+        expect(timelineSource).toContain('data-health-activity-timeline');
+        expect(timelineSource).toContain("jobs.errors_activity_recorded");
+        expect(timelineSource).toContain("jobs.errors_activity_filtered");
+        expect(timelineSource).toContain("jobs.errors_activity_fault");
+    });
+
+    it('routes View record through the app navigator instead of writing a dead hash URL', () => {
+        expect(errorsSource).toContain('onNavigate?: (path: string) => void');
+        expect(errorsSource).toContain("onNavigate?.(`/events?event=${encodeURIComponent(eventId)}`)");
+        expect(errorsSource).not.toContain('window.location.hash');
+        expect(settingsSource).toContain('<Errors {onNavigate} />');
+        expect(timelineSource).toContain("jobs.errors_activity_view_record");
     });
 
     it('windows visits to the same slice of time the counters describe', () => {
@@ -35,6 +48,7 @@ describe('health page timeline', () => {
     });
 
     it('states the remainder from the pipeline total, not from the rows shown', () => {
+        expect(errorsSource).toContain('representedEventCount');
         expect(errorsSource).toContain('hiddenEventCount');
     });
 });
@@ -76,27 +90,25 @@ describe('the health verdict', () => {
 });
 
 describe('filtered rows', () => {
-    it('are rendered by Field log as their own kind', () => {
-        expect(fieldLogSource).toContain("row.kind === 'filtered'");
-        expect(fieldLogSource).toContain('data-row-kind="filtered"');
+    it('are rendered by the health timeline as their own kind', () => {
+        expect(timelineSource).toContain("isFault ? 'fault' : 'filtered'");
+        expect(timelineSource).toContain("data-row-kind={isFault ? 'fault' : 'filtered'}");
     });
 
     it('never borrow the amber that means a person is needed', () => {
         // §1.3: amber is reserved for outstanding work. A rejected frame wants nothing.
-        const filteredBlock = fieldLogSource.slice(
-            fieldLogSource.indexOf("row.kind === 'filtered'"),
-            fieldLogSource.indexOf('{:else}', fieldLogSource.indexOf("row.kind === 'filtered'"))
-        );
-        expect(filteredBlock).not.toMatch(/accent-\d/);
-        expect(filteredBlock).toContain('data-needs-review="false"');
+        expect(timelineSource).toContain("'border-l-slate-300 bg-slate-50/55");
+        expect(timelineSource).not.toContain('data-needs-review="true"');
     });
 
     it('state their reason in words rather than by colour alone', () => {
-        expect(fieldLogSource).toContain('jobs.errors_drop_reason_row.');
+        expect(timelineSource).toContain('jobs.errors_drop_reason_row.');
     });
 
-    it('leave the dashboard untouched by defaulting rows from visits', () => {
-        expect(fieldLogSource).toMatch(/rows \?\? visits\.map/);
+    it('keeps fault drops visible and distinct from expected filtering', () => {
+        expect(timelineSource).toContain("row.kind === 'fault'");
+        expect(timelineSource).toContain("data-row-kind={isFault ? 'fault' : 'filtered'}");
+        expect(timelineSource).toContain('border-l-rose-400');
     });
 });
 
@@ -110,6 +122,7 @@ describe('filtered frame preview', () => {
         expect(filteredPreviewSource).toContain('aria-expanded');
         expect(filteredPreviewSource).toContain('focus-ring');
         expect(filteredPreviewSource).toContain('motion-safe:');
+        expect(filteredPreviewSource).toContain('show();');
     });
 
     it('degrades a rotated-away frame to a placeholder of the same size', () => {

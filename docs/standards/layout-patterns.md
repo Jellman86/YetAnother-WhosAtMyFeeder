@@ -171,7 +171,8 @@ worker's public summary, off with update checks, and absent rather than zero whe
 
 | Component | Use for | Do not |
 | --- | --- | --- |
-| `FieldLog` | Any chronological list of visits, and the Health page thread where kept visits and filtered frames share one order | Use for search results; Explorer owns those |
+| `FieldLog` | The Dashboard's chronological visit log and its identification actions | Use for operational history or search results; Health and Explorer own those |
+| `HealthActivityTimeline` | The Health page's chronological account of recorded visits, expected filtering and fault drops, with each outcome stated explicitly | Turn it into an identification queue; the Dashboard owns outstanding work |
 | `FilteredFramePreview` | A frame the classifier rejected, which has no detection record | Use where a `Detection` exists; that is `DetectionPreview` |
 | `DetectionPreview` | Any thumbnail under ~64px | Use as a click target for navigation; click opens the record |
 | `FrameStrip` | The moments of one visit inside its record, with the comparison pop-out | Show framing variants of one moment side by side; the pop-out carries the framing |
@@ -186,7 +187,7 @@ Pure logic lives in `apps/ui/src/lib/utils/`: `visit-grouping.ts` (grouping, the
 threshold-aware review decisions), `review-queue.ts` (queue selection and ordering),
 `dashboard-cameras.ts` (configured-camera scope and visit counts), `pipeline-health.ts` (which
 dropped events are faults and which are expected filtering) and `health-timeline.ts` (merging kept
-visits with filtered frames into one thread). New decision rules go there,
+visits, filtered frames and fault drops into one operational thread). New decision rules go there,
 with unit tests, and never inside a component.
 
 The review threshold comes from the saved `classification_threshold` setting. Do not copy its

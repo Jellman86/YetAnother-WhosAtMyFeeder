@@ -101,6 +101,51 @@ class SystemProcessLoadResponse(APIModel):
     detail: str | None = None
     cpu_percent: float | None = None
     rss_bytes: int | None = None
+    accelerator: SystemAcceleratorIdentity | None = None
+
+
+_WORKER_ROLE_TO_POOL = {
+    "live_worker": "live",
+    "background_worker": "background",
+    "video_worker": "video",
+}
+
+_ACCELERATOR_PROVIDERS: dict[str, tuple[Literal["npu", "gpu"], str]] = {
+    "intel_npu": ("npu", "NPU"),
+    "intel_gpu": ("gpu", "Intel GPU"),
+    "cuda": ("gpu", "NVIDIA GPU"),
+}
+
+
+def _worker_accelerators_from_status(status: object) -> dict[str, SystemAcceleratorIdentity]:
+    """Map worker roles to the accelerator their pool actually reported loading.
+
+    A configured provider is intentionally not enough: a worker may have fallen back to
+    CPU. The ready message captured in ``worker_pools.*.runtime`` is the runtime truth.
+    """
+    if not isinstance(status, dict):
+        return {}
+    pools = status.get("worker_pools")
+    if not isinstance(pools, dict):
+        return {}
+    result: dict[str, SystemAcceleratorIdentity] = {}
+    for role, pool_name in _WORKER_ROLE_TO_POOL.items():
+        pool = pools.get(pool_name)
+        runtime = pool.get("runtime") if isinstance(pool, dict) else None
+        provider = str(runtime.get("active_provider") or "").strip().lower() if isinstance(runtime, dict) else ""
+        identity = _ACCELERATOR_PROVIDERS.get(provider)
+        if identity is not None:
+            result[role] = SystemAcceleratorIdentity(kind=identity[0], label=identity[1])
+    return result
+
+
+def _active_worker_accelerators() -> dict[str, SystemAcceleratorIdentity]:
+    try:
+        from app.services.classifier_service import get_classifier
+
+        return _worker_accelerators_from_status(get_classifier().get_status())
+    except Exception:  # noqa: BLE001 - diagnostics must degrade to unknown, never fail the panel
+        return {}
 
 
 class SystemTelemetryHistoryResponse(APIModel):
@@ -128,6 +173,9 @@ async def get_system_telemetry_history(
     """
     snapshot = system_telemetry_history.snapshot()
     facts = collect_host_facts()
+    worker_accelerators = (
+        _active_worker_accelerators() if any(load.role in _WORKER_ROLE_TO_POOL for load in snapshot.processes) else {}
+    )
     response.headers["Cache-Control"] = "no-store"
     accelerator = None
     if snapshot.accelerator_kind in ("npu", "gpu") and snapshot.accelerator_label:
@@ -174,6 +222,7 @@ async def get_system_telemetry_history(
                 detail=load.detail,
                 cpu_percent=load.cpu_percent,
                 rss_bytes=load.rss_bytes,
+                accelerator=worker_accelerators.get(load.role),
             )
             for load in snapshot.processes
         ],

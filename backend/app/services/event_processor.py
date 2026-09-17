@@ -121,12 +121,51 @@ class EventData:
         self.frigate_score: Optional[float] = after.get("top_score")
         self.data: Dict[str, Any] = after.get("data") if isinstance(after.get("data"), dict) else {}
         self.snapshot: Dict[str, Any] = after.get("snapshot") if isinstance(after.get("snapshot"), dict) else {}
+        self.box = after.get("box")
+        self.region = after.get("region")
+        self.path_data = after.get("path_data")
+        self.position_changes = after.get("position_changes")
+        self.has_snapshot = after.get("has_snapshot")
+        self.has_clip = after.get("has_clip")
         self.is_false_positive: bool = after.get("false_positive", False)
 
         if self.frigate_score is None and "data" in after:
             self.frigate_score = after["data"].get("top_score")
         # Create timezone-aware datetime (Frigate timestamps are in UTC)
         self.detection_dt: datetime = datetime.fromtimestamp(self.start_time_ts, tz=timezone.utc)
+
+    def snapshot_context(self) -> Dict[str, Any]:
+        """Return the bounded Frigate state needed for later crop recovery."""
+        payload = dict(self.data)
+        for key in ("box", "region", "path_data"):
+            value = getattr(self, key, None)
+            if key not in payload and value is not None:
+                payload[key] = value
+        context: Dict[str, Any] = {
+            "start_time": self.start_time_ts,
+            "data": payload,
+        }
+        if self.end_time_known:
+            context["end_time"] = self.end_time_ts
+        if self.snapshot:
+            context["snapshot"] = self.snapshot
+        for key in ("position_changes", "has_snapshot", "has_clip"):
+            value = getattr(self, key, None)
+            if value is not None:
+                context[key] = value
+        return context
+
+    def not_retained_by_frigate(self) -> bool:
+        """Whether Frigate's final event state says no durable media was kept."""
+        return bool(
+            self.end_time_known
+            and self.end_time_ts is not None
+            and isinstance(self.position_changes, int)
+            and not isinstance(self.position_changes, bool)
+            and self.position_changes == 0
+            and self.has_snapshot is False
+            and self.has_clip is False
+        )
 
 
 DROP_FAULT_SEVERITIES = frozenset({"warning", "error"})
@@ -545,6 +584,18 @@ class EventProcessor:
                 return
             if existing_detection is not None:
                 await self._handle_terminal_event_enrichment(event)
+                await self._enqueue_notification_flow(
+                    event=event,
+                    classification={
+                        "label": existing_detection.display_name,
+                        "score": existing_detection.score,
+                        "audio_confirmed": existing_detection.audio_confirmed,
+                        "audio_species": existing_detection.audio_species,
+                    },
+                    snapshot_data=None,
+                    changed=False,
+                    was_inserted=False,
+                )
                 duration_ms = (time.monotonic() - started) * 1000.0
                 self._record_completed(event.frigate_event, duration_ms)
                 self._record_recent_outcome(
@@ -716,22 +767,40 @@ class EventProcessor:
             self._record_stage_fallback("correlate_audio", event.frigate_event)
             top_with_audio = top
 
-        save_ok, _ = await self._run_stage(
+        save_ok, save_result = await self._run_stage(
             event_id=event.frigate_event,
             stage="save_and_notify",
             timeout_seconds=EVENT_STAGE_TIMEOUT_SAVE_AND_NOTIFY_SECONDS,
-            coro=self._handle_detection_save_and_notify(
+            coro=self._save_detection(
                 event,
                 top_with_audio,
-                snapshot_data,
                 context,
-                snapshot_source=snapshot_source,
             ),
             fallback=None,
         )
         if not save_ok:
             self._record_drop(event.frigate_event, "save_and_notify_failed")
             return
+
+        if isinstance(save_result, tuple):
+            changed, was_inserted = save_result
+            # Queue admission is outside the save deadline. Once the database
+            # commit succeeds, an overloaded optional integration must not
+            # cancel notification hand-off or classify the detection as lost.
+            await self._enqueue_notification_flow(
+                event=event,
+                classification=top_with_audio,
+                snapshot_data=snapshot_data,
+                changed=changed,
+                was_inserted=was_inserted,
+            )
+            await self._handle_detection_post_commit(
+                event=event,
+                classification=top_with_audio,
+                snapshot_data=snapshot_data,
+                changed=changed,
+                snapshot_source=snapshot_source,
+            )
 
         if recovering_terminal_event:
             await self._handle_terminal_event_enrichment(event)
@@ -747,15 +816,33 @@ class EventProcessor:
     async def _handle_terminal_event_enrichment(self, event: EventData) -> None:
         """Schedule final media work only after the detection is durable."""
         try:
+            retention_check = getattr(event, "not_retained_by_frigate", None)
+            if callable(retention_check) and retention_check():
+                async with get_db() as db:
+                    await DetectionRepository(db).mark_frigate_not_retained(event.frigate_event)
+        except Exception as exc:
+            log.warning(
+                "Detection saved but Frigate retention state update failed",
+                event_id=event.frigate_event,
+                error=str(exc),
+            )
+        try:
             if media_cache.has_snapshot(event.frigate_event):
+                event_context = self._snapshot_context(event)
+                try:
+                    await media_cache.update_snapshot_event_hints(
+                        event.frigate_event,
+                        high_quality_snapshot_service.extract_event_hints(event_context),
+                    )
+                except Exception as exc:
+                    log.warning(
+                        "Detection saved but final snapshot hints were not persisted",
+                        event_id=event.frigate_event,
+                        error=str(exc),
+                    )
                 high_quality_snapshot_service.schedule_final_replacement(
                     event.frigate_event,
-                    event_data={
-                        "start_time": event.start_time_ts,
-                        "end_time": getattr(event, "end_time_ts", None),
-                        "data": event.data,
-                        **({"snapshot": event.snapshot} if event.snapshot else {}),
-                    },
+                    event_data=event_context,
                 )
         except Exception as exc:
             log.warning(
@@ -772,6 +859,24 @@ class EventProcessor:
                 event_id=event.frigate_event,
                 error=str(exc),
             )
+
+    @staticmethod
+    def _snapshot_context(event: EventData) -> Dict[str, Any]:
+        context_builder = getattr(event, "snapshot_context", None)
+        if callable(context_builder):
+            return context_builder()
+        # Lightweight event stand-ins are used by maintenance callers and
+        # tests; keep the prior payload contract for those objects.
+        payload = getattr(event, "data", {})
+        context: Dict[str, Any] = {
+            "start_time": getattr(event, "start_time_ts", 0.0),
+            "end_time": getattr(event, "end_time_ts", None),
+            "data": payload if isinstance(payload, dict) else {},
+        }
+        snapshot = getattr(event, "snapshot", None)
+        if isinstance(snapshot, dict) and snapshot:
+            context["snapshot"] = snapshot
+        return context
 
     def _prune_false_positive_tombstones(self) -> None:
         now = time.monotonic()
@@ -1419,26 +1524,61 @@ class EventProcessor:
             "weather_snowfall": weather.get("snowfall"),
         }
 
-    async def _handle_detection_save_and_notify(
+    async def _enqueue_notification_flow(
+        self,
+        *,
+        event: Any,
+        classification: Dict[str, Any],
+        snapshot_data: Optional[bytes],
+        changed: bool,
+        was_inserted: bool,
+    ) -> None:
+        """Queue notification policy evaluation without blocking MQTT ingest."""
+        notify_event = SimpleNamespace(
+            frigate_event=event.frigate_event,
+            camera=event.camera,
+            detection_dt=event.detection_dt,
+            type=event.type,
+            weather_condition=getattr(event, "weather_condition", None),
+        )
+        notify_classification = dict(classification)
+
+        async def _run_notification_flow() -> None:
+            await self.notification_orchestrator.handle_notifications(
+                event=notify_event,
+                classification=notify_classification,
+                snapshot_data=snapshot_data,
+                changed=changed,
+                was_inserted=was_inserted,
+            )
+
+        job_name = f"notify:{event.frigate_event}:{event.type or 'new'}"
+        try:
+            enqueued = await notification_dispatcher.enqueue(job_name=job_name, job_factory=_run_notification_flow)
+        except Exception as exc:
+            enqueued = False
+            log.warning(
+                "Detection saved but notification scheduling failed",
+                event_id=event.frigate_event,
+                error=str(exc),
+            )
+        if not enqueued:
+            log.warning("Notification queue saturated; dropping notification job", event_id=event.frigate_event)
+
+    async def _save_detection(
         self,
         event: EventData,
         classification: Dict[str, Any],
-        snapshot_data: Optional[bytes],
         context: Dict[str, Any],
-        *,
-        snapshot_source: str | None = None,
-    ):
-        """Save detection to database and send notifications.
+    ) -> tuple[bool, bool] | None:
+        """Commit a detection before any optional integration work runs.
 
         Args:
             event: Parsed event data
             classification: Classification result with audio correlation
-            snapshot_data: Snapshot image bytes (may be None)
             context: Context data (audio_match, weather_data)
         """
         label = classification["label"]
-        score = classification["score"]
-
         # Nest-mode dedupe: collapse repeat detections of the same species on a
         # nest camera within nest_dedupe_minutes. The detection_service.save
         # path is upsert-keyed by frigate_event, so two distinct events from
@@ -1492,7 +1632,21 @@ class EventProcessor:
             weather_snowfall=weather_fields["weather_snowfall"],
         )
 
-        # Update Frigate sublabel if confident
+        return changed, was_inserted
+
+    async def _handle_detection_post_commit(
+        self,
+        *,
+        event: EventData,
+        classification: Dict[str, Any],
+        snapshot_data: Optional[bytes],
+        changed: bool,
+        snapshot_source: str | None = None,
+    ) -> None:
+        """Run optional Frigate and media work after save and notification hand-off."""
+        label = classification["label"]
+        score = classification["score"]
+
         if (
             settings.classification.write_frigate_sublabel
             and classification.get("source") != "frigate_fallback"
@@ -1507,16 +1661,17 @@ class EventProcessor:
                     error=str(exc),
                 )
 
-        # Send notifications based on policy
         if changed:
             # Cache snapshot if we updated the DB (ensures image matches score)
             if snapshot_data and settings.media_cache.enabled and settings.media_cache.cache_snapshots:
                 snapshot_cached = False
                 try:
+                    event_context = self._snapshot_context(event)
                     await media_cache.cache_snapshot(
                         event.frigate_event,
                         snapshot_data,
                         source=str(snapshot_source or "frigate_snapshot"),
+                        event_hints=high_quality_snapshot_service.extract_event_hints(event_context),
                     )
                     snapshot_cached = True
                 except Exception as exc:
@@ -1526,24 +1681,10 @@ class EventProcessor:
                         error=str(exc),
                     )
                 if snapshot_cached and settings.media_cache.high_quality_event_snapshots:
-                    event_payload = getattr(event, "data", {})
                     try:
                         high_quality_snapshot_service.schedule_replacement(
                             event.frigate_event,
-                            event_data={
-                                "start_time": event.start_time_ts,
-                                "end_time": (
-                                    getattr(event, "end_time_ts", None)
-                                    if getattr(event, "end_time_known", False)
-                                    else None
-                                ),
-                                "data": event_payload if isinstance(event_payload, dict) else {},
-                                **(
-                                    {"snapshot": getattr(event, "snapshot")}
-                                    if isinstance(getattr(event, "snapshot", None), dict) and getattr(event, "snapshot")
-                                    else {}
-                                ),
-                            },
+                            event_data=event_context,
                         )
                     except Exception as exc:
                         log.warning(
@@ -1570,34 +1711,3 @@ class EventProcessor:
                 event_id=event.frigate_event,
                 score=score,
             )
-
-        # Keep remote notification I/O off MQTT ingest hot path.
-        notify_event = SimpleNamespace(
-            frigate_event=event.frigate_event,
-            camera=event.camera,
-            detection_dt=event.detection_dt,
-            type=event.type,
-        )
-        notify_classification = dict(classification)
-
-        async def _run_notification_flow() -> None:
-            await self.notification_orchestrator.handle_notifications(
-                event=notify_event,
-                classification=notify_classification,
-                snapshot_data=snapshot_data,
-                changed=changed,
-                was_inserted=was_inserted,
-            )
-
-        job_name = f"notify:{event.frigate_event}:{event.type or 'new'}"
-        try:
-            enqueued = await notification_dispatcher.enqueue(job_name=job_name, job_factory=_run_notification_flow)
-        except Exception as exc:
-            enqueued = False
-            log.warning(
-                "Detection saved but notification scheduling failed",
-                event_id=event.frigate_event,
-                error=str(exc),
-            )
-        if not enqueued:
-            log.warning("Notification queue saturated; dropping notification job", event_id=event.frigate_event)

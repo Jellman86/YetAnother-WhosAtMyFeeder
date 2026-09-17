@@ -30,11 +30,13 @@ from app.services.hq_classification_refinement import (
     crop_labels_with_independent_support,
 )
 from app.services.media_cache import media_cache
+from app.services.classification_input_provenance import cached_snapshot_input_provenance
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 from app.repositories.processing_job_repository import ProcessingJobRepository
 from app.utils.canonical_species import should_hide_species_label
 from app.utils.classifier_labels import normalize_classifier_label
+from app.utils.frigate_coordinates import normalize_frigate_hint_box, restore_frigate_hint_box
 from app.utils.tasks import create_background_task
 from app.utils.image_io import decode_image_bytes
 
@@ -209,6 +211,9 @@ class HighQualitySnapshotService:
 
         if event_data is None:
             event_data = await self._load_event_data_for_crop(event_id)
+        if event_data is None:
+            event_data = await self._load_persisted_event_hints(event_id)
+        await self._persist_event_hints(event_id, event_data)
         snapshot_event_data = event_data if clip_variant == "event" else None
         selected_candidate = None
         classification_candidates: list[dict[str, Any]] = []
@@ -259,6 +264,15 @@ class HighQualitySnapshotService:
                 snapshot_event_data,
             )
             snapshot_source = "high_quality_bird_crop" if crop_applied else "high_quality_snapshot"
+
+        if not crop_applied and await self._existing_snapshot_is_cropped(event_id):
+            await self._apply_classification_refinement(event_id, classification_candidates)
+            log.info(
+                "Preserved existing cropped snapshot because no replacement crop was available",
+                event_id=event_id,
+                attempted_source=snapshot_source,
+            )
+            return self._record_outcome(event_id, "existing_crop_preserved")
 
         replaced = await media_cache.replace_snapshot(
             event_id,
@@ -340,6 +354,9 @@ class HighQualitySnapshotService:
             crop_event_data = (
                 event_data if isinstance(event_data, dict) else await self._load_event_data_for_crop(event_id)
             )
+            if crop_event_data is None:
+                crop_event_data = await self._load_persisted_event_hints(event_id)
+            await self._persist_event_hints(event_id, crop_event_data)
             snapshot_event_data = crop_event_data if clip_variant == "event" else None
             selected_candidate = None
             classification_candidates: list[dict[str, Any]] = []
@@ -384,6 +401,21 @@ class HighQualitySnapshotService:
                     snapshot_event_data,
                 )
                 snapshot_source = "high_quality_bird_crop" if crop_applied else "high_quality_snapshot"
+
+            if not crop_applied and await self._existing_snapshot_is_cropped(event_id):
+                await self._apply_classification_refinement(event_id, classification_candidates)
+                if event_id not in self._final_refresh_ids and (
+                    event_id in self._queued_ids or event_id in self._deferred_ids
+                ):
+                    self._completed_ids.add(event_id)
+                log.info(
+                    "Preserved existing cropped snapshot because no replacement crop was available",
+                    event_id=event_id,
+                    attempted_source=snapshot_source,
+                )
+                result = self._record_outcome(event_id, "existing_crop_preserved")
+                await self._persist_processing_outcome(event_id, result)
+                return result
 
             replaced = await media_cache.replace_snapshot(
                 event_id,
@@ -674,7 +706,8 @@ class HighQualitySnapshotService:
         """Choose the strongest identity-safe candidate within one media source."""
         if not candidates:
             return None
-        full_frames = [item for item in candidates if str(item.get("source_mode") or "full_frame") == "full_frame"]
+        all_full_frames = [item for item in candidates if str(item.get("source_mode") or "full_frame") == "full_frame"]
+        full_frames = list(all_full_frames)
         usable_crops = [
             item
             for item in candidates
@@ -706,7 +739,9 @@ class HighQualitySnapshotService:
 
         pool = full_frames + usable_crops
         if not pool:
-            pool = candidates
+            if not all_full_frames:
+                return None
+            pool = all_full_frames
         selected = max(pool, key=lambda item: float(item.get("ranking_score") or 0.0))
         if str(selected.get("source_mode") or "") != "model_crop":
             return selected
@@ -836,6 +871,7 @@ class HighQualitySnapshotService:
                     event_data,
                     frame_offset_seconds=frame_offset_seconds,
                     clip_variant=clip_variant,
+                    image_size=base_image.size,
                 )
                 for source_mode, candidate_image, crop_result in self._candidate_images_for_frame(
                     base_image,
@@ -1048,6 +1084,7 @@ class HighQualitySnapshotService:
         *,
         frame_offset_seconds: Optional[float],
         clip_variant: str,
+        image_size: tuple[int, int] | None = None,
     ) -> Optional[dict[str, Any]]:
         """Return a Frigate hint translated to the tracked position at this frame.
 
@@ -1097,17 +1134,13 @@ class HighQualitySnapshotService:
             return None
 
         raw_box = payload.get("box")
-        if not isinstance(raw_box, (list, tuple)) or len(raw_box) != 4:
+        if image_size is None:
+            image_size = (1, 1)
+        normalized_box = normalize_frigate_hint_box(raw_box, image_size)
+        if normalized_box is None:
             return None
-        try:
-            _left, _top, width, height = [float(value) for value in raw_box]
-        except (TypeError, ValueError):
-            return None
-        if (
-            not all(math.isfinite(value) for value in (width, height))
-            or not (0.0 < width <= 1.0)
-            or not (0.0 < height <= 1.0)
-        ):
+        _left, _top, width, height = normalized_box
+        if width > 1.0 or height > 1.0:
             return None
 
         # Frigate path_data stores the tracked box's bottom-centre point.
@@ -1686,12 +1719,16 @@ class HighQualitySnapshotService:
     def _pop_crop_event_hints(self, event_id: str) -> Optional[dict[str, Any]]:
         return self._crop_event_hints.pop(event_id, None)
 
+    def extract_event_hints(self, event_data: Optional[dict[str, Any]]) -> Optional[dict[str, Any]]:
+        """Return the bounded event metadata safe to retain beside a snapshot."""
+        return self._extract_crop_event_hints(event_data)
+
     def _extract_crop_event_hints(self, event_data: Optional[dict[str, Any]]) -> Optional[dict[str, Any]]:
         if not isinstance(event_data, dict):
             return None
         raw_payload = event_data.get("data")
         if not isinstance(raw_payload, dict):
-            return None
+            raw_payload = {}
         payload: dict[str, Any] = {}
         for key in ("box", "region"):
             raw_hint = raw_payload.get(key)
@@ -1724,7 +1761,31 @@ class HighQualitySnapshotService:
             value = event_data.get(key)
             if value is not None:
                 hints[key] = value
+        for key in ("position_changes", "has_snapshot", "has_clip"):
+            value = event_data.get(key)
+            if value is not None:
+                hints[key] = value
         return hints or None
+
+    async def _load_persisted_event_hints(self, event_id: str) -> Optional[dict[str, Any]]:
+        metadata = await media_cache.get_snapshot_metadata(event_id)
+        persisted = (metadata or {}).get("event_hints")
+        return self._extract_crop_event_hints(persisted if isinstance(persisted, dict) else None)
+
+    async def _persist_event_hints(self, event_id: str, event_data: Optional[dict[str, Any]]) -> None:
+        hints = self._extract_crop_event_hints(event_data)
+        if not hints:
+            return
+        try:
+            await media_cache.update_snapshot_event_hints(event_id, hints)
+        except Exception as exc:
+            log.debug("Unable to persist snapshot event hints", event_id=event_id, error=str(exc))
+
+    async def _existing_snapshot_is_cropped(self, event_id: str) -> bool:
+        if await media_cache.get_snapshot_path(event_id) is None:
+            return False
+        metadata = await media_cache.get_snapshot_metadata(event_id)
+        return cached_snapshot_input_provenance(metadata).is_cropped
 
     async def _load_event_data_for_crop(self, event_id: str) -> Optional[dict[str, Any]]:
         """Fetch event metadata only when it can improve HQ bird-crop accuracy."""
@@ -1963,37 +2024,7 @@ class HighQualitySnapshotService:
         raw_hint: Any,
         image_size: tuple[int, int],
     ) -> Optional[tuple[int, int, int, int]]:
-        if not isinstance(raw_hint, (list, tuple)) or len(raw_hint) != 4:
-            return None
-        try:
-            left = float(raw_hint[0])
-            top = float(raw_hint[1])
-            width = float(raw_hint[2])
-            height = float(raw_hint[3])
-        except (TypeError, ValueError):
-            return None
-        if not all(math.isfinite(value) for value in (left, top, width, height)):
-            return None
-
-        image_width, image_height = image_size
-        normalized = 0.0 <= left <= 1.0 and 0.0 <= top <= 1.0 and 0.0 <= width <= 1.0 and 0.0 <= height <= 1.0
-        if normalized:
-            left *= float(image_width)
-            top *= float(image_height)
-            width *= float(image_width)
-            height *= float(image_height)
-
-        right = left + width
-        bottom = top + height
-        if right <= left or bottom <= top:
-            return None
-        left_i = max(0, min(image_width, int(math.floor(left))))
-        top_i = max(0, min(image_height, int(math.floor(top))))
-        right_i = max(0, min(image_width, int(math.ceil(right))))
-        bottom_i = max(0, min(image_height, int(math.ceil(bottom))))
-        if right_i <= left_i or bottom_i <= top_i:
-            return None
-        return left_i, top_i, right_i, bottom_i
+        return restore_frigate_hint_box(raw_hint, image_size)
 
     def _expand_hint_box(
         self,

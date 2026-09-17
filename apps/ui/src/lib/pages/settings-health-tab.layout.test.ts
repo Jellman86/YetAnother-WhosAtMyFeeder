@@ -11,7 +11,7 @@ describe('settings health tab', () => {
         expect(settingsSource).toContain("export type SettingsTab = 'connection' | 'detection' | 'notifications' | 'health'");
         expect(tabsSource).toContain('settings.tabs.health');
         expect(settingsSource).toContain("activeTab === 'health'");
-        expect(settingsSource).toContain('<Errors />');
+        expect(settingsSource).toContain('<Errors {onNavigate} />');
         expect(appSource).toContain("path === '/settings/errors'");
         expect(appSource).not.toContain("currentRoute.startsWith('/settings/errors')");
     });
@@ -36,6 +36,10 @@ describe('settings health tab', () => {
         expect(panelSource).toContain('data-system-health-cpu-unmeasured');
         expect(panelSource).toContain('data-system-health-no-accelerator');
         expect(en.settings.system_health.cpu_unmeasured).toContain('cannot be measured');
+        // Dense resource headers remain separated at phone widths without introducing
+        // a nested horizontal scroller.
+        expect(panelSource).toContain('tracking-normal text-slate-500 sm:tracking-[0.14em]');
+        expect(panelSource).not.toContain('data-system-health-table-container');
         // The keyboard's crosshair is a real range control, not a focusable picture, and it
         // stays out of sight until focused so it is not a handle attached to nothing.
         expect(panelSource).toContain('data-system-health-scrub');

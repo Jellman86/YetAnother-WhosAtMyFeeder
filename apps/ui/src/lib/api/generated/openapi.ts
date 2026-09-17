@@ -1754,8 +1754,10 @@ export interface components {
     cached: boolean;
     can_generate_hq_bird_crop: boolean;
     event_id: string;
+    frigate_event_state?: "available" | "not_retained" | "unavailable" | "unchecked";
     high_quality_bird_crop_enabled: boolean;
     high_quality_event_snapshots_enabled: boolean;
+    localization_hint_available?: boolean;
     original_frigate_snapshot_available?: boolean | null;
     source?: string | null;
     status: "applied";
@@ -1789,20 +1791,24 @@ export interface components {
     cached: boolean;
     can_generate_hq_bird_crop: boolean;
     event_id: string;
+    frigate_event_state?: "available" | "not_retained" | "unavailable" | "unchecked";
     high_quality_bird_crop_enabled: boolean;
     high_quality_event_snapshots_enabled: boolean;
+    localization_hint_available?: boolean;
     original_frigate_snapshot_available?: boolean | null;
     result: string;
     source?: string | null;
-    status: "already_hq_bird_crop" | "generated_hq_bird_crop" | "generated_hq_snapshot";
+    status: "already_hq_bird_crop" | "generated_hq_bird_crop" | "generated_hq_snapshot" | "existing_crop_preserved";
 };
     SnapshotStatusResponse: {
     already_hq_bird_crop: boolean;
     cached: boolean;
     can_generate_hq_bird_crop: boolean;
     event_id: string;
+    frigate_event_state?: "available" | "not_retained" | "unavailable" | "unchecked";
     high_quality_bird_crop_enabled: boolean;
     high_quality_event_snapshots_enabled: boolean;
+    localization_hint_available?: boolean;
     original_frigate_snapshot_available?: boolean | null;
     source?: string | null;
 };
@@ -1930,6 +1936,7 @@ export interface components {
     memory_total_bytes?: number | null;
 };
     SystemProcessLoadResponse: {
+    accelerator?: components['schemas']['SystemAcceleratorIdentity'] | null;
     cpu_percent?: number | null;
     detail?: string | null;
     label: string;
@@ -3109,6 +3116,18 @@ export interface paths {
       response: unknown;
     };
   };
+  "/api/frigate/{event_id}/hls/{asset}": {
+    get: {
+      operationId: "proxy_event_hls_api_frigate__event_id__hls__asset__get";
+      path: {
+    asset: string;
+    event_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: unknown;
+    };
+  };
   "/api/frigate/{event_id}/recording-clip.mp4": {
     get: {
       operationId: "proxy_recording_clip_api_frigate__event_id__recording_clip_mp4_get";
@@ -3129,6 +3148,18 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: components['schemas']['RecordingClipFetchResponse'];
+    };
+  };
+  "/api/frigate/{event_id}/recording-hls/{asset}": {
+    get: {
+      operationId: "proxy_recording_hls_api_frigate__event_id__recording_hls__asset__get";
+      path: {
+    asset: string;
+    event_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: unknown;
     };
   };
   "/api/frigate/{event_id}/snapshot.jpg": {

@@ -82,6 +82,8 @@ export interface FilteredDetection {
     timestamp: string | null;
 }
 
+export type FaultDetection = FilteredDetection;
+
 function toText(value: unknown): string | null {
     if (typeof value !== 'string') return null;
     const trimmed = value.trim();
@@ -124,6 +126,39 @@ export function recentFilteredDetections(
         });
     }
     return filtered.reverse().slice(0, Math.max(0, limit));
+}
+
+/**
+ * The most recent detections lost to a pipeline fault.
+ *
+ * These belong in the operational history beside expected filtering, but must
+ * keep a separate state: a confidence gate is policy working as configured,
+ * while an unavailable snapshot or timeout cost the owner a detection.
+ */
+export function recentFaultDetections(
+    pipeline: EventPipelineHealth | null | undefined,
+    limit = 5
+): FaultDetection[] {
+    const outcomes = pipeline?.recent_outcomes;
+    if (!Array.isArray(outcomes)) return [];
+    const faults: FaultDetection[] = [];
+    for (const entry of outcomes) {
+        if (!entry || typeof entry !== 'object') continue;
+        const record = entry as Record<string, unknown>;
+        if (record.outcome !== 'dropped') continue;
+        const reason = toText(record.reason);
+        if (!reason || reason.startsWith('filter_')) continue;
+        const eventId = toText(record.event_id);
+        if (!eventId) continue;
+        faults.push({
+            eventId,
+            reason,
+            label: toText(record.label),
+            score: toScore(record.score),
+            timestamp: toText(record.timestamp)
+        });
+    }
+    return faults.reverse().slice(0, Math.max(0, limit));
 }
 
 /**

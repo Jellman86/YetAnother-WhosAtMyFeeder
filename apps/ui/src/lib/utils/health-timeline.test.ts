@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildHealthTimeline, hiddenEventCount, instanceWindowMs } from './health-timeline';
+import {
+    buildHealthTimeline,
+    hiddenEventCount,
+    instanceWindowMs,
+    representedEventCount
+} from './health-timeline';
 import type { DetectionVisit } from './visit-grouping';
 
 function visit(key: string, endTime: string): DetectionVisit {
@@ -34,6 +39,23 @@ describe('health timeline', () => {
         });
         expect(rows.map(row => row.key)).toEqual(['drop:x', 'visit:a', 'drop:y', 'visit:b']);
         expect(rows.map(row => row.kind)).toEqual(['filtered', 'visit', 'filtered', 'visit']);
+    });
+
+    it('places pipeline faults in the same chronology without calling them filtered', () => {
+        const rows = buildHealthTimeline({
+            visits: [visit('a', '2026-08-15T06:12:04Z')],
+            filtered: [drop('x', '2026-08-15T06:15:57Z')],
+            faults: [
+                {
+                    eventId: 'fault',
+                    reason: 'classify_snapshot_timeout',
+                    label: null,
+                    score: null,
+                    timestamp: '2026-08-15T06:14:00Z'
+                }
+            ]
+        });
+        expect(rows.map(row => row.kind)).toEqual(['filtered', 'fault', 'visit']);
     });
 
     it('keeps an unreadable timestamp at the end instead of dropping the event', () => {
@@ -90,5 +112,16 @@ describe('hidden events', () => {
         expect(hiddenEventCount(3, 7)).toBe(0);
         expect(hiddenEventCount(0, 7)).toBe(0);
         expect(hiddenEventCount(Number.NaN, 7)).toBe(0);
+    });
+
+    it('counts every frame folded into a visit as represented', () => {
+        const folded = visit('folded', '2026-08-15T06:12:04Z');
+        folded.frames = [{}, {}, {}] as DetectionVisit['frames'];
+        const rows = buildHealthTimeline({
+            visits: [folded],
+            filtered: [drop('x', '2026-08-15T06:15:57Z')]
+        });
+        expect(representedEventCount(rows)).toBe(4);
+        expect(hiddenEventCount(7, representedEventCount(rows))).toBe(3);
     });
 });

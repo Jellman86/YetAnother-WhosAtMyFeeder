@@ -4,20 +4,40 @@ This document tracks known issues and testing gaps that have not been verified e
 
 If you find a bug, please open a GitHub issue with the steps to reproduce and any redacted logs.
 
-Last reviewed against the GitHub issue tracker on **September 13, 2026**.
+Last reviewed against the GitHub issue tracker and opt-in fleet telemetry on
+**September 16, 2026**.
 
 ## P0: Active Regressions
 
 - None currently confirmed as unresolved in current `dev`.
 
+## P1: Active Regressions
+
+- None currently confirmed as unresolved in current `dev`.
+
 ## Pending Verification (Fixes in Dev, Awaiting Reporter Confirmation)
 
-- **#451 Frigate clips stop after their first chunk:** the media-cookie security change made the
-  browser stop carrying the owner token in video URLs, but the rate limiter still recognised only
-  bearer/query tokens and the legacy API key. It therefore counted a signed-in owner's clip probes
-  and browser range requests against the public budget, eventually answering 429. Current `dev`
-  recognises a valid owner cookie for rate limiting only on the read-only media routes where that
-  cookie is already allowed. Awaiting a release and reporter confirmation.
+### REG-2026-09-15-01 — Accepted detections can expire before notification dispatch
+
+The September 15 fleet review found 41 underlying occurrences across two installations in the
+preceding 30 days, including one occurrence from the then-current `dev` build. Each failure emits
+both `stage_timeout/save_and_notify` and `drop_save_and_notify_failed`; those 82 raw markers
+describe 41 failures and must not be counted as separate incidents. Current `dev` limits that
+deadline to the database decision, admits notification work immediately after commit, and only then
+runs optional Frigate sublabel, snapshot-cache and video-scheduling work. A regression test holds
+post-commit work beyond the old deadline and proves the detection is not dropped and notification
+hand-off has already happened. Keep this open until a real detection on the reference install
+confirms delivery without another paired timeout/drop marker. Tracked in the
+[telemetry-confirmed regression queue](ROADMAP.md#telemetry-confirmed-regression-queue).
+
+### REG-2026-09-15-03 — Final-mode detection notifications
+
+Stable `2.20.1` can save a final Frigate event without dispatching its notification because the
+terminal path treated the earlier preliminary classification as unchanged. PR #467 makes the
+terminal decision authoritative in `dev`, but the reference install has not yet produced a
+qualifying accepted detection since that build was deployed. Keep this open until Telegram and the
+in-app notification timeline both prove one real final-mode detection end to end. Tracked in the
+[telemetry-confirmed regression queue](ROADMAP.md#telemetry-confirmed-regression-queue).
 
 ## Known Remaining Exposure
 
@@ -41,10 +61,20 @@ Last reviewed against the GitHub issue tracker on **September 13, 2026**.
 
 ## Open on the Tracker
 
-- **#451** Frigate clips stop after their first chunk. See Pending Verification above.
+- **#459** Frigate video playback remains open for HLS release validation. Its implementation is
+  already isolated on `dev`; no HLS work is part of this telemetry fix.
 
 ## Recently Closed (Context)
 
+### REG-2026-09-15-02 — Legacy health batches disappear from telemetry breakdowns
+
+Legacy v1 health batches no longer disappear from public severity, component and top-issue
+breakdowns. Mixed v1/v3 cohorts are combined before the three-install privacy floor is applied;
+retained legacy fingerprints and component details are used rather than invented; and cumulative
+legacy occurrence counters are included once and labelled apart from replay-safe v3 window events.
+
+- **#451** Signed-in Frigate clip requests no longer exhaust the public media rate limit. The
+  reporter confirmed the owner-cookie fix and the issue closed September 14.
 - **#178** Durable favourite media and per-species retention floors shipped in 2.20.0 (#445).
   Favourites now acquire their photograph and available clip into `/config/archive`; cache cleanup
   and Frigate rotation do not touch that archive, and acquisition failures and destructive actions
