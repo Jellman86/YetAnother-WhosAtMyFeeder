@@ -5,6 +5,7 @@ eval directory with no live models, network, or classifier.
 """
 
 import json
+import pytest
 
 from app.services import model_validation as mv
 
@@ -271,3 +272,20 @@ def test_provider_signature_ignores_unrelated_runtime_packages(monkeypatch):
     mv._provider_runtime_signature_for.cache_clear()
     assert mv.current_provider_runtime_signature("intel_gpu") != before
     mv._provider_runtime_signature_for.cache_clear()
+
+
+@pytest.mark.asyncio
+async def test_cancelled_probe_reaps_a_child_that_exits_during_cancellation(monkeypatch):
+    import asyncio
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock, Mock
+
+    process = SimpleNamespace(
+        returncode=None,
+        kill=Mock(side_effect=ProcessLookupError),
+        communicate=AsyncMock(side_effect=[asyncio.CancelledError(), (b"", None)]),
+    )
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", AsyncMock(return_value=process))
+    with pytest.raises(asyncio.CancelledError):
+        await mv._probe_one_provider("intel_gpu", model_id="test")
+    assert process.communicate.await_count == 2

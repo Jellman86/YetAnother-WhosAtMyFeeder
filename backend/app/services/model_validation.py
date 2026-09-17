@@ -689,7 +689,10 @@ async def _probe_one_provider(
         stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout)
     except asyncio.CancelledError:
         if proc is not None and proc.returncode is None:
-            proc.kill()
+            try:
+                proc.kill()
+            except ProcessLookupError:
+                pass
             await proc.communicate()
         raise
     except asyncio.TimeoutError:
