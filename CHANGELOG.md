@@ -6,22 +6,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
-### Added
-
-- **Settings → Health opens on what the host is doing.** The last thirty minutes of CPU and
-  accelerator load, sampled every five seconds and kept by the server, with the live figures
-  beside it and who is using the CPU: this app's own processes by name (the app, each classifier
-  worker, any ffmpeg it spawned) with CPU share and memory, and everything else on the host as one
-  remainder that is never named. The sidebar's System status card opens it for the owner.
-  `GET /api/system-telemetry/history` (owner).
-- **Settings → Health draws every accelerator it can read, not just one.** A host with both an
-  Intel GPU and an NPU now gets a line each, told apart by dash pattern as well as colour, and a
-  live figure each. GPU load is read from the DRM client counters in `/proc/<pid>/fdinfo`, which
-  a container can read for its own processes, so that line is what this app sent to the GPU and
-  says so; the NPU busy counter covers the whole device and says that. Every `accel*` node is
-  scanned rather than only `accel0`. An NVIDIA card is named and reported as unreadable, because
-  its driver publishes no counter a container can reach, instead of leaving a silent gap that
-  looks like a fault. `GET /api/system-telemetry/history` gains `accelerators`.
+## [2.20.2] - 2026-09-17
 
 ### Changed
 
@@ -29,11 +14,6 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   adds an Accelerator column sourced from the runtime the worker actually reported, so a CPU
   fallback is never presented as NPU/GPU work. NPU utilisation remains labelled as a whole-device
   figure because the kernel does not expose a truthful per-process split.
-- **The inspected sample on the health chart is marked on the lines it belongs to.** Moving the
-  crosshair now puts a dot on each series at that sample, and the keyboard scrubber, which used to
-  sit under the graph as a handle with nothing visibly attached to it, stays out of sight until it
-  is focused. Focused, it shows its track, its thumb and a focus ring, and a screen reader hears
-  the sample's time and every series' value rather than a sample number.
 
 ### Fixed
 
@@ -79,6 +59,36 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Large photographs, label lists and audio clips no longer spill through nginx temporary
   files.** These read-only responses now use bounded in-memory proxy buffers and stream any
   remainder to the browser, avoiding unnecessary container-overlay writes during busy page loads.
+
+## [2.20.1] - 2026-09-13
+
+### Added
+
+- **Settings → Health opens on what the host is doing.** The last thirty minutes of CPU and
+  accelerator load, sampled every five seconds and kept by the server, with the live figures
+  beside it and who is using the CPU: this app's own processes by name (the app, each classifier
+  worker, any ffmpeg it spawned) with CPU share and memory, and everything else on the host as one
+  remainder that is never named. The sidebar's System status card opens it for the owner.
+  `GET /api/system-telemetry/history` (owner).
+- **Settings → Health draws every accelerator it can read, not just one.** A host with both an
+  Intel GPU and an NPU now gets a line each, told apart by dash pattern as well as colour, and a
+  live figure each. GPU load is read from the DRM client counters in `/proc/<pid>/fdinfo`, which
+  a container can read for its own processes, so that line is what this app sent to the GPU and
+  says so; the NPU busy counter covers the whole device and says that. Every `accel*` node is
+  scanned rather than only `accel0`. An NVIDIA card is named and reported as unreadable, because
+  its driver publishes no counter a container can reach, instead of leaving a silent gap that
+  looks like a fault. `GET /api/system-telemetry/history` gains `accelerators`.
+
+### Changed
+
+- **The inspected sample on the health chart is marked on the lines it belongs to.** Moving the
+  crosshair now puts a dot on each series at that sample, and the keyboard scrubber, which used to
+  sit under the graph as a handle with nothing visibly attached to it, stays out of sight until it
+  is focused. Focused, it shows its track, its thumb and a focus ring, and a screen reader hears
+  the sample's time and every series' value rather than a sample number.
+
+### Fixed
+
 - **The sidebar's live graph no longer eats the health history's measurements.** Both read counter
   deltas since their own previous read, and both went through one shared sampler on different
   intervals, so each was measuring the gap left by the other. The history now keeps its own.
@@ -90,7 +100,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Signed-in video playback no longer trips the public rate limit (#451).** Media requests use
   the scoped session cookie, and the rate limiter now recognises that same cookie as the owner only
   on the read-only media routes where it is allowed. Clip probes and browser range requests
-  therefore receive the owner budget without widening the cookie's authority elsewhere.
+  therefore receive the owner budget without widening the cookie's authority elsewhere. Thanks to
+  @aav7fl for reporting the regression and documenting how it failed in the browser.
 - **A visit confirmed by a matching call says so in the field log.** The day bar counted
   cross-confirmed visits but the rows gave no sign of which ones; a confirmed visit now carries
   "matching call" beneath its name, the words the record uses, on wide screens and on a phone.
