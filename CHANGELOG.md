@@ -8,6 +8,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- Preserve clean shutdown when an isolated accelerator probe exits during cancellation.
+
 - Keep fallback bird crops and frame previews tied to the recorded species. Regenerate frame choices for existing HQ photos without losing saved choices when media is unavailable.
 - Move detection titles, playback controls, and frame choices below the photograph so they no longer obscure birds.
 
