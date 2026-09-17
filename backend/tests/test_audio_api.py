@@ -953,6 +953,7 @@ async def test_owner_can_hide_restore_audio_and_summary_excludes_hidden(client):
     assert (await client.patch(f"/api/audio/history/{row_id}", json={"hidden": False})).status_code == 200
     assert (await client.get("/api/audio/history")).json()["total"] == 1
     assert (await client.patch("/api/audio/history/999999999", json={"hidden": True})).status_code == 404
+    await client.patch(f"/api/audio/history/{row_id}", json={"hidden": True})
 
 
 @pytest.mark.asyncio

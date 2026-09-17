@@ -564,6 +564,9 @@ async def test_hidden_audio_is_removed_from_buffer_and_cannot_reappear_on_replay
     assert await restarted.add_detection(payload)
     assert not restarted._buffer
     assert await audio_service.set_hidden(row_id, False)
+    assert len(audio_service._buffer) == 1
+    assert await audio_service.set_hidden(row_id, False)
+    assert len(audio_service._buffer) == 1
     assert await audio_service.add_detection(payload)
     assert len(audio_service._buffer) == 1
 
@@ -604,3 +607,34 @@ async def test_removal_wins_against_ingest_waiting_to_append(audio_service):
         resume.set()
         assert await task
     assert not audio_service._buffer
+
+
+@pytest.mark.asyncio
+async def test_undo_restores_expired_audio_only_to_history(audio_service):
+    from app.repositories.detection_repository import DetectionRepository
+
+    async with get_db() as db:
+        row_id = await DetectionRepository(db).insert_audio_detection(
+            datetime.now(timezone.utc) - timedelta(days=2), "Robin", 0.9, "mic", {}
+        )
+    assert await audio_service.set_hidden(row_id, True)
+    assert await audio_service.set_hidden(row_id, False)
+    assert not audio_service._buffer
+
+
+@pytest.mark.asyncio
+async def test_undo_preserves_chronological_buffer_expiry(audio_service):
+    from app.repositories.detection_repository import DetectionRepository
+
+    now = datetime.now(timezone.utc)
+    async with get_db() as db:
+        row_id = await DetectionRepository(db).insert_audio_detection(
+            now - timedelta(minutes=4), "Older Robin", 0.9, "mic", {}
+        )
+    await audio_service.add_detection({"species": "Recent Robin", "confidence": 0.9})
+    assert await audio_service.set_hidden(row_id, True)
+    assert await audio_service.set_hidden(row_id, False)
+    assert [item.species for item in audio_service._buffer] == ["Older Robin", "Recent Robin"]
+    audio_service._buffer_duration = timedelta(minutes=2)
+    audio_service._cleanup_buffer()
+    assert [item.species for item in audio_service._buffer] == ["Recent Robin"]

@@ -4822,6 +4822,30 @@ class DetectionRepository:
         await self.db.commit()
         return found
 
+    async def get_audio_detection_for_correlation(self, detection_id: int) -> dict | None:
+        async with self.db.execute(
+            """SELECT timestamp, species, confidence, sensor_id, raw_data, scientific_name, source_event_id
+               FROM audio_detections WHERE id = ? AND is_hidden = 0""",
+            (detection_id,),
+        ) as cursor:
+            row = await cursor.fetchone()
+        if row is None:
+            return None
+        try:
+            payload = json.loads(row[4] or "{}")
+        except (ValueError, TypeError):
+            payload = {}
+        return {
+            "timestamp": _parse_datetime(row[0]),
+            "species": row[1],
+            "confidence": row[2],
+            "sensor_id": row[3],
+            "raw_data": payload if isinstance(payload, dict) else {},
+            "scientific_name": row[5],
+            "source_event_id": row[6],
+            "database_id": detection_id,
+        }
+
     async def audio_detection_is_visible(self, detection_id: int) -> bool:
         async with self.db.execute("SELECT is_hidden FROM audio_detections WHERE id = ?", (detection_id,)) as cursor:
             row = await cursor.fetchone()

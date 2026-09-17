@@ -130,7 +130,8 @@ without a stable numeric ID are still accepted, but cannot receive this source-l
 ## Remove an incorrect audio detection
 
 In Audio history, owners can choose **Hide locally** beside a detection and **Undo** while
-the page remains open. Hiding excludes the entry from history, statistics and future live
+the page remains open. Undo restores recent calls to live correlation immediately; calls older
+than the configured buffer window return to history only. Hiding excludes the entry from history, statistics and future live
 correlation. It does not delete anything in BirdNET-Go or rewrite existing visual identifications.
 BirdNET-Go deletions are not automatically synced; a missing clip alone is not evidence of deletion.
 
