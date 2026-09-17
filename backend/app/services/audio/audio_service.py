@@ -317,11 +317,23 @@ class AudioService:
 
     async def set_hidden(self, detection_id: int, hidden: bool) -> bool:
         async with self._lock:
+            restored = None
             async with get_db() as db:
-                found = await DetectionRepository(db).set_audio_hidden(detection_id, hidden)
+                repo = DetectionRepository(db)
+                found = await repo.set_audio_hidden(detection_id, hidden)
+                if found and not hidden:
+                    restored = await repo.get_audio_detection_for_correlation(detection_id)
             if found and hidden:
                 self._buffer = deque(item for item in self._buffer if item.database_id != detection_id)
                 self._buffered_source_ids = {item.source_event_id for item in self._buffer if item.source_event_id}
+            elif restored and not any(item.database_id == detection_id for item in self._buffer):
+                detection = AudioDetection(**restored)
+                if detection.timestamp.tzinfo is None:
+                    detection.timestamp = detection.timestamp.replace(tzinfo=timezone.utc)
+                if datetime.now(timezone.utc) - detection.timestamp <= self._buffer_duration:
+                    self._append_to_buffer_once(detection)
+                    # Undo may restore an older call; preserve chronological expiry.
+                    self._buffer = deque(sorted(self._buffer, key=lambda item: item.timestamp))
             return found
 
     def _append_to_buffer_once(self, detection: AudioDetection) -> bool:
