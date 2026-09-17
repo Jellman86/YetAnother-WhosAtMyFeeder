@@ -87,6 +87,7 @@ How the project is built and held to standard.
 - **[🧑‍💻 Code-Quality Standard](standards/code-quality.md)** - The researched code-craft bar for Python/FastAPI + Svelte 5/TypeScript, with authoritative sources.
 - **[🎨 UI/UX Standard](standards/ui-ux.md)** - Usability (Nielsen's heuristics), accessibility (WCAG 2.2 AA), and visual craft (Refactoring UI).
 - **[📣 Writing a Release](development/releasing.md)** - The human-first GitHub Release standard, template, and checklist.
+- **[🎁 YA-WAMF 2.20.2 Release Notes](releases/v2.20.2.md)** - Reliable Frigate video and crops, restored completed notifications, and a Health timeline that explains every detection outcome.
 - **[🎁 YA-WAMF 2.20.1 Release Notes](releases/v2.20.1.md)** - Lower-CPU Intel NPU video analysis, a host health timeline, reliable signed-in playback, and matching-call markers.
 - **[🎁 YA-WAMF 2.20.0 Release Notes](releases/v2.20.0.md)** - Favourites kept for good, the About page and the leaderboard opening on your own photographs, and one strip to choose a visit's frame.
 - **[YA-WAMF 2.19.7 Release Notes](releases/v2.19.7.md)** - A restarted video worker no longer costs you the visit: the job waits for the new worker, or is queued again.
