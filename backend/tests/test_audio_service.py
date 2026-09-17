@@ -99,7 +99,7 @@ async def test_add_detection_deduplicates_birdnet_redelivery_by_source_and_id(au
 
 
 @pytest.mark.asyncio
-async def test_add_detection_keeps_one_buffer_observation_across_storage_retry(audio_service):
+async def test_add_detection_waits_for_durable_visibility_before_buffering_a_retry(audio_service):
     payload = {
         "detectionId": 4343,
         "nm": "BirdCam",
@@ -111,7 +111,7 @@ async def test_add_detection_keeps_one_buffer_observation_across_storage_retry(a
 
     with patch("app.services.audio.audio_service.get_db", side_effect=RuntimeError("database unavailable")):
         assert await audio_service.add_detection(payload) is False
-    assert len(audio_service._buffer) == 1
+    assert len(audio_service._buffer) == 0
 
     assert await audio_service.add_detection(payload) is True
     assert len(audio_service._buffer) == 1
@@ -543,3 +543,64 @@ async def test_add_detection_keeps_low_confidence_when_threshold_zero(audio_serv
     await audio_service.add_detection({"species": "Wren", "confidence": 0.05})
     assert len(audio_service._buffer) == 1
     assert audio_service._buffer[0].species == "Wren"
+
+
+@pytest.mark.asyncio
+async def test_hidden_audio_is_removed_from_buffer_and_cannot_reappear_on_replay(audio_service):
+    payload = {
+        "detectionId": 478001,
+        "nm": "remove-test",
+        "CommonName": "Robin",
+        "Confidence": 0.95,
+        "BeginTime": datetime.now(timezone.utc).isoformat(),
+    }
+    assert await audio_service.add_detection(payload)
+    row_id = audio_service._buffer[0].database_id
+    assert await audio_service.set_hidden(row_id, True)
+    assert not audio_service._buffer
+    assert await audio_service.add_detection(payload)
+    assert not audio_service._buffer
+    restarted = AudioService()
+    assert await restarted.add_detection(payload)
+    assert not restarted._buffer
+    assert await audio_service.set_hidden(row_id, False)
+    assert await audio_service.add_detection(payload)
+    assert len(audio_service._buffer) == 1
+
+
+@pytest.mark.asyncio
+async def test_audio_persistence_failure_cannot_reintroduce_hidden_evidence(audio_service):
+    with patch(
+        "app.services.audio.audio_service.DetectionRepository.insert_audio_detection_idempotent",
+        side_effect=RuntimeError("database unavailable"),
+    ):
+        assert not await audio_service.add_detection({"species": "Robin", "confidence": 0.9})
+    assert not audio_service._buffer
+
+
+@pytest.mark.asyncio
+async def test_removal_wins_against_ingest_waiting_to_append(audio_service):
+    import asyncio
+    from app.repositories.detection_repository import DetectionRepository
+
+    inserted = asyncio.Event()
+    resume = asyncio.Event()
+    row_ids = []
+    original = DetectionRepository.insert_audio_detection_idempotent
+
+    async def paused_insert(repo, **kwargs):
+        result = await original(repo, **kwargs)
+        row_ids.append(result[0])
+        inserted.set()
+        await resume.wait()
+        return result
+
+    with patch.object(DetectionRepository, "insert_audio_detection_idempotent", paused_insert):
+        task = asyncio.create_task(
+            audio_service.add_detection({"detectionId": 478002, "species": "Robin", "confidence": 0.9})
+        )
+        await asyncio.wait_for(inserted.wait(), 2)
+        assert await audio_service.set_hidden(row_ids[0], True)
+        resume.set()
+        assert await task
+    assert not audio_service._buffer

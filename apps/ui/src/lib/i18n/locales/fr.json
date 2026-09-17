@@ -2219,7 +2219,11 @@
       "title": "Historique des détections",
       "sub": "Détections BirdNET-Go enregistrées, distinctes des visites visuelles.",
       "empty": "Aucune détection BirdNET ne correspond à ces filtres.",
-      "showing": "Affichage de {from} à {to} sur {total}"
+      "showing": "Affichage de {from} à {to} sur {total}",
+      "hide": "Masquer localement",
+      "undo": "Annuler",
+      "hidden_message": "Détection audio masquée.",
+      "local_only": "Masquer retire une entrée de l’historique YA-WAMF et des futures correspondances audio. BirdNET-Go reste inchangé ; ses suppressions ne sont pas synchronisées automatiquement."
     },
     "table": {
       "sound": "Son",

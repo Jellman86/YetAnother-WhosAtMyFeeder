@@ -631,3 +631,10 @@ Benchmarks every installed classifier against labelled feeder images. See
 - [Configuration](setup/configuration.md)
 - [Authentication & Access](features/authentication.md)
 - [Troubleshooting](troubleshooting/diagnostics.md)
+
+### Local audio visibility
+
+- `PATCH /api/audio/history/{detection_id}` (owner): set `{ "hidden": true }` to hide a local
+  audio detection, or `false` to restore its history row. Returns `{ "id": 123, "hidden": true }`;
+  unknown IDs return 404. Hiding removes buffered evidence and excludes the row from history,
+  summaries and future correlation. This does not write to BirdNET-Go.

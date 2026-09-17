@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from typing import Literal
 from app.services.audio.audio_service import audio_service
 from app.config import settings
-from app.auth import AuthContext
+from app.auth import AuthContext, require_owner
 from app.auth import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
 from app.database import get_db
@@ -43,6 +43,26 @@ AUDIO_CONTEXT_RESPONSE_METADATA = {
         }
     }
 }
+
+
+class AudioVisibilityRequest(BaseModel):
+    hidden: bool
+
+
+class AudioVisibilityResponse(BaseModel):
+    id: int
+    hidden: bool
+
+
+@router.patch("/history/{detection_id}", response_model=AudioVisibilityResponse)
+async def set_audio_visibility(
+    body: AudioVisibilityRequest,
+    detection_id: int = ApiPath(..., ge=1),
+    auth: AuthContext = Depends(require_owner),
+) -> AudioVisibilityResponse:
+    if not await audio_service.set_hidden(detection_id, body.hidden):
+        raise HTTPException(status_code=404, detail="Audio detection not found")
+    return AudioVisibilityResponse(id=detection_id, hidden=body.hidden)
 
 
 class AudioSourceResponse(BaseModel):

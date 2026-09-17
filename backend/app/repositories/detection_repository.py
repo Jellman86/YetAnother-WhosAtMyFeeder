@@ -3223,8 +3223,7 @@ class DetectionRepository:
     ) -> int:
         """Delete BirdNET-Go audio detections older than the cutoff date in chunks.
 
-        Audio detections have no favorites/soft-delete concept, so this is a
-        straight age-based purge keyed on the ``timestamp`` column. Chunked to
+        Hidden rows remain as replay tombstones. Visible rows are purged by age. Chunked to
         mirror ``delete_older_than`` and avoid long write locks.
         """
         total_deleted = 0
@@ -3236,7 +3235,7 @@ class DetectionRepository:
                 WHERE id IN (
                     SELECT id
                     FROM audio_detections
-                    WHERE timestamp < ?
+                    WHERE timestamp < ? AND is_hidden = 0
                     LIMIT ?
                 )
             """
@@ -4814,11 +4813,26 @@ class DetectionRepository:
         await self.db.commit()
         return deleted
 
+    async def set_audio_hidden(self, detection_id: int, hidden: bool) -> bool:
+        cursor = await self.db.execute(
+            "UPDATE audio_detections SET is_hidden = ? WHERE id = ?", (int(hidden), detection_id)
+        )
+        found = cursor.rowcount > 0
+        await cursor.close()
+        await self.db.commit()
+        return found
+
+    async def audio_detection_is_visible(self, detection_id: int) -> bool:
+        async with self.db.execute("SELECT is_hidden FROM audio_detections WHERE id = ?", (detection_id,)) as cursor:
+            row = await cursor.fetchone()
+        return row is not None and not bool(row[0])
+
     async def get_recent_audio_source_observations(self, limit: int = 200) -> list[dict]:
         """Return recent raw audio rows for source discovery/deduping."""
         async with self.db.execute(
             """SELECT timestamp, sensor_id, raw_data
                FROM audio_detections
+               WHERE is_hidden = 0
                ORDER BY timestamp DESC
                LIMIT ?""",
             (limit,),
@@ -4850,7 +4864,7 @@ class DetectionRepository:
         end_dt = target_time + timedelta(seconds=window_seconds)
         query = """SELECT timestamp, species, confidence, sensor_id, scientific_name, raw_data
                    FROM audio_detections
-                   WHERE timestamp >= ? AND timestamp <= ?"""
+                   WHERE is_hidden = 0 AND timestamp >= ? AND timestamp <= ?"""
         params: list = [serialize_storage_datetime(start_dt), serialize_storage_datetime(end_dt)]
         query += " ORDER BY timestamp DESC"
 
@@ -4912,7 +4926,7 @@ class DetectionRepository:
         source: Optional[str],
         min_confidence: Optional[float],
     ) -> tuple[str, list]:
-        clauses: list[str] = []
+        clauses: list[str] = ["is_hidden = 0"]
         params: list = []
 
         if start_date is not None:
@@ -5242,7 +5256,7 @@ class DetectionRepository:
                 AVG(CASE WHEN timestamp >= ? AND timestamp < ? THEN confidence ELSE NULL END) AS window_avg_confidence,
                 MAX(CASE WHEN timestamp >= ? AND timestamp < ? THEN timestamp ELSE NULL END) AS window_last_heard
             FROM audio_detections
-            WHERE timestamp >= ? AND timestamp < ?
+            WHERE is_hidden = 0 AND timestamp >= ? AND timestamp < ?
             GROUP BY unified_id
         """
         params = (ws, we, ps, pe, ws, we, ws, we, ps, we)
