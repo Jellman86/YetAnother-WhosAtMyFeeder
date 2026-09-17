@@ -10,6 +10,25 @@ into the container, and select an inference provider in the UI. YA-WAMF runs the
 classifier on that accelerator and falls back to CPU if the device or a specific
 model is not usable.
 
+## Validation after updates
+
+Application-only updates keep existing validation. New validation evidence is scoped to each
+provider's runtime dependencies, host hardware, kernel, image flavor and model artifact. Updating
+an unrelated provider package no longer invalidates a working Intel or CUDA accelerator. Older
+validation records remain usable while their original runtime fingerprint still matches.
+
+When the selected GPU or NPU was previously validated but its evidence is no longer current,
+YA-WAMF automatically checks that accelerator against a CPU reference once. With **Auto**, it
+checks the previously recommended accelerator. The web interface remains available during the
+check; ordinary CPU fallback can continue until it succeeds. A successful check reloads the
+classifier without changing your selected model or provider.
+
+The Dashboard shows an owner-only warning when the selected provider falls back, plus progress
+while automatic validation runs. Use **Review model and provider** to open **Settings → Detection**.
+A failed or interrupted check does not retry on every restart: validate the model manually there.
+A different runtime or model artifact permits a new automatic attempt. New, never-validated
+accelerators still require manual validation.
+
 ## Prerequisites
 
 - A host accelerator YA-WAMF supports: an Intel integrated GPU (`/dev/dri`), an

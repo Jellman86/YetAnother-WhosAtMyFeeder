@@ -378,7 +378,11 @@
       "confirm_species": "Conferma {species}",
       "block_species": "Blocca questa specie",
       "species_blocked": "{species} bloccato. I futuri rilevamenti verranno scartati."
-    }
+    },
+    "provider_checking": "Verifica dell’acceleratore dopo una modifica del runtime",
+    "provider_fallback": "Il provider di inferenza selezionato non è in esecuzione",
+    "provider_checking_detail": "Questa verifica viene eseguita una volta. Se riesce, il classificatore viene ricaricato automaticamente.",
+    "provider_review": "Controlla modello e provider"
   },
   "common": {
     "loading": "Caricamento…",

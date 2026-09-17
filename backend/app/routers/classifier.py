@@ -9,6 +9,7 @@ import structlog
 from pathlib import Path
 
 from app.services.classifier_service import get_classifier
+from app.services.provider_revalidation import ProviderValidationStatus, provider_revalidation
 from app.services.personalization_service import personalization_service
 from app.config import settings
 from app.auth import require_owner, AuthContext
@@ -127,6 +128,12 @@ async def classifier_status(
         log.warning("Failed to load personalization status summary", error=str(exc))
 
     return status
+
+
+@router.get("/provider-validation", response_model=ProviderValidationStatus)
+async def provider_validation_status(_auth: AuthContext = Depends(require_owner)) -> ProviderValidationStatus:
+    """Owner-visible progress of the once-per-runtime accelerator recovery check."""
+    return ProviderValidationStatus.model_validate(provider_revalidation.status())
 
 
 @router.get("/labels", response_model=ClassifierLabelsResponse)

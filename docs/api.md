@@ -342,6 +342,7 @@ Notes:
 
 ### Classifier and Models
 
+- `GET /api/classifier/provider-validation` (owner only): automatic accelerator recovery state, model, provider, reason and check time. States are `idle`, `running`, `succeeded`, `failed`, `interrupted` and `superseded`.
 - `GET /api/classifier/status`
 - `GET /api/classifier/labels`
 - `GET /api/classifier/wildlife/status`

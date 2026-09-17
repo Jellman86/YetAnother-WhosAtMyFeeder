@@ -9,6 +9,7 @@
     import NotableNearby from '../components/NotableNearby.svelte';
     import ReviewQueueCard from '../components/ReviewQueueCard.svelte';
     import ReviewQueueModal from '../components/ReviewQueueModal.svelte';
+    import ProviderWarning from '../components/ProviderWarning.svelte';
     import DayBar from '../components/DayBar.svelte';
     import DeskContextCards from '../components/DeskContextCards.svelte';
     import ReclassificationOverlay from '../components/ReclassificationOverlay.svelte';
@@ -542,6 +543,8 @@
         {audioConfirmations}
         connected={detectionsStore.connected}
     />
+
+    <ProviderWarning {onnavigate} />
 
     <!-- Field desk: the day reads as one chronological log, with the outstanding work docked beside it. -->
     <section

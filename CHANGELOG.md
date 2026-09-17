@@ -8,6 +8,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Accelerator validation survives unrelated runtime updates.** Eligibility is recorded per
+  provider, and a previously validated active accelerator gets one automatic check when its
+  runtime changes. The Dashboard makes CPU fallback and a running recovery check visible (#479).
+
 - **Rejected-frame previews on Settings → Health now escape the activity card.** The preview is
   portalled into the page overlay layer, kept inside the viewport and repositioned as the page
   scrolls, instead of being clipped by the timeline's rounded frame. Activity rows also state

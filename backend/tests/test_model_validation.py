@@ -239,3 +239,35 @@ def test_corrupt_eligibility_file_fails_soft(tmp_path, monkeypatch):
     assert mv.host_eligible_providers("small_birds") == []
     ok, reason = mv.is_model_validated("small_birds", active_model_id="x", bundled_ids=set())
     assert ok is False
+
+
+def test_unrelated_runtime_update_preserves_intel_gpu_validation(tmp_path, monkeypatch):
+    monkeypatch.setenv("YAWAMF_EVAL_RUNS_DIR", str(tmp_path))
+    monkeypatch.setenv("YAWAMF_IMAGE_FLAVOR", "full")
+    signatures = {"intel_gpu": "intel-v1", "cuda": "cuda-v1"}
+    monkeypatch.setattr(mv, "current_provider_runtime_signature", lambda provider: signatures[provider])
+    mv.write_eligibility_entry("bird", ["intel_gpu", "cuda"], image_flavor="full", artifact_sha256="abc")
+    signatures["cuda"] = "cuda-v2"
+    monkeypatch.setattr(mv, "current_inference_runtime_signature", lambda: "changed-global-runtime")
+    assert mv.host_eligible_providers("bird", artifact_sha256="abc") == ["intel_gpu"]
+    assert mv.host_eligibility_summary()["verified_providers"] == ["intel_gpu"]
+
+
+def test_model_replacement_still_invalidates_provider_evidence(tmp_path, monkeypatch):
+    monkeypatch.setenv("YAWAMF_EVAL_RUNS_DIR", str(tmp_path))
+    mv.write_eligibility_entry("bird", ["intel_gpu"], image_flavor=mv.get_image_flavor(), artifact_sha256="old")
+    assert mv.host_eligible_providers("bird", artifact_sha256="new") == []
+
+
+def test_provider_signature_ignores_unrelated_runtime_packages(monkeypatch):
+    versions = {p: "1.0" for p in mv._INFERENCE_RUNTIME_PACKAGES}
+    monkeypatch.setattr(mv.importlib_metadata, "version", lambda p: versions[p])
+    mv._provider_runtime_signature_for.cache_clear()
+    before = mv.current_provider_runtime_signature("intel_gpu")
+    versions["onnxruntime-gpu"] = "2.0"
+    mv._provider_runtime_signature_for.cache_clear()
+    assert mv.current_provider_runtime_signature("intel_gpu") == before
+    versions["openvino"] = "2.0"
+    mv._provider_runtime_signature_for.cache_clear()
+    assert mv.current_provider_runtime_signature("intel_gpu") != before
+    mv._provider_runtime_signature_for.cache_clear()

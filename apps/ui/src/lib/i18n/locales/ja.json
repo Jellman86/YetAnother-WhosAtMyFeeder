@@ -378,7 +378,11 @@
       "confirm_species": "{species}を確認",
       "block_species": "この種をブロック",
       "species_blocked": "{species}をブロックしました。今後の検出は破棄されます。"
-    }
+    },
+    "provider_checking": "実行環境の変更後にアクセラレーターを確認しています",
+    "provider_fallback": "選択した推論プロバイダーが動作していません",
+    "provider_checking_detail": "この確認は一度だけ実行されます。成功すると分類器が自動的に再読み込みされます。",
+    "provider_review": "モデルとプロバイダーを確認"
   },
   "common": {
     "loading": "読み込み中…",

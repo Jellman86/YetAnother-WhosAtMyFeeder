@@ -1259,6 +1259,13 @@ export interface components {
     authorization_url: string;
     state?: string | null;
 };
+    ProviderValidationStatus: {
+    checked_at?: string | null;
+    model_id?: string | null;
+    provider?: string | null;
+    reason?: string | null;
+    state?: "idle" | "running" | "succeeded" | "failed" | "interrupted" | "superseded";
+};
     PublicSettings: {
     classification_threshold: number;
     clips_enabled: boolean;
@@ -2480,6 +2487,15 @@ export interface paths {
 };
       requestBody: components['schemas']['BodyProbeBirdClassifierRuntimeApiClassifierProbePost'];
       response: Record<string, components['schemas']['JsonValue']>;
+    };
+  };
+  "/api/classifier/provider-validation": {
+    get: {
+      operationId: "provider_validation_status_api_classifier_provider_validation_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['ProviderValidationStatus'];
     };
   };
   "/api/classifier/status": {

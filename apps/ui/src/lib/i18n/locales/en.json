@@ -378,7 +378,11 @@
       "confirm_species": "Confirm {species}",
       "block_species": "Block this species",
       "species_blocked": "{species} blocked. Future detections will be dropped."
-    }
+    },
+    "provider_checking": "Checking your accelerator after a runtime change",
+    "provider_fallback": "Your selected inference provider is not running",
+    "provider_checking_detail": "This check runs once. The classifier reloads automatically if the accelerator passes.",
+    "provider_review": "Review model and provider"
   },
   "common": {
     "loading": "Loading…",
