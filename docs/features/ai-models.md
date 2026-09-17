@@ -196,6 +196,12 @@ artifact remains CPU-only because OpenVINO rejects its `QLinearConv` graph.
 
 #### Best-available event snapshots
 
+Detection details keep the photograph unobscured, with titles and controls below it.
+Use **Regenerate snapshots** in the frame strip to rebuild choices, including for an existing HQ
+photo. A failed or empty generation keeps previously saved choices. Fallback crops must match
+the recorded species and meet the same detail requirements as normal candidates; otherwise
+the existing crop or full scene is kept. Frame preview names describe the displayed photograph.
+
 **Settings → Data → Snapshot quality → Best available event snapshots** is an automatic outcome,
 not a source selector. When enabled, YA-WAMF samples up to three centre/track-weighted moments from
 the main-stream clip, spreading them across the tracked interval when available and otherwise using

@@ -17,7 +17,7 @@ describe('mobile overlay clearance', () => {
 
     it('anchors the detection close action outside the scrollable content region', () => {
         const closeActionIndex = detectionModalSource.indexOf('data-detection-modal-close');
-        const scrollableContentIndex = detectionModalSource.indexOf('class="flex-1 overflow-hidden flex flex-col');
+        const scrollableContentIndex = detectionModalSource.indexOf('class="flex-1 overflow-y-auto flex flex-col');
 
         expect(closeActionIndex).toBeGreaterThan(-1);
         expect(scrollableContentIndex).toBeGreaterThan(-1);

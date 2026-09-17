@@ -847,7 +847,7 @@
     const canGenerateSnapshotCandidates = $derived(
         !snapshotApplyPending
         && !snapshotGeneratePending
-        && Boolean(snapshotStatus?.can_generate_hq_bird_crop)
+        && Boolean(snapshotStatus?.high_quality_bird_crop_enabled)
     );
     const showInlineFramePicker = $derived(
         hasOwnerDetectionActions
@@ -2257,8 +2257,9 @@
             </svg>
         </button>
 
-        <div class="flex-1 overflow-hidden flex flex-col lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
-	            <div class="relative aspect-[4/3] min-h-72 shrink-0 overflow-hidden lg:aspect-auto lg:h-full lg:min-h-[26rem] bg-gradient-to-br from-slate-900 via-slate-950 to-brand-950 sm:aspect-video lg:aspect-auto lg:h-full lg:border-r lg:border-slate-200/70 dark:lg:border-slate-700/60">
+        <div class="flex-1 overflow-y-auto flex flex-col lg:overflow-hidden lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+                <div class="flex min-h-0 shrink-0 flex-col bg-slate-950 lg:shrink lg:overflow-y-auto lg:border-r lg:border-slate-200/70 dark:lg:border-slate-700/60">
+                    <div class="relative aspect-[4/3] min-h-72 shrink-0 overflow-hidden bg-slate-950 sm:aspect-video lg:flex-1" data-detection-photograph>
                     {#if showMediaSlotVideoAnalysis}
                         <div class="absolute inset-0 bg-gradient-to-br from-indigo-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800"></div>
                         <div class="relative z-10 h-full flex flex-col justify-between p-4 sm:p-5">
@@ -2322,7 +2323,6 @@
                                 ? 'object-contain'
                                 : canPeekWholeScene ? 'object-cover' : 'object-contain'}"
                         />
-                        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent"></div>
                         {#if canPeekWholeScene}
                             <!-- The whole scene is a look, not a mode (#256). Hover or focus peeks at it with
                                  the crop outlined; a click pins it and offers the one rescue that needs it. -->
@@ -2359,8 +2359,11 @@
                                 </span>
                             {/if}
                         {/if}
+                    {/if}
+                    </div>
+                    {#if !showMediaSlotVideoAnalysis}
                         <div
-                            class="absolute inset-x-0 bottom-0 z-20 flex flex-col bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent pt-12"
+                            class="relative flex shrink-0 flex-col bg-slate-950 pt-4"
                             data-detection-media-footer
                         >
                             <div class="flex flex-col gap-3 px-5 {showInlineFramePicker ? 'pb-2' : 'pb-5'}">
@@ -2529,7 +2532,7 @@
                             applyingKey={applyingMomentKey}
                             busy={snapshotApplyPending || snapshotGeneratePending}
                             asRecordedUrl={originalFrigateSnapshotAvailable ? originalFrigateSnapshotUrl : null}
-                            canRegenerate={Boolean(snapshotStatus?.can_generate_hq_bird_crop)}
+                            canRegenerate={Boolean(snapshotStatus?.high_quality_bird_crop_enabled)}
                             regeneratePending={snapshotGeneratePending}
                             onuse={(moment) => { void handleUseMoment(moment); }}
                             onregenerate={() => { void handleGenerateSnapshotCandidates(); }}
@@ -2540,7 +2543,7 @@
                     {/if}
                 </div>
 
-            <div class="flex flex-1 flex-col gap-5 overflow-y-auto p-5 sm:p-6 {showTagDropdown ? 'blur-sm pointer-events-none select-none' : ''}">
+            <div class="flex flex-1 flex-col gap-5 lg:overflow-y-auto p-5 sm:p-6 {showTagDropdown ? 'blur-sm pointer-events-none select-none' : ''}">
             <!-- Detection ID -->
             <!-- The disclosure is the window chrome: clicking the title bar opens the terminal.
                  Dark in both themes on purpose, because that is what a terminal is. -->

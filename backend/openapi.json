@@ -22176,6 +22176,18 @@
               "title": "Event Id",
               "type": "string"
             }
+          },
+          {
+            "description": "Regenerate frame choices even when an HQ crop already exists",
+            "in": "query",
+            "name": "regenerate",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Regenerate frame choices even when an HQ crop already exists",
+              "title": "Regenerate",
+              "type": "boolean"
+            }
           }
         ],
         "responses": {

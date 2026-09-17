@@ -273,6 +273,8 @@ per-file limits above.
 - `POST /api/frigate/{event_id}/snapshot/apply` (owner)
 - `GET /api/frigate/{event_id}/snapshot/original.jpg` (owner)
 - `POST /api/frigate/{event_id}/snapshot/hq-bird-crop` (owner; legacy route name, generates the best available HQ image)
+  accepts `regenerate=true` to rebuild frame choices even when an HQ crop already exists. Empty
+  regeneration preserves saved candidates; unavailable media returns an error rather than claiming success.
 - `GET /api/frigate/{event_id}/clip.mp4`
 - `GET /api/frigate/{event_id}/recording-clip.mp4`
 - `GET /api/frigate/{event_id}/hls/{asset}`

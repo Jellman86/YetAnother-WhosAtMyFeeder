@@ -3241,7 +3241,9 @@ export interface paths {
       path: {
     event_id: string;
 };
-      query: never;
+      query: {
+    regenerate?: boolean;
+};
       requestBody: unknown;
       response: components['schemas']['SnapshotGenerateResponse'];
     };

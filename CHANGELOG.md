@@ -8,6 +8,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- Keep fallback bird crops and frame previews tied to the recorded species. Regenerate frame choices for existing HQ photos without losing saved choices when media is unavailable.
+- Move detection titles, playback controls, and frame choices below the photograph so they no longer obscure birds.
+
+
 - **Accelerator validation survives unrelated runtime updates.** Eligibility is recorded per
   provider, and a previously validated active accelerator gets one automatic check when its
   runtime changes. The Dashboard makes CPU fallback and a running recovery check visible (#479).
