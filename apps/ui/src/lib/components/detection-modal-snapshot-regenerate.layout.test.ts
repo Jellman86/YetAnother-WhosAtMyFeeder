@@ -8,7 +8,7 @@ describe('DetectionModal snapshot regeneration', () => {
         expect(railIndex).toBeGreaterThan(0);
         const railSource = detectionModalSource.slice(railIndex, railIndex + 1400);
 
-        expect(railSource).toContain("canRegenerate={Boolean(snapshotStatus?.can_generate_hq_bird_crop)}");
+        expect(railSource).toContain("canRegenerate={Boolean(snapshotStatus?.high_quality_bird_crop_enabled)}");
         expect(railSource).toContain('onregenerate={() => { void handleGenerateSnapshotCandidates(); }}');
         expect(stripSource).toContain('{#if canRegenerate && onregenerate}');
         expect(stripSource).toContain('detection.snapshot_regenerate');

@@ -19,7 +19,7 @@ export interface FrameMoment {
     crop: SnapshotCandidate | null;
     /** The uncropped scene for the same moment, if the moment has one. */
     whole: SnapshotCandidate | null;
-    /** What the model read in this moment, from the candidate it was most sure about. */
+    /** What the model read in this moment, from the photograph shown. */
     read: { label: string; score: number | null } | null;
     /** The camera's own saved snapshot, which has no candidate record. */
     asRecorded: boolean;
@@ -37,6 +37,8 @@ function isWholeSceneCandidate(candidate: SnapshotCandidate): boolean {
 function pickCrop(candidates: SnapshotCandidate[]): SnapshotCandidate | null {
     const crops = candidates.filter((candidate) => !isWholeSceneCandidate(candidate));
     if (crops.length === 0) return null;
+    const selected = crops.find((candidate) => candidate.selected);
+    if (selected) return selected;
     for (const mode of CROP_PREFERENCE) {
         const preferred = crops
             .filter((candidate) => candidate.source_mode === mode)
@@ -46,12 +48,9 @@ function pickCrop(candidates: SnapshotCandidate[]): SnapshotCandidate | null {
     return [...crops].sort((a, b) => b.ranking_score - a.ranking_score)[0] ?? null;
 }
 
-function pickRead(candidates: SnapshotCandidate[]): FrameMoment['read'] {
-    const read = candidates
-        .filter((candidate) => (candidate.classifier_label ?? '').trim() !== '')
-        .sort((a, b) => (b.classifier_score ?? -1) - (a.classifier_score ?? -1))[0];
-    if (!read?.classifier_label) return null;
-    return { label: read.classifier_label, score: read.classifier_score ?? null };
+function pickRead(candidate: SnapshotCandidate | null): FrameMoment['read'] {
+    if (!candidate?.classifier_label?.trim()) return null;
+    return { label: candidate.classifier_label, score: candidate.classifier_score ?? null };
 }
 
 /**
@@ -88,14 +87,17 @@ export function groupCandidatesIntoMoments(
         const offsets = group
             .map((candidate) => candidate.frame_offset_seconds)
             .filter((value): value is number => typeof value === 'number');
+        const crop = pickCrop(group);
+        const whole = group.find(isWholeSceneCandidate) ?? null;
+        const shown = whole?.selected ? whole : crop ?? whole;
         return {
             key,
             position: 0,
             frameIndex: group[0]?.frame_index ?? null,
             offsetSeconds: offsets.length > 0 ? Math.min(...offsets) : null,
-            crop: pickCrop(group),
-            whole: group.find(isWholeSceneCandidate) ?? null,
-            read: pickRead(group),
+            crop,
+            whole,
+            read: pickRead(shown),
             asRecorded: false
         } satisfies FrameMoment;
     });
@@ -111,7 +113,7 @@ export function groupCandidatesIntoMoments(
 
 /** The candidate a moment stands for: close on the bird when it can be, the whole scene otherwise. */
 export function preferredCandidate(moment: FrameMoment): SnapshotCandidate | null {
-    return moment.crop ?? moment.whole;
+    return moment.whole?.selected ? moment.whole : moment.crop ?? moment.whole;
 }
 
 export function momentThumbnailUrl(moment: FrameMoment): string | null {

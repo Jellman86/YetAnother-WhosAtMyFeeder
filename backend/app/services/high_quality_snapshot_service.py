@@ -257,8 +257,7 @@ class HighQualitySnapshotService:
             except Exception as e:
                 log.warning("High-quality snapshot extraction failed", event_id=event_id, error=str(e))
                 return self._record_outcome(event_id, "frame_extract_failed")
-            image_bytes, crop_applied = await asyncio.to_thread(
-                self._maybe_crop_snapshot_bytes,
+            image_bytes, crop_applied = await self._identity_safe_fallback_crop(
                 event_id,
                 image_bytes,
                 snapshot_event_data,
@@ -394,8 +393,7 @@ class HighQualitySnapshotService:
                 except Exception as e:
                     log.warning("High-quality snapshot extraction failed", event_id=event_id, error=str(e))
                     return self._record_outcome(event_id, "frame_extract_failed")
-                image_bytes, crop_applied = await asyncio.to_thread(
-                    self._maybe_crop_snapshot_bytes,
+                image_bytes, crop_applied = await self._identity_safe_fallback_crop(
                     event_id,
                     image_bytes,
                     snapshot_event_data,
@@ -1200,6 +1198,8 @@ class HighQualitySnapshotService:
         ranking_score = (classifier_score * 0.85) + (image_quality_score * 0.15)
 
         enriched = dict(candidate)
+        enriched["image_width"] = image.width
+        enriched["image_height"] = image.height
         enriched["classifier_label"] = classifier_label
         enriched["classifier_score"] = classifier_score
         enriched["classifier_index"] = classifier_index
@@ -1285,6 +1285,8 @@ class HighQualitySnapshotService:
             return False
 
     async def _persist_snapshot_candidates(self, event_id: str, candidates: list[dict[str, Any]]) -> None:
+        if not candidates:
+            return
         stale_image_refs: list[str] = []
         stale_thumbnail_refs: list[str] = []
         async with get_db() as db:
@@ -1806,6 +1808,21 @@ class HighQualitySnapshotService:
             )
             return None
         return event_data
+
+    async def _identity_safe_fallback_crop(
+        self, event_id: str, image_bytes: bytes, event_data: Optional[dict[str, Any]]
+    ) -> tuple[bytes, bool]:
+        """A failed candidate pass must not bypass the normal species and detail gates."""
+        cropped, applied = await asyncio.to_thread(self._maybe_crop_snapshot_bytes, event_id, image_bytes, event_data)
+        if not applied:
+            return image_bytes, False
+        expected = await self._load_expected_species_labels(event_id)
+        if not expected:
+            return image_bytes, False
+        candidate = await self._score_snapshot_candidate({"image_bytes": cropped, "source_mode": "model_crop"})
+        if candidate and self._select_best_trusted_candidate([candidate], expected_labels=expected):
+            return cropped, True
+        return image_bytes, False
 
     def _maybe_crop_snapshot_bytes(
         self,

@@ -22,7 +22,9 @@ describe('detection surface polish', () => {
         expect(detectionModalSource).toContain('data-detection-media-ambient');
         expect(detectionModalSource).toContain('object-contain');
         expect(detectionModalSource).toContain('max-h-[100dvh]');
-        expect(detectionModalSource).toContain('bg-gradient-to-br from-slate-900 via-slate-950 to-brand-950');
+        expect(detectionModalSource).toContain('data-detection-photograph');
+        expect(detectionModalSource).not.toContain('from-black/80 via-black/25');
+        expect(detectionModalSource).not.toContain('absolute inset-x-0 bottom-0 z-20 flex flex-col');
         expect(detectionModalSource).toContain('class="absolute top-4 right-4 z-40 inline-flex h-11 w-11');
     });
 

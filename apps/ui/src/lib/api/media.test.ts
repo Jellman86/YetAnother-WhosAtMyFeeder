@@ -114,7 +114,7 @@ describe('snapshot HQ crop helpers', () => {
             source: 'high_quality_bird_crop'
         });
         expect(globalThis.fetch).toHaveBeenCalledWith(
-            '/api/frigate/evt-8/snapshot/hq-bird-crop',
+            '/api/frigate/evt-8/snapshot/hq-bird-crop?regenerate=true',
             expect.objectContaining({
                 method: 'POST',
                 headers: expect.any(Object)
