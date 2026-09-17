@@ -378,7 +378,11 @@
       "confirm_species": "Confirmer {species}",
       "block_species": "Bloquer cette espèce",
       "species_blocked": "{species} bloqué. Les futures détections seront ignorées."
-    }
+    },
+    "provider_checking": "Vérification de l’accélérateur après un changement du moteur",
+    "provider_fallback": "Le fournisseur d’inférence sélectionné ne fonctionne pas",
+    "provider_checking_detail": "Cette vérification s’exécute une fois. Si elle réussit, le classificateur se recharge automatiquement.",
+    "provider_review": "Examiner le modèle et le fournisseur"
   },
   "common": {
     "loading": "Chargement…",
