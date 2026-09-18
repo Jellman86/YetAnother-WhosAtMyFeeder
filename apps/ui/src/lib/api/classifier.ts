@@ -444,3 +444,9 @@ export async function sendDetectionConversationMessage(eventId: string, message:
     });
     return handleResponse<ConversationTurn[]>(response);
 }
+
+export type ProviderValidationStatus = components['schemas']['ProviderValidationStatus'];
+
+export async function fetchProviderValidationStatus(): Promise<ProviderValidationStatus> {
+    return handleResponse<ProviderValidationStatus>(await apiFetch(`${API_BASE}/classifier/provider-validation`));
+}

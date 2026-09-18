@@ -378,7 +378,11 @@
       "confirm_species": "Confirmar {species}",
       "block_species": "Bloquear esta espécie",
       "species_blocked": "{species} bloqueado. Detecções futuras serão descartadas."
-    }
+    },
+    "provider_checking": "A verificar o acelerador após uma alteração do ambiente",
+    "provider_fallback": "O fornecedor de inferência selecionado não está em execução",
+    "provider_checking_detail": "Esta verificação é executada uma vez. Se for bem-sucedida, o classificador é recarregado automaticamente.",
+    "provider_review": "Rever modelo e fornecedor"
   },
   "common": {
     "loading": "Carregando…",
@@ -2224,7 +2228,11 @@
       "title": "Histórico de deteções",
       "sub": "Deteções BirdNET-Go guardadas, separadas das visitas visuais.",
       "empty": "Nenhuma deteção BirdNET corresponde a estes filtros.",
-      "showing": "A mostrar {from}-{to} de {total}"
+      "showing": "A mostrar {from}-{to} de {total}",
+      "hide": "Ocultar localmente",
+      "undo": "Desfazer",
+      "hidden_message": "Detecção de áudio ocultada.",
+      "local_only": "Ocultar remove uma entrada do histórico do YA-WAMF e das futuras correspondências de áudio. O BirdNET-Go permanece inalterado; as exclusões não são sincronizadas automaticamente."
     },
     "table": {
       "sound": "Som",

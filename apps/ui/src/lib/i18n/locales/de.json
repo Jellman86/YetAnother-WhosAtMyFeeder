@@ -378,7 +378,11 @@
       "confirm_species": "{species} bestätigen",
       "block_species": "Diese Art blockieren",
       "species_blocked": "{species} blockiert. Künftige Erkennungen werden verworfen."
-    }
+    },
+    "provider_checking": "Beschleuniger wird nach einer Laufzeitänderung geprüft",
+    "provider_fallback": "Der ausgewählte Inferenzanbieter läuft nicht",
+    "provider_checking_detail": "Diese Prüfung läuft einmal. Bei Erfolg wird der Klassifikator automatisch neu geladen.",
+    "provider_review": "Modell und Anbieter prüfen"
   },
   "common": {
     "loading": "Laden…",
@@ -2215,7 +2219,11 @@
       "title": "Erkennungsverlauf",
       "sub": "Gespeicherte BirdNET-Go-Erkennungen, getrennt von visuellen Besuchen.",
       "empty": "Keine BirdNET-Erkennungen entsprechen diesen Filtern.",
-      "showing": "{from}–{to} von {total} werden angezeigt"
+      "showing": "{from}–{to} von {total} werden angezeigt",
+      "hide": "Lokal ausblenden",
+      "undo": "Rückgängig",
+      "hidden_message": "Audioerkennung ausgeblendet.",
+      "local_only": "Ausblenden entfernt einen Eintrag aus dem YA-WAMF-Verlauf und zukünftigen Audioabgleichen. BirdNET-Go bleibt unverändert; dortige Löschungen werden nicht automatisch synchronisiert."
     },
     "table": {
       "sound": "Ton",

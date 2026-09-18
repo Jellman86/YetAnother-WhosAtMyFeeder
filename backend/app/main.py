@@ -469,6 +469,7 @@ async def lifespan(app: FastAPI):
     global cleanup_task, media_integrity_task, cleanup_running, heartbeat_task, heartbeat_running, accel_caps_task
     test_mode = _is_testing()
 
+    revalidation_task = None
     # Startup
     cleanup_running = True
     cleanup_task = None
@@ -592,6 +593,9 @@ async def lifespan(app: FastAPI):
             startup_phase="starting_services",
             startup_progress=93,
         )
+        from app.services.provider_revalidation import provider_revalidation
+
+        revalidation_task = create_background_task(provider_revalidation.run(), name="provider_revalidation")
         # Intake opens only after every downstream worker can accept work.
         await _run_lifecycle_phase(
             app,
@@ -627,6 +631,12 @@ async def lifespan(app: FastAPI):
     yield
 
     # Shutdown
+    if revalidation_task is not None:
+        revalidation_task.cancel()
+        try:
+            await revalidation_task
+        except asyncio.CancelledError:
+            pass
     if accel_caps_task and not test_mode:
         accel_caps_task.cancel()
         try:

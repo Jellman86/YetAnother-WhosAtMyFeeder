@@ -3,6 +3,7 @@
     import { _, locale } from 'svelte-i18n';
     import {
         fetchAudioHistory,
+        setAudioHidden,
         fetchAudioSummary,
         fetchSpeciesInfo,
         type AudioHistoryDetection,
@@ -23,6 +24,10 @@
     import type { ApexOptions } from 'apexcharts';
 
     const PAGE_SIZE = 25;
+
+    let changingVisibility = $state(false);
+    let lastHiddenId = $state<number | null>(null);
+    let visibilityError = $state<string | null>(null);
 
     let days = $state(30);
     let speciesFilter = $state('');
@@ -123,6 +128,22 @@
             }
         } finally {
             loading = false;
+        }
+    }
+
+    async function changeVisibility(id: number, hidden: boolean): Promise<void> {
+        if (!authStore.canModify || changingVisibility) return;
+        changingVisibility = true;
+        visibilityError = null;
+        try {
+            await setAudioHidden(id, hidden);
+            lastHiddenId = hidden ? id : null;
+            if (hidden && detections.length === 1 && offset > 0) offset = Math.max(0, offset - PAGE_SIZE);
+            await loadAudioHistory();
+        } catch (e) {
+            visibilityError = getErrorMessage(e);
+        } finally {
+            changingVisibility = false;
         }
     }
 
@@ -352,6 +373,17 @@
     </section>
 
     <section class="space-y-5" data-audio-history-log>
+        {#if authStore.canModify}
+            <p class="text-sm text-slate-500 dark:text-slate-400">{$_('audio.history.local_only')}</p>
+            {#if lastHiddenId !== null}
+                <div class="flex items-center justify-between gap-3 rounded-lg border border-slate-300 p-3 dark:border-slate-700" role="status">
+                    <span>{$_('audio.history.hidden_message')}</span>
+                    <button type="button" class="btn btn-secondary min-h-11" disabled={changingVisibility} onclick={() => { if (lastHiddenId !== null) void changeVisibility(lastHiddenId, false); }}>{$_('audio.history.undo')}</button>
+                </div>
+            {/if}
+            {#if visibilityError}<p class="text-sm text-red-600 dark:text-red-300" role="alert">{visibilityError}</p>{/if}
+        {/if}
+
         <div class="flex items-start justify-between gap-4">
             <div class="flex min-w-0 items-start gap-3">
                 <div class="mt-0.5 flex h-9 w-9 flex-none items-center justify-center rounded-full bg-brand-50 text-brand-700 dark:bg-brand-950/50 dark:text-brand-300">
@@ -394,6 +426,7 @@
                         <th scope="col" class="py-3 pr-4">{$_('audio.table.time', { default: 'Time' })}</th>
                         <th scope="col" class="py-3 pr-4">{$_('audio.table.source', { default: 'Source' })}</th>
                         <th scope="col" class="py-3 text-right">{$_('audio.table.confidence', { default: 'Confidence' })}</th>
+                        {#if authStore.canModify}<th scope="col" class="py-3 pl-3 text-right"><span class="sr-only">{$_('audio.history.hide')}</span></th>{/if}
                     </tr>
                 </thead>
                 <tbody class="block divide-y divide-slate-200/80 border-y border-slate-200/80 md:table-row-group md:border-0 dark:divide-slate-800 dark:border-slate-800">
@@ -445,6 +478,11 @@
                             <td class="col-start-3 row-start-1 self-end whitespace-nowrap text-right md:table-cell md:py-3">
                                 <span class="font-bold tabular-nums {detection.confidence > 0.7 ? 'text-green-600 dark:text-green-300' : 'text-amber-600 dark:text-amber-300'}">{confidencePercent(detection.confidence)}</span>
                             </td>
+                            {#if authStore.canModify}
+                                <td class="col-span-3 text-right md:table-cell md:py-3 md:pl-3">
+                                    <button type="button" class="btn btn-ghost min-h-11 text-sm" disabled={changingVisibility || loading} onclick={() => void changeVisibility(detection.id, true)}>{$_('audio.history.hide')}</button>
+                                </td>
+                            {/if}
                         </tr>
                     {/each}
                 </tbody>

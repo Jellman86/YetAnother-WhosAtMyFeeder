@@ -273,6 +273,8 @@ per-file limits above.
 - `POST /api/frigate/{event_id}/snapshot/apply` (owner)
 - `GET /api/frigate/{event_id}/snapshot/original.jpg` (owner)
 - `POST /api/frigate/{event_id}/snapshot/hq-bird-crop` (owner; legacy route name, generates the best available HQ image)
+  accepts `regenerate=true` to rebuild frame choices even when an HQ crop already exists. Empty
+  regeneration preserves saved candidates; unavailable media returns an error rather than claiming success.
 - `GET /api/frigate/{event_id}/clip.mp4`
 - `GET /api/frigate/{event_id}/recording-clip.mp4`
 - `GET /api/frigate/{event_id}/hls/{asset}`
@@ -342,6 +344,7 @@ Notes:
 
 ### Classifier and Models
 
+- `GET /api/classifier/provider-validation` (owner only): automatic accelerator recovery state, model, provider, reason and check time. States are `idle`, `running`, `succeeded`, `failed`, `interrupted` and `superseded`.
 - `GET /api/classifier/status`
 - `GET /api/classifier/labels`
 - `GET /api/classifier/wildlife/status`
@@ -628,3 +631,10 @@ Benchmarks every installed classifier against labelled feeder images. See
 - [Configuration](setup/configuration.md)
 - [Authentication & Access](features/authentication.md)
 - [Troubleshooting](troubleshooting/diagnostics.md)
+
+### Local audio visibility
+
+- `PATCH /api/audio/history/{detection_id}` (owner): set `{ "hidden": true }` to hide a local
+  audio detection, or `false` to restore its history row. Returns `{ "id": 123, "hidden": true }`;
+  unknown IDs return 404. Hiding removes buffered evidence and excludes the row from history,
+  summaries and future correlation. This does not write to BirdNET-Go.

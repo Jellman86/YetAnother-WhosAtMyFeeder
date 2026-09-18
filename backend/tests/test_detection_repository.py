@@ -1273,7 +1273,8 @@ async def _create_audio_detections_table(db: aiosqlite.Connection) -> None:
             raw_data TEXT,
             scientific_name TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            species_id INTEGER
+            species_id INTEGER,
+            is_hidden BOOLEAN NOT NULL DEFAULT 0
         )
     """)
 

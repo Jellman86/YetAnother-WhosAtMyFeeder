@@ -80,6 +80,21 @@ describe('review queue walk-through', () => {
         expect(modalSource).toContain('flex flex-col gap-3 p-4 md:min-h-0 md:overflow-y-auto');
     });
 
+    it('keeps a visible species heading below the photograph in the review queue (#481)', () => {
+        const heading = modalSource.match(/<div[^>]*data-review-species-heading[^>]*>([\s\S]*?)<\/div>/)?.[1];
+        expect(heading).toBeDefined();
+        expect(heading).toMatch(/<h3[^>]*>\s*\{naming.primary\}\s*<\/h3>/);
+        expect(heading).not.toMatch(/\bhidden\b|\babsolute\b/);
+        expect(modalSource.indexOf('data-review-species-heading')).toBeGreaterThan(modalSource.indexOf('onerror={() => markImageFailed(imageUrl)}'));
+        expect(modalSource.indexOf('data-review-species-heading')).toBeLessThan(modalSource.indexOf('data-review-frame-strip'));
+    });
+
+    it('uses the record naming preferences for each current queue item', () => {
+        expect(modalSource).toMatch(/getBirdNames\(current,\s*settingsStore.displayCommonNames,\s*settingsStore.scientificNamePrimary\)/);
+        expect(modalSource).toContain('{#if naming.secondary}');
+        expect(modalSource).toContain('{naming.secondary}');
+    });
+
     it('offers a way out of every item, including one that is not a bird', () => {
         expect(modalSource).toContain('dashboard.review_session.skip');
         expect(modalSource).toContain('dashboard.review_session.not_a_bird');

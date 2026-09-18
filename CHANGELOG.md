@@ -6,6 +6,29 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.20.3] - 2026-09-18
+
+### Fixed
+
+- Show the species name below the photograph in **Work through the queue**, using the same common/scientific-name preferences as the full event view on desktop and phones (#481).
+
+- Preserve clean shutdown when an isolated accelerator probe exits during cancellation.
+- Undoing a local audio removal immediately restores recent calls to live correlation without waiting for an MQTT replay.
+
+- Keep fallback bird crops and frame previews tied to the recorded species. Regenerate frame choices for existing HQ photos without losing saved choices when media is unavailable.
+- Move detection titles, playback controls, and frame choices below the photograph so they no longer obscure birds.
+
+- Owners can hide incorrect BirdNET detections locally and undo the action. Hidden entries no longer appear in audio history, summaries or future matches, and MQTT redelivery cannot restore them.
+
+- **Accelerator validation survives unrelated runtime updates.** Eligibility is recorded per
+  provider, and a previously validated active accelerator gets one automatic check when its
+  runtime changes. The Dashboard makes CPU fallback and a running recovery check visible (#479).
+
+- **Rejected-frame previews on Settings → Health now escape the activity card.** The preview is
+  portalled into the page overlay layer, kept inside the viewport and repositioned as the page
+  scrolls, instead of being clipped by the timeline's rounded frame. Activity rows also state
+  each outcome once, removing repeated status labels while retaining the reason and confidence.
+
 ## [2.20.2] - 2026-09-17
 
 ### Changed

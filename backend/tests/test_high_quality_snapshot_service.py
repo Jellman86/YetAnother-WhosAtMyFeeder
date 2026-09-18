@@ -1875,11 +1875,11 @@ async def test_scheduled_replacement_uses_stored_event_hints_without_refetch(tmp
     cached = await cache_service.get_snapshot("evt_scheduled_hint")
     assert cached is not None
     with Image.open(BytesIO(cached)) as img:
-        assert img.size == (52, 34)
+        assert img.size == (100, 80)
 
 
 @pytest.mark.asyncio
-async def test_process_event_uses_frigate_box_hint_for_hq_bird_crop(tmp_path, monkeypatch):
+async def test_process_event_keeps_full_frame_when_hint_crop_identity_is_unverified(tmp_path, monkeypatch):
     cache_service = _make_cache_service(tmp_path, monkeypatch)
     await cache_service.cache_snapshot("evt_hint_crop", b"frigate-bytes")
     monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True, raising=False)
@@ -1910,15 +1910,15 @@ async def test_process_event_uses_frigate_box_hint_for_hq_bird_crop(tmp_path, mo
 
     result = await hq_module.high_quality_snapshot_service.process_event("evt_hint_crop")
 
-    assert result == "bird_crop_replaced"
+    assert result == "replaced"
     fake_crop_service.generate_crop.assert_not_called()
     cached = await cache_service.get_snapshot("evt_hint_crop")
     assert cached is not None
     with Image.open(BytesIO(cached)) as img:
-        assert img.size == (52, 34)
+        assert img.size == (100, 80)
     status = hq_module.high_quality_snapshot_service.get_status()
-    assert status["outcomes"]["bird_crop_replaced"] == 1
-    assert status["last_result"] == {"event_id": "evt_hint_crop", "result": "bird_crop_replaced"}
+    assert status["outcomes"]["replaced"] == 1
+    assert status["last_result"] == {"event_id": "evt_hint_crop", "result": "replaced"}
 
 
 @pytest.mark.asyncio
@@ -1959,12 +1959,12 @@ async def test_process_event_prefers_frigate_hint_before_crop_model(tmp_path, mo
 
     result = await hq_module.high_quality_snapshot_service.process_event("evt_hint_first")
 
-    assert result == "bird_crop_replaced"
+    assert result == "replaced"
     fake_crop_service.generate_crop.assert_not_called()
     cached = await cache_service.get_snapshot("evt_hint_first")
     assert cached is not None
     with Image.open(BytesIO(cached)) as img:
-        assert img.size == (52, 34)
+        assert img.size == (100, 80)
 
 
 @pytest.mark.asyncio
@@ -2006,16 +2006,16 @@ async def test_process_event_ignores_legacy_model_priority_when_frigate_hint_is_
 
     result = await hq_module.high_quality_snapshot_service.process_event("evt_model_first")
 
-    assert result == "bird_crop_replaced"
+    assert result == "replaced"
     fake_crop_service.generate_crop.assert_not_called()
     cached = await cache_service.get_snapshot("evt_model_first")
     assert cached is not None
     with Image.open(BytesIO(cached)) as img:
-        assert img.size == (52, 34)
+        assert img.size == (100, 80)
 
 
 @pytest.mark.asyncio
-async def test_process_event_replaces_cached_snapshot_with_hq_bird_crop_when_enabled(tmp_path, monkeypatch):
+async def test_process_event_keeps_full_frame_when_detector_crop_identity_is_unverified(tmp_path, monkeypatch):
     cache_service = _make_cache_service(tmp_path, monkeypatch)
     await cache_service.cache_snapshot("evt_crop", b"frigate-bytes")
     monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True, raising=False)
@@ -2050,12 +2050,12 @@ async def test_process_event_replaces_cached_snapshot_with_hq_bird_crop_when_ena
 
     result = await hq_module.high_quality_snapshot_service.process_event("evt_crop")
 
-    assert result == "bird_crop_replaced"
+    assert result == "replaced"
     fake_crop_service.generate_crop.assert_called_once()
     cached = await cache_service.get_snapshot("evt_crop")
     assert cached is not None
     with Image.open(BytesIO(cached)) as img:
-        assert img.size == (23, 27)
+        assert img.size == (64, 64)
 
 
 @pytest.mark.asyncio
@@ -2695,3 +2695,38 @@ async def test_generate_candidates_falls_back_when_no_stored_top_frames(tmp_path
 
     assert len(used_override) == 1
     assert used_override[0] is None  # fallback: no override, use default logic
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("label,expected_crop", [("Northern Cardinal", False), ("House Finch", True), (None, False)])
+async def test_fallback_crop_requires_the_recorded_species(monkeypatch, label, expected_crop):
+    service = hq_module.HighQualitySnapshotService()
+    whole, crop = _jpeg_bytes("blue", (640, 480)), _jpeg_bytes("red", (240, 240))
+    monkeypatch.setattr(service, "_maybe_crop_snapshot_bytes", lambda *_: (crop, True))
+    monkeypatch.setattr(service, "_load_expected_species_labels", AsyncMock(return_value={"house finch"}))
+    monkeypatch.setattr(
+        service,
+        "_score_snapshot_candidate",
+        AsyncMock(
+            return_value={
+                "image_bytes": crop,
+                "source_mode": "model_crop",
+                "image_width": 240,
+                "image_height": 240,
+                "classifier_label": label,
+                "ranking_score": 0.99,
+            }
+        ),
+    )
+    result, cropped = await service._identity_safe_fallback_crop("evt", whole, None)
+    assert cropped is expected_crop
+    assert result == (crop if expected_crop else whole)
+
+
+@pytest.mark.asyncio
+async def test_empty_candidate_regeneration_preserves_existing_frame_choices(monkeypatch):
+    service = hq_module.HighQualitySnapshotService()
+    repository = MagicMock()
+    monkeypatch.setattr(hq_module, "DetectionRepository", repository)
+    await service._persist_snapshot_candidates("evt", [])
+    repository.assert_not_called()

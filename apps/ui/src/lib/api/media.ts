@@ -190,7 +190,7 @@ export async function fetchSnapshotStatus(frigateEvent: string): Promise<Snapsho
 }
 
 export async function generateHighQualityBirdCropSnapshot(frigateEvent: string): Promise<SnapshotGenerateResponse> {
-    const response = await apiFetch(`${API_BASE}/frigate/${frigateEvent}/snapshot/hq-bird-crop`, {
+    const response = await apiFetch(`${API_BASE}/frigate/${frigateEvent}/snapshot/hq-bird-crop?regenerate=true`, {
         method: 'POST',
     });
     return handleResponse<SnapshotGenerateResponse>(response);

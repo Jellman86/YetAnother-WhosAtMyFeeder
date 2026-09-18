@@ -200,6 +200,13 @@ export interface components {
     top_species: Array<components['schemas']['AudioSpeciesSummaryResponse']>;
     total: number;
 };
+    AudioVisibilityRequest: {
+    hidden: boolean;
+};
+    AudioVisibilityResponse: {
+    hidden: boolean;
+    id: number;
+};
     AuthStatusResponse: {
     accessibility_dyslexia_font?: boolean;
     accessibility_high_contrast?: boolean;
@@ -1259,6 +1266,13 @@ export interface components {
     authorization_url: string;
     state?: string | null;
 };
+    ProviderValidationStatus: {
+    checked_at?: string | null;
+    model_id?: string | null;
+    provider?: string | null;
+    reason?: string | null;
+    state?: "idle" | "running" | "succeeded" | "failed" | "interrupted" | "superseded";
+};
     PublicSettings: {
     classification_threshold: number;
     clips_enabled: boolean;
@@ -2231,6 +2245,17 @@ export interface paths {
       response: components['schemas']['AudioHistoryResponse'];
     };
   };
+  "/api/audio/history/{detection_id}": {
+    patch: {
+      operationId: "set_audio_visibility_api_audio_history__detection_id__patch";
+      path: {
+    detection_id: number;
+};
+      query: never;
+      requestBody: components['schemas']['AudioVisibilityRequest'];
+      response: components['schemas']['AudioVisibilityResponse'];
+    };
+  };
   "/api/audio/recent": {
     get: {
       operationId: "get_recent_audio_api_audio_recent_get";
@@ -2480,6 +2505,15 @@ export interface paths {
 };
       requestBody: components['schemas']['BodyProbeBirdClassifierRuntimeApiClassifierProbePost'];
       response: Record<string, components['schemas']['JsonValue']>;
+    };
+  };
+  "/api/classifier/provider-validation": {
+    get: {
+      operationId: "provider_validation_status_api_classifier_provider_validation_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['ProviderValidationStatus'];
     };
   };
   "/api/classifier/status": {
@@ -3225,7 +3259,9 @@ export interface paths {
       path: {
     event_id: string;
 };
-      query: never;
+      query: {
+    regenerate?: boolean;
+};
       requestBody: unknown;
       response: components['schemas']['SnapshotGenerateResponse'];
     };

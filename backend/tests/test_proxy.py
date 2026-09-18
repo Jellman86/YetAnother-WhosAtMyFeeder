@@ -2362,3 +2362,27 @@ async def test_snapshot_candidates_response_no_model_crop_miss_reason_when_model
     assert response.status_code == 200
     body = response.json()
     assert body.get("model_crop_miss_reason") is None
+
+
+@pytest.mark.asyncio
+async def test_regenerate_frames_runs_even_for_an_existing_hq_crop(client, monkeypatch):
+    monkeypatch.setattr(proxy_module, "_hq_bird_crop_feature_enabled", lambda: True)
+    with (
+        patch("app.services.media_cache.media_cache.get_snapshot", new=AsyncMock(return_value=b"crop")),
+        patch(
+            "app.services.media_cache.media_cache.get_snapshot_metadata",
+            new=AsyncMock(return_value={"source": "hq_candidate_model_crop"}),
+        ),
+        patch(
+            "app.routers.proxy.frigate_client.get_snapshot_with_error",
+            new=AsyncMock(return_value=(None, "unavailable")),
+        ),
+        patch(
+            "app.routers.proxy.high_quality_snapshot_service.process_event",
+            new=AsyncMock(return_value="existing_crop_preserved"),
+        ) as process,
+    ):
+        response = await client.post("/api/frigate/test_event_id/snapshot/hq-bird-crop?regenerate=true")
+    assert response.status_code == 200
+    assert response.json()["result"] == "existing_crop_preserved"
+    process.assert_awaited_once_with("test_event_id")

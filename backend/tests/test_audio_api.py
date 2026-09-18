@@ -920,3 +920,45 @@ async def test_audio_recent_resolves_via_common_name_when_scientific_name_is_loc
     finally:
         async with audio_service._lock:
             audio_service._buffer.clear()
+
+
+@pytest.mark.asyncio
+async def test_owner_can_hide_restore_audio_and_summary_excludes_hidden(client):
+    from app.repositories.detection_repository import DetectionRepository
+
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    now = datetime.now(timezone.utc)
+    async with get_db() as db:
+        await db.execute("DELETE FROM audio_detections")
+        repo = DetectionRepository(db)
+        row_id = await repo.insert_audio_detection(now, "Robin", 0.95, "mic", {}, source_event_id="hide-test")
+    response = await client.patch(f"/api/audio/history/{row_id}", json={"hidden": True})
+    assert response.status_code == 200
+    assert (await client.get("/api/audio/history")).json()["total"] == 0
+    assert (await client.get("/api/audio/summary")).json()["total"] == 0
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        assert (await repo.get_audio_context(now, 30, None, 10))[0] == []
+        assert (
+            await repo.get_audio_species_counts(
+                window_start=now - timedelta(days=1),
+                window_end=now + timedelta(days=1),
+                prev_start=now - timedelta(days=2),
+                prev_end=now - timedelta(days=1),
+            )
+            == []
+        )
+        assert await repo.delete_audio_detections_older_than(now + timedelta(days=1)) == 0
+    assert (await client.patch(f"/api/audio/history/{row_id}", json={"hidden": False})).status_code == 200
+    assert (await client.get("/api/audio/history")).json()["total"] == 1
+    assert (await client.patch("/api/audio/history/999999999", json={"hidden": True})).status_code == 404
+    await client.patch(f"/api/audio/history/{row_id}", json={"hidden": True})
+
+
+@pytest.mark.asyncio
+async def test_guest_cannot_hide_audio(client):
+    settings.auth.enabled = True
+    settings.public_access.enabled = True
+    response = await client.patch("/api/audio/history/1", json={"hidden": True})
+    assert response.status_code in (401, 403)

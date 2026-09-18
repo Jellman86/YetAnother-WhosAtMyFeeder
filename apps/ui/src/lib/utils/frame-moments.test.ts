@@ -141,3 +141,23 @@ describe('wholeSceneOutline', () => {
         expect(wholeSceneOutline([0, 0, 5, 5], { width: 0, height: 10 }, { width: 10, height: 10 })).toBeNull();
     });
 });
+
+
+describe('species-safe moment previews (#481)', () => {
+    it('uses the selected crop and its own species read even when another bird scores higher', () => {
+        const [moment] = groupCandidatesIntoMoments([
+            candidate({ candidate_id: 'finch', source_mode: 'frigate_hint_crop', selected: true, classifier_label: 'House Finch', classifier_score: 0.9 }),
+            candidate({ candidate_id: 'cardinal', source_mode: 'model_crop', classifier_label: 'Northern Cardinal', classifier_score: 0.99 })
+        ]);
+        expect(preferredCandidate(moment)?.candidate_id).toBe('finch');
+        expect(moment.read?.label).toBe('House Finch');
+    });
+    it('keeps a selected full scene instead of substituting an untrusted crop', () => {
+        const [moment] = groupCandidatesIntoMoments([
+            candidate({ candidate_id: 'whole', selected: true, classifier_label: 'House Finch', classifier_score: 0.8 }),
+            candidate({ candidate_id: 'other', source_mode: 'model_crop', classifier_label: 'Northern Cardinal', classifier_score: 0.99 })
+        ]);
+        expect(preferredCandidate(moment)?.candidate_id).toBe('whole');
+        expect(moment.read?.label).toBe('House Finch');
+    });
+});

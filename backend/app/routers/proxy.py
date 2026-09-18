@@ -1590,6 +1590,7 @@ async def get_snapshot_status(
 @router.post("/frigate/{event_id}/snapshot/hq-bird-crop", response_model=SnapshotGenerateResponse)
 async def generate_hq_bird_crop_snapshot(
     event_id: str = Path(..., min_length=1, max_length=64),
+    regenerate: bool = Query(False, description="Regenerate frame choices even when an HQ crop already exists"),
     auth: AuthContext = Depends(require_owner),
 ):
     del auth
@@ -1599,7 +1600,7 @@ async def generate_hq_bird_crop_snapshot(
         raise HTTPException(status_code=409, detail="HQ bird crop snapshots are not enabled")
     async with _snapshot_generation_lock(event_id):
         before = await _build_snapshot_status(event_id)
-        if before.already_hq_bird_crop:
+        if before.already_hq_bird_crop and not regenerate:
             return SnapshotGenerateResponse(
                 **before.model_dump(),
                 status="already_hq_bird_crop",
@@ -1608,7 +1609,7 @@ async def generate_hq_bird_crop_snapshot(
 
         result = await high_quality_snapshot_service.process_event(event_id)
         after = await _build_snapshot_status(event_id)
-        if result == "bird_crop_replaced" or after.already_hq_bird_crop:
+        if result == "bird_crop_replaced":
             status = "generated_hq_bird_crop"
         elif result == "replaced":
             status = "generated_hq_snapshot"

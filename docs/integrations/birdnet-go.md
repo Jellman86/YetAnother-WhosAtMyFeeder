@@ -126,3 +126,15 @@ normalized source name before writing history, so an MQTT redelivery does not cr
 or a second live-correlation observation. Different detections are never coalesced: the audio lane
 processes them in broker order and remains independent of slower visual inference. Legacy payloads
 without a stable numeric ID are still accepted, but cannot receive this source-level deduplication.
+
+## Remove an incorrect audio detection
+
+In Audio history, owners can choose **Hide locally** beside a detection and **Undo** while
+the page remains open. Undo restores recent calls to live correlation immediately; calls older
+than the configured buffer window return to history only. Hiding excludes the entry from history, statistics and future live
+correlation. It does not delete anything in BirdNET-Go or rewrite existing visual identifications.
+BirdNET-Go deletions are not automatically synced; a missing clip alone is not evidence of deletion.
+
+Hidden rows remain as local tombstones, including during retention cleanup, so an MQTT replay
+cannot restore them. During a database outage new audio is not used for correlation because its
+visibility cannot be checked. The owner API can restore a row later using its local history ID.

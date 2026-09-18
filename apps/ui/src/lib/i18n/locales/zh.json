@@ -378,7 +378,11 @@
       "confirm_species": "确认{species}",
       "block_species": "屏蔽该物种",
       "species_blocked": "已屏蔽{species}。之后的检测将被丢弃。"
-    }
+    },
+    "provider_checking": "运行环境变更后正在检查加速器",
+    "provider_fallback": "所选推理提供程序未运行",
+    "provider_checking_detail": "此检查仅运行一次。如果加速器通过检查，分类器将自动重新加载。",
+    "provider_review": "检查模型和提供程序"
   },
   "common": {
     "loading": "加载中…",
@@ -2215,7 +2219,11 @@
       "title": "检测历史",
       "sub": "已保存的 BirdNET-Go 检测，与视觉访问记录分开。",
       "empty": "没有符合这些筛选条件的 BirdNET 检测。",
-      "showing": "显示第 {from}-{to} 项，共 {total} 项"
+      "showing": "显示第 {from}-{to} 项，共 {total} 项",
+      "hide": "在本地隐藏",
+      "undo": "撤销",
+      "hidden_message": "音频检测已隐藏。",
+      "local_only": "隐藏后，该条目将从YA-WAMF历史记录和未来的音频匹配中排除。BirdNET-Go不会更改；上游删除不会自动同步。"
     },
     "table": {
       "sound": "声音",

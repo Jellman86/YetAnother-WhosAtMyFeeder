@@ -92,6 +92,15 @@ def _write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
 
 @lru_cache(maxsize=16)
 def _inference_runtime_signature_for(image_flavor: str, runtime_abi: str) -> str:
+    return _identity_digest(_runtime_identity(image_flavor, runtime_abi))
+
+
+def _identity_digest(identity: dict[str, Any]) -> str:
+    encoded = json.dumps(identity, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _runtime_identity(image_flavor: str, runtime_abi: str) -> dict[str, Any]:
     packages: dict[str, str] = {}
     for package in _INFERENCE_RUNTIME_PACKAGES:
         try:
@@ -131,8 +140,47 @@ def _inference_runtime_signature_for(image_flavor: str, runtime_abi: str) -> str
         "packages": packages,
         "hardware": hardware,
     }
-    encoded = json.dumps(identity, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
+    return identity
+
+
+def current_provider_runtime_signature(provider: str) -> str:
+    return _provider_runtime_signature_for(
+        get_image_flavor(), str(os.environ.get("YAWAMF_INFERENCE_RUNTIME_ID") or "").strip(), provider
+    )
+
+
+@lru_cache(maxsize=32)
+def _provider_runtime_signature_for(image_flavor: str, runtime_abi: str, provider: str) -> str:
+    identity = _runtime_identity(image_flavor, runtime_abi)
+    packages = {"numpy"}
+    if provider.startswith("intel_"):
+        packages.add("openvino")
+    elif provider == "cuda":
+        packages.add("onnxruntime-gpu")
+    else:
+        packages.update(("onnxruntime", "onnxruntime-gpu", "tensorflow", "tflite-runtime"))
+    identity["packages"] = {key: value for key, value in identity["packages"].items() if key in packages}
+    identity["hardware"] = {
+        key: value
+        for key, value in identity["hardware"].items()
+        if ("nvidia" in key if provider == "cuda" else "nvidia" not in key)
+    }
+    identity["provider"] = provider
+    return _identity_digest(identity)
+
+
+def _provider_evidence_is_current(data: dict[str, Any], model_id: str, provider: str) -> bool:
+    signatures = (data.get("model_provider_signatures") or {}).get(model_id)
+    if signatures is not None:
+        return isinstance(signatures, dict) and signatures.get(provider) == current_provider_runtime_signature(provider)
+    return (data.get("model_runtime_signatures") or {}).get(model_id) == current_inference_runtime_signature()
+
+
+def _validation_record_runtime_is_current(record: dict[str, Any]) -> bool:
+    signature = record.get("provider_runtime_signature")
+    if signature is not None:
+        return signature == current_provider_runtime_signature(str(record.get("provider") or "cpu"))
+    return record.get("runtime_signature") == current_inference_runtime_signature()
 
 
 VALIDATION_PROVIDER_ORDER = ("cpu", "intel_cpu", "cuda", "intel_gpu", "intel_npu")
@@ -235,8 +283,10 @@ def _model_eligibility_is_current(
         return False
     if int(data.get("schema_version") or 0) < ELIGIBILITY_SCHEMA_VERSION:
         return False
-    recorded_runtime = str((data.get("model_runtime_signatures") or {}).get(model_id) or "").strip().lower()
-    if not recorded_runtime or recorded_runtime != current_inference_runtime_signature():
+    if not any(
+        _provider_evidence_is_current(data, model_id, str(provider))
+        for provider in (data.get("models") or {}).get(model_id) or []
+    ):
         return False
     expected_artifact = str(artifact_sha256 or "").strip().lower()
     if expected_artifact:
@@ -265,7 +315,11 @@ def host_eligible_providers(
         providers = [str(p).strip().lower() for p in (data.get("models") or {}).get(model_id) or [] if str(p).strip()]
         current_flavor = get_image_flavor()
         packaged = set(packaged_inference_providers(current_flavor))
-        return [provider for provider in providers if not packaged or provider in packaged]
+        return [
+            provider
+            for provider in providers
+            if (not packaged or provider in packaged) and _provider_evidence_is_current(data, model_id, provider)
+        ]
     except Exception:
         return []
 
@@ -292,6 +346,7 @@ def host_eligibility_summary() -> dict[str, Any]:
             providers = [
                 str(provider or "").strip().lower() for provider in (raw_providers or []) if str(provider or "").strip()
             ]
+            providers = [provider for provider in providers if _provider_evidence_is_current(data, model_id, provider)]
             if not providers:
                 continue
             model_count += 1
@@ -420,7 +475,7 @@ def activation_provider_recommendation(
     recorded_flavor = str(record.get("image_flavor") or "").strip().lower()
     if current_flavor != "unknown" and recorded_flavor != current_flavor:
         return None
-    if str(record.get("runtime_signature") or "").strip().lower() != current_inference_runtime_signature():
+    if not _validation_record_runtime_is_current(record):
         return None
     expected_artifact = str(artifact_sha256 or "").strip().lower()
     if expected_artifact and str(record.get("artifact_sha256") or "").strip().lower() != expected_artifact:
@@ -465,6 +520,7 @@ def write_validation_record(
             "provider": str(provider or "").strip().lower(),
             "image_flavor": get_image_flavor(),
             "runtime_signature": current_inference_runtime_signature(),
+            "provider_runtime_signature": current_provider_runtime_signature(provider),
             "artifact_sha256": str(artifact_sha256 or "").strip().lower() or None,
             "reason": reason,
             "latency_ms": latency_ms,
@@ -500,6 +556,7 @@ def write_eligibility_entry(
         generated: dict = {}
         model_image_flavors: dict[str, str] = {}
         model_runtime_signatures: dict[str, str] = {}
+        model_provider_signatures: dict[str, dict[str, str]] = {}
         model_artifact_sha256: dict[str, str] = {}
         model_provider_results: dict[str, dict[str, dict[str, Any]]] = {}
         if path.is_file():
@@ -508,6 +565,7 @@ def write_eligibility_entry(
                 models = existing.get("models") or {}
                 model_image_flavors = existing.get("model_image_flavors") or {}
                 model_runtime_signatures = existing.get("model_runtime_signatures") or {}
+                model_provider_signatures = existing.get("model_provider_signatures") or {}
                 model_artifact_sha256 = existing.get("model_artifact_sha256") or {}
                 model_provider_results = existing.get("model_provider_results") or {}
                 generated = {k: existing.get(k) for k in ("run_id", "image_flavor") if existing.get(k)}
@@ -553,6 +611,7 @@ def write_eligibility_entry(
             generated["image_flavor"] = image_flavor
             model_image_flavors[model_id] = image_flavor
         model_runtime_signatures[model_id] = current_inference_runtime_signature()
+        model_provider_signatures[model_id] = {p: current_provider_runtime_signature(p) for p in models[model_id]}
         normalized_artifact = str(artifact_sha256 or "").strip().lower()
         if normalized_artifact:
             model_artifact_sha256[model_id] = normalized_artifact
@@ -564,6 +623,7 @@ def write_eligibility_entry(
             "models": models,
             "model_image_flavors": model_image_flavors,
             "model_runtime_signatures": model_runtime_signatures,
+            "model_provider_signatures": model_provider_signatures,
             "model_artifact_sha256": model_artifact_sha256,
             "model_provider_results": model_provider_results,
             **generated,
@@ -627,6 +687,14 @@ async def _probe_one_provider(
             stderr=asyncio.subprocess.DEVNULL,
         )
         stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+    except asyncio.CancelledError:
+        if proc is not None and proc.returncode is None:
+            try:
+                proc.kill()
+            except ProcessLookupError:
+                pass
+            await proc.communicate()
+        raise
     except asyncio.TimeoutError:
         try:
             if proc is not None:
@@ -837,6 +905,7 @@ async def sweep_model_devices(
     *,
     image_paths: list[str] | None = None,
     discover_providers: bool = False,
+    only_providers: set[str] | None = None,
 ) -> dict:
     """Validate every relevant provider for the active ``model_id``.
 
@@ -862,6 +931,8 @@ async def sweep_model_devices(
         model_runtime=str(spec.get("runtime") or "onnx"),
         discover_providers=discover_providers,
     )
+    if only_providers is not None:
+        candidates = [candidate for candidate in candidates if candidate.provider in only_providers]
     declared_providers = {
         str(provider or "").strip().lower()
         for provider in (spec.get("candidate_inference_providers") or spec.get("supported_inference_providers") or [])
@@ -1177,9 +1248,7 @@ def is_model_validated(
         recorded_flavor = str(record.get("image_flavor") or "").strip().lower()
         packaged = set(packaged_inference_providers(current_flavor))
         flavor_matches = current_flavor == "unknown" or recorded_flavor == current_flavor
-        runtime_matches = (
-            str(record.get("runtime_signature") or "").strip().lower() == current_inference_runtime_signature()
-        )
+        runtime_matches = _validation_record_runtime_is_current(record)
         expected_artifact = str(artifact_sha256 or "").strip().lower()
         artifact_matches = (
             not expected_artifact or str(record.get("artifact_sha256") or "").strip().lower() == expected_artifact

@@ -1358,6 +1358,37 @@
         "title": "AudioSummaryResponse",
         "type": "object"
       },
+      "AudioVisibilityRequest": {
+        "properties": {
+          "hidden": {
+            "title": "Hidden",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "hidden"
+        ],
+        "title": "AudioVisibilityRequest",
+        "type": "object"
+      },
+      "AudioVisibilityResponse": {
+        "properties": {
+          "hidden": {
+            "title": "Hidden",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "hidden"
+        ],
+        "title": "AudioVisibilityResponse",
+        "type": "object"
+      },
       "AuthStatusResponse": {
         "description": "Current authentication status.",
         "properties": {
@@ -8732,6 +8763,69 @@
           "authorization_url"
         ],
         "title": "OAuthAuthorizeResponse",
+        "type": "object"
+      },
+      "ProviderValidationStatus": {
+        "properties": {
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          },
+          "model_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Id"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "state": {
+            "default": "idle",
+            "enum": [
+              "idle",
+              "running",
+              "succeeded",
+              "failed",
+              "interrupted",
+              "superseded"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "title": "ProviderValidationStatus",
         "type": "object"
       },
       "PublicSettings": {
@@ -16214,7 +16308,7 @@
   },
   "info": {
     "title": "Yet Another WhosAtMyFeeder API",
-    "version": "2.20.2"
+    "version": "2.20.3"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -16751,6 +16845,71 @@
           }
         ],
         "summary": "Get Audio History",
+        "tags": [
+          "audio",
+          "audio"
+        ]
+      }
+    },
+    "/api/audio/history/{detection_id}": {
+      "patch": {
+        "operationId": "set_audio_visibility_api_audio_history__detection_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "detection_id",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "title": "Detection Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioVisibilityRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioVisibilityResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Set Audio Visibility",
         "tags": [
           "audio",
           "audio"
@@ -18002,6 +18161,39 @@
           }
         ],
         "summary": "Probe Bird Classifier Runtime",
+        "tags": [
+          "classifier"
+        ]
+      }
+    },
+    "/api/classifier/provider-validation": {
+      "get": {
+        "description": "Owner-visible progress of the once-per-runtime accelerator recovery check.",
+        "operationId": "provider_validation_status_api_classifier_provider_validation_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderValidationStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Provider Validation Status",
         "tags": [
           "classifier"
         ]
@@ -22079,6 +22271,18 @@
               "minLength": 1,
               "title": "Event Id",
               "type": "string"
+            }
+          },
+          {
+            "description": "Regenerate frame choices even when an HQ crop already exists",
+            "in": "query",
+            "name": "regenerate",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Regenerate frame choices even when an HQ crop already exists",
+              "title": "Regenerate",
+              "type": "boolean"
             }
           }
         ],

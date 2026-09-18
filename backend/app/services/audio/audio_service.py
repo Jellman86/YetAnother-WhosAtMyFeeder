@@ -21,6 +21,7 @@ class AudioDetection:
     raw_data: dict
     scientific_name: Optional[str] = None
     source_event_id: Optional[str] = None
+    database_id: Optional[int] = None
 
 
 # Backstop only: a day of ordinary feeder audio is far below this. It bounds a
@@ -186,9 +187,8 @@ class AudioService:
         buffer and durable storage. MQTT callers may ignore the result, while
         diagnostics use it to avoid reporting a queued or failed write as success.
         A diagnostic proves insert/delete access, then removes its synthetic row and
-        buffer entry so it cannot confirm a real visual detection. Normal MQTT ingest
-        deliberately keeps a buffered detection during a database outage so short-lived
-        audio/visual correlation can still work.
+        buffer entry so it cannot confirm a real visual detection. Failed persistence
+        is not buffered: an unavailable database cannot rule out a removal tombstone.
         """
         try:
             # Use UTC timezone-aware datetime by default
@@ -284,15 +284,18 @@ class AudioService:
                             raise RuntimeError("Diagnostic audio row could not be removed")
             except Exception as e:
                 log.warning("Failed to persist audio detection", error=str(e))
-                if not diagnostic:
-                    async with self._lock:
-                        self._append_to_buffer_once(detection)
                 return False
 
             if diagnostic:
                 return True
 
+            detection.database_id = detection_id
             async with self._lock:
+                # Serialize the visibility check with removal so an in-flight MQTT
+                # replay cannot append after its record was hidden.
+                async with get_db() as db:
+                    if not await DetectionRepository(db).audio_detection_is_visible(detection_id):
+                        return True
                 buffered = self._append_to_buffer_once(detection)
                 log.info(
                     "Audio detection persisted and added to correlation buffer",
@@ -311,6 +314,27 @@ class AudioService:
         except Exception as e:
             log.error("Failed to process audio detection", error=str(e))
             return False
+
+    async def set_hidden(self, detection_id: int, hidden: bool) -> bool:
+        async with self._lock:
+            restored = None
+            async with get_db() as db:
+                repo = DetectionRepository(db)
+                found = await repo.set_audio_hidden(detection_id, hidden)
+                if found and not hidden:
+                    restored = await repo.get_audio_detection_for_correlation(detection_id)
+            if found and hidden:
+                self._buffer = deque(item for item in self._buffer if item.database_id != detection_id)
+                self._buffered_source_ids = {item.source_event_id for item in self._buffer if item.source_event_id}
+            elif restored and not any(item.database_id == detection_id for item in self._buffer):
+                detection = AudioDetection(**restored)
+                if detection.timestamp.tzinfo is None:
+                    detection.timestamp = detection.timestamp.replace(tzinfo=timezone.utc)
+                if datetime.now(timezone.utc) - detection.timestamp <= self._buffer_duration:
+                    self._append_to_buffer_once(detection)
+                    # Undo may restore an older call; preserve chronological expiry.
+                    self._buffer = deque(sorted(self._buffer, key=lambda item: item.timestamp))
+            return found
 
     def _append_to_buffer_once(self, detection: AudioDetection) -> bool:
         """Add one correlation observation without duplicating a broker redelivery."""

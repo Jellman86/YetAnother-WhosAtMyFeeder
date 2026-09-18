@@ -94,3 +94,11 @@ export async function fetchAudioSources(limit: number = 20): Promise<AudioSource
     const response = await apiFetch(`${API_BASE}/audio/sources?limit=${limit}`);
     return handleResponse<AudioSourceOption[]>(response);
 }
+
+export async function setAudioHidden(id: number, hidden: boolean): Promise<paths['/api/audio/history/{detection_id}']['patch']['response']> {
+    const response = await apiFetch(`${API_BASE}/audio/history/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ hidden })
+    });
+    return handleResponse<paths['/api/audio/history/{detection_id}']['patch']['response']>(response);
+}
