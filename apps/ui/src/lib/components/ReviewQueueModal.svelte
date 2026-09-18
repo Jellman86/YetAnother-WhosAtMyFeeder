@@ -3,6 +3,8 @@
     import { applySnapshotCandidate, fetchSnapshotCandidates, getThumbnailUrl } from '../api';
     import type { Detection, SnapshotCandidate } from '../api';
     import FrameStrip from './FrameStrip.svelte';
+    import { getBirdNames } from '../naming';
+    import { settingsStore } from '../stores/settings.svelte';
     import {
         currentMoment,
         groupCandidatesIntoMoments,
@@ -349,6 +351,7 @@
             </div>
         {:else if session.current}
             {@const current = session.current}
+            {@const naming = getBirdNames(current, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary)}
             {@const isNewSpecies = reasons?.get(current.frigate_event) === 'new_species'}
             <!-- A column on phones: the media block keeps its own height and never overlaps the
                  rail beneath it. The two-column grid only applies where there is room. -->
@@ -408,6 +411,12 @@
                             {/if}
                         </div>
                     {/if}
+                    <div class="px-4 pt-3" data-review-species-heading>
+                        <h3 class="break-words font-display text-xl font-bold leading-tight text-white">{naming.primary}</h3>
+                        {#if naming.secondary}
+                            <p class="mt-0.5 break-words text-sm italic text-slate-300">{naming.secondary}</p>
+                        {/if}
+                    </div>
                     {#if moments.length > 0}
                         <div class="pt-2" data-review-frame-strip>
                             <FrameStrip

@@ -8,6 +8,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- Show the species name below the photograph in **Work through the queue**, using the same common/scientific-name preferences as the full event view on desktop and phones (#481).
+
 - Preserve clean shutdown when an isolated accelerator probe exits during cancellation.
 - Undoing a local audio removal immediately restores recent calls to live correlation without waiting for an MQTT replay.
 
