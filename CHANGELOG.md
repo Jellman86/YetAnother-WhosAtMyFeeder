@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.20.3] - 2026-09-18
+
 ### Fixed
 
 - Show the species name below the photograph in **Work through the queue**, using the same common/scientific-name preferences as the full event view on desktop and phones (#481).
