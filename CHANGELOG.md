@@ -16,6 +16,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Backfill results now match the saved history when snapshot caching fails.** Optional cache
+  failures remain visible as warnings without misreporting an already-committed detection as lost.
+- Reject classifier probabilities outside 0–1 before filtering or saving. Failed job scheduling
+  no longer leaves a phantom running backfill, and a cancelled weather write is not counted as
+  processed. Regression coverage now includes migrated-database replays and real worker-process
+  failure/recovery, with a disposable real-model replay harness for hardware checks.
 - **A stalled native classifier can no longer consume an entire backfill.** After an in-process
   lease expires, new image work is quarantined onto supervised workers and health remains in
   recovery until a worker completes a real inference. Historical backfills stop after three

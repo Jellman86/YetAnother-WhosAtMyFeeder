@@ -143,8 +143,10 @@ class DetectionService:
         except (KeyError, TypeError, ValueError):
             log.warning("Invalid classification score", event_id=frigate_event, score=top.get("score"))
             return None, "invalid_score"
-        if not math.isfinite(score):
-            log.warning("Non-finite classification score", event_id=frigate_event, score=score, label=top.get("label"))
+        if not math.isfinite(score) or not 0 <= score <= 1:
+            log.warning(
+                "Invalid classification probability", event_id=frigate_event, score=score, label=top.get("label")
+            )
             return None, "invalid_score"
         top = {**top, "score": score}
         label = normalize_classifier_label(top["label"])
@@ -403,6 +405,13 @@ class DetectionService:
         Save or update a detection in the database and broadcast the event.
         Returns (changed, was_inserted).
         """
+        try:
+            score = float(classification["score"])
+        except (KeyError, TypeError, ValueError):
+            return False, False
+        if not math.isfinite(score) or not 0 <= score <= 1:
+            log.warning("Refusing to save invalid probability", event_id=frigate_event, score=score)
+            return False, False
         sub_label = normalize_sub_label(sub_label)
 
         # 1. Normalize names (Bidirectional Scientific <-> Common)
@@ -487,10 +496,6 @@ class DetectionService:
         async with get_db() as db:
             repo = DetectionRepository(db)
 
-            score = float(classification["score"])
-            if not math.isfinite(score):
-                log.warning("Refusing to save detection with non-finite score", event_id=frigate_event, score=score)
-                return False, False
             category_name = classification["label"]
             timestamp = utc_naive_from_timestamp(start_time)
 
