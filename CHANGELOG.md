@@ -16,6 +16,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- Update UI rendering and build dependencies, including bounded smart-quote
+  processing for long analysis text. Preserve escaped HTML, safe links and code
+  formatting with focused markdown regression coverage.
 - Recover confirmed accelerator-worker crashes using the same model in an isolated
   CPU worker. Verify actual weight/label identity and provider before and after
   inference, enforce workload deadlines, and keep health degraded while the
