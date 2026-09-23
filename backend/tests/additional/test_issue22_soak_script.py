@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 
 
-SCRIPT_PATH = Path("/config/workspace/YA-WAMF/scripts/run_issue22_soak.py")
+SCRIPT_PATH = Path(__file__).resolve().parents[3] / "scripts" / "run_issue22_soak.py"
 spec = importlib.util.spec_from_file_location("run_issue22_soak", SCRIPT_PATH)
 soak = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = soak

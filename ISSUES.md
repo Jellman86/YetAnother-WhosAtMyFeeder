@@ -5,7 +5,7 @@ This document tracks known issues and testing gaps that have not been verified e
 If you find a bug, please open a GitHub issue with the steps to reproduce and any redacted logs.
 
 Last reviewed against the GitHub issue tracker and opt-in fleet telemetry on
-**September 16, 2026**.
+**September 23, 2026**.
 
 ## P0: Active Regressions
 
@@ -51,6 +51,13 @@ in-app notification timeline both prove one real final-mode detection end to end
 
 ## Known Remaining Exposure
 
+- **Broader regression coverage remains incremental.** Test discovery, pre-merge telemetry
+  checks, a shared branch-aware gate, joined detection/notification tests and local browser
+  component checks are now implemented. Full-app browser journeys, concurrent notification
+  delivery, the test-wide database-thread workaround and populated historical migration
+  replays remain explicit gaps in the [testing guide](docs/development/testing.md), linked to
+  the [coverage roadmap](ROADMAP.md#broader-end-to-end-coverage-).
+
 - **Backfill/classifier coverage is broader but not exhaustive.** The
   [September backfill review](docs/reviews/2026-09-23-backfill-test-hardening.md) adds
   real-database detection/weather tests and real worker-process failures. Full retained-video
@@ -83,10 +90,19 @@ in-app notification timeline both prove one real final-mode detection end to end
 
 ## Open on the Tracker
 
-- **#459** Frigate video playback remains open for HLS release validation. Its implementation is
-  already isolated on `dev`; no HLS work is part of this telemetry fix.
+- **#490** Backfill and live-feed failures: safeguards are in `dev`; confirmation from the
+  original reporter/model/driver combination is still pending. It is the only open bug report
+  at this review; dependency-update pull requests are separate.
 
 ## Recently Closed (Context)
+
+### REG-2026-09-23-02 — Pre-migration backups omit committed WAL data
+
+A real SQLite restore test reproduced missing committed rows when another connection kept
+the WAL open. Backups now use SQLite's snapshot API and publish only after validation;
+failed snapshots retain existing restore points. Nine backup cases pass locally and on
+Quark. See the [regression review](docs/reviews/2026-09-23-affordable-regression-gates.md)
+and [coverage roadmap](ROADMAP.md#broader-end-to-end-coverage-).
 
 ### REG-2026-09-15-02 — Legacy health batches disappear from telemetry breakdowns
 

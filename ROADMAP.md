@@ -716,6 +716,15 @@ allocator behaviour in the docs or fixed.
 #### Broader end-to-end coverage 🧪
 **Priority:** P1 | **Effort:** M | **Status:** 🔄 Targeted coverage exists
 
+The [affordable regression tiers](docs/development/testing.md) now collect the previously
+orphaned backend cases, enforce one branch-aware gate before merge and image publication, and
+test telemetry locally before merge. Joined MQTT-to-notification tests use migrated SQLite;
+local Chromium/WebKit component tests cover the Health timeline at desktop/mobile sizes.
+Actual WAL restore tests found and fixed a pre-migration backup defect. These checks do not
+close the full-app browser, concurrent notification, database-fixture lifecycle or populated
+historical-migration gaps listed in that guide. Heavy runs remain local, without a new hosted
+matrix or scheduled soak.
+
 Unit/integration tests, CI, coverage reporting, migration-safety checks, and startup smoke
 checks are all in place. ARM64 image startup plus real model inference now run under QEMU before
 mutable Raspberry Pi tags are promoted. The open work is expanding Playwright E2E coverage around

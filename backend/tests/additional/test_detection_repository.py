@@ -19,6 +19,9 @@ class MockCursor:
     async def fetchall(self):
         return self._fetchall_result
 
+    async def close(self):
+        pass
+
     async def __aenter__(self):
         return self
 
@@ -164,7 +167,8 @@ class TestDetectionRepository:
 
         await repo.update_video_status("test-event-123", "processing")
 
-        assert len(mock_db.execute_calls) == 1
+        assert len(mock_db.execute_calls) == 2
+        assert "changes()" in mock_db.execute_calls[1][0][0]
         assert mock_db.commit.await_count == 1
 
     @pytest.mark.asyncio
@@ -184,7 +188,7 @@ class TestDetectionRepository:
         assert mock_db.commit.await_count == 1
 
     @pytest.mark.asyncio
-    async def test_get_species_counts(self, mock_db):
+    async def test_get_species_leaderboard_base(self, mock_db):
         """Test getting species counts."""
         from app.repositories.detection_repository import DetectionRepository
 
@@ -192,18 +196,50 @@ class TestDetectionRepository:
         mock_db.queue_cursor(
             MockCursor(
                 fetchall_result=[
-                    ("turdus merula", 10, "Turdus merula", "Eurasian Blackbird", "Turdus merula", 12345),
-                    ("cyanistes caeruleus", 5, "Cyanistes caeruleus", "Blue Tit", "Cyanistes caeruleus", 67890),
+                    (
+                        "turdus merula",
+                        10,
+                        "Turdus merula",
+                        "Eurasian Blackbird",
+                        "Turdus merula",
+                        12345,
+                        None,
+                        None,
+                        0.8,
+                        0.9,
+                        0.7,
+                        2,
+                        101,
+                        None,
+                    ),
+                    (
+                        "cyanistes caeruleus",
+                        5,
+                        "Cyanistes caeruleus",
+                        "Blue Tit",
+                        "Cyanistes caeruleus",
+                        67890,
+                        None,
+                        None,
+                        0.9,
+                        0.95,
+                        0.8,
+                        1,
+                        102,
+                        None,
+                    ),
                 ]
             )
         )
 
-        counts = await repo.get_species_counts()
+        counts = await repo.get_species_leaderboard_base()
 
         assert len(counts) == 2
         assert counts[0]["species"] == "Turdus merula"
         assert counts[0]["count"] == 10
         assert counts[1]["common_name"] == "Blue Tit"
+        assert counts[0]["species_id"] == 101
+        assert counts[1]["camera_count"] == 1
 
 
 if __name__ == "__main__":

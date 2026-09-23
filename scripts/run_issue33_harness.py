@@ -13,7 +13,7 @@ import time
 from dataclasses import asdict
 
 # `timezone` is unused inside this module but is re-exported through the module
-# namespace: tests/unit/test_issue33_harness_script.py loads this file with
+# namespace: backend/tests/additional/test_issue33_harness_script.py loads this file with
 # importlib and builds fixture timestamps via `issue33.timezone`.
 from datetime import datetime, timedelta, timezone  # noqa: F401
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
