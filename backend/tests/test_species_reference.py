@@ -123,10 +123,17 @@ def test_status_reports_what_shipped(reference):
 def test_the_shipped_database_is_committed_and_not_swallowed_by_gitignore():
     """`*.db` is ignored, so this asset needs an explicit exception to ship."""
     import subprocess
+    import shutil
 
     root = Path(__file__).resolve().parents[2]
     asset = root / "backend" / "app" / "assets" / "species_reference.db"
     assert asset.is_file(), "the bundled reference is missing from the checkout"
+
+    if not (root / ".git").exists() or shutil.which("git") is None:
+        pytest.skip("Source-control packaging check requires a Git checkout; runtime asset existence was checked")
+
+    tracked = subprocess.run(["git", "ls-files", "--error-unmatch", str(asset)], cwd=root, capture_output=True)
+    assert tracked.returncode == 0, "species_reference.db exists locally but is not tracked for distribution"
 
     ignored = subprocess.run(["git", "check-ignore", "-q", str(asset)], cwd=root, capture_output=True)
     assert ignored.returncode != 0, "species_reference.db is git-ignored and would never ship"

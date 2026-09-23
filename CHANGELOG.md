@@ -16,6 +16,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- Make diagnostics regressions independent of a reachable Frigate, prove taxonomy
+  provider waits do not own database connections without timing-sensitive assertions,
+  and distinguish source-control asset checks from runtime asset validation.
 - Add a local, isolated model/provider gate that records native crashes and fails
   incomplete or numerically invalid runs. Regional artifacts and crop detectors use
   their own production contracts. Accuracy sessions load lazily, old diagnostics

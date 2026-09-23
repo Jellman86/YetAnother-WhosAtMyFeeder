@@ -1,9 +1,9 @@
 """No route may hold a pooled connection while a species name is fetched.
 
 Every route that names a species for a non-English reader is exercised with an
-empty translation cache and a slow provider. The pool records the longest hold;
-it must be far shorter than the provider's delay, or the wait was inside the
-hold. Each test also proves the provider was actually asked, so a route that
+empty translation cache and a slow provider. Connection ownership is checked at
+the provider boundary, not inferred from wall-clock timing under coverage/load.
+Each test also proves the provider was actually asked, so a route that
 quietly took the English, cache-only path cannot pass by accident. This is the
 guard for #392 and the regression guard for #300.
 """
@@ -15,7 +15,8 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
-from app.database import close_db, get_db, get_db_pool_status, init_db
+from app.database import close_db, get_db, init_db
+from app import database
 from app.main import app
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 
@@ -61,17 +62,37 @@ async def seeded_db():
 
 
 @pytest.fixture
-def slow_provider(monkeypatch):
+def slow_provider(monkeypatch, seeded_db):
     """Records every call, so a route test can prove the non-English path ran."""
     from app.config import settings
 
     # The event-scoped audio route keeps only microphones mapped to the event's
     # camera; with no mapping every row is suppressed and there is nothing to name.
     monkeypatch.setattr(settings.frigate, "camera_audio_mapping", {"cam1": "*"})
-    calls: list[tuple[int, str]] = []
+    calls: list[tuple[int, str, int]] = []
+    owners = {}
+    acquire = database._db_pool.acquire
+    release = database._db_pool.release
+
+    async def tracked_acquire(*args, **kwargs):
+        connection = await acquire(*args, **kwargs)
+        owners[id(connection)] = asyncio.current_task()
+        return connection
+
+    async def tracked_release(connection):
+        owner = owners.get(id(connection))
+        try:
+            await release(connection)
+        finally:
+            if owners.get(id(connection)) is owner:
+                owners.pop(id(connection), None)
+
+    monkeypatch.setattr(database._db_pool, "acquire", tracked_acquire)
+    monkeypatch.setattr(database._db_pool, "release", tracked_release)
 
     async def provider(taxa_id, lang):
-        calls.append((taxa_id, lang))
+        held = sum(owner is asyncio.current_task() for owner in owners.values())
+        calls.append((taxa_id, lang, held))
         await asyncio.sleep(PROVIDER_DELAY_SECONDS)
         return "Blaumeise"
 
@@ -79,11 +100,10 @@ def slow_provider(monkeypatch):
     return calls
 
 
-def _assert_no_hold_spanned_the_provider(path: str) -> None:
-    hold_max_ms = get_db_pool_status()["hold_ms_max"]
-    assert hold_max_ms < PROVIDER_DELAY_SECONDS * 1000 / 2, (
-        f"{path}: a connection was held for {hold_max_ms} ms while the provider took "
-        f"{PROVIDER_DELAY_SECONDS * 1000} ms, so the wait was inside the hold"
+def _assert_no_hold_spanned_the_provider(path: str, calls: list[tuple[int, str, int]]) -> None:
+    assert calls, f"{path}: the provider was never asked"
+    assert all(held == 0 for _taxon, _language, held in calls), (
+        f"{path}: provider awaited inside a pooled connection hold"
     )
 
 
@@ -106,7 +126,7 @@ async def test_the_route_answers_without_holding_a_connection_across_the_provide
         assert res.status_code == 200, (path, res.text[:200])
     await taxonomy_service.wait_for_background_fills()
     assert slow_provider, f"{path}: the provider was never asked, so the non-English path did not run"
-    _assert_no_hold_spanned_the_provider(path)
+    _assert_no_hold_spanned_the_provider(path, slow_provider)
 
 
 @pytest.mark.asyncio
@@ -118,7 +138,15 @@ async def test_the_audio_context_route_answers_without_holding_a_connection_acro
         assert res.status_code == 200, res.text[:200]
     await taxonomy_service.wait_for_background_fills()
     assert slow_provider
-    _assert_no_hold_spanned_the_provider(path)
+    _assert_no_hold_spanned_the_provider(path, slow_provider)
+
+
+@pytest.mark.asyncio
+async def test_the_guard_rejects_an_actual_provider_wait_inside_a_hold(slow_provider):
+    async with get_db():
+        await taxonomy_service._lookup_localized_inaturalist(TAXA, "de")
+    with pytest.raises(AssertionError, match="provider awaited inside"):
+        _assert_no_hold_spanned_the_provider("negative control", slow_provider)
 
 
 @pytest.mark.asyncio
