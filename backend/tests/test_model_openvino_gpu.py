@@ -246,7 +246,9 @@ def _installed_onnx_models() -> list[tuple[str, Path]]:
     base = _models_dir()
     if not base.exists():
         return []
-    return [(d.name, d) for d in sorted(base.iterdir()) if d.is_dir() and (d / "model.onnx").exists()]
+    return [
+        (str(path.parent.relative_to(base)).replace("/", "_"), path.parent) for path in sorted(base.rglob("model.onnx"))
+    ]
 
 
 def _make_test_image(size: int) -> Image.Image:
@@ -407,6 +409,8 @@ pytestmark = [
 
 @pytest.fixture(scope="module")
 def gpu_available() -> bool:
+    if os.environ.get("YAWAMF_LEGACY_HARDWARE_DIAGNOSTICS") != "1":
+        pytest.skip("Legacy in-process diagnostic; use run_model_hardware_gate.py for isolated pass/fail validation")
     if not OPENVINO_AVAILABLE:
         return False
     try:
@@ -835,7 +839,7 @@ def test_gpu_diagnostic_report(gpu_available: bool, openvino_version: str) -> No
             rows.append(f"{model_id:<35} {'CPU inference error: ' + str(e)[:35]:>55}")
             continue
 
-        cpu_range = float(cpu_out[np.isfinite(cpu_out)].ptp()) if np.isfinite(cpu_out).any() else 0.0
+        cpu_range = float(np.ptp(cpu_out[np.isfinite(cpu_out)])) if np.isfinite(cpu_out).any() else 0.0
 
         # GPU
         compile_ok, compile_error, gpu_compiled = _compile_on_device(model_dir / "model.onnx", config, "GPU")
@@ -852,7 +856,7 @@ def test_gpu_diagnostic_report(gpu_available: bool, openvino_version: str) -> No
             continue
 
         gpu_finite = gpu_out[np.isfinite(gpu_out)]
-        gpu_range = float(gpu_finite.ptp()) if gpu_finite.size > 1 else 0.0
+        gpu_range = float(np.ptp(gpu_finite)) if gpu_finite.size > 1 else 0.0
         ratio = gpu_range / cpu_range if cpu_range > 0 else 0.0
         spearman = _spearman_r(cpu_out, gpu_out) if np.isfinite(gpu_out).any() else float("nan")
         top5_cpu = set(np.argsort(cpu_out)[-5:])
@@ -967,7 +971,7 @@ def test_gpu_nan_fix_probe(gpu_available: bool, openvino_version: str) -> None:
                 model.reshape(static_shape)
             cpu_compiled = core.compile_model(model, "CPU", config={"PERFORMANCE_HINT": "LATENCY", "NUM_STREAMS": "1"})
             cpu_out = _run_inference(cpu_compiled, tensor)
-            cpu_range = float(cpu_out[np.isfinite(cpu_out)].ptp()) if np.isfinite(cpu_out).any() else 0.0
+            cpu_range = float(np.ptp(cpu_out[np.isfinite(cpu_out)])) if np.isfinite(cpu_out).any() else 0.0
         except Exception as e:
             rows.append(f"{model_id:<35} {'(CPU ref failed)':<20} {str(e)[:50]}")
             continue
@@ -986,7 +990,7 @@ def test_gpu_nan_fix_probe(gpu_available: bool, openvino_version: str) -> None:
                 continue
 
             finite = out[np.isfinite(out)]
-            gpu_range = float(finite.ptp()) if finite.size > 1 else 0.0
+            gpu_range = float(np.ptp(finite)) if finite.size > 1 else 0.0
             ratio = gpu_range / cpu_range if cpu_range > 0 else 0.0
             spearman = _spearman_r(cpu_out, out) if np.isfinite(out).any() else float("nan")
             top5_cpu = set(np.argsort(cpu_out)[-5:])
@@ -1112,7 +1116,7 @@ def test_convnext_gpu_precision_probe(gpu_available: bool, openvino_version: str
         model_ref.reshape(static_shape)
     cpu_compiled = core.compile_model(model_ref, "CPU", config={"PERFORMANCE_HINT": "LATENCY", "NUM_STREAMS": "1"})
     cpu_out = _run_inference(cpu_compiled, tensor)
-    cpu_range = float(cpu_out[np.isfinite(cpu_out)].ptp()) if np.isfinite(cpu_out).any() else 0.0
+    cpu_range = float(np.ptp(cpu_out[np.isfinite(cpu_out)])) if np.isfinite(cpu_out).any() else 0.0
     top5_cpu = set(np.argsort(cpu_out)[-5:])
 
     rows: list[str] = []
@@ -1143,7 +1147,7 @@ def test_convnext_gpu_precision_probe(gpu_available: bool, openvino_version: str
 
         has_nan = not np.isfinite(out).all()
         finite = out[np.isfinite(out)]
-        gpu_range = float(finite.ptp()) if finite.size > 1 else 0.0
+        gpu_range = float(np.ptp(finite)) if finite.size > 1 else 0.0
         ratio = gpu_range / cpu_range if cpu_range > 0 else 0.0
         spearman = _spearman_r(cpu_out, out) if np.isfinite(out).any() else float("nan")
         top5_out = set(np.argsort(out)[-5:])

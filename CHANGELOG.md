@@ -16,6 +16,34 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- Update UI rendering and build dependencies, including bounded smart-quote
+  processing for long analysis text. Preserve escaped HTML, safe links and code
+  formatting with focused markdown regression coverage.
+- Recover confirmed accelerator-worker crashes using the same model in an isolated
+  CPU worker. Verify actual weight/label identity and provider before and after
+  inference, enforce workload deadlines, and keep health degraded while the
+  original profile remains quarantined. Slow or failed recovery does not loop or
+  fall back into the web process. Native crash/recovery summaries use the existing
+  bounded, deduplicated opt-in health reports, without additional report frequency.
+- Retain confirmed native worker crash evidence across restarts and block the same
+  model/provider launch configuration in all worker pools. Quarantined work cannot
+  silently fall back into the web process. Normal shutdown and deadline kills are
+  not labelled native crashes. Add a local-only OpenVINO cold/warm-cache reproducer
+  with bounded child processes and durable per-run outcomes.
+- Preserve downloaded accuracy-fixture attribution and checksums across reruns;
+  enforce the photo's own CC0/CC-BY licence, respect exclusions, and retain previous
+  manifests when a refresh is incomplete. Refreshes no longer overwrite old images.
+- Make diagnostics regressions independent of a reachable Frigate, prove taxonomy
+  provider waits do not own database connections without timing-sensitive assertions,
+  and distinguish source-control asset checks from runtime asset validation.
+- Add a local, isolated model/provider gate that records native crashes and fails
+  incomplete or numerically invalid runs. Regional artifacts and crop detectors use
+  their own production contracts. Accuracy sessions load lazily, old diagnostics
+  are explicitly opt-in, and NumPy-compatible range checks replace removed APIs.
+- **Classifier worker replacement waits for the old process to exit.** Closed pipes no
+  longer masquerade as a reaped worker. Shutdown escalates ignored termination to a
+  bounded kill, startup cancellation cleans up its child, and failed cleanup blocks
+  a replacement from loading another native model alongside the old one.
 - **Pre-migration restore points include committed SQLite WAL data.** Backups now use
   SQLite's consistent snapshot API, check integrity and publish atomically; failed or
   locked copies do not prune existing restore points.
