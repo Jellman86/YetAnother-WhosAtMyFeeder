@@ -143,9 +143,37 @@ must actually be exercised to pass. Registry-incompatible combinations are expli
 not applicable; candidate combinations are tested but do not gain supported status
 from a single pass. Review every failure, even when another repeat passes.
 
-Model weights are read-only, configuration/databases/media paths are disposable,
-and the runner never writes production eligibility or changes the active model.
-Its parent owns scratch directories so a crashing child does not leave compiled
+### Native OpenVINO crash reproducer
+
+Run this Linux-only tool serially on a trusted hardware host. It imports OpenVINO
+directly, not YA-WAMF services, and uses deterministic synthetic tensors. It tests
+runtime stability, not species accuracy or equivalence to the application pipeline.
+
+```bash
+python backend/scripts/reproduce_native_gpu_crash.py \
+  --model /data/models/small_birds/eu/model.onnx --device GPU \
+  --shape 1,3,224,224 --repeat 3 --iterations 10 --cache cold \
+  --output /tmp/yawamf-gpu-cold
+```
+
+Use the actual shape required by the selected artifact; omit `--shape` for a
+model with fully static inputs. Repeat with `--cache warm` and a new output path
+to reuse an OpenVINO cache between child processes. `--cache off` disables that
+explicit cache. These controls do not flush operating-system caches or certify
+that every driver-internal cache is cold. Production caches are never modified.
+
+The parent has a default 240-second deadline per child and retains every exit
+code, last reported phase, process log and output hash. A native crash, timeout,
+invalid output or incomplete report fails the command even if later repeats pass.
+Unreaped children stop further launches. Core dumps are disabled and child
+environments exclude application credentials. Keep output private: native library
+errors can include local paths. This probe neither changes production settings nor
+clears quarantine or marks a provider eligible. Compare retained failures against
+the exact image, device and driver packages before filing an upstream runtime issue.
+
+In the installed-model gate, model weights are read-only, configuration/databases/
+media paths are disposable, and the runner never writes production eligibility or
+changes the active model. Its parent owns scratch directories so a crashing child does not leave compiled
 caches behind. Keep hardware runs serial alongside a live feeder and watch its
 health; do not run the full model library concurrently with other heavy tests.
 

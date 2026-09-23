@@ -21,7 +21,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from PIL import Image
-from typing import Optional, Any, Awaitable, Callable, Iterable, Literal
+from typing import Optional, Any, Awaitable, Callable, Iterable, Literal, NoReturn
 
 from app.services.inference_health import InferenceHealth, Outcome, RuntimeKey
 from app.services.openvino_cache import resolve_openvino_cache_dir
@@ -134,6 +134,11 @@ OpenVINOCore = _OPENVINO_SUPPORT["core_class"]
 OPENVINO_AVAILABLE = bool(_OPENVINO_SUPPORT["available"])
 
 from app.config import settings  # noqa: E402
+from app.services.native_crash_quarantine import (  # noqa: E402
+    NativeCrashQuarantine,
+    NativeCrashQuarantinedError,
+    artifact_digest,
+)
 from app.models.ai_models import ClassificationInputContext, CropGeneratorConfig  # noqa: E402
 from app.services.bird_crop_service import bird_crop_service  # noqa: E402
 from app.services.crop_source_resolver import crop_source_resolver  # noqa: E402
@@ -2766,6 +2771,7 @@ class ClassifierService:
         self._image_execution_mode = "in_process" if self._worker_process_mode else configured_mode
         self._classifier_supervisor = supervisor
         self._video_supervisor = supervisor
+        self._native_crash_quarantine = NativeCrashQuarantine(self._native_launch_profile)
         self._bird_crop_service = bird_crop_service
         self._crop_source_resolver = crop_source_resolver
         # Use dedicated executors so long-running video analysis cannot starve
@@ -2830,6 +2836,7 @@ class ClassifierService:
                 ),
             )
             isolated_supervisor = ClassifierSupervisor(
+                crash_quarantine=self._native_crash_quarantine,
                 live_worker_count=resolved_live_workers,
                 background_worker_count=resolved_background_workers,
                 video_worker_count=video_workers,
@@ -2971,6 +2978,28 @@ class ClassifierService:
             "host_provider_preference_order": list(spec.get("host_provider_preference_order") or []),
             "host_validation_applied": bool(spec.get("host_validation_applied")),
             "crop_generator": crop_generator,
+        }
+
+    def _native_launch_profile(self) -> dict[str, Any]:
+        from app.services.model_validation import current_inference_runtime_signature
+
+        spec = self._resolve_active_bird_model_spec()
+        model_path = str(spec.get("model_path") or "")
+        # Record a launch configuration, not a claim about the faulting library.
+        # Crop/video/wildlife work shares the same isolated process.
+        return {
+            "schema": 1,
+            "model_id": spec.get("model_id"),
+            "region": spec.get("resolved_region"),
+            "model_sha256": artifact_digest(model_path),
+            "external_weights_sha256": artifact_digest(f"{model_path}.data") if model_path else None,
+            "labels_sha256": artifact_digest(str(spec.get("labels_path") or "")),
+            "provider": _normalize_inference_provider(settings.classification.inference_provider),
+            "runtime_signature": current_inference_runtime_signature(),
+            "model_runtime": spec.get("runtime"),
+            "input_size": spec.get("input_size"),
+            "preprocessing": spec.get("preprocessing"),
+            "crop_generator": spec.get("crop_generator"),
         }
 
     def _classify_model_artifact_type(self, model_path: str) -> str:
@@ -3912,6 +3941,13 @@ class ClassifierService:
 
     def _init_bird_model(self):
         """Initialize the bird classification model (loaded at startup)."""
+        quarantine = getattr(self, "_native_crash_quarantine", None)
+        if quarantine is not None:
+            try:
+                quarantine.guard()
+            except NativeCrashQuarantinedError as exc:
+                log.error("classifier_model_load_quarantined", error=str(exc))
+                return
         spec = self._resolve_active_bird_model_spec()
         model_path = str(spec["model_path"])
         labels_path = str(spec["labels_path"])
@@ -4691,6 +4727,8 @@ class ClassifierService:
                         and background_exit_reason not in explicit_start_failure
                     )
                 )
+                if "native_runtime_quarantined" in {live_exit_reason, background_exit_reason}:
+                    bird_runtime_ready = False
         else:
             bird_runtime_ready = bool(bird and bird.loaded)
 
@@ -5737,6 +5775,8 @@ class ClassifierService:
                 self._worker_fallback_state["active"] = False
                 log.info("classifier_worker_fallback_recovered", reason=self._worker_fallback_state["reason"])
             return results
+        except NativeCrashQuarantinedError:
+            self._raise_native_quarantine_error(priority)
         except ClassifierWorkerCircuitOpenError:
             return await self._classify_in_process_as_last_resort(
                 priority=priority,
@@ -5792,6 +5832,12 @@ class ClassifierService:
             return False
         return int(pool.get("workers") or 0) == 0
 
+    @staticmethod
+    def _raise_native_quarantine_error(priority: str) -> NoReturn:
+        if priority == "live":
+            raise LiveImageClassificationOverloadedError("classify_snapshot_native_runtime_quarantined") from None
+        raise BackgroundImageClassificationUnavailableError("background_image_native_runtime_quarantined") from None
+
     _FALLBACK_UNAVAILABLE_ERRORS = {
         "circuit_open": ("classify_snapshot_circuit_open", "background_image_circuit_open"),
         "worker_startup_timeout": ("classify_snapshot_worker_unavailable", "background_image_worker_startup_timeout"),
@@ -5819,6 +5865,12 @@ class ClassifierService:
         process loads its own copy and keeps classifying, and the status
         endpoint says so plainly.
         """
+        quarantine = getattr(self, "_native_crash_quarantine", None)
+        if quarantine is not None:
+            try:
+                await asyncio.to_thread(quarantine.guard)
+            except NativeCrashQuarantinedError:
+                self._raise_native_quarantine_error(priority)
         if self._in_process_recovery is not None or model_kind != "bird":
             if priority == "live":
                 raise LiveImageClassificationOverloadedError("classify_snapshot_worker_unavailable")
@@ -6907,6 +6959,7 @@ class ClassifierService:
                     )
                 raise
             except (
+                NativeCrashQuarantinedError,
                 ClassifierWorkerCircuitOpenError,
                 ClassifierWorkerHeartbeatTimeoutError,
                 ClassifierWorkerDeadlineExceededError,
@@ -6915,6 +6968,8 @@ class ClassifierService:
             ) as exc:
                 log.warning("Supervised video classification failed", error=str(exc), video_path=video_path)
                 if propagate_worker_failure:
+                    if isinstance(exc, NativeCrashQuarantinedError):
+                        raise VideoClassificationWorkerError("video_worker_native_runtime_quarantined") from exc
                     if isinstance(exc, ClassifierWorkerCircuitOpenError):
                         raise VideoClassificationWorkerError("video_worker_circuit_open") from exc
                     if isinstance(exc, ClassifierWorkerHeartbeatTimeoutError):

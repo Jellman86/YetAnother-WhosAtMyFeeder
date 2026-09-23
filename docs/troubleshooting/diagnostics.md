@@ -338,6 +338,37 @@ switching to workers cannot release a native thread that is still stalled in the
 Model changes reload the workers without cleaning up the model that the stalled thread may use.
 Wildlife reclassification also uses isolated workers when subprocess execution is active.
 
+### Confirmed native worker crashes
+
+If an isolated worker exits with SIGSEGV, SIGABRT, SIGBUS, SIGILL or SIGFPE,
+YA-WAMF retains a record under `/config/native-crashes`. The same launch
+configuration is blocked across live, background and video pools, including after
+a restart. Logs and worker diagnostics identify `native_runtime_quarantined`.
+There is no automatic in-process fallback for this condition. A deadline kill,
+normal termination or possible out-of-memory SIGKILL is not classified as a native
+crash by this safeguard.
+
+The profile includes the requested provider, model/label/external-weight hashes,
+region, preprocessing, crop configuration and runtime/hardware signature. It
+describes the worker configuration, not proof of which native library failed.
+Selecting CPU for the same model is the preferred mitigation if that combination
+is supported and can meet the workload's deadline; another installed model is not
+required. This containment change does not yet automate that CPU validation/switch.
+Changing to a different independently validated provider is also a mitigation;
+changing execution mode or restarting alone does not clear the retained evidence.
+This does not protect against a first native crash in legacy in-process mode.
+
+Keep the evidence and use the [local reproducer](../development/testing.md#native-openvino-crash-reproducer)
+to investigate. Do not clear quarantine because one retry passed. After addressing
+the cause and validating the exact combination, an operator can stop the service,
+move only the matching fingerprint JSON outside `native-crashes` to retain it,
+then start the service. The stop/start clears its in-memory block too. Follow your
+deployment manager's lifecycle workflow. Never delete the config directory or
+detection database. If evidence cannot be persisted, the current process remains
+blocked and logs `native_crash_quarantine_persistence_failed`; fix config-volume
+permissions before relying on persistence across restarts. Driver-only changes
+not represented in the runtime signature also need explicit revalidation.
+
 **Audio context note:** Backfill reprocesses **Frigate** events only. BirdNET-Go audio confirmations are not backfilled unless you have a separate historical audio source to import. After a database reset, audio context will only appear for new detections once BirdNET-Go is running again.
 
 | Reason | Explanation |

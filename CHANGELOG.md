@@ -16,6 +16,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- Retain confirmed native worker crash evidence across restarts and block the same
+  model/provider launch configuration in all worker pools. Quarantined work cannot
+  silently fall back into the web process. Normal shutdown and deadline kills are
+  not labelled native crashes. Add a local-only OpenVINO cold/warm-cache reproducer
+  with bounded child processes and durable per-run outcomes.
 - Preserve downloaded accuracy-fixture attribution and checksums across reruns;
   enforce the photo's own CC0/CC-BY licence, respect exclusions, and retain previous
   manifests when a refresh is incomplete. Refreshes no longer overwrite old images.

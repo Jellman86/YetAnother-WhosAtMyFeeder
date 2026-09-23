@@ -1,5 +1,7 @@
 import asyncio
 import time
+import signal
+import sys
 
 import pytest
 
@@ -11,6 +13,169 @@ from app.services.classifier_supervisor import (
     ClassifierWorkerHeartbeatTimeoutError,
     ClassifierWorkerStartupTimeoutError,
 )
+from app.services.native_crash_quarantine import NativeCrashQuarantine, NativeCrashQuarantinedError
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(sys.platform != "linux", reason="Linux signal/reaping contract, no macOS crash reporter")
+async def test_real_native_child_crash_is_reaped_and_persistently_quarantined(tmp_path):
+    from app.services.classifier_worker_client import ClassifierWorkerClient
+
+    processes = []
+
+    async def process_factory(**_kwargs):
+        process = await asyncio.create_subprocess_exec(
+            sys.executable,
+            "-c",
+            "import os,resource,signal; resource.setrlimit(resource.RLIMIT_CORE,(0,0)); os.kill(os.getpid(),signal.SIGABRT)",
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env={},
+        )
+        processes.append(process)
+        return process
+
+    async def worker_factory(**kwargs):
+        return ClassifierWorkerClient(
+            worker_name=kwargs["worker_name"],
+            worker_generation=kwargs["worker_generation"],
+            heartbeat_timeout_seconds=5,
+            process_factory=process_factory,
+        )
+
+    profile = {"model": "synthetic", "provider": "none"}
+    supervisor = ClassifierSupervisor(
+        live_worker_count=1,
+        background_worker_count=1,
+        heartbeat_timeout_seconds=5,
+        hard_deadline_seconds=10,
+        worker_factory=worker_factory,
+        crash_quarantine=NativeCrashQuarantine(lambda: profile, root=tmp_path),
+    )
+    try:
+        with pytest.raises(NativeCrashQuarantinedError):
+            await asyncio.wait_for(supervisor._spawn_worker("live", 0, 1), 10)
+        assert processes[0].returncode == -signal.SIGABRT
+        with pytest.raises(NativeCrashQuarantinedError):
+            NativeCrashQuarantine(lambda: profile, root=tmp_path).guard()
+        assert not supervisor._cleanup_pending
+    finally:
+        await supervisor.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_crashed_idle_worker_is_not_replaced_or_reused_by_another_pool(tmp_path):
+    created = []
+
+    async def factory(**kwargs):
+        worker = _FakeWorker(kwargs["worker_name"], kwargs["worker_generation"])
+        created.append(worker)
+        return worker
+
+    policy = NativeCrashQuarantine(lambda: {"model": "bird"}, root=tmp_path)
+    supervisor = ClassifierSupervisor(
+        live_worker_count=1,
+        background_worker_count=1,
+        heartbeat_timeout_seconds=5,
+        hard_deadline_seconds=10,
+        worker_factory=factory,
+        crash_quarantine=policy,
+    )
+    try:
+        await supervisor.start("live")
+        await supervisor.start("background")
+        created[0].exit_code = -signal.SIGSEGV
+        await supervisor._replace_worker(
+            "live", 0, reason="worker_exited", assignment_error=ClassifierWorkerExitedError("exited"), kill=False
+        )
+        assert len(created) == 2
+        with pytest.raises(NativeCrashQuarantinedError):
+            await supervisor.classify(
+                priority="background",
+                work_id="test",
+                lease_token=1,
+                image_b64="unused",
+                camera_name=None,
+                model_id=None,
+            )
+        assert created[1].sent_messages == []
+        assert supervisor._metrics["live"]["last_exit_reason"] == "native_runtime_quarantined"
+    finally:
+        await supervisor.shutdown()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("startup_error", [RuntimeError("exit before ready"), TimeoutError()])
+async def test_native_startup_crash_blocks_every_pool_without_another_launch(tmp_path, startup_error):
+    created = []
+
+    async def factory(**kwargs):
+        worker = _FakeWorker(kwargs["worker_name"], kwargs["worker_generation"])
+
+        async def ready(**_kwargs):
+            worker.exit_code = -signal.SIGSEGV
+            raise startup_error
+
+        worker.wait_until_ready = ready
+        created.append(worker)
+        return worker
+
+    policy = NativeCrashQuarantine(lambda: {"model": "bird", "provider": "gpu"}, root=tmp_path)
+    supervisor = ClassifierSupervisor(
+        live_worker_count=1,
+        background_worker_count=1,
+        heartbeat_timeout_seconds=5,
+        hard_deadline_seconds=10,
+        worker_factory=factory,
+        crash_quarantine=policy,
+    )
+    try:
+        for priority in ("live", "background", "video", "live"):
+            with pytest.raises(NativeCrashQuarantinedError):
+                await supervisor._spawn_worker(priority, 0, 1)
+        assert len(created) == 1
+        assert created[0].closed
+    finally:
+        await supervisor.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_worker_waiting_for_init_lock_rechecks_native_quarantine(tmp_path):
+    created = asyncio.Event()
+    worker = _FakeWorker("background-0", 1)
+    started = []
+
+    async def factory(**_kwargs):
+        created.set()
+        return worker
+
+    async def start():
+        started.append(True)
+
+    worker.start = start
+    policy = NativeCrashQuarantine(lambda: {"model": "bird"}, root=tmp_path)
+    supervisor = ClassifierSupervisor(
+        live_worker_count=1,
+        background_worker_count=1,
+        heartbeat_timeout_seconds=5,
+        hard_deadline_seconds=10,
+        worker_factory=factory,
+        crash_quarantine=policy,
+    )
+    await supervisor._global_init_lock.acquire()
+    task = asyncio.create_task(supervisor._spawn_worker("background", 0, 1))
+    try:
+        await asyncio.wait_for(created.wait(), 1)
+        policy.record(policy.guard(), -signal.SIGABRT)
+        supervisor._global_init_lock.release()
+        with pytest.raises(NativeCrashQuarantinedError):
+            await task
+        assert not started
+    finally:
+        if supervisor._global_init_lock.locked():
+            supervisor._global_init_lock.release()
+        await supervisor.shutdown()
 
 
 class _FakeWorker:

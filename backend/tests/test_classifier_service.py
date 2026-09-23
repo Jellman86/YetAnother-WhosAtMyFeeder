@@ -54,6 +54,49 @@ from app.services.classifier_supervisor import (  # noqa: E402
 )
 from app.config import settings  # noqa: E402
 from app.config_models import ClassificationSettings  # noqa: E402
+from app.services.native_crash_quarantine import NativeCrashQuarantinedError  # noqa: E402
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("priority", ["live", "background"])
+async def test_native_crash_quarantine_never_uses_in_process_fallback(priority):
+    service = ClassifierService.__new__(ClassifierService)
+    service._classifier_supervisor = MagicMock()
+    service._classifier_supervisor.classify = AsyncMock(side_effect=NativeCrashQuarantinedError("blocked"))
+    service._classify_in_process_as_last_resort = AsyncMock()
+    expected = (
+        LiveImageClassificationOverloadedError if priority == "live" else BackgroundImageClassificationUnavailableError
+    )
+    with pytest.raises(expected, match="native_runtime_quarantined"):
+        await service._run_supervised_inference(priority, Image.new("RGB", (4, 4)), None, None)
+    service._classify_in_process_as_last_resort.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_native_crash_quarantine_video_reason_is_preserved():
+    service = ClassifierService.__new__(ClassifierService)
+    service._video_supervisor = MagicMock()
+    service._video_supervisor.classify_video = AsyncMock(side_effect=NativeCrashQuarantinedError("blocked"))
+    with pytest.raises(VideoClassificationWorkerError, match="native_runtime_quarantined"):
+        await service.classify_video_async("unused.mp4", max_frames=1, propagate_worker_failure=True)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("remaining_workers", [0, 1])
+async def test_native_quarantine_is_not_reported_as_healthy_with_idle_workers(remaining_workers):
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+    service._image_execution_mode = "subprocess"
+    service._classifier_supervisor = MagicMock()
+    service._classifier_supervisor.get_metrics.return_value = {
+        "live": {"workers": 0, "last_exit_reason": "native_runtime_quarantined", "circuit_open": False},
+        "background": {"workers": remaining_workers, "last_exit_reason": None, "circuit_open": False},
+    }
+    try:
+        assert service.check_health()["status"] == "error"
+    finally:
+        await service.shutdown()
+
 
 # Restore the original module so this test file doesn't leak a mock into other tests.
 if _original_model_manager_module is not None:
