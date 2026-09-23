@@ -16,6 +16,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Classifier worker replacement waits for the old process to exit.** Closed pipes no
+  longer masquerade as a reaped worker. Shutdown escalates ignored termination to a
+  bounded kill, startup cancellation cleans up its child, and failed cleanup blocks
+  a replacement from loading another native model alongside the old one.
 - **Pre-migration restore points include committed SQLite WAL data.** Backups now use
   SQLite's consistent snapshot API, check integrity and publish atomically; failed or
   locked copies do not prune existing restore points.

@@ -131,6 +131,169 @@ def _find_worker(created: list[_FakeWorker], worker_name: str, generation: int) 
 
 
 @pytest.mark.asyncio
+async def test_cancelled_startup_reaps_the_worker_before_returning():
+    entered = asyncio.Event()
+    worker = _FakeWorker("live-0", 1)
+
+    async def wait_until_ready(**_kwargs):
+        entered.set()
+        await asyncio.Event().wait()
+
+    worker.wait_until_ready = wait_until_ready
+
+    async def factory(**_kwargs):
+        return worker
+
+    supervisor = ClassifierSupervisor(
+        live_worker_count=1,
+        background_worker_count=0,
+        heartbeat_timeout_seconds=5,
+        hard_deadline_seconds=10,
+        worker_factory=factory,
+    )
+    startup = asyncio.create_task(supervisor._spawn_worker("live", 0, generation=1))
+    await asyncio.wait_for(entered.wait(), 1)
+    startup.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await startup
+    assert worker.terminated
+    assert worker.closed
+
+
+@pytest.mark.asyncio
+async def test_failed_cleanup_is_not_hidden_from_the_caller():
+    worker = _FakeWorker("live-0", 1)
+
+    async def terminate():
+        raise TimeoutError("worker did not exit")
+
+    worker.terminate = terminate
+    supervisor = ClassifierSupervisor(
+        live_worker_count=1,
+        background_worker_count=0,
+        heartbeat_timeout_seconds=5,
+        hard_deadline_seconds=10,
+    )
+    with pytest.raises(TimeoutError, match="worker did not exit"):
+        await supervisor._close_failed_worker(worker)
+    assert supervisor._cleanup_pending["live-0"] is worker
+
+
+@pytest.mark.asyncio
+async def test_a_cleanup_timeout_blocks_replacement_until_the_old_worker_is_reaped():
+    created = []
+
+    async def factory(**kwargs):
+        worker = _FakeWorker(kwargs["worker_name"], kwargs["worker_generation"])
+        created.append(worker)
+        return worker
+
+    supervisor = ClassifierSupervisor(
+        live_worker_count=1,
+        background_worker_count=0,
+        heartbeat_timeout_seconds=5,
+        hard_deadline_seconds=10,
+        worker_factory=factory,
+    )
+    await supervisor.start("live")
+    old = created[0]
+
+    async def stuck():
+        raise TimeoutError("still alive")
+
+    old.kill = stuck
+    old.terminate = stuck
+    try:
+        await supervisor.restart_pool("live")
+        assert len(created) == 1
+        assert supervisor._slots["live"][0].worker is None
+        assert supervisor._cleanup_pending["live-0"] is old
+        assert supervisor.get_metrics()["live"]["last_exit_reason"] == "cleanup_failed"
+        await supervisor._restore_unavailable_slots("live")
+        assert len(created) == 1
+        old.terminate = lambda: _FakeWorker.terminate(old)
+        await supervisor._restore_unavailable_slots("live")
+        assert old.closed
+        assert len(created) == 2
+        assert not supervisor._cleanup_pending
+    finally:
+        old.terminate = lambda: _FakeWorker.terminate(old)
+        await supervisor.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_cancelled_replacement_retains_ownership_of_the_old_worker():
+    created = []
+
+    async def factory(**kwargs):
+        worker = _FakeWorker(kwargs["worker_name"], kwargs["worker_generation"])
+        created.append(worker)
+        return worker
+
+    supervisor = ClassifierSupervisor(
+        live_worker_count=1,
+        background_worker_count=0,
+        heartbeat_timeout_seconds=5,
+        hard_deadline_seconds=10,
+        worker_factory=factory,
+    )
+    await supervisor.start("live")
+    entered = asyncio.Event()
+    old = created[0]
+
+    async def blocked_kill():
+        entered.set()
+        await asyncio.Event().wait()
+
+    old.kill = blocked_kill
+    replacement = asyncio.create_task(supervisor.restart_pool("live"))
+    try:
+        await asyncio.wait_for(entered.wait(), 1)
+        replacement.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await replacement
+        assert len(created) == 1
+        assert supervisor._cleanup_pending["live-0"] is old
+        assert supervisor._slots["live"][0].worker is None
+        assert not supervisor._replacing
+    finally:
+        await supervisor.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_shutdown_cleans_other_workers_even_if_one_cleanup_fails():
+    created = []
+
+    async def factory(**kwargs):
+        worker = _FakeWorker(kwargs["worker_name"], kwargs["worker_generation"])
+        created.append(worker)
+        return worker
+
+    supervisor = ClassifierSupervisor(
+        live_worker_count=2,
+        background_worker_count=0,
+        heartbeat_timeout_seconds=5,
+        hard_deadline_seconds=10,
+        worker_factory=factory,
+    )
+    await supervisor.start("live")
+
+    async def stuck():
+        raise TimeoutError("not reaped")
+
+    created[0].terminate = stuck
+    try:
+        with pytest.raises(TimeoutError, match="not reaped"):
+            await supervisor.shutdown()
+        assert created[1].closed
+        assert not supervisor._consumer_tasks
+        assert supervisor._cleanup_pending["live-0"] is created[0]
+    finally:
+        created[0].terminate = lambda: _FakeWorker.terminate(created[0])
+        await supervisor.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_classifier_supervisor_starts_live_and_background_pools():
     created: list[_FakeWorker] = []
 
