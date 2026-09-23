@@ -12,6 +12,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   native inference stalls. Queued fallback requests cannot load another native model after quarantine.
 - Preserve video timeout and worker-failure circuit accounting when the fallback snapshot is filtered.
 - Apply classifier admission and deadlines to uploaded test images in both execution modes.
+- Reload the active classifier through the supported service API after downloading the default model.
 
 ### Fixed
 

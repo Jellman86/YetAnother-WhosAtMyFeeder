@@ -1,6 +1,7 @@
 import uuid
 import io
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import httpx
 import pytest
@@ -158,6 +159,25 @@ async def test_classifier_upload_endpoints_use_admission_even_in_process(
         assert seen_input_contexts == [{"is_cropped": False}]
     finally:
         settings.classification.image_execution_mode = original_mode
+
+
+@pytest.mark.asyncio
+async def test_default_model_download_reloads_through_supported_service_api(client, monkeypatch, tmp_path):
+    async def upstream(request):
+        content = b"\x00" * 2048 if request.url.path.endswith(".tflite") else b"0 bird (Robin)\n"
+        return httpx.Response(200, content=content)
+
+    upstream_client = httpx.AsyncClient(transport=httpx.MockTransport(upstream))
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **_: upstream_client)
+    monkeypatch.setattr(classifier_router, "Path", lambda _: tmp_path)
+    fake_classifier = SimpleNamespace(reload_bird_model=AsyncMock())
+    monkeypatch.setattr(classifier_router, "classifier_service", fake_classifier)
+    app.dependency_overrides[require_owner] = lambda: AuthContext(auth_level=AuthLevel.OWNER, username="owner")
+    response = await client.post("/api/classifier/download")
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "ok", response.text
+    fake_classifier.reload_bird_model.assert_awaited_once()
+    assert (tmp_path / "labels.txt").read_text() == "Robin\n"
 
 
 @pytest.mark.asyncio

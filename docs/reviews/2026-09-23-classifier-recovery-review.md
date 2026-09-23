@@ -14,6 +14,7 @@ backfill, runtime health and the Detection settings status after issue #490.
 | A fallback waiter could load another model after quarantine | The fallback lock rechecks quarantine before native work starts |
 | Wildlife requests bypassed isolated workers, then failed after bird-runtime quarantine | Subprocess mode routes wildlife through the background worker protocol; wildlife reload restarts that pool |
 | Uploaded classifier tests bypassed admission in native mode | Bird and wildlife upload tests use the coordinated asynchronous entry points |
+| Default model download called the removed `_load_model` method | Download completion uses the supported asynchronous model reload API |
 | A filtered fallback snapshot concealed the video timeout or worker failure | The circuit retains the original infrastructure failure when fallback does not recover the visit |
 | The settings status displayed the saved execution mode after automatic recovery | It displays the running mode, distinguishes pending/completed recovery and retains restart advice |
 
@@ -24,7 +25,7 @@ Expected filtering and missing media do not count as classifier outages.
 
 ## Verification
 
-- Local backend: 3,022 passed, 49 skipped. Skips do not establish hardware coverage.
+- Local backend: the full suite passes. Skips do not establish hardware coverage.
 - Frontend: 1,133 passed; Svelte check has zero errors/warnings; dead-code check and production build pass.
 - Repository-wide Ruff and documentation consistency checks pass.
 - Quark, Intel NPU, `rope_vit_b14_inat21`: a disposable classifier service first
@@ -34,6 +35,9 @@ Expected filtering and missing media do not count as classifier outages.
   ingestion and detection database were not modified by the test.
 - Quark, Intel GPU, same installed model and retained crop: compile and inference
   passed with 10,000 finite outputs; observed median inference was 243.2 ms.
+- Quark, Intel CPU, same model and crop: 10,000 finite outputs and the same top
+  five indices as GPU; observed median inference was 122.3 ms. These single-crop
+  checks are not a benchmark under production load or a reason to change providers.
 - PICARD, RTX 4070 under WSL, ONNX Runtime 1.26.0: the application's ONNX model
   loader and preprocessing executed a deterministic three-class fixture on CPU
   and CUDA. Runtime profiles confirmed CUDA kernels, with CPU agreement within

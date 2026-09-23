@@ -584,7 +584,7 @@ async def download_default_model(auth: AuthContext = Depends(require_owner)):
         await asyncio.to_thread(_write_download, labels_path, "\n".join(processed_labels) + "\n")
 
         # Reload the classifier
-        await asyncio.to_thread(classifier_service._load_model)
+        await classifier_service.reload_bird_model()
 
         log.info("Model downloaded and loaded successfully")
         return {
