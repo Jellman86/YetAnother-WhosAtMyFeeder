@@ -358,17 +358,31 @@ class BackfillService:
             )
 
             if snapshot_data and settings.media_cache.enabled and settings.media_cache.cache_snapshots:
-                snapshot_cached = await asyncio.to_thread(media_cache.has_snapshot, frigate_event)
-                if not snapshot_cached:
-                    snapshot_cached = bool(
-                        await media_cache.cache_snapshot(
-                            frigate_event,
-                            snapshot_data,
-                            source=snapshot_provenance.input_source,
+                try:
+                    snapshot_cached = await asyncio.to_thread(media_cache.has_snapshot, frigate_event)
+                    if not snapshot_cached:
+                        snapshot_cached = bool(
+                            await media_cache.cache_snapshot(
+                                frigate_event,
+                                snapshot_data,
+                                source=snapshot_provenance.input_source,
+                            )
                         )
+                    if snapshot_cached and settings.media_cache.high_quality_event_snapshots:
+                        high_quality_snapshot_service.schedule_replacement(frigate_event, event_data=event)
+                except Exception as exc:
+                    # The detection has committed. A best-effort media failure must
+                    # not turn that successful write into an apparent classifier failure.
+                    log.warning("Backfill snapshot cache failed", event_id=frigate_event, error=str(exc))
+                    error_diagnostics_history.record(
+                        source="backfill",
+                        component="detections",
+                        stage="cache_snapshot",
+                        reason_code="snapshot_cache_failed",
+                        severity="warning",
+                        message="Detection retained but its snapshot could not be cached or upgraded",
+                        event_id=frigate_event,
                     )
-                if snapshot_cached and settings.media_cache.high_quality_event_snapshots:
-                    high_quality_snapshot_service.schedule_replacement(frigate_event, event_data=event)
 
             if not changed:
                 log.debug("Event already exists and score not improved, skipped", event_id=frigate_event)

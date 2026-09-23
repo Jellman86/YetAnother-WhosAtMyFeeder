@@ -693,6 +693,11 @@ debug/probe endpoints and a defined replacement policy before retiring the compa
 Memory comparisons still need matched model, worker count and uptime. Worker pools carry separate
 model copies and can retain crop detectors; startup RSS does not establish long-running memory cost.
 
+The [backfill test-hardening review](docs/reviews/2026-09-23-backfill-test-hardening.md) adds
+migrated-database detection/weather replays, real worker-process fault tests and a disposable
+hardware replay harness. Remaining evidence includes retained-video replay, the published CUDA
+image, a labelled accuracy corpus and sustained mixed-load memory/queue bounds.
+
 Complete when a fresh install runs inference out of process, resident memory is measured before and
 after and stated honestly in the release notes, a test pins the resolved defaults, and Settings >
 Detection explains the mode by its effect.

@@ -686,9 +686,15 @@ async def backfill_detections_async(
             _prune_terminal_jobs()
             await maintenance_coordinator.release(holder_id)
 
+    coroutine = runner()
     try:
-        task = create_background_task(runner(), name=f"backfill_job:{job.id}")
+        task = create_background_task(coroutine, name=f"backfill_job:{job.id}")
     except Exception:
+        coroutine.close()
+        job.status = "failed"
+        job.message = "Could not start backfill job"
+        job.finished_at = _now_iso()
+        _prune_terminal_jobs()
         await maintenance_coordinator.release(holder_id)
         raise
     _JOB_TASKS[job.id] = task
@@ -938,12 +944,12 @@ async def _start_weather_backfill_async(
                         job.errors += 1
                         job.error_reasons["exception"] = job.error_reasons.get("exception", 0) + 1
                         log.warning("Weather backfill failed", error=str(e), event_id=det.get("frigate_event"))
-                    finally:
-                        job.processed += 1
-                        _touch_job(job)
-                        if job.processed - last_broadcast >= broadcast_every or job.processed == job.total:
-                            last_broadcast = job.processed
-                            await broadcaster.broadcast({"type": "backfill_progress", "data": _job_payload(job)})
+                    # Cancellation has no completed outcome to count.
+                    job.processed += 1
+                    _touch_job(job)
+                    if job.processed - last_broadcast >= broadcast_every or job.processed == job.total:
+                        last_broadcast = job.processed
+                        await broadcaster.broadcast({"type": "backfill_progress", "data": _job_payload(job)})
 
                 message = f"Updated {job.updated} detection(s)"
                 if job.skipped:
@@ -981,9 +987,15 @@ async def _start_weather_backfill_async(
             _prune_terminal_jobs()
             await maintenance_coordinator.release(holder_id)
 
+    coroutine = runner()
     try:
-        task = create_background_task(runner(), name=f"backfill_weather_job:{job.id}")
+        task = create_background_task(coroutine, name=f"backfill_weather_job:{job.id}")
     except Exception:
+        coroutine.close()
+        job.status = "failed"
+        job.message = "Could not start weather backfill job"
+        job.finished_at = _now_iso()
+        _prune_terminal_jobs()
         await maintenance_coordinator.release(holder_id)
         raise
     _JOB_TASKS[job.id] = task

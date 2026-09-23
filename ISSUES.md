@@ -51,6 +51,12 @@ in-app notification timeline both prove one real final-mode detection end to end
 
 ## Known Remaining Exposure
 
+- **Backfill/classifier coverage is broader but not exhaustive.** The
+  [September backfill review](docs/reviews/2026-09-23-backfill-test-hardening.md) adds
+  real-database detection/weather tests and real worker-process failures. Full retained-video
+  replay, published CUDA-image validation, labelled accuracy regressions and sustained mixed-load
+  checks remain on the [inference isolation roadmap](ROADMAP.md#keep-the-web-service-and-ingest-off-the-inference-path-).
+
 - **Low-level classifier diagnostics have separate native execution paths.** Ordinary uploaded
   classifications now share admission and isolation, but owner-only native debug/probe endpoints
   are not covered by the same worker deadline contract. Move these diagnostics into disposable
