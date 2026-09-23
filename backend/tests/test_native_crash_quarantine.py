@@ -68,3 +68,24 @@ def test_memory_quarantine_precedes_persistence(tmp_path):
     assert not list(tmp_path.iterdir())
     with pytest.raises(NativeCrashQuarantinedError):
         policy.guard()
+
+
+def test_native_signal_is_batched_as_sanitized_deduplicated_health_telemetry(tmp_path, monkeypatch):
+    from app.services import error_diagnostics
+    from app.services.telemetry_service import build_health_issue_report
+
+    history = error_diagnostics.ErrorDiagnosticsHistory()
+    monkeypatch.setattr(error_diagnostics, "error_diagnostics_history", history)
+    profile = {"model_id": "only-model", "provider": "intel_gpu", "private_path": "secret"}
+    policy = NativeCrashQuarantine(lambda: profile, root=tmp_path)
+    for _ in range(3):
+        policy.record(profile, -signal.SIGSEGV)
+    report = build_health_issue_report(
+        installation_id="test", app_version="test", diagnostics_snapshot=history.snapshot()
+    )
+    assert len(report["issues"]) == 1
+    assert report["issues"][0]["count"] == 1
+    assert report["issues"][0]["sample_context"]["error_type"] == "SIGSEGV"
+    assert report["issues"][0]["sample_context"]["configured_provider"] == "intel_gpu"
+    assert "active_provider" not in report["issues"][0]["sample_context"]
+    assert "secret" not in json.dumps(report)

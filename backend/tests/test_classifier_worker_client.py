@@ -81,6 +81,22 @@ async def _client_for_process(process: _FakeProcess, **kwargs) -> ClassifierWork
 
 
 @pytest.mark.asyncio
+async def test_cpu_recovery_override_is_child_only_and_forces_crop_isolation(monkeypatch):
+    from unittest.mock import AsyncMock
+
+    monkeypatch.setenv("CLASSIFICATION__INFERENCE_PROVIDER", "intel_gpu")
+    spawn = AsyncMock()
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", spawn)
+    client = ClassifierWorkerClient(
+        worker_name="native-cpu", worker_generation=1, heartbeat_timeout_seconds=5, inference_provider_override="cpu"
+    )
+    await client._spawn_process(worker_name="native-cpu", worker_generation=1)
+    assert spawn.call_args.kwargs["env"]["CLASSIFICATION__INFERENCE_PROVIDER"] == "cpu"
+    assert spawn.call_args.kwargs["env"]["YA_WAMF_NATIVE_CPU_RECOVERY"] == "1"
+    assert os.environ["CLASSIFICATION__INFERENCE_PROVIDER"] == "intel_gpu"
+
+
+@pytest.mark.asyncio
 async def test_pipe_eof_does_not_report_process_exit():
     process = _FakeProcess()
     client = await _client_for_process(process)

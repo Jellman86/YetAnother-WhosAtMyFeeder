@@ -737,12 +737,13 @@ native crash, and CPU/provider agreement is not a species-accuracy score.
 Persistent launch-profile quarantine and a standalone cold/warm-cache OpenVINO
 reproducer now support that investigation; neither establishes the crash's cause
 or closes the reporter-confirmation requirement for #490.
-Next, recover with the same artifact on CPU in an isolated worker, validating the
-actual provider and workload deadline before reporting recovery. A different model
-must not be a requirement. Add deduplicated native-crash/recovery summaries through
-the existing opt-in health reporting path without increasing report frequency or
-adding per-frame storage; assess retention and query costs against the Cloudflare
-free-tier budget before changing ingestion.
+Same-artifact isolated CPU recovery now checks actual provider, weight/label
+identity and workload deadlines; another installed model is not required. Bounded
+native-crash/recovery diagnostics use existing opt-in batches without higher
+frequency, per-frame writes or ingestion changes. Remaining work includes sustained
+mixed-load recovery and the original reporter's model/driver validation. Assess
+retention and query costs against the Cloudflare free-tier budget before any
+future ingestion expansion.
 
 The fixture downloader now preserves attribution and checksums, filters the photo's
 own licence, respects exclusions and keeps old images/manifests on incomplete

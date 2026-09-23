@@ -353,7 +353,21 @@ region, preprocessing, crop configuration and runtime/hardware signature. It
 describes the worker configuration, not proof of which native library failed.
 Selecting CPU for the same model is the preferred mitigation if that combination
 is supported and can meet the workload's deadline; another installed model is not
-required. This containment change does not yet automate that CPU validation/switch.
+required. For quarantined accelerator profiles, isolated live, background and video work
+automatically attempt the same model in one shared, isolated CPU worker. Crop
+generation in that worker is also CPU-only. The configured provider is unchanged.
+The loaded model/labels/external weights and actual provider must match before and
+after inference. Queueing, cold load and inference share the workload deadline;
+merely loading a model is not recovery. Health remains degraded after successful
+CPU inference and retains the original crash evidence. A failed or cancelled
+attempt is not repeated for that workload until a configuration change or process
+restart; a native crash in the CPU profile remains quarantined across restarts.
+Wildlife work does not reuse this bird-model recovery path.
+Recovery deliberately uses one CPU worker to bound memory after a crash. A long
+video or backfill classification can consume another request's queue budget;
+that request fails visibly rather than spawning extra model copies or killing
+another workload's healthy inference. Select a validated provider appropriate to
+your workload if sustained CPU recovery cannot keep up.
 Changing to a different independently validated provider is also a mitigation;
 changing execution mode or restarting alone does not clear the retained evidence.
 This does not protect against a first native crash in legacy in-process mode.
@@ -368,6 +382,11 @@ detection database. If evidence cannot be persisted, the current process remains
 blocked and logs `native_crash_quarantine_persistence_failed`; fix config-volume
 permissions before relying on persistence across restarts. Driver-only changes
 not represented in the runtime signature also need explicit revalidation.
+
+Native signal names and bounded recovery outcomes enter the existing opt-in health
+report batches once per profile/workload state per process. Requested GPU is not
+reported as proof that GPU code caused the fault. No stderr, image, core dump or
+local file path is included, and reporting frequency and ingestion are unchanged.
 
 **Audio context note:** Backfill reprocesses **Frigate** events only. BirdNET-Go audio confirmations are not backfilled unless you have a separate historical audio source to import. After a database reset, audio context will only appear for new detections once BirdNET-Go is running again.
 

@@ -82,6 +82,47 @@ async def test_native_crash_quarantine_video_reason_is_preserved():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("priority", ["live", "background"])
+async def test_native_crash_routes_same_image_to_isolated_cpu_without_loading_parent(priority):
+    service = ClassifierService.__new__(ClassifierService)
+    service._classifier_supervisor = MagicMock()
+    service._classifier_supervisor.classify = AsyncMock(side_effect=NativeCrashQuarantinedError("blocked"))
+    service._native_cpu_recovery = MagicMock()
+    service._native_cpu_recovery.run = AsyncMock(return_value=[{"label": "bird", "score": 0.9}])
+    service._classify_in_process_as_last_resort = AsyncMock()
+    assert await service._run_supervised_inference(priority, Image.new("RGB", (4, 4)), None, None)
+    arguments = service._native_cpu_recovery.run.call_args.kwargs
+    assert arguments["priority"] == priority
+    assert arguments["payload"]["image_b64"]
+    assert arguments["timeout_seconds"] <= (30 if priority == "live" else 45)
+    service._classify_in_process_as_last_resort.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_cpu_recovery_health_is_degraded_and_reports_cpu_not_idle_gpu():
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+    service._image_execution_mode = "subprocess"
+    service._classifier_supervisor = MagicMock()
+    service._classifier_supervisor.get_metrics.return_value = {
+        "live": {"workers": 1, "runtime": {"active_provider": "intel_gpu"}},
+        "background": {"workers": 0, "last_exit_reason": "native_runtime_quarantined"},
+    }
+    service._native_cpu_recovery._states["background"] = {
+        "status": "degraded",
+        "recovered": True,
+        "runtime": {"active_provider": "cpu", "inference_backend": "onnx", "model_id": "bird"},
+    }
+    try:
+        assert service.check_health()["status"] == "degraded"
+        assert service._latest_worker_reported_runtime(service._get_supervisor_metrics())["active_provider"] == "cpu"
+        service._native_cpu_recovery._states["background"]["status"] = "failed"
+        assert service.check_health()["status"] == "error"
+    finally:
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("remaining_workers", [0, 1])
 async def test_native_quarantine_is_not_reported_as_healthy_with_idle_workers(remaining_workers):
     with patch.object(ClassifierService, "_init_bird_model", return_value=None):

@@ -102,8 +102,10 @@ def build_result_event(
     work_id: str,
     lease_token: int,
     results: list[dict[str, Any]],
+    runtime: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     return {
+        **({"runtime": dict(runtime)} if runtime else {}),
         "type": "result",
         "worker_generation": int(worker_generation),
         "request_id": str(request_id),

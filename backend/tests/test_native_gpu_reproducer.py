@@ -27,7 +27,8 @@ def test_child_environment_does_not_inherit_credentials_or_production_cache(tmp_
     environment = child_environment(tmp_path)
     assert "YA_WAMF_API_KEY" not in environment
     assert "OPENVINO_CACHE_DIR" not in environment
-    assert environment["HOME"] == str(tmp_path)
+    assert "HOME" not in environment
+    assert environment["XDG_CACHE_HOME"] == str(tmp_path / "driver-cache")
 
 
 def test_runner_retains_incomplete_report_and_log(tmp_path):

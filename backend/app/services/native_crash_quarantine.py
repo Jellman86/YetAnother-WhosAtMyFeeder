@@ -55,6 +55,7 @@ class NativeCrashQuarantine:
         self._profile_getter = profile_getter
         self._root = root or Path(os.environ.get("CONFIG_DIR", "/config")) / "native-crashes"
         self._blocked: set[str] = set()
+        self._reported: set[str] = set()
         self._lock = threading.RLock()
 
     @staticmethod
@@ -102,6 +103,24 @@ class NativeCrashQuarantine:
         except OSError:
             log.error("native_crash_quarantine_persistence_failed", fingerprint=key)
         log.error("native_classifier_crash_quarantined", fingerprint=key, exit_code=exit_code)
+        with self._lock:
+            if key not in self._reported:
+                self._reported.add(key)
+                from .error_diagnostics import error_diagnostics_history
+
+                error_diagnostics_history.record(
+                    source="classifier",
+                    component="classifier_worker",
+                    severity="error",
+                    reason_code="native_classifier_crash",
+                    message="A native classifier process crashed; its launch profile is quarantined.",
+                    context={
+                        "error_type": signal.Signals(-exit_code).name,
+                        "configured_provider": profile.get("provider"),
+                        "model_id": profile.get("model_id"),
+                        "status": "quarantined",
+                    },
+                )
         return True
 
     def _persist(self, key: str, evidence: dict[str, Any]) -> None:

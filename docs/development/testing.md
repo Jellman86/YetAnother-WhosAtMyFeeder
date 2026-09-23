@@ -145,6 +145,23 @@ from a single pass. Review every failure, even when another repeat passes.
 
 ### Native OpenVINO crash reproducer
 
+Verify the application recovery contract separately with real installed weights:
+
+```bash
+PYTHONPATH=. python scripts/smoke_native_cpu_recovery.py \
+  --model-dir /data/models/small_birds/eu --model-id small_birds --region eu \
+  --image /path/to/retained-bird-crop.jpg
+```
+
+This creates disposable config, database, media and compiled-cache paths, seeds a
+**synthetic** native-fault record, and checks cold live CPU recovery, background
+inference, video progress/abstention and backfill idempotency. It never starts
+ingestion or sends notifications. Original weights and the input image are read-only.
+The separate Linux supervisor regression exercises a real SIGABRT child; a seeded
+record must never be described as reproducing the underlying GPU fault. CPU
+recovery remains degraded even after success, and wrong artifacts, native CPU
+crashes, cancellation, missed deadlines and failed reaping fail closed.
+
 Run this Linux-only tool serially on a trusted hardware host. It imports OpenVINO
 directly, not YA-WAMF services, and uses deterministic synthetic tensors. It tests
 runtime stability, not species accuracy or equivalence to the application pipeline.

@@ -33,7 +33,6 @@ def write_report(path: Path, report: dict[str, Any]) -> None:
 def child_environment(root: Path) -> dict[str, str]:
     environment = {key: os.environ[key] for key in ("PATH", "LD_LIBRARY_PATH", "LANG", "LC_ALL") if key in os.environ}
     environment.update(
-        HOME=str(root),
         XDG_CACHE_HOME=str(root / "driver-cache"),
         PYTHONUNBUFFERED="1",
         OMP_NUM_THREADS="2",

@@ -160,6 +160,7 @@ class ClassifierWorkerProcess:
                     work_id=str(message["work_id"]),
                     lease_token=int(message["lease_token"]),
                     results=results,
+                    runtime=self._runtime_identity(),
                 )
             )
         except Exception as exc:
@@ -265,6 +266,7 @@ class ClassifierWorkerProcess:
                     work_id=str(message["work_id"]),
                     lease_token=int(message["lease_token"]),
                     results=results,
+                    runtime=self._runtime_identity(),
                 )
             )
         except Exception as exc:
