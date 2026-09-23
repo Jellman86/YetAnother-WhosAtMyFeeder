@@ -3,7 +3,7 @@ import asyncio
 from datetime import datetime
 from dataclasses import dataclass, field
 from collections import defaultdict
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 
 from app.config import settings
 from app.services.classifier_service import (
@@ -43,6 +43,27 @@ class BackfillEventHistoryIncompleteError(RuntimeError):
     """The requested Frigate history could not be enumerated completely."""
 
 
+class BackfillClassifierUnavailableError(RuntimeError):
+    """Stop the job without consuming the remaining history during an inference outage."""
+
+
+@dataclass
+class BackfillFailureGuard:
+    consecutive_failures: int = 0
+
+    def observe(self, status: str, reason: str | None) -> None:
+        if status == "error" and reason and reason.startswith("background_image_"):
+            self.consecutive_failures += 1
+        else:
+            self.consecutive_failures = 0
+        if self.consecutive_failures >= 3:
+            raise BackfillClassifierUnavailableError(
+                f"Backfill stopped after 3 consecutive classifier failures ({reason}). "
+                "Check System Health and use subprocess image execution. If inference remains stalled, "
+                "restart the container, then rerun this date range. Existing detections will be skipped."
+            )
+
+
 @dataclass
 class BackfillResult:
     """Result of a backfill operation."""
@@ -51,6 +72,7 @@ class BackfillResult:
     new_detections: int = 0
     skipped: int = 0
     errors: int = 0
+    stopped_reason: str | None = None
     skipped_reasons: dict[str, int] = field(default_factory=lambda: defaultdict(int))
     error_reasons: dict[str, int] = field(default_factory=lambda: defaultdict(int))
 
@@ -448,6 +470,14 @@ class BackfillService:
             )
             return "error", "timeout"
 
+    async def iter_historical_results(self, events: list[dict]) -> AsyncIterator[tuple[dict, str, str | None]]:
+        guard = BackfillFailureGuard()
+        for event in events:
+            status, reason = await self.process_historical_event_with_timeout(event)
+            # Count the terminal event before failing either synchronous or async jobs.
+            yield event, status, reason
+            guard.observe(status, reason)
+
     async def run_backfill(self, start: datetime, end: datetime, cameras: list[str] = None) -> BackfillResult:
         """
         Run backfill for a date range.
@@ -462,24 +492,25 @@ class BackfillService:
 
         # Fetch events from Frigate
         events = await self.fetch_frigate_events(after_ts, before_ts, cameras)
-        result.processed = len(events)
-
-        # Process each event
-        for event in events:
-            status, reason = await self.process_historical_event_with_timeout(event)
-            if status == "new":
-                result.new_detections += 1
-            elif status == "skipped":
-                result.skipped += 1
-                if reason:
-                    result.skipped_reasons[reason] += 1
-            else:
-                result.errors += 1
-                if reason:
-                    result.error_reasons[reason] += 1
+        try:
+            async for _event, status, reason in self.iter_historical_results(events):
+                result.processed += 1
+                if status == "new":
+                    result.new_detections += 1
+                elif status == "skipped":
+                    result.skipped += 1
+                    if reason:
+                        result.skipped_reasons[reason] += 1
+                else:
+                    result.errors += 1
+                    if reason:
+                        result.error_reasons[reason] += 1
+        except BackfillClassifierUnavailableError as exc:
+            result.stopped_reason = str(exc)
 
         log.info(
-            "Backfill complete",
+            "Backfill finished",
+            stopped_reason=result.stopped_reason,
             processed=result.processed,
             new=result.new_detections,
             skipped=result.skipped,

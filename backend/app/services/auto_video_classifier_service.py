@@ -120,6 +120,13 @@ _NON_BREAKER_VIDEO_OUTCOMES: frozenset[str] = frozenset(
         # input representations. Worker/runtime failures are propagated as
         # typed errors before this outcome reaches the service.
         "video_no_results",
+        "low_confidence",
+        "below_threshold",
+        "blocked_label",
+        "blocked_species",
+        "abstention_label",
+        "unknown_catchall",
+        "snapshot_no_usable_result",
     }
 )
 SNAPSHOT_FALLBACK_MAX_ATTEMPTS = 3

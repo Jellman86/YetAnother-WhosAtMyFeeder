@@ -534,14 +534,14 @@ async def backfill_detections(
             message += f", {_build_error_message(result.errors, result.error_reasons)}"
 
         return BackfillResponse(
-            status="completed",
+            status="failed" if result.stopped_reason else "completed",
             processed=result.processed,
             new_detections=result.new_detections,
             skipped=result.skipped,
             errors=result.errors,
             skipped_reasons=result.skipped_reasons,
             error_reasons=result.error_reasons,
-            message=message,
+            message=result.stopped_reason or message,
         )
 
     except HTTPException:
@@ -622,8 +622,7 @@ async def backfill_detections_async(
             broadcast_every = max(1, job.total // 20) if job.total else 1
             await broadcaster.broadcast({"type": "backfill_progress", "data": _job_payload(job)})
 
-            for event in events:
-                status, reason = await backfill_service.process_historical_event_with_timeout(event)
+            async for _event, status, reason in backfill_service.iter_historical_results(events):
                 job.processed += 1
                 _touch_job(job)
                 if status == "new":
