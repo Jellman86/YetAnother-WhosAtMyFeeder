@@ -6,6 +6,17 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Fixed
+
+- **A stalled native classifier can no longer consume an entire backfill.** After an in-process
+  lease expires, new image work is quarantined onto supervised workers and health remains in
+  recovery until a worker completes a real inference. Historical backfills stop after three
+  consecutive classifier-unavailable results, preserving accurate partial counts so the range can
+  be safely rerun after recovery.
+- **Low-confidence video outcomes no longer open the infrastructure circuit breaker.** Policy
+  filters remain visible as filtered activity while genuine worker, timeout and runtime failures
+  continue to trip the breaker.
+
 ## [2.20.3] - 2026-09-18
 
 ### Fixed

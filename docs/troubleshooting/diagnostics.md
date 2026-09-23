@@ -326,6 +326,12 @@ If a detection shows `video_classification_error: event_not_found` or the **Erro
 ## Missed Detections (Backfill)
 If the Backfill tool is skipping events you expected to see, check the **Skipped Breakdown** table in the settings page after a scan.
 
+If a backfill reports repeated classifier-unavailable errors, YA-WAMF stops after three consecutive
+failures instead of consuming the rest of the range. The result keeps the number of events already
+processed, so you can check **Settings → Health**, restart the container if an in-process runtime
+is still stalled, and rerun the same range safely. Existing detections remain idempotent and are
+reported as skipped rather than duplicated.
+
 **Audio context note:** Backfill reprocesses **Frigate** events only. BirdNET-Go audio confirmations are not backfilled unless you have a separate historical audio source to import. After a database reset, audio context will only appear for new detections once BirdNET-Go is running again.
 
 | Reason | Explanation |

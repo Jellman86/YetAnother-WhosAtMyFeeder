@@ -2877,6 +2877,7 @@ class ClassifierService:
         self._runtime_gpu_restore_attempts = 0
         self._runtime_gpu_restore_successes = 0
         self._worker_fallback_lock = asyncio.Lock()
+        self._in_process_recovery: dict[str, Any] | None = None
         self._worker_fallback_state: dict[str, Any] = {
             "active": False,
             "reason": None,
@@ -3585,8 +3586,30 @@ class ClassifierService:
         attribute and turn an otherwise successful inference into a worker
         error while serialising its telemetry.
         """
-        recovery = self._inference_health.most_recent_recovery()
+        recovery = self._in_process_recovery or self._inference_health.most_recent_recovery()
         return dict(recovery) if isinstance(recovery, dict) else None
+
+    def _isolate_expired_native_runtime(self, priority: str, runtime_key: RuntimeKey) -> None:
+        """A cancelled future cannot stop native code. Never submit to that runtime again."""
+        if self._worker_process_mode or self._in_process_recovery is not None:
+            return
+        self._in_process_recovery = {
+            "status": "recovering",
+            "reason": "in_process_lease_expired",
+            "source": priority,
+            "failed_backend": runtime_key.backend,
+            "failed_provider": runtime_key.provider,
+            "restart_recommended": True,
+            "message": "Native inference exceeded its deadline. New work uses isolated workers; restart to release any stalled native threads.",
+        }
+        # Keep the original model alive: a native thread may still be using it.
+        self._image_execution_mode = "subprocess"
+        self._classifier_supervisor = self._video_supervisor
+        live, background = self._resolved_image_worker_counts
+        self._classification_admission.reconfigure_capacities(live=live, background=background)
+        self._worker_fallback_state["active"] = False
+        self._inference_health.record_recovery(runtime_key, self._in_process_recovery)
+        log.warning("classifier_native_runtime_quarantined", priority=priority, provider=runtime_key.provider)
 
     def register_gpu_unhealthy_signal(
         self,
@@ -3623,6 +3646,15 @@ class ClassifierService:
         if self._inference_health.verdict(runtime_key) != "unhealthy":
             return
         if self._live_gpu_lease_fallback_active():
+            return
+
+        # A parent-process CPU hot-swap does not release a stalled native GPU
+        # call. Quarantine the whole in-process runtime first so every new
+        # request is supervised and the old model remains alive for any late
+        # native completion. Worker children are already isolated, so their
+        # existing CPU fallback remains safe.
+        if not self._worker_process_mode:
+            self._isolate_expired_native_runtime("gpu_signal", runtime_key)
             return
 
         detail = (
@@ -4470,7 +4502,7 @@ class ClassifierService:
         what it loaded, ``planned`` when nothing has loaded yet, and
         ``default`` when even the plan cannot be resolved.
         """
-        if self.model_loaded:
+        if self.model_loaded and self._in_process_recovery is None:
             return self._inference_backend, self._active_inference_provider, "in_process_fallback"
         reported = self._latest_worker_reported_runtime(supervisor_metrics)
         if reported is not None:
@@ -4602,10 +4634,14 @@ class ClassifierService:
         background_image_health = self._describe_background_image_health(admission_metrics)
         supervisor_metrics = self._get_supervisor_metrics()
         effective_runtime_recovery = (
-            self._latest_worker_runtime_recovery(supervisor_metrics)
-            if self._image_execution_mode == "subprocess"
-            else None
-        ) or self._inference_health.most_recent_recovery()
+            self._in_process_recovery
+            or (
+                self._latest_worker_runtime_recovery(supervisor_metrics)
+                if self._image_execution_mode == "subprocess"
+                else None
+            )
+            or self._inference_health.most_recent_recovery()
+        )
 
         # Determine which TFLite runtime is actually in use
         tflite_type = _tflite_runtime_name() if tflite is not None else "none"
@@ -4615,7 +4651,7 @@ class ClassifierService:
             "fallback_recoveries": self._runtime_fallback_recoveries,
             "last_recovery": effective_runtime_recovery,
         }
-        runtime_recovery_failed = bool((effective_runtime_recovery or {}).get("status") == "failed")
+        runtime_recovery_failed = (effective_runtime_recovery or {}).get("status") in {"failed", "recovering"}
         bird_runtime_ready = False
         if self._image_execution_mode == "subprocess":
             if supervisor_metrics is None:
@@ -4746,10 +4782,14 @@ class ClassifierService:
         accel_caps_age = self._accel_caps_age_seconds()
         supervisor_metrics = self._get_supervisor_metrics()
         effective_runtime_recovery = (
-            self._latest_worker_runtime_recovery(supervisor_metrics)
-            if self._image_execution_mode == "subprocess"
-            else None
-        ) or self._inference_health.most_recent_recovery()
+            self._in_process_recovery
+            or (
+                self._latest_worker_runtime_recovery(supervisor_metrics)
+                if self._image_execution_mode == "subprocess"
+                else None
+            )
+            or self._inference_health.most_recent_recovery()
+        )
         if self._image_execution_mode == "subprocess":
             base_backend, base_provider, runtime_source = self._subprocess_runtime_identity(supervisor_metrics)
             effective_backend, effective_provider = self._effective_subprocess_runtime_fields(
@@ -5669,6 +5709,7 @@ class ClassifierService:
         *,
         work_id: str | None = None,
         lease_token: int | None = None,
+        on_native_start: Callable[[], None] | None = None,
     ) -> list[dict]:
         if self._classifier_supervisor is None:
             raise RuntimeError("classifier supervisor is not configured")
@@ -5697,6 +5738,7 @@ class ClassifierService:
                 model_id=model_id,
                 input_context=normalized_input_context,
                 reason="circuit_open",
+                on_native_start=on_native_start,
             )
         except ClassifierWorkerStartupTimeoutError:
             return await self._classify_in_process_as_last_resort(
@@ -5706,6 +5748,7 @@ class ClassifierService:
                 model_id=model_id,
                 input_context=normalized_input_context,
                 reason="worker_startup_timeout",
+                on_native_start=on_native_start,
             )
         except ClassifierWorkerExitedError:
             if self._supervisor_pool_is_empty(priority):
@@ -5716,6 +5759,7 @@ class ClassifierService:
                     model_id=model_id,
                     input_context=normalized_input_context,
                     reason="workers_unavailable",
+                    on_native_start=on_native_start,
                 )
             # A worker died mid-request but others remain; the supervisor is
             # already replacing it and the next request gets a live worker.
@@ -5753,6 +5797,7 @@ class ClassifierService:
         model_id: Optional[str],
         input_context: Any | None,
         reason: str = "circuit_open",
+        on_native_start: Callable[[], None] | None = None,
     ) -> list[dict]:
         """Classify in this process when the isolated workers cannot.
 
@@ -5763,13 +5808,19 @@ class ClassifierService:
         process loads its own copy and keeps classifying, and the status
         endpoint says so plainly.
         """
+        if self._in_process_recovery is not None:
+            if priority == "live":
+                raise LiveImageClassificationOverloadedError("classify_snapshot_worker_unavailable")
+            raise BackgroundImageClassificationUnavailableError("background_image_worker_unavailable")
+        if on_native_start is not None:
+            on_native_start()
         async with self._worker_fallback_lock:
             if not self.model_loaded:
                 try:
                     await asyncio.to_thread(self._init_bird_model)
                 except Exception as exc:
                     log.error("worker_fallback_model_load_failed", reason=reason, error=str(exc))
-        if not self.model_loaded:
+        if not self.model_loaded or self._in_process_recovery is not None:
             live_error, background_error = self._FALLBACK_UNAVAILABLE_ERRORS.get(
                 reason, self._FALLBACK_UNAVAILABLE_ERRORS["workers_unavailable"]
             )
@@ -5905,7 +5956,8 @@ class ClassifierService:
                 latency_seconds=time.monotonic() - started_at,
             )
             if priority == "live":
-                self._record_live_lease_expiry_and_maybe_fallback(exc, runtime_key=runtime_key)
+                if self._worker_process_mode:
+                    self._record_live_lease_expiry_and_maybe_fallback(exc, runtime_key=runtime_key)
                 log.warning(
                     "Live image classification lease expired; reclaiming capacity",
                     timeout_seconds=lease_timeout_seconds,
@@ -5937,14 +5989,22 @@ class ClassifierService:
         context: dict[str, Any] | None = None,
     ) -> list[dict]:
         async def _runner() -> list[dict]:
+            if self._in_process_recovery is not None:
+                if priority == "live":
+                    raise LiveImageClassificationOverloadedError("classify_snapshot_worker_unavailable")
+                raise BackgroundImageClassificationUnavailableError("background_image_worker_unavailable")
             loop = asyncio.get_running_loop()
             return await loop.run_in_executor(executor, fn, *args)
+
+        def _on_lease_expired(_work_id: str, _lease_token: int) -> None:
+            self._isolate_expired_native_runtime(priority, self._inference_runtime_key_from_context(context))
 
         return await self._run_coordinated_inference(
             priority,
             kind,
             _runner,
             queue_timeout_seconds=queue_timeout_seconds,
+            on_lease_expired=_on_lease_expired,
             context=context,
         )
 
@@ -5984,6 +6044,12 @@ class ClassifierService:
         queue_timeout_seconds: float | None = None,
         context: dict[str, Any] | None = None,
     ) -> list[dict]:
+        native_started = False
+
+        def _on_native_start() -> None:
+            nonlocal native_started
+            native_started = True
+
         async def _runner(work_id: str, lease_token: int) -> list[dict]:
             return await self._run_supervised_inference(
                 priority,
@@ -5993,16 +6059,19 @@ class ClassifierService:
                 input_context,
                 work_id=work_id,
                 lease_token=lease_token,
+                on_native_start=_on_native_start,
             )
 
         async def _on_lease_expired(work_id: str, lease_token: int) -> None:
+            if native_started:
+                self._isolate_expired_native_runtime(priority, self._inference_runtime_key_from_context(context))
             await self._abort_supervised_request_after_lease_expiry(
                 priority=priority,
                 work_id=work_id,
                 lease_token=lease_token,
             )
 
-        return await self._run_coordinated_inference(
+        result = await self._run_coordinated_inference(
             priority,
             kind,
             _runner,
@@ -6011,6 +6080,9 @@ class ClassifierService:
             on_lease_expired=_on_lease_expired,
             context=context,
         )
+        if not native_started and self._in_process_recovery is not None:
+            self._in_process_recovery["status"] = "recovered"
+        return result
 
     async def _run_image_inference(
         self,
