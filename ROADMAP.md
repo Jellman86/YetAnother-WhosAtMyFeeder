@@ -725,6 +725,16 @@ close the full-app browser, concurrent notification, database-fixture lifecycle 
 historical-migration gaps listed in that guide. Heavy runs remain local, without a new hosted
 matrix or scheduled soak.
 
+The September 23 installed-image sweep found intermittent Intel GPU native crashes
+([REG-2026-09-23-02](ISSUES.md#reg-2026-09-23-02--intermittent-intel-gpu-native-crashes-during-model-validation))
+and a pipe-EOF/process-exit race fixed by PR #498. The strict local hardware gate now
+records every child outcome, compares exact regional artifacts against CPU, and
+separates detector contracts from classifier tests. Remaining acceptance work is
+repeatable cold/warm-cache and mixed-load GPU validation, CUDA evidence from the
+NVIDIA host, a pinned accuracy corpus with previous-release comparison, and full-app
+owner/guest, backfill and recovery browser journeys. A retry pass does not erase a
+native crash, and CPU/provider agreement is not a species-accuracy score.
+
 Unit/integration tests, CI, coverage reporting, migration-safety checks, and startup smoke
 checks are all in place. ARM64 image startup plus real model inference now run under QEMU before
 mutable Raspberry Pi tags are promoted. The open work is expanding Playwright E2E coverage around

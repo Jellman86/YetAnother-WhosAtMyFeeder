@@ -110,6 +110,58 @@ Read-only fleet telemetry can guide fixtures, but preserve anonymity and use
 bounded aggregate queries. A healthy latest heartbeat does not erase historical
 fault reports, and cumulative report counters are not incident counts.
 
+### Mandatory local model/provider gate
+
+Use the installed-model gate on a trusted hardware host before certifying a model,
+provider or runtime update. From the repository root with runtime dependencies
+installed, choose the model directory and providers available on that host:
+
+```bash
+python backend/scripts/run_model_hardware_gate.py \
+  --models-dir /data/models --output /tmp/yawamf-hardware-validation \
+  --provider intel_npu --provider intel_gpu --repeat 2
+```
+
+The output directory must not already exist. On the NVIDIA host, request
+`--provider cuda` instead. Use `--model medium_birds/eu` to select an exact
+regional artifact. CPU is always run as the comparison baseline. Eight committed
+real images are used by default; when running from an image without the test
+fixtures, supply retained images with repeated `--image /path/to/image.jpg`
+arguments. Missing images or unknown models fail instead of validating a fallback.
+
+Each model/provider/repeat gets a disposable subprocess with a 240-second default
+deadline. Native crashes, timeouts, malformed reports, missing image coverage,
+non-finite output and CPU disagreement fail the command. Crop detectors use the
+production crop service and detection-box comparisons, not species-classifier
+tensor/label assumptions. Cold compilation uses a private cache on each repeat;
+the production probe also warms up before measured inference. This is not yet a
+cross-process warm-cache or sustained-load certification.
+
+The runner records package versions, model/config/label and image hashes, raw probe
+reports, process logs and a `summary.json`, including failures. A requested provider
+must actually be exercised to pass. Registry-incompatible combinations are explicitly
+not applicable; candidate combinations are tested but do not gain supported status
+from a single pass. Review every failure, even when another repeat passes.
+
+Model weights are read-only, configuration/databases/media paths are disposable,
+and the runner never writes production eligibility or changes the active model.
+Its parent owns scratch directories so a crashing child does not leave compiled
+caches behind. Keep hardware runs serial alongside a live feeder and watch its
+health; do not run the full model library concurrently with other heavy tests.
+
+`test_model_hardware_installed.py` invokes the same strict gate when the model
+library and device are present. On ordinary CI without them, skips describe the
+missing prerequisite, not successful hardware validation. Synthetic runner tests
+still exercise crash, timeout, empty coverage and invalid-report failures in CI.
+Legacy GPU/NPU/CUDA diagnostic tests require
+`YAWAMF_LEGACY_HARDWARE_DIAGNOSTICS=1`; they are exploratory, may crash their own
+pytest process, and must never be used as a release gate or run in the API process.
+
+Accuracy tests load only the model currently being exercised and discover regional
+subdirectories. Detector accuracy remains a separate box/field benchmark. Provider
+agreement establishes consistency, not species correctness; the labelled accuracy
+corpus still needs pinned, reviewed images and a previous-release baseline.
+
 ## Remaining gaps
 
 - Full-app owner/guest authentication, settings save/reload, backfill controls,

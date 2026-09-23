@@ -23,6 +23,7 @@ from typing import Any
 import numpy as np
 import pytest
 from PIL import Image
+from tests.test_model_smoke import _LazySessionCache
 
 try:
     import onnxruntime as ort
@@ -110,11 +111,14 @@ def _predict_top_n(session: ort.InferenceSession, tensor: np.ndarray, labels: li
 def _load_installed_models() -> dict[str, dict[str, Any]]:
     base = _models_dir()
     models: dict[str, dict[str, Any]] = {}
-    for d in sorted(base.iterdir()) if base.exists() else []:
+    for model in sorted(base.rglob("model.onnx")) if base.exists() else []:
+        d = model.parent
         if d.is_dir() and (d / "model.onnx").exists() and (d / "model_config.json").exists():
             config = json.loads((d / "model_config.json").read_text())
+            if config.get("taxonomy_scope") == "system" or d.name.startswith("bird_crop_detector"):
+                continue
             labels = [label.strip() for label in (d / "labels.txt").read_text().splitlines() if label.strip()]
-            models[d.name] = {"dir": d, "config": config, "labels": labels}
+            models[str(d.relative_to(base))] = {"dir": d, "config": config, "labels": labels}
     return models
 
 
@@ -206,19 +210,21 @@ _INSTALLED_MODELS = _load_installed_models()
 
 # Session cache — load each model once
 @pytest.fixture(scope="module")
-def sessions() -> dict[str, ort.InferenceSession]:
-    result: dict[str, ort.InferenceSession] = {}
-    needed_ids = {p.values[0] for p in _TEST_PARAMS} if _TEST_PARAMS else set()
-    for model_id in needed_ids:
-        if model_id not in _INSTALLED_MODELS:
-            continue
-        model_dir = _INSTALLED_MODELS[model_id]["dir"]
+def sessions():
+    def create_session(model_path):
         so = ort.SessionOptions()
         so.intra_op_num_threads = 4
         so.inter_op_num_threads = 2
         so.log_severity_level = 3
-        result[model_id] = ort.InferenceSession(str(model_dir / "model.onnx"), so, providers=["CPUExecutionProvider"])
-    return result
+        return ort.InferenceSession(str(model_path), so, providers=["CPUExecutionProvider"])
+
+    cache = _LazySessionCache(
+        {key: value["dir"] for key, value in _INSTALLED_MODELS.items()}, session_factory=create_session
+    )
+    try:
+        yield cache
+    finally:
+        cache.close()
 
 
 # ---------------------------------------------------------------------------
@@ -236,7 +242,7 @@ def test_model_identifies_labeled_bird(
     sessions: dict,
 ) -> None:
     """Expected species should appear in the top-N predictions."""
-    assert model_id in sessions, f"Session not loaded for {model_id}"
+    assert model_id in _INSTALLED_MODELS, f"Model not installed: {model_id}"
     session = sessions[model_id]
     meta = _INSTALLED_MODELS[model_id]
 
@@ -266,9 +272,6 @@ def test_model_identifies_labeled_bird(
 @pytest.mark.parametrize("model_id", list(_INSTALLED_MODELS.keys()))
 def test_white_image_produces_low_confidence(model_id: str, sessions: dict) -> None:
     """A solid white image should not produce very high confidence for any species."""
-    if model_id not in sessions:
-        pytest.skip("Session not loaded")
-
     session = sessions[model_id]
     meta = _INSTALLED_MODELS[model_id]
     config = meta["config"]
@@ -295,9 +298,6 @@ def test_white_image_produces_low_confidence(model_id: str, sessions: dict) -> N
 @pytest.mark.parametrize("model_id", list(_INSTALLED_MODELS.keys()))
 def test_noise_image_does_not_produce_uniform_output(model_id: str, sessions: dict) -> None:
     """Noise should produce non-uniform output (model is doing something, not constant)."""
-    if model_id not in sessions:
-        pytest.skip("Session not loaded")
-
     session = sessions[model_id]
     meta = _INSTALLED_MODELS[model_id]
     input_size = meta["config"]["input_size"]
