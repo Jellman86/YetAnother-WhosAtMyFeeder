@@ -177,3 +177,22 @@ corpus still needs pinned, reviewed images and a previous-release baseline.
   migration and runtime-flavour tests, plus restore through the owner workflow.
 
 These remain on the [broader coverage roadmap](../../ROADMAP.md#broader-end-to-end-coverage-).
+
+## Deterministic test boundaries
+
+Diagnostics API fixtures substitute the media-probe boundary, so running next to a
+real Frigate cannot change an unavailable-media assertion or fetch real clips.
+Media parsing and probe behavior have their own tests.
+
+Route/name-lookup tests track which asyncio task owns each acquired connection and
+check ownership when the mocked provider is called. Background tasks inherit context
+variables, so a depth flag alone would falsely classify a background task as holding
+its parent's connection. A negative-control test deliberately awaits the provider
+inside a real hold and proves the guard rejects it. This verifies ownership, not a
+latency budget; performance still needs a separately controlled workload.
+
+The species-reference packaging test checks both Git tracking and ignore rules in a
+checkout. In a production image without Git metadata it checks that the asset exists
+and skips only the source-control assertion; separate runtime tests exercise the
+reference database's contents and lookups. Installing Git in a production image is
+not necessary to validate its runtime assets.
