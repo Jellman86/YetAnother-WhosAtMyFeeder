@@ -21,7 +21,7 @@ Two things make this less obvious than it looks, and both are asserted here:
   identified, which is the very failure this phase exists to remove.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import aiosqlite
 import pytest
@@ -58,7 +58,11 @@ async def seeded_repository():
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    datetime(2026, 8, 23, 8, 0, 0) + timedelta(minutes=counter["n"]),
+                    # Keep the trend-window fixture inside the repository's
+                    # rolling 30-day query regardless of the calendar date.
+                    datetime.now(timezone.utc).replace(tzinfo=None)
+                    - timedelta(days=1)
+                    + timedelta(minutes=counter["n"]),
                     1,
                     0.9,
                     display_name,
