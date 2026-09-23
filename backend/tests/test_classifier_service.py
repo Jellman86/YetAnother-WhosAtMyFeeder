@@ -115,9 +115,17 @@ async def test_cpu_recovery_health_is_degraded_and_reports_cpu_not_idle_gpu():
     }
     try:
         assert service.check_health()["status"] == "degraded"
+        recovery = service.check_health()["runtime_recovery"]["last_recovery"]
+        assert recovery["status"] == "recovered"
+        assert recovery["reason"] == "native_crash_same_model_cpu"
+        assert recovery["recovered_provider"] == "cpu"
+        assert recovery["failed_runtime"]["provider"] == "unknown"
+        assert service.check_health()["background_image"]["status"] == "degraded"
         assert service._latest_worker_reported_runtime(service._get_supervisor_metrics())["active_provider"] == "cpu"
         service._native_cpu_recovery._states["background"]["status"] = "failed"
         assert service.check_health()["status"] == "error"
+        service._native_cpu_recovery._states.clear()
+        assert service._effective_runtime_recovery(service._get_supervisor_metrics()) is None
     finally:
         await service.shutdown()
 

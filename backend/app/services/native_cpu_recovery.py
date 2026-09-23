@@ -56,6 +56,8 @@ class NativeCpuRecovery:
             "at": time.time(),
             "recovered": status == "degraded",
             "runtime": runtime,
+            "model_id": (self._source_profile or {}).get("model_id"),
+            "configured_provider": (self._source_profile or {}).get("provider"),
         }
         if status in {"degraded", "failed"} and (priority, status) not in self._reported_states:
             self._reported_states.add((priority, status))

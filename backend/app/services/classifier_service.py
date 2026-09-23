@@ -4464,6 +4464,20 @@ class ClassifierService:
             for priority, state in (recovery.snapshot() if recovery else {}).items():
                 metrics[priority] = dict(metrics.get(priority) or {})
                 metrics[priority]["native_cpu_recovery"] = state
+                runtime = state.get("runtime") or {}
+                # Existing UI diagnostics and telemetry retain this contract;
+                # don't hide recovery in a new field those consumers discard.
+                metrics[priority]["last_runtime_recovery"] = {
+                    "status": "recovered" if state.get("recovered") else state["status"],
+                    "reason": "native_crash_same_model_cpu",
+                    "at": state.get("at"),
+                    "trigger_source": priority,
+                    "configured_provider": state.get("configured_provider"),
+                    "failed_runtime": {"backend": "unknown", "provider": "unknown", "model_id": state.get("model_id")},
+                    "recovered_backend": runtime.get("inference_backend"),
+                    "recovered_provider": runtime.get("active_provider"),
+                    "detail": "The original native launch profile remains quarantined; CPU recovery is workload-scoped.",
+                }
                 if state.get("runtime"):
                     metrics[priority]["runtime"] = dict(state["runtime"])
             return metrics
@@ -4491,7 +4505,13 @@ class ClassifierService:
     def _effective_runtime_recovery(self, supervisor_metrics: dict[str, Any] | None) -> dict[str, Any] | None:
         if self._image_execution_mode == "subprocess":
             self._latest_worker_runtime_recovery(supervisor_metrics)
-        return self.latest_runtime_recovery()
+        latest = self.latest_runtime_recovery()
+        recovery = getattr(self, "_native_cpu_recovery", None)
+        if latest and latest.get("reason") == "native_crash_same_model_cpu" and not (recovery and recovery.snapshot()):
+            # Keep historical negative evidence, but don't apply an old CPU
+            # recovery to a newly selected model/provider after reload.
+            return None
+        return latest
 
     def runtime_identity(self) -> dict[str, Any]:
         """What this process is classifying with: backend, provider, model.
@@ -4803,6 +4823,12 @@ class ClassifierService:
                     for name, pool in supervisor_metrics.items()
                     if isinstance(pool, dict) and pool.get("native_cpu_recovery")
                 }
+                for priority, section in (("live", "live_image"), ("background", "background_image")):
+                    state = (supervisor_metrics.get(priority) or {}).get("native_cpu_recovery")
+                    if state:
+                        health[section]["status"] = "error" if state["status"] == "failed" else "degraded"
+                        if priority == "live":
+                            health[section]["recovery_active"] = True
         return health
 
     # Legacy properties
