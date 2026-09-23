@@ -90,6 +90,16 @@ the previous restore point with a partial copy.
 
 ## Hardware and longer checks
 
+Worker lifecycle regressions run without model downloads in
+`test_classifier_worker_client.py`, `test_classifier_supervisor.py` and
+`test_classifier_subprocess_integration.py`. They distinguish pipe closure from
+confirmed process exit, exercise a real POSIX child that ignores termination,
+and cover cancellation, bounded escalation and replacement blocked by failed
+cleanup. A killed child must have an exit code before its capacity is reused.
+The real signal-handler case is POSIX-only; portable lifecycle cases still run
+on other platforms. Process waiting follows Python's
+[asyncio subprocess contract](https://docs.python.org/3.12/library/asyncio-subprocess.html).
+
 Use the [backfill replay recipe](../reviews/2026-09-23-backfill-test-hardening.md#repeatable-real-model-replay)
 with an already installed model and a retained bird crop. Run one accelerator
 probe at a time on a busy feeder. The harness owns a temporary migrated database,

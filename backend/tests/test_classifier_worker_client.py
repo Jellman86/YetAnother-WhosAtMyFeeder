@@ -1,4 +1,6 @@
 import asyncio
+import os
+import sys
 
 import pytest
 
@@ -61,6 +63,173 @@ class _FakeProcess:
     def kill(self) -> None:
         self.killed = True
         self.finish(-9)
+
+
+async def _client_for_process(process: _FakeProcess, **kwargs) -> ClassifierWorkerClient:
+    async def factory(**_kwargs):
+        return process
+
+    client = ClassifierWorkerClient(
+        worker_name="reaping-test",
+        worker_generation=1,
+        heartbeat_timeout_seconds=5,
+        process_factory=factory,
+        **kwargs,
+    )
+    await client.start()
+    return client
+
+
+@pytest.mark.asyncio
+async def test_pipe_eof_does_not_report_process_exit():
+    process = _FakeProcess()
+    client = await _client_for_process(process)
+    process.stdout.feed_eof()
+    process.stderr.feed_eof()
+    waiter = asyncio.create_task(client.wait_closed())
+    try:
+        await asyncio.wait_for(client._reader_task, 1)
+        await asyncio.wait_for(client._stderr_task, 1)
+        await asyncio.sleep(0)
+        assert not waiter.done()
+        assert client.get_status()["exit_code"] is None
+    finally:
+        process.finish(7)
+        await asyncio.wait_for(waiter, 1)
+    assert client.get_status()["exit_code"] == 7
+
+
+@pytest.mark.asyncio
+async def test_stderr_eof_does_not_fail_a_live_worker_handshake():
+    process = _FakeProcess()
+    client = await _client_for_process(process)
+    try:
+        process.stderr.feed_eof()
+        await asyncio.wait_for(client._stderr_task, 1)
+        process.feed(build_ready_event(worker_generation=1))
+        await client.wait_until_ready(1)
+    finally:
+        process.finish()
+        await client.wait_closed()
+
+
+@pytest.mark.asyncio
+async def test_cancelled_exit_wait_does_not_cancel_process_reaping():
+    process = _FakeProcess()
+    client = await _client_for_process(process)
+    waiter = asyncio.create_task(client.wait_closed())
+    await asyncio.sleep(0)
+    waiter.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await waiter
+    process.finish(12)
+    await asyncio.wait_for(client.wait_closed(), 1)
+    assert client.get_status()["exit_code"] == 12
+
+
+@pytest.mark.asyncio
+async def test_terminate_escalates_when_the_child_ignores_term():
+    process = _FakeProcess()
+    process.terminate = lambda: setattr(process, "terminated", True)
+    client = await _client_for_process(process, terminate_timeout_seconds=0.01)
+    try:
+        await asyncio.wait_for(client.terminate(), 1)
+        assert process.terminated and process.killed
+        assert client.get_status()["exit_code"] == -9
+    finally:
+        process.finish()
+        await client.wait_closed()
+
+
+@pytest.mark.asyncio
+async def test_cancelling_termination_still_reaps_the_child():
+    process = _FakeProcess()
+    term_sent = asyncio.Event()
+    process.terminate = term_sent.set
+    client = await _client_for_process(process, terminate_timeout_seconds=0.01)
+    stopping = asyncio.create_task(client.terminate())
+    try:
+        await asyncio.wait_for(term_sent.wait(), 1)
+        stopping.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await asyncio.wait_for(stopping, 1)
+        assert process.returncode == -9
+        assert client.get_status()["exit_code"] == -9
+    finally:
+        process.finish()
+        await client.wait_closed()
+
+
+@pytest.mark.asyncio
+async def test_stop_is_idempotent_after_a_natural_exit():
+    process = _FakeProcess()
+    client = await _client_for_process(process)
+    process.finish(3)
+    await client.wait_closed()
+
+    def already_gone():
+        raise ProcessLookupError()
+
+    process.terminate = already_gone
+    process.kill = already_gone
+    await client.terminate()
+    await client.kill()
+    assert client.get_status()["exit_code"] == 3
+
+
+@pytest.mark.asyncio
+async def test_a_failed_kill_is_bounded_and_never_claims_exit():
+    process = _FakeProcess()
+    process.kill = lambda: None
+    client = await _client_for_process(process, kill_timeout_seconds=0.01)
+    try:
+        with pytest.raises(TimeoutError):
+            await client.kill()
+        assert client.get_status()["exit_code"] is None
+        assert not client._wait_task.done()
+    finally:
+        process.finish()
+        await client.wait_closed()
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(os.name != "posix", reason="SIGTERM handler requires POSIX")
+async def test_real_child_with_closed_pipes_and_ignored_term_is_reaped():
+    children = []
+
+    async def factory(**_kwargs):
+        child = await asyncio.create_subprocess_exec(
+            sys.executable,
+            "-c",
+            "import os,signal,time;signal.signal(signal.SIGTERM,signal.SIG_IGN);os.close(1);os.close(2);time.sleep(30)",
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        children.append(child)
+        return child
+
+    client = ClassifierWorkerClient(
+        worker_name="real-reaping",
+        worker_generation=1,
+        heartbeat_timeout_seconds=5,
+        process_factory=factory,
+        terminate_timeout_seconds=0.02,
+    )
+    try:
+        await client.start()
+        await asyncio.wait_for(client._reader_task, 5)
+        assert children[0].returncode is None
+        await asyncio.wait_for(client.terminate(), 5)
+        assert children[0].returncode == -9
+        assert client.get_status()["exit_code"] == -9
+        assert all(task.done() for task in (client._reader_task, client._stderr_task, client._wait_task))
+        await client.terminate()
+    finally:
+        for child in children:
+            if child.returncode is None:
+                child.kill()
+            await child.wait()
 
 
 @pytest.mark.asyncio

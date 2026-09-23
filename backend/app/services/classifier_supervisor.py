@@ -147,6 +147,7 @@ class ClassifierSupervisor:
         # until the new one is ready, so without this the slot looks idle to a
         # queued request and dead to the watchdog, and both act on it again.
         self._replacing: set[str] = set()
+        self._cleanup_pending: dict[str, Any] = {}
         self._metrics = {
             "live": {
                 "workers": 0,
@@ -231,11 +232,14 @@ class ClassifierSupervisor:
                 await self._watchdog_task
             except asyncio.CancelledError:
                 pass
-        for priority in ("live", "background", "video"):
-            for slot in self._slots[priority]:
+        workers = dict(self._cleanup_pending)
+        for slots in self._slots.values():
+            for slot in slots:
                 if slot.worker is not None:
-                    await slot.worker.terminate()
-                    await slot.worker.wait_closed()
+                    workers[slot.worker_name] = slot.worker
+        cleanup_results = await asyncio.gather(
+            *(self._close_failed_worker(worker) for worker in workers.values()), return_exceptions=True
+        )
         for task in list(self._consumer_tasks):
             task.cancel()
         for task in list(self._consumer_tasks):
@@ -243,11 +247,15 @@ class ClassifierSupervisor:
                 await task
             except asyncio.CancelledError:
                 pass
+        self._consumer_tasks.clear()
         for task in list(self._progress_tasks):
             task.cancel()
         if self._progress_tasks:
             await asyncio.gather(*self._progress_tasks, return_exceptions=True)
         self._progress_tasks.clear()
+        for result in cleanup_results:
+            if isinstance(result, BaseException):
+                raise result
 
     async def restart_pool(self, priority: WorkPriority | None = None) -> None:
         """
@@ -541,6 +549,11 @@ class ClassifierSupervisor:
 
     async def _spawn_worker(self, priority: WorkPriority, index: int, generation: int) -> _WorkerSlot:
         worker_name = f"{priority}-{index}"
+        if worker_name in self._cleanup_pending:
+            try:
+                await self._close_failed_worker(self._cleanup_pending[worker_name])
+            except Exception as exc:
+                raise ClassifierWorkerExitedError(f"Previous worker cleanup is pending: {worker_name}") from exc
         worker = None
         try:
             if self._worker_factory is None:
@@ -563,6 +576,9 @@ class ClassifierSupervisor:
                 await worker.start()
                 await worker.wait_until_ready(timeout_seconds=ready_timeout_seconds)
             self._record_worker_runtime(priority, worker)
+        except asyncio.CancelledError:
+            await self._close_failed_worker(worker)
+            raise
         except TimeoutError as exc:
             await self._close_failed_worker(worker)
             self._record_start_failure(priority, worker, reason="startup_timeout")
@@ -585,17 +601,18 @@ class ClassifierSupervisor:
             consumer_task=consumer_task,
         )
 
-    async def _close_failed_worker(self, worker: Any) -> None:
+    async def _close_failed_worker(self, worker: Any, *, kill: bool = False) -> None:
         if worker is None:
             return
-        try:
+        # Retain ownership until reaping is confirmed. Even a cleanup timeout
+        # must not let a retry load another native model alongside this worker.
+        self._cleanup_pending[worker.worker_name] = worker
+        if kill:
+            await worker.kill()
+        else:
             await worker.terminate()
-        except Exception:
-            pass
-        try:
-            await worker.wait_closed()
-        except Exception:
-            pass
+        await worker.wait_closed()
+        self._cleanup_pending.pop(worker.worker_name, None)
 
     def _ready_timeout_seconds(self, priority: WorkPriority) -> float:
         """How long a worker may take to say it is ready.
@@ -734,6 +751,16 @@ class ClassifierSupervisor:
                         )
                         continue
 
+                    if status.get("transport_closed"):
+                        await self._replace_worker(
+                            priority,
+                            index,
+                            reason="transport_closed",
+                            assignment_error=ClassifierWorkerExitedError("worker protocol stream closed"),
+                            kill=True,
+                        )
+                        continue
+
                     assignment = self._assignments.get(slot.worker_name)
                     if assignment is None:
                         continue
@@ -797,10 +824,14 @@ class ClassifierSupervisor:
             worker_status = slot.worker.get_status()
             assignment = self._assignments.pop(slot.worker_name, None)
             self._log_replacement(slot, worker_status, assignment, reason=reason, killed=kill)
-            if kill:
-                await slot.worker.kill()
-            else:
-                await self._close_failed_worker(slot.worker)
+            try:
+                await self._close_failed_worker(slot.worker, kill=kill)
+            except Exception as exc:
+                self._record_unavailable_slot(priority, index, "cleanup_failed")
+                if assignment is not None and not assignment.future.done():
+                    assignment.future.set_exception(ClassifierWorkerExitedError("worker cleanup failed"))
+                log.error("Classifier worker cleanup failed", worker=slot.worker_name, error=str(exc))
+                return
             if assignment is not None and not assignment.future.done():
                 assignment.future.set_exception(assignment_error)
             self._completed_once.discard((slot.worker_name, slot.worker_generation))
@@ -841,6 +872,12 @@ class ClassifierSupervisor:
                     generation=new_slot.worker_generation,
                     reason=reason,
                 )
+        except asyncio.CancelledError:
+            if assignment is not None and not assignment.future.done():
+                assignment.future.set_exception(assignment_error)
+            if self._slots[priority][index] is slot:
+                self._record_unavailable_slot(priority, index, "replacement_cancelled")
+            raise
         finally:
             self._replacing.discard(slot.worker_name)
             async with self._condition:
