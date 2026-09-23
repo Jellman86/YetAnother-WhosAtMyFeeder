@@ -75,6 +75,15 @@ in-app notification timeline both prove one real final-mode detection end to end
 
 ## Known Remaining Exposure
 
+- **Accuracy-fixture provenance was not reproducible.** The downloader could drop
+  attribution on a rerun, assign newly selected metadata to old bytes, and admit
+  photos outside its documented CC0/CC-BY policy by filtering the observation
+  rather than the photo. The hardened downloader verifies checksums, preserves
+  metadata, uses content-addressed files and fails incomplete refreshes. Existing
+  private evaluation images are not a reviewed release benchmark; curate and pin
+  the corpus before using it to set accuracy thresholds. Tracked in the
+  [broader coverage roadmap](ROADMAP.md#broader-end-to-end-coverage-).
+
 - **Broader regression coverage remains incremental.** Test discovery, pre-merge telemetry
   checks, a shared branch-aware gate, joined detection/notification tests and local browser
   component checks are now implemented. Full-app browser journeys, concurrent notification

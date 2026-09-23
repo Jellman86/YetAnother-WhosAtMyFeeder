@@ -196,3 +196,23 @@ checkout. In a production image without Git metadata it checks that the asset ex
 and skips only the source-control assertion; separate runtime tests exercise the
 reference database's contents and lookups. Installing Git in a production image is
 not necessary to validate its runtime assets.
+
+## Accuracy fixture provenance
+
+`backend/scripts/download_test_fixtures.py` checks each photo's CC0/CC-BY licence,
+not just the observation licence. iNaturalist documents these as
+[separate licences](https://help.inaturalist.org/en/support/solutions/articles/151000175695).
+The downloader retains attribution, observation/photo IDs, source URL and SHA-256;
+normal reruns verify existing bytes without selecting new popular observations.
+It respects manifest exclusions and takes at most one photo per observation.
+
+Use `--force` only for an intentional corpus refresh. Legacy records without full
+provenance, missing files and checksum mismatches require that explicit refresh.
+New files have content-addressed names, so a refresh does not overwrite previous
+images. `--case` preserves other species' metadata. Incomplete refreshes return a
+nonzero exit and retain the previous case record; image decoding must succeed
+before a newly downloaded file is accepted. Do not run concurrent refresh writers.
+
+This locks the local selection, not a release accuracy benchmark. Labels and image
+quality still need review, a portable curated manifest must be committed, and the
+same corpus must be compared against a previous release before setting thresholds.

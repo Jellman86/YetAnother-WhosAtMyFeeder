@@ -735,6 +735,11 @@ NVIDIA host, a pinned accuracy corpus with previous-release comparison, and full
 owner/guest, backfill and recovery browser journeys. A retry pass does not erase a
 native crash, and CPU/provider agreement is not a species-accuracy score.
 
+The fixture downloader now preserves attribution and checksums, filters the photo's
+own licence, respects exclusions and keeps old images/manifests on incomplete
+refreshes. This fixes corpus provenance mechanics; the pinned, manually reviewed
+accuracy benchmark and previous-release baseline remain acceptance work.
+
 Unit/integration tests, CI, coverage reporting, migration-safety checks, and startup smoke
 checks are all in place. ARM64 image startup plus real model inference now run under QEMU before
 mutable Raspberry Pi tags are promoted. The open work is expanding Playwright E2E coverage around
