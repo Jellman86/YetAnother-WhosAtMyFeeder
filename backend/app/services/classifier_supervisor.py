@@ -294,6 +294,7 @@ class ClassifierSupervisor:
         camera_name: str | None,
         model_id: str | None,
         input_context: dict[str, Any] | None = None,
+        model_kind: str = "bird",
     ) -> list[dict[str, Any]]:
         return await self._submit_request(
             priority=priority,
@@ -308,6 +309,7 @@ class ClassifierSupervisor:
                 camera_name=camera_name,
                 model_id=model_id,
                 input_context=input_context,
+                model_kind=model_kind,
             ),
         )
 

@@ -260,15 +260,7 @@ async def test_bird_classifier(
     try:
         contents = await image.read()
         pil_image = await asyncio.to_thread(decode_image_bytes, contents)
-        if getattr(classifier_service, "_image_execution_mode", "in_process") == "subprocess":
-            results = await classifier_service.classify_async_background(
-                pil_image,
-                input_context={"is_cropped": False},
-            )
-        else:
-            results = await asyncio.to_thread(
-                classifier_service.classify, pil_image, input_context={"is_cropped": False}
-            )
+        results = await classifier_service.classify_async_background(pil_image, input_context={"is_cropped": False})
 
         return {"status": "ok", "image_size": pil_image.size, "image_mode": pil_image.mode, "results": results}
     except Exception:
@@ -303,12 +295,7 @@ async def classify_image(
 
     t0 = _time.perf_counter()
     try:
-        if getattr(classifier_service, "_image_execution_mode", "in_process") == "subprocess":
-            results = await classifier_service.classify_async_background(pil_image, input_context={"is_cropped": False})
-        else:
-            results = await asyncio.to_thread(
-                classifier_service.classify, pil_image, input_context={"is_cropped": False}
-            )
+        results = await classifier_service.classify_async_background(pil_image, input_context={"is_cropped": False})
     except Exception as e:
         log.exception("Test inference failed")
         return {"status": "error", "error": str(e)}
@@ -424,9 +411,7 @@ async def test_wildlife_classifier(
         contents = await image.read()
         pil_image = await asyncio.to_thread(decode_image_bytes, contents)
 
-        results = await asyncio.to_thread(
-            classifier_service.classify_wildlife, pil_image, input_context={"is_cropped": False}
-        )
+        results = await classifier_service.classify_wildlife_async(pil_image, input_context={"is_cropped": False})
 
         return {"status": "ok", "image_size": pil_image.size, "image_mode": pil_image.mode, "results": results}
     except Exception as e:
@@ -494,7 +479,7 @@ async def download_wildlife_model(auth: AuthContext = Depends(require_owner)):
             await asyncio.to_thread(_write_download, labels_path, "\n".join(processed_labels) + "\n")
 
             # Reload the classifier service to pick up the new model
-            await asyncio.to_thread(classifier_service.reload_wildlife_model)
+            await classifier_service.reload_wildlife_model()
 
             log.info(
                 "Wildlife model downloaded and ready",

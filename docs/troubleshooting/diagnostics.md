@@ -329,8 +329,14 @@ If the Backfill tool is skipping events you expected to see, check the **Skipped
 If a backfill reports repeated classifier-unavailable errors, YA-WAMF stops after three consecutive
 failures instead of consuming the rest of the range. The result keeps the number of events already
 processed, so you can check **Settings → Health**, restart the container if an in-process runtime
-is still stalled, and rerun the same range safely. Existing detections remain idempotent and are
-reported as skipped rather than duplicated.
+is still stalled, and rerun the same range safely. Existing events are not duplicated; a better
+classification can update an existing detection.
+
+After native-runtime recovery, **Settings → Detection** shows the actual execution mode and
+whether isolated workers have resumed classification. Restart advice remains visible because
+switching to workers cannot release a native thread that is still stalled in the parent process.
+Model changes reload the workers without cleaning up the model that the stalled thread may use.
+Wildlife reclassification also uses isolated workers when subprocess execution is active.
 
 **Audio context note:** Backfill reprocesses **Frigate** events only. BirdNET-Go audio confirmations are not backfilled unless you have a separate historical audio source to import. After a database reset, audio context will only appear for new detections once BirdNET-Go is running again.
 

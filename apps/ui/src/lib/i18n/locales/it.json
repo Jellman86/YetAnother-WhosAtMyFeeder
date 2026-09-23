@@ -1570,6 +1570,9 @@
       "video_concurrency_follows_workers": "I clip vengono analizzati tanti alla volta quanti sono i processi in background: i modelli classificano una immagine per processo, quindi una regolazione separata potrebbe solo accodare lavori o lasciare processi inutilizzati.",
       "band_worker_split_video": "{live} dal vivo · {background} in background · {video} video",
       "model_manager_memory_formula_subprocess_video": "{per} per copia × {live} dal vivo + {background} in background + {video} video (modalità isolata)",
+      "band_native_recovering": "In attesa che i processi isolati riprendano la classificazione.",
+      "band_native_recovered": "La classificazione è ripresa nei processi isolati.",
+      "band_native_restart": "Riavvia il contenitore per liberare il motore bloccato.",
       "band_worker_fallback": "Worker in errore — classificazione nel processo principale",
       "band_worker_fallback_detail": "I worker isolati muoiono durante il caricamento del modello; i rilevamenti continuano nel processo principale."
     },

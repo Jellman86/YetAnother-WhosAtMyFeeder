@@ -2,6 +2,11 @@ import { API_BASE, apiFetch, fetchWithAbort, handleResponse } from './core';
 import type { components, paths } from './generated/openapi';
 
 export interface ClassifierStatus {
+    image_execution_mode?: 'in_process' | 'subprocess';
+    native_runtime_quarantine?: {
+        status: 'recovering' | 'recovered';
+        restart_recommended: boolean;
+    } | null;
     loaded: boolean;
     error: string | null;
     labels_count: number;

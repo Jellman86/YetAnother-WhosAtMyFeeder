@@ -137,6 +137,10 @@ class InferenceHealth:
         payload.setdefault("at", time.time())
         with self._lock:
             state = self._state_for(key)
+            if state.last_recovery is not None and float(state.last_recovery.get("at") or 0) > float(
+                payload["at"] or 0
+            ):
+                return
             state.last_recovery = payload
 
     def last_recovery(self, key: RuntimeKey) -> dict[str, Any] | None:

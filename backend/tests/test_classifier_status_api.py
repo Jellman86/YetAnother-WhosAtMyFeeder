@@ -82,8 +82,9 @@ async def test_classifier_status_includes_personalization_summary(client: httpx.
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("endpoint", ["test", "classify"])
 async def test_classifier_test_endpoint_uses_supervised_path_in_subprocess_mode(
-    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch, endpoint
 ):
     original_mode = settings.classification.image_execution_mode
     original_execution_mode = classifier_router.classifier_service._image_execution_mode
@@ -110,42 +111,35 @@ async def test_classifier_test_endpoint_uses_supervised_path_in_subprocess_mode(
 
     try:
         response = await client.post(
-            "/api/classifier/test",
+            f"/api/classifier/{endpoint}",
             files={"image": ("bird.png", image_buffer.getvalue(), "image/png")},
         )
         assert response.status_code == 200, response.text
         payload = response.json()
         assert payload["status"] == "ok"
-        assert payload["results"][0]["label"] == "Robin"
+        assert payload["results" if endpoint == "test" else "predictions"][0]["label"] == "Robin"
     finally:
         classifier_router.classifier_service._image_execution_mode = original_execution_mode
         settings.classification.image_execution_mode = original_mode
 
 
 @pytest.mark.asyncio
-async def test_classifier_test_endpoint_uses_in_process_path_by_default(
-    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize("endpoint", ["test", "classify"])
+async def test_classifier_upload_endpoints_use_admission_even_in_process(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch, endpoint
 ):
     original_mode = settings.classification.image_execution_mode
     settings.classification.image_execution_mode = "in_process"
 
     fake_classifier = SimpleNamespace(_image_execution_mode="in_process")
+    fake_classifier.get_status = lambda: {}
     seen_input_contexts: list[object] = []
 
-    def _fake_classify(_image, input_context=None):
+    async def _fake_classify(_image, input_context=None):
         seen_input_contexts.append(input_context)
         return [{"label": "Robin", "score": 0.93, "index": 1}]
 
-    fake_classifier.classify = _fake_classify
-
-    classify_async_background_called = False
-
-    async def _unexpected_async_background(*_args, **_kwargs):
-        nonlocal classify_async_background_called
-        classify_async_background_called = True
-        raise AssertionError("async background path should not be used in in-process mode")
-
-    fake_classifier.classify_async_background = _unexpected_async_background
+    fake_classifier.classify_async_background = _fake_classify
     monkeypatch.setattr(classifier_router, "classifier_service", fake_classifier)
     app.dependency_overrides[require_owner] = lambda: AuthContext(auth_level=AuthLevel.OWNER, username="owner")
 
@@ -154,15 +148,14 @@ async def test_classifier_test_endpoint_uses_in_process_path_by_default(
 
     try:
         response = await client.post(
-            "/api/classifier/test",
+            f"/api/classifier/{endpoint}",
             files={"image": ("bird.png", image_buffer.getvalue(), "image/png")},
         )
         assert response.status_code == 200, response.text
         payload = response.json()
         assert payload["status"] == "ok"
-        assert payload["results"][0]["label"] == "Robin"
+        assert payload["results" if endpoint == "test" else "predictions"][0]["label"] == "Robin"
         assert seen_input_contexts == [{"is_cropped": False}]
-        assert classify_async_background_called is False
     finally:
         settings.classification.image_execution_mode = original_mode
 
