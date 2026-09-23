@@ -16,6 +16,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- Preserve downloaded accuracy-fixture attribution and checksums across reruns;
+  enforce the photo's own CC0/CC-BY licence, respect exclusions, and retain previous
+  manifests when a refresh is incomplete. Refreshes no longer overwrite old images.
 - Make diagnostics regressions independent of a reachable Frigate, prove taxonomy
   provider waits do not own database connections without timing-sensitive assertions,
   and distinguish source-control asset checks from runtime asset validation.
