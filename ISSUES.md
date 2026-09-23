@@ -24,6 +24,13 @@ The later strict sweep passed 30 CPU/NPU/GPU pairs, and two further CPU/GPU repe
 of all six affected artifacts passed 24 runs. Retrying the original accurate-crop
 probe also passed without a runtime change, so harness changes alone do not explain
 the earlier crashes. These passes do not replace the retained failure evidence.
+The native-crash safeguard now retains exact launch-profile evidence on the config
+volume and refuses repeated launches or in-process fallback for that profile.
+The standalone OpenVINO reproducer records crash stages and cold/warm-cache runs.
+Same-model CPU recovery now runs in a separate worker, validates artifact identity
+and workload deadlines, retains degraded health and cannot erase the accelerator's
+negative evidence. Native crash summaries use existing opt-in health batches.
+These are containment and investigation tools, not a native driver/runtime fix.
 Investigate cold/warm caches, runtime/driver versions and repeated inference, then
 resolve or conservatively gate affected combinations. Keep this open until repeated
 exact-image hardware checks pass. Tracked in the

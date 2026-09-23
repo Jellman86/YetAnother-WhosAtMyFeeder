@@ -16,6 +16,17 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- Recover confirmed accelerator-worker crashes using the same model in an isolated
+  CPU worker. Verify actual weight/label identity and provider before and after
+  inference, enforce workload deadlines, and keep health degraded while the
+  original profile remains quarantined. Slow or failed recovery does not loop or
+  fall back into the web process. Native crash/recovery summaries use the existing
+  bounded, deduplicated opt-in health reports, without additional report frequency.
+- Retain confirmed native worker crash evidence across restarts and block the same
+  model/provider launch configuration in all worker pools. Quarantined work cannot
+  silently fall back into the web process. Normal shutdown and deadline kills are
+  not labelled native crashes. Add a local-only OpenVINO cold/warm-cache reproducer
+  with bounded child processes and durable per-run outcomes.
 - Preserve downloaded accuracy-fixture attribution and checksums across reruns;
   enforce the photo's own CC0/CC-BY licence, respect exclusions, and retain previous
   manifests when a refresh is incomplete. Refreshes no longer overwrite old images.

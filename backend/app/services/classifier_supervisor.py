@@ -10,6 +10,7 @@ import structlog
 
 from .classifier_worker_client import ClassifierWorkerClient
 from .classifier_worker_protocol import build_classify_request, build_classify_video_request
+from .native_crash_quarantine import NativeCrashQuarantine, NativeCrashQuarantinedError
 
 log = structlog.get_logger()
 
@@ -80,7 +81,9 @@ class ClassifierSupervisor:
         restart_window_seconds: float = 60.0,
         restart_threshold: int = 3,
         breaker_cooldown_seconds: float = 60.0,
+        crash_quarantine: NativeCrashQuarantine | None = None,
     ) -> None:
+        self._crash_quarantine = crash_quarantine
         self._worker_counts = {
             "live": max(1, int(live_worker_count)),
             "background": max(1, int(background_worker_count)),
@@ -358,6 +361,7 @@ class ClassifierSupervisor:
         build_message: Callable[[_WorkerSlot, str], dict[str, Any]],
         progress_callback: Callable[..., Awaitable[None] | None] | None = None,
     ) -> list[dict[str, Any]]:
+        await self._guard_native_crash_quarantine(priority)
         await self.start(priority)
         self._refresh_circuit_state(priority)
         await self._restore_unavailable_slots(priority)
@@ -495,6 +499,8 @@ class ClassifierSupervisor:
                     )
                     if isinstance(exc, ClassifierWorkerStartupTimeoutError):
                         self._metrics[priority]["last_exit_reason"] = "startup_timeout"
+                    elif isinstance(exc, NativeCrashQuarantinedError):
+                        self._metrics[priority]["last_exit_reason"] = "native_runtime_quarantined"
                     else:
                         self._metrics[priority]["last_exit_reason"] = "startup_failed"
 
@@ -507,6 +513,7 @@ class ClassifierSupervisor:
         self, priority: WorkPriority, request_key: tuple[WorkPriority, str, int]
     ) -> _WorkerSlot:
         while True:
+            await self._guard_native_crash_quarantine(priority)
             if request_key in self._pending_requests and self._pending_requests[request_key].done():
                 raise self._pending_requests[request_key].exception() or ClassifierWorkerDeadlineExceededError(
                     "worker aborted before assignment"
@@ -516,6 +523,11 @@ class ClassifierSupervisor:
                 if slot.worker_name in self._replacing:
                     continue
                 if slot.worker is not None and slot.worker_name not in self._assignments:
+                    await self._guard_native_crash_quarantine(
+                        priority, getattr(slot.worker, "_native_launch_profile", None)
+                    )
+                    if slot.worker_name in self._replacing or self._slots[priority][slot.index] is not slot:
+                        continue
                     return slot
             # A slot under replacement is worth waiting for; a pool with no worker
             # left and nothing on the way is not, and the caller queues again.
@@ -539,6 +551,9 @@ class ClassifierSupervisor:
                         index,
                         generation=slot.worker_generation,
                     )
+                except NativeCrashQuarantinedError:
+                    self._record_unavailable_slot(priority, index, "native_runtime_quarantined")
+                    raise
                 except ClassifierWorkerStartupTimeoutError:
                     self._record_unavailable_slot(priority, index, "startup_timeout")
                     continue
@@ -548,6 +563,7 @@ class ClassifierSupervisor:
             self._metrics[priority]["workers"] = self._active_worker_count(priority)
 
     async def _spawn_worker(self, priority: WorkPriority, index: int, generation: int) -> _WorkerSlot:
+        profile = await self._guard_native_crash_quarantine(priority)
         worker_name = f"{priority}-{index}"
         if worker_name in self._cleanup_pending:
             try:
@@ -555,6 +571,7 @@ class ClassifierSupervisor:
             except Exception as exc:
                 raise ClassifierWorkerExitedError(f"Previous worker cleanup is pending: {worker_name}") from exc
         worker = None
+        ready_timeout_seconds = self._ready_timeout_seconds(priority)
         try:
             if self._worker_factory is None:
                 worker = ClassifierWorkerClient(
@@ -571,22 +588,27 @@ class ClassifierSupervisor:
                 )
 
             # Serialize model loading across all pools to prevent RAM/GPU spikes
-            ready_timeout_seconds = self._ready_timeout_seconds(priority)
+            worker._native_launch_profile = profile
             async with self._global_init_lock:
+                await self._guard_native_crash_quarantine(priority, profile)
                 await worker.start()
                 await worker.wait_until_ready(timeout_seconds=ready_timeout_seconds)
             self._record_worker_runtime(priority, worker)
+            if self._metrics[priority]["last_exit_reason"] == "native_runtime_quarantined":
+                self._metrics[priority]["last_exit_reason"] = None
         except asyncio.CancelledError:
             await self._close_failed_worker(worker)
             raise
         except TimeoutError as exc:
             await self._close_failed_worker(worker)
+            await self._guard_native_crash_quarantine(priority)
             self._record_start_failure(priority, worker, reason="startup_timeout")
             raise ClassifierWorkerStartupTimeoutError(
                 f"worker startup timed out worker={worker_name} generation={generation} timeout={ready_timeout_seconds}"
             ) from exc
         except Exception as exc:
             await self._close_failed_worker(worker)
+            await self._guard_native_crash_quarantine(priority)
             self._record_start_failure(priority, worker, reason="startup_failed")
             raise ClassifierWorkerExitedError(str(exc) or "worker failed during startup") from exc
         consumer_task = asyncio.create_task(self._consume_worker_events(worker_name, generation, worker))
@@ -613,6 +635,25 @@ class ClassifierSupervisor:
             await worker.terminate()
         await worker.wait_closed()
         self._cleanup_pending.pop(worker.worker_name, None)
+        if self._crash_quarantine is not None and self._crash_quarantine.remember(
+            getattr(worker, "_native_launch_profile", None), worker.get_status().get("exit_code")
+        ):
+            await asyncio.to_thread(
+                self._crash_quarantine.record,
+                getattr(worker, "_native_launch_profile", None),
+                worker.get_status().get("exit_code"),
+            )
+
+    async def _guard_native_crash_quarantine(
+        self, priority: WorkPriority, profile: dict[str, Any] | None = None
+    ) -> dict[str, Any] | None:
+        if self._crash_quarantine is None:
+            return None
+        try:
+            return await asyncio.to_thread(self._crash_quarantine.guard, profile)
+        except NativeCrashQuarantinedError:
+            self._metrics[priority]["last_exit_reason"] = "native_runtime_quarantined"
+            raise
 
     def _ready_timeout_seconds(self, priority: WorkPriority) -> float:
         """How long a worker may take to say it is ready.
@@ -833,6 +874,10 @@ class ClassifierSupervisor:
                 log.error("Classifier worker cleanup failed", worker=slot.worker_name, error=str(exc))
                 return
             if assignment is not None and not assignment.future.done():
+                try:
+                    await self._guard_native_crash_quarantine(priority)
+                except NativeCrashQuarantinedError as exc:
+                    assignment_error = exc
                 assignment.future.set_exception(assignment_error)
             self._completed_once.discard((slot.worker_name, slot.worker_generation))
             self._metrics[priority]["restarts"] += 1
@@ -844,6 +889,8 @@ class ClassifierSupervisor:
             self._record_restart(priority)
             try:
                 new_slot = await self._spawn_worker(priority, index, generation=slot.worker_generation + 1)
+            except NativeCrashQuarantinedError:
+                self._record_unavailable_slot(priority, index, "native_runtime_quarantined")
             except ClassifierWorkerStartupTimeoutError:
                 self._record_unavailable_slot(priority, index, "startup_timeout")
                 log.error("Classifier worker replacement timed out", worker=slot.worker_name, pool=priority)

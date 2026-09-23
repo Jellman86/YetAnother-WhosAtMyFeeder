@@ -64,7 +64,11 @@ class ClassifierWorkerClient:
         stderr_tail_max_bytes: int = 8192,
         terminate_timeout_seconds: float = 5.0,
         kill_timeout_seconds: float = 5.0,
+        inference_provider_override: str | None = None,
     ) -> None:
+        if inference_provider_override not in {None, "cpu"}:
+            raise ValueError("Only an explicit CPU recovery override is supported")
+        self._inference_provider_override = inference_provider_override
         self.worker_name = str(worker_name)
         self.worker_generation = int(worker_generation)
         self.heartbeat_timeout_seconds = max(0.1, float(heartbeat_timeout_seconds))
@@ -308,6 +312,13 @@ class ClassifierWorkerClient:
 
     async def _spawn_process(self, *, worker_name: str, worker_generation: int) -> Any:
         backend_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        environment = None
+        if self._inference_provider_override is not None:
+            environment = {
+                **os.environ,
+                "CLASSIFICATION__INFERENCE_PROVIDER": self._inference_provider_override,
+                "YA_WAMF_NATIVE_CPU_RECOVERY": "1",
+            }
         # The stream limit is the protocol's own: both ends read newline-framed
         # JSON, and a single high-quality frame is megabytes of base64.
         return await asyncio.create_subprocess_exec(
@@ -321,4 +332,5 @@ class ClassifierWorkerClient:
             stderr=asyncio.subprocess.PIPE,
             cwd=backend_root,
             limit=WORKER_PROTOCOL_STREAM_LIMIT_BYTES,
+            env=environment,
         )

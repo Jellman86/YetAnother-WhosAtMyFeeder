@@ -734,6 +734,16 @@ repeatable cold/warm-cache and mixed-load GPU validation, CUDA evidence from the
 NVIDIA host, a pinned accuracy corpus with previous-release comparison, and full-app
 owner/guest, backfill and recovery browser journeys. A retry pass does not erase a
 native crash, and CPU/provider agreement is not a species-accuracy score.
+Persistent launch-profile quarantine and a standalone cold/warm-cache OpenVINO
+reproducer now support that investigation; neither establishes the crash's cause
+or closes the reporter-confirmation requirement for #490.
+Same-artifact isolated CPU recovery now checks actual provider, weight/label
+identity and workload deadlines; another installed model is not required. Bounded
+native-crash/recovery diagnostics use existing opt-in batches without higher
+frequency, per-frame writes or ingestion changes. Remaining work includes sustained
+mixed-load recovery and the original reporter's model/driver validation. Assess
+retention and query costs against the Cloudflare free-tier budget before any
+future ingestion expansion.
 
 The fixture downloader now preserves attribution and checksums, filters the photo's
 own licence, respects exclusions and keeps old images/manifests on incomplete
