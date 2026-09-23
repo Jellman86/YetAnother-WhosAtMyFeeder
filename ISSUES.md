@@ -13,9 +13,33 @@ Last reviewed against the GitHub issue tracker and opt-in fleet telemetry on
 
 ## P1: Active Regressions
 
-- None currently confirmed as unresolved in current `dev`.
+### REG-2026-09-23-02 — Intermittent Intel GPU native crashes during model validation
+
+The Intel image at `873ba007`, OpenVINO 2026.4.0, produced native SIGSEGV/SIGABRT
+failures in isolated GPU probes for accurate YOLOX crop, ConvNeXt Large, FocalNet EU,
+medium birds EU and small birds EU/NA. Some reruns pass, so a single successful
+compile is insufficient evidence. The running NPU configuration remained healthy;
+this does not establish that the application update introduced the GPU failures.
+The later strict sweep passed 30 CPU/NPU/GPU pairs, and two further CPU/GPU repeats
+of all six affected artifacts passed 24 runs. Retrying the original accurate-crop
+probe also passed without a runtime change, so harness changes alone do not explain
+the earlier crashes. These passes do not replace the retained failure evidence.
+Investigate cold/warm caches, runtime/driver versions and repeated inference, then
+resolve or conservatively gate affected combinations. Keep this open until repeated
+exact-image hardware checks pass. Tracked in the
+[broader coverage roadmap](ROADMAP.md#broader-end-to-end-coverage-).
 
 ## Pending Verification (Fixes in Dev, Awaiting Reporter Confirmation)
+
+### REG-2026-09-23-03 — Worker pipe closure could precede native process exit
+
+PR #498 separates protocol closure from process reaping, adds bounded termination
+escalation and preserves cleanup ownership through cancellation. A failed cleanup
+blocks replacement. Real-process regressions passed locally and on the Intel host,
+including an ignored TERM and NPU recovery replay in disposable state. Verify the
+built dev image after deployment; this is not a claim that #490's native GPU fault
+is resolved. Tracked in the
+[inference isolation roadmap](ROADMAP.md#keep-the-web-service-and-ingest-off-the-inference-path-).
 
 ### REG-2026-09-23-01 — Native classifier stalls exhaust live and backfill work (#490)
 

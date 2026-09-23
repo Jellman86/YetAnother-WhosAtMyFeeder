@@ -16,6 +16,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- Add a local, isolated model/provider gate that records native crashes and fails
+  incomplete or numerically invalid runs. Regional artifacts and crop detectors use
+  their own production contracts. Accuracy sessions load lazily, old diagnostics
+  are explicitly opt-in, and NumPy-compatible range checks replace removed APIs.
 - **Classifier worker replacement waits for the old process to exit.** Closed pipes no
   longer masquerade as a reaped worker. Shutdown escalates ignored termination to a
   bounded kill, startup cancellation cleans up its child, and failed cleanup blocks
