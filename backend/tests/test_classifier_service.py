@@ -3110,7 +3110,7 @@ async def test_register_gpu_unhealthy_signal_triggers_fallback_from_maintenance_
         service._load_runtime_fallback_bird_model.assert_not_called()
         recovery = service._inference_health.most_recent_recovery()
         assert recovery is not None
-        assert recovery["reason"] == "in_process_lease_expired"
+        assert recovery["reason"] == "in_process_gpu_unhealthy"
 
         await service.shutdown()
 
@@ -3150,7 +3150,7 @@ async def test_register_gpu_unhealthy_signal_uses_inference_health_verdict_for_f
         assert service._image_execution_mode == "subprocess"
         recovery = service._inference_health.most_recent_recovery()
         assert recovery is not None
-        assert recovery["reason"] == "in_process_lease_expired"
+        assert recovery["reason"] == "in_process_gpu_unhealthy"
         service._load_runtime_fallback_bird_model.assert_not_called()
 
         await service.shutdown()

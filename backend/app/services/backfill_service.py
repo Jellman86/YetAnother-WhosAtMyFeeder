@@ -60,7 +60,7 @@ class BackfillFailureGuard:
             raise BackfillClassifierUnavailableError(
                 f"Backfill stopped after 3 consecutive classifier failures ({reason}). "
                 "Check System Health and use subprocess image execution. If inference remains stalled, "
-                "restart the container, then rerun this date range. Existing detections will be skipped."
+                "restart the container, then rerun this date range. Existing events will not be duplicated."
             )
 
 

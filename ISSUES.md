@@ -17,6 +17,16 @@ Last reviewed against the GitHub issue tracker and opt-in fleet telemetry on
 
 ## Pending Verification (Fixes in Dev, Awaiting Reporter Confirmation)
 
+### REG-2026-09-23-01 — Native classifier stalls exhaust live and backfill work (#490)
+
+The reporter's native Intel GPU runtime repeatedly expired image leases; a CPU fallback did not
+recover the run. PR #493 redirects new work to isolated workers and stops backfill after three
+consecutive classifier failures. PR #494 hardens recovery state, model lifetime, wildlife routing,
+upload tests and video-fallback accounting. Quark reproduced the recovery transition in a disposable
+service with real NPU workers; reporter confirmation is still needed for the original model/driver
+combination. See the [classifier review](docs/reviews/2026-09-23-classifier-recovery-review.md) and
+the [inference isolation roadmap](ROADMAP.md#keep-the-web-service-and-ingest-off-the-inference-path-).
+
 ### REG-2026-09-15-01 — Accepted detections can expire before notification dispatch
 
 The September 15 fleet review found 41 underlying occurrences across two installations in the
@@ -40,6 +50,12 @@ in-app notification timeline both prove one real final-mode detection end to end
 [telemetry-confirmed regression queue](ROADMAP.md#telemetry-confirmed-regression-queue).
 
 ## Known Remaining Exposure
+
+- **Low-level classifier diagnostics have separate native execution paths.** Ordinary uploaded
+  classifications now share admission and isolation, but owner-only native debug/probe endpoints
+  are not covered by the same worker deadline contract. Move these diagnostics into disposable
+  processes before treating every classifier endpoint as equally isolated. This belongs to the
+  [inference isolation roadmap](ROADMAP.md#keep-the-web-service-and-ingest-off-the-inference-path-).
 
 - **The owner system checks walk the media cache once a minute.** With PR #401 the walk no longer
   blocks the API, but it still runs every sixty seconds on every owner page, and on a large cache

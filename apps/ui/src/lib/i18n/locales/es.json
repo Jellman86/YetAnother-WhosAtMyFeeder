@@ -1561,6 +1561,9 @@
       "video_concurrency_follows_workers": "Los clips se analizan tantos a la vez como procesos en segundo plano hay: los modelos clasifican una imagen por proceso, así que un ajuste de concurrencia aparte solo podría encolar trabajos o dejar procesos sin uso.",
       "band_worker_split_video": "{live} en vivo · {background} en segundo plano · {video} de vídeo",
       "model_manager_memory_formula_subprocess_video": "{per} por copia × {live} en vivo + {background} en segundo plano + {video} de vídeo (modo aislado)",
+      "band_native_recovering": "Esperando a que los procesos aislados reanuden la clasificación.",
+      "band_native_recovered": "La clasificación se ha reanudado en procesos aislados.",
+      "band_native_restart": "Reinicia el contenedor para liberar el entorno bloqueado.",
       "band_worker_fallback": "Los workers fallan — clasificando en el proceso principal",
       "band_worker_fallback_detail": "Los workers aislados mueren al cargar el modelo; las detecciones continúan en el proceso principal."
     },

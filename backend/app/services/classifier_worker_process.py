@@ -139,6 +139,8 @@ class ClassifierWorkerProcess:
             }
             if "input_context" in message:
                 classify_kwargs["input_context"] = message.get("input_context")
+            if "model_kind" in message:
+                classify_kwargs["model_kind"] = message["model_kind"]
             results = await self._run_classify(**classify_kwargs)
             after_recovery = self._runtime_recovery_snapshot()
             if after_recovery is not None and after_recovery != before_recovery:
@@ -411,8 +413,13 @@ def _build_default_classify_fn() -> Callable[..., list[dict[str, Any]]]:
         camera_name: str | None,
         model_id: str | None,
         input_context: dict[str, Any] | None = None,
+        model_kind: str = "bird",
     ) -> list[dict[str, Any]]:
         image = Image.open(BytesIO(b64decode(image_b64.encode("ascii")))).convert("RGB")
+        if model_kind == "wildlife":
+            return service.classify_wildlife(image, input_context=input_context)
+        if model_kind != "bird":
+            raise ValueError("unsupported classifier model kind")
         return service.classify(image, camera_name=camera_name, model_id=model_id, input_context=input_context)
 
     _classify_fn._runtime_recovery_getter = service.latest_runtime_recovery  # type: ignore[attr-defined]

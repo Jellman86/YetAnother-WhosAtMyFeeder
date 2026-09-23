@@ -17,6 +17,7 @@ It is anchored by two honest assessments of *where we stand*:
 - [Telemetry Health Findings (2026-07-09)](docs/reviews/2026-07-09-telemetry-health-findings.md) — what actually fails across the fleet.
 - [Image Classification Pipeline Review (2026-07-20)](docs/reviews/2026-07-20-image-classification-pipeline-review.md) — evidence provenance, temporal consensus, HQ media, and runtime recovery.
 - [Detection Queue and Jobs Review (2026-07-22)](docs/reviews/2026-07-22-detection-queue-and-jobs-review.md) — bounded intake, restart recovery, lifecycle ordering, and owner-visible work.
+- [Classifier Recovery Review (2026-09-23)](docs/reviews/2026-09-23-classifier-recovery-review.md) — native quarantine, worker routing, health consistency and hardware checks.
 
 ---
 
@@ -683,10 +684,14 @@ The outcome still wanted is a process boundary between tier 1 (ingest and the AP
 process boundary also makes a stalled inference killable, which an in-process thread is not: the
 issue-33 plan records that the coordinator "cannot stop the underlying Python/native worker thread".
 
-What blocks a default change is a measurement, not a decision. Memory per worker is one model copy
-plus a 512MB crop detector, and the naive comparison is misleading: the same instance measured
-633MiB immediately after restart and 4.815GiB after about a day, an eightfold growth with no change
-of model. Any comparison between the modes has to be taken at a matched age over hours.
+Subprocess execution is now the default, with tests pinning it. Saved in-process preferences remain
+supported. Issue #490 adds native-runtime quarantine and recovery into isolated workers; the
+[September review](docs/reviews/2026-09-23-classifier-recovery-review.md) records the follow-up
+hardening and real NPU/GPU/CPU checks. Remaining isolation work includes owner-only native
+debug/probe endpoints and a defined replacement policy before retiring the compatibility mode.
+
+Memory comparisons still need matched model, worker count and uptime. Worker pools carry separate
+model copies and can retain crop detectors; startup RSS does not establish long-running memory cost.
 
 Complete when a fresh install runs inference out of process, resident memory is measured before and
 after and stated honestly in the release notes, a test pins the resolved defaults, and Settings >

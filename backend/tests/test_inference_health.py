@@ -21,6 +21,14 @@ def test_inference_health_records_success_latency_and_snapshot():
     assert runtime["latency_seconds"]["p95"] == 0.5
 
 
+def test_repeated_old_worker_telemetry_does_not_overwrite_newer_recovery():
+    health = InferenceHealth()
+    key = RuntimeKey("openvino", "intel_gpu", "test")
+    health.record_recovery(key, {"status": "recovered", "at": 20.0})
+    health.record_recovery(key, {"status": "recovering", "at": 10.0})
+    assert health.last_recovery(key) == {"status": "recovered", "at": 20.0}
+
+
 def test_inference_health_marks_unhealthy_after_repeated_failures_and_cooldown():
     health = InferenceHealth(
         min_samples=3,

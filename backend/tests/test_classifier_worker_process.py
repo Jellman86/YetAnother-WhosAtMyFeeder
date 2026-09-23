@@ -1,8 +1,13 @@
 import asyncio
+import base64
+import io
+from unittest.mock import MagicMock
+
+from PIL import Image
 
 import pytest
 
-from app.services.classifier_worker_process import ClassifierWorkerProcess
+from app.services.classifier_worker_process import ClassifierWorkerProcess, _build_default_classify_fn
 from app.services.classifier_worker_protocol import (
     build_classify_request,
     build_classify_video_request,
@@ -23,6 +28,58 @@ class _MemoryWriter:
 
     def close(self) -> None:
         self.closed = True
+
+
+def test_default_worker_dispatches_wildlife_without_using_bird_model(monkeypatch):
+    from app.services import classifier_service
+
+    monkeypatch.delenv("YA_WAMF_CLASSIFIER_WORKER_TEST_MODE", raising=False)
+    service = MagicMock()
+    service.classify_wildlife.return_value = [{"label": "Fox", "score": 0.9}]
+    monkeypatch.setattr(classifier_service, "ClassifierService", lambda **_: service)
+    payload = io.BytesIO()
+    Image.new("RGB", (8, 8)).save(payload, format="PNG")
+    classify = _build_default_classify_fn()
+    result = classify(
+        image_b64=base64.b64encode(payload.getvalue()).decode(),
+        camera_name=None,
+        model_id=None,
+        model_kind="wildlife",
+        input_context={"is_cropped": True},
+    )
+    assert result[0]["label"] == "Fox"
+    service.classify.assert_not_called()
+    assert service.classify_wildlife.call_args.kwargs["input_context"] == {"is_cropped": True}
+
+
+@pytest.mark.asyncio
+async def test_worker_protocol_keeps_wildlife_request_kind_and_context():
+    reader = asyncio.StreamReader()
+    writer = _MemoryWriter()
+    seen = []
+
+    def classify(**kwargs):
+        seen.append(kwargs)
+        return [{"label": "Fox", "score": 0.9}]
+
+    process = ClassifierWorkerProcess(reader=reader, writer=writer, classify_fn=classify, worker_generation=1)
+    message = build_classify_request(
+        worker_generation=1,
+        request_id="req",
+        work_id="work",
+        lease_token=1,
+        image_b64="payload",
+        camera_name=None,
+        model_id=None,
+        model_kind="wildlife",
+        input_context={"is_cropped": True},
+    )
+    reader.feed_data(process.encode_message(message))
+    reader.feed_eof()
+    await process.run()
+    assert seen[0]["model_kind"] == "wildlife"
+    assert seen[0]["input_context"] == {"is_cropped": True}
+    assert writer.messages[-1]["results"][0]["label"] == "Fox"
 
 
 class _SlowProgressWriter(_MemoryWriter):

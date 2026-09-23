@@ -6,6 +6,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Keep classifier recovery status consistent across health and settings, show the running execution
+  mode, and retain restart advice after recovery. Model reloads preserve quarantined native models.
+- Route wildlife reclassification through isolated workers in subprocess mode, including after
+  native inference stalls. Queued fallback requests cannot load another native model after quarantine.
+- Preserve video timeout and worker-failure circuit accounting when the fallback snapshot is filtered.
+- Apply classifier admission and deadlines to uploaded test images in both execution modes.
+- Reload the active classifier through the supported service API after downloading the default model.
+
 ### Fixed
 
 - **A stalled native classifier can no longer consume an entire backfill.** After an in-process

@@ -1846,7 +1846,7 @@ class AutoVideoClassifierService:
                         if snapshot_error is None:
                             self._record_success(frigate_event, source=source)
                         else:
-                            self._record_failure(frigate_event, snapshot_error, source=source)
+                            self._record_failure(frigate_event, "video_timeout", source=source)
                         return
 
                     self._record_timeout(frigate_event, source=source, context=timeout_context)
@@ -1902,7 +1902,7 @@ class AutoVideoClassifierService:
                         if snapshot_error is None:
                             self._record_success(frigate_event, source=source)
                         else:
-                            self._record_failure(frigate_event, snapshot_error, source=source)
+                            self._record_failure(frigate_event, reason_code, source=source)
                         return
 
                     self._record_diagnostic(

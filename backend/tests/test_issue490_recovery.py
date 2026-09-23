@@ -78,6 +78,8 @@ async def test_native_timeout_moves_next_work_to_workers_without_waiting_for_stu
         assert supervisor.classify.await_count == 2
         assert service.get_admission_status()["live"]["capacity"] == 1
         assert service.latest_runtime_recovery()["status"] == "recovered"
+        assert service.get_status()["inference_health"]["last_recovery"]["status"] == "recovered"
+        assert service.check_health()["runtime_recovery"]["last_recovery"]["status"] == "recovered"
         assert service._subprocess_runtime_identity(supervisor.get_metrics())[2] == "worker"
         with pytest.raises(LiveImageClassificationOverloadedError):
             await service._classify_in_process_as_last_resort(
@@ -87,6 +89,157 @@ async def test_native_timeout_moves_next_work_to_workers_without_waiting_for_stu
     finally:
         release.set()
         await asyncio.to_thread(finished.wait, 1)
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_recovered_quarantine_does_not_hide_new_worker_failure():
+    from app.services.inference_health import RuntimeKey
+
+    supervisor = MagicMock()
+    supervisor.shutdown = AsyncMock()
+    supervisor.classify = AsyncMock(return_value=[])
+    metrics = {"live": {"workers": 1}, "background": {"workers": 1}}
+    supervisor.get_metrics.return_value = metrics
+    with (
+        patch.object(ClassifierService, "_init_bird_model"),
+        patch.object(ClassifierService, "_refresh_accel_caps", return_value={}),
+    ):
+        service = ClassifierService(supervisor=supervisor)
+    try:
+        service._isolate_expired_native_runtime("live", RuntimeKey("openvino", "intel_gpu", "test"))
+        await service.classify_async_live(Image.new("RGB", (16, 16)))
+        failure = {"status": "failed", "reason": "worker_failed", "at": service.latest_runtime_recovery()["at"] + 1}
+        metrics["live"]["last_runtime_recovery"] = failure
+        assert service.check_health()["runtime_recovery"]["last_recovery"]["reason"] == "worker_failed"
+        assert service.check_health()["status"] == "error"
+        assert service.get_status()["inference_health"]["last_recovery"]["reason"] == "worker_failed"
+    finally:
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_late_invalid_native_result_cannot_start_another_model_recovery():
+    from app.services.inference_health import RuntimeKey
+    from app.services.classifier_service import InvalidInferenceOutputError
+
+    with (
+        patch.object(ClassifierService, "_init_bird_model"),
+        patch.object(ClassifierService, "_refresh_accel_caps", return_value={}),
+    ):
+        service = ClassifierService()
+    model = MagicMock()
+    service._models["bird"] = model
+    service._attempt_gpu_retry_after_invalid_output = MagicMock(return_value=True)
+    try:
+        service._isolate_expired_native_runtime("live", RuntimeKey("openvino", "intel_gpu", "test"))
+        error = InvalidInferenceOutputError(backend="openvino", provider="intel_gpu", detail="late invalid output")
+        assert service._recover_from_invalid_bird_output(model, error) is False
+        service._attempt_gpu_retry_after_invalid_output.assert_not_called()
+        model.cleanup.assert_not_called()
+    finally:
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_model_reload_retains_quarantined_native_model():
+    from app.services.inference_health import RuntimeKey
+
+    supervisor = MagicMock()
+    supervisor.restart_pool = AsyncMock()
+    supervisor.shutdown = AsyncMock()
+    with (
+        patch.object(ClassifierService, "_init_bird_model"),
+        patch.object(ClassifierService, "_refresh_accel_caps", return_value={}),
+    ):
+        service = ClassifierService(supervisor=supervisor)
+    model = MagicMock()
+    service._models["bird"] = model
+    try:
+        service._isolate_expired_native_runtime("live", RuntimeKey("openvino", "intel_gpu", "test"))
+        await service.reload_bird_model()
+        model.cleanup.assert_not_called()
+        assert service._models["bird"] is model
+        supervisor.restart_pool.assert_awaited_once()
+    finally:
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_wildlife_uses_workers_after_native_quarantine():
+    from app.services.inference_health import RuntimeKey
+
+    supervisor = MagicMock()
+    supervisor.shutdown = AsyncMock()
+    supervisor.classify = AsyncMock(return_value=[{"label": "Fox", "score": 0.9}])
+    with (
+        patch.object(ClassifierService, "_init_bird_model"),
+        patch.object(ClassifierService, "_refresh_accel_caps", return_value={}),
+    ):
+        service = ClassifierService(supervisor=supervisor)
+    service.classify_wildlife = MagicMock(side_effect=AssertionError("native runtime must not be reused"))
+    try:
+        service._isolate_expired_native_runtime("live", RuntimeKey("openvino", "intel_gpu", "test"))
+        result = await service.classify_wildlife_async(Image.new("RGB", (16, 16)), input_context={"is_cropped": True})
+        assert result[0]["label"] == "Fox"
+        assert supervisor.classify.await_args.kwargs["model_kind"] == "wildlife"
+        assert supervisor.classify.await_args.kwargs["input_context"]["is_cropped"] is True
+        service.classify_wildlife.assert_not_called()
+    finally:
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_wildlife_reload_restarts_background_workers_without_loading_in_parent(monkeypatch):
+    monkeypatch.setattr(settings.classification, "image_execution_mode", "subprocess")
+    supervisor = MagicMock()
+    supervisor.restart_pool = AsyncMock()
+    supervisor.shutdown = AsyncMock()
+    with (
+        patch.object(ClassifierService, "_init_bird_model"),
+        patch.object(ClassifierService, "_refresh_accel_caps", return_value={}),
+    ):
+        service = ClassifierService(supervisor=supervisor)
+    service._get_wildlife_model = MagicMock()
+    try:
+        await service.reload_wildlife_model()
+        supervisor.restart_pool.assert_awaited_once_with("background")
+        service._get_wildlife_model.assert_not_called()
+    finally:
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_waiting_native_fallback_does_not_reload_after_quarantine():
+    from app.services.inference_health import RuntimeKey
+
+    with (
+        patch.object(ClassifierService, "_init_bird_model"),
+        patch.object(ClassifierService, "_refresh_accel_caps", return_value={}),
+    ):
+        service = ClassifierService()
+    service._init_bird_model = MagicMock()
+    native_start = MagicMock()
+    try:
+        await service._worker_fallback_lock.acquire()
+        task = asyncio.create_task(
+            service._classify_in_process_as_last_resort(
+                priority="background",
+                image=Image.new("RGB", (16, 16)),
+                camera_name=None,
+                model_id=None,
+                input_context=None,
+                on_native_start=native_start,
+            )
+        )
+        await asyncio.sleep(0)
+        service._isolate_expired_native_runtime("live", RuntimeKey("openvino", "intel_gpu", "test"))
+        service._worker_fallback_lock.release()
+        with pytest.raises(BackgroundImageClassificationUnavailableError):
+            await task
+        service._init_bird_model.assert_not_called()
+        native_start.assert_not_called()
+    finally:
         await service.shutdown()
 
 
@@ -115,6 +268,40 @@ async def test_successful_or_filtered_events_reset_backfill_failure_streak():
     assert result.processed == len(outcomes)
     assert result.stopped_reason is None
     assert result.new_detections == 1
+
+
+@pytest.mark.asyncio
+async def test_async_backfill_failure_keeps_counts_and_releases_maintenance(monkeypatch):
+    from starlette.requests import Request
+    from app.routers import backfill as router
+
+    service = BackfillService(classifier=MagicMock())
+    service.fetch_frigate_events = AsyncMock(return_value=[{"id": str(i)} for i in range(20)])
+    service.process_historical_event_with_timeout = AsyncMock(return_value=("error", "background_image_lease_expired"))
+    coordinator = MagicMock()
+    coordinator.try_acquire = AsyncMock(return_value=True)
+    coordinator.release = AsyncMock()
+    monkeypatch.setattr(router, "backfill_service", service)
+    monkeypatch.setattr(router, "maintenance_coordinator", coordinator)
+    monkeypatch.setattr(router, "_maintenance_guardrail_status", lambda: {})
+    monkeypatch.setattr(router.canonical_identity_repair_service, "get_status", lambda: {})
+    monkeypatch.setattr(router.broadcaster, "broadcast", AsyncMock())
+    monkeypatch.setattr(router, "_schedule_weather_followup", MagicMock())
+    monkeypatch.setattr(router, "_JOB_STORE", {})
+    monkeypatch.setattr(router, "_JOB_TASKS", {})
+    monkeypatch.setattr(router, "_LATEST_JOB_BY_KIND", {})
+    monkeypatch.setattr(router, "_JOB_LOCK", asyncio.Lock())
+    job = await router.backfill_detections_async(
+        router.BackfillRequest(date_range="day"), Request({"type": "http", "headers": []})
+    )
+    await router._JOB_TASKS[job.id]
+    assert job.status == "failed"
+    assert job.processed == job.errors == 3
+    assert job.total == 20
+    assert job.error_reasons == {"background_image_lease_expired": 3}
+    coordinator.release.assert_awaited_once()
+    router._schedule_weather_followup.assert_not_called()
+    assert router.broadcaster.broadcast.await_args.args[0]["type"] == "backfill_failed"
 
 
 @pytest.mark.parametrize("source", ["live", "manual", "maintenance"])
