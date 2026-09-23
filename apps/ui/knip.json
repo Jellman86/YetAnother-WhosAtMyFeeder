@@ -1,4 +1,4 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "entry": ["public/sw.js"]
+  "entry": ["public/sw.js", "browser-tests/fixture.ts", "browser-tests/**/*.spec.ts"]
 }

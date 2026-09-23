@@ -16,6 +16,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Pre-migration restore points include committed SQLite WAL data.** Backups now use
+  SQLite's consistent snapshot API, check integrity and publish atomically; failed or
+  locked copies do not prune existing restore points.
+- Collect 110 previously orphaned backend regressions. PRs and image builds now share
+  a 70% branch-aware coverage gate and fail on test-process hangs. Telemetry integration
+  tests run before merge. Add joined detection-to-notification tests and a local-only
+  Chromium/WebKit desktop/mobile Health interaction suite without new hosted jobs.
 - **Backfill results now match the saved history when snapshot caching fails.** Optional cache
   failures remain visible as warnings without misreporting an already-committed detection as lost.
 - Reject classifier probabilities outside 0–1 before filtering or saving. Failed job scheduling

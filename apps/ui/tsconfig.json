@@ -15,7 +15,10 @@
         "src/**/*.d.ts",
         "src/**/*.ts",
         "src/**/*.js",
-        "src/**/*.svelte"
+        "src/**/*.svelte",
+        "browser-tests/**/*.ts",
+        "browser-tests/**/*.svelte",
+        "playwright.config.ts"
     ],
     "references": [
         {

@@ -1,6 +1,7 @@
 import os
 import sys
-import shutil
+import sqlite3
+import tempfile
 import asyncio
 import time
 import aiosqlite
@@ -8,7 +9,7 @@ import structlog
 from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
-from contextlib import asynccontextmanager, contextmanager
+from contextlib import asynccontextmanager, contextmanager, closing
 from contextvars import ContextVar
 from typing import Optional
 
@@ -138,10 +139,12 @@ REQUIRED_COLUMNS = {
 }
 
 
-def _prune_pre_migration_backups(database: Path, retention: int) -> None:
+def _prune_pre_migration_backups(database: Path, retention: int, *, newest: Path | None = None) -> None:
     backups = sorted(
         database.parent.glob(f"{database.stem}.pre-migration-*{database.suffix}"),
-        key=lambda path: path.name,
+        # Keep the snapshot just published even if an older restore point has
+        # a future timestamp (clock correction or a restored filesystem).
+        key=lambda path: (path == newest, path.name),
         reverse=True,
     )
     removed = 0
@@ -169,7 +172,7 @@ def _backup_db(
     retention: int = DEFAULT_PRE_MIGRATION_BACKUP_RETENTION,
 ) -> Optional[str]:
     """
-    Copy the database to a timestamped backup file in the same directory.
+    Snapshot SQLite, including committed WAL data, into an atomic restore point.
 
     Called before running migrations so users have a restore point when
     switching between image versions (e.g. live ↔ dev).  Successful backups
@@ -180,12 +183,38 @@ def _backup_db(
     src = Path(db_path)
     if not src.exists():
         return None
-    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    dst = src.with_name(f"{src.stem}.pre-migration-{ts}{src.suffix}")
+    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     try:
-        shutil.copy2(src, dst)
+        # The backup API takes a consistent snapshot while another connection
+        # writes. A raw file copy loses WAL rows and can copy torn database pages.
+        with tempfile.NamedTemporaryFile(
+            prefix=f".{src.stem}.backup-", suffix=".partial", dir=src.parent, delete=False
+        ) as staging:
+            partial = Path(staging.name)
+        dst = src.with_name(f"{src.stem}.pre-migration-{ts}-{partial.stem.rsplit('-', 1)[-1]}{src.suffix}")
+        try:
+            deadline = time.monotonic() + 30.0
+
+            def check_deadline(_status: int, _remaining: int, _total: int) -> None:
+                if time.monotonic() >= deadline:
+                    raise TimeoutError("Pre-migration SQLite backup exceeded 30 seconds")
+
+            with (
+                closing(sqlite3.connect(src.resolve().as_uri() + "?mode=ro", uri=True, timeout=1.0)) as source,
+                closing(sqlite3.connect(partial)) as target,
+            ):
+                source.backup(target, pages=256, progress=check_deadline, sleep=0.05)
+                if target.execute("PRAGMA quick_check").fetchone() != ("ok",):
+                    raise sqlite3.DatabaseError("Pre-migration backup integrity check failed")
+            # Publish only a complete, checked snapshot on the same filesystem.
+            # Close all handles first so this also works on Windows.
+            with open(partial, "rb") as completed:
+                os.fsync(completed.fileno())
+            os.replace(partial, dst)
+        finally:
+            partial.unlink(missing_ok=True)
         log.info("Pre-migration database backup created", backup_path=str(dst))
-        _prune_pre_migration_backups(src, retention)
+        _prune_pre_migration_backups(src, retention, newest=dst)
         return str(dst)
     except Exception as e:
         log.warning("Could not create pre-migration database backup", error=str(e))

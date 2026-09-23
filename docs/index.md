@@ -47,6 +47,7 @@ The layout adapts to phones and tablets, with the dashboard counts above the fie
 
 ## 🔌 API & Development
 Build integrations and custom tools with YA-WAMF.
+- **[Regression testing](development/testing.md)** - Shared CI gates and local-only browser, hardware and recovery checks.
 - **[🔌 API Reference](api.md)** - Complete REST API documentation with examples
 - **OpenAPI/Swagger** - Interactive API docs. Accessible at `http://localhost:8000/docs` when running the backend directly. In the monolithic container the FastAPI process is internal — see the [API Reference](api.md) for access options. In the legacy split deployment the backend is exposed at `http://localhost:8946/docs`.
 
