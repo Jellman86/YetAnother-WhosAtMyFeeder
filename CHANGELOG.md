@@ -36,6 +36,19 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   detections it will remove.
 - **"Purge Old Records" now removes old BirdNET-Go audio too,** matching the scheduled cleanup
   it is documented to run. Old audio used to survive until the next automatic run.
+- **Importing a configuration backup no longer signs you out or strands OAuth tokens.** The
+  import took the backup's session secret and OAuth key, which could reinstate a secret rotated
+  after a leak and left stored Gmail, Outlook and iNaturalist tokens undecryptable. This
+  installation now keeps its own. An import also reloads the classifier when it changes the
+  model, provider or execution mode, and forgets the telemetry installation when it turns
+  telemetry off, as a settings save does.
+- **Taxonomy Repair no longer blocks live detections.** It held a database write transaction
+  across up to 200 iNaturalist lookups, and a live save gives up after 30 seconds with
+  "database is locked". It now commits each detection as it goes.
+- **Settings stops polling taxonomy status every 3 seconds** while the Data tab is open. It reads
+  the status once, and polls only while a repair runs.
+- **The Configuration Backup card and its messages are translated.** Its keys were missing from
+  every locale, so it showed English in all nine languages.
 - **Failed hides and deletes say so.** They reported "Failed to reclassify", or in Explorer
   nothing at all.
 

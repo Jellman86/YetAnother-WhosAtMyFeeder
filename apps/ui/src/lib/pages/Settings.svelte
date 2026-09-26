@@ -267,6 +267,11 @@
     let taxonomyStatus = $state<TaxonomySyncStatus | null>(null);
     let syncingTaxonomy = $state(false);
     let taxonomyPollInterval: ReturnType<typeof setInterval> | undefined;
+    // The repair starts as a background task after the request returns, so the first
+    // status reads can still say idle. Keep polling for a bounded while after starting:
+    // a run with nothing to repair finishes before it is ever seen running.
+    const TAXONOMY_START_GRACE_MS = 15_000;
+    let taxonomyAwaitingStartUntil = 0;
     let taxonomyStatusLoading = false;
 
     // Location Settings
@@ -2103,11 +2108,13 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         else window.history.pushState(null, '', toAppPath(path));
     }
 
-    // Drive taxonomy polling from the derived active tab so router-driven changes
-    // (back/forward, deep links) still flip the polling lifecycle correctly.
+    // Drive taxonomy status from the derived active tab so router-driven changes
+    // (back/forward, deep links) still flip the lifecycle correctly. Opening the tab reads
+    // the status once; polling runs only while a repair runs, not every 3 s for as long as
+    // the tab stays open.
     $effect(() => {
         if (activeTab === 'data') {
-            startTaxonomyPolling();
+            void loadTaxonomyStatus();
         } else {
             stopTaxonomyPolling();
         }
@@ -2150,6 +2157,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         try {
             taxonomyStatus = await fetchTaxonomyStatus();
             if (taxonomyStatus.is_running) {
+                taxonomyAwaitingStartUntil = 0;
+                startTaxonomyPolling();
                 jobProgressStore.upsertRunning({
                     id: 'taxonomy:sync',
                     kind: 'taxonomy_sync',
@@ -2160,6 +2169,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     source: 'poll'
                 });
             } else if (taxonomyStatus.progress_state === 'failed') {
+                taxonomyAwaitingStartUntil = 0;
                 stopTaxonomyPolling();
                 jobProgressStore.markFailed({
                     id: 'taxonomy:sync',
@@ -2171,6 +2181,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     source: 'poll'
                 });
             } else if (taxonomyStatus.progress_state === 'completed' && taxonomyStatus.processed > 0) {
+                taxonomyAwaitingStartUntil = 0;
                 stopTaxonomyPolling();
                 jobProgressStore.markCompleted({
                     id: 'taxonomy:sync',
@@ -2180,7 +2191,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     total: taxonomyStatus.total,
                     source: 'poll'
                 });
-            } else {
+            } else if (Date.now() >= taxonomyAwaitingStartUntil) {
+                stopTaxonomyPolling();
                 jobProgressStore.closeActiveByPrefix('taxonomy:', 'stale');
             }
         } catch (e) {
@@ -2203,9 +2215,12 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         syncingTaxonomy = true;
         try {
             await startTaxonomySync();
+            taxonomyAwaitingStartUntil = Date.now() + TAXONOMY_START_GRACE_MS;
+            startTaxonomyPolling();
             await loadTaxonomyStatus();
             message = { type: 'success', text: $_('settings.data.taxonomy_syncing') };
         } catch (e) {
+            taxonomyAwaitingStartUntil = 0;
             message = { type: 'error', text: $_('settings.data.taxonomy_sync_error', { values: { error: getErrorMessage(e) } }) };
         } finally {
             syncingTaxonomy = false;
@@ -2542,10 +2557,11 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
 
     async function handleExportConfigBackup() {
         const confirmed = await confirmAction({
-            title: 'Export configuration backup',
-            message:
-                'This backup includes secrets such as tokens, webhooks, passwords, and auth secrets. Store it somewhere private?',
-            confirmLabel: 'Export backup',
+            title: $_('settings.data.config_backup_export', { default: 'Export Config' }),
+            message: $_('settings.data.config_backup_export_confirm', {
+                default: 'This backup includes secrets such as tokens, webhooks, passwords, and auth secrets. Store it somewhere private?'
+            }),
+            confirmLabel: $_('settings.data.config_backup_export_confirm_button', { default: 'Export backup' }),
             tone: 'default'
         });
         if (!confirmed) return;
@@ -2562,9 +2578,12 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             link.click();
             link.remove();
             URL.revokeObjectURL(url);
-            message = { type: 'success', text: 'Configuration backup exported.' };
+            message = { type: 'success', text: $_('settings.data.config_backup_exported', { default: 'Configuration backup exported.' }) };
         } catch (e) {
-            message = { type: 'error', text: getErrorMessage(e) || 'Failed to export configuration backup' };
+            message = {
+                type: 'error',
+                text: getErrorMessage(e) || $_('settings.data.config_backup_export_error', { default: 'Failed to export configuration backup' })
+            };
         } finally {
             exportingConfigBackup = false;
         }
@@ -2572,9 +2591,11 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
 
     async function handleImportConfigBackup(file: File) {
         const confirmed = await confirmAction({
-            title: 'Import configuration backup',
-            message: 'Importing this backup will replace the current YA-WAMF configuration, including secrets. Continue?',
-            confirmLabel: 'Replace configuration'
+            title: $_('settings.data.config_backup_import', { default: 'Import Config' }),
+            message: $_('settings.data.config_backup_import_confirm', {
+                default: 'Importing this backup replaces the current YA-WAMF configuration, including secrets. This installation keeps its own sign-in sessions and the key for its stored OAuth tokens. Continue?'
+            }),
+            confirmLabel: $_('settings.data.config_backup_import_confirm_button', { default: 'Replace configuration' })
         });
         if (!confirmed) return;
 
@@ -2587,12 +2608,15 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             await loadSettings(true);
             message = {
                 type: 'success',
-                text: `Configuration backup imported (${result.changed_fields.length} sections changed). Run a backfill when you are ready.`
+                text: $_('settings.data.config_backup_imported', {
+                    values: { count: result.changed_fields.length },
+                    default: 'Configuration backup imported ({count} sections changed). Run a backfill when you are ready.'
+                })
             };
         } catch (e) {
             const text = e instanceof SyntaxError
-                ? 'Selected file is not valid JSON'
-                : getErrorMessage(e) || 'Failed to import configuration backup';
+                ? $_('settings.data.config_backup_invalid_json', { default: 'The selected file is not valid JSON.' })
+                : getErrorMessage(e) || $_('settings.data.config_backup_import_error', { default: 'Failed to import configuration backup' });
             message = { type: 'error', text };
         } finally {
             importingConfigBackup = false;

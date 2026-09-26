@@ -452,7 +452,10 @@ model metadata. Passing undeclared rows are reported as `declared: false` and un
 - `POST /api/settings/import` (owner) — restores a configuration backup. The payload is validated
   before anything is written (`422` on a bad shape), and enabling authentication without a password
   hash is refused. A successful import replaces the current configuration and broadcasts the
-  changed fields.
+  changed fields. It keeps this installation's `auth.session_secret` and `auth.oauth_token_secret`,
+  which sign current logins and decrypt OAuth tokens stored in this database, and it applies the
+  same follow-up as a settings save: a classifier reload when the model, provider or execution
+  mode changes, and forgetting the telemetry installation when telemetry is turned off.
 - `GET /api/maintenance/taxonomy/status` (owner)
 - `POST /api/maintenance/taxonomy/sync` (owner)
 - `GET /api/maintenance/stats` (owner)

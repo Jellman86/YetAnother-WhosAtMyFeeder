@@ -266,6 +266,10 @@ class CanonicalIdentityRepairService:
                             updated += 1
                     else:
                         skipped_ids.add(int(row["id"]))
+                    # Commit per row: the next lookup may be a slow network request, and an
+                    # open write transaction across it blocks live detection saves, which
+                    # give up after busy_timeout with "database is locked".
+                    await db.commit()
                     processed += 1
                     self._status["processed"] = processed
                     self._status["last_progress_at"] = datetime.now(timezone.utc).isoformat()
