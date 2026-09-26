@@ -27,10 +27,19 @@ describe('review queue walk-through', () => {
 
     it('offers species this feeder sees before the full label list', () => {
         expect(modalSource).toContain('dashboard.review_session.seen_here');
-        expect(modalSource).toContain('suggestions.slice(0, 8)');
-        expect(dashboardSource).toContain('suggestions={recentSpecies}');
         // The alphabetical head of an 11,000-label list is invertebrates, not birds.
         expect(modalSource).not.toContain('labels.slice(0, 8)');
+    });
+
+    it('offers the same feeder list as "Pick a different species" (#503)', () => {
+        // One source for every picker: the feeder's own species, most visits first.
+        // Today's sightings alone left the queue offering two species on a feeder with forty.
+        expect(modalSource).toContain('fetchFeederSpecies()');
+        expect(modalSource).toContain('withoutCurrentSpecies(');
+        expect(modalSource).toContain('speciesPickerNames(');
+        expect(modalSource).toContain('dashboard.review_session.suggestions_unavailable');
+        expect(dashboardSource).not.toContain('recentSpecies');
+        expect(dashboardSource).not.toContain('suggestions=');
     });
 
     it('shows the crop the classifier scored when one exists, and says so when it does not', () => {

@@ -16,10 +16,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
-- **"Pick a different species" opens on this feeder's own species (#503).** The reclassify
-  pickers (a visit's record and bulk reclassify in Events) now list the species seen here,
-  most visits first, before the model's other labels. Hidden visits and unknown labels are
-  left out; typing still searches everything.
+- **Every species picker opens on this feeder's own species (#503).** "Pick a different
+  species" on a visit's record, bulk reclassify in Events and the "Needs your call" queue now
+  offer the same list: the species seen here, most visits first, before the model's other
+  labels. The queue previously offered only today's sightings, so a first-time oddity rarely
+  showed its likely answer. Hidden visits and unknown labels are left out, the queue leaves
+  out the species already on the record, and typing still searches everything.
 
 ### Fixed
 

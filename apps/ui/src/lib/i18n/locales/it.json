@@ -370,6 +370,7 @@
       "all_species": "Tutte le specie",
       "seen_here": "Viste a questa mangiatoia",
       "no_suggestions": "Nessuna specie registrata. Cerca nell'elenco completo sopra.",
+      "suggestions_unavailable": "Impossibile caricare le specie di questa mangiatoia. Cerca nell'elenco completo sopra.",
       "crop": "Ritaglio migliore",
       "full_frame": "Fotogramma intero",
       "view_label": "Quale immagine mostrare",

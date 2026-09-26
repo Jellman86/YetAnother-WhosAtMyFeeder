@@ -1,7 +1,7 @@
 <script lang="ts">
     import { onDestroy, untrack } from 'svelte';
-    import { applySnapshotCandidate, fetchSnapshotCandidates, getThumbnailUrl } from '../api';
-    import type { Detection, SnapshotCandidate } from '../api';
+    import { applySnapshotCandidate, fetchFeederSpecies, fetchSnapshotCandidates, getThumbnailUrl } from '../api';
+    import type { Detection, SearchResult, SnapshotCandidate } from '../api';
     import FrameStrip from './FrameStrip.svelte';
     import { getBirdNames } from '../naming';
     import { settingsStore } from '../stores/settings.svelte';
@@ -12,6 +12,7 @@
         type FrameMoment
     } from '../utils/frame-moments';
     import { getErrorMessage } from '../utils/error-handling';
+    import { speciesPickerNames, withoutCurrentSpecies } from '../utils/species-picker';
     import { toastStore } from '../stores/toast.svelte';
     import { advance, createReviewSession, remaining, type ReviewSession } from '../utils/review-session';
     import { formatDate, formatTime } from '../utils/datetime';
@@ -26,8 +27,6 @@
         queue: Detection[];
         /** Species the classifier knows, searched only once someone types. */
         labels?: string[];
-        /** Species this feeder actually sees, offered first. */
-        suggestions?: string[];
         /** Why each detection is queued; absent means a low score. */
         reasons?: Map<string, ReviewReason>;
         onidentify: (detection: Detection, species: string) => Promise<void> | void;
@@ -40,7 +39,7 @@
         onclose: () => void;
     }
 
-    let { queue, labels = [], suggestions = [], reasons, onidentify, onhide, onblock, ondelete, onopen, onclose }: Props = $props();
+    let { queue, labels = [], reasons, onidentify, onhide, onblock, ondelete, onopen, onclose }: Props = $props();
 
     let session = $state<ReviewSession>(untrack(() => createReviewSession(queue)));
     // A wide feeder shot does not settle what a 56% blur is; the crop the classifier
@@ -78,11 +77,27 @@
     // ground while someone is working, and the count is shown up front.
     // An 11,000-label list sorted alphabetically opens on earthworms and spiders, which is
     // no help at a bird feeder. Until someone types, offer what this feeder actually sees.
+    // The same opening list as "Pick a different species" on the full record (#503): the
+    // feeder's own species, most visits first. Today's sightings alone offered two species
+    // on a feeder with forty, and never the likely answer to a first-time oddity.
+    let feederSpecies = $state.raw<SearchResult[] | null>(null);
+    let feederSpeciesFailed = $state(false);
+    fetchFeederSpecies()
+        .then((results) => (feederSpecies = results))
+        .catch(() => (feederSpeciesFailed = true));
+
     const searching = $derived(search.trim().length > 0);
     const matches = $derived.by(() => {
         const term = search.trim().toLowerCase();
-        if (!term) return suggestions.slice(0, 8);
-        return labels.filter((label) => label.toLowerCase().includes(term)).slice(0, 8);
+        if (term) {
+            return labels
+                .filter((label) => label.toLowerCase().includes(term))
+                .slice(0, 8)
+                .map((label) => ({ id: label, primary: label, secondary: null }));
+        }
+        return withoutCurrentSpecies(feederSpecies ?? [], session.current)
+            .map((result) => ({ id: result.id, ...speciesPickerNames(result) }))
+            .filter((choice, index, all) => all.findIndex((other) => other.id === choice.id) === index);
     });
 
     $effect(() => {
@@ -510,14 +525,21 @@
                     </p>
 
                     <ul class="flex flex-col gap-1.5 md:min-h-0 md:flex-1 md:overflow-y-auto">
-                        {#each matches as label (label)}
+                        {#each matches as choice (choice.id)}
                             <li>
                                 <button
                                     class="flex w-full items-center justify-between gap-2 rounded-xl border border-slate-200 px-3 py-2 text-left text-sm text-slate-800 transition-colors hover:border-brand-400 hover:bg-brand-50 focus-ring disabled:opacity-50 dark:border-slate-700 dark:text-slate-100 dark:hover:border-brand-600 dark:hover:bg-brand-950/30"
                                     disabled={busy}
-                                    onclick={() => identify(label)}
+                                    onclick={() => identify(choice.id)}
                                 >
-                                    <span class="truncate">{label}</span>
+                                    <span class="min-w-0">
+                                        <span class="block truncate">{choice.primary}</span>
+                                        {#if choice.secondary}
+                                            <span class="block truncate text-xs italic text-slate-500 dark:text-slate-400">
+                                                {choice.secondary}
+                                            </span>
+                                        {/if}
+                                    </span>
                                     <span class="shrink-0 text-[11px] font-semibold text-brand-700 dark:text-brand-300">
                                         {$_('dashboard.field_log.identify', { default: 'Identify' })}
                                     </span>
@@ -525,13 +547,21 @@
                             </li>
                         {:else}
                             <li class="px-1 py-2 text-xs text-slate-500 dark:text-slate-400">
-                                {searching
-                                    ? $_('dashboard.review_session.no_matches', {
-                                          default: 'No species matches that. Try fewer letters.'
-                                      })
-                                    : $_('dashboard.review_session.no_suggestions', {
-                                          default: 'No species recorded yet. Search the full list above.'
-                                      })}
+                                {#if searching}
+                                    {$_('dashboard.review_session.no_matches', {
+                                        default: 'No species matches that. Try fewer letters.'
+                                    })}
+                                {:else if feederSpeciesFailed}
+                                    {$_('dashboard.review_session.suggestions_unavailable', {
+                                        default: "Couldn't load this feeder's species. Search the full list above."
+                                    })}
+                                {:else if feederSpecies === null}
+                                    {$_('common.loading')}
+                                {:else}
+                                    {$_('dashboard.review_session.no_suggestions', {
+                                        default: 'No species recorded yet. Search the full list above.'
+                                    })}
+                                {/if}
                             </li>
                         {/each}
                     </ul>

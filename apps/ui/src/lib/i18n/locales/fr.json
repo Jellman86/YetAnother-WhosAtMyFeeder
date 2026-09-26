@@ -370,6 +370,7 @@
       "all_species": "Toutes les espèces",
       "seen_here": "Vues à cette mangeoire",
       "no_suggestions": "Aucune espèce enregistrée. Cherchez dans la liste complète ci-dessus.",
+      "suggestions_unavailable": "Impossible de charger les espèces de cette mangeoire. Cherchez dans la liste complète ci-dessus.",
       "crop": "Meilleur recadrage",
       "full_frame": "Image entière",
       "view_label": "Quelle image afficher",
