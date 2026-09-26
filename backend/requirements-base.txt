@@ -1,6 +1,6 @@
 # Core application and runtime dependencies shared by every image flavor.
 fastapi==0.141.1
-uvicorn[standard]==0.52.4
+uvicorn[standard]==0.53.0
 pydantic==2.13.5
 pydantic-settings==2.15.0
 structlog==26.1.0
@@ -35,17 +35,17 @@ ai-edge-litert==2.1.6; python_version >= '3.12' and sys_platform == "linux" and 
 tensorflow; python_version >= '3.12' and sys_platform != "linux"
 
 aiomqtt==2.5.1
-alembic==1.19.1
+alembic==1.20.0
 prometheus-client
 slowapi==0.1.10
 
 # Authentication
-pyjwt==2.13.0
+pyjwt==2.14.0
 cryptography==50.0.1
 bcrypt==5.0.0
 
 # SMTP and OAuth notifications
-aiosmtplib==5.1.2
-google-auth==2.57.0
+aiosmtplib==5.1.3
+google-auth==2.58.0
 google-auth-oauthlib==1.4.1
 jinja2==3.1.6
