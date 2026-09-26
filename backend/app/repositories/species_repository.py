@@ -149,6 +149,18 @@ class SpeciesRepository:
                 labels.extend(value for value in row if value)
         return labels
 
+    async def most_detected_labels(self, limit: int) -> list[str]:
+        """Species this installation actually sees, most visible detections first."""
+        async with self.db.execute(
+            """SELECT display_name FROM detections
+               WHERE is_hidden = 0 AND TRIM(COALESCE(display_name, '')) != ''
+               GROUP BY display_name
+               ORDER BY COUNT(*) DESC, MAX(detection_time) DESC
+               LIMIT ?""",
+            (max(0, int(limit)),),
+        ) as cursor:
+            return [row[0] for row in await cursor.fetchall()]
+
     async def clear_cached_info(self, species_name: str, taxa_id: int | None) -> None:
         if taxa_id:
             await self.db.execute(
