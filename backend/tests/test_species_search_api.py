@@ -420,3 +420,32 @@ async def test_species_search_without_history_still_offers_model_labels(client: 
 
     assert response.status_code == 200, response.text
     assert [row["display_name"] for row in response.json()] == labels
+
+
+@pytest.mark.asyncio
+async def test_species_search_does_not_rank_history_for_guests(client: httpx.AsyncClient):
+    """Guests may be limited to recent history, and only owners reclassify.
+
+    The feeder ranking counts every stored visit, so a guest must keep the plain
+    label order rather than learn what was seen outside their window.
+    """
+    original_setup = settings.auth.initial_setup_complete
+    settings.auth.enabled = True
+    settings.auth.initial_setup_complete = True
+    settings.public_access.enabled = True
+    labels = [f"Guest label {i:02d}" for i in range(3)]
+    try:
+        with (
+            patch("app.routers.species.get_classifier", return_value=_MockClassifier(labels)),
+            patch(
+                "app.repositories.species_repository.SpeciesRepository.most_detected_labels",
+                new=AsyncMock(return_value=["Old visitor seen only last year"]),
+            ) as ranking,
+        ):
+            response = await client.get("/api/species/search", params={"q": "", "limit": 20})
+    finally:
+        settings.auth.initial_setup_complete = original_setup
+
+    assert response.status_code == 200, response.text
+    assert [row["display_name"] for row in response.json()] == labels
+    ranking.assert_not_awaited()

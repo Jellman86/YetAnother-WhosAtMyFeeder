@@ -499,15 +499,20 @@ async def search_species(
             seen = set()
             matches = [m for m in label_matches + stored_matches if not (m in seen or seen.add(m))]
         else:
-            # An empty query is the picker opening: lead with this feeder's own
-            # species, most seen first, then the model's labels (#503). Over-fetch
-            # so unknown labels and taxonomy aliases dropped below still leave a
-            # full page.
-            seen_here = [
-                label
-                for label in await SpeciesRepository(db).most_detected_labels(limit * 2)
-                if not should_hide_species_label(label)
-            ][:limit]
+            # An empty query is a reclassify picker opening: lead with this
+            # feeder's own species, most seen first, then the model's labels
+            # (#503). Owners only: the ranking counts all history, which a guest's
+            # window may not cover, and only owners reclassify. Over-fetch so
+            # unknown labels dropped below still leave a full page.
+            seen_here = (
+                [
+                    label
+                    for label in await SpeciesRepository(db).most_detected_labels(limit * 2)
+                    if not should_hide_species_label(label)
+                ][:limit]
+                if auth.is_owner
+                else []
+            )
             seen = set()
             matches = [m for m in seen_here + labels[:limit] if not (m in seen or seen.add(m))]
 
