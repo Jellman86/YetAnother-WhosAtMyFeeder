@@ -47,20 +47,40 @@ class BackfillClassifierUnavailableError(RuntimeError):
     """Stop the job without consuming the remaining history during an inference outage."""
 
 
+BACKFILL_MAX_CONSECUTIVE_CLASSIFIER_FAILURES = 3
+# Overload is admission pressure: video snapshot fallbacks share background
+# capacity, so a short burst must not end a healthy job. About two minutes of
+# unbroken saturation (each overloaded event already retried) still stops it.
+BACKFILL_MAX_CONSECUTIVE_OVERLOADS = 10
+
+
 @dataclass
 class BackfillFailureGuard:
     consecutive_failures: int = 0
+    consecutive_overloads: int = 0
 
     def observe(self, status: str, reason: str | None) -> None:
-        if status == "error" and reason and reason.startswith("background_image_"):
+        if status == "error" and reason == "background_image_overloaded":
+            # Neither evidence of a stall nor of recovery: a stuck runtime shows
+            # overload between its lease expiries, so keep the failure streak.
+            self.consecutive_overloads += 1
+        elif status == "error" and reason and reason.startswith("background_image_"):
             self.consecutive_failures += 1
         else:
             self.consecutive_failures = 0
-        if self.consecutive_failures >= 3:
+            self.consecutive_overloads = 0
+        if self.consecutive_failures >= BACKFILL_MAX_CONSECUTIVE_CLASSIFIER_FAILURES:
             raise BackfillClassifierUnavailableError(
-                f"Backfill stopped after 3 consecutive classifier failures ({reason}). "
-                "Check System Health and use subprocess image execution. If inference remains stalled, "
-                "restart the container, then rerun this date range. Existing events will not be duplicated."
+                f"Backfill stopped after {BACKFILL_MAX_CONSECUTIVE_CLASSIFIER_FAILURES} consecutive classifier "
+                f"failures ({reason}). Check System Health and use subprocess image execution. If inference "
+                "remains stalled, restart the container, then rerun this date range. Existing events will not "
+                "be duplicated."
+            )
+        if self.consecutive_overloads >= BACKFILL_MAX_CONSECUTIVE_OVERLOADS:
+            raise BackfillClassifierUnavailableError(
+                f"Backfill stopped: the classifier stayed busy for {BACKFILL_MAX_CONSECUTIVE_OVERLOADS} consecutive "
+                "events. Check System Health for other classification work, then rerun this date range. "
+                "Existing events will not be duplicated."
             )
 
 

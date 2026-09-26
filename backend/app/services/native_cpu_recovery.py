@@ -12,6 +12,11 @@ from .classifier_worker_protocol import build_classify_request, build_classify_v
 from .native_crash_quarantine import NativeCrashQuarantine
 
 
+# A request that reached the shared worker with less than this share of its
+# budget already spent had a fair attempt; beyond it, a timeout is queueing.
+_UNCONTENDED_QUEUE_FRACTION = 0.05
+
+
 class NativeCpuRecoveryUnavailable(RuntimeError):
     """CPU recovery could not meet the identity or workload deadline contract."""
 
@@ -32,6 +37,8 @@ class NativeCpuRecovery:
         self._profile: dict[str, Any] | None = None
         self._source_profile: dict[str, Any] | None = None
         self._states: dict[str, dict[str, Any]] = {}
+        # Last completed inference time per kind of work, from send to result.
+        self._warm_seconds: dict[str, float] = {}
         self._reported_states: set[tuple[str, str]] = set()
         self._generation = 0
         self._closed = False
@@ -89,6 +96,7 @@ class NativeCpuRecovery:
                 self._profile = self._source_profile = None
                 self._states.clear()
                 self._reported_states.clear()
+                self._warm_seconds.clear()
 
     def _validate_runtime(self, runtime: Any) -> dict[str, Any]:
         if not isinstance(runtime, dict) or runtime.get("active_provider") not in {"cpu", "intel_cpu", "tflite"}:
@@ -145,12 +153,18 @@ class NativeCpuRecovery:
     ) -> list[dict[str, Any]]:
         acquired = False
         started = False
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + timeout_seconds
+        queued_seconds = 0.0
+        previous_state: dict[str, Any] | None = None
+        work_kind = "video" if priority == "video" else "image"
         try:
             # Queueing, model load, identity checks and inference share one budget.
             # A CPU taking 45 seconds cannot be called recovered for a 35s live job.
             async with asyncio.timeout(timeout_seconds):
                 await self._lock.acquire()
                 acquired = True
+                queued_seconds = timeout_seconds - (deadline - loop.time())
                 if self._closed:
                     raise NativeCpuRecoveryUnavailable("CPU recovery is shut down")
                 if self._cleanup_pending:
@@ -165,9 +179,19 @@ class NativeCpuRecovery:
                     self._source_profile = profile
                     self._states.clear()
                     self._reported_states.clear()
+                    self._warm_seconds.clear()
                 if self._states.get(priority, {}).get("status") == "failed":
                     raise NativeCpuRecoveryUnavailable("CPU recovery already failed for this workload")
                 await asyncio.to_thread(self._quarantine.guard, cpu_profile)
+                expected_seconds = self._warm_seconds.get(work_kind)
+                if (
+                    self._worker is not None
+                    and expected_seconds is not None
+                    and deadline - loop.time() < expected_seconds
+                ):
+                    # Starting would only end in a kill of the worker other pools share.
+                    raise NativeCpuRecoveryUnavailable("Too little of this request's budget remained after queueing")
+                previous_state = self._states.get(priority)
                 started = True
                 self._state(priority, "recovering")
                 if self._worker is None:
@@ -184,6 +208,7 @@ class NativeCpuRecovery:
                     lease_token=1,
                     **payload,
                 )
+                sent_at = loop.time()
                 await self._worker.send(message)
                 while True:
                     event = await self._next_event()
@@ -220,11 +245,22 @@ class NativeCpuRecovery:
                             pass  # Progress is best effort, never a classification result.
                     if event["type"] == "result":
                         runtime = self._validate_runtime(event.get("runtime"))
+                        self._warm_seconds[work_kind] = loop.time() - sent_at
                         self._state(priority, "degraded", runtime)
                         return event["results"]
         except BaseException as exc:
             if acquired and started:
-                self._state(priority, "failed")
+                if isinstance(exc, (TimeoutError, asyncio.CancelledError)) and (
+                    queued_seconds > timeout_seconds * _UNCONTENDED_QUEUE_FRACTION
+                ):
+                    # The budget went on waiting behind another pool's work. That
+                    # says nothing about whether CPU can serve this workload.
+                    if previous_state is None:
+                        self._states.pop(priority, None)
+                    else:
+                        self._states[priority] = previous_state
+                else:
+                    self._state(priority, "failed")
                 try:
                     await self._close_worker()
                 except Exception as cleanup_error:

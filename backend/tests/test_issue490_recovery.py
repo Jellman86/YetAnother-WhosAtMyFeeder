@@ -315,3 +315,46 @@ def test_snapshot_policy_rejection_does_not_open_video_circuit(monkeypatch, sour
         service._record_failure(str(i), reason, source=source)
     assert service.get_circuit_status(source)["failure_count"] == 0
     assert service.get_circuit_status(source)["open"] is False
+
+
+@pytest.mark.asyncio
+async def test_busy_background_capacity_does_not_stop_a_healthy_backfill_early():
+    """Overload is admission pressure, not evidence of a stalled runtime.
+
+    Video snapshot fallbacks share background capacity with backfill, so a short
+    burst of them made three consecutive events report overloaded and stopped
+    the job on a healthy classifier.
+    """
+    service = BackfillService(classifier=MagicMock())
+    outcomes = [("error", "background_image_overloaded")] * 5 + [("new", None)] * 3
+    service.fetch_frigate_events = AsyncMock(return_value=[{"id": str(i)} for i in range(len(outcomes))])
+    service.process_historical_event_with_timeout = AsyncMock(side_effect=outcomes)
+    now = datetime.now(timezone.utc)
+    result = await service.run_backfill(now, now)
+    assert result.stopped_reason is None
+    assert result.processed == len(outcomes)
+
+
+@pytest.mark.asyncio
+async def test_overload_between_stall_failures_does_not_hide_the_stall():
+    service = BackfillService(classifier=MagicMock())
+    lease = ("error", "background_image_lease_expired")
+    busy = ("error", "background_image_overloaded")
+    outcomes = [lease, busy, busy, lease, busy, lease] + [("new", None)] * 5
+    service.fetch_frigate_events = AsyncMock(return_value=[{"id": str(i)} for i in range(len(outcomes))])
+    service.process_historical_event_with_timeout = AsyncMock(side_effect=outcomes)
+    now = datetime.now(timezone.utc)
+    result = await service.run_backfill(now, now)
+    assert result.stopped_reason
+    assert result.processed == 6
+
+
+@pytest.mark.asyncio
+async def test_sustained_overload_still_stops_the_backfill():
+    service = BackfillService(classifier=MagicMock())
+    service.fetch_frigate_events = AsyncMock(return_value=[{"id": str(i)} for i in range(40)])
+    service.process_historical_event_with_timeout = AsyncMock(return_value=("error", "background_image_overloaded"))
+    now = datetime.now(timezone.utc)
+    result = await service.run_backfill(now, now)
+    assert result.stopped_reason and "busy" in result.stopped_reason
+    assert result.processed == 10
