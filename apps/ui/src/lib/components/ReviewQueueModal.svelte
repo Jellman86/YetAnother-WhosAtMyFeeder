@@ -14,6 +14,7 @@
     import { getErrorMessage } from '../utils/error-handling';
     import { speciesPickerNames, withoutCurrentSpecies } from '../utils/species-picker';
     import { toastStore } from '../stores/toast.svelte';
+    import { confirmAction } from '../stores/confirm_dialog.svelte';
     import { advance, createReviewSession, remaining, type ReviewSession } from '../utils/review-session';
     import { formatDate, formatTime } from '../utils/datetime';
     import { trapFocus } from '../utils/focus-trap';
@@ -259,7 +260,11 @@
         if (!current || busy || !ondelete) return;
         // The record and its media go for good, so it is confirmed with the copy that says so
         // and names hiding as the alternative sitting next to it.
-        if (!confirm($_('actions.confirm_delete', { values: { species: current.display_name } }))) return;
+        if (!(await confirmAction({
+            title: $_('actions.delete_detection', { default: 'Delete this visit permanently' }),
+            message: $_('actions.confirm_delete', { values: { species: current.display_name } }),
+            confirmLabel: $_('dashboard.review_session.delete', { default: 'Delete permanently' })
+        }))) return;
         busy = true;
         try {
             await ondelete(current);

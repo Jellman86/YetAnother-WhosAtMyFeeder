@@ -2932,6 +2932,17 @@
       },
       "CleanupResponse": {
         "properties": {
+          "audio_deleted_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audio Deleted Count"
+          },
           "cutoff_date": {
             "anyOf": [
               {

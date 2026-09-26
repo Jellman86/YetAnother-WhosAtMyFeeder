@@ -252,13 +252,16 @@ Retention, caching, imports, and the destructive tools.
 - **Retention Policy** — **History Duration** sets how long sightings are kept
   (`maintenance.retention_days`; **Keep Everything (∞)** is the default). Cleanup runs once at
   startup and then every 24 hours from that point, so the time of day it lands on follows when the
-  container last started. **Purge Old Records** runs it now. Cleanup **permanently deletes** both
-  visual detections and BirdNET-Go audio older than the window. Purged history cannot be
-  recovered. Favourited detections are kept.
+  container last started. **Purge Old Records** runs the same cleanup now, after asking with the
+  number of detections it will remove. Cleanup **permanently deletes** both visual detections and
+  BirdNET-Go audio older than the window. Purged history cannot be recovered. Favourited
+  detections and each species' newest kept visits stay.
   The **Advanced → Maintenance & media integrity** disclosure holds the periodic re-check against
   Frigate and what to do when upstream media has gone.
 - **Media Cache** — cache snapshots and clips locally to reduce load on Frigate and speed up
-  the UI.
+  the UI. **Clear cached files** asks first, then deletes cached media older than the retention
+  period and cached files that no longer belong to a detection. Favourites and each species'
+  newest kept visits are not touched.
 - **Best available event snapshots** — start from Frigate's completed clean best frame and
   tracked-object crop, then sample high-quality clip frames. A clip frame replaces the baseline
   only when a compatible species result improves confidence by at least two points. JPEG quality
@@ -279,7 +282,8 @@ Retention, caching, imports, and the destructive tools.
 
 > **These actions permanently delete data.** **Reset Database & Cache** permanently deletes
 > *every* detection and clears the media cache; **Clear Personalization Data** deletes every
-> manual correction the re-ranker learned from. Both ask first, and neither can be undone. There
+> manual correction the re-ranker learned from. Both ask first in YA-WAMF's own confirmation
+> dialog, and neither can be undone. There
 > is no automatic backup tied to these actions. Take a backup of `/data` and `/config` before
 > using them; migration restore points may not contain your latest history.
 

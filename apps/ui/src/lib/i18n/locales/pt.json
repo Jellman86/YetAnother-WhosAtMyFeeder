@@ -456,6 +456,7 @@
     "show_details": "Mostrar detalhes do erro",
     "try_again": "Tentar novamente",
     "copy_details": "Copiar detalhes do erro",
+    "copied": "Copiado",
     "reload_page": "Recarregar página",
     "deploy_refresh_required": "O YA-WAMF foi atualizado enquanto este separador estava aberto. Atualize a página para carregar a versão mais recente."
   },
@@ -500,6 +501,7 @@
       "history_duration": "Duração do histórico",
       "keep_everything": "Manter tudo (∞)",
       "purge_button": "Limpar registos antigos",
+      "purge_confirm": "Eliminar definitivamente {count} deteções e o áudio do BirdNET-Go com mais de {days} dias? Os favoritos e as visitas mais recentes guardadas de cada espécie mantêm-se. Esta ação não pode ser anulada.",
       "cleaning": "A limpar…",
       "auto_cleanup_note": "A limpeza automática é executada no arranque e, depois, a cada 24 horas",
       "cache_title": "Cache de média",
@@ -509,6 +511,7 @@
       "cache_high_quality_event_snapshot_jpeg_quality_help": "Valores mais altos mantêm mais detalhe, mas criam ficheiros de captura derivados maiores.",
       "cache_size": "Tamanho da cache",
       "cache_clear_button": "Limpar ficheiros em cache",
+      "cache_cleanup_confirm": "Eliminar as fotos e clips em cache mais antigos do que o período de retenção e os ficheiros em cache que já não pertencem a nenhuma deteção? Os favoritos e as visitas mais recentes guardadas de cada espécie mantêm-se. Esta ação não pode ser anulada.",
       "diagnostics_title": "Diagnóstico",
       "diagnostics_desc": "Abre a aba Saúde com estado do backend, incidentes agrupados e pacotes de suporte.",
       "open_diagnostics": "Abrir Saúde",
@@ -1715,6 +1718,8 @@
     "reclassify_fallback": "⚠️ Vídeo não disponível - usando snapshot",
     "reclassify_no_result": "Nenhum resultado confiável foi encontrado. A identificação existente foi mantida.",
     "reclassify_failed": "Falha ao reclassificar: {message}",
+    "hide_failed": "Não foi possível ocultar esta visita: {message}",
+    "delete_failed": "Não foi possível eliminar esta visita: {message}",
     "settings_saved": "Configurações salvas com sucesso!",
     "settings_load_failed": "Falha ao carregar configurações",
     "center_title": "Notificações",
@@ -2135,7 +2140,8 @@
     "archive_unavailable": "Nada mais para arquivar",
     "archive_failed": "Falha ao arquivar",
     "archive_retry": "Tentar de novo",
-    "unfavorite_confirm": "Remover o favorito? A foto e o clipe arquivados ({size}) vão com ele. A visita fica no histórico."
+    "unfavorite_confirm": "Remover o favorito? A foto e o clipe arquivados ({size}) vão com ele. A visita fica no histórico.",
+    "unfavorite_button": "Remover dos favoritos"
   },
   "events": {
     "title": "Eventos",

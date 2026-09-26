@@ -8,6 +8,7 @@
 
     let error = $state<Error | null>(null);
     let errorInfo = $state<string>('');
+    let copied = $state(false);
 
     // Svelte 5 error boundary using onError lifecycle
     $effect(() => {
@@ -65,7 +66,7 @@
     function copyErrorToClipboard() {
         const errorText = `Error: ${error?.message}\n\nStack: ${error?.stack}\n\nInfo: ${errorInfo}`;
         navigator.clipboard.writeText(errorText).then(() => {
-            alert('Error details copied to clipboard');
+            copied = true;
         });
     }
 </script>
@@ -131,7 +132,7 @@
                         onclick={copyErrorToClipboard}
                         class="flex-1 px-6 py-3 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-900 dark:text-white font-medium rounded-xl transition-colors focus-ring"
                     >
-                        {$_('error.copy_details', { default: 'Copy Error Details' })}
+                        {copied ? $_('error.copied', { default: 'Copied' }) : $_('error.copy_details', { default: 'Copy Error Details' })}
                     </button>
                     <button
                         onclick={() => window.location.reload()}

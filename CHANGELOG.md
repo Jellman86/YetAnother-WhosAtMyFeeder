@@ -25,6 +25,20 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Destructive buttons ask in the app, and work in every browser.** "Reset Database & Cache",
+  "Clear Personalization Data", deleting favourites, visits, models and evaluation runs, and
+  importing a configuration backup used the browser's own confirm popup. Embedded browsers and
+  webviews suppress it and answer "no" silently, so the reset button appeared to do nothing.
+  They now use one in-app confirmation dialog that names the effect, focuses Cancel first and
+  closes on Escape without closing the window behind it.
+- **"Clear cached files" and "Purge Old Records" ask first.** Both deleted data on one click;
+  clearing the cache once removed 59 GB without a word. The purge confirmation states how many
+  detections it will remove.
+- **"Purge Old Records" now removes old BirdNET-Go audio too,** matching the scheduled cleanup
+  it is documented to run. Old audio used to survive until the next automatic run.
+- **Failed hides and deletes say so.** They reported "Failed to reclassify", or in Explorer
+  nothing at all.
+
 - **A request that queued behind other work no longer disables CPU recovery for its workload.**
   After a native crash, live, background and video work share one CPU recovery worker. A live
   snapshot that waited behind a backfill or video job and then ran out of time marked all live

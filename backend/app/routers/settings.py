@@ -379,6 +379,7 @@ class MaintenanceStatsResponse(BaseModel):
 class CleanupResponse(BaseModel):
     status: str
     deleted_count: int
+    audio_deleted_count: Optional[int] = None
     message: Optional[str] = None
     cutoff_date: Optional[str] = None
 
@@ -2310,10 +2311,23 @@ async def run_cleanup(auth: AuthContext = Depends(require_owner)):
         deleted_count = await repo.delete_older_than(
             cutoff, preserve_favorites=True, species_floor=settings.media_cache.per_species_minimum
         )
+        # The same pass the scheduled cleanup runs: "Purge Old Records" is documented as running
+        # it now, and old BirdNET-Go audio used to survive until the next automatic run.
+        audio_deleted_count = await repo.delete_audio_detections_older_than(cutoff)
 
-    log.info("Manual cleanup completed", deleted_count=deleted_count, cutoff=cutoff.isoformat())
+    log.info(
+        "Manual cleanup completed",
+        deleted_count=deleted_count,
+        audio_deleted_count=audio_deleted_count,
+        cutoff=cutoff.isoformat(),
+    )
 
-    return {"status": "completed", "deleted_count": deleted_count, "cutoff_date": cutoff.isoformat()}
+    return {
+        "status": "completed",
+        "deleted_count": deleted_count,
+        "audio_deleted_count": audio_deleted_count,
+        "cutoff_date": cutoff.isoformat(),
+    }
 
 
 @router.post("/maintenance/favorites/clear", response_model=CleanupResponse)

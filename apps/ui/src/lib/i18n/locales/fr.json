@@ -491,6 +491,7 @@
       "history_duration": "Durée de l’historique",
       "keep_everything": "Tout conserver (∞)",
       "purge_button": "Purger les anciens enregistrements",
+      "purge_confirm": "Supprimer définitivement {count} détections et l'audio BirdNET-Go de plus de {days} jours ? Les favoris et les visites récentes conservées de chaque espèce restent. Cette action est irréversible.",
       "cleaning": "Nettoyage…",
       "auto_cleanup_note": "Le nettoyage automatique s’exécute au démarrage, puis toutes les 24 heures",
       "cache_title": "Cache média",
@@ -500,6 +501,7 @@
       "cache_high_quality_event_snapshot_jpeg_quality_help": "Des valeurs plus élevées conservent plus de détails mais créent des fichiers d’instantanés dérivés plus volumineux.",
       "cache_size": "Taille du cache",
       "cache_clear_button": "Effacer les fichiers en cache",
+      "cache_cleanup_confirm": "Supprimer les photos et clips en cache plus anciens que la durée de conservation, ainsi que les fichiers en cache qui n'appartiennent plus à aucune détection ? Les favoris et les visites récentes conservées de chaque espèce restent. Cette action est irréversible.",
       "diagnostics_title": "Diagnostics",
       "diagnostics_desc": "Ouvre l’onglet Santé avec l’état du backend, les incidents groupés et les lots de support.",
       "open_diagnostics": "Ouvrir Santé",
@@ -1706,6 +1708,8 @@
     "reclassify_fallback": "⚠️ Vidéo non disponible - capture utilisée à la place",
     "reclassify_no_result": "Aucun résultat suffisamment fiable n’a été trouvé. L’identification actuelle a été conservée.",
     "reclassify_failed": "Échec de la reclasification : {message}",
+    "hide_failed": "Impossible de masquer cette visite : {message}",
+    "delete_failed": "Impossible de supprimer cette visite : {message}",
     "settings_saved": "Paramètres enregistrés avec succès !",
     "settings_load_failed": "Échec du chargement des paramètres",
     "center_title": "Notifications",
@@ -2126,7 +2130,8 @@
     "archive_unavailable": "Plus rien à archiver",
     "archive_failed": "Échec de l’archivage",
     "archive_retry": "Réessayer",
-    "unfavorite_confirm": "Retirer le favori ? Sa photo et son clip archivés ({size}) partent avec lui. La visite reste dans l’historique."
+    "unfavorite_confirm": "Retirer le favori ? Sa photo et son clip archivés ({size}) partent avec lui. La visite reste dans l’historique.",
+    "unfavorite_button": "Retirer des favoris"
   },
   "events": {
     "title": "Événements",
@@ -2598,6 +2603,7 @@
     "show_details": "Afficher les détails de l’erreur",
     "try_again": "Réessayer",
     "copy_details": "Copier les détails de l’erreur",
+    "copied": "Copié",
     "reload_page": "Recharger la page",
     "deploy_refresh_required": "YA-WAMF a été mis à jour pendant que cet onglet était ouvert. Actualisez la page pour charger la dernière version."
   },
