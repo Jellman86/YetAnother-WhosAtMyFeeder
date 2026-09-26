@@ -271,7 +271,8 @@ Retention, caching, imports, and the destructive tools.
 - **Batch Analysis** — re-run classification over detections currently saved as Unknown Bird,
   either on demand or automatically each day.
 - **Taxonomy Repair** — normalise species names across your whole history against iNaturalist.
-  It rewrites names only.
+  It fills in missing names only and commits each detection as it goes, so live detections keep
+  saving while it waits on lookups.
 - **Timezone Repair** — owner-only fix for legacy detections affected by a UTC timestamp shift.
   It previews the change first and needs explicit confirmation, and it is only offered when
   affected rows exist.

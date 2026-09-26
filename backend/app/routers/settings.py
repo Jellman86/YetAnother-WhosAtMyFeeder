@@ -1310,14 +1310,54 @@ async def import_settings(
     if imported.auth.enabled and not imported.auth.password_hash:
         raise HTTPException(status_code=422, detail=AUTH_PASSWORD_REQUIRED_TO_ENABLE_MESSAGE)
 
+    # These keys belong to this installation, not to its configuration: the session
+    # secret signs the owner's current login, and the OAuth key decrypts tokens stored
+    # in this database. Taking them from a backup signed the importer out, could
+    # reinstate a secret rotated after a leak, and stranded the stored OAuth tokens.
+    imported.auth.session_secret = settings.auth.session_secret
+    imported.auth.oauth_token_secret = settings.auth.oauth_token_secret
+
+    previous_classifier = (
+        settings.classification.model,
+        settings.classification.inference_provider,
+        settings.classification.image_execution_mode,
+    )
+    previous_ebird_naming = (settings.ebird.api_key, settings.ebird.locale, settings.ebird.enabled)
+    telemetry_was_enabled = settings.telemetry.enabled or settings.telemetry.health_enabled
+    telemetry_installation_id = settings.telemetry.installation_id
+
     changed_fields = _apply_imported_settings(imported)
     await settings.save()
     await _broadcast_settings_imported(changed_fields, auth.username)
 
+    # The same follow-up a settings save does, so an import takes effect without a restart.
     if settings.telemetry.enabled:
         background_tasks.add_task(telemetry_service.force_heartbeat)
     if settings.telemetry.health_enabled:
         background_tasks.add_task(telemetry_service.force_health_report)
+    if (
+        telemetry_was_enabled
+        and not settings.telemetry.enabled
+        and not settings.telemetry.health_enabled
+        and telemetry_installation_id
+    ):
+        background_tasks.add_task(telemetry_service.forget_installation, telemetry_installation_id)
+
+    if (settings.ebird.api_key, settings.ebird.locale, settings.ebird.enabled) != previous_ebird_naming:
+        from app.services.localized_names import start_background_refresh
+
+        background_tasks.add_task(start_background_refresh)
+
+    current_classifier = (
+        settings.classification.model,
+        settings.classification.inference_provider,
+        settings.classification.image_execution_mode,
+    )
+    if current_classifier != previous_classifier:
+        from app.services.classifier_service import reload_classifier_out_of_band
+
+        execution_mode_changed = current_classifier[2] != previous_classifier[2]
+        background_tasks.add_task(reload_classifier_out_of_band, full_restart=execution_mode_changed)
 
     log.info(
         "AUTH_AUDIT: Config backup imported",
