@@ -218,6 +218,7 @@ async def test_profile_change_reaps_old_cpu_and_clears_stale_health(tmp_path):
     await runner.refresh_profile()
     assert worker.closed
     assert runner.snapshot() == {}
+    assert runner._warm_seconds == {}
 
 
 @pytest.mark.asyncio

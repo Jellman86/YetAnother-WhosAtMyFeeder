@@ -96,6 +96,7 @@ class NativeCpuRecovery:
                 self._profile = self._source_profile = None
                 self._states.clear()
                 self._reported_states.clear()
+                self._warm_seconds.clear()
 
     def _validate_runtime(self, runtime: Any) -> dict[str, Any]:
         if not isinstance(runtime, dict) or runtime.get("active_provider") not in {"cpu", "intel_cpu", "tflite"}:
@@ -178,6 +179,7 @@ class NativeCpuRecovery:
                     self._source_profile = profile
                     self._states.clear()
                     self._reported_states.clear()
+                    self._warm_seconds.clear()
                 if self._states.get(priority, {}).get("status") == "failed":
                     raise NativeCpuRecoveryUnavailable("CPU recovery already failed for this workload")
                 await asyncio.to_thread(self._quarantine.guard, cpu_profile)
