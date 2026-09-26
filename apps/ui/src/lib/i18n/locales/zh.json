@@ -491,6 +491,7 @@
       "history_duration": "历史时长",
       "keep_everything": "全部保留 (∞)",
       "purge_button": "清理旧记录",
+      "purge_confirm": "永久删除 {count} 条超过 {days} 天的检测记录和 BirdNET-Go 音频？收藏和每个物种保留的最新访问不受影响。此操作无法撤销。",
       "cleaning": "清理中…",
       "auto_cleanup_note": "自动清理在启动时运行，之后每 24 小时运行一次",
       "cache_title": "媒体缓存",
@@ -500,6 +501,7 @@
       "cache_high_quality_event_snapshot_jpeg_quality_help": "值越高保留的细节越多，但生成的派生快照文件也会更大。",
       "cache_size": "缓存大小",
       "cache_clear_button": "清除缓存文件",
+      "cache_cleanup_confirm": "删除超过保留期限的缓存照片和片段，以及不再属于任何检测记录的缓存文件？收藏和每个物种保留的最新访问不受影响。此操作无法撤销。",
       "diagnostics_title": "诊断",
       "diagnostics_desc": "打开健康标签页，查看后端状态、分组事件和支持包。",
       "open_diagnostics": "打开健康",
@@ -1706,6 +1708,8 @@
     "reclassify_fallback": "⚠️ 视频不可用 - 改用快照",
     "reclassify_no_result": "未找到可信结果，已保留现有识别结果。",
     "reclassify_failed": "重新分类失败：{message}",
+    "hide_failed": "无法隐藏此访问：{message}",
+    "delete_failed": "无法删除此访问：{message}",
     "settings_saved": "设置保存成功！",
     "settings_load_failed": "加载设置失败",
     "center_title": "通知",
@@ -2126,7 +2130,8 @@
     "archive_unavailable": "没有可归档的内容了",
     "archive_failed": "归档失败",
     "archive_retry": "重试",
-    "unfavorite_confirm": "取消收藏？已归档的照片和片段（{size}）会一并删除。到访记录仍保留在历史中。"
+    "unfavorite_confirm": "取消收藏？已归档的照片和片段（{size}）会一并删除。到访记录仍保留在历史中。",
+    "unfavorite_button": "取消收藏"
   },
   "events": {
     "title": "事件",
@@ -2598,6 +2603,7 @@
     "show_details": "显示错误详情",
     "try_again": "重试",
     "copy_details": "复制错误详情",
+    "copied": "已复制",
     "reload_page": "重新加载页面",
     "deploy_refresh_required": "此标签页打开期间，YA-WAMF 已更新。请刷新页面以加载最新版本。"
   },

@@ -4,6 +4,7 @@
     import SecretInput from './_primitives/SecretInput.svelte';
     import { fetchAiUsage, clearAiUsage, testLlm, type AIUsageResponse, type LlmTestResult } from '../../api';
     import { toastStore } from '../../stores/toast.svelte';
+    import { confirmAction } from '../../stores/confirm_dialog.svelte';
     import { getErrorMessage } from '../../utils/error-handling';
     import { getRecommendedLlmModel } from '../../settings/llm-models';
     import SettingsCard from './_primitives/SettingsCard.svelte';
@@ -99,7 +100,12 @@
     }
 
     async function handleClearUsage() {
-        if (!confirm($_('settings.ai.clear_usage_confirm', { default: 'Are you sure you want to clear AI usage history? This cannot be undone.' }))) {
+        const confirmed = await confirmAction({
+            title: $_('settings.ai.clear_usage', { default: 'Clear History' }),
+            message: $_('settings.ai.clear_usage_confirm', { default: 'Are you sure you want to clear AI usage history? This cannot be undone.' }),
+            confirmLabel: $_('settings.ai.clear_usage', { default: 'Clear History' })
+        });
+        if (!confirmed) {
             return;
         }
         clearingUsage = true;

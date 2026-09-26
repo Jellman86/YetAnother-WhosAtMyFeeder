@@ -456,6 +456,7 @@
     "show_details": "Show error details",
     "try_again": "Try Again",
     "copy_details": "Copy Error Details",
+    "copied": "Copied",
     "reload_page": "Reload Page",
     "deploy_refresh_required": "YA-WAMF was updated while this tab was open. Refresh the page to load the latest build."
   },
@@ -507,6 +508,7 @@
       "maintenance_max_concurrent": "Maintenance Concurrency",
       "maintenance_max_concurrent_help": "Best practice is 1. Increase this only if you intentionally want backfill, taxonomy repair, timezone repair, or analyze-unknowns to overlap.",
       "purge_button": "Purge Old Records",
+      "purge_confirm": "Permanently delete {count} detections and the BirdNET-Go audio older than {days} days? Favourites and each species' newest kept visits stay. This cannot be undone.",
       "cleaning": "Cleaning…",
       "auto_cleanup_note": "Automatic cleanup runs at startup, then every 24 hours",
       "cache_title": "Media Cache",
@@ -516,6 +518,7 @@
       "cache_high_quality_event_snapshot_jpeg_quality_help": "Higher values keep more detail but create larger derived snapshot files.",
       "cache_size": "Cache Size",
       "cache_clear_button": "Clear Cached Files",
+      "cache_cleanup_confirm": "Delete cached photos and clips older than the retention period, and cached files that no longer belong to a detection? Favourites and each species' newest kept visits stay. This cannot be undone.",
       "diagnostics_title": "Diagnostics",
       "diagnostics_desc": "Open the Health tab for backend status, grouped incidents, and support bundles.",
       "open_diagnostics": "Open Health",
@@ -1715,6 +1718,8 @@
     "reclassify_fallback": "⚠️ Video not available - snapshot used instead",
     "reclassify_no_result": "No confident result was found. The existing identification was kept.",
     "reclassify_failed": "Failed to reclassify: {message}",
+    "hide_failed": "Couldn't hide this visit: {message}",
+    "delete_failed": "Couldn't delete this visit: {message}",
     "settings_saved": "Settings saved successfully!",
     "settings_load_failed": "Failed to load settings",
     "center_title": "Notifications",
@@ -2135,7 +2140,8 @@
     "archive_unavailable": "Nothing left to archive",
     "archive_failed": "Archive failed",
     "archive_retry": "Try again",
-    "unfavorite_confirm": "Remove the favourite? Its archived photo and clip ({size}) go with it. The visit stays in history."
+    "unfavorite_confirm": "Remove the favourite? Its archived photo and clip ({size}) go with it. The visit stays in history.",
+    "unfavorite_button": "Remove favourite"
   },
   "events": {
     "title": "Events",

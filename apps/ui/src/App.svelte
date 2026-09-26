@@ -10,6 +10,7 @@
   import UpdateBanner from './lib/components/UpdateBanner.svelte';
   import UpdateIndicator from './lib/components/UpdateIndicator.svelte';
   import Toast from './lib/components/Toast.svelte';
+  import ConfirmDialog from './lib/components/ConfirmDialog.svelte';
   import KeyboardShortcuts from './lib/components/KeyboardShortcuts.svelte';
   import ConnectionStatus from './lib/components/ConnectionStatus.svelte';
   import BackendStatusScreen from './lib/components/BackendStatusScreen.svelte';
@@ -850,6 +851,7 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
 
   <!-- Toast Notifications -->
   <Toast />
+  <ConfirmDialog />
   <Announcer />
 
   <!-- Keyboard Shortcuts Modal -->

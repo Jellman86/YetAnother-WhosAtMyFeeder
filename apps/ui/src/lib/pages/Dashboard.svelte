@@ -16,6 +16,7 @@
     import RecentAudio from '../components/RecentAudio.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
     import { toastStore } from '../stores/toast.svelte';
+    import { confirmAction } from '../stores/confirm_dialog.svelte';
     import type { AudioSummaryResponse, Detection, DailySummary, SpeciesInfo } from '../api';
     import { deleteDetection, hideDetection, updateDetectionSpecies, analyzeDetection, fetchAudioSummary, fetchDailySummary, fetchClassifierLabels, reclassifyDetection, fetchSpeciesInfo, fetchNewSpeciesQueue, updateSettings } from '../api';
     import { settingsStore } from '../stores/settings.svelte';
@@ -458,11 +459,16 @@
 
     async function handleDelete() {
         if (!selectedEvent) return;
-        if (!confirm($_('actions.confirm_delete', { values: { species: selectedEvent.display_name } }))) return;
+        const target = selectedEvent;
+        if (!(await confirmAction({
+            title: $_('actions.delete_detection', { default: 'Delete this visit permanently' }),
+            message: $_('actions.confirm_delete', { values: { species: target.display_name } }),
+            confirmLabel: $_('dashboard.review_session.delete', { default: 'Delete permanently' })
+        }))) return;
         deleting = true;
         try {
-            await deleteDetection(selectedEvent.frigate_event);
-            detectionsStore.removeDetection(selectedEvent.frigate_event, selectedEvent.detection_time);
+            await deleteDetection(target.frigate_event);
+            detectionsStore.removeDetection(target.frigate_event, target.detection_time);
             selectedEvent = null;
             await loadSummary(true);
         } catch (e) {

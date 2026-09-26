@@ -66,6 +66,7 @@
     import { authStore } from '../stores/auth.svelte';
     import { validateAuthSettingsSave } from '../auth-password-policy';
     import { toastStore } from '../stores/toast.svelte';
+    import { confirmAction } from '../stores/confirm_dialog.svelte';
     import { jobProgressStore } from '../stores/job_progress.svelte';
     import { jobDiagnosticsStore } from '../stores/job_diagnostics.svelte';
     import { notificationCenter } from '../stores/notification_center.svelte';
@@ -2240,10 +2241,15 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     }
 
     async function handleApplyTimezoneRepair() {
-        const confirmMsg = $_('settings.data.timezone_repair_confirm', {
-            default: 'Apply safe timezone repairs to the previewed detections?'
+        const confirmed = await confirmAction({
+            title: $_('settings.data.timezone_repair_title', { default: 'Timezone Repair' }),
+            message: $_('settings.data.timezone_repair_confirm', {
+                default: 'Apply safe timezone repairs to the previewed detections?'
+            }),
+            confirmLabel: $_('settings.data.timezone_repair_apply_button', { default: 'Apply Timezone Repair' }),
+            tone: 'default'
         });
-        if (!confirm(confirmMsg)) return;
+        if (!confirmed) return;
 
         applyingTimezoneRepair = true;
         try {
@@ -2278,6 +2284,20 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     }
 
     async function handleCleanup() {
+        // Deletes history outright, so it asks first like every other destructive action.
+        // With unlimited retention the server deletes nothing, so there is nothing to ask.
+        const days = maintenanceStats?.retention_days ?? retentionDays;
+        if (days > 0) {
+            const confirmed = await confirmAction({
+                title: $_('settings.data.purge_button', { default: 'Purge Old Records' }),
+                message: $_('settings.data.purge_confirm', {
+                    values: { count: maintenanceStats?.detections_to_cleanup ?? 0, days },
+                    default: "Permanently delete {count} detections and the BirdNET-Go audio older than {days} days? Favourites and each species' newest kept visits stay. This cannot be undone."
+                }),
+                confirmLabel: $_('settings.data.purge_button', { default: 'Purge Old Records' })
+            });
+            if (!confirmed) return;
+        }
         cleaningUp = true;
         message = null;
         try {
@@ -2296,10 +2316,14 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     }
 
     async function handleClearFavorites() {
-        const confirmMsg = $_('settings.data.clear_favorites_confirm', {
-            default: 'Remove all favorite markers? This cannot be undone.'
+        const confirmed = await confirmAction({
+            title: $_('settings.data.clear_favorites_button', { default: 'Delete All Favorites' }),
+            message: $_('settings.data.clear_favorites_confirm', {
+                default: 'Remove all favorite markers? This cannot be undone.'
+            }),
+            confirmLabel: $_('settings.data.clear_favorites_button', { default: 'Delete All Favorites' })
         });
-        if (!confirm(confirmMsg)) return;
+        if (!confirmed) return;
 
         clearingFavorites = true;
         message = null;
@@ -2321,10 +2345,14 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     }
 
     async function handlePurgeMissingMedia() {
-        const confirmMsg = $_('settings.data.purge_missing_media_confirm', {
-            default: 'Scan detections whose Frigate event, clip, or snapshot is missing and apply the configured policy?'
+        const confirmed = await confirmAction({
+            title: $_('settings.data.purge_missing_media', { default: 'Run media integrity scan now' }),
+            message: $_('settings.data.purge_missing_media_confirm', {
+                default: 'Scan detections whose Frigate event, clip, or snapshot is missing and apply the configured policy?'
+            }),
+            confirmLabel: $_('settings.data.purge_missing_media', { default: 'Run media integrity scan now' })
         });
-        if (!confirm(confirmMsg)) return;
+        if (!confirmed) return;
 
         purgingMissingMedia = true;
         message = null;
@@ -2361,7 +2389,12 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             console.warn('Translation lookup failed, using fallback', e);
         }
 
-        if (!confirm(confirmMsg)) {
+        const confirmed = await confirmAction({
+            title: $_('settings.danger.reset_button', { default: 'Reset Database & Cache' }),
+            message: confirmMsg,
+            confirmLabel: $_('settings.danger.reset_button', { default: 'Reset Database & Cache' })
+        });
+        if (!confirmed) {
             return;
         }
 
@@ -2390,7 +2423,12 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             console.warn('Translation lookup failed, using fallback', e);
         }
 
-        if (!confirm(confirmMsg)) {
+        const confirmed = await confirmAction({
+            title: $_('settings.danger.clear_feedback_button', { default: 'Clear Personalization Data' }),
+            message: confirmMsg,
+            confirmLabel: $_('settings.danger.clear_feedback_button', { default: 'Clear Personalization Data' })
+        });
+        if (!confirmed) {
             return;
         }
 
@@ -2418,6 +2456,15 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     }
 
     async function handleCacheCleanup() {
+        // One click once deleted 59 GB here without a word. It asks first now.
+        const confirmed = await confirmAction({
+            title: $_('settings.data.cache_clear_button', { default: 'Clear Cached Files' }),
+            message: $_('settings.data.cache_cleanup_confirm', {
+                default: "Delete cached photos and clips older than the retention period, and cached files that no longer belong to a detection? Favourites and each species' newest kept visits stay. This cannot be undone."
+            }),
+            confirmLabel: $_('settings.data.cache_clear_button', { default: 'Clear Cached Files' })
+        });
+        if (!confirmed) return;
         cleaningCache = true;
         message = null;
         try {
@@ -2494,9 +2541,13 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     }
 
     async function handleExportConfigBackup() {
-        const confirmed = window.confirm(
-            'This backup includes secrets such as tokens, webhooks, passwords, and auth secrets. Store it somewhere private?'
-        );
+        const confirmed = await confirmAction({
+            title: 'Export configuration backup',
+            message:
+                'This backup includes secrets such as tokens, webhooks, passwords, and auth secrets. Store it somewhere private?',
+            confirmLabel: 'Export backup',
+            tone: 'default'
+        });
         if (!confirmed) return;
 
         exportingConfigBackup = true;
@@ -2520,9 +2571,11 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     }
 
     async function handleImportConfigBackup(file: File) {
-        const confirmed = window.confirm(
-            'Importing this backup will replace the current YA-WAMF configuration, including secrets. Continue?'
-        );
+        const confirmed = await confirmAction({
+            title: 'Import configuration backup',
+            message: 'Importing this backup will replace the current YA-WAMF configuration, including secrets. Continue?',
+            confirmLabel: 'Replace configuration'
+        });
         if (!confirmed) return;
 
         importingConfigBackup = true;

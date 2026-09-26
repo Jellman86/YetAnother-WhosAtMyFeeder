@@ -491,6 +491,7 @@
       "history_duration": "Verlaufsdauer",
       "keep_everything": "Alles behalten (∞)",
       "purge_button": "Alte Datensätze löschen",
+      "purge_confirm": "{count} Erkennungen und die BirdNET-Go-Audiodaten, die älter als {days} Tage sind, endgültig löschen? Favoriten und die neuesten behaltenen Besuche jeder Art bleiben erhalten. Dies kann nicht rückgängig gemacht werden.",
       "cleaning": "Wird bereinigt…",
       "auto_cleanup_note": "Die automatische Bereinigung läuft beim Start und danach alle 24 Stunden",
       "cache_title": "Medien-Cache",
@@ -500,6 +501,7 @@
       "cache_high_quality_event_snapshot_jpeg_quality_help": "Höhere Werte bewahren mehr Details, erzeugen aber größere abgeleitete Schnappschussdateien.",
       "cache_size": "Cache-Größe",
       "cache_clear_button": "Zwischengespeicherte Dateien löschen",
+      "cache_cleanup_confirm": "Zwischengespeicherte Fotos und Clips löschen, die älter als die Aufbewahrungsdauer sind, sowie zwischengespeicherte Dateien, die zu keiner Erkennung mehr gehören? Favoriten und die neuesten behaltenen Besuche jeder Art bleiben erhalten. Dies kann nicht rückgängig gemacht werden.",
       "diagnostics_title": "Diagnose",
       "diagnostics_desc": "Öffnet den Zustand-Tab mit Backend-Status, gruppierten Vorfällen und Support-Paketen.",
       "open_diagnostics": "Zustand öffnen",
@@ -1706,6 +1708,8 @@
     "reclassify_fallback": "⚠️ Video nicht verfügbar - stattdessen Schnappschuss verwendet",
     "reclassify_no_result": "Es wurde kein ausreichend zuverlässiges Ergebnis gefunden. Die bestehende Bestimmung wurde beibehalten.",
     "reclassify_failed": "Reklassifizierung fehlgeschlagen: {message}",
+    "hide_failed": "Dieser Besuch konnte nicht ausgeblendet werden: {message}",
+    "delete_failed": "Dieser Besuch konnte nicht gelöscht werden: {message}",
     "settings_saved": "Einstellungen erfolgreich gespeichert!",
     "settings_load_failed": "Einstellungen konnten nicht geladen werden",
     "center_title": "Benachrichtigungen",
@@ -2126,7 +2130,8 @@
     "archive_unavailable": "Nichts mehr zu archivieren",
     "archive_failed": "Archivierung fehlgeschlagen",
     "archive_retry": "Erneut versuchen",
-    "unfavorite_confirm": "Favorit entfernen? Das archivierte Foto und der Clip ({size}) werden mit entfernt. Der Besuch bleibt in der Historie."
+    "unfavorite_confirm": "Favorit entfernen? Das archivierte Foto und der Clip ({size}) werden mit entfernt. Der Besuch bleibt in der Historie.",
+    "unfavorite_button": "Favorit entfernen"
   },
   "events": {
     "title": "Ereignisse",
@@ -2598,6 +2603,7 @@
     "show_details": "Fehlerdetails anzeigen",
     "try_again": "Erneut versuchen",
     "copy_details": "Fehlerdetails kopieren",
+    "copied": "Kopiert",
     "reload_page": "Seite neu laden",
     "deploy_refresh_required": "YA-WAMF wurde aktualisiert, während dieser Tab geöffnet war. Aktualisieren Sie die Seite, um die neueste Version zu laden."
   },

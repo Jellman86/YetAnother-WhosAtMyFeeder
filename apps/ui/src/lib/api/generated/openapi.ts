@@ -456,6 +456,7 @@ export interface components {
     traceback?: string | null;
 };
     CleanupResponse: {
+    audio_deleted_count?: number | null;
     cutoff_date?: string | null;
     deleted_count: number;
     message?: string | null;

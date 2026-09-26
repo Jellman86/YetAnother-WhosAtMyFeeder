@@ -52,6 +52,7 @@
     import { publicSettingsStore } from '../stores/public_settings.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { toastStore } from '../stores/toast.svelte';
+    import { confirmAction } from '../stores/confirm_dialog.svelte';
     import { getBirdNames } from '../naming';
     import { _ } from 'svelte-i18n';
     import { get } from 'svelte/store';
@@ -1467,7 +1468,7 @@
             await onHideSuccess?.(detection.frigate_event, detection.detection_time, result.is_hidden);
             onClose();
         } catch (e) {
-            alert($_('notifications.reclassify_failed', { values: { message: getErrorMessage(e) } }));
+            toastStore.error($_('notifications.hide_failed', { values: { message: getErrorMessage(e) } }));
         }
     }
 
@@ -1475,7 +1476,11 @@
         if (!authStore.hasOwnerAccess) return;
         if (readOnly) return;
         if (!detection) return;
-        if (!confirm($_('actions.confirm_delete', { values: { species: detection.display_name } }))) return;
+        if (!(await confirmAction({
+            title: $_('actions.delete_detection', { default: 'Delete this visit permanently' }),
+            message: $_('actions.confirm_delete', { values: { species: detection.display_name } }),
+            confirmLabel: $_('dashboard.review_session.delete', { default: 'Delete permanently' })
+        }))) return;
 
         try {
             await deleteDetection(detection.frigate_event);
@@ -1483,7 +1488,7 @@
             await onDeleteSuccess?.(detection.frigate_event, detection.detection_time);
             onClose();
         } catch (e) {
-            alert($_('notifications.reclassify_failed', { values: { message: getErrorMessage(e) } }));
+            toastStore.error($_('notifications.delete_failed', { values: { message: getErrorMessage(e) } }));
         }
     }
 
@@ -1496,12 +1501,14 @@
                 // Unfavouriting removes the archive with it; say so before doing it (#178).
                 const archivedBytes = archiveStatus?.bytes ?? 0;
                 if (archivedBytes > 0) {
-                    const confirmed = window.confirm(
-                        $_('detection.unfavorite_confirm', {
+                    const confirmed = await confirmAction({
+                        title: $_('detection.unfavorite_button', { default: 'Remove favourite' }),
+                        message: $_('detection.unfavorite_confirm', {
                             values: { size: formatArchiveSize(archivedBytes) },
                             default: 'Remove the favourite? Its archived photo and clip ({size}) go with it. The visit stays in history.'
-                        })
-                    );
+                        }),
+                        confirmLabel: $_('detection.unfavorite_button', { default: 'Remove favourite' })
+                    });
                     if (!confirmed) return;
                 }
                 await unfavoriteDetection(detection.frigate_event);

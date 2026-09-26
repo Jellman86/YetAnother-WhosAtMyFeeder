@@ -31,6 +31,7 @@
     import { fullVisitStore } from '../stores/full-visit.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { toastStore } from '../stores/toast.svelte';
+    import { confirmAction } from '../stores/confirm_dialog.svelte';
     import { _ } from 'svelte-i18n';
     import Pagination from '../components/Pagination.svelte';
     import DetectionCard from '../components/DetectionCard.svelte';
@@ -703,19 +704,29 @@
                 selectedEvent = null;
             }
             await refreshEventMetadata(true, false);
-        } catch {} finally { hiding = false; }
+        } catch (e) {
+            toastStore.error($_('notifications.hide_failed', { values: { message: getErrorMessage(e) } }));
+        } finally { hiding = false; }
     }
 
     async function handleDelete() {
-        if (!selectedEvent || !confirm($_('actions.confirm_delete', { values: { species: selectedEvent.display_name } }))) return;
+        if (!selectedEvent) return;
+        const target = selectedEvent;
+        if (!(await confirmAction({
+            title: $_('actions.delete_detection', { default: 'Delete this visit permanently' }),
+            message: $_('actions.confirm_delete', { values: { species: target.display_name } }),
+            confirmLabel: $_('dashboard.review_session.delete', { default: 'Delete permanently' })
+        }))) return;
         deleting = true;
         try {
-            await deleteDetection(selectedEvent.frigate_event);
-            events = events.filter(e => e.frigate_event !== selectedEvent?.frigate_event);
-            detectionsStore.removeDetection(selectedEvent.frigate_event, selectedEvent.detection_time);
+            await deleteDetection(target.frigate_event);
+            events = events.filter(e => e.frigate_event !== target.frigate_event);
+            detectionsStore.removeDetection(target.frigate_event, target.detection_time);
             selectedEvent = null;
             await refreshEventMetadata(true, false);
-        } catch {} finally { deleting = false; }
+        } catch (e) {
+            toastStore.error($_('notifications.delete_failed', { values: { message: getErrorMessage(e) } }));
+        } finally { deleting = false; }
     }
 
     let showVideo = $state(false);
@@ -968,10 +979,15 @@
     async function handleBulkDelete() {
         if (selectedEventIds.length === 0) return;
         const count = selectedEventIds.length;
-        if (!window.confirm($_('events.bulk_delete_confirm', {
-            values: { count },
-            default: `Delete ${count} detection${count === 1 ? '' : 's'}? This cannot be undone.`
-        }))) return;
+        const confirmed = await confirmAction({
+            title: $_('actions.delete_selected', { default: 'Delete Selected' }),
+            message: $_('events.bulk_delete_confirm', {
+                values: { count },
+                default: `Delete ${count} detection${count === 1 ? '' : 's'}? This cannot be undone.`
+            }),
+            confirmLabel: $_('actions.delete_selected', { default: 'Delete Selected' })
+        });
+        if (!confirmed) return;
         bulkDeleting = true;
         const ids = [...selectedEventIds];
         try {

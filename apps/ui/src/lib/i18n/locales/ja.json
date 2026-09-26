@@ -491,6 +491,7 @@
       "history_duration": "履歴期間",
       "keep_everything": "すべて保持 (∞)",
       "purge_button": "古いレコードを削除",
+      "purge_confirm": "{days}日より古い{count}件の検出とBirdNET-Goの音声を完全に削除しますか？お気に入りと各種の保持中の最新の訪問は残ります。この操作は元に戻せません。",
       "cleaning": "削除中…",
       "auto_cleanup_note": "自動クリーンアップは起動時に実行され、その後は 24 時間ごとに実行されます",
       "cache_title": "メディアキャッシュ",
@@ -500,6 +501,7 @@
       "cache_high_quality_event_snapshot_jpeg_quality_help": "値を高くすると詳細が保持されますが、生成されるスナップショットファイルは大きくなります。",
       "cache_size": "キャッシュサイズ",
       "cache_clear_button": "キャッシュ済みファイルを消去",
+      "cache_cleanup_confirm": "保持期間を過ぎたキャッシュ済みの写真とクリップ、およびどの検出にも属さなくなったキャッシュファイルを削除しますか？お気に入りと各種の保持中の最新の訪問は残ります。この操作は元に戻せません。",
       "diagnostics_title": "診断",
       "diagnostics_desc": "バックエンド状態、グループ化されたインシデント、サポート用バンドルを含むヘルスタブを開きます。",
       "open_diagnostics": "ヘルスを開く",
@@ -1706,6 +1708,8 @@
     "reclassify_fallback": "⚠️ ビデオが利用不可 - 代わりにスナップショットを使用しました",
     "reclassify_no_result": "信頼できる結果が得られなかったため、既存の識別結果を維持しました。",
     "reclassify_failed": "再分類に失敗しました: {message}",
+    "hide_failed": "この訪問を非表示にできませんでした: {message}",
+    "delete_failed": "この訪問を削除できませんでした: {message}",
     "settings_saved": "設定を正常に保存しました！",
     "settings_load_failed": "設定の読み込みに失敗しました",
     "center_title": "通知",
@@ -2126,7 +2130,8 @@
     "archive_unavailable": "保管できるものが残っていません",
     "archive_failed": "保管に失敗しました",
     "archive_retry": "再試行",
-    "unfavorite_confirm": "お気に入りを解除しますか？保管済みの写真とクリップ（{size}）も削除されます。訪問記録は履歴に残ります。"
+    "unfavorite_confirm": "お気に入りを解除しますか？保管済みの写真とクリップ（{size}）も削除されます。訪問記録は履歴に残ります。",
+    "unfavorite_button": "お気に入りから削除"
   },
   "events": {
     "title": "イベント",
@@ -2598,6 +2603,7 @@
     "show_details": "エラー詳細を表示",
     "try_again": "もう一度試す",
     "copy_details": "エラー詳細をコピー",
+    "copied": "コピーしました",
     "reload_page": "ページを再読み込み",
     "deploy_refresh_required": "このタブを開いている間に YA-WAMF が更新されました。ページを再読み込みして最新のビルドを適用してください。"
   },
