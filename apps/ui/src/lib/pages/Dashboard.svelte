@@ -117,25 +117,6 @@
         if (!canReview) reviewSessionOpen = false;
     });
 
-    // The picker opens on species this feeder actually sees, most frequent first,
-    // rather than the head of an 11,000-label alphabetical list.
-    let recentSpecies = $derived.by(() => {
-        const counts = new Map<string, number>();
-        for (const species of summary?.top_species ?? []) {
-            counts.set(species.species, (counts.get(species.species) ?? 0) + species.count);
-        }
-        for (const detection of detectionsStore.detections) {
-            const name = detection.display_name;
-            if (!name) continue;
-            counts.set(name, (counts.get(name) ?? 0) + 1);
-        }
-        return [...counts.entries()]
-            .filter(([name]) => name.trim().toLowerCase() !== 'unknown bird')
-            .sort((left, right) => right[1] - left[1])
-            .map(([name]) => name)
-            .slice(0, 8);
-    });
-
     async function identifyFromQueue(detection: Detection, species: string): Promise<void> {
         try {
             const result = await updateDetectionSpecies(detection.frigate_event, species);
@@ -621,7 +602,6 @@
         queue={fullQueue.items}
         reasons={fullQueue.reasons}
         labels={classifierLabels}
-        suggestions={recentSpecies}
         onidentify={identifyFromQueue}
         onhide={hideFromQueue}
         onblock={blockFromQueue}

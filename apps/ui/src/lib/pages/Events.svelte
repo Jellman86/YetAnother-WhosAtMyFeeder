@@ -15,6 +15,7 @@
         fetchEventsCount,
         analyzeDetection,
         searchSpecies,
+        fetchFeederSpecies,
         type Detection,
         type EventFilters,
         type EventFilterSpecies,
@@ -41,6 +42,7 @@
     import { toLocalYMD } from '../utils/date-only';
     import { getErrorMessage } from '../utils/error-handling';
     import { selectReclassificationStrategy } from '../utils/reclassification';
+    import { speciesPickerNames } from '../utils/species-picker';
 
     import { getBirdNames } from '../naming';
 
@@ -448,7 +450,7 @@
             bulkSearching = true;
             (async () => {
                 try {
-                    bulkSearchResults = await searchSpecies('', 20, true);
+                    bulkSearchResults = await fetchFeederSpecies();
                 } catch (e) {
                     console.error('Bulk species search failed', e);
                     bulkSearchResults = classifierLabels.slice(0, 20).map((label) => ({
@@ -858,16 +860,6 @@
         return `${eventId}:${eventIndex}:${eventTime}`;
     }
 
-    function getSearchResultNames(result: SearchResult) {
-        const common = result.common_name?.trim() || null;
-        const scientific = result.scientific_name?.trim() || null;
-        const fallback = result.display_name || result.id;
-        if (common && scientific && common !== scientific) {
-            return { primary: common, secondary: scientific };
-        }
-        return { primary: common || scientific || fallback, secondary: null };
-    }
-
     function toggleSelectionMode() {
         if (!authStore.hasOwnerAccess) return;
         selectionMode = !selectionMode;
@@ -953,7 +945,7 @@
             await loadEvents();
             scheduleEventMetadataRefresh();
 
-            const names = getSearchResultNames(selection);
+            const names = speciesPickerNames(selection);
             toastStore.success(
                 `${$_('actions.manual_tag')}: ${names.primary || appliedSpecies} (${result.updated_count})`
             );
@@ -1494,7 +1486,7 @@
             </div>
             <div class="max-h-72 overflow-y-auto overscroll-contain p-1">
                 {#each bulkSearchResults as result}
-                    {@const names = getSearchResultNames(result)}
+                    {@const names = speciesPickerNames(result)}
                     {@const isPending = bulkTagging && bulkTagPendingId === result.id}
                     <button
                         type="button"

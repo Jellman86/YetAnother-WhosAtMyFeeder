@@ -370,6 +370,7 @@
       "all_species": "Alle Arten",
       "seen_here": "An dieser Futterstelle gesehen",
       "no_suggestions": "Noch keine Arten erfasst. Suchen Sie oben in der vollständigen Liste.",
+      "suggestions_unavailable": "Die Arten dieser Futterstelle konnten nicht geladen werden. Suchen Sie oben in der vollständigen Liste.",
       "crop": "Bester Ausschnitt",
       "full_frame": "Vollbild",
       "view_label": "Welches Bild gezeigt wird",

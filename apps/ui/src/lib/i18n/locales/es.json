@@ -370,6 +370,7 @@
       "all_species": "Todas las especies",
       "seen_here": "Vistas en este comedero",
       "no_suggestions": "Aún no hay especies registradas. Busca en la lista completa arriba.",
+      "suggestions_unavailable": "No se pudieron cargar las especies de este comedero. Busca en la lista completa arriba.",
       "crop": "Mejor recorte",
       "full_frame": "Fotograma completo",
       "view_label": "Qué imagen mostrar",

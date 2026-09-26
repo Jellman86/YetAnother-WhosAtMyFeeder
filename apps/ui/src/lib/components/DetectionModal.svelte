@@ -17,6 +17,7 @@
         type ArchiveStatus,
         unfavoriteDetection,
         searchSpecies,
+        fetchFeederSpecies,
         fetchEventAudioContext,
         createInaturalistDraft,
         submitInaturalistObservation,
@@ -44,6 +45,7 @@
     import FrameStrip from './FrameStrip.svelte';
     import { currentMoment, groupCandidatesIntoMoments, preferredCandidate, type FrameMoment } from '../utils/frame-moments';
     import { WholeScenePeek } from '../utils/whole-scene-peek.svelte';
+    import { speciesPickerNames } from '../utils/species-picker';
     import VideoAnalysisFilmReel from './VideoAnalysisFilmReel.svelte';
     import { detectionsStore, type ReclassificationProgress } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings.svelte';
@@ -1267,7 +1269,7 @@
             isSearching = true;
             (async () => {
                 try {
-                    searchResults = await searchSpecies('', 20, true);
+                    searchResults = await fetchFeederSpecies();
                 } catch (e) {
                     console.error("Search failed", e);
                     searchResults = classifierLabels.slice(0, 20).map(l => ({
@@ -1305,18 +1307,6 @@
             searchTimeout = undefined;
         }
     });
-
-    function getResultNames(result: SearchResult) {
-        const common = result.common_name?.trim() || null;
-        const scientific = result.scientific_name?.trim() || null;
-        const fallback = result.display_name || result.id;
-
-        if (common && scientific && common !== scientific) {
-            return { primary: common, secondary: scientific };
-        }
-
-        return { primary: common || scientific || fallback, secondary: null };
-    }
 
     function formatWindDirection(deg?: number | null): string {
         if (deg === null || deg === undefined || Number.isNaN(deg)) return '';
@@ -3820,7 +3810,7 @@
                     </div>
                     <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1">
                         {#each searchResults as result}
-                            {@const names = getResultNames(result)}
+                            {@const names = speciesPickerNames(result)}
                             {@const isPending = updatingTag && pendingManualTagId === result.id}
                             <button
                                 type="button"

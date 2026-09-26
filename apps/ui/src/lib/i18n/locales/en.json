@@ -370,6 +370,7 @@
       "all_species": "All species",
       "seen_here": "Seen at this feeder",
       "no_suggestions": "No species recorded yet. Search the full list above.",
+      "suggestions_unavailable": "Couldn't load this feeder's species. Search the full list above.",
       "crop": "Best crop",
       "full_frame": "Full frame",
       "view_label": "Which frame to show",
