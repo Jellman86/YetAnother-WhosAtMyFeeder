@@ -308,3 +308,66 @@ async def test_failed_cleanup_never_reuses_worker_in_another_pool(tmp_path):
     assert runner._worker is worker
     worker.kill = original_kill
     await runner.shutdown()
+
+
+def recovery_with_fresh_workers(tmp_path, delays):
+    """Each started worker is a new process, as after a kill in production."""
+    workers = []
+
+    def factory():
+        worker = Worker()
+        worker.delay = delays["now"]
+        workers.append(worker)
+        return worker
+
+    policy = NativeCrashQuarantine(lambda: PROFILE, root=tmp_path)
+    policy.record(PROFILE, -signal.SIGSEGV)
+    return NativeCpuRecovery(lambda: dict(PROFILE), policy, worker_factory=factory), workers
+
+
+@pytest.mark.asyncio
+async def test_request_that_spent_its_budget_queueing_does_not_disable_its_workload(tmp_path):
+    """A live snapshot queued behind backfill must not end live CPU recovery (#490 review).
+
+    The request reached the shared worker with little budget left and timed out.
+    That is queueing, not evidence that CPU cannot serve live work, so the next
+    live request with its own budget still runs.
+    """
+    delays = {"now": 0}
+    runner, workers = recovery_with_fresh_workers(tmp_path, delays)
+    # A fast earlier result makes the queued request look as if it can still fit.
+    assert await classify(runner, "live", timeout=5)
+    workers[0].delay = 0.3
+    background = asyncio.create_task(classify(runner, "background", timeout=5))
+    while len(workers[0].sent) < 2:
+        await asyncio.sleep(0)
+    with pytest.raises(NativeCpuRecoveryUnavailable):
+        await classify(runner, "live", timeout=0.45)
+    assert await background
+    assert runner.snapshot()["live"]["status"] != "failed"
+
+    delays["now"] = 0
+    for worker in workers:
+        worker.delay = 0
+    assert await classify(runner, "live", timeout=5)
+    assert runner.snapshot()["live"]["status"] == "degraded"
+    await runner.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_warm_worker_is_kept_when_a_queued_request_cannot_fit(tmp_path):
+    """Starting work that cannot finish would kill the worker other pools rely on."""
+    worker = Worker()
+    worker.delay = 0.2
+    runner = recovery(tmp_path, worker)
+    assert await classify(runner, "live", timeout=5)
+    background = asyncio.create_task(classify(runner, "background", timeout=5))
+    while len(worker.sent) < 2:
+        await asyncio.sleep(0)
+    with pytest.raises(NativeCpuRecoveryUnavailable):
+        await classify(runner, "live", timeout=0.3)
+    assert await background
+    assert not worker.closed
+    assert len(worker.sent) == 2
+    assert runner.snapshot()["live"]["status"] == "degraded"
+    await runner.shutdown()

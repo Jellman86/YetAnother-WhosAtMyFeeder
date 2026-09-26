@@ -326,11 +326,14 @@ If a detection shows `video_classification_error: event_not_found` or the **Erro
 ## Missed Detections (Backfill)
 If the Backfill tool is skipping events you expected to see, check the **Skipped Breakdown** table in the settings page after a scan.
 
-If a backfill reports repeated classifier-unavailable errors, YA-WAMF stops after three consecutive
-failures instead of consuming the rest of the range. The result keeps the number of events already
-processed, so you can check **Settings → Health**, restart the container if an in-process runtime
-is still stalled, and rerun the same range safely. Existing events are not duplicated; a better
-classification can update an existing detection.
+If a backfill reports repeated classifier-unavailable errors, YA-WAMF stops after three
+consecutive failures instead of consuming the rest of the range. "Classifier busy" results are
+admission pressure (video snapshot fallbacks share the same background capacity), so they
+neither count towards those three nor reset them; ten busy results in a row still stop the job.
+The result keeps the number of events already processed, so you can check **Settings → Health**,
+restart the container if an in-process runtime is still stalled, and rerun the same range
+safely. Existing events are not duplicated; a better classification can update an existing
+detection.
 
 After native-runtime recovery, **Settings → Detection** shows the actual execution mode and
 whether isolated workers have resumed classification. Restart advice remains visible because
@@ -359,15 +362,17 @@ generation in that worker is also CPU-only. The configured provider is unchanged
 The loaded model/labels/external weights and actual provider must match before and
 after inference. Queueing, cold load and inference share the workload deadline;
 merely loading a model is not recovery. Health remains degraded after successful
-CPU inference and retains the original crash evidence. A failed or cancelled
-attempt is not repeated for that workload until a configuration change or process
-restart; a native crash in the CPU profile remains quarantined across restarts.
-Wildlife work does not reuse this bird-model recovery path.
-Recovery deliberately uses one CPU worker to bound memory after a crash. A long
-video or backfill classification can consume another request's queue budget;
-that request fails visibly rather than spawning extra model copies or killing
-another workload's healthy inference. Select a validated provider appropriate to
-your workload if sustained CPU recovery cannot keep up.
+CPU inference and retains the original crash evidence. A failed or cancelled attempt that had
+its own budget is not repeated for that workload until a configuration change or process
+restart; a native crash in the CPU profile remains quarantined across restarts. Wildlife work
+does not reuse this bird-model recovery path.
+Recovery deliberately uses one CPU worker to bound memory after a crash. A long video or
+backfill classification can consume another request's queue budget; that request fails visibly
+rather than spawning extra model copies or killing another workload's healthy inference. Running
+out of budget while queued does not mark its workload failed, and a request whose remaining
+budget is shorter than the last completed inference is refused without touching the shared
+worker. Select a validated provider appropriate to your workload if sustained CPU recovery
+cannot keep up.
 Changing to a different independently validated provider is also a mitigation;
 changing execution mode or restarting alone does not clear the retained evidence.
 This does not protect against a first native crash in legacy in-process mode.

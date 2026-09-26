@@ -16,6 +16,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **A request that queued behind other work no longer disables CPU recovery for its workload.**
+  After a native crash, live, background and video work share one CPU recovery worker. A live
+  snapshot that waited behind a backfill or video job and then ran out of time marked all live
+  recovery failed until restart and killed the warm worker. Queue timeouts now leave the workload
+  available, and a request that can no longer fit is refused without touching the worker.
+- **Busy background capacity no longer stops a healthy backfill.** Overload results neither count
+  towards nor reset the three-failure stop; ten in a row still stop the job.
 - Update UI rendering and build dependencies, including bounded smart-quote
   processing for long analysis text. Preserve escaped HTML, safe links and code
   formatting with focused markdown regression coverage.
