@@ -499,7 +499,17 @@ async def search_species(
             seen = set()
             matches = [m for m in label_matches + stored_matches if not (m in seen or seen.add(m))]
         else:
-            matches = labels[:limit]
+            # An empty query is the picker opening: lead with this feeder's own
+            # species, most seen first, then the model's labels (#503). Over-fetch
+            # so unknown labels and taxonomy aliases dropped below still leave a
+            # full page.
+            seen_here = [
+                label
+                for label in await SpeciesRepository(db).most_detected_labels(limit * 2)
+                if not should_hide_species_label(label)
+            ][:limit]
+            seen = set()
+            matches = [m for m in seen_here + labels[:limit] if not (m in seen or seen.add(m))]
 
         deduped_results: dict[str, dict] = {}
         for label in matches:

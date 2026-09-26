@@ -14,6 +14,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Apply classifier admission and deadlines to uploaded test images in both execution modes.
 - Reload the active classifier through the supported service API after downloading the default model.
 
+### Changed
+
+- **"Pick a different species" opens on this feeder's own species (#503).** The reclassify
+  pickers (a visit's record and bulk reclassify in Events) now list the species seen here,
+  most visits first, before the model's other labels. Hidden visits and unknown labels are
+  left out; typing still searches everything.
+
 ### Fixed
 
 - Update UI rendering and build dependencies, including bounded smart-quote
