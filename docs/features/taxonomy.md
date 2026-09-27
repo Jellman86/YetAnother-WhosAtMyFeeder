@@ -19,7 +19,7 @@ The system is connected to the [iNaturalist API](https://www.inaturalist.org/). 
 **Leaderboard** in the sidebar (the page itself is headed **Species**) is where the naming style
 is most visible, because it shows both names together:
 
-![The Species page reached from Leaderboard, with the Month window and the Seen filter selected: a full-bleed card headed "Most detected this month" naming Dunnock, Prunella modularis, 243 visits, a Rising line for House Sparrow beneath it, and the start of the full rankings](../images/leaderboard.png)
+![The Leaderboard with the Month window and the Seen filter selected: Dunnock, Prunella modularis, as the large photograph with 235 visits, and eight smaller photographs beside it, four of them (Golden-crowned Sparrow, Eastern Gray Squirrel, Brown-headed Cowbird, Dark-eyed Junco) marked Check because nobody reported them nearby. Beneath, a band reads 18 species, 289 visits, busiest hour 09:00, 8 of 18 species heard or confirmed, no Rising yet because the history needs a full earlier window, and Dunnock seen most recently](../images/leaderboard.png)
 
 The **Day / Week / Month / Total** buttons set the window. **Seen / Heard / Both** decide what the
 ranking counts: **Seen** ranks by camera visits, **Heard** by BirdNET-Go detections, and
