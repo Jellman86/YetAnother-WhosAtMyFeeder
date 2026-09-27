@@ -931,12 +931,8 @@
         const isBlueTit = themeStore.colorTheme === 'bluetit';
         const primaryColor = isBlueTit ? '#2563eb' : '#16a34a';
         const smoothColor = isBlueTit ? '#1d4ed8' : '#0f766e';
-        const temperatureColor = '#f97316';
-        const windColor = '#38bdf8';
         const primaryName = metricLabel();
         const smoothName = $_('leaderboard.metric_smooth', { default: 'Smoothed' });
-        const temperatureName = $_('leaderboard.temperature');
-        const windName = $_('leaderboard.wind_avg');
 
         const rawData = indexedPoints.map(({ point, x }) => ({
             x,
@@ -946,17 +942,6 @@
             x,
             y: smoothedMetricValues()[idx] ?? null
         }));
-        const temperatureData = indexedPoints.map(({ point, x }) => ({
-            x,
-            y: convertTemperature(weatherValue(point.bucket_start, 'temp_avg'))
-        }));
-        const windData = indexedPoints.map(({ point, x }) => ({
-            x,
-            y: convertWindSpeed(weatherValue(point.bucket_start, 'wind_avg'), weatherUnitSystem)
-        }));
-
-        const hasTemperatureSeries = hasWeather() && showTemperature && temperatureData.some((p) => p.y !== null);
-        const hasWindSeries = hasWeather() && showWind && windData.some((p) => p.y !== null);
         const isStacked = detectionUsesBars() && (timeline?.compare_series?.length ?? 0) > 0;
 
         if (showRawSeries) {
@@ -1020,24 +1005,6 @@
             });
         }
 
-        if (hasTemperatureSeries) {
-            series.push({
-                name: temperatureName,
-                type: 'line',
-                color: temperatureColor,
-                data: temperatureData
-            });
-        }
-
-        if (hasWindSeries) {
-            series.push({
-                name: windName,
-                type: 'line',
-                color: windColor,
-                data: windData
-            });
-        }
-
         if (!series.length) {
             series.push({
                 name: primaryName,
@@ -1050,7 +1017,6 @@
         const labels = indexedPoints.map(({ point }) => point.label);
         const datasets: ChartDataset<'bar' | 'line', number[]>[] = series.map((item) => {
             const isBar = item.type === 'bar';
-            const isWeather = item.name === temperatureName || item.name === windName;
             return {
                 type: isBar ? 'bar' : 'line',
                 label: item.name,
@@ -1064,9 +1030,8 @@
                 tension: isBar ? 0 : 0.32,
                 pointRadius: 0,
                 pointHoverRadius: 4,
-                borderDash: item.name === smoothName || item.name === windName ? [5, 4] : [],
-                yAxisID: item.name === temperatureName ? 'temperature' : (item.name === windName ? 'wind' : 'y'),
-                order: isWeather ? 0 : (isBar ? 2 : 1),
+                borderDash: item.name === smoothName ? [5, 4] : [],
+                order: isBar ? 2 : 1,
                 hidden: hiddenTimelineSeries.includes(item.name)
             };
         });
@@ -1112,11 +1077,7 @@
                         callbacks: {
                             title: (items) => indexedPoints[items[0]?.dataIndex]?.point.label ?? '',
                             label: (item) => {
-                                const value = item.parsed.y ?? 0;
-                                const name = item.dataset.label ?? '';
-                                if (name === temperatureName) return `${name}: ${formatTemperature(value, temperatureUnit as TemperatureUnit)}`;
-                                if (name === windName) return `${name}: ${Math.round(value)} ${windUnitLabel}`;
-                                return `${name}: ${formatMetricValue(value)}`;
+                                return `${item.dataset.label ?? ''}: ${formatMetricValue(item.parsed.y ?? 0)}`;
                             }
                         }
                     }
@@ -1124,29 +1085,106 @@
                 scales: {
                     x: {
                         stacked: isStacked,
-                        ticks: { color: textColor, maxTicksLimit: 6, maxRotation: 0 },
+                        // Inner alignment keeps the end labels inside the plot, so its width matches the weather charts below.
+                        ticks: { color: textColor, maxTicksLimit: 6, maxRotation: 0, align: 'inner' },
                         grid: { display: false }
                     },
                     y: {
                         stacked: isStacked,
                         beginAtZero: true,
                         ticks: { color: textColor, callback: (value) => formatMetricValue(Number(value)) },
-                        grid: { color: gridColor }
-                    },
-                    ...(hasTemperatureSeries ? { temperature: {
-                        type: 'linear' as const, position: 'right' as const,
-                        ticks: { color: temperatureColor, maxTicksLimit: 4, callback: (value: string | number) => formatTemperature(Number(value), temperatureUnit as TemperatureUnit) },
-                        grid: { drawOnChartArea: false }
-                    } } : {}),
-                    ...(hasWindSeries ? { wind: {
-                        type: 'linear' as const, position: 'right' as const,
-                        ticks: { color: windColor, maxTicksLimit: 4, callback: (value: string | number) => `${Math.round(Number(value))} ${windUnitLabel}` },
-                        grid: { drawOnChartArea: false }
-                    } } : {})
+                        grid: { color: gridColor },
+                        afterFit: alignValueAxis
+                    }
                 }
             }
         };
 
+    });
+
+    // Every chart in the timeline stack reserves the same width for its value axis, so the plot
+    // areas line up and a temperature under a bar sits on the same bucket.
+    function alignValueAxis(scale: { width: number }) {
+        scale.width = 64;
+    }
+
+    type WeatherPanel = { key: 'temperature' | 'wind'; title: string; config: CanvasChartConfig };
+    // Weather gets its own small charts under the detections rather than a second y-axis on them:
+    // two scales on one plot invite reading a coincidence of heights as a relationship.
+    let weatherPanels = $derived((): WeatherPanel[] => {
+        if (!timeline || !hasWeather()) return [];
+        const points = timelinePoints().filter((point) => Number.isFinite(Date.parse(point.bucket_start)));
+        const labels = points.map((point) => point.label);
+        const gridColor = isDark() ? 'rgba(148,163,184,0.12)' : 'rgba(148,163,184,0.2)';
+        const textColor = isDark() ? '#94a3b8' : '#64748b';
+        const reduced = typeof window !== 'undefined' && (window.matchMedia('(prefers-reduced-motion: reduce)').matches || document.documentElement.classList.contains('reduced-motion') || authStore.reducedMotion);
+        const lineColor = isDark() ? '#cbd5e1' : '#475569';
+        const panel = (
+            key: WeatherPanel['key'],
+            title: string,
+            values: Array<number | null>,
+            format: (value: number) => string
+        ): WeatherPanel | null => {
+            if (!values.some((value) => value !== null)) return null;
+            return {
+                key,
+                title,
+                config: {
+                    type: 'line',
+                    data: {
+                        labels,
+                        datasets: [{
+                            label: title,
+                            data: values.map((value) => value ?? NaN),
+                            borderColor: lineColor,
+                            backgroundColor: lineColor,
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            pointHoverRadius: 4,
+                            tension: 0.32,
+                            spanGaps: true
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        animation: reduced ? false : { duration: 300 },
+                        interaction: { mode: 'index', intersect: false },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: { callbacks: { label: (item) => `${title}: ${format(item.parsed.y ?? 0)}` } }
+                        },
+                        scales: {
+                            // Bars sit centred in their bucket; the line must use the same offset to share x.
+                            x: { offset: detectionUsesBars(), ticks: { display: false }, grid: { display: false } },
+                            y: {
+                                ticks: { color: textColor, maxTicksLimit: 3, callback: (value) => format(Number(value)) },
+                                grid: { color: gridColor },
+                                afterFit: alignValueAxis
+                            }
+                        }
+                    }
+                }
+            };
+        };
+        return [
+            showTemperature
+                ? panel(
+                    'temperature',
+                    $_('leaderboard.temperature'),
+                    points.map((point) => convertTemperature(weatherValue(point.bucket_start, 'temp_avg'))),
+                    (value) => formatTemperature(value, temperatureUnit as TemperatureUnit)
+                )
+                : null,
+            showWind
+                ? panel(
+                    'wind',
+                    $_('leaderboard.wind_avg'),
+                    points.map((point) => convertWindSpeed(weatherValue(point.bucket_start, 'wind_avg'), weatherUnitSystem)),
+                    (value) => `${Math.round(value)} ${windUnitLabel}`
+                )
+                : null
+        ].filter((item): item is WeatherPanel => item !== null);
     });
 
     // A species keeps its colour slot in both charts: the slot is its rank in this window.
@@ -1853,7 +1891,7 @@
 
                 <div class="mt-6 w-full flex-1 min-h-[140px]" style="height: {isStackedChart() ? 380 : 260}px">
                     {#if timeline?.points?.length}
-                        {#key `${span}-${timeline.total_count}-${timeline.bucket}-${showTemperature}-${showWind}-${showPrecip}-${isDark()}-${themeStore.colorTheme}`}
+                        {#key `${span}-${timeline.total_count}-${timeline.bucket}-${showPrecip}-${isDark()}-${themeStore.colorTheme}`}
                             <div class="flex h-full min-w-0 flex-col">
                                 <p class="mb-2 text-xs font-semibold text-slate-500 dark:text-slate-400">{chartSubtitle()}</p>
                                 <div class="min-h-0 flex-1"><canvas use:chartjs={chartOptions()} bind:this={chartEl} aria-label="{$_('leaderboard.detections_over_time')}: {metricLabel()}" class="w-full"></canvas></div>
@@ -1863,6 +1901,16 @@
                         <div class="h-full w-full rounded-2xl bg-slate-100 dark:bg-slate-800/60 animate-pulse"></div>
                     {/if}
                 </div>
+                {#each weatherPanels() as panel (panel.key)}
+                    <div class="mt-3" data-leaderboard-weather-panel={panel.key}>
+                        <p class="mb-1 text-xs font-semibold text-slate-500 dark:text-slate-400">{panel.title}</p>
+                        <div class="h-24 w-full">
+                            {#key `${span}-${timeline?.total_count}-${timeline?.bucket}-${isDark()}-${panel.key}`}
+                                <canvas use:chartjs={panel.config} aria-label={panel.title}></canvas>
+                            {/key}
+                        </div>
+                    </div>
+                {/each}
                 {#if timeline?.points?.length && timelineLegend().length > 1}
                     <div class="mt-3 flex flex-wrap gap-1" role="group" aria-label={$_('leaderboard.chart_legend', { default: 'Series in this chart' })} data-leaderboard-timeline-legend>
                         {#each timelineLegend() as entry (entry.label)}
@@ -1931,10 +1979,11 @@
                     <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
                         <button
                             type="button"
+                            aria-pressed={showTemperature}
                             onclick={() => showTemperature = !showTemperature}
                             disabled={!hasWeather()}
                             class="inline-flex min-h-11 items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-45
-                                {showTemperature ? 'border-amber-300 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' : 'border-slate-200/70 dark:border-slate-700/60 text-slate-500 dark:text-slate-400'}"
+                                {showTemperature ? 'border-brand-300 dark:border-brand-600 bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300' : 'border-slate-200/70 dark:border-slate-700/60 text-slate-500 dark:text-slate-400'}"
                         >
                             <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                                 <path d="M10 4a2 2 0 0 0-4 0v6.4a3.5 3.5 0 1 0 4 0V4z"></path>
@@ -1944,10 +1993,11 @@
                         </button>
                         <button
                             type="button"
+                            aria-pressed={showWind}
                             onclick={() => showWind = !showWind}
                             disabled={!hasWeather()}
                             class="inline-flex min-h-11 items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-45
-                                {showWind ? 'border-sky-300 dark:border-sky-600 bg-sky-50 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300' : 'border-slate-200/70 dark:border-slate-700/60 text-slate-500 dark:text-slate-400'}"
+                                {showWind ? 'border-brand-300 dark:border-brand-600 bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300' : 'border-slate-200/70 dark:border-slate-700/60 text-slate-500 dark:text-slate-400'}"
                         >
                             <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                                 <path d="M3 8h9a2 2 0 1 0-2-2"></path>
@@ -1957,6 +2007,7 @@
                         </button>
                         <button
                             type="button"
+                            aria-pressed={showPrecip}
                             onclick={() => showPrecip = !showPrecip}
                             disabled={!hasWeather()}
                             class="inline-flex min-h-11 items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-45

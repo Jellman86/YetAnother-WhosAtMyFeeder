@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Draw leaderboard weather as small charts under the detections timeline, aligned bucket for
+  bucket, instead of as extra y-axes on the same chart where two scales invited reading a
+  coincidence of heights as a cause. The weather toggles report their state to screen readers and
+  no longer use amber, which the interface keeps for work that needs a person.
+
 - Rank the leaderboard by visits rather than frames. The day, week and month views count the
   frames of one species on one camera within ten minutes of each other as one visit, the rule the
   dashboard already uses, so a bird that lingers no longer outranks birds that come and go. Totals,

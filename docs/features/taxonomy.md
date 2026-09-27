@@ -60,8 +60,10 @@ behind the ranking covers the whole of that earlier window: the camera's history
 BirdNET-Go's for **Heard**, and both for **Both**. On a new install the page says when records start
 instead of reporting every species as a riser.
 
-Below the rankings, **Detections over time** shows when detections happened and can overlay
-weather; its legend names each species and hides or restores it. A species keeps the same colour in
+Below the rankings, **Detections over time** shows when detections happened; its legend names each
+species and hides or restores it. **Weather overlays** add temperature and wind as small charts of
+their own directly underneath, lined up day for day with the bars, rather than as a second scale on
+the same chart, and shade rainy buckets behind the bars. A species keeps the same colour in
 that chart and in **Species composition**, whose labelled buttons can hide or restore a slice with
 a mouse, touch, or keyboard. **Hour x weekday activity** shows when this feeder is busy: brighter
 means busier in dark mode and darker means busier in light mode, the busiest hour is outlined, and

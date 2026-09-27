@@ -110,6 +110,14 @@ describe('leaderboard field-journal layout', () => {
         expect(leaderboardSource).toContain('fetchSpecies(controller.signal).then(mapAllTimeSpecies);\n                countsAreVisits = false;');
     });
 
+    it('draws weather under the detections on its own axis, never as a second y-axis', () => {
+        expect(leaderboardSource).toContain('data-leaderboard-weather-panel={panel.key}');
+        expect(leaderboardSource).not.toContain("yAxisID: item.name === temperatureName");
+        expect(leaderboardSource).not.toContain("position: 'right' as const");
+        expect(leaderboardSource).toContain('afterFit: alignValueAxis');
+        expect(leaderboardSource).toContain('aria-pressed={showTemperature}');
+    });
+
     it('flags a species nothing but the camera backs and no birder reported nearby, in words', () => {
         expect(leaderboardSource).toContain('isUnlikelyHere(evidenceOf(row), row.reported_nearby)');
         expect(leaderboardSource).toContain('data-leaderboard-unlikely-note');
