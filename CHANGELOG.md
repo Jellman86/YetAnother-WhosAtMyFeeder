@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Move manual-tag provider lookups outside database connection holds and share one lookup across
+  a bulk correction. Taxonomy and audio correlation reuse resolved names and the caller's
+  connection, avoiding nested pool acquisitions during manual and video updates.
+
 - Defer scheduled unknown-detection analysis while Frigate is unavailable, retry readiness up to
   five times at two-minute intervals, and stop event prechecks after a batch-wide outage rather
   than queueing transient failures for classification.

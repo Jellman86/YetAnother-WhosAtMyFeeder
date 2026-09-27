@@ -1332,6 +1332,48 @@ async def get_event_classification_status(event_id: str, request: Request, auth:
         )
 
 
+async def _prefetch_manual_tag_taxonomy(
+    event_id: str, requested_species: str, lang: str, lookup_cache: dict[str, dict] | None = None
+) -> dict:
+    """Resolve the provider identity before opening the connection used for the update."""
+    new_species = requested_species.strip()
+    unknown_labels = {*(label.lower() for label in settings.classification.unknown_bird_labels), "unknown bird"}
+    normalized_label = "Unknown Bird" if new_species.lower() in unknown_labels else new_species
+    if normalized_label == "Unknown Bird" or should_hide_species_label(normalized_label):
+        return {}
+
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        detection = await repo.get_by_frigate_event(event_id)
+        if not detection or _normalize_species_name(detection.display_name) == _normalize_species_name(new_species):
+            return {}
+        resolved_aliases = await repo.resolve_species_aliases(new_species, language=lang)
+        if _manual_update_is_alias_noop(detection, new_species, resolved_aliases):
+            return {}
+        taxonomy_lookup_name = (
+            resolved_aliases.get("scientific_name") or resolved_aliases.get("common_name") or normalized_label
+        )
+
+    if lookup_cache is not None and taxonomy_lookup_name in lookup_cache:
+        return lookup_cache[taxonomy_lookup_name]
+
+    try:
+        result = await taxonomy_service.get_names(taxonomy_lookup_name, force_refresh=True)
+        taxonomy = result if isinstance(result, dict) else {}
+    except Exception as exc:
+        log.warning(
+            "Manual tag taxonomy lookup failed; using local alias resolution fallback",
+            event_id=event_id,
+            requested_species=new_species,
+            taxonomy_lookup_name=taxonomy_lookup_name,
+            error=str(exc),
+        )
+        taxonomy = {}
+    if lookup_cache is not None:
+        lookup_cache[taxonomy_lookup_name] = taxonomy
+    return taxonomy
+
+
 async def _apply_manual_tag_update(
     *,
     db,
@@ -1339,6 +1381,7 @@ async def _apply_manual_tag_update(
     detection,
     requested_species: str,
     lang: str,
+    prefetched_taxonomy: dict,
 ) -> dict:
     old_species = detection.display_name
     old_category_name = detection.category_name
@@ -1408,21 +1451,7 @@ async def _apply_manual_tag_update(
         )
         return await confirm_existing_species()
 
-    taxonomy_lookup_name = (
-        resolved_aliases.get("scientific_name") or resolved_aliases.get("common_name") or normalized_label
-    )
-    taxonomy: dict = {}
-    if normalized_label != "Unknown Bird":
-        try:
-            taxonomy = await taxonomy_service.get_names(taxonomy_lookup_name, force_refresh=True)
-        except Exception as exc:
-            log.warning(
-                "Manual tag taxonomy lookup failed; using local alias resolution fallback",
-                event_id=event_id,
-                requested_species=new_species,
-                taxonomy_lookup_name=taxonomy_lookup_name,
-                error=str(exc),
-            )
+    taxonomy = prefetched_taxonomy if normalized_label != "Unknown Bird" else {}
 
     sci_name = taxonomy.get("scientific_name") or resolved_aliases.get("scientific_name") or normalized_label
     com_name = taxonomy.get("common_name") or resolved_aliases.get("common_name")
@@ -1459,7 +1488,10 @@ async def _apply_manual_tag_update(
 
     try:
         audio_confirmed, audio_species, audio_score = await audio_service.correlate_species(
-            target_time=detection.detection_time, species_name=sci_name, camera_name=detection.camera_name
+            target_time=detection.detection_time,
+            species_name=sci_name,
+            camera_name=detection.camera_name,
+            taxonomy={"scientific_name": sci_name, "common_name": com_name},
         )
     except Exception as exc:
         log.warning(
@@ -1817,40 +1849,43 @@ async def bulk_manual_tag_events(
     missing_event_ids: list[str] = []
     failed_event_ids: list[str] = []
     last_new_species: str | None = None
+    taxonomy_lookup_cache: dict[str, dict] = {}
 
-    async with get_db() as db:
-        repo = DetectionRepository(db)
-        for event_id in requested_ids:
-            detection = await repo.get_by_frigate_event(event_id)
-            if not detection:
-                missing_event_ids.append(event_id)
-                continue
-
-            try:
+    for event_id in requested_ids:
+        try:
+            prefetched_taxonomy = await _prefetch_manual_tag_taxonomy(
+                event_id, update_request.display_name, lang, taxonomy_lookup_cache
+            )
+            async with get_db() as db:
+                repo = DetectionRepository(db)
+                detection = await repo.get_by_frigate_event(event_id)
+                if not detection:
+                    missing_event_ids.append(event_id)
+                    continue
                 result = await _apply_manual_tag_update(
                     db=db,
                     repo=repo,
                     detection=detection,
                     requested_species=update_request.display_name,
                     lang=lang,
+                    prefetched_taxonomy=prefetched_taxonomy,
                 )
-            except Exception as exc:
-                failed_event_ids.append(event_id)
-                log.error(
-                    "Bulk manual tag update failed for event",
-                    event_id=event_id,
-                    requested_species=update_request.display_name,
-                    error=str(exc),
-                    exc_info=True,
-                )
-                await db.rollback()
-                continue
-            if result.get("status") == "updated":
-                updated_event_ids.append(event_id)
-                last_new_species = result.get("new_species") or last_new_species
-            else:
-                unchanged_event_ids.append(event_id)
-                last_new_species = result.get("new_species") or last_new_species
+        except Exception as exc:
+            failed_event_ids.append(event_id)
+            log.error(
+                "Bulk manual tag update failed for event",
+                event_id=event_id,
+                requested_species=update_request.display_name,
+                error=str(exc),
+                exc_info=True,
+            )
+            continue
+        if result.get("status") == "updated":
+            updated_event_ids.append(event_id)
+            last_new_species = result.get("new_species") or last_new_species
+        else:
+            unchanged_event_ids.append(event_id)
+            last_new_species = result.get("new_species") or last_new_species
 
     status = (
         "updated"
@@ -1931,6 +1966,7 @@ async def update_event(
     Use this to correct misidentifications.
     """
     lang = get_user_language(request)
+    prefetched_taxonomy = await _prefetch_manual_tag_taxonomy(event_id, update_request.display_name, lang)
     async with get_db() as db:
         repo = DetectionRepository(db)
         detection = await repo.get_by_frigate_event(event_id)
@@ -1944,6 +1980,7 @@ async def update_event(
             detection=detection,
             requested_species=update_request.display_name,
             lang=lang,
+            prefetched_taxonomy=prefetched_taxonomy,
         )
 
 

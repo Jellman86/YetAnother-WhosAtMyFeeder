@@ -421,7 +421,12 @@ class AudioService:
             return best_match
 
     async def correlate_species(
-        self, target_time: datetime, species_name: str, camera_name: str = None, window_seconds: int = None
+        self,
+        target_time: datetime,
+        species_name: str,
+        camera_name: str = None,
+        window_seconds: int = None,
+        taxonomy: dict | None = None,
     ) -> tuple[bool, Optional[str], Optional[float]]:
         """Check if a specific species has audio confirmation at target time.
 
@@ -432,6 +437,7 @@ class AudioService:
             species_name: Scientific or common name to match against
             camera_name: Name of the Frigate camera (used for mapping)
             window_seconds: Match window in seconds (defaults to settings value)
+            taxonomy: Already resolved scientific and common names, when available
 
         Returns:
             Tuple of (audio_confirmed, audio_species, audio_score)
@@ -441,18 +447,20 @@ class AudioService:
         if window_seconds is None:
             window_seconds = settings.frigate.audio_correlation_window_seconds
 
-        # Get scientific name for the species we're looking for
-        taxonomy: dict = {}
-        try:
-            from app.services.taxonomy.taxonomy_service import taxonomy_service
+        # Callers that just resolved taxonomy can lend that identity rather than
+        # looking it up again while they hold a pooled database connection.
+        if taxonomy is None:
+            try:
+                from app.services.taxonomy.taxonomy_service import taxonomy_service
 
-            taxonomy = await taxonomy_service.get_names(species_name)
-        except Exception as e:
-            log.warning(
-                "Audio correlation taxonomy lookup failed; falling back to raw names",
-                species=species_name,
-                error=str(e),
-            )
+                taxonomy = await taxonomy_service.get_names(species_name)
+            except Exception as e:
+                log.warning(
+                    "Audio correlation taxonomy lookup failed; falling back to raw names",
+                    species=species_name,
+                    error=str(e),
+                )
+                taxonomy = {}
 
         target_query = (species_name or "").lower().strip()
         target_scientific = (taxonomy.get("scientific_name") or species_name or "").lower().strip()
