@@ -40,7 +40,18 @@ def reset_auth_config():
     settings.public_access.enabled = original_public_enabled
 
 
+@pytest.fixture
+def no_feeder_history():
+    """Empty-query tests about label hydration must not see other tests' stored visits (#503)."""
+    with patch(
+        "app.repositories.species_repository.SpeciesRepository.most_detected_labels",
+        new=AsyncMock(return_value=[]),
+    ):
+        yield
+
+
 @pytest.mark.asyncio
+@pytest.mark.usefixtures("no_feeder_history")
 async def test_species_search_hydrates_missing_taxonomy_with_localized_common_name(client: httpx.AsyncClient):
     settings.auth.enabled = False
     settings.public_access.enabled = False
@@ -78,6 +89,7 @@ async def test_species_search_hydrates_missing_taxonomy_with_localized_common_na
 
 
 @pytest.mark.asyncio
+@pytest.mark.usefixtures("no_feeder_history")
 async def test_species_search_without_hydration_keeps_missing_names_and_skips_lookup(client: httpx.AsyncClient):
     settings.auth.enabled = False
     settings.public_access.enabled = False
@@ -104,6 +116,7 @@ async def test_species_search_without_hydration_keeps_missing_names_and_skips_lo
 
 
 @pytest.mark.asyncio
+@pytest.mark.usefixtures("no_feeder_history")
 async def test_species_search_hydration_failure_is_non_fatal(client: httpx.AsyncClient):
     settings.auth.enabled = False
     settings.public_access.enabled = False
@@ -128,6 +141,7 @@ async def test_species_search_hydration_failure_is_non_fatal(client: httpx.Async
 
 
 @pytest.mark.asyncio
+@pytest.mark.usefixtures("no_feeder_history")
 async def test_species_search_hydration_strips_parenthetical_classifier_suffix(client: httpx.AsyncClient):
     settings.auth.enabled = False
     settings.public_access.enabled = False
@@ -333,3 +347,105 @@ async def test_species_search_db_matches_survive_a_flood_of_label_matches(client
     names = {row["display_name"] for row in response.json()}
     assert stored_species in names
     assert len(response.json()) <= 50
+
+
+@pytest.mark.asyncio
+async def test_species_search_opens_on_this_feeders_species_most_seen_first(client: httpx.AsyncClient):
+    """The picker's first page is what this feeder sees, not the head of the label list (#503).
+
+    With no query the reclassify pickers showed the same first twenty classifier
+    labels every time, species never seen here, while the review queue already
+    offered the feeder's own species. Hidden visits and unknown labels stay out.
+    """
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    suffix = uuid.uuid4().hex[:6]
+    common = f"Feederbird common {suffix}"
+    rare = f"Feederbird rare {suffix}"
+    hidden = f"Feederbird hidden {suffix}"
+    alphabet_head = [f"Aaa model label {i:02d}" for i in range(30)]
+    rows = [(common, 0)] * 3 + [(rare, 0)] + [(hidden, 1)] * 5 + [("Unknown Bird", 0)] * 6
+
+    async with get_db() as db:
+        for index, (name, is_hidden) in enumerate(rows):
+            await db.execute(
+                """
+                INSERT INTO detections (
+                    detection_time, detection_index, score, display_name, category_name,
+                    frigate_event, camera_name, is_hidden, manual_tagged
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
+                """,
+                (
+                    "2026-09-24 10:00:00",
+                    index,
+                    0.9,
+                    name,
+                    name,
+                    f"evt-503-{suffix}-{index}",
+                    "feeder",
+                    is_hidden,
+                ),
+            )
+        await db.commit()
+
+    try:
+        with patch(
+            "app.routers.species.get_classifier",
+            return_value=_MockClassifier([*alphabet_head, common, rare]),
+        ):
+            response = await client.get("/api/species/search", params={"q": "", "limit": 20})
+
+        assert response.status_code == 200, response.text
+        names = [row["display_name"] for row in response.json()]
+        assert names.index(common) < names.index(rare) < names.index(alphabet_head[0])
+        assert hidden not in names
+        assert "Unknown Bird" not in names
+        assert len(names) == 20
+        assert len(names) == len(set(names))
+    finally:
+        async with get_db() as db:
+            await db.execute("DELETE FROM detections WHERE frigate_event LIKE ?", (f"evt-503-{suffix}-%",))
+            await db.commit()
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("no_feeder_history")
+async def test_species_search_without_history_still_offers_model_labels(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    labels = [f"Fresh install label {i:02d}" for i in range(5)]
+
+    with patch("app.routers.species.get_classifier", return_value=_MockClassifier(labels)):
+        response = await client.get("/api/species/search", params={"q": "", "limit": 20})
+
+    assert response.status_code == 200, response.text
+    assert [row["display_name"] for row in response.json()] == labels
+
+
+@pytest.mark.asyncio
+async def test_species_search_does_not_rank_history_for_guests(client: httpx.AsyncClient):
+    """Guests may be limited to recent history, and only owners reclassify.
+
+    The feeder ranking counts every stored visit, so a guest must keep the plain
+    label order rather than learn what was seen outside their window.
+    """
+    original_setup = settings.auth.initial_setup_complete
+    settings.auth.enabled = True
+    settings.auth.initial_setup_complete = True
+    settings.public_access.enabled = True
+    labels = [f"Guest label {i:02d}" for i in range(3)]
+    try:
+        with (
+            patch("app.routers.species.get_classifier", return_value=_MockClassifier(labels)),
+            patch(
+                "app.repositories.species_repository.SpeciesRepository.most_detected_labels",
+                new=AsyncMock(return_value=["Old visitor seen only last year"]),
+            ) as ranking,
+        ):
+            response = await client.get("/api/species/search", params={"q": "", "limit": 20})
+    finally:
+        settings.auth.initial_setup_complete = original_setup
+
+    assert response.status_code == 200, response.text
+    assert [row["display_name"] for row in response.json()] == labels
+    ranking.assert_not_awaited()

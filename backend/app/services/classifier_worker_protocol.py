@@ -102,8 +102,10 @@ def build_result_event(
     work_id: str,
     lease_token: int,
     results: list[dict[str, Any]],
+    runtime: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     return {
+        **({"runtime": dict(runtime)} if runtime else {}),
         "type": "result",
         "worker_generation": int(worker_generation),
         "request_id": str(request_id),
@@ -159,6 +161,7 @@ def build_classify_request(
     camera_name: str | None,
     model_id: str | None,
     input_context: dict[str, Any] | None = None,
+    model_kind: str = "bird",
 ) -> dict[str, Any]:
     message = {
         "type": "classify",
@@ -168,6 +171,10 @@ def build_classify_request(
         "lease_token": int(lease_token),
         "image_b64": str(image_b64),
     }
+    if model_kind not in {"bird", "wildlife"}:
+        raise ValueError("unsupported classifier model kind")
+    if model_kind != "bird":
+        message["model_kind"] = model_kind
     if camera_name is not None:
         message["camera_name"] = str(camera_name)
     if model_id is not None:

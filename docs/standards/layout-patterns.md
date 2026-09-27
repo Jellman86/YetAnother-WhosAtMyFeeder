@@ -133,9 +133,18 @@ own Close, because there is no hover to lose.
 ```
 span bar: day, week, month, total · seen, heard, both
 showcase: the leader expanded, the rest as tiles, in the expanded-view manner of a photo library
-highlights: rising, most recent
-rankings, then analytics
+standing band: species, detections, busiest hour, heard or confirmed, rising, most recent
+rankings (with evidence), then analytics
 ```
+
+A leaderboard is only as good as its identifications, so the rankings say what stands behind each
+species besides the classifier: confirmed by the owner, heard by BirdNET in the same window, or the
+camera alone (`leaderboard/evidence.ts`). A trend is claimed only when the history covers the whole
+previous window (`previous_window_complete` from the route); otherwise the page says when records
+start. Rankings count visits (`window_visit_count`, the same ten-minute rule as
+`groupDetectionsIntoVisits`), and only the all-time view, which has no visit counts, says detections.
+The timeline and the composition chart share one colour per species
+(`leaderboard/species-palette.ts`, validated for colour-blind separation on both surfaces).
 
 The showcase (`SpeciesShowcase`) is the leaderboard's centrepiece. Every species is a photograph:
 this feeder's own newest crop (`/api/leaderboard/portraits`), or, where there is none, the
@@ -184,6 +193,7 @@ worker's public summary, off with update checks, and absent rather than zero whe
 | `TopVisitors` | A full-width band | Place it in the context rail; it lays out horizontally and compresses badly |
 | `InstancePipeline` | Deployment state as a flow | Use it as a settings surface |
 | `ReviewQueueModal` | Working a queue item by item | Use for viewing one record; that is `DetectionModal` |
+| `ActivityHeatmap` | A weekday by hour grid that reads a slot on hover, tap or arrow keys, with hour and day totals in its margins | Rely on native `title` tooltips; they arrive late and never on touch |
 
 Pure logic lives in `apps/ui/src/lib/utils/`: `visit-grouping.ts` (grouping, the desk window and
 threshold-aware review decisions), `review-queue.ts` (queue selection and ordering),

@@ -21,7 +21,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from PIL import Image
-from typing import Optional, Any, Awaitable, Callable, Iterable, Literal
+from typing import Optional, Any, Awaitable, Callable, Iterable, Literal, NoReturn
 
 from app.services.inference_health import InferenceHealth, Outcome, RuntimeKey
 from app.services.openvino_cache import resolve_openvino_cache_dir
@@ -134,6 +134,12 @@ OpenVINOCore = _OPENVINO_SUPPORT["core_class"]
 OPENVINO_AVAILABLE = bool(_OPENVINO_SUPPORT["available"])
 
 from app.config import settings  # noqa: E402
+from app.services.native_crash_quarantine import (  # noqa: E402
+    NativeCrashQuarantine,
+    NativeCrashQuarantinedError,
+    artifact_digest,
+)
+from app.services.native_cpu_recovery import NativeCpuRecovery, NativeCpuRecoveryUnavailable  # noqa: E402
 from app.models.ai_models import ClassificationInputContext, CropGeneratorConfig  # noqa: E402
 from app.services.bird_crop_service import bird_crop_service  # noqa: E402
 from app.services.crop_source_resolver import crop_source_resolver  # noqa: E402
@@ -2766,7 +2772,13 @@ class ClassifierService:
         self._image_execution_mode = "in_process" if self._worker_process_mode else configured_mode
         self._classifier_supervisor = supervisor
         self._video_supervisor = supervisor
+        self._native_crash_quarantine = NativeCrashQuarantine(self._native_launch_profile)
+        self._native_cpu_recovery = NativeCpuRecovery(self._native_launch_profile, self._native_crash_quarantine)
         self._bird_crop_service = bird_crop_service
+        if worker_process_mode and os.environ.get("YA_WAMF_NATIVE_CPU_RECOVERY") == "1":
+            from app.services.bird_crop_service import BirdCropService
+
+            self._bird_crop_service = BirdCropService(provider_override="cpu", strict_provider=True)
         self._crop_source_resolver = crop_source_resolver
         # Use dedicated executors so long-running video analysis cannot starve
         # live snapshot/audio-adjacent classification work.
@@ -2830,6 +2842,7 @@ class ClassifierService:
                 ),
             )
             isolated_supervisor = ClassifierSupervisor(
+                crash_quarantine=self._native_crash_quarantine,
                 live_worker_count=resolved_live_workers,
                 background_worker_count=resolved_background_workers,
                 video_worker_count=video_workers,
@@ -2877,6 +2890,7 @@ class ClassifierService:
         self._runtime_gpu_restore_attempts = 0
         self._runtime_gpu_restore_successes = 0
         self._worker_fallback_lock = asyncio.Lock()
+        self._in_process_recovery: dict[str, Any] | None = None
         self._worker_fallback_state: dict[str, Any] = {
             "active": False,
             "reason": None,
@@ -2970,6 +2984,28 @@ class ClassifierService:
             "host_provider_preference_order": list(spec.get("host_provider_preference_order") or []),
             "host_validation_applied": bool(spec.get("host_validation_applied")),
             "crop_generator": crop_generator,
+        }
+
+    def _native_launch_profile(self) -> dict[str, Any]:
+        from app.services.model_validation import current_inference_runtime_signature
+
+        spec = self._resolve_active_bird_model_spec()
+        model_path = str(spec.get("model_path") or "")
+        # Record a launch configuration, not a claim about the faulting library.
+        # Crop/video/wildlife work shares the same isolated process.
+        return {
+            "schema": 1,
+            "model_id": spec.get("model_id"),
+            "region": spec.get("resolved_region"),
+            "model_sha256": artifact_digest(model_path),
+            "external_weights_sha256": artifact_digest(f"{model_path}.data") if model_path else None,
+            "labels_sha256": artifact_digest(str(spec.get("labels_path") or "")),
+            "provider": _normalize_inference_provider(settings.classification.inference_provider),
+            "runtime_signature": current_inference_runtime_signature(),
+            "model_runtime": spec.get("runtime"),
+            "input_size": spec.get("input_size"),
+            "preprocessing": spec.get("preprocessing"),
+            "crop_generator": spec.get("crop_generator"),
         }
 
     def _classify_model_artifact_type(self, model_path: str) -> str:
@@ -3588,6 +3624,37 @@ class ClassifierService:
         recovery = self._inference_health.most_recent_recovery()
         return dict(recovery) if isinstance(recovery, dict) else None
 
+    def _isolate_expired_native_runtime(
+        self, priority: str, runtime_key: RuntimeKey, *, reason: str = "in_process_lease_expired"
+    ) -> None:
+        """A cancelled future cannot stop native code. Never submit to that runtime again."""
+        if self._worker_process_mode or self._in_process_recovery is not None:
+            return
+        self._in_process_recovery = {
+            "at": time.time(),
+            "status": "recovering",
+            "reason": reason,
+            "source": priority,
+            "failed_backend": runtime_key.backend,
+            "failed_provider": runtime_key.provider,
+            "failed_runtime": {
+                "backend": runtime_key.backend,
+                "provider": runtime_key.provider,
+                "model_id": runtime_key.model_id,
+                "key": runtime_key.display(),
+            },
+            "restart_recommended": True,
+            "message": "Native inference stopped responding reliably. New work uses isolated workers; restart to release any stalled native threads.",
+        }
+        # Keep the original model alive: a native thread may still be using it.
+        self._image_execution_mode = "subprocess"
+        self._classifier_supervisor = self._video_supervisor
+        live, background = self._resolved_image_worker_counts
+        self._classification_admission.reconfigure_capacities(live=live, background=background)
+        self._worker_fallback_state["active"] = False
+        self._inference_health.record_recovery(runtime_key, self._in_process_recovery)
+        log.warning("classifier_native_runtime_quarantined", priority=priority, provider=runtime_key.provider)
+
     def register_gpu_unhealthy_signal(
         self,
         source: str,
@@ -3597,8 +3664,8 @@ class ClassifierService:
     ) -> None:
         """Record a signal that OpenVINO Intel GPU inference is unhealthy.
 
-        Triggers the same model hot-swap as repeated live lease expiries when
-        InferenceHealth marks the active GPU runtime unhealthy. Signals are
+        Quarantines a parent runtime, or triggers a CPU fallback inside an
+        isolated worker, when InferenceHealth marks it unhealthy. Signals are
         merged across sources so maintenance video timeouts and snapshot
         fallback lease expiries count alongside live lease expiries — which
         matters at night or during batch analyze runs when there is no live
@@ -3623,6 +3690,15 @@ class ClassifierService:
         if self._inference_health.verdict(runtime_key) != "unhealthy":
             return
         if self._live_gpu_lease_fallback_active():
+            return
+
+        # A parent-process CPU hot-swap does not release a stalled native GPU
+        # call. Quarantine the whole in-process runtime first so every new
+        # request is supervised and the old model remains alive for any late
+        # native completion. Worker children are already isolated, so their
+        # existing CPU fallback remains safe.
+        if not self._worker_process_mode:
+            self._isolate_expired_native_runtime(source, runtime_key, reason="in_process_gpu_unhealthy")
             return
 
         detail = (
@@ -3794,6 +3870,8 @@ class ClassifierService:
         error: InvalidInferenceOutputError,
     ) -> bool:
         with self._models_lock:
+            if self._in_process_recovery is not None:
+                return False
             current = self._models.get("bird")
             if current is None:
                 return False
@@ -3869,6 +3947,13 @@ class ClassifierService:
 
     def _init_bird_model(self):
         """Initialize the bird classification model (loaded at startup)."""
+        quarantine = getattr(self, "_native_crash_quarantine", None)
+        if quarantine is not None:
+            try:
+                quarantine.guard()
+            except NativeCrashQuarantinedError as exc:
+                log.error("classifier_model_load_quarantined", error=str(exc))
+                return
         spec = self._resolve_active_bird_model_spec()
         model_path = str(spec["model_path"])
         labels_path = str(spec["labels_path"])
@@ -4296,8 +4381,15 @@ class ClassifierService:
 
     async def reload_bird_model(self):
         """Reload the bird model (e.g., after switching models)."""
+        recovery = getattr(self, "_native_cpu_recovery", None)
+        if recovery is not None:
+            await recovery.refresh_profile()
 
         def replace_bird_model_locked() -> None:
+            if self._in_process_recovery is not None:
+                # A timed-out native call may still own this model and its lock.
+                # Reload only the isolated workers until the parent restarts.
+                return
             with self._models_lock:
                 if "bird" in self._models:
                     # Cleanup old model resources before replacing
@@ -4366,7 +4458,29 @@ class ClassifierService:
             return None
         try:
             metrics = supervisor.get_metrics()
-            return metrics if isinstance(metrics, dict) else None
+            if not isinstance(metrics, dict):
+                return None
+            recovery = getattr(self, "_native_cpu_recovery", None)
+            for priority, state in (recovery.snapshot() if recovery else {}).items():
+                metrics[priority] = dict(metrics.get(priority) or {})
+                metrics[priority]["native_cpu_recovery"] = state
+                runtime = state.get("runtime") or {}
+                # Existing UI diagnostics and telemetry retain this contract;
+                # don't hide recovery in a new field those consumers discard.
+                metrics[priority]["last_runtime_recovery"] = {
+                    "status": "recovered" if state.get("recovered") else state["status"],
+                    "reason": "native_crash_same_model_cpu",
+                    "at": state.get("at"),
+                    "trigger_source": priority,
+                    "configured_provider": state.get("configured_provider"),
+                    "failed_runtime": {"backend": "unknown", "provider": "unknown", "model_id": state.get("model_id")},
+                    "recovered_backend": runtime.get("inference_backend"),
+                    "recovered_provider": runtime.get("active_provider"),
+                    "detail": "The original native launch profile remains quarantined; CPU recovery is workload-scoped.",
+                }
+                if state.get("runtime"):
+                    metrics[priority]["runtime"] = dict(state["runtime"])
+            return metrics
         except Exception:
             return None
 
@@ -4388,6 +4502,17 @@ class ClassifierService:
         self._publish_runtime_recovery(latest)
         return latest
 
+    def _effective_runtime_recovery(self, supervisor_metrics: dict[str, Any] | None) -> dict[str, Any] | None:
+        if self._image_execution_mode == "subprocess":
+            self._latest_worker_runtime_recovery(supervisor_metrics)
+        latest = self.latest_runtime_recovery()
+        recovery = getattr(self, "_native_cpu_recovery", None)
+        if latest and latest.get("reason") == "native_crash_same_model_cpu" and not (recovery and recovery.snapshot()):
+            # Keep historical negative evidence, but don't apply an old CPU
+            # recovery to a newly selected model/provider after reload.
+            return None
+        return latest
+
     def runtime_identity(self) -> dict[str, Any]:
         """What this process is classifying with: backend, provider, model.
 
@@ -4399,10 +4524,15 @@ class ClassifierService:
             model_id = self._resolve_active_model_id()
         except Exception:  # noqa: BLE001 - identity is diagnostic; never fail a worker over it
             model_id = None
+        bird = self._models.get("bird")
+        model_path = str(getattr(bird, "model_path", "") or "")
         return {
             "inference_backend": self._inference_backend,
             "active_provider": self._active_inference_provider,
             "model_id": model_id,
+            "model_sha256": artifact_digest(model_path),
+            "external_weights_sha256": artifact_digest(f"{model_path}.data") if model_path else None,
+            "labels_sha256": artifact_digest(str(getattr(bird, "labels_path", "") or "")),
         }
 
     def _latest_worker_reported_runtime(self, supervisor_metrics: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -4414,6 +4544,11 @@ class ClassifierService:
         """
         if not isinstance(supervisor_metrics, dict):
             return None
+        for pool in supervisor_metrics.values():
+            if isinstance(pool, dict):
+                recovery = pool.get("native_cpu_recovery") or {}
+                if recovery.get("status") == "degraded" and recovery.get("runtime"):
+                    return dict(recovery["runtime"])
         try:
             active_model_id = self._resolve_active_model_id()
         except Exception:  # noqa: BLE001
@@ -4470,7 +4605,7 @@ class ClassifierService:
         what it loaded, ``planned`` when nothing has loaded yet, and
         ``default`` when even the plan cannot be resolved.
         """
-        if self.model_loaded:
+        if self.model_loaded and self._in_process_recovery is None:
             return self._inference_backend, self._active_inference_provider, "in_process_fallback"
         reported = self._latest_worker_reported_runtime(supervisor_metrics)
         if reported is not None:
@@ -4601,11 +4736,7 @@ class ClassifierService:
         live_image_health = self._describe_live_image_health(admission_metrics)
         background_image_health = self._describe_background_image_health(admission_metrics)
         supervisor_metrics = self._get_supervisor_metrics()
-        effective_runtime_recovery = (
-            self._latest_worker_runtime_recovery(supervisor_metrics)
-            if self._image_execution_mode == "subprocess"
-            else None
-        ) or self._inference_health.most_recent_recovery()
+        effective_runtime_recovery = self._effective_runtime_recovery(supervisor_metrics)
 
         # Determine which TFLite runtime is actually in use
         tflite_type = _tflite_runtime_name() if tflite is not None else "none"
@@ -4615,7 +4746,7 @@ class ClassifierService:
             "fallback_recoveries": self._runtime_fallback_recoveries,
             "last_recovery": effective_runtime_recovery,
         }
-        runtime_recovery_failed = bool((effective_runtime_recovery or {}).get("status") == "failed")
+        runtime_recovery_failed = (effective_runtime_recovery or {}).get("status") in {"failed", "recovering"}
         bird_runtime_ready = False
         if self._image_execution_mode == "subprocess":
             if supervisor_metrics is None:
@@ -4643,6 +4774,8 @@ class ClassifierService:
                         and background_exit_reason not in explicit_start_failure
                     )
                 )
+                if "native_runtime_quarantined" in {live_exit_reason, background_exit_reason}:
+                    bird_runtime_ready = False
         else:
             bird_runtime_ready = bool(bird and bird.loaded)
 
@@ -4678,6 +4811,24 @@ class ClassifierService:
         }
         if supervisor_metrics is not None:
             health["worker_pools"] = supervisor_metrics
+            recovery_states = [
+                pool["native_cpu_recovery"]
+                for pool in supervisor_metrics.values()
+                if isinstance(pool, dict) and pool.get("native_cpu_recovery")
+            ]
+            if recovery_states:
+                health["status"] = "error" if any(s["status"] == "failed" for s in recovery_states) else "degraded"
+                health["native_cpu_recovery"] = {
+                    name: pool["native_cpu_recovery"]
+                    for name, pool in supervisor_metrics.items()
+                    if isinstance(pool, dict) and pool.get("native_cpu_recovery")
+                }
+                for priority, section in (("live", "live_image"), ("background", "background_image")):
+                    state = (supervisor_metrics.get(priority) or {}).get("native_cpu_recovery")
+                    if state:
+                        health[section]["status"] = "error" if state["status"] == "failed" else "degraded"
+                        if priority == "live":
+                            health[section]["recovery_active"] = True
         return health
 
     # Legacy properties
@@ -4745,11 +4896,7 @@ class ClassifierService:
         caps = self._accel_caps_for_read()
         accel_caps_age = self._accel_caps_age_seconds()
         supervisor_metrics = self._get_supervisor_metrics()
-        effective_runtime_recovery = (
-            self._latest_worker_runtime_recovery(supervisor_metrics)
-            if self._image_execution_mode == "subprocess"
-            else None
-        ) or self._inference_health.most_recent_recovery()
+        effective_runtime_recovery = self._effective_runtime_recovery(supervisor_metrics)
         if self._image_execution_mode == "subprocess":
             base_backend, base_provider, runtime_source = self._subprocess_runtime_identity(supervisor_metrics)
             effective_backend, effective_provider = self._effective_subprocess_runtime_fields(
@@ -4812,6 +4959,7 @@ class ClassifierService:
             # Honest degradation: when the worker circuit opens, classification
             # continues in-process and this says so instead of hiding it.
             "worker_in_process_fallback": self.get_worker_fallback_status(),
+            "native_runtime_quarantine": dict(self._in_process_recovery) if self._in_process_recovery else None,
             # Where the provider and backend above come from: a worker's ready
             # message, this process's own fallback model, the plan for a pool
             # that has not started yet, or a bare default.
@@ -4868,7 +5016,11 @@ class ClassifierService:
             "selected_provider": selected_provider,
             "active_provider": effective_provider,
             "inference_backend": effective_backend,
-            "fallback_reason": self._inference_fallback_reason,
+            "fallback_reason": (
+                "Native worker crash: same-model isolated CPU recovery; see Health for workload status."
+                if getattr(self, "_native_cpu_recovery", None) and self._native_cpu_recovery.snapshot()
+                else self._inference_fallback_reason
+            ),
             "model_config_warnings": list(self._model_config_warnings or []),
             "image_max_concurrent": CLASSIFIER_IMAGE_MAX_CONCURRENT,
             "image_admission_timeout_seconds": CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS,
@@ -4918,7 +5070,7 @@ class ClassifierService:
                 model_status["active_providers"] = model.session.get_providers()
             status["models"][name] = model_status
 
-        if bird:
+        if bird and self._in_process_recovery is None:
             # For backward compatibility
             status.update(bird.get_status())
 
@@ -5669,6 +5821,8 @@ class ClassifierService:
         *,
         work_id: str | None = None,
         lease_token: int | None = None,
+        on_native_start: Callable[[], None] | None = None,
+        model_kind: Literal["bird", "wildlife"] = "bird",
     ) -> list[dict]:
         if self._classifier_supervisor is None:
             raise RuntimeError("classifier supervisor is not configured")
@@ -5684,11 +5838,24 @@ class ClassifierService:
                 input_context=dict(normalized_input_context.model_dump())
                 if normalized_input_context is not None
                 else None,
+                **({"model_kind": model_kind} if model_kind != "bird" else {}),
             )
             if self._worker_fallback_state["active"]:
                 self._worker_fallback_state["active"] = False
                 log.info("classifier_worker_fallback_recovered", reason=self._worker_fallback_state["reason"])
             return results
+        except NativeCrashQuarantinedError:
+            if model_kind != "bird":
+                self._raise_native_quarantine_error(priority)
+            return await self._run_native_cpu_recovery(
+                priority,
+                {
+                    "image_b64": self._encode_image_for_worker(image),
+                    "camera_name": camera_name,
+                    "model_id": model_id,
+                    "input_context": dict(normalized_input_context.model_dump()) if normalized_input_context else None,
+                },
+            )
         except ClassifierWorkerCircuitOpenError:
             return await self._classify_in_process_as_last_resort(
                 priority=priority,
@@ -5697,6 +5864,8 @@ class ClassifierService:
                 model_id=model_id,
                 input_context=normalized_input_context,
                 reason="circuit_open",
+                on_native_start=on_native_start,
+                model_kind=model_kind,
             )
         except ClassifierWorkerStartupTimeoutError:
             return await self._classify_in_process_as_last_resort(
@@ -5706,6 +5875,8 @@ class ClassifierService:
                 model_id=model_id,
                 input_context=normalized_input_context,
                 reason="worker_startup_timeout",
+                on_native_start=on_native_start,
+                model_kind=model_kind,
             )
         except ClassifierWorkerExitedError:
             if self._supervisor_pool_is_empty(priority):
@@ -5716,6 +5887,8 @@ class ClassifierService:
                     model_id=model_id,
                     input_context=normalized_input_context,
                     reason="workers_unavailable",
+                    on_native_start=on_native_start,
+                    model_kind=model_kind,
                 )
             # A worker died mid-request but others remain; the supervisor is
             # already replacing it and the next request gets a live worker.
@@ -5738,6 +5911,40 @@ class ClassifierService:
             return False
         return int(pool.get("workers") or 0) == 0
 
+    @staticmethod
+    def _raise_native_quarantine_error(priority: str) -> NoReturn:
+        if priority == "video":
+            raise VideoClassificationWorkerError("video_worker_native_runtime_quarantined") from None
+        if priority == "live":
+            raise LiveImageClassificationOverloadedError("classify_snapshot_native_runtime_quarantined") from None
+        raise BackgroundImageClassificationUnavailableError("background_image_native_runtime_quarantined") from None
+
+    async def _run_native_cpu_recovery(
+        self, priority: str, payload: dict[str, Any], progress_callback: Callable[..., Any] | None = None
+    ) -> list[dict]:
+        recovery = getattr(self, "_native_cpu_recovery", None)
+        if recovery is None:
+            self._raise_native_quarantine_error(priority)
+        budgets = {
+            "live": min(
+                CLASSIFIER_LIVE_IMAGE_LEASE_TIMEOUT_SECONDS, settings.classification.worker_hard_deadline_seconds
+            ),
+            "background": min(
+                CLASSIFIER_BACKGROUND_IMAGE_LEASE_TIMEOUT_SECONDS,
+                settings.classification.background_worker_hard_deadline_seconds,
+            ),
+            "video": settings.classification.video_classification_timeout_seconds,
+        }
+        try:
+            return await recovery.run(
+                priority=priority,
+                timeout_seconds=budgets[priority],
+                payload=payload,
+                progress_callback=progress_callback,
+            )
+        except NativeCpuRecoveryUnavailable:
+            self._raise_native_quarantine_error(priority)
+
     _FALLBACK_UNAVAILABLE_ERRORS = {
         "circuit_open": ("classify_snapshot_circuit_open", "background_image_circuit_open"),
         "worker_startup_timeout": ("classify_snapshot_worker_unavailable", "background_image_worker_startup_timeout"),
@@ -5753,6 +5960,8 @@ class ClassifierService:
         model_id: Optional[str],
         input_context: Any | None,
         reason: str = "circuit_open",
+        on_native_start: Callable[[], None] | None = None,
+        model_kind: Literal["bird", "wildlife"] = "bird",
     ) -> list[dict]:
         """Classify in this process when the isolated workers cannot.
 
@@ -5763,13 +5972,40 @@ class ClassifierService:
         process loads its own copy and keeps classifying, and the status
         endpoint says so plainly.
         """
+        quarantine = getattr(self, "_native_crash_quarantine", None)
+        if quarantine is not None:
+            try:
+                await asyncio.to_thread(quarantine.guard)
+            except NativeCrashQuarantinedError:
+                if model_kind != "bird":
+                    self._raise_native_quarantine_error(priority)
+                normalized = _normalize_classification_input_context(input_context)
+                return await self._run_native_cpu_recovery(
+                    priority,
+                    {
+                        "image_b64": self._encode_image_for_worker(image),
+                        "camera_name": camera_name,
+                        "model_id": model_id,
+                        "input_context": dict(normalized.model_dump()) if normalized else None,
+                    },
+                )
+        if self._in_process_recovery is not None or model_kind != "bird":
+            if priority == "live":
+                raise LiveImageClassificationOverloadedError("classify_snapshot_worker_unavailable")
+            raise BackgroundImageClassificationUnavailableError("background_image_worker_unavailable")
         async with self._worker_fallback_lock:
+            if self._in_process_recovery is not None:
+                if priority == "live":
+                    raise LiveImageClassificationOverloadedError("classify_snapshot_worker_unavailable")
+                raise BackgroundImageClassificationUnavailableError("background_image_worker_unavailable")
             if not self.model_loaded:
                 try:
+                    if on_native_start is not None:
+                        on_native_start()
                     await asyncio.to_thread(self._init_bird_model)
                 except Exception as exc:
                     log.error("worker_fallback_model_load_failed", reason=reason, error=str(exc))
-        if not self.model_loaded:
+        if not self.model_loaded or self._in_process_recovery is not None:
             live_error, background_error = self._FALLBACK_UNAVAILABLE_ERRORS.get(
                 reason, self._FALLBACK_UNAVAILABLE_ERRORS["workers_unavailable"]
             )
@@ -5789,6 +6025,8 @@ class ClassifierService:
         self._worker_fallback_state["classifications"] += 1
 
         executor = self._live_image_executor if priority == "live" else self._background_image_executor
+        if on_native_start is not None:
+            on_native_start()
         return await asyncio.get_running_loop().run_in_executor(
             executor,
             functools.partial(self.classify, image, camera_name, model_id, input_context),
@@ -5839,6 +6077,7 @@ class ClassifierService:
             and not bool(pressure_metrics.get("background_throttled"))
         )
         started_at = time.monotonic()
+        started_wall_time = time.time()
         runtime_key = self._inference_runtime_key_from_context(context)
         runner_latency_seconds: float | None = None
 
@@ -5861,6 +6100,13 @@ class ClassifierService:
                 on_lease_expired=on_lease_expired,
                 context=context,
             )
+            recovery = getattr(self, "_native_cpu_recovery", None)
+            recovered = recovery.snapshot().get(priority, {}) if recovery else {}
+            if recovered.get("status") == "degraded" and recovered.get("at", 0) >= started_wall_time:
+                runtime = recovered["runtime"]
+                runtime_key = RuntimeKey.from_values(
+                    runtime.get("inference_backend"), runtime.get("active_provider"), runtime.get("model_id")
+                )
             self._inference_health.record(
                 runtime_key,
                 outcome="ok",
@@ -5905,7 +6151,8 @@ class ClassifierService:
                 latency_seconds=time.monotonic() - started_at,
             )
             if priority == "live":
-                self._record_live_lease_expiry_and_maybe_fallback(exc, runtime_key=runtime_key)
+                if self._worker_process_mode:
+                    self._record_live_lease_expiry_and_maybe_fallback(exc, runtime_key=runtime_key)
                 log.warning(
                     "Live image classification lease expired; reclaiming capacity",
                     timeout_seconds=lease_timeout_seconds,
@@ -5937,14 +6184,22 @@ class ClassifierService:
         context: dict[str, Any] | None = None,
     ) -> list[dict]:
         async def _runner() -> list[dict]:
+            if self._in_process_recovery is not None:
+                if priority == "live":
+                    raise LiveImageClassificationOverloadedError("classify_snapshot_worker_unavailable")
+                raise BackgroundImageClassificationUnavailableError("background_image_worker_unavailable")
             loop = asyncio.get_running_loop()
             return await loop.run_in_executor(executor, fn, *args)
+
+        def _on_lease_expired(_work_id: str, _lease_token: int) -> None:
+            self._isolate_expired_native_runtime(priority, self._inference_runtime_key_from_context(context))
 
         return await self._run_coordinated_inference(
             priority,
             kind,
             _runner,
             queue_timeout_seconds=queue_timeout_seconds,
+            on_lease_expired=_on_lease_expired,
             context=context,
         )
 
@@ -5983,7 +6238,14 @@ class ClassifierService:
         input_context: ClassificationInputContext | None = None,
         queue_timeout_seconds: float | None = None,
         context: dict[str, Any] | None = None,
+        model_kind: Literal["bird", "wildlife"] = "bird",
     ) -> list[dict]:
+        native_started = False
+
+        def _on_native_start() -> None:
+            nonlocal native_started
+            native_started = True
+
         async def _runner(work_id: str, lease_token: int) -> list[dict]:
             return await self._run_supervised_inference(
                 priority,
@@ -5993,16 +6255,20 @@ class ClassifierService:
                 input_context,
                 work_id=work_id,
                 lease_token=lease_token,
+                on_native_start=_on_native_start,
+                **({"model_kind": model_kind} if model_kind != "bird" else {}),
             )
 
         async def _on_lease_expired(work_id: str, lease_token: int) -> None:
+            if native_started:
+                self._isolate_expired_native_runtime(priority, self._inference_runtime_key_from_context(context))
             await self._abort_supervised_request_after_lease_expiry(
                 priority=priority,
                 work_id=work_id,
                 lease_token=lease_token,
             )
 
-        return await self._run_coordinated_inference(
+        result = await self._run_coordinated_inference(
             priority,
             kind,
             _runner,
@@ -6011,6 +6277,16 @@ class ClassifierService:
             on_lease_expired=_on_lease_expired,
             context=context,
         )
+        if (
+            not native_started
+            and model_kind == "bird"
+            and self._in_process_recovery is not None
+            and self._in_process_recovery["status"] == "recovering"
+        ):
+            self._in_process_recovery["status"] = "recovered"
+            self._in_process_recovery["at"] = time.time()
+            self._publish_runtime_recovery(self._in_process_recovery)
+        return result
 
     async def _run_image_inference(
         self,
@@ -6256,6 +6532,23 @@ class ClassifierService:
 
     async def classify_wildlife_async(self, image: Image.Image, input_context: Any | None = None) -> list[dict]:
         """Async wrapper for wildlife classification."""
+        context = {
+            "backend": "tflite",
+            "provider": "tflite",
+            "model_id": settings.classification.wildlife_model,
+            "execution_mode": self._image_execution_mode,
+        }
+        if self._image_execution_mode == "subprocess":
+            return await self._run_coordinated_supervised_inference(
+                "background",
+                "wildlife_image_inference",
+                image,
+                None,
+                None,
+                input_context=_normalize_classification_input_context(input_context),
+                model_kind="wildlife",
+                context=context,
+            )
         return await self._run_coordinated_executor_inference(
             "background",
             self._image_executor,
@@ -6263,13 +6556,22 @@ class ClassifierService:
             self.classify_wildlife,
             image,
             input_context,
+            context=context,
         )
 
     def get_wildlife_labels(self) -> list[str]:
         wildlife = self._get_wildlife_model()
         return wildlife.labels
 
-    def reload_wildlife_model(self):
+    async def reload_wildlife_model(self) -> None:
+        if self._image_execution_mode == "subprocess" and self._classifier_supervisor is not None:
+            await self._classifier_supervisor.restart_pool("background")
+            return
+        await asyncio.to_thread(self._reload_native_wildlife_model)
+
+    def _reload_native_wildlife_model(self) -> None:
+        if self._in_process_recovery is not None:
+            return
         if "wildlife" in self._models:
             old_model = self._models.pop("wildlife")
             if hasattr(old_model, "cleanup"):
@@ -6284,6 +6586,8 @@ class ClassifierService:
 
     async def shutdown(self) -> None:
         self._classification_admission.close_sync()
+        if getattr(self, "_native_cpu_recovery", None) is not None:
+            await self._native_cpu_recovery.shutdown()
         if self._classifier_supervisor is not None:
             # Defensive check for mocks/fakes in tests that might not implement shutdown
             shutdown_fn = getattr(self._classifier_supervisor, "shutdown", None)
@@ -6782,6 +7086,22 @@ class ClassifierService:
                         reason="video_request_cancelled",
                     )
                 raise
+            except NativeCrashQuarantinedError:
+                try:
+                    base_results = await self._run_native_cpu_recovery(
+                        "video",
+                        {
+                            "video_path": video_path,
+                            "stride": stride,
+                            "max_frames": max_frames,
+                            "input_context": dict(normalized_input_context.model_dump()),
+                        },
+                        progress_callback=progress_callback,
+                    )
+                except VideoClassificationWorkerError:
+                    if propagate_worker_failure:
+                        raise
+                    return []
             except (
                 ClassifierWorkerCircuitOpenError,
                 ClassifierWorkerHeartbeatTimeoutError,

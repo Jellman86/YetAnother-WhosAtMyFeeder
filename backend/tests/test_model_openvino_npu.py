@@ -23,6 +23,7 @@ hardware runs), analogous to ``GPU_NOT_SUPPORTED`` in the GPU harness.
 
 from __future__ import annotations
 
+import os
 import pytest
 
 try:
@@ -141,6 +142,8 @@ def test_installed_models_compile_and_agree_on_npu(npu_available: bool) -> None:
     models). Once ``intel_npu`` is added to a model's registry entry, promote the
     corresponding assertion to a hard failure to prevent regressions.
     """
+    if os.environ.get("YAWAMF_LEGACY_HARDWARE_DIAGNOSTICS") != "1":
+        pytest.skip("Legacy discovery only; run_model_hardware_gate.py is the mandatory isolated NPU gate")
     if not npu_available:
         pytest.skip("No Intel NPU device on this host")
     installed = _installed_onnx_models()

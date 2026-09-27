@@ -7,6 +7,7 @@ import structlog
 from pydantic import BaseModel
 from typing import Literal
 from app.services.audio.audio_service import audio_service
+from app.services.leaderboard_window import previous_window_is_complete
 from app.config import settings
 from app.auth import AuthContext, require_owner
 from app.auth import get_auth_context_with_legacy
@@ -144,6 +145,8 @@ class AudioSpeciesLeaderboardResponse(BaseModel):
     span: Literal["day", "week", "month", "all"]
     window_start: str
     window_end: str
+    history_start: str | None = None
+    previous_window_complete: bool = False
     species: list[AudioSpeciesLeaderboardItemResponse]
 
 
@@ -388,6 +391,7 @@ async def get_audio_species_leaderboard(
             prev_start=prev_start,
             prev_end=prev_end,
         )
+        history_start = await repo.get_audio_history_start()
     await localize_audio_detections(rows, lang)
 
     species: list[dict] = []
@@ -419,6 +423,9 @@ async def get_audio_species_leaderboard(
         "span": span,
         "window_start": window_start.isoformat(),
         "window_end": window_end.isoformat(),
+        "history_start": serialize_api_datetime(history_start) if history_start else None,
+        "previous_window_complete": span != "all"
+        and previous_window_is_complete(history_start=history_start, prev_start=prev_start),
         "species": species,
     }
 

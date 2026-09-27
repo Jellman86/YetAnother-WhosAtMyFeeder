@@ -62,18 +62,27 @@ class ClassifierWorkerClient:
         heartbeat_timeout_seconds: float,
         process_factory: ProcessFactory | None = None,
         stderr_tail_max_bytes: int = 8192,
+        terminate_timeout_seconds: float = 5.0,
+        kill_timeout_seconds: float = 5.0,
+        inference_provider_override: str | None = None,
     ) -> None:
+        if inference_provider_override not in {None, "cpu"}:
+            raise ValueError("Only an explicit CPU recovery override is supported")
+        self._inference_provider_override = inference_provider_override
         self.worker_name = str(worker_name)
         self.worker_generation = int(worker_generation)
         self.heartbeat_timeout_seconds = max(0.1, float(heartbeat_timeout_seconds))
         self._process_factory = process_factory or self._spawn_process
         self._stderr_tail_max_bytes = max(1, int(stderr_tail_max_bytes))
+        self._terminate_timeout_seconds = max(0.01, float(terminate_timeout_seconds))
+        self._kill_timeout_seconds = max(0.01, float(kill_timeout_seconds))
         self._process: Any = None
         self._ready = asyncio.Event()
         self._closed = asyncio.Event()
         self._reader_task: asyncio.Task[None] | None = None
         self._stderr_task: asyncio.Task[None] | None = None
         self._wait_task: asyncio.Task[None] | None = None
+        self._stop_task: asyncio.Task[None] | None = None
         self._event_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
         self._last_heartbeat_monotonic: float | None = None
         self._last_activity_monotonic: float | None = None
@@ -109,10 +118,10 @@ class ClassifierWorkerClient:
             for task in pending:
                 task.cancel()
 
-            if ready_task in done and self._ready.is_set():
-                return
             if closed_task in done and self._closed.is_set():
                 raise RuntimeError(self._build_startup_failure_message())
+            if ready_task in done and self._ready.is_set():
+                return
             raise TimeoutError()
         except TimeoutError:
             if self._closed.is_set():
@@ -133,25 +142,64 @@ class ClassifierWorkerClient:
         return await self._event_queue.get()
 
     async def wait_closed(self) -> None:
-        await self._closed.wait()
+        # Pipe EOF only closes the transport. Only Process.wait confirms that
+        # the native worker has exited; a cancelled observer must not cancel it.
+        if self._wait_task is not None:
+            await asyncio.shield(self._wait_task)
 
     async def terminate(self) -> None:
-        if self._process is None:
-            return
-        self._process.terminate()
-        await self.wait_closed()
+        await self._stop(kill=False)
 
     async def kill(self) -> None:
+        await self._stop(kill=True)
+
+    async def _stop(self, *, kill: bool) -> None:
         if self._process is None:
             return
-        self._process.kill()
-        await self.wait_closed()
+        if self._stop_task is None or (self._stop_task.done() and self._stop_task.exception() is not None):
+            self._stop_task = asyncio.create_task(self._stop_process(kill=kill))
+        elif kill and not self._stop_task.done():
+            self._signal_process(kill=True)
+        # Recovery/shutdown cancellation cannot orphan a native inference call.
+        # Preserve cancellation, but only after the bounded cleanup completes.
+        cancelled = False
+        while not self._stop_task.done():
+            try:
+                await asyncio.shield(self._stop_task)
+            except asyncio.CancelledError:
+                cancelled = True
+        self._stop_task.result()
+        if cancelled:
+            raise asyncio.CancelledError
+
+    def _signal_process(self, *, kill: bool) -> None:
+        if self._process.returncode is not None:
+            return
+        try:
+            if kill:
+                self._process.kill()
+            else:
+                self._process.terminate()
+        except ProcessLookupError:
+            # The process may exit between checking returncode and signalling.
+            pass
+
+    async def _stop_process(self, *, kill: bool) -> None:
+        self._signal_process(kill=kill)
+        if not kill:
+            try:
+                await asyncio.wait_for(self.wait_closed(), self._terminate_timeout_seconds)
+                return
+            except TimeoutError:
+                self._signal_process(kill=True)
+        await asyncio.wait_for(self.wait_closed(), self._kill_timeout_seconds)
 
     def get_status(self) -> dict[str, Any]:
         return {
             "worker_name": self.worker_name,
             "worker_generation": self.worker_generation,
-            "ready": self._ready.is_set(),
+            "ready": self._ready.is_set() and not self._closed.is_set() and self._stop_task is None,
+            "transport_closed": self._closed.is_set(),
             "busy": self._busy,
             "current_request_id": self._current_request_id,
             "last_heartbeat_monotonic": self._last_heartbeat_monotonic,
@@ -194,18 +242,18 @@ class ClassifierWorkerClient:
             self._mark_closed()
 
     async def _stderr_loop(self) -> None:
-        try:
-            while True:
-                raw = await self._process.stderr.read(4096)
-                if not raw:
-                    return
-                self._append_stderr(raw)
-        finally:
-            self._mark_closed()
+        while True:
+            raw = await self._process.stderr.read(4096)
+            if not raw:
+                return
+            self._append_stderr(raw)
 
     async def _wait_loop(self) -> None:
         try:
             self._exit_code = await self._process.wait()
+            await asyncio.gather(self._reader_task, self._stderr_task, return_exceptions=True)
+            self._busy = False
+            self._current_request_id = None
         finally:
             self._mark_closed()
 
@@ -264,6 +312,13 @@ class ClassifierWorkerClient:
 
     async def _spawn_process(self, *, worker_name: str, worker_generation: int) -> Any:
         backend_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        environment = None
+        if self._inference_provider_override is not None:
+            environment = {
+                **os.environ,
+                "CLASSIFICATION__INFERENCE_PROVIDER": self._inference_provider_override,
+                "YA_WAMF_NATIVE_CPU_RECOVERY": "1",
+            }
         # The stream limit is the protocol's own: both ends read newline-framed
         # JSON, and a single high-quality frame is megabytes of base64.
         return await asyncio.create_subprocess_exec(
@@ -277,4 +332,5 @@ class ClassifierWorkerClient:
             stderr=asyncio.subprocess.PIPE,
             cwd=backend_root,
             limit=WORKER_PROTOCOL_STREAM_LIMIT_BYTES,
+            env=environment,
         )

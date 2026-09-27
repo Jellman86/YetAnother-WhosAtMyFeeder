@@ -49,9 +49,14 @@ def _discover_installed_models() -> list[tuple[str, Path]]:
     if not base.exists():
         return []
     results = []
-    for d in sorted(base.iterdir()):
-        if d.is_dir() and (d / "model.onnx").exists():
-            results.append((d.name, d))
+    for model in sorted(base.rglob("model.onnx")):
+        d = model.parent
+        config = json.loads((d / "model_config.json").read_text()) if (d / "model_config.json").exists() else {}
+        # Detector inputs/boxes are validated through BirdCropService by the
+        # hardware gate, never by classifier-shaped tensors or label counts.
+        if config.get("taxonomy_scope") == "system" or d.name.startswith("bird_crop_detector"):
+            continue
+        results.append((str(d.relative_to(base)), d))
     return results
 
 

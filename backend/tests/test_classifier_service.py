@@ -54,6 +54,98 @@ from app.services.classifier_supervisor import (  # noqa: E402
 )
 from app.config import settings  # noqa: E402
 from app.config_models import ClassificationSettings  # noqa: E402
+from app.services.native_crash_quarantine import NativeCrashQuarantinedError  # noqa: E402
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("priority", ["live", "background"])
+async def test_native_crash_quarantine_never_uses_in_process_fallback(priority):
+    service = ClassifierService.__new__(ClassifierService)
+    service._classifier_supervisor = MagicMock()
+    service._classifier_supervisor.classify = AsyncMock(side_effect=NativeCrashQuarantinedError("blocked"))
+    service._classify_in_process_as_last_resort = AsyncMock()
+    expected = (
+        LiveImageClassificationOverloadedError if priority == "live" else BackgroundImageClassificationUnavailableError
+    )
+    with pytest.raises(expected, match="native_runtime_quarantined"):
+        await service._run_supervised_inference(priority, Image.new("RGB", (4, 4)), None, None)
+    service._classify_in_process_as_last_resort.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_native_crash_quarantine_video_reason_is_preserved():
+    service = ClassifierService.__new__(ClassifierService)
+    service._video_supervisor = MagicMock()
+    service._video_supervisor.classify_video = AsyncMock(side_effect=NativeCrashQuarantinedError("blocked"))
+    with pytest.raises(VideoClassificationWorkerError, match="native_runtime_quarantined"):
+        await service.classify_video_async("unused.mp4", max_frames=1, propagate_worker_failure=True)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("priority", ["live", "background"])
+async def test_native_crash_routes_same_image_to_isolated_cpu_without_loading_parent(priority):
+    service = ClassifierService.__new__(ClassifierService)
+    service._classifier_supervisor = MagicMock()
+    service._classifier_supervisor.classify = AsyncMock(side_effect=NativeCrashQuarantinedError("blocked"))
+    service._native_cpu_recovery = MagicMock()
+    service._native_cpu_recovery.run = AsyncMock(return_value=[{"label": "bird", "score": 0.9}])
+    service._classify_in_process_as_last_resort = AsyncMock()
+    assert await service._run_supervised_inference(priority, Image.new("RGB", (4, 4)), None, None)
+    arguments = service._native_cpu_recovery.run.call_args.kwargs
+    assert arguments["priority"] == priority
+    assert arguments["payload"]["image_b64"]
+    assert arguments["timeout_seconds"] <= (30 if priority == "live" else 45)
+    service._classify_in_process_as_last_resort.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_cpu_recovery_health_is_degraded_and_reports_cpu_not_idle_gpu():
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+    service._image_execution_mode = "subprocess"
+    service._classifier_supervisor = MagicMock()
+    service._classifier_supervisor.get_metrics.return_value = {
+        "live": {"workers": 1, "runtime": {"active_provider": "intel_gpu"}},
+        "background": {"workers": 0, "last_exit_reason": "native_runtime_quarantined"},
+    }
+    service._native_cpu_recovery._states["background"] = {
+        "status": "degraded",
+        "recovered": True,
+        "runtime": {"active_provider": "cpu", "inference_backend": "onnx", "model_id": "bird"},
+    }
+    try:
+        assert service.check_health()["status"] == "degraded"
+        recovery = service.check_health()["runtime_recovery"]["last_recovery"]
+        assert recovery["status"] == "recovered"
+        assert recovery["reason"] == "native_crash_same_model_cpu"
+        assert recovery["recovered_provider"] == "cpu"
+        assert recovery["failed_runtime"]["provider"] == "unknown"
+        assert service.check_health()["background_image"]["status"] == "degraded"
+        assert service._latest_worker_reported_runtime(service._get_supervisor_metrics())["active_provider"] == "cpu"
+        service._native_cpu_recovery._states["background"]["status"] = "failed"
+        assert service.check_health()["status"] == "error"
+        service._native_cpu_recovery._states.clear()
+        assert service._effective_runtime_recovery(service._get_supervisor_metrics()) is None
+    finally:
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("remaining_workers", [0, 1])
+async def test_native_quarantine_is_not_reported_as_healthy_with_idle_workers(remaining_workers):
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+    service._image_execution_mode = "subprocess"
+    service._classifier_supervisor = MagicMock()
+    service._classifier_supervisor.get_metrics.return_value = {
+        "live": {"workers": 0, "last_exit_reason": "native_runtime_quarantined", "circuit_open": False},
+        "background": {"workers": remaining_workers, "last_exit_reason": None, "circuit_open": False},
+    }
+    try:
+        assert service.check_health()["status"] == "error"
+    finally:
+        await service.shutdown()
+
 
 # Restore the original module so this test file doesn't leak a mock into other tests.
 if _original_model_manager_module is not None:
@@ -2930,13 +3022,8 @@ async def test_classifier_service_classify_async_live_reclaims_stale_capacity_fo
 
             release.set()
             await asyncio.sleep(0.05)
-
-            with patch.object(
-                ClassifierService, "classify", return_value=[{"label": "Robin", "score": 0.92, "index": 0}]
-            ):
-                results = await service.classify_async_live(img, camera_name="front")
-
-            assert results[0]["label"] == "Robin"
+            assert service._image_execution_mode == "subprocess"
+            assert service._classification_admission.get_metrics()["live"]["running"] == 0
             await service.shutdown()
     finally:
         settings.classification.personalized_rerank_enabled = original_toggle
@@ -3005,8 +3092,8 @@ async def test_classifier_service_live_abandoned_outcomes_include_runtime_contex
             assert abandoned[-1]["provider"] == "intel_gpu"
             assert abandoned[-1]["model_id"] == "eu_medium_focalnet_b"
             assert abandoned[-1]["execution_mode"] == "in_process"
-            assert status["active_provider"] == "intel_gpu"
-            assert status["inference_health"]["last_recovery"] is None
+            assert status["image_execution_mode"] == "subprocess"
+            assert status["inference_health"]["last_recovery"]["reason"] == "in_process_lease_expired"
 
             release.set()
             await service.shutdown()
@@ -3015,7 +3102,7 @@ async def test_classifier_service_live_abandoned_outcomes_include_runtime_contex
 
 
 @pytest.mark.asyncio
-async def test_classifier_service_repeated_live_gpu_lease_expiry_falls_back_to_intel_cpu(
+async def test_classifier_service_native_lease_expiry_quarantines_parent_runtime(
     mock_tflite, mock_os_path_exists, monkeypatch
 ):
     original_toggle = settings.classification.personalized_rerank_enabled
@@ -3027,8 +3114,6 @@ async def test_classifier_service_repeated_live_gpu_lease_expiry_falls_back_to_i
         started.set()
         release.wait(timeout=1.0)
         return [{"label": "Robin", "score": 0.9, "index": 0}]
-
-    fallback_model = MagicMock(loaded=True, error=None)
 
     try:
         with (
@@ -3048,12 +3133,6 @@ async def test_classifier_service_repeated_live_gpu_lease_expiry_falls_back_to_i
                 0.01,
                 raising=False,
             )
-            monkeypatch.setattr(
-                classifier_service_module,
-                "CLASSIFIER_LIVE_GPU_LEASE_FALLBACK_THRESHOLD",
-                2,
-                raising=False,
-            )
             service = ClassifierService()
             service._classification_admission._live_capacity = 1
             service._inference_backend = "openvino"
@@ -3061,36 +3140,24 @@ async def test_classifier_service_repeated_live_gpu_lease_expiry_falls_back_to_i
             service._accel_caps["intel_gpu_available"] = True
             service._accel_caps["intel_cpu_available"] = True
             service._openvino_runtime_snapshot = MagicMock(return_value={})
-            service._load_runtime_fallback_bird_model = MagicMock(
-                return_value=(
-                    fallback_model,
-                    "openvino",
-                    "intel_cpu",
-                    "Live OpenVINO Intel GPU inference exceeded lease repeatedly; using OpenVINO CPU",
-                )
-            )
             img = Image.new("RGB", (100, 100))
 
-            for _ in range(2):
-                task = asyncio.create_task(
-                    service.classify_async_live(img, camera_name="front", model_id="eu_medium_focalnet_b")
-                )
-                await asyncio.sleep(0)
-                with pytest.raises(ClassificationLeaseExpiredError):
-                    await task
+            task = asyncio.create_task(
+                service.classify_async_live(img, camera_name="front", model_id="eu_medium_focalnet_b")
+            )
+            await asyncio.wait_for(asyncio.to_thread(started.wait), timeout=1.0)
+            with pytest.raises(ClassificationLeaseExpiredError):
+                await task
 
             status = service.get_status()
 
-            assert service._models["bird"] is fallback_model
-            assert status["active_provider"] == "intel_cpu"
-            assert status["inference_backend"] == "openvino"
+            assert service._image_execution_mode == "subprocess"
+            assert status["image_execution_mode"] == "subprocess"
             last_recovery = status["inference_health"]["last_recovery"]
             assert last_recovery is not None
-            assert last_recovery["reason"] == "live_gpu_lease_expiry_fallback"
+            assert last_recovery["reason"] == "in_process_lease_expired"
             assert last_recovery["failed_provider"] == "intel_gpu"
-            assert last_recovery["failed_runtime"]["key"] == "openvino/intel_gpu/eu_medium_focalnet_b"
-            assert last_recovery["recovered_provider"] == "intel_cpu"
-            service._load_runtime_fallback_bird_model.assert_called_once()
+            assert last_recovery["restart_recommended"] is True
 
             release.set()
             await service.shutdown()
@@ -3125,18 +3192,17 @@ async def test_register_gpu_unhealthy_signal_triggers_fallback_from_maintenance_
         )
 
         service.register_gpu_unhealthy_signal("maintenance_video_timeout", event_id="evt-1")
-        # After first signal, threshold not yet met — no swap.
+        # After first signal, threshold not yet met — no quarantine.
         assert service._models.get("bird") is not fallback_model
 
         service.register_gpu_unhealthy_signal("snapshot_fallback_lease_expired", event_id="evt-2")
-        # After second signal (threshold=2), fallback should engage.
-        assert service._models["bird"] is fallback_model
-        assert service._active_inference_provider == "intel_cpu"
+        # A parent process is quarantined rather than hot-swapping while a
+        # stalled native call may still reference the old model.
+        assert service._image_execution_mode == "subprocess"
+        service._load_runtime_fallback_bird_model.assert_not_called()
         recovery = service._inference_health.most_recent_recovery()
         assert recovery is not None
-        assert recovery["reason"] == "gpu_unhealthy_fallback"
-        assert recovery["trigger_source"] == "snapshot_fallback_lease_expired"
-        service._load_runtime_fallback_bird_model.assert_called_once()
+        assert recovery["reason"] == "in_process_gpu_unhealthy"
 
         await service.shutdown()
 
@@ -3173,13 +3239,11 @@ async def test_register_gpu_unhealthy_signal_uses_inference_health_verdict_for_f
 
         service.register_gpu_unhealthy_signal("live_lease_expiry", event_id="evt-health")
 
-        assert service._models["bird"] is fallback_model
-        assert service._active_inference_provider == "intel_cpu"
+        assert service._image_execution_mode == "subprocess"
         recovery = service._inference_health.most_recent_recovery()
         assert recovery is not None
-        assert recovery["reason"] == "live_gpu_lease_expiry_fallback"
-        assert recovery["trigger_source"] == "live_lease_expiry"
-        service._load_runtime_fallback_bird_model.assert_called_once()
+        assert recovery["reason"] == "in_process_gpu_unhealthy"
+        service._load_runtime_fallback_bird_model.assert_not_called()
 
         await service.shutdown()
 
@@ -3216,9 +3280,8 @@ async def test_register_gpu_unhealthy_signal_does_not_depend_on_legacy_signal_de
 
         service.register_gpu_unhealthy_signal("live_lease_expiry", event_id="evt-health")
 
-        assert service._models["bird"] is fallback_model
-        assert service._active_inference_provider == "intel_cpu"
-        service._load_runtime_fallback_bird_model.assert_called_once()
+        assert service._image_execution_mode == "subprocess"
+        service._load_runtime_fallback_bird_model.assert_not_called()
 
         await service.shutdown()
 

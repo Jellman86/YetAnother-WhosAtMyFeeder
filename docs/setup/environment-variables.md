@@ -92,7 +92,7 @@ settings and do not follow the `SECTION__FIELD` precedence rules above.
 | --- | --- | --- |
 | `CLASSIFICATION__INFERENCE_PROVIDER` | `auto` | `auto`, `cpu`, `cuda`, `intel_gpu`, `intel_cpu`, `intel_npu`. This authoritative deployment override wins over the value saved by Settings; omit it when users should be able to change providers in the UI. |
 | `CLASSIFICATION__USE_CUDA` | _(legacy)_ | Legacy boolean; mapped to `cuda`/`cpu` when the provider is unset. |
-| `CLASSIFICATION__IMAGE_EXECUTION_MODE` | `subprocess` | `subprocess` (isolated: inference runs in worker processes the app can restart) or `in_process` (one model copy shared with the app; less memory, but heavy inference competes with the interface). |
+| `CLASSIFICATION__IMAGE_EXECUTION_MODE` | `subprocess` | `subprocess` (isolated: inference runs in worker processes the app can restart) or `in_process` (one model copy shared with the app; less memory, but heavy inference competes with the interface). If an in-process call exceeds its lease, YA-WAMF quarantines that runtime and routes subsequent work to supervised workers until restart. |
 | `CLASSIFIER_RUNTIME_BENCHMARK_ENABLED` | `false` | Opt in to a synthetic accelerated-versus-CPU comparison during startup. Routine model activation validation and runtime health checks do not require it. |
 | `CLASSIFIER_IMAGE_MAX_CONCURRENT` | `2` | Maximum concurrent image-classification jobs. Use `1` on a Raspberry Pi to protect UI and event-loop responsiveness. |
 | `CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS` | `0.5` | Maximum time background image work waits for classifier capacity before it fails conservatively. The Pi example uses `1.0`. |

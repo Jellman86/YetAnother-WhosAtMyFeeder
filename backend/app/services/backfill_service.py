@@ -3,7 +3,7 @@ import asyncio
 from datetime import datetime
 from dataclasses import dataclass, field
 from collections import defaultdict
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 
 from app.config import settings
 from app.services.classifier_service import (
@@ -43,6 +43,47 @@ class BackfillEventHistoryIncompleteError(RuntimeError):
     """The requested Frigate history could not be enumerated completely."""
 
 
+class BackfillClassifierUnavailableError(RuntimeError):
+    """Stop the job without consuming the remaining history during an inference outage."""
+
+
+BACKFILL_MAX_CONSECUTIVE_CLASSIFIER_FAILURES = 3
+# Overload is admission pressure: video snapshot fallbacks share background
+# capacity, so a short burst must not end a healthy job. About two minutes of
+# unbroken saturation (each overloaded event already retried) still stops it.
+BACKFILL_MAX_CONSECUTIVE_OVERLOADS = 10
+
+
+@dataclass
+class BackfillFailureGuard:
+    consecutive_failures: int = 0
+    consecutive_overloads: int = 0
+
+    def observe(self, status: str, reason: str | None) -> None:
+        if status == "error" and reason == "background_image_overloaded":
+            # Neither evidence of a stall nor of recovery: a stuck runtime shows
+            # overload between its lease expiries, so keep the failure streak.
+            self.consecutive_overloads += 1
+        elif status == "error" and reason and reason.startswith("background_image_"):
+            self.consecutive_failures += 1
+        else:
+            self.consecutive_failures = 0
+            self.consecutive_overloads = 0
+        if self.consecutive_failures >= BACKFILL_MAX_CONSECUTIVE_CLASSIFIER_FAILURES:
+            raise BackfillClassifierUnavailableError(
+                f"Backfill stopped after {BACKFILL_MAX_CONSECUTIVE_CLASSIFIER_FAILURES} consecutive classifier "
+                f"failures ({reason}). Check System Health and use subprocess image execution. If inference "
+                "remains stalled, restart the container, then rerun this date range. Existing events will not "
+                "be duplicated."
+            )
+        if self.consecutive_overloads >= BACKFILL_MAX_CONSECUTIVE_OVERLOADS:
+            raise BackfillClassifierUnavailableError(
+                f"Backfill stopped: the classifier stayed busy for {BACKFILL_MAX_CONSECUTIVE_OVERLOADS} consecutive "
+                "events. Check System Health for other classification work, then rerun this date range. "
+                "Existing events will not be duplicated."
+            )
+
+
 @dataclass
 class BackfillResult:
     """Result of a backfill operation."""
@@ -51,6 +92,7 @@ class BackfillResult:
     new_detections: int = 0
     skipped: int = 0
     errors: int = 0
+    stopped_reason: str | None = None
     skipped_reasons: dict[str, int] = field(default_factory=lambda: defaultdict(int))
     error_reasons: dict[str, int] = field(default_factory=lambda: defaultdict(int))
 
@@ -336,17 +378,31 @@ class BackfillService:
             )
 
             if snapshot_data and settings.media_cache.enabled and settings.media_cache.cache_snapshots:
-                snapshot_cached = await asyncio.to_thread(media_cache.has_snapshot, frigate_event)
-                if not snapshot_cached:
-                    snapshot_cached = bool(
-                        await media_cache.cache_snapshot(
-                            frigate_event,
-                            snapshot_data,
-                            source=snapshot_provenance.input_source,
+                try:
+                    snapshot_cached = await asyncio.to_thread(media_cache.has_snapshot, frigate_event)
+                    if not snapshot_cached:
+                        snapshot_cached = bool(
+                            await media_cache.cache_snapshot(
+                                frigate_event,
+                                snapshot_data,
+                                source=snapshot_provenance.input_source,
+                            )
                         )
+                    if snapshot_cached and settings.media_cache.high_quality_event_snapshots:
+                        high_quality_snapshot_service.schedule_replacement(frigate_event, event_data=event)
+                except Exception as exc:
+                    # The detection has committed. A best-effort media failure must
+                    # not turn that successful write into an apparent classifier failure.
+                    log.warning("Backfill snapshot cache failed", event_id=frigate_event, error=str(exc))
+                    error_diagnostics_history.record(
+                        source="backfill",
+                        component="detections",
+                        stage="cache_snapshot",
+                        reason_code="snapshot_cache_failed",
+                        severity="warning",
+                        message="Detection retained but its snapshot could not be cached or upgraded",
+                        event_id=frigate_event,
                     )
-                if snapshot_cached and settings.media_cache.high_quality_event_snapshots:
-                    high_quality_snapshot_service.schedule_replacement(frigate_event, event_data=event)
 
             if not changed:
                 log.debug("Event already exists and score not improved, skipped", event_id=frigate_event)
@@ -448,6 +504,14 @@ class BackfillService:
             )
             return "error", "timeout"
 
+    async def iter_historical_results(self, events: list[dict]) -> AsyncIterator[tuple[dict, str, str | None]]:
+        guard = BackfillFailureGuard()
+        for event in events:
+            status, reason = await self.process_historical_event_with_timeout(event)
+            # Count the terminal event before failing either synchronous or async jobs.
+            yield event, status, reason
+            guard.observe(status, reason)
+
     async def run_backfill(self, start: datetime, end: datetime, cameras: list[str] = None) -> BackfillResult:
         """
         Run backfill for a date range.
@@ -462,24 +526,25 @@ class BackfillService:
 
         # Fetch events from Frigate
         events = await self.fetch_frigate_events(after_ts, before_ts, cameras)
-        result.processed = len(events)
-
-        # Process each event
-        for event in events:
-            status, reason = await self.process_historical_event_with_timeout(event)
-            if status == "new":
-                result.new_detections += 1
-            elif status == "skipped":
-                result.skipped += 1
-                if reason:
-                    result.skipped_reasons[reason] += 1
-            else:
-                result.errors += 1
-                if reason:
-                    result.error_reasons[reason] += 1
+        try:
+            async for _event, status, reason in self.iter_historical_results(events):
+                result.processed += 1
+                if status == "new":
+                    result.new_detections += 1
+                elif status == "skipped":
+                    result.skipped += 1
+                    if reason:
+                        result.skipped_reasons[reason] += 1
+                else:
+                    result.errors += 1
+                    if reason:
+                        result.error_reasons[reason] += 1
+        except BackfillClassifierUnavailableError as exc:
+            result.stopped_reason = str(exc)
 
         log.info(
-            "Backfill complete",
+            "Backfill finished",
+            stopped_reason=result.stopped_reason,
             processed=result.processed,
             new=result.new_detections,
             skipped=result.skipped,

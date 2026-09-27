@@ -7,6 +7,12 @@ import pytest_asyncio
 import sys
 from pathlib import Path
 
+from tests.model_fixture_support import group_model_cases
+
+
+def pytest_collection_modifyitems(items):
+    group_model_cases(items)
+
 
 def _make_aiosqlite_threads_daemon() -> None:
     """Force aiosqlite connection worker threads to be daemon threads.

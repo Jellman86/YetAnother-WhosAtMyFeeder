@@ -286,6 +286,8 @@ def _trt_available() -> bool:
 
 @pytest.fixture(scope="module")
 def cuda_available() -> bool:
+    if os.environ.get("YAWAMF_LEGACY_HARDWARE_DIAGNOSTICS") != "1":
+        pytest.skip("Legacy discovery only; run_model_hardware_gate.py is the isolated CUDA gate")
     return _cuda_available()
 
 

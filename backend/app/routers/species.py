@@ -26,6 +26,8 @@ from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.i18n_service import i18n_service
 from app.services.classifier_service import get_classifier
 from app.services.ebird_service import ebird_service
+from app.services.leaderboard_window import previous_window_is_complete
+from app.services.nearby_species_service import nearby_species_service, reported_nearby
 from app.utils.classifier_labels import collapse_classifier_label
 from app.utils.canonical_species import should_hide_species_label, user_facing_species_fields
 from app.utils.api_datetime import serialize_api_datetime
@@ -86,12 +88,24 @@ class LeaderboardSpeciesItemResponse(BaseModel):
     window_last_seen: str | None = None
     window_avg_confidence: float
     window_camera_count: int
+    window_confirmed_count: int = 0
+    window_audio_confirmed_count: int = 0
+    # Visits fold the frames of one approach, as the dashboard does; window_count stays frames.
+    window_visit_count: int = 0
+    window_prev_visit_count: int = 0
+    # Whether eBird birders reported the species near the feeder recently; null when unknown.
+    reported_nearby: bool | None = None
 
 
 class LeaderboardSpeciesResponse(BaseModel):
     span: Literal["day", "week", "month"]
     window_start: str
     window_end: str
+    history_start: str | None = None
+    previous_window_complete: bool = False
+    # The eBird check behind reported_nearby, or null when it did not run.
+    nearby_radius_km: int | None = None
+    nearby_days_back: int | None = None
     species: list[LeaderboardSpeciesItemResponse]
 
 
@@ -499,7 +513,22 @@ async def search_species(
             seen = set()
             matches = [m for m in label_matches + stored_matches if not (m in seen or seen.add(m))]
         else:
-            matches = labels[:limit]
+            # An empty query is a reclassify picker opening: lead with this
+            # feeder's own species, most seen first, then the model's labels
+            # (#503). Owners only: the ranking counts all history, which a guest's
+            # window may not cover, and only owners reclassify. Over-fetch so
+            # unknown labels dropped below still leave a full page.
+            seen_here = (
+                [
+                    label
+                    for label in await SpeciesRepository(db).most_detected_labels(limit * 2)
+                    if not should_hide_species_label(label)
+                ][:limit]
+                if auth.is_owner
+                else []
+            )
+            seen = set()
+            matches = [m for m in seen_here + labels[:limit] if not (m in seen or seen.add(m))]
 
         deduped_results: dict[str, dict] = {}
         for label in matches:
@@ -1036,6 +1065,9 @@ async def get_leaderboard_species(
             prev_start=prev_start,
             prev_end=prev_end,
         )
+        history_start, _ = await repo.get_detection_time_bounds()
+
+    nearby = await nearby_species_service.get_report()
 
     # Filter to species present in the selected window only.
     filtered = []
@@ -1080,6 +1112,13 @@ async def get_leaderboard_species(
                 "window_last_seen": serialize_api_datetime(r.get("window_last_seen")),
                 "window_avg_confidence": r.get("window_avg_confidence", 0.0),
                 "window_camera_count": r.get("window_camera_count", 0),
+                "window_confirmed_count": r.get("window_confirmed_count", 0),
+                "window_audio_confirmed_count": r.get("window_audio_confirmed_count", 0),
+                "window_visit_count": r.get("window_visit_count", 0),
+                "window_prev_visit_count": r.get("prev_visit_count", 0),
+                "reported_nearby": reported_nearby(
+                    nearby, scientific_name=r.get("scientific_name"), common_name=common_name
+                ),
             }
         )
 
@@ -1102,6 +1141,10 @@ async def get_leaderboard_species(
                 "window_last_seen": serialize_api_datetime(unknown.get("window_last_seen")),
                 "window_avg_confidence": unknown.get("window_avg_confidence", 0.0),
                 "window_camera_count": unknown.get("window_camera_count", 0),
+                "window_confirmed_count": unknown.get("window_confirmed_count", 0),
+                "window_audio_confirmed_count": unknown.get("window_audio_confirmed_count", 0),
+                "window_visit_count": unknown.get("window_visit_count", 0),
+                "window_prev_visit_count": unknown.get("prev_visit_count", 0),
             }
         )
 
@@ -1112,6 +1155,10 @@ async def get_leaderboard_species(
         "span": span,
         "window_start": window_start.replace(tzinfo=timezone.utc).isoformat(),
         "window_end": window_end.replace(tzinfo=timezone.utc).isoformat(),
+        "history_start": serialize_api_datetime(history_start) if history_start else None,
+        "previous_window_complete": previous_window_is_complete(history_start=history_start, prev_start=prev_start),
+        "nearby_radius_km": nearby.radius_km if nearby else None,
+        "nearby_days_back": nearby.days_back if nearby else None,
         "species": filtered,
     }
 

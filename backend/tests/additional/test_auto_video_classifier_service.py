@@ -11,6 +11,12 @@ class MockCursor:
     async def fetchone(self):
         return self._fetchone_result
 
+    async def fetchall(self):
+        return []
+
+    async def close(self):
+        pass
+
     async def __aenter__(self):
         return self
 
@@ -64,7 +70,7 @@ def mock_frigate_client():
     """Mock Frigate client."""
     client = MagicMock()
     client.get_event_with_error = AsyncMock(return_value=({"data": {}}, None))
-    client.get_clip_with_error = AsyncMock(return_value=(b"\x00\x00\x00\x18ftyp" + b"\x00" * 1000, None))
+    client.download_clip_to_file = AsyncMock(return_value=(True, None))
     return client
 
 
@@ -147,7 +153,8 @@ class TestAutoVideoClassifierService:
             patch("app.services.auto_video_classifier_service.get_db") as mock_get_db,
             patch("app.services.auto_video_classifier_service.broadcaster", mock_broadcaster),
             patch("app.services.auto_video_classifier_service.get_classifier", return_value=mock_classifier),
-            patch.object(AutoVideoClassifierService, "_clip_decodes", new=AsyncMock(return_value=True)),
+            patch.object(AutoVideoClassifierService, "_clip_file_error", new=AsyncMock(return_value=None)),
+            patch.object(AutoVideoClassifierService, "_save_results", new=AsyncMock()) as save_results,
         ):
             mock_settings.classification.auto_video_classification = True
             mock_settings.classification.video_classification_delay = 0  # No delay for testing
@@ -156,6 +163,7 @@ class TestAutoVideoClassifierService:
             mock_settings.classification.video_classification_timeout_seconds = 5
             mock_settings.classification.video_classification_frames = 15
             mock_settings.classification.video_classification_stale_minutes = 15
+            mock_settings.media_cache.high_quality_event_snapshots = False
 
             mock_get_db.return_value.__aenter__.return_value = mock_db
 
@@ -164,10 +172,22 @@ class TestAutoVideoClassifierService:
             try:
                 await service.trigger_classification("test-event-123", "BirdCam")
                 await _wait_until(lambda: mock_classifier.classify_video_async.called)
+                await _wait_until(lambda: "test-event-123" not in service._active_tasks)
 
+                save_results.assert_awaited_once()
+                assert save_results.await_args.args == (
+                    "test-event-123",
+                    {"label": "Turdus merula", "score": 0.95, "index": 0},
+                )
+                completions = [
+                    call.args[0]
+                    for call in mock_broadcaster.broadcast.await_args_list
+                    if call.args[0].get("type") == "reclassification_completed"
+                ]
+                assert completions[-1]["data"]["outcome"] == "success"
                 assert mock_broadcaster.broadcast.called
                 assert mock_frigate_client.get_event_with_error.called
-                assert mock_frigate_client.get_clip_with_error.called
+                assert mock_frigate_client.download_clip_to_file.called
                 assert mock_db.commit.await_count >= 1
             finally:
                 await service.stop()
@@ -180,7 +200,7 @@ class TestAutoVideoClassifierService:
         # Mock Frigate client that returns no clip bytes.
         mock_frigate = MagicMock()
         mock_frigate.get_event_with_error = AsyncMock(return_value=({"data": {}}, None))
-        mock_frigate.get_clip_with_error = AsyncMock(return_value=(None, "clip_not_found"))
+        mock_frigate.download_clip_to_file = AsyncMock(return_value=(False, "clip_not_found"))
 
         with (
             patch("app.services.auto_video_classifier_service.settings") as mock_settings,
@@ -203,7 +223,7 @@ class TestAutoVideoClassifierService:
             await service.start()
             try:
                 await service.trigger_classification("test-event-456", "BirdCam")
-                await _wait_until(lambda: mock_frigate.get_clip_with_error.called)
+                await _wait_until(lambda: mock_frigate.download_clip_to_file.called)
                 await _wait_until(
                     lambda: (
                         "test-event-456" not in service._active_tasks and "test-event-456" not in service._pending_ids
@@ -211,6 +231,7 @@ class TestAutoVideoClassifierService:
                 )
 
                 assert mock_broadcaster.broadcast.called
+                mock_classifier.classify_video_async.assert_not_awaited()
             finally:
                 await service.stop()
 

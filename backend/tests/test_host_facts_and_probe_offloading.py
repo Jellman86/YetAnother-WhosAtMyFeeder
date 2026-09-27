@@ -227,6 +227,7 @@ def test_reload_does_not_run_model_init_on_the_event_loop():
     service._image_execution_mode = "in_process"
     service._classifier_supervisor = None
     service._video_supervisor = None
+    service._in_process_recovery = None
 
     init_threads: list[int] = []
     service._init_bird_model = lambda: init_threads.append(threading.get_ident())  # type: ignore[method-assign]

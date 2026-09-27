@@ -16,6 +16,7 @@
     import RecentAudio from '../components/RecentAudio.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
     import { toastStore } from '../stores/toast.svelte';
+    import { confirmAction } from '../stores/confirm_dialog.svelte';
     import type { AudioSummaryResponse, Detection, DailySummary, SpeciesInfo } from '../api';
     import { deleteDetection, hideDetection, updateDetectionSpecies, analyzeDetection, fetchAudioSummary, fetchDailySummary, fetchClassifierLabels, reclassifyDetection, fetchSpeciesInfo, fetchNewSpeciesQueue, updateSettings } from '../api';
     import { settingsStore } from '../stores/settings.svelte';
@@ -115,25 +116,6 @@
 
     $effect(() => {
         if (!canReview) reviewSessionOpen = false;
-    });
-
-    // The picker opens on species this feeder actually sees, most frequent first,
-    // rather than the head of an 11,000-label alphabetical list.
-    let recentSpecies = $derived.by(() => {
-        const counts = new Map<string, number>();
-        for (const species of summary?.top_species ?? []) {
-            counts.set(species.species, (counts.get(species.species) ?? 0) + species.count);
-        }
-        for (const detection of detectionsStore.detections) {
-            const name = detection.display_name;
-            if (!name) continue;
-            counts.set(name, (counts.get(name) ?? 0) + 1);
-        }
-        return [...counts.entries()]
-            .filter(([name]) => name.trim().toLowerCase() !== 'unknown bird')
-            .sort((left, right) => right[1] - left[1])
-            .map(([name]) => name)
-            .slice(0, 8);
     });
 
     async function identifyFromQueue(detection: Detection, species: string): Promise<void> {
@@ -477,11 +459,16 @@
 
     async function handleDelete() {
         if (!selectedEvent) return;
-        if (!confirm($_('actions.confirm_delete', { values: { species: selectedEvent.display_name } }))) return;
+        const target = selectedEvent;
+        if (!(await confirmAction({
+            title: $_('actions.delete_detection', { default: 'Delete this visit permanently' }),
+            message: $_('actions.confirm_delete', { values: { species: target.display_name } }),
+            confirmLabel: $_('dashboard.review_session.delete', { default: 'Delete permanently' })
+        }))) return;
         deleting = true;
         try {
-            await deleteDetection(selectedEvent.frigate_event);
-            detectionsStore.removeDetection(selectedEvent.frigate_event, selectedEvent.detection_time);
+            await deleteDetection(target.frigate_event);
+            detectionsStore.removeDetection(target.frigate_event, target.detection_time);
             selectedEvent = null;
             await loadSummary(true);
         } catch (e) {
@@ -621,7 +608,6 @@
         queue={fullQueue.items}
         reasons={fullQueue.reasons}
         labels={classifierLabels}
-        suggestions={recentSpecies}
         onidentify={identifyFromQueue}
         onhide={hideFromQueue}
         onblock={blockFromQueue}

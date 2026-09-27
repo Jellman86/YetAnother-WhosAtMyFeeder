@@ -178,6 +178,8 @@ export interface components {
     species: string;
 };
     AudioSpeciesLeaderboardResponse: {
+    history_start?: string | null;
+    previous_window_complete?: boolean;
     span: "day" | "week" | "month" | "all";
     species: Array<components['schemas']['AudioSpeciesLeaderboardItemResponse']>;
     window_end: string;
@@ -456,6 +458,7 @@ export interface components {
     traceback?: string | null;
 };
     CleanupResponse: {
+    audio_deleted_count?: number | null;
     cutoff_date?: string | null;
     deleted_count: number;
     message?: string | null;
@@ -702,6 +705,7 @@ export interface components {
     cells: Array<components['schemas']['DetectionsActivityHeatmapCell']>;
     max_cell_count: number;
     span: string;
+    species?: string | null;
     total_count: number;
     window_end: string;
     window_start: string;
@@ -1020,19 +1024,28 @@ export interface components {
 };
     LeaderboardSpeciesItemResponse: {
     common_name?: string | null;
+    reported_nearby?: boolean | null;
     scientific_name?: string | null;
     species: string;
     taxa_id?: number | null;
+    window_audio_confirmed_count?: number;
     window_avg_confidence: number;
     window_camera_count: number;
+    window_confirmed_count?: number;
     window_count: number;
     window_delta: number;
     window_first_seen?: string | null;
     window_last_seen?: string | null;
     window_percent: number;
     window_prev_count: number;
+    window_prev_visit_count?: number;
+    window_visit_count?: number;
 };
     LeaderboardSpeciesResponse: {
+    history_start?: string | null;
+    nearby_days_back?: number | null;
+    nearby_radius_km?: number | null;
+    previous_window_complete?: boolean;
     span: "day" | "week" | "month";
     species: Array<components['schemas']['LeaderboardSpeciesItemResponse']>;
     window_end: string;
@@ -3974,6 +3987,7 @@ export interface paths {
       path: never;
       query: {
     span?: "all" | "day" | "week" | "month";
+    species?: string | null;
 };
       requestBody: unknown;
       response: components['schemas']['DetectionsActivityHeatmapResponse'];

@@ -6,6 +6,175 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.21.0] - 2026-09-27
+
+- Make the leaderboard's weekday heatmap readable. Pointing at a slot now shows its day, hour and
+  count straight away (the old native tooltip took a second and never appeared on a phone); a tap
+  does the same on touch screens, and the arrow keys read it from the keyboard. Bars along the top
+  and a total per day show the busiest hour and day at a glance. The grid can show one species'
+  week, using a new optional `species` filter on the activity heatmap route, and it now takes the
+  wider share of its row beside the composition chart. A duplicated subtitle under the timeline is
+  gone.
+
+- Draw leaderboard weather as small charts under the detections timeline, aligned bucket for
+  bucket, instead of as extra y-axes on the same chart where two scales invited reading a
+  coincidence of heights as a cause. The weather toggles report their state to screen readers and
+  no longer use amber, which the interface keeps for work that needs a person.
+
+- Rank the leaderboard by visits rather than frames. The day, week and month views count the
+  frames of one species on one camera within ten minutes of each other as one visit, the rule the
+  dashboard already uses, so a bird that lingers no longer outranks birds that come and go. Totals,
+  trends, the composition chart and the photographs follow; the all-time view, which has no visit
+  counts, keeps detections and says so. Photograph tiles of species nobody reported nearby now
+  carry a "Check" badge.
+
+- Flag leaderboard species that are probably misidentifications. With eBird set up, a species that
+  only the camera backs and that no birder has reported within 50 km in the last 30 days is marked
+  "Not reported within 50 km", and a note above the rankings counts them. The check uses the
+  approximate location, is cached for six hours, and is absent rather than guessed when eBird is off
+  or slow. Heard trends now follow BirdNET-Go's own history, so an install whose microphone has run
+  longer than its camera shows them, and one whose microphone is newer does not invent them.
+
+- Make the leaderboard say how sure it is. Each species now states what stands behind it besides
+  the classifier: confirmed by you, also heard by BirdNET-Go, heard only, or camera only, and a new
+  band counts how many species were heard or confirmed. Trends and "Rising" appear only when the
+  history covers the whole previous window; a new install says when records start instead of
+  showing every species as a riser. The leaderboard route reports confirmed and call-matched
+  detections per species, the history start, and whether the previous window was fully recorded,
+  and the Unknown Bird row now counts its previous window.
+- Stop the weekday heatmap scrolling sideways on laptop screens: it fits its column at every
+  width, brightens with activity in dark mode, outlines the busiest hour, and gives screen readers
+  a table instead of 168 inert buttons. The detections timeline gains a legend with species names,
+  a species keeps one colour across both charts in a palette checked for colour blindness, counts
+  are labelled as detections rather than visits, and "last seen" reads as a relative time.
+
+- Clarify Health Data event totals when older clients send lifetime issue counters. The severity
+  explanation now states that only groups and report batches belong to the selected window;
+  affected issue rows label their counts as lifetime values.
+
+- Replace the three Audio History ApexCharts with MIT-licensed Chart.js charts, preserving
+  daily and hourly tooltips, adding keyboard-operable species filters and share labels, and
+  keeping dark mode, reduced motion, and phone layouts.
+- Replace the Species trend and breakdown charts with Chart.js and its activity heatmap with a
+  keyboard-accessible grid. Keep species comparisons, weather overlays, AI chart capture, and
+  responsive layouts. Share labels and keyboard-operable filters make the species breakdown easier
+  to read. Drop the ApexCharts dependency and load only the required chart types on demand.
+
+- Move manual-tag provider lookups outside database connection holds and share one lookup across
+  a bulk correction. Taxonomy and audio correlation reuse resolved names and the caller's
+  connection, avoiding nested pool acquisitions during manual and video updates.
+
+- Defer scheduled unknown-detection analysis while Frigate is unavailable, retry readiness up to
+  five times at two-minute intervals, and stop event prechecks after a batch-wide outage rather
+  than queueing transient failures for classification.
+
+- Show only completed UTC days in telemetry trends so today's partial heartbeat count cannot look
+  like a user-base collapse. Label the rolling reporting window and 90-day retained-install count
+  explicitly, and keep privacy-suppressed daily values out of the plotted line.
+
+- Keep classifier recovery status consistent across health and settings, show the running execution
+  mode, and retain restart advice after recovery. Model reloads preserve quarantined native models.
+- Route wildlife reclassification through isolated workers in subprocess mode, including after
+  native inference stalls. Queued fallback requests cannot load another native model after quarantine.
+- Preserve video timeout and worker-failure circuit accounting when the fallback snapshot is filtered.
+- Apply classifier admission and deadlines to uploaded test images in both execution modes.
+- Reload the active classifier through the supported service API after downloading the default model.
+
+### Changed
+
+- **Every species picker opens on this feeder's own species (#503).** "Pick a different
+  species" on a visit's record, bulk reclassify in Events and the "Needs your call" queue now
+  offer the same list: the species seen here, most visits first, before the model's other
+  labels. The queue previously offered only today's sightings, so a first-time oddity rarely
+  showed its likely answer. Hidden visits and unknown labels are left out, the queue leaves
+  out the species already on the record, and typing still searches everything.
+
+### Fixed
+
+- **Destructive buttons ask in the app, and work in every browser.** "Reset Database & Cache",
+  "Clear Personalization Data", deleting favourites, visits, models and evaluation runs, and
+  importing a configuration backup used the browser's own confirm popup. Embedded browsers and
+  webviews suppress it and answer "no" silently, so the reset button appeared to do nothing.
+  They now use one in-app confirmation dialog that names the effect, focuses Cancel first and
+  closes on Escape without closing the window behind it.
+- **"Clear cached files" and "Purge Old Records" ask first.** Both deleted data on one click;
+  clearing the cache once removed 59 GB without a word. The purge confirmation states how many
+  detections it will remove.
+- **"Purge Old Records" now removes old BirdNET-Go audio too,** matching the scheduled cleanup
+  it is documented to run. Old audio used to survive until the next automatic run.
+- **Importing a configuration backup no longer signs you out or strands OAuth tokens.** The
+  import took the backup's session secret and OAuth key, which could reinstate a secret rotated
+  after a leak and left stored Gmail, Outlook and iNaturalist tokens undecryptable. This
+  installation now keeps its own. An import also reloads the classifier when it changes the
+  model, provider or execution mode, and forgets the telemetry installation when it turns
+  telemetry off, as a settings save does.
+- **Taxonomy Repair no longer blocks live detections.** It held a database write transaction
+  across up to 200 iNaturalist lookups, and a live save gives up after 30 seconds with
+  "database is locked". It now commits each detection as it goes.
+- **Settings stops polling taxonomy status every 3 seconds** while the Data tab is open. It reads
+  the status once, and polls only while a repair runs.
+- **The Configuration Backup card and its messages are translated.** Its keys were missing from
+  every locale, so it showed English in all nine languages.
+- **Failed hides and deletes say so.** They reported "Failed to reclassify", or in Explorer
+  nothing at all.
+
+- **A request that queued behind other work no longer disables CPU recovery for its workload.**
+  After a native crash, live, background and video work share one CPU recovery worker. A live
+  snapshot that waited behind a backfill or video job and then ran out of time marked all live
+  recovery failed until restart and killed the warm worker. Queue timeouts now leave the workload
+  available, and a request that can no longer fit is refused without touching the worker.
+- **Busy background capacity no longer stops a healthy backfill.** Overload results neither count
+  towards nor reset the three-failure stop; ten in a row still stop the job.
+- Update UI rendering and build dependencies, including bounded smart-quote
+  processing for long analysis text. Preserve escaped HTML, safe links and code
+  formatting with focused markdown regression coverage.
+- Recover confirmed accelerator-worker crashes using the same model in an isolated
+  CPU worker. Verify actual weight/label identity and provider before and after
+  inference, enforce workload deadlines, and keep health degraded while the
+  original profile remains quarantined. Slow or failed recovery does not loop or
+  fall back into the web process. Native crash/recovery summaries use the existing
+  bounded, deduplicated opt-in health reports, without additional report frequency.
+- Retain confirmed native worker crash evidence across restarts and block the same
+  model/provider launch configuration in all worker pools. Quarantined work cannot
+  silently fall back into the web process. Normal shutdown and deadline kills are
+  not labelled native crashes. Add a local-only OpenVINO cold/warm-cache reproducer
+  with bounded child processes and durable per-run outcomes.
+- Preserve downloaded accuracy-fixture attribution and checksums across reruns;
+  enforce the photo's own CC0/CC-BY licence, respect exclusions, and retain previous
+  manifests when a refresh is incomplete. Refreshes no longer overwrite old images.
+- Make diagnostics regressions independent of a reachable Frigate, prove taxonomy
+  provider waits do not own database connections without timing-sensitive assertions,
+  and distinguish source-control asset checks from runtime asset validation.
+- Add a local, isolated model/provider gate that records native crashes and fails
+  incomplete or numerically invalid runs. Regional artifacts and crop detectors use
+  their own production contracts. Accuracy sessions load lazily, old diagnostics
+  are explicitly opt-in, and NumPy-compatible range checks replace removed APIs.
+- **Classifier worker replacement waits for the old process to exit.** Closed pipes no
+  longer masquerade as a reaped worker. Shutdown escalates ignored termination to a
+  bounded kill, startup cancellation cleans up its child, and failed cleanup blocks
+  a replacement from loading another native model alongside the old one.
+- **Pre-migration restore points include committed SQLite WAL data.** Backups now use
+  SQLite's consistent snapshot API, check integrity and publish atomically; failed or
+  locked copies do not prune existing restore points.
+- Collect 110 previously orphaned backend regressions. PRs and image builds now share
+  a 70% branch-aware coverage gate and fail on test-process hangs. Telemetry integration
+  tests run before merge. Add joined detection-to-notification tests and a local-only
+  Chromium/WebKit desktop/mobile Health interaction suite without new hosted jobs.
+- **Backfill results now match the saved history when snapshot caching fails.** Optional cache
+  failures remain visible as warnings without misreporting an already-committed detection as lost.
+- Reject classifier probabilities outside 0–1 before filtering or saving. Failed job scheduling
+  no longer leaves a phantom running backfill, and a cancelled weather write is not counted as
+  processed. Regression coverage now includes migrated-database replays and real worker-process
+  failure/recovery, with a disposable real-model replay harness for hardware checks.
+- **A stalled native classifier can no longer consume an entire backfill.** After an in-process
+  lease expires, new image work is quarantined onto supervised workers and health remains in
+  recovery until a worker completes a real inference. Historical backfills stop after three
+  consecutive classifier-unavailable results, preserving accurate partial counts so the range can
+  be safely rerun after recovery.
+- **Low-confidence video outcomes no longer open the infrastructure circuit breaker.** Policy
+  filters remain visible as filtered activity while genuine worker, timeout and runtime failures
+  continue to trip the breaker.
+
 ## [2.20.3] - 2026-09-18
 
 ### Fixed

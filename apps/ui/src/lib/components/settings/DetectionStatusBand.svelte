@@ -1,6 +1,7 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
     import type { ClassifierStatus } from '../../api';
+    import { classifierRuntimeState } from '../../utils/classifier-runtime-state';
 
     let {
         classifierStatus,
@@ -39,6 +40,7 @@
     const backgroundWorkers = $derived(classifierStatus?.resolved_background_workers ?? 1);
     const ramPerCopy = $derived(classifierStatus?.active_model_estimated_ram_mb ?? null);
     const workerFallbackActive = $derived(classifierStatus?.worker_in_process_fallback?.active ?? false);
+    const runtimeState = $derived(classifierRuntimeState(classifierStatus, imageExecutionMode));
 
     function jumpTo(anchorId: string) {
         document.getElementById(anchorId)?.scrollIntoView({ block: 'start', behavior: 'smooth' });
@@ -89,7 +91,7 @@
 
     <div class="relative flex flex-col gap-0.5">
         <span class="text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('settings.detection.band_workers')}</span>
-        {#if imageExecutionMode === 'in_process'}
+        {#if runtimeState.executionMode === 'in_process'}
             <span class="text-sm font-bold text-slate-900 dark:text-white">{$_('settings.detection.band_in_process')}</span>
             <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('settings.detection.band_shared_runtime')}</span>
         {:else if workerFallbackActive}
@@ -113,6 +115,14 @@
                 {/if}
             </span>
         {/if}
+        {#if runtimeState.restartRecommended}
+            <span class="text-xs font-semibold text-amber-700 dark:text-amber-300">
+                {runtimeState.recovering
+                    ? $_('settings.detection.band_native_recovering', { default: 'Waiting for isolated workers to resume classification.' })
+                    : $_('settings.detection.band_native_recovered', { default: 'Classification resumed in isolated workers.' })}
+                {$_('settings.detection.band_native_restart', { default: 'Restart the container to release the stalled runtime.' })}
+            </span>
+        {/if}
     </div>
 
     <button
@@ -121,9 +131,9 @@
         class="group relative flex min-h-11 cursor-pointer flex-col gap-0.5 rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
     >
         <span class="text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('settings.detection.band_health')}</span>
-        {#if issueCount > 0}
+        {#if issueCount > 0 || runtimeState.restartRecommended}
             <span class="text-sm font-bold text-amber-700 dark:text-amber-300">
-                {$_('settings.detection.band_needs_attention', { values: { count: issueCount } })}
+                {$_('settings.detection.band_needs_attention', { values: { count: Math.max(issueCount, 1) } })}
             </span>
         {:else}
             <span class="text-sm font-bold text-accent-700 dark:text-accent-300">{$_('settings.detection.band_all_good')}</span>

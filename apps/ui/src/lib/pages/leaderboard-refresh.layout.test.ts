@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import leaderboardSource from './Species.svelte?raw';
+import heatmapSource from '../components/ActivityHeatmap.svelte?raw';
 
 describe('leaderboard field-journal layout', () => {
     it('names the sunrise and sunset windows instead of showing bare times', () => {
@@ -82,13 +83,80 @@ describe('leaderboard field-journal layout', () => {
     it('uses source-aware comparisons in both ranking layouts', () => {
         expect(leaderboardSource).toContain('heard_prev_count: heard?.heard_prev_count ?? null');
         expect(leaderboardSource).toContain('trendForMode(item, sourceMode)');
-        expect(leaderboardSource).toContain('deltaForMode(item, sourceMode)');
+        expect(leaderboardSource).toContain('deltaForMode(row, sourceMode)');
         expect(leaderboardSource).toContain('activityTimestampForMode(item, sourceMode)');
     });
 
-    it('keeps distinct rising and recent facts without repeating the leader', () => {
-        expect(leaderboardSource).toContain('data-leaderboard-highlights');
-        expect(leaderboardSource).toContain('topByTrend.species !== sourceLeader?.species');
-        expect(leaderboardSource).toContain('mostRecent.species !== sourceLeader?.species');
+    it('states the window in one standing band, with rising only when a trend was measured', () => {
+        expect(leaderboardSource).toContain('data-leaderboard-standing');
+        expect(leaderboardSource).toContain("trendMeasured(sourceMode, { seen: previousWindowComplete, heard: audioPreviousWindowComplete })");
+        expect(leaderboardSource).toContain('audioPreviousWindowComplete = audioResult.value?.previous_window_complete ?? false');
+        expect(leaderboardSource).toContain('!trendAvailable\n            ? null');
+        expect(leaderboardSource).toContain('{#if trendAvailable}<th scope="col"');
+        expect(leaderboardSource).toContain('data-leaderboard-trend-note');
+    });
+
+    it('says what stands behind each species besides the classifier', () => {
+        expect(leaderboardSource).toContain("import { evidenceFor, isCorroborated, isUnlikelyHere, trendMeasured, type SpeciesEvidence } from '../leaderboard/evidence'");
+        expect(leaderboardSource).toContain("let audioKnown = $derived(birdnetEnabled && audioLoadState === 'ready')");
+        expect(leaderboardSource).toContain('data-leaderboard-evidence={evidence}');
+        expect(leaderboardSource).toContain('data-leaderboard-corroboration');
+    });
+
+    it('ranks a window by visits when the route counts them, and names the unit it shows', () => {
+        expect(leaderboardSource).toContain('countsAreVisits = windowCountsAreVisits(response)');
+        expect(leaderboardSource).toContain("const count = visits ? (s.window_visit_count ?? 0) : (s.window_count ?? 0)");
+        expect(leaderboardSource).toContain('delta: count - prevCount');
+        // Total has no visit counts, so it must never be labelled as visits.
+        expect(leaderboardSource).toContain('fetchSpecies(controller.signal).then(mapAllTimeSpecies);\n                countsAreVisits = false;');
+    });
+
+    it('draws weather under the detections on its own axis, never as a second y-axis', () => {
+        expect(leaderboardSource).toContain('data-leaderboard-weather-panel={panel.key}');
+        expect(leaderboardSource).not.toContain("yAxisID: item.name === temperatureName");
+        expect(leaderboardSource).not.toContain("position: 'right' as const");
+        expect(leaderboardSource).toContain('afterFit: alignValueAxis');
+        expect(leaderboardSource).toContain('aria-pressed={showTemperature}');
+    });
+
+    it('flags a species nothing but the camera backs and no birder reported nearby, in words', () => {
+        expect(leaderboardSource).toContain('isUnlikelyHere(evidenceOf(row), row.reported_nearby)');
+        expect(leaderboardSource).toContain('data-leaderboard-unlikely-note');
+        expect(leaderboardSource).toContain('data-leaderboard-unlikely-reason');
+        // Wash, dot and words together, never a coloured rule on the row's edge.
+        expect(leaderboardSource).toContain("bg-gradient-to-r from-amber-50 to-transparent dark:from-amber-500/10");
+        expect(leaderboardSource).not.toMatch(/border-l-(2|4)[^"]*amber/);
+    });
+
+    it('fits the weekday heatmap to its column instead of scrolling it sideways', () => {
+        expect(heatmapSource).toContain('repeat(24, minmax(0, 1fr))');
+        expect(leaderboardSource).not.toMatch(/min-w-\[650px\]/);
+        expect(leaderboardSource).not.toContain('h-[260px] overflow-x-auto');
+        // A display:none label leaves the grid and shifts every cell after it by one column.
+        expect(heatmapSource).not.toContain('hidden sm:block');
+    });
+
+    it('reads a heatmap slot on hover, tap and arrow keys, not through a delayed native title', () => {
+        expect(leaderboardSource).toContain('<ActivityHeatmap');
+        expect(heatmapSource).not.toContain('title=');
+        expect(heatmapSource).toContain('data-heatmap-tooltip');
+        expect(heatmapSource).toContain("if (event.pointerType === 'touch') return;");
+        expect(heatmapSource).toContain('role="grid"');
+        expect(heatmapSource).toContain('aria-activedescendant=');
+        expect(heatmapSource).toContain('role="gridcell"');
+        expect(heatmapSource).toContain("event.key === 'Escape'");
+    });
+
+    it('can show one species\' weekly pattern, and never labels data it is not showing', () => {
+        expect(leaderboardSource).toContain('data-leaderboard-heatmap-species');
+        expect(leaderboardSource).toContain('fetchDetectionsActivityHeatmapSpan(requestedSpan, controller.signal, requested)');
+        expect(leaderboardSource).toContain('let shownHeatmap = $derived(heatmapSpecies ? speciesHeatmap : activityHeatmap)');
+        expect(leaderboardSource).toContain('shownHeatmap?.species');
+    });
+
+    it('gives a species the same colour in the timeline and the composition chart', () => {
+        expect(leaderboardSource).toContain('speciesSeriesColor(speciesSlot().get(entry.species) ?? idx, isDark())');
+        expect(leaderboardSource).toContain('backgroundColor: labels.map((_, index) => donutColor(index))');
+        expect(leaderboardSource).toContain('data-leaderboard-timeline-legend');
     });
 });

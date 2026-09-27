@@ -1690,3 +1690,107 @@ async def test_settings_refuses_an_instance_address_without_a_scheme(client: htt
         assert settings.notifications.instance_url == original[0]
     finally:
         settings.notifications.instance_url, settings.notifications.email.dashboard_url = original
+
+
+def _backup_of_current_settings() -> dict:
+    return {
+        "format": settings_router.CONFIG_BACKUP_FORMAT,
+        "format_version": settings_router.CONFIG_BACKUP_FORMAT_VERSION,
+        "includes_secrets": True,
+        "config": settings.model_dump(mode="json"),
+    }
+
+
+@pytest.mark.asyncio
+async def test_settings_import_keeps_this_installations_session_and_token_keys(
+    client: httpx.AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """The keys belong to this installation's sessions and stored OAuth tokens, not to a backup.
+
+    Importing an older backup reinstated a session secret that had been rotated after a
+    token leak, signed the importing owner out, and left OAuth tokens in the database
+    encrypted under a key the settings no longer held.
+    """
+    snapshot = settings.model_copy(deep=True)
+    monkeypatch.setattr(Settings, "save", AsyncMock())
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    settings.auth.session_secret = "current-session-secret"
+    settings.auth.oauth_token_secret = "current-oauth-key"
+    try:
+        backup = _backup_of_current_settings()
+        backup["config"]["auth"]["session_secret"] = "rotated-away-secret"
+        backup["config"]["auth"]["oauth_token_secret"] = "other-install-key"
+        backup["config"]["maintenance"]["retention_days"] = 21
+
+        response = await client.post("/api/settings/import", json=backup)
+
+        assert response.status_code == 200, response.text
+        assert settings.auth.session_secret == "current-session-secret"
+        assert settings.auth.oauth_token_secret == "current-oauth-key"
+        assert settings.maintenance.retention_days == 21
+    finally:
+        settings_router._apply_imported_settings(snapshot)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("field", "value", "full_restart"),
+    [
+        ("inference_provider", "intel_npu", False),
+        ("model", "some_other_model", False),
+        ("image_execution_mode", "in_process", True),
+    ],
+)
+async def test_settings_import_reloads_the_classifier_like_a_save_does(
+    client: httpx.AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+    field: str,
+    value: str,
+    full_restart: bool,
+):
+    snapshot = settings.model_copy(deep=True)
+    monkeypatch.setattr(Settings, "save", AsyncMock())
+    reload = AsyncMock()
+    monkeypatch.setattr("app.services.classifier_service.reload_classifier_out_of_band", reload)
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    try:
+        backup = _backup_of_current_settings()
+        if backup["config"]["classification"][field] == value:
+            value = f"{value}-changed"
+        backup["config"]["classification"][field] = value
+
+        response = await client.post("/api/settings/import", json=backup)
+
+        assert response.status_code == 200, response.text
+        reload.assert_awaited_once_with(full_restart=full_restart)
+    finally:
+        settings_router._apply_imported_settings(snapshot)
+
+
+@pytest.mark.asyncio
+async def test_settings_import_that_opts_out_of_telemetry_forgets_the_installation(
+    client: httpx.AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    snapshot = settings.model_copy(deep=True)
+    monkeypatch.setattr(Settings, "save", AsyncMock())
+    forget = AsyncMock()
+    monkeypatch.setattr(settings_router.telemetry_service, "forget_installation", forget)
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    settings.telemetry.enabled = True
+    settings.telemetry.installation_id = "install-123"
+    try:
+        backup = _backup_of_current_settings()
+        backup["config"]["telemetry"]["enabled"] = False
+        backup["config"]["telemetry"]["health_enabled"] = False
+
+        response = await client.post("/api/settings/import", json=backup)
+
+        assert response.status_code == 200, response.text
+        forget.assert_awaited_once_with("install-123")
+    finally:
+        settings_router._apply_imported_settings(snapshot)

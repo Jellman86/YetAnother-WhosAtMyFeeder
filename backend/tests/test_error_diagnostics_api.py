@@ -1,12 +1,27 @@
 import httpx
 import pytest
 import pytest_asyncio
+from unittest.mock import AsyncMock
 
 from app.main import app
 from app.config import settings
 from app.services.error_diagnostics import error_diagnostics_history
 from app.routers import classifier as classifier_router
 from app.routers import settings as settings_router
+
+
+@pytest.fixture(autouse=True)
+def unavailable_media_sample(monkeypatch):
+    probe = AsyncMock(
+        return_value={
+            "available": False,
+            "codec_tag": None,
+            "safari_compatible": None,
+            "note": "No clip available in this fixture",
+        }
+    )
+    monkeypatch.setattr("app.routers.diagnostics.collect_video_sample_diagnostic", probe)
+    return probe
 
 
 @pytest_asyncio.fixture
@@ -228,7 +243,7 @@ async def test_workspace_payload_includes_focused_video_classifier_diagnostics(c
 
 
 @pytest.mark.asyncio
-async def test_owner_can_fetch_diagnostics_bundle(client: httpx.AsyncClient):
+async def test_owner_can_fetch_diagnostics_bundle(client: httpx.AsyncClient, unavailable_media_sample):
     settings.auth.enabled = False
     settings.public_access.enabled = False
 
@@ -263,13 +278,14 @@ async def test_owner_can_fetch_diagnostics_bundle(client: httpx.AsyncClient):
         assert payload["backend_diagnostics"]["events"][0]["correlation_key"] == "event_pipeline:stage_timeout"
         assert isinstance(payload["focused_diagnostics"], dict)
         # Answers "why does Safari refuse my clip" without a round trip for
-        # ffprobe output. With no Frigate reachable in the test environment it
-        # must still report honestly rather than omit the section.
+        # ffprobe output. The unavailable-media boundary is explicit: a reachable
+        # Frigate beside the test container must not change the test's outcome.
         assert payload["media_sample"]["available"] is False
         assert payload["media_sample"]["codec_tag"] is None
         assert payload["media_sample"]["safari_compatible"] is None
         assert payload["media_sample"]["note"]
         assert payload["summary"]["video_sample_format"] == "unknown"
+        unavailable_media_sample.assert_awaited_once()
     finally:
         classifier_router.classifier_service.get_status = original_get_status
 

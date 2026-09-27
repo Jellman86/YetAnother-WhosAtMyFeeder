@@ -167,7 +167,7 @@
         return rows.findIndex((candidate) => candidate.key === row.key) + 1;
     }
     function trendClass(row: ShowcaseRow, quiet: string): string {
-        return (row.delta ?? 0) > 0 ? 'text-accent-300' : (row.delta ?? 0) < 0 ? 'text-rose-300' : quiet;
+        return (row.delta ?? 0) > 0 ? 'text-success-300' : (row.delta ?? 0) < 0 ? 'text-rose-300' : quiet;
     }
 </script>
 
@@ -214,6 +214,11 @@
                         <div class="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-950/40 to-slate-950/5" aria-hidden="true"></div>
                         <div class="absolute left-5 top-4 flex flex-wrap items-center gap-2">
                             <span class="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/80" data-showcase-eyebrow>{rankOf(row) === 1 ? eyebrow : rankEyebrow(rankOf(row))}</span>
+                            {#if row.flagged}
+                                <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-400 px-2 py-0.5 text-xs font-semibold text-amber-950" data-showcase-flag>
+                                    <span class="h-1.5 w-1.5 rounded-full bg-amber-950" aria-hidden="true"></span>{$_('leaderboard.showcase_not_nearby', { default: 'Not reported nearby' })}
+                                </span>
+                            {/if}
                             {#if picture?.source === 'reference'}
                                 <span class="rounded-full border border-white/20 bg-slate-950/60 px-2 py-0.5 text-[10px] font-semibold text-white/85 backdrop-blur-sm" data-showcase-reference-note>
                                     {referenceLabel(row)}
@@ -250,9 +255,14 @@
                     <button
                         type="button"
                         class="absolute inset-0 cursor-pointer text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
-                        aria-label={$_('leaderboard.showcase_bring_forward', { values: { species: row.displayName }, default: 'Bring {species} forward' })}
+                        aria-label={`${$_('leaderboard.showcase_bring_forward', { values: { species: row.displayName }, default: 'Bring {species} forward' })}${row.flagged ? `. ${$_('leaderboard.showcase_not_nearby', { default: 'Not reported nearby' })}` : ''}`}
                         onclick={() => bringForward(row.key)}
                     >
+                        {#if row.flagged}
+                            <span class="absolute left-1.5 top-1.5 inline-flex items-center gap-1 rounded-full bg-amber-400 px-1.5 py-0.5 text-xs font-semibold text-amber-950" title={$_('leaderboard.showcase_not_nearby', { default: 'Not reported nearby' })} data-showcase-flag>
+                                <span class="h-1.5 w-1.5 rounded-full bg-amber-950" aria-hidden="true"></span>{$_('leaderboard.showcase_check', { default: 'Check' })}
+                            </span>
+                        {/if}
                         {#if picture?.source === 'reference'}
                             <span class="absolute right-1.5 top-1.5 rounded-full border border-white/20 bg-slate-950/65 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white/85" title={referenceLabel(row)} data-showcase-reference-badge>
                                 {$_('leaderboard.showcase_reference_short', { default: 'Reference' })}
@@ -261,7 +271,7 @@
                         <span class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/90 via-slate-950/50 to-transparent px-2 pb-1.5 pt-6">
                             <span class="block truncate text-[12px] font-semibold text-white">{row.displayName}</span>
                             <span class="block truncate text-[11px] tabular-nums text-white/75">
-                                {rankOf(row)} · {row.count.toLocaleString()}
+                                #{rankOf(row)} · {row.count.toLocaleString()} {countLabel(row.count)}
                                 {#if row.trend}<span class="ml-1 {trendClass(row, 'text-white/60')}">{row.trend}</span>{/if}
                             </span>
                         </span>

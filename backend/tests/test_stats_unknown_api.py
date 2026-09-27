@@ -602,3 +602,62 @@ async def test_timeline_uses_request_timezone_for_daily_points_and_compare_serie
         assert series_points["2026-04-10T04:00:00Z"] == 0
     finally:
         await _delete_detection(event_id)
+
+
+@pytest.mark.asyncio
+async def test_activity_heatmap_can_show_one_species(
+    client: httpx.AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    utc_window_end = datetime(2026, 4, 10, 18, 0, 0)
+
+    class _FakeDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            if tz is not None:
+                return utc_window_end.replace(tzinfo=tz)
+            return cls(2026, 4, 10, 18, 0, 0)
+
+    monkeypatch.setattr(stats_router, "datetime", _FakeDateTime)
+
+    suffix = uuid.uuid4().hex[:8]
+    finch = f"Heatmap Finch {suffix}"
+    finch_event = f"stats-heatmap-finch-{suffix}"
+    pigeon_event = f"stats-heatmap-pigeon-{suffix}"
+    async with get_db() as db:
+        await db.execute(
+            """
+            INSERT INTO detections (
+                detection_time, detection_index, score, display_name, category_name,
+                frigate_event, camera_name, is_hidden, manual_tagged, scientific_name
+            ) VALUES ('2026-04-10 13:30:00', 1, 0.9, ?, ?, ?, 'test-camera', 0, 0, ?)
+            """,
+            (finch, finch, finch_event, finch),
+        )
+        await db.commit()
+    await _insert_detection_at_timestamp(pigeon_event, "2026-04-10 13:45:00")
+
+    try:
+        everything = await client.get(
+            "/api/stats/detections/activity-heatmap",
+            params={"span": "week"},
+            headers={"X-Timezone": "America/New_York"},
+        )
+        only_finch = await client.get(
+            "/api/stats/detections/activity-heatmap",
+            params={"span": "week", "species": finch},
+            headers={"X-Timezone": "America/New_York"},
+        )
+        assert everything.status_code == 200, everything.text
+        assert only_finch.status_code == 200, only_finch.text
+        # Friday 09:00 in New York holds both birds, and only the finch when filtered.
+        assert _heatmap_cell(everything.json(), day_of_week=5, hour=9) >= 2
+        assert _heatmap_cell(only_finch.json(), day_of_week=5, hour=9) == 1
+        assert only_finch.json()["total_count"] == 1
+        assert only_finch.json()["species"] == finch
+    finally:
+        await _delete_detection(finch_event)
+        await _delete_detection(pigeon_event)

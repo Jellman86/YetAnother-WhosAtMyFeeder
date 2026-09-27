@@ -608,12 +608,15 @@ function renderBars(rows: any[], labelKey: string, valueKey: string, total: unkn
 type TrendPoint = { day: string; value: number | null };
 
 function dailyTrend(rows: any[], days: number, valueKey: string): TrendPoint[] {
-  const values = new Map(rows.map((row) => [String(row.day), Number(row[valueKey] ?? 0)]));
+  const values = new Map<string, number | null>(rows.map((row) => [
+    String(row.day),
+    row[valueKey] === null ? null : Number(row[valueKey]),
+  ]));
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
   return Array.from({ length: days }, (_, index) => {
     const date = new Date(today);
-    date.setUTCDate(today.getUTCDate() - (days - index - 1));
+    date.setUTCDate(today.getUTCDate() - (days - index));
     const day = date.toISOString().slice(0, 10);
     return { day, value: values.has(day) ? values.get(day)! : null };
   });
@@ -658,14 +661,21 @@ function renderTrendChart({
     const y = point.value === null ? baseline : baseline - (point.value / scalePeak) * plotHeight;
     return { ...point, x, y };
   });
-  const observed = coordinates.filter((point) => point.value !== null);
-  const line = observed.map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(' ');
-  const area = observed.length
-    ? `M ${observed[0].x.toFixed(1)} ${baseline} L ${observed.map((point) => `${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(' L ')} L ${observed.at(-1)!.x.toFixed(1)} ${baseline} Z`
-    : '';
+  const segments: typeof coordinates[] = [];
+  for (const [index, point] of coordinates.entries()) {
+    if (point.value === null) continue;
+    if (segments.length === 0 || coordinates[index - 1]?.value === null) {
+      segments.push([]);
+    }
+    segments.at(-1)!.push(point);
+  }
+  const paths = segments.map((segment) => ({
+    line: segment.map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(' '),
+    area: `M ${segment[0].x.toFixed(1)} ${baseline} L ${segment.map((point) => `${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(' L ')} L ${segment.at(-1)!.x.toFixed(1)} ${baseline} Z`,
+  }));
   const middle = points[Math.floor((points.length - 1) / 2)];
   const latest = points.at(-1)?.value;
-  const latestObserved = observed.at(-1);
+  const latestObserved = coordinates.at(-1)?.value === null ? null : coordinates.at(-1);
   const accessibleValues = points
     .map((point) => `${point.day}: ${point.value === null ? 'not available' : fmt(point.value)}`)
     .join('; ');
@@ -674,19 +684,18 @@ function renderTrendChart({
     <figure class="panel trend-panel">
       <div class="chart-heading">
         <div><span class="eyebrow">Daily rollup</span><h2>${html(title)}</h2></div>
-        <div class="chart-latest"><strong>${latest === null || latest === undefined ? '—' : fmt(latest)}</strong><span>latest day</span></div>
+        <div class="chart-latest"><strong>${latest === null || latest === undefined ? '—' : fmt(latest)}</strong><span>latest completed UTC day</span></div>
       </div>
       <svg class="trend-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${html(ariaLabel)}" aria-describedby="${html(chartId)}-data" preserveAspectRatio="none">
         <line class="chart-grid" x1="${left}" y1="${top}" x2="${width - right}" y2="${top}"></line>
         <line class="chart-grid" x1="${left}" y1="${top + plotHeight / 2}" x2="${width - right}" y2="${top + plotHeight / 2}"></line>
         <line class="chart-axis" x1="${left}" y1="${baseline}" x2="${width - right}" y2="${baseline}"></line>
-        <path class="trend-area" d="${area}"></path>
-        <polyline class="trend-line" points="${line}"></polyline>
+        ${paths.map((path) => `<path class="trend-area" d="${path.area}"></path><polyline class="trend-line" points="${path.line}"></polyline>`).join('')}
         ${latestObserved ? `<circle class="trend-dot" cx="${latestObserved.x.toFixed(1)}" cy="${latestObserved.y.toFixed(1)}" r="4"></circle>` : ''}
       </svg>
       <div class="chart-labels"><span>${shortDate(points[0].day)}</span><span>${shortDate(middle.day)}</span><span>${shortDate(points.at(-1)!.day)}</span></div>
       <figcaption>${html(caption)} · peak ${fmt(actualPeak)}</figcaption>
-      <p class="sr-only" id="${html(chartId)}-data">Daily values for the selected ${days}-day window. ${html(accessibleValues)}. Peak: ${fmt(actualPeak)}.</p>
+      <p class="sr-only" id="${html(chartId)}-data">Daily values for the last ${days} completed UTC days. ${html(accessibleValues)}. Peak: ${fmt(actualPeak)}.</p>
     </figure>
   `;
 }
@@ -1123,7 +1132,8 @@ app.get('/dashboard', async (c) => {
              CASE WHEN count(DISTINCT installation_id_hash) >= ${PUBLIC_COHORT_MINIMUM}
                   THEN count(*) ELSE NULL END as reports
       FROM health_report_batches
-      WHERE report_date >= date('now', '-${days - 1} days')
+      WHERE report_date >= date('now', '-${days} days')
+        AND report_date < date('now')
       GROUP BY report_date
       ORDER BY report_date
     `).all();
@@ -1171,7 +1181,7 @@ app.get('/dashboard', async (c) => {
       const row: any = severityByName.get(name) ?? {};
       const occurrenceLabel = row.occurrence_basis === 'legacy_cumulative'
         || row.occurrence_basis === 'mixed_window_events_and_legacy_cumulative'
-        ? 'events · includes cumulative legacy counters'
+        ? 'events · includes lifetime counters from older clients'
         : 'new events';
       return `<div class="severity-card">${severityPill(name)}<strong>${fmt(row.issue_count ?? 0)}</strong><small>${fmt(row.report_count ?? 0)} batches · ${fmt(row.occurrence_count ?? 0)} ${occurrenceLabel}</small></div>`;
     }).join('');
@@ -1184,7 +1194,7 @@ app.get('/dashboard', async (c) => {
           <td>${html(row.app_version || 'Unknown')}</td>
           <td>${fmt(row.install_count)}</td>
           <td>${fmt(row.occurrence_count)}</td>
-          <td>${row.occurrence_basis === 'window_events' ? 'Window events' : 'Includes cumulative legacy counters'}</td>
+          <td>${row.occurrence_basis === 'window_events' ? 'Window events' : 'Includes lifetime counters from older clients'}</td>
           <td>${html(row.last_seen || 'Unknown')}</td>
         </tr>`).join('')
       : '<tr><td colspan="8" class="empty">No health issues in this window</td></tr>';
@@ -1205,6 +1215,11 @@ app.get('/dashboard', async (c) => {
     const recoveryRows = recoveryReasons.results.length
       ? recoveryReasons.results.map((row: any) => `<div class="recovery-row"><span>${html(humanizeCode(row.reason))}</span><span class="recovery-status">${html(row.status || 'Unknown')}</span><strong>${fmt(row.count)}</strong></div>`).join('')
       : '<div class="empty panel-empty">No recovery reports yet</div>';
+    const includesLegacyCounters = publicTotals?.occurrence_basis === 'legacy_cumulative'
+      || publicTotals?.occurrence_basis === 'mixed_window_events_and_legacy_cumulative';
+    const occurrenceDescription = includesLegacyCounters
+      ? 'Event total includes lifetime counters from older clients; only groups and batches are scoped to the selected window.'
+      : 'Event total counts new events in the selected window.';
 
     const body = `
       <section class="health-command">
@@ -1216,11 +1231,11 @@ app.get('/dashboard', async (c) => {
           <div class="signal-facts">
             <div class="signal-fact"><strong>${fmt(publicTotals?.issue_count)}</strong><span>tracked groups</span></div>
             <div class="signal-fact"><strong>${fmt(publicTotals?.report_count)}</strong><span>accepted batches</span></div>
-            <div class="signal-fact"><strong>${fmt(publicTotals?.occurrence_count)}</strong><span>${publicTotals?.occurrence_basis === 'legacy_cumulative' || publicTotals?.occurrence_basis === 'mixed_window_events_and_legacy_cumulative' ? 'events incl. legacy cumulative' : 'new events'}</span></div>
+            <div class="signal-fact"><strong>${fmt(publicTotals?.occurrence_count)}</strong><span>${includesLegacyCounters ? 'events incl. lifetime counters' : 'new events'}</span></div>
           </div>
         </article>
         <article class="panel health-severity-board">
-          <div class="panel-heading"><div><span class="eyebrow">Triage lane</span><h2>Severity distribution</h2><p>Deduplicated groups, accepted batches, and new events in this window.</p></div></div>
+          <div class="panel-heading"><div><span class="eyebrow">Triage lane</span><h2>Severity distribution</h2><p>${occurrenceDescription}</p></div></div>
           <div class="health-severity-lane">${severityCards}</div>
         </article>
       </section>
@@ -1231,9 +1246,9 @@ app.get('/dashboard', async (c) => {
           days,
           valueKey: 'reports',
           chartId: 'health-report-trend',
-          title: 'Reports by day',
-          ariaLabel: 'Daily health reports trend',
-          caption: 'One accepted health snapshot per report ID; repeated deliveries are ignored'
+          title: 'Reports by completed UTC day',
+          ariaLabel: 'Health reports by completed UTC day',
+          caption: 'Today is omitted until the UTC day ends; repeated deliveries are ignored'
         })}
         <article class="panel component-panel">
           <div class="panel-heading"><div><span class="eyebrow">Concentration</span><h2>Affected components</h2></div></div>
@@ -1412,7 +1427,8 @@ app.get('/dashboard', async (c) => {
     SELECT report_date as day,
            CASE WHEN count(*) >= ${PUBLIC_COHORT_MINIMUM} THEN count(*) ELSE NULL END as installs
     FROM heartbeat_daily
-    WHERE report_date >= date('now', '-${days - 1} days')
+    WHERE report_date >= date('now', '-${days} days')
+      AND report_date < date('now')
     GROUP BY report_date
     ORDER BY report_date
   `).all();
@@ -1452,19 +1468,19 @@ app.get('/dashboard', async (c) => {
         days,
         valueKey: 'installs',
         chartId: 'active-install-trend',
-        title: 'Active installs by day',
-        ariaLabel: 'Daily active installs trend',
-        caption: 'One privacy-preserving daily snapshot per active installation'
+        title: 'Reporting installs by completed UTC day',
+        ariaLabel: 'Reporting installs by completed UTC day',
+        caption: 'Today is omitted until the UTC day ends; one opt-in snapshot per installation'
       })}
       <aside class="panel usage-kpis" aria-label="Audience summary">
         <div class="usage-kpi-primary">
-          <span class="eyebrow">Current audience</span>
+          <span class="eyebrow">Selected reporting window</span>
           <div class="metric">${fmt(totals?.active_installs)}</div>
-          <div class="metric-label">Active installs</div>
-          <p>${pct(totals?.active_installs, totals?.total_installs)} of all installs reported during this window.</p>
+          <div class="metric-label">Reported in last ${days} days</div>
+          <p>${pct(totals?.active_installs, totals?.total_installs)} of reporting installs seen in the last 90 days.</p>
         </div>
         <div class="usage-kpi-list">
-          <div class="usage-kpi-row"><span>Total installs</span><strong>${fmt(totals?.total_installs)}</strong></div>
+          <div class="usage-kpi-row"><span>Reporting installs seen in last 90 days</span><strong>${fmt(totals?.total_installs)}</strong></div>
           <div class="usage-kpi-row"><span>Countries</span><strong>${fmt(countries.results.length)}</strong></div>
           <div class="usage-kpi-row"><span>Active versions</span><strong>${fmt(versions.results.length)}</strong></div>
         </div>

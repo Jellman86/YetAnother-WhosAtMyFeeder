@@ -105,11 +105,11 @@ export default defineConfig(({ mode }) => ({
         rollupOptions: {
             output: {
                 // Function form (not the object form) so this works under both Rollup and
-                // Rolldown, which vite 8 uses by default. Keeps the large apexcharts dependency
-                // in its own chunk.
+                // Rolldown, which vite 8 uses by default. Keep the lazily loaded
+                // charting library separate from the first page load.
                 manualChunks(id: string) {
-                    if (id.includes('node_modules/apexcharts')) {
-                        return 'apexcharts'
+                    if (id.includes('node_modules/chart.js')) {
+                        return 'chartjs'
                     }
                 }
             }

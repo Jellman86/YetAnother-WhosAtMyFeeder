@@ -1,5 +1,7 @@
 import asyncio
 import time
+import signal
+import sys
 
 import pytest
 
@@ -11,6 +13,169 @@ from app.services.classifier_supervisor import (
     ClassifierWorkerHeartbeatTimeoutError,
     ClassifierWorkerStartupTimeoutError,
 )
+from app.services.native_crash_quarantine import NativeCrashQuarantine, NativeCrashQuarantinedError
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(sys.platform != "linux", reason="Linux signal/reaping contract, no macOS crash reporter")
+async def test_real_native_child_crash_is_reaped_and_persistently_quarantined(tmp_path):
+    from app.services.classifier_worker_client import ClassifierWorkerClient
+
+    processes = []
+
+    async def process_factory(**_kwargs):
+        process = await asyncio.create_subprocess_exec(
+            sys.executable,
+            "-c",
+            "import os,resource,signal; resource.setrlimit(resource.RLIMIT_CORE,(0,0)); os.kill(os.getpid(),signal.SIGABRT)",
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env={},
+        )
+        processes.append(process)
+        return process
+
+    async def worker_factory(**kwargs):
+        return ClassifierWorkerClient(
+            worker_name=kwargs["worker_name"],
+            worker_generation=kwargs["worker_generation"],
+            heartbeat_timeout_seconds=5,
+            process_factory=process_factory,
+        )
+
+    profile = {"model": "synthetic", "provider": "none"}
+    supervisor = ClassifierSupervisor(
+        live_worker_count=1,
+        background_worker_count=1,
+        heartbeat_timeout_seconds=5,
+        hard_deadline_seconds=10,
+        worker_factory=worker_factory,
+        crash_quarantine=NativeCrashQuarantine(lambda: profile, root=tmp_path),
+    )
+    try:
+        with pytest.raises(NativeCrashQuarantinedError):
+            await asyncio.wait_for(supervisor._spawn_worker("live", 0, 1), 10)
+        assert processes[0].returncode == -signal.SIGABRT
+        with pytest.raises(NativeCrashQuarantinedError):
+            NativeCrashQuarantine(lambda: profile, root=tmp_path).guard()
+        assert not supervisor._cleanup_pending
+    finally:
+        await supervisor.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_crashed_idle_worker_is_not_replaced_or_reused_by_another_pool(tmp_path):
+    created = []
+
+    async def factory(**kwargs):
+        worker = _FakeWorker(kwargs["worker_name"], kwargs["worker_generation"])
+        created.append(worker)
+        return worker
+
+    policy = NativeCrashQuarantine(lambda: {"model": "bird"}, root=tmp_path)
+    supervisor = ClassifierSupervisor(
+        live_worker_count=1,
+        background_worker_count=1,
+        heartbeat_timeout_seconds=5,
+        hard_deadline_seconds=10,
+        worker_factory=factory,
+        crash_quarantine=policy,
+    )
+    try:
+        await supervisor.start("live")
+        await supervisor.start("background")
+        created[0].exit_code = -signal.SIGSEGV
+        await supervisor._replace_worker(
+            "live", 0, reason="worker_exited", assignment_error=ClassifierWorkerExitedError("exited"), kill=False
+        )
+        assert len(created) == 2
+        with pytest.raises(NativeCrashQuarantinedError):
+            await supervisor.classify(
+                priority="background",
+                work_id="test",
+                lease_token=1,
+                image_b64="unused",
+                camera_name=None,
+                model_id=None,
+            )
+        assert created[1].sent_messages == []
+        assert supervisor._metrics["live"]["last_exit_reason"] == "native_runtime_quarantined"
+    finally:
+        await supervisor.shutdown()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("startup_error", [RuntimeError("exit before ready"), TimeoutError()])
+async def test_native_startup_crash_blocks_every_pool_without_another_launch(tmp_path, startup_error):
+    created = []
+
+    async def factory(**kwargs):
+        worker = _FakeWorker(kwargs["worker_name"], kwargs["worker_generation"])
+
+        async def ready(**_kwargs):
+            worker.exit_code = -signal.SIGSEGV
+            raise startup_error
+
+        worker.wait_until_ready = ready
+        created.append(worker)
+        return worker
+
+    policy = NativeCrashQuarantine(lambda: {"model": "bird", "provider": "gpu"}, root=tmp_path)
+    supervisor = ClassifierSupervisor(
+        live_worker_count=1,
+        background_worker_count=1,
+        heartbeat_timeout_seconds=5,
+        hard_deadline_seconds=10,
+        worker_factory=factory,
+        crash_quarantine=policy,
+    )
+    try:
+        for priority in ("live", "background", "video", "live"):
+            with pytest.raises(NativeCrashQuarantinedError):
+                await supervisor._spawn_worker(priority, 0, 1)
+        assert len(created) == 1
+        assert created[0].closed
+    finally:
+        await supervisor.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_worker_waiting_for_init_lock_rechecks_native_quarantine(tmp_path):
+    created = asyncio.Event()
+    worker = _FakeWorker("background-0", 1)
+    started = []
+
+    async def factory(**_kwargs):
+        created.set()
+        return worker
+
+    async def start():
+        started.append(True)
+
+    worker.start = start
+    policy = NativeCrashQuarantine(lambda: {"model": "bird"}, root=tmp_path)
+    supervisor = ClassifierSupervisor(
+        live_worker_count=1,
+        background_worker_count=1,
+        heartbeat_timeout_seconds=5,
+        hard_deadline_seconds=10,
+        worker_factory=factory,
+        crash_quarantine=policy,
+    )
+    await supervisor._global_init_lock.acquire()
+    task = asyncio.create_task(supervisor._spawn_worker("background", 0, 1))
+    try:
+        await asyncio.wait_for(created.wait(), 1)
+        policy.record(policy.guard(), -signal.SIGABRT)
+        supervisor._global_init_lock.release()
+        with pytest.raises(NativeCrashQuarantinedError):
+            await task
+        assert not started
+    finally:
+        if supervisor._global_init_lock.locked():
+            supervisor._global_init_lock.release()
+        await supervisor.shutdown()
 
 
 class _FakeWorker:
@@ -128,6 +293,169 @@ def _find_worker(created: list[_FakeWorker], worker_name: str, generation: int) 
         if worker.worker_name == worker_name and worker.worker_generation == generation:
             return worker
     raise AssertionError(f"worker not found: {worker_name} gen={generation}")
+
+
+@pytest.mark.asyncio
+async def test_cancelled_startup_reaps_the_worker_before_returning():
+    entered = asyncio.Event()
+    worker = _FakeWorker("live-0", 1)
+
+    async def wait_until_ready(**_kwargs):
+        entered.set()
+        await asyncio.Event().wait()
+
+    worker.wait_until_ready = wait_until_ready
+
+    async def factory(**_kwargs):
+        return worker
+
+    supervisor = ClassifierSupervisor(
+        live_worker_count=1,
+        background_worker_count=0,
+        heartbeat_timeout_seconds=5,
+        hard_deadline_seconds=10,
+        worker_factory=factory,
+    )
+    startup = asyncio.create_task(supervisor._spawn_worker("live", 0, generation=1))
+    await asyncio.wait_for(entered.wait(), 1)
+    startup.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await startup
+    assert worker.terminated
+    assert worker.closed
+
+
+@pytest.mark.asyncio
+async def test_failed_cleanup_is_not_hidden_from_the_caller():
+    worker = _FakeWorker("live-0", 1)
+
+    async def terminate():
+        raise TimeoutError("worker did not exit")
+
+    worker.terminate = terminate
+    supervisor = ClassifierSupervisor(
+        live_worker_count=1,
+        background_worker_count=0,
+        heartbeat_timeout_seconds=5,
+        hard_deadline_seconds=10,
+    )
+    with pytest.raises(TimeoutError, match="worker did not exit"):
+        await supervisor._close_failed_worker(worker)
+    assert supervisor._cleanup_pending["live-0"] is worker
+
+
+@pytest.mark.asyncio
+async def test_a_cleanup_timeout_blocks_replacement_until_the_old_worker_is_reaped():
+    created = []
+
+    async def factory(**kwargs):
+        worker = _FakeWorker(kwargs["worker_name"], kwargs["worker_generation"])
+        created.append(worker)
+        return worker
+
+    supervisor = ClassifierSupervisor(
+        live_worker_count=1,
+        background_worker_count=0,
+        heartbeat_timeout_seconds=5,
+        hard_deadline_seconds=10,
+        worker_factory=factory,
+    )
+    await supervisor.start("live")
+    old = created[0]
+
+    async def stuck():
+        raise TimeoutError("still alive")
+
+    old.kill = stuck
+    old.terminate = stuck
+    try:
+        await supervisor.restart_pool("live")
+        assert len(created) == 1
+        assert supervisor._slots["live"][0].worker is None
+        assert supervisor._cleanup_pending["live-0"] is old
+        assert supervisor.get_metrics()["live"]["last_exit_reason"] == "cleanup_failed"
+        await supervisor._restore_unavailable_slots("live")
+        assert len(created) == 1
+        old.terminate = lambda: _FakeWorker.terminate(old)
+        await supervisor._restore_unavailable_slots("live")
+        assert old.closed
+        assert len(created) == 2
+        assert not supervisor._cleanup_pending
+    finally:
+        old.terminate = lambda: _FakeWorker.terminate(old)
+        await supervisor.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_cancelled_replacement_retains_ownership_of_the_old_worker():
+    created = []
+
+    async def factory(**kwargs):
+        worker = _FakeWorker(kwargs["worker_name"], kwargs["worker_generation"])
+        created.append(worker)
+        return worker
+
+    supervisor = ClassifierSupervisor(
+        live_worker_count=1,
+        background_worker_count=0,
+        heartbeat_timeout_seconds=5,
+        hard_deadline_seconds=10,
+        worker_factory=factory,
+    )
+    await supervisor.start("live")
+    entered = asyncio.Event()
+    old = created[0]
+
+    async def blocked_kill():
+        entered.set()
+        await asyncio.Event().wait()
+
+    old.kill = blocked_kill
+    replacement = asyncio.create_task(supervisor.restart_pool("live"))
+    try:
+        await asyncio.wait_for(entered.wait(), 1)
+        replacement.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await replacement
+        assert len(created) == 1
+        assert supervisor._cleanup_pending["live-0"] is old
+        assert supervisor._slots["live"][0].worker is None
+        assert not supervisor._replacing
+    finally:
+        await supervisor.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_shutdown_cleans_other_workers_even_if_one_cleanup_fails():
+    created = []
+
+    async def factory(**kwargs):
+        worker = _FakeWorker(kwargs["worker_name"], kwargs["worker_generation"])
+        created.append(worker)
+        return worker
+
+    supervisor = ClassifierSupervisor(
+        live_worker_count=2,
+        background_worker_count=0,
+        heartbeat_timeout_seconds=5,
+        hard_deadline_seconds=10,
+        worker_factory=factory,
+    )
+    await supervisor.start("live")
+
+    async def stuck():
+        raise TimeoutError("not reaped")
+
+    created[0].terminate = stuck
+    try:
+        with pytest.raises(TimeoutError, match="not reaped"):
+            await supervisor.shutdown()
+        assert created[1].closed
+        assert not supervisor._consumer_tasks
+        assert supervisor._cleanup_pending["live-0"] is created[0]
+    finally:
+        created[0].terminate = lambda: _FakeWorker.terminate(created[0])
+        await supervisor.shutdown()
 
 
 @pytest.mark.asyncio

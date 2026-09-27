@@ -163,8 +163,12 @@ async def test_inaturalist_tokens_are_encrypted_and_logout_clears_all_oauth_rows
     assert row[0] != "inat-access"
     assert row[1] != "inat-refresh"
 
-    response = await logout(auth=AuthContext(AuthLevel.OWNER, username="owner"))
-    assert response["message"].startswith("Logged out successfully")
+    from fastapi import Response
+
+    http_response = Response()
+    response = await logout(response=http_response, _auth=AuthContext(AuthLevel.OWNER, username="owner"))
+    assert response.message.startswith("Logged out successfully")
+    assert "Max-Age=0" in http_response.headers["set-cookie"]
 
     async with aiosqlite.connect(db_path) as db:
         async with db.execute("SELECT COUNT(*) FROM oauth_tokens") as cursor:

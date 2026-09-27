@@ -1,4 +1,4 @@
-import type { LeaderboardPortrait, LeaderboardSpan } from '../api';
+import type { LeaderboardPortrait } from '../api';
 import type { SourceMode } from './source-metrics';
 import { activityTimestampForMode, countForMode, deltaForMode, trendForMode } from './source-metrics';
 
@@ -8,7 +8,7 @@ export interface ShowcaseRow {
     displayName: string;
     subName: string | null;
     count: number;
-    /** The trend as the table prints it; null for the all-time span, which has no previous window. */
+    /** The trend as the table prints it; null when there is no fully recorded earlier window to compare with. */
     trend: string | null;
     delta: number | null;
     avgConfidence: number | null;
@@ -18,6 +18,8 @@ export interface ShowcaseRow {
     /** The species' reference image from the taxonomy cache, and where it came from. */
     reference: string | null;
     referenceSource: string | null;
+    /** Probably a misidentification: only the camera backs it and nobody reported it nearby. */
+    flagged: boolean;
 }
 
 /** The subset of a leaderboard table row the showcase needs. */
@@ -61,10 +63,12 @@ export function portraitFor(row: ShowcaseSource, portraits: LeaderboardPortrait[
 export function buildShowcaseRows<T extends ShowcaseSource>(
     rows: T[],
     options: {
-        span: LeaderboardSpan;
+        /** False for the all-time span, and for a window whose predecessor began before the history did. */
+        trendAvailable: boolean;
         sourceMode: SourceMode;
         portraits: LeaderboardPortrait[];
         referenceFor: (species: string) => ReferenceImage;
+        isFlagged?: (row: T) => boolean;
         limit?: number;
     }
 ): ShowcaseRow[] {
@@ -77,13 +81,14 @@ export function buildShowcaseRows<T extends ShowcaseSource>(
             displayName: row.displayName,
             subName: row.subName,
             count: countForMode(metricRow, options.sourceMode),
-            trend: options.span === 'all' ? null : trendForMode(metricRow, options.sourceMode),
-            delta: options.span === 'all' ? null : (deltaForMode(metricRow, options.sourceMode) ?? null),
+            trend: options.trendAvailable ? trendForMode(metricRow, options.sourceMode) : null,
+            delta: options.trendAvailable ? (deltaForMode(metricRow, options.sourceMode) ?? null) : null,
             avgConfidence: row.avg_confidence ?? null,
             lastSeen: activityTimestampForMode(metricRow, options.sourceMode) ?? null,
             photo: portraitFor(row, options.portraits),
             reference: reference.url,
-            referenceSource: reference.source
+            referenceSource: reference.source,
+            flagged: options.isFlagged?.(row) ?? false
         };
     });
 }

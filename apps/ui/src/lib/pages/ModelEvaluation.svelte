@@ -1,5 +1,6 @@
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte';
+    import { confirmAction } from '../stores/confirm_dialog.svelte';
     import {
         startModelEvalRun,
         listModelEvalRuns,
@@ -146,9 +147,15 @@
 
     async function cancelRun() {
         if (!active) return;
-        if (!confirm(`Cancel run ${active.run_id}? Partial artifacts will be kept.`)) return;
+        const runId = active.run_id;
+        const confirmed = await confirmAction({
+            title: 'Cancel evaluation run',
+            message: `Cancel run ${runId}? Partial artifacts will be kept.`,
+            confirmLabel: 'Cancel run'
+        });
+        if (!confirmed) return;
         try {
-            await cancelModelEvalRun(active.run_id);
+            await cancelModelEvalRun(runId);
             await refresh();
         } catch (e) {
             error = (e as Error).message;
@@ -156,7 +163,12 @@
     }
 
     async function deleteRun(runId: string) {
-        if (!confirm(`Delete eval run ${runId}? Artifacts will be removed.`)) return;
+        const confirmed = await confirmAction({
+            title: 'Delete evaluation run',
+            message: `Delete eval run ${runId}? Artifacts will be removed.`,
+            confirmLabel: 'Delete run'
+        });
+        if (!confirmed) return;
         try {
             await deleteModelEvalRun(runId);
             if (selectedRunId === runId) {

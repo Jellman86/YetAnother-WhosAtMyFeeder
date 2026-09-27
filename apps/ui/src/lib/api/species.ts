@@ -165,6 +165,15 @@ export async function searchSpecies(query: string, limit?: number, hydrateMissin
     return handleResponse<SearchResult[]>(response);
 }
 
+/**
+ * The opening list of every "which species is it?" picker: for an owner, the species
+ * this feeder has recorded, most visits first, then the model's labels (#503). One
+ * source, so the review queue and the reclassify pickers always offer the same list.
+ */
+export async function fetchFeederSpecies(limit: number = 20): Promise<SearchResult[]> {
+    return searchSpecies('', limit, true);
+}
+
 export type SeasonalityResult = paths['/api/inaturalist/seasonality']['get']['response'];
 
 export interface SpeciesRangeMap {

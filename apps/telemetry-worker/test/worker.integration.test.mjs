@@ -103,16 +103,21 @@ test("user metrics dashboard renders a bounded daily trend and distinct mode", a
     INSERT INTO heartbeat_daily (
       report_date, installation_id_hash, version, model, country, last_reported_at
     ) VALUES
+      (date('now', '-3 days'), 'install-a', '2.15.0', 'model-a', 'GB', datetime('now', '-3 days')),
+      (date('now', '-3 days'), 'install-b', '2.15.0', 'model-b', 'US', datetime('now', '-3 days')),
+      (date('now', '-3 days'), 'install-c', '2.15.0', 'model-b', 'US', datetime('now', '-3 days')),
+      (date('now', '-2 days'), 'install-a', '2.15.0', 'model-a', 'GB', datetime('now', '-2 days')),
       (date('now', '-1 day'), 'install-a', '2.15.0', 'model-a', 'GB', datetime('now', '-1 day')),
-      (date('now'), 'install-a', '2.15.0', 'model-a', 'GB', datetime('now')),
-      (date('now'), 'install-b', '2.15.0', 'model-b', 'US', datetime('now'))
+      (date('now', '-1 day'), 'install-b', '2.15.0', 'model-b', 'US', datetime('now', '-1 day')),
+      (date('now', '-1 day'), 'install-c', '2.15.0', 'model-b', 'US', datetime('now', '-1 day')),
+      (date('now'), 'install-a', '2.15.0', 'model-a', 'GB', datetime('now'))
   `).run();
   t.after(async () => {
     await usageDb.prepare(
       "DELETE FROM heartbeats WHERE installation_id LIKE 'dashboard-design-install-%'",
     ).run();
     await usageDb.prepare(
-      "DELETE FROM heartbeat_daily WHERE installation_id_hash IN ('install-a', 'install-b')",
+      "DELETE FROM heartbeat_daily WHERE installation_id_hash IN ('install-a', 'install-b', 'install-c')",
     ).run();
   });
 
@@ -123,10 +128,18 @@ test("user metrics dashboard renders a bounded daily trend and distinct mode", a
   assert.match(body, /<title>YA-WAMF User Metrics<\/title>/);
   assert.match(body, /<body class="view-usage">/);
   assert.match(body, />User Metrics<\/a>/);
-  assert.match(body, /Active installs by day/);
-  assert.match(body, /aria-label="Daily active installs trend"/);
+  assert.match(body, /Reporting installs by completed UTC day/);
+  assert.match(body, /aria-label="Reporting installs by completed UTC day"/);
   assert.match(body, /aria-describedby="active-install-trend-data"/);
-  assert.match(body, /id="active-install-trend-data">Daily values for the selected 7-day window/);
+  assert.match(body, /id="active-install-trend-data">Daily values for the last 7 completed UTC days/);
+  const dailyValues = body.match(/id="active-install-trend-data">([^<]+)/)?.[1] ?? "";
+  assert.match(dailyValues, /: 3\. Peak: 3/);
+  assert.match(dailyValues, /: not available; .*: 3\./, "a suppressed cohort must not read as zero");
+  assert.doesNotMatch(dailyValues, /: 1;/, "today's incomplete rollup must not appear as a drop");
+  assert.equal((body.match(/class="trend-line"/g) ?? []).length, 2, "privacy gaps must break the plotted line");
+  assert.match(body, /latest completed UTC day/);
+  assert.match(body, /Reported in last 7 days/);
+  assert.match(body, /Reporting installs seen in last 90 days/);
   assert.match(body, /<svg[^>]+class="trend-chart"/);
   assert.match(body, /class="usage-overview"/);
   assert.match(body, /Audience footprint/);
@@ -172,9 +185,12 @@ test("health data dashboard renders severity-led trends and concise issue detail
   assert.match(body, /<title>YA-WAMF Health Data<\/title>/);
   assert.match(body, /<body class="view-health">/);
   assert.match(body, />Health Data<\/a>/);
-  assert.match(body, /Reports by day/);
-  assert.match(body, /aria-label="Daily health reports trend"/);
+  assert.match(body, /Reports by completed UTC day/);
+  assert.match(body, /aria-label="Health reports by completed UTC day"/);
   assert.match(body, /aria-describedby="health-report-trend-data"/);
+  const healthDailyValues = body.match(/id="health-report-trend-data">([^<]+)/)?.[1] ?? "";
+  assert.doesNotMatch(healthDailyValues, /: 3[.;]/, "today's reports must not appear in the completed-day chart");
+  assert.match(body, /<strong>—<\/strong><span>latest completed UTC day<\/span>/);
   assert.match(body, /severity-pill severity-critical/);
   assert.match(body, /class="health-command"/);
   assert.match(body, /Operational signal board/);
@@ -549,7 +565,9 @@ test("mixed legacy and v3 health cohorts retain real legacy issue detail", async
   const dashboard = await mf.dispatchFetch("http://worker.test/dashboard?view=health&days=90");
   const dashboardBody = await dashboard.text();
   assert.equal(dashboard.status, 200);
-  assert.match(dashboardBody, /includes cumulative legacy counters/i);
+  assert.match(dashboardBody, /includes lifetime counters from older clients/i);
+  assert.match(dashboardBody, /only groups and batches are scoped to the selected window/i);
+  assert.doesNotMatch(dashboardBody, /new events in this window/i);
   assert.match(dashboardBody, /mixed schema failure/i);
 });
 

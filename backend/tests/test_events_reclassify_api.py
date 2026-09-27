@@ -304,7 +304,7 @@ async def test_classifier_wildlife_test_endpoint_passes_full_frame_input_context
     app.dependency_overrides[require_owner] = lambda: AuthContext(auth_level=AuthLevel.OWNER, username="owner")
 
     try:
-        classifier_router.classifier_service.classify_wildlife = MagicMock(
+        classifier_router.classifier_service.classify_wildlife_async = AsyncMock(
             return_value=[{"label": "Mammal", "score": 0.94, "index": 2}]
         )
 
@@ -316,8 +316,8 @@ async def test_classifier_wildlife_test_endpoint_passes_full_frame_input_context
         )
 
         assert response.status_code == 200, response.text
-        classifier_router.classifier_service.classify_wildlife.assert_called_once()
-        assert classifier_router.classifier_service.classify_wildlife.call_args.kwargs["input_context"] == {
+        classifier_router.classifier_service.classify_wildlife_async.assert_awaited_once()
+        assert classifier_router.classifier_service.classify_wildlife_async.await_args.kwargs["input_context"] == {
             "is_cropped": False
         }
     finally:

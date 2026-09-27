@@ -66,6 +66,7 @@
     import { authStore } from '../stores/auth.svelte';
     import { validateAuthSettingsSave } from '../auth-password-policy';
     import { toastStore } from '../stores/toast.svelte';
+    import { confirmAction } from '../stores/confirm_dialog.svelte';
     import { jobProgressStore } from '../stores/job_progress.svelte';
     import { jobDiagnosticsStore } from '../stores/job_diagnostics.svelte';
     import { notificationCenter } from '../stores/notification_center.svelte';
@@ -266,6 +267,11 @@
     let taxonomyStatus = $state<TaxonomySyncStatus | null>(null);
     let syncingTaxonomy = $state(false);
     let taxonomyPollInterval: ReturnType<typeof setInterval> | undefined;
+    // The repair starts as a background task after the request returns, so the first
+    // status reads can still say idle. Keep polling for a bounded while after starting:
+    // a run with nothing to repair finishes before it is ever seen running.
+    const TAXONOMY_START_GRACE_MS = 15_000;
+    let taxonomyAwaitingStartUntil = 0;
     let taxonomyStatusLoading = false;
 
     // Location Settings
@@ -2102,11 +2108,13 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         else window.history.pushState(null, '', toAppPath(path));
     }
 
-    // Drive taxonomy polling from the derived active tab so router-driven changes
-    // (back/forward, deep links) still flip the polling lifecycle correctly.
+    // Drive taxonomy status from the derived active tab so router-driven changes
+    // (back/forward, deep links) still flip the lifecycle correctly. Opening the tab reads
+    // the status once; polling runs only while a repair runs, not every 3 s for as long as
+    // the tab stays open.
     $effect(() => {
         if (activeTab === 'data') {
-            startTaxonomyPolling();
+            void loadTaxonomyStatus();
         } else {
             stopTaxonomyPolling();
         }
@@ -2149,6 +2157,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         try {
             taxonomyStatus = await fetchTaxonomyStatus();
             if (taxonomyStatus.is_running) {
+                taxonomyAwaitingStartUntil = 0;
+                startTaxonomyPolling();
                 jobProgressStore.upsertRunning({
                     id: 'taxonomy:sync',
                     kind: 'taxonomy_sync',
@@ -2159,6 +2169,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     source: 'poll'
                 });
             } else if (taxonomyStatus.progress_state === 'failed') {
+                taxonomyAwaitingStartUntil = 0;
                 stopTaxonomyPolling();
                 jobProgressStore.markFailed({
                     id: 'taxonomy:sync',
@@ -2170,6 +2181,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     source: 'poll'
                 });
             } else if (taxonomyStatus.progress_state === 'completed' && taxonomyStatus.processed > 0) {
+                taxonomyAwaitingStartUntil = 0;
                 stopTaxonomyPolling();
                 jobProgressStore.markCompleted({
                     id: 'taxonomy:sync',
@@ -2179,7 +2191,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     total: taxonomyStatus.total,
                     source: 'poll'
                 });
-            } else {
+            } else if (Date.now() >= taxonomyAwaitingStartUntil) {
+                stopTaxonomyPolling();
                 jobProgressStore.closeActiveByPrefix('taxonomy:', 'stale');
             }
         } catch (e) {
@@ -2202,9 +2215,12 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         syncingTaxonomy = true;
         try {
             await startTaxonomySync();
+            taxonomyAwaitingStartUntil = Date.now() + TAXONOMY_START_GRACE_MS;
+            startTaxonomyPolling();
             await loadTaxonomyStatus();
             message = { type: 'success', text: $_('settings.data.taxonomy_syncing') };
         } catch (e) {
+            taxonomyAwaitingStartUntil = 0;
             message = { type: 'error', text: $_('settings.data.taxonomy_sync_error', { values: { error: getErrorMessage(e) } }) };
         } finally {
             syncingTaxonomy = false;
@@ -2240,10 +2256,15 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     }
 
     async function handleApplyTimezoneRepair() {
-        const confirmMsg = $_('settings.data.timezone_repair_confirm', {
-            default: 'Apply safe timezone repairs to the previewed detections?'
+        const confirmed = await confirmAction({
+            title: $_('settings.data.timezone_repair_title', { default: 'Timezone Repair' }),
+            message: $_('settings.data.timezone_repair_confirm', {
+                default: 'Apply safe timezone repairs to the previewed detections?'
+            }),
+            confirmLabel: $_('settings.data.timezone_repair_apply_button', { default: 'Apply Timezone Repair' }),
+            tone: 'default'
         });
-        if (!confirm(confirmMsg)) return;
+        if (!confirmed) return;
 
         applyingTimezoneRepair = true;
         try {
@@ -2278,6 +2299,20 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     }
 
     async function handleCleanup() {
+        // Deletes history outright, so it asks first like every other destructive action.
+        // With unlimited retention the server deletes nothing, so there is nothing to ask.
+        const days = maintenanceStats?.retention_days ?? retentionDays;
+        if (days > 0) {
+            const confirmed = await confirmAction({
+                title: $_('settings.data.purge_button', { default: 'Purge Old Records' }),
+                message: $_('settings.data.purge_confirm', {
+                    values: { count: maintenanceStats?.detections_to_cleanup ?? 0, days },
+                    default: "Permanently delete {count} detections and the BirdNET-Go audio older than {days} days? Favourites and each species' newest kept visits stay. This cannot be undone."
+                }),
+                confirmLabel: $_('settings.data.purge_button', { default: 'Purge Old Records' })
+            });
+            if (!confirmed) return;
+        }
         cleaningUp = true;
         message = null;
         try {
@@ -2296,10 +2331,14 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     }
 
     async function handleClearFavorites() {
-        const confirmMsg = $_('settings.data.clear_favorites_confirm', {
-            default: 'Remove all favorite markers? This cannot be undone.'
+        const confirmed = await confirmAction({
+            title: $_('settings.data.clear_favorites_button', { default: 'Delete All Favorites' }),
+            message: $_('settings.data.clear_favorites_confirm', {
+                default: 'Remove all favorite markers? This cannot be undone.'
+            }),
+            confirmLabel: $_('settings.data.clear_favorites_button', { default: 'Delete All Favorites' })
         });
-        if (!confirm(confirmMsg)) return;
+        if (!confirmed) return;
 
         clearingFavorites = true;
         message = null;
@@ -2321,10 +2360,14 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     }
 
     async function handlePurgeMissingMedia() {
-        const confirmMsg = $_('settings.data.purge_missing_media_confirm', {
-            default: 'Scan detections whose Frigate event, clip, or snapshot is missing and apply the configured policy?'
+        const confirmed = await confirmAction({
+            title: $_('settings.data.purge_missing_media', { default: 'Run media integrity scan now' }),
+            message: $_('settings.data.purge_missing_media_confirm', {
+                default: 'Scan detections whose Frigate event, clip, or snapshot is missing and apply the configured policy?'
+            }),
+            confirmLabel: $_('settings.data.purge_missing_media', { default: 'Run media integrity scan now' })
         });
-        if (!confirm(confirmMsg)) return;
+        if (!confirmed) return;
 
         purgingMissingMedia = true;
         message = null;
@@ -2361,7 +2404,12 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             console.warn('Translation lookup failed, using fallback', e);
         }
 
-        if (!confirm(confirmMsg)) {
+        const confirmed = await confirmAction({
+            title: $_('settings.danger.reset_button', { default: 'Reset Database & Cache' }),
+            message: confirmMsg,
+            confirmLabel: $_('settings.danger.reset_button', { default: 'Reset Database & Cache' })
+        });
+        if (!confirmed) {
             return;
         }
 
@@ -2390,7 +2438,12 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             console.warn('Translation lookup failed, using fallback', e);
         }
 
-        if (!confirm(confirmMsg)) {
+        const confirmed = await confirmAction({
+            title: $_('settings.danger.clear_feedback_button', { default: 'Clear Personalization Data' }),
+            message: confirmMsg,
+            confirmLabel: $_('settings.danger.clear_feedback_button', { default: 'Clear Personalization Data' })
+        });
+        if (!confirmed) {
             return;
         }
 
@@ -2418,6 +2471,15 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     }
 
     async function handleCacheCleanup() {
+        // One click once deleted 59 GB here without a word. It asks first now.
+        const confirmed = await confirmAction({
+            title: $_('settings.data.cache_clear_button', { default: 'Clear Cached Files' }),
+            message: $_('settings.data.cache_cleanup_confirm', {
+                default: "Delete cached photos and clips older than the retention period, and cached files that no longer belong to a detection? Favourites and each species' newest kept visits stay. This cannot be undone."
+            }),
+            confirmLabel: $_('settings.data.cache_clear_button', { default: 'Clear Cached Files' })
+        });
+        if (!confirmed) return;
         cleaningCache = true;
         message = null;
         try {
@@ -2494,9 +2556,14 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     }
 
     async function handleExportConfigBackup() {
-        const confirmed = window.confirm(
-            'This backup includes secrets such as tokens, webhooks, passwords, and auth secrets. Store it somewhere private?'
-        );
+        const confirmed = await confirmAction({
+            title: $_('settings.data.config_backup_export', { default: 'Export Config' }),
+            message: $_('settings.data.config_backup_export_confirm', {
+                default: 'This backup includes secrets such as tokens, webhooks, passwords, and auth secrets. Store it somewhere private?'
+            }),
+            confirmLabel: $_('settings.data.config_backup_export_confirm_button', { default: 'Export backup' }),
+            tone: 'default'
+        });
         if (!confirmed) return;
 
         exportingConfigBackup = true;
@@ -2511,18 +2578,25 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             link.click();
             link.remove();
             URL.revokeObjectURL(url);
-            message = { type: 'success', text: 'Configuration backup exported.' };
+            message = { type: 'success', text: $_('settings.data.config_backup_exported', { default: 'Configuration backup exported.' }) };
         } catch (e) {
-            message = { type: 'error', text: getErrorMessage(e) || 'Failed to export configuration backup' };
+            message = {
+                type: 'error',
+                text: getErrorMessage(e) || $_('settings.data.config_backup_export_error', { default: 'Failed to export configuration backup' })
+            };
         } finally {
             exportingConfigBackup = false;
         }
     }
 
     async function handleImportConfigBackup(file: File) {
-        const confirmed = window.confirm(
-            'Importing this backup will replace the current YA-WAMF configuration, including secrets. Continue?'
-        );
+        const confirmed = await confirmAction({
+            title: $_('settings.data.config_backup_import', { default: 'Import Config' }),
+            message: $_('settings.data.config_backup_import_confirm', {
+                default: 'Importing this backup replaces the current YA-WAMF configuration, including secrets. This installation keeps its own sign-in sessions and the key for its stored OAuth tokens. Continue?'
+            }),
+            confirmLabel: $_('settings.data.config_backup_import_confirm_button', { default: 'Replace configuration' })
+        });
         if (!confirmed) return;
 
         importingConfigBackup = true;
@@ -2534,12 +2608,15 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             await loadSettings(true);
             message = {
                 type: 'success',
-                text: `Configuration backup imported (${result.changed_fields.length} sections changed). Run a backfill when you are ready.`
+                text: $_('settings.data.config_backup_imported', {
+                    values: { count: result.changed_fields.length },
+                    default: 'Configuration backup imported ({count} sections changed). Run a backfill when you are ready.'
+                })
             };
         } catch (e) {
             const text = e instanceof SyntaxError
-                ? 'Selected file is not valid JSON'
-                : getErrorMessage(e) || 'Failed to import configuration backup';
+                ? $_('settings.data.config_backup_invalid_json', { default: 'The selected file is not valid JSON.' })
+                : getErrorMessage(e) || $_('settings.data.config_backup_import_error', { default: 'Failed to import configuration backup' });
             message = { type: 'error', text };
         } finally {
             importingConfigBackup = false;

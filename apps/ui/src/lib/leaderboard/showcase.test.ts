@@ -32,9 +32,9 @@ describe('the leaderboard showcase rows', () => {
         expect(portraitFor(row('Coal Tit'), portraits)).toBeNull();
     });
 
-    it('carries a reference image only as a labelled stand-in, and no trend for the all-time span', () => {
+    it('carries a reference image only as a labelled stand-in, and no trend without a window to compare', () => {
         const rows = buildShowcaseRows([row('Coal Tit'), row('Dunnock', { taxa_id: 13988 })], {
-            span: 'all',
+            trendAvailable: false,
             sourceMode: 'seen',
             portraits,
             referenceFor: (species) => (species === 'Coal Tit' ? { url: 'https://ref/coal.jpg', source: 'wikipedia' } : { url: null, source: null })
@@ -45,10 +45,25 @@ describe('the leaderboard showcase rows', () => {
 
     it('takes the leader plus one tile per slot, in rank order', () => {
         const many = Array.from({ length: 20 }, (_, i) => row(`Species ${i}`));
-        const rows = buildShowcaseRows(many, { span: 'month', sourceMode: 'seen', portraits: [], referenceFor: () => ({ url: null, source: null }) });
+        const rows = buildShowcaseRows(many, { trendAvailable: true, sourceMode: 'seen', portraits: [], referenceFor: () => ({ url: null, source: null }) });
         expect(rows).toHaveLength(SHOWCASE_TILES + 1);
         expect(rows[0].key).toBe('Species 0');
         expect(rows[0].trend).toBe('+6');
+    });
+});
+
+describe('the showcase flag', () => {
+    it('carries the page\'s misidentification flag onto the tiles, and nothing when there is no rule', () => {
+        const rows = buildShowcaseRows([row('Dunnock'), row('Golden-crowned Sparrow')], {
+            trendAvailable: false,
+            sourceMode: 'seen',
+            portraits: [],
+            referenceFor: () => ({ url: null, source: null }),
+            isFlagged: (candidate) => candidate.species === 'Golden-crowned Sparrow'
+        });
+        expect(rows.map((item) => item.flagged)).toEqual([false, true]);
+        const unflagged = buildShowcaseRows([row('Dunnock')], { trendAvailable: false, sourceMode: 'seen', portraits: [], referenceFor: () => ({ url: null, source: null }) });
+        expect(unflagged[0].flagged).toBe(false);
     });
 });
 

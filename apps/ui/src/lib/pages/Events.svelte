@@ -15,6 +15,7 @@
         fetchEventsCount,
         analyzeDetection,
         searchSpecies,
+        fetchFeederSpecies,
         type Detection,
         type EventFilters,
         type EventFilterSpecies,
@@ -30,6 +31,7 @@
     import { fullVisitStore } from '../stores/full-visit.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { toastStore } from '../stores/toast.svelte';
+    import { confirmAction } from '../stores/confirm_dialog.svelte';
     import { _ } from 'svelte-i18n';
     import Pagination from '../components/Pagination.svelte';
     import DetectionCard from '../components/DetectionCard.svelte';
@@ -41,6 +43,7 @@
     import { toLocalYMD } from '../utils/date-only';
     import { getErrorMessage } from '../utils/error-handling';
     import { selectReclassificationStrategy } from '../utils/reclassification';
+    import { speciesPickerNames } from '../utils/species-picker';
 
     import { getBirdNames } from '../naming';
 
@@ -448,7 +451,7 @@
             bulkSearching = true;
             (async () => {
                 try {
-                    bulkSearchResults = await searchSpecies('', 20, true);
+                    bulkSearchResults = await fetchFeederSpecies();
                 } catch (e) {
                     console.error('Bulk species search failed', e);
                     bulkSearchResults = classifierLabels.slice(0, 20).map((label) => ({
@@ -701,19 +704,29 @@
                 selectedEvent = null;
             }
             await refreshEventMetadata(true, false);
-        } catch {} finally { hiding = false; }
+        } catch (e) {
+            toastStore.error($_('notifications.hide_failed', { values: { message: getErrorMessage(e) } }));
+        } finally { hiding = false; }
     }
 
     async function handleDelete() {
-        if (!selectedEvent || !confirm($_('actions.confirm_delete', { values: { species: selectedEvent.display_name } }))) return;
+        if (!selectedEvent) return;
+        const target = selectedEvent;
+        if (!(await confirmAction({
+            title: $_('actions.delete_detection', { default: 'Delete this visit permanently' }),
+            message: $_('actions.confirm_delete', { values: { species: target.display_name } }),
+            confirmLabel: $_('dashboard.review_session.delete', { default: 'Delete permanently' })
+        }))) return;
         deleting = true;
         try {
-            await deleteDetection(selectedEvent.frigate_event);
-            events = events.filter(e => e.frigate_event !== selectedEvent?.frigate_event);
-            detectionsStore.removeDetection(selectedEvent.frigate_event, selectedEvent.detection_time);
+            await deleteDetection(target.frigate_event);
+            events = events.filter(e => e.frigate_event !== target.frigate_event);
+            detectionsStore.removeDetection(target.frigate_event, target.detection_time);
             selectedEvent = null;
             await refreshEventMetadata(true, false);
-        } catch {} finally { deleting = false; }
+        } catch (e) {
+            toastStore.error($_('notifications.delete_failed', { values: { message: getErrorMessage(e) } }));
+        } finally { deleting = false; }
     }
 
     let showVideo = $state(false);
@@ -858,16 +871,6 @@
         return `${eventId}:${eventIndex}:${eventTime}`;
     }
 
-    function getSearchResultNames(result: SearchResult) {
-        const common = result.common_name?.trim() || null;
-        const scientific = result.scientific_name?.trim() || null;
-        const fallback = result.display_name || result.id;
-        if (common && scientific && common !== scientific) {
-            return { primary: common, secondary: scientific };
-        }
-        return { primary: common || scientific || fallback, secondary: null };
-    }
-
     function toggleSelectionMode() {
         if (!authStore.hasOwnerAccess) return;
         selectionMode = !selectionMode;
@@ -953,7 +956,7 @@
             await loadEvents();
             scheduleEventMetadataRefresh();
 
-            const names = getSearchResultNames(selection);
+            const names = speciesPickerNames(selection);
             toastStore.success(
                 `${$_('actions.manual_tag')}: ${names.primary || appliedSpecies} (${result.updated_count})`
             );
@@ -976,10 +979,15 @@
     async function handleBulkDelete() {
         if (selectedEventIds.length === 0) return;
         const count = selectedEventIds.length;
-        if (!window.confirm($_('events.bulk_delete_confirm', {
-            values: { count },
-            default: `Delete ${count} detection${count === 1 ? '' : 's'}? This cannot be undone.`
-        }))) return;
+        const confirmed = await confirmAction({
+            title: $_('actions.delete_selected', { default: 'Delete Selected' }),
+            message: $_('events.bulk_delete_confirm', {
+                values: { count },
+                default: `Delete ${count} detection${count === 1 ? '' : 's'}? This cannot be undone.`
+            }),
+            confirmLabel: $_('actions.delete_selected', { default: 'Delete Selected' })
+        });
+        if (!confirmed) return;
         bulkDeleting = true;
         const ids = [...selectedEventIds];
         try {
@@ -1494,7 +1502,7 @@
             </div>
             <div class="max-h-72 overflow-y-auto overscroll-contain p-1">
                 {#each bulkSearchResults as result}
-                    {@const names = getSearchResultNames(result)}
+                    {@const names = speciesPickerNames(result)}
                     {@const isPending = bulkTagging && bulkTagPendingId === result.id}
                     <button
                         type="button"

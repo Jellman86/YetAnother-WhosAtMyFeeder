@@ -453,6 +453,35 @@ async def test_audio_species_leaderboard_counts_window_and_prev(client: httpx.As
     assert blue_tit["heard_count"] == 1
     assert blue_tit["heard_prev_count"] == 0
     assert blue_tit["heard_percent"] == 0.0
+    # The Robin 20 days ago reaches back past the prior week, so a trend can be claimed.
+    assert payload["previous_window_complete"] is True
+    assert payload["history_start"].endswith("Z")
+
+
+@pytest.mark.asyncio
+async def test_audio_species_leaderboard_has_no_trend_before_birdnet_history_covers_it(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    async with get_db() as db:
+        await db.execute("DELETE FROM audio_detections")
+        for age in (timedelta(hours=1), timedelta(days=9)):
+            await db.execute(
+                """INSERT INTO audio_detections (timestamp, species, confidence, sensor_id, raw_data, scientific_name)
+                   VALUES (?, 'Dunnock', 0.9, 'BirdCam', '{}', 'Prunella modularis')""",
+                ((now - age).isoformat(sep=" "),),
+            )
+        await db.commit()
+
+    week = (await client.get("/api/audio/species", params={"span": "week"})).json()
+    assert week["previous_window_complete"] is False
+    month = (await client.get("/api/audio/species", params={"span": "month"})).json()
+    assert month["previous_window_complete"] is False
+    day = (await client.get("/api/audio/species", params={"span": "day"})).json()
+    assert day["previous_window_complete"] is True
+    everything = (await client.get("/api/audio/species", params={"span": "all"})).json()
+    assert everything["previous_window_complete"] is False
 
 
 @pytest.mark.asyncio

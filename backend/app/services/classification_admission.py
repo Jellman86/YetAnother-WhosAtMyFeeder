@@ -111,6 +111,11 @@ class ClassificationAdmissionCoordinator:
         self._closed = False
         self._reaper_task: asyncio.Task[None] | None = None
 
+    def reconfigure_capacities(self, *, live: int, background: int) -> None:
+        """Change future admission limits on the event loop without cancelling active work."""
+        self._live_capacity = max(1, int(live))
+        self._background_capacity = max(1, int(background))
+
     async def submit(
         self,
         *,

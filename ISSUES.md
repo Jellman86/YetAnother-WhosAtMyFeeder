@@ -5,7 +5,7 @@ This document tracks known issues and testing gaps that have not been verified e
 If you find a bug, please open a GitHub issue with the steps to reproduce and any redacted logs.
 
 Last reviewed against the GitHub issue tracker and opt-in fleet telemetry on
-**September 16, 2026**.
+**September 27, 2026**.
 
 ## P0: Active Regressions
 
@@ -13,9 +13,50 @@ Last reviewed against the GitHub issue tracker and opt-in fleet telemetry on
 
 ## P1: Active Regressions
 
-- None currently confirmed as unresolved in current `dev`.
+### REG-2026-09-23-02 — Intermittent Intel GPU native crashes during model validation
+
+The Intel image at `873ba007`, OpenVINO 2026.4.0, produced native SIGSEGV/SIGABRT
+failures in isolated GPU probes for accurate YOLOX crop, ConvNeXt Large, FocalNet EU,
+medium birds EU and small birds EU/NA. Some reruns pass, so a single successful
+compile is insufficient evidence. The running NPU configuration remained healthy;
+this does not establish that the application update introduced the GPU failures.
+The later strict sweep passed 30 CPU/NPU/GPU pairs, and two further CPU/GPU repeats
+of all six affected artifacts passed 24 runs. Retrying the original accurate-crop
+probe also passed without a runtime change, so harness changes alone do not explain
+the earlier crashes. These passes do not replace the retained failure evidence.
+The native-crash safeguard now retains exact launch-profile evidence on the config
+volume and refuses repeated launches or in-process fallback for that profile.
+The standalone OpenVINO reproducer records crash stages and cold/warm-cache runs.
+Same-model CPU recovery now runs in a separate worker, validates artifact identity
+and workload deadlines, retains degraded health and cannot erase the accelerator's
+negative evidence. Native crash summaries use existing opt-in health batches.
+These are containment and investigation tools, not a native driver/runtime fix.
+Investigate cold/warm caches, runtime/driver versions and repeated inference, then
+resolve or conservatively gate affected combinations. Keep this open until repeated
+exact-image hardware checks pass. Tracked in the
+[broader coverage roadmap](ROADMAP.md#broader-end-to-end-coverage-).
 
 ## Pending Verification (Fixes in Dev, Awaiting Reporter Confirmation)
+
+### REG-2026-09-23-03 — Worker pipe closure could precede native process exit
+
+PR #498 separates protocol closure from process reaping, adds bounded termination
+escalation and preserves cleanup ownership through cancellation. A failed cleanup
+blocks replacement. Real-process regressions passed locally and on the Intel host,
+including an ignored TERM and NPU recovery replay in disposable state. Verify the
+built dev image after deployment; this is not a claim that #490's native GPU fault
+is resolved. Tracked in the
+[inference isolation roadmap](ROADMAP.md#keep-the-web-service-and-ingest-off-the-inference-path-).
+
+### REG-2026-09-23-01 — Native classifier stalls exhaust live and backfill work (#490)
+
+The reporter's native Intel GPU runtime repeatedly expired image leases; a CPU fallback did not
+recover the run. PR #493 redirects new work to isolated workers and stops backfill after three
+consecutive classifier failures. PR #494 hardens recovery state, model lifetime, wildlife routing,
+upload tests and video-fallback accounting. Quark reproduced the recovery transition in a disposable
+service with real NPU workers; reporter confirmation is still needed for the original model/driver
+combination. See the [classifier review](docs/reviews/2026-09-23-classifier-recovery-review.md) and
+the [inference isolation roadmap](ROADMAP.md#keep-the-web-service-and-ingest-off-the-inference-path-).
 
 ### REG-2026-09-15-01 — Accepted detections can expire before notification dispatch
 
@@ -41,6 +82,34 @@ in-app notification timeline both prove one real final-mode detection end to end
 
 ## Known Remaining Exposure
 
+- **Accuracy-fixture provenance was not reproducible.** The downloader could drop
+  attribution on a rerun, assign newly selected metadata to old bytes, and admit
+  photos outside its documented CC0/CC-BY policy by filtering the observation
+  rather than the photo. The hardened downloader verifies checksums, preserves
+  metadata, uses content-addressed files and fails incomplete refreshes. Existing
+  private evaluation images are not a reviewed release benchmark; curate and pin
+  the corpus before using it to set accuracy thresholds. Tracked in the
+  [broader coverage roadmap](ROADMAP.md#broader-end-to-end-coverage-).
+
+- **Broader regression coverage remains incremental.** Test discovery, pre-merge telemetry
+  checks, a shared branch-aware gate, joined detection/notification tests and local browser
+  component checks are now implemented. Full-app browser journeys, concurrent notification
+  delivery, the test-wide database-thread workaround and populated historical migration
+  replays remain explicit gaps in the [testing guide](docs/development/testing.md), linked to
+  the [coverage roadmap](ROADMAP.md#broader-end-to-end-coverage-).
+
+- **Backfill/classifier coverage is broader but not exhaustive.** The
+  [September backfill review](docs/reviews/2026-09-23-backfill-test-hardening.md) adds
+  real-database detection/weather tests and real worker-process failures. Full retained-video
+  replay, published CUDA-image validation, labelled accuracy regressions and sustained mixed-load
+  checks remain on the [inference isolation roadmap](ROADMAP.md#keep-the-web-service-and-ingest-off-the-inference-path-).
+
+- **Low-level classifier diagnostics have separate native execution paths.** Ordinary uploaded
+  classifications now share admission and isolation, but owner-only native debug/probe endpoints
+  are not covered by the same worker deadline contract. Move these diagnostics into disposable
+  processes before treating every classifier endpoint as equally isolated. This belongs to the
+  [inference isolation roadmap](ROADMAP.md#keep-the-web-service-and-ingest-off-the-inference-path-).
+
 - **The owner system checks walk the media cache once a minute.** With PR #401 the walk no longer
   blocks the API, but it still runs every sixty seconds on every owner page, and on a large cache
   over a slow mount that is sustained disk work for a number nobody is looking at. Caching the
@@ -61,10 +130,20 @@ in-app notification timeline both prove one real final-mode detection end to end
 
 ## Open on the Tracker
 
-- **#459** Frigate video playback remains open for HLS release validation. Its implementation is
-  already isolated on `dev`; no HLS work is part of this telemetry fix.
+- **#490** Backfill and live-feed failures: safeguards are in `dev`; confirmation from the
+  original reporter/model/driver combination is still pending. Recent opt-in health reports for
+  `stage_timeout` came from older `2.20.3` installs, with no current-`dev` reproduction. It is the
+  only open bug report at this review; dependency-update pull requests are separate.
 
 ## Recently Closed (Context)
+
+### REG-2026-09-23-02 — Pre-migration backups omit committed WAL data
+
+A real SQLite restore test reproduced missing committed rows when another connection kept
+the WAL open. Backups now use SQLite's snapshot API and publish only after validation;
+failed snapshots retain existing restore points. Nine backup cases pass locally and on
+Quark. See the [regression review](docs/reviews/2026-09-23-affordable-regression-gates.md)
+and [coverage roadmap](ROADMAP.md#broader-end-to-end-coverage-).
 
 ### REG-2026-09-15-02 — Legacy health batches disappear from telemetry breakdowns
 

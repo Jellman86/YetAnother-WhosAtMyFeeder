@@ -1013,6 +1013,34 @@ async def test_process_event_maintenance_timeout_falls_back_to_snapshot_without_
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "failure", [asyncio.TimeoutError(), VideoClassificationWorkerError("video_worker_heartbeat_timeout")]
+)
+async def test_video_failure_still_opens_circuit_when_snapshot_is_filtered(monkeypatch, failure):
+    monkeypatch.setattr(settings.classification, "video_classification_failure_threshold", 1)
+    service = AutoVideoClassifierService()
+    event_id = "evt-filtered-snapshot-after-failure"
+    service._worker_failure_requeues[event_id] = auto_video_classifier_module.WORKER_FAILURE_MAX_REQUEUES
+    service._classifier = MagicMock()
+    service._classifier.classify_video_async = AsyncMock(side_effect=failure)
+    service._update_status = AsyncMock()
+    service._wait_for_clip = AsyncMock(return_value=(True, None))
+    service._classify_from_snapshot = AsyncMock(return_value="low_confidence")
+    with (
+        patch.object(
+            auto_video_classifier_module.frigate_client,
+            "get_event_with_error",
+            new=AsyncMock(return_value=({"has_clip": True}, None)),
+        ),
+        patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()),
+    ):
+        await service._process_event(event_id, "cam1", skip_delay=True, fallback_to_snapshot=True, source="maintenance")
+    service._classify_from_snapshot.assert_awaited_once()
+    assert service.get_circuit_status("maintenance")["open"] is True
+    assert service.get_circuit_status("maintenance")["failure_count"] == 1
+
+
+@pytest.mark.asyncio
 async def test_process_event_persists_top_frames_after_successful_video_classification():
     """After successful video classification, top-N frames by score should be persisted."""
     service = AutoVideoClassifierService()

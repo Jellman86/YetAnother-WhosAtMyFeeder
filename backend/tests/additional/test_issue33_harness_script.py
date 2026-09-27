@@ -6,7 +6,7 @@ from types import SimpleNamespace
 from urllib.error import HTTPError, URLError
 
 
-SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "run_issue33_harness.py"
+SCRIPT_PATH = Path(__file__).resolve().parents[3] / "scripts" / "run_issue33_harness.py"
 spec = importlib.util.spec_from_file_location("run_issue33_harness", SCRIPT_PATH)
 issue33 = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = issue33

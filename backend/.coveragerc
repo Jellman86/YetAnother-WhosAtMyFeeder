@@ -1,9 +1,10 @@
 [run]
 source = app
+branch = True
 omit = 
     */venv/*
     */tests/*
 
 [report]
 show_missing = True
-fail_under = 20
+fail_under = 70

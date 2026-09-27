@@ -329,14 +329,19 @@ Notes:
 - `PUT /api/species/common-name-override` (owner; preserves the provider name separately)
 - `DELETE /api/species/common-name-override?scientific_name=...` (owner; restores the provider name)
 - `DELETE /api/species/{species_name}/cache` (owner)
-- `GET /api/leaderboard/species`
+- `GET /api/leaderboard/species` (per species: window and previous-window counts, confirmed and
+  call-matched detections in the window; `history_start` and `previous_window_complete` say whether
+  the previous window was fully recorded; with eBird configured, `reported_nearby` per species and
+  the `nearby_radius_km` / `nearby_days_back` of that check; `window_visit_count` and
+  `window_prev_visit_count` fold frames of one species on one camera within ten minutes, as the
+  dashboard does, while `window_count` stays frames)
 
 ### Statistics
 
 - `GET /api/stats/daily-summary`
 - `GET /api/stats/detections/daily`
 - `GET /api/stats/detections/timeline`
-- `GET /api/stats/detections/activity-heatmap`
+- `GET /api/stats/detections/activity-heatmap` (optional `species` limits the grid to one species)
 - `GET /api/stats/uptime` (owner) Availability over a recent window, derived from heartbeat rows
   written every 5 minutes. Buckets with no heartbeat report `down`; buckets from before the first
   heartbeat ever recorded report `unknown`, because a fresh install has no history and that is not
@@ -452,7 +457,10 @@ model metadata. Passing undeclared rows are reported as `declared: false` and un
 - `POST /api/settings/import` (owner) — restores a configuration backup. The payload is validated
   before anything is written (`422` on a bad shape), and enabling authentication without a password
   hash is refused. A successful import replaces the current configuration and broadcasts the
-  changed fields.
+  changed fields. It keeps this installation's `auth.session_secret` and `auth.oauth_token_secret`,
+  which sign current logins and decrypt OAuth tokens stored in this database, and it applies the
+  same follow-up as a settings save: a classifier reload when the model, provider or execution
+  mode changes, and forgetting the telemetry installation when telemetry is turned off.
 - `GET /api/maintenance/taxonomy/status` (owner)
 - `POST /api/maintenance/taxonomy/sync` (owner)
 - `GET /api/maintenance/stats` (owner)

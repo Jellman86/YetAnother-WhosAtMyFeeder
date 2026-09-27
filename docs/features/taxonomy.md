@@ -19,13 +19,59 @@ The system is connected to the [iNaturalist API](https://www.inaturalist.org/). 
 **Leaderboard** in the sidebar (the page itself is headed **Species**) is where the naming style
 is most visible, because it shows both names together:
 
-![The Species page reached from Leaderboard, with the Month window and the Seen filter selected: a full-bleed card headed "Most detected this month" naming Dunnock, Prunella modularis, 243 visits, a Rising line for House Sparrow beneath it, and the start of the full rankings](../images/leaderboard.png)
+![The Leaderboard with the Month window and the Seen filter selected: Dunnock, Prunella modularis, as the large photograph with 235 visits, and eight smaller photographs beside it, four of them (Golden-crowned Sparrow, Eastern Gray Squirrel, Brown-headed Cowbird, Dark-eyed Junco) marked Check because nobody reported them nearby. Beneath, a band reads 18 species, 289 visits, busiest hour 09:00, 8 of 18 species heard or confirmed, no Rising yet because the history needs a full earlier window, and Dunnock seen most recently](../images/leaderboard.png)
 
 The **Day / Week / Month / Total** buttons set the window. **Seen / Heard / Both** decide what the
-ranking counts: **Seen** ranks by camera visits alone, **Heard** by BirdNET-Go detections, and
-**Both** by the two added together — which also brings in species that were only ever heard, never
+ranking counts: **Seen** ranks by camera visits, **Heard** by BirdNET-Go detections, and
+**Both** by the two added together, which also brings in species that were only ever heard, never
 photographed. **Both** is a sum, not an intersection: a species does not need evidence from both
 sources to appear.
+
+A visit is what the dashboard shows as one row: the frames of one species on one camera, each
+within ten minutes of the one before. A bird that sits on the feeder for twenty minutes and trips
+the camera fifteen times is one visit, so a busy regular no longer outranks birds that come and go
+simply by staying longer. **Total** has no visit counts and ranks by detections, and says so.
+
+Under the photographs, one band states the window: how many species, how many detections, the
+busiest hour of the day, how many species were **heard or confirmed**, what is rising and what was
+seen last. The rankings then say what stands behind each species besides the classifier:
+
+- **Confirmed by you**: you confirmed or named at least one of its detections in the window.
+- **Also heard**: BirdNET-Go heard the species in the same window.
+- **Heard only**: BirdNET-Go heard it, the camera never saw it.
+- **Camera only**: BirdNET-Go was listening and did not hear it, and nobody has confirmed a
+  detection. A species that is out of range for your area and shows **Camera only** is usually a
+  misidentification worth a look.
+- **Not confirmed**: nobody has confirmed a detection and BirdNET-Go is off, so silence proves
+  nothing.
+
+The **Total** window has no confirmation counts, so its evidence column only reports calls.
+
+When eBird is set up under **Settings → Integrations**, the rankings also check each species against
+what birders have reported within 50 km of the feeder in the last 30 days. A species that only the
+camera backs and that nobody has reported nearby is marked **Not reported within 50 km** in the
+rankings and **Check** on its photograph, and a note above the table counts them: they are usually misidentifications, which a wildlife-wide model makes
+more often than a regional one. Opening one lets you confirm or correct it. The check sends eBird
+your approximate location (about 11 km) rather than the exact one, runs at most every six hours, and
+is simply absent when eBird is off or does not answer.
+
+**Trend** and **Rising** compare the window with the one before it, and appear only when the history
+behind the ranking covers the whole of that earlier window: the camera's history for **Seen**,
+BirdNET-Go's for **Heard**, and both for **Both**. On a new install the page says when records start
+instead of reporting every species as a riser.
+
+Below the rankings, **Detections over time** shows when detections happened; its legend names each
+species and hides or restores it. **Weather overlays** add temperature and wind as small charts of
+their own directly underneath, lined up day for day with the bars, rather than as a second scale on
+the same chart, and shade rainy buckets behind the bars. A species keeps the same colour in
+that chart and in **Species composition**, whose labelled buttons can hide or restore a slice with
+a mouse, touch, or keyboard. **Hour x weekday activity** shows when this feeder is
+busy: brighter means busier in dark mode and darker means busier in light mode, and the busiest slot
+is outlined. Bars along the top add each hour across the week and the column on the right totals each
+day. Point at a slot, tap it on a phone, or focus the grid and use the arrow keys to read its day,
+hour and count; Escape puts the reading away. The buttons above the grid show one species' week
+instead of everyone's, which answers "when does the Robin come?" rather than "when is the feeder
+busy?". The grid fits its column at every width rather than scrolling sideways.
 
 ## Taxonomy Repair
 If your history contains old detections with inconsistent naming, run **Taxonomy repair** from

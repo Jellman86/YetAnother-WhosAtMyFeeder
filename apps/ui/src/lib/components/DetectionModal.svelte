@@ -17,6 +17,7 @@
         type ArchiveStatus,
         unfavoriteDetection,
         searchSpecies,
+        fetchFeederSpecies,
         fetchEventAudioContext,
         createInaturalistDraft,
         submitInaturalistObservation,
@@ -44,12 +45,14 @@
     import FrameStrip from './FrameStrip.svelte';
     import { currentMoment, groupCandidatesIntoMoments, preferredCandidate, type FrameMoment } from '../utils/frame-moments';
     import { WholeScenePeek } from '../utils/whole-scene-peek.svelte';
+    import { speciesPickerNames } from '../utils/species-picker';
     import VideoAnalysisFilmReel from './VideoAnalysisFilmReel.svelte';
     import { detectionsStore, type ReclassificationProgress } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { publicSettingsStore } from '../stores/public_settings.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { toastStore } from '../stores/toast.svelte';
+    import { confirmAction } from '../stores/confirm_dialog.svelte';
     import { getBirdNames } from '../naming';
     import { _ } from 'svelte-i18n';
     import { get } from 'svelte/store';
@@ -1267,7 +1270,7 @@
             isSearching = true;
             (async () => {
                 try {
-                    searchResults = await searchSpecies('', 20, true);
+                    searchResults = await fetchFeederSpecies();
                 } catch (e) {
                     console.error("Search failed", e);
                     searchResults = classifierLabels.slice(0, 20).map(l => ({
@@ -1305,18 +1308,6 @@
             searchTimeout = undefined;
         }
     });
-
-    function getResultNames(result: SearchResult) {
-        const common = result.common_name?.trim() || null;
-        const scientific = result.scientific_name?.trim() || null;
-        const fallback = result.display_name || result.id;
-
-        if (common && scientific && common !== scientific) {
-            return { primary: common, secondary: scientific };
-        }
-
-        return { primary: common || scientific || fallback, secondary: null };
-    }
 
     function formatWindDirection(deg?: number | null): string {
         if (deg === null || deg === undefined || Number.isNaN(deg)) return '';
@@ -1477,7 +1468,7 @@
             await onHideSuccess?.(detection.frigate_event, detection.detection_time, result.is_hidden);
             onClose();
         } catch (e) {
-            alert($_('notifications.reclassify_failed', { values: { message: getErrorMessage(e) } }));
+            toastStore.error($_('notifications.hide_failed', { values: { message: getErrorMessage(e) } }));
         }
     }
 
@@ -1485,7 +1476,11 @@
         if (!authStore.hasOwnerAccess) return;
         if (readOnly) return;
         if (!detection) return;
-        if (!confirm($_('actions.confirm_delete', { values: { species: detection.display_name } }))) return;
+        if (!(await confirmAction({
+            title: $_('actions.delete_detection', { default: 'Delete this visit permanently' }),
+            message: $_('actions.confirm_delete', { values: { species: detection.display_name } }),
+            confirmLabel: $_('dashboard.review_session.delete', { default: 'Delete permanently' })
+        }))) return;
 
         try {
             await deleteDetection(detection.frigate_event);
@@ -1493,7 +1488,7 @@
             await onDeleteSuccess?.(detection.frigate_event, detection.detection_time);
             onClose();
         } catch (e) {
-            alert($_('notifications.reclassify_failed', { values: { message: getErrorMessage(e) } }));
+            toastStore.error($_('notifications.delete_failed', { values: { message: getErrorMessage(e) } }));
         }
     }
 
@@ -1506,12 +1501,14 @@
                 // Unfavouriting removes the archive with it; say so before doing it (#178).
                 const archivedBytes = archiveStatus?.bytes ?? 0;
                 if (archivedBytes > 0) {
-                    const confirmed = window.confirm(
-                        $_('detection.unfavorite_confirm', {
+                    const confirmed = await confirmAction({
+                        title: $_('detection.unfavorite_button', { default: 'Remove favourite' }),
+                        message: $_('detection.unfavorite_confirm', {
                             values: { size: formatArchiveSize(archivedBytes) },
                             default: 'Remove the favourite? Its archived photo and clip ({size}) go with it. The visit stays in history.'
-                        })
-                    );
+                        }),
+                        confirmLabel: $_('detection.unfavorite_button', { default: 'Remove favourite' })
+                    });
                     if (!confirmed) return;
                 }
                 await unfavoriteDetection(detection.frigate_event);
@@ -3820,7 +3817,7 @@
                     </div>
                     <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1">
                         {#each searchResults as result}
-                            {@const names = getResultNames(result)}
+                            {@const names = speciesPickerNames(result)}
                             {@const isPending = updatingTag && pendingManualTagId === result.id}
                             <button
                                 type="button"

@@ -17,6 +17,7 @@ It is anchored by two honest assessments of *where we stand*:
 - [Telemetry Health Findings (2026-07-09)](docs/reviews/2026-07-09-telemetry-health-findings.md) — what actually fails across the fleet.
 - [Image Classification Pipeline Review (2026-07-20)](docs/reviews/2026-07-20-image-classification-pipeline-review.md) — evidence provenance, temporal consensus, HQ media, and runtime recovery.
 - [Detection Queue and Jobs Review (2026-07-22)](docs/reviews/2026-07-22-detection-queue-and-jobs-review.md) — bounded intake, restart recovery, lifecycle ordering, and owner-visible work.
+- [Classifier Recovery Review (2026-09-23)](docs/reviews/2026-09-23-classifier-recovery-review.md) — native quarantine, worker routing, health consistency and hardware checks.
 
 ---
 
@@ -683,10 +684,19 @@ The outcome still wanted is a process boundary between tier 1 (ingest and the AP
 process boundary also makes a stalled inference killable, which an in-process thread is not: the
 issue-33 plan records that the coordinator "cannot stop the underlying Python/native worker thread".
 
-What blocks a default change is a measurement, not a decision. Memory per worker is one model copy
-plus a 512MB crop detector, and the naive comparison is misleading: the same instance measured
-633MiB immediately after restart and 4.815GiB after about a day, an eightfold growth with no change
-of model. Any comparison between the modes has to be taken at a matched age over hours.
+Subprocess execution is now the default, with tests pinning it. Saved in-process preferences remain
+supported. Issue #490 adds native-runtime quarantine and recovery into isolated workers; the
+[September review](docs/reviews/2026-09-23-classifier-recovery-review.md) records the follow-up
+hardening and real NPU/GPU/CPU checks. Remaining isolation work includes owner-only native
+debug/probe endpoints and a defined replacement policy before retiring the compatibility mode.
+
+Memory comparisons still need matched model, worker count and uptime. Worker pools carry separate
+model copies and can retain crop detectors; startup RSS does not establish long-running memory cost.
+
+The [backfill test-hardening review](docs/reviews/2026-09-23-backfill-test-hardening.md) adds
+migrated-database detection/weather replays, real worker-process fault tests and a disposable
+hardware replay harness. Remaining evidence includes retained-video replay, the published CUDA
+image, a labelled accuracy corpus and sustained mixed-load memory/queue bounds.
 
 Complete when a fresh install runs inference out of process, resident memory is measured before and
 after and stated honestly in the release notes, a test pins the resolved defaults, and Settings >
@@ -705,6 +715,40 @@ allocator behaviour in the docs or fixed.
 
 #### Broader end-to-end coverage 🧪
 **Priority:** P1 | **Effort:** M | **Status:** 🔄 Targeted coverage exists
+
+The [affordable regression tiers](docs/development/testing.md) now collect the previously
+orphaned backend cases, enforce one branch-aware gate before merge and image publication, and
+test telemetry locally before merge. Joined MQTT-to-notification tests use migrated SQLite;
+local Chromium/WebKit component tests cover the Health timeline at desktop/mobile sizes.
+Actual WAL restore tests found and fixed a pre-migration backup defect. These checks do not
+close the full-app browser, concurrent notification, database-fixture lifecycle or populated
+historical-migration gaps listed in that guide. Heavy runs remain local, without a new hosted
+matrix or scheduled soak.
+
+The September 23 installed-image sweep found intermittent Intel GPU native crashes
+([REG-2026-09-23-02](ISSUES.md#reg-2026-09-23-02--intermittent-intel-gpu-native-crashes-during-model-validation))
+and a pipe-EOF/process-exit race fixed by PR #498. The strict local hardware gate now
+records every child outcome, compares exact regional artifacts against CPU, and
+separates detector contracts from classifier tests. Remaining acceptance work is
+repeatable cold/warm-cache and mixed-load GPU validation, CUDA evidence from the
+NVIDIA host, a pinned accuracy corpus with previous-release comparison, and full-app
+owner/guest, backfill and recovery browser journeys. A retry pass does not erase a
+native crash, and CPU/provider agreement is not a species-accuracy score.
+Persistent launch-profile quarantine and a standalone cold/warm-cache OpenVINO
+reproducer now support that investigation; neither establishes the crash's cause
+or closes the reporter-confirmation requirement for #490.
+Same-artifact isolated CPU recovery now checks actual provider, weight/label
+identity and workload deadlines; another installed model is not required. Bounded
+native-crash/recovery diagnostics use existing opt-in batches without higher
+frequency, per-frame writes or ingestion changes. Remaining work includes sustained
+mixed-load recovery and the original reporter's model/driver validation. Assess
+retention and query costs against the Cloudflare free-tier budget before any
+future ingestion expansion.
+
+The fixture downloader now preserves attribution and checksums, filters the photo's
+own licence, respects exclusions and keeps old images/manifests on incomplete
+refreshes. This fixes corpus provenance mechanics; the pinned, manually reviewed
+accuracy benchmark and previous-release baseline remain acceptance work.
 
 Unit/integration tests, CI, coverage reporting, migration-safety checks, and startup smoke
 checks are all in place. ARM64 image startup plus real model inference now run under QEMU before
@@ -923,7 +967,9 @@ settings architecture refactor + per-tab routing, a dedicated Jobs workspace, fa
 Explorer audio-matches filter, route-level and locale-level lazy delivery with resilient retry,
 compressed immutable frontend assets, the in-app channel-aware update prompt, a grouped
 status-aware desktop sidebar with a one-minute CPU/accelerator activity trace, and the Unraid Docker
-template + setup guide.
+template + setup guide. Audio History and Species analytics use on-demand Chart.js charts with
+keyboard-operable filters, reduced-motion support and responsive layouts; the ApexCharts dependency
+has been removed.
 
 **Backend & quality:** Alembic-only migrations, the repository pattern, opt-in anonymous telemetry
 + privacy-preserving daily rollups + replay-safe health identities + distinct aggregate User
@@ -932,6 +978,14 @@ enrichment, password-based + optional API-key auth (timing-safe), connection poo
 exception handling, bounded background-work lanes with owner-visible server status and restart
 recovery for automatic video jobs, a typed OpenAPI contract with generated SPA types, and the CI
 enforcement suite (lint/format/coverage/OpenAPI-drift/type-freshness/migration-safety).
+Telemetry trends show completed UTC days and distinguish rolling reporting windows from retained
+installations; Health Data identifies lifetime counters sent by older clients. Scheduled unknown
+analysis waits for Frigate readiness and retries transient outages, and taxonomy updates avoid
+nested database connection acquisitions. The 2.21.0 release also makes leaderboard rankings use
+visits in bounded windows, states when evidence or trend history is incomplete, and makes the
+weekday heatmap readable across pointer, touch and keyboard input. Backfills stop after repeated
+classifier-unavailable outcomes; confirmed native worker crashes can use isolated CPU recovery
+while the accelerator remains visibly unhealthy.
 
 ---
 

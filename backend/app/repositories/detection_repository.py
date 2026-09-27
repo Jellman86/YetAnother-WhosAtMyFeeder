@@ -88,6 +88,11 @@ def merge_species_count_rows(rows: list[dict]) -> list[dict]:
     return merged
 
 
+# Frames of one species on one camera belong to one visit while each is within this many minutes of
+# the one before. Keep in step with VISIT_GAP_MS in apps/ui/src/lib/utils/visit-grouping.ts.
+VISIT_GAP_MINUTES = 10
+
+
 def merge_species_leaderboard_rows(rows: list[dict]) -> list[dict]:
     """Fold leaderboard rows that are the same bird under different identity keys.
 
@@ -107,6 +112,13 @@ def merge_species_leaderboard_rows(rows: list[dict]) -> list[dict]:
             ) / total
         target["window_count"] = total
         target["prev_count"] = int(target.get("prev_count") or 0) + int(row.get("prev_count") or 0)
+        for field in (
+            "window_confirmed_count",
+            "window_audio_confirmed_count",
+            "window_visit_count",
+            "prev_visit_count",
+        ):
+            target[field] = int(target.get(field) or 0) + int(row.get(field) or 0)
         for field, pick in (("window_first_seen", min), ("window_last_seen", max)):
             left, right = target.get(field), row.get(field)
             if left is None or right is None:
@@ -3788,19 +3800,32 @@ class DetectionRepository:
         self,
         start: datetime,
         end: datetime,
+        species_name: str | None = None,
     ) -> list[tuple[datetime, int]]:
-        """Return visible detection counts grouped by UTC hour buckets."""
-        query = """
+        """Return visible detection counts grouped by UTC hour buckets, optionally for one species.
+
+        The species filter is the same canonical selection a species' own page uses, so a
+        renamed or folded taxon shows the same detections here as everywhere else.
+        """
+        join_sql, species_condition, species_params = "", "1 = 1", []
+        if species_name:
+            join_sql, species_condition, species_params = await self._canonical_species_query_parts(
+                detection_alias="d",
+                species_name=species_name,
+            )
+        query = f"""
             SELECT
-                strftime('%Y-%m-%d %H:00:00', detection_time) as bucket_start,
+                strftime('%Y-%m-%d %H:00:00', d.detection_time) as bucket_start,
                 COUNT(*) as c
-            FROM detections
-            WHERE detection_time >= ? AND detection_time < ?
-              AND (is_hidden = 0 OR is_hidden IS NULL)
+            FROM detections d
+            {join_sql}
+            WHERE d.detection_time >= ? AND d.detection_time < ?
+              AND (d.is_hidden = 0 OR d.is_hidden IS NULL)
+              AND {species_condition}
             GROUP BY bucket_start
             ORDER BY bucket_start ASC
         """
-        async with self.db.execute(query, (start, end)) as cursor:
+        async with self.db.execute(query, (start, end, *species_params)) as cursor:
             rows = await cursor.fetchall()
 
         out: list[tuple[datetime, int]] = []
@@ -3866,6 +3891,64 @@ class DetectionRepository:
                 for row in rows
             ]
 
+    async def _leaderboard_visit_counts(
+        self,
+        *,
+        key_sql: str,
+        join_sql: str,
+        condition_sql: str,
+        condition_params: list,
+        window_start: datetime,
+        window_end: datetime,
+        prev_start: datetime,
+        prev_end: datetime,
+    ) -> dict[object, tuple[int, int]]:
+        """Visits per species key in the window and the one before it.
+
+        A detection opens a visit unless the same species was on the same camera within
+        VISIT_GAP_MINUTES before it. Another bird in between does not split a visit. A visit
+        already running when a window opens counts in that window too, so each window stands
+        on its own.
+        """
+        query = f"""
+            SELECT key,
+                SUM(CASE WHEN at >= ? AND at < ?
+                          AND (previous_at IS NULL OR previous_at < ?
+                               OR (julianday(at) - julianday(previous_at)) * 1440.0 > {VISIT_GAP_MINUTES})
+                    THEN 1 ELSE 0 END) AS window_visits,
+                SUM(CASE WHEN at >= ? AND at < ?
+                          AND (previous_at IS NULL
+                               OR (julianday(at) - julianday(previous_at)) * 1440.0 > {VISIT_GAP_MINUTES})
+                    THEN 1 ELSE 0 END) AS prev_visits
+            FROM (
+                SELECT {key_sql} AS key,
+                       d.detection_time AS at,
+                       LAG(d.detection_time) OVER (
+                           PARTITION BY {key_sql}, d.camera_name ORDER BY d.detection_time
+                       ) AS previous_at
+                FROM detections d
+                {join_sql}
+                WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
+                  AND d.detection_time >= ?
+                  AND d.detection_time < ?
+                  AND {condition_sql}
+            )
+            GROUP BY key
+        """
+        params = [
+            window_start,
+            window_end,
+            window_start,
+            prev_start,
+            prev_end,
+            prev_start,
+            window_end,
+            *condition_params,
+        ]
+        async with self.db.execute(query, params) as cursor:
+            rows = await cursor.fetchall()
+        return {row[0]: (int(row[1] or 0), int(row[2] or 0)) for row in rows}
+
     async def get_species_leaderboard_window(
         self,
         window_start: datetime,
@@ -3896,7 +3979,9 @@ class DetectionRepository:
                 MAX(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.detection_time ELSE NULL END) as window_last_seen,
 
                 AVG(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.score ELSE NULL END) as window_avg_confidence,
-                COUNT(DISTINCT CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.camera_name ELSE NULL END) as window_camera_count
+                COUNT(DISTINCT CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.camera_name ELSE NULL END) as window_camera_count,
+                SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? AND d.manual_tagged = 1 THEN 1 ELSE 0 END) as window_confirmed_count,
+                SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? AND d.audio_confirmed = 1 THEN 1 ELSE 0 END) as window_audio_confirmed_count
             FROM detections d
             {taxonomy_join}
             WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
@@ -3917,11 +4002,25 @@ class DetectionRepository:
             window_end,
             window_start,
             window_end,
+            window_start,
+            window_end,
+            window_start,
+            window_end,
             prev_start,
             window_end,
         )
         async with self.db.execute(query, params) as cursor:
             rows = await cursor.fetchall()
+        visits = await self._leaderboard_visit_counts(
+            key_sql=canonical_key,
+            join_sql=taxonomy_join,
+            condition_sql="1 = 1",
+            condition_params=[],
+            window_start=window_start,
+            window_end=window_end,
+            prev_start=prev_start,
+            prev_end=prev_end,
+        )
 
         return merge_species_leaderboard_rows(
             [
@@ -3936,6 +4035,10 @@ class DetectionRepository:
                     "window_last_seen": _parse_datetime(row[8]) if row[8] else None,
                     "window_avg_confidence": float(row[9] or 0.0),
                     "window_camera_count": int(row[10] or 0),
+                    "window_confirmed_count": int(row[11] or 0),
+                    "window_audio_confirmed_count": int(row[12] or 0),
+                    "window_visit_count": visits.get(row[0], (0, 0))[0],
+                    "prev_visit_count": visits.get(row[0], (0, 0))[1],
                 }
                 for row in rows
             ]
@@ -4492,7 +4595,9 @@ class DetectionRepository:
                     MIN(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.detection_time ELSE NULL END) as window_first_seen,
                     MAX(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.detection_time ELSE NULL END) as window_last_seen,
                     AVG(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.score ELSE NULL END) as window_avg_confidence,
-                    COUNT(DISTINCT CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.camera_name ELSE NULL END) as window_camera_count
+                    COUNT(DISTINCT CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.camera_name ELSE NULL END) as window_camera_count,
+                    SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? AND d.manual_tagged = 1 THEN 1 ELSE 0 END) as window_confirmed_count,
+                    SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? AND d.audio_confirmed = 1 THEN 1 ELSE 0 END) as window_audio_confirmed_count
                 FROM detections d
                 {join_sql}
                 WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
@@ -4515,12 +4620,28 @@ class DetectionRepository:
                 window_end,
                 window_start,
                 window_end,
+                window_start,
+                window_end,
+                # The rows span both windows, or prev_count could never be anything but 0.
+                prev_start,
+                window_end,
                 *params,
             ],
         ) as cursor:
             row = await cursor.fetchone()
         if not row:
             return None
+        visits = await self._leaderboard_visit_counts(
+            key_sql="'selected'",
+            join_sql=join_sql,
+            condition_sql=species_condition,
+            condition_params=list(params),
+            window_start=window_start,
+            window_end=window_end,
+            prev_start=prev_start,
+            prev_end=prev_end,
+        )
+        window_visits, prev_visits = visits.get("selected", (0, 0))
         window_count = int(row[0] or 0)
         prev_count = int(row[1] or 0)
         if window_count == 0 and prev_count == 0:
@@ -4532,6 +4653,10 @@ class DetectionRepository:
             "window_last_seen": _parse_datetime(row[3]) if row[3] else None,
             "window_avg_confidence": float(row[4] or 0.0),
             "window_camera_count": int(row[5] or 0),
+            "window_confirmed_count": int(row[6] or 0),
+            "window_audio_confirmed_count": int(row[7] or 0),
+            "window_visit_count": window_visits,
+            "prev_visit_count": prev_visits,
         }
 
     async def get_camera_breakdown(self, species_name: str) -> list[dict]:
@@ -5241,6 +5366,12 @@ class DetectionRepository:
         pending = await self.pending_audio_scientific_names()
         identities = {name: resolve_audio_identity(name, resolver=resolver) for name, _count in pending}
         return await self.assign_audio_species_ids(pending, identities)
+
+    async def get_audio_history_start(self) -> datetime | None:
+        """When BirdNET-Go's stored history begins; it can start long after the camera's."""
+        async with self.db.execute("SELECT MIN(timestamp) FROM audio_detections") as cursor:
+            row = await cursor.fetchone()
+        return _parse_datetime(row[0]) if row and row[0] else None
 
     async def get_audio_species_counts(
         self,

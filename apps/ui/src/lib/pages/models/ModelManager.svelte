@@ -4,6 +4,8 @@
     import { onMount, onDestroy } from 'svelte';
     import { fetchAvailableModels, fetchInstalledModels, downloadModel, fetchDownloadStatus, activateModel, deleteModel, validateModel, checkHealth, fetchClassifierStatus, getVisibleTieredModelLineup, groupTieredModelLineup, categorizeModel, MODEL_CATEGORY_INFO, type ModelMetadata, type InstalledModel, type DownloadProgress, type ClassifierStatus, type HealthStatus } from '../../api';
     import { jobProgressStore } from '../../stores/job_progress.svelte';
+    import { confirmAction } from '../../stores/confirm_dialog.svelte';
+    import { toastStore } from '../../stores/toast.svelte';
     import { startModelDownloadProgress, syncModelDownloadProgress } from './model_download_progress';
     import { getRuntimeProviderOrder } from '../../settings/inference-providers';
     import DiagnosticDialog from '../../components/DiagnosticDialog.svelte';
@@ -352,10 +354,14 @@
         const name = 'name' in model && model.name ? model.name : model.id;
         // Irreversible and large, so the confirmation names the model and says
         // what getting it back costs.
-        const confirmed = confirm(
-            t('settings.detection.model_manager_delete_confirm', 'Delete {name}? This removes the files from disk. You can download it again later.')
-                .replace('{name}', String(name))
-        );
+        const confirmed = await confirmAction({
+            title: t('settings.detection.model_manager_delete', 'Delete files'),
+            message: t(
+                'settings.detection.model_manager_delete_confirm',
+                'Delete {name}? This removes the files from disk. You can download it again later.'
+            ).replace('{name}', String(name)),
+            confirmLabel: t('settings.detection.model_manager_delete', 'Delete files')
+        });
         if (!confirmed) return;
         deleting = model.id;
         try {
@@ -368,7 +374,7 @@
         } catch (e) {
             console.error(e);
             const detail = e instanceof Error ? e.message : '';
-            alert(detail || t('settings.detection.model_manager_delete_error', 'Failed to delete model'));
+            toastStore.error(detail || t('settings.detection.model_manager_delete_error', 'Failed to delete model'));
         } finally {
             deleting = null;
         }
@@ -384,7 +390,7 @@
             installedModels = await fetchInstalledModels();
         } catch (e) {
             console.error(e);
-            alert(t('settings.detection.model_manager_activate_error', 'Failed to activate model'));
+            toastStore.error(t('settings.detection.model_manager_activate_error', 'Failed to activate model'));
         } finally {
             activating = null;
         }

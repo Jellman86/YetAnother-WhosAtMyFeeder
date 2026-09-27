@@ -120,6 +120,13 @@ _NON_BREAKER_VIDEO_OUTCOMES: frozenset[str] = frozenset(
         # input representations. Worker/runtime failures are propagated as
         # typed errors before this outcome reaches the service.
         "video_no_results",
+        "low_confidence",
+        "below_threshold",
+        "blocked_label",
+        "blocked_species",
+        "abstention_label",
+        "unknown_catchall",
+        "snapshot_no_usable_result",
     }
 )
 SNAPSHOT_FALLBACK_MAX_ATTEMPTS = 3
@@ -1839,7 +1846,7 @@ class AutoVideoClassifierService:
                         if snapshot_error is None:
                             self._record_success(frigate_event, source=source)
                         else:
-                            self._record_failure(frigate_event, snapshot_error, source=source)
+                            self._record_failure(frigate_event, "video_timeout", source=source)
                         return
 
                     self._record_timeout(frigate_event, source=source, context=timeout_context)
@@ -1895,7 +1902,7 @@ class AutoVideoClassifierService:
                         if snapshot_error is None:
                             self._record_success(frigate_event, source=source)
                         else:
-                            self._record_failure(frigate_event, snapshot_error, source=source)
+                            self._record_failure(frigate_event, reason_code, source=source)
                         return
 
                     self._record_diagnostic(

@@ -1218,6 +1218,22 @@
       },
       "AudioSpeciesLeaderboardResponse": {
         "properties": {
+          "history_start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "History Start"
+          },
+          "previous_window_complete": {
+            "default": false,
+            "title": "Previous Window Complete",
+            "type": "boolean"
+          },
           "span": {
             "enum": [
               "day",
@@ -2932,6 +2948,17 @@
       },
       "CleanupResponse": {
         "properties": {
+          "audio_deleted_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audio Deleted Count"
+          },
           "cutoff_date": {
             "anyOf": [
               {
@@ -4896,6 +4923,17 @@
           "span": {
             "title": "Span",
             "type": "string"
+          },
+          "species": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Species"
           },
           "total_count": {
             "title": "Total Count",
@@ -6986,6 +7024,17 @@
             ],
             "title": "Common Name"
           },
+          "reported_nearby": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reported Nearby"
+          },
           "scientific_name": {
             "anyOf": [
               {
@@ -7012,12 +7061,22 @@
             ],
             "title": "Taxa Id"
           },
+          "window_audio_confirmed_count": {
+            "default": 0,
+            "title": "Window Audio Confirmed Count",
+            "type": "integer"
+          },
           "window_avg_confidence": {
             "title": "Window Avg Confidence",
             "type": "number"
           },
           "window_camera_count": {
             "title": "Window Camera Count",
+            "type": "integer"
+          },
+          "window_confirmed_count": {
+            "default": 0,
+            "title": "Window Confirmed Count",
             "type": "integer"
           },
           "window_count": {
@@ -7057,6 +7116,16 @@
           "window_prev_count": {
             "title": "Window Prev Count",
             "type": "integer"
+          },
+          "window_prev_visit_count": {
+            "default": 0,
+            "title": "Window Prev Visit Count",
+            "type": "integer"
+          },
+          "window_visit_count": {
+            "default": 0,
+            "title": "Window Visit Count",
+            "type": "integer"
           }
         },
         "required": [
@@ -7073,6 +7142,44 @@
       },
       "LeaderboardSpeciesResponse": {
         "properties": {
+          "history_start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "History Start"
+          },
+          "nearby_days_back": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nearby Days Back"
+          },
+          "nearby_radius_km": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nearby Radius Km"
+          },
+          "previous_window_complete": {
+            "default": false,
+            "title": "Previous Window Complete",
+            "type": "boolean"
+          },
           "span": {
             "enum": [
               "day",
@@ -16308,7 +16415,7 @@
   },
   "info": {
     "title": "Yet Another WhosAtMyFeeder API",
-    "version": "2.20.3"
+    "version": "2.21.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -25625,6 +25732,25 @@
               ],
               "title": "Span",
               "type": "string"
+            }
+          },
+          {
+            "description": "Limit the grid to one species",
+            "in": "query",
+            "name": "species",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Limit the grid to one species",
+              "title": "Species"
             }
           }
         ],
