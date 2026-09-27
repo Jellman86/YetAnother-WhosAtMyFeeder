@@ -967,7 +967,9 @@ settings architecture refactor + per-tab routing, a dedicated Jobs workspace, fa
 Explorer audio-matches filter, route-level and locale-level lazy delivery with resilient retry,
 compressed immutable frontend assets, the in-app channel-aware update prompt, a grouped
 status-aware desktop sidebar with a one-minute CPU/accelerator activity trace, and the Unraid Docker
-template + setup guide.
+template + setup guide. Audio History and Species analytics use on-demand Chart.js charts with
+keyboard-operable filters, reduced-motion support and responsive layouts; the ApexCharts dependency
+has been removed.
 
 **Backend & quality:** Alembic-only migrations, the repository pattern, opt-in anonymous telemetry
 + privacy-preserving daily rollups + replay-safe health identities + distinct aggregate User
@@ -976,6 +978,10 @@ enrichment, password-based + optional API-key auth (timing-safe), connection poo
 exception handling, bounded background-work lanes with owner-visible server status and restart
 recovery for automatic video jobs, a typed OpenAPI contract with generated SPA types, and the CI
 enforcement suite (lint/format/coverage/OpenAPI-drift/type-freshness/migration-safety).
+Telemetry trends show completed UTC days and distinguish rolling reporting windows from retained
+installations; Health Data identifies lifetime counters sent by older clients. Scheduled unknown
+analysis waits for Frigate readiness and retries transient outages, and taxonomy updates avoid
+nested database connection acquisitions.
 
 ---
 

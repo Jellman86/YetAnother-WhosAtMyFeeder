@@ -5,7 +5,7 @@ This document tracks known issues and testing gaps that have not been verified e
 If you find a bug, please open a GitHub issue with the steps to reproduce and any redacted logs.
 
 Last reviewed against the GitHub issue tracker and opt-in fleet telemetry on
-**September 23, 2026**.
+**September 27, 2026**.
 
 ## P0: Active Regressions
 
@@ -131,8 +131,9 @@ in-app notification timeline both prove one real final-mode detection end to end
 ## Open on the Tracker
 
 - **#490** Backfill and live-feed failures: safeguards are in `dev`; confirmation from the
-  original reporter/model/driver combination is still pending. It is the only open bug report
-  at this review; dependency-update pull requests are separate.
+  original reporter/model/driver combination is still pending. Recent opt-in health reports for
+  `stage_timeout` came from older `2.20.3` installs, with no current-`dev` reproduction. It is the
+  only open bug report at this review; dependency-update pull requests are separate.
 
 ## Recently Closed (Context)
 
