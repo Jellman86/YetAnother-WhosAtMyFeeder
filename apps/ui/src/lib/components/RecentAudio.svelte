@@ -38,7 +38,7 @@
     let summary = $state<AudioSummaryResponse | null>(null);
 
     // Compact 24-hour sparkline for the header strip. Built as a normalized
-    // SVG polyline so the widget stays light (no ApexCharts on the dashboard).
+    // SVG polyline so the widget stays light (no chart library on the dashboard).
     let sparkline = $derived.by(() => {
         const counts = new Array(24).fill(0);
         for (const item of summary?.hourly_counts ?? []) {

@@ -4,18 +4,19 @@ export type CanvasChartConfig =
     | ChartConfiguration<'line', number[], string>
     | ChartConfiguration<'bar', number[], string>
     | ChartConfiguration<'doughnut', number[], string>;
+export type MixedCanvasChartConfig = ChartConfiguration<'bar' | 'line', number[], string>;
 type ChartCanvas = HTMLCanvasElement & { __chartjs?: Chart | null };
 
 /** Keep Chart.js off pages without charts and release its canvas on Svelte teardown. */
-export function chartjs(node: HTMLCanvasElement, initialConfig: CanvasChartConfig) {
+export function chartjs(node: HTMLCanvasElement, initialConfig: CanvasChartConfig | MixedCanvasChartConfig) {
     const chartNode = node as ChartCanvas;
     let instance: Chart | null = null;
     let revision = 0;
     let destroyed = false;
 
-    async function render(config: CanvasChartConfig) {
+    async function render(config: CanvasChartConfig | MixedCanvasChartConfig) {
         const currentRevision = ++revision;
-        const { default: ChartConstructor } = await import('chart.js/auto');
+        const { default: ChartConstructor } = await import('./chartjs-runtime');
         if (destroyed || currentRevision !== revision) return;
         instance?.destroy();
         instance = new ChartConstructor(node, config as ChartConfiguration<ChartType, number[], string>);
@@ -24,7 +25,7 @@ export function chartjs(node: HTMLCanvasElement, initialConfig: CanvasChartConfi
 
     void render(initialConfig);
     return {
-        update(config: CanvasChartConfig) {
+        update(config: CanvasChartConfig | MixedCanvasChartConfig) {
             void render(config);
         },
         destroy() {

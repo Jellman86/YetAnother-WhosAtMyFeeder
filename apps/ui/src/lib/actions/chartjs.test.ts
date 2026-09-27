@@ -5,7 +5,7 @@ const chartMock = vi.hoisted(() => ({
     destroy: vi.fn(),
 }));
 
-vi.mock('chart.js/auto', () => ({
+vi.mock('./chartjs-runtime', () => ({
     default: class ChartMock {
         constructor(node: HTMLCanvasElement, config: unknown) {
             chartMock.construct(node, config);

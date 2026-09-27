@@ -21,7 +21,7 @@
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
     import { logger } from '../utils/logger';
     import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
-    import type { Plugin } from 'chart.js';
+    import { doughnutInsightPlugin } from '../actions/chartjs-doughnut';
 
     const PAGE_SIZE = 25;
 
@@ -283,25 +283,7 @@
         const top = (summary?.top_species ?? []).slice(0, 8);
         const values = top.map((species) => species.count);
         const totalLabel = $_('audio.chart.heard', { default: 'Heard' });
-        const centerTotal: Plugin = {
-            id: 'audioCenterTotal',
-            afterDraw(chart) {
-                const { ctx, chartArea } = chart;
-                if (!chartArea) return;
-                const total = values.reduce((sum, value, index) => sum + (chart.getDataVisibility(index) ? value : 0), 0);
-                const centerX = (chartArea.left + chartArea.right) / 2;
-                const centerY = (chartArea.top + chartArea.bottom) / 2;
-                ctx.save();
-                ctx.textAlign = 'center';
-                ctx.fillStyle = isDark ? '#94a3b8' : '#64748b';
-                ctx.font = '600 12px sans-serif';
-                ctx.fillText(totalLabel, centerX, centerY - 5);
-                ctx.fillStyle = isDark ? '#e2e8f0' : '#1e293b';
-                ctx.font = '700 17px sans-serif';
-                ctx.fillText(total.toLocaleString(), centerX, centerY + 17);
-                ctx.restore();
-            },
-        };
+        const centerTotal = doughnutInsightPlugin('audioCenterTotal', values, totalLabel, isDark);
         return {
             type: 'doughnut',
             data: {

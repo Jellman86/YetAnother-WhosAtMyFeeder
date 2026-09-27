@@ -8,6 +8,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 - Replace the three Audio History ApexCharts with MIT-licensed Chart.js charts, preserving
   daily and hourly tooltips, species legend toggles, dark mode, reduced motion, and phone layouts.
+- Replace the Species trend and breakdown charts with Chart.js and its activity heatmap with a
+  keyboard-accessible grid. Keep species comparisons, weather overlays, AI chart capture, and
+  responsive layouts while dropping the ApexCharts dependency and loading chart code on demand.
 
 - Move manual-tag provider lookups outside database connection holds and share one lookup across
   a bulk correction. Taxonomy and audio correlation reuse resolved names and the caller's
