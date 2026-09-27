@@ -90,6 +90,7 @@ class BackfillResult:
 
     processed: int = 0
     new_detections: int = 0
+    updated: int = 0
     skipped: int = 0
     errors: int = 0
     stopped_reason: str | None = None
@@ -368,7 +369,7 @@ class BackfillService:
             start_time = event.get("start_time", datetime.now().timestamp())
 
             # Use upsert logic to ensure metadata is updated even if event exists
-            changed, _ = await self.detection_service.save_detection(
+            changed, was_inserted = await self.detection_service.save_detection(
                 frigate_event=frigate_event,
                 camera=camera_name,
                 start_time=start_time,
@@ -409,7 +410,7 @@ class BackfillService:
                 return "skipped", "already_exists"
 
             log.info("Backfilled detection", event_id=frigate_event, species=top["label"], score=top["score"])
-            return "new", None
+            return ("new" if was_inserted else "updated"), None
 
         except BackgroundImageClassificationUnavailableError as e:
             reason = str(getattr(e, "reason_code", "") or str(e) or "background_image_unavailable")
@@ -531,6 +532,8 @@ class BackfillService:
                 result.processed += 1
                 if status == "new":
                     result.new_detections += 1
+                elif status == "updated":
+                    result.updated += 1
                 elif status == "skipped":
                     result.skipped += 1
                     if reason:
@@ -547,6 +550,7 @@ class BackfillService:
             stopped_reason=result.stopped_reason,
             processed=result.processed,
             new=result.new_detections,
+            updated=result.updated,
             skipped=result.skipped,
             errors=result.errors,
             error_reasons=dict(result.error_reasons),

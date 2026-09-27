@@ -698,6 +698,9 @@ migrated-database detection/weather replays, real worker-process fault tests and
 hardware replay harness. Remaining evidence includes retained-video replay, the published CUDA
 image, a labelled accuracy corpus and sustained mixed-load memory/queue bounds.
 
+The detection replay now also verifies that inserting a record and improving an existing one have
+separate counts in synchronous and background backfills, matching what the owner sees in Settings.
+
 Complete when a fresh install runs inference out of process, resident memory is measured before and
 after and stated honestly in the release notes, a test pins the resolved defaults, and Settings >
 Detection explains the mode by its effect.

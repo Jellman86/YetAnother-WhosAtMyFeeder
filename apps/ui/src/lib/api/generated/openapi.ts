@@ -325,6 +325,7 @@ export interface components {
     skipped: number;
     skipped_reasons?: Record<string, number>;
     status: string;
+    updated?: number;
 };
     BirdWeatherTestRequest: {
     token?: string | null;

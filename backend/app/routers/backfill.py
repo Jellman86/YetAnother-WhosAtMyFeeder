@@ -251,6 +251,7 @@ class BackfillResponse(BaseModel):
     status: str
     processed: int
     new_detections: int
+    updated: int = 0
     skipped: int
     errors: int
     skipped_reasons: dict[str, int] = Field(default_factory=dict)
@@ -527,6 +528,9 @@ async def backfill_detections(
         else:
             message = "No new detections found"
 
+        if result.updated > 0:
+            message += f", {result.updated} existing detection(s) improved"
+
         if result.skipped > 0:
             message += f", {_build_skipped_message(result.skipped, result.skipped_reasons)}"
 
@@ -537,6 +541,7 @@ async def backfill_detections(
             status="failed" if result.stopped_reason else "completed",
             processed=result.processed,
             new_detections=result.new_detections,
+            updated=result.updated,
             skipped=result.skipped,
             errors=result.errors,
             skipped_reasons=result.skipped_reasons,
@@ -627,6 +632,8 @@ async def backfill_detections_async(
                 _touch_job(job)
                 if status == "new":
                     job.new_detections += 1
+                elif status == "updated":
+                    job.updated += 1
                 elif status == "skipped":
                     job.skipped += 1
                     if reason:
@@ -643,6 +650,8 @@ async def backfill_detections_async(
                 message = f"Added {job.new_detections} new detection(s)"
             else:
                 message = "No new detections found"
+            if job.updated:
+                message += f", {job.updated} existing detection(s) improved"
             if job.skipped:
                 message += f", {_build_skipped_message(job.skipped, job.skipped_reasons)}"
             if job.errors:
