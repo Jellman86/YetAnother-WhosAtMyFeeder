@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.21.0] - 2026-09-27
+
 - Make the leaderboard's weekday heatmap readable. Pointing at a slot now shows its day, hour and
   count straight away (the old native tooltip took a second and never appeared on a phone); a tap
   does the same on touch screens, and the arrow keys read it from the keyboard. Bars along the top
