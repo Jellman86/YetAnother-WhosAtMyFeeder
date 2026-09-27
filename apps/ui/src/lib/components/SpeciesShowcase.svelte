@@ -167,7 +167,7 @@
         return rows.findIndex((candidate) => candidate.key === row.key) + 1;
     }
     function trendClass(row: ShowcaseRow, quiet: string): string {
-        return (row.delta ?? 0) > 0 ? 'text-accent-300' : (row.delta ?? 0) < 0 ? 'text-rose-300' : quiet;
+        return (row.delta ?? 0) > 0 ? 'text-success-300' : (row.delta ?? 0) < 0 ? 'text-rose-300' : quiet;
     }
 </script>
 
@@ -261,7 +261,7 @@
                         <span class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/90 via-slate-950/50 to-transparent px-2 pb-1.5 pt-6">
                             <span class="block truncate text-[12px] font-semibold text-white">{row.displayName}</span>
                             <span class="block truncate text-[11px] tabular-nums text-white/75">
-                                {rankOf(row)} · {row.count.toLocaleString()}
+                                #{rankOf(row)} · {row.count.toLocaleString()} {countLabel(row.count)}
                                 {#if row.trend}<span class="ml-1 {trendClass(row, 'text-white/60')}">{row.trend}</span>{/if}
                             </span>
                         </span>

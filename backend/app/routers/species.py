@@ -26,6 +26,7 @@ from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.i18n_service import i18n_service
 from app.services.classifier_service import get_classifier
 from app.services.ebird_service import ebird_service
+from app.services.leaderboard_window import previous_window_is_complete
 from app.utils.classifier_labels import collapse_classifier_label
 from app.utils.canonical_species import should_hide_species_label, user_facing_species_fields
 from app.utils.api_datetime import serialize_api_datetime
@@ -86,12 +87,16 @@ class LeaderboardSpeciesItemResponse(BaseModel):
     window_last_seen: str | None = None
     window_avg_confidence: float
     window_camera_count: int
+    window_confirmed_count: int = 0
+    window_audio_confirmed_count: int = 0
 
 
 class LeaderboardSpeciesResponse(BaseModel):
     span: Literal["day", "week", "month"]
     window_start: str
     window_end: str
+    history_start: str | None = None
+    previous_window_complete: bool = False
     species: list[LeaderboardSpeciesItemResponse]
 
 
@@ -1051,6 +1056,7 @@ async def get_leaderboard_species(
             prev_start=prev_start,
             prev_end=prev_end,
         )
+        history_start, _ = await repo.get_detection_time_bounds()
 
     # Filter to species present in the selected window only.
     filtered = []
@@ -1095,6 +1101,8 @@ async def get_leaderboard_species(
                 "window_last_seen": serialize_api_datetime(r.get("window_last_seen")),
                 "window_avg_confidence": r.get("window_avg_confidence", 0.0),
                 "window_camera_count": r.get("window_camera_count", 0),
+                "window_confirmed_count": r.get("window_confirmed_count", 0),
+                "window_audio_confirmed_count": r.get("window_audio_confirmed_count", 0),
             }
         )
 
@@ -1117,6 +1125,8 @@ async def get_leaderboard_species(
                 "window_last_seen": serialize_api_datetime(unknown.get("window_last_seen")),
                 "window_avg_confidence": unknown.get("window_avg_confidence", 0.0),
                 "window_camera_count": unknown.get("window_camera_count", 0),
+                "window_confirmed_count": unknown.get("window_confirmed_count", 0),
+                "window_audio_confirmed_count": unknown.get("window_audio_confirmed_count", 0),
             }
         )
 
@@ -1127,6 +1137,8 @@ async def get_leaderboard_species(
         "span": span,
         "window_start": window_start.replace(tzinfo=timezone.utc).isoformat(),
         "window_end": window_end.replace(tzinfo=timezone.utc).isoformat(),
+        "history_start": serialize_api_datetime(history_start) if history_start else None,
+        "previous_window_complete": previous_window_is_complete(history_start=history_start, prev_start=prev_start),
         "species": filtered,
     }
 

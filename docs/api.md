@@ -329,7 +329,9 @@ Notes:
 - `PUT /api/species/common-name-override` (owner; preserves the provider name separately)
 - `DELETE /api/species/common-name-override?scientific_name=...` (owner; restores the provider name)
 - `DELETE /api/species/{species_name}/cache` (owner)
-- `GET /api/leaderboard/species`
+- `GET /api/leaderboard/species` (per species: window and previous-window counts, confirmed and
+  call-matched detections in the window; `history_start` and `previous_window_complete` say whether
+  the previous window was fully recorded)
 
 ### Statistics
 
