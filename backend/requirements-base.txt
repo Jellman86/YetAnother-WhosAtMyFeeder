@@ -40,7 +40,7 @@ prometheus-client
 slowapi==0.1.10
 
 # Authentication
-pyjwt==2.14.0
+pyjwt==2.15.0
 cryptography==50.0.1
 bcrypt==5.0.0
 
