@@ -3800,19 +3800,32 @@ class DetectionRepository:
         self,
         start: datetime,
         end: datetime,
+        species_name: str | None = None,
     ) -> list[tuple[datetime, int]]:
-        """Return visible detection counts grouped by UTC hour buckets."""
-        query = """
+        """Return visible detection counts grouped by UTC hour buckets, optionally for one species.
+
+        The species filter is the same canonical selection a species' own page uses, so a
+        renamed or folded taxon shows the same detections here as everywhere else.
+        """
+        join_sql, species_condition, species_params = "", "1 = 1", []
+        if species_name:
+            join_sql, species_condition, species_params = await self._canonical_species_query_parts(
+                detection_alias="d",
+                species_name=species_name,
+            )
+        query = f"""
             SELECT
-                strftime('%Y-%m-%d %H:00:00', detection_time) as bucket_start,
+                strftime('%Y-%m-%d %H:00:00', d.detection_time) as bucket_start,
                 COUNT(*) as c
-            FROM detections
-            WHERE detection_time >= ? AND detection_time < ?
-              AND (is_hidden = 0 OR is_hidden IS NULL)
+            FROM detections d
+            {join_sql}
+            WHERE d.detection_time >= ? AND d.detection_time < ?
+              AND (d.is_hidden = 0 OR d.is_hidden IS NULL)
+              AND {species_condition}
             GROUP BY bucket_start
             ORDER BY bucket_start ASC
         """
-        async with self.db.execute(query, (start, end)) as cursor:
+        async with self.db.execute(query, (start, end, *species_params)) as cursor:
             rows = await cursor.fetchall()
 
         out: list[tuple[datetime, int]] = []

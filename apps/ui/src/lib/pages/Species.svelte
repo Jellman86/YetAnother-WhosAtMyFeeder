@@ -53,7 +53,8 @@
     import type { TemperatureUnit } from '../utils/temperature';
     import { toAppPath } from '../app/url-base';
     import { evidenceFor, isCorroborated, isUnlikelyHere, trendMeasured, type SpeciesEvidence } from '../leaderboard/evidence';
-    import { busiestHourOfDay, heatmapFill, heatmapLegendGradient, peakCell } from '../leaderboard/heatmap';
+    import { busiestHourOfDay } from '../leaderboard/heatmap';
+    import ActivityHeatmap from '../components/ActivityHeatmap.svelte';
     import { otherSeriesColor, speciesSeriesColor, SPECIES_SERIES_SLOTS } from '../leaderboard/species-palette';
 
     type LeaderboardRow = {
@@ -143,7 +144,6 @@
     let leaderboardAnalysisLoading = $state(false);
     let leaderboardAnalysisError = $state<string | null>(null);
     let leaderboardConfigKey = $state<string | null>(null);
-    let leaderboardAnalysisSubtitle = $state<string | null>(null);
     let llmReady = $state(false);
     let showTemperature = $state(false);
     let showWind = $state(false);
@@ -324,7 +324,52 @@
     let showCameraColumn = $derived(leaderboardRows.some((row) => (row.camera_count ?? 0) > 1));
     let unidentifiedCount = $derived(species.find((row) => row.species === 'Unknown Bird')?.count ?? 0);
     let busiestHour = $derived(busiestHourOfDay(activityHeatmap?.cells ?? []));
-    let heatmapPeak = $derived(peakCell(activityHeatmap?.cells ?? []));
+
+    // The weekday grid can show one species' pattern: "when does the Robin come?" is the question
+    // the all-species grid cannot answer. A choice that falls out of the window's list lapses.
+    let heatmapSpeciesOptions = $derived(
+        leaderboardRows.filter((row) => !row.audio_only && row.count > 0 && row.species !== 'Unknown Bird').slice(0, 5)
+    );
+    let heatmapChoice = $state<string | null>(null);
+    let heatmapSpecies = $derived(
+        heatmapChoice && heatmapSpeciesOptions.some((row) => row.species === heatmapChoice) ? heatmapChoice : null
+    );
+    let speciesHeatmap = $state.raw<DetectionsActivityHeatmapResponse | null>(null);
+    let speciesHeatmapLoading = $state(false);
+    let speciesHeatmapFailed = $state(false);
+    $effect(() => {
+        const requested = heatmapSpecies;
+        const requestedSpan = span;
+        if (!requested) {
+            speciesHeatmapLoading = false;
+            speciesHeatmapFailed = false;
+            return;
+        }
+        const controller = new AbortController();
+        speciesHeatmapLoading = true;
+        speciesHeatmapFailed = false;
+        fetchDetectionsActivityHeatmapSpan(requestedSpan, controller.signal, requested)
+            .then((response) => {
+                if (controller.signal.aborted) return;
+                speciesHeatmap = response;
+                speciesHeatmapLoading = false;
+            })
+            .catch((error) => {
+                if (controller.signal.aborted) return;
+                speciesHeatmapLoading = false;
+                speciesHeatmapFailed = true;
+                logger.warn('Species activity heatmap unavailable', { message: getErrorMessage(error) });
+            });
+        return () => controller.abort();
+    });
+    // While another species loads, the previous grid stays (dimmed) under its own name, so the
+    // label never describes data that is not on screen.
+    let shownHeatmap = $derived(heatmapSpecies ? speciesHeatmap : activityHeatmap);
+    let heatmapSubject = $derived(
+        shownHeatmap?.species
+            ? (heatmapSpeciesOptions.find((row) => row.species === shownHeatmap?.species)?.displayName ?? shownHeatmap.species)
+            : null
+    );
 
     // Lookup of BirdNET "heard" rollups keyed by scientific name (preferred) and
     // localized species name, so we can merge them onto the visual leaderboard rows.
@@ -897,15 +942,6 @@
         return annotations;
     });
 
-    let chartSubtitle = $derived(() => {
-        if (!timeline) return '';
-        return [
-            metricLabel(),
-            bucketLabel(timeline.bucket),
-            leaderboardAnalysisSubtitle
-        ].filter(Boolean).join(' • ');
-    });
-
     let chartOptions = $derived((): MixedCanvasChartConfig => {
         const points = timelinePoints();
         const indexedPoints = points
@@ -1209,7 +1245,6 @@
             ? hiddenTimelineSeries.filter((item) => item !== name)
             : [...hiddenTimelineSeries, name];
     }
-    const heatmapDayOrder = [1, 2, 3, 4, 5, 6, 0];
 
     function weekdayLabel(dayOfWeek: number): string {
         if (dayOfWeek === 1) return $_('leaderboard.weekday_mon', { default: 'Mon' });
@@ -1273,32 +1308,6 @@
             }
         };
     });
-
-    let heatmapCellMap = $derived(() => {
-        const map = new Map<string, number>();
-        for (const cell of activityHeatmap?.cells ?? []) {
-            if (cell.day_of_week < 0 || cell.day_of_week > 6 || cell.hour < 0 || cell.hour > 23) continue;
-            map.set(`${cell.day_of_week}-${cell.hour}`, Math.max(0, Number(cell.count ?? 0)));
-        }
-        return map;
-    });
-
-    let heatmapSeries = $derived(() => heatmapDayOrder.map((dayOfWeek) => ({
-        dayOfWeek,
-        name: weekdayLabel(dayOfWeek),
-        data: Array.from({ length: 24 }, (_, hour) => ({
-            hour,
-            x: hourLabel(hour),
-            y: heatmapCellMap().get(`${dayOfWeek}-${hour}`) ?? 0
-        }))
-    })));
-    let heatmapHasData = $derived(() => (activityHeatmap?.total_count ?? 0) > 0);
-    function heatmapCellLabel(dayName: string, hour: number, count: number): string {
-        return $_('leaderboard.heatmap_cell', {
-            values: { day: dayName, start: hourLabel(hour), end: hourLabel((hour + 1) % 24), count: formatMetricValue(count) },
-            default: '{day} {start} to {end}: {count} detections'
-        });
-    }
 
     const relativeUnits: Array<[Intl.RelativeTimeFormatUnit, number]> = [
         ['day', 86_400_000],
@@ -1421,10 +1430,8 @@
         if (!timeline?.points?.length) return;
         leaderboardAnalysisLoading = true;
         leaderboardAnalysisError = null;
-        const priorSubtitle = leaderboardAnalysisSubtitle;
         try {
             const config = buildLeaderboardConfig();
-            leaderboardAnalysisSubtitle = `${spanLabel()} • ${bucketLabel(timeline.bucket)}`;
             await tick();
             await sleep(200);
             const key = await computeConfigKey(config);
@@ -1445,7 +1452,6 @@
         } catch (e) {
             leaderboardAnalysisError = getErrorMessage(e) || 'Failed to analyze chart';
         } finally {
-            leaderboardAnalysisSubtitle = priorSubtitle;
             await tick();
             await sleep(150);
             leaderboardAnalysisLoading = false;
@@ -1893,7 +1899,6 @@
                     {#if timeline?.points?.length}
                         {#key `${span}-${timeline.total_count}-${timeline.bucket}-${showPrecip}-${isDark()}-${themeStore.colorTheme}`}
                             <div class="flex h-full min-w-0 flex-col">
-                                <p class="mb-2 text-xs font-semibold text-slate-500 dark:text-slate-400">{chartSubtitle()}</p>
                                 <div class="min-h-0 flex-1"><canvas use:chartjs={chartOptions()} bind:this={chartEl} aria-label="{$_('leaderboard.detections_over_time')}: {metricLabel()}" class="w-full"></canvas></div>
                             </div>
                         {/key}
@@ -2038,8 +2043,88 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-1 divide-y divide-slate-200 border-b border-slate-200 dark:divide-slate-700 dark:border-slate-700 xl:grid-cols-2 xl:divide-x xl:divide-y-0">
-            <div class="py-6 xl:pr-8">
+        <div class="grid grid-cols-1 divide-y divide-slate-200 border-b border-slate-200 dark:divide-slate-700 dark:border-slate-700 xl:grid-cols-5 xl:divide-x xl:divide-y-0">
+            <div class="py-6 xl:col-span-3 xl:pr-8">
+                <div class="relative">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="flex items-start gap-2.5">
+                            <div class="h-8 w-8 rounded-xl border border-brand-200/80 dark:border-brand-700/60 bg-brand-100/80 dark:bg-brand-900/30 flex items-center justify-center text-brand-700 dark:text-brand-300">
+                                <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                                    <rect x="3" y="4" width="14" height="12" rx="2"></rect>
+                                    <path d="M3 9h14M8 4v12M13 4v12"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-xs font-semibold text-brand-600 dark:text-brand-300">
+                                    {$_('leaderboard.activity_heatmap_title', { default: 'Activity Heatmap' })}
+                                </p>
+                                <h4 class="mt-1 text-lg font-bold text-slate-900 dark:text-white md:text-xl">
+                                    {$_('leaderboard.activity_heatmap_subtitle', { default: 'Hour x weekday activity' })}
+                                </h4>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-300">
+                        <span class="inline-flex items-center gap-1 rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/40 px-2 py-1">
+                            <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                                <rect x="3" y="4" width="14" height="13" rx="2"></rect>
+                                <path d="M3 8h14"></path>
+                            </svg>
+                            {formatRangeCompact(activityHeatmap?.window_start, activityHeatmap?.window_end)}
+                        </span>
+                        <span class="inline-flex items-center gap-1 rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/40 px-2 py-1">
+                            <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                                <path d="M4 14h12"></path>
+                                <path d="M7 14V9M10 14V6M13 14v-3"></path>
+                            </svg>
+                            {$_('leaderboard.total', { default: 'Total' })}: {formatMetricValue(shownHeatmap?.total_count ?? 0)}
+                        </span>
+                    </div>
+
+                    {#if heatmapSpeciesOptions.length > 1}
+                        <div class="-mx-1 mt-3 flex gap-1 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-visible" role="group" aria-label={$_('leaderboard.heatmap_species_picker', { default: 'Show the activity of' })} data-leaderboard-heatmap-species>
+                            <button type="button" class="btn btn-ghost min-h-11 shrink-0 whitespace-nowrap px-2.5 text-xs {heatmapSpecies === null ? 'bg-slate-100 font-semibold text-slate-900 dark:bg-slate-800 dark:text-white' : ''}" aria-pressed={heatmapSpecies === null} onclick={() => (heatmapChoice = null)}>
+                                {$_('leaderboard.heatmap_all_species', { default: 'All species' })}
+                            </button>
+                            {#each heatmapSpeciesOptions as option (option.species)}
+                                <button type="button" class="btn btn-ghost min-h-11 shrink-0 whitespace-nowrap px-2.5 text-xs {heatmapSpecies === option.species ? 'bg-slate-100 font-semibold text-slate-900 dark:bg-slate-800 dark:text-white' : ''}" aria-pressed={heatmapSpecies === option.species} onclick={() => (heatmapChoice = option.species)}>
+                                    {option.displayName}
+                                </button>
+                            {/each}
+                        </div>
+                    {/if}
+
+                    <div class="mt-4 min-h-[260px]" aria-busy={speciesHeatmapLoading}>
+                        {#if shownHeatmap && (shownHeatmap.total_count ?? 0) > 0}
+                            <div class="transition-opacity {speciesHeatmapLoading ? 'opacity-50' : ''}">
+                                <ActivityHeatmap
+                                    cells={shownHeatmap.cells}
+                                    maxCellCount={shownHeatmap.max_cell_count}
+                                    dark={isDark()}
+                                    dayLabel={weekdayLabel}
+                                    subject={heatmapSubject}
+                                />
+                            </div>
+                        {:else if heatmapSpecies && speciesHeatmapFailed}
+                            <div class="h-[260px] w-full rounded-2xl border border-dashed border-slate-300/80 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-900/35 flex items-center justify-center px-6 text-center text-sm text-slate-500 dark:text-slate-400" role="status">
+                                {$_('leaderboard.heatmap_species_failed', { default: 'That species\u2019 activity could not be loaded. Choose it again to retry.' })}
+                            </div>
+                        {:else if heatmapSpecies && shownHeatmap}
+                            <div class="h-[260px] w-full rounded-2xl border border-dashed border-slate-300/80 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-900/35 flex items-center justify-center px-6 text-center text-sm text-slate-500 dark:text-slate-400">
+                                {$_('leaderboard.heatmap_species_empty', { values: { species: heatmapSubject ?? '' }, default: 'No {species} detections in this window.' })}
+                            </div>
+                        {:else if activityHeatmap && !heatmapSpecies}
+                            <div class="h-[260px] w-full rounded-2xl border border-dashed border-slate-300/80 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-900/35 flex items-center justify-center text-sm text-slate-500 dark:text-slate-400">
+                                {$_('leaderboard.no_activity_data', { default: 'No activity captured in this window yet.' })}
+                            </div>
+                        {:else}
+                            <div class="h-[260px] w-full rounded-2xl bg-slate-100 dark:bg-slate-800/60 animate-pulse"></div>
+                        {/if}
+                    </div>
+                </div>
+            </div>
+            <div class="py-6 xl:col-span-2 xl:pl-8">
                 <div class="relative">
                     <div class="flex items-start justify-between gap-3">
                         <div class="flex items-start gap-2.5">
@@ -2098,93 +2183,6 @@
                 </div>
             </div>
 
-            <div class="py-6 xl:pl-8">
-                <div class="relative">
-                    <div class="flex items-start justify-between gap-3">
-                        <div class="flex items-start gap-2.5">
-                            <div class="h-8 w-8 rounded-xl border border-brand-200/80 dark:border-brand-700/60 bg-brand-100/80 dark:bg-brand-900/30 flex items-center justify-center text-brand-700 dark:text-brand-300">
-                                <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                                    <rect x="3" y="4" width="14" height="12" rx="2"></rect>
-                                    <path d="M3 9h14M8 4v12M13 4v12"></path>
-                                </svg>
-                            </div>
-                            <div>
-                                <p class="text-xs font-semibold text-brand-600 dark:text-brand-300">
-                                    {$_('leaderboard.activity_heatmap_title', { default: 'Activity Heatmap' })}
-                                </p>
-                                <h4 class="mt-1 text-lg font-bold text-slate-900 dark:text-white md:text-xl">
-                                    {$_('leaderboard.activity_heatmap_subtitle', { default: 'Hour x weekday activity' })}
-                                </h4>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-300">
-                        <span class="inline-flex items-center gap-1 rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/40 px-2 py-1">
-                            <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                                <rect x="3" y="4" width="14" height="13" rx="2"></rect>
-                                <path d="M3 8h14"></path>
-                            </svg>
-                            {formatRangeCompact(activityHeatmap?.window_start, activityHeatmap?.window_end)}
-                        </span>
-                        <span class="inline-flex items-center gap-1 rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/40 px-2 py-1">
-                            <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                                <path d="M4 14h12"></path>
-                                <path d="M7 14V9M10 14V6M13 14v-3"></path>
-                            </svg>
-                            {$_('leaderboard.total', { default: 'Total' })}: {formatMetricValue(activityHeatmap?.total_count ?? 0)}
-                        </span>
-                    </div>
-
-                    <div class="mt-4 min-h-[260px]">
-                        {#if activityHeatmap && heatmapHasData()}
-                            {@const maxCell = activityHeatmap.max_cell_count}
-                            <div class="grid gap-1" style="grid-template-columns: 2.25rem repeat(24, minmax(0, 1fr)); grid-template-rows: 1.25rem repeat(7, minmax(1.25rem, 1fr));" aria-hidden="true" data-leaderboard-heatmap-grid>
-                                <span></span>
-                                {#each Array.from({ length: 24 }, (_, hour) => hour) as hour}
-                                    <span class="self-end whitespace-nowrap text-center text-xs tabular-nums text-slate-500 dark:text-slate-400 {hour % 6 === 0 ? '' : hour % 3 === 0 ? 'invisible sm:visible' : 'invisible'}">{hour % 3 === 0 ? String(hour).padStart(2, '0') : ''}</span>
-                                {/each}
-                                {#each heatmapSeries() as row}
-                                    <span class="self-center text-xs font-semibold text-slate-500 dark:text-slate-400">{row.name}</span>
-                                    {#each row.data as cell}
-                                        {@const isPeak = heatmapPeak?.day_of_week === row.dayOfWeek && heatmapPeak?.hour === cell.hour}
-                                        <span class="rounded-sm {isPeak ? 'ring-2 ring-slate-900 ring-offset-1 ring-offset-white dark:ring-white dark:ring-offset-slate-950' : ''}" style="background-color: {heatmapFill(cell.y, maxCell, isDark())}" title={heatmapCellLabel(row.name, cell.hour, cell.y)}></span>
-                                    {/each}
-                                {/each}
-                            </div>
-                            <div class="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-xs text-slate-500 dark:text-slate-400">
-                                <span class="inline-flex items-center gap-2 tabular-nums">
-                                    0
-                                    <span class="inline-block h-2 w-24 rounded-full" style="background-image: {heatmapLegendGradient(isDark())}"></span>
-                                    {formatMetricValue(maxCell)}
-                                    <span>{$_('leaderboard.heatmap_per_hour', { default: 'detections in one hour slot' })}</span>
-                                </span>
-                                {#if heatmapPeak}
-                                    <span class="inline-flex items-center gap-1.5">
-                                        <span class="inline-block h-2.5 w-2.5 rounded-sm ring-2 ring-slate-900 dark:ring-white" aria-hidden="true"></span>
-                                        {$_('leaderboard.heatmap_peak', { values: { day: weekdayLabel(heatmapPeak.day_of_week), time: hourLabel(heatmapPeak.hour), count: formatMetricValue(heatmapPeak.count) }, default: 'Busiest: {day} {time}, {count}' })}
-                                    </span>
-                                {/if}
-                            </div>
-                            <div class="sr-only"><table>
-                                <caption>{$_('leaderboard.activity_heatmap_subtitle', { default: 'Hour x weekday activity' })}</caption>
-                                <thead><tr><th scope="col">{$_('leaderboard.heatmap_day', { default: 'Day' })}</th>{#each Array.from({ length: 24 }, (_, hour) => hour) as hour}<th scope="col">{hourLabel(hour)}</th>{/each}</tr></thead>
-                                <tbody>
-                                    {#each heatmapSeries() as row}
-                                        <tr><th scope="row">{row.name}</th>{#each row.data as cell}<td>{cell.y}</td>{/each}</tr>
-                                    {/each}
-                                </tbody>
-                            </table></div>
-                        {:else if activityHeatmap}
-                            <div class="h-[260px] w-full rounded-2xl border border-dashed border-slate-300/80 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-900/35 flex items-center justify-center text-sm text-slate-500 dark:text-slate-400">
-                                {$_('leaderboard.no_activity_data', { default: 'No activity captured in this window yet.' })}
-                            </div>
-                        {:else}
-                            <div class="h-[260px] w-full rounded-2xl bg-slate-100 dark:bg-slate-800/60 animate-pulse"></div>
-                        {/if}
-                    </div>
-                </div>
-            </div>
         </div>
 
         </section>

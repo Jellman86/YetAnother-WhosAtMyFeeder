@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { busiestHourOfDay, heatmapFill, peakCell } from './heatmap';
+import { busiestHourOfDay, dayTotals, heatmapFill, hourlyTotals, moveGridPosition, peakCell } from './heatmap';
 
 function lightness(hex: string): number {
     const [r, g, b] = [1, 3, 5].map((offset) => parseInt(hex.slice(offset, offset + 2), 16));
@@ -51,5 +51,40 @@ describe('peakCell', () => {
         ];
         expect(peakCell(cells)).toEqual({ day_of_week: 4, hour: 12, count: 33 });
         expect(peakCell([])).toBeNull();
+    });
+});
+
+describe('the heatmap margins', () => {
+    const cells = [
+        { day_of_week: 1, hour: 7, count: 4 },
+        { day_of_week: 2, hour: 7, count: 6 },
+        { day_of_week: 2, hour: 9, count: 1 },
+    ];
+
+    it('adds each hour across the week', () => {
+        const totals = hourlyTotals(cells);
+        expect(totals).toHaveLength(24);
+        expect(totals[7]).toBe(10);
+        expect(totals[9]).toBe(1);
+        expect(totals[0]).toBe(0);
+    });
+
+    it('adds each weekday across the day', () => {
+        expect(dayTotals(cells)).toEqual([0, 4, 7, 0, 0, 0, 0]);
+    });
+});
+
+describe('moving through the grid with the keyboard', () => {
+    it('steps by hour and by row and stops at the edges', () => {
+        expect(moveGridPosition({ row: 0, hour: 0 }, 'ArrowLeft', 7)).toEqual({ row: 0, hour: 0 });
+        expect(moveGridPosition({ row: 0, hour: 0 }, 'ArrowRight', 7)).toEqual({ row: 0, hour: 1 });
+        expect(moveGridPosition({ row: 6, hour: 5 }, 'ArrowDown', 7)).toEqual({ row: 6, hour: 5 });
+        expect(moveGridPosition({ row: 3, hour: 5 }, 'ArrowUp', 7)).toEqual({ row: 2, hour: 5 });
+        expect(moveGridPosition({ row: 3, hour: 5 }, 'End', 7)).toEqual({ row: 3, hour: 23 });
+        expect(moveGridPosition({ row: 3, hour: 5 }, 'Home', 7)).toEqual({ row: 3, hour: 0 });
+    });
+
+    it('ignores keys that are not movement', () => {
+        expect(moveGridPosition({ row: 3, hour: 5 }, 'Enter', 7)).toBeNull();
     });
 });

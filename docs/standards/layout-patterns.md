@@ -193,6 +193,7 @@ worker's public summary, off with update checks, and absent rather than zero whe
 | `TopVisitors` | A full-width band | Place it in the context rail; it lays out horizontally and compresses badly |
 | `InstancePipeline` | Deployment state as a flow | Use it as a settings surface |
 | `ReviewQueueModal` | Working a queue item by item | Use for viewing one record; that is `DetectionModal` |
+| `ActivityHeatmap` | A weekday by hour grid that reads a slot on hover, tap or arrow keys, with hour and day totals in its margins | Rely on native `title` tooltips; they arrive late and never on touch |
 
 Pure logic lives in `apps/ui/src/lib/utils/`: `visit-grouping.ts` (grouping, the desk window and
 threshold-aware review decisions), `review-queue.ts` (queue selection and ordering),

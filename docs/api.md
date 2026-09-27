@@ -341,7 +341,7 @@ Notes:
 - `GET /api/stats/daily-summary`
 - `GET /api/stats/detections/daily`
 - `GET /api/stats/detections/timeline`
-- `GET /api/stats/detections/activity-heatmap`
+- `GET /api/stats/detections/activity-heatmap` (optional `species` limits the grid to one species)
 - `GET /api/stats/uptime` (owner) Availability over a recent window, derived from heartbeat rows
   written every 5 minutes. Buckets with no heartbeat report `down`; buckets from before the first
   heartbeat ever recorded report `unknown`, because a fresh install has no history and that is not

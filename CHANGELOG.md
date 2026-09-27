@@ -6,6 +6,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Make the leaderboard's weekday heatmap readable. Pointing at a slot now shows its day, hour and
+  count straight away (the old native tooltip took a second and never appeared on a phone); a tap
+  does the same on touch screens, and the arrow keys read it from the keyboard. Bars along the top
+  and a total per day show the busiest hour and day at a glance. The grid can show one species'
+  week, using a new optional `species` filter on the activity heatmap route, and it now takes the
+  wider share of its row beside the composition chart. A duplicated subtitle under the timeline is
+  gone.
+
 - Draw leaderboard weather as small charts under the detections timeline, aligned bucket for
   bucket, instead of as extra y-axes on the same chart where two scales invited reading a
   coincidence of heights as a cause. The weather toggles report their state to screen readers and

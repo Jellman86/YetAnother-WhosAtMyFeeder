@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import leaderboardSource from './Species.svelte?raw';
+import heatmapSource from '../components/ActivityHeatmap.svelte?raw';
 
 describe('leaderboard field-journal layout', () => {
     it('names the sunrise and sunset windows instead of showing bare times', () => {
@@ -128,16 +129,29 @@ describe('leaderboard field-journal layout', () => {
     });
 
     it('fits the weekday heatmap to its column instead of scrolling it sideways', () => {
-        const heatmap = leaderboardSource.slice(leaderboardSource.indexOf('data-leaderboard-heatmap-grid') - 200);
-        expect(heatmap).toContain('repeat(24, minmax(0, 1fr))');
+        expect(heatmapSource).toContain('repeat(24, minmax(0, 1fr))');
         expect(leaderboardSource).not.toMatch(/min-w-\[650px\]/);
         expect(leaderboardSource).not.toContain('h-[260px] overflow-x-auto');
-        // Cells are read through the hidden table; 168 inert buttons were 168 Tab stops.
-        expect(heatmap.slice(0, 2500)).not.toContain('<button');
-        // sr-only cannot shrink a table itself; unwrapped, it widened the whole page to 1994px.
-        expect(leaderboardSource).toContain('<div class="sr-only"><table>');
         // A display:none label leaves the grid and shifts every cell after it by one column.
-        expect(heatmap.slice(0, 2500)).not.toContain('hidden sm:block');
+        expect(heatmapSource).not.toContain('hidden sm:block');
+    });
+
+    it('reads a heatmap slot on hover, tap and arrow keys, not through a delayed native title', () => {
+        expect(leaderboardSource).toContain('<ActivityHeatmap');
+        expect(heatmapSource).not.toContain('title=');
+        expect(heatmapSource).toContain('data-heatmap-tooltip');
+        expect(heatmapSource).toContain("if (event.pointerType === 'touch') return;");
+        expect(heatmapSource).toContain('role="grid"');
+        expect(heatmapSource).toContain('aria-activedescendant=');
+        expect(heatmapSource).toContain('role="gridcell"');
+        expect(heatmapSource).toContain("event.key === 'Escape'");
+    });
+
+    it('can show one species\' weekly pattern, and never labels data it is not showing', () => {
+        expect(leaderboardSource).toContain('data-leaderboard-heatmap-species');
+        expect(leaderboardSource).toContain('fetchDetectionsActivityHeatmapSpan(requestedSpan, controller.signal, requested)');
+        expect(leaderboardSource).toContain('let shownHeatmap = $derived(heatmapSpecies ? speciesHeatmap : activityHeatmap)');
+        expect(leaderboardSource).toContain('shownHeatmap?.species');
     });
 
     it('gives a species the same colour in the timeline and the composition chart', () => {

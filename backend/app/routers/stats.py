@@ -374,6 +374,8 @@ class DetectionsActivityHeatmapResponse(APIModel):
     window_end: str
     total_count: int
     max_cell_count: int
+    # The species the grid is limited to, or null for every species.
+    species: Optional[str] = None
     cells: List[DetectionsActivityHeatmapCell]
 
 
@@ -1115,8 +1117,10 @@ async def get_uptime(
 async def get_detection_activity_heatmap(
     request: Request,
     span: Literal["all", "day", "week", "month"] = Query("week", description="Time span for the heatmap"),
+    species: Optional[str] = Query(None, max_length=200, description="Limit the grid to one species"),
 ):
     """Get detection activity grouped by weekday and hour for a rolling span."""
+    species_name = species.strip() if species and species.strip() else None
     now = datetime.now(timezone.utc).replace(tzinfo=None)
 
     async with get_db() as db:
@@ -1140,7 +1144,9 @@ async def get_detection_activity_heatmap(
             window_end = now
 
         user_tz = get_user_timezone(request)
-        utc_hourly_counts = await repo.get_activity_heatmap_utc_hourly_counts(window_start, window_end)
+        utc_hourly_counts = await repo.get_activity_heatmap_utc_hourly_counts(
+            window_start, window_end, species_name=species_name
+        )
         counts: dict[int, dict[int, int]] = {}
         for bucket_start, count in utc_hourly_counts:
             local_bucket = bucket_start.replace(tzinfo=timezone.utc).astimezone(user_tz)
@@ -1173,5 +1179,6 @@ async def get_detection_activity_heatmap(
             window_end=window_end.replace(tzinfo=timezone.utc).isoformat(),
             total_count=total_count,
             max_cell_count=max_cell_count,
+            species=species_name,
             cells=cells,
         )

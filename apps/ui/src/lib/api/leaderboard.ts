@@ -54,10 +54,12 @@ export async function fetchDetectionsTimelineSpan(
 
 export async function fetchDetectionsActivityHeatmapSpan(
     span: LeaderboardSpan = 'week',
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    species?: string | null
 ): Promise<DetectionsActivityHeatmapResponse> {
     const params = new URLSearchParams();
     params.set('span', span);
+    if (species) params.set('species', species);
     const response = await apiFetch(`${API_BASE}/stats/detections/activity-heatmap?${params.toString()}`, {
         signal,
         timeoutMs: 15_000
