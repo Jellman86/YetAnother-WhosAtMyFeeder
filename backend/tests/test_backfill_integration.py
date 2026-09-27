@@ -125,7 +125,7 @@ async def test_replay_is_idempotent_and_only_improves_automatic_identity(replay)
     replay.classifier.classify_async_background.return_value[0]["score"] = 0.7
     assert await replay.service.process_historical_event(replay.event) == ("skipped", "already_exists")
     replay.classifier.classify_async_background.return_value[0]["score"] = 0.95
-    assert await replay.service.process_historical_event(replay.event) == ("new", None)
+    assert await replay.service.process_historical_event(replay.event) == ("updated", None)
     updated = await stored(replay)
     assert updated.id == initial.id
     assert updated.score == pytest.approx(0.95)
@@ -212,6 +212,26 @@ async def test_detection_jobs_account_for_saved_filtered_and_missing_events(repl
     assert result.skipped_reasons == {"low_confidence": 1}
     assert result.error_reasons == {"fetch_snapshot_failed": 1}
     assert not replay.coordinator._holders
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mode", ["sync", "async"])
+async def test_detection_jobs_count_improved_existing_records_separately(replay, mode):
+    assert await replay.service.process_historical_event(replay.event) == ("new", None)
+    replay.classifier.classify_async_background.return_value[0]["score"] = 0.95
+    replay.service.fetch_frigate_events = AsyncMock(return_value=[replay.event])
+    request = Request({"type": "http", "headers": []})
+    if mode == "sync":
+        result = await router.backfill_detections(router.BackfillRequest(date_range="day"), request)
+    else:
+        result = await router.backfill_detections_async(router.BackfillRequest(date_range="day"), request)
+        await router._JOB_TASKS[result.id]
+    assert result.status == "completed"
+    assert result.processed == result.updated == 1
+    assert result.new_detections == result.skipped == result.errors == 0
+    assert "1 existing detection(s) improved" in result.message
+    async with replay.database() as db:
+        assert (await (await db.execute("SELECT count(*) FROM detections")).fetchone())[0] == 1
 
 
 @pytest.mark.asyncio

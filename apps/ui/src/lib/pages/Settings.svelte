@@ -1604,9 +1604,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
 
         const processed = safeCount(status.processed);
         const total = safeCount(status.total);
-        const updated = kind === 'weather'
-            ? safeCount(status.updated)
-            : safeCount(status.new_detections);
+        const updated = safeCount(status.updated);
+        const newDetections = kind === 'weather' ? undefined : safeCount(status.new_detections);
         const skipped = safeCount(status.skipped);
         const errors = safeCount(status.errors);
 
@@ -1633,6 +1632,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             processed,
             total,
             updated,
+            newDetections,
             skipped,
             errors,
             status.message ?? ''
@@ -1643,12 +1643,12 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             return;
         }
 
-        let message = formatBackfillProgressSummary(processed, normalizedTotal, updated, skipped, errors);
+        let message = formatBackfillProgressSummary(processed, normalizedTotal, updated, skipped, errors, newDetections);
         if (!isRunning) {
             if (status.status === 'failed') {
                 message = status.message || $_('notifications.event_backfill_failed');
             } else {
-                message = status.message || `${updated.toLocaleString()} updated, ${skipped.toLocaleString()} skipped, ${errors.toLocaleString()} errors`;
+                message = status.message || formatBackfillProgressSummary(processed, normalizedTotal, updated, skipped, errors, newDetections);
             }
         } else {
             message = resolveRunningBackfillMessage(status, message);
@@ -2648,6 +2648,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     status: detections.status,
                     processed: safeCount(detections.processed),
                     new_detections: safeCount(detections.new_detections),
+                    updated: safeCount(detections.updated),
                     skipped: safeCount(detections.skipped),
                     errors: safeCount(detections.errors),
                     skipped_reasons: detections.skipped_reasons ?? {},

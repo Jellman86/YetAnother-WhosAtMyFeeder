@@ -780,9 +780,10 @@
                     <span>{backfillResult.message}</span>
                 </p>
             {/if}
-            <dl class="grid grid-cols-2 divide-x divide-y divide-slate-200 border-y border-slate-200 text-center dark:divide-slate-700 dark:border-slate-700 sm:grid-cols-4 sm:divide-y-0">
+            <dl class="grid grid-cols-2 divide-x divide-y divide-slate-200 border-y border-slate-200 text-center dark:divide-slate-700 dark:border-slate-700 sm:grid-cols-5 sm:divide-y-0">
                 <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-500">{$_('settings.data.backfill_total')}</dt><dd class="order-1 text-base font-bold tabular-nums text-slate-900 dark:text-white">{safeCount(backfillResult.processed)}</dd></div>
                 <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-500">{$_('settings.data.backfill_new')}</dt><dd class="order-1 text-base font-bold tabular-nums text-accent-600 dark:text-accent-400">{safeCount(backfillResult.new_detections)}</dd></div>
+                <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-500">{$_('settings.data.backfill_updated')}</dt><dd class="order-1 text-base font-bold tabular-nums text-accent-600 dark:text-accent-400">{safeCount(backfillResult.updated)}</dd></div>
                 <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-500">{$_('settings.data.backfill_skip')}</dt><dd class="order-1 text-base font-bold tabular-nums text-slate-600 dark:text-slate-300">{safeCount(backfillResult.skipped)}</dd></div>
                 <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-500">{$_('settings.data.backfill_err')}</dt><dd class="order-1 text-base font-bold tabular-nums {safeCount(backfillResult.errors) > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-600 dark:text-slate-300'}">{safeCount(backfillResult.errors)}</dd></div>
             </dl>

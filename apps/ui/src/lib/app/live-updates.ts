@@ -1218,8 +1218,11 @@ export class LiveUpdateCoordinator {
         const isWeather = kind === 'weather';
         const total = Number.isFinite(Number(data.total)) ? Math.max(0, Math.floor(Number(data.total))) : 0;
         const processed = Number.isFinite(Number(data.processed)) ? Math.max(0, Math.floor(Number(data.processed))) : 0;
-        const updated = Number.isFinite(Number(data.updated ?? data.new_detections))
-            ? Math.max(0, Math.floor(Number(data.updated ?? data.new_detections)))
+        const updated = Number.isFinite(Number(data.updated))
+            ? Math.max(0, Math.floor(Number(data.updated)))
+            : 0;
+        const newDetections = isWeather ? undefined : Number.isFinite(Number(data.new_detections))
+            ? Math.max(0, Math.floor(Number(data.new_detections)))
             : 0;
         const skipped = Number.isFinite(Number(data.skipped)) ? Math.max(0, Math.floor(Number(data.skipped))) : 0;
         const errors = Number.isFinite(Number(data.errors)) ? Math.max(0, Math.floor(Number(data.errors))) : 0;
@@ -1240,13 +1243,13 @@ export class LiveUpdateCoordinator {
                     status: 'running',
                     message: typeof data.message === 'string' ? data.message : ''
                 },
-                formatBackfillProgressSummary(processed, normalizedTotal, updated, skipped, errors)
+                formatBackfillProgressSummary(processed, normalizedTotal, updated, skipped, errors, newDetections)
             );
         } else if (payload.type === 'backfill_complete') {
             message = formatTerminalBackfillMessage(
                 isWeather ? 'weather' : 'detections',
                 data.message,
-                `${updated.toLocaleString()} updated, ${skipped.toLocaleString()} skipped, ${errors.toLocaleString()} errors`
+                formatBackfillProgressSummary(processed, normalizedTotal, updated, skipped, errors, newDetections)
             );
         } else if (payload.type === 'backfill_failed') {
             message = formatTerminalBackfillMessage(
@@ -1261,7 +1264,7 @@ export class LiveUpdateCoordinator {
         if (legacyId !== id) {
             this.deps.notificationCenter.remove(legacyId);
         }
-        const signature = `${payload.type}|${jobId}|${processed}|${total}|${updated}|${skipped}|${errors}`;
+        const signature = `${payload.type}|${jobId}|${processed}|${total}|${newDetections}|${updated}|${skipped}|${errors}`;
         const throttleMs = payload.type === 'backfill_progress' ? 1200 : 0;
         if (!this.deps.applyNotificationPolicy(id, signature, throttleMs)) return;
         const isTerminal = payload.type === 'backfill_complete' || payload.type === 'backfill_failed';
@@ -1272,7 +1275,7 @@ export class LiveUpdateCoordinator {
                 status: 'running',
                 message: typeof data.message === 'string' ? data.message : ''
             },
-            formatBackfillProgressSummary(processed, normalizedTotal, updated, skipped, errors)
+            formatBackfillProgressSummary(processed, normalizedTotal, updated, skipped, errors, newDetections)
         );
         if (payload.type === 'backfill_failed') {
             this.deps.jobProgress.markFailed({
