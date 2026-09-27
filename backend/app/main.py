@@ -202,6 +202,37 @@ heartbeat_task = None
 accel_caps_task = None
 heartbeat_running = True
 CLEANUP_INTERVAL_HOURS = 24  # Run cleanup every 24 hours
+UNKNOWN_ANALYSIS_RETRY_SECONDS = 120
+UNKNOWN_ANALYSIS_MAX_RETRIES = 5
+
+
+async def _run_scheduled_unknown_analysis() -> bool:
+    """Run scheduled analysis; return whether Frigate readiness needs a retry."""
+    if not settings.maintenance.auto_analyze_unknowns:
+        return False
+    try:
+        result = await settings_router._run_analyze_unknowns()
+        if result.get("reason") == "frigate_unavailable":
+            log.info(
+                "Scheduled unknown analysis waiting for Frigate", retry_after_seconds=UNKNOWN_ANALYSIS_RETRY_SECONDS
+            )
+            return True
+        if result.get("accepted", 0) > 0:
+            log.info("Scheduled analyze unknowns completed", **result)
+    except Exception as e:
+        log.error("Scheduled analyze unknowns failed", error=str(e))
+    return False
+
+
+async def _retry_scheduled_unknown_analysis() -> None:
+    """Retry a startup Frigate outage without repeating unrelated cleanup work."""
+    for _ in range(UNKNOWN_ANALYSIS_MAX_RETRIES):
+        if not cleanup_running or not settings.maintenance.auto_analyze_unknowns:
+            return
+        await asyncio.sleep(UNKNOWN_ANALYSIS_RETRY_SECONDS)
+        if not cleanup_running or not await _run_scheduled_unknown_analysis():
+            return
+    log.warning("Scheduled unknown analysis retries exhausted; next cleanup will try again")
 
 
 async def run_cleanup():
@@ -267,19 +298,12 @@ async def run_cleanup():
         if deleted_share_links > 0:
             log.info("Video share-link cleanup completed", deleted_count=deleted_share_links)
 
-        # Scheduled analyze unknowns
-        if settings.maintenance.auto_analyze_unknowns:
-            try:
-                from app.routers.settings import _run_analyze_unknowns
-
-                result = await _run_analyze_unknowns()
-                if result.get("accepted", 0) > 0:
-                    log.info("Scheduled analyze unknowns completed", **result)
-            except Exception as e:
-                log.error("Scheduled analyze unknowns failed", error=str(e))
+        # Scheduled analysis has its own bounded retry for Frigate startup races.
+        return await _run_scheduled_unknown_analysis()
 
     except Exception as e:
         log.error("Error during cleanup execution", error=str(e))
+        return False
 
 
 async def cleanup_scheduler():
@@ -288,7 +312,8 @@ async def cleanup_scheduler():
 
     # Run cleanup once on startup (handles missed cleanups from downtime)
     log.info("Running startup cleanup...")
-    await run_cleanup()
+    if await run_cleanup():
+        await _retry_scheduled_unknown_analysis()
 
     # Then run on fixed interval
     while cleanup_running:
@@ -300,7 +325,8 @@ async def cleanup_scheduler():
                 await asyncio.sleep(3600)  # check every hour
 
             if cleanup_running:
-                await run_cleanup()
+                if await run_cleanup():
+                    await _retry_scheduled_unknown_analysis()
 
         except asyncio.CancelledError:
             break

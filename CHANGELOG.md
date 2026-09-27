@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Defer scheduled unknown-detection analysis while Frigate is unavailable, retry readiness up to
+  five times at two-minute intervals, and stop event prechecks after a batch-wide outage rather
+  than queueing transient failures for classification.
+
 - Show only completed UTC days in telemetry trends so today's partial heartbeat count cannot look
   like a user-base collapse. Label the rolling reporting window and 90-day retained-install count
   explicitly, and keep privacy-suppressed daily values out of the plotted line.

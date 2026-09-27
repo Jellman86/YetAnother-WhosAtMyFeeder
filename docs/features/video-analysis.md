@@ -93,6 +93,11 @@ reclaimed from the detections database after a container restart. Frame progress
 subprocess retains the sampled frame number and exact clip offset, so saved top-frame evidence can
 be traced back to the media position that produced it.
 
+Scheduled analysis of unknown detections waits for Frigate's API to become available during a
+stack restart. If an entire precheck batch fails transiently, YA-WAMF leaves those detections
+eligible and retries up to five times at two-minute intervals. A later daily cleanup will try
+again if Frigate remains unavailable. Transient precheck errors are not queued as video jobs.
+
 ## Settings
 
 | Setting | Location | Description |
