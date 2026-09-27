@@ -80,3 +80,6 @@ The daily charts show completed UTC days only. Today's reports are still arrivin
 are omitted until the day ends; the selected-window count beside the usage chart is
 a rolling count through the present. "Reporting installs seen in last 90 days" counts
 the latest retained heartbeat rows, not every installation that has ever run YA-WAMF.
+In **Health Data**, issue groups and accepted report batches use the selected window. Older
+clients send lifetime issue counters, so an event total that includes those clients is labelled
+as such and must not be read as new events during that window.
