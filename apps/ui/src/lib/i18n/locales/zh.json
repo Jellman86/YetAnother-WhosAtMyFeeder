@@ -2436,7 +2436,10 @@
     "showcase_visit": "次到访",
     "showcase_detection": "次检测",
     "showcase_not_nearby": "附近无记录",
-    "showcase_check": "待核实"
+    "showcase_check": "待核实",
+    "most_visits_day": "今日到访最多",
+    "most_visits_week": "本周到访最多",
+    "most_visits_month": "本月到访最多"
   },
   "about": {
     "how_it_works": "工作原理",

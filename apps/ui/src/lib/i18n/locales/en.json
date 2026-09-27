@@ -2446,7 +2446,10 @@
     "showcase_visit": "visit",
     "showcase_detection": "detection",
     "showcase_not_nearby": "Not reported nearby",
-    "showcase_check": "Check"
+    "showcase_check": "Check",
+    "most_visits_day": "Most visits today",
+    "most_visits_week": "Most visits this week",
+    "most_visits_month": "Most visits this month"
   },
   "about": {
     "how_it_works": "How it works",

@@ -2436,7 +2436,10 @@
     "showcase_visit": "visite",
     "showcase_detection": "détection",
     "showcase_not_nearby": "Non signalée à proximité",
-    "showcase_check": "À vérifier"
+    "showcase_check": "À vérifier",
+    "most_visits_day": "Le plus de visites aujourd’hui",
+    "most_visits_week": "Le plus de visites cette semaine",
+    "most_visits_month": "Le plus de visites ce mois-ci"
   },
   "about": {
     "how_it_works": "Comment ça marche",

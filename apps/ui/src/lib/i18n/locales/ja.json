@@ -2436,7 +2436,10 @@
     "showcase_visit": "回の訪問",
     "showcase_detection": "件の検出",
     "showcase_not_nearby": "近くで記録なし",
-    "showcase_check": "要確認"
+    "showcase_check": "要確認",
+    "most_visits_day": "今日の訪問数トップ",
+    "most_visits_week": "今週の訪問数トップ",
+    "most_visits_month": "今月の訪問数トップ"
   },
   "about": {
     "how_it_works": "仕組み",

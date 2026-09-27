@@ -74,8 +74,6 @@
         confirmed_count?: number | null;
         /** Whether eBird birders reported it near the feeder recently; null when unknown. */
         reported_nearby?: boolean | null;
-        /** Frames behind the count when the count is visits. */
-        detection_count?: number | null;
     };
     type TrendMode = 'off' | 'smooth' | 'both';
     type AudioLoadState = 'disabled' | 'loading' | 'ready' | 'error';
@@ -264,13 +262,19 @@
     let showcaseEyebrow = $derived(
         sourceMode === 'both'
             ? $_('leaderboard.most_active', { default: 'Most active' })
-            : span === 'day'
-              ? $_('leaderboard.most_detected_day', { default: 'Most detected today' })
-              : span === 'week'
-                ? $_('leaderboard.most_detected_week', { default: 'Most detected this week' })
-                : span === 'all'
-                  ? $_('leaderboard.most_detected_all', { default: 'Most detected ever' })
-                  : $_('leaderboard.most_detected_month', { default: 'Most detected this month' })
+            : span === 'all' || !countsAreVisits
+              ? span === 'day'
+                ? $_('leaderboard.most_detected_day', { default: 'Most detected today' })
+                : span === 'week'
+                  ? $_('leaderboard.most_detected_week', { default: 'Most detected this week' })
+                  : span === 'all'
+                    ? $_('leaderboard.most_detected_all', { default: 'Most detected ever' })
+                    : $_('leaderboard.most_detected_month', { default: 'Most detected this month' })
+              : span === 'day'
+                ? $_('leaderboard.most_visits_day', { default: 'Most visits today' })
+                : span === 'week'
+                  ? $_('leaderboard.most_visits_week', { default: 'Most visits this week' })
+                  : $_('leaderboard.most_visits_month', { default: 'Most visits this month' })
     );
     function scrollToRankings(): void {
         document.querySelector('[data-leaderboard-rankings]')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -489,7 +493,6 @@
             common_name: s.common_name ?? null,
             taxa_id: s.taxa_id ?? null,
             count,
-            detection_count: s.window_count ?? 0,
             prev_count: prevCount,
             delta: count - prevCount,
             percent: prevCount > 0 ? ((count - prevCount) / prevCount) * 100 : 0,
