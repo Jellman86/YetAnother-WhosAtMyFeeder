@@ -565,7 +565,9 @@ test("mixed legacy and v3 health cohorts retain real legacy issue detail", async
   const dashboard = await mf.dispatchFetch("http://worker.test/dashboard?view=health&days=90");
   const dashboardBody = await dashboard.text();
   assert.equal(dashboard.status, 200);
-  assert.match(dashboardBody, /includes cumulative legacy counters/i);
+  assert.match(dashboardBody, /includes lifetime counters from older clients/i);
+  assert.match(dashboardBody, /only groups and batches are scoped to the selected window/i);
+  assert.doesNotMatch(dashboardBody, /new events in this window/i);
   assert.match(dashboardBody, /mixed schema failure/i);
 });
 

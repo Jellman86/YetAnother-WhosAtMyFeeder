@@ -1181,7 +1181,7 @@ app.get('/dashboard', async (c) => {
       const row: any = severityByName.get(name) ?? {};
       const occurrenceLabel = row.occurrence_basis === 'legacy_cumulative'
         || row.occurrence_basis === 'mixed_window_events_and_legacy_cumulative'
-        ? 'events · includes cumulative legacy counters'
+        ? 'events · includes lifetime counters from older clients'
         : 'new events';
       return `<div class="severity-card">${severityPill(name)}<strong>${fmt(row.issue_count ?? 0)}</strong><small>${fmt(row.report_count ?? 0)} batches · ${fmt(row.occurrence_count ?? 0)} ${occurrenceLabel}</small></div>`;
     }).join('');
@@ -1194,7 +1194,7 @@ app.get('/dashboard', async (c) => {
           <td>${html(row.app_version || 'Unknown')}</td>
           <td>${fmt(row.install_count)}</td>
           <td>${fmt(row.occurrence_count)}</td>
-          <td>${row.occurrence_basis === 'window_events' ? 'Window events' : 'Includes cumulative legacy counters'}</td>
+          <td>${row.occurrence_basis === 'window_events' ? 'Window events' : 'Includes lifetime counters from older clients'}</td>
           <td>${html(row.last_seen || 'Unknown')}</td>
         </tr>`).join('')
       : '<tr><td colspan="8" class="empty">No health issues in this window</td></tr>';
@@ -1215,6 +1215,11 @@ app.get('/dashboard', async (c) => {
     const recoveryRows = recoveryReasons.results.length
       ? recoveryReasons.results.map((row: any) => `<div class="recovery-row"><span>${html(humanizeCode(row.reason))}</span><span class="recovery-status">${html(row.status || 'Unknown')}</span><strong>${fmt(row.count)}</strong></div>`).join('')
       : '<div class="empty panel-empty">No recovery reports yet</div>';
+    const includesLegacyCounters = publicTotals?.occurrence_basis === 'legacy_cumulative'
+      || publicTotals?.occurrence_basis === 'mixed_window_events_and_legacy_cumulative';
+    const occurrenceDescription = includesLegacyCounters
+      ? 'Event total includes lifetime counters from older clients; only groups and batches are scoped to the selected window.'
+      : 'Event total counts new events in the selected window.';
 
     const body = `
       <section class="health-command">
@@ -1226,11 +1231,11 @@ app.get('/dashboard', async (c) => {
           <div class="signal-facts">
             <div class="signal-fact"><strong>${fmt(publicTotals?.issue_count)}</strong><span>tracked groups</span></div>
             <div class="signal-fact"><strong>${fmt(publicTotals?.report_count)}</strong><span>accepted batches</span></div>
-            <div class="signal-fact"><strong>${fmt(publicTotals?.occurrence_count)}</strong><span>${publicTotals?.occurrence_basis === 'legacy_cumulative' || publicTotals?.occurrence_basis === 'mixed_window_events_and_legacy_cumulative' ? 'events incl. legacy cumulative' : 'new events'}</span></div>
+            <div class="signal-fact"><strong>${fmt(publicTotals?.occurrence_count)}</strong><span>${includesLegacyCounters ? 'events incl. lifetime counters' : 'new events'}</span></div>
           </div>
         </article>
         <article class="panel health-severity-board">
-          <div class="panel-heading"><div><span class="eyebrow">Triage lane</span><h2>Severity distribution</h2><p>Deduplicated groups, accepted batches, and new events in this window.</p></div></div>
+          <div class="panel-heading"><div><span class="eyebrow">Triage lane</span><h2>Severity distribution</h2><p>${occurrenceDescription}</p></div></div>
           <div class="health-severity-lane">${severityCards}</div>
         </article>
       </section>

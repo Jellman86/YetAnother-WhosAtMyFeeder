@@ -6,6 +6,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Clarify Health Data event totals when older clients send lifetime issue counters. The severity
+  explanation now states that only groups and report batches belong to the selected window.
+
 - Replace the three Audio History ApexCharts with MIT-licensed Chart.js charts, preserving
   daily and hourly tooltips, adding keyboard-operable species filters and share labels, and
   keeping dark mode, reduced motion, and phone layouts.
