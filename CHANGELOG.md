@@ -6,6 +6,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Replace the three Audio History ApexCharts with MIT-licensed Chart.js charts, preserving
+  daily and hourly tooltips, species legend toggles, dark mode, reduced motion, and phone layouts.
+
 - Move manual-tag provider lookups outside database connection holds and share one lookup across
   a bulk correction. Taxonomy and audio correlation reuse resolved names and the caller's
   connection, avoiding nested pool acquisitions during manual and video updates.

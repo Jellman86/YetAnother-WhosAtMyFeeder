@@ -11,7 +11,7 @@
         type AudioSummaryResponse,
         type SpeciesInfo
     } from '../api';
-    import { chart } from '../actions/apexchart';
+    import { chartjs, type CanvasChartConfig } from '../actions/chartjs';
     import { themeStore } from '../stores/theme.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { withAuthParams } from '../api/core';
@@ -21,7 +21,7 @@
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
     import { logger } from '../utils/logger';
     import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
-    import type { ApexOptions } from 'apexcharts';
+    import type { Plugin } from 'chart.js';
 
     const PAGE_SIZE = 25;
 
@@ -209,76 +209,116 @@
     // Teal palette for audio-derived charts, matching the RecentAudio widget.
     const audioPalette = ['#14b8a6', '#0ea5e9', '#6366f1', '#f59e0b', '#ec4899', '#8b5cf6', '#10b981', '#94a3b8'];
 
-    let dailyChartOptions = $derived((): ApexOptions => {
+    let dailyChartConfig = $derived((): CanvasChartConfig => {
         const points = summary?.daily_counts ?? [];
-        const data = points.map((p) => ({ x: new Date(`${p.date}T00:00:00Z`).getTime(), y: p.count }));
+        const labels = points.map((point) => new Date(`${point.date}T00:00:00Z`).toLocaleDateString(undefined, { day: 'numeric', month: 'short', timeZone: 'UTC' }));
         return {
-            chart: { type: 'area', height: 240, toolbar: { show: false }, animations: { enabled: !reduceMotion, speed: 250 }, fontFamily: 'inherit' },
-            series: [{ name: $_('audio.chart.heard', { default: 'Heard' }), type: 'area', data }],
-            colors: ['#14b8a6'],
-            dataLabels: { enabled: false },
-            stroke: { curve: 'smooth', width: 2 },
-            fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.35, opacityTo: 0.03, stops: [0, 100] } },
-            xaxis: { type: 'datetime', labels: { style: { colors: '#94a3b8', fontSize: '12px' } }, axisBorder: { show: false }, axisTicks: { show: false } },
-            yaxis: { labels: { style: { colors: '#94a3b8', fontSize: '12px' }, formatter: (v: number) => `${Math.round(v)}` } },
-            grid: { borderColor: isDark ? 'rgba(148,163,184,0.12)' : 'rgba(148,163,184,0.2)', strokeDashArray: 4, padding: { left: 8, right: 8 } },
-            tooltip: { theme: isDark ? 'dark' : 'light', x: { format: 'dd MMM yyyy' } }
+            type: 'line',
+            data: {
+                labels,
+                datasets: [{
+                    label: $_('audio.chart.heard', { default: 'Heard' }),
+                    data: points.map((point) => point.count),
+                    borderColor: audioPalette[0],
+                    backgroundColor: 'rgba(20,184,166,0.18)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: points.length > 45 ? 0 : 2,
+                    pointHoverRadius: 5,
+                    borderWidth: 2,
+                }],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: reduceMotion ? false : { duration: 250 },
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { callbacks: { title: (items) => points[items[0]?.dataIndex]?.date ?? '' } },
+                },
+                scales: {
+                    x: { ticks: { color: '#94a3b8', maxTicksLimit: 6 }, grid: { display: false } },
+                    y: { beginAtZero: true, ticks: { color: '#94a3b8', precision: 0 }, grid: { color: isDark ? 'rgba(148,163,184,0.12)' : 'rgba(148,163,184,0.2)' } },
+                },
+            },
         };
     });
 
-    let hourlyChartOptions = $derived((): ApexOptions => {
-        const counts = new Array(24).fill(0);
+    let hourlyChartConfig = $derived((): CanvasChartConfig => {
+        const counts = new Array<number>(24).fill(0);
         for (const item of summary?.hourly_counts ?? []) {
             if (item.hour >= 0 && item.hour < 24) counts[item.hour] = item.count;
         }
+        const labels = counts.map((_, hour) => String(hour).padStart(2, '0'));
         return {
-            chart: { type: 'bar', height: 240, toolbar: { show: false }, animations: { enabled: !reduceMotion, speed: 200 }, fontFamily: 'inherit' },
-            series: [{ name: $_('audio.chart.heard', { default: 'Heard' }), type: 'bar', data: counts.map((c, h) => ({ x: `${String(h).padStart(2, '0')}`, y: c })) }],
-            colors: ['#14b8a6'],
-            dataLabels: { enabled: false },
-            plotOptions: { bar: { borderRadius: 3, columnWidth: '68%' } },
-            xaxis: {
-                labels: {
-                    style: { colors: '#94a3b8', fontSize: '12px' },
-                    formatter: (val: string) => (Number(val) % 3 === 0 ? `${val}:00` : '')
-                },
-                axisBorder: { show: false },
-                axisTicks: { show: false },
-                tickPlacement: 'on'
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [{
+                    label: $_('audio.chart.heard', { default: 'Heard' }),
+                    data: counts,
+                    backgroundColor: audioPalette[0],
+                    borderRadius: 3,
+                    maxBarThickness: 18,
+                }],
             },
-            yaxis: { labels: { style: { colors: '#94a3b8', fontSize: '12px' }, formatter: (v: number) => `${Math.round(v)}` } },
-            grid: { borderColor: isDark ? 'rgba(148,163,184,0.12)' : 'rgba(148,163,184,0.2)', strokeDashArray: 4 },
-            tooltip: { theme: isDark ? 'dark' : 'light', x: { formatter: (val: number) => `${String(val).padStart(2, '0')}:00` } }
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: reduceMotion ? false : { duration: 200 },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { callbacks: { title: (items) => `${labels[items[0]?.dataIndex] ?? '00'}:00` } },
+                },
+                scales: {
+                    x: { ticks: { color: '#94a3b8', autoSkip: false, minRotation: 0, maxRotation: 0, callback: (value) => Number(value) % 3 === 0 ? `${labels[Number(value)]}:00` : '' }, grid: { display: false } },
+                    y: { beginAtZero: true, ticks: { color: '#94a3b8', precision: 0 }, grid: { color: isDark ? 'rgba(148,163,184,0.12)' : 'rgba(148,163,184,0.2)' } },
+                },
+            },
         };
     });
 
-    let speciesDonutOptions = $derived((): ApexOptions => {
+    let speciesDonutConfig = $derived((): CanvasChartConfig => {
         const top = (summary?.top_species ?? []).slice(0, 8);
-        const labels = top.map((s) => s.species);
-        const series = top.map((s) => s.count);
-        const total = series.reduce((a, b) => a + b, 0);
-        return {
-            chart: { type: 'donut', height: 240, toolbar: { show: false }, animations: { enabled: !reduceMotion, speed: 250 }, fontFamily: 'inherit' },
-            series,
-            labels,
-            colors: audioPalette.slice(0, labels.length),
-            dataLabels: { enabled: true, formatter: (val: number) => (val >= 6 ? `${Math.round(val)}%` : ''), style: { fontSize: '12px', fontWeight: 600, colors: ['#fff'] }, dropShadow: { enabled: false } },
-            plotOptions: {
-                pie: {
-                    donut: {
-                        size: '62%',
-                        labels: {
-                            show: true,
-                            total: { show: true, showAlways: true, label: $_('audio.chart.heard', { default: 'Heard' }), fontSize: '12px', fontWeight: 600, color: isDark ? '#94a3b8' : '#64748b', formatter: () => total.toLocaleString() },
-                            value: { show: true, fontSize: '15px', fontWeight: 700, color: isDark ? '#e2e8f0' : '#1e293b', formatter: (val: string) => Number(val).toLocaleString() },
-                            name: { show: true, fontSize: '12px', color: isDark ? '#94a3b8' : '#64748b' }
-                        }
-                    }
-                }
+        const values = top.map((species) => species.count);
+        const totalLabel = $_('audio.chart.heard', { default: 'Heard' });
+        const centerTotal: Plugin = {
+            id: 'audioCenterTotal',
+            afterDraw(chart) {
+                const { ctx, chartArea } = chart;
+                if (!chartArea) return;
+                const total = values.reduce((sum, value, index) => sum + (chart.getDataVisibility(index) ? value : 0), 0);
+                const centerX = (chartArea.left + chartArea.right) / 2;
+                const centerY = (chartArea.top + chartArea.bottom) / 2;
+                ctx.save();
+                ctx.textAlign = 'center';
+                ctx.fillStyle = isDark ? '#94a3b8' : '#64748b';
+                ctx.font = '600 12px sans-serif';
+                ctx.fillText(totalLabel, centerX, centerY - 5);
+                ctx.fillStyle = isDark ? '#e2e8f0' : '#1e293b';
+                ctx.font = '700 17px sans-serif';
+                ctx.fillText(total.toLocaleString(), centerX, centerY + 17);
+                ctx.restore();
             },
-            stroke: { width: 1.5, colors: [isDark ? '#1e293b' : '#ffffff'] },
-            legend: { position: 'bottom', fontSize: '12px', labels: { colors: isDark ? '#94a3b8' : '#64748b' }, itemMargin: { horizontal: 6, vertical: 2 } },
-            tooltip: { theme: isDark ? 'dark' : 'light' }
+        };
+        return {
+            type: 'doughnut',
+            data: {
+                labels: top.map((species) => species.species),
+                datasets: [{ data: values, backgroundColor: audioPalette.slice(0, top.length), borderColor: isDark ? '#1e293b' : '#ffffff', borderWidth: 1.5 }],
+            },
+            plugins: [centerTotal],
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: reduceMotion ? false : { duration: 250 },
+                cutout: '62%',
+                plugins: {
+                    legend: { position: 'bottom', labels: { color: isDark ? '#94a3b8' : '#64748b', boxWidth: 10, font: { size: 12 } } },
+                    tooltip: { callbacks: { label: (item) => `${item.label}: ${item.formattedValue}` } },
+                },
+            },
         };
     });
 
@@ -516,7 +556,7 @@
                 <div class="mt-3 h-[240px] animate-pulse bg-slate-100/80 dark:bg-slate-800/60"></div>
             {:else if hasDaily}
                 {#key `${days}-${isDark}-${reduceMotion}`}
-                    <div use:chart={dailyChartOptions()} class="mt-3 w-full"></div>
+                    <div class="relative mt-3 h-[240px] w-full"><canvas use:chartjs={dailyChartConfig()} aria-label={$_('audio.chart.daily_title', { default: 'Activity over time' })}></canvas></div>
                 {/key}
             {:else}
                 <div class="flex h-[240px] items-center justify-center text-sm font-semibold text-slate-400 dark:text-slate-500">{$_('audio.chart.empty', { default: 'No activity in this window.' })}</div>
@@ -530,7 +570,7 @@
                     <div class="mt-3 h-[240px] animate-pulse bg-slate-100/80 dark:bg-slate-800/60"></div>
                 {:else if hasHourly}
                     {#key `${days}-${isDark}-${reduceMotion}`}
-                        <div use:chart={hourlyChartOptions()} class="mt-3 w-full"></div>
+                        <div class="relative mt-3 h-[240px] w-full"><canvas use:chartjs={hourlyChartConfig()} aria-label={$_('audio.chart.hourly_title', { default: 'Time of day' })}></canvas></div>
                     {/key}
                 {:else}
                     <div class="flex h-[240px] items-center justify-center text-sm font-semibold text-slate-400 dark:text-slate-500">{$_('audio.chart.empty', { default: 'No activity in this window.' })}</div>
@@ -542,7 +582,7 @@
                     <div class="mt-3 h-[240px] animate-pulse bg-slate-100/80 dark:bg-slate-800/60"></div>
                 {:else if hasSpecies}
                     {#key `${days}-${isDark}-${reduceMotion}`}
-                        <div use:chart={speciesDonutOptions()} class="mt-3 w-full"></div>
+                        <div class="relative mt-3 h-[240px] w-full"><canvas use:chartjs={speciesDonutConfig()} aria-label={$_('audio.chart.species_title', { default: 'Species mix' })}></canvas></div>
                     {/key}
                 {:else}
                     <div class="flex h-[240px] items-center justify-center text-sm font-semibold text-slate-400 dark:text-slate-500">{$_('audio.chart.empty', { default: 'No activity in this window.' })}</div>
