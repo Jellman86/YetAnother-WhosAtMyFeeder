@@ -2104,6 +2104,11 @@
           "status": {
             "title": "Status",
             "type": "string"
+          },
+          "updated": {
+            "default": 0,
+            "title": "Updated",
+            "type": "integer"
           }
         },
         "required": [

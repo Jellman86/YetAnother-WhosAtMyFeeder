@@ -1,10 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
+    formatBackfillProgressSummary,
     resolveRunningBackfillMessage,
     updateScopedBackfillProgress
 } from './progress';
 
 describe('updateScopedBackfillProgress', () => {
+    it('separates inserted and improved detection counts in progress text', () => {
+        expect(formatBackfillProgressSummary(10, 20, 2, 3, 0, 5))
+            .toBe('10/20 • 5 new • 2 upd • 3 skip • 0 err');
+    });
     it('does not carry an older total into a new running job before the backend reports one', () => {
         const next = updateScopedBackfillProgress(
             { jobId: 'job-old', total: 200 },

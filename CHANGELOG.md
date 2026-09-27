@@ -91,6 +91,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- Count backfilled detections inserted into history separately from existing detections whose
+  automatic classification improved. The Settings summary, job status, progress messages and
+  synchronous API now report both, so "New" matches database growth.
+
 - **Destructive buttons ask in the app, and work in every browser.** "Reset Database & Cache",
   "Clear Personalization Data", deleting favourites, visits, models and evaluation runs, and
   importing a configuration backup used the browser's own confirm popup. Embedded browsers and

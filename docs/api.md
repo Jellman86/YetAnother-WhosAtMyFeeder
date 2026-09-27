@@ -517,7 +517,9 @@ gate, independent of the selected classifier's own detector-crop policy. Already
 temporally unaligned cached images do not receive those coordinates. Taxonomy from a replaced species
 is cleared rather than attached to the new identity. Missing cached snapshots can still be repaired
 for an existing row. Frigate history fetch or pagination failures fail the job explicitly; partial
-history is never reported as a completed empty import. Job status includes `last_progress_at`,
+history is never reported as a completed empty import. The `new_detections` count includes only
+inserted rows; `updated` counts existing detections whose automatic classification improved.
+Skipped and error counts are separate. Job status includes `last_progress_at`,
 structured skip/error reason counts, and a terminal message. A completed detection import queues an
 only-missing weather pass when the maintenance lane becomes available.
 

@@ -63,9 +63,8 @@ export function syncBackfillJobProgress(
     settleObsoleteBackfillJobs(prefix, id);
     const processed = safeCount(status.processed);
     const total = safeCount(status.total);
-    const updated = kind === 'weather'
-        ? safeCount(status.updated)
-        : safeCount(status.new_detections);
+    const updated = safeCount(status.updated);
+    const newDetections = kind === 'weather' ? undefined : safeCount(status.new_detections);
     const skipped = safeCount(status.skipped);
     const errors = safeCount(status.errors);
     const normalizedTotal = total > 0 ? total : safeCount(next.total);
@@ -78,9 +77,9 @@ export function syncBackfillJobProgress(
     const message = status.status === 'running'
         ? resolveRunningBackfillMessage(
             status,
-            formatBackfillProgressSummary(processed, normalizedTotal, updated, skipped, errors)
+            formatBackfillProgressSummary(processed, normalizedTotal, updated, skipped, errors, newDetections)
         )
-        : (status.message || formatBackfillProgressSummary(processed, normalizedTotal, updated, skipped, errors));
+        : (status.message || formatBackfillProgressSummary(processed, normalizedTotal, updated, skipped, errors, newDetections));
 
     if (status.status === 'completed') {
         jobProgressStore.markCompleted({

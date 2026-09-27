@@ -81,7 +81,8 @@ export function formatBackfillProgressSummary(
     total: number,
     updated: number,
     skipped: number,
-    errors: number
+    errors: number,
+    newDetections?: number
 ): string {
     const normalizedProcessed = safeCount(processed);
     const normalizedTotal = safeCount(total);
@@ -92,5 +93,6 @@ export function formatBackfillProgressSummary(
         ? normalizedTotal.toLocaleString()
         : '?';
 
-    return `${normalizedProcessed.toLocaleString()}/${totalLabel} • ${normalizedUpdated.toLocaleString()} upd • ${normalizedSkipped.toLocaleString()} skip • ${normalizedErrors.toLocaleString()} err`;
+    const newLabel = newDetections === undefined ? '' : `${safeCount(newDetections).toLocaleString()} new • `;
+    return `${normalizedProcessed.toLocaleString()}/${totalLabel} • ${newLabel}${normalizedUpdated.toLocaleString()} upd • ${normalizedSkipped.toLocaleString()} skip • ${normalizedErrors.toLocaleString()} err`;
 }
