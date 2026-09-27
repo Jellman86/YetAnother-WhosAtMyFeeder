@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Show only completed UTC days in telemetry trends so today's partial heartbeat count cannot look
+  like a user-base collapse. Label the rolling reporting window and 90-day retained-install count
+  explicitly, and keep privacy-suppressed daily values out of the plotted line.
+
 - Keep classifier recovery status consistent across health and settings, show the running execution
   mode, and retain restart advice after recovery. Model reloads preserve quarantined native models.
 - Route wildlife reclassification through isolated workers in subprocess mode, including after

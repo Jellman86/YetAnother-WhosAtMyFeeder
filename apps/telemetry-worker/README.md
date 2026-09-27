@@ -116,6 +116,9 @@ hostnames, media, raw diagnostic messages, or configuration secrets. Categories 
 are published only when at least three distinct installations contribute; smaller groups read as a
 low cohort or are omitted. Recent health totals come from accepted batch rows, so a lifetime issue
 counter cannot inflate a 7-, 30-, or 90-day window. Public timestamps are day-granularity.
+Daily trend charts use the last 7, 30, or 90 **completed UTC days**; the unfinished current day
+is left out. The adjacent usage count is rolling through the present, while the retained-install
+comparison covers at most 90 days of latest heartbeat rows. Neither is an all-time user count.
 
 The dashboard has two views:
 
