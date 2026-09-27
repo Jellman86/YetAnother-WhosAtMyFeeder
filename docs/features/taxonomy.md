@@ -22,16 +22,37 @@ is most visible, because it shows both names together:
 ![The Species page reached from Leaderboard, with the Month window and the Seen filter selected: a full-bleed card headed "Most detected this month" naming Dunnock, Prunella modularis, 243 visits, a Rising line for House Sparrow beneath it, and the start of the full rankings](../images/leaderboard.png)
 
 The **Day / Week / Month / Total** buttons set the window. **Seen / Heard / Both** decide what the
-ranking counts: **Seen** ranks by camera visits alone, **Heard** by BirdNET-Go detections, and
-**Both** by the two added together — which also brings in species that were only ever heard, never
+ranking counts: **Seen** ranks by camera detections alone, **Heard** by BirdNET-Go detections, and
+**Both** by the two added together, which also brings in species that were only ever heard, never
 photographed. **Both** is a sum, not an intersection: a species does not need evidence from both
 sources to appear.
 
-Below the rankings, **Detections over time** shows when visits happened and can overlay weather.
-**Species composition** shows each species' share; its labelled buttons can hide or restore a
-slice with a mouse, touch, or keyboard. **Hour x weekday activity** shows when this feeder is
-busy; each cell gives its count on focus or hover. The heatmap scrolls sideways on narrow screens
-so the hour labels stay readable.
+Under the photographs, one band states the window: how many species, how many detections, the
+busiest hour of the day, how many species were **heard or confirmed**, what is rising and what was
+seen last. The rankings then say what stands behind each species besides the classifier:
+
+- **Confirmed by you**: you confirmed or named at least one of its detections in the window.
+- **Also heard**: BirdNET-Go heard the species in the same window.
+- **Heard only**: BirdNET-Go heard it, the camera never saw it.
+- **Camera only**: BirdNET-Go was listening and did not hear it, and nobody has confirmed a
+  detection. A species that is out of range for your area and shows **Camera only** is usually a
+  misidentification worth a look.
+- **Not confirmed**: nobody has confirmed a detection and BirdNET-Go is off, so silence proves
+  nothing.
+
+The **Total** window has no confirmation counts, so its evidence column only reports calls.
+
+**Trend** and **Rising** compare the window with the one before it, and appear only when your
+history covers the whole of that earlier window. On a new install the page says when records start
+instead of reporting every species as a riser.
+
+Below the rankings, **Detections over time** shows when detections happened and can overlay
+weather; its legend names each species and hides or restores it. A species keeps the same colour in
+that chart and in **Species composition**, whose labelled buttons can hide or restore a slice with
+a mouse, touch, or keyboard. **Hour x weekday activity** shows when this feeder is busy: brighter
+means busier in dark mode and darker means busier in light mode, the busiest hour is outlined, and
+each cell gives its count on hover. Screen readers get the same grid as a table. The grid fits its
+column at every width rather than scrolling sideways.
 
 ## Taxonomy Repair
 If your history contains old detections with inconsistent naming, run **Taxonomy repair** from

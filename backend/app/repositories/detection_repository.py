@@ -107,6 +107,8 @@ def merge_species_leaderboard_rows(rows: list[dict]) -> list[dict]:
             ) / total
         target["window_count"] = total
         target["prev_count"] = int(target.get("prev_count") or 0) + int(row.get("prev_count") or 0)
+        for field in ("window_confirmed_count", "window_audio_confirmed_count"):
+            target[field] = int(target.get(field) or 0) + int(row.get(field) or 0)
         for field, pick in (("window_first_seen", min), ("window_last_seen", max)):
             left, right = target.get(field), row.get(field)
             if left is None or right is None:
@@ -3896,7 +3898,9 @@ class DetectionRepository:
                 MAX(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.detection_time ELSE NULL END) as window_last_seen,
 
                 AVG(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.score ELSE NULL END) as window_avg_confidence,
-                COUNT(DISTINCT CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.camera_name ELSE NULL END) as window_camera_count
+                COUNT(DISTINCT CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.camera_name ELSE NULL END) as window_camera_count,
+                SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? AND d.manual_tagged = 1 THEN 1 ELSE 0 END) as window_confirmed_count,
+                SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? AND d.audio_confirmed = 1 THEN 1 ELSE 0 END) as window_audio_confirmed_count
             FROM detections d
             {taxonomy_join}
             WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
@@ -3909,6 +3913,10 @@ class DetectionRepository:
             window_end,
             prev_start,
             prev_end,
+            window_start,
+            window_end,
+            window_start,
+            window_end,
             window_start,
             window_end,
             window_start,
@@ -3936,6 +3944,8 @@ class DetectionRepository:
                     "window_last_seen": _parse_datetime(row[8]) if row[8] else None,
                     "window_avg_confidence": float(row[9] or 0.0),
                     "window_camera_count": int(row[10] or 0),
+                    "window_confirmed_count": int(row[11] or 0),
+                    "window_audio_confirmed_count": int(row[12] or 0),
                 }
                 for row in rows
             ]
@@ -4492,7 +4502,9 @@ class DetectionRepository:
                     MIN(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.detection_time ELSE NULL END) as window_first_seen,
                     MAX(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.detection_time ELSE NULL END) as window_last_seen,
                     AVG(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.score ELSE NULL END) as window_avg_confidence,
-                    COUNT(DISTINCT CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.camera_name ELSE NULL END) as window_camera_count
+                    COUNT(DISTINCT CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.camera_name ELSE NULL END) as window_camera_count,
+                    SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? AND d.manual_tagged = 1 THEN 1 ELSE 0 END) as window_confirmed_count,
+                    SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? AND d.audio_confirmed = 1 THEN 1 ELSE 0 END) as window_audio_confirmed_count
                 FROM detections d
                 {join_sql}
                 WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
@@ -4515,6 +4527,11 @@ class DetectionRepository:
                 window_end,
                 window_start,
                 window_end,
+                window_start,
+                window_end,
+                # The rows span both windows, or prev_count could never be anything but 0.
+                prev_start,
+                window_end,
                 *params,
             ],
         ) as cursor:
@@ -4532,6 +4549,8 @@ class DetectionRepository:
             "window_last_seen": _parse_datetime(row[3]) if row[3] else None,
             "window_avg_confidence": float(row[4] or 0.0),
             "window_camera_count": int(row[5] or 0),
+            "window_confirmed_count": int(row[6] or 0),
+            "window_audio_confirmed_count": int(row[7] or 0),
         }
 
     async def get_camera_breakdown(self, species_name: str) -> list[dict]:

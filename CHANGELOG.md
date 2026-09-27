@@ -6,6 +6,19 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Make the leaderboard say how sure it is. Each species now states what stands behind it besides
+  the classifier: confirmed by you, also heard by BirdNET-Go, heard only, or camera only, and a new
+  band counts how many species were heard or confirmed. Trends and "Rising" appear only when the
+  history covers the whole previous window; a new install says when records start instead of
+  showing every species as a riser. The leaderboard route reports confirmed and call-matched
+  detections per species, the history start, and whether the previous window was fully recorded,
+  and the Unknown Bird row now counts its previous window.
+- Stop the weekday heatmap scrolling sideways on laptop screens: it fits its column at every
+  width, brightens with activity in dark mode, outlines the busiest hour, and gives screen readers
+  a table instead of 168 inert buttons. The detections timeline gains a legend with species names,
+  a species keeps one colour across both charts in a palette checked for colour blindness, counts
+  are labelled as detections rather than visits, and "last seen" reads as a relative time.
+
 - Clarify Health Data event totals when older clients send lifetime issue counters. The severity
   explanation now states that only groups and report batches belong to the selected window;
   affected issue rows label their counts as lifetime values.

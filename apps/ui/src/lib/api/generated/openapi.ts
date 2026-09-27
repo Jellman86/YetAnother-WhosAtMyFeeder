@@ -1024,8 +1024,10 @@ export interface components {
     scientific_name?: string | null;
     species: string;
     taxa_id?: number | null;
+    window_audio_confirmed_count?: number;
     window_avg_confidence: number;
     window_camera_count: number;
+    window_confirmed_count?: number;
     window_count: number;
     window_delta: number;
     window_first_seen?: string | null;
@@ -1034,6 +1036,8 @@ export interface components {
     window_prev_count: number;
 };
     LeaderboardSpeciesResponse: {
+    history_start?: string | null;
+    previous_window_complete?: boolean;
     span: "day" | "week" | "month";
     species: Array<components['schemas']['LeaderboardSpeciesItemResponse']>;
     window_end: string;

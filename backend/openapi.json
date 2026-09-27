@@ -7023,12 +7023,22 @@
             ],
             "title": "Taxa Id"
           },
+          "window_audio_confirmed_count": {
+            "default": 0,
+            "title": "Window Audio Confirmed Count",
+            "type": "integer"
+          },
           "window_avg_confidence": {
             "title": "Window Avg Confidence",
             "type": "number"
           },
           "window_camera_count": {
             "title": "Window Camera Count",
+            "type": "integer"
+          },
+          "window_confirmed_count": {
+            "default": 0,
+            "title": "Window Confirmed Count",
             "type": "integer"
           },
           "window_count": {
@@ -7084,6 +7094,22 @@
       },
       "LeaderboardSpeciesResponse": {
         "properties": {
+          "history_start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "History Start"
+          },
+          "previous_window_complete": {
+            "default": false,
+            "title": "Previous Window Complete",
+            "type": "boolean"
+          },
           "span": {
             "enum": [
               "day",

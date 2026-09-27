@@ -52,6 +52,9 @@
     import { doughnutInsightPlugin } from '../actions/chartjs-doughnut';
     import type { TemperatureUnit } from '../utils/temperature';
     import { toAppPath } from '../app/url-base';
+    import { evidenceFor, isCorroborated, type SpeciesEvidence } from '../leaderboard/evidence';
+    import { busiestHourOfDay, heatmapFill, heatmapLegendGradient, peakCell } from '../leaderboard/heatmap';
+    import { otherSeriesColor, speciesSeriesColor, SPECIES_SERIES_SLOTS } from '../leaderboard/species-palette';
 
     type LeaderboardRow = {
         species: string;
@@ -67,6 +70,8 @@
         last_seen?: string | null;
         avg_confidence?: number | null;
         camera_count?: number | null;
+        /** Detections a person named or confirmed in the window; null where the route does not count them. */
+        confirmed_count?: number | null;
     };
     type TrendMode = 'off' | 'smooth' | 'both';
     type AudioLoadState = 'disabled' | 'loading' | 'ready' | 'error';
@@ -91,6 +96,12 @@
     let error = $state<string | null>(null);
     let span = $state<LeaderboardSpan>('month');
     let leaderboardWindow = $state<{ start: string; end: string } | null>(null);
+    let historyStart = $state<string | null>(null);
+    let previousWindowComplete = $state(false);
+    // A window whose predecessor began before the first detection has nothing to be compared
+    // with; every species would read as rising. The trend is only claimed when it was measured.
+    let trendAvailable = $derived(span !== 'all' && previousWindowComplete);
+    let hiddenTimelineSeries = $state<string[]>([]);
     let includeUnknownBird = $state(false);
     let selectedSpecies = $state<string | null>(null);
     let timeline = $state<DetectionsTimelineSpanResponse | null>(null);
@@ -217,7 +228,7 @@
     });
     let showcaseRows = $derived(
         buildShowcaseRows(leaderboardRows, {
-            span,
+            trendAvailable,
             sourceMode,
             portraits,
             referenceFor: (name) => ({
@@ -245,7 +256,7 @@
         document.querySelector('[data-leaderboard-rankings]')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
     let topByTrend = $derived(
-        span === 'all'
+        !trendAvailable
             ? null
             : [...leaderboardRows]
                 .filter((row) => (deltaForMode(row, sourceMode) ?? 0) > 0)
@@ -258,16 +269,31 @@
         const bTime = Date.parse(activityTimestampForMode(b, sourceMode) ?? '') || 0;
         return bTime - aTime;
     })[0] ?? null);
-    let showRisingHighlight = $derived(
-        span !== 'all' && Boolean(topByTrend && topByTrend.species !== sourceLeader?.species)
+
+    // BirdNET silence only means "not heard" when it was listening and its window loaded.
+    let audioKnown = $derived(birdnetEnabled && audioLoadState === 'ready');
+    let rowEvidence = $derived(
+        new Map(leaderboardRows.map((row) => [`${row.species}|${row.audio_only}`, evidenceFor(row, { audioKnown })] as const))
     );
-    let showRecentHighlight = $derived(
-        Boolean(
-            mostRecent
-                && mostRecent.species !== sourceLeader?.species
-                && (!topByTrend || mostRecent.species !== topByTrend.species)
-        )
-    );
+    function evidenceOf(row: LeaderboardTableRow): SpeciesEvidence {
+        return rowEvidence.get(`${row.species}|${row.audio_only}`) ?? 'unknown';
+    }
+    // "The rest are the camera alone" is only true when no row's evidence is unknown; all time has no
+    // confirmation counts, so there the band says so instead of counting.
+    let evidenceKnown = $derived(rowEvidence.size > 0 && [...rowEvidence.values()].every((evidence) => evidence !== 'unknown'));
+    let corroboratedCount = $derived([...rowEvidence.values()].filter(isCorroborated).length);
+    function evidenceLabel(evidence: SpeciesEvidence): string {
+        if (evidence === 'confirmed') return $_('leaderboard.evidence_confirmed', { default: 'Confirmed by you' });
+        if (evidence === 'seen_and_heard') return $_('leaderboard.evidence_seen_and_heard', { default: 'Also heard' });
+        if (evidence === 'heard_only') return $_('leaderboard.evidence_heard_only', { default: 'Heard only' });
+        if (evidence === 'camera_only') return $_('leaderboard.evidence_camera_only', { default: 'Camera only' });
+        if (evidence === 'unconfirmed') return $_('leaderboard.evidence_unconfirmed', { default: 'Not confirmed' });
+        return '—';
+    }
+    let showCameraColumn = $derived(leaderboardRows.some((row) => (row.camera_count ?? 0) > 1));
+    let unidentifiedCount = $derived(species.find((row) => row.species === 'Unknown Bird')?.count ?? 0);
+    let busiestHour = $derived(busiestHourOfDay(activityHeatmap?.cells ?? []));
+    let heatmapPeak = $derived(peakCell(activityHeatmap?.cells ?? []));
 
     // Lookup of BirdNET "heard" rollups keyed by scientific name (preferred) and
     // localized species name, so we can merge them onto the visual leaderboard rows.
@@ -413,6 +439,7 @@
             last_seen: s.last_seen ?? null,
             avg_confidence: s.avg_confidence ?? null,
             camera_count: s.camera_count ?? null,
+            confirmed_count: null,
             prev_count: null,
             delta: null,
             percent: null
@@ -432,7 +459,8 @@
             first_seen: s.window_first_seen ?? null,
             last_seen: s.window_last_seen ?? null,
             avg_confidence: s.window_avg_confidence ?? null,
-            camera_count: s.window_camera_count ?? null
+            camera_count: s.window_camera_count ?? null,
+            confirmed_count: s.window_confirmed_count ?? null
         }));
     }
 
@@ -444,7 +472,7 @@
             .sort((a, b) => (b.count || 0) - (a.count || 0))
             .map((item) => item.scientific_name || item.species)
             .filter(Boolean)
-            .slice(0, 7);
+            .slice(0, SPECIES_SERIES_SLOTS);
     }
 
     async function loadLeaderboard() {
@@ -457,6 +485,7 @@
         error = null;
         leaderboardWindow = null;
         hiddenDonutState = { theme: '', indices: [] };
+        hiddenTimelineSeries = [];
         audioLoadState = birdnetEnabled ? 'loading' : 'disabled';
         if (!birdnetEnabled) audioSpecies = [];
         // Fetch species and timeline independently so a chart/weather failure
@@ -465,6 +494,8 @@
             if (requestedSpan === 'all') {
                 species = await fetchSpecies(controller.signal).then(mapAllTimeSpecies);
                 leaderboardWindow = null;
+                historyStart = null;
+                previousWindowComplete = false;
             } else {
                 const response = await fetchLeaderboardSpecies(requestedSpan, controller.signal);
                 species = mapWindowSpecies(response);
@@ -472,6 +503,8 @@
                     start: response.window_start,
                     end: response.window_end
                 };
+                historyStart = response.history_start ?? null;
+                previousWindowComplete = response.previous_window_complete ?? false;
             }
         } catch (e) {
             if (loadGeneration !== leaderboardLoadGeneration || controller.signal.aborted) return;
@@ -624,22 +657,6 @@
             void loadSpeciesInfo(row.species);
         }
     });
-
-    function getBarColor(index: number): string {
-        const colors = [
-            'bg-amber-500',      // Gold
-            'bg-slate-400',      // Silver
-            'bg-amber-700',      // Bronze
-            'bg-brand-500',
-            'bg-blue-500',
-            'bg-purple-500',
-            'bg-pink-500',
-            'bg-indigo-500',
-            'bg-cyan-500',
-            'bg-accent-500',
-        ];
-        return colors[index % colors.length];
-    }
 
     function formatDate(value?: string | null): string {
         if (!value) return '—';
@@ -892,7 +909,13 @@
 
         if (showRawSeries) {
             if (isStacked && timeline?.compare_series?.length) {
-                const displayNames = new Map(processedSpecies().map((item) => [item.species, item.displayName] as const));
+                // The compare series are requested by scientific name where one exists, so name them by both keys.
+                const displayNames = new Map(
+                    processedSpecies().flatMap((item) => [
+                        [item.species, item.displayName] as const,
+                        ...(item.scientific_name ? [[item.scientific_name, item.displayName] as const] : [])
+                    ])
+                );
                 const compareEntries = timeline.compare_series;
                 const compareMaps = compareEntries.map((entry) =>
                     new Map(
@@ -906,7 +929,7 @@
                     series.push({
                         name: displayNames.get(entry.species) ?? entry.species,
                         type: 'bar',
-                        color: comparePalette[idx % comparePalette.length],
+                        color: speciesSeriesColor(speciesSlot().get(entry.species) ?? idx, isDark()),
                         data: indexedPoints.map(({ point, x }) => ({
                             x,
                             y: compareMaps[idx].get(point.bucket_start) ?? 0
@@ -922,7 +945,7 @@
                     series.push({
                         name: $_('leaderboard.other_species', { default: 'Other' }),
                         type: 'bar',
-                        color: isDark() ? 'rgba(148,163,184,0.5)' : 'rgba(148,163,184,0.65)',
+                        color: otherSeriesColor(isDark()),
                         data: otherData
                     });
                 }
@@ -991,7 +1014,8 @@
                 pointHoverRadius: 4,
                 borderDash: item.name === smoothName || item.name === windName ? [5, 4] : [],
                 yAxisID: item.name === temperatureName ? 'temperature' : (item.name === windName ? 'wind' : 'y'),
-                order: isWeather ? 0 : (isBar ? 2 : 1)
+                order: isWeather ? 0 : (isBar ? 2 : 1),
+                hidden: hiddenTimelineSeries.includes(item.name)
             };
         });
         const rainBands = rainBandAnnotations();
@@ -1073,11 +1097,28 @@
 
     });
 
-    let comparePalette = $derived(
-        themeStore.colorTheme === 'bluetit'
-            ? ['#2563eb', '#0ea5e9', '#6366f1', '#f59e0b', '#ec4899', '#14b8a6', '#8b5cf6', '#f97316']
-            : ['#10b981', '#0ea5e9', '#6366f1', '#f59e0b', '#ec4899', '#14b8a6', '#8b5cf6', '#f97316']
+    // A species keeps its colour slot in both charts: the slot is its rank in this window.
+    let speciesSlot = $derived(() => {
+        const slots = new Map<string, number>();
+        sortedSpecies().slice(0, SPECIES_SERIES_SLOTS).forEach((row, index) => {
+            slots.set(row.species, index);
+            if (row.scientific_name) slots.set(row.scientific_name, index);
+        });
+        return slots;
+    });
+    let timelineLegend = $derived(() =>
+        (chartOptions().data.datasets ?? []).map((dataset) => ({
+            label: String(dataset.label ?? ''),
+            color: String(dataset.borderColor ?? ''),
+            dashed: ((dataset as { borderDash?: number[] }).borderDash?.length ?? 0) > 0,
+            line: dataset.type === 'line'
+        }))
     );
+    function toggleTimelineSeries(name: string) {
+        hiddenTimelineSeries = hiddenTimelineSeries.includes(name)
+            ? hiddenTimelineSeries.filter((item) => item !== name)
+            : [...hiddenTimelineSeries, name];
+    }
     const heatmapDayOrder = [1, 2, 3, 4, 5, 6, 0];
 
     function weekdayLabel(dayOfWeek: number): string {
@@ -1095,8 +1136,7 @@
     }
 
 
-    // Keep in sync with the .slice(0, 7) in selectCompareSpecies and the >= 8 cap in stats.py
-    const DONUT_MAX_SLICES = 7;
+    const DONUT_MAX_SLICES = SPECIES_SERIES_SLOTS;
     let donutSeries = $derived(() => {
         const sorted = sortedSpecies();
         if (!sorted.length) return { labels: [] as string[], series: [] as number[] };
@@ -1113,19 +1153,19 @@
         }
         return { labels, series: values };
     });
+    function donutColor(index: number): string {
+        return index < DONUT_MAX_SLICES ? speciesSeriesColor(index, isDark()) : otherSeriesColor(isDark());
+    }
     let donutHasData = $derived(() => donutSeries().series.some((v) => v > 0));
     let donutChartOptions = $derived((): CanvasChartConfig => {
         const { labels, series } = donutSeries();
-        const donutPalette = themeStore.colorTheme === 'bluetit'
-            ? ['#2563eb', '#0ea5e9', '#6366f1', '#f59e0b', '#ec4899', '#14b8a6', '#8b5cf6', '#94a3b8']
-            : ['#10b981', '#0ea5e9', '#6366f1', '#f59e0b', '#ec4899', '#14b8a6', '#8b5cf6', '#94a3b8'];
         const totalLabel = $_('leaderboard.metric_detections', { default: 'Detections' });
         const centerTotal = doughnutInsightPlugin('leaderboardCenterTotal', series, totalLabel, isDark());
         return {
             type: 'doughnut',
             data: {
                 labels,
-                datasets: [{ data: series, backgroundColor: donutPalette.slice(0, labels.length), borderColor: isDark() ? '#1e293b' : '#ffffff', borderWidth: 1.5 }]
+                datasets: [{ data: series, backgroundColor: labels.map((_, index) => donutColor(index)), borderColor: isDark() ? '#0a1225' : '#ffffff', borderWidth: 2 }]
             },
             plugins: [centerTotal],
             options: {
@@ -1152,20 +1192,48 @@
     });
 
     let heatmapSeries = $derived(() => heatmapDayOrder.map((dayOfWeek) => ({
+        dayOfWeek,
         name: weekdayLabel(dayOfWeek),
         data: Array.from({ length: 24 }, (_, hour) => ({
+            hour,
             x: hourLabel(hour),
             y: heatmapCellMap().get(`${dayOfWeek}-${hour}`) ?? 0
         }))
     })));
     let heatmapHasData = $derived(() => (activityHeatmap?.total_count ?? 0) > 0);
-    function heatmapColor(value: number): string {
-        if (!value) return isDark() ? 'rgba(51,65,85,0.42)' : 'rgba(226,232,240,0.9)';
-        const ratio = value / Math.max(1, activityHeatmap?.max_cell_count ?? 1);
-        if (ratio <= 0.2) return '#93c5fd';
-        if (ratio <= 0.45) return '#60a5fa';
-        if (ratio <= 0.7) return '#3b82f6';
-        return '#1d4ed8';
+    function heatmapCellLabel(dayName: string, hour: number, count: number): string {
+        return $_('leaderboard.heatmap_cell', {
+            values: { day: dayName, start: hourLabel(hour), end: hourLabel((hour + 1) % 24), count: formatMetricValue(count) },
+            default: '{day} {start} to {end}: {count} detections'
+        });
+    }
+
+    const relativeUnits: Array<[Intl.RelativeTimeFormatUnit, number]> = [
+        ['day', 86_400_000],
+        ['hour', 3_600_000],
+        ['minute', 60_000]
+    ];
+    function formatRelative(value?: string | null): string {
+        if (!value) return '—';
+        const at = Date.parse(value);
+        if (!Number.isFinite(at)) return '—';
+        const elapsed = at - Date.now();
+        const format = new Intl.RelativeTimeFormat(($locale || 'en') as string, { numeric: 'auto', style: 'short' });
+        for (const [unit, size] of relativeUnits) {
+            if (Math.abs(elapsed) >= size || unit === 'minute') return format.format(Math.round(elapsed / size), unit);
+        }
+        return formatDate(value);
+    }
+
+    function trendTone(row: LeaderboardTableRow): string {
+        const delta = deltaForMode(row, sourceMode) ?? 0;
+        if (delta > 0) return 'text-success-700 dark:text-success-400';
+        if (delta < 0) return 'text-rose-600 dark:text-rose-400';
+        return 'text-slate-400';
+    }
+    function trendGlyph(row: LeaderboardTableRow): string {
+        const delta = deltaForMode(row, sourceMode) ?? 0;
+        return delta > 0 ? '▲' : delta < 0 ? '▼' : '';
     }
 
     function stableStringify(value: unknown): string {
@@ -1329,6 +1397,16 @@
     let leaderboardAiBlocks = $derived(() => (leaderboardAnalysis ? parseAiAnalysis(leaderboardAnalysis) : []));
 </script>
 
+{#snippet evidenceGlyph(evidence: SpeciesEvidence)}
+    {#if evidence === 'confirmed'}
+        <svg class="h-3.5 w-3.5 shrink-0 text-success-600 dark:text-success-400" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 10.5 3.2 3L15 6.5" /></svg>
+    {:else if evidence === 'seen_and_heard' || evidence === 'heard_only'}
+        <svg class="h-3.5 w-3.5 shrink-0 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 12v2m4-5v8m4-13v16m4-13v10m4-7v4" /></svg>
+    {:else}
+        <svg class="h-3.5 w-3.5 shrink-0 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z" /><circle cx="12" cy="13" r="3.5" /></svg>
+    {/if}
+{/snippet}
+
 <div class="space-y-10" data-leaderboard-page>
     <!-- Ranking controls -->
     <div class="border-y border-slate-200/80 py-4 dark:border-slate-700/70">
@@ -1487,42 +1565,70 @@
                         ? $_('leaderboard.showcase_rank_all', { values: { rank }, default: 'Rank {rank} of all time' })
                         : $_('leaderboard.showcase_rank_month', { values: { rank }, default: 'Rank {rank} this month' })}
                 countLabel={(count) => sourceMode === 'both'
-                    ? $_('leaderboard.showcase_visits_and_calls', { values: { count }, default: 'visits and calls' })
-                    : $_('leaderboard.showcase_visits', { values: { count }, default: 'visits' })}
+                    ? $_('leaderboard.showcase_detections_and_calls', { values: { count }, default: 'detections and calls' })
+                    : $_('leaderboard.showcase_detections', { values: { count }, default: 'detections' })}
                 moreCount={Math.max(0, leaderboardRows.length - (SHOWCASE_TILES + 1))}
                 onopen={(key) => (selectedSpecies = key)}
                 onmore={scrollToRankings}
             />
         {/if}
 
-        {#if showRisingHighlight || showRecentHighlight}
-            <dl class="grid border-y border-slate-200 dark:border-slate-700 {showRisingHighlight && showRecentHighlight ? 'md:grid-cols-2' : ''}" data-leaderboard-highlights>
-                {#if showRisingHighlight && topByTrend}
-                    <div class="flex min-w-0 items-center gap-3 py-4 {showRecentHighlight ? 'md:pr-5' : ''}">
-                        <svg class="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m4 17 5-5 4 4 7-9m-5 0h5v5" /></svg>
-                        <div class="min-w-0">
-                            <dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('leaderboard.rising')}</dt>
-                            <dd class="truncate font-semibold text-slate-900 dark:text-white">
-                                {topByTrend.displayName}
-                                <span class="font-normal text-amber-700 dark:text-amber-300">· {trendForMode(topByTrend, sourceMode)}</span>
-                            </dd>
-                        </div>
-                    </div>
+        <dl class="grid grid-cols-2 gap-x-6 gap-y-5 border-y border-slate-200 py-5 dark:border-slate-700 md:grid-cols-3 xl:grid-cols-6" data-leaderboard-standing>
+            <div class="min-w-0">
+                <dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('leaderboard.standing_species', { default: 'Species' })}</dt>
+                <dd class="mt-1 font-display text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{leaderboardRows.length.toLocaleString()}</dd>
+            </div>
+            <div class="min-w-0">
+                <dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    {sourceMode === 'heard'
+                        ? $_('leaderboard.standing_calls', { default: 'Calls heard' })
+                        : sourceMode === 'both'
+                          ? $_('leaderboard.standing_detections_and_calls', { default: 'Detections and calls' })
+                          : $_('leaderboard.metric_detections', { default: 'Detections' })}
+                </dt>
+                <dd class="mt-1 font-display text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{sourceTotal.toLocaleString()}</dd>
+            </div>
+            <div class="min-w-0">
+                <dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('leaderboard.standing_busiest_hour', { default: 'Busiest hour' })}</dt>
+                <dd class="mt-1 font-display text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{busiestHour ? hourLabel(busiestHour.hour) : '—'}</dd>
+                {#if busiestHour}<dd class="text-xs text-slate-500 dark:text-slate-400">{$_('leaderboard.standing_busiest_hour_count', { values: { count: busiestHour.count.toLocaleString() }, default: '{count} detections on camera' })}</dd>{/if}
+            </div>
+            <div class="min-w-0" data-leaderboard-corroboration>
+                <dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">{audioKnown ? $_('leaderboard.standing_corroborated', { default: 'Heard or confirmed' }) : $_('leaderboard.standing_confirmed', { default: 'Confirmed by you' })}</dt>
+                {#if evidenceKnown}
+                    <dd class="mt-1 font-display text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{corroboratedCount}<span class="text-base font-semibold text-slate-400"> / {leaderboardRows.length}</span></dd>
+                    <dd class="text-xs text-slate-500 dark:text-slate-400">{$_('leaderboard.standing_corroborated_hint', { default: 'species, the rest are the camera alone' })}</dd>
+                {:else}
+                    <dd class="mt-1 font-display text-2xl font-bold text-slate-400">—</dd>
+                    <dd class="text-xs text-slate-500 dark:text-slate-400">{$_('leaderboard.standing_corroborated_unknown', { default: 'Counted for the day, week and month' })}</dd>
                 {/if}
-                {#if showRecentHighlight && mostRecent}
-                    <div class="flex min-w-0 items-center gap-3 py-4 {showRisingHighlight ? 'border-t border-slate-200 dark:border-slate-700 md:border-l md:border-t-0 md:pl-5' : ''}">
-                        <svg class="h-5 w-5 shrink-0 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path stroke-linecap="round" d="M12 8v4l3 2" /></svg>
-                        <div class="min-w-0">
-                            <dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('leaderboard.most_recent')}</dt>
-                            <dd class="truncate font-semibold text-slate-900 dark:text-white">
-                                {mostRecent.displayName}
-                                <span class="font-normal text-brand-700 dark:text-brand-300">· {formatDate(activityTimestampForMode(mostRecent, sourceMode))}</span>
-                            </dd>
-                        </div>
-                    </div>
+            </div>
+            <div class="min-w-0">
+                <dt class="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    <svg class="h-3.5 w-3.5 text-success-600 dark:text-success-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m4 17 5-5 4 4 7-9m-5 0h5v5" /></svg>
+                    {$_('leaderboard.rising')}
+                </dt>
+                {#if topByTrend}
+                    <dd class="mt-1 truncate text-base font-semibold text-slate-900 dark:text-white">{topByTrend.displayName}</dd>
+                    <dd class="text-xs tabular-nums text-success-700 dark:text-success-400">{trendForMode(topByTrend, sourceMode)}</dd>
+                {:else}
+                    <dd class="mt-1 text-base font-semibold text-slate-400">—</dd>
+                    <dd class="text-xs text-slate-500 dark:text-slate-400">{span === 'all' ? $_('leaderboard.rising_all_time', { default: 'No earlier window for all time' }) : !trendAvailable ? $_('leaderboard.rising_no_history', { default: 'Needs a full earlier window' }) : $_('leaderboard.rising_none', { default: 'Nothing up on the window before' })}</dd>
                 {/if}
-            </dl>
-        {/if}
+            </div>
+            <div class="min-w-0">
+                <dt class="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    <svg class="h-3.5 w-3.5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path stroke-linecap="round" d="M12 8v4l3 2" /></svg>
+                    {$_('leaderboard.most_recent')}
+                </dt>
+                {#if mostRecent}
+                    <dd class="mt-1 truncate text-base font-semibold text-slate-900 dark:text-white">{mostRecent.displayName}</dd>
+                    <dd class="text-xs text-slate-500 dark:text-slate-400" title={formatDate(activityTimestampForMode(mostRecent, sourceMode))}>{formatRelative(activityTimestampForMode(mostRecent, sourceMode))}</dd>
+                {:else}
+                    <dd class="mt-1 text-base font-semibold text-slate-400">—</dd>
+                {/if}
+            </div>
+        </dl>
         <section class="space-y-5" data-leaderboard-rankings>
             <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                 <div class="flex items-center gap-3">
@@ -1531,15 +1637,20 @@
                     </svg>
                     <div>
                         <h3 class="text-xl font-bold text-slate-950 dark:text-white">{$_('leaderboard.full_rankings', { default: 'Full rankings' })}</h3>
-                        <p class="text-sm text-slate-500 dark:text-slate-400">{$_('leaderboard.all_species')}</p>
+                        <p class="text-sm text-slate-500 dark:text-slate-400">{spanLabel()} · {span === 'all' ? $_('leaderboard.all_species') : formatRangeCompact(leaderboardWindow?.start, leaderboardWindow?.end)}</p>
                     </div>
                 </div>
-                <p class="text-sm text-slate-500 dark:text-slate-400">{spanLabel()} · {formatRangeCompact(timeline?.window_start, timeline?.window_end)} · {sourceTotal.toLocaleString()}</p>
             </div>
+            {#if span !== 'all' && !trendAvailable && historyStart}
+                <p class="text-sm text-slate-500 dark:text-slate-400" data-leaderboard-trend-note>
+                    {$_('leaderboard.trend_needs_history', { values: { date: formatShortDate(historyStart) }, default: 'No trend yet. Records start {date}, so there is no complete earlier window to compare with.' })}
+                </p>
+            {/if}
 
             {#key `${sourceMode}-${span}`}
                 <div class="divide-y divide-slate-200 border-y border-slate-200 dark:divide-slate-700 dark:border-slate-700 md:hidden" data-leaderboard-mobile-rankings>
                 {#each leaderboardRows as item, index (`mobile-${item.species}|${item.audio_only}|${index}`)}
+                    {@const evidence = evidenceOf(item)}
                     <button
                         type="button"
                         onclick={() => selectedSpecies = item.species}
@@ -1547,7 +1658,7 @@
                         title={item.species === "Unknown Bird" ? $_('leaderboard.unidentified_desc') : ""}
                         aria-label={$_('leaderboard.view_species', { values: { species: item.displayName } })}
                     >
-                        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold {index < 3 ? 'bg-brand-100 text-brand-800 dark:bg-brand-900/50 dark:text-brand-200' : 'text-slate-500 dark:text-slate-400'}" aria-label={`${$_('leaderboard.rank')} ${index + 1}`}>{index + 1}</span>
+                        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold tabular-nums {index < 3 ? 'bg-brand-100 text-brand-800 dark:bg-brand-900/50 dark:text-brand-200' : 'text-slate-500 dark:text-slate-400'}" aria-label={`${$_('leaderboard.rank')} ${index + 1}`}>{index + 1}</span>
                         <span data-leaderboard-species-portrait class="h-12 w-12 shrink-0 overflow-hidden rounded-full border-2 border-white bg-slate-100 shadow-sm ring-1 ring-brand-200 dark:border-slate-800 dark:bg-slate-800 dark:ring-brand-800">
                             {#if getCachedSpeciesInfo(item.species)?.thumbnail_url}
                                 <img src={getCachedSpeciesInfo(item.species)?.thumbnail_url ?? undefined} alt="" class="h-full w-full object-cover" loading="lazy" />
@@ -1558,17 +1669,16 @@
                         <span class="min-w-0 flex-1">
                             <span class="flex items-center gap-2">
                                 <span class="truncate font-semibold text-slate-900 dark:text-white">{item.displayName}</span>
-                                {#if item.audio_only}<span class="inline-flex shrink-0 items-center gap-1 rounded-full bg-brand-100 px-2 py-0.5 text-xs font-semibold text-brand-700 dark:bg-brand-900/40 dark:text-brand-300"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 0 1-14 0m7 7v4m-4 0h8M9 5a3 3 0 0 1 6 0v6a3 3 0 0 1-6 0V5z" /></svg>{$_('leaderboard.audio_only', { default: 'Audio only' })}</span>{/if}
                             </span>
                             {#if item.subName}<span class="mt-0.5 block truncate text-xs italic text-slate-500 dark:text-slate-400">{item.subName}</span>{/if}
-                            <span class="mt-1 block text-xs text-slate-500 dark:text-slate-400">
-                                {sourceMode === 'heard' ? $_('audio.card.last_heard') : sourceMode === 'both' ? $_('leaderboard.most_recent') : $_('leaderboard.last_seen')}:
-                                {formatDate(activityTimestampForMode(item, sourceMode))}
+                            <span class="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-slate-500 dark:text-slate-400">
+                                {#if evidence !== 'unknown'}<span class="inline-flex items-center gap-1 font-semibold {evidence === 'camera_only' || evidence === 'unconfirmed' ? '' : 'text-slate-700 dark:text-slate-200'}" data-leaderboard-evidence={evidence}>{@render evidenceGlyph(evidence)}{evidenceLabel(evidence)}</span><span aria-hidden="true">·</span>{/if}
+                                <span title={formatDate(activityTimestampForMode(item, sourceMode))}>{formatRelative(activityTimestampForMode(item, sourceMode))}</span>
                             </span>
                         </span>
                         <span class="shrink-0 text-right">
-                            <span class="block text-base font-bold text-slate-900 dark:text-white">{countForMode(item, sourceMode).toLocaleString()}</span>
-                            <span class="block text-xs font-semibold {(deltaForMode(item, sourceMode) ?? 0) > 0 ? 'text-accent-600 dark:text-accent-400' : (deltaForMode(item, sourceMode) ?? 0) < 0 ? 'text-rose-500 dark:text-rose-400' : 'text-slate-400'}">{span === 'all' ? '—' : trendForMode(item, sourceMode)}</span>
+                            <span class="block text-base font-bold tabular-nums text-slate-900 dark:text-white">{countForMode(item, sourceMode).toLocaleString()}</span>
+                            {#if trendAvailable}<span class="block text-xs font-semibold tabular-nums {trendTone(item)}">{trendGlyph(item)} {trendForMode(item, sourceMode)}</span>{/if}
                         </span>
                         <svg class="h-4 w-4 shrink-0 text-slate-400 transition group-hover:translate-x-0.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
                     </button>
@@ -1580,19 +1690,21 @@
                     <thead class="border-b border-slate-200 text-xs font-semibold text-slate-500 dark:border-slate-700 dark:text-slate-400">
                         <tr>
                             <th scope="col" class="w-14 px-3 py-3 text-center">{$_('leaderboard.rank')}</th>
-                            <th scope="col" class="w-[36%] px-3 py-3">{$_('leaderboard.species')}</th>
+                            <th scope="col" class="w-[32%] px-3 py-3">{$_('leaderboard.species')}</th>
                             <th scope="col" class="px-3 py-3 text-right">{$_('leaderboard.source_seen', { default: 'Seen' })}</th>
                             {#if birdnetEnabled}<th scope="col" class="px-3 py-3 text-right">{$_('leaderboard.source_heard', { default: 'Heard' })}</th>{/if}
-                            <th scope="col" class="hidden px-3 py-3 text-right lg:table-cell">{$_('leaderboard.trend')}</th>
-                            <th scope="col" class="hidden px-3 py-3 text-right xl:table-cell">{$_('leaderboard.cameras')}</th>
+                            <th scope="col" class="hidden w-40 px-3 py-3 lg:table-cell" title={$_('leaderboard.evidence_hint', { default: 'Camera only: BirdNET did not hear this species in the same window and no detection of it has been confirmed. Worth a look before you trust it.' })}>{$_('leaderboard.evidence', { default: 'Evidence' })}</th>
+                            {#if trendAvailable}<th scope="col" class="hidden px-3 py-3 text-right lg:table-cell">{$_('leaderboard.trend')}</th>{/if}
+                            {#if showCameraColumn}<th scope="col" class="hidden px-3 py-3 text-right xl:table-cell">{$_('leaderboard.cameras')}</th>{/if}
                             <th scope="col" class="hidden px-3 py-3 text-right xl:table-cell">{$_('leaderboard.avg_confidence')}</th>
-                            <th scope="col" class="hidden w-36 px-3 py-3 lg:table-cell">{sourceMode === 'heard' ? $_('audio.card.last_heard') : sourceMode === 'both' ? $_('leaderboard.most_recent') : $_('leaderboard.last_seen')}</th>
+                            <th scope="col" class="hidden w-32 px-3 py-3 text-right lg:table-cell">{sourceMode === 'heard' ? $_('audio.card.last_heard') : sourceMode === 'both' ? $_('leaderboard.most_recent') : $_('leaderboard.last_seen')}</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
                         {#each leaderboardRows as item, index (`desktop-${item.species}|${item.audio_only}|${index}`)}
                             {@const rowCountPct = maxCount > 0 ? Math.round((item.count / maxCount) * 100) : 0}
                             {@const rowHeardPct = maxHeard > 0 ? Math.round((item.heard_count / maxHeard) * 100) : 0}
+                            {@const evidence = evidenceOf(item)}
                             <tr class="transition hover:bg-slate-50/80 dark:hover:bg-slate-800/35">
                                 <td class="px-3 py-3 text-center"><span class="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold tabular-nums {index < 3 ? 'bg-brand-100 text-brand-800 dark:bg-brand-900/50 dark:text-brand-200' : 'text-slate-500 dark:text-slate-400'}" aria-label={`${$_('leaderboard.rank')} ${index + 1}`}>{index + 1}</span></td>
                                 <td class="px-3 py-3">
@@ -1600,15 +1712,16 @@
                                         <span data-leaderboard-species-portrait class="h-10 w-10 shrink-0 overflow-hidden rounded-full border-2 border-white bg-slate-100 shadow-sm ring-1 ring-brand-200 dark:border-slate-800 dark:bg-slate-800 dark:ring-brand-800">
                                             {#if getCachedSpeciesInfo(item.species)?.thumbnail_url}<img src={getCachedSpeciesInfo(item.species)?.thumbnail_url ?? undefined} alt="" class="h-full w-full object-cover" loading="lazy" />{:else}<span class="flex h-full w-full items-center justify-center text-slate-400"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.24 4.24a6 6 0 0 0-8.49 0L5 11v9h9l6.24-6.24a6 6 0 0 0 0-8.49ZM16 8 2 22M17.5 15H9" /></svg></span>{/if}
                                         </span>
-                                        <span class="min-w-0"><span class="flex items-center gap-2"><span class="block truncate font-semibold text-slate-900 group-hover:text-brand-700 dark:text-white dark:group-hover:text-brand-300">{item.displayName}</span>{#if item.audio_only}<svg class="h-4 w-4 shrink-0 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-label={$_('leaderboard.audio_only', { default: 'Audio only' })}><path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 0 1-14 0m7 7v4m-4 0h8M9 5a3 3 0 0 1 6 0v6a3 3 0 0 1-6 0V5z" /></svg>{/if}</span>{#if item.subName}<span class="block truncate text-xs italic text-slate-500 dark:text-slate-400">{item.subName}</span>{/if}</span>
+                                        <span class="min-w-0"><span class="block truncate font-semibold text-slate-900 group-hover:text-brand-700 dark:text-white dark:group-hover:text-brand-300">{item.displayName}</span>{#if item.subName}<span class="block truncate text-xs italic text-slate-500 dark:text-slate-400">{item.subName}</span>{/if}</span>
                                     </button>
                                 </td>
-                                <td class="px-3 py-3 text-right"><span class="font-semibold tabular-nums text-slate-700 dark:text-slate-200">{item.count.toLocaleString()}</span><span class="ml-auto mt-1 block h-1 w-14 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700"><span class="block h-full rounded-full bg-accent-500/70" style="width: {rowCountPct}%"></span></span></td>
-                                {#if birdnetEnabled}<td class="px-3 py-3 text-right">{#if audioLoadState === 'ready'}<span class="font-semibold tabular-nums text-brand-700 dark:text-brand-300">{item.heard_count.toLocaleString()}</span><span class="ml-auto mt-1 block h-1 w-14 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700"><span class="block h-full rounded-full bg-brand-500/70" style="width: {rowHeardPct}%"></span></span>{:else}<span class="text-slate-400" title={$_('common.unavailable')}>—</span>{/if}</td>{/if}
-                                <td class="hidden px-3 py-3 text-right font-semibold lg:table-cell {(deltaForMode(item, sourceMode) ?? 0) > 0 ? 'text-accent-600 dark:text-accent-400' : (deltaForMode(item, sourceMode) ?? 0) < 0 ? 'text-rose-500 dark:text-rose-400' : 'text-slate-400'}">{span === 'all' ? '—' : trendForMode(item, sourceMode)}</td>
-                                <td class="hidden px-3 py-3 text-right text-slate-600 dark:text-slate-300 xl:table-cell">{(item.camera_count ?? 0).toLocaleString()}</td>
-                                <td class="hidden px-3 py-3 text-right text-slate-600 dark:text-slate-300 xl:table-cell">{item.avg_confidence != null ? `${Math.round(item.avg_confidence * 100)}%` : '—'}</td>
-                                <td class="hidden px-3 py-3 text-slate-500 dark:text-slate-400 lg:table-cell">{formatDate(activityTimestampForMode(item, sourceMode))}</td>
+                                <td class="px-3 py-3 text-right">{#if item.audio_only}<span class="text-slate-400">—</span>{:else}<span class="font-semibold tabular-nums text-slate-700 dark:text-slate-200">{item.count.toLocaleString()}</span><span class="ml-auto mt-1 block h-1 w-14 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700"><span class="block h-full rounded-full bg-brand-500/70" style="width: {rowCountPct}%"></span></span>{/if}</td>
+                                {#if birdnetEnabled}<td class="px-3 py-3 text-right">{#if audioLoadState === 'ready'}<span class="font-semibold tabular-nums text-slate-700 dark:text-slate-200">{item.heard_count.toLocaleString()}</span><span class="ml-auto mt-1 block h-1 w-14 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700"><span class="block h-full rounded-full bg-slate-400/80 dark:bg-slate-400/70" style="width: {rowHeardPct}%"></span></span>{:else}<span class="text-slate-400" title={$_('common.unavailable')}>—</span>{/if}</td>{/if}
+                                <td class="hidden px-3 py-3 lg:table-cell">{#if evidence === 'unknown'}<span class="text-slate-400">—</span>{:else}<span class="inline-flex items-center gap-1.5 text-xs font-semibold {evidence === 'camera_only' || evidence === 'unconfirmed' ? 'text-slate-500 dark:text-slate-400' : 'text-slate-700 dark:text-slate-200'}" data-leaderboard-evidence={evidence}>{@render evidenceGlyph(evidence)}{evidenceLabel(evidence)}</span>{/if}</td>
+                                {#if trendAvailable}<td class="hidden px-3 py-3 text-right font-semibold tabular-nums lg:table-cell {trendTone(item)}"><span aria-hidden="true" class="mr-0.5 text-xs">{trendGlyph(item)}</span>{trendForMode(item, sourceMode)}</td>{/if}
+                                {#if showCameraColumn}<td class="hidden px-3 py-3 text-right tabular-nums text-slate-600 dark:text-slate-300 xl:table-cell">{(item.camera_count ?? 0).toLocaleString()}</td>{/if}
+                                <td class="hidden px-3 py-3 text-right tabular-nums text-slate-600 dark:text-slate-300 xl:table-cell">{item.avg_confidence != null ? `${Math.round(item.avg_confidence * 100)}%` : '—'}</td>
+                                <td class="hidden whitespace-nowrap px-3 py-3 text-right text-slate-500 dark:text-slate-400 lg:table-cell" title={formatDate(activityTimestampForMode(item, sourceMode))}>{formatRelative(activityTimestampForMode(item, sourceMode))}</td>
                             </tr>
                         {/each}
                     </tbody>
@@ -1616,6 +1729,7 @@
                 </div>
             {/key}
         </section>
+
 
         <section class="space-y-6 border-t border-slate-200 pt-8 dark:border-slate-700" data-leaderboard-analytics>
             <div class="flex items-center gap-3">
@@ -1630,7 +1744,7 @@
                         <div>
                             <h4 class="text-lg font-bold text-slate-900 dark:text-white md:text-xl">{$_('leaderboard.detections_over_time')}</h4>
                             <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                {spanLabel()} · {formatRangeCompact(timeline?.window_start, timeline?.window_end)} · {bucketLabel(timeline?.bucket)} · {(timeline?.total_count ?? 0).toLocaleString()} {metricLabel().toLowerCase()}
+                                {spanLabel()} · {formatRangeCompact(timeline?.window_start, timeline?.window_end)} · {bucketLabel(timeline?.bucket)} · {(timeline?.total_count ?? 0).toLocaleString()} {metricLabel().toLowerCase()}{#if unidentifiedCount > 0 && !includeUnknownBird}, {$_('leaderboard.includes_unidentified', { values: { count: unidentifiedCount.toLocaleString() }, default: 'including {count} not identified to species' })}{/if}
                             </p>
                         </div>
                         <div class="flex flex-wrap items-center gap-2">
@@ -1664,6 +1778,22 @@
                         <div class="h-full w-full rounded-2xl bg-slate-100 dark:bg-slate-800/60 animate-pulse"></div>
                     {/if}
                 </div>
+                {#if timeline?.points?.length && timelineLegend().length > 1}
+                    <div class="mt-3 flex flex-wrap gap-1" role="group" aria-label={$_('leaderboard.chart_legend', { default: 'Series in this chart' })} data-leaderboard-timeline-legend>
+                        {#each timelineLegend() as entry (entry.label)}
+                            {@const hidden = hiddenTimelineSeries.includes(entry.label)}
+                            <button type="button" class="btn btn-ghost min-h-11 gap-1.5 px-2 text-xs focus-visible:ring-2 focus-visible:ring-brand-500 {hidden ? 'opacity-45 line-through' : ''}"
+                                aria-pressed={!hidden} aria-label="{hidden ? $_('common.show') : $_('common.hide')} {entry.label}" onclick={() => toggleTimelineSeries(entry.label)}>
+                                {#if entry.line}
+                                    <span class="inline-block h-0.5 w-4 rounded-full {entry.dashed ? 'border-t-2 border-dashed bg-transparent' : ''}" style={entry.dashed ? `border-color: ${entry.color}` : `background-color: ${entry.color}`}></span>
+                                {:else}
+                                    <span class="h-2.5 w-2.5 rounded-sm" style="background-color: {entry.color}"></span>
+                                {/if}
+                                {entry.label}
+                            </button>
+                        {/each}
+                    </div>
+                {/if}
 
                 <p class="mt-3 text-xs font-semibold text-slate-500 dark:text-slate-400">
                     {$_('leaderboard.total', { default: 'Total' })}: {timeline?.total_count?.toLocaleString() || '0'}
@@ -1671,7 +1801,7 @@
                     · {$_('leaderboard.metric_avg', { default: 'Avg' })}: {formatMetricValue(metricAvg())}
                 </p>
                 {#if canUseLeaderboardAnalysis && (leaderboardAnalysisLoading || leaderboardAnalysisError || leaderboardAnalysis)}
-                    <div class="mt-4 border-l-2 border-brand-300 py-2 pl-4 text-sm text-slate-600 dark:border-brand-700 dark:text-slate-300">
+                    <div class="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:bg-slate-800/40 dark:text-slate-300">
                         <div class="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
                             <span>{$_('leaderboard.ai_summary', { default: 'AI insight' })}</span>
                             {#if leaderboardAnalysisTimestamp}
@@ -1793,12 +1923,6 @@
                                 </h4>
                             </div>
                         </div>
-                        <span class="inline-flex items-center gap-1 rounded-full border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-500 dark:border-slate-700 dark:text-slate-300">
-                            <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                                <path d="M3 6h14M3 10h14M3 14h7"></path>
-                            </svg>
-                            {donutSeries().labels.length}
-                        </span>
                     </div>
 
                     <div class="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-300">
@@ -1820,11 +1944,11 @@
                         {#if donutHasData()}
                             {#key `${span}-${donutSeries().series.join(',')}-${isDark()}-${themeStore.colorTheme}`}
                                 <div class="relative h-[210px] w-full"><canvas use:chartjs={donutChartOptions()} bind:this={donutChartEl} aria-label={$_('leaderboard.detection_breakdown_subtitle', { default: 'Species composition' })}></canvas></div>
-                                <div class="mt-2 flex flex-wrap justify-center gap-2" role="group" aria-label={$_('leaderboard.detection_breakdown_subtitle', { default: 'Species composition' })}>
+                                <div class="mt-2 flex flex-wrap justify-center gap-x-1" role="group" aria-label={$_('leaderboard.detection_breakdown_subtitle', { default: 'Species composition' })}>
                                     {#each donutSeries().labels as label, index}
-                                        <button type="button" class="btn btn-ghost min-h-9 gap-1.5 px-2 text-xs focus-visible:ring-2 focus-visible:ring-brand-500 {hiddenDonutSpecies.includes(index) ? 'opacity-45 line-through' : ''}"
+                                        <button type="button" class="btn btn-ghost min-h-11 gap-1.5 px-2 text-xs focus-visible:ring-2 focus-visible:ring-brand-500 {hiddenDonutSpecies.includes(index) ? 'opacity-45 line-through' : ''}"
                                             aria-pressed={!hiddenDonutSpecies.includes(index)} aria-label="{hiddenDonutSpecies.includes(index) ? $_('common.show') : $_('common.hide')} {label}" onclick={() => toggleDonutSlice(index)}>
-                                            <span class="h-2.5 w-2.5 rounded-sm" style="background-color: {themeStore.colorTheme === 'bluetit' ? ['#2563eb', '#0ea5e9', '#6366f1', '#f59e0b', '#ec4899', '#14b8a6', '#8b5cf6', '#94a3b8'][index] : ['#10b981', '#0ea5e9', '#6366f1', '#f59e0b', '#ec4899', '#14b8a6', '#8b5cf6', '#94a3b8'][index]}"></span>{label}
+                                            <span class="h-2.5 w-2.5 rounded-sm" style="background-color: {donutColor(index)}"></span>{label}
                                         </button>
                                     {/each}
                                 </div>
@@ -1857,13 +1981,6 @@
                                 </h4>
                             </div>
                         </div>
-                        <span class="inline-flex items-center gap-1 rounded-full border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-500 dark:border-slate-700 dark:text-slate-300">
-                            <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                                <rect x="3" y="4" width="14" height="12" rx="2"></rect>
-                                <path d="M3 9h14M8 4v12M13 4v12"></path>
-                            </svg>
-                            {formatMetricValue(activityHeatmap?.max_cell_count ?? 0)}
-                        </span>
                     </div>
 
                     <div class="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-300">
@@ -1885,29 +2002,43 @@
 
                     <div class="mt-4 min-h-[260px]">
                         {#if activityHeatmap && heatmapHasData()}
-                            {#key `${span}-${activityHeatmap.total_count}-${activityHeatmap.max_cell_count}-${isDark()}`}
-                                <div class="h-[260px] overflow-x-auto" role="group" aria-label={$_('leaderboard.activity_heatmap_subtitle', { default: 'Hour x weekday activity' })}>
-                                    <div class="grid h-[238px] min-w-[650px] gap-1" style="grid-template-columns: 36px repeat(24, minmax(20px, 1fr)); grid-template-rows: 20px repeat(7, 1fr);">
-                                        <span aria-hidden="true"></span>
-                                        {#each Array.from({ length: 24 }, (_, hour) => hour) as hour}
-                                            <span class="self-end text-center text-xs text-slate-500 dark:text-slate-400">{hour % 3 === 0 ? hourLabel(hour) : ''}</span>
-                                        {/each}
-                                        {#each heatmapSeries() as row}
-                                            <span class="self-center text-xs font-semibold text-slate-500 dark:text-slate-400">{row.name}</span>
-                                            {#each row.data as cell}
-                                                <button type="button" class="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500" style="background-color: {heatmapColor(cell.y)}" title="{row.name} {cell.x}: {formatMetricValue(cell.y)}" aria-label="{row.name} {cell.x}: {formatMetricValue(cell.y)}"></button>
-                                            {/each}
-                                        {/each}
-                                    </div>
-                                    <div class="mt-1 flex min-w-[650px] items-center justify-end gap-2 text-xs text-slate-500 dark:text-slate-400">
-                                        <span>0</span><span class="inline-block h-2 w-10 rounded-sm bg-slate-200 dark:bg-slate-700"></span>
-                                        <span class="inline-block h-2 w-10 rounded-sm bg-blue-300"></span>
-                                        <span class="inline-block h-2 w-10 rounded-sm bg-blue-500"></span>
-                                        <span class="inline-block h-2 w-10 rounded-sm bg-blue-700"></span>
-                                        <span>{formatMetricValue(activityHeatmap.max_cell_count)}+</span>
-                                    </div>
-                                </div>
-                            {/key}
+                            {@const maxCell = activityHeatmap.max_cell_count}
+                            <div class="grid gap-1" style="grid-template-columns: 2.25rem repeat(24, minmax(0, 1fr)); grid-template-rows: 1.25rem repeat(7, minmax(1.25rem, 1fr));" aria-hidden="true" data-leaderboard-heatmap-grid>
+                                <span></span>
+                                {#each Array.from({ length: 24 }, (_, hour) => hour) as hour}
+                                    <span class="self-end whitespace-nowrap text-center text-xs tabular-nums text-slate-500 dark:text-slate-400 {hour % 6 === 0 ? '' : hour % 3 === 0 ? 'invisible sm:visible' : 'invisible'}">{hour % 3 === 0 ? String(hour).padStart(2, '0') : ''}</span>
+                                {/each}
+                                {#each heatmapSeries() as row}
+                                    <span class="self-center text-xs font-semibold text-slate-500 dark:text-slate-400">{row.name}</span>
+                                    {#each row.data as cell}
+                                        {@const isPeak = heatmapPeak?.day_of_week === row.dayOfWeek && heatmapPeak?.hour === cell.hour}
+                                        <span class="rounded-sm {isPeak ? 'ring-2 ring-slate-900 ring-offset-1 ring-offset-white dark:ring-white dark:ring-offset-slate-950' : ''}" style="background-color: {heatmapFill(cell.y, maxCell, isDark())}" title={heatmapCellLabel(row.name, cell.hour, cell.y)}></span>
+                                    {/each}
+                                {/each}
+                            </div>
+                            <div class="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-xs text-slate-500 dark:text-slate-400">
+                                <span class="inline-flex items-center gap-2 tabular-nums">
+                                    0
+                                    <span class="inline-block h-2 w-24 rounded-full" style="background-image: {heatmapLegendGradient(isDark())}"></span>
+                                    {formatMetricValue(maxCell)}
+                                    <span>{$_('leaderboard.heatmap_per_hour', { default: 'detections in one hour slot' })}</span>
+                                </span>
+                                {#if heatmapPeak}
+                                    <span class="inline-flex items-center gap-1.5">
+                                        <span class="inline-block h-2.5 w-2.5 rounded-sm ring-2 ring-slate-900 dark:ring-white" aria-hidden="true"></span>
+                                        {$_('leaderboard.heatmap_peak', { values: { day: weekdayLabel(heatmapPeak.day_of_week), time: hourLabel(heatmapPeak.hour), count: formatMetricValue(heatmapPeak.count) }, default: 'Busiest: {day} {time}, {count}' })}
+                                    </span>
+                                {/if}
+                            </div>
+                            <div class="sr-only"><table>
+                                <caption>{$_('leaderboard.activity_heatmap_subtitle', { default: 'Hour x weekday activity' })}</caption>
+                                <thead><tr><th scope="col">{$_('leaderboard.heatmap_day', { default: 'Day' })}</th>{#each Array.from({ length: 24 }, (_, hour) => hour) as hour}<th scope="col">{hourLabel(hour)}</th>{/each}</tr></thead>
+                                <tbody>
+                                    {#each heatmapSeries() as row}
+                                        <tr><th scope="row">{row.name}</th>{#each row.data as cell}<td>{cell.y}</td>{/each}</tr>
+                                    {/each}
+                                </tbody>
+                            </table></div>
                         {:else if activityHeatmap}
                             <div class="h-[260px] w-full rounded-2xl border border-dashed border-slate-300/80 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-900/35 flex items-center justify-center text-sm text-slate-500 dark:text-slate-400">
                                 {$_('leaderboard.no_activity_data', { default: 'No activity captured in this window yet.' })}

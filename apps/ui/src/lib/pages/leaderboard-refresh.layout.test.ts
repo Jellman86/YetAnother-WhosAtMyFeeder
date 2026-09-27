@@ -82,13 +82,41 @@ describe('leaderboard field-journal layout', () => {
     it('uses source-aware comparisons in both ranking layouts', () => {
         expect(leaderboardSource).toContain('heard_prev_count: heard?.heard_prev_count ?? null');
         expect(leaderboardSource).toContain('trendForMode(item, sourceMode)');
-        expect(leaderboardSource).toContain('deltaForMode(item, sourceMode)');
+        expect(leaderboardSource).toContain('deltaForMode(row, sourceMode)');
         expect(leaderboardSource).toContain('activityTimestampForMode(item, sourceMode)');
     });
 
-    it('keeps distinct rising and recent facts without repeating the leader', () => {
-        expect(leaderboardSource).toContain('data-leaderboard-highlights');
-        expect(leaderboardSource).toContain('topByTrend.species !== sourceLeader?.species');
-        expect(leaderboardSource).toContain('mostRecent.species !== sourceLeader?.species');
+    it('states the window in one standing band, with rising only when a trend was measured', () => {
+        expect(leaderboardSource).toContain('data-leaderboard-standing');
+        expect(leaderboardSource).toContain("let trendAvailable = $derived(span !== 'all' && previousWindowComplete)");
+        expect(leaderboardSource).toContain('!trendAvailable\n            ? null');
+        expect(leaderboardSource).toContain('{#if trendAvailable}<th scope="col"');
+        expect(leaderboardSource).toContain('data-leaderboard-trend-note');
+    });
+
+    it('says what stands behind each species besides the classifier', () => {
+        expect(leaderboardSource).toContain("import { evidenceFor, isCorroborated, type SpeciesEvidence } from '../leaderboard/evidence'");
+        expect(leaderboardSource).toContain("let audioKnown = $derived(birdnetEnabled && audioLoadState === 'ready')");
+        expect(leaderboardSource).toContain('data-leaderboard-evidence={evidence}');
+        expect(leaderboardSource).toContain('data-leaderboard-corroboration');
+    });
+
+    it('fits the weekday heatmap to its column instead of scrolling it sideways', () => {
+        const heatmap = leaderboardSource.slice(leaderboardSource.indexOf('data-leaderboard-heatmap-grid') - 200);
+        expect(heatmap).toContain('repeat(24, minmax(0, 1fr))');
+        expect(leaderboardSource).not.toMatch(/min-w-\[650px\]/);
+        expect(leaderboardSource).not.toContain('h-[260px] overflow-x-auto');
+        // Cells are read through the hidden table; 168 inert buttons were 168 Tab stops.
+        expect(heatmap.slice(0, 2500)).not.toContain('<button');
+        // sr-only cannot shrink a table itself; unwrapped, it widened the whole page to 1994px.
+        expect(leaderboardSource).toContain('<div class="sr-only"><table>');
+        // A display:none label leaves the grid and shifts every cell after it by one column.
+        expect(heatmap.slice(0, 2500)).not.toContain('hidden sm:block');
+    });
+
+    it('gives a species the same colour in the timeline and the composition chart', () => {
+        expect(leaderboardSource).toContain('speciesSeriesColor(speciesSlot().get(entry.species) ?? idx, isDark())');
+        expect(leaderboardSource).toContain('backgroundColor: labels.map((_, index) => donutColor(index))');
+        expect(leaderboardSource).toContain('data-leaderboard-timeline-legend');
     });
 });
