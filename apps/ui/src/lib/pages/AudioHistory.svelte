@@ -11,7 +11,7 @@
         type AudioSummaryResponse,
         type SpeciesInfo
     } from '../api';
-    import { chartjs, type CanvasChartConfig } from '../actions/chartjs';
+    import { chartjs, toggleChartSlice, type CanvasChartConfig } from '../actions/chartjs';
     import { themeStore } from '../stores/theme.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { withAuthParams } from '../api/core';
@@ -41,6 +41,18 @@
     let birdnetExternalUrl = $state('');
     let reduceMotion = $state(false);
     let selectedSpecies = $state<string | null>(null);
+    let speciesChartEl = $state<HTMLCanvasElement | null>(null);
+    let hiddenChartState = $state({ theme: '', indices: [] as number[] });
+    let hiddenChartSpecies = $derived(hiddenChartState.theme === `${themeStore.isDark}-${reduceMotion}` ? hiddenChartState.indices : []);
+
+    function toggleSpeciesSlice(index: number) {
+        const visible = toggleChartSlice(speciesChartEl, index);
+        if (visible === null) return;
+        hiddenChartState = {
+            theme: `${themeStore.isDark}-${reduceMotion}`,
+            indices: visible ? hiddenChartSpecies.filter((item) => item !== index) : [...hiddenChartSpecies, index],
+        };
+    }
 
     // Species recognition thumbnails for the top-species summary, reusing the
     // same lazy per-species fetch + cache the visual leaderboard uses. These are a
@@ -117,6 +129,7 @@
             ]);
             history = nextHistory;
             summary = nextSummary;
+            hiddenChartState = { theme: '', indices: [] };
         } catch (e) {
             error = getErrorMessage(e) || 'Unable to load BirdNET history.';
             history = null;
@@ -297,7 +310,7 @@
                 animation: reduceMotion ? false : { duration: 250 },
                 cutout: '62%',
                 plugins: {
-                    legend: { position: 'bottom', labels: { color: isDark ? '#94a3b8' : '#64748b', boxWidth: 10, font: { size: 12 } } },
+                    legend: { display: false },
                     tooltip: { callbacks: { label: (item) => `${item.label}: ${item.formattedValue}` } },
                 },
             },
@@ -564,7 +577,15 @@
                     <div class="mt-3 h-[240px] animate-pulse bg-slate-100/80 dark:bg-slate-800/60"></div>
                 {:else if hasSpecies}
                     {#key `${days}-${isDark}-${reduceMotion}`}
-                        <div class="relative mt-3 h-[240px] w-full"><canvas use:chartjs={speciesDonutConfig()} aria-label={$_('audio.chart.species_title', { default: 'Species mix' })}></canvas></div>
+                        <div class="relative mt-3 h-[210px] w-full"><canvas use:chartjs={speciesDonutConfig()} bind:this={speciesChartEl} aria-label={$_('audio.chart.species_title', { default: 'Species mix' })}></canvas></div>
+                        <div class="mt-2 flex flex-wrap justify-center gap-2" role="group" aria-label={$_('audio.chart.species_title', { default: 'Species mix' })}>
+                            {#each (summary?.top_species ?? []).slice(0, 8) as item, index}
+                                <button type="button" class="btn btn-ghost min-h-9 gap-1.5 px-2 text-xs focus-visible:ring-2 focus-visible:ring-brand-500 {hiddenChartSpecies.includes(index) ? 'opacity-45 line-through' : ''}"
+                                    aria-pressed={!hiddenChartSpecies.includes(index)} aria-label="{hiddenChartSpecies.includes(index) ? $_('common.show') : $_('common.hide')} {item.species}" onclick={() => toggleSpeciesSlice(index)}>
+                                    <span class="h-2.5 w-2.5 rounded-sm" style="background-color: {audioPalette[index % audioPalette.length]}"></span>{item.species}
+                                </button>
+                            {/each}
+                        </div>
                     {/key}
                 {:else}
                     <div class="flex h-[240px] items-center justify-center text-sm font-semibold text-slate-400 dark:text-slate-500">{$_('audio.chart.empty', { default: 'No activity in this window.' })}</div>

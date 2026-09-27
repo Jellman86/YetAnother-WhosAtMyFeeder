@@ -20,7 +20,7 @@
         type SpeciesCount,
         type SpeciesInfo
     } from '../api';
-    import { chartjs, type CanvasChartConfig, type MixedCanvasChartConfig } from '../actions/chartjs';
+    import { chartjs, toggleChartSlice, type CanvasChartConfig, type MixedCanvasChartConfig } from '../actions/chartjs';
     import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
     import { defaultLeaderboardChartPreferences } from '../leaderboard/chart-defaults';
     import { buildLeaderboardAnalysisPromptConfig } from '../leaderboard/analysis-config';
@@ -98,6 +98,18 @@
     let speciesInfoCache = $state<Record<string, SpeciesInfo>>({});
     let speciesInfoPending = $state<Record<string, boolean>>({});
     let chartEl = $state<HTMLCanvasElement | null>(null);
+    let donutChartEl = $state<HTMLCanvasElement | null>(null);
+    let hiddenDonutState = $state({ theme: '', indices: [] as number[] });
+    let hiddenDonutSpecies = $derived(hiddenDonutState.theme === `${themeStore.isDark}-${themeStore.colorTheme}-${authStore.reducedMotion}` ? hiddenDonutState.indices : []);
+
+    function toggleDonutSlice(index: number) {
+        const visible = toggleChartSlice(donutChartEl, index);
+        if (visible === null) return;
+        hiddenDonutState = {
+            theme: `${themeStore.isDark}-${themeStore.colorTheme}-${authStore.reducedMotion}`,
+            indices: visible ? hiddenDonutSpecies.filter((item) => item !== index) : [...hiddenDonutSpecies, index],
+        };
+    }
     let leaderboardAnalysis = $state<string | null>(null);
     let leaderboardAnalysisTimestamp = $state<string | null>(null);
     let leaderboardAnalysisLoading = $state(false);
@@ -444,6 +456,7 @@
         loading = true;
         error = null;
         leaderboardWindow = null;
+        hiddenDonutState = { theme: '', indices: [] };
         audioLoadState = birdnetEnabled ? 'loading' : 'disabled';
         if (!birdnetEnabled) audioSpecies = [];
         // Fetch species and timeline independently so a chart/weather failure
@@ -1122,7 +1135,7 @@
                     ? false : { duration: 250 },
                 cutout: '62%',
                 plugins: {
-                    legend: { position: 'bottom', labels: { color: isDark() ? '#94a3b8' : '#64748b', boxWidth: 10, font: { size: 11 } } },
+                    legend: { display: false },
                     tooltip: { callbacks: { label: (item) => `${item.label}: ${Number(item.raw).toLocaleString()} ${totalLabel.toLowerCase()}` } }
                 }
             }
@@ -1644,7 +1657,7 @@
                         {#key `${span}-${timeline.total_count}-${timeline.bucket}-${showTemperature}-${showWind}-${showPrecip}-${isDark()}-${themeStore.colorTheme}`}
                             <div class="flex h-full min-w-0 flex-col">
                                 <p class="mb-2 text-xs font-semibold text-slate-500 dark:text-slate-400">{chartSubtitle()}</p>
-                                <div class="min-h-0 flex-1"><canvas use:chartjs={chartOptions()} bind:this={chartEl} aria-label="{metricLabel()} trend chart" class="w-full"></canvas></div>
+                                <div class="min-h-0 flex-1"><canvas use:chartjs={chartOptions()} bind:this={chartEl} aria-label="{$_('leaderboard.detections_over_time')}: {metricLabel()}" class="w-full"></canvas></div>
                             </div>
                         {/key}
                     {:else}
@@ -1806,7 +1819,15 @@
                     <div class="mt-4 min-h-[260px]">
                         {#if donutHasData()}
                             {#key `${span}-${donutSeries().series.join(',')}-${isDark()}-${themeStore.colorTheme}`}
-                                <canvas use:chartjs={donutChartOptions()} aria-label="Species detection breakdown" class="w-full h-[260px]"></canvas>
+                                <div class="relative h-[210px] w-full"><canvas use:chartjs={donutChartOptions()} bind:this={donutChartEl} aria-label={$_('leaderboard.detection_breakdown_subtitle', { default: 'Species composition' })}></canvas></div>
+                                <div class="mt-2 flex flex-wrap justify-center gap-2" role="group" aria-label={$_('leaderboard.detection_breakdown_subtitle', { default: 'Species composition' })}>
+                                    {#each donutSeries().labels as label, index}
+                                        <button type="button" class="btn btn-ghost min-h-9 gap-1.5 px-2 text-xs focus-visible:ring-2 focus-visible:ring-brand-500 {hiddenDonutSpecies.includes(index) ? 'opacity-45 line-through' : ''}"
+                                            aria-pressed={!hiddenDonutSpecies.includes(index)} aria-label="{hiddenDonutSpecies.includes(index) ? $_('common.show') : $_('common.hide')} {label}" onclick={() => toggleDonutSlice(index)}>
+                                            <span class="h-2.5 w-2.5 rounded-sm" style="background-color: {themeStore.colorTheme === 'bluetit' ? ['#2563eb', '#0ea5e9', '#6366f1', '#f59e0b', '#ec4899', '#14b8a6', '#8b5cf6', '#94a3b8'][index] : ['#10b981', '#0ea5e9', '#6366f1', '#f59e0b', '#ec4899', '#14b8a6', '#8b5cf6', '#94a3b8'][index]}"></span>{label}
+                                        </button>
+                                    {/each}
+                                </div>
                             {/key}
                         {:else}
                             <div class="h-[260px] w-full rounded-2xl border border-dashed border-slate-300/80 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-900/35 flex items-center justify-center text-sm text-slate-500 dark:text-slate-400">
@@ -1865,7 +1886,7 @@
                     <div class="mt-4 min-h-[260px]">
                         {#if activityHeatmap && heatmapHasData()}
                             {#key `${span}-${activityHeatmap.total_count}-${activityHeatmap.max_cell_count}-${isDark()}`}
-                                <div class="h-[260px] overflow-x-auto" role="group" aria-label="Activity by weekday and hour">
+                                <div class="h-[260px] overflow-x-auto" role="group" aria-label={$_('leaderboard.activity_heatmap_subtitle', { default: 'Hour x weekday activity' })}>
                                     <div class="grid h-[238px] min-w-[650px] gap-1" style="grid-template-columns: 36px repeat(24, minmax(20px, 1fr)); grid-template-rows: 20px repeat(7, 1fr);">
                                         <span aria-hidden="true"></span>
                                         {#each Array.from({ length: 24 }, (_, hour) => hour) as hour}

@@ -60,8 +60,8 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('trend, composition and heatmap render and respond to controls', async ({ page }, testInfo) => {
-    const trend = page.locator('canvas[aria-label*="trend chart"]');
-    const donut = page.locator('canvas[aria-label="Species detection breakdown"]');
+    const trend = page.locator('canvas[aria-label^="Detections over time"]');
+    const donut = page.locator('canvas[aria-label="Species composition"]');
     await expect(trend).toBeVisible();
     await expect(donut).toBeVisible();
     await expect.poll(() => trend.evaluate(node => Boolean((node as HTMLCanvasElement & { __chartjs?: unknown }).__chartjs))).toBe(true);
@@ -70,18 +70,17 @@ test('trend, composition and heatmap render and respond to controls', async ({ p
         const chart = (node as HTMLCanvasElement & { __chartjs?: { data: { datasets: unknown[] } } }).__chartjs;
         return chart?.data.datasets.length;
     })).toBe(4);
-    await expect(page.getByRole('group', { name: 'Activity by weekday and hour' }).getByRole('button')).toHaveCount(168);
+    await expect(page.getByRole('group', { name: 'Hour x weekday activity' }).getByRole('button')).toHaveCount(168);
     await expect(page.getByRole('button', { name: 'Mon 08:00: 12' })).toBeVisible();
 
-    const legend = await donut.evaluate(node => {
-        const chart = (node as HTMLCanvasElement & { __chartjs?: { legend?: { legendHitBoxes?: Array<{ left: number; top: number; width: number; height: number }> } } }).__chartjs;
-        return chart?.legend?.legendHitBoxes?.[0] ?? null;
-    });
-    expect(legend).not.toBeNull();
-    await donut.click({ position: { x: legend!.left + legend!.width / 2, y: legend!.top + legend!.height / 2 } });
+    await page.getByRole('button', { name: 'Hide Robin' }).focus();
+    await page.keyboard.press('Enter');
     await expect.poll(() => donut.evaluate(node => (node as HTMLCanvasElement & { __chartjs?: { getDataVisibility(index: number): boolean } }).__chartjs?.getDataVisibility(0))).toBe(false);
+    await expect(page.getByRole('button', { name: 'Show Robin' })).toHaveAttribute('aria-pressed', 'false');
 
     await page.getByRole('button', { name: 'Toggle theme' }).click();
+    await expect(page.getByRole('button', { name: 'Hide Robin' })).toHaveAttribute('aria-pressed', 'true');
+    await expect.poll(() => donut.evaluate(node => (node as HTMLCanvasElement & { __chartjs?: { getDataVisibility(index: number): boolean } }).__chartjs?.getDataVisibility(0))).toBe(true);
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath('species-charts.png'), fullPage: true });
 });
@@ -93,7 +92,7 @@ test('AI analysis receives a PNG capture of the chart', async ({ page }) => {
 });
 
 test('weather overlays and reduced motion preserve an understandable trend', async ({ page }) => {
-    const trend = page.locator('canvas[aria-label*="trend chart"]');
+    const trend = page.locator('canvas[aria-label^="Detections over time"]');
     await expect(trend).toBeVisible();
     await page.getByText('Weather overlays', { exact: true }).click();
     await page.getByRole('button', { name: 'Temperature' }).click();

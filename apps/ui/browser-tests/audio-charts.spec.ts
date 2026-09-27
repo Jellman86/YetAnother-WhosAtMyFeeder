@@ -74,18 +74,17 @@ test('audio charts draw, toggle species and fit the viewport', async ({ page }, 
     }
 
     const donut = canvases.nth(2);
-    const legend = await donut.evaluate(node => {
-        const chart = (node as HTMLCanvasElement & { __chartjs?: { legend?: { legendHitBoxes?: Array<{ left: number; top: number; width: number; height: number }> } } }).__chartjs;
-        return chart?.legend?.legendHitBoxes?.[0] ?? null;
-    });
-    expect(legend).not.toBeNull();
-    await donut.click({ position: { x: legend!.left + legend!.width / 2, y: legend!.top + legend!.height / 2 } });
+    await page.getByRole('button', { name: 'Hide Dunnock' }).focus();
+    await page.keyboard.press('Enter');
     await expect.poll(() => donut.evaluate(node => (node as HTMLCanvasElement & { __chartjs?: { getDataVisibility(index: number): boolean } }).__chartjs?.getDataVisibility(0))).toBe(false);
+    await expect(page.getByRole('button', { name: 'Show Dunnock' })).toHaveAttribute('aria-pressed', 'false');
 
     await expect(page.locator('html')).toHaveClass(/dark/);
     await page.screenshot({ path: testInfo.outputPath('audio-charts-dark.png'), fullPage: true });
     await page.getByRole('button', { name: 'Toggle theme' }).click();
     await expect(page.locator('html')).not.toHaveClass(/dark/);
+    await expect(page.getByRole('button', { name: 'Hide Dunnock' })).toHaveAttribute('aria-pressed', 'true');
+    await expect.poll(() => donut.evaluate(node => (node as HTMLCanvasElement & { __chartjs?: { getDataVisibility(index: number): boolean } }).__chartjs?.getDataVisibility(0))).toBe(true);
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath('audio-charts.png'), fullPage: true });
 });
