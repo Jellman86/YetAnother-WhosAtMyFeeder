@@ -71,6 +71,18 @@ async def test_the_lookup_sends_the_approximate_location_and_caches_it(monkeypat
 
 
 @pytest.mark.asyncio
+async def test_a_freshly_booted_host_still_looks_up(monkeypatch, ebird_configured):
+    # A CI runner or a just-rebooted host has a monotonic clock younger than the back-off.
+    monkeypatch.setattr(nearby_module.time, "monotonic", lambda: 5.0)
+
+    async def fake_recent(**_kwargs):
+        return EBIRD_ROWS
+
+    monkeypatch.setattr(nearby_module.ebird_service, "get_recent_observations", fake_recent)
+    assert await NearbySpeciesService().get_report() is not None
+
+
+@pytest.mark.asyncio
 async def test_a_failed_or_slow_lookup_is_unknown_and_not_retried_at_once(monkeypatch, ebird_configured):
     calls = 0
 

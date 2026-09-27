@@ -69,7 +69,9 @@ class NearbySpeciesService:
     def __init__(self) -> None:
         self._cached: tuple[tuple[float, float], NearbyReport] | None = None
         self._cached_at = 0.0
-        self._failed_at = 0.0
+        # None until a lookup fails. A zero would read as "failed at boot" on a host whose
+        # monotonic clock is younger than the back-off, and suppress every lookup until then.
+        self._failed_at: float | None = None
         self._lock = asyncio.Lock()
 
     def _location(self) -> tuple[float, float] | None:
@@ -88,7 +90,7 @@ class NearbySpeciesService:
         now = time.monotonic()
         if self._cached and self._cached[0] == location and now - self._cached_at < CACHE_TTL_SECONDS:
             return self._cached[1]
-        if now - self._failed_at < FAILURE_RETRY_SECONDS:
+        if self._failed_at is not None and now - self._failed_at < FAILURE_RETRY_SECONDS:
             return self._cached[1] if self._cached and self._cached[0] == location else None
         try:
             return await asyncio.wait_for(self._refresh(location), timeout=LOOKUP_TIMEOUT_SECONDS)
