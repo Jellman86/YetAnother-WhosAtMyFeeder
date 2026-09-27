@@ -4924,6 +4924,17 @@
             "title": "Span",
             "type": "string"
           },
+          "species": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Species"
+          },
           "total_count": {
             "title": "Total Count",
             "type": "integer"
@@ -25721,6 +25732,25 @@
               ],
               "title": "Span",
               "type": "string"
+            }
+          },
+          {
+            "description": "Limit the grid to one species",
+            "in": "query",
+            "name": "species",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Limit the grid to one species",
+              "title": "Species"
             }
           }
         ],

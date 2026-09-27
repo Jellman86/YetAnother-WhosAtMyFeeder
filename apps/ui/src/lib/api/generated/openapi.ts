@@ -705,6 +705,7 @@ export interface components {
     cells: Array<components['schemas']['DetectionsActivityHeatmapCell']>;
     max_cell_count: number;
     span: string;
+    species?: string | null;
     total_count: number;
     window_end: string;
     window_start: string;
@@ -3986,6 +3987,7 @@ export interface paths {
       path: never;
       query: {
     span?: "all" | "day" | "week" | "month";
+    species?: string | null;
 };
       requestBody: unknown;
       response: components['schemas']['DetectionsActivityHeatmapResponse'];

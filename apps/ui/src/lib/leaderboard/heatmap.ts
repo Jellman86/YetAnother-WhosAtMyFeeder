@@ -59,3 +59,40 @@ export function peakCell(cells: readonly HeatmapCell[]): HeatmapCell | null {
     }
     return peak;
 }
+
+/** Activity per hour of the day, every weekday added together: the grid's top margin. */
+export function hourlyTotals(cells: readonly HeatmapCell[]): number[] {
+    const totals = new Array<number>(24).fill(0);
+    for (const cell of cells) {
+        if (cell.hour >= 0 && cell.hour <= 23) totals[cell.hour] += Math.max(0, cell.count);
+    }
+    return totals;
+}
+
+/** Activity per weekday (0 = Sunday), every hour added together: the grid's right margin. */
+export function dayTotals(cells: readonly HeatmapCell[]): number[] {
+    const totals = new Array<number>(7).fill(0);
+    for (const cell of cells) {
+        if (cell.day_of_week >= 0 && cell.day_of_week <= 6) totals[cell.day_of_week] += Math.max(0, cell.count);
+    }
+    return totals;
+}
+
+export interface GridPosition {
+    /** Index into the displayed row order, not a weekday number. */
+    row: number;
+    hour: number;
+}
+
+/** Where an arrow key moves the reading position; it stops at the edges rather than wrapping. */
+export function moveGridPosition(position: GridPosition, key: string, rows: number): GridPosition | null {
+    const clampRow = (row: number) => Math.min(rows - 1, Math.max(0, row));
+    const clampHour = (hour: number) => Math.min(23, Math.max(0, hour));
+    if (key === 'ArrowLeft') return { ...position, hour: clampHour(position.hour - 1) };
+    if (key === 'ArrowRight') return { ...position, hour: clampHour(position.hour + 1) };
+    if (key === 'ArrowUp') return { ...position, row: clampRow(position.row - 1) };
+    if (key === 'ArrowDown') return { ...position, row: clampRow(position.row + 1) };
+    if (key === 'Home') return { ...position, hour: 0 };
+    if (key === 'End') return { ...position, hour: 23 };
+    return null;
+}

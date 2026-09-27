@@ -65,10 +65,13 @@ species and hides or restores it. **Weather overlays** add temperature and wind 
 their own directly underneath, lined up day for day with the bars, rather than as a second scale on
 the same chart, and shade rainy buckets behind the bars. A species keeps the same colour in
 that chart and in **Species composition**, whose labelled buttons can hide or restore a slice with
-a mouse, touch, or keyboard. **Hour x weekday activity** shows when this feeder is busy: brighter
-means busier in dark mode and darker means busier in light mode, the busiest hour is outlined, and
-each cell gives its count on hover. Screen readers get the same grid as a table. The grid fits its
-column at every width rather than scrolling sideways.
+a mouse, touch, or keyboard. **Hour x weekday activity** shows when this feeder is
+busy: brighter means busier in dark mode and darker means busier in light mode, and the busiest slot
+is outlined. Bars along the top add each hour across the week and the column on the right totals each
+day. Point at a slot, tap it on a phone, or focus the grid and use the arrow keys to read its day,
+hour and count; Escape puts the reading away. The buttons above the grid show one species' week
+instead of everyone's, which answers "when does the Robin come?" rather than "when is the feeder
+busy?". The grid fits its column at every width rather than scrolling sideways.
 
 ## Taxonomy Repair
 If your history contains old detections with inconsistent naming, run **Taxonomy repair** from
