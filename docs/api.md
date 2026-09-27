@@ -332,7 +332,9 @@ Notes:
 - `GET /api/leaderboard/species` (per species: window and previous-window counts, confirmed and
   call-matched detections in the window; `history_start` and `previous_window_complete` say whether
   the previous window was fully recorded; with eBird configured, `reported_nearby` per species and
-  the `nearby_radius_km` / `nearby_days_back` of that check)
+  the `nearby_radius_km` / `nearby_days_back` of that check; `window_visit_count` and
+  `window_prev_visit_count` fold frames of one species on one camera within ten minutes, as the
+  dashboard does, while `window_count` stays frames)
 
 ### Statistics
 

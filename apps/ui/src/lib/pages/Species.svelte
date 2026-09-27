@@ -74,6 +74,8 @@
         confirmed_count?: number | null;
         /** Whether eBird birders reported it near the feeder recently; null when unknown. */
         reported_nearby?: boolean | null;
+        /** Frames behind the count when the count is visits. */
+        detection_count?: number | null;
     };
     type TrendMode = 'off' | 'smooth' | 'both';
     type AudioLoadState = 'disabled' | 'loading' | 'ready' | 'error';
@@ -99,6 +101,7 @@
     let span = $state<LeaderboardSpan>('month');
     let leaderboardWindow = $state<{ start: string; end: string } | null>(null);
     let historyStart = $state<string | null>(null);
+    let countsAreVisits = $state(false);
     let previousWindowComplete = $state(false);
     let audioPreviousWindowComplete = $state(false);
     let audioHistoryStart = $state<string | null>(null);
@@ -218,7 +221,7 @@
     });
 
     // Stats
-    let totalDetections = $derived(leaderboardSpecies().reduce((sum, s) => sum + (s.count || 0), 0));
+    let totalCount = $derived(leaderboardSpecies().reduce((sum, s) => sum + (s.count || 0), 0));
     let maxCount = $derived(Math.max(...leaderboardSpecies().map(s => s.count || 0), 1));
 
     let topByCount = $derived(sortedSpecies()[0]);
@@ -247,6 +250,7 @@
             trendAvailable,
             sourceMode,
             portraits,
+            isFlagged: (row) => isUnlikelyHere(evidenceFor(row, { audioKnown }), row.reported_nearby),
             referenceFor: (name) => ({
                 url: getCachedSpeciesInfo(name)?.thumbnail_url ?? null,
                 source: getCachedSpeciesInfo(name)?.source ?? null
@@ -469,23 +473,34 @@
         }));
     }
 
-    function mapWindowSpecies(resp: Awaited<ReturnType<typeof fetchLeaderboardSpecies>>): LeaderboardRow[] {
-        return (resp.species || []).map((s) => ({
+    // Windows rank by visits, the object the dashboard shows, when the route counts them; an older
+    // route only has frames, and the page then says detections rather than calling them visits.
+    function windowCountsAreVisits(resp: Awaited<ReturnType<typeof fetchLeaderboardSpecies>>): boolean {
+        return (resp.species || []).some((s) => typeof s.window_visit_count === 'number' && s.window_visit_count > 0);
+    }
+
+    function mapWindowSpecies(resp: Awaited<ReturnType<typeof fetchLeaderboardSpecies>>, visits: boolean): LeaderboardRow[] {
+        return (resp.species || []).map((s) => {
+            const count = visits ? (s.window_visit_count ?? 0) : (s.window_count ?? 0);
+            const prevCount = visits ? (s.window_prev_visit_count ?? 0) : (s.window_prev_count ?? 0);
+            return {
             species: s.species,
             scientific_name: s.scientific_name ?? null,
             common_name: s.common_name ?? null,
             taxa_id: s.taxa_id ?? null,
-            count: s.window_count ?? 0,
-            prev_count: s.window_prev_count ?? 0,
-            delta: s.window_delta ?? 0,
-            percent: s.window_percent ?? 0,
+            count,
+            detection_count: s.window_count ?? 0,
+            prev_count: prevCount,
+            delta: count - prevCount,
+            percent: prevCount > 0 ? ((count - prevCount) / prevCount) * 100 : 0,
             first_seen: s.window_first_seen ?? null,
             last_seen: s.window_last_seen ?? null,
             avg_confidence: s.window_avg_confidence ?? null,
             camera_count: s.window_camera_count ?? null,
             confirmed_count: s.window_confirmed_count ?? null,
             reported_nearby: s.reported_nearby ?? null
-        }));
+            };
+        });
     }
 
     function selectCompareSpecies(rows: LeaderboardRow[]): string[] {
@@ -519,13 +534,15 @@
         try {
             if (requestedSpan === 'all') {
                 species = await fetchSpecies(controller.signal).then(mapAllTimeSpecies);
+                countsAreVisits = false;
                 leaderboardWindow = null;
                 historyStart = null;
                 previousWindowComplete = false;
                 nearbyCheck = null;
             } else {
                 const response = await fetchLeaderboardSpecies(requestedSpan, controller.signal);
-                species = mapWindowSpecies(response);
+                countsAreVisits = windowCountsAreVisits(response);
+                species = mapWindowSpecies(response, countsAreVisits);
                 leaderboardWindow = {
                     start: response.window_start,
                     end: response.window_end
@@ -1191,7 +1208,9 @@
     let donutHasData = $derived(() => donutSeries().series.some((v) => v > 0));
     let donutChartOptions = $derived((): CanvasChartConfig => {
         const { labels, series } = donutSeries();
-        const totalLabel = $_('leaderboard.metric_detections', { default: 'Detections' });
+        const totalLabel = countsAreVisits
+            ? $_('leaderboard.metric_visits', { default: 'Visits' })
+            : $_('leaderboard.metric_detections', { default: 'Detections' });
         const centerTotal = doughnutInsightPlugin('leaderboardCenterTotal', series, totalLabel, isDark());
         return {
             type: 'doughnut',
@@ -1604,8 +1623,16 @@
                         ? $_('leaderboard.showcase_rank_all', { values: { rank }, default: 'Rank {rank} of all time' })
                         : $_('leaderboard.showcase_rank_month', { values: { rank }, default: 'Rank {rank} this month' })}
                 countLabel={(count) => sourceMode === 'both'
-                    ? $_('leaderboard.showcase_detections_and_calls', { values: { count }, default: 'detections and calls' })
-                    : $_('leaderboard.showcase_detections', { values: { count }, default: 'detections' })}
+                    ? countsAreVisits
+                        ? $_('leaderboard.showcase_visits_and_calls', { values: { count }, default: 'visits and calls' })
+                        : $_('leaderboard.showcase_detections_and_calls', { values: { count }, default: 'detections and calls' })
+                    : countsAreVisits
+                      ? count === 1
+                          ? $_('leaderboard.showcase_visit', { default: 'visit' })
+                          : $_('leaderboard.showcase_visits', { values: { count }, default: 'visits' })
+                      : count === 1
+                          ? $_('leaderboard.showcase_detection', { default: 'detection' })
+                          : $_('leaderboard.showcase_detections', { values: { count }, default: 'detections' })}
                 moreCount={Math.max(0, leaderboardRows.length - (SHOWCASE_TILES + 1))}
                 onopen={(key) => (selectedSpecies = key)}
                 onmore={scrollToRankings}
@@ -1622,8 +1649,12 @@
                     {sourceMode === 'heard'
                         ? $_('leaderboard.standing_calls', { default: 'Calls heard' })
                         : sourceMode === 'both'
-                          ? $_('leaderboard.standing_detections_and_calls', { default: 'Detections and calls' })
-                          : $_('leaderboard.metric_detections', { default: 'Detections' })}
+                          ? countsAreVisits
+                            ? $_('leaderboard.standing_visits_and_calls', { default: 'Visits and calls' })
+                            : $_('leaderboard.standing_detections_and_calls', { default: 'Detections and calls' })
+                          : countsAreVisits
+                            ? $_('leaderboard.metric_visits', { default: 'Visits' })
+                            : $_('leaderboard.metric_detections', { default: 'Detections' })}
                 </dt>
                 <dd class="mt-1 font-display text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{sourceTotal.toLocaleString()}</dd>
             </div>
@@ -1742,7 +1773,7 @@
                         <tr>
                             <th scope="col" class="w-14 px-3 py-3 text-center">{$_('leaderboard.rank')}</th>
                             <th scope="col" class="w-[32%] px-3 py-3">{$_('leaderboard.species')}</th>
-                            <th scope="col" class="px-3 py-3 text-right">{$_('leaderboard.source_seen', { default: 'Seen' })}</th>
+                            <th scope="col" class="px-3 py-3 text-right">{countsAreVisits ? $_('leaderboard.metric_visits', { default: 'Visits' }) : $_('leaderboard.metric_detections', { default: 'Detections' })}</th>
                             {#if birdnetEnabled}<th scope="col" class="px-3 py-3 text-right">{$_('leaderboard.source_heard', { default: 'Heard' })}</th>{/if}
                             <th scope="col" class="hidden w-52 px-3 py-3 lg:table-cell" title={$_('leaderboard.evidence_hint', { default: 'Camera only: BirdNET did not hear this species in the same window and no detection of it has been confirmed. Worth a look before you trust it.' })}>{$_('leaderboard.evidence', { default: 'Evidence' })}</th>
                             {#if trendAvailable}<th scope="col" class="hidden px-3 py-3 text-right lg:table-cell">{$_('leaderboard.trend')}</th>{/if}
@@ -1987,7 +2018,7 @@
                             <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                                 <path d="M10 4v8l4 2"></path><circle cx="10" cy="10" r="7"></circle>
                             </svg>
-                            {totalDetections.toLocaleString()} {$_('leaderboard.metric_detections', { default: 'detections' }).toLowerCase()}
+                            {totalCount.toLocaleString()} {countsAreVisits ? $_('leaderboard.showcase_visits', { default: 'visits' }) : $_('leaderboard.showcase_detections', { default: 'detections' })}
                         </span>
                     </div>
 

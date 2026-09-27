@@ -6,6 +6,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Rank the leaderboard by visits rather than frames. The day, week and month views count the
+  frames of one species on one camera within ten minutes of each other as one visit, the rule the
+  dashboard already uses, so a bird that lingers no longer outranks birds that come and go. Totals,
+  trends, the composition chart and the photographs follow; the all-time view, which has no visit
+  counts, keeps detections and says so. Photograph tiles of species nobody reported nearby now
+  carry a "Check" badge.
+
 - Flag leaderboard species that are probably misidentifications. With eBird set up, a species that
   only the camera backs and that no birder has reported within 50 km in the last 30 days is marked
   "Not reported within 50 km", and a note above the rankings counts them. The check uses the

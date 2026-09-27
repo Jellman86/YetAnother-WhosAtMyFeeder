@@ -144,3 +144,66 @@ async def test_leaderboard_unknown_bird_counts_its_previous_window(client: httpx
         assert rows[0]["window_prev_count"] >= 1
     finally:
         await _delete_events(prefix)
+
+
+async def _insert_on_camera(event_id: str, display_name: str, detection_time: datetime, camera: str) -> None:
+    async with get_db() as db:
+        await db.execute(
+            """
+            INSERT INTO detections (
+                detection_time, detection_index, score, display_name, category_name,
+                frigate_event, camera_name, is_hidden, manual_tagged, audio_confirmed
+            ) VALUES (?, 1, 0.8, ?, ?, ?, ?, 0, 0, 0)
+            """,
+            (detection_time.replace(tzinfo=None).isoformat(sep=" "), display_name, display_name, event_id, camera),
+        )
+        await db.commit()
+
+
+@pytest.mark.asyncio
+async def test_leaderboard_species_counts_visits_the_way_the_dashboard_groups_them(client: httpx.AsyncClient):
+    prefix = f"lb-visits-{uuid.uuid4().hex[:8]}"
+    species = f"Visit Finch {prefix}"
+    other = f"Passing Tit {prefix}"
+    start = datetime.now(timezone.utc) - timedelta(hours=5)
+    # One visit: three frames, each within ten minutes of the one before (22 minutes end to end),
+    # with another species passing in between, which does not split it.
+    await _insert_on_camera(f"{prefix}-a1", species, start, "feeder")
+    await _insert_on_camera(f"{prefix}-x1", other, start + timedelta(minutes=5), "feeder")
+    await _insert_on_camera(f"{prefix}-a2", species, start + timedelta(minutes=9), "feeder")
+    await _insert_on_camera(f"{prefix}-a3", species, start + timedelta(minutes=18), "feeder")
+    # A gap of more than ten minutes starts a second visit.
+    await _insert_on_camera(f"{prefix}-a4", species, start + timedelta(minutes=40), "feeder")
+    # The same minute on another camera is another visit.
+    await _insert_on_camera(f"{prefix}-a5", species, start + timedelta(minutes=40), "hedge")
+    # The previous day window: two frames, one visit.
+    await _insert_on_camera(f"{prefix}-p1", species, start - timedelta(days=1), "feeder")
+    await _insert_on_camera(f"{prefix}-p2", species, start - timedelta(days=1) + timedelta(minutes=2), "feeder")
+
+    try:
+        response = await client.get("/api/leaderboard/species?span=day")
+        assert response.status_code == 200, response.text
+        rows = {row["species"]: row for row in response.json()["species"]}
+        assert rows[species]["window_count"] == 5
+        assert rows[species]["window_visit_count"] == 3
+        assert rows[species]["window_prev_visit_count"] == 1
+        assert rows[other]["window_visit_count"] == 1
+    finally:
+        await _delete_events(prefix)
+
+
+@pytest.mark.asyncio
+async def test_a_visit_that_straddles_the_window_start_counts_in_the_window(client: httpx.AsyncClient):
+    prefix = f"lb-straddle-{uuid.uuid4().hex[:8]}"
+    species = f"Straddle Finch {prefix}"
+    boundary = datetime.now(timezone.utc) - timedelta(hours=24)
+    await _insert_on_camera(f"{prefix}-before", species, boundary - timedelta(minutes=3), "feeder")
+    await _insert_on_camera(f"{prefix}-after", species, boundary + timedelta(minutes=3), "feeder")
+
+    try:
+        response = await client.get("/api/leaderboard/species?span=day")
+        rows = {row["species"]: row for row in response.json()["species"]}
+        assert rows[species]["window_visit_count"] == 1
+        assert rows[species]["window_prev_visit_count"] == 1
+    finally:
+        await _delete_events(prefix)

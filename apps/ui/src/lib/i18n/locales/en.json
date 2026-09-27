@@ -2438,7 +2438,15 @@
     "heatmap_peak": "Busiest: {day} {time}, {count}",
     "heatmap_day": "Day",
     "unlikely_note": "{count} species have no call, no confirmation and no eBird report within {radius} km in the last {days} days. They are probably misidentifications: open one to confirm or correct it.",
-    "unlikely_reason": "Not reported within {radius} km"
+    "unlikely_reason": "Not reported within {radius} km",
+    "showcase_visits": "visits",
+    "showcase_visits_and_calls": "visits and calls",
+    "metric_visits": "Visits",
+    "standing_visits_and_calls": "Visits and calls",
+    "showcase_visit": "visit",
+    "showcase_detection": "detection",
+    "showcase_not_nearby": "Not reported nearby",
+    "showcase_check": "Check"
   },
   "about": {
     "how_it_works": "How it works",

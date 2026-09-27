@@ -1037,6 +1037,8 @@ export interface components {
     window_last_seen?: string | null;
     window_percent: number;
     window_prev_count: number;
+    window_prev_visit_count?: number;
+    window_visit_count?: number;
 };
     LeaderboardSpeciesResponse: {
     history_start?: string | null;

@@ -7105,6 +7105,16 @@
           "window_prev_count": {
             "title": "Window Prev Count",
             "type": "integer"
+          },
+          "window_prev_visit_count": {
+            "default": 0,
+            "title": "Window Prev Visit Count",
+            "type": "integer"
+          },
+          "window_visit_count": {
+            "default": 0,
+            "title": "Window Visit Count",
+            "type": "integer"
           }
         },
         "required": [

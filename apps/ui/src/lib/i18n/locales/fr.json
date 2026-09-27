@@ -2428,7 +2428,15 @@
     "heatmap_peak": "Plus actif : {day} {time}, {count}",
     "heatmap_day": "Jour",
     "unlikely_note": "{count} espèces n’ont ni chant, ni confirmation, ni observation eBird à moins de {radius} km ces {days} derniers jours. Ce sont probablement des erreurs d’identification : ouvrez-en une pour la confirmer ou la corriger.",
-    "unlikely_reason": "Non signalée à moins de {radius} km"
+    "unlikely_reason": "Non signalée à moins de {radius} km",
+    "showcase_visits": "visites",
+    "showcase_visits_and_calls": "visites et chants",
+    "metric_visits": "Visites",
+    "standing_visits_and_calls": "Visites et chants",
+    "showcase_visit": "visite",
+    "showcase_detection": "détection",
+    "showcase_not_nearby": "Non signalée à proximité",
+    "showcase_check": "À vérifier"
   },
   "about": {
     "how_it_works": "Comment ça marche",

@@ -2438,7 +2438,15 @@
     "heatmap_peak": "Mais ativo: {day} {time}, {count}",
     "heatmap_day": "Dia",
     "unlikely_note": "{count} espécies não têm canto, confirmação nem registo no eBird num raio de {radius} km nos últimos {days} dias. Provavelmente são identificações erradas: abra uma para a confirmar ou corrigir.",
-    "unlikely_reason": "Sem registos num raio de {radius} km"
+    "unlikely_reason": "Sem registos num raio de {radius} km",
+    "showcase_visits": "visitas",
+    "showcase_visits_and_calls": "visitas e cantos",
+    "metric_visits": "Visitas",
+    "standing_visits_and_calls": "Visitas e cantos",
+    "showcase_visit": "visita",
+    "showcase_detection": "detecção",
+    "showcase_not_nearby": "Sem registos por perto",
+    "showcase_check": "Verificar"
   },
   "about": {
     "how_it_works": "Como Funciona",

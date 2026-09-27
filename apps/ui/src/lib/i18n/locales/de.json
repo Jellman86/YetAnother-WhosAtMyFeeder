@@ -2428,7 +2428,15 @@
     "heatmap_peak": "Am aktivsten: {day} {time}, {count}",
     "heatmap_day": "Tag",
     "unlikely_note": "{count} Arten haben keinen Ruf, keine Bestätigung und keine eBird-Meldung im Umkreis von {radius} km in den letzten {days} Tagen. Vermutlich Fehlbestimmungen: öffne eine, um sie zu bestätigen oder zu korrigieren.",
-    "unlikely_reason": "Nicht gemeldet im Umkreis von {radius} km"
+    "unlikely_reason": "Nicht gemeldet im Umkreis von {radius} km",
+    "showcase_visits": "Besuche",
+    "showcase_visits_and_calls": "Besuche und Rufe",
+    "metric_visits": "Besuche",
+    "standing_visits_and_calls": "Besuche und Rufe",
+    "showcase_visit": "Besuch",
+    "showcase_detection": "Erkennung",
+    "showcase_not_nearby": "In der Nähe nicht gemeldet",
+    "showcase_check": "Prüfen"
   },
   "about": {
     "how_it_works": "Wie es funktioniert",

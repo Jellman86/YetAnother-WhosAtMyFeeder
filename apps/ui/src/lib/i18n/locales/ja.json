@@ -2428,7 +2428,15 @@
     "heatmap_peak": "最多：{day} {time}、{count}",
     "heatmap_day": "曜日",
     "unlikely_note": "{count} 種は、鳴き声も確認もなく、過去 {days} 日間に半径 {radius} km 以内の eBird 記録もありません。誤認の可能性が高いため、開いて確認または修正してください。",
-    "unlikely_reason": "{radius} km 以内で記録なし"
+    "unlikely_reason": "{radius} km 以内で記録なし",
+    "showcase_visits": "回の訪問",
+    "showcase_visits_and_calls": "回の訪問と鳴き声",
+    "metric_visits": "訪問数",
+    "standing_visits_and_calls": "訪問と鳴き声",
+    "showcase_visit": "回の訪問",
+    "showcase_detection": "件の検出",
+    "showcase_not_nearby": "近くで記録なし",
+    "showcase_check": "要確認"
   },
   "about": {
     "how_it_works": "仕組み",

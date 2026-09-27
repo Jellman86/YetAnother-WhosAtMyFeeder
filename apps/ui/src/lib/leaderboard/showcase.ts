@@ -18,6 +18,8 @@ export interface ShowcaseRow {
     /** The species' reference image from the taxonomy cache, and where it came from. */
     reference: string | null;
     referenceSource: string | null;
+    /** Probably a misidentification: only the camera backs it and nobody reported it nearby. */
+    flagged: boolean;
 }
 
 /** The subset of a leaderboard table row the showcase needs. */
@@ -66,6 +68,7 @@ export function buildShowcaseRows<T extends ShowcaseSource>(
         sourceMode: SourceMode;
         portraits: LeaderboardPortrait[];
         referenceFor: (species: string) => ReferenceImage;
+        isFlagged?: (row: T) => boolean;
         limit?: number;
     }
 ): ShowcaseRow[] {
@@ -84,7 +87,8 @@ export function buildShowcaseRows<T extends ShowcaseSource>(
             lastSeen: activityTimestampForMode(metricRow, options.sourceMode) ?? null,
             photo: portraitFor(row, options.portraits),
             reference: reference.url,
-            referenceSource: reference.source
+            referenceSource: reference.source,
+            flagged: options.isFlagged?.(row) ?? false
         };
     });
 }
