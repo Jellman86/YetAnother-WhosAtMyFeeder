@@ -2436,7 +2436,9 @@
     "heatmap_cell": "{day} {start} to {end}: {count} detections",
     "heatmap_per_hour": "detections in one hour slot",
     "heatmap_peak": "Busiest: {day} {time}, {count}",
-    "heatmap_day": "Day"
+    "heatmap_day": "Day",
+    "unlikely_note": "{count} species have no call, no confirmation and no eBird report within {radius} km in the last {days} days. They are probably misidentifications: open one to confirm or correct it.",
+    "unlikely_reason": "Not reported within {radius} km"
   },
   "about": {
     "how_it_works": "How it works",

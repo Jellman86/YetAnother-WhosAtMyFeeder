@@ -42,8 +42,17 @@ seen last. The rankings then say what stands behind each species besides the cla
 
 The **Total** window has no confirmation counts, so its evidence column only reports calls.
 
-**Trend** and **Rising** compare the window with the one before it, and appear only when your
-history covers the whole of that earlier window. On a new install the page says when records start
+When eBird is set up under **Settings → Integrations**, the rankings also check each species against
+what birders have reported within 50 km of the feeder in the last 30 days. A species that only the
+camera backs and that nobody has reported nearby is marked **Not reported within 50 km**, and a note
+above the table counts them: they are usually misidentifications, which a wildlife-wide model makes
+more often than a regional one. Opening one lets you confirm or correct it. The check sends eBird
+your approximate location (about 11 km) rather than the exact one, runs at most every six hours, and
+is simply absent when eBird is off or does not answer.
+
+**Trend** and **Rising** compare the window with the one before it, and appear only when the history
+behind the ranking covers the whole of that earlier window: the camera's history for **Seen**,
+BirdNET-Go's for **Heard**, and both for **Both**. On a new install the page says when records start
 instead of reporting every species as a riser.
 
 Below the rankings, **Detections over time** shows when detections happened and can overlay

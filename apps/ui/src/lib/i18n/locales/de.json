@@ -2426,7 +2426,9 @@
     "heatmap_cell": "{day} {start} bis {end}: {count} Erkennungen",
     "heatmap_per_hour": "Erkennungen pro Stundenfeld",
     "heatmap_peak": "Am aktivsten: {day} {time}, {count}",
-    "heatmap_day": "Tag"
+    "heatmap_day": "Tag",
+    "unlikely_note": "{count} Arten haben keinen Ruf, keine Bestätigung und keine eBird-Meldung im Umkreis von {radius} km in den letzten {days} Tagen. Vermutlich Fehlbestimmungen: öffne eine, um sie zu bestätigen oder zu korrigieren.",
+    "unlikely_reason": "Nicht gemeldet im Umkreis von {radius} km"
   },
   "about": {
     "how_it_works": "Wie es funktioniert",

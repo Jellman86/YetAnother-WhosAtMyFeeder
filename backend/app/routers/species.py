@@ -27,6 +27,7 @@ from app.services.i18n_service import i18n_service
 from app.services.classifier_service import get_classifier
 from app.services.ebird_service import ebird_service
 from app.services.leaderboard_window import previous_window_is_complete
+from app.services.nearby_species_service import nearby_species_service, reported_nearby
 from app.utils.classifier_labels import collapse_classifier_label
 from app.utils.canonical_species import should_hide_species_label, user_facing_species_fields
 from app.utils.api_datetime import serialize_api_datetime
@@ -89,6 +90,8 @@ class LeaderboardSpeciesItemResponse(BaseModel):
     window_camera_count: int
     window_confirmed_count: int = 0
     window_audio_confirmed_count: int = 0
+    # Whether eBird birders reported the species near the feeder recently; null when unknown.
+    reported_nearby: bool | None = None
 
 
 class LeaderboardSpeciesResponse(BaseModel):
@@ -97,6 +100,9 @@ class LeaderboardSpeciesResponse(BaseModel):
     window_end: str
     history_start: str | None = None
     previous_window_complete: bool = False
+    # The eBird check behind reported_nearby, or null when it did not run.
+    nearby_radius_km: int | None = None
+    nearby_days_back: int | None = None
     species: list[LeaderboardSpeciesItemResponse]
 
 
@@ -1058,6 +1064,8 @@ async def get_leaderboard_species(
         )
         history_start, _ = await repo.get_detection_time_bounds()
 
+    nearby = await nearby_species_service.get_report()
+
     # Filter to species present in the selected window only.
     filtered = []
     for r in rows:
@@ -1103,6 +1111,9 @@ async def get_leaderboard_species(
                 "window_camera_count": r.get("window_camera_count", 0),
                 "window_confirmed_count": r.get("window_confirmed_count", 0),
                 "window_audio_confirmed_count": r.get("window_audio_confirmed_count", 0),
+                "reported_nearby": reported_nearby(
+                    nearby, scientific_name=r.get("scientific_name"), common_name=common_name
+                ),
             }
         )
 
@@ -1139,6 +1150,8 @@ async def get_leaderboard_species(
         "window_end": window_end.replace(tzinfo=timezone.utc).isoformat(),
         "history_start": serialize_api_datetime(history_start) if history_start else None,
         "previous_window_complete": previous_window_is_complete(history_start=history_start, prev_start=prev_start),
+        "nearby_radius_km": nearby.radius_km if nearby else None,
+        "nearby_days_back": nearby.days_back if nearby else None,
         "species": filtered,
     }
 

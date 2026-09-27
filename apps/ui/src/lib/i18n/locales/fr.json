@@ -2426,7 +2426,9 @@
     "heatmap_cell": "{day} de {start} à {end} : {count} détections",
     "heatmap_per_hour": "détections par créneau d’une heure",
     "heatmap_peak": "Plus actif : {day} {time}, {count}",
-    "heatmap_day": "Jour"
+    "heatmap_day": "Jour",
+    "unlikely_note": "{count} espèces n’ont ni chant, ni confirmation, ni observation eBird à moins de {radius} km ces {days} derniers jours. Ce sont probablement des erreurs d’identification : ouvrez-en une pour la confirmer ou la corriger.",
+    "unlikely_reason": "Non signalée à moins de {radius} km"
   },
   "about": {
     "how_it_works": "Comment ça marche",

@@ -331,7 +331,8 @@ Notes:
 - `DELETE /api/species/{species_name}/cache` (owner)
 - `GET /api/leaderboard/species` (per species: window and previous-window counts, confirmed and
   call-matched detections in the window; `history_start` and `previous_window_complete` say whether
-  the previous window was fully recorded)
+  the previous window was fully recorded; with eBird configured, `reported_nearby` per species and
+  the `nearby_radius_km` / `nearby_days_back` of that check)
 
 ### Statistics
 

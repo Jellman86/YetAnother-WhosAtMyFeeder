@@ -52,7 +52,7 @@
     import { doughnutInsightPlugin } from '../actions/chartjs-doughnut';
     import type { TemperatureUnit } from '../utils/temperature';
     import { toAppPath } from '../app/url-base';
-    import { evidenceFor, isCorroborated, type SpeciesEvidence } from '../leaderboard/evidence';
+    import { evidenceFor, isCorroborated, isUnlikelyHere, trendMeasured, type SpeciesEvidence } from '../leaderboard/evidence';
     import { busiestHourOfDay, heatmapFill, heatmapLegendGradient, peakCell } from '../leaderboard/heatmap';
     import { otherSeriesColor, speciesSeriesColor, SPECIES_SERIES_SLOTS } from '../leaderboard/species-palette';
 
@@ -72,6 +72,8 @@
         camera_count?: number | null;
         /** Detections a person named or confirmed in the window; null where the route does not count them. */
         confirmed_count?: number | null;
+        /** Whether eBird birders reported it near the feeder recently; null when unknown. */
+        reported_nearby?: boolean | null;
     };
     type TrendMode = 'off' | 'smooth' | 'both';
     type AudioLoadState = 'disabled' | 'loading' | 'ready' | 'error';
@@ -98,9 +100,23 @@
     let leaderboardWindow = $state<{ start: string; end: string } | null>(null);
     let historyStart = $state<string | null>(null);
     let previousWindowComplete = $state(false);
+    let audioPreviousWindowComplete = $state(false);
+    let audioHistoryStart = $state<string | null>(null);
+    // The history the current trend would need: the camera's, BirdNET's, or the later of the two.
+    let trendHistoryStart = $derived(
+        sourceMode === 'seen'
+            ? historyStart
+            : sourceMode === 'heard'
+              ? audioHistoryStart
+              : [historyStart, audioHistoryStart].filter((value): value is string => Boolean(value)).sort().at(-1) ?? null
+    );
+    let nearbyCheck = $state<{ radiusKm: number; daysBack: number } | null>(null);
     // A window whose predecessor began before the first detection has nothing to be compared
     // with; every species would read as rising. The trend is only claimed when it was measured.
-    let trendAvailable = $derived(span !== 'all' && previousWindowComplete);
+    let trendAvailable = $derived(
+        span !== 'all'
+            && trendMeasured(sourceMode, { seen: previousWindowComplete, heard: audioPreviousWindowComplete })
+    );
     let hiddenTimelineSeries = $state<string[]>([]);
     let includeUnknownBird = $state(false);
     let selectedSpecies = $state<string | null>(null);
@@ -290,6 +306,13 @@
         if (evidence === 'unconfirmed') return $_('leaderboard.evidence_unconfirmed', { default: 'Not confirmed' });
         return '—';
     }
+    let unlikelyRows = $derived(
+        leaderboardRows.filter((row) => isUnlikelyHere(evidenceOf(row), row.reported_nearby))
+    );
+    let unlikelyKeys = $derived(new Set(unlikelyRows.map((row) => `${row.species}|${row.audio_only}`)));
+    function unlikelyHere(row: LeaderboardTableRow): boolean {
+        return unlikelyKeys.has(`${row.species}|${row.audio_only}`);
+    }
     let showCameraColumn = $derived(leaderboardRows.some((row) => (row.camera_count ?? 0) > 1));
     let unidentifiedCount = $derived(species.find((row) => row.species === 'Unknown Bird')?.count ?? 0);
     let busiestHour = $derived(busiestHourOfDay(activityHeatmap?.cells ?? []));
@@ -460,7 +483,8 @@
             last_seen: s.window_last_seen ?? null,
             avg_confidence: s.window_avg_confidence ?? null,
             camera_count: s.window_camera_count ?? null,
-            confirmed_count: s.window_confirmed_count ?? null
+            confirmed_count: s.window_confirmed_count ?? null,
+            reported_nearby: s.reported_nearby ?? null
         }));
     }
 
@@ -488,6 +512,8 @@
         hiddenTimelineSeries = [];
         audioLoadState = birdnetEnabled ? 'loading' : 'disabled';
         if (!birdnetEnabled) audioSpecies = [];
+        audioPreviousWindowComplete = false;
+        audioHistoryStart = null;
         // Fetch species and timeline independently so a chart/weather failure
         // doesn't make the leaderboard table disappear.
         try {
@@ -496,6 +522,7 @@
                 leaderboardWindow = null;
                 historyStart = null;
                 previousWindowComplete = false;
+                nearbyCheck = null;
             } else {
                 const response = await fetchLeaderboardSpecies(requestedSpan, controller.signal);
                 species = mapWindowSpecies(response);
@@ -505,6 +532,9 @@
                 };
                 historyStart = response.history_start ?? null;
                 previousWindowComplete = response.previous_window_complete ?? false;
+                nearbyCheck = response.nearby_radius_km && response.nearby_days_back
+                    ? { radiusKm: response.nearby_radius_km, daysBack: response.nearby_days_back }
+                    : null;
             }
         } catch (e) {
             if (loadGeneration !== leaderboardLoadGeneration || controller.signal.aborted) return;
@@ -538,6 +568,8 @@
         // visual leaderboard, so it is handled independently and degrades to empty.
         if (audioResult.status === 'fulfilled') {
             audioSpecies = audioResult.value?.species ?? [];
+            audioPreviousWindowComplete = audioResult.value?.previous_window_complete ?? false;
+            audioHistoryStart = audioResult.value?.history_start ?? null;
             audioLoadState = birdnetEnabled ? 'ready' : 'disabled';
         } else {
             audioSpecies = [];
@@ -1397,6 +1429,13 @@
     let leaderboardAiBlocks = $derived(() => (leaderboardAnalysis ? parseAiAnalysis(leaderboardAnalysis) : []));
 </script>
 
+{#snippet unlikelyReason(radiusKm: number)}
+    <span class="mt-1 flex items-center gap-1.5 whitespace-nowrap text-xs font-semibold text-amber-800 dark:text-amber-300" data-leaderboard-unlikely-reason>
+        <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" aria-hidden="true"></span>
+        {$_('leaderboard.unlikely_reason', { values: { radius: radiusKm }, default: 'Not reported within {radius} km' })}
+    </span>
+{/snippet}
+
 {#snippet evidenceGlyph(evidence: SpeciesEvidence)}
     {#if evidence === 'confirmed'}
         <svg class="h-3.5 w-3.5 shrink-0 text-success-600 dark:text-success-400" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 10.5 3.2 3L15 6.5" /></svg>
@@ -1641,10 +1680,21 @@
                     </div>
                 </div>
             </div>
-            {#if span !== 'all' && !trendAvailable && historyStart}
+            {#if span !== 'all' && !trendAvailable && trendHistoryStart}
                 <p class="text-sm text-slate-500 dark:text-slate-400" data-leaderboard-trend-note>
-                    {$_('leaderboard.trend_needs_history', { values: { date: formatShortDate(historyStart) }, default: 'No trend yet. Records start {date}, so there is no complete earlier window to compare with.' })}
+                    {$_('leaderboard.trend_needs_history', { values: { date: formatShortDate(trendHistoryStart) }, default: 'No trend yet. Records start {date}, so there is no complete earlier window to compare with.' })}
                 </p>
+            {/if}
+            {#if unlikelyRows.length > 0 && nearbyCheck}
+                <div class="flex items-start gap-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-100" role="note" data-leaderboard-unlikely-note>
+                    <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-500" aria-hidden="true"></span>
+                    <p>
+                        {$_('leaderboard.unlikely_note', {
+                            values: { count: unlikelyRows.length, radius: nearbyCheck.radiusKm, days: nearbyCheck.daysBack },
+                            default: '{count} species have no call, no confirmation and no eBird report within {radius} km in the last {days} days. They are probably misidentifications: open one to confirm or correct it.'
+                        })}
+                    </p>
+                </div>
             {/if}
 
             {#key `${sourceMode}-${span}`}
@@ -1654,7 +1704,7 @@
                     <button
                         type="button"
                         onclick={() => selectedSpecies = item.species}
-                        class="group flex min-h-20 w-full items-center gap-3 py-3 text-left transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 dark:hover:bg-slate-800/40"
+                        class="group flex min-h-20 w-full items-center gap-3 py-3 text-left transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 dark:hover:bg-slate-800/40 {unlikelyHere(item) ? 'bg-gradient-to-r from-amber-50 to-transparent dark:from-amber-500/10' : ''}"
                         title={item.species === "Unknown Bird" ? $_('leaderboard.unidentified_desc') : ""}
                         aria-label={$_('leaderboard.view_species', { values: { species: item.displayName } })}
                     >
@@ -1671,6 +1721,7 @@
                                 <span class="truncate font-semibold text-slate-900 dark:text-white">{item.displayName}</span>
                             </span>
                             {#if item.subName}<span class="mt-0.5 block truncate text-xs italic text-slate-500 dark:text-slate-400">{item.subName}</span>{/if}
+                            {#if unlikelyHere(item) && nearbyCheck}{@render unlikelyReason(nearbyCheck.radiusKm)}{/if}
                             <span class="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-slate-500 dark:text-slate-400">
                                 {#if evidence !== 'unknown'}<span class="inline-flex items-center gap-1 font-semibold {evidence === 'camera_only' || evidence === 'unconfirmed' ? '' : 'text-slate-700 dark:text-slate-200'}" data-leaderboard-evidence={evidence}>{@render evidenceGlyph(evidence)}{evidenceLabel(evidence)}</span><span aria-hidden="true">·</span>{/if}
                                 <span title={formatDate(activityTimestampForMode(item, sourceMode))}>{formatRelative(activityTimestampForMode(item, sourceMode))}</span>
@@ -1693,7 +1744,7 @@
                             <th scope="col" class="w-[32%] px-3 py-3">{$_('leaderboard.species')}</th>
                             <th scope="col" class="px-3 py-3 text-right">{$_('leaderboard.source_seen', { default: 'Seen' })}</th>
                             {#if birdnetEnabled}<th scope="col" class="px-3 py-3 text-right">{$_('leaderboard.source_heard', { default: 'Heard' })}</th>{/if}
-                            <th scope="col" class="hidden w-40 px-3 py-3 lg:table-cell" title={$_('leaderboard.evidence_hint', { default: 'Camera only: BirdNET did not hear this species in the same window and no detection of it has been confirmed. Worth a look before you trust it.' })}>{$_('leaderboard.evidence', { default: 'Evidence' })}</th>
+                            <th scope="col" class="hidden w-52 px-3 py-3 lg:table-cell" title={$_('leaderboard.evidence_hint', { default: 'Camera only: BirdNET did not hear this species in the same window and no detection of it has been confirmed. Worth a look before you trust it.' })}>{$_('leaderboard.evidence', { default: 'Evidence' })}</th>
                             {#if trendAvailable}<th scope="col" class="hidden px-3 py-3 text-right lg:table-cell">{$_('leaderboard.trend')}</th>{/if}
                             {#if showCameraColumn}<th scope="col" class="hidden px-3 py-3 text-right xl:table-cell">{$_('leaderboard.cameras')}</th>{/if}
                             <th scope="col" class="hidden px-3 py-3 text-right xl:table-cell">{$_('leaderboard.avg_confidence')}</th>
@@ -1705,7 +1756,7 @@
                             {@const rowCountPct = maxCount > 0 ? Math.round((item.count / maxCount) * 100) : 0}
                             {@const rowHeardPct = maxHeard > 0 ? Math.round((item.heard_count / maxHeard) * 100) : 0}
                             {@const evidence = evidenceOf(item)}
-                            <tr class="transition hover:bg-slate-50/80 dark:hover:bg-slate-800/35">
+                            <tr class="transition hover:bg-slate-50/80 dark:hover:bg-slate-800/35 {unlikelyHere(item) ? 'bg-gradient-to-r from-amber-50 to-transparent dark:from-amber-500/10' : ''}" data-leaderboard-unlikely={unlikelyHere(item) ? 'true' : undefined}>
                                 <td class="px-3 py-3 text-center"><span class="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold tabular-nums {index < 3 ? 'bg-brand-100 text-brand-800 dark:bg-brand-900/50 dark:text-brand-200' : 'text-slate-500 dark:text-slate-400'}" aria-label={`${$_('leaderboard.rank')} ${index + 1}`}>{index + 1}</span></td>
                                 <td class="px-3 py-3">
                                     <button type="button" onclick={() => selectedSpecies = item.species} class="group flex min-h-11 max-w-full items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500" aria-label={$_('leaderboard.view_species', { values: { species: item.displayName } })}>
@@ -1717,7 +1768,7 @@
                                 </td>
                                 <td class="px-3 py-3 text-right">{#if item.audio_only}<span class="text-slate-400">—</span>{:else}<span class="font-semibold tabular-nums text-slate-700 dark:text-slate-200">{item.count.toLocaleString()}</span><span class="ml-auto mt-1 block h-1 w-14 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700"><span class="block h-full rounded-full bg-brand-500/70" style="width: {rowCountPct}%"></span></span>{/if}</td>
                                 {#if birdnetEnabled}<td class="px-3 py-3 text-right">{#if audioLoadState === 'ready'}<span class="font-semibold tabular-nums text-slate-700 dark:text-slate-200">{item.heard_count.toLocaleString()}</span><span class="ml-auto mt-1 block h-1 w-14 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700"><span class="block h-full rounded-full bg-slate-400/80 dark:bg-slate-400/70" style="width: {rowHeardPct}%"></span></span>{:else}<span class="text-slate-400" title={$_('common.unavailable')}>—</span>{/if}</td>{/if}
-                                <td class="hidden px-3 py-3 lg:table-cell">{#if evidence === 'unknown'}<span class="text-slate-400">—</span>{:else}<span class="inline-flex items-center gap-1.5 text-xs font-semibold {evidence === 'camera_only' || evidence === 'unconfirmed' ? 'text-slate-500 dark:text-slate-400' : 'text-slate-700 dark:text-slate-200'}" data-leaderboard-evidence={evidence}>{@render evidenceGlyph(evidence)}{evidenceLabel(evidence)}</span>{/if}</td>
+                                <td class="hidden px-3 py-3 lg:table-cell">{#if evidence === 'unknown'}<span class="text-slate-400">—</span>{:else}<span class="inline-flex items-center gap-1.5 text-xs font-semibold {evidence === 'camera_only' || evidence === 'unconfirmed' ? 'text-slate-500 dark:text-slate-400' : 'text-slate-700 dark:text-slate-200'}" data-leaderboard-evidence={evidence}>{@render evidenceGlyph(evidence)}{evidenceLabel(evidence)}</span>{/if}{#if unlikelyHere(item) && nearbyCheck}{@render unlikelyReason(nearbyCheck.radiusKm)}{/if}</td>
                                 {#if trendAvailable}<td class="hidden px-3 py-3 text-right font-semibold tabular-nums lg:table-cell {trendTone(item)}"><span aria-hidden="true" class="mr-0.5 text-xs">{trendGlyph(item)}</span>{trendForMode(item, sourceMode)}</td>{/if}
                                 {#if showCameraColumn}<td class="hidden px-3 py-3 text-right tabular-nums text-slate-600 dark:text-slate-300 xl:table-cell">{(item.camera_count ?? 0).toLocaleString()}</td>{/if}
                                 <td class="hidden px-3 py-3 text-right tabular-nums text-slate-600 dark:text-slate-300 xl:table-cell">{item.avg_confidence != null ? `${Math.round(item.avg_confidence * 100)}%` : '—'}</td>

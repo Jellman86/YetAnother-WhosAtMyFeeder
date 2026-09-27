@@ -2426,7 +2426,9 @@
     "heatmap_cell": "{day} {start} 至 {end}：{count} 次检测",
     "heatmap_per_hour": "每小时格内的检测次数",
     "heatmap_peak": "最活跃：{day} {time}，{count}",
-    "heatmap_day": "日期"
+    "heatmap_day": "日期",
+    "unlikely_note": "{count} 个物种既没有鸣叫、没有确认，过去 {days} 天内 {radius} 公里范围内也没有 eBird 记录。它们很可能是误识别：打开一个进行确认或更正。",
+    "unlikely_reason": "{radius} 公里内无记录"
   },
   "about": {
     "how_it_works": "工作原理",

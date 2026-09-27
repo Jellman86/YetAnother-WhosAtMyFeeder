@@ -88,17 +88,27 @@ describe('leaderboard field-journal layout', () => {
 
     it('states the window in one standing band, with rising only when a trend was measured', () => {
         expect(leaderboardSource).toContain('data-leaderboard-standing');
-        expect(leaderboardSource).toContain("let trendAvailable = $derived(span !== 'all' && previousWindowComplete)");
+        expect(leaderboardSource).toContain("trendMeasured(sourceMode, { seen: previousWindowComplete, heard: audioPreviousWindowComplete })");
+        expect(leaderboardSource).toContain('audioPreviousWindowComplete = audioResult.value?.previous_window_complete ?? false');
         expect(leaderboardSource).toContain('!trendAvailable\n            ? null');
         expect(leaderboardSource).toContain('{#if trendAvailable}<th scope="col"');
         expect(leaderboardSource).toContain('data-leaderboard-trend-note');
     });
 
     it('says what stands behind each species besides the classifier', () => {
-        expect(leaderboardSource).toContain("import { evidenceFor, isCorroborated, type SpeciesEvidence } from '../leaderboard/evidence'");
+        expect(leaderboardSource).toContain("import { evidenceFor, isCorroborated, isUnlikelyHere, trendMeasured, type SpeciesEvidence } from '../leaderboard/evidence'");
         expect(leaderboardSource).toContain("let audioKnown = $derived(birdnetEnabled && audioLoadState === 'ready')");
         expect(leaderboardSource).toContain('data-leaderboard-evidence={evidence}');
         expect(leaderboardSource).toContain('data-leaderboard-corroboration');
+    });
+
+    it('flags a species nothing but the camera backs and no birder reported nearby, in words', () => {
+        expect(leaderboardSource).toContain('isUnlikelyHere(evidenceOf(row), row.reported_nearby)');
+        expect(leaderboardSource).toContain('data-leaderboard-unlikely-note');
+        expect(leaderboardSource).toContain('data-leaderboard-unlikely-reason');
+        // Wash, dot and words together, never a coloured rule on the row's edge.
+        expect(leaderboardSource).toContain("bg-gradient-to-r from-amber-50 to-transparent dark:from-amber-500/10");
+        expect(leaderboardSource).not.toMatch(/border-l-(2|4)[^"]*amber/);
     });
 
     it('fits the weekday heatmap to its column instead of scrolling it sideways', () => {

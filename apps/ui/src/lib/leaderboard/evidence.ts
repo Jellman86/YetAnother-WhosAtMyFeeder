@@ -39,3 +39,22 @@ export function evidenceFor(row: EvidenceRow, context: EvidenceContext): Species
 export function isCorroborated(evidence: SpeciesEvidence): boolean {
     return evidence === 'confirmed' || evidence === 'seen_and_heard' || evidence === 'heard_only';
 }
+
+/**
+ * A species only the camera stands behind, which no birder has reported near the feeder
+ * recently, is most likely a misidentification. It needs a person, so it is worded and amber.
+ * Unknown (eBird off, or the lookup failed) never flags anything.
+ */
+export function isUnlikelyHere(evidence: SpeciesEvidence, reportedNearby: boolean | null | undefined): boolean {
+    return reportedNearby === false && !isCorroborated(evidence);
+}
+
+/** Whether the window's trend was measured for the source the ranking counts. */
+export function trendMeasured(
+    mode: 'seen' | 'heard' | 'both',
+    complete: { seen: boolean; heard: boolean }
+): boolean {
+    if (mode === 'seen') return complete.seen;
+    if (mode === 'heard') return complete.heard;
+    return complete.seen && complete.heard;
+}
