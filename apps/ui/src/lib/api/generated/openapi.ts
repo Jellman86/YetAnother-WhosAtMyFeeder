@@ -178,6 +178,8 @@ export interface components {
     species: string;
 };
     AudioSpeciesLeaderboardResponse: {
+    history_start?: string | null;
+    previous_window_complete?: boolean;
     span: "day" | "week" | "month" | "all";
     species: Array<components['schemas']['AudioSpeciesLeaderboardItemResponse']>;
     window_end: string;
@@ -1021,6 +1023,7 @@ export interface components {
 };
     LeaderboardSpeciesItemResponse: {
     common_name?: string | null;
+    reported_nearby?: boolean | null;
     scientific_name?: string | null;
     species: string;
     taxa_id?: number | null;
@@ -1037,6 +1040,8 @@ export interface components {
 };
     LeaderboardSpeciesResponse: {
     history_start?: string | null;
+    nearby_days_back?: number | null;
+    nearby_radius_km?: number | null;
     previous_window_complete?: boolean;
     span: "day" | "week" | "month";
     species: Array<components['schemas']['LeaderboardSpeciesItemResponse']>;

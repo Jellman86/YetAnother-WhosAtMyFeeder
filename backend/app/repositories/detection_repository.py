@@ -5261,6 +5261,12 @@ class DetectionRepository:
         identities = {name: resolve_audio_identity(name, resolver=resolver) for name, _count in pending}
         return await self.assign_audio_species_ids(pending, identities)
 
+    async def get_audio_history_start(self) -> datetime | None:
+        """When BirdNET-Go's stored history begins; it can start long after the camera's."""
+        async with self.db.execute("SELECT MIN(timestamp) FROM audio_detections") as cursor:
+            row = await cursor.fetchone()
+        return _parse_datetime(row[0]) if row and row[0] else None
+
     async def get_audio_species_counts(
         self,
         window_start: datetime,

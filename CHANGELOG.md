@@ -6,6 +6,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Flag leaderboard species that are probably misidentifications. With eBird set up, a species that
+  only the camera backs and that no birder has reported within 50 km in the last 30 days is marked
+  "Not reported within 50 km", and a note above the rankings counts them. The check uses the
+  approximate location, is cached for six hours, and is absent rather than guessed when eBird is off
+  or slow. Heard trends now follow BirdNET-Go's own history, so an install whose microphone has run
+  longer than its camera shows them, and one whose microphone is newer does not invent them.
+
 - Make the leaderboard say how sure it is. Each species now states what stands behind it besides
   the classifier: confirmed by you, also heard by BirdNET-Go, heard only, or camera only, and a new
   band counts how many species were heard or confirmed. Trends and "Rising" appear only when the

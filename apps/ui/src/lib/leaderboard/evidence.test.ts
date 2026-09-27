@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { evidenceFor, isCorroborated } from './evidence';
+import { evidenceFor, isCorroborated, isUnlikelyHere, trendMeasured } from './evidence';
 
 const audioOn = { audioKnown: true };
 const audioOff = { audioKnown: false };
@@ -43,5 +43,33 @@ describe('isCorroborated', () => {
         expect(isCorroborated('camera_only')).toBe(false);
         expect(isCorroborated('unconfirmed')).toBe(false);
         expect(isCorroborated('unknown')).toBe(false);
+    });
+});
+
+describe('isUnlikelyHere', () => {
+    it('flags a camera-only species nobody reported nearby', () => {
+        expect(isUnlikelyHere('camera_only', false)).toBe(true);
+        expect(isUnlikelyHere('unconfirmed', false)).toBe(true);
+    });
+
+    it('trusts a person or a call over the absence of reports', () => {
+        expect(isUnlikelyHere('confirmed', false)).toBe(false);
+        expect(isUnlikelyHere('seen_and_heard', false)).toBe(false);
+    });
+
+    it('never flags when the nearby check did not answer', () => {
+        expect(isUnlikelyHere('camera_only', null)).toBe(false);
+        expect(isUnlikelyHere('camera_only', undefined)).toBe(false);
+        expect(isUnlikelyHere('camera_only', true)).toBe(false);
+    });
+});
+
+describe('trendMeasured', () => {
+    it('follows the history of the source the ranking counts', () => {
+        const cameraOnly = { seen: true, heard: false };
+        expect(trendMeasured('seen', cameraOnly)).toBe(true);
+        expect(trendMeasured('heard', cameraOnly)).toBe(false);
+        expect(trendMeasured('both', cameraOnly)).toBe(false);
+        expect(trendMeasured('both', { seen: true, heard: true })).toBe(true);
     });
 });

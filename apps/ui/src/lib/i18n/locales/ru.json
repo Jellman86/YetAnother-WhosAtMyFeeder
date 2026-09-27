@@ -2436,7 +2436,9 @@
     "heatmap_cell": "{day} с {start} до {end}: {count} обнаружений",
     "heatmap_per_hour": "обнаружений за часовой интервал",
     "heatmap_peak": "Пик: {day} {time}, {count}",
-    "heatmap_day": "День"
+    "heatmap_day": "День",
+    "unlikely_note": "У {count} видов нет ни голоса, ни подтверждения, ни записи eBird в радиусе {radius} км за последние {days} дней. Вероятно, это ошибки определения: откройте вид, чтобы подтвердить или исправить.",
+    "unlikely_reason": "Нет записей в радиусе {radius} км"
   },
   "about": {
     "how_it_works": "Как это работает",

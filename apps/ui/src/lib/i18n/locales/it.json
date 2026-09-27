@@ -2436,7 +2436,9 @@
     "heatmap_cell": "{day} dalle {start} alle {end}: {count} rilevamenti",
     "heatmap_per_hour": "rilevamenti per fascia oraria",
     "heatmap_peak": "Più attivo: {day} {time}, {count}",
-    "heatmap_day": "Giorno"
+    "heatmap_day": "Giorno",
+    "unlikely_note": "{count} specie non hanno canti, conferme né segnalazioni eBird entro {radius} km negli ultimi {days} giorni. Probabilmente sono identificazioni errate: aprine una per confermarla o correggerla.",
+    "unlikely_reason": "Non segnalata entro {radius} km"
   },
   "about": {
     "how_it_works": "Come Funziona",

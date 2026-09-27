@@ -2436,7 +2436,9 @@
     "heatmap_cell": "{day} das {start} às {end}: {count} detecções",
     "heatmap_per_hour": "detecções por faixa de uma hora",
     "heatmap_peak": "Mais ativo: {day} {time}, {count}",
-    "heatmap_day": "Dia"
+    "heatmap_day": "Dia",
+    "unlikely_note": "{count} espécies não têm canto, confirmação nem registo no eBird num raio de {radius} km nos últimos {days} dias. Provavelmente são identificações erradas: abra uma para a confirmar ou corrigir.",
+    "unlikely_reason": "Sem registos num raio de {radius} km"
   },
   "about": {
     "how_it_works": "Como Funciona",

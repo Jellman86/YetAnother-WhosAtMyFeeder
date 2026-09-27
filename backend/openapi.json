@@ -1218,6 +1218,22 @@
       },
       "AudioSpeciesLeaderboardResponse": {
         "properties": {
+          "history_start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "History Start"
+          },
+          "previous_window_complete": {
+            "default": false,
+            "title": "Previous Window Complete",
+            "type": "boolean"
+          },
           "span": {
             "enum": [
               "day",
@@ -6997,6 +7013,17 @@
             ],
             "title": "Common Name"
           },
+          "reported_nearby": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reported Nearby"
+          },
           "scientific_name": {
             "anyOf": [
               {
@@ -7104,6 +7131,28 @@
               }
             ],
             "title": "History Start"
+          },
+          "nearby_days_back": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nearby Days Back"
+          },
+          "nearby_radius_km": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nearby Radius Km"
           },
           "previous_window_complete": {
             "default": false,
