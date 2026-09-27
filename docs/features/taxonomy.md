@@ -22,10 +22,15 @@ is most visible, because it shows both names together:
 ![The Species page reached from Leaderboard, with the Month window and the Seen filter selected: a full-bleed card headed "Most detected this month" naming Dunnock, Prunella modularis, 243 visits, a Rising line for House Sparrow beneath it, and the start of the full rankings](../images/leaderboard.png)
 
 The **Day / Week / Month / Total** buttons set the window. **Seen / Heard / Both** decide what the
-ranking counts: **Seen** ranks by camera detections alone, **Heard** by BirdNET-Go detections, and
+ranking counts: **Seen** ranks by camera visits, **Heard** by BirdNET-Go detections, and
 **Both** by the two added together, which also brings in species that were only ever heard, never
 photographed. **Both** is a sum, not an intersection: a species does not need evidence from both
 sources to appear.
+
+A visit is what the dashboard shows as one row: the frames of one species on one camera, each
+within ten minutes of the one before. A bird that sits on the feeder for twenty minutes and trips
+the camera fifteen times is one visit, so a busy regular no longer outranks birds that come and go
+simply by staying longer. **Total** has no visit counts and ranks by detections, and says so.
 
 Under the photographs, one band states the window: how many species, how many detections, the
 busiest hour of the day, how many species were **heard or confirmed**, what is rising and what was
@@ -44,8 +49,8 @@ The **Total** window has no confirmation counts, so its evidence column only rep
 
 When eBird is set up under **Settings → Integrations**, the rankings also check each species against
 what birders have reported within 50 km of the feeder in the last 30 days. A species that only the
-camera backs and that nobody has reported nearby is marked **Not reported within 50 km**, and a note
-above the table counts them: they are usually misidentifications, which a wildlife-wide model makes
+camera backs and that nobody has reported nearby is marked **Not reported within 50 km** in the
+rankings and **Check** on its photograph, and a note above the table counts them: they are usually misidentifications, which a wildlife-wide model makes
 more often than a regional one. Opening one lets you confirm or correct it. The check sends eBird
 your approximate location (about 11 km) rather than the exact one, runs at most every six hours, and
 is simply absent when eBird is off or does not answer.

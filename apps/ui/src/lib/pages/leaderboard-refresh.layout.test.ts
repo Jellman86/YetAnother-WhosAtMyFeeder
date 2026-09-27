@@ -102,6 +102,14 @@ describe('leaderboard field-journal layout', () => {
         expect(leaderboardSource).toContain('data-leaderboard-corroboration');
     });
 
+    it('ranks a window by visits when the route counts them, and names the unit it shows', () => {
+        expect(leaderboardSource).toContain('countsAreVisits = windowCountsAreVisits(response)');
+        expect(leaderboardSource).toContain("const count = visits ? (s.window_visit_count ?? 0) : (s.window_count ?? 0)");
+        expect(leaderboardSource).toContain('delta: count - prevCount');
+        // Total has no visit counts, so it must never be labelled as visits.
+        expect(leaderboardSource).toContain('fetchSpecies(controller.signal).then(mapAllTimeSpecies);\n                countsAreVisits = false;');
+    });
+
     it('flags a species nothing but the camera backs and no birder reported nearby, in words', () => {
         expect(leaderboardSource).toContain('isUnlikelyHere(evidenceOf(row), row.reported_nearby)');
         expect(leaderboardSource).toContain('data-leaderboard-unlikely-note');

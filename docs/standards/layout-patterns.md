@@ -141,7 +141,9 @@ A leaderboard is only as good as its identifications, so the rankings say what s
 species besides the classifier: confirmed by the owner, heard by BirdNET in the same window, or the
 camera alone (`leaderboard/evidence.ts`). A trend is claimed only when the history covers the whole
 previous window (`previous_window_complete` from the route); otherwise the page says when records
-start. The timeline and the composition chart share one colour per species
+start. Rankings count visits (`window_visit_count`, the same ten-minute rule as
+`groupDetectionsIntoVisits`), and only the all-time view, which has no visit counts, says detections.
+The timeline and the composition chart share one colour per species
 (`leaderboard/species-palette.ts`, validated for colour-blind separation on both surfaces).
 
 The showcase (`SpeciesShowcase`) is the leaderboard's centrepiece. Every species is a photograph:

@@ -88,6 +88,11 @@ def merge_species_count_rows(rows: list[dict]) -> list[dict]:
     return merged
 
 
+# Frames of one species on one camera belong to one visit while each is within this many minutes of
+# the one before. Keep in step with VISIT_GAP_MS in apps/ui/src/lib/utils/visit-grouping.ts.
+VISIT_GAP_MINUTES = 10
+
+
 def merge_species_leaderboard_rows(rows: list[dict]) -> list[dict]:
     """Fold leaderboard rows that are the same bird under different identity keys.
 
@@ -107,7 +112,12 @@ def merge_species_leaderboard_rows(rows: list[dict]) -> list[dict]:
             ) / total
         target["window_count"] = total
         target["prev_count"] = int(target.get("prev_count") or 0) + int(row.get("prev_count") or 0)
-        for field in ("window_confirmed_count", "window_audio_confirmed_count"):
+        for field in (
+            "window_confirmed_count",
+            "window_audio_confirmed_count",
+            "window_visit_count",
+            "prev_visit_count",
+        ):
             target[field] = int(target.get(field) or 0) + int(row.get(field) or 0)
         for field, pick in (("window_first_seen", min), ("window_last_seen", max)):
             left, right = target.get(field), row.get(field)
@@ -3868,6 +3878,64 @@ class DetectionRepository:
                 for row in rows
             ]
 
+    async def _leaderboard_visit_counts(
+        self,
+        *,
+        key_sql: str,
+        join_sql: str,
+        condition_sql: str,
+        condition_params: list,
+        window_start: datetime,
+        window_end: datetime,
+        prev_start: datetime,
+        prev_end: datetime,
+    ) -> dict[object, tuple[int, int]]:
+        """Visits per species key in the window and the one before it.
+
+        A detection opens a visit unless the same species was on the same camera within
+        VISIT_GAP_MINUTES before it. Another bird in between does not split a visit. A visit
+        already running when a window opens counts in that window too, so each window stands
+        on its own.
+        """
+        query = f"""
+            SELECT key,
+                SUM(CASE WHEN at >= ? AND at < ?
+                          AND (previous_at IS NULL OR previous_at < ?
+                               OR (julianday(at) - julianday(previous_at)) * 1440.0 > {VISIT_GAP_MINUTES})
+                    THEN 1 ELSE 0 END) AS window_visits,
+                SUM(CASE WHEN at >= ? AND at < ?
+                          AND (previous_at IS NULL
+                               OR (julianday(at) - julianday(previous_at)) * 1440.0 > {VISIT_GAP_MINUTES})
+                    THEN 1 ELSE 0 END) AS prev_visits
+            FROM (
+                SELECT {key_sql} AS key,
+                       d.detection_time AS at,
+                       LAG(d.detection_time) OVER (
+                           PARTITION BY {key_sql}, d.camera_name ORDER BY d.detection_time
+                       ) AS previous_at
+                FROM detections d
+                {join_sql}
+                WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
+                  AND d.detection_time >= ?
+                  AND d.detection_time < ?
+                  AND {condition_sql}
+            )
+            GROUP BY key
+        """
+        params = [
+            window_start,
+            window_end,
+            window_start,
+            prev_start,
+            prev_end,
+            prev_start,
+            window_end,
+            *condition_params,
+        ]
+        async with self.db.execute(query, params) as cursor:
+            rows = await cursor.fetchall()
+        return {row[0]: (int(row[1] or 0), int(row[2] or 0)) for row in rows}
+
     async def get_species_leaderboard_window(
         self,
         window_start: datetime,
@@ -3930,6 +3998,16 @@ class DetectionRepository:
         )
         async with self.db.execute(query, params) as cursor:
             rows = await cursor.fetchall()
+        visits = await self._leaderboard_visit_counts(
+            key_sql=canonical_key,
+            join_sql=taxonomy_join,
+            condition_sql="1 = 1",
+            condition_params=[],
+            window_start=window_start,
+            window_end=window_end,
+            prev_start=prev_start,
+            prev_end=prev_end,
+        )
 
         return merge_species_leaderboard_rows(
             [
@@ -3946,6 +4024,8 @@ class DetectionRepository:
                     "window_camera_count": int(row[10] or 0),
                     "window_confirmed_count": int(row[11] or 0),
                     "window_audio_confirmed_count": int(row[12] or 0),
+                    "window_visit_count": visits.get(row[0], (0, 0))[0],
+                    "prev_visit_count": visits.get(row[0], (0, 0))[1],
                 }
                 for row in rows
             ]
@@ -4538,6 +4618,17 @@ class DetectionRepository:
             row = await cursor.fetchone()
         if not row:
             return None
+        visits = await self._leaderboard_visit_counts(
+            key_sql="'selected'",
+            join_sql=join_sql,
+            condition_sql=species_condition,
+            condition_params=list(params),
+            window_start=window_start,
+            window_end=window_end,
+            prev_start=prev_start,
+            prev_end=prev_end,
+        )
+        window_visits, prev_visits = visits.get("selected", (0, 0))
         window_count = int(row[0] or 0)
         prev_count = int(row[1] or 0)
         if window_count == 0 and prev_count == 0:
@@ -4551,6 +4642,8 @@ class DetectionRepository:
             "window_camera_count": int(row[5] or 0),
             "window_confirmed_count": int(row[6] or 0),
             "window_audio_confirmed_count": int(row[7] or 0),
+            "window_visit_count": window_visits,
+            "prev_visit_count": prev_visits,
         }
 
     async def get_camera_breakdown(self, species_name: str) -> list[dict]:

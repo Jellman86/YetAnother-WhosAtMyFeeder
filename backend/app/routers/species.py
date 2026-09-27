@@ -90,6 +90,9 @@ class LeaderboardSpeciesItemResponse(BaseModel):
     window_camera_count: int
     window_confirmed_count: int = 0
     window_audio_confirmed_count: int = 0
+    # Visits fold the frames of one approach, as the dashboard does; window_count stays frames.
+    window_visit_count: int = 0
+    window_prev_visit_count: int = 0
     # Whether eBird birders reported the species near the feeder recently; null when unknown.
     reported_nearby: bool | None = None
 
@@ -1111,6 +1114,8 @@ async def get_leaderboard_species(
                 "window_camera_count": r.get("window_camera_count", 0),
                 "window_confirmed_count": r.get("window_confirmed_count", 0),
                 "window_audio_confirmed_count": r.get("window_audio_confirmed_count", 0),
+                "window_visit_count": r.get("window_visit_count", 0),
+                "window_prev_visit_count": r.get("prev_visit_count", 0),
                 "reported_nearby": reported_nearby(
                     nearby, scientific_name=r.get("scientific_name"), common_name=common_name
                 ),
@@ -1138,6 +1143,8 @@ async def get_leaderboard_species(
                 "window_camera_count": unknown.get("window_camera_count", 0),
                 "window_confirmed_count": unknown.get("window_confirmed_count", 0),
                 "window_audio_confirmed_count": unknown.get("window_audio_confirmed_count", 0),
+                "window_visit_count": unknown.get("window_visit_count", 0),
+                "window_prev_visit_count": unknown.get("prev_visit_count", 0),
             }
         )
 

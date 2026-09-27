@@ -2428,7 +2428,18 @@
     "heatmap_peak": "最活跃：{day} {time}，{count}",
     "heatmap_day": "日期",
     "unlikely_note": "{count} 个物种既没有鸣叫、没有确认，过去 {days} 天内 {radius} 公里范围内也没有 eBird 记录。它们很可能是误识别：打开一个进行确认或更正。",
-    "unlikely_reason": "{radius} 公里内无记录"
+    "unlikely_reason": "{radius} 公里内无记录",
+    "showcase_visits": "次到访",
+    "showcase_visits_and_calls": "次到访与鸣叫",
+    "metric_visits": "到访数",
+    "standing_visits_and_calls": "到访与鸣叫",
+    "showcase_visit": "次到访",
+    "showcase_detection": "次检测",
+    "showcase_not_nearby": "附近无记录",
+    "showcase_check": "待核实",
+    "most_visits_day": "今日到访最多",
+    "most_visits_week": "本周到访最多",
+    "most_visits_month": "本月到访最多"
   },
   "about": {
     "how_it_works": "工作原理",

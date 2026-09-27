@@ -52,6 +52,21 @@ describe('the leaderboard showcase rows', () => {
     });
 });
 
+describe('the showcase flag', () => {
+    it('carries the page\'s misidentification flag onto the tiles, and nothing when there is no rule', () => {
+        const rows = buildShowcaseRows([row('Dunnock'), row('Golden-crowned Sparrow')], {
+            trendAvailable: false,
+            sourceMode: 'seen',
+            portraits: [],
+            referenceFor: () => ({ url: null, source: null }),
+            isFlagged: (candidate) => candidate.species === 'Golden-crowned Sparrow'
+        });
+        expect(rows.map((item) => item.flagged)).toEqual([false, true]);
+        const unflagged = buildShowcaseRows([row('Dunnock')], { trendAvailable: false, sourceMode: 'seen', portraits: [], referenceFor: () => ({ url: null, source: null }) });
+        expect(unflagged[0].flagged).toBe(false);
+    });
+});
+
 describe('the showcase display order', () => {
     it('lets a chosen species and the leader trade places, and moves nothing else', () => {
         expect(swapDisplayOrder(['a', 'b', 'c', 'd'], 'a', 'c')).toEqual(['c', 'b', 'a', 'd']);

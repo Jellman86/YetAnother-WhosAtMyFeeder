@@ -2438,7 +2438,18 @@
     "heatmap_peak": "Пик: {day} {time}, {count}",
     "heatmap_day": "День",
     "unlikely_note": "У {count} видов нет ни голоса, ни подтверждения, ни записи eBird в радиусе {radius} км за последние {days} дней. Вероятно, это ошибки определения: откройте вид, чтобы подтвердить или исправить.",
-    "unlikely_reason": "Нет записей в радиусе {radius} км"
+    "unlikely_reason": "Нет записей в радиусе {radius} км",
+    "showcase_visits": "визитов",
+    "showcase_visits_and_calls": "визитов и голосов",
+    "metric_visits": "Визиты",
+    "standing_visits_and_calls": "Визиты и голоса",
+    "showcase_visit": "визит",
+    "showcase_detection": "обнаружение",
+    "showcase_not_nearby": "Рядом не отмечен",
+    "showcase_check": "Проверить",
+    "most_visits_day": "Больше всего визитов сегодня",
+    "most_visits_week": "Больше всего визитов за неделю",
+    "most_visits_month": "Больше всего визитов за месяц"
   },
   "about": {
     "how_it_works": "Как это работает",
