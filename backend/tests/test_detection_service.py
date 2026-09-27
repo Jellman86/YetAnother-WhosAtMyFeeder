@@ -209,6 +209,10 @@ async def test_apply_video_result_re_evaluates_audio(mock_deps):
 
     # Verify audio correlation was called with the scientific name
     mock_deps["audio"].correlate_species.assert_called_once()
+    assert mock_deps["audio"].correlate_species.await_args.kwargs["taxonomy"] == {
+        "scientific_name": "New Sci",
+        "common_name": "New Common",
+    }
 
     assert mock_deps["repo"].update_primary_classification.await_args.kwargs["audio_confirmed"] is True
 
@@ -248,7 +252,7 @@ async def test_apply_video_result_normalizes_birder_taxonomy_labels(mock_deps):
 
     mock_deps["repo"].update_video_classification.assert_called_once()
     assert mock_deps["repo"].update_video_classification.call_args.kwargs["label"] == "Panthera tigris"
-    mock_deps["taxonomy"].get_names.assert_called_with("Panthera tigris")
+    mock_deps["taxonomy"].get_names.assert_called_with("Panthera tigris", db=mock_deps["db"])
 
 
 @pytest.mark.asyncio

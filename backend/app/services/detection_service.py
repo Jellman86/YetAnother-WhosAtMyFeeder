@@ -778,7 +778,7 @@ class DetectionService:
                 )
 
                 # Get taxonomy for new label
-                taxonomy = await taxonomy_service.get_names(new_species)
+                taxonomy = await taxonomy_service.get_names(new_species, db=db)
                 scientific_name = taxonomy.get("scientific_name")
                 common_name = taxonomy.get("common_name")
                 taxa_id = taxonomy.get("taxa_id")
@@ -795,7 +795,7 @@ class DetectionService:
                 if taxa_id and settings.notifications.notification_language != "en":
                     try:
                         localized_name = await taxonomy_service.get_localized_common_name(
-                            taxa_id, settings.notifications.notification_language
+                            taxa_id, settings.notifications.notification_language, db=db
                         )
                     except Exception as exc:
                         log.debug(
@@ -821,6 +821,7 @@ class DetectionService:
                         target_time=existing.detection_time,
                         species_name=scientific_name,
                         camera_name=existing.camera_name,
+                        taxonomy={"scientific_name": scientific_name, "common_name": common_name},
                     )
                 else:
                     audio_confirmed, audio_species, audio_score = False, None, None

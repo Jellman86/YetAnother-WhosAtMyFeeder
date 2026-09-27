@@ -36,7 +36,7 @@ describe('BirdNET history listening-log layout', () => {
         expect(audioHistorySource).toContain('focus-visible:ring-2 focus-visible:ring-brand-500');
         expect(audioHistorySource).toContain('role="alert"');
         expect(audioHistorySource).toContain("$_('common.retry')");
-        expect(audioHistorySource).toContain('animations: { enabled: !reduceMotion');
+        expect(audioHistorySource).toContain('animation: reduceMotion ? false');
     });
 
     it('keeps the spectrogram as the meaningful per-detection artifact', () => {

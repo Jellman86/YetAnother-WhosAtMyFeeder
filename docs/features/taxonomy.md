@@ -27,6 +27,12 @@ ranking counts: **Seen** ranks by camera visits alone, **Heard** by BirdNET-Go d
 photographed. **Both** is a sum, not an intersection: a species does not need evidence from both
 sources to appear.
 
+Below the rankings, **Detections over time** shows when visits happened and can overlay weather.
+**Species composition** shows each species' share; its labelled buttons can hide or restore a
+slice with a mouse, touch, or keyboard. **Hour x weekday activity** shows when this feeder is
+busy; each cell gives its count on focus or hover. The heatmap scrolls sideways on narrow screens
+so the hour labels stay readable.
+
 ## Taxonomy Repair
 If your history contains old detections with inconsistent naming, run **Taxonomy repair** from
 **Settings → Data**. It scans your whole history and normalises every label against iNaturalist.

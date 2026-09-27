@@ -20,7 +20,7 @@
         type SpeciesCount,
         type SpeciesInfo
     } from '../api';
-    import { chart } from '../actions/apexchart';
+    import { chartjs, toggleChartSlice, type CanvasChartConfig, type MixedCanvasChartConfig } from '../actions/chartjs';
     import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
     import { defaultLeaderboardChartPreferences } from '../leaderboard/chart-defaults';
     import { buildLeaderboardAnalysisPromptConfig } from '../leaderboard/analysis-config';
@@ -48,7 +48,8 @@
     import { refreshCoordinator } from '../stores/refresh_coordinator.svelte';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { StaleTracker } from '../utils/stale_tracker';
-    import type { ApexOptions } from 'apexcharts';
+    import type { ChartDataset, Plugin } from 'chart.js';
+    import { doughnutInsightPlugin } from '../actions/chartjs-doughnut';
     import type { TemperatureUnit } from '../utils/temperature';
     import { toAppPath } from '../app/url-base';
 
@@ -96,7 +97,19 @@
     let activityHeatmap = $state<DetectionsActivityHeatmapResponse | null>(null);
     let speciesInfoCache = $state<Record<string, SpeciesInfo>>({});
     let speciesInfoPending = $state<Record<string, boolean>>({});
-    let chartEl = $state<HTMLDivElement | null>(null);
+    let chartEl = $state<HTMLCanvasElement | null>(null);
+    let donutChartEl = $state<HTMLCanvasElement | null>(null);
+    let hiddenDonutState = $state({ theme: '', indices: [] as number[] });
+    let hiddenDonutSpecies = $derived(hiddenDonutState.theme === `${themeStore.isDark}-${themeStore.colorTheme}-${authStore.reducedMotion}` ? hiddenDonutState.indices : []);
+
+    function toggleDonutSlice(index: number) {
+        const visible = toggleChartSlice(donutChartEl, index);
+        if (visible === null) return;
+        hiddenDonutState = {
+            theme: `${themeStore.isDark}-${themeStore.colorTheme}-${authStore.reducedMotion}`,
+            indices: visible ? hiddenDonutSpecies.filter((item) => item !== index) : [...hiddenDonutSpecies, index],
+        };
+    }
     let leaderboardAnalysis = $state<string | null>(null);
     let leaderboardAnalysisTimestamp = $state<string | null>(null);
     let leaderboardAnalysisLoading = $state(false);
@@ -443,6 +456,7 @@
         loading = true;
         error = null;
         leaderboardWindow = null;
+        hiddenDonutState = { theme: '', indices: [] };
         audioLoadState = birdnetEnabled ? 'loading' : 'disabled';
         if (!birdnetEnabled) audioSpecies = [];
         // Fetch species and timeline independently so a chart/weather failure
@@ -823,7 +837,7 @@
         ].filter(Boolean).join(' • ');
     });
 
-    let chartOptions = $derived((): ApexOptions => {
+    let chartOptions = $derived((): MixedCanvasChartConfig => {
         const points = timelinePoints();
         const indexedPoints = points
             .map((point, idx) => {
@@ -958,149 +972,105 @@
             });
         }
 
-        const seriesColors = series.map((s) => s.color || primaryColor);
-        // Map from UTC x-value → backend-computed local label so the chart always
-        // shows server-timezone labels regardless of the browser's local timezone.
-        const xLabelMap = new Map(indexedPoints.map(({ point, x }) => [x, point.label] as const));
-
-        const tickAmount = indexedPoints.length > 1 ? Math.min(6, indexedPoints.length) : undefined;
-        const yAxes: Array<{
-            min?: number;
-            seriesName?: string[];
-            opposite?: boolean;
-            tickAmount?: number;
-            labels: {
-                maxWidth?: number;
-                style: { fontSize: string; colors: string };
-                formatter: (value: number) => string;
+        const labels = indexedPoints.map(({ point }) => point.label);
+        const datasets: ChartDataset<'bar' | 'line', number[]>[] = series.map((item) => {
+            const isBar = item.type === 'bar';
+            const isWeather = item.name === temperatureName || item.name === windName;
+            return {
+                type: isBar ? 'bar' : 'line',
+                label: item.name,
+                data: item.data.map((point) => point.y ?? NaN),
+                backgroundColor: isBar ? item.color : (item.type === 'area' ? `${item.color}33` : item.color),
+                borderColor: item.color,
+                borderWidth: isBar ? 0 : 2,
+                borderRadius: isBar ? 3 : 0,
+                maxBarThickness: timeline?.bucket === 'day' ? 24 : 18,
+                fill: item.type === 'area',
+                tension: isBar ? 0 : 0.32,
+                pointRadius: 0,
+                pointHoverRadius: 4,
+                borderDash: item.name === smoothName || item.name === windName ? [5, 4] : [],
+                yAxisID: item.name === temperatureName ? 'temperature' : (item.name === windName ? 'wind' : 'y'),
+                order: isWeather ? 0 : (isBar ? 2 : 1)
             };
-        }> = [
-            {
-                min: 0,
-                labels: {
-                    style: { fontSize: '10px', colors: '#94a3b8' },
-                    formatter: (value: number) => formatMetricValue(value)
+        });
+        const rainBands = rainBandAnnotations();
+        const rainCells = indexedPoints.flatMap(({ x }, index) => {
+            const band = rainBands.find((item) => x >= item.x && x < item.x2);
+            return band ? [{ index, color: band.fillColor }] : [];
+        });
+        const rainPlugin: Plugin<'bar' | 'line'> = {
+            id: 'leaderboardRainBands',
+            beforeDatasetsDraw(chart) {
+                const xScale = chart.scales.x;
+                if (!xScale || !rainCells.length) return;
+                const { ctx, chartArea } = chart;
+                const gap = indexedPoints.length > 1
+                    ? Math.abs(xScale.getPixelForValue(1) - xScale.getPixelForValue(0))
+                    : chartArea.width;
+                ctx.save();
+                for (const { index, color } of rainCells) {
+                    ctx.fillStyle = color;
+                    const center = xScale.getPixelForValue(index);
+                    ctx.fillRect(Math.max(chartArea.left, center - gap / 2), chartArea.top,
+                        Math.min(gap, chartArea.right - Math.max(chartArea.left, center - gap / 2)), chartArea.height);
                 }
+                ctx.restore();
             }
-        ];
-        if (hasTemperatureSeries) {
-            yAxes.push({
-                // Apex handles dynamic remapping more reliably when seriesName is array form.
-                seriesName: [temperatureName],
-                opposite: true,
-                tickAmount: 4,
-                labels: {
-                    maxWidth: 52,
-                    style: { fontSize: '10px', colors: '#f59e0b' },
-                    formatter: (value: number) => formatTemperature(value, temperatureUnit as TemperatureUnit)
-                }
-            });
-        }
-        if (hasWindSeries) {
-            yAxes.push({
-                // Apex handles dynamic remapping more reliably when seriesName is array form.
-                seriesName: [windName],
-                opposite: true,
-                tickAmount: 4,
-                labels: {
-                    maxWidth: 52,
-                    style: { fontSize: '10px', colors: '#0ea5e9' },
-                    formatter: (value: number) => `${Math.round(value)} ${windUnitLabel}`
-                }
-            });
-        }
-
+        };
+        const gridColor = isDark() ? 'rgba(148,163,184,0.12)' : 'rgba(148,163,184,0.2)';
+        const textColor = isDark() ? '#94a3b8' : '#64748b';
         return {
-            chart: {
-                type: detectionUsesBars() ? 'bar' : 'line',
-                stacked: isStacked,
-                height: isStacked ? 380 : 260,
-                width: '100%',
-                toolbar: { show: false },
-                zoom: { enabled: false },
-                animations: { enabled: true, speed: 500 }
-            },
-            colors: seriesColors,
-            series,
-            annotations: { xaxis: rainBandAnnotations() },
-            noData: {
-                text: $_('dashboard.no_detections')
-            },
-            dataLabels: { enabled: false },
-            stroke: {
-                curve: 'smooth',
-                width: series.map((s) => (s.type === 'bar' ? 0 : 2)),
-                dashArray: series.map((s) => (
-                    s.name === smoothName ? 5
-                        : (s.name === windName ? 4 : 0)
-                ))
-            },
-            fill: {
-                type: series.map((s) => (s.type === 'area' ? 'gradient' : 'solid')),
-                gradient: {
-                    shadeIntensity: 1,
-                    opacityFrom: 0.35,
-                    opacityTo: 0.05,
-                    stops: [0, 90, 100]
-                }
-            },
-            plotOptions: {
-                bar: {
-                    borderRadius: isStacked ? 3 : 5,
-                    ...(isStacked ? { borderRadiusApplication: 'end' } : {}),
-                    columnWidth: timeline?.bucket === 'day' ? '62%' : '56%'
-                }
-            },
-            markers: { size: 0, hover: { size: 0 } },
-            grid: {
-                borderColor: 'rgba(148,163,184,0.2)',
-                strokeDashArray: 3,
-                padding: { left: 12, right: 12, top: 8, bottom: 4 }
-            },
-            xaxis: {
-                type: 'datetime',
-                tickAmount,
-                labels: {
-                    rotate: 0,
-                    style: { fontSize: '10px', colors: '#94a3b8' },
-                    formatter: (val: string | number) => xLabelMap.get(Number(val)) ?? ''
-                }
-            },
-            yaxis: yAxes,
-            tooltip: {
-                theme: isDark() ? 'dark' : 'light',
-                x: {
-                    formatter: (val: number) => xLabelMap.get(val) ?? ''
-                },
-                y: {
-                    formatter: (
-                        value: number,
-                        opts?: { seriesIndex?: number; w?: { globals?: { seriesNames?: string[] } } }
-                    ) => {
-                        const seriesIndex = opts?.seriesIndex ?? -1;
-                        const seriesName = opts?.w?.globals?.seriesNames?.[seriesIndex] ?? '';
-                        if (seriesName === temperatureName) {
-                            return formatTemperature(value, temperatureUnit as TemperatureUnit);
+            type: detectionUsesBars() ? 'bar' : 'line',
+            data: { labels, datasets },
+            plugins: [rainPlugin],
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: typeof window !== 'undefined' && (window.matchMedia('(prefers-reduced-motion: reduce)').matches || document.documentElement.classList.contains('reduced-motion') || authStore.reducedMotion)
+                    ? false : { duration: 300 },
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            title: (items) => indexedPoints[items[0]?.dataIndex]?.point.label ?? '',
+                            label: (item) => {
+                                const value = item.parsed.y ?? 0;
+                                const name = item.dataset.label ?? '';
+                                if (name === temperatureName) return `${name}: ${formatTemperature(value, temperatureUnit as TemperatureUnit)}`;
+                                if (name === windName) return `${name}: ${Math.round(value)} ${windUnitLabel}`;
+                                return `${name}: ${formatMetricValue(value)}`;
+                            }
                         }
-                        if (seriesName === windName) return `${Math.round(value)} ${windUnitLabel}`;
-                        if (seriesName === smoothName || seriesName === primaryName) return formatMetricValue(value);
-                        return `${Math.round(value)} ${$_('leaderboard.metric_detections', { default: 'detections' }).toLowerCase()}`;
                     }
-                }
-            },
-            legend: { show: false },
-            subtitle: {
-                text: chartSubtitle() ?? '',
-                align: 'left',
-                offsetX: 0,
-                offsetY: 0,
-                style: {
-                    fontSize: '10px',
-                    fontWeight: 600,
-                    color: isDark() ? '#94a3b8' : '#64748b'
+                },
+                scales: {
+                    x: {
+                        stacked: isStacked,
+                        ticks: { color: textColor, maxTicksLimit: 6, maxRotation: 0 },
+                        grid: { display: false }
+                    },
+                    y: {
+                        stacked: isStacked,
+                        beginAtZero: true,
+                        ticks: { color: textColor, callback: (value) => formatMetricValue(Number(value)) },
+                        grid: { color: gridColor }
+                    },
+                    ...(hasTemperatureSeries ? { temperature: {
+                        type: 'linear' as const, position: 'right' as const,
+                        ticks: { color: temperatureColor, maxTicksLimit: 4, callback: (value: string | number) => formatTemperature(Number(value), temperatureUnit as TemperatureUnit) },
+                        grid: { drawOnChartArea: false }
+                    } } : {}),
+                    ...(hasWindSeries ? { wind: {
+                        type: 'linear' as const, position: 'right' as const,
+                        ticks: { color: windColor, maxTicksLimit: 4, callback: (value: string | number) => `${Math.round(Number(value))} ${windUnitLabel}` },
+                        grid: { drawOnChartArea: false }
+                    } } : {})
                 }
             }
         };
+
     });
 
     let comparePalette = $derived(
@@ -1144,75 +1114,31 @@
         return { labels, series: values };
     });
     let donutHasData = $derived(() => donutSeries().series.some((v) => v > 0));
-    let donutChartOptions = $derived((): ApexOptions => {
+    let donutChartOptions = $derived((): CanvasChartConfig => {
         const { labels, series } = donutSeries();
         const donutPalette = themeStore.colorTheme === 'bluetit'
             ? ['#2563eb', '#0ea5e9', '#6366f1', '#f59e0b', '#ec4899', '#14b8a6', '#8b5cf6', '#94a3b8']
             : ['#10b981', '#0ea5e9', '#6366f1', '#f59e0b', '#ec4899', '#14b8a6', '#8b5cf6', '#94a3b8'];
+        const totalLabel = $_('leaderboard.metric_detections', { default: 'Detections' });
+        const centerTotal = doughnutInsightPlugin('leaderboardCenterTotal', series, totalLabel, isDark());
         return {
-            chart: {
-                type: 'donut',
-                height: 260,
-                width: '100%',
-                toolbar: { show: false },
-                animations: { enabled: true, speed: 450 }
+            type: 'doughnut',
+            data: {
+                labels,
+                datasets: [{ data: series, backgroundColor: donutPalette.slice(0, labels.length), borderColor: isDark() ? '#1e293b' : '#ffffff', borderWidth: 1.5 }]
             },
-            series,
-            labels,
-            colors: donutPalette.slice(0, labels.length),
-            dataLabels: {
-                enabled: true,
-                formatter: (val: number) => (val >= 5 ? `${Math.round(val)}%` : ''),
-                style: { fontSize: '10px', fontWeight: 600, colors: ['#fff'] },
-                dropShadow: { enabled: false }
-            },
-            plotOptions: {
-                pie: {
-                    donut: {
-                        size: '62%',
-                        labels: {
-                            show: true,
-                            total: {
-                                show: true,
-                                showAlways: true,
-                                label: $_('leaderboard.metric_detections', { default: 'Detections' }),
-                                fontSize: '11px',
-                                fontWeight: 600,
-                                color: isDark() ? '#94a3b8' : '#64748b',
-                                formatter: () => totalDetections.toLocaleString()
-                            },
-                            value: {
-                                show: true,
-                                fontSize: '15px',
-                                fontWeight: 700,
-                                color: isDark() ? '#e2e8f0' : '#1e293b',
-                                formatter: (val: string) => Number(val).toLocaleString()
-                            },
-                            name: {
-                                show: true,
-                                fontSize: '10px',
-                                color: isDark() ? '#94a3b8' : '#64748b'
-                            }
-                        }
-                    }
+            plugins: [centerTotal],
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: typeof window !== 'undefined' && (window.matchMedia('(prefers-reduced-motion: reduce)').matches || document.documentElement.classList.contains('reduced-motion') || authStore.reducedMotion)
+                    ? false : { duration: 250 },
+                cutout: '62%',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { callbacks: { label: (item) => `${item.label}: ${Number(item.raw).toLocaleString()} ${totalLabel.toLowerCase()}` } }
                 }
-            },
-            stroke: { width: 1.5, colors: [isDark() ? '#1e293b' : '#ffffff'] },
-            legend: {
-                show: true,
-                position: 'bottom',
-                fontSize: '10px',
-                labels: { colors: isDark() ? '#94a3b8' : '#64748b' },
-                markers: { size: 8 }
-            },
-            tooltip: {
-                theme: isDark() ? 'dark' : 'light',
-                y: {
-                    formatter: (val: number) =>
-                        `${val.toLocaleString()} ${$_('leaderboard.metric_detections', { default: 'detections' }).toLowerCase()}`
-                }
-            },
-            noData: { text: $_('dashboard.no_detections') }
+            }
         };
     });
 
@@ -1233,62 +1159,14 @@
         }))
     })));
     let heatmapHasData = $derived(() => (activityHeatmap?.total_count ?? 0) > 0);
-    let heatmapChartOptions = $derived((): ApexOptions => {
-        const maxCellCount = Math.max(1, activityHeatmap?.max_cell_count ?? 0);
-        const midLow = Math.max(1, Math.ceil(maxCellCount * 0.2));
-        const mid = Math.max(midLow + 1, Math.ceil(maxCellCount * 0.45));
-        const high = Math.max(mid + 1, Math.ceil(maxCellCount * 0.7));
-        const ranges: Array<{ from: number; to: number; color: string; name: string }> = [
-            { from: 0, to: 0, color: isDark() ? 'rgba(51,65,85,0.22)' : 'rgba(226,232,240,0.8)', name: '0' }
-        ];
-        const pushRange = (from: number, to: number, color: string, name: string) => {
-            if (from <= to) {
-                ranges.push({ from, to, color, name });
-            }
-        };
-        pushRange(1, Math.min(midLow, maxCellCount), '#93c5fd', '1+');
-        pushRange(midLow + 1, Math.min(mid, maxCellCount), '#60a5fa', `${midLow + 1}+`);
-        pushRange(mid + 1, Math.min(high, maxCellCount), '#3b82f6', `${mid + 1}+`);
-        pushRange(high + 1, maxCellCount, '#1d4ed8', `${high + 1}+`);
-        return {
-            chart: {
-                type: 'heatmap',
-                height: 260,
-                width: '100%',
-                toolbar: { show: false },
-                animations: { enabled: true, speed: 350 }
-            },
-            series: heatmapSeries(),
-            dataLabels: { enabled: false },
-            stroke: {
-                width: 1,
-                colors: [isDark() ? 'rgba(15,23,42,0.45)' : 'rgba(148,163,184,0.2)']
-            },
-            plotOptions: {
-                heatmap: {
-                    radius: 2,
-                    shadeIntensity: 0.45,
-                    colorScale: {
-                        ranges
-                    }
-                }
-            },
-            xaxis: {
-                labels: { style: { fontSize: '10px', colors: '#94a3b8' } },
-                tickPlacement: 'on'
-            },
-            yaxis: {
-                labels: { style: { fontSize: '10px', colors: '#94a3b8' } }
-            },
-            tooltip: {
-                theme: isDark() ? 'dark' : 'light',
-                y: {
-                    formatter: (value: number) => `${formatMetricValue(value)}`
-                }
-            },
-            legend: { show: false }
-        };
-    });
+    function heatmapColor(value: number): string {
+        if (!value) return isDark() ? 'rgba(51,65,85,0.42)' : 'rgba(226,232,240,0.9)';
+        const ratio = value / Math.max(1, activityHeatmap?.max_cell_count ?? 1);
+        if (ratio <= 0.2) return '#93c5fd';
+        if (ratio <= 0.45) return '#60a5fa';
+        if (ratio <= 0.7) return '#3b82f6';
+        return '#1d4ed8';
+    }
 
     function stableStringify(value: unknown): string {
         if (value === null || typeof value !== 'object') {
@@ -1391,11 +1269,8 @@
             await sleep(200);
             const key = await computeConfigKey(config);
             leaderboardConfigKey = key;
-            const chartInstance = (chartEl as HTMLDivElement & {
-                __apexchart?: { dataURI(): Promise<{ imgURI?: string }> };
-            }).__apexchart;
-            const dataUri = await chartInstance?.dataURI();
-            const imageBase64 = dataUri?.imgURI ?? null;
+            const chartInstance = (chartEl as HTMLCanvasElement & { __chartjs?: unknown }).__chartjs;
+            const imageBase64 = chartInstance ? chartEl.toDataURL('image/png') : null;
             if (!imageBase64) {
                 throw new Error('Unable to capture chart image');
             }
@@ -1780,7 +1655,10 @@
                 <div class="mt-6 w-full flex-1 min-h-[140px]" style="height: {isStackedChart() ? 380 : 260}px">
                     {#if timeline?.points?.length}
                         {#key `${span}-${timeline.total_count}-${timeline.bucket}-${showTemperature}-${showWind}-${showPrecip}-${isDark()}-${themeStore.colorTheme}`}
-                            <div use:chart={chartOptions()} bind:this={chartEl} class="w-full" style="height: {isStackedChart() ? 380 : 260}px"></div>
+                            <div class="flex h-full min-w-0 flex-col">
+                                <p class="mb-2 text-xs font-semibold text-slate-500 dark:text-slate-400">{chartSubtitle()}</p>
+                                <div class="min-h-0 flex-1"><canvas use:chartjs={chartOptions()} bind:this={chartEl} aria-label="{$_('leaderboard.detections_over_time')}: {metricLabel()}" class="w-full"></canvas></div>
+                            </div>
                         {/key}
                     {:else}
                         <div class="h-full w-full rounded-2xl bg-slate-100 dark:bg-slate-800/60 animate-pulse"></div>
@@ -1941,7 +1819,15 @@
                     <div class="mt-4 min-h-[260px]">
                         {#if donutHasData()}
                             {#key `${span}-${donutSeries().series.join(',')}-${isDark()}-${themeStore.colorTheme}`}
-                                <div use:chart={donutChartOptions()} class="w-full h-[260px]"></div>
+                                <div class="relative h-[210px] w-full"><canvas use:chartjs={donutChartOptions()} bind:this={donutChartEl} aria-label={$_('leaderboard.detection_breakdown_subtitle', { default: 'Species composition' })}></canvas></div>
+                                <div class="mt-2 flex flex-wrap justify-center gap-2" role="group" aria-label={$_('leaderboard.detection_breakdown_subtitle', { default: 'Species composition' })}>
+                                    {#each donutSeries().labels as label, index}
+                                        <button type="button" class="btn btn-ghost min-h-9 gap-1.5 px-2 text-xs focus-visible:ring-2 focus-visible:ring-brand-500 {hiddenDonutSpecies.includes(index) ? 'opacity-45 line-through' : ''}"
+                                            aria-pressed={!hiddenDonutSpecies.includes(index)} aria-label="{hiddenDonutSpecies.includes(index) ? $_('common.show') : $_('common.hide')} {label}" onclick={() => toggleDonutSlice(index)}>
+                                            <span class="h-2.5 w-2.5 rounded-sm" style="background-color: {themeStore.colorTheme === 'bluetit' ? ['#2563eb', '#0ea5e9', '#6366f1', '#f59e0b', '#ec4899', '#14b8a6', '#8b5cf6', '#94a3b8'][index] : ['#10b981', '#0ea5e9', '#6366f1', '#f59e0b', '#ec4899', '#14b8a6', '#8b5cf6', '#94a3b8'][index]}"></span>{label}
+                                        </button>
+                                    {/each}
+                                </div>
                             {/key}
                         {:else}
                             <div class="h-[260px] w-full rounded-2xl border border-dashed border-slate-300/80 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-900/35 flex items-center justify-center text-sm text-slate-500 dark:text-slate-400">
@@ -2000,7 +1886,27 @@
                     <div class="mt-4 min-h-[260px]">
                         {#if activityHeatmap && heatmapHasData()}
                             {#key `${span}-${activityHeatmap.total_count}-${activityHeatmap.max_cell_count}-${isDark()}`}
-                                <div use:chart={heatmapChartOptions()} class="w-full h-[260px]"></div>
+                                <div class="h-[260px] overflow-x-auto" role="group" aria-label={$_('leaderboard.activity_heatmap_subtitle', { default: 'Hour x weekday activity' })}>
+                                    <div class="grid h-[238px] min-w-[650px] gap-1" style="grid-template-columns: 36px repeat(24, minmax(20px, 1fr)); grid-template-rows: 20px repeat(7, 1fr);">
+                                        <span aria-hidden="true"></span>
+                                        {#each Array.from({ length: 24 }, (_, hour) => hour) as hour}
+                                            <span class="self-end text-center text-xs text-slate-500 dark:text-slate-400">{hour % 3 === 0 ? hourLabel(hour) : ''}</span>
+                                        {/each}
+                                        {#each heatmapSeries() as row}
+                                            <span class="self-center text-xs font-semibold text-slate-500 dark:text-slate-400">{row.name}</span>
+                                            {#each row.data as cell}
+                                                <button type="button" class="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500" style="background-color: {heatmapColor(cell.y)}" title="{row.name} {cell.x}: {formatMetricValue(cell.y)}" aria-label="{row.name} {cell.x}: {formatMetricValue(cell.y)}"></button>
+                                            {/each}
+                                        {/each}
+                                    </div>
+                                    <div class="mt-1 flex min-w-[650px] items-center justify-end gap-2 text-xs text-slate-500 dark:text-slate-400">
+                                        <span>0</span><span class="inline-block h-2 w-10 rounded-sm bg-slate-200 dark:bg-slate-700"></span>
+                                        <span class="inline-block h-2 w-10 rounded-sm bg-blue-300"></span>
+                                        <span class="inline-block h-2 w-10 rounded-sm bg-blue-500"></span>
+                                        <span class="inline-block h-2 w-10 rounded-sm bg-blue-700"></span>
+                                        <span>{formatMetricValue(activityHeatmap.max_cell_count)}+</span>
+                                    </div>
+                                </div>
                             {/key}
                         {:else if activityHeatmap}
                             <div class="h-[260px] w-full rounded-2xl border border-dashed border-slate-300/80 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-900/35 flex items-center justify-center text-sm text-slate-500 dark:text-slate-400">

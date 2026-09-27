@@ -7,7 +7,7 @@ import pytest
 import pytest_asyncio
 
 from app.main import app
-from app.database import get_db, init_db, close_db
+from app.database import get_db, get_db_pool_status, init_db, close_db
 from app.config import settings
 
 
@@ -489,7 +489,7 @@ async def test_bulk_manual_update_applies_same_species_to_multiple_events(client
         assert payload["updated_event_ids"] == event_ids
         assert payload["new_species"] == "Great Tit"
 
-        assert mock_get_names.await_count == 2
+        assert mock_get_names.await_count == 1
         assert mock_audio.await_count == 2
         assert mock_broadcast.await_count == 2
 
@@ -647,3 +647,81 @@ async def test_bulk_delete_empty_list_rejected(client: httpx.AsyncClient):
     response = await client.post("/api/events/bulk/delete", json={"event_ids": []})
 
     assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_manual_tag_taxonomy_and_audio_reuse_the_held_connection(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    event_id = f"manual-{uuid.uuid4().hex[:10]}"
+    taxa_id = 980000 + int(uuid.uuid4().hex[:4], 16)
+    replacement_taxa_id = taxa_id + 100000
+    await _seed_detection_and_taxonomy(event_id=event_id, taxa_id=taxa_id)
+    held_during_lookup = []
+
+    async def fake_lookup(name):
+        held_during_lookup.append(get_db_pool_status()["checked_out"])
+        return {
+            "scientific_name": "Pica pica",
+            "common_name": "Eurasian Magpie",
+            "taxa_id": replacement_taxa_id,
+        }
+
+    try:
+        with (
+            patch(
+                "app.services.taxonomy.taxonomy_service.taxonomy_service._lookup_inaturalist",
+                new=fake_lookup,
+            ),
+            patch("app.routers.events.broadcaster.broadcast", new=AsyncMock()),
+        ):
+            before = get_db_pool_status()["nested_acquires"]
+            response = await client.patch(f"/api/events/{event_id}", json={"display_name": "Pica pica"})
+            after = get_db_pool_status()["nested_acquires"]
+
+        assert response.status_code == 200, response.text
+        assert after == before, "manual tagging acquired a second connection while holding one"
+        assert held_during_lookup == [0], "manual tagging held a connection during provider I/O"
+    finally:
+        await _cleanup_detection_and_taxonomy(event_id=event_id, taxa_id=taxa_id)
+        async with get_db() as db:
+            await db.execute("DELETE FROM taxonomy_cache WHERE taxa_id = ?", (replacement_taxa_id,))
+            await db.commit()
+
+
+@pytest.mark.asyncio
+async def test_bulk_manual_tag_keeps_provider_calls_outside_connection_holds(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    event_ids = [f"manual-{uuid.uuid4().hex[:10]}" for _ in range(2)]
+    taxa_ids = [990000 + int(uuid.uuid4().hex[:4], 16) for _ in event_ids]
+    for event_id, taxa_id in zip(event_ids, taxa_ids):
+        await _seed_detection_and_taxonomy(event_id=event_id, taxa_id=taxa_id)
+    held_during_lookup = []
+
+    async def fake_lookup(name):
+        held_during_lookup.append(get_db_pool_status()["checked_out"])
+        return {"scientific_name": "Pica pica", "common_name": "Eurasian Magpie", "taxa_id": 1990999}
+
+    try:
+        with (
+            patch("app.services.taxonomy.taxonomy_service.taxonomy_service._lookup_inaturalist", new=fake_lookup),
+            patch("app.routers.events.broadcaster.broadcast", new=AsyncMock()),
+        ):
+            before = get_db_pool_status()["nested_acquires"]
+            response = await client.patch(
+                "/api/events/bulk/manual-tag",
+                json={"event_ids": event_ids, "display_name": "Pica pica"},
+            )
+            after = get_db_pool_status()["nested_acquires"]
+
+        assert response.status_code == 200, response.text
+        assert response.json()["updated_count"] == 2
+        assert held_during_lookup == [0], "bulk updates should share one provider lookup for the same species"
+        assert after == before
+    finally:
+        for event_id, taxa_id in zip(event_ids, taxa_ids):
+            await _cleanup_detection_and_taxonomy(event_id=event_id, taxa_id=taxa_id)
+        async with get_db() as db:
+            await db.execute("DELETE FROM taxonomy_cache WHERE taxa_id = 1990999")
+            await db.commit()

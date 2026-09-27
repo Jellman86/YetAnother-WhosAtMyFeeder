@@ -6,6 +6,26 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Replace the three Audio History ApexCharts with MIT-licensed Chart.js charts, preserving
+  daily and hourly tooltips, adding keyboard-operable species filters and share labels, and
+  keeping dark mode, reduced motion, and phone layouts.
+- Replace the Species trend and breakdown charts with Chart.js and its activity heatmap with a
+  keyboard-accessible grid. Keep species comparisons, weather overlays, AI chart capture, and
+  responsive layouts. Share labels and keyboard-operable filters make the species breakdown easier
+  to read. Drop the ApexCharts dependency and load only the required chart types on demand.
+
+- Move manual-tag provider lookups outside database connection holds and share one lookup across
+  a bulk correction. Taxonomy and audio correlation reuse resolved names and the caller's
+  connection, avoiding nested pool acquisitions during manual and video updates.
+
+- Defer scheduled unknown-detection analysis while Frigate is unavailable, retry readiness up to
+  five times at two-minute intervals, and stop event prechecks after a batch-wide outage rather
+  than queueing transient failures for classification.
+
+- Show only completed UTC days in telemetry trends so today's partial heartbeat count cannot look
+  like a user-base collapse. Label the rolling reporting window and 90-day retained-install count
+  explicitly, and keep privacy-suppressed daily values out of the plotted line.
+
 - Keep classifier recovery status consistent across health and settings, show the running execution
   mode, and retain restart advice after recovery. Model reloads preserve quarantined native models.
 - Route wildlife reclassification through isolated workers in subprocess mode, including after

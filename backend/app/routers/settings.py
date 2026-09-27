@@ -2697,7 +2697,33 @@ async def _run_analyze_unknowns() -> dict:
     precheck_errors = 0
     total_candidates = 0
     processed_candidates = 0
+    precheck_outage = False
     try:
+        frigate_cfg = await frigate_client.get_config()
+        if frigate_cfg is None:
+            log.info("Batch analysis deferred until Frigate config is available")
+            return {
+                "status": "deferred",
+                "reason": "frigate_unavailable",
+                "count": 0,
+                "accepted": 0,
+                "skipped_duplicate": 0,
+                "dropped_full": 0,
+                "skipped_no_clip": 0,
+                "skipped_missing_event": 0,
+                "skipped_outside_retention": 0,
+                "precheck_errors": 0,
+                "total_candidates": 0,
+                "remaining_candidates": 0,
+                "queue_limit": BATCH_ANALYSIS_MAX_QUEUE_PER_RUN,
+                "scan_limit": BATCH_ANALYSIS_MAX_SCAN_PER_RUN,
+                "scan_truncated": False,
+                "pending_maintenance": pending_maintenance,
+                "active_maintenance": active_maintenance,
+                "retry_after_seconds": BATCH_ANALYSIS_RETRY_AFTER_SECONDS,
+                "message": "Frigate is unavailable. Batch analysis will retry after it is ready.",
+            }
+
         # Read the candidates, then let the connection go. The pre-check calls
         # Frigate once per detection, in rounds, and the whole loop can run for
         # minutes on a large backlog. The writes re-acquire, one round at a time.
@@ -2716,7 +2742,6 @@ async def _run_analyze_unknowns() -> dict:
 
         # Pre-check availability before queueing to avoid failure storms when
         # detections are older than Frigate media retention or clips are missing.
-        frigate_cfg = await frigate_client.get_config()
         retention_by_camera: dict[str, int | None] = {}
         for d in unknowns:
             if d.camera_name not in retention_by_camera:
@@ -2754,6 +2779,12 @@ async def _run_analyze_unknowns() -> dict:
                 break
             batch = unknowns[offset : offset + BATCH_ANALYSIS_CHECK_CONCURRENCY]
             prechecked = await asyncio.gather(*(precheck_detection(d) for d in batch))
+            if all(state == "precheck_error" for state, _ in prechecked):
+                precheck_errors += len(batch)
+                processed_candidates += len(batch)
+                precheck_outage = True
+                log.warning("Batch analysis deferred after Frigate precheck outage", checked=len(batch))
+                break
 
             async with get_db() as db:
                 repo = DetectionRepository(db)
@@ -2773,6 +2804,7 @@ async def _run_analyze_unknowns() -> dict:
                         continue
                     if state == "precheck_error":
                         precheck_errors += 1
+                        continue
 
                     result = await auto_video_classifier.queue_classification(
                         d.frigate_event,
@@ -2795,7 +2827,7 @@ async def _run_analyze_unknowns() -> dict:
         await maintenance_coordinator.release(holder_id)
 
     count = accepted  # Backward-compatible field expected by current UI.
-    remaining_candidates = max(0, total_candidates - processed_candidates)
+    remaining_candidates = max(0, total_candidates - processed_candidates + precheck_errors)
     msg = (
         f"Queued {accepted} unknown detections for video analysis "
         f"(batch limit {BATCH_ANALYSIS_MAX_QUEUE_PER_RUN}, scanned {processed_candidates}/{total_candidates}, "
@@ -2805,8 +2837,14 @@ async def _run_analyze_unknowns() -> dict:
         f"Skipped no clip: {skipped_no_clip}. "
         f"Skipped missing event: {skipped_missing_event}. "
         f"Skipped outside retention: {skipped_outside_retention}. "
-        f"Precheck errors queued: {precheck_errors}."
+        f"Transient precheck errors deferred: {precheck_errors}."
     )
+    if precheck_outage:
+        msg = (
+            f"Frigate event prechecks are unavailable. Batch analysis deferred after checking "
+            f"{processed_candidates} of {total_candidates} candidates; retry after "
+            f"{BATCH_ANALYSIS_RETRY_AFTER_SECONDS} seconds."
+        )
     log.info(
         "Batch analysis precheck summary",
         total_candidates=total_candidates,
@@ -2824,7 +2862,8 @@ async def _run_analyze_unknowns() -> dict:
         precheck_errors=precheck_errors,
     )
     return {
-        "status": "queued",
+        "status": "deferred" if precheck_outage else "queued",
+        **({"reason": "frigate_unavailable"} if precheck_outage else {}),
         "count": count,
         "accepted": accepted,
         "skipped_duplicate": skipped_duplicate,
