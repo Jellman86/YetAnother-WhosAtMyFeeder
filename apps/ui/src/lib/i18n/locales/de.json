@@ -323,6 +323,8 @@
       "places": "{count} Orte"
     },
     "day_bar": {
+      "birds_found": "Vögel gefunden",
+      "birds_scope": "Aus {count} analysierten Aufnahmen; Vögel können übersehen werden",
       "today": "Heute",
       "visits": "Besuche",
       "unresolved": "ungeklärt",
@@ -1810,6 +1812,19 @@
     "pick_species": "Andere Art wählen"
   },
   "detection": {
+    "counted_birds": {
+      "title": "Vögel in dieser Aufnahme",
+      "count": "Gezählte Vögel: {count}",
+      "note": "Ein analysiertes Bild; der Detektor kann Vögel übersehen oder andere Objekte markieren.",
+      "hint_only": "Nur der von Frigate verfolgte Vogel wurde gefunden; weitere Vögel können sichtbar sein.",
+      "frame_alt": "Gesamtaufnahme mit markierten Vögeln",
+      "suggested": "Vorschlag",
+      "correct": "Korrigieren",
+      "restore": "Wiederherstellen",
+      "exclude": "Ausschließen",
+      "species_label": "Art für Vogel",
+      "suggestions": "Passende Arten"
+    },
     "uploaded": "Hochgeladen",
     "observation_notes": "Beobachtungsnotizen",
     "confidence": "Konfidenz",
@@ -2144,6 +2159,7 @@
     "whole_scene_show": "Die ganze Szene zeigen",
     "whole_scene_chip": "Ganze Szene",
     "whole_scene_chip_pinned": "Ganze Szene, der Ausschnitt ist umrandet",
+    "whole_scene_multiple_outlined": "Ganze Szene, {count} Ausschnitte umrandet",
     "whole_scene_use": "Die ganze Szene als Foto verwenden",
     "whole_scene_back": "Zurück zum Ausschnitt",
     "score_again": "Erneut bewerten",

@@ -3,6 +3,7 @@ from sqlalchemy import (
     Column,
     Integer,
     String,
+    Text,
     Float,
     Boolean,
     TIMESTAMP,
@@ -88,6 +89,30 @@ Index("idx_detections_frigate_event", detections.c.frigate_event)
 Index("idx_detections_video_status", detections.c.video_classification_status)
 Index("idx_detections_notified_at", detections.c.notified_at)
 Index("idx_detections_frigate_status", detections.c.frigate_status)
+
+bird_observations = Table(
+    "bird_observations",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("frigate_event", String, ForeignKey("detections.frigate_event", ondelete="CASCADE"), nullable=False),
+    Column("bird_index", Integer, nullable=False),
+    Column("candidate_id", String, nullable=False),
+    Column("clip_variant", String, nullable=False),
+    Column("frame_index", Integer, nullable=False),
+    Column("crop_box_json", Text, nullable=False),
+    Column("detector_confidence", Float),
+    Column("species", String, nullable=False),
+    Column("classifier_label", String),
+    Column("classifier_score", Float, nullable=False),
+    Column("manual_species", Boolean, nullable=False, server_default="0"),
+    Column("is_hidden", Boolean, nullable=False, server_default="0"),
+    Column("created_at", TIMESTAMP, server_default=func.now(), nullable=False),
+    Column("updated_at", TIMESTAMP, server_default=func.now(), nullable=False),
+    UniqueConstraint("frigate_event", "bird_index", name="uq_bird_observations_event_index"),
+)
+
+Index("ix_bird_observations_event", bird_observations.c.frigate_event)
+Index("ix_bird_observations_species", bird_observations.c.species)
 
 audio_detections = Table(
     "audio_detections",

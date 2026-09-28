@@ -43,6 +43,7 @@ from app.auth import (
 from app.ratelimit import guest_rate_limit, hls_rate_limit, share_create_rate_limit
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
+from app.repositories.bird_observation_repository import BirdObservationRepository
 from app.repositories.video_share_repository import VideoShareRepository
 from app.utils.api_datetime import serialize_api_datetime
 from app.utils.public_access import effective_public_media_days
@@ -379,6 +380,8 @@ def _candidate_image_url(request: Request, event_id: str, candidate_id: str) -> 
 async def _build_snapshot_candidates_response(request: Request, event_id: str) -> "SnapshotCandidateListResponse":
     status = await _build_snapshot_status(event_id, check_original_frigate_snapshot=False)
     candidates = await _list_snapshot_candidates(event_id)
+    async with get_db() as db:
+        birds = await BirdObservationRepository(db).list_for_event(event_id)
     current_source = status.source
     current_candidate_id = None
     if current_source and current_source.startswith("hq_candidate_"):
@@ -405,6 +408,7 @@ async def _build_snapshot_candidates_response(request: Request, event_id: str) -
         current_source=current_source,
         current_candidate_id=current_candidate_id,
         model_crop_miss_reason=model_crop_miss_reason,
+        birds=[BirdObservationResponse.model_validate(bird) for bird in birds],
         candidates=[
             SnapshotCandidateResponse(
                 candidate_id=str(candidate.get("candidate_id") or ""),
@@ -640,6 +644,26 @@ class SnapshotCandidateResponse(BaseModel):
     thumbnail_url: str | None = None
 
 
+class BirdObservationResponse(BaseModel):
+    id: int
+    bird_index: int
+    candidate_id: str
+    clip_variant: str
+    frame_index: int
+    crop_box: list[float]
+    detector_confidence: float | None = None
+    species: str
+    classifier_label: str | None = None
+    classifier_score: float
+    manual_species: bool
+    is_hidden: bool
+
+
+class BirdObservationUpdateRequest(BaseModel):
+    species: str | None = Field(default=None, min_length=1, max_length=120)
+    is_hidden: bool | None = None
+
+
 class SnapshotCandidateListResponse(BaseModel):
     model_config = {"protected_namespaces": ()}
 
@@ -647,6 +671,7 @@ class SnapshotCandidateListResponse(BaseModel):
     current_source: str | None = None
     current_candidate_id: str | None = None
     candidates: list[SnapshotCandidateResponse]
+    birds: list[BirdObservationResponse] = Field(default_factory=list)
     model_crop_miss_reason: str | None = None
 
 
@@ -1635,6 +1660,36 @@ async def get_snapshot_candidates(
     if not validate_event_id(event_id):
         raise HTTPException(status_code=400, detail="Invalid event ID format")
     return await _build_snapshot_candidates_response(request, event_id)
+
+
+@router.patch("/frigate/{event_id}/birds/{bird_id}", response_model=BirdObservationResponse)
+async def update_counted_bird(
+    update: BirdObservationUpdateRequest,
+    event_id: str = Path(..., min_length=1, max_length=64),
+    bird_id: int = Path(..., ge=1),
+    auth: AuthContext = Depends(require_owner),
+) -> BirdObservationResponse:
+    del auth
+    if not validate_event_id(event_id):
+        raise HTTPException(status_code=400, detail="Invalid event ID format")
+    if (update.species is None) == (update.is_hidden is None):
+        raise HTTPException(status_code=400, detail="Change either species or visibility")
+    species = update.species.strip() if update.species is not None else None
+    if update.species is not None and not species:
+        raise HTTPException(status_code=400, detail="Species is required")
+    async with get_db() as db:
+        repo = BirdObservationRepository(db)
+        if species is not None:
+            updated = await repo.set_species(event_id, bird_id, species)
+        else:
+            updated = await repo.set_hidden(event_id, bird_id, bool(update.is_hidden))
+        if not updated:
+            raise HTTPException(status_code=404, detail="Counted bird not found")
+        birds = await repo.list_for_event(event_id)
+    bird = next((item for item in birds if item["id"] == bird_id), None)
+    if bird is None:
+        raise HTTPException(status_code=404, detail="Counted bird not found")
+    return BirdObservationResponse.model_validate(bird)
 
 
 @router.get("/frigate/{event_id}/snapshot/candidates/{candidate_id}/thumbnail.jpg", response_class=Response)

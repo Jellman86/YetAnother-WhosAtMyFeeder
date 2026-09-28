@@ -323,6 +323,8 @@
       "places": "{count}か所"
     },
     "day_bar": {
+      "birds_found": "見つかった鳥",
+      "birds_scope": "解析済みの撮影 {count} 件から集計。見逃した鳥がいる場合があります",
       "today": "今日",
       "visits": "回の訪問",
       "unresolved": "未確定",
@@ -1810,6 +1812,19 @@
     "pick_species": "別の種を選ぶ"
   },
   "detection": {
+    "counted_birds": {
+      "title": "この撮影で見つかった鳥",
+      "count": "数えた鳥: {count} 羽",
+      "note": "解析した1フレームから集計。鳥を見逃したり、別の物体を示したりする場合があります。",
+      "hint_only": "Frigate が追跡した鳥だけを特定しました。ほかの鳥も写っている可能性があります。",
+      "frame_alt": "数えた鳥を示した撮影全体",
+      "suggested": "推定",
+      "correct": "修正",
+      "restore": "元に戻す",
+      "exclude": "除外",
+      "species_label": "鳥の種類",
+      "suggestions": "一致する種類"
+    },
     "uploaded": "アップロード済み",
     "observation_notes": "観察メモ",
     "confidence": "信頼度",
@@ -2144,6 +2159,7 @@
     "whole_scene_show": "全体を表示",
     "whole_scene_chip": "全体",
     "whole_scene_chip_pinned": "全体、切り抜き範囲を枠で表示",
+    "whole_scene_multiple_outlined": "全体、{count}か所の切り抜き範囲を枠で表示",
     "whole_scene_use": "全体を写真として使う",
     "whole_scene_back": "切り抜きに戻る",
     "score_again": "再判定",

@@ -377,7 +377,7 @@ class BirdCropService:
         """Find a bounded set of distinct birds for per-crop species scoring."""
         if not isinstance(image, Image.Image):
             return []
-        limit = max(1, min(4, int(max_crops)))
+        limit = max(1, min(8, int(max_crops)))
         selected: list[dict[str, Any]] = []
         if search_box is not None:
             guided = self.generate_guided_classification_candidate_crop(
@@ -413,7 +413,10 @@ class BirdCropService:
             if not isinstance(result.get("crop_image"), Image.Image):
                 continue
             result = self._annotate_candidate_strategy(result, strategy="multi_native")
-            if any(self._box_overlap_ratio(result.get("box"), prior.get("box")) >= 0.6 for prior in selected):
+            if any(
+                self._box_overlap_ratio(result.get("detector_box"), prior.get("detector_box")) >= 0.6
+                for prior in selected
+            ):
                 continue
             selected.append(result)
 
@@ -422,6 +425,38 @@ class BirdCropService:
             if isinstance(fallback.get("crop_image"), Image.Image):
                 selected.append(fallback)
         return selected[:limit]
+
+    def detect_observation_boxes(self, image: Image.Image) -> list[dict[str, Any]]:
+        """Return every usable bird box; photo-crop limits do not cap the count."""
+        if not isinstance(image, Image.Image):
+            return []
+        try:
+            model = self._ensure_model_for_tier("accurate")
+            raw = self._infer_candidates(model, image) if model is not None else []
+        except Exception as exc:
+            log.warning("Bird observation detection failed", error=str(exc))
+            return []
+        observations: list[dict[str, Any]] = []
+        for item in sorted(
+            (item for item in raw if isinstance(item, dict)),
+            key=lambda item: self._coerce_confidence(item) or float("-inf"),
+            reverse=True,
+        ):
+            confidence = self._coerce_confidence(item)
+            if confidence is None or confidence < 0.08:
+                break
+            raw_box = self._extract_box(item)
+            box = self._normalize_box(raw_box) if raw_box else None
+            if box is None:
+                continue
+            left = max(0, min(image.width, box[0]))
+            top = max(0, min(image.height, box[1]))
+            right = max(0, min(image.width, box[2]))
+            bottom = max(0, min(image.height, box[3]))
+            if right - left < 24 or bottom - top < 24:
+                continue
+            observations.append({"box": (left, top, right, bottom), "confidence": confidence})
+        return observations
 
     @staticmethod
     def _box_overlap_ratio(first: Any, second: Any) -> float:
@@ -674,6 +709,11 @@ class BirdCropService:
             )
         updated = dict(result)
         updated["box"] = restored
+        if isinstance(result.get("detector_box"), (tuple, list)):
+            detector_box = result["detector_box"]
+            updated["detector_box"] = tuple(
+                int(detector_box[index] + (offset_x if index % 2 == 0 else offset_y)) for index in range(4)
+            )
         updated["crop_image"] = image.crop(restored)
         updated["strategy"] = strategy
         if strategy == "frigate_guided":
@@ -1749,6 +1789,7 @@ class BirdCropService:
             return {
                 "crop_image": crop_image,
                 "box": expanded,
+                "detector_box": box,
                 "confidence": confidence,
                 "reason": "selected",
                 "detector_tier": detector_tier,

@@ -53,6 +53,7 @@ export type SnapshotCandidate =
     paths['/api/frigate/{event_id}/snapshot/candidates']['get']['response']['candidates'][number];
 
 export type SnapshotCandidateListResponse = paths['/api/frigate/{event_id}/snapshot/candidates']['get']['response'];
+export type BirdObservation = NonNullable<SnapshotCandidateListResponse['birds']>[number];
 
 export type SnapshotApplyResponse = paths['/api/frigate/{event_id}/snapshot/apply']['post']['response'];
 
@@ -207,6 +208,19 @@ export async function fetchSnapshotCandidates(frigateEvent: string): Promise<Sna
             thumbnail_url: candidate.thumbnail_url ? withAuthParams(candidate.thumbnail_url) : candidate.thumbnail_url
         }))
     };
+}
+
+export async function updateCountedBird(
+    frigateEvent: string,
+    birdId: number,
+    change: { species: string } | { is_hidden: boolean }
+): Promise<BirdObservation> {
+    const response = await apiFetch(`${API_BASE}/frigate/${encodeURIComponent(frigateEvent)}/birds/${birdId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(change)
+    });
+    return handleResponse<BirdObservation>(response);
 }
 
 export async function applySnapshotCandidate(

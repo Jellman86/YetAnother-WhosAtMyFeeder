@@ -11,6 +11,22 @@ def _make_image(width: int = 100, height: int = 100) -> Image.Image:
     return Image.new("RGB", (width, height), color="white")
 
 
+def test_observation_boxes_are_not_capped_by_photo_choice_limit(monkeypatch):
+    service = BirdCropService()
+    image = _make_image(1000, 100)
+    monkeypatch.setattr(service, "_ensure_model_for_tier", lambda tier: object())
+    monkeypatch.setattr(
+        service,
+        "_infer_candidates",
+        lambda model, frame: [{"box": (index * 40, 10, index * 40 + 30, 50), "confidence": 0.2} for index in range(12)],
+    )
+
+    boxes = service.detect_observation_boxes(image)
+
+    assert len(boxes) == 12
+    assert boxes[-1]["box"] == (440, 10, 470, 50)
+
+
 def test_generate_crop_selects_and_expands_box(monkeypatch):
     service = BirdCropService(confidence_threshold=0.4, expand_ratio=0.25, min_crop_size=10)
     image = _make_image()

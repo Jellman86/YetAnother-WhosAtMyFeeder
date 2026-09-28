@@ -323,6 +323,8 @@
       "places": "{count} locais"
     },
     "day_bar": {
+      "birds_found": "aves encontradas",
+      "birds_scope": "Em {count} capturas analisadas; algumas aves podem não ser detectadas",
       "today": "Hoje",
       "visits": "visitas",
       "unresolved": "por resolver",
@@ -1820,6 +1822,19 @@
     "pick_species": "Escolher outra espécie"
   },
   "detection": {
+    "counted_birds": {
+      "title": "Aves nesta captura",
+      "count": "Aves contadas: {count}",
+      "note": "Um quadro analisado; o detector pode não ver aves ou marcar outros objetos.",
+      "hint_only": "Apenas a ave rastreada pelo Frigate foi localizada; outras aves podem estar visíveis.",
+      "frame_alt": "Captura completa com as aves contadas marcadas",
+      "suggested": "Sugerido",
+      "correct": "Corrigir",
+      "restore": "Restaurar",
+      "exclude": "Excluir",
+      "species_label": "Espécie da ave",
+      "suggestions": "Espécies correspondentes"
+    },
     "uploaded": "Carregada",
     "observation_notes": "Notas da observação",
     "confidence": "Confiança",
@@ -2154,6 +2169,7 @@
     "whole_scene_show": "Mostrar a cena inteira",
     "whole_scene_chip": "Cena inteira",
     "whole_scene_chip_pinned": "Cena inteira, o recorte está contornado",
+    "whole_scene_multiple_outlined": "Cena inteira, {count} regiões de recorte contornadas",
     "whole_scene_use": "Usar a cena inteira como fotografia",
     "whole_scene_back": "Voltar ao recorte",
     "score_again": "Pontuar novamente",

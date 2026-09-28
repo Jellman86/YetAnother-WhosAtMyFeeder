@@ -32,6 +32,18 @@ what its frames established: it needs a person only if every frame does, and it 
 matching call if any frame was, and the row says so in words ("matching call") so the header's
 cross-confirmed count and the rows beneath it agree.
 
+When one capture contains several birds, keep the Frigate event as the parent record. Count
+localized birds from one analyzed frame as child observations, so repeated sampled frames do not
+inflate the count. Show that count separately from visits and name its coverage: it only includes
+captures analyzed with the high-quality crop model. A detector estimate needs visible boxes and
+an owner correction path because it can miss birds or mark other objects.
+Frigate's event box localizes its one tracked bird; it is not a scene-wide list. The local crop
+detector scans the full frame for additional birds. When it is unavailable, the UI must say that
+only the Frigate hint could be counted.
+The eight classified photo crops per frame are a performance limit on photograph choices, not a
+limit on counted detector boxes. The count still reflects only birds the detector localized in an
+analyzed frame, so it must not be presented as an exact census.
+
 ### 1.3 Say what needs a human, and say why
 
 Work that is waiting is first-class: the review queue is a docked card with a count, not a filter
@@ -113,7 +125,9 @@ slim bar: subject, camera, time, close
 ```
 
 The photograph is always the crop. The whole scene is a look, not a mode: hover or focus on
-the photograph peeks at it with the crop outlined, a click pins it, and only the pinned state
+the photograph peeks at it with the chosen crop outlined and labeled. Other distinct retained crop
+regions from that same frame are outlined too; this shows available evidence, not a bird count.
+A click pins the peek, and only the pinned state
 offers "Use the whole scene as the photograph". Beneath the photograph is one strip of the
 visit's moments in time order (`FrameStrip`), normally one thumbnail per moment; where a frame
 came from is not shown, and framings of the same bird fold into it. If separate birds share a

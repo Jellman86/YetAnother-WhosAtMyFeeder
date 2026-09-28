@@ -1626,6 +1626,7 @@ async def test_proxy_snapshot_candidates_lists_persisted_candidates(client: http
     with (
         patch("app.routers.proxy.get_db") as mock_get_db,
         patch("app.routers.proxy.DetectionRepository") as mock_repo_cls,
+        patch("app.routers.proxy.BirdObservationRepository") as mock_bird_repo_cls,
         patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot,
         patch(
             "app.services.media_cache.media_cache.get_snapshot_metadata", new_callable=AsyncMock
@@ -1636,6 +1637,25 @@ async def test_proxy_snapshot_candidates_lists_persisted_candidates(client: http
         mock_get_snapshot.return_value = b"snapshot"
         mock_get_metadata.return_value = {"source": "hq_candidate_model_crop"}
         mock_repo = mock_repo_cls.return_value
+        mock_bird_repo_cls.return_value.list_for_event = AsyncMock(
+            return_value=[
+                {
+                    "id": 1,
+                    "frigate_event": "test_event_id",
+                    "bird_index": 0,
+                    "candidate_id": "cand-1",
+                    "clip_variant": "recording",
+                    "frame_index": 8,
+                    "crop_box": [4, 4, 32, 32],
+                    "detector_confidence": 0.93,
+                    "species": "Robin",
+                    "classifier_label": "Robin",
+                    "classifier_score": 0.91,
+                    "manual_species": False,
+                    "is_hidden": False,
+                }
+            ]
+        )
         mock_repo.list_snapshot_candidates = AsyncMock(
             return_value=[
                 {
@@ -1671,6 +1691,7 @@ async def test_proxy_snapshot_candidates_lists_persisted_candidates(client: http
     assert "original_frigate_snapshot_available" not in body
     assert body["candidates"][0]["candidate_id"] == "cand-1"
     assert body["candidates"][0]["crop_strategy"] == "frigate_guided"
+    assert body["birds"][0]["species"] == "Robin"
     thumbnail_url = body["candidates"][0]["thumbnail_url"]
     image_url = body["candidates"][0]["image_url"]
     # A cache-busting `?v=<mtime>` query is appended so promoted candidates refresh in the browser.
@@ -1680,6 +1701,43 @@ async def test_proxy_snapshot_candidates_lists_persisted_candidates(client: http
     assert "?v=" in thumbnail_url
     assert image_url.split("?", 1)[0].endswith("/api/frigate/test_event_id/snapshot/candidates/cand-1/image.jpg")
     assert "?v=" in image_url
+
+
+@pytest.mark.asyncio
+async def test_counted_bird_update_changes_one_bird_and_rejects_ambiguous_payload(client: httpx.AsyncClient):
+    bird = {
+        "id": 7,
+        "bird_index": 1,
+        "candidate_id": "crop-2",
+        "clip_variant": "event",
+        "frame_index": 4,
+        "crop_box": [90, 10, 140, 60],
+        "detector_confidence": 0.21,
+        "species": "Northern Cardinal",
+        "classifier_label": "House Finch",
+        "classifier_score": 0.79,
+        "manual_species": True,
+        "is_hidden": False,
+    }
+    with (
+        patch("app.routers.proxy.get_db") as mock_get_db,
+        patch("app.routers.proxy.BirdObservationRepository") as mock_repo_cls,
+    ):
+        mock_get_db.return_value.__aenter__.return_value = AsyncMock()
+        repo = mock_repo_cls.return_value
+        repo.set_species = AsyncMock(return_value=True)
+        repo.list_for_event = AsyncMock(return_value=[bird])
+        response = await client.patch("/api/frigate/test_event_id/birds/7", json={"species": "Northern Cardinal"})
+        assert response.status_code == 200
+        assert response.json()["species"] == "Northern Cardinal"
+        repo.set_species.assert_awaited_once_with("test_event_id", 7, "Northern Cardinal")
+
+        invalid = await client.patch("/api/frigate/test_event_id/birds/7", json={"species": "Robin", "is_hidden": True})
+        assert invalid.status_code == 400
+
+        repo.set_hidden = AsyncMock(return_value=False)
+        missing = await client.patch("/api/frigate/test_event_id/birds/99", json={"is_hidden": True})
+        assert missing.status_code == 404
 
 
 @pytest.mark.asyncio
@@ -2276,6 +2334,7 @@ async def test_snapshot_candidates_response_includes_model_crop_miss_reason_when
     with (
         patch("app.routers.proxy.get_db") as mock_get_db,
         patch("app.routers.proxy.DetectionRepository") as mock_repo_cls,
+        patch("app.routers.proxy.BirdObservationRepository") as mock_bird_repo_cls,
         patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot,
         patch(
             "app.services.media_cache.media_cache.get_snapshot_metadata", new_callable=AsyncMock
@@ -2286,6 +2345,7 @@ async def test_snapshot_candidates_response_includes_model_crop_miss_reason_when
         mock_get_snapshot.return_value = b"snapshot"
         mock_get_metadata.return_value = {"source": "high_quality_snapshot"}
         mock_repo = mock_repo_cls.return_value
+        mock_bird_repo_cls.return_value.list_for_event = AsyncMock(return_value=[])
         mock_repo.list_snapshot_candidates = AsyncMock(
             return_value=[
                 {
@@ -2327,6 +2387,7 @@ async def test_snapshot_candidates_response_no_model_crop_miss_reason_when_model
     with (
         patch("app.routers.proxy.get_db") as mock_get_db,
         patch("app.routers.proxy.DetectionRepository") as mock_repo_cls,
+        patch("app.routers.proxy.BirdObservationRepository") as mock_bird_repo_cls,
         patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot,
         patch(
             "app.services.media_cache.media_cache.get_snapshot_metadata", new_callable=AsyncMock
@@ -2337,6 +2398,7 @@ async def test_snapshot_candidates_response_no_model_crop_miss_reason_when_model
         mock_get_snapshot.return_value = b"snapshot"
         mock_get_metadata.return_value = {"source": "hq_candidate_model_crop"}
         mock_repo = mock_repo_cls.return_value
+        mock_bird_repo_cls.return_value.list_for_event = AsyncMock(return_value=[])
         mock_repo.list_snapshot_candidates = AsyncMock(
             return_value=[
                 {

@@ -6,6 +6,7 @@ from typing import List, Optional, Literal
 from collections import Counter
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
+from app.repositories.bird_observation_repository import BirdObservationRepository
 from app.repositories.health_repository import HealthRepository
 from app.services.uptime import HEARTBEAT_INTERVAL_MINUTES, build_uptime_window
 from app.models import APIModel, DetectionResponse
@@ -281,6 +282,8 @@ class DailySummaryResponse(APIModel):
     latest_detection: Optional[DetectionResponse]
     total_count: int
     audio_confirmations: int
+    counted_birds: int = 0
+    counted_captures: int = 0
 
 
 class DailyCount(APIModel):
@@ -591,6 +594,7 @@ async def get_daily_summary(request: Request, auth: AuthContext = Depends(get_au
 
         total_today = sum(hourly)
         audio_confirmations = await repo.get_audio_confirmations_count(start_dt, end_dt)
+        bird_counts = await BirdObservationRepository(db).count_visible_between(start_dt, end_dt)
 
         return DailySummaryResponse(
             hourly_distribution=hourly,
@@ -598,6 +602,8 @@ async def get_daily_summary(request: Request, auth: AuthContext = Depends(get_au
             latest_detection=latest_detection,
             total_count=total_today,
             audio_confirmations=audio_confirmations,
+            counted_birds=bird_counts["birds"],
+            counted_captures=bird_counts["captures"],
         )
 
 

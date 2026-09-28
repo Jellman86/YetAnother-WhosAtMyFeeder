@@ -524,6 +524,8 @@
 <div class="space-y-6">
     <DayBar
         visitCount={last24hCount}
+        countedBirds={summary?.counted_birds ?? 0}
+        countedCaptures={summary?.counted_captures ?? 0}
         speciesCount={last24hSpecies}
         unresolvedCount={reviewQueue.total}
         audioCalls={audioSummary?.total ?? null}
@@ -605,6 +607,7 @@
         newSpecies: newSpeciesEntries
     })}
     <ReviewQueueModal
+        onbirdschanged={() => { void loadSummary(true); }}
         queue={fullQueue.items}
         reasons={fullQueue.reasons}
         labels={classifierLabels}
@@ -620,6 +623,7 @@
 <!-- Event Detail Modal -->
 {#if selectedEvent}
     <DetectionModal
+        onbirdschanged={() => { void loadSummary(true); }}
         detection={selectedEvent}
         {classifierLabels}
         llmReady={llmReady}

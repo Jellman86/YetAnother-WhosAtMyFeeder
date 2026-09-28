@@ -10,8 +10,8 @@ export const PEEK_INTENT_MS = 250;
 /**
  * The whole scene is a look, not a mode (#256).
  *
- * The photograph is always the crop. Hover or focus peeks at the whole scene with the crop
- * outlined; a click pins the peek so a control can be offered on it; Escape or a second click
+ * The photograph is always the crop. Hover or focus peeks at the whole scene with its crop
+ * and other retained same-frame crops outlined; a click pins the peek; Escape or a second click
  * returns to the crop. One controller carries that for every surface that shows a photograph,
  * so the detection record and the review queue behave the same way.
  */
@@ -19,6 +19,7 @@ export class WholeScenePeek {
     private view = $state<'crop' | 'whole'>('crop');
     pinned = $state(false);
     outline = $state<OutlineBox | null>(null);
+    otherOutlines = $state<OutlineBox[]>([]);
     private intentTimer: ReturnType<typeof setTimeout> | null = null;
 
     /** `canPeek` is read live: it usually depends on which frame is the photograph now. */
@@ -79,6 +80,7 @@ export class WholeScenePeek {
         this.view = 'crop';
         this.pinned = false;
         this.outline = null;
+        this.otherOutlines = [];
     };
 
     /**
@@ -86,16 +88,22 @@ export class WholeScenePeek {
      * size of a `contain`ed image is not knowable from state; call it once the whole
      * scene has loaded and again when the window changes size.
      */
-    measure = (image: HTMLImageElement | null, cropBox: ReadonlyArray<number> | null | undefined): void => {
+    measure = (
+        image: HTMLImageElement | null,
+        cropBox: ReadonlyArray<number> | null | undefined,
+        otherCropBoxes: ReadonlyArray<ReadonlyArray<number>> = []
+    ): void => {
         if (!image || this.view !== 'whole') {
             this.outline = null;
+            this.otherOutlines = [];
             return;
         }
-        this.outline = wholeSceneOutline(
-            cropBox,
-            { width: image.naturalWidth, height: image.naturalHeight },
-            { width: image.clientWidth, height: image.clientHeight }
-        );
+        const naturalSize = { width: image.naturalWidth, height: image.naturalHeight };
+        const containerSize = { width: image.clientWidth, height: image.clientHeight };
+        this.outline = wholeSceneOutline(cropBox, naturalSize, containerSize);
+        this.otherOutlines = otherCropBoxes
+            .map((box) => wholeSceneOutline(box, naturalSize, containerSize))
+            .filter((outline): outline is OutlineBox => outline !== null);
     };
 
     destroy = (): void => {

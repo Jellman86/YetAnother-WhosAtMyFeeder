@@ -327,6 +327,24 @@ export interface components {
     status: string;
     updated?: number;
 };
+    BirdObservationResponse: {
+    bird_index: number;
+    candidate_id: string;
+    classifier_label?: string | null;
+    classifier_score: number;
+    clip_variant: string;
+    crop_box: Array<number>;
+    detector_confidence?: number | null;
+    frame_index: number;
+    id: number;
+    is_hidden: boolean;
+    manual_species: boolean;
+    species: string;
+};
+    BirdObservationUpdateRequest: {
+    is_hidden?: boolean | null;
+    species?: string | null;
+};
     BirdWeatherTestRequest: {
     token?: string | null;
 };
@@ -529,6 +547,8 @@ export interface components {
 };
     DailySummaryResponse: {
     audio_confirmations: number;
+    counted_birds?: number;
+    counted_captures?: number;
     hourly_distribution: Array<number>;
     latest_detection: components['schemas']['DetectionResponse'] | null;
     top_species: Array<components['schemas']['DailySpeciesSummary']>;
@@ -1791,6 +1811,7 @@ export interface components {
     status: "applied";
 };
     SnapshotCandidateListResponse: {
+    birds?: Array<components['schemas']['BirdObservationResponse']>;
     candidates: Array<components['schemas']['SnapshotCandidateResponse']>;
     current_candidate_id?: string | null;
     current_source?: string | null;
@@ -3129,6 +3150,18 @@ export interface paths {
 };
       requestBody: unknown;
       response: components['schemas']['FrigateTestResponse'];
+    };
+  };
+  "/api/frigate/{event_id}/birds/{bird_id}": {
+    patch: {
+      operationId: "update_counted_bird_api_frigate__event_id__birds__bird_id__patch";
+      path: {
+    bird_id: number;
+    event_id: string;
+};
+      query: never;
+      requestBody: components['schemas']['BirdObservationUpdateRequest'];
+      response: components['schemas']['BirdObservationResponse'];
     };
   };
   "/api/frigate/{event_id}/clip-thumbnails.jpg": {

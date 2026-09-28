@@ -323,6 +323,8 @@
       "places": "{count}个地点"
     },
     "day_bar": {
+      "birds_found": "发现的鸟",
+      "birds_scope": "来自 {count} 次已分析拍摄；可能有鸟未被识别",
       "today": "今天",
       "visits": "次到访",
       "unresolved": "未识别",
@@ -1810,6 +1812,19 @@
     "pick_species": "选择其他物种"
   },
   "detection": {
+    "counted_birds": {
+      "title": "此拍摄中发现的鸟",
+      "count": "已计数鸟类：{count} 只",
+      "note": "根据一个已分析画面计数；检测器可能漏掉鸟或标记其他物体。",
+      "hint_only": "仅定位到 Frigate 跟踪的鸟；画面中可能还有其他鸟。",
+      "frame_alt": "标出已计数鸟的完整画面",
+      "suggested": "建议",
+      "correct": "更正",
+      "restore": "恢复",
+      "exclude": "排除",
+      "species_label": "鸟的种类",
+      "suggestions": "匹配的鸟种"
+    },
     "uploaded": "已上传",
     "observation_notes": "观察备注",
     "confidence": "置信度",
@@ -2144,6 +2159,7 @@
     "whole_scene_show": "显示完整画面",
     "whole_scene_chip": "完整画面",
     "whole_scene_chip_pinned": "完整画面，已标出裁切范围",
+    "whole_scene_multiple_outlined": "完整画面，已标出 {count} 个裁切区域",
     "whole_scene_use": "将完整画面用作照片",
     "whole_scene_back": "回到裁切图",
     "score_again": "重新评分",

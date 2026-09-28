@@ -323,6 +323,8 @@
       "places": "{count} luoghi"
     },
     "day_bar": {
+      "birds_found": "uccelli trovati",
+      "birds_scope": "Da {count} acquisizioni analizzate; alcuni uccelli potrebbero sfuggire",
       "today": "Oggi",
       "visits": "visite",
       "unresolved": "non risolte",
@@ -1820,6 +1822,19 @@
     "pick_species": "Scegli un’altra specie"
   },
   "detection": {
+    "counted_birds": {
+      "title": "Uccelli in questa acquisizione",
+      "count": "Uccelli conteggiati: {count}",
+      "note": "Un fotogramma analizzato; il rilevatore può non vedere alcuni uccelli o segnalare altri oggetti.",
+      "hint_only": "È stato individuato solo l’uccello seguito da Frigate; potrebbero essercene altri.",
+      "frame_alt": "Acquisizione completa con gli uccelli conteggiati evidenziati",
+      "suggested": "Suggerito",
+      "correct": "Correggi",
+      "restore": "Ripristina",
+      "exclude": "Escludi",
+      "species_label": "Specie dell’uccello",
+      "suggestions": "Specie corrispondenti"
+    },
     "uploaded": "Caricata",
     "observation_notes": "Note sull’osservazione",
     "confidence": "Confidenza",
@@ -2154,6 +2169,7 @@
     "whole_scene_show": "Mostra l'intera scena",
     "whole_scene_chip": "Scena intera",
     "whole_scene_chip_pinned": "Scena intera, il ritaglio è evidenziato",
+    "whole_scene_multiple_outlined": "Scena intera, {count} aree ritagliate evidenziate",
     "whole_scene_use": "Usa l'intera scena come fotografia",
     "whole_scene_back": "Torna al ritaglio",
     "score_again": "Valuta di nuovo",
