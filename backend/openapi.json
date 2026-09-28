@@ -2122,6 +2122,119 @@
         "title": "BackfillResponse",
         "type": "object"
       },
+      "BirdObservationResponse": {
+        "properties": {
+          "bird_index": {
+            "title": "Bird Index",
+            "type": "integer"
+          },
+          "candidate_id": {
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "classifier_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Classifier Label"
+          },
+          "classifier_score": {
+            "title": "Classifier Score",
+            "type": "number"
+          },
+          "clip_variant": {
+            "title": "Clip Variant",
+            "type": "string"
+          },
+          "crop_box": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Crop Box",
+            "type": "array"
+          },
+          "detector_confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detector Confidence"
+          },
+          "frame_index": {
+            "title": "Frame Index",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "is_hidden": {
+            "title": "Is Hidden",
+            "type": "boolean"
+          },
+          "manual_species": {
+            "title": "Manual Species",
+            "type": "boolean"
+          },
+          "species": {
+            "title": "Species",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "bird_index",
+          "candidate_id",
+          "clip_variant",
+          "frame_index",
+          "crop_box",
+          "species",
+          "classifier_score",
+          "manual_species",
+          "is_hidden"
+        ],
+        "title": "BirdObservationResponse",
+        "type": "object"
+      },
+      "BirdObservationUpdateRequest": {
+        "properties": {
+          "is_hidden": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Hidden"
+          },
+          "species": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Species"
+          }
+        },
+        "title": "BirdObservationUpdateRequest",
+        "type": "object"
+      },
       "BirdWeatherTestRequest": {
         "properties": {
           "token": {
@@ -3379,6 +3492,16 @@
         "properties": {
           "audio_confirmations": {
             "title": "Audio Confirmations",
+            "type": "integer"
+          },
+          "counted_birds": {
+            "default": 0,
+            "title": "Counted Birds",
+            "type": "integer"
+          },
+          "counted_captures": {
+            "default": 0,
+            "title": "Counted Captures",
             "type": "integer"
           },
           "hourly_distribution": {
@@ -13866,6 +13989,13 @@
       },
       "SnapshotCandidateListResponse": {
         "properties": {
+          "birds": {
+            "items": {
+              "$ref": "#/components/schemas/BirdObservationResponse"
+            },
+            "title": "Birds",
+            "type": "array"
+          },
           "candidates": {
             "items": {
               "$ref": "#/components/schemas/SnapshotCandidateResponse"
@@ -21649,6 +21779,78 @@
           }
         ],
         "summary": "Test Frigate Connection"
+      }
+    },
+    "/api/frigate/{event_id}/birds/{bird_id}": {
+      "patch": {
+        "operationId": "update_counted_bird_api_frigate__event_id__birds__bird_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "event_id",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Event Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "bird_id",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "title": "Bird Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BirdObservationUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BirdObservationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Update Counted Bird"
       }
     },
     "/api/frigate/{event_id}/clip-thumbnails.jpg": {

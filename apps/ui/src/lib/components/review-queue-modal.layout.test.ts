@@ -46,9 +46,9 @@ describe('review queue walk-through', () => {
         expect(modalSource).toContain('fetchSnapshotCandidates');
         expect(modalSource).toContain('crop.image_url ?? crop.thumbnail_url');
         expect(modalSource).toContain('fullFrame.image_url ?? fullFrame.thumbnail_url');
-        expect(modalSource).toContain("import { findMatchingFullFrameCandidate } from '../utils/detection-evidence'");
+        expect(modalSource).toContain('findMatchingFullFrameCandidate, sameFrameCropCandidates');
         expect(modalSource).toMatch(
-            /findMatchingFullFrameCandidate\(\s*response\.candidates \?\? \[\],\s*preferredCrop\?\.candidate_id \?\? null\s*\)/
+            /findMatchingFullFrameCandidate\(\s*response\.candidates \?\? \[\],\s*photograph\?\.candidate_id \?\? null\s*\)/
         );
         // Crops only exist for scanned events, so their absence is stated, not hidden.
         expect(modalSource).toContain('dashboard.review_session.no_crop');
@@ -60,7 +60,8 @@ describe('review queue walk-through', () => {
         expect(modalSource).toContain('onmouseenter={wholeScene.enter}');
         expect(modalSource).toContain('onfocus={wholeScene.show}');
         expect(modalSource).toContain('onclick={wholeScene.toggle}');
-        expect(modalSource).toContain('wholeScene.measure(imageEl, crop?.crop_box)');
+        expect(modalSource).toContain('wholeScene.measure(imageEl, wholeSceneCrops[0]?.crop_box, otherCropBoxes)');
+        expect(modalSource).toContain('data-review-other-bird-outline');
         expect(modalSource).toContain('detection.whole_scene_chip_pinned');
         expect(modalSource).not.toContain('dashboard.review_session.crop\'');
         expect(modalSource).not.toContain('dashboard.review_session.full_frame');

@@ -71,6 +71,17 @@ describe('WholeScenePeek (#256)', () => {
         expect(peek.outline).toBeNull();
     });
 
+    it('measures the other bird outlines in the same image coordinates', () => {
+        const peek = new WholeScenePeek(() => true);
+        const image = { naturalWidth: 1600, naturalHeight: 900, clientWidth: 800, clientHeight: 600 } as HTMLImageElement;
+        peek.show();
+        peek.measure(image, [400, 225, 800, 675], [[800, 225, 1200, 675]]);
+        expect(peek.outline).toEqual({ left: 200, top: 187.5, width: 200, height: 225 });
+        expect(peek.otherOutlines).toEqual([{ left: 400, top: 187.5, width: 200, height: 225 }]);
+        peek.reset();
+        expect(peek.otherOutlines).toEqual([]);
+    });
+
     it('resets to the crop with nothing pending', () => {
         const peek = new WholeScenePeek(() => true);
         peek.enter();

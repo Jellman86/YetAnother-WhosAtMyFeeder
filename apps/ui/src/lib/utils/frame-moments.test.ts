@@ -144,6 +144,52 @@ describe('wholeSceneOutline', () => {
 
 
 describe('species-safe moment previews (#481)', () => {
+    it('shows each distinct model bird in a shared frame as its own selectable photograph', () => {
+        const moments = groupCandidatesIntoMoments([
+            candidate({ candidate_id: 'whole', source_mode: 'full_frame', classifier_label: 'Cardinal' }),
+            candidate({ candidate_id: 'bird-left', source_mode: 'model_crop', crop_box: [10, 10, 170, 170], classifier_label: 'Cardinal', ranking_score: 0.9 }),
+            candidate({ candidate_id: 'bird-right', source_mode: 'model_crop', crop_box: [250, 10, 410, 170], classifier_label: 'Chickadee', ranking_score: 0.7, selected: true })
+        ]);
+
+        expect(moments.map((moment) => preferredCandidate(moment)?.candidate_id)).toEqual([
+            'whole', 'bird-left', 'bird-right'
+        ]);
+        expect(moments.map((moment) => moment.read?.label)).toEqual(['Cardinal', 'Cardinal', 'Chickadee']);
+        expect(currentMoment(moments, 'bird-right', 'hq_candidate_model_crop')?.key).toBe(moments[2].key);
+        expect(currentMoment(moments, 'whole', 'hq_candidate_full_frame')?.key).toBe(moments[0].key);
+    });
+
+    it('shows a disjoint Frigate crop and detector crop as separate birds', () => {
+        const moments = groupCandidatesIntoMoments([
+            candidate({ candidate_id: 'tracked', source_mode: 'frigate_hint_crop', crop_box: [10, 10, 170, 170], classifier_label: 'Finch', selected: true }),
+            candidate({ candidate_id: 'other', source_mode: 'model_crop', crop_box: [250, 10, 410, 170], classifier_label: 'Cardinal' })
+        ]);
+
+        expect(moments.map((moment) => preferredCandidate(moment)?.candidate_id)).toEqual(['tracked', 'other']);
+        expect(currentMoment(moments, 'tracked', 'hq_candidate_frigate_hint_crop')?.key).toBe(moments[0].key);
+    });
+
+    it('keeps a selected whole-scene photo separate from both bird crops', () => {
+        const moments = groupCandidatesIntoMoments([
+            candidate({ candidate_id: 'whole', selected: true }),
+            candidate({ candidate_id: 'left', source_mode: 'model_crop', crop_box: [0, 0, 160, 160] }),
+            candidate({ candidate_id: 'right', source_mode: 'model_crop', crop_box: [200, 0, 360, 160] })
+        ]);
+
+        expect(moments.map((moment) => preferredCandidate(moment)?.candidate_id)).toEqual(['whole', 'left', 'right']);
+        expect(currentMoment(moments, 'whole', 'hq_candidate_full_frame')?.choice).toBe('whole');
+    });
+
+    it('folds overlapping Frigate and detector framings of the same bird', () => {
+        const moments = groupCandidatesIntoMoments([
+            candidate({ candidate_id: 'hint', source_mode: 'frigate_hint_crop', crop_box: [0, 0, 200, 200] }),
+            candidate({ candidate_id: 'model', source_mode: 'model_crop', crop_box: [20, 20, 180, 180] })
+        ]);
+
+        expect(moments).toHaveLength(1);
+        expect(preferredCandidate(moments[0])?.candidate_id).toBe('model');
+    });
+
     it('uses the selected crop and its own species read even when another bird scores higher', () => {
         const [moment] = groupCandidatesIntoMoments([
             candidate({ candidate_id: 'finch', source_mode: 'frigate_hint_crop', selected: true, classifier_label: 'House Finch', classifier_score: 0.9 }),

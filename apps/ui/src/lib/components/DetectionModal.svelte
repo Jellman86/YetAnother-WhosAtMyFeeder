@@ -36,13 +36,15 @@
         type EbirdNearbyResult,
         type ConversationTurn,
         type SnapshotStatusResponse,
-        type SnapshotCandidate
+        type SnapshotCandidate,
+        type BirdObservation
     } from '../api';
     import type { Detection } from '../api';
     import { withAuthParams } from '../api/core';
     import { appApiPath } from '../app/url-base';
     import ReclassificationOverlay from './ReclassificationOverlay.svelte';
     import FrameStrip from './FrameStrip.svelte';
+    import CountedBirds from './CountedBirds.svelte';
     import { currentMoment, groupCandidatesIntoMoments, preferredCandidate, type FrameMoment } from '../utils/frame-moments';
     import { WholeScenePeek } from '../utils/whole-scene-peek.svelte';
     import { speciesPickerNames } from '../utils/species-picker';
@@ -80,7 +82,7 @@
     import { classifyInferenceProvider } from '../utils/inference-provider';
     import { isVideoPromotionGated } from '../video-promotion-gate';
     import { applyManualTagResult } from '../utils/manual-tag';
-    import { findMatchingFullFrameCandidate } from '../utils/detection-evidence';
+    import { findMatchingFullFrameCandidate, sameFrameCropCandidates } from '../utils/detection-evidence';
     import { intersectVisibleViewport } from '../utils/visible-viewport';
 
     const FRIGATE_MISSING_DOCS_URL = 'https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/dev/docs/troubleshooting/frigate-event-not-found.md';
@@ -97,6 +99,7 @@
         onDeleteSuccess?: (frigateEvent: string, detectionTime?: string) => void | Promise<void>;
         onHideSuccess?: (frigateEvent: string, detectionTime: string | undefined, isHidden: boolean) => void | Promise<void>;
         onViewSpecies: (speciesName: string) => void;
+        onbirdschanged?: () => void;
         readOnly?: boolean;
         fullVisitAvailable?: boolean;
         fullVisitFetched?: boolean;
@@ -115,6 +118,7 @@
         onDeleteSuccess,
         onHideSuccess,
         onViewSpecies,
+        onbirdschanged,
         readOnly = false,
         fullVisitAvailable = false,
         fullVisitFetched = false,
@@ -292,12 +296,14 @@
             if (detection.frigate_event !== eventId) return;
             snapshotStatus = status;
             snapshotCandidates = candidateList.candidates ?? [];
+            countedBirds = candidateList.birds ?? [];
             currentSnapshotCandidateId = candidateList.current_candidate_id ?? null;
             currentSnapshotSource = candidateList.current_source ?? status.source ?? null;
         } catch {
             if (detection.frigate_event !== eventId) return;
             snapshotStatus = null;
             snapshotCandidates = [];
+            countedBirds = [];
             currentSnapshotCandidateId = null;
             currentSnapshotSource = null;
         } finally {
@@ -361,12 +367,15 @@
         if (!eventId || !hasOwnerDetectionActions) {
             snapshotStatus = null;
             snapshotCandidates = [];
+            countedBirds = [];
             snapshotCandidatesLoading = false;
             currentSnapshotCandidateId = null;
             currentSnapshotSource = null;
             return;
         }
 
+        snapshotCandidates = [];
+        countedBirds = [];
         snapshotCandidatesLoading = true;
 
         void (async () => {
@@ -476,6 +485,7 @@
     }
     let snapshotStatus = $state<SnapshotStatusResponse | null>(null);
     let snapshotCandidates = $state<SnapshotCandidate[]>([]);
+    let countedBirds = $state<BirdObservation[]>([]);
     let snapshotCandidatesLoading = $state(false);
     let snapshotApplyPending = $state(false);
     let snapshotGeneratePending = $state(false);
@@ -818,6 +828,7 @@
             ?? snapshotCandidates.find((candidate) => candidate.selected)
             ?? null
     );
+    const wholeSceneCrops = $derived(sameFrameCropCandidates(snapshotCandidates, currentCropCandidate));
     const mediaImageUrl = $derived.by(() => {
         if (wholeScene.showing && fullFrameSnapshotCandidate?.image_url) {
             return fullFrameSnapshotCandidate.image_url;
@@ -832,14 +843,18 @@
         void detection.frigate_event;
         wholeScene.reset();
     });
-    // The outline is a DOM measurement, taken once the whole scene has loaded and again when
+    // The outlines are DOM measurements, taken once the whole scene has loaded and again when
     // the window changes size.
     function measureWholeScene() {
-        wholeScene.measure(heroImageEl, currentCropCandidate?.crop_box);
+        const otherCropBoxes = wholeSceneCrops.slice(1).flatMap((candidate) =>
+            candidate.crop_box ? [candidate.crop_box] : []
+        );
+        wholeScene.measure(heroImageEl, wholeSceneCrops[0]?.crop_box, otherCropBoxes);
     }
     $effect(() => {
         if (!wholeScene.showing) {
             wholeScene.outline = null;
+            wholeScene.otherOutlines = [];
             return;
         }
         measureWholeScene();
@@ -2322,7 +2337,7 @@
                         />
                         {#if canPeekWholeScene}
                             <!-- The whole scene is a look, not a mode (#256). Hover or focus peeks at it with
-                                 the crop outlined; a click pins it and offers the one rescue that needs it. -->
+                                 same-frame crops outlined; a click pins it and offers the one rescue that needs it. -->
                             <button
                                 type="button"
                                 class="absolute inset-0 z-10 {wholeScene.pinned ? 'cursor-zoom-out' : 'cursor-zoom-in'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/70"
@@ -2339,20 +2354,30 @@
                             ></button>
                             {#if wholeScene.showing && wholeScene.outline}
                                 <div
-                                    class="pointer-events-none absolute z-10 rounded-sm border-2 border-dashed border-white/85 shadow-[0_0_0_9999px_rgba(2,6,23,0.35)]"
+                                    class="pointer-events-none absolute z-20 rounded-sm border-2 border-solid border-sky-300 {wholeScene.otherOutlines.length === 0 ? 'shadow-[0_0_0_9999px_rgba(2,6,23,0.35)]' : ''}"
                                     style="left: {wholeScene.outline.left}px; top: {wholeScene.outline.top}px; width: {wholeScene.outline.width}px; height: {wholeScene.outline.height}px;"
                                     data-detection-whole-scene-outline
                                     aria-hidden="true"
-                                ></div>
+                                ><span class="absolute left-0 top-0 rounded bg-sky-300 px-1.5 py-0.5 text-[10px] font-bold text-slate-950">{$_('detection.frame_chosen_badge', { default: 'Chosen' })}</span></div>
+                                {#each wholeScene.otherOutlines as outline}
+                                    <div
+                                        class="pointer-events-none absolute z-10 rounded-sm border-2 border-dashed border-white/90"
+                                        style="left: {outline.left}px; top: {outline.top}px; width: {outline.width}px; height: {outline.height}px;"
+                                        data-detection-other-bird-outline
+                                        aria-hidden="true"
+                                    ></div>
+                                {/each}
                             {/if}
                             {#if wholeScene.showing}
                                 <span
                                     class="pointer-events-none absolute left-3 top-3 z-30 rounded-full border border-white/15 bg-slate-950/70 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm"
                                     data-detection-whole-scene-chip
                                 >
-                                    {wholeScene.pinned
-                                        ? $_('detection.whole_scene_chip_pinned', { default: 'Whole scene, the crop is outlined' })
-                                        : $_('detection.whole_scene_chip', { default: 'Whole scene' })}
+                                    {wholeScene.otherOutlines.length > 0
+                                        ? $_('detection.whole_scene_multiple_outlined', { values: { count: wholeScene.otherOutlines.length + 1 }, default: 'Whole scene, {count} crop regions outlined' })
+                                        : wholeScene.pinned
+                                            ? $_('detection.whole_scene_chip_pinned', { default: 'Whole scene, the crop is outlined' })
+                                            : $_('detection.whole_scene_chip', { default: 'Whole scene' })}
                                 </span>
                             {/if}
                         {/if}
@@ -2852,6 +2877,15 @@
                  into the consolidated video-status notice above. -->
 
             <!-- The facts, as rows rather than four separate boxes -->
+            {#if authStore.hasOwnerAccess && countedBirds.length > 0}
+                <CountedBirds
+                    eventId={detection.frigate_event}
+                    birds={countedBirds}
+                    candidates={snapshotCandidates}
+                    speciesOptions={classifierLabels}
+                    onchanged={(updated) => { countedBirds = countedBirds.map((bird) => bird.id === updated.id ? updated : bird); onbirdschanged?.(); }}
+                />
+            {/if}
             <dl class="divide-y divide-slate-200/70 border-y border-slate-200/70 text-xs dark:divide-slate-700/50 dark:border-slate-700/50" data-detection-facts>
                 <div class="flex items-baseline justify-between gap-3 py-2">
                     <dt class="flex items-center gap-2 text-slate-500 dark:text-slate-400">

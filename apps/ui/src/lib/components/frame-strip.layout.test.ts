@@ -3,6 +3,7 @@ import stripSource from './FrameStrip.svelte?raw';
 import previewSource from './DetectionPreview.svelte?raw';
 import filteredSource from './FilteredFramePreview.svelte?raw';
 import modalSource from './DetectionModal.svelte?raw';
+import reviewSource from './ReviewQueueModal.svelte?raw';
 
 describe('the frame strip is one ordered set of moments (#256)', () => {
     it('renders one thumbnail per moment and never a framing variant beside it', () => {
@@ -159,10 +160,12 @@ describe('the record uses the strip and drops the framing toggle (#256)', () => 
         expect(modalSource).toContain('{#if canPeekWholeScene}');
     });
 
-    it('outlines the crop on the whole scene from a measurement, never a guess', () => {
-        expect(modalSource).toContain('wholeScene.measure(heroImageEl, currentCropCandidate?.crop_box)');
+    it('outlines every retained bird crop on the matching whole scene', () => {
+        expect(modalSource).toContain('wholeScene.measure(heroImageEl, wholeSceneCrops[0]?.crop_box, otherCropBoxes)');
         expect(modalSource).toContain('onload={measureWholeScene}');
         expect(modalSource).toContain('data-detection-whole-scene-outline');
+        expect(modalSource).toContain('data-detection-other-bird-outline');
+        expect(reviewSource).toContain('data-review-other-bird-outline');
         expect(modalSource).toContain('{#if wholeScene.showing && wholeScene.outline}');
     });
 

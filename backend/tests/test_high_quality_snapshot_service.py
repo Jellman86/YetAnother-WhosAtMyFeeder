@@ -1,4 +1,5 @@
 import asyncio
+from contextlib import asynccontextmanager
 import sys
 from types import SimpleNamespace
 from io import BytesIO
@@ -38,6 +39,117 @@ def _clip_file(tmp_path):
     path = tmp_path / "clip.mp4"
     path.write_bytes(b"clip-bytes")
     return path
+
+
+def test_final_frigate_model_crop_keeps_detector_confidence_and_tight_box():
+    service = hq_module.HighQualitySnapshotService()
+    payload = service._build_final_snapshot_candidate_payload(
+        "evt-final",
+        Image.new("RGB", (160, 160), "green"),
+        source_mode="model_crop",
+        frame_size=(640, 480),
+        crop_result={
+            "box": (10, 20, 170, 180),
+            "detector_box": (50, 60, 120, 130),
+            "confidence": 0.12,
+        },
+    )
+
+    assert payload["crop_confidence"] == 0.12
+    assert payload["crop_box"] == (10, 20, 170, 180)
+    assert payload["detector_box"] == (50, 60, 120, 130)
+
+
+@pytest.mark.asyncio
+async def test_whole_frame_count_is_not_limited_by_photo_crop_choices(monkeypatch):
+    service = hq_module.HighQualitySnapshotService()
+    boxes = [{"box": (index * 60, 0, index * 60 + 40, 40), "confidence": 0.9 - index * 0.02} for index in range(10)]
+    monkeypatch.setattr(hq_module.bird_crop_service, "detect_observation_boxes", lambda image: boxes)
+    scored = [
+        {
+            "candidate_id": "whole",
+            "source_mode": "full_frame",
+            "clip_variant": "event",
+            "frame_index": 2,
+            "image_bytes": _jpeg_bytes("white", size=(640, 64)),
+        },
+        {
+            "candidate_id": "crop-0",
+            "source_mode": "model_crop",
+            "clip_variant": "event",
+            "frame_index": 2,
+            "detector_box": (0, 0, 40, 40),
+            "classifier_label": "House Finch",
+            "classifier_score": 0.91,
+            "crop_confidence": 0.9,
+        },
+    ]
+
+    observed = await service._detect_count_candidates(scored)
+    selection = hq_module.select_bird_observations(scored + observed, selected_candidate=scored[1])
+
+    assert len(selection.birds) == 10
+    assert selection.full_frame_candidate_id == "whole"
+    assert selection.birds[0].species == "House Finch"
+    assert all(bird.species == "Unknown Bird" for bird in selection.birds[1:])
+
+
+@pytest.mark.asyncio
+async def test_regeneration_retains_whole_frame_for_manually_reviewed_bird(monkeypatch):
+    service = hq_module.HighQualitySnapshotService()
+    old_full = {
+        "candidate_id": "old-full",
+        "source_mode": "full_frame",
+        "clip_variant": "event",
+        "frame_index": 1,
+        "image_ref": "old-full-image",
+        "thumbnail_ref": "old-full-thumb",
+        "ranking_score": 0.4,
+    }
+    old_crop = {
+        "candidate_id": "old-crop",
+        "source_mode": "model_crop",
+        "clip_variant": "event",
+        "frame_index": 1,
+        "image_ref": "old-crop-image",
+        "thumbnail_ref": "old-crop-thumb",
+        "ranking_score": 0.6,
+    }
+    new_full = {
+        "candidate_id": "new-full",
+        "source_mode": "full_frame",
+        "clip_variant": "event",
+        "frame_index": 2,
+        "image_ref": "new-full-image",
+        "thumbnail_ref": "new-full-thumb",
+        "ranking_score": 0.7,
+    }
+    repo = MagicMock()
+    repo.list_snapshot_candidates = AsyncMock(return_value=[old_full, old_crop])
+    repo.replace_snapshot_candidates = AsyncMock()
+    bird_repo = MagicMock()
+    bird_repo.list_for_event = AsyncMock(
+        return_value=[{"clip_variant": "event", "frame_index": 1, "manual_species": True, "is_hidden": False}]
+    )
+
+    @asynccontextmanager
+    async def fake_db():
+        yield object()
+
+    monkeypatch.setattr(hq_module, "get_db", fake_db)
+    monkeypatch.setattr(hq_module, "DetectionRepository", lambda db: repo)
+    monkeypatch.setattr(hq_module, "BirdObservationRepository", lambda db: bird_repo)
+    delete_snapshot = AsyncMock()
+    delete_thumbnail = AsyncMock()
+    monkeypatch.setattr(hq_module.media_cache, "delete_snapshot", delete_snapshot)
+    monkeypatch.setattr(hq_module.media_cache, "delete_thumbnail", delete_thumbnail)
+
+    await service._persist_snapshot_candidates("evt", [new_full])
+
+    saved = repo.replace_snapshot_candidates.await_args.args[1]
+    assert [item["candidate_id"] for item in saved] == ["new-full", "old-full"]
+    delete_snapshot.assert_awaited_once_with("old-crop-image")
+    delete_thumbnail.assert_awaited_once_with("old-crop-thumb")
 
 
 def _make_cache_service(tmp_path, monkeypatch):
@@ -307,6 +419,100 @@ def test_candidate_generation_guides_model_with_same_frame_frigate_crop(monkeypa
         "model_crop",
     ]
     assert candidates[2][2]["strategy"] == "frigate_guided"
+
+
+def test_candidate_generation_keeps_multiple_model_birds_without_changing_visit_count(monkeypatch):
+    service = hq_module.HighQualitySnapshotService()
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshot_bird_crop", True, raising=False)
+    monkeypatch.setattr(service, "_bird_crop_model_available", lambda: True)
+    monkeypatch.setattr(service, "_crop_from_event_hints", lambda image, event_data: None)
+
+    class _CropService:
+        def generate_classification_candidate_crops(self, image, *, max_crops):
+            assert max_crops == hq_module.HQ_MAX_MODEL_CROPS_PER_FRAME
+            return [
+                {"crop_image": image.crop((20, 20, 220, 220)), "box": (20, 20, 220, 220), "reason": "selected"},
+                {"crop_image": image.crop((320, 20, 520, 220)), "box": (320, 20, 520, 220), "reason": "selected"},
+            ]
+
+    monkeypatch.setattr(hq_module, "bird_crop_service", _CropService())
+    image = Image.new("RGB", (600, 400))
+    candidates = service._candidate_images_for_frame(image, event_data=None, event_id="evt-two-birds")
+
+    assert [source for source, _image, _result in candidates] == ["full_frame", "model_crop", "model_crop"]
+    assert service._build_snapshot_candidate_id(
+        "evt-two-birds", frame_index=3, source_mode="model_crop", crop_index=0
+    ) != service._build_snapshot_candidate_id("evt-two-birds", frame_index=3, source_mode="model_crop", crop_index=1)
+
+
+def test_pre_cropped_frigate_fallback_requires_matching_species_evidence():
+    service = hq_module.HighQualitySnapshotService()
+    selected = service._select_canonical_snapshot_candidate(
+        [
+            {
+                "candidate_id": "pre-cropped",
+                "source_mode": "full_frame",
+                "input_is_cropped": True,
+                "classifier_label": "Northern Cardinal",
+                "ranking_score": 0.9,
+            }
+        ],
+        expected_labels={"Black-capped Chickadee"},
+    )
+    assert selected is None
+
+
+def test_pre_cropped_frigate_fallback_without_classifier_evidence_is_not_selected():
+    service = hq_module.HighQualitySnapshotService()
+    selected = service._select_canonical_snapshot_candidate(
+        [{"candidate_id": "pre-cropped", "source_mode": "full_frame", "input_is_cropped": True, "ranking_score": 0.9}],
+        expected_labels={"Black-capped Chickadee"},
+    )
+    assert selected is None
+
+
+def test_clip_candidate_extraction_keeps_separate_birds_from_one_frame(monkeypatch):
+    service = hq_module.HighQualitySnapshotService()
+    frame = np.zeros((300, 500, 3), dtype=np.uint8)
+
+    class FakeCapture:
+        def isOpened(self):
+            return True
+
+        def get(self, prop):
+            return 1 if prop == hq_module.cv2.CAP_PROP_FRAME_COUNT else 30
+
+        def set(self, _prop, _value):
+            pass
+
+        def read(self):
+            return True, frame
+
+        def release(self):
+            pass
+
+    monkeypatch.setattr(hq_module.cv2, "VideoCapture", lambda _path: FakeCapture())
+    monkeypatch.setattr(service, "_candidate_frame_indices", lambda **_kwargs: [0])
+    monkeypatch.setattr(
+        service,
+        "_candidate_images_for_frame",
+        lambda image, **_kwargs: [
+            ("full_frame", image, None),
+            ("model_crop", image.crop((0, 0, 200, 200)), {"box": (0, 0, 200, 200)}),
+            ("model_crop", image.crop((280, 0, 480, 200)), {"box": (280, 0, 480, 200)}),
+        ],
+    )
+
+    candidates = service._extract_snapshot_candidate_payloads_from_clip_path(
+        Path("/tmp/example.mp4"), event_id="evt-two-birds"
+    )
+
+    assert len(candidates) == 3
+    assert len({candidate["candidate_id"] for candidate in candidates}) == 3
+    assert [candidate["crop_box"] for candidate in candidates[1:]] == [
+        (0, 0, 200, 200),
+        (280, 0, 480, 200),
+    ]
 
 
 @pytest.mark.asyncio
@@ -1268,6 +1474,45 @@ async def test_final_snapshot_candidates_use_uncropped_frigate_image_and_final_b
 
 
 @pytest.mark.asyncio
+async def test_final_clean_snapshot_keeps_multiple_bird_crops_when_clip_is_unavailable(monkeypatch):
+    service = hq_module.HighQualitySnapshotService()
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshot_bird_crop", True, raising=False)
+    monkeypatch.setattr(service, "_bird_crop_model_available", lambda: True)
+    monkeypatch.setattr(
+        hq_module.frigate_client,
+        "get_clean_snapshot_with_error",
+        AsyncMock(return_value=(_jpeg_bytes("blue", size=(600, 400)), None)),
+    )
+
+    class _CropService:
+        def generate_classification_candidate_crops(self, image, *, max_crops, search_box):
+            assert max_crops == hq_module.HQ_MAX_MODEL_CROPS_PER_FRAME
+            assert search_box is not None
+            return [
+                {"crop_image": image.crop((20, 20, 220, 220)), "box": (20, 20, 220, 220)},
+                {"crop_image": image.crop((320, 20, 520, 220)), "box": (320, 20, 520, 220)},
+            ]
+
+    monkeypatch.setattr(hq_module, "bird_crop_service", _CropService())
+
+    candidates = await service._load_final_frigate_snapshot_candidates(
+        "evt-two-birds", {"end_time": 102.0, "snapshot": {"box": [0.1, 0.1, 0.4, 0.5]}}
+    )
+
+    assert [candidate["source_mode"] for candidate in candidates] == [
+        "full_frame",
+        "frigate_hint_crop",
+        "model_crop",
+        "model_crop",
+    ]
+    assert len({candidate["candidate_id"] for candidate in candidates}) == 4
+    assert [candidate["crop_box"] for candidate in candidates[2:]] == [
+        (20, 20, 220, 220),
+        (320, 20, 520, 220),
+    ]
+
+
+@pytest.mark.asyncio
 async def test_final_snapshot_fallback_does_not_apply_box_to_possibly_precropped_regular_image(monkeypatch):
     service = hq_module.HighQualitySnapshotService()
     snapshot_bytes = _jpeg_bytes("blue", size=(180, 180))
@@ -1362,6 +1607,40 @@ def test_select_canonical_snapshot_candidate_requires_crop_identity_consistency(
     assert selected["candidate_id"] == "matching-crop"
 
 
+def test_select_canonical_snapshot_candidate_can_use_second_bird_crop():
+    service = hq_module.HighQualitySnapshotService()
+    selected = service._select_canonical_snapshot_candidate(
+        [
+            {
+                "candidate_id": "whole-scene",
+                "source_mode": "full_frame",
+                "ranking_score": 0.3,
+                "classifier_label": "Northern Cardinal",
+            },
+            {
+                "candidate_id": "first-bird",
+                "source_mode": "model_crop",
+                "ranking_score": 0.9,
+                "classifier_label": "Northern Cardinal",
+                "image_width": 240,
+                "image_height": 220,
+            },
+            {
+                "candidate_id": "tracked-bird",
+                "source_mode": "model_crop",
+                "ranking_score": 0.7,
+                "classifier_label": "Black-capped Chickadee",
+                "image_width": 240,
+                "image_height": 220,
+            },
+        ],
+        expected_labels={"Black-capped Chickadee"},
+    )
+
+    assert selected is not None
+    assert selected["candidate_id"] == "tracked-bird"
+
+
 def test_select_canonical_snapshot_candidate_falls_back_to_full_frame_when_every_label_conflicts():
     service = hq_module.HighQualitySnapshotService()
 
@@ -1437,6 +1716,72 @@ def test_persisted_candidates_reserve_selected_and_full_frame_fallback():
     assert "full-frame" in {candidate["candidate_id"] for candidate in persisted}
 
 
+def test_persisted_candidates_keep_whole_frame_for_selected_crop():
+    service = hq_module.HighQualitySnapshotService()
+    ranked = [
+        {
+            "candidate_id": f"crop-{index}",
+            "source_mode": "model_crop",
+            "clip_variant": "event",
+            "frame_index": index,
+            "ranking_score": 1.0 - index * 0.01,
+        }
+        for index in range(hq_module.HQ_MAX_PERSISTED_CANDIDATES)
+    ]
+    selected = {
+        "candidate_id": "chosen-crop",
+        "source_mode": "model_crop",
+        "clip_variant": "event",
+        "frame_index": 42,
+        "ranking_score": 0.2,
+    }
+    matching_full = {
+        "candidate_id": "chosen-whole-frame",
+        "source_mode": "full_frame",
+        "clip_variant": "event",
+        "frame_index": 42,
+        "ranking_score": 0.1,
+    }
+    unrelated_full = {
+        "candidate_id": "other-whole-frame",
+        "source_mode": "full_frame",
+        "clip_variant": "event",
+        "frame_index": 1,
+        "ranking_score": 0.3,
+    }
+    ranked.extend([unrelated_full, selected, matching_full])
+
+    persisted = service._select_persisted_candidates(ranked, selected_candidate=selected)
+
+    assert {"chosen-crop", "chosen-whole-frame"} <= {item["candidate_id"] for item in persisted}
+
+
+def test_persisted_candidates_keep_distinct_bird_when_first_slots_repeat_one_species():
+    service = hq_module.HighQualitySnapshotService()
+    ranked = [
+        {
+            "candidate_id": f"cardinal-{index}",
+            "source_mode": "model_crop",
+            "classifier_label": "Northern Cardinal",
+            "ranking_score": 1.0 - index * 0.01,
+        }
+        for index in range(hq_module.HQ_MAX_PERSISTED_CANDIDATES)
+    ]
+    ranked.append(
+        {
+            "candidate_id": "chickadee",
+            "source_mode": "model_crop",
+            "classifier_label": "Black-capped Chickadee",
+            "ranking_score": 0.7,
+        }
+    )
+
+    persisted = service._select_persisted_candidates(ranked, selected_candidate=ranked[0])
+
+    assert len(persisted) == hq_module.HQ_MAX_PERSISTED_CANDIDATES
+    assert "chickadee" in {candidate["candidate_id"] for candidate in persisted}
+
+
 def test_persisted_candidates_keep_final_frigate_baseline_when_clip_wins():
     service = hq_module.HighQualitySnapshotService()
     ranked = [
@@ -1468,6 +1813,45 @@ def test_persisted_candidates_keep_final_frigate_baseline_when_clip_wins():
     assert len(persisted) == hq_module.HQ_MAX_PERSISTED_CANDIDATES
     assert "frigate-final-full" in persisted_ids
     assert "frigate-final-crop" in persisted_ids
+
+
+def test_persisted_candidates_keep_every_bird_crop_from_final_still():
+    service = hq_module.HighQualitySnapshotService()
+    ranked = [
+        {
+            "candidate_id": f"clip-{index}",
+            "source_mode": "model_crop",
+            "clip_variant": "event",
+            "classifier_label": "Northern Cardinal",
+            "ranking_score": 1.0 - index * 0.01,
+        }
+        for index in range(hq_module.HQ_MAX_PERSISTED_CANDIDATES)
+    ]
+    ranked.extend(
+        {
+            "candidate_id": f"final-bird-{index}",
+            "source_mode": "model_crop",
+            "clip_variant": "frigate_snapshot",
+            "classifier_label": "Northern Cardinal",
+            "ranking_score": 0.4 - index * 0.01,
+        }
+        for index in range(hq_module.HQ_MAX_MODEL_CROPS_PER_FRAME)
+    )
+    ranked.append(
+        {
+            "candidate_id": "final-whole",
+            "source_mode": "full_frame",
+            "clip_variant": "frigate_snapshot",
+            "ranking_score": 0.1,
+        }
+    )
+
+    persisted = service._select_persisted_candidates(ranked, selected_candidate=ranked[0])
+
+    persisted_ids = {candidate["candidate_id"] for candidate in persisted}
+    assert len(persisted) == hq_module.HQ_MAX_PERSISTED_CANDIDATES
+    assert {f"final-bird-{index}" for index in range(hq_module.HQ_MAX_MODEL_CROPS_PER_FRAME)} <= persisted_ids
+    assert "final-whole" in persisted_ids
 
 
 def test_maybe_crop_snapshot_bytes_prefers_event_hint_over_model_crop(monkeypatch):

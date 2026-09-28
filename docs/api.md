@@ -266,6 +266,14 @@ per-file limits above.
   - Candidate rows include optional `crop_strategy` provenance (`native`, `frigate_guided`,
     `sliced_2x2`, or `fast_native`) for model-generated crops, and `frigate_final_box` for the
     completed-track clean-snapshot baseline.
+  - `birds` lists the individual observations counted from one analyzed full frame. Each row
+    includes its box, suggested or corrected species, detector confidence when available, and
+    `is_hidden`. The eight classified photo crops per frame do not limit the number of counted
+    detector boxes. Frigate supplies one tracked-object hint per event; a hint-only count can miss
+    other birds, and local detector results can include false positives.
+- `PATCH /api/frigate/{event_id}/birds/{bird_id}` (owner) — correct one counted bird's `species`
+  or set `is_hidden` to exclude or restore it. Send exactly one field per request. A correction
+  stays attached to the matched box when HQ candidates are regenerated.
 - `GET /api/frigate/{event_id}/snapshot/candidates/{candidate_id}/thumbnail.jpg` (owner) — the
   small chooser thumbnail for one candidate.
 - `GET /api/frigate/{event_id}/snapshot/candidates/{candidate_id}/image.jpg` (owner) — the retained
@@ -338,7 +346,9 @@ Notes:
 
 ### Statistics
 
-- `GET /api/stats/daily-summary`
+- `GET /api/stats/daily-summary` — includes `counted_birds` (visible child observations) and
+  `counted_captures` (captures with at least one stored bird observation) for the same daily
+  window. These counts cover analyzed captures and may count the same bird in later captures.
 - `GET /api/stats/detections/daily`
 - `GET /api/stats/detections/timeline`
 - `GET /api/stats/detections/activity-heatmap` (optional `species` limits the grid to one species)

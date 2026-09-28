@@ -1,8 +1,9 @@
 <script lang="ts">
     import { onDestroy, untrack } from 'svelte';
     import { applySnapshotCandidate, fetchFeederSpecies, fetchSnapshotCandidates, getThumbnailUrl } from '../api';
-    import type { Detection, SearchResult, SnapshotCandidate } from '../api';
+    import type { BirdObservation, Detection, SearchResult, SnapshotCandidate } from '../api';
     import FrameStrip from './FrameStrip.svelte';
+    import CountedBirds from './CountedBirds.svelte';
     import { getBirdNames } from '../naming';
     import { settingsStore } from '../stores/settings.svelte';
     import {
@@ -19,7 +20,7 @@
     import { formatDate, formatTime } from '../utils/datetime';
     import { trapFocus } from '../utils/focus-trap';
     import { portal } from '../utils/portal';
-    import { findMatchingFullFrameCandidate } from '../utils/detection-evidence';
+    import { findMatchingFullFrameCandidate, sameFrameCropCandidates } from '../utils/detection-evidence';
     import { WholeScenePeek } from '../utils/whole-scene-peek.svelte';
     import type { ReviewReason } from '../utils/review-queue';
     import { _ } from 'svelte-i18n';
@@ -38,9 +39,10 @@
         ondelete?: (detection: Detection) => Promise<void> | void;
         onopen?: (detection: Detection) => void;
         onclose: () => void;
+        onbirdschanged?: () => void;
     }
 
-    let { queue, labels = [], reasons, onidentify, onhide, onblock, ondelete, onopen, onclose }: Props = $props();
+    let { queue, labels = [], reasons, onidentify, onhide, onblock, ondelete, onopen, onclose, onbirdschanged }: Props = $props();
 
     let session = $state<ReviewSession>(untrack(() => createReviewSession(queue)));
     // A wide feeder shot does not settle what a 56% blur is; the crop the classifier
@@ -53,7 +55,9 @@
     // a reviewer deciding what a blurred shape is should see every moment, not only the crop
     // and its whole scene. Choosing one changes the photograph and nothing else.
     let candidates = $state<SnapshotCandidate[]>([]);
+    let countedBirds = $state<BirdObservation[]>([]);
     let photograph = $state<SnapshotCandidate | null>(null);
+    const wholeSceneCrops = $derived(sameFrameCropCandidates(candidates, photograph));
     let currentCandidateId = $state<string | null>(null);
     let currentSource = $state<string | null>(null);
     let applyingKey = $state<string | null>(null);
@@ -66,7 +70,7 @@
     // The photograph is the crop; the whole scene is a look, not a mode (#256). Same
     // controller as the detection record, so the two surfaces behave alike.
     const canPeek = $derived(
-        Boolean(crop?.image_url || crop?.thumbnail_url) && Boolean(fullFrame?.image_url || fullFrame?.thumbnail_url)
+        Boolean(photograph?.crop_box) && Boolean(fullFrame?.image_url || fullFrame?.thumbnail_url)
     );
     const wholeScene = new WholeScenePeek(() => canPeek);
     let search = $state('');
@@ -127,9 +131,10 @@
             crop = preferredCrop;
             fullFrame = findMatchingFullFrameCandidate(
                 response.candidates ?? [],
-                preferredCrop?.candidate_id ?? null
+                photograph?.candidate_id ?? null
             );
             candidates = all;
+            countedBirds = response.birds ?? [];
             currentCandidateId = response.current_candidate_id ?? null;
             currentSource = response.current_source ?? null;
         } catch {
@@ -139,6 +144,7 @@
                 fullFrame = null;
                 photograph = null;
                 candidates = [];
+                countedBirds = [];
             }
         } finally {
             if (!isCancelled()) cropLoading = false;
@@ -151,6 +157,7 @@
         fullFrame = null;
         photograph = null;
         candidates = [];
+        countedBirds = [];
         currentCandidateId = null;
         currentSource = null;
         wholeScene.reset();
@@ -193,14 +200,18 @@
                   ? getThumbnailUrl(session.current.frigate_event)
                   : ''
     );
-    // The outline is a DOM measurement, taken once the whole scene has loaded and again when
+    // The outlines are DOM measurements, taken once the whole scene has loaded and again when
     // the window changes size.
     function measureWholeScene(): void {
-        wholeScene.measure(imageEl, crop?.crop_box);
+        const otherCropBoxes = wholeSceneCrops.slice(1).flatMap((candidate) =>
+            candidate.crop_box ? [candidate.crop_box] : []
+        );
+        wholeScene.measure(imageEl, wholeSceneCrops[0]?.crop_box, otherCropBoxes);
     }
     $effect(() => {
         if (!wholeScene.showing) {
             wholeScene.outline = null;
+            wholeScene.otherOutlines = [];
             return;
         }
         measureWholeScene();
@@ -397,7 +408,7 @@
                                 onerror={() => markImageFailed(imageUrl)}
                             />
                             {#if canPeek}
-                                <!-- Hover or focus peeks at the whole scene with the crop outlined; a tap or
+                                <!-- Hover or focus peeks at the whole scene with same-frame crops outlined; a tap or
                                      click pins it. No switch, and no strategy name: how the crop was found is
                                      the app's plumbing, not the reviewer's concern. -->
                                 <button
@@ -416,16 +427,26 @@
                                 ></button>
                                 {#if wholeScene.showing && wholeScene.outline}
                                     <div
-                                        class="pointer-events-none absolute rounded-sm border-2 border-dashed border-white/85 shadow-[0_0_0_9999px_rgba(2,6,23,0.35)]"
+                                        class="pointer-events-none absolute z-20 rounded-sm border-2 border-solid border-sky-300 {wholeScene.otherOutlines.length === 0 ? 'shadow-[0_0_0_9999px_rgba(2,6,23,0.35)]' : ''}"
                                         style="left: {wholeScene.outline.left}px; top: {wholeScene.outline.top}px; width: {wholeScene.outline.width}px; height: {wholeScene.outline.height}px;"
                                         aria-hidden="true"
-                                    ></div>
+                                    ><span class="absolute left-0 top-0 rounded bg-sky-300 px-1.5 py-0.5 text-[10px] font-bold text-slate-950">{$_('detection.frame_chosen_badge', { default: 'Chosen' })}</span></div>
+                                    {#each wholeScene.otherOutlines as outline}
+                                        <div
+                                            class="pointer-events-none absolute z-10 rounded-sm border-2 border-dashed border-white/90"
+                                            style="left: {outline.left}px; top: {outline.top}px; width: {outline.width}px; height: {outline.height}px;"
+                                            data-review-other-bird-outline
+                                            aria-hidden="true"
+                                        ></div>
+                                    {/each}
                                 {/if}
                                 {#if wholeScene.showing}
-                                    <span class="pointer-events-none absolute left-3 top-3 rounded-full border border-white/15 bg-slate-950/70 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm">
-                                        {wholeScene.pinned
-                                            ? $_('detection.whole_scene_chip_pinned', { default: 'Whole scene, the crop is outlined' })
-                                            : $_('detection.whole_scene_chip', { default: 'Whole scene' })}
+                                    <span class="pointer-events-none absolute left-3 top-3 z-30 rounded-full border border-white/15 bg-slate-950/70 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm">
+                                        {wholeScene.otherOutlines.length > 0
+                                            ? $_('detection.whole_scene_multiple_outlined', { values: { count: wholeScene.otherOutlines.length + 1 }, default: 'Whole scene, {count} crop regions outlined' })
+                                            : wholeScene.pinned
+                                                ? $_('detection.whole_scene_chip_pinned', { default: 'Whole scene, the crop is outlined' })
+                                                : $_('detection.whole_scene_chip', { default: 'Whole scene' })}
                                     </span>
                                 {/if}
                             {/if}
@@ -469,6 +490,15 @@
                 </div>
 
                 <div class="flex flex-col gap-3 p-4 md:min-h-0 md:overflow-y-auto">
+                    {#if countedBirds.length > 0}
+                        <CountedBirds
+                            eventId={current.frigate_event}
+                            birds={countedBirds}
+                            {candidates}
+                            speciesOptions={labels}
+                            onchanged={(updated) => { countedBirds = countedBirds.map((bird) => bird.id === updated.id ? updated : bird); onbirdschanged?.(); }}
+                        />
+                    {/if}
                     <div>
                         <p class="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
                             {$_('dashboard.review_session.what_is_it', { default: 'What is it?' })}

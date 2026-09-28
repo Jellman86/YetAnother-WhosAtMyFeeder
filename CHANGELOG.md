@@ -6,6 +6,19 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Keep up to eight spatially distinct detector crops from each sampled high-quality snapshot frame
+  and the completed Frigate still, so another bird can be scored without creating another visit.
+  Show each distinct bird as its own photo choice in the detection and review views, retain all
+  scored crops from the completed still, keep the full frame paired with the chosen crop, and
+  outline distinct retained crop regions from that frame when peeking at the whole scene. Label
+  the chosen crop and require matching species evidence
+  before an already-cropped Frigate fallback can replace the photograph.
+  Count all distinct detector boxes independently of the eight photo-choice crops, from the frame
+  with the most birds, and record individual birds under one capture. Show every counted box on the
+  full frame, and let owners correct or exclude birds individually.
+  The dashboard shows birds found in analyzed captures separately from visits; this estimate can
+  miss birds or include false positives, and repeat captures can count a bird again.
+
 - Make the leaderboard's weekday heatmap readable. Pointing at a slot now shows its day, hour and
   count straight away (the old native tooltip took a second and never appeared on a phone); a tap
   does the same on touch screens, and the arrow keys read it from the keyboard. Bars along the top
