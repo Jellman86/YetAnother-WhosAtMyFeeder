@@ -52,6 +52,7 @@ def _write_temp_clip(contents: bytes) -> Path:
 HQ_HINT_CROP_EXPAND_RATIO = 0.36
 HQ_MODEL_CROP_EXTRA_EXPAND_RATIO = 0.18
 HQ_MAX_CROP_SCORING_FRAMES = 3
+HQ_MAX_MODEL_CROPS_PER_FRAME = 3
 HQ_MAX_PERSISTED_CANDIDATES = 8
 HQ_RECONCILE_LOOKBACK_HOURS = 6
 HQ_RECONCILE_LIMIT = 100
@@ -620,6 +621,31 @@ class HighQualitySnapshotService:
             persisted_ids.discard(str(persisted[replacement_index].get("candidate_id") or ""))
             persisted[replacement_index] = candidate
             persisted_ids.add(candidate_id)
+        for candidate in ranked:
+            candidate_id = str(candidate.get("candidate_id") or "")
+            label = self._candidate_label_key(candidate.get("classifier_label"))
+            if not label or candidate_id in persisted_ids:
+                continue
+            label_counts = Counter(self._candidate_label_key(item.get("classifier_label")) for item in persisted)
+            if label_counts[label]:
+                continue
+            replacement_index = next(
+                (
+                    index
+                    for index in range(len(persisted) - 1, -1, -1)
+                    if str(persisted[index].get("candidate_id") or "") not in required_ids
+                    and (
+                        not self._candidate_label_key(persisted[index].get("classifier_label"))
+                        or label_counts[self._candidate_label_key(persisted[index].get("classifier_label"))] > 1
+                    )
+                ),
+                None,
+            )
+            if replacement_index is None:
+                break
+            persisted_ids.discard(str(persisted[replacement_index].get("candidate_id") or ""))
+            persisted[replacement_index] = candidate
+            persisted_ids.add(candidate_id)
         return self._rank_snapshot_candidates(persisted)
 
     async def _load_expected_species_labels(self, event_id: str) -> set[str]:
@@ -719,8 +745,12 @@ class HighQualitySnapshotService:
             full_frames = [
                 item
                 for item in full_frames
-                if not self._candidate_label_key(item.get("classifier_label"))
-                or self._candidate_label_key(item.get("classifier_label")) in normalized_expected
+                if (
+                    self._candidate_label_key(item.get("classifier_label")) in normalized_expected
+                    or (
+                        not item.get("input_is_cropped") and not self._candidate_label_key(item.get("classifier_label"))
+                    )
+                )
             ]
             usable_crops = [
                 item
@@ -728,6 +758,7 @@ class HighQualitySnapshotService:
                 if self._candidate_label_key(item.get("classifier_label")) in normalized_expected
             ]
         else:
+            full_frames = [item for item in full_frames if not item.get("input_is_cropped")]
             supported_labels = crop_labels_with_independent_support(usable_crops)
             usable_crops = [
                 item
@@ -737,9 +768,10 @@ class HighQualitySnapshotService:
 
         pool = full_frames + usable_crops
         if not pool:
-            if not all_full_frames:
+            safe_full_frames = [item for item in all_full_frames if not item.get("input_is_cropped")]
+            if not safe_full_frames:
                 return None
-            pool = all_full_frames
+            pool = safe_full_frames
         selected = max(pool, key=lambda item: float(item.get("ranking_score") or 0.0))
         if str(selected.get("source_mode") or "") != "model_crop":
             return selected
@@ -871,16 +903,20 @@ class HighQualitySnapshotService:
                     clip_variant=clip_variant,
                     image_size=base_image.size,
                 )
+                source_ordinals: Counter[str] = Counter()
                 for source_mode, candidate_image, crop_result in self._candidate_images_for_frame(
                     base_image,
                     event_data=frame_event_data,
                     event_id=event_id,
                 ):
                     image_bytes = self._encode_pil_to_jpeg_bytes(candidate_image)
+                    crop_index = source_ordinals[source_mode]
+                    source_ordinals[source_mode] += 1
                     candidate_id = self._build_snapshot_candidate_id(
                         event_id,
                         frame_index=frame_index,
                         source_mode=source_mode,
+                        crop_index=crop_index,
                     )
                     if candidate_id in seen:
                         continue
@@ -930,18 +966,45 @@ class HighQualitySnapshotService:
             candidates.append(("frigate_hint_crop", hint_image, hint_result))
         if self._automatic_crop_enabled() and self._bird_crop_model_available():
             hint_box = hint_result.get("box") if isinstance(hint_result, dict) else None
-            if isinstance(hint_box, (list, tuple)) and len(hint_box) == 4:
-                model_result = self._crop_candidate_from_bird_model(
+            search_box = (
+                tuple(int(value) for value in hint_box)
+                if isinstance(hint_box, (list, tuple)) and len(hint_box) == 4
+                else None
+            )
+            candidates.extend(self._model_crop_images_for_frame(image, event_id=event_id, search_box=search_box))
+        return candidates
+
+    def _model_crop_images_for_frame(
+        self,
+        image: Image.Image,
+        *,
+        event_id: str,
+        search_box: tuple[int, int, int, int] | None,
+    ) -> list[tuple[str, Image.Image, dict[str, Any]]]:
+        multi_generator = getattr(bird_crop_service, "generate_classification_candidate_crops", None)
+        model_results: list[dict[str, Any]] = []
+        if callable(multi_generator):
+            try:
+                model_results = multi_generator(
                     image,
-                    event_id=event_id,
-                    search_box=tuple(int(value) for value in hint_box),
+                    max_crops=HQ_MAX_MODEL_CROPS_PER_FRAME,
+                    **({"search_box": search_box} if search_box is not None else {}),
                 )
-            else:
-                model_result = self._crop_candidate_from_bird_model(image, event_id=event_id)
+            except Exception as exc:
+                log.warning("Multi-bird snapshot crop generation failed", event_id=event_id, error=str(exc))
+        if not model_results:
+            fallback = self._crop_candidate_from_bird_model(
+                image,
+                event_id=event_id,
+                **({"search_box": search_box} if search_box is not None else {}),
+            )
+            model_results = [fallback] if isinstance(fallback, dict) else []
+        crops: list[tuple[str, Image.Image, dict[str, Any]]] = []
+        for model_result in model_results[:HQ_MAX_MODEL_CROPS_PER_FRAME]:
             model_image = model_result.get("crop_image") if isinstance(model_result, dict) else None
             if isinstance(model_image, Image.Image):
-                candidates.append(("model_crop", model_image, model_result))
-        return candidates
+                crops.append(("model_crop", model_image, model_result))
+        return crops
 
     async def _load_final_frigate_snapshot_candidates(
         self,
@@ -1013,6 +1076,27 @@ class HighQualitySnapshotService:
                     crop_result=crop_result,
                 )
             )
+        if clean_copy_available and self._automatic_crop_enabled() and self._bird_crop_model_available():
+            hint_box = crop_result.get("box") if isinstance(crop_result, dict) else None
+            search_box = (
+                tuple(int(value) for value in hint_box)
+                if isinstance(hint_box, (list, tuple)) and len(hint_box) == 4
+                else None
+            )
+            model_crops = await asyncio.to_thread(
+                self._model_crop_images_for_frame, image, event_id=event_id, search_box=search_box
+            )
+            for crop_index, (_source_mode, model_image, model_result) in enumerate(model_crops):
+                candidates.append(
+                    self._build_final_snapshot_candidate_payload(
+                        event_id,
+                        model_image,
+                        source_mode="model_crop",
+                        frame_size=image.size,
+                        crop_result=model_result,
+                        crop_index=crop_index,
+                    )
+                )
         return candidates
 
     def _build_final_snapshot_candidate_payload(
@@ -1025,10 +1109,15 @@ class HighQualitySnapshotService:
         crop_result: Optional[dict[str, Any]] = None,
         input_is_cropped: bool | None = None,
         snapshot_source: str | None = None,
+        crop_index: int = 0,
     ) -> dict[str, Any]:
         """Create a persisted candidate row for Frigate's final still image."""
-        digest = hashlib.sha1(f"{event_id}:frigate_snapshot:{source_mode}".encode("utf-8")).hexdigest()[:10]
-        candidate_id = f"{event_id}__{source_mode}__final__{digest}"
+        identity = f"{event_id}:frigate_snapshot:{source_mode}"
+        if crop_index:
+            identity += f":{crop_index}"
+        digest = hashlib.sha1(identity.encode("utf-8")).hexdigest()[:10]
+        suffix = f"__c{crop_index}" if crop_index else ""
+        candidate_id = f"{event_id}__{source_mode}__final{suffix}__{digest}"
         frame_width, frame_height = frame_size or image.size
         encoded = self._encode_pil_to_jpeg_bytes(image)
         return {
@@ -1354,9 +1443,15 @@ class HighQualitySnapshotService:
         )
         return buffer.getvalue()
 
-    def _build_snapshot_candidate_id(self, event_id: str, *, frame_index: int, source_mode: str) -> str:
-        digest = hashlib.sha1(f"{event_id}:{frame_index}:{source_mode}".encode("utf-8")).hexdigest()[:10]
-        return f"{event_id}__{source_mode}__f{frame_index}__{digest}"
+    def _build_snapshot_candidate_id(
+        self, event_id: str, *, frame_index: int, source_mode: str, crop_index: int = 0
+    ) -> str:
+        identity = f"{event_id}:{frame_index}:{source_mode}"
+        if crop_index:
+            identity += f":{crop_index}"
+        digest = hashlib.sha1(identity.encode("utf-8")).hexdigest()[:10]
+        suffix = f"__c{crop_index}" if crop_index else ""
+        return f"{event_id}__{source_mode}__f{frame_index}{suffix}__{digest}"
 
     async def wait_for_idle(self) -> None:
         """Wait for all scheduled replacement tasks to complete."""
