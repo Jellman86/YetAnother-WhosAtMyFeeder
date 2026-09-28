@@ -7,10 +7,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ## [Unreleased]
 
 - Keep up to three spatially distinct detector crops from each sampled high-quality snapshot frame
-  and the completed Frigate still,
-  so a second bird can be scored and offered as an alternate without creating another visit.
-  Preserve a classified option for each distinct species within the bounded review list, and do
-  not choose an already-cropped Frigate fallback without matching species evidence.
+  and the completed Frigate still, so another bird can be scored without creating another visit.
+  Show each distinct bird as its own photo choice in the detection and review views, retain all
+  scored crops from the completed still, and require matching species evidence before an
+  already-cropped Frigate fallback can replace the photograph.
 
 - Make the leaderboard's weekday heatmap readable. Pointing at a slot now shows its day, hour and
   count straight away (the old native tooltip took a second and never appeared on a phone); a tap

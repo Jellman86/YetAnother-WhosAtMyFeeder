@@ -9,9 +9,9 @@
     } from '../utils/frame-moments';
 
     /**
-     * One ordered strip of the visit's moments (#256).
+     * One ordered strip of the visit's photograph choices (#256).
      *
-     * Each thumbnail is a moment of the visit, oldest first. Hover or focus opens a pop-out
+     * A frame with several birds offers each crop separately. Hover or focus opens a pop-out
      * that shows the frame at decision size with what the model read in it, and one action,
      * "Use this frame", which changes the record's photograph and nothing else. Where a frame
      * came from is not shown here; Details holds that.
@@ -49,6 +49,7 @@
     }: Props = $props();
 
     let openIndex = $state<number | null>(null);
+    const hasMultipleBirdChoices = $derived(moments.some((moment) => moment.choice === 'crop'));
     let rootEl = $state<HTMLElement | null>(null);
     let triggers = $state<HTMLElement[]>([]);
     let closeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -310,6 +311,18 @@
         const score = moment.read.score === null ? null : Math.round(moment.read.score * 100);
         return score === null ? moment.read.label : `${moment.read.label} ${score}%`;
     }
+
+    function positionLabel(moment: FrameMoment): string {
+        return hasMultipleBirdChoices
+            ? $_('detection.photo_option_position', {
+                values: { position: moment.position, count: moments.length },
+                default: 'Photo option {position} of {count}'
+            })
+            : $_('detection.frame_position', {
+                values: { position: moment.position, count: moments.length },
+                default: 'Frame {position} of {count}'
+            });
+    }
 </script>
 
 <div
@@ -329,11 +342,13 @@
             {:else if moments.length === 0}
                 {$_('detection.frame_strip_empty', { default: 'No frames kept from this visit yet.' })}
             {:else if moments.length === 1}
-                {$_('detection.frame_strip_count_one', { default: '1 frame from this visit' })}
+                {hasMultipleBirdChoices
+                    ? $_('detection.photo_option_count_one', { default: '1 photo option from this visit' })
+                    : $_('detection.frame_strip_count_one', { default: '1 frame from this visit' })}
             {:else}
-                {$_('detection.frame_strip_count', {
+                {$_(hasMultipleBirdChoices ? 'detection.photo_option_count' : 'detection.frame_strip_count', {
                     values: { count: moments.length },
-                    default: '{count} frames from this visit'
+                    default: hasMultipleBirdChoices ? '{count} photo options from this visit' : '{count} frames from this visit'
                 })}
             {/if}
         </span>
@@ -363,9 +378,9 @@
                                 : 'opacity-80 hover:opacity-100'}"
                             aria-pressed={chosen}
                             aria-expanded={openIndex === index}
-                            aria-label={$_('detection.frame_compare', {
+                            aria-label={$_(hasMultipleBirdChoices ? 'detection.photo_option_compare' : 'detection.frame_compare', {
                                 values: { position: moment.position, count: moments.length },
-                                default: 'Compare frame {position} of {count}'
+                                default: hasMultipleBirdChoices ? 'Compare photo option {position} of {count}' : 'Compare frame {position} of {count}'
                             })}
                             onclick={(event) => { event.stopPropagation(); show(index); }}
                             onkeydown={(event) => handleTriggerKeydown(event, index)}
@@ -427,10 +442,7 @@
                               <div
                                 class="relative"
                                 role="group"
-                                aria-label={$_('detection.frame_position', {
-                                    values: { position: moment.position, count: moments.length },
-                                    default: 'Frame {position} of {count}'
-                                })}
+                                aria-label={positionLabel(moment)}
                               >
                                 <button
                                     type="button"
@@ -443,7 +455,9 @@
                                 {#if image && !failed.has(moment.key)}
                                     <img
                                         src={image}
-                                        alt={primaryName}
+                                        alt={hasMultipleBirdChoices
+                                            ? $_('detection.photo_option_image_alt', { default: 'Candidate photograph from this visit' })
+                                            : primaryName}
                                         loading="lazy"
                                         decoding="async"
                                         class="w-full bg-slate-950 object-contain {anchor.sheet ? 'h-56' : 'h-40'}"
@@ -459,10 +473,7 @@
                                 <div class="flex flex-col gap-1.5 p-3 text-[13px]">
                                     <div class="flex items-baseline justify-between gap-2">
                                         <span class="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
-                                            {$_('detection.frame_position', {
-                                                values: { position: moment.position, count: moments.length },
-                                                default: 'Frame {position} of {count}'
-                                            })}
+                                            {positionLabel(moment)}
                                             &middot; {framingLabel(moment)}
                                         </span>
                                         {#if formatOffset(moment.offsetSeconds)}
@@ -471,7 +482,7 @@
                                     </div>
                                     {#if read}
                                         <div class="flex items-baseline justify-between gap-2">
-                                            <span class="text-slate-400">{$_('detection.frame_model_read', { default: 'Model reads this frame as' })}</span>
+                                            <span class="text-slate-400">{$_(moment.choice === 'crop' ? 'detection.photo_option_model_read' : 'detection.frame_model_read', { default: moment.choice === 'crop' ? 'Model reads this crop as' : 'Model reads this frame as' })}</span>
                                             <span class="shrink-0 font-semibold text-white">{read}</span>
                                         </div>
                                         <p class="text-xs text-slate-500">
@@ -498,7 +509,7 @@
                                             {#if applying}
                                                 <span class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden="true"></span>
                                             {/if}
-                                            {$_('detection.frame_use', { default: 'Use this frame' })}
+                                            {$_(hasMultipleBirdChoices ? 'detection.photo_option_use' : 'detection.frame_use', { default: hasMultipleBirdChoices ? 'Use this photo' : 'Use this frame' })}
                                         </button>
                                     {/if}
                                 </div>

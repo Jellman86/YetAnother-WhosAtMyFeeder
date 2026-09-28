@@ -52,6 +52,7 @@ def _write_temp_clip(contents: bytes) -> Path:
 HQ_HINT_CROP_EXPAND_RATIO = 0.36
 HQ_MODEL_CROP_EXTRA_EXPAND_RATIO = 0.18
 HQ_MAX_CROP_SCORING_FRAMES = 3
+# Three sampled frames plus the final still can already require twelve crop classifier reads.
 HQ_MAX_MODEL_CROPS_PER_FRAME = 3
 HQ_MAX_PERSISTED_CANDIDATES = 8
 HQ_RECONCILE_LOOKBACK_HOURS = 6
@@ -584,23 +585,8 @@ class HighQualitySnapshotService:
         final_snapshot_candidates = [
             item for item in ranked if str(item.get("clip_variant") or "") == "frigate_snapshot"
         ]
-        best_final_snapshot = max(
-            final_snapshot_candidates,
-            key=lambda item: float(item.get("ranking_score") or 0.0),
-            default=None,
-        )
-        final_full_frame = next(
-            (
-                item
-                for item in final_snapshot_candidates
-                if str(item.get("source_mode") or "full_frame") == "full_frame"
-            ),
-            None,
-        )
         required = [
-            item
-            for item in (selected_candidate, best_full_frame, best_final_snapshot, final_full_frame)
-            if item is not None
+            item for item in (selected_candidate, best_full_frame, *final_snapshot_candidates) if item is not None
         ]
         required_ids = {str(item.get("candidate_id") or "") for item in required}
         persisted_ids = {str(item.get("candidate_id") or "") for item in persisted}

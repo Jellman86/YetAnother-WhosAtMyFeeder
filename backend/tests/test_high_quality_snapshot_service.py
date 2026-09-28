@@ -1663,6 +1663,45 @@ def test_persisted_candidates_keep_final_frigate_baseline_when_clip_wins():
     assert "frigate-final-crop" in persisted_ids
 
 
+def test_persisted_candidates_keep_every_bird_crop_from_final_still():
+    service = hq_module.HighQualitySnapshotService()
+    ranked = [
+        {
+            "candidate_id": f"clip-{index}",
+            "source_mode": "model_crop",
+            "clip_variant": "event",
+            "classifier_label": "Northern Cardinal",
+            "ranking_score": 1.0 - index * 0.01,
+        }
+        for index in range(hq_module.HQ_MAX_PERSISTED_CANDIDATES)
+    ]
+    ranked.extend(
+        {
+            "candidate_id": f"final-bird-{index}",
+            "source_mode": "model_crop",
+            "clip_variant": "frigate_snapshot",
+            "classifier_label": "Northern Cardinal",
+            "ranking_score": 0.4 - index * 0.01,
+        }
+        for index in range(hq_module.HQ_MAX_MODEL_CROPS_PER_FRAME)
+    )
+    ranked.append(
+        {
+            "candidate_id": "final-whole",
+            "source_mode": "full_frame",
+            "clip_variant": "frigate_snapshot",
+            "ranking_score": 0.1,
+        }
+    )
+
+    persisted = service._select_persisted_candidates(ranked, selected_candidate=ranked[0])
+
+    persisted_ids = {candidate["candidate_id"] for candidate in persisted}
+    assert len(persisted) == hq_module.HQ_MAX_PERSISTED_CANDIDATES
+    assert {f"final-bird-{index}" for index in range(hq_module.HQ_MAX_MODEL_CROPS_PER_FRAME)} <= persisted_ids
+    assert "final-whole" in persisted_ids
+
+
 def test_maybe_crop_snapshot_bytes_prefers_event_hint_over_model_crop(monkeypatch):
     service = hq_module.HighQualitySnapshotService()
     monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshot_bird_crop", True, raising=False)

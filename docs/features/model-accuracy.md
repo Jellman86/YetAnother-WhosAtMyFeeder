@@ -135,12 +135,15 @@ The final still can also complete the HQ replacement by itself when all clip sou
 
 When a sampled frame or Frigate's clean completed still contains more than one bird, the HQ
 snapshot path keeps up to three distinct detector crops and scores each separately. It compares
-their classifications with the tracked
-visit's existing identity before choosing a stored photograph. The bounded alternate-image list
-keeps distinct classified species available for review. These crops remain candidates for one
-Frigate event, not separate visits, and several crops from one frame still count as one temporal
-observation. If only Frigate's regular, possibly pre-cropped snapshot is available, it needs a
-matching classification before it can replace the current photograph.
+their classifications with the tracked visit's existing identity before choosing a stored
+photograph. The detection and review views show spatially distinct crops as separate photo choices,
+each with its own tentative model read; choosing a photo does not change the visit's species.
+Every scored crop from the completed still is kept in the bounded review list, even when another
+bird's crop scored higher.
+These crops remain candidates for one Frigate event, not separate visits, and several crops from
+one frame still count as one temporal observation. If only Frigate's regular, possibly pre-cropped
+snapshot is available, it needs a matching classification before it can replace the current
+photograph.
 
 The same correction fixes time-aligned event crops: Frigate `path_data` coordinates describe each
 tracked box's **bottom-centre**, not its geometric centre. YA-WAMF now reconstructs the box with

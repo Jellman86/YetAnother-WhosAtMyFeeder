@@ -115,10 +115,11 @@ slim bar: subject, camera, time, close
 The photograph is always the crop. The whole scene is a look, not a mode: hover or focus on
 the photograph peeks at it with the crop outlined, a click pins it, and only the pinned state
 offers "Use the whole scene as the photograph". Beneath the photograph is one strip of the
-visit's moments in time order (`FrameStrip`), one thumbnail per moment; where a frame came from
-is not shown, and the framings of one moment fold into it. Each thumbnail opens a pop-out on
-hover or focus with the frame at decision size, what the model read in it (labelled as a read),
-and one action, "Use this frame", which changes the photograph and never the identification.
+visit's moments in time order (`FrameStrip`), normally one thumbnail per moment; where a frame
+came from is not shown, and framings of the same bird fold into it. If separate birds share a
+frame, each spatially distinct crop has its own photo choice and tentative model read. Each
+thumbnail opens a pop-out on hover or focus with the photograph at decision size and one action
+to use that photograph without changing the identification.
 There is no Best crop / Full frame switch and no preview-then-save step (#256). The peek is
 `WholeScenePeek` in `utils/whole-scene-peek.svelte.ts`, and the review queue uses the same one, and
 the same `FrameStrip` beneath its photograph, so every frame kept from a visit is there to decide
