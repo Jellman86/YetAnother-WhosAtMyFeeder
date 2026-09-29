@@ -388,7 +388,7 @@ class BirdCropService:
 
         try:
             model = self._ensure_model_for_tier("accurate")
-            raw_candidates = self._infer_candidates(model, image) if model is not None else []
+            raw_candidates = self._infer_frame_candidates(model, image) if model is not None else []
         except Exception as exc:
             log.warning("Multi-bird crop detection failed", error=str(exc))
             raw_candidates = []
@@ -424,6 +424,10 @@ class BirdCropService:
             fallback = self.generate_classification_candidate_crop(image)
             if isinstance(fallback.get("crop_image"), Image.Image):
                 selected.append(fallback)
+        if selected:
+            # Keep every detector box with the first photo choice. HQ counting can reuse this
+            # scan instead of running the full-frame and tile detector a second time.
+            selected[0]["observation_boxes"] = self._usable_observation_boxes(raw_candidates, image.size)
         return selected[:limit]
 
     def detect_observation_boxes(self, image: Image.Image) -> list[dict[str, Any]]:
@@ -432,10 +436,40 @@ class BirdCropService:
             return []
         try:
             model = self._ensure_model_for_tier("accurate")
-            raw = self._infer_candidates(model, image) if model is not None else []
+            raw = self._infer_frame_candidates(model, image) if model is not None else []
         except Exception as exc:
             log.warning("Bird observation detection failed", error=str(exc))
             return []
+        return self._usable_observation_boxes(raw, image.size)
+
+    def _infer_frame_candidates(self, model: Any, image: Image.Image) -> list[dict[str, Any]]:
+        """Scan large scenes in overlapping tiles so small birds keep useful model pixels."""
+        candidates = [item for item in self._infer_candidates(model, image) if isinstance(item, dict)]
+        if image.width < 3000 or image.height < 1500:
+            return candidates
+        for tile_box in self._classification_tile_boxes(image.size, grid_size=3):
+            tile = image.crop(tile_box)
+            for item in self._infer_candidates(model, tile):
+                if not isinstance(item, dict):
+                    continue
+                raw_box = self._extract_box(item)
+                if raw_box is None:
+                    continue
+                candidates.append(
+                    {
+                        "box": (
+                            raw_box[0] + tile_box[0],
+                            raw_box[1] + tile_box[1],
+                            raw_box[2] + tile_box[0],
+                            raw_box[3] + tile_box[1],
+                        ),
+                        "confidence": self._coerce_confidence(item),
+                    }
+                )
+        return candidates
+
+    def _usable_observation_boxes(self, raw: list[dict[str, Any]], image_size: tuple[int, int]) -> list[dict[str, Any]]:
+        width, height = image_size
         observations: list[dict[str, Any]] = []
         for item in sorted(
             (item for item in raw if isinstance(item, dict)),
@@ -449,10 +483,10 @@ class BirdCropService:
             box = self._normalize_box(raw_box) if raw_box else None
             if box is None:
                 continue
-            left = max(0, min(image.width, box[0]))
-            top = max(0, min(image.height, box[1]))
-            right = max(0, min(image.width, box[2]))
-            bottom = max(0, min(image.height, box[3]))
+            left = max(0, min(width, box[0]))
+            top = max(0, min(height, box[1]))
+            right = max(0, min(width, box[2]))
+            bottom = max(0, min(height, box[3]))
             if right - left < 24 or bottom - top < 24:
                 continue
             observations.append({"box": (left, top, right, bottom), "confidence": confidence})
@@ -470,6 +504,15 @@ class BirdCropService:
             second_area = max(0.0, float(second[2]) - float(second[0])) * max(0.0, float(second[3]) - float(second[1]))
         except (IndexError, TypeError, ValueError):
             return 0.0
+        smaller_area = min(first_area, second_area)
+        larger_area = max(first_area, second_area)
+        if smaller_area <= 0.0:
+            return 0.0
+        # Nearby detections of one bird often have noticeably different edges across
+        # tiles. A group-sized box can contain a real single-bird crop, so only use
+        # overlap of the smaller box when the two boxes have comparable areas.
+        if smaller_area / larger_area >= 0.5:
+            return intersection / smaller_area
         union = first_area + second_area - intersection
         return intersection / union if union > 0.0 else 0.0
 
@@ -615,14 +658,16 @@ class BirdCropService:
             return None
         return max(selected, key=lambda result: float(result.get("confidence") or 0.0))
 
-    def _classification_tile_boxes(self, image_size: tuple[int, int]) -> list[tuple[int, int, int, int]]:
+    def _classification_tile_boxes(
+        self, image_size: tuple[int, int], *, grid_size: int | None = None
+    ) -> list[tuple[int, int, int, int]]:
         width, height = (max(0, int(image_size[0])), max(0, int(image_size[1])))
         model_input = self.CLASSIFICATION_TILE_MODEL_INPUT_SIZE
         if min(width, height) < model_input or max(width, height) < model_input * 2:
             return []
 
         overlap = min(0.49, max(0.0, float(self.CLASSIFICATION_TILE_OVERLAP_RATIO)))
-        grid_size = max(2, int(self.CLASSIFICATION_TILE_GRID_SIZE))
+        grid_size = max(2, int(grid_size or self.CLASSIFICATION_TILE_GRID_SIZE))
         divisor = float(grid_size) - (float(grid_size - 1) * overlap)
         tile_width = min(width, max(1, int(math.ceil(float(width) / divisor))))
         tile_height = min(height, max(1, int(math.ceil(float(height) / divisor))))

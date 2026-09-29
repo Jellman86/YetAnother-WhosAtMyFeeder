@@ -589,15 +589,29 @@ class HighQualitySnapshotService:
         for full in scored:
             if full.get("source_mode") != "full_frame" or full.get("input_is_cropped") is True:
                 continue
-            image_bytes = full.get("image_bytes")
-            if not isinstance(image_bytes, (bytes, bytearray)):
-                continue
-            try:
-                image = await asyncio.to_thread(decode_image_bytes, bytes(image_bytes), convert_rgb=True)
-                boxes = await asyncio.to_thread(detector, image)
-            except Exception as exc:
-                log.warning("Whole-frame bird count failed", candidate_id=full.get("candidate_id"), error=str(exc))
-                continue
+            cached = next(
+                (
+                    crop.get("observation_boxes")
+                    for crop in scored
+                    if crop.get("source_mode") == "model_crop"
+                    and crop.get("clip_variant") == full.get("clip_variant")
+                    and crop.get("frame_index") == full.get("frame_index")
+                    and isinstance(crop.get("observation_boxes"), list)
+                ),
+                None,
+            )
+            if cached is not None:
+                boxes = cached
+            else:
+                image_bytes = full.get("image_bytes")
+                if not isinstance(image_bytes, (bytes, bytearray)):
+                    continue
+                try:
+                    image = await asyncio.to_thread(decode_image_bytes, bytes(image_bytes), convert_rgb=True)
+                    boxes = await asyncio.to_thread(detector, image)
+                except Exception as exc:
+                    log.warning("Whole-frame bird count failed", candidate_id=full.get("candidate_id"), error=str(exc))
+                    continue
             for index, item in enumerate(boxes):
                 box = item.get("box") if isinstance(item, dict) else None
                 confidence = item.get("confidence") if isinstance(item, dict) else None
@@ -610,10 +624,15 @@ class HighQualitySnapshotService:
                     and crop.get("clip_variant") == full.get("clip_variant")
                     and crop.get("frame_index") == full.get("frame_index")
                     and isinstance(crop.get("detector_box"), (tuple, list))
-                    and self._box_overlap(crop["detector_box"], box) >= 0.4
+                    and self._box_iou(crop["detector_box"], box) >= 0.5
                 ]
                 matching = max(
-                    matching_crops, key=lambda crop: float(crop.get("classifier_score") or 0.0), default=None
+                    matching_crops,
+                    key=lambda crop: (
+                        self._box_iou(crop["detector_box"], box),
+                        float(crop.get("classifier_score") or 0.0),
+                    ),
+                    default=None,
                 )
                 observations.append(
                     {
@@ -631,14 +650,14 @@ class HighQualitySnapshotService:
         return observations
 
     @staticmethod
-    def _box_overlap(left: tuple | list, right: tuple | list) -> float:
+    def _box_iou(left: tuple | list, right: tuple | list) -> float:
         intersection = max(0.0, min(left[2], right[2]) - max(left[0], right[0])) * max(
             0.0, min(left[3], right[3]) - max(left[1], right[1])
         )
         left_area = max(0.0, left[2] - left[0]) * max(0.0, left[3] - left[1])
         right_area = max(0.0, right[2] - right[0]) * max(0.0, right[3] - right[1])
-        smaller_area = min(left_area, right_area)
-        return intersection / smaller_area if smaller_area > 0 else 0.0
+        union = left_area + right_area - intersection
+        return intersection / union if union > 0 else 0.0
 
     def _select_persisted_candidates(
         self,
@@ -1017,6 +1036,9 @@ class HighQualitySnapshotService:
                             "detector_box": (crop_result or {}).get("detector_box")
                             if isinstance(crop_result, dict)
                             else None,
+                            "observation_boxes": (crop_result or {}).get("observation_boxes")
+                            if isinstance(crop_result, dict)
+                            else None,
                             "crop_confidence": (crop_result or {}).get("confidence")
                             if isinstance(crop_result, dict)
                             else None,
@@ -1214,6 +1236,9 @@ class HighQualitySnapshotService:
             "clip_variant": "frigate_snapshot",
             "crop_box": (crop_result or {}).get("box") if isinstance(crop_result, dict) else None,
             "detector_box": (crop_result or {}).get("detector_box") if isinstance(crop_result, dict) else None,
+            "observation_boxes": (crop_result or {}).get("observation_boxes")
+            if isinstance(crop_result, dict)
+            else None,
             "crop_confidence": (crop_result or {}).get("confidence") if isinstance(crop_result, dict) else None,
             "crop_strategy": (crop_result or {}).get("strategy") if isinstance(crop_result, dict) else None,
             "thumbnail_ref": f"{candidate_id}__thumb",
@@ -1522,6 +1547,7 @@ class HighQualitySnapshotService:
             row = dict(candidate)
             row.pop("image_bytes", None)
             row.pop("thumbnail_bytes", None)
+            row.pop("observation_boxes", None)
             persisted_rows.append(row)
         async with get_db() as db:
             repo = DetectionRepository(db)

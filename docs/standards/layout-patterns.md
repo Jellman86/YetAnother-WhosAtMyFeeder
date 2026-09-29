@@ -38,8 +38,8 @@ inflate the count. Show that count separately from visits and name its coverage:
 captures analyzed with the high-quality crop model. A detector estimate needs visible boxes and
 an owner correction path because it can miss birds or mark other objects.
 Frigate's event box localizes its one tracked bird; it is not a scene-wide list. The local crop
-detector scans the full frame for additional birds. When it is unavailable, the UI must say that
-only the Frigate hint could be counted.
+detector scans the full frame and overlapping tiles on large high-resolution scenes for additional
+birds. When it is unavailable, the UI must say that only the Frigate hint could be counted.
 The eight classified photo crops per frame are a performance limit on photograph choices, not a
 limit on counted detector boxes. The count still reflects only birds the detector localized in an
 analyzed frame, so it must not be presented as an exact census.
