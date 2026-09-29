@@ -269,8 +269,9 @@ per-file limits above.
   - `birds` lists the individual observations counted from one analyzed full frame. Each row
     includes its box, suggested or corrected species, detector confidence when available, and
     `is_hidden`. The eight classified photo crops per frame do not limit the number of counted
-    detector boxes. Frigate supplies one tracked-object hint per event; a hint-only count can miss
-    other birds, and local detector results can include false positives.
+    detector boxes. Large high-resolution frames are also scanned in overlapping tiles so distant
+    birds occupy more detector pixels. Frigate supplies one tracked-object hint per event; a
+    hint-only count can miss other birds, and local detector results can include false positives.
 - `PATCH /api/frigate/{event_id}/birds/{bird_id}` (owner) — correct one counted bird's `species`
   or set `is_hidden` to exclude or restore it. Send exactly one field per request. A correction
   stays attached to the matched box when HQ candidates are regenerated.

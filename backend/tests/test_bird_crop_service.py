@@ -27,6 +27,33 @@ def test_observation_boxes_are_not_capped_by_photo_choice_limit(monkeypatch):
     assert boxes[-1]["box"] == (440, 10, 470, 50)
 
 
+def test_large_scene_tiles_birds_and_keeps_all_boxes_when_photo_choices_are_bounded(monkeypatch):
+    service = BirdCropService()
+    image = _make_image(3840, 2160)
+    sizes = []
+    monkeypatch.setattr(service, "_ensure_model_for_tier", lambda tier: object())
+
+    def infer(_model, frame):
+        sizes.append(frame.size)
+        return [{"box": (100, 100, 220, 220), "confidence": 0.8}]
+
+    monkeypatch.setattr(service, "_infer_candidates", infer)
+
+    crops = service.generate_classification_candidate_crops(image, max_crops=3)
+
+    assert len(sizes) == 10  # whole 4K frame plus nine overlapping tiles
+    assert len(crops) == 3
+    assert len(crops[0]["observation_boxes"]) == 10
+    assert any(box["box"][0] > 2000 for box in crops[0]["observation_boxes"])
+
+
+def test_crop_overlap_merges_similar_tile_boxes_but_keeps_a_group_sized_box():
+    overlap = BirdCropService._box_overlap_ratio
+
+    assert overlap((1157, 631, 1401, 830), (1185, 664, 1427, 904)) >= 0.6
+    assert overlap((1157, 631, 1401, 830), (983, 703, 1448, 1423)) < 0.6
+
+
 def test_generate_crop_selects_and_expands_box(monkeypatch):
     service = BirdCropService(confidence_threshold=0.4, expand_ratio=0.25, min_crop_size=10)
     image = _make_image()

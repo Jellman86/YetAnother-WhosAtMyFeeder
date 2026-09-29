@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Scan large high-resolution scenes in overlapping tiles as well as the full frame when finding
+  bird crop choices and counting birds. This keeps small, distant birds visible to the detector;
+  the count reuses the crop scan instead of repeating the tiled inference. Only a spatially close
+  crop can supply a counted bird's suggested species.
+
 - Keep up to eight spatially distinct detector crops from each sampled high-quality snapshot frame
   and the completed Frigate still, so another bird can be scored without creating another visit.
   Show each distinct bird as its own photo choice in the detection and review views, retain all

@@ -52,12 +52,14 @@ def test_final_frigate_model_crop_keeps_detector_confidence_and_tight_box():
             "box": (10, 20, 170, 180),
             "detector_box": (50, 60, 120, 130),
             "confidence": 0.12,
+            "observation_boxes": [{"box": (50, 60, 120, 130), "confidence": 0.12}],
         },
     )
 
     assert payload["crop_confidence"] == 0.12
     assert payload["crop_box"] == (10, 20, 170, 180)
     assert payload["detector_box"] == (50, 60, 120, 130)
+    assert payload["observation_boxes"] == [{"box": (50, 60, 120, 130), "confidence": 0.12}]
 
 
 @pytest.mark.asyncio
@@ -92,6 +94,67 @@ async def test_whole_frame_count_is_not_limited_by_photo_crop_choices(monkeypatc
     assert selection.full_frame_candidate_id == "whole"
     assert selection.birds[0].species == "House Finch"
     assert all(bird.species == "Unknown Bird" for bird in selection.birds[1:])
+
+
+@pytest.mark.asyncio
+async def test_count_reuses_photo_crop_detector_boxes_without_a_second_frame_scan(monkeypatch):
+    service = hq_module.HighQualitySnapshotService()
+
+    def unexpected_rescan(_image):
+        raise AssertionError("the photo crop already supplied every detector box")
+
+    monkeypatch.setattr(hq_module.bird_crop_service, "detect_observation_boxes", unexpected_rescan)
+    scored = [
+        {
+            "candidate_id": "whole",
+            "source_mode": "full_frame",
+            "clip_variant": "event",
+            "frame_index": 2,
+            "image_bytes": _jpeg_bytes("white"),
+        },
+        {
+            "candidate_id": "crop-0",
+            "source_mode": "model_crop",
+            "clip_variant": "event",
+            "frame_index": 2,
+            "detector_box": (0, 0, 40, 40),
+            "observation_boxes": [
+                {"box": (0, 0, 40, 40), "confidence": 0.8},
+                {"box": (80, 0, 120, 40), "confidence": 0.7},
+            ],
+        },
+    ]
+
+    observations = await service._detect_count_candidates(scored)
+
+    assert len(observations) == 2
+    assert [item["crop_box"] for item in observations] == [(0, 0, 40, 40), (80, 0, 120, 40)]
+
+
+@pytest.mark.asyncio
+async def test_group_sized_detector_box_does_not_inherit_a_small_birds_species():
+    service = hq_module.HighQualitySnapshotService()
+    scored = [
+        {"candidate_id": "whole", "source_mode": "full_frame", "clip_variant": "event", "frame_index": 2},
+        {
+            "candidate_id": "crop",
+            "source_mode": "model_crop",
+            "clip_variant": "event",
+            "frame_index": 2,
+            "detector_box": (20, 20, 60, 60),
+            "classifier_label": "House Finch",
+            "classifier_score": 0.9,
+            "observation_boxes": [
+                {"box": (20, 20, 60, 60), "confidence": 0.8},
+                {"box": (0, 0, 200, 200), "confidence": 0.7},
+            ],
+        },
+    ]
+
+    observed = await service._detect_count_candidates(scored)
+
+    assert observed[0]["classifier_label"] == "House Finch"
+    assert observed[1]["classifier_label"] is None
 
 
 @pytest.mark.asyncio
