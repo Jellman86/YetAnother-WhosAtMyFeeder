@@ -452,6 +452,13 @@ model metadata. Passing undeclared rows are reported as `declared: false` and un
 - `GET /api/leaderboard/analysis` (owner)
 - `POST /api/leaderboard/analyze` (owner)
 
+All supported providers use the same failure contract for analysis, charts and chat.
+Provider rate limits and temporary unavailability preserve `429`/`503` and a numeric
+`Retry-After` header when supplied. Timeouts, malformed replies and empty answers return
+an error rather than successful analysis text. Failed replies are not cached or added as
+assistant conversation turns, and do not replace an existing successful analysis. A failed
+chat request retains the owner's question. Retrying requires a new explicit request.
+
 ### Settings and Maintenance
 
 - `GET /api/settings` (owner)
