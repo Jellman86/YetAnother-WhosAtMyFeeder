@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Preserve per-bird corrections and exclusions during background regeneration. Matching
+  observations keep their IDs, and regeneration reserves its short database write before
+  reading owner decisions.
+
 - Preserve favourites accepted during automatic missing-media deletion. The final database
   decision checks favourites atomically before cached photos are removed; a simultaneous
   favourite request for an already deleted visit returns not found cleanly.
