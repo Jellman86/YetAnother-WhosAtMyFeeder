@@ -1,9 +1,7 @@
-from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
-import secrets
 import structlog
 import httpx
 from urllib.parse import urlencode
@@ -13,6 +11,7 @@ from app.models import OAuthAuthorizeResponse
 from app.auth import require_owner, AuthContext
 from app.auth import get_auth_context_with_legacy
 from app.services.inaturalist_service import inaturalist_service, INAT_AUTHORIZE_URL, INAT_TOKEN_URL, INAT_BASE_URL
+from app.services.oauth_state import oauth_states
 from app.services.i18n_service import i18n_service
 from app.utils.language import get_user_language
 from app.database import get_db
@@ -20,8 +19,6 @@ from app.repositories.detection_repository import DetectionRepository
 
 log = structlog.get_logger()
 router = APIRouter(prefix="/inaturalist", tags=["inaturalist"])
-_oauth_state_cache: dict[str, datetime] = {}
-OAUTH_STATE_TTL = timedelta(minutes=10)
 
 
 class InaturalistDraftRequest(BaseModel):
@@ -86,8 +83,7 @@ async def inaturalist_authorize(request: Request, auth: AuthContext = Depends(re
     if not settings.inaturalist.client_id or not settings.inaturalist.client_secret:
         raise HTTPException(status_code=400, detail=i18n_service.translate("errors.inat.not_configured", lang))
 
-    state = secrets.token_urlsafe(32)
-    _oauth_state_cache[state] = datetime.utcnow() + OAUTH_STATE_TTL
+    state = oauth_states.issue("inaturalist")
     redirect_uri = f"{str(request.base_url)}api/inaturalist/oauth/callback"
     params = {
         "client_id": settings.inaturalist.client_id,
@@ -103,13 +99,8 @@ async def inaturalist_authorize(request: Request, auth: AuthContext = Depends(re
 @router.get("/oauth/callback", response_class=HTMLResponse)
 async def inaturalist_callback(request: Request, code: str = Query(...), state: str = Query(None)):
     lang = get_user_language(request)
-    if not state or state not in _oauth_state_cache:
+    if not oauth_states.consume("inaturalist", state):
         raise HTTPException(status_code=400, detail=i18n_service.translate("errors.inat.invalid_state", lang))
-    expires_at = _oauth_state_cache.get(state)
-    if expires_at and expires_at < datetime.utcnow():
-        _oauth_state_cache.pop(state, None)
-        raise HTTPException(status_code=400, detail=i18n_service.translate("errors.inat.state_expired", lang))
-    _oauth_state_cache.pop(state, None)
 
     redirect_uri = f"{str(request.base_url)}api/inaturalist/oauth/callback"
     try:

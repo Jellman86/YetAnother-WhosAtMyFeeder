@@ -322,6 +322,21 @@ async def get_auth_context_with_legacy(
         raise exc
 
 
+async def get_oauth_router_auth_context(
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    header_key: str = Security(api_key_header),
+    query_key: str = Security(api_key_query),
+) -> Optional[AuthContext]:
+    from app.services.oauth_state import OAUTH_CALLBACK_PATHS
+
+    if request.method == "GET" and request.url.path in OAUTH_CALLBACK_PATHS:
+        # The callback itself must consume an owner-issued provider-bound state
+        # before exchanging or storing credentials. This grants no owner role.
+        return None
+    return await get_auth_context_with_legacy(request, credentials, header_key, query_key)
+
+
 @dataclass(frozen=True)
 class StreamAuth:
     """Who opened the live stream, and when their session would have ended."""

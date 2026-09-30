@@ -22,7 +22,9 @@ In **Settings → Integrations → iNaturalist**:
 - Enable the integration
 - Paste the Client ID + Client Secret
 - (Optional) Set default latitude/longitude/place
-- Click **Connect iNaturalist** and complete OAuth
+- Click **Connect iNaturalist** and complete OAuth. Private instances accept the provider redirect
+  using the single-use owner-issued state; the redirect does not need a Bearer header. Complete
+  the connection within ten minutes, or start it again after a server restart.
 
 The Connect action persists only the iNaturalist enable flag and credentials currently shown in
 that section before requesting the authorization URL. Other unsaved Settings edits are left alone.

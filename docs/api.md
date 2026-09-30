@@ -620,6 +620,13 @@ history, hidden-event, and camera-privacy restrictions as the paginated event li
   - `DELETE /api/email/oauth/{provider}/disconnect`
   - `POST /api/email/test`
 
+OAuth authorization, disconnection and submission require owner authentication. Only the three
+exact GET callback routes accept a provider redirect without a login header. They require a
+provider-bound, single-use state issued by the owner authorization route, expiring after ten
+minutes. Invalid, expired or replayed state returns `400` before contacting the provider.
+Pending flows are held in memory (at most 256); after a restart, start the connection again.
+The callback exception grants no owner role and does not expand cookie authentication.
+
 ### Debug (owner)
 
 - `GET /api/debug/config`

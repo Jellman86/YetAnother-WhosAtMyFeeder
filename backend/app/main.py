@@ -89,6 +89,7 @@ from app.services.startup_status import startup_status
 from app.ratelimit import limiter
 from app.auth import StreamAuth, get_stream_auth_context
 from app.auth import get_auth_context_with_legacy
+from app.auth import get_oauth_router_auth_context
 
 
 # Version management
@@ -844,9 +845,9 @@ app.include_router(
 )
 app.include_router(jobs_router.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(manual_observations.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
-app.include_router(email.router, prefix="/api", tags=["email"], dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(email.router, prefix="/api", tags=["email"], dependencies=[Depends(get_oauth_router_auth_context)])
 app.include_router(
-    inaturalist.router, prefix="/api", tags=["inaturalist"], dependencies=[Depends(get_auth_context_with_legacy)]
+    inaturalist.router, prefix="/api", tags=["inaturalist"], dependencies=[Depends(get_oauth_router_auth_context)]
 )
 app.include_router(ebird.router, prefix="/api", tags=["ebird"], dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(geocoding.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
