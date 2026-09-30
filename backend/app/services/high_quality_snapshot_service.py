@@ -179,7 +179,9 @@ class HighQualitySnapshotService:
             return False
         await self._persist_event_hints(event_id, event_data)
         async with get_db() as db:
-            saved = await ProcessingJobRepository(db).enqueue(HQ_PROCESSING_PIPELINE, event_id, force=final)
+            saved = await ProcessingJobRepository(db).enqueue(
+                HQ_PROCESSING_PIPELINE, event_id, force=final, preserve_storage_eviction=True
+            )
         if not saved:
             return False
         # Disk remains the owner of overflow work; the memory queue only admits execution.

@@ -48,15 +48,17 @@ class ProcessingJobRepository:
     def __init__(self, db: aiosqlite.Connection) -> None:
         self.db = db
 
-    async def enqueue(self, pipeline: str, event_id: str, *, force: bool = False) -> bool:
+    async def enqueue(
+        self, pipeline: str, event_id: str, *, force: bool = False, preserve_storage_eviction: bool = False
+    ) -> bool:
         """Persist intent before admitting work into the bounded memory queue."""
         await self.db.execute(
             """INSERT INTO processing_job_state (pipeline,event_id,status,attempt_count,updated_at)
             SELECT ?, frigate_event, 'queued', 0, CURRENT_TIMESTAMP FROM detections WHERE frigate_event=?
             ON CONFLICT(pipeline,event_id) DO UPDATE SET status='queued', retry_after=NULL,
                 last_error=NULL, attempt_count=0, revision=processing_job_state.revision+1, updated_at=CURRENT_TIMESTAMP
-            WHERE ?""",
-            (pipeline, event_id, int(force)),
+            WHERE ? AND (NOT ? OR COALESCE(processing_job_state.last_error, '') != 'storage_evicted')""",
+            (pipeline, event_id, int(force), int(preserve_storage_eviction)),
         )
         async with self.db.execute("SELECT changes()") as cursor:
             row = await cursor.fetchone()

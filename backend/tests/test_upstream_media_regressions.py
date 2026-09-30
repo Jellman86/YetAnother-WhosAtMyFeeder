@@ -581,3 +581,35 @@ async def test_automatic_candidate_refresh_keeps_chosen_photo_and_its_full_scene
             await db.execute("DELETE FROM detections WHERE frigate_event=?", (event,))
             await db.commit()
         await close_db()
+
+
+@pytest.mark.asyncio
+async def test_late_final_event_does_not_regenerate_media_evicted_by_limits(monkeypatch):
+    await init_db()
+    event = "evicted_final"
+    service = hq.HighQualitySnapshotService()
+    monkeypatch.setattr(service, "enabled", lambda: True)
+    monkeypatch.setattr(service, "_persist_event_hints", AsyncMock())
+    scheduled = []
+    monkeypatch.setattr(service, "schedule_final_replacement", lambda *args: scheduled.append(args) or True)
+    try:
+        async with get_db() as db:
+            await db.execute(
+                "INSERT INTO detections (frigate_event,camera_name,detection_time,detection_index,score,display_name,category_name) VALUES (?,'cam','2026-01-01',0,0.9,'Robin','bird')",
+                (event,),
+            )
+            await db.commit()
+            await ProcessingJobRepository(db).mark_storage_evicted(hq.HQ_PROCESSING_PIPELINE, event)
+            await db.commit()
+        assert await service.schedule_replacement_durable(event, event_data={"id": event}, final=True) is False
+        assert scheduled == []
+        async with get_db() as db:
+            repo = ProcessingJobRepository(db)
+            assert (await repo.get(hq.HQ_PROCESSING_PIPELINE, event)).last_error == "storage_evicted"
+            # An explicit owner request can still rebuild the evicted photograph.
+            assert await repo.enqueue(hq.HQ_PROCESSING_PIPELINE, event, force=True)
+    finally:
+        async with get_db() as db:
+            await db.execute("DELETE FROM detections WHERE frigate_event=?", (event,))
+            await db.commit()
+        await close_db()
