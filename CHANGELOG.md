@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Increase bird-correction, mobile header, sidebar account/theme controls and language-picker hit regions to at least 44 px. Existing icons, labels and colours are retained, with keyboard and narrow-phone checks for non-overlapping controls.
+
 - Start keyboard reading of the activity heatmap at its busiest slot when the grid receives focus. Refresh browser coverage for the current grid, weather panels, precipitation shading, keyboard navigation and mobile touch interactions.
 
 - Keep the saved analysis and chat when regeneration fails. Successful regeneration replaces both together; stale concurrent analysis and chat replies return a translated refresh message rather than overwriting newer owner input.

@@ -199,7 +199,7 @@
                         <div class="truncate text-[0.625rem] text-slate-500 dark:text-slate-400">{$_('app.title')}</div>
                     </div>
                     <button
-                        class="focus-ring rounded-lg p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-900/30 dark:hover:text-red-400"
+                        class="btn btn-ghost min-h-11 min-w-11 focus-ring rounded-lg p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-900/30 dark:hover:text-red-400"
                         onclick={() => authStore.logout()}
                         title={$_('auth.logout')}
                         aria-label={$_('auth.logout')}
@@ -221,7 +221,7 @@
                         {$_('auth.public_view')}
                     </div>
                     <button
-                        class="focus-ring rounded-lg p-2 text-slate-400 transition hover:bg-accent-50 hover:text-accent-700 dark:text-slate-500 dark:hover:bg-accent-900/30 dark:hover:text-accent-300"
+                        class="btn btn-ghost min-h-11 min-w-11 focus-ring rounded-lg p-2 text-slate-400 transition hover:bg-accent-50 hover:text-accent-700 dark:text-slate-500 dark:hover:bg-accent-900/30 dark:hover:text-accent-300"
                         onclick={() => authStore.requestLogin()}
                         title={$_('auth.login')}
                         aria-label={$_('auth.login')}
@@ -263,7 +263,7 @@
         <div class="flex items-center {collapsed ? 'flex-col gap-1' : 'justify-around gap-1'}">
             <LanguageSelector dropUp compact />
             <button
-                class="focus-ring rounded-xl p-2.5 text-slate-500 transition-all duration-200 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                class="btn btn-ghost min-h-11 min-w-11 focus-ring rounded-xl p-2.5 text-slate-500 transition-all duration-200 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
                 onclick={() => themeStore.toggle()}
                 title={themeStore.isDark ? $_('theme.switch_light') : $_('theme.switch_dark')}
                 aria-label={themeStore.isDark ? $_('theme.switch_light') : $_('theme.switch_dark')}
@@ -279,7 +279,7 @@
                 {/if}
             </button>
             <button
-                class="focus-ring rounded-xl p-2.5 text-slate-500 transition-all duration-200 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                class="btn btn-ghost min-h-11 min-w-11 focus-ring rounded-xl p-2.5 text-slate-500 transition-all duration-200 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
                 onclick={() => layoutStore.toggleSidebar()}
                 title={collapsed ? $_('nav.expand_sidebar') : $_('nav.collapse_sidebar')}
                 aria-label={collapsed ? $_('nav.expand_sidebar') : $_('nav.collapse_sidebar')}

@@ -71,6 +71,9 @@ and translations, and substitute only media responses. They check:
   reading at the busiest slot, arrow/Home/End navigation, Escape and touch dismissal.
 - Separate temperature/wind charts with the expected samples, precipitation
   shading only in wet buckets, chart capture for analysis and reduced motion.
+- Actual 44 px hit regions for bird corrections, suggestions, mobile header,
+  sidebar and language-picker controls at 320 px, with keyboard operation,
+  distinct hit regions and no page overflow.
 
 Unexpected API requests and uncaught JavaScript errors fail the fixture. Its HTML
 is a development test entry, not included in the production build. New browser
