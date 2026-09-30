@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 import aiosqlite
-from app.repositories.detection_repository import AIAnalysisRevision
+from app.repositories.detection_repository import AIAnalysisRevision, AI_PROMPT_CONTEXT_PREDICATE
 
 
 @dataclass
@@ -34,12 +34,21 @@ class AIConversationRepository:
     ) -> bool:
         """A reply to an old analysis cannot repopulate a regenerated thread."""
         cursor = await self.db.execute(
-            """INSERT INTO ai_conversation_turns (frigate_event, role, content)
+            f"""INSERT INTO ai_conversation_turns (frigate_event, role, content)
                SELECT frigate_event, 'assistant', ? FROM detections
                WHERE frigate_event = ? AND ai_analysis IS ? AND ai_analysis_timestamp IS ?
                  AND EXISTS (SELECT 1 FROM ai_conversation_turns
-                             WHERE id = ? AND frigate_event = ? AND role = 'user')""",
-            (content, frigate_event, revision.analysis, revision.timestamp, question_id, frigate_event),
+                             WHERE id = ? AND frigate_event = ? AND role = 'user')
+                 AND {AI_PROMPT_CONTEXT_PREDICATE}""",
+            (
+                content,
+                frigate_event,
+                revision.analysis,
+                revision.timestamp,
+                question_id,
+                frigate_event,
+                *revision.prompt_context,
+            ),
         )
         await self.db.commit()
         return cursor.rowcount == 1

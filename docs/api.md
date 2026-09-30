@@ -463,7 +463,10 @@ Forced analysis regeneration clears the conversation only when the new analysis 
 successfully saved, in the same database transaction. A changed analysis or new
 conversation turn during provider work returns `409` and preserves the newer state.
 A late chat reply also returns `409` if its question was cleared or its analysis
-changed. Refresh before retrying; the server does not repeat a paid provider call.
+changed. The prompt and its revision are read together; a concurrent change to the
+stored capture identity, displayed species, time, temperature or weather also
+returns `409`. Unrelated favourite changes do not reject completion. Refresh before
+retrying; the server does not repeat a paid provider call.
 
 ### Settings and Maintenance
 
