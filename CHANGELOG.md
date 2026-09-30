@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Keep cached photographs and owner photo choices when Frigate withdraws a false-positive
+  event. Automatic withdrawal hides untagged visits without destroying their recovery media;
+  owner-tagged visits remain visible.
+
 - Preserve per-bird corrections and exclusions during background regeneration. Matching
   observations keep their IDs, and regeneration reserves its short database write before
   reading owner decisions.

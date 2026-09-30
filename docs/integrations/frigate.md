@@ -65,6 +65,13 @@ instead of treating partial history as a successful empty result. The import can
 detections and missing cached snapshots, but it cannot recreate BirdNET-Go audio that YA-WAMF never
 stored.
 
+## False-positive updates
+
+Frigate false-positive updates hide untagged visits rather than deleting their history. Visits
+tagged by the owner remain visible. Cached photos and owner photo choices are retained for
+recovery and follow the configured cache retention and budget rules, including favourite
+protection.
+
 ## Sublabel Proxy
 
 When YA-WAMF identifies a species with high confidence, it pushes the label back to Frigate as a **sublabel**. This lets you see the species name directly in the Frigate UI and use it in Frigate's own notification rules and filters.
