@@ -32,6 +32,9 @@ All application endpoints are under `/api` except:
 
 ## Authentication
 
+Guest media requests return `503` with `Retry-After: 5` when a database error prevents checking
+the owner's visibility rules. No cached or upstream media is served before that check succeeds.
+
 YA-WAMF supports:
 
 1. JWT bearer tokens (recommended)

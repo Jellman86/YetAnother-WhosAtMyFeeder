@@ -31,7 +31,8 @@
       "preview_not_found": "Clip timeline previews are not available",
       "preview_generation_failed": "Failed to generate clip timeline previews",
       "preview_disabled": "Clip timeline previews are disabled because media cache is disabled",
-      "download_forbidden": "Il download dei clip non e consentito agli utenti pubblici"
+      "download_forbidden": "Il download dei clip non e consentito agli utenti pubblici",
+      "access_check_unavailable": "Impossibile verificare l’accesso ai contenuti. Riprova."
     },
     "events": {
       "snapshot_fetch_failed": "Impossibile recuperare snapshot da Frigate",
