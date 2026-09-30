@@ -65,6 +65,15 @@ instead of treating partial history as a successful empty result. The import can
 detections and missing cached snapshots, but it cannot recreate BirdNET-Go audio that YA-WAMF never
 stored.
 
+## Update recovery
+
+Normal updates can recover a missed start or an initial snapshot/inference failure. Once a visit
+is saved, further updates do not classify it again. Missing visits retry at most once every five
+seconds through updates, with one final recovery attempt after an update retry. A better later
+frame can still pass the configured filters. Standard notifications send once when an update
+first saves the visit; Final waits for completion and Silent sends none. Completed events keep
+their final enrichment even when an older update arrives late.
+
 ## False-positive updates
 
 Frigate false-positive updates hide untagged visits rather than deleting their history. Visits

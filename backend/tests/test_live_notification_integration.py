@@ -29,6 +29,7 @@ from app.services import event_processor as event_module
 from app.services import notification_orchestrator as notification_module
 from app.services.notification_dispatcher import NotificationDispatcher
 from app.services.notification_service import NotificationService
+from app.services.mqtt_service import MQTTService
 from app.services.species_catalog_resolver import ShadowResolution
 
 
@@ -109,23 +110,28 @@ async def pipeline(tmp_path, monkeypatch, pipeline_schema):
     monkeypatch.setattr(notifications, "_send_telegram", send)
     monkeypatch.setattr(notification_module, "notification_service", notifications)
     processor = event_module.EventProcessor(classifier)
+    mqtt = MQTTService()
+    mqtt.running = True
     await dispatcher.start()
 
     async def deliver(kind):
-        await processor.process_mqtt_message(
-            json.dumps(
-                {
-                    "type": kind,
-                    "after": {
-                        "id": "pipeline-event",
-                        "label": "bird",
-                        "camera": "test-feeder",
-                        "start_time": time.time() - 1,
-                        "end_time": time.time() if kind == "end" else None,
-                    },
-                }
-            ).encode()
-        )
+        payload = json.dumps(
+            {
+                "type": kind,
+                "after": {
+                    "id": "pipeline-event",
+                    "label": "bird",
+                    "camera": "test-feeder",
+                    "start_time": time.time() - 1,
+                    "end_time": time.time() if kind == "end" else None,
+                },
+            }
+        ).encode()
+        meta = mqtt._parse_frigate_payload_meta(payload)
+        if meta is not None and not meta["should_process"]:
+            return
+        await mqtt._wait_for_handler_slot()
+        await mqtt._schedule_frigate_message(processor, payload, event_id=(meta or {}).get("event_id"))
         await asyncio.wait_for(dispatcher._queue.join(), timeout=3)
 
     async def stored():
@@ -144,6 +150,7 @@ async def pipeline(tmp_path, monkeypatch, pipeline_schema):
             image=image.getvalue(),
         )
     finally:
+        await mqtt.stop()
         await dispatcher.stop()
         await notifications.client.aclose()
 
@@ -230,4 +237,49 @@ async def test_frigate_writeback_outage_cannot_lose_saved_detection_or_notificat
     assert await pipeline.stored() is not None
     await pipeline.deliver("end")
     assert (await pipeline.stored()).notified_at is not None
+    pipeline.send.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mode, count", [("standard", 1), ("final", 1), ("silent", 0)])
+async def test_an_update_without_a_start_recovers_once_and_preserves_notification_policy(
+    pipeline, monkeypatch, mode, count
+):
+    monkeypatch.setattr(settings.notifications, "mode", mode)
+    await pipeline.deliver("update")
+    assert await pipeline.stored() is not None
+    for _ in range(10):
+        await pipeline.deliver("update")
+    await pipeline.deliver("end")
+    await pipeline.deliver("end")
+    pipeline.classifier.classify_async_live.assert_awaited_once()
+    assert pipeline.send.await_count == count
+    async with pipeline.database() as db:
+        assert (await (await db.execute("SELECT COUNT(*) FROM detections")).fetchone())[0] == 1
+
+
+@pytest.mark.asyncio
+async def test_rejected_classification_retries_are_bounded_but_keep_one_final_recovery(pipeline):
+    pipeline.classifier.classify_async_live.return_value[0]["score"] = 0.2
+    await pipeline.deliver("new")
+    for _ in range(25):
+        await pipeline.deliver("update")
+    await pipeline.deliver("end")
+    assert await pipeline.stored() is None
+    assert pipeline.classifier.classify_async_live.await_count == 3  # start, first update, final frame
+    pipeline.send.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_a_better_final_frame_can_recover_after_rejected_and_throttled_updates(pipeline):
+    pipeline.classifier.classify_async_live.return_value[0]["score"] = 0.2
+    await pipeline.deliver("new")
+    await pipeline.deliver("update")
+    pipeline.classifier.classify_async_live.return_value[0]["score"] = 0.95
+    await pipeline.deliver("update")
+    assert await pipeline.stored() is None
+    await pipeline.deliver("end")
+    await pipeline.deliver("end")
+    assert (await pipeline.stored()).score == pytest.approx(0.95)
+    assert pipeline.classifier.classify_async_live.await_count == 3
     pipeline.send.assert_awaited_once()

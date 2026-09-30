@@ -502,7 +502,7 @@ class MQTTService:
             event_id = str(after.get("id") or "").strip()
             should_process = bool(
                 is_ingest_label(label, settings.frigate.ingest_labels)
-                and (false_positive or event_type in {"new", "end"})
+                and (false_positive or event_type in {"new", "update", "end"})
             )
             return {
                 "event_id": event_id or None,
@@ -678,6 +678,19 @@ class MQTTService:
         """Merge mutable Frigate state without allowing a tombstone to be undone."""
         if cls._payload_is_false_positive(existing):
             return existing or incoming
+        if not cls._payload_is_false_positive(incoming):
+            try:
+                previous = json.loads(existing) if existing else None
+                following = json.loads(incoming)
+            except (ValueError, TypeError):
+                previous = None
+                following = None
+            if (
+                isinstance(previous, dict)
+                and str(previous.get("type", "")).strip().lower() == "end"
+                and (not isinstance(following, dict) or str(following.get("type", "")).strip().lower() != "end")
+            ):
+                return existing or incoming
         return incoming
 
     def _sweep_stale_event_task_entries(self) -> None:
