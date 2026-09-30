@@ -468,7 +468,8 @@
       "desc": "Standardanzeigeformat für das Datum wählen.",
       "us": "USA (MM/TT/JJJJ)",
       "uk": "Vereinigtes Königreich (TT/MM/JJJJ)",
-      "ymd": "Japan/China (JJJJ-MM-TT)"
+      "ymd": "Japan/China (JJJJ-MM-TT)",
+      "locale": "Browsersprache folgen"
     },
     "time_format": {
       "label": "Zeitformat",

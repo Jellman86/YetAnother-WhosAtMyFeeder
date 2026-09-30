@@ -87,6 +87,7 @@
     import SettingsRow from '../components/settings/_primitives/SettingsRow.svelte';
     import SettingsToggle from '../components/settings/_primitives/SettingsToggle.svelte';
     import { locationSettingsDirty } from '../settings/location-dirty';
+    import { normalizeDateFormat, normalizeTimeFormat } from '../utils/datetime';
     import { getErrorMessage } from '../utils/error-handling';
 
     // Import all 7 settings components
@@ -1299,7 +1300,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let publicAccessMediaHistoricalDays = $state(7);
     let publicAccessRateLimitPerMinute = $state(30);
     let publicAccessExternalBaseUrl = $state('');
-    let dateFormat = $state('dmy');
+    let dateFormat = $state('locale');
     let timeFormat = $state('locale');
     let debugUiEnabled = $state(false);
     let strictNonFiniteOutput = $state(true);
@@ -1875,8 +1876,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'publicAccessMediaHistoricalDays', val: publicAccessMediaHistoricalDays, store: s.public_access_media_historical_days ?? 7 },
             { key: 'publicAccessRateLimitPerMinute', val: publicAccessRateLimitPerMinute, store: s.public_access_rate_limit_per_minute ?? 30 },
             { key: 'publicAccessExternalBaseUrl', val: publicAccessExternalBaseUrl, store: s.public_access_external_base_url ?? '' },
-            { key: 'dateFormat', val: dateFormat, store: s.date_format ?? 'dmy' },
-            { key: 'timeFormat', val: timeFormat, store: s.time_format ?? 'locale' },
+            { key: 'dateFormat', val: dateFormat, store: normalizeDateFormat(s.date_format) },
+            { key: 'timeFormat', val: timeFormat, store: normalizeTimeFormat(s.time_format) },
 
             // Notifications
             { key: 'discordEnabled', val: discordEnabled, store: s.notifications_discord_enabled ?? false },
@@ -3013,13 +3014,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             publicAccessMediaHistoricalDays = settings.public_access_media_historical_days ?? 7;
             publicAccessRateLimitPerMinute = settings.public_access_rate_limit_per_minute ?? 30;
             publicAccessExternalBaseUrl = settings.public_access_external_base_url ?? '';
-            if (settings.date_format === 'mdy' || settings.date_format === 'dmy' || settings.date_format === 'ymd') {
-                dateFormat = settings.date_format;
-                timeFormat = settings.time_format ?? 'locale';
-            } else {
-                dateFormat = 'dmy';
-                timeFormat = 'locale';
-            }
+            dateFormat = normalizeDateFormat(settings.date_format);
+            timeFormat = normalizeTimeFormat(settings.time_format);
             debugUiEnabled = settings.debug_ui_enabled ?? false;
 
             // Notifications

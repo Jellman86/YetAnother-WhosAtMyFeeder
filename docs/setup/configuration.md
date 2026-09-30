@@ -346,7 +346,7 @@ How the interface reads.
 | **Explorer view** | **Cards** shows a snapshot per detection; **List** shows one compact row each, with times aligned for scanning. |
 | **Theme** | Light or dark, plus the colour and font themes. |
 | **Language** | The interface language. Notifications have their own language setting. |
-| **Date format** | United Kingdom (DD/MM/YYYY), United States (MM/DD/YYYY), or Japan/China (YYYY-MM-DD). |
+| **Date format** | Follow browser language (default), United Kingdom (DD/MM/YYYY), United States (MM/DD/YYYY), or Japan/China (YYYY-MM-DD). Date and time choices are saved independently. |
 | **Time format** | 12 hour, 24 hour, or **Follow browser language**. |
 
 ## Accessibility

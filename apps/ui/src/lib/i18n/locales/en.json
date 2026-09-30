@@ -478,7 +478,8 @@
       "desc": "Pick a default display format for dates.",
       "us": "United States (MM/DD/YYYY)",
       "uk": "United Kingdom (DD/MM/YYYY)",
-      "ymd": "Japan/China (YYYY-MM-DD)"
+      "ymd": "Japan/China (YYYY-MM-DD)",
+      "locale": "Follow browser language"
     },
     "time_format": {
       "label": "Time format",

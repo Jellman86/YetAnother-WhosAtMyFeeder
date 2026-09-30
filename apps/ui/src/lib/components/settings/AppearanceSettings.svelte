@@ -135,6 +135,7 @@
             ariaLabel={$_('settings.date_format.label')}
             onchange={(v) => setDateFormat(v)}
             options={[
+                { value: 'locale', label: $_('settings.date_format.locale', { default: 'Follow browser language' }) },
                 { value: 'mdy', label: $_('settings.date_format.us') },
                 { value: 'dmy', label: $_('settings.date_format.uk') },
                 { value: 'ymd', label: $_('settings.date_format.ymd') }

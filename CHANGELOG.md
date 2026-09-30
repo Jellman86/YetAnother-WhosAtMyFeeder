@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Preserve browser-language date settings and independent clock choices when opening or saving Settings. Appearance now offers the saved browser-language date option.
+
 - Let older uncached full-visit clips progress past cached or failing newer visits. Reconciliation
   remembers completed work and bounded retry delays in the existing durable job table, including
   across restarts.

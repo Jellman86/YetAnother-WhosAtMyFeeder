@@ -8,6 +8,10 @@ type DateInput = string | number | Date | null | undefined;
 
 function getDateFormat(): DateFormat {
     const format = settingsStore.settings?.date_format ?? authStore.dateFormat ?? 'locale';
+    return normalizeDateFormat(format);
+}
+
+export function normalizeDateFormat(format: unknown): DateFormat {
     if (format === 'mdy' || format === 'dmy' || format === 'ymd' || format === 'locale') {
         return format;
     }
@@ -16,6 +20,10 @@ function getDateFormat(): DateFormat {
 
 function getTimeFormat(): TimeFormat {
     const format = settingsStore.settings?.time_format ?? authStore.timeFormat ?? 'locale';
+    return normalizeTimeFormat(format);
+}
+
+export function normalizeTimeFormat(format: unknown): TimeFormat {
     if (format === '12h' || format === '24h' || format === 'locale') {
         return format;
     }
