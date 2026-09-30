@@ -261,13 +261,39 @@ Retention, caching, imports, and the destructive tools.
 - **Media Cache** — cache snapshots and clips locally to reduce load on Frigate and speed up
   the UI. **Clear cached files** asks first, then deletes cached media older than the retention
   period and cached files that no longer belong to a detection. Favourites and each species'
-  newest kept visits are not touched.
+  newest kept visits are protected from age cleanup. Photo variants and metadata age together.
 - **Best available event snapshots** — start from Frigate's completed clean best frame and
   tracked-object crop, then sample high-quality clip frames. A clip frame replaces the baseline
   only when a compatible species result improves confidence by at least two points. JPEG quality
-  is configurable; crop source selection is automatic.
+  is configurable; crop source selection is automatic. A reliable matching portrait can win
+  when its species confidence is within five points of the whole scene. A stale cropped photograph
+  cannot block a newer confidently matching frame. A photo chosen by the owner stays chosen until
+  they explicitly regenerate or choose another one.
+- **Bird scanning effort** — **Standard** uses one detector scan per sampled frame and up to three
+  classified crop choices. **Intensive** additionally searches nine overlapping tiles in large
+  high-resolution frames and classifies up to eight crop choices. Intensive is the upgrade default,
+  preserving existing behaviour. Both count all usable detector boxes from the selected scene;
+  neither promises to find every bird in the clip, and uncertain species remain Unknown Bird.
+- **Maximum cached visits per species** — keep media for the newest configured number of visits
+  of each canonical species. Favourites are exempt. `0` means unlimited. This removes cached media,
+  including alternate photos and clips, while keeping visits and counted-bird records.
+- **Media cache budget (MiB)** — periodically remove the oldest non-favourite cached visits until
+  ordinary cached snapshots, choices, thumbnails, clips, previews and metadata fit the budget.
+  `0` means unlimited. Favourites and their archive are protected; active work is deferred, so the
+  cache can temporarily exceed the budget, or stay above it if protected media alone exceed it.
+  Limits run at startup and every five minutes, and when **Clear cached files** is used. The budget
+  and species maximum take priority over the minimum kept through age cleanup.
+
+  Environment equivalents are `MEDIA_CACHE__BIRD_SCAN_MODE=standard|intensive`,
+  `MEDIA_CACHE__PER_SPECIES_MAXIMUM=0..10000`, and `MEDIA_CACHE__MAX_SIZE_MB=0..1048576`.
+  Models, backups, and archived favourites do not count towards the ordinary cache budget.
 - **Missed Detections** — import bird events Frigate still retains, over a day, week, month, or a
   custom range. Import is idempotent by Frigate event ID, so running it twice is safe.
+  Photo requests are saved when the memory queue is full and recovered after a restart. A finished
+  detection import can still have photo work pending in Jobs. Saved counters survive a restart;
+  an interrupted import is marked failed rather than reported as completed. Restarting the import
+  is explicit. Historical missing photo output is checked in pages of 100 every five minutes,
+  with bounded retries when Frigate no longer retains the source media.
 - **Batch Analysis** — re-run classification over detections currently saved as Unknown Bird,
   either on demand or automatically each day.
 - **Taxonomy Repair** — normalise species names across your whole history against iNaturalist.

@@ -268,12 +268,14 @@ async def batch_check_clips(event_ids: list[str]) -> dict[str, dict[str, bool]]:
 
     semaphore = asyncio.Semaphore(CLIP_CHECK_CONCURRENCY)
 
-    def cached_media_flags(event_id: str) -> dict[str, bool]:
+    async def cached_media_flags(event_id: str) -> dict[str, bool]:
+        from app.services.archive_service import archive_service
+
         cached_snapshot = media_cache.has_snapshot(event_id)
         cached_clip = media_cache.has_clip(event_id) or media_cache.has_recording_clip(event_id)
         return {
-            "has_clip": bool(cached_clip),
-            "has_snapshot": bool(cached_snapshot),
+            "has_clip": bool(cached_clip or await archive_service.video_path(event_id)),
+            "has_snapshot": bool(cached_snapshot or await archive_service.snapshot_path(event_id)),
         }
 
     async def check(event_id: str) -> tuple[str, dict[str, bool]]:
@@ -296,7 +298,7 @@ async def batch_check_clips(event_ids: list[str]) -> dict[str, dict[str, bool]]:
                     event_id,
                     timeout=CLIP_CHECK_TIMEOUT_SECONDS,
                 )
-                cached_flags = cached_media_flags(event_id)
+                cached_flags = await cached_media_flags(event_id)
                 if not event_data:
                     if error == "event_not_found" and frigate_event_absence.record_absent(event_id):
                         log.info(
@@ -315,7 +317,7 @@ async def batch_check_clips(event_ids: list[str]) -> dict[str, dict[str, bool]]:
                     "has_snapshot": bool(event_data.get("has_snapshot", True)) or cached_flags["has_snapshot"],
                 }
             except Exception:
-                cached_flags = cached_media_flags(event_id)
+                cached_flags = await cached_media_flags(event_id)
                 return event_id, {
                     "has_frigate_event": False,
                     "has_clip": cached_flags["has_clip"],

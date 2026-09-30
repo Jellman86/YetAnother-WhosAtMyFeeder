@@ -34,7 +34,12 @@ from app.services.classification_input_provenance import cached_snapshot_input_p
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 from app.repositories.bird_observation_repository import BirdObservationRepository
-from app.services.bird_observation_selection import BirdObservationSelection, select_bird_observations
+from app.services.bird_observation_selection import (
+    BirdObservationSelection,
+    select_bird_observations,
+    MIN_DETECTOR_CONFIDENCE,
+    MIN_SPECIES_CONFIDENCE,
+)
 from app.repositories.processing_job_repository import ProcessingJobRepository
 from app.utils.canonical_species import should_hide_species_label
 from app.utils.classifier_labels import normalize_classifier_label
@@ -65,6 +70,7 @@ HQ_CANDIDATE_INFERENCE_QUEUE_TIMEOUT_SECONDS = 30.0
 HQ_MIN_CROP_EDGE_PIXELS = 160
 HQ_MIN_CROP_AREA_PIXELS = 25_000
 HQ_MODEL_CROP_MIN_CLASSIFIER_ADVANTAGE = 0.02
+HQ_PORTRAIT_MAX_CLASSIFIER_LOSS = 0.05
 HQ_CLIP_REPLACEMENT_MIN_CLASSIFIER_ADVANTAGE = 0.02
 HQ_PATH_HINT_MAX_DISTANCE_SECONDS = 0.75
 HQ_PROCESSING_PIPELINE = "high_quality_snapshot"
@@ -127,6 +133,9 @@ class HighQualitySnapshotService:
         self._selected_sources: Counter[str] = Counter()
         self._classification_refinements: Counter[str] = Counter()
         self._last_result: dict[str, str] | None = None
+        self._durable_pending_count = 0
+        self._repair_cursor = 0
+        self._recovery_lock = asyncio.Lock()
 
     def enabled(self) -> bool:
         return bool(
@@ -163,6 +172,96 @@ class HighQualitySnapshotService:
         self._scheduled_total += 1
         return True
 
+    async def schedule_replacement_durable(
+        self, event_id: str, event_data: Optional[dict[str, Any]] = None, *, final: bool = False
+    ) -> bool:
+        if not self.enabled():
+            return False
+        await self._persist_event_hints(event_id, event_data)
+        async with get_db() as db:
+            saved = await ProcessingJobRepository(db).enqueue(HQ_PROCESSING_PIPELINE, event_id, force=final)
+        if not saved:
+            return False
+        # Disk remains the owner of overflow work; the memory queue only admits execution.
+        if final and event_data is not None:
+            self.schedule_final_replacement(event_id, event_data)
+        else:
+            self.schedule_replacement(event_id, event_data)
+        return True
+
+    async def recover_durable_jobs(self) -> int:
+        if not self.enabled() or self._recovery_lock.locked():
+            return 0
+        async with self._recovery_lock:
+            if self._queued_ids or self._deferred_ids:
+                self._ensure_workers_started()
+            now = datetime.now(timezone.utc)
+            async with get_db() as db:
+                repo = ProcessingJobRepository(db)
+                self._durable_pending_count = await repo.pending_count(HQ_PROCESSING_PIPELINE)
+                ids = await repo.list_due(
+                    HQ_PROCESSING_PIPELINE, now, limit=self.MAX_PENDING_QUEUE + self.MAX_DEFERRED_EVENTS
+                )
+            scheduled = 0
+            for event_id in ids:
+                if event_id in self._active_ids or event_id in self._queued_ids or event_id in self._deferred_ids:
+                    continue
+                if self._pending_queue.full() and len(self._deferred_ids) >= self.MAX_DEFERRED_EVENTS:
+                    break
+                self._completed_ids.discard(event_id)
+                if self.schedule_replacement(event_id):
+                    scheduled += 1
+            return scheduled
+
+    async def repair_missing_candidate_files(self) -> int:
+        """Walk historical visits in bounded pages so old dropped work can recover."""
+        if not self.enabled():
+            return 0
+        async with get_db() as db:
+            rows = await DetectionRepository(db).list_snapshot_recovery_candidates(
+                self._repair_cursor, limit=HQ_RECONCILE_LIMIT
+            )
+        if not rows:
+            self._repair_cursor = 0
+            return 0
+        repaired = 0
+        for detection_id, event_id in rows:
+            self._repair_cursor = detection_id
+            if event_id.startswith("manual_"):
+                continue
+            metadata = await media_cache.get_snapshot_metadata(event_id) or {}
+            if metadata.get("manual_selection") or metadata.get("storage_evicted"):
+                continue
+            async with get_db() as db:
+                candidates = await DetectionRepository(db).list_snapshot_candidates(event_id)
+                state = await ProcessingJobRepository(db).get(HQ_PROCESSING_PIPELINE, event_id)
+                birds = await BirdObservationRepository(db).list_for_event(event_id)
+            if state is not None and state.status in {"queued", "retryable", "terminal"}:
+                continue
+            counted_frames = {(bird["clip_variant"], bird["frame_index"]) for bird in birds}
+            required = [
+                candidate
+                for candidate in candidates
+                if candidate.get("selected")
+                or (
+                    candidate.get("source_mode") == "full_frame"
+                    and (candidate.get("clip_variant"), candidate.get("frame_index")) in counted_frames
+                )
+            ]
+            has_any_image = False
+            missing_required = False
+            for candidate in candidates:
+                image_ref = candidate.get("image_ref")
+                exists = bool(image_ref and await media_cache.get_snapshot_path(image_ref) is not None)
+                has_any_image |= exists
+                missing_required |= candidate in required and not exists
+            if has_any_image and not missing_required:
+                continue
+            async with get_db() as db:
+                saved = await ProcessingJobRepository(db).enqueue(HQ_PROCESSING_PIPELINE, event_id, force=True)
+            repaired += int(saved)
+        return repaired
+
     def schedule_final_replacement(self, event_id: str, event_data: dict[str, Any]) -> bool:
         """Queue an ended event even when an earlier live-event pass is still running."""
         if not self.enabled():
@@ -195,18 +294,28 @@ class HighQualitySnapshotService:
         self._scheduled_total += 1
         return True
 
-    async def process_event(self, event_id: str) -> str:
+    async def process_event(self, event_id: str, *, manual_override: bool = False) -> str:
         """Process one event and persist its bounded retry outcome."""
-        result = await self._process_event_once(event_id)
-        await self._persist_processing_outcome(event_id, result)
+        async with get_db() as db:
+            state = await ProcessingJobRepository(db).get(HQ_PROCESSING_PIPELINE, event_id)
+        if state is not None and state.last_error == "storage_evicted":
+            return self._record_outcome(event_id, "storage_evicted")
+        revision = state.revision if state else 0
+        result = (
+            await self._process_event_once(event_id, manual_override=True)
+            if manual_override
+            else await self._process_event_once(event_id)
+        )
+        await self._persist_processing_outcome(event_id, result, expected_revision=revision)
         return result
 
-    async def _process_event_once(self, event_id: str) -> str:
+    async def _process_event_once(self, event_id: str, *, manual_override: bool = False) -> str:
         """Fetch the clip, derive a frame, and atomically replace the cached snapshot."""
         if not self.enabled():
             self._crop_event_hints.pop(event_id, None)
             return self._record_outcome(event_id, "disabled")
 
+        initial_metadata = (await media_cache.get_snapshot_metadata(event_id) or {}) if manual_override else {}
         event_data = self._pop_crop_event_hints(event_id)
         clip_variant = "event"
         clip_bytes, clip_error = await self._wait_for_clip(event_id)
@@ -270,7 +379,7 @@ class HighQualitySnapshotService:
             )
             snapshot_source = "high_quality_bird_crop" if crop_applied else "high_quality_snapshot"
 
-        if not crop_applied and await self._existing_snapshot_is_cropped(event_id):
+        if not crop_applied and await self._should_preserve_existing_crop(event_id, selected_candidate):
             await self._apply_classification_refinement(event_id, classification_candidates)
             log.info(
                 "Preserved existing cropped snapshot because no replacement crop was available",
@@ -283,6 +392,9 @@ class HighQualitySnapshotService:
             event_id,
             image_bytes,
             source=snapshot_source,
+            automatic=not manual_override,
+            clear_manual_selection=manual_override,
+            expected_manual_selection_updated_at=initial_metadata.get("updated_at"),
         )
         if not replaced:
             return self._record_outcome(event_id, "snapshot_replace_failed")
@@ -292,6 +404,15 @@ class HighQualitySnapshotService:
         await archive_service.refresh_photograph(event_id)
 
         await self._apply_classification_refinement(event_id, classification_candidates)
+        if (await media_cache.get_snapshot_metadata(event_id) or {}).get("manual_selection"):
+            return self._record_outcome(event_id, "manual_selection_preserved")
+        if manual_override and initial_metadata.get("manual_selection"):
+            async with media_cache._snapshot_commit_lock(event_id):
+                if not (await media_cache.get_snapshot_metadata(event_id) or {}).get("manual_selection"):
+                    async with get_db() as db:
+                        await DetectionRepository(db).mark_selected_snapshot_candidate(
+                            event_id, str(selected_candidate.get("candidate_id") or "") if selected_candidate else None
+                        )
         log.info("High-quality snapshot replaced", event_id=event_id, size=len(image_bytes), source=snapshot_source)
         return self._record_outcome(event_id, "bird_crop_replaced" if crop_applied else "replaced")
 
@@ -353,6 +474,11 @@ class HighQualitySnapshotService:
             self._duplicate_requests += 1
             return self._record_outcome(event_id, "duplicate")
 
+        async with get_db() as db:
+            state = await ProcessingJobRepository(db).get(HQ_PROCESSING_PIPELINE, event_id)
+        if state and state.last_error == "storage_evicted":
+            return self._record_outcome(event_id, "storage_evicted")
+        revision = state.revision if state else 0
         self._active_ids.add(event_id)
         self._mark_job_active(event_id)
         try:
@@ -407,7 +533,7 @@ class HighQualitySnapshotService:
                 )
                 snapshot_source = "high_quality_bird_crop" if crop_applied else "high_quality_snapshot"
 
-            if not crop_applied and await self._existing_snapshot_is_cropped(event_id):
+            if not crop_applied and await self._should_preserve_existing_crop(event_id, selected_candidate):
                 await self._apply_classification_refinement(event_id, classification_candidates)
                 if event_id not in self._final_refresh_ids and (
                     event_id in self._queued_ids or event_id in self._deferred_ids
@@ -419,13 +545,14 @@ class HighQualitySnapshotService:
                     attempted_source=snapshot_source,
                 )
                 result = self._record_outcome(event_id, "existing_crop_preserved")
-                await self._persist_processing_outcome(event_id, result)
+                await self._persist_processing_outcome(event_id, result, expected_revision=revision)
                 return result
 
             replaced = await media_cache.replace_snapshot(
                 event_id,
                 image_bytes,
                 source=snapshot_source,
+                automatic=True,
             )
             if not replaced:
                 return self._record_outcome(event_id, "snapshot_replace_failed")
@@ -446,8 +573,12 @@ class HighQualitySnapshotService:
                 size=len(image_bytes),
                 source=snapshot_source,
             )
-            result = self._record_outcome(event_id, "bird_crop_replaced" if crop_applied else "replaced")
-            await self._persist_processing_outcome(event_id, result)
+            manual = (await media_cache.get_snapshot_metadata(event_id) or {}).get("manual_selection")
+            result = self._record_outcome(
+                event_id,
+                "manual_selection_preserved" if manual else "bird_crop_replaced" if crop_applied else "replaced",
+            )
+            await self._persist_processing_outcome(event_id, result, expected_revision=revision)
             return result
         finally:
             self._active_ids.discard(event_id)
@@ -837,7 +968,13 @@ class HighQualitySnapshotService:
         usable_crops = [
             item
             for item in candidates
-            if str(item.get("source_mode") or "full_frame") != "full_frame" and self._crop_has_usable_detail(item)
+            if str(item.get("source_mode") or "full_frame") != "full_frame"
+            and self._crop_has_usable_detail(item)
+            and (
+                item.get("source_mode") != "model_crop"
+                or item.get("crop_confidence") is None
+                or self._finite_candidate_score(item.get("crop_confidence")) >= MIN_DETECTOR_CONFIDENCE
+            )
         ]
 
         normalized_expected = {
@@ -875,6 +1012,21 @@ class HighQualitySnapshotService:
                 return None
             pool = safe_full_frames
         selected = max(pool, key=lambda item: float(item.get("ranking_score") or 0.0))
+        if normalized_expected and selected.get("source_mode") == "full_frame":
+            portraits = [
+                crop
+                for crop in usable_crops
+                if self._finite_candidate_score(crop.get("classifier_score")) >= MIN_SPECIES_CONFIDENCE
+                and (
+                    crop.get("source_mode") != "model_crop"
+                    or crop.get("crop_confidence") is None
+                    or self._finite_candidate_score(crop.get("crop_confidence")) >= MIN_DETECTOR_CONFIDENCE
+                )
+                and self._finite_candidate_score(crop.get("classifier_score")) + HQ_PORTRAIT_MAX_CLASSIFIER_LOSS
+                >= self._finite_candidate_score(selected.get("classifier_score"))
+            ]
+            if portraits:
+                selected = max(portraits, key=lambda item: float(item.get("ranking_score") or 0.0))
         if str(selected.get("source_mode") or "") != "model_crop":
             return selected
 
@@ -1095,7 +1247,7 @@ class HighQualitySnapshotService:
             try:
                 model_results = multi_generator(
                     image,
-                    max_crops=HQ_MAX_MODEL_CROPS_PER_FRAME,
+                    max_crops=HQ_MAX_MODEL_CROPS_PER_FRAME if settings.media_cache.bird_scan_mode == "intensive" else 3,
                     **({"search_box": search_box} if search_box is not None else {}),
                 )
             except Exception as exc:
@@ -1488,6 +1640,11 @@ class HighQualitySnapshotService:
     async def _persist_snapshot_candidates(self, event_id: str, candidates: list[dict[str, Any]]) -> None:
         if not candidates:
             return
+        async with media_cache._snapshot_commit_lock(event_id):
+            await self._persist_snapshot_candidates_locked(event_id, candidates)
+
+    async def _persist_snapshot_candidates_locked(self, event_id: str, candidates: list[dict[str, Any]]) -> None:
+        metadata = await media_cache.get_snapshot_metadata(event_id) or {}
         stale_image_refs: list[str] = []
         stale_thumbnail_refs: list[str] = []
         async with get_db() as db:
@@ -1499,6 +1656,23 @@ class HighQualitySnapshotService:
                 if bird["manual_species"] or bird["is_hidden"]
             ]
             reviewed_frames = {(bird["clip_variant"], bird["frame_index"]) for bird in reviewed_birds}
+            manual_choice = bool(metadata.get("manual_selection"))
+            chosen_id = metadata.get("manual_candidate_id")
+            chosen = (
+                next((item for item in existing if str(item.get("candidate_id") or "") == chosen_id), None)
+                if chosen_id
+                else (
+                    next((item for item in existing if item.get("selected")), None)
+                    if "manual_candidate_id" not in metadata
+                    else None
+                )
+            )
+            if manual_choice:
+                candidates = [{**item, "selected": False} for item in candidates]
+                if chosen is not None:
+                    reviewed_frames.add((chosen.get("clip_variant"), chosen.get("frame_index")))
+                    candidates = [item for item in candidates if item.get("candidate_id") != chosen["candidate_id"]]
+                    candidates.append({**chosen, "selected": True})
             new_ids = {str(item.get("candidate_id") or "") for item in candidates}
             # A regeneration can select a different frame. Keep the old whole frame so a
             # manually corrected bird still has a visible, auditable box in its original scene.
@@ -1649,6 +1823,9 @@ class HighQualitySnapshotService:
             await asyncio.sleep(30)
             while self._running:
                 try:
+                    await self.recover_durable_jobs()
+                    await self.repair_missing_candidate_files()
+                    await self.recover_durable_jobs()
                     await self.reconcile_recent_detections()
                 except asyncio.CancelledError:
                     raise
@@ -1695,6 +1872,8 @@ class HighQualitySnapshotService:
         self._selected_sources.clear()
         self._classification_refinements.clear()
         self._reconciled_total = 0
+        self._durable_pending_count = 0
+        self._repair_cursor = 0
         self._last_result = None
 
     @staticmethod
@@ -1729,7 +1908,11 @@ class HighQualitySnapshotService:
             self._final_refresh_ids.discard(event_id)
             self._active_ids.add(event_id)
             self._mark_job_active(event_id)
+            revision = 0
             try:
+                async with get_db() as db:
+                    state = await ProcessingJobRepository(db).get(HQ_PROCESSING_PIPELINE, event_id)
+                revision = state.revision if state else 0
                 await self.process_event(event_id)
             except asyncio.CancelledError:
                 raise
@@ -1742,12 +1925,19 @@ class HighQualitySnapshotService:
                     exc_info=True,
                 )
                 self._record_outcome(event_id, "worker_exception")
-                await self._persist_processing_outcome(event_id, "worker_exception")
+                await self._persist_processing_outcome(event_id, "worker_exception", expected_revision=revision)
             finally:
                 self._active_ids.discard(event_id)
                 queue.task_done()
                 self._promote_deferred_events()
                 self._forget_finished_job(event_id)
+            if self._running:
+                try:
+                    await self.recover_durable_jobs()
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:
+                    log.warning("Photo queue refill deferred", error=str(exc))
 
     def _ensure_workers_started(self) -> None:
         self._cleanup_completed_workers()
@@ -1771,6 +1961,9 @@ class HighQualitySnapshotService:
                 alive_tasks.append(task)
         self._worker_tasks = alive_tasks
 
+    def get_active_event_ids(self) -> set[str]:
+        return set(self._active_ids)
+
     def get_status(self) -> dict:
         self._cleanup_completed_workers()
         return {
@@ -1781,6 +1974,7 @@ class HighQualitySnapshotService:
             "workers": len(self._worker_tasks),
             "recovery_running": self._running,
             "reconciled_total": self._reconciled_total,
+            "durable_pending": self._durable_pending_count,
             "scheduled_total": self._scheduled_total,
             "duplicate_requests": self._duplicate_requests,
             "disabled_requests": self._disabled_requests,
@@ -1832,6 +2026,27 @@ class HighQualitySnapshotService:
                 }
             )
         return jobs
+
+    async def get_saved_jobs_snapshot(self) -> list[dict[str, object]]:
+        async with get_db() as db:
+            repo = ProcessingJobRepository(db)
+            self._durable_pending_count = await repo.pending_count(HQ_PROCESSING_PIPELINE)
+            pending = await repo.list_pending(HQ_PROCESSING_PIPELINE)
+        memory_ids = self._active_ids | self._queued_ids | self._deferred_ids
+        return [
+            {
+                "id": f"high_quality_snapshot:{row['event_id']}",
+                "event_id": row["event_id"],
+                "kind": "high_quality_snapshot",
+                "source": "automatic",
+                "status": "retrying" if row["status"] == "retryable" else "queued",
+                "phase": "waiting",
+                "updated_at": row["updated_at"],
+                "route": f"/events?detection={row['event_id']}",
+            }
+            for row in pending
+            if row["event_id"] not in memory_ids
+        ]
 
     def _enqueue_pending(self, event_id: str) -> bool:
         try:
@@ -2022,6 +2237,20 @@ class HighQualitySnapshotService:
             return False
         metadata = await media_cache.get_snapshot_metadata(event_id)
         return cached_snapshot_input_provenance(metadata).is_cropped
+
+    async def _should_preserve_existing_crop(self, event_id: str, selected_candidate: dict[str, Any] | None) -> bool:
+        if not await self._existing_snapshot_is_cropped(event_id):
+            return False
+        candidate = selected_candidate or {}
+        expected = await self._load_expected_species_labels(event_id)
+        label = self._candidate_label_key(candidate.get("classifier_label"))
+        # A previous crop can show a different bird. Positive current identity evidence
+        # must win over its crop provenance, while failed inference stays conservative.
+        return not (
+            label
+            and label in {self._candidate_label_key(value) for value in expected}
+            and self._finite_candidate_score(candidate.get("classifier_score")) >= MIN_SPECIES_CONFIDENCE
+        )
 
     async def _load_event_data_for_crop(self, event_id: str) -> Optional[dict[str, Any]]:
         """Fetch event metadata only when it can improve HQ bird-crop accuracy."""
@@ -2778,20 +3007,23 @@ class HighQualitySnapshotService:
             return True
         return state is None or state.can_attempt(now)
 
-    async def _persist_processing_outcome(self, event_id: str, result: str) -> None:
-        if result in {"disabled", "duplicate"}:
+    async def _persist_processing_outcome(
+        self, event_id: str, result: str, *, expected_revision: int | None = None
+    ) -> None:
+        if result in {"disabled", "duplicate", "storage_evicted"}:
             return
         try:
             async with get_db() as db:
                 repo = ProcessingJobRepository(db)
-                if result in {"replaced", "bird_crop_replaced"}:
-                    await repo.record_success(HQ_PROCESSING_PIPELINE, event_id)
+                if result in {"replaced", "bird_crop_replaced", "manual_selection_preserved"}:
+                    await repo.record_success(HQ_PROCESSING_PIPELINE, event_id, expected_revision=expected_revision)
                     return
                 state = await repo.record_failure(
                     HQ_PROCESSING_PIPELINE,
                     event_id,
                     error=result,
                     retry_delays_seconds=HQ_RETRY_DELAYS_SECONDS,
+                    expected_revision=expected_revision,
                 )
         except Exception as exc:
             log.warning(

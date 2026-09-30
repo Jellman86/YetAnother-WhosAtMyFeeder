@@ -10522,6 +10522,15 @@
             "default": 1,
             "title": "Maintenance Max Concurrent"
           },
+          "media_cache_bird_scan_mode": {
+            "default": "intensive",
+            "enum": [
+              "standard",
+              "intensive"
+            ],
+            "title": "Media Cache Bird Scan Mode",
+            "type": "string"
+          },
           "media_cache_clips": {
             "default": false,
             "title": "Media Cache Clips",
@@ -10546,6 +10555,16 @@
             "default": false,
             "title": "Media Cache High Quality Event Snapshots",
             "type": "boolean"
+          },
+          "media_cache_max_size_mb": {
+            "default": 0,
+            "title": "Media Cache Max Size Mb",
+            "type": "integer"
+          },
+          "media_cache_per_species_maximum": {
+            "default": 0,
+            "title": "Media Cache Per Species Maximum",
+            "type": "integer"
           },
           "media_cache_per_species_minimum": {
             "default": 0,
@@ -12680,6 +12699,16 @@
             "description": "Maximum concurrent maintenance workflows",
             "title": "Maintenance Max Concurrent"
           },
+          "media_cache_bird_scan_mode": {
+            "default": "intensive",
+            "description": "Bird scan effort; standard is lighter, intensive scans high-resolution tiles",
+            "enum": [
+              "standard",
+              "intensive"
+            ],
+            "title": "Media Cache Bird Scan Mode",
+            "type": "string"
+          },
           "media_cache_clips": {
             "default": false,
             "description": "Cache video clips locally (may cause initial playback delay)",
@@ -12711,6 +12740,22 @@
             "description": "Replace cached event snapshots with a frame derived from the Frigate clip when available",
             "title": "Media Cache High Quality Event Snapshots",
             "type": "boolean"
+          },
+          "media_cache_max_size_mb": {
+            "default": 0,
+            "description": "Ordinary media budget in MiB, excluding archived favourites; 0 is unlimited",
+            "maximum": 1048576.0,
+            "minimum": 0.0,
+            "title": "Media Cache Max Size Mb",
+            "type": "integer"
+          },
+          "media_cache_per_species_maximum": {
+            "default": 0,
+            "description": "Maximum cached visits per species, excluding favourites; 0 is unlimited",
+            "maximum": 10000.0,
+            "minimum": 0.0,
+            "title": "Media Cache Per Species Maximum",
+            "type": "integer"
           },
           "media_cache_per_species_minimum": {
             "default": 0,

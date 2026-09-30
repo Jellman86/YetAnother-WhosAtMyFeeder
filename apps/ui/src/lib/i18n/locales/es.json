@@ -648,7 +648,15 @@
       "archive_usage_detail": "{count} guardados, {size}",
       "archive_failed_count": "{count} no se pudieron archivar. Abre la visita para reintentar.",
       "per_species_minimum": "Conservar los más recientes por especie",
-      "per_species_minimum_help": "Las visitas más recientes de cada especie y sus fotos en caché sobreviven a la limpieza por antigüedad. 0 lo desactiva. Los clips no se conservan."
+      "per_species_minimum_help": "Las visitas más recientes de cada especie y sus fotos en caché sobreviven a la limpieza por antigüedad. 0 lo desactiva. Los clips no se conservan.",
+      "per_species_maximum": "Máximo de visitas en caché por especie",
+      "per_species_maximum_help": "Conserva medios de las visitas más recientes de cada especie. Los favoritos quedan excluidos y el historial se conserva. 0 significa sin límite.",
+      "max_size_mb": "Presupuesto de caché de medios (MiB)",
+      "max_size_mb_help": "Elimina medios antiguos al superar el presupuesto. Protege los favoritos y su archivo. El presupuesto y el máximo tienen prioridad sobre el mínimo de limpieza por antigüedad. 0 significa sin límite.",
+      "bird_scan_mode": "Esfuerzo de búsqueda de aves",
+      "bird_scan_mode_help": "Estándar usa menos CPU. Intensivo también busca por regiones en imágenes grandes y clasifica más recortes. Ambos cuentan todas las aves encontradas en la escena elegida, sin garantizar todas las aves del clip.",
+      "bird_scan_standard": "Estándar",
+      "bird_scan_intensive": "Intensivo"
     },
     "security": {
       "title": "Seguridad",

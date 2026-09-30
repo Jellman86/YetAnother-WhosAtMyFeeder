@@ -658,7 +658,15 @@
       "archive_usage_detail": "{count} conservati, {size}",
       "archive_failed_count": "{count} non archiviati. Apri la visita per riprovare.",
       "per_species_minimum": "Conserva i più recenti per specie",
-      "per_species_minimum_help": "Le visite più recenti di ogni specie e le loro foto in cache sopravvivono alla pulizia per età. 0 disattiva. Le clip non vengono trattenute."
+      "per_species_minimum_help": "Le visite più recenti di ogni specie e le loro foto in cache sopravvivono alla pulizia per età. 0 disattiva. Le clip non vengono trattenute.",
+      "per_species_maximum": "Massimo di visite in cache per specie",
+      "per_species_maximum_help": "Conserva i media delle visite più recenti per specie. I preferiti sono esclusi e la cronologia resta. 0 significa illimitato.",
+      "max_size_mb": "Budget della cache multimediale (MiB)",
+      "max_size_mb_help": "Elimina i media più vecchi oltre il budget. Preferiti e archivio sono protetti. Budget e massimo hanno priorità sul minimo della pulizia per età. 0 significa illimitato.",
+      "bird_scan_mode": "Intensità di ricerca degli uccelli",
+      "bird_scan_mode_help": "Standard usa meno CPU. Intensiva cerca anche nelle sezioni delle immagini grandi e classifica più ritagli. Entrambe contano tutti gli uccelli trovati nella scena scelta, senza garantire ogni uccello del video.",
+      "bird_scan_standard": "Standard",
+      "bird_scan_intensive": "Intensiva"
     },
     "security": {
       "title": "Sicurezza",

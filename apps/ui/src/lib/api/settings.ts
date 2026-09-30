@@ -1,5 +1,5 @@
 import { API_BASE, apiFetch, handleResponse } from './core';
-import type { paths } from './generated/openapi';
+import type { paths, components } from './generated/openapi';
 import type { BirdModelRegionOverride } from '../settings/bird-model-region-override';
 import type { CropModelOverride, CropSourceOverride } from '../settings/crop-overrides';
 
@@ -74,6 +74,9 @@ export interface Settings {
     media_cache_high_quality_event_snapshot_bird_crop: boolean;
     media_cache_high_quality_event_snapshot_jpeg_quality: number;
     media_cache_retention_days: number;
+    media_cache_per_species_maximum: NonNullable<components['schemas']['SettingsResponse']['media_cache_per_species_maximum']>;
+    media_cache_max_size_mb: NonNullable<components['schemas']['SettingsResponse']['media_cache_max_size_mb']>;
+    media_cache_bird_scan_mode: NonNullable<components['schemas']['SettingsResponse']['media_cache_bird_scan_mode']>;
     media_cache_per_species_minimum: number;
     location_latitude?: number | null;
     location_longitude?: number | null;

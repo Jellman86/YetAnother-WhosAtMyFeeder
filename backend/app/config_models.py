@@ -595,6 +595,22 @@ class MediaCacheSettings(BaseModel):
             "age-based cleanup (0 = off). Clips are not held by this floor."
         ),
     )
+    per_species_maximum: int = Field(
+        default=0,
+        ge=0,
+        le=10000,
+        description="Maximum cached visits per species, excluding favourites (0 = unlimited). Detection history is kept.",
+    )
+    max_size_mb: int = Field(
+        default=0,
+        ge=0,
+        le=1048576,
+        description="Media cache budget in MiB (0 = unlimited). Oldest non-favourite media is removed; archives are excluded.",
+    )
+    bird_scan_mode: Literal["standard", "intensive"] = Field(
+        default="intensive",
+        description="Standard uses whole frames and up to 3 species crops. Intensive adds large-image tiles and up to 8 crops. Bird counts are not capped by the crop limit.",
+    )
     retention_days: int = Field(
         default=0, ge=0, description="Days to keep cached media (0 = follow detection retention)"
     )

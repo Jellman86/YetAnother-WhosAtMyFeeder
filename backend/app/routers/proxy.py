@@ -1632,7 +1632,12 @@ async def generate_hq_bird_crop_snapshot(
                 result="already_hq_bird_crop",
             )
 
-        result = await high_quality_snapshot_service.process_event(event_id)
+        async with get_db() as db:
+            from app.repositories.processing_job_repository import ProcessingJobRepository
+            from app.services.high_quality_snapshot_service import HQ_PROCESSING_PIPELINE
+
+            await ProcessingJobRepository(db).enqueue(HQ_PROCESSING_PIPELINE, event_id, force=True)
+        result = await high_quality_snapshot_service.process_event(event_id, manual_override=regenerate)
         after = await _build_snapshot_status(event_id)
         if result == "bird_crop_replaced":
             status = "generated_hq_bird_crop"
@@ -1757,7 +1762,9 @@ async def apply_snapshot_candidate(
         snapshot_bytes = await frigate_client.get_snapshot(event_id, crop=True, quality=95)
         if not snapshot_bytes:
             raise HTTPException(status_code=404, detail="Original Frigate snapshot unavailable")
-        replaced = await media_cache.replace_snapshot(event_id, snapshot_bytes, source="frigate_snapshot")
+        replaced = await media_cache.replace_snapshot(
+            event_id, snapshot_bytes, source="frigate_snapshot", manual_selection=True
+        )
         if replaced:
             # A favourite keeps the photograph as chosen; a new choice is archived again (#178).
             from app.services.archive_service import archive_service
@@ -1787,7 +1794,13 @@ async def apply_snapshot_candidate(
     if not image_bytes:
         raise HTTPException(status_code=409, detail="Snapshot candidate image unavailable")
     snapshot_source = str(candidate.get("snapshot_source") or "high_quality_snapshot")
-    replaced = await media_cache.replace_snapshot(event_id, image_bytes, source=snapshot_source)
+    replaced = await media_cache.replace_snapshot(
+        event_id,
+        image_bytes,
+        source=snapshot_source,
+        manual_selection=True,
+        manual_candidate_id=str(candidate.get("candidate_id") or "") or None,
+    )
     if replaced:
         # A favourite keeps the photograph as chosen; a new choice is archived again (#178).
         from app.services.archive_service import archive_service
@@ -2057,6 +2070,11 @@ async def check_clip_exists(
         if settings.media_cache.cache_clips and media_cache.get_clip_path(event_id):
             return Response(status_code=200)
 
+    from app.services.archive_service import archive_service
+
+    if await archive_service.video_path(event_id) is not None:
+        return Response(status_code=200)
+
     # Frigate doesn't support HEAD for clips, so check event exists instead
     url = f"{settings.frigate.frigate_url}/api/events/{event_id}"
     client = get_http_client()
@@ -2108,6 +2126,11 @@ async def check_recording_clip_exists(
 
     if not _has_valid_share_context(request, event_id):
         await require_event_access(event_id, auth, lang, media="clip")
+
+    from app.services.archive_service import archive_service
+
+    if await archive_service.recording_path(event_id) is not None:
+        return Response(status_code=200, headers=_recording_clip_response_headers("complete", None))
 
     import time
 
@@ -2211,6 +2234,11 @@ async def proxy_event_hls(
     if not _has_valid_share_context(request, event_id):
         await require_event_access(event_id, auth, lang, media="clip")
 
+    from app.services.archive_service import archive_service
+
+    if await archive_service.video_path(event_id) is not None:
+        raise HTTPException(status_code=404, detail="Archived video is available through MP4 playback")
+
     upstream_url = f"{settings.frigate.frigate_url}/vod/event/{event_id}/{asset}"
     return await _proxy_hls_asset(request, upstream_url, asset, lang)
 
@@ -2233,6 +2261,11 @@ async def proxy_recording_hls(
         raise HTTPException(status_code=400, detail="Invalid HLS asset")
     if not _has_valid_share_context(request, event_id):
         await require_event_access(event_id, auth, lang, media="clip")
+
+    from app.services.archive_service import archive_service
+
+    if await archive_service.recording_path(event_id) is not None:
+        raise HTTPException(status_code=404, detail="Archived video is available through MP4 playback")
 
     camera_name, start_ts, end_ts = await _get_recording_clip_context(event_id, lang)
     if not validate_camera_name(camera_name):
@@ -2338,6 +2371,19 @@ async def proxy_clip(
                     },
                 )
 
+    from app.services.archive_service import archive_service
+
+    archived_clip = await archive_service.video_path(event_id)
+    if archived_clip is not None:
+        return FileResponse(
+            archived_clip,
+            media_type="video/mp4",
+            filename=f"{event_id}.mp4",
+            headers={
+                "Content-Disposition": f"{'attachment' if download_requested else 'inline'}; filename={event_id}.mp4"
+            },
+        )
+
     # Verify clip exists in Frigate before attempting download
     try:
         event_data = await frigate_client.get_event(event_id)
@@ -2351,20 +2397,6 @@ async def proxy_clip(
         # If checking fails, proceed cautiously (maybe Frigate API is weird) but log it
         # Or better, just fail here to prevent empty downloads
         pass
-
-    # Nothing cached: a favourite's archived clip stands in before Frigate is asked (#178).
-    from app.services.archive_service import archive_service
-
-    archived_clip = await archive_service.clip_path(event_id)
-    if archived_clip is not None:
-        return FileResponse(
-            archived_clip,
-            media_type="video/mp4",
-            filename=f"{event_id}.mp4",
-            headers={
-                "Content-Disposition": f"{'attachment' if download_requested else 'inline'}; filename={event_id}.mp4"
-            },
-        )
 
     clip_url = f"{settings.frigate.frigate_url}/api/events/{event_id}/clip.mp4"
     headers = frigate_client._get_headers()
@@ -2502,6 +2534,20 @@ async def proxy_recording_clip(
     if download_requested and (not auth.is_owner) and (not settings.public_access.allow_clip_downloads):
         raise HTTPException(status_code=403, detail=i18n_service.translate("errors.proxy.download_forbidden", lang))
 
+    from app.services.archive_service import archive_service
+
+    archived_recording = await archive_service.recording_path(event_id)
+    if archived_recording is not None:
+        return FileResponse(
+            archived_recording,
+            media_type="video/mp4",
+            filename=f"{event_id}_recording.mp4",
+            headers={
+                **_recording_clip_response_headers("complete", None),
+                "Content-Disposition": f"{'attachment' if download_requested else 'inline'}; filename={event_id}_recording.mp4",
+            },
+        )
+
     if settings.media_cache.enabled:
         cached_path, state, duration, camera_name, start_ts, end_ts = await _get_cached_recording_clip_details(
             event_id,
@@ -2533,19 +2579,6 @@ async def proxy_recording_clip(
     headers = frigate_client._get_headers()
 
     range_header = request.headers.get("range")
-    # A favourite's archived recording, if one was cached when it was favourited, before Frigate (#178).
-    from app.services.archive_service import archive_service
-
-    archived_recording = await archive_service.recording_path(event_id)
-    if archived_recording is not None:
-        return FileResponse(
-            archived_recording,
-            media_type="video/mp4",
-            filename=f"{event_id}_recording.mp4",
-            headers={
-                "Content-Disposition": f"{'attachment' if download_requested else 'inline'}; filename={event_id}_recording.mp4"
-            },
-        )
 
     should_cache = settings.media_cache.enabled
     log.debug(
@@ -2785,6 +2818,8 @@ async def proxy_thumb(
 ):
     from app.services.media_cache import media_cache
 
+    log = structlog.get_logger()
+
     lang = get_user_language(request)
 
     if not validate_event_id(event_id):
@@ -2825,8 +2860,35 @@ async def proxy_thumb(
                 # Fall back to any cached thumbnail or Frigate thumbnail fetch below.
                 if cached and _cached_thumbnail_allowed_for_current_snapshot(thumbnail_metadata, has_snapshot=True):
                     return Response(content=cached, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
-        elif cached and _cached_thumbnail_allowed_for_current_snapshot(thumbnail_metadata, has_snapshot=False):
+        elif (
+            cached
+            and not _is_probably_thumbnail_sized_snapshot(cached)
+            and _cached_thumbnail_allowed_for_current_snapshot(thumbnail_metadata, has_snapshot=False)
+        ):
             return Response(content=cached, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
+
+    from app.services.archive_service import archive_service
+
+    archived = await archive_service.snapshot_path(event_id)
+    if archived is not None:
+        try:
+            contents = await asyncio.to_thread(archived.read_bytes)
+            derived = await asyncio.to_thread(_build_display_thumbnail_from_snapshot, contents)
+            return Response(content=derived, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
+        except (OSError, ValueError):
+            log.warning("Archived card photograph unavailable", event_id=event_id)
+
+    # Snapshot caching controls persistence, not the quality of photographs on cards.
+    snapshot, _error = await frigate_client.get_snapshot_with_error(event_id, crop=True, quality=95, timeout=10.0)
+    if snapshot:
+        try:
+            derived = await asyncio.to_thread(_build_display_thumbnail_from_snapshot, snapshot)
+            if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
+                await media_cache.cache_snapshot(event_id, snapshot, source="frigate_snapshot_cropped")
+                await media_cache.cache_thumbnail(event_id, derived, source="snapshot_derived")
+            return Response(content=derived, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
+        except (OSError, ValueError):
+            log.debug("Card snapshot could not be decoded", event_id=event_id)
 
     url = f"{settings.frigate.frigate_url}/api/events/{event_id}/thumbnail.jpg"
     client = get_http_client()

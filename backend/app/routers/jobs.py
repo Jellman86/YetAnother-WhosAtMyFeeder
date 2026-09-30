@@ -163,6 +163,8 @@ def _build_lanes(items: list[JobSnapshotItem]) -> list[JobLaneSnapshot]:
         kind_counts = counts[kind]
         queued = kind_counts["queued"] + kind_counts["retrying"]
         running = kind_counts["running"] + kind_counts["stale"]
+        if kind == "high_quality_snapshot":
+            queued = max(queued, int(hq_status.get("durable_pending") or 0) - running)
         blocker = blockers.get(kind)
         configured, effective = concurrency.get(kind, (None, None))
         state = (
@@ -208,6 +210,7 @@ async def get_jobs_snapshot(
     raw_items = [
         *auto_video_classifier.get_jobs_snapshot(),
         *high_quality_snapshot_service.get_jobs_snapshot(),
+        *await high_quality_snapshot_service.get_saved_jobs_snapshot(),
         *full_visit_clip_service.get_jobs_snapshot(),
         *archive_service.get_jobs_snapshot(),
         *_backfill_job_snapshots(),

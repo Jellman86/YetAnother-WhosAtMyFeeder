@@ -648,7 +648,15 @@
       "archive_usage_detail": "{count} 件保管、{size}",
       "archive_failed_count": "{count} 件を保管できませんでした。訪問記録を開いて再試行してください。",
       "per_species_minimum": "種ごとに最新を保持",
-      "per_species_minimum_help": "各種の最新の訪問記録とそのキャッシュ写真は、期間による整理でも残ります。0 で無効。クリップは対象外です。"
+      "per_species_minimum_help": "各種の最新の訪問記録とそのキャッシュ写真は、期間による整理でも残ります。0 で無効。クリップは対象外です。",
+      "per_species_maximum": "種ごとのキャッシュ訪問数の上限",
+      "per_species_maximum_help": "各種の最新の訪問のメディアを保持します。お気に入りは対象外で、履歴は残ります。0は無制限です。",
+      "max_size_mb": "メディアキャッシュ容量（MiB）",
+      "max_size_mb_help": "容量を超えると古いメディアを削除します。お気に入りとアーカイブは保護されます。容量と上限は、経過日数による削除の保持最小数より優先されます。0は無制限です。",
+      "bird_scan_mode": "鳥の探索の強度",
+      "bird_scan_mode_help": "標準はCPUの使用量を抑えます。高強度は大きな画像を分割して探索し、より多くの切り抜きを分類します。どちらも選択した場面で見つかった鳥をすべて数えますが、動画内のすべての鳥の検出は保証しません。",
+      "bird_scan_standard": "標準",
+      "bird_scan_intensive": "高強度"
     },
     "security": {
       "title": "セキュリティ",

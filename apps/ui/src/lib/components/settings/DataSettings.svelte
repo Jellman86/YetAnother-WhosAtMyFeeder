@@ -19,6 +19,9 @@
         autoPurgeMissingSnapshots = $bindable(false),
         autoAnalyzeUnknowns = $bindable(false),
         cacheRetentionDays = $bindable(0),
+        cachePerSpeciesMaximum = $bindable<number>(0),
+        cacheMaxSizeMb = $bindable<number>(0),
+        cacheBirdScanMode = $bindable<'standard' | 'intensive'>('intensive'),
         cachePerSpeciesMinimum = $bindable(0),
         cleaningUp,
         clearingFavorites,
@@ -77,6 +80,9 @@
         autoPurgeMissingSnapshots: boolean;
         autoAnalyzeUnknowns: boolean;
         cacheRetentionDays: number;
+        cachePerSpeciesMaximum: number;
+        cacheMaxSizeMb: number;
+        cacheBirdScanMode: 'standard' | 'intensive';
         cachePerSpeciesMinimum: number;
         cleaningUp: boolean;
         clearingFavorites: boolean;
@@ -432,6 +438,26 @@
                     />
                 </SettingsRow>
 
+                <SettingsRow
+                    labelId="setting-cache-per_species_maximum"
+                    label={$_('settings.data.per_species_maximum', { default: 'Maximum cached visits per species' })}
+                    description={$_('settings.data.per_species_maximum_help', { default: 'Keep media for the newest visits of each species. Favourites are exempt and history stays. 0 is unlimited.' })}
+                >
+                    <input type="number" min="0" max="10000" step="1"
+                        bind:value={cachePerSpeciesMaximum} aria-labelledby="setting-cache-per_species_maximum"
+                        class="w-24 rounded-xl border border-slate-200 bg-white px-3 py-2 text-right text-sm font-semibold text-slate-900 focus-ring dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
+                </SettingsRow>
+
+                <SettingsRow
+                    labelId="setting-cache-max_size_mb"
+                    label={$_('settings.data.max_size_mb', { default: 'Media cache budget (MiB)' })}
+                    description={$_('settings.data.max_size_mb_help', { default: 'Remove older cached media when over budget. Favourites and their archive are protected. This budget and the maximum above take priority over the age-cleanup minimum. 0 is unlimited.' })}
+                >
+                    <input type="number" min="0" max="1048576" step="1"
+                        bind:value={cacheMaxSizeMb} aria-labelledby="setting-cache-max_size_mb"
+                        class="w-24 rounded-xl border border-slate-200 bg-white px-3 py-2 text-right text-sm font-semibold text-slate-900 focus-ring dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
+                </SettingsRow>
+
                 <button
                     type="button"
                     onclick={handleCacheCleanup}
@@ -460,6 +486,21 @@
                     </SettingsRow>
 
                     {#if cacheHighQualityEventSnapshots}
+                        <SettingsRow
+                            labelId="setting-bird-scan-mode"
+                            label={$_('settings.data.bird_scan_mode', { default: 'Bird scanning effort' })}
+                            description={$_('settings.data.bird_scan_mode_help', { default: 'Standard uses less CPU. Intensive also searches tiles in large frames and classifies more crop choices. Both count every bird found in the selected scene; neither guarantees every bird in the clip is found.' })}
+                            layout="stacked"
+                        >
+                            <SettingsSelect id="bird-scan-mode" value={cacheBirdScanMode}
+                                ariaLabel={$_('settings.data.bird_scan_mode', { default: 'Bird scanning effort' })}
+                                options={[
+                                    { value: 'standard', label: $_('settings.data.bird_scan_standard', { default: 'Standard' }) },
+                                    { value: 'intensive', label: $_('settings.data.bird_scan_intensive', { default: 'Intensive' }) }
+                                ]}
+                                onchange={(v) => (cacheBirdScanMode = v === 'standard' ? 'standard' : 'intensive')}
+                            />
+                        </SettingsRow>
                         <div class="flex items-start gap-3 border-l-2 {cropDetectorReady ? 'border-success-400' : 'border-slate-300 dark:border-slate-600'} py-1 pl-3">
                             <svg class="mt-0.5 h-4 w-4 flex-none {cropDetectorReady ? 'text-success-500' : 'text-slate-400'}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                 {#if cropDetectorReady}

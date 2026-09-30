@@ -390,7 +390,9 @@ class BackfillService:
                             )
                         )
                     if snapshot_cached and settings.media_cache.high_quality_event_snapshots:
-                        high_quality_snapshot_service.schedule_replacement(frigate_event, event_data=event)
+                        await high_quality_snapshot_service.schedule_replacement_durable(
+                            frigate_event, event_data=event
+                        )
                 except Exception as exc:
                     # The detection has committed. A best-effort media failure must
                     # not turn that successful write into an apparent classifier failure.

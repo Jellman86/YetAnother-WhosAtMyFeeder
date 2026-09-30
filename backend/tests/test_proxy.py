@@ -1571,7 +1571,7 @@ async def test_generate_hq_bird_crop_snapshot_reuses_hq_service(client: httpx.As
             assert body["status"] == "generated_hq_bird_crop"
             assert body["source"] == "high_quality_bird_crop"
             assert body["already_hq_bird_crop"] is True
-            mock_process.assert_awaited_once_with("test_event_id")
+            mock_process.assert_awaited_once_with("test_event_id", manual_override=False)
         finally:
             settings.media_cache.enabled = original_cache_enabled
             settings.media_cache.cache_snapshots = original_cache_snapshots
@@ -1857,6 +1857,8 @@ async def test_proxy_snapshot_apply_candidate_promotes_cached_candidate_image(cl
         "test_event_id",
         b"candidate-image",
         source="hq_candidate_model_crop",
+        manual_selection=True,
+        manual_candidate_id="cand-1",
     )
     mock_repo.mark_selected_snapshot_candidate.assert_awaited_once_with("test_event_id", "cand-1")
 
@@ -2447,4 +2449,4 @@ async def test_regenerate_frames_runs_even_for_an_existing_hq_crop(client, monke
         response = await client.post("/api/frigate/test_event_id/snapshot/hq-bird-crop?regenerate=true")
     assert response.status_code == 200
     assert response.json()["result"] == "existing_crop_preserved"
-    process.assert_awaited_once_with("test_event_id")
+    process.assert_awaited_once_with("test_event_id", manual_override=True)

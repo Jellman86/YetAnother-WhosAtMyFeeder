@@ -648,7 +648,15 @@
       "archive_usage_detail": "已保留 {count} 个，{size}",
       "archive_failed_count": "{count} 个无法归档。打开该到访记录重试。",
       "per_species_minimum": "按物种保留最新记录",
-      "per_species_minimum_help": "每个物种最新的到访记录及其缓存照片不会被按时间清理。0 表示关闭。片段不受此保护。"
+      "per_species_minimum_help": "每个物种最新的到访记录及其缓存照片不会被按时间清理。0 表示关闭。片段不受此保护。",
+      "per_species_maximum": "每个物种的缓存访问上限",
+      "per_species_maximum_help": "保留每个物种最近访问的媒体。收藏不计入上限，历史记录保留。0 表示无限制。",
+      "max_size_mb": "媒体缓存预算（MiB）",
+      "max_size_mb_help": "超出预算时删除较旧的媒体。收藏及其存档受到保护。预算和上限优先于按时间清理的最低保留数量。0 表示无限制。",
+      "bird_scan_mode": "鸟类扫描强度",
+      "bird_scan_mode_help": "标准模式使用较少的 CPU。高强度模式还会分块搜索大图并分类更多裁剪图。两种模式都会统计选定场景中找到的所有鸟，但无法保证找到视频中的每只鸟。",
+      "bird_scan_standard": "标准",
+      "bird_scan_intensive": "高强度"
     },
     "security": {
       "title": "安全",
