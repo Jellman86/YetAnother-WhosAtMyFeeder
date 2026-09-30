@@ -628,6 +628,13 @@ class DetectionRepository:
             )
         return result
 
+    async def list_snapshot_recovery_candidates(self, after_id: int, *, limit: int = 100) -> list[tuple[int, str]]:
+        async with self.db.execute(
+            "SELECT id, frigate_event FROM detections WHERE id>? ORDER BY id LIMIT ?", (after_id, limit)
+        ) as cursor:
+            rows = await cursor.fetchall()
+        return [(int(row[0]), str(row[1])) for row in rows]
+
     async def get_selected_snapshot_candidate(self, frigate_event: str) -> Optional[dict]:
         candidates = await self.list_snapshot_candidates(frigate_event)
         for candidate in candidates:
@@ -4397,6 +4404,27 @@ class DetectionRepository:
             key = day.strftime("%Y-%m-%d")
             results.append({"date": key, "count": counts_by_date.get(key, 0)})
         return results
+
+    async def list_cached_media_visits(self, event_ids: list[str]) -> list[dict]:
+        """Resolve ownership and canonical species in bounded SQLite parameter pages."""
+        key = self._canonical_key_sql()
+        join = self._taxonomy_join_sql()
+        result = []
+        for start in range(0, len(event_ids), 400):
+            page = event_ids[start : start + 400]
+            placeholders = ",".join("?" for _ in page)
+            async with self.db.execute(
+                f"""SELECT d.frigate_event, {key}, d.detection_time,
+                    EXISTS(SELECT 1 FROM detection_favorites f WHERE f.detection_id=d.id)
+                    FROM detections d {join} WHERE d.frigate_event IN ({placeholders})""",
+                page,
+            ) as cursor:
+                rows = await cursor.fetchall()
+            result.extend(
+                {"event_id": row[0], "species_key": row[1], "detected_at": str(row[2]), "is_favorite": bool(row[3])}
+                for row in rows
+            )
+        return result
 
     async def get_unified_species_window_metrics(self, lookback_days: int = 30) -> dict[str, dict]:
         """Aggregate recent per-species metrics using a stable unified key.

@@ -6,6 +6,21 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Prefer a reliable crop of the visit's species over a near-equivalent whole scene, and allow
+  positive identity evidence to replace an older crop showing another bird. Owner photo choices
+  are protected from later automatic and live snapshot updates.
+- Play archived favourite clips and full visits even after Frigate removes the original event,
+  including availability checks, range requests, downloads, and the player's MP4 fallback.
+  Card photos use a full snapshot or archived photo even when snapshot disk caching is off.
+- Save photo-processing requests before queue admission, recover overflow and retries after a
+  restart, and retain backfill counters with an explicit interrupted state. Recover historical
+  missing photo output in bounded pages; age cleanup and cache limits do not trigger endless regeneration.
+- Add Standard and Intensive bird scanning effort, an optional maximum of cached visits per
+  species, and a media cache budget. Favourites and archived media remain protected, and media
+  eviction retains detection history. Candidate photos, thumbnails and metadata follow their
+  parent visit through cleanup. Prune orphaned derived database references and prevent late
+  background work from recreating them after a visit is deleted.
+
 - Scan large high-resolution scenes in overlapping tiles as well as the full frame when finding
   bird crop choices and counting birds. This keeps small, distant birds visible to the detector;
   the count reuses the crop scan instead of repeating the tiled inference. Only a spatially close

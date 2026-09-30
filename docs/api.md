@@ -269,7 +269,7 @@ per-file limits above.
   - `birds` lists the individual observations counted from one analyzed full frame. Each row
     includes its box, suggested or corrected species, detector confidence when available, and
     `is_hidden`. The eight classified photo crops per frame do not limit the number of counted
-    detector boxes. Large high-resolution frames are also scanned in overlapping tiles so distant
+    detector boxes. In Intensive scan mode, large high-resolution frames are also scanned in overlapping tiles so distant
     birds occupy more detector pixels. Frigate supplies one tracked-object hint per event; a
     hint-only count can miss other birds, and local detector results can include false positives.
 - `PATCH /api/frigate/{event_id}/birds/{bird_id}` (owner) — correct one counted bird's `species`
@@ -279,11 +279,14 @@ per-file limits above.
   small chooser thumbnail for one candidate.
 - `GET /api/frigate/{event_id}/snapshot/candidates/{candidate_id}/image.jpg` (owner) — the retained
   full-resolution candidate, for the large preview.
-- `POST /api/frigate/{event_id}/snapshot/apply` (owner)
+- `POST /api/frigate/{event_id}/snapshot/apply` (owner) — marks the chosen candidate or original
+  photo as an owner selection, protected from later automatic snapshot writes.
 - `GET /api/frigate/{event_id}/snapshot/original.jpg` (owner)
 - `POST /api/frigate/{event_id}/snapshot/hq-bird-crop` (owner; legacy route name, generates the best available HQ image)
-  accepts `regenerate=true` to rebuild frame choices even when an HQ crop already exists. Empty
-  regeneration preserves saved candidates; unavailable media returns an error rather than claiming success.
+  accepts `regenerate=true` to rebuild frame choices even when an HQ crop already exists. A
+  successful replacement releases the previous protected owner photo choice. A newer choice
+  made while regeneration runs stays protected. Empty regeneration preserves saved candidates
+  and the chosen photo; unavailable media returns an error rather than claiming success.
 - `GET /api/frigate/{event_id}/clip.mp4`
 - `GET /api/frigate/{event_id}/recording-clip.mp4`
 - `GET /api/frigate/{event_id}/hls/{asset}`
@@ -308,7 +311,11 @@ per-file limits above.
 The HQ snapshot worker also publishes `crop_policy`, queued final-refresh count, selected-source
 counts, outcomes, and recovered job totals under `GET /health` → `high_quality_snapshots`. Its retry state is persisted independently
 from species identity, with bounded 5/15/45-minute backoff and a terminal fourth failure; successful
-explicit or automatic generation clears the failure state.
+explicit or automatic generation clears the failure state. Queue intent is saved before admission;
+overflow is recovered from disk, and a final-event revision cannot be consumed by an older live
+pass finishing later. `durable_pending` reports saved pending/retry work, and the owner Jobs view
+includes disk overflow. Missing historical selected/count-scene files can be recovered in bounded
+pages. Media deliberately evicted by retention or limits stays evicted until explicit regeneration.
 
 Snapshot-candidate `frame_offset_seconds` values are temporal evidence, not presentation metadata.
 Automatic crop selection/refinement requires supporting offsets to be at least 250 ms apart;
@@ -503,7 +510,13 @@ model metadata. Passing undeclared rows are reported as `declared: false` and un
   size, under the same access rules as `snapshot.jpg`.
 - `GET /api/about/community` (guest-rate-limited). The telemetry service's active install count,
   cached for an hour; `enabled` is false when update checks are off.
-- `POST /api/cache/cleanup` (owner)
+- `POST /api/cache/cleanup` (owner) — applies age retention, removes orphaned media and enforces
+  optional `media_cache_per_species_maximum` and `media_cache_max_size_mb` limits. Limits preserve
+  detection history and favourites. `media_cache_bird_scan_mode` accepts `standard` or `intensive`.
+
+Archived favourite media is resolved before Frigate availability/context checks for MP4 and HEAD
+requests. Byte ranges and the existing access/download permissions apply. HLS requests for
+archived videos return 404 so the player uses the retained MP4; no archive transcoding is required.
 
 ### Backfill
 
@@ -511,7 +524,7 @@ model metadata. Passing undeclared rows are reported as `declared: false` and un
 - `POST /api/backfill/async` (owner) — starts the same import as a background job.
 - `GET /api/backfill/status` (owner) — returns the latest detection or weather job; `kind` can be
   `detections` or `weather`.
-- `GET /api/backfill/status/{job_id}` (owner) — returns one retained in-process job status.
+- `GET /api/backfill/status/{job_id}` (owner) — returns one retained job status, including persisted summaries after restart.
 - `POST /api/backfill/weather` (owner) — synchronously fills historical weather fields.
 - `POST /api/backfill/weather/async` (owner) — starts weather enrichment as a background job.
 - `DELETE /api/backfill/reset` (owner) — irreversibly deletes all detections and cached media after

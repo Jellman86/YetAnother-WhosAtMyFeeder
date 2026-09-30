@@ -658,7 +658,15 @@
       "archive_usage_detail": "{count} kept, {size}",
       "archive_failed_count": "{count} could not be archived. Open the visit to try again.",
       "per_species_minimum": "Keep the newest per species",
-      "per_species_minimum_help": "The newest visits of each species, and their cached photographs, stay through age cleanup. 0 turns this off. Clips are not held."
+      "per_species_minimum_help": "The newest visits of each species, and their cached photographs, stay through age cleanup. 0 turns this off. Clips are not held.",
+      "per_species_maximum": "Maximum cached visits per species",
+      "per_species_maximum_help": "Keep media for the newest visits of each species. Favourites are exempt and history stays. 0 is unlimited.",
+      "max_size_mb": "Media cache budget (MiB)",
+      "max_size_mb_help": "Remove older cached media when over budget. Favourites and their archive are protected. This budget and the maximum above take priority over the age-cleanup minimum. 0 is unlimited.",
+      "bird_scan_mode": "Bird scanning effort",
+      "bird_scan_mode_help": "Standard uses less CPU. Intensive also searches tiles in large frames and classifies more crop choices. Both count every bird found in the selected scene; neither guarantees every bird in the clip is found.",
+      "bird_scan_standard": "Standard",
+      "bird_scan_intensive": "Intensive"
     },
     "security": {
       "title": "Security",

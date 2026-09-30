@@ -17,6 +17,7 @@ class ProcessingJobState:
     attempt_count: int
     retry_after: Optional[datetime]
     last_error: Optional[str]
+    revision: int = 0
 
     def can_attempt(self, now: datetime) -> bool:
         if self.status in {"succeeded", "terminal"}:
@@ -47,10 +48,66 @@ class ProcessingJobRepository:
     def __init__(self, db: aiosqlite.Connection) -> None:
         self.db = db
 
+    async def enqueue(
+        self, pipeline: str, event_id: str, *, force: bool = False, preserve_storage_eviction: bool = False
+    ) -> bool:
+        """Persist intent before admitting work into the bounded memory queue."""
+        await self.db.execute(
+            """INSERT INTO processing_job_state (pipeline,event_id,status,attempt_count,updated_at)
+            SELECT ?, frigate_event, 'queued', 0, CURRENT_TIMESTAMP FROM detections WHERE frigate_event=?
+            ON CONFLICT(pipeline,event_id) DO UPDATE SET status='queued', retry_after=NULL,
+                last_error=NULL, attempt_count=0, revision=processing_job_state.revision+1, updated_at=CURRENT_TIMESTAMP
+            WHERE ? AND (NOT ? OR COALESCE(processing_job_state.last_error, '') != 'storage_evicted')""",
+            (pipeline, event_id, int(force), int(preserve_storage_eviction)),
+        )
+        async with self.db.execute("SELECT changes()") as cursor:
+            row = await cursor.fetchone()
+        await self.db.commit()
+        return bool(row and row[0])
+
+    async def list_due(self, pipeline: str, now: datetime, *, limit: int = 100) -> list[str]:
+        async with self.db.execute(
+            """SELECT event_id FROM processing_job_state WHERE pipeline=?
+            AND status IN ('queued','retryable') AND (retry_after IS NULL OR julianday(retry_after) <= julianday(?))
+            ORDER BY updated_at, event_id LIMIT ?""",
+            (pipeline, now.isoformat(), limit),
+        ) as cursor:
+            rows = await cursor.fetchall()
+        return [str(row[0]) for row in rows]
+
+    async def pending_count(self, pipeline: str) -> int:
+        async with self.db.execute(
+            "SELECT COUNT(*) FROM processing_job_state WHERE pipeline=? AND status IN ('queued','retryable')",
+            (pipeline,),
+        ) as cursor:
+            row = await cursor.fetchone()
+        return int(row[0]) if row else 0
+
+    async def mark_storage_evicted(self, pipeline: str, event_id: str) -> None:
+        """Caller owns the transaction with filesystem deletion and favourite recheck."""
+        await self.db.execute(
+            """INSERT INTO processing_job_state (pipeline,event_id,status,attempt_count,last_error,revision)
+            SELECT ?,frigate_event,'terminal',0,'storage_evicted',0 FROM detections WHERE frigate_event=?
+            ON CONFLICT(pipeline,event_id) DO UPDATE SET status='terminal',retry_after=NULL,
+                last_error='storage_evicted',revision=processing_job_state.revision+1""",
+            (pipeline, event_id),
+        )
+
+    async def list_pending(self, pipeline: str, *, limit: int = 500) -> list[dict]:
+        async with self.db.execute(
+            """SELECT event_id,status,retry_after,updated_at FROM processing_job_state
+            WHERE pipeline=? AND status IN ('queued','retryable') ORDER BY updated_at,event_id LIMIT ?""",
+            (pipeline, limit),
+        ) as cursor:
+            rows = await cursor.fetchall()
+        return [
+            {"event_id": row[0], "status": row[1], "retry_after": row[2], "updated_at": str(row[3])} for row in rows
+        ]
+
     async def get(self, pipeline: str, event_id: str) -> Optional[ProcessingJobState]:
         async with self.db.execute(
             """
-            SELECT pipeline, event_id, status, attempt_count, retry_after, last_error
+            SELECT pipeline, event_id, status, attempt_count, retry_after, last_error, revision
             FROM processing_job_state
             WHERE pipeline = ? AND event_id = ?
             """,
@@ -66,9 +123,10 @@ class ProcessingJobRepository:
             attempt_count=int(row[3] or 0),
             retry_after=_parse_datetime(row[4]),
             last_error=str(row[5]) if row[5] is not None else None,
+            revision=int(row[6] or 0),
         )
 
-    async def record_success(self, pipeline: str, event_id: str) -> None:
+    async def record_success(self, pipeline: str, event_id: str, *, expected_revision: int | None = None) -> None:
         await self.db.execute(
             """
             INSERT INTO processing_job_state (
@@ -79,8 +137,9 @@ class ProcessingJobRepository:
                 retry_after = NULL,
                 last_error = NULL,
                 updated_at = CURRENT_TIMESTAMP
+            WHERE ? IS NULL OR processing_job_state.revision = ?
             """,
-            (pipeline, event_id),
+            (pipeline, event_id, expected_revision, expected_revision),
         )
         await self.db.commit()
 
@@ -92,8 +151,11 @@ class ProcessingJobRepository:
         error: str,
         retry_delays_seconds: tuple[float, ...],
         now: Optional[datetime] = None,
+        expected_revision: int | None = None,
     ) -> ProcessingJobState:
         current = await self.get(pipeline, event_id)
+        if current is not None and expected_revision is not None and current.revision != expected_revision:
+            return current
         attempt_count = int(current.attempt_count if current is not None else 0) + 1
         timestamp = now or datetime.now(timezone.utc)
         if attempt_count > len(retry_delays_seconds):
@@ -114,6 +176,7 @@ class ProcessingJobRepository:
                 retry_after = excluded.retry_after,
                 last_error = excluded.last_error,
                 updated_at = CURRENT_TIMESTAMP
+            WHERE ? IS NULL OR processing_job_state.revision = ?
             """,
             (
                 pipeline,
@@ -122,6 +185,8 @@ class ProcessingJobRepository:
                 attempt_count,
                 retry_after,
                 str(error)[:500],
+                expected_revision,
+                expected_revision,
             ),
         )
         await self.db.commit()

@@ -445,7 +445,7 @@ class BirdCropService:
     def _infer_frame_candidates(self, model: Any, image: Image.Image) -> list[dict[str, Any]]:
         """Scan large scenes in overlapping tiles so small birds keep useful model pixels."""
         candidates = [item for item in self._infer_candidates(model, image) if isinstance(item, dict)]
-        if image.width < 3000 or image.height < 1500:
+        if settings.media_cache.bird_scan_mode != "intensive" or image.width < 3000 or image.height < 1500:
             return candidates
         for tile_box in self._classification_tile_boxes(image.size, grid_size=3):
             tile = image.crop(tile_box)

@@ -41,6 +41,7 @@ from app.services.classifier_service import (
 )
 from app.services.event_processor import EventProcessor
 from app.services.media_cache import media_cache
+from app.services.media_storage_service import media_storage_service
 from app.services.full_visit_clip_service import full_visit_clip_service
 from app.services.archive_service import archive_service
 from app.services.broadcaster import broadcaster
@@ -597,6 +598,12 @@ async def lifespan(app: FastAPI):
         )
         await _run_lifecycle_phase(
             app,
+            "media_storage_start",
+            media_storage_service.start,
+            fatal=False,
+        )
+        await _run_lifecycle_phase(
+            app,
             "high_quality_snapshot_start",
             high_quality_snapshot_service.start,
             fatal=False,
@@ -645,6 +652,7 @@ async def lifespan(app: FastAPI):
             startup_phase="starting_services",
             startup_progress=95,
         )
+        await backfill.recover_job_history()
         backfill.start_watchdog()
         await asyncio.to_thread(startup_status.publish, "finalizing", 97)
         log.info(
@@ -697,6 +705,7 @@ async def lifespan(app: FastAPI):
         # accepted into a service that has already shut down.
         await _run_lifecycle_phase(app, "mqtt_service_stop", mqtt_service.stop, fatal=False)
         await _run_lifecycle_phase(app, "notification_dispatcher_stop", notification_dispatcher.stop, fatal=False)
+        await _run_lifecycle_phase(app, "media_storage_stop", media_storage_service.stop, fatal=False)
         await _run_lifecycle_phase(app, "high_quality_snapshot_stop", high_quality_snapshot_service.stop, fatal=False)
         await _run_lifecycle_phase(app, "auto_video_classifier_stop", auto_video_classifier.stop, fatal=False)
         await _run_lifecycle_phase(app, "full_visit_clip_stop", full_visit_clip_service.stop, fatal=False)

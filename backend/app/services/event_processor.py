@@ -840,9 +840,10 @@ class EventProcessor:
                         event_id=event.frigate_event,
                         error=str(exc),
                     )
-                high_quality_snapshot_service.schedule_final_replacement(
+                await high_quality_snapshot_service.schedule_replacement_durable(
                     event.frigate_event,
                     event_data=event_context,
+                    final=True,
                 )
         except Exception as exc:
             log.warning(
@@ -1682,7 +1683,7 @@ class EventProcessor:
                     )
                 if snapshot_cached and settings.media_cache.high_quality_event_snapshots:
                     try:
-                        high_quality_snapshot_service.schedule_replacement(
+                        await high_quality_snapshot_service.schedule_replacement_durable(
                             event.frigate_event,
                             event_data=event_context,
                         )

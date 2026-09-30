@@ -911,6 +911,15 @@ class SettingsUpdate(BaseModel):
     media_cache_per_species_minimum: int = Field(
         0, ge=0, le=10000, description="Newest detections per species kept out of age cleanup (0 = off)"
     )
+    media_cache_per_species_maximum: int = Field(
+        0, ge=0, le=10000, description="Maximum cached visits per species, excluding favourites; 0 is unlimited"
+    )
+    media_cache_max_size_mb: int = Field(
+        0, ge=0, le=1048576, description="Ordinary media budget in MiB, excluding archived favourites; 0 is unlimited"
+    )
+    media_cache_bird_scan_mode: Literal["standard", "intensive"] = Field(
+        "intensive", description="Bird scan effort; standard is lighter, intensive scans high-resolution tiles"
+    )
     # Location settings
     location_latitude: Optional[float] = Field(None, description="Latitude")
     location_longitude: Optional[float] = Field(None, description="Longitude")
@@ -1472,6 +1481,9 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "media_cache_high_quality_event_snapshot_bird_crop": settings.media_cache.high_quality_event_snapshot_bird_crop,
         "media_cache_high_quality_event_snapshot_jpeg_quality": settings.media_cache.high_quality_event_snapshot_jpeg_quality,
         "media_cache_retention_days": settings.media_cache.retention_days,
+        "media_cache_per_species_maximum": settings.media_cache.per_species_maximum,
+        "media_cache_max_size_mb": settings.media_cache.max_size_mb,
+        "media_cache_bird_scan_mode": settings.media_cache.bird_scan_mode,
         "media_cache_per_species_minimum": settings.media_cache.per_species_minimum,
         # Location settings
         "location_latitude": settings.location.latitude,
@@ -1878,6 +1890,15 @@ async def update_settings(
         settings.media_cache.retention_days = update.media_cache_retention_days
     if "media_cache_per_species_minimum" in fields_set:
         settings.media_cache.per_species_minimum = update.media_cache_per_species_minimum
+
+    if "media_cache_per_species_maximum" in fields_set:
+        settings.media_cache.per_species_maximum = update.media_cache_per_species_maximum
+
+    if "media_cache_max_size_mb" in fields_set:
+        settings.media_cache.max_size_mb = update.media_cache_max_size_mb
+
+    if "media_cache_bird_scan_mode" in fields_set:
+        settings.media_cache.bird_scan_mode = update.media_cache_bird_scan_mode
 
     # Location settings
     if "location_latitude" in fields_set:
@@ -3000,6 +3021,10 @@ async def run_cache_cleanup(auth: AuthContext = Depends(require_owner)):
     stats["clips_deleted"] += orphan_stats["clips_deleted"]
     stats["bytes_freed"] += orphan_stats["bytes_freed"]
 
+    from app.services.media_storage_service import media_storage_service
+
+    limit_stats = await media_storage_service.enforce_limits()
+    stats["bytes_freed"] += limit_stats["bytes_freed"]
     return {"status": "completed", **stats, "retention_days": retention}
 
 

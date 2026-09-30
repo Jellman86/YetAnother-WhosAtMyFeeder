@@ -135,6 +135,10 @@ class ArchiveService:
     async def recording_path(self, event_id: str) -> Optional[Path]:
         return await self._file_if_archived(event_id, RECORDING_NAME)
 
+    async def video_path(self, event_id: str) -> Optional[Path]:
+        """Prefer the saved full visit, falling back to the saved event clip."""
+        return await self.recording_path(event_id) or await self.clip_path(event_id)
+
     async def snapshot_metadata(self, event_id: str) -> Optional[dict]:
         return await self._read_json(event_id, SNAPSHOT_META_NAME)
 

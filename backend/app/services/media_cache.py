@@ -6,6 +6,7 @@ import os
 import time
 import uuid
 import weakref
+import re
 import aiofiles
 import aiofiles.os
 import structlog
@@ -47,6 +48,36 @@ def sanitize_event_id(event_id: str) -> str:
     if safe_id.startswith("."):
         raise ValueError(f"Event ID cannot start with dot: {event_id}")
     return safe_id
+
+
+_CANDIDATE_CACHE_KEY = re.compile(
+    r"^(.+)__(?:full_frame|model_crop|frigate_hint_crop)__f-?\d+(?:__c\d+)?__[a-f0-9]{10}__(?:image|thumb)(?:_thumb)?$"
+)
+
+
+def cache_file_event_id(path: Path) -> str:
+    """Resolve generated cache variants to the visit that owns them."""
+    name = path.name
+    metadata_path = path if name.endswith(".meta.json") else path.with_suffix(path.suffix + ".meta.json")
+    try:
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        if isinstance(metadata, dict) and metadata.get("event_id"):
+            owner = sanitize_event_id(str(metadata["event_id"]))
+            candidate = _CANDIDATE_CACHE_KEY.fullmatch(owner)
+            return candidate.group(1) if candidate else owner
+    except (OSError, ValueError, TypeError):
+        pass
+    for suffix in (".jpg.meta.json", ".mp4.meta.json", ".jpg", ".mp4", ".json"):
+        if name.endswith(suffix):
+            name = name[: -len(suffix)]
+            break
+    candidate = _CANDIDATE_CACHE_KEY.fullmatch(name)
+    if candidate:
+        return candidate.group(1)
+    for suffix in ("_thumb", "_recording", "_preview"):
+        if name.endswith(suffix):
+            return name[: -len(suffix)]
+    return name
 
 
 def _unlink_if_present(path: Path) -> None:
@@ -308,6 +339,9 @@ class MediaCacheService:
             return None
         try:
             async with self._snapshot_commit_lock(event_id):
+                metadata = await self.get_snapshot_metadata(event_id) or {}
+                if metadata.get("manual_selection"):
+                    return self._snapshot_path(event_id)
                 path = self._snapshot_path(event_id)
                 await self._write_bytes_atomic(path, image_bytes)
                 await self._write_snapshot_metadata(event_id, source=source, event_hints=event_hints)
@@ -319,7 +353,16 @@ class MediaCacheService:
             return None
 
     async def replace_snapshot(
-        self, event_id: str, image_bytes: bytes, source: str = "high_quality_snapshot"
+        self,
+        event_id: str,
+        image_bytes: bytes,
+        source: str = "high_quality_snapshot",
+        *,
+        automatic: bool = False,
+        manual_selection: bool = False,
+        manual_candidate_id: str | None = None,
+        clear_manual_selection: bool = False,
+        expected_manual_selection_updated_at: str | None = None,
     ) -> Optional[Path]:
         """Atomically replace a cached snapshot without exposing partial reads."""
         if not self._available:
@@ -327,9 +370,22 @@ class MediaCacheService:
             return None
         try:
             async with self._snapshot_commit_lock(event_id):
+                metadata = await self.get_snapshot_metadata(event_id) or {}
+                manual_choice_changed = (
+                    clear_manual_selection
+                    and metadata.get("manual_selection")
+                    and metadata.get("updated_at") != expected_manual_selection_updated_at
+                )
+                if (automatic and metadata.get("manual_selection")) or manual_choice_changed:
+                    return self._snapshot_path(event_id)
                 path = self._snapshot_path(event_id)
                 await self._write_bytes_atomic(path, image_bytes)
-                await self._write_snapshot_metadata(event_id, source=source)
+                await self._write_snapshot_metadata(
+                    event_id,
+                    source=source,
+                    manual_selection=True if manual_selection else False if clear_manual_selection else None,
+                    manual_candidate_id=manual_candidate_id,
+                )
                 await self.delete_thumbnail(event_id)
             log.debug("Replaced cached snapshot", event_id=event_id, size=len(image_bytes))
             return path
@@ -343,6 +399,8 @@ class MediaCacheService:
         *,
         source: str,
         event_hints: Optional[dict] = None,
+        manual_selection: bool | None = None,
+        manual_candidate_id: str | None = None,
     ) -> None:
         # Snapshot provenance changes as media is upgraded, but event-time
         # localization does not. Preserve those bounded hints so a later clip
@@ -350,10 +408,18 @@ class MediaCacheService:
         metadata = dict(await self.get_snapshot_metadata(event_id) or {})
         metadata.update(
             {
+                "event_id": (
+                    _CANDIDATE_CACHE_KEY.fullmatch(event_id).group(1)
+                    if _CANDIDATE_CACHE_KEY.fullmatch(event_id)
+                    else event_id
+                ),
                 "source": str(source or "unknown"),
                 "updated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             }
         )
+        if manual_selection is not None:
+            metadata["manual_selection"] = manual_selection
+            metadata["manual_candidate_id"] = manual_candidate_id if manual_selection else None
         if isinstance(event_hints, dict):
             metadata["event_hints"] = event_hints
         path = self._snapshot_metadata_path(event_id)
@@ -417,6 +483,11 @@ class MediaCacheService:
 
     async def _write_thumbnail_metadata(self, event_id: str, *, source: str) -> None:
         metadata = {
+            "event_id": (
+                _CANDIDATE_CACHE_KEY.fullmatch(event_id).group(1)
+                if _CANDIDATE_CACHE_KEY.fullmatch(event_id)
+                else event_id
+            ),
             "source": str(source or "unknown"),
             "updated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         }
@@ -929,40 +1000,41 @@ class MediaCacheService:
             return False
 
     async def delete_cached_media(self, event_id: str):
-        """Delete all cached media for an event.
+        """Delete all files owned by this visit, including candidate sidecars."""
+        async with self._snapshot_commit_lock(event_id):
+            await asyncio.to_thread(self._delete_visit_files_sync, event_id)
 
-        Args:
-            event_id: Frigate event ID
-        """
-        try:
-            snapshot_path = self._snapshot_path(event_id)
-            if await aiofiles.os.path.exists(snapshot_path):
-                await aiofiles.os.remove(snapshot_path)
+    async def set_manual_snapshot_selection(self, event_id: str, selected: bool) -> None:
+        async with self._snapshot_commit_lock(event_id):
+            metadata = await self.get_snapshot_metadata(event_id) or {}
+            metadata.update(
+                event_id=event_id, manual_selection=selected, updated_at=datetime.now(timezone.utc).isoformat()
+            )
+            await self._write_bytes_atomic(self._snapshot_metadata_path(event_id), json.dumps(metadata).encode())
 
-            thumbnail_path = self._thumbnail_path(event_id)
-            if await aiofiles.os.path.exists(thumbnail_path):
-                await aiofiles.os.remove(thumbnail_path)
-
-            clip_path = self._clip_path(event_id)
-            if await aiofiles.os.path.exists(clip_path):
-                await aiofiles.os.remove(clip_path)
-
-            recording_clip_path = self._recording_clip_path(event_id)
-            if await aiofiles.os.path.exists(recording_clip_path):
-                await aiofiles.os.remove(recording_clip_path)
-                self._invalidate_recording_clip_duration_cache(recording_clip_path)
-
-            preview_sprite_path = self._preview_sprite_path(event_id)
-            if await aiofiles.os.path.exists(preview_sprite_path):
-                await aiofiles.os.remove(preview_sprite_path)
-
-            preview_manifest_path = self._preview_manifest_path(event_id)
-            if await aiofiles.os.path.exists(preview_manifest_path):
-                await aiofiles.os.remove(preview_manifest_path)
-
-            log.debug("Deleted cached media", event_id=event_id)
-        except Exception as e:
-            log.error("Failed to delete cached media", event_id=event_id, error=str(e))
+    def _delete_visit_files_sync(self, event_id: str, paths: list[Path] | None = None) -> int:
+        safe_id = sanitize_event_id(event_id)
+        candidates = (
+            paths
+            if paths is not None
+            else [
+                path for directory in (SNAPSHOTS_DIR, CLIPS_DIR, PREVIEWS_DIR) for path in directory.glob(f"{safe_id}*")
+            ]
+        )
+        # Resolve every owner before removing sidecars used to disambiguate filenames.
+        owned = [
+            path
+            for path in candidates
+            if path.is_file() and not path.name.endswith(".tmp") and cache_file_event_id(path) == safe_id
+        ]
+        freed = 0
+        for path in owned:
+            try:
+                freed += path.stat().st_size
+                path.unlink(missing_ok=True)
+            except FileNotFoundError:
+                continue
+        return freed
 
     async def cleanup_empty_files(self) -> dict:
         return await asyncio.to_thread(self._cleanup_empty_files_sync)
@@ -1022,9 +1094,21 @@ class MediaCacheService:
         protected_event_ids: Optional[set[str]] = None,
         protected_snapshot_event_ids: Optional[set[str]] = None,
     ) -> dict:
-        return await asyncio.to_thread(
-            self._cleanup_old_media_sync, retention_days, protected_event_ids, protected_snapshot_event_ids
+        from app.services.high_quality_snapshot_service import high_quality_snapshot_service, HQ_PROCESSING_PIPELINE
+        from app.repositories.processing_job_repository import ProcessingJobRepository
+        from app.database import get_db
+
+        protected = set(protected_event_ids or ()) | high_quality_snapshot_service.get_active_event_ids()
+        stats = await asyncio.to_thread(
+            self._cleanup_old_media_sync, retention_days, protected, protected_snapshot_event_ids
         )
+        evicted = stats.pop("evicted_snapshot_event_ids", set())
+        if evicted:
+            async with get_db() as db:
+                for event_id in evicted:
+                    await ProcessingJobRepository(db).mark_storage_evicted(HQ_PROCESSING_PIPELINE, event_id)
+                await db.commit()
+        return stats
 
     def _cleanup_old_media_sync(
         self,
@@ -1032,86 +1116,48 @@ class MediaCacheService:
         protected_event_ids: Optional[set[str]] = None,
         protected_snapshot_event_ids: Optional[set[str]] = None,
     ) -> dict:
-        """Delete cached media older than retention period.
-
-        Args:
-            retention_days: Delete files older than this many days
-            protected_event_ids: Event IDs exempt from age-based media deletion (favourites)
-            protected_snapshot_event_ids: Event IDs whose snapshot alone is exempt (the
-                per-species floor, #178); their clips and previews age out as usual
-
-        Returns:
-            Dict with cleanup stats
-        """
-        protected_ids = protected_event_ids or set()
-        protected_snapshot_ids = protected_ids | (protected_snapshot_event_ids or set())
-
-        # Always clean up empty/corrupt files first
+        """Age a visit's variants together, keeping sidecars with fresh photographs."""
+        protected = protected_event_ids or set()
         empty_stats = self._cleanup_empty_files_sync()
-
+        stats = {**empty_stats, "bytes_freed": 0, "protected_skipped": 0}
         if retention_days <= 0:
-            return {
-                "snapshots_deleted": empty_stats["snapshots_deleted"],
-                "clips_deleted": empty_stats["clips_deleted"],
-                "previews_deleted": empty_stats["previews_deleted"],
-                "bytes_freed": 0,
-                "protected_skipped": 0,
-            }
-
-        cutoff = datetime.now() - timedelta(days=retention_days)
-        cutoff_timestamp = cutoff.timestamp()
-
-        stats = {
-            "snapshots_deleted": empty_stats["snapshots_deleted"],
-            "clips_deleted": empty_stats["clips_deleted"],
-            "previews_deleted": empty_stats["previews_deleted"],
-            "bytes_freed": 0,
-            "protected_skipped": 0,
-        }
-
-        # Clean old snapshots
-        for path in SNAPSHOTS_DIR.glob("*.jpg"):
-            try:
-                if path.stem in protected_snapshot_ids:
-                    stats["protected_skipped"] += 1
+            return stats
+        cutoff = (datetime.now() - timedelta(days=retention_days)).timestamp()
+        stats["evicted_snapshot_event_ids"] = set()
+        for directory, kind, media_suffix, exemptions in (
+            (SNAPSHOTS_DIR, "snapshots", ".jpg", protected | (protected_snapshot_event_ids or set())),
+            (CLIPS_DIR, "clips", ".mp4", protected),
+            (PREVIEWS_DIR, "previews", ".jpg", protected),
+        ):
+            visits: dict[str, list[Path]] = {}
+            for path in directory.iterdir():
+                if path.is_file() and not path.name.endswith(".tmp"):
+                    visits.setdefault(cache_file_event_id(path), []).append(path)
+            for event_id, paths in visits.items():
+                if event_id in exemptions:
+                    stats["protected_skipped"] += len(paths)
                     continue
-                if path.stat().st_mtime < cutoff_timestamp:
-                    size = path.stat().st_size
-                    path.unlink()
-                    stats["snapshots_deleted"] += 1
-                    stats["bytes_freed"] += size
-            except Exception as e:
-                log.warning("Failed to delete old snapshot", path=str(path), error=str(e))
-
-        # Clean old clips
-        for path in CLIPS_DIR.glob("*.mp4"):
-            try:
-                if path.stem in protected_ids:
-                    stats["protected_skipped"] += 1
+                try:
+                    media_paths = [path for path in paths if path.name.endswith(media_suffix)]
+                    newest_write = max(path.stat().st_mtime for path in (media_paths or paths))
+                    if newest_write >= cutoff:
+                        continue
+                    for path in paths:
+                        size = path.stat().st_size
+                        path.unlink(missing_ok=True)
+                        stats["bytes_freed"] += size
+                        if path.name.endswith(media_suffix) or kind == "previews":
+                            stats[f"{kind}_deleted"] += 1
+                    if kind == "snapshots":
+                        stats["evicted_snapshot_event_ids"].add(event_id)
+                except FileNotFoundError:
                     continue
-                if path.stat().st_mtime < cutoff_timestamp:
-                    size = path.stat().st_size
-                    path.unlink()
-                    stats["clips_deleted"] += 1
-                    stats["bytes_freed"] += size
-            except Exception as e:
-                log.warning("Failed to delete old clip", path=str(path), error=str(e))
-
-        # Clean old preview assets
-        for path in PREVIEWS_DIR.glob("*"):
-            try:
-                if path.stem in protected_ids:
-                    stats["protected_skipped"] += 1
-                    continue
-                if path.is_file() and path.stat().st_mtime < cutoff_timestamp:
-                    size = path.stat().st_size
-                    path.unlink()
-                    stats["previews_deleted"] += 1
-                    stats["bytes_freed"] += size
-            except Exception as e:
-                log.warning("Failed to delete old preview asset", path=str(path), error=str(e))
-
-        log.info("Media cache cleanup complete", **stats)
+                except OSError as exc:
+                    log.warning("Failed to age cached visit media", event_id=event_id, kind=kind, error=str(exc))
+        log.info(
+            "Media cache cleanup complete",
+            **{key: value for key, value in stats.items() if key != "evicted_snapshot_event_ids"},
+        )
         return stats
 
     async def cleanup_orphaned_media(self, valid_event_ids: set[str]) -> dict:
@@ -1129,8 +1175,10 @@ class MediaCacheService:
         stats = {"snapshots_deleted": 0, "clips_deleted": 0, "previews_deleted": 0, "bytes_freed": 0}
 
         # Clean orphaned snapshots
-        for path in SNAPSHOTS_DIR.glob("*.jpg"):
-            event_id = path.stem
+        for path in SNAPSHOTS_DIR.glob("*"):
+            if not path.is_file() or path.name.endswith(".tmp"):
+                continue
+            event_id = cache_file_event_id(path)
             if event_id not in valid_event_ids:
                 try:
                     size = path.stat().st_size
@@ -1141,8 +1189,10 @@ class MediaCacheService:
                     log.warning("Failed to delete orphaned snapshot", path=str(path), error=str(e))
 
         # Clean orphaned clips
-        for path in CLIPS_DIR.glob("*.mp4"):
-            event_id = path.stem
+        for path in CLIPS_DIR.glob("*"):
+            if not path.is_file() or path.name.endswith(".tmp"):
+                continue
+            event_id = cache_file_event_id(path)
             if event_id not in valid_event_ids:
                 try:
                     size = path.stat().st_size
@@ -1156,7 +1206,7 @@ class MediaCacheService:
         for path in PREVIEWS_DIR.glob("*"):
             if path.suffix not in (".jpg", ".json"):
                 continue
-            event_id = path.stem
+            event_id = cache_file_event_id(path)
             if event_id not in valid_event_ids:
                 try:
                     size = path.stat().st_size
@@ -1252,7 +1302,7 @@ class MediaCacheService:
                 pass
 
         for path in PREVIEWS_DIR.glob("*"):
-            if not path.is_file():
+            if not path.is_file() or path.name.endswith(".tmp"):
                 continue
             try:
                 stat = path.stat()

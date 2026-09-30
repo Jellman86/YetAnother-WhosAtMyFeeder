@@ -218,7 +218,7 @@ async def test_process_historical_event_caches_snapshot_and_schedules_high_quali
 
     service.detection_service.save_detection = AsyncMock(return_value=(True, True))
     cache_snapshot = AsyncMock(return_value="/tmp/evt-backfill-hq.jpg")
-    schedule_replacement = MagicMock(return_value=True)
+    schedule_replacement_durable = AsyncMock(return_value=True)
     monkeypatch.setattr(
         backfill_module,
         "media_cache",
@@ -228,7 +228,7 @@ async def test_process_historical_event_caches_snapshot_and_schedules_high_quali
     monkeypatch.setattr(
         backfill_module,
         "high_quality_snapshot_service",
-        MagicMock(schedule_replacement=schedule_replacement),
+        MagicMock(schedule_replacement_durable=schedule_replacement_durable),
         raising=False,
     )
 
@@ -250,7 +250,7 @@ async def test_process_historical_event_caches_snapshot_and_schedules_high_quali
         snapshot_bytes,
         source="frigate_snapshot",
     )
-    schedule_replacement.assert_called_once_with(
+    schedule_replacement_durable.assert_awaited_once_with(
         "evt-backfill-hq",
         event_data={
             "id": "evt-backfill-hq",
@@ -285,7 +285,7 @@ async def test_existing_detection_repairs_a_missing_cached_snapshot(monkeypatch)
 
     service.detection_service.save_detection = AsyncMock(return_value=(False, False))
     cache_snapshot = AsyncMock(return_value="/tmp/evt-existing.jpg")
-    schedule_replacement = MagicMock(return_value=True)
+    schedule_replacement_durable = AsyncMock(return_value=True)
     monkeypatch.setattr(
         backfill_module,
         "media_cache",
@@ -295,7 +295,7 @@ async def test_existing_detection_repairs_a_missing_cached_snapshot(monkeypatch)
     monkeypatch.setattr(
         backfill_module,
         "high_quality_snapshot_service",
-        MagicMock(schedule_replacement=schedule_replacement),
+        MagicMock(schedule_replacement_durable=schedule_replacement_durable),
         raising=False,
     )
 
@@ -314,7 +314,7 @@ async def test_existing_detection_repairs_a_missing_cached_snapshot(monkeypatch)
         snapshot_bytes,
         source="frigate_snapshot",
     )
-    schedule_replacement.assert_called_once_with("evt-existing", event_data=event)
+    schedule_replacement_durable.assert_awaited_once_with("evt-existing", event_data=event)
 
 
 @pytest.mark.asyncio

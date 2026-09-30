@@ -610,3 +610,18 @@ def test_notification_link_target_env_override(monkeypatch):
     loaded = Settings.load()
 
     assert loaded.notifications.link_target == "frigate"
+
+
+@pytest.mark.parametrize(
+    "field,value,expected",
+    [("PER_SPECIES_MAXIMUM", "10", 10), ("MAX_SIZE_MB", "1024", 1024), ("BIRD_SCAN_MODE", "standard", "standard")],
+)
+def test_media_limit_and_scan_environment_settings_override_saved_values(monkeypatch, tmp_path, field, value, expected):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps({"media_cache": {"per_species_maximum": 1, "max_size_mb": 1, "bird_scan_mode": "intensive"}})
+    )
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+    monkeypatch.setenv(f"MEDIA_CACHE__{field}", value)
+    loaded = Settings.load()
+    assert getattr(loaded.media_cache, field.lower()) == expected

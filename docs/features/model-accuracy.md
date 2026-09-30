@@ -134,7 +134,8 @@ Both final Frigate candidates remain in the bounded audit set even when video wi
 The final still can also complete the HQ replacement by itself when all clip sources are absent.
 
 When a sampled frame or Frigate's clean completed still contains more than one bird, the HQ
-snapshot path keeps up to three distinct detector crops and scores each separately. It compares
+snapshot path scores up to three distinct detector crops in Standard mode, or eight in Intensive
+mode. Intensive also searches overlapping tiles in large high-resolution frames. It compares
 their classifications with the tracked visit's existing identity before choosing a stored
 photograph. The detection and review views show spatially distinct crops as separate photo choices,
 each with its own tentative model read; choosing a photo does not change the visit's species.
@@ -143,7 +144,15 @@ bird's crop scored higher.
 These crops remain candidates for one Frigate event, not separate visits, and several crops from
 one frame still count as one temporal observation. If only Frigate's regular, possibly pre-cropped
 snapshot is available, it needs a matching classification before it can replace the current
-photograph.
+photograph. Counts use every usable detector box, independently of the classified photo-choice
+limit, in the scene with the most birds. They estimate birds in analyzed captures, not unique
+individuals across a visit or day. A low-confidence species is kept as Unknown Bird.
+
+Automatic portraits require usable image detail, matching species evidence and, for detector
+crops, at least 0.08 localization confidence. A matching portrait with species confidence at least
+0.65 may be preferred when within 0.05 of the whole scene. This avoids leaving an old, contradictory
+portrait simply because the new correct scene is uncropped. An owner-selected photo is preserved
+through later automatic updates; explicit regeneration releases that choice.
 
 The same correction fixes time-aligned event crops: Frigate `path_data` coordinates describe each
 tracked box's **bottom-centre**, not its geometric centre. YA-WAMF now reconstructs the box with

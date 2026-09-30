@@ -648,7 +648,15 @@
       "archive_usage_detail": "{count} gesichert, {size}",
       "archive_failed_count": "{count} konnten nicht archiviert werden. Öffnen Sie den Besuch, um es erneut zu versuchen.",
       "per_species_minimum": "Die neuesten je Art behalten",
-      "per_species_minimum_help": "Die neuesten Besuche jeder Art und ihre zwischengespeicherten Fotos überstehen die Altersbereinigung. 0 schaltet dies aus. Clips werden nicht gehalten."
+      "per_species_minimum_help": "Die neuesten Besuche jeder Art und ihre zwischengespeicherten Fotos überstehen die Altersbereinigung. 0 schaltet dies aus. Clips werden nicht gehalten.",
+      "per_species_maximum": "Maximale gespeicherte Besuche pro Art",
+      "per_species_maximum_help": "Medien der neuesten Besuche je Art behalten. Favoriten sind ausgenommen, der Verlauf bleibt erhalten. 0 bedeutet unbegrenzt.",
+      "max_size_mb": "Mediencache-Budget (MiB)",
+      "max_size_mb_help": "Ältere Medien bei Überschreitung löschen. Favoriten und ihr Archiv bleiben geschützt. Budget und Höchstzahl haben Vorrang vor dem Minimum der altersabhängigen Bereinigung. 0 bedeutet unbegrenzt.",
+      "bird_scan_mode": "Aufwand der Vogelsuche",
+      "bird_scan_mode_help": "Standard benötigt weniger CPU. Intensiv durchsucht auch Kacheln großer Bilder und klassifiziert mehr Ausschnitte. Beide zählen alle im ausgewählten Bild gefundenen Vögel, garantieren aber nicht jeden Vogel im Clip.",
+      "bird_scan_standard": "Standard",
+      "bird_scan_intensive": "Intensiv"
     },
     "security": {
       "title": "Sicherheit",

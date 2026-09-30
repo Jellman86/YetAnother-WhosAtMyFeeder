@@ -658,7 +658,15 @@
       "archive_usage_detail": "{count} guardados, {size}",
       "archive_failed_count": "{count} não puderam ser arquivados. Abra a visita para tentar de novo.",
       "per_species_minimum": "Manter os mais recentes por espécie",
-      "per_species_minimum_help": "As visitas mais recentes de cada espécie e as suas fotos em cache sobrevivem à limpeza por idade. 0 desativa. Os clipes não são mantidos."
+      "per_species_minimum_help": "As visitas mais recentes de cada espécie e as suas fotos em cache sobrevivem à limpeza por idade. 0 desativa. Os clipes não são mantidos.",
+      "per_species_maximum": "Máximo de visitas em cache por espécie",
+      "per_species_maximum_help": "Mantém os meios das visitas mais recentes de cada espécie. Os favoritos são excluídos e o histórico permanece. 0 significa ilimitado.",
+      "max_size_mb": "Orçamento da cache multimédia (MiB)",
+      "max_size_mb_help": "Remove meios antigos ao exceder o orçamento. Os favoritos e o seu arquivo ficam protegidos. O orçamento e o máximo têm prioridade sobre o mínimo da limpeza por idade. 0 significa ilimitado.",
+      "bird_scan_mode": "Intensidade da procura de aves",
+      "bird_scan_mode_help": "Padrão usa menos CPU. Intensiva também procura em secções de imagens grandes e classifica mais recortes. Ambas contam todas as aves encontradas na cena escolhida, sem garantir todas as aves do vídeo.",
+      "bird_scan_standard": "Padrão",
+      "bird_scan_intensive": "Intensiva"
     },
     "security": {
       "title": "Segurança",
