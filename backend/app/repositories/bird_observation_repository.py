@@ -5,7 +5,7 @@ import json
 
 import aiosqlite
 
-from app.services.bird_observation_selection import BirdObservationSelection
+from app.services.bird_observation_selection import BirdObservation, BirdObservationSelection
 
 
 class BirdObservationRepository:
@@ -67,31 +67,33 @@ class BirdObservationRepository:
         ):
             return False
 
+        # Resolve every location together: an owner-reviewed box must not steal
+        # a weaker overlap before another generated box gets its exact match.
+        weights = [[self._association_score(old, bird, selection) for old in existing] for bird in selection.birds]
+        assignment = self._maximum_weight_assignment(weights)
+        total_score = sum(
+            weights[index][old_index] for index, old_index in enumerate(assignment) if old_index is not None
+        )
+        for index, old_index in enumerate(assignment):
+            if old_index is None or not (existing[old_index]["manual_species"] or existing[old_index]["is_hidden"]):
+                continue
+            # Equal global alternatives cannot identify which physical bird owns
+            # the correction. Keep this frame intact instead of guessing or duplicating it.
+            alternative_weights = [list(row) for row in weights]
+            alternative_weights[index][old_index] = 0.0
+            alternative = self._maximum_weight_assignment(alternative_weights)
+            alternative_score = sum(
+                alternative_weights[new][old] for new, old in enumerate(alternative) if old is not None
+            )
+            if abs(total_score - alternative_score) <= 1e-9:
+                return False
+
         remaining = list(existing)
         rows = []
         for bird_index, bird in enumerate(selection.birds):
-            # Crop indices can shift when the detector reranks boxes. A stable-looking
-            # candidate ID is not enough to transfer a person's species correction.
-            reviewed = max(
-                [old for old in remaining if old["manual_species"] or old["is_hidden"]],
-                key=lambda old: self._box_overlap(old["crop_box"], bird.box),
-                default=None,
-            )
-            if reviewed is not None and self._box_overlap(reviewed["crop_box"], bird.box) >= 0.4:
-                matched = reviewed
-            else:
-                reviewed = None
-                matched = max(
-                    [
-                        old
-                        for old in remaining
-                        if old["clip_variant"] == selection.clip_variant and old["frame_index"] == selection.frame_index
-                    ],
-                    key=lambda old: self._box_overlap(old["crop_box"], bird.box),
-                    default=None,
-                )
-                if matched is not None and self._box_overlap(matched["crop_box"], bird.box) < 0.4:
-                    matched = None
+            old_index = assignment[bird_index]
+            matched = existing[old_index] if old_index is not None else None
+            reviewed = matched if matched and (matched["manual_species"] or matched["is_hidden"]) else None
             if matched is not None:
                 remaining.remove(matched)
             rows.append(
@@ -158,6 +160,72 @@ class BirdObservationRepository:
             [row[1:] for row in rows if row[0] is None],
         )
         return True
+
+    @classmethod
+    def _association_score(cls, old: dict, bird: BirdObservation, selection: BirdObservationSelection) -> float:
+        if old["clip_variant"] != selection.clip_variant or old["frame_index"] != selection.frame_index:
+            return 0.0
+        left, right = old["crop_box"], bird.box
+        if cls._box_overlap(left, right) < 0.4:
+            return 0.0
+        intersection = max(0.0, min(left[2], right[2]) - max(left[0], right[0])) * max(
+            0.0, min(left[3], right[3]) - max(left[1], right[1])
+        )
+        union = (left[2] - left[0]) * (left[3] - left[1]) + (right[2] - right[0]) * (right[3] - right[1]) - intersection
+        return intersection / union if union > 0 else 0.0
+
+    @staticmethod
+    def _maximum_weight_assignment(weights: list[list[float]]) -> list[int | None]:
+        """Rectangular Hungarian assignment with a zero-weight unmatched slot per new bird."""
+        count = len(weights)
+        if not count:
+            return []
+        old_count = len(weights[0])
+        column_count = old_count + count
+        costs = [[-value for value in row] + [0.0] * count for row in weights]
+        row_potential = [0.0] * (count + 1)
+        column_potential = [0.0] * (column_count + 1)
+        matched_row = [0] * (column_count + 1)
+        previous = [0] * (column_count + 1)
+        for row in range(1, count + 1):
+            matched_row[0] = row
+            column = 0
+            minimum = [float("inf")] * (column_count + 1)
+            used = [False] * (column_count + 1)
+            while True:
+                used[column] = True
+                current_row = matched_row[column]
+                delta, next_column = float("inf"), 0
+                for candidate in range(1, column_count + 1):
+                    if used[candidate]:
+                        continue
+                    cost = (
+                        costs[current_row - 1][candidate - 1] - row_potential[current_row] - column_potential[candidate]
+                    )
+                    if cost < minimum[candidate]:
+                        minimum[candidate] = cost
+                        previous[candidate] = column
+                    if minimum[candidate] < delta:
+                        delta, next_column = minimum[candidate], candidate
+                for candidate in range(column_count + 1):
+                    if used[candidate]:
+                        row_potential[matched_row[candidate]] += delta
+                        column_potential[candidate] -= delta
+                    else:
+                        minimum[candidate] -= delta
+                column = next_column
+                if matched_row[column] == 0:
+                    break
+            while column:
+                predecessor = previous[column]
+                matched_row[column] = matched_row[predecessor]
+                column = predecessor
+        assignment = [None] * count
+        for column in range(1, old_count + 1):
+            row = matched_row[column]
+            if row and weights[row - 1][column - 1] > 0:
+                assignment[row - 1] = column - 1
+        return assignment
 
     @staticmethod
     def _box_overlap(left: list[float], right: tuple[float, float, float, float]) -> float:
