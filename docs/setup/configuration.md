@@ -261,6 +261,8 @@ Retention, caching, imports, and the destructive tools.
   A failed event lookup is reported as an unsuccessful check, not missing media. Timeouts,
   authentication errors, server errors and unusable responses preserve the saved state for a
   later retry. A manual scan can clear an earlier missing flag only after confirming the media.
+  Automatic missing-media deletion checks favourites in its final database decision. A favourite
+  accepted before that decision keeps its detection and cached photos, even if a scan is running.
 - **Media Cache** — cache snapshots and clips locally to reduce load on Frigate and speed up
   the UI. **Clear cached files** asks first, then deletes cached media older than the retention
   period and cached files that no longer belong to a detection. Favourites and each species'

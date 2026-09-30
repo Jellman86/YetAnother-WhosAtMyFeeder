@@ -1427,16 +1427,17 @@ class DetectionRepository:
 
     async def favorite_detection(self, frigate_event: str, created_by: Optional[str] = None) -> Optional[bool]:
         """Mark detection as favorite. Returns True if detection exists, None if not found."""
-        detection = await self.get_by_frigate_event(frigate_event)
-        if not detection or detection.id is None:
-            return None
-
         await self.db.execute(
-            "INSERT OR IGNORE INTO detection_favorites (detection_id, created_by) VALUES (?, ?)",
-            (detection.id, created_by),
+            """INSERT OR IGNORE INTO detection_favorites (detection_id, created_by)
+               SELECT id, ? FROM detections WHERE frigate_event = ?""",
+            (created_by, frigate_event),
         )
+        inserted = await self._last_statement_changes()
         await self.db.commit()
-        return True
+        if inserted:
+            return True
+        detection = await self.get_by_frigate_event(frigate_event)
+        return True if detection and detection.is_favorite else None
 
     async def get_favorite_archive(self, frigate_event: str) -> Optional[dict]:
         """The favourite row's archive fields, or None when the visit is not a favourite."""
@@ -1660,9 +1661,14 @@ class DetectionRepository:
         await self.db.commit()
         return changed > 0
 
-    async def delete_by_frigate_event(self, frigate_event: str) -> bool:
+    async def delete_by_frigate_event(self, frigate_event: str, *, preserve_favorites: bool = False) -> bool:
         """Delete a detection by Frigate event ID. Returns True if deleted."""
-        await self.db.execute("DELETE FROM detections WHERE frigate_event = ?", (frigate_event,))
+        query = "DELETE FROM detections WHERE frigate_event = ?"
+        if preserve_favorites:
+            query += """ AND NOT EXISTS (
+                SELECT 1 FROM detection_favorites f WHERE f.detection_id = detections.id
+            )"""
+        await self.db.execute(query, (frigate_event,))
         changed = await self._last_statement_changes()
         await self.db.commit()
         return changed > 0
