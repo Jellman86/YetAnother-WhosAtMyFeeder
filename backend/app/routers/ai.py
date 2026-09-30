@@ -21,6 +21,7 @@ from app.auth import AuthContext
 from app.auth import get_auth_context_with_legacy
 from app.config import settings
 from app.routers.proxy import _get_valid_cached_recording_clip_path
+from app.utils.public_access import privacy_checked_db, public_event_visible
 
 router = APIRouter()
 log = structlog.get_logger()
@@ -66,6 +67,11 @@ def _raise_for_ai_error(value: str | None) -> None:
     if value.retry_after_seconds is not None:
         headers = {"Retry-After": str(value.retry_after_seconds)}
     raise HTTPException(status_code=value.http_status_hint, detail=str(value), headers=headers)
+
+
+def _require_public_ai(auth: AuthContext) -> None:
+    if not auth.is_owner and not (settings.public_access.enabled and settings.public_access.show_ai_conversation):
+        raise HTTPException(status_code=403, detail="AI conversation is not shared publicly on this instance.")
 
 
 def _compute_config_key(config: dict) -> str:
@@ -136,14 +142,16 @@ async def analyze_event(
     """
     lang = get_user_language(request)
 
+    _require_public_ai(auth)
+
     # Read what the prompt needs, then let the connection go. Frame extraction,
     # the snapshot fetch and the model call together run for tens of seconds,
     # and a pooled connection held across them is a fifth of the server's
     # capacity spent waiting on someone else's network.
-    async with get_db() as db:
+    async with privacy_checked_db(get_db) as db:
         detection = await DetectionRepository(db).get_by_frigate_event(event_id)
 
-        if not detection:
+        if not detection or (not auth.is_owner and not public_event_visible(detection)):
             raise HTTPException(status_code=404, detail=i18n_service.translate("errors.detection_not_found", lang))
 
         # Check if analysis already exists and force is not set
@@ -282,12 +290,12 @@ async def analyze_leaderboard(
 
 @router.get("/events/{event_id}/conversation", response_model=list[ConversationTurnResponse])
 async def get_event_conversation(event_id: str, auth: AuthContext = Depends(get_auth_context_with_legacy)):
-    is_guest_allowed = (
-        settings.public_access.enabled and settings.public_access.show_ai_conversation and (not auth.is_owner)
-    )
-    if not auth.is_owner and not is_guest_allowed:
-        raise HTTPException(status_code=403, detail="Owner access required to view AI conversation.")
-    async with get_db() as db:
+    _require_public_ai(auth)
+    async with privacy_checked_db(get_db) as db:
+        if not auth.is_owner:
+            event = await DetectionRepository(db).get_by_frigate_event(event_id)
+            if not public_event_visible(event):
+                raise HTTPException(status_code=404, detail="Detection not found")
         repo = AIConversationRepository(db)
         turns = await repo.list_turns(event_id)
     return [

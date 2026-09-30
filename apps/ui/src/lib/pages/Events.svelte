@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onDestroy, onMount } from 'svelte';
+    import { onDestroy, onMount, untrack } from 'svelte';
     import {
         fetchEvents,
         fetchEventFilters,
@@ -46,6 +46,7 @@
     import { speciesPickerNames } from '../utils/species-picker';
 
     import { getBirdNames } from '../naming';
+    import { createEventMetadataRefresh } from './event-metadata-refresh';
 
     let events = $state<Detection[]>([]);
     let loading = $state(true);
@@ -240,6 +241,10 @@
                 return;
             }
             // Events can look "empty" when the API is unreachable; surface a visible error instead.
+            if (authStore.isGuest) {
+                events = [];
+                totalCount = 0;
+            }
             error = $_('events.load_failed');
             console.error('Failed to load events', e);
         } finally {
@@ -266,13 +271,28 @@
         }
     }
 
+    function clearEventMetadata() {
+        availableSpecies = [];
+        availableCameras = [];
+        eventFilters = null;
+    }
+
+    const eventMetadataRefresh = createEventMetadataRefresh({
+        fetch: fetchEventFilters,
+        apply: (filters) => {
+            availableSpecies = filters.species;
+            availableCameras = filters.cameras;
+            eventFilters = filters;
+        },
+        clear: clearEventMetadata,
+        isGuest: () => authStore.isGuest
+    });
+
     async function loadEventMetadata(forceRefresh = false, includeAuxiliary = true): Promise<boolean> {
         let shouldReloadEvents = false;
         try {
-            const filters = await fetchEventFilters({ forceRefresh });
-            availableSpecies = (filters as EventFilters).species;
-            availableCameras = (filters as EventFilters).cameras;
-            eventFilters = filters as EventFilters;
+            const filters = await eventMetadataRefresh.load(forceRefresh);
+            if (!filters) return false;
             if (includeAuxiliary) {
                 // The hidden count is only ever shown behind owner access, and the
                 // endpoint refuses a guest, so asking as a guest just logs a 403.
@@ -317,8 +337,9 @@
         }
     }
 
-    async function refreshCurrentEventsPage() {
-        await refreshEventMetadata(true, false);
+    async function refreshCurrentEventsPage(publicVersion?: number) {
+        await loadEventMetadata(true, false);
+        if (publicVersion !== undefined && publicVersion !== detectionsStore.publicHistoryVersion) return;
         await loadEvents();
     }
 
@@ -531,6 +552,22 @@
             void loadEvents();
         }, 700);
     }
+
+    let handledPublicHistoryVersion = detectionsStore.publicHistoryVersion;
+    $effect(() => {
+        const version = detectionsStore.publicHistoryVersion;
+        if (version <= handledPublicHistoryVersion || !authStore.isGuest) return;
+        handledPublicHistoryVersion = version;
+        if (version > 0 && authStore.isGuest) untrack(() => {
+            eventsLoadGeneration += 1;
+            events = [];
+            totalCount = 0;
+            loading = true;
+            error = null;
+            clearEventMetadata();
+            void refreshCurrentEventsPage(version);
+        });
+    });
 
     $effect(() => {
         if (loading) return;

@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
+    import { onMount, untrack } from 'svelte';
     import DetectionModal from '../components/DetectionModal.svelte';
     import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
     import VideoPlayer from '../components/VideoPlayer.svelte';
@@ -14,6 +14,7 @@
     import DeskContextCards from '../components/DeskContextCards.svelte';
     import ReclassificationOverlay from '../components/ReclassificationOverlay.svelte';
     import RecentAudio from '../components/RecentAudio.svelte';
+    import { createObservationProjectionLoader } from '../app/observation-projection-loader';
     import { detectionsStore } from '../stores/detections.svelte';
     import { toastStore } from '../stores/toast.svelte';
     import { confirmAction } from '../stores/confirm_dialog.svelte';
@@ -286,25 +287,29 @@
         return getBirdNames(top, showCommon, preferSci).primary;
     });
 
-    async function loadSummary(force = false) {
-        try {
+    const summaryLoader = createObservationProjectionLoader({
+        fetch: async () => {
             const [summaryRes, labelsRes] = await Promise.all([
                 fetchDailySummary(),
                 fetchClassifierLabels().catch(() => ({ labels: [] }))
             ]);
-            summary = summaryRes;
-            classifierLabels = labelsRes.labels;
-        } catch (e) {
+            return { summaryRes, labelsRes };
+        },
+        apply: ({ summaryRes, labelsRes }) => { summary = summaryRes; classifierLabels = labelsRes.labels; },
+        clear: () => { summary = null; topSpeciesInfo = null; },
+        fail: (e) => {
+            if (authStore.isGuest) { summary = null; topSpeciesInfo = null; }
             if (isTransientRequestError(e)) {
-                logger.warn('Dashboard summary fetch failed (transient)', {
-                    message: getErrorMessage(e)
-                });
+                logger.warn('Dashboard summary fetch failed (transient)', { message: getErrorMessage(e) });
             } else {
                 logger.error('Failed to load summary', e);
             }
-        } finally {
-            summaryLoading = false;
-        }
+        },
+        settled: () => { summaryLoading = false; }
+    });
+
+    async function loadSummary(force = false) {
+        await summaryLoader.load();
     }
 
     $effect(() => {
@@ -328,32 +333,46 @@
         })();
     });
 
-    onMount(async () => {
-        await loadSummary(true);
+    onMount(() => {
+        void loadSummary(true);
+        return () => { summaryLoader.dispose(); audioSummaryLoader.dispose(); };
     });
 
     // One audio summary for the whole desk: the day bar and the sensor card share it.
     let audioSummary = $state<AudioSummaryResponse | null>(null);
 
-    $effect(() => {
-        if (!birdnetEnabled) {
-            audioSummary = null;
-            return;
-        }
-        const controller = new AbortController();
-        void (async () => {
-            try {
-                audioSummary = await fetchAudioSummary({ days: 1 }, controller.signal);
-            } catch (e) {
-                if (controller.signal.aborted) return;
-                if (isTransientRequestError(e)) {
-                    logger.warn('Audio summary unavailable (transient)', { message: getErrorMessage(e) });
-                } else {
-                    logger.error('Failed to fetch audio summary', e);
-                }
+    const audioSummaryLoader = createObservationProjectionLoader({
+        fetch: (signal) => fetchAudioSummary({ days: 1 }, signal),
+        apply: (value) => { audioSummary = value; },
+        clear: () => { audioSummary = null; },
+        fail: (e) => {
+            if (authStore.isGuest) audioSummary = null;
+            if (isTransientRequestError(e)) {
+                logger.warn('Audio summary unavailable (transient)', { message: getErrorMessage(e) });
+            } else {
+                logger.error('Failed to fetch audio summary', e);
             }
-        })();
-        return () => controller.abort();
+        }
+    });
+
+    $effect(() => {
+        if (!birdnetEnabled) { audioSummaryLoader.invalidate(); return; }
+        untrack(() => { void audioSummaryLoader.load(); });
+        return () => audioSummaryLoader.dispose();
+    });
+
+    let handledPublicHistoryVersion = detectionsStore.publicHistoryVersion;
+    $effect(() => {
+        const version = detectionsStore.publicHistoryVersion;
+        if (version <= handledPublicHistoryVersion || !authStore.isGuest) return;
+        handledPublicHistoryVersion = version;
+        untrack(() => {
+            summaryLoading = true;
+            summaryLoader.invalidate();
+            audioSummaryLoader.invalidate();
+            void loadSummary(true);
+            if (birdnetEnabled) void audioSummaryLoader.load();
+        });
     });
 
     $effect(() => {

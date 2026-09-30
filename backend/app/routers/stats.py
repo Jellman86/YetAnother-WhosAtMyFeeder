@@ -21,6 +21,13 @@ from app.ratelimit import guest_rate_limit
 from app.utils.language import get_user_language
 from app.utils.canonical_species import should_hide_species_label, user_facing_species_fields
 from app.utils.audio_localization import localize_audio_species_name
+from app.utils.public_access import (
+    hide_public_audio_fields,
+    refresh_public_audio_fields,
+    public_events_cutoff,
+    public_events_end,
+    effective_public_events_days,
+)
 from app.utils.api_datetime import serialize_api_datetime, utc_naive_now
 from app.utils.timezone import get_user_timezone
 
@@ -466,6 +473,8 @@ async def get_daily_summary(request: Request, auth: AuthContext = Depends(get_au
     user_tz = get_user_timezone(request)
     end_dt = utc_naive_now()
     start_dt = end_dt - timedelta(hours=24)
+    if not auth.is_owner:
+        start_dt = max(start_dt, public_events_cutoff().replace(tzinfo=None))
 
     async with get_db() as db:
         repo = DetectionRepository(db)
@@ -531,6 +540,8 @@ async def get_daily_summary(request: Request, auth: AuthContext = Depends(get_au
         latest_detection = None
         if latest_raw:
             d = latest_raw[0]
+            if not auth.is_owner:
+                await refresh_public_audio_fields(d, repo)
             common_name = d.common_name
             if d.taxa_id:
                 if lang != "en":
@@ -592,8 +603,14 @@ async def get_daily_summary(request: Request, auth: AuthContext = Depends(get_au
                 taxa_id=public_species["taxa_id"],
             )
 
+        if latest_detection is not None and not auth.is_owner and not settings.public_access.show_audio:
+            hide_public_audio_fields(latest_detection)
         total_today = sum(hourly)
-        audio_confirmations = await repo.get_audio_confirmations_count(start_dt, end_dt)
+        audio_confirmations = await repo.get_audio_confirmations_count(
+            start_dt, end_dt, public_evidence=not auth.is_owner
+        )
+        if not auth.is_owner and not settings.public_access.show_audio:
+            audio_confirmations = 0
         bird_counts = await BirdObservationRepository(db).count_visible_between(start_dt, end_dt)
 
         return DailySummaryResponse(
@@ -609,10 +626,15 @@ async def get_daily_summary(request: Request, auth: AuthContext = Depends(get_au
 
 @router.get("/stats/detections/daily", response_model=DetectionsTimelineResponse)
 @guest_rate_limit()
-async def get_detection_timeline(request: Request, days: int = 30):
+async def get_detection_timeline(
+    request: Request, days: int = 30, auth: AuthContext = Depends(get_auth_context_with_legacy)
+):
     """Get total detections per day for the last N days (inclusive)."""
     if days < 1 or days > 365:
         days = 30
+
+    if not auth.is_owner:
+        days = min(days, effective_public_events_days() + 1)
 
     # Counts come from the database; the weather that annotates them comes
     # from an external API. Holding a connection across that call put a
@@ -746,6 +768,7 @@ async def get_detection_timeline(request: Request, days: int = 30):
 @guest_rate_limit()
 async def get_detection_timeline_span(
     request: Request,
+    auth: AuthContext = Depends(get_auth_context_with_legacy),
     span: Literal["all", "day", "week", "month"] = Query("week", description="Time span for the timeline"),
     include_weather: bool = Query(False, description="Include weather overlays (best-effort)"),
     compare_species: Optional[List[str]] = Query(
@@ -769,9 +792,12 @@ async def get_detection_timeline_span(
     # slow or unreachable weather host cannot hold pool capacity.
     async with get_db() as db:
         repo = DetectionRepository(db)
+        bounds = {} if auth.is_owner else {"start_date": public_events_cutoff(), "end_date": public_events_end()}
 
         if span == "day":
             window_start = now - timedelta(hours=24)
+            if not auth.is_owner:
+                window_start = max(window_start, public_events_cutoff().replace(tzinfo=None))
             window_end = now
             bucket = "hour"
             points = _build_local_timeline_points(
@@ -785,6 +811,8 @@ async def get_detection_timeline_span(
         elif span in ("week", "month"):
             days = 7 if span == "week" else 30
             window_start = now - timedelta(days=days)
+            if not auth.is_owner:
+                window_start = max(window_start, public_events_cutoff().replace(tzinfo=None))
             window_end = now
             bucket = "day"
             points = _build_local_timeline_points(
@@ -795,7 +823,7 @@ async def get_detection_timeline_span(
             )
 
         else:
-            oldest, newest = await repo.get_detection_time_bounds()
+            oldest, newest = await repo.get_detection_time_bounds(**bounds)
             if not oldest:
                 return DetectionsTimelineSpanResponse(
                     span="all",
@@ -1122,6 +1150,7 @@ async def get_uptime(
 @guest_rate_limit()
 async def get_detection_activity_heatmap(
     request: Request,
+    auth: AuthContext = Depends(get_auth_context_with_legacy),
     span: Literal["all", "day", "week", "month"] = Query("week", description="Time span for the heatmap"),
     species: Optional[str] = Query(None, max_length=200, description="Limit the grid to one species"),
 ):
@@ -1131,18 +1160,25 @@ async def get_detection_activity_heatmap(
 
     async with get_db() as db:
         repo = DetectionRepository(db)
+        bounds = {} if auth.is_owner else {"start_date": public_events_cutoff(), "end_date": public_events_end()}
 
         if span == "day":
             window_start = now - timedelta(hours=24)
+            if not auth.is_owner:
+                window_start = max(window_start, public_events_cutoff().replace(tzinfo=None))
             window_end = now
         elif span == "week":
             window_start = now - timedelta(days=7)
+            if not auth.is_owner:
+                window_start = max(window_start, public_events_cutoff().replace(tzinfo=None))
             window_end = now
         elif span == "month":
             window_start = now - timedelta(days=30)
+            if not auth.is_owner:
+                window_start = max(window_start, public_events_cutoff().replace(tzinfo=None))
             window_end = now
         else:
-            oldest, _newest = await repo.get_detection_time_bounds()
+            oldest, _newest = await repo.get_detection_time_bounds(**bounds)
             if oldest:
                 window_start = oldest.replace(tzinfo=None)
             else:

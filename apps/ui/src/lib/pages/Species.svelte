@@ -1,7 +1,7 @@
 <script lang="ts">
     import SpeciesShowcase from '../components/SpeciesShowcase.svelte';
     import { buildShowcaseRows, SHOWCASE_TILES } from '../leaderboard/showcase';
-    import { onDestroy, tick } from 'svelte';
+    import { onDestroy, tick, untrack } from 'svelte';
     import {
         analyzeLeaderboardGraph,
         fetchDetectionsActivityHeatmapSpan,
@@ -33,6 +33,7 @@
     } from '../leaderboard/source-metrics';
     import { settingsStore } from '../stores/settings.svelte';
     import { authStore } from '../stores/auth.svelte';
+    import { detectionsStore } from '../stores/detections.svelte';
     import { themeStore } from '../stores/theme.svelte';
     import { getBirdNames } from '../naming';
     import { formatTemperature } from '../utils/temperature';
@@ -231,6 +232,8 @@
     let portraits = $state<LeaderboardPortrait[]>([]);
     $effect(() => {
         const requestedSpan = span;
+        const publicVersion = authStore.isGuest ? detectionsStore.publicHistoryVersion : 0;
+        void publicVersion;
         const controller = new AbortController();
         portraits = [];
         void fetchLeaderboardPortraits(requestedSpan, controller.signal)
@@ -485,6 +488,29 @@
         void loadLeaderboard();
     });
 
+    let handledPublicHistoryVersion = detectionsStore.publicHistoryVersion;
+    $effect(() => {
+        const version = detectionsStore.publicHistoryVersion;
+        if (version <= handledPublicHistoryVersion || !authStore.isGuest) return;
+        handledPublicHistoryVersion = version;
+        untrack(() => {
+            species = [];
+            audioSpecies = [];
+            timeline = null;
+            leaderboardWindow = null;
+            historyStart = null;
+            audioHistoryStart = null;
+            previousWindowComplete = false;
+            audioPreviousWindowComplete = false;
+            activityHeatmap = null;
+            speciesHeatmap = null;
+            heatmapChoice = null;
+            leaderboardAnalysis = null;
+            leaderboardAnalysisTimestamp = null;
+            void loadLeaderboard();
+        });
+    });
+
     // Re-fetch leaderboard when tab regains focus or user navigates here,
     // but only if the data is older than the stale threshold.
     $effect(() => {
@@ -581,7 +607,9 @@
         // doesn't make the leaderboard table disappear.
         try {
             if (requestedSpan === 'all') {
-                species = await fetchSpecies(controller.signal).then(mapAllTimeSpecies);
+                const allSpecies = await fetchSpecies(controller.signal);
+                if (loadGeneration !== leaderboardLoadGeneration || controller.signal.aborted) return;
+                species = mapAllTimeSpecies(allSpecies);
                 countsAreVisits = false;
                 leaderboardWindow = null;
                 historyStart = null;
@@ -589,6 +617,7 @@
                 nearbyCheck = null;
             } else {
                 const response = await fetchLeaderboardSpecies(requestedSpan, controller.signal);
+                if (loadGeneration !== leaderboardLoadGeneration || controller.signal.aborted) return;
                 countsAreVisits = windowCountsAreVisits(response);
                 species = mapWindowSpecies(response, countsAreVisits);
                 leaderboardWindow = {

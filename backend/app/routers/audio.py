@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, Request, Query, HTTPException, Path as ApiPath
 from fastapi.responses import Response
 import httpx
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 import json
 import structlog
 from pydantic import BaseModel
 from typing import Literal
 from app.services.audio.audio_service import audio_service
+from app.services.broadcaster import broadcaster
 from app.services.leaderboard_window import previous_window_is_complete
 from app.config import settings
 from app.auth import AuthContext, require_owner
@@ -18,7 +19,7 @@ from app.utils.language import get_user_language
 from app.utils.audio_localization import localize_audio_detections
 from app.utils.canonical_species import should_hide_species_label
 from app.utils.api_datetime import serialize_api_datetime
-from app.utils.public_access import effective_public_events_days
+from app.utils.public_access import privacy_checked_db, public_event_visible, public_events_cutoff, public_events_end
 
 router = APIRouter(prefix="/audio", tags=["audio"])
 
@@ -27,7 +28,7 @@ async def require_public_audio(auth: AuthContext = Depends(get_auth_context_with
     """Audio is the owner's to share (#291): a visitor is refused plainly
     when the switch is off, instead of audio being the one medium with no
     control at all."""
-    if not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_audio:
+    if not auth.is_owner and not (settings.public_access.enabled and settings.public_access.show_audio):
         raise HTTPException(status_code=403, detail="Audio is not shared publicly on this instance.")
     return auth
 
@@ -63,6 +64,7 @@ async def set_audio_visibility(
 ) -> AudioVisibilityResponse:
     if not await audio_service.set_hidden(detection_id, body.hidden):
         raise HTTPException(status_code=404, detail="Audio detection not found")
+    await broadcaster.broadcast({"type": "audio_history_changed"})
     return AudioVisibilityResponse(id=detection_id, hidden=body.hidden)
 
 
@@ -165,7 +167,9 @@ class AudioHistoryQuery(BaseModel):
     end_date: datetime | None
 
 
-def _history_window(days: int, start_date: datetime | None, end_date: datetime | None) -> AudioHistoryQuery:
+def _history_window(
+    days: int, start_date: datetime | None, end_date: datetime | None, auth: AuthContext
+) -> AudioHistoryQuery:
     resolved_end = end_date
     if resolved_end is None:
         resolved_end = datetime.now(timezone.utc)
@@ -177,6 +181,11 @@ def _history_window(days: int, start_date: datetime | None, end_date: datetime |
         resolved_start = resolved_end - timedelta(days=days)
     elif resolved_start.tzinfo is None:
         resolved_start = resolved_start.replace(tzinfo=timezone.utc)
+
+    if not auth.is_owner:
+        resolved_start = max(resolved_start, public_events_cutoff())
+        if public_end := public_events_end():
+            resolved_end = min(resolved_end, public_end)
 
     return AudioHistoryQuery(start_date=resolved_start, end_date=resolved_end)
 
@@ -221,9 +230,23 @@ def _parse_audio_source_fields(raw_data: str | None, stored_sensor_id: str | Non
 
 @router.get("/recent", response_model=list[AudioDetectionResponse])
 @guest_rate_limit()
-async def get_recent_audio(request: Request, limit: int = 10, auth: AuthContext = Depends(require_public_audio)):
+async def get_recent_audio(
+    request: Request, limit: int = Query(default=10, ge=1, le=500), auth: AuthContext = Depends(require_public_audio)
+):
     """Get the most recent audio detections from the memory buffer."""
-    detections = await audio_service.get_recent_detections(limit=limit)
+    if auth.is_owner:
+        detections = await audio_service.get_recent_detections(limit=limit)
+    else:
+        # The memory buffer can lag owner hide decisions. Authoritative persisted
+        # visibility is applied before paging, rather than filtering a stale buffer.
+        async with privacy_checked_db(get_db) as db:
+            result = await DetectionRepository(db).get_audio_history(
+                start_date=public_events_cutoff(),
+                end_date=datetime.now(timezone.utc),
+                limit=limit,
+                maximum_end=public_events_end(),
+            )
+        detections = result["items"]
     lang = get_user_language(request) or "en"
     await localize_audio_detections(detections, lang)
     # Drop scientific_name from the response — it is an internal hook for localization
@@ -234,6 +257,7 @@ async def get_recent_audio(request: Request, limit: int = 10, auth: AuthContext 
     if hide_sensor:
         for detection in detections:
             detection["sensor_id"] = None
+            detection["source_name"] = None
     return detections
 
 
@@ -252,11 +276,13 @@ async def get_audio_history(
     auth: AuthContext = Depends(require_public_audio),
 ):
     """Browse persisted BirdNET-Go detections separately from visual detections."""
-    window = _history_window(days, start_date, end_date)
+    window = _history_window(days, start_date, end_date, auth)
     lang = get_user_language(request) or "en"
     hide_sensor = not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
 
-    async with get_db() as db:
+    if hide_sensor:
+        source = None
+    async with privacy_checked_db(get_db) as db:
         repo = DetectionRepository(db)
         result = await repo.get_audio_history(
             start_date=window.start_date,
@@ -264,6 +290,7 @@ async def get_audio_history(
             species=species,
             source=source,
             min_confidence=min_confidence,
+            maximum_end=None if auth.is_owner else public_events_end(),
             limit=limit,
             offset=offset,
         )
@@ -280,14 +307,12 @@ async def get_audio_history(
             candidate_start = min(item_times) - timedelta(seconds=correlation_window)
             candidate_end = max(item_times) + timedelta(seconds=correlation_window)
             if not auth.is_owner and settings.public_access.enabled:
-                public_days = effective_public_events_days()
-                cutoff_date = date.today() - timedelta(days=public_days) if public_days > 0 else date.today()
-                public_cutoff = datetime.combine(cutoff_date, datetime.min.time(), tzinfo=timezone.utc)
-                candidate_start = max(candidate_start, public_cutoff)
+                candidate_start = max(candidate_start, public_events_cutoff())
             candidates = await repo.get_audio_visual_match_candidates(
                 start_date=candidate_start,
                 end_date=candidate_end,
                 scientific_names={item["scientific_name"] for item in result["items"] if item.get("scientific_name")},
+                maximum_end=None if auth.is_owner else public_events_end(),
             )
             matches = match_audio_history_visual_events(
                 result["items"],
@@ -322,11 +347,13 @@ async def get_audio_summary(
     auth: AuthContext = Depends(require_public_audio),
 ):
     """Summarise persisted BirdNET-Go detection history."""
-    window = _history_window(days, start_date, end_date)
+    window = _history_window(days, start_date, end_date, auth)
     lang = get_user_language(request) or "en"
     hide_sensor = not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
 
-    async with get_db() as db:
+    if hide_sensor:
+        source = None
+    async with privacy_checked_db(get_db) as db:
         repo = DetectionRepository(db)
         result = await repo.get_audio_history_summary(
             start_date=window.start_date,
@@ -334,6 +361,7 @@ async def get_audio_summary(
             species=species,
             source=source,
             min_confidence=min_confidence,
+            maximum_end=None if auth.is_owner else public_events_end(),
         )
     await localize_audio_detections(result["top_species"], lang)
 
@@ -380,10 +408,18 @@ async def get_audio_species_leaderboard(
     the same taxonomy path as the visual leaderboard so client-side matching lines up.
     """
     window_start, window_end, prev_start, prev_end = _leaderboard_window(span)
+    public_cutoff = None if auth.is_owner else public_events_cutoff()
+    public_end = None if auth.is_owner else public_events_end()
+    if public_cutoff is not None:
+        window_start = max(window_start, public_cutoff)
+        prev_start = max(prev_start, public_cutoff)
+    if public_end is not None:
+        window_end = min(window_end, public_end)
+        prev_end = min(prev_end, public_end)
     lang = get_user_language(request) or "en"
     unknown_labels = getattr(settings.classification, "unknown_bird_labels", None) or []
 
-    async with get_db() as db:
+    async with privacy_checked_db(get_db) as db:
         repo = DetectionRepository(db)
         rows = await repo.get_audio_species_counts(
             window_start=window_start,
@@ -391,7 +427,7 @@ async def get_audio_species_leaderboard(
             prev_start=prev_start,
             prev_end=prev_end,
         )
-        history_start = await repo.get_audio_history_start()
+        history_start = await repo.get_audio_history_start(minimum_start=public_cutoff, maximum_end=public_end)
     await localize_audio_detections(rows, lang)
 
     species: list[dict] = []
@@ -425,9 +461,21 @@ async def get_audio_species_leaderboard(
         "window_end": window_end.isoformat(),
         "history_start": serialize_api_datetime(history_start) if history_start else None,
         "previous_window_complete": span != "all"
+        and prev_start < prev_end
         and previous_window_is_complete(history_start=history_start, prev_start=prev_start),
         "species": species,
     }
+
+
+async def _require_audio_media_visibility(birdnet_id: int, auth: AuthContext) -> None:
+    if auth.is_owner:
+        return
+    async with privacy_checked_db(get_db) as db:
+        visible = await DetectionRepository(db).public_birdnet_media_visible(
+            birdnet_id, public_events_cutoff(), maximum_end=public_events_end()
+        )
+    if not visible:
+        raise HTTPException(status_code=404, detail="Audio detection not found")
 
 
 @router.get("/spectrogram/{birdnet_id}", response_class=Response)
@@ -448,6 +496,7 @@ async def get_audio_spectrogram(
         raise HTTPException(status_code=503, detail="BirdNET-Go URL not configured")
     if birdnet_id <= 0:
         raise HTTPException(status_code=400, detail="Invalid detection id")
+    await _require_audio_media_visibility(birdnet_id, auth)
     target = f"{base_url}/api/v2/spectrogram/{birdnet_id}"
     try:
         async with httpx.AsyncClient(timeout=8.0) as client:
@@ -463,7 +512,7 @@ async def get_audio_spectrogram(
     return Response(
         content=response.content,
         media_type=media_type,
-        headers={"Cache-Control": "private, max-age=86400"},
+        headers={"Cache-Control": "private, max-age=86400" if auth.is_owner else "private, no-store"},
     )
 
 
@@ -486,6 +535,7 @@ async def get_audio_clip(
         raise HTTPException(status_code=503, detail="BirdNET-Go URL not configured")
     if birdnet_id <= 0:
         raise HTTPException(status_code=400, detail="Invalid detection id")
+    await _require_audio_media_visibility(birdnet_id, auth)
     target = f"{base_url}/api/v2/audio/{birdnet_id}"
     forward_headers: dict[str, str] = {}
     if range_header := request.headers.get("range"):
@@ -507,7 +557,7 @@ async def get_audio_clip(
     for h in ("accept-ranges", "content-range", "content-length", "content-disposition"):
         if h in response.headers:
             pass_through[h.title()] = response.headers[h]
-    pass_through["Cache-Control"] = "private, max-age=86400"
+    pass_through["Cache-Control"] = "private, max-age=86400" if auth.is_owner else "private, no-store"
     return Response(
         content=response.content,
         media_type=media_type,
@@ -537,18 +587,26 @@ async def get_audio_context(
         target_time = target_time.replace(tzinfo=timezone.utc)
 
     mapping_value = "*" if not camera else (settings.frigate.camera_audio_mapping or {}).get(camera)
+    if not auth.is_owner and not settings.public_access.show_camera_names:
+        mapping_value = "*"
 
     lang = get_user_language(request) or "en"
-    async with get_db() as db:
+    async with privacy_checked_db(get_db) as db:
         repo = DetectionRepository(db)
         detections, suppressed_by_mapping = await repo.get_audio_context(
-            target_time=target_time, window_seconds=window_seconds, mapping_value=mapping_value, limit=limit
+            target_time=target_time,
+            window_seconds=window_seconds,
+            mapping_value=mapping_value,
+            limit=limit,
+            minimum_start=None if auth.is_owner else public_events_cutoff(),
+            maximum_end=None if auth.is_owner else public_events_end(),
         )
     await localize_audio_detections(detections, lang)
     hide_sensor = not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
     if hide_sensor:
         for detection in detections:
             detection["sensor_id"] = None
+            detection["source_name"] = None
     response.headers[AUDIO_SUPPRESSED_BY_MAPPING_HEADER] = str(suppressed_by_mapping)
     return detections
 
@@ -572,19 +630,14 @@ async def get_event_audio_context(
     event's ingest-time correlation attempt.
     """
     lang = get_user_language(request) or "en"
-    async with get_db() as db:
+    async with privacy_checked_db(get_db) as db:
         repo = DetectionRepository(db)
         event = await repo.get_by_frigate_event(event_id)
         if event is None:
             raise HTTPException(status_code=404, detail="Detection not found")
 
-        if not auth.is_owner and settings.public_access.enabled:
-            event_date = event.detection_time.date()
-            public_days = effective_public_events_days()
-            cutoff_date = date.today() - timedelta(days=public_days)
-            outside_public_history = event_date < cutoff_date if public_days > 0 else event_date != date.today()
-            if event.is_hidden or outside_public_history:
-                raise HTTPException(status_code=404, detail="Detection not found")
+        if not auth.is_owner and not public_event_visible(event):
+            raise HTTPException(status_code=404, detail="Detection not found")
 
         mapping_value = None
         if settings.frigate.camera_audio_mapping:
@@ -595,6 +648,8 @@ async def get_event_audio_context(
             window_seconds=settings.frigate.audio_correlation_window_seconds,
             mapping_value=mapping_value,
             limit=8,
+            minimum_start=None if auth.is_owner else public_events_cutoff(),
+            maximum_end=None if auth.is_owner else public_events_end(),
         )
         visual_aliases = _normalized_species_aliases(
             event.display_name,
@@ -614,6 +669,7 @@ async def get_event_audio_context(
     if hide_sensor:
         for detection in detections:
             detection["sensor_id"] = None
+            detection["source_name"] = None
     response.headers[AUDIO_SUPPRESSED_BY_MAPPING_HEADER] = str(suppressed_by_mapping)
     return detections
 
@@ -628,10 +684,16 @@ async def get_audio_sources(
     """Get recently observed BirdNET source names for camera mapping."""
     hide_sensor = not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
 
-    async with get_db() as db:
+    if hide_sensor:
+        return []
+    async with privacy_checked_db(get_db) as db:
         repo = DetectionRepository(db)
         # Fetch more rows than requested to support deduplication by source_name.
-        rows = await repo.get_recent_audio_source_observations(limit=max(limit * 10, 50))
+        rows = await repo.get_recent_audio_source_observations(
+            limit=max(limit * 10, 50),
+            start_date=None if auth.is_owner else public_events_cutoff(),
+            end_date=None if auth.is_owner else public_events_end(),
+        )
 
     sources: dict[str, AudioSourceResponse] = {}
     ordered_keys: list[str] = []

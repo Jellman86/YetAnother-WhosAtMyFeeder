@@ -42,6 +42,8 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
   import { initKeyboardShortcuts } from './lib/utils/keyboard-shortcuts';
   import { logger } from './lib/utils/logger';
   import { LiveUpdateCoordinator } from './lib/app/live-updates';
+  import { guestHistoryRefreshDelayMs } from './lib/app/public-refresh-budget';
+  import { createPublicHistoryRefresh } from './lib/app/public-history-refresh';
   import { createDeployRecovery } from './lib/app/deploy-recovery';
   import { createRetryablePageLoader } from './lib/app/page-loader';
   import {
@@ -262,6 +264,20 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
       deployRecovery.handleRuntimeFailure(error);
   }
 
+  const publicHistoryRefresh = createPublicHistoryRefresh(async () => {
+      if (!authStore.isGuest) return;
+      const previousIds = new Set(detectionsStore.detections.map((item) => item.frigate_event));
+      try {
+          await detectionsStore.refreshPublicHistory();
+          if (settingsStore.liveAnnouncements) {
+              const added = detectionsStore.detections.find((item) => !previousIds.has(item.frigate_event));
+              if (added) announcer.announce(`New bird detected: ${added.display_name} at ${added.camera_name}`);
+          }
+      } catch (error) {
+          logger.error('Public history refresh failed', error);
+          throw error;
+      }
+  }, () => guestHistoryRefreshDelayMs(authStore.publicAccessRateLimitPerMinute));
   const liveUpdates = new LiveUpdateCoordinator({
       t,
       shouldNotify,
@@ -284,7 +300,11 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
       syncDiagnosticsWorkspace: () => incidentWorkspaceStore.refresh(),
       onConnected: () => {
           reconnectAttempts = 0;
-      }
+      },
+      onPublicHistoryChanged: () => publicHistoryRefresh.notify(),
+      // Refresh every public view and its caches when the owner changes sharing.
+      // Only the generic signal arrives; no owner settings are sent to visitors.
+      onPublicAccessChanged: () => { if (authStore.isGuest) window.location.reload(); }
   });
 
   $effect(() => {
@@ -513,6 +533,7 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
 
       // Return cleanup function (will be assigned inside the async IIFE, but we need a stable ref)
       return () => {
+          publicHistoryRefresh.dispose();
           if (cleanupFn) cleanupFn();
       };
   });
@@ -532,6 +553,7 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
       if (canAccess) {
           if (!appInitialized || activeAccessIdentity !== accessIdentity) {
               closeLiveConnection();
+              untrack(() => detectionsStore.resetForAccessChange());
               if (authStore.isAuthenticated || !authStore.authRequired) {
                   settingsStore.load();
               } else {
@@ -554,6 +576,7 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
 
       if (!canAccess && appInitialized) {
           closeLiveConnection();
+          untrack(() => detectionsStore.resetForAccessChange());
           settingsStore.clear();
           activeAccessIdentity = null;
           appInitialized = false;
@@ -760,6 +783,7 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
               {#if showPageHeader}
                   <PageHeader title={pageTitle} subtitle={pageSubtitle} onNavigate={navigate} />
               {/if}
+              {#key `${authStore.isAuthenticated ? 'owner' : 'guest'}:${authStore.token ?? 'anonymous'}`}
               {#if currentRoute === '/'}
                   {#key dashboardRefreshKey}
                       <LazyRoute
@@ -839,6 +863,7 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
                        onLoadError={handleRouteLoadError}
                    />
               {/if}
+              {/key}
           </main>
           
           <Footer />

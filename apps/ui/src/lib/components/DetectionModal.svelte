@@ -2,6 +2,7 @@
     import Map from './Map.svelte';
     import {
         getSnapshotUrl,
+        fetchEvents,
         getOriginalFrigateSnapshotUrl,
         fetchSnapshotStatus,
         fetchSnapshotCandidates,
@@ -124,6 +125,24 @@
         fullVisitFetched = false,
         fullVisitFetchState = 'idle'
     }: Props = $props();
+    const publicEventId = $derived(detection.frigate_event);
+    $effect(() => {
+        const version = detectionsStore.publicHistoryVersion;
+        const eventId = publicEventId;
+        if (!version || !authStore.isGuest || readOnly) return;
+        const controller = new AbortController();
+        untrack(() => {
+            void fetchEvents({ eventId, limit: 1, fields: 'detail', signal: controller.signal,
+                requestKey: 'public-open-detection' }).then(([allowed]) => {
+                if (controller.signal.aborted) return;
+                if (!allowed) onClose();
+                else detection = allowed;
+            }).catch(() => {
+                if (!controller.signal.aborted) onClose();
+            });
+        });
+        return () => controller.abort();
+    });
     let currentClassificationSource = $derived(getDetectionClassificationSource(detection));
     let classificationInputKind = $derived(getClassificationInputKind(detection.video_classification_input_source));
     let classificationInputLabel = $derived.by(() => {

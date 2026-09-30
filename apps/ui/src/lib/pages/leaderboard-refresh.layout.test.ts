@@ -108,7 +108,7 @@ describe('leaderboard field-journal layout', () => {
         expect(leaderboardSource).toContain("const count = visits ? (s.window_visit_count ?? 0) : (s.window_count ?? 0)");
         expect(leaderboardSource).toContain('delta: count - prevCount');
         // Total has no visit counts, so it must never be labelled as visits.
-        expect(leaderboardSource).toContain('fetchSpecies(controller.signal).then(mapAllTimeSpecies);\n                countsAreVisits = false;');
+        expect(leaderboardSource).toContain('const allSpecies = await fetchSpecies(controller.signal);\n                if (loadGeneration !== leaderboardLoadGeneration || controller.signal.aborted) return;\n                species = mapAllTimeSpecies(allSpecies);\n                countsAreVisits = false;');
     });
 
     it('draws weather under the detections on its own axis, never as a second y-axis', () => {

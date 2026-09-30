@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
+    import { onMount, untrack } from 'svelte';
     import Map from './Map.svelte';
     import {
         fetchSpeciesStats,
@@ -19,6 +19,7 @@
     import { settingsStore } from '../stores/settings.svelte';
     import { publicSettingsStore } from '../stores/public_settings.svelte';
     import { authStore } from '../stores/auth.svelte';
+    import { createObservationProjectionLoader } from '../app/observation-projection-loader';
     import { detectionsStore } from '../stores/detections.svelte';
     import { toastStore } from '../stores/toast.svelte';
     import SimpleBarChart from './SimpleBarChart.svelte';
@@ -278,6 +279,49 @@
     }
 
 
+    let destroyed = false;
+    let observedLocalRecord = false;
+    let statsPending = false;
+    const statsLoader = createObservationProjectionLoader<SpeciesStats | null>({
+        fetch: async () => {
+            try {
+                return await fetchSpeciesStats(isUnknownLabel(speciesName) ? UNKNOWN_SPECIES_NAME : speciesName);
+            } catch (e) {
+                // Catalogue-only species can legitimately have no local record.
+                if (e instanceof ApiRequestError && e.status === 404) return null;
+                throw e;
+            }
+        },
+        apply: (value) => { stats = value; observedLocalRecord = Boolean(value && value.total_sightings > 0); },
+        clear: () => { stats = null; selectedSighting = null; showVideo = false; },
+        fail: (e) => {
+            stats = null;
+            error = getErrorMessage(e) || 'Failed to load species details';
+        },
+        settled: () => { statsPending = false; }
+    });
+
+    let handledPublicHistoryVersion = detectionsStore.publicHistoryVersion;
+    $effect(() => {
+        const version = detectionsStore.publicHistoryVersion;
+        if (version <= handledPublicHistoryVersion || !authStore.isGuest) return;
+        handledPublicHistoryVersion = version;
+        untrack(() => {
+            if (!observedLocalRecord && !statsPending) return;
+            const hadLocalRecord = observedLocalRecord;
+            statsLoader.invalidate();
+            statsPending = true;
+            void statsLoader.load().then(() => {
+                if (destroyed || statsPending || version !== detectionsStore.publicHistoryVersion || !authStore.isGuest) return;
+                if (!stats || stats.total_sightings <= 0) {
+                    if (hadLocalRecord) onclose();
+                }
+            });
+        });
+    });
+
+    function getCurrentStats(): SpeciesStats | null { return stats; }
+
     async function loadSpeciesDetails() {
         loading = true;
         error = null;
@@ -290,30 +334,24 @@
         isUnknownBird = isUnknownLabel(speciesName);
 
         try {
-            try {
-                stats = await fetchSpeciesStats(isUnknownBird ? UNKNOWN_SPECIES_NAME : speciesName);
-            } catch (e) {
-                // A species with no visits at this feeder 404s here. That is
-                // the normal case for a notable sighting nearby, not an error:
-                // the card still has naming, description, and range to show.
-                if (!(e instanceof ApiRequestError && e.status === 404)) throw e;
-                stats = null;
-            }
+            statsPending = true;
+            await statsLoader.load();
+            const currentStats = getCurrentStats();
 
             if (!isUnknownBird) {
-                const statsTaxaId = stats?.recent_sightings?.[0]?.taxa_id ?? null;
+                const statsTaxaId = currentStats?.recent_sightings?.[0]?.taxa_id ?? null;
                 if (summaryEnabled || (seasonalityEnabled && !statsTaxaId)) {
                     info = await fetchSpeciesInfo(speciesName);
                 }
             }
 
-            const sciName = info?.scientific_name || stats?.scientific_name || undefined;
+            const sciName = info?.scientific_name || currentStats?.scientific_name || undefined;
 
             if (!isUnknownBird && ebirdEnabled && showEbirdNearby) {
                 void loadEbirdNearby(speciesName, sciName);
             }
 
-            const taxonId = info?.taxa_id || stats?.recent_sightings?.[0]?.taxa_id;
+            const taxonId = info?.taxa_id || currentStats?.recent_sightings?.[0]?.taxa_id;
             if (seasonalityEnabled && taxonId) {
                 void loadSeasonality(taxonId);
             }
@@ -336,6 +374,8 @@
         void loadSpeciesDetails();
 
         return () => {
+            destroyed = true;
+            statsLoader.dispose();
             document.body.style.overflow = previousOverflow;
         };
     });

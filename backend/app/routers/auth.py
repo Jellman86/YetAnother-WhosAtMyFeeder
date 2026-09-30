@@ -74,6 +74,7 @@ class AuthStatusResponse(BaseModel):
 
     auth_required: bool
     public_access_enabled: bool
+    public_access_rate_limit_per_minute: int = Field(default=30, ge=1, le=100)
     public_access_show_ai_conversation: bool = False
     public_access_allow_clip_downloads: bool = False
     public_access_show_audio: bool = True
@@ -337,6 +338,7 @@ async def get_auth_status(request: Request):
     return AuthStatusResponse(
         auth_required=settings.auth.enabled,
         public_access_enabled=settings.public_access.enabled,
+        public_access_rate_limit_per_minute=settings.public_access.rate_limit_per_minute,
         public_access_show_ai_conversation=settings.public_access.show_ai_conversation,
         public_access_allow_clip_downloads=settings.public_access.allow_clip_downloads,
         public_access_show_audio=settings.public_access.show_audio,

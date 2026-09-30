@@ -207,6 +207,8 @@ interface LiveUpdateDeps {
     diagnostics?: JobDiagnosticsLike;
     syncDiagnosticsWorkspace?: () => Promise<void>;
     onConnected?: () => void;
+    onPublicHistoryChanged?: () => void;
+    onPublicAccessChanged?: () => void;
 }
 
 const ARCHIVE_STATES = new Set(['pending', 'durable', 'unavailable', 'failed']);
@@ -434,6 +436,15 @@ export class LiveUpdateCoordinator {
             }
 
             if (payload.type === 'heartbeat') {
+                return;
+            }
+
+            if (payload.type === 'public_history_changed') {
+                this.deps.onPublicHistoryChanged?.();
+                return;
+            }
+            if (payload.type === 'public_access_changed') {
+                this.deps.onPublicAccessChanged?.();
                 return;
             }
 

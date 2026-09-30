@@ -1,10 +1,13 @@
 <script lang="ts">
-    import { onMount, onDestroy } from 'svelte';
+    import { onMount, onDestroy, untrack } from 'svelte';
     import { _ } from 'svelte-i18n';
     import { fetchRecentAudio, fetchAudioSummary, type AudioDetection, type AudioSummaryResponse } from '../api';
     import { withAuthParams } from '../api/core';
     import { fetchSettings } from '../api/settings';
     import { appApiPath } from '../app/url-base';
+    import { detectionsStore } from '../stores/detections.svelte';
+    import { guestRecentAudioPollDelayMs } from '../app/public-refresh-budget';
+    import { createObservationProjectionLoader } from '../app/observation-projection-loader';
     import { authStore } from '../stores/auth.svelte';
     import { formatTime } from '../utils/datetime';
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
@@ -30,8 +33,6 @@
     let audioDetections = $state<AudioDetection[]>([]);
     let pollTimer: ReturnType<typeof setTimeout> | undefined;
     let summaryTimer: ReturnType<typeof setTimeout> | undefined;
-    let audioController: AbortController | null = null;
-    let summaryController: AbortController | null = null;
     let stopped = false;
     let loading = $state(true);
     let birdnetExternalUrl = $state('');
@@ -52,35 +53,44 @@
         return { points: points.join(' '), area: `0,${h} ${points.join(' ')} ${w},${h}`, hasData: counts.some((c) => c > 0) };
     });
 
-    async function loadAudio(signal?: AbortSignal) {
-        try {
-            audioDetections = await fetchRecentAudio(RECENT_AUDIO_LIMIT, signal);
-        } catch (e) {
-            if (signal?.aborted) return;
-            if (isTransientRequestError(e)) {
-                logger.warn('Recent audio fetch failed (transient)', {
-                    message: getErrorMessage(e)
-                });
-            } else {
-                logger.error('Failed to fetch recent audio', e);
-            }
-        } finally {
-            loading = false;
+    const audioLoader = createObservationProjectionLoader({
+        fetch: (signal) => fetchRecentAudio(RECENT_AUDIO_LIMIT, signal),
+        apply: (value) => { audioDetections = value; },
+        clear: () => { audioDetections = []; },
+        fail: (e) => {
+            if (authStore.isGuest) audioDetections = [];
+            if (isTransientRequestError(e)) logger.warn('Recent audio fetch failed (transient)', { message: getErrorMessage(e) });
+            else logger.error('Failed to fetch recent audio', e);
+        },
+        settled: () => { loading = false; }
+    });
+    const summaryLoader = createObservationProjectionLoader({
+        fetch: (signal) => fetchAudioSummary({ days: 1 }, signal),
+        apply: (value) => { summary = value; },
+        clear: () => { summary = null; },
+        fail: (e) => {
+            if (authStore.isGuest) summary = null;
+            if (isTransientRequestError(e)) logger.warn('Audio summary fetch failed (transient)', { message: getErrorMessage(e) });
+            else logger.error('Failed to fetch audio summary', e);
         }
-    }
+    });
 
-    async function loadSummary(signal?: AbortSignal) {
-        try {
-            summary = await fetchAudioSummary({ days: 1 }, signal);
-        } catch (e) {
-            if (signal?.aborted) return;
-            if (isTransientRequestError(e)) {
-                logger.warn('Audio summary fetch failed (transient)', { message: getErrorMessage(e) });
-            } else {
-                logger.error('Failed to fetch audio summary', e);
-            }
-        }
-    }
+    async function loadAudio() { await audioLoader.load(); }
+    async function loadSummary() { await summaryLoader.load(); }
+
+    let handledPublicHistoryVersion = detectionsStore.publicHistoryVersion;
+    $effect(() => {
+        const version = detectionsStore.publicHistoryVersion;
+        if (version <= handledPublicHistoryVersion || !authStore.isGuest) return;
+        handledPublicHistoryVersion = version;
+        untrack(() => {
+            loading = true;
+            audioLoader.invalidate();
+            summaryLoader.invalidate();
+            void audioLoader.load();
+            void summaryLoader.load();
+        });
+    });
 
     async function loadBirdnetUrl() {
         if (!authStore.showSettings) {
@@ -108,31 +118,25 @@
         return `${birdnetExternalUrl.replace(/\/$/, '')}/ui/detections/${birdnet_id}`;
     }
 
-    function scheduleAudioPoll(delay = RECENT_AUDIO_POLL_MS): void {
+    function scheduleAudioPoll(delay = authStore.isGuest ? guestRecentAudioPollDelayMs(authStore.publicAccessRateLimitPerMinute) : RECENT_AUDIO_POLL_MS): void {
         if (stopped) return;
         if (pollTimer) clearTimeout(pollTimer);
         pollTimer = setTimeout(async () => {
             pollTimer = undefined;
             if (!document.hidden) {
-                const controller = new AbortController();
-                audioController = controller;
-                await loadAudio(controller.signal);
-                if (audioController === controller) audioController = null;
+                await loadAudio();
             }
             scheduleAudioPoll();
         }, delay);
     }
 
-    function scheduleSummaryPoll(delay = AUDIO_SUMMARY_POLL_MS): void {
+    function scheduleSummaryPoll(delay = authStore.isGuest ? Math.max(AUDIO_SUMMARY_POLL_MS, guestRecentAudioPollDelayMs(authStore.publicAccessRateLimitPerMinute)) : AUDIO_SUMMARY_POLL_MS): void {
         if (stopped) return;
         if (summaryTimer) clearTimeout(summaryTimer);
         summaryTimer = setTimeout(async () => {
             summaryTimer = undefined;
             if (!document.hidden) {
-                const controller = new AbortController();
-                summaryController = controller;
-                await loadSummary(controller.signal);
-                if (summaryController === controller) summaryController = null;
+                await loadSummary();
             }
             scheduleSummaryPoll();
         }, delay);
@@ -140,29 +144,17 @@
 
     onMount(() => {
         stopped = false;
-        const initialAudioController = new AbortController();
-        const initialSummaryController = new AbortController();
-        audioController = initialAudioController;
-        summaryController = initialSummaryController;
-        void loadAudio(initialAudioController.signal).finally(() => {
-            if (audioController === initialAudioController) audioController = null;
-            scheduleAudioPoll();
-        });
-        void loadSummary(initialSummaryController.signal).finally(() => {
-            if (summaryController === initialSummaryController) summaryController = null;
-            scheduleSummaryPoll();
-        });
+        void loadAudio().finally(() => scheduleAudioPoll());
+        void loadSummary().finally(() => scheduleSummaryPoll());
         void loadBirdnetUrl();
     });
 
     onDestroy(() => {
         stopped = true;
+        audioLoader.dispose();
+        summaryLoader.dispose();
         if (pollTimer) clearTimeout(pollTimer);
         if (summaryTimer) clearTimeout(summaryTimer);
-        audioController?.abort();
-        summaryController?.abort();
-        audioController = null;
-        summaryController = null;
     });
 
     function formatTimeWithSeconds(dateString: string): string {

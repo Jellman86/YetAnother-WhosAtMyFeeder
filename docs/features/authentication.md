@@ -222,6 +222,36 @@ ingress:
 
 ## Technical Details
 
+### Public history and live updates
+
+The public event-history window also limits species statistics, leaderboards,
+charts, audio history, summaries, source discovery, recent audio and context.
+Today-only sharing excludes future dates as well as older history. Filtering happens before paging and
+counts. Hidden audio and unknown, hidden or older BirdNET media IDs are refused;
+an unavailable visibility database returns a retryable error and does not permit
+an upstream media fetch. Guest audio media uses `private, no-store`.
+
+Cached analysis and conversation require a current visible detection and the
+public AI-conversation switch. Visual responses also remove private classification diagnostics and apply audio
+and AI sharing switches. Stored audio labels and confirmation counts need current
+visible audio evidence; hiding a recording removes its public annotation without
+changing the owner's original detection. Ambiguous upstream audio IDs are refused.
+
+Guest live streams send `public_history_changed` without detection IDs or object
+fields. The app refreshes through the public HTTP API, grouping changes in fixed
+windows paced to the advertised public request limit, with a minimum two seconds
+and one follow-up refresh when a request is in flight. A default 30-per-minute
+limit uses eight seconds, reserving capacity for interactive requests.
+A failed refresh clears stale guest rows and makes at most two retries with
+exponential delays. At the 100-per-minute setting those delays are 4.8 and 9.6
+seconds. Several visitors behind one address, or very low limits, may still require
+a manual refresh after the requests become available.
+Open details close if the current detection cannot be read. Species and camera
+filters refresh alongside the rows. Signing out clears owner detail caches before
+loading the public view. Owner streams keep detailed updates. `public_access_changed` refreshes the guest
+page when sharing preferences change; disabling public access also closes the
+stream. Data already received by a browser cannot be recalled from that browser.
+
 - **Token Storage:** Authentication uses JWT (JSON Web Tokens) stored in your browser's Local Storage.
 - **Media:** the browser sends the session in an `HttpOnly` cookie for images, clips, and audio.
   The app keeps the session token out of media URLs so it is not copied into URL logs. Only
@@ -235,3 +265,10 @@ ingress:
 - **Session Expiry:** Sessions are valid for 7 days by default (configurable).
 - **Rate Limiting:** Login attempts are strictly rate-limited (5 per minute) to prevent brute-force attacks.
 - **Legacy API Key:** Older `YA_WAMF_API_KEY` authentication still works but is deprecated.
+
+Guest audio confirmations, filters and counts use currently visible observations from the
+camera’s mapped microphones. A same-species observation from another microphone does not
+replace hidden evidence. Today-only views exclude audio from the following day. Leaderboard
+portraits check the current history and media windows on every guest request, including after
+you hide a photograph. Location precision also applies to saved manual observation pins in
+guest history; owners keep the original coordinates.

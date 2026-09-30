@@ -63,3 +63,11 @@ describe('BirdNET history listening-log layout', () => {
         expect(audioHistorySource).toContain('min-h-11 min-w-11');
     });
 });
+
+it('revalidates newly admitted guest history versions without repeating mount loads', () => {
+    expect(audioHistorySource).toContain('let handledPublicHistoryVersion = detectionsStore.publicHistoryVersion;');
+    expect(audioHistorySource).toContain('if (version <= handledPublicHistoryVersion || !authStore.isGuest) return;');
+    expect(audioHistorySource).toContain('untrack(() => { void audioHistoryLoader.load(true); });');
+    expect(audioHistorySource).toContain('selectedSpecies = null;');
+    expect(audioHistorySource).toContain('audioHistoryLoader.dispose();');
+});

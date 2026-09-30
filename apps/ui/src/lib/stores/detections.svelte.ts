@@ -51,12 +51,14 @@ export class DetectionsStore {
     connected = $state(false);
     progressMap = $state<Map<string, ReclassificationProgress>>(new Map());
     mutationVersion = $state(0);
+    publicHistoryVersion = $state(0);
     patchMap = $state<Map<string, Partial<Detection>>>(new Map());
 
     private MAX_ITEMS = 50;
     private MAX_RECLASSIFICATION_FRAMES = 240;
     private MAX_PATCH_ITEMS = 2000;
-    private loadPromise: Promise<void> | null = null;
+    private loadPromise: Promise<boolean> | null = null;
+    private accessGeneration = 0;
 
     private readonly staleTracker = new StaleTracker(30_000); // 30 seconds
 
@@ -96,16 +98,47 @@ export class DetectionsStore {
         await this.loadInitial();
     }
 
-    async loadInitial(): Promise<void> {
+    /** Drop session-specific data before fetching a different access projection. */
+    resetForAccessChange(): void {
+        this.accessGeneration += 1;
+        this.loadPromise = null;
+        this.isLoading = false;
+        this.clearHistory();
+        this.progressMap = new Map();
+        this.publicHistoryVersion = 0;
+        this.staleTracker.reset();
+    }
+
+    private clearHistory(): void {
+        this.detections = [];
+        this.totalToday = 0;
+        this.patchMap = new Map();
+        this.markMutated();
+    }
+
+    async refreshPublicHistory(): Promise<void> {
+        const generation = this.accessGeneration;
+        // A notification during an existing fetch must cause a new fetch after it,
+        // rather than joining a response that predates an owner visibility change.
+        if (this.loadPromise) await this.loadPromise;
+        if (generation !== this.accessGeneration) return;
+        const loaded = await this.loadInitial();
+        if (generation !== this.accessGeneration) return;
+        if (!loaded) this.clearHistory();
+        // Revalidate open guest modals and Explorer even if recent history failed.
+        this.publicHistoryVersion += 1;
+        if (!loaded) throw new Error('Public history refresh failed');
+    }
+
+    async loadInitial(): Promise<boolean> {
         if (this.loadPromise) return this.loadPromise;
+        const generation = this.accessGeneration;
         this.loadPromise = (async () => {
             this.isLoading = true;
             try {
-                // Filter to last 3 days
                 const d = new Date();
                 d.setDate(d.getDate() - 3);
                 const startDate = toLocalYMD(d);
-
                 const [recent, countResult] = await Promise.all([
                     fetchEvents({
                         limit: this.MAX_ITEMS,
@@ -118,10 +151,12 @@ export class DetectionsStore {
                         requestKey: 'detections-store:count'
                     })
                 ]);
+                if (generation !== this.accessGeneration) return false;
                 this.detections = recent;
                 this.totalToday = countResult.count;
                 this.markMutated();
                 this.staleTracker.touch();
+                return true;
             } catch (e) {
                 if (isTransientRequestError(e)) {
                     logger.warn('Initial detections fetch failed (transient)', {
@@ -130,9 +165,13 @@ export class DetectionsStore {
                 } else {
                     logger.error('Failed to load initial detections', e);
                 }
+                return false;
             } finally {
-                this.isLoading = false;
-                this.loadPromise = null;
+                // A superseded owner request must not unlock/clear a guest load.
+                if (generation === this.accessGeneration) {
+                    this.isLoading = false;
+                    this.loadPromise = null;
+                }
             }
         })();
         return this.loadPromise;

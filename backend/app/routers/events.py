@@ -32,7 +32,13 @@ from app.utils.audio_localization import localize_audio_detections, localize_aud
 from app.auth import require_owner, AuthContext
 from app.auth import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
-from app.utils.public_access import effective_public_events_days
+from app.utils.public_access import (
+    effective_public_events_days,
+    hide_public_audio_fields,
+    refresh_public_audio_fields,
+    approximate_coordinate,
+    public_events_end,
+)
 from app.utils.api_datetime import serialize_api_datetime
 from app.utils.canonical_species import (
     UNKNOWN_BIRD_DISPLAY_LABEL as CANONICAL_UNKNOWN_BIRD_DISPLAY_LABEL,
@@ -454,11 +460,12 @@ async def get_event_filters(
         not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
     )
     start_date = _event_filter_start_date(auth)
+    end_date = None if auth.is_owner else public_events_end()
     lang = get_user_language(request)
     cache_scope = start_date.date().isoformat() if start_date else "owner"
     cache_key = (lang, hide_camera_names, cache_scope)
     now = time.monotonic()
-    if not force_refresh:
+    if auth.is_owner and not force_refresh:
         cached = _event_filters_cache.get(cache_key)
         if cached and (now - cached[0]) < EVENT_FILTERS_CACHE_TTL_SECONDS:
             return cached[1]
@@ -468,8 +475,8 @@ async def get_event_filters(
     # whole loop and each cache read takes its own.
     async with get_db() as db:
         repo = DetectionRepository(db)
-        species_rows = await repo.get_unique_species_with_taxonomy(start_date=start_date)
-        cameras = [] if hide_camera_names else await repo.get_unique_cameras(start_date=start_date)
+        species_rows = await repo.get_unique_species_with_taxonomy(start_date=start_date, end_date=end_date)
+        cameras = [] if hide_camera_names else await repo.get_unique_cameras(start_date=start_date, end_date=end_date)
 
     unknown_label_keys = {
         key
@@ -558,8 +565,15 @@ async def get_event_filters(
 
     async with get_db() as db:
         repo = DetectionRepository(db)
-        camera_counts = {} if hide_camera_names else await repo.get_camera_counts(start_date=start_date)
-        totals = await repo.get_facet_totals(start_date=start_date)
+        camera_counts = (
+            {} if hide_camera_names else await repo.get_camera_counts(start_date=start_date, end_date=end_date)
+        )
+        totals = await repo.get_facet_totals(
+            start_date=start_date, end_date=end_date, public_audio_evidence=not auth.is_owner
+        )
+
+        if not auth.is_owner and not settings.public_access.show_audio:
+            totals["audio_matched"] = 0
 
         result = EventFilters(
             species=species_options,
@@ -567,7 +581,8 @@ async def get_event_filters(
             camera_counts=camera_counts,
             totals=EventFilterTotals(**totals),
         )
-        _event_filters_cache[cache_key] = (now, result)
+        if auth.is_owner:
+            _event_filters_cache[cache_key] = (now, result)
         return result
 
 
@@ -678,6 +693,9 @@ async def get_events(
         include_hidden = False
         only_hidden = False
 
+        if not settings.public_access.show_audio:
+            audio_confirmed_only = False
+
         # Prevent camera-based filtering if camera names are hidden
         if hide_camera_names:
             camera = None
@@ -707,6 +725,7 @@ async def get_events(
             hidden_only=only_hidden,
             favorite_only=favorites,
             audio_confirmed_only=audio_confirmed_only,
+            public_audio_evidence=not auth.is_owner,
             frigate_event=event_id,
         )
 
@@ -723,6 +742,7 @@ async def get_events(
     clip_availability = await batch_check_clips(event_ids)
 
     async with get_db() as db:
+        repo = DetectionRepository(db)
         # Get labels that should be displayed as "Unknown Bird"
         unknown_labels = settings.classification.unknown_bird_labels
 
@@ -744,6 +764,13 @@ async def get_events(
             results = await asyncio.gather(*(lookup(taxa_id) for taxa_id in taxa_ids))
             localized_names = {taxa_id: name for taxa_id, name in results if name}
 
+        public_audio = {}
+        if not auth.is_owner:
+            if settings.public_access.show_audio:
+                public_audio = await repo.get_public_audio_for_detections(events)
+            for event in events:
+                await refresh_public_audio_fields(event, repo, public_audio.get(event.frigate_event, {}))
+
         # Pre-resolve unconfirmed audio_species names concurrently.
         # audio_confirmed species are resolved via localized_names[taxa_id] in the loop below.
         unconfirmed_audio_species: set[str] = {
@@ -760,6 +787,8 @@ async def get_events(
 
         audio_context_species_by_event: dict[str, list[str]] = {}
         for event in events:
+            if not auth.is_owner and not settings.public_access.show_audio:
+                continue
             if event.audio_confirmed or not event.audio_species:
                 continue
 
@@ -769,12 +798,15 @@ async def get_events(
 
             # The suppressed count is for the detail view, which explains an empty
             # result; the event list only needs the species it can show.
-            nearby_audio, _ = await repo.get_audio_context(
-                target_time=event.detection_time,
-                window_seconds=settings.frigate.audio_correlation_window_seconds,
-                mapping_value=mapping_value,
-                limit=8,
-            )
+            if auth.is_owner:
+                nearby_audio, _ = await repo.get_audio_context(
+                    target_time=event.detection_time,
+                    window_seconds=settings.frigate.audio_correlation_window_seconds,
+                    mapping_value=mapping_value,
+                    limit=8,
+                )
+            else:
+                nearby_audio = public_audio.get(event.frigate_event, {}).get("context", [])
             await localize_audio_detections(nearby_audio, lang, db)
 
             seen_species: set[str] = set()
@@ -850,8 +882,16 @@ async def get_events(
                 frigate_event=event.frigate_event,
                 observation_source="manual_upload" if event.frigate_event.startswith("manual_") else "frigate",
                 observation_notes=manual_metadata.get("notes"),
-                observation_latitude=manual_metadata.get("latitude"),
-                observation_longitude=manual_metadata.get("longitude"),
+                observation_latitude=(
+                    approximate_coordinate(manual_metadata.get("latitude"))
+                    if not auth.is_owner and settings.public_access.location_precision == "approximate"
+                    else manual_metadata.get("latitude")
+                ),
+                observation_longitude=(
+                    approximate_coordinate(manual_metadata.get("longitude"))
+                    if not auth.is_owner and settings.public_access.location_precision == "approximate"
+                    else manual_metadata.get("longitude")
+                ),
                 observation_location_source=manual_metadata.get("location_source"),
                 camera_name="Hidden" if hide_camera_names else event.camera_name,
                 has_clip=clip_availability.get(event.frigate_event, {}).get("has_clip", False),
@@ -896,6 +936,25 @@ async def get_events(
                 ai_analysis=event.ai_analysis,
                 ai_analysis_timestamp=event.ai_analysis_timestamp,
             )
+            if not auth.is_owner:
+                # Public HTTP responses are the authoritative projection used after
+                # SSE invalidation; producer diagnostics are owner information.
+                for field in (
+                    "frigate_last_error",
+                    "video_classification_error",
+                    "video_classification_diagnostics",
+                    "video_classification_provider",
+                    "video_classification_backend",
+                    "video_classification_model_id",
+                    "video_classification_model_name",
+                    "video_classification_input_source",
+                ):
+                    setattr(response_event, field, None)
+                if not settings.public_access.show_audio:
+                    hide_public_audio_fields(response_event)
+                if not settings.public_access.show_ai_conversation:
+                    response_event.ai_analysis = None
+                    response_event.ai_analysis_timestamp = None
             response_events.append(response_event)
 
         # Apply field filtering if requested
@@ -1029,6 +1088,8 @@ async def get_events_count(
             end_date = date.today()
         include_hidden = False
         only_hidden = False
+        if not settings.public_access.show_audio:
+            audio_confirmed_only = False
         if hide_camera_names:
             camera = None
 
@@ -1053,6 +1114,7 @@ async def get_events_count(
             hidden_only=only_hidden,
             favorite_only=favorites,
             audio_confirmed_only=audio_confirmed_only,
+            public_audio_evidence=not auth.is_owner,
         )
 
         # Determine if any filters are applied
