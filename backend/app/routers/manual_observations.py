@@ -190,6 +190,7 @@ async def delete_manual_observation(
 
 
 @router.get("/{draft_id}/preview", response_class=Response)
+@router.head("/{draft_id}/preview", response_class=Response, include_in_schema=False)
 async def preview_manual_observation(draft_id: str, _auth: AuthContext = Depends(require_owner)):
     draft = await manual_observation_service.get(draft_id)
     path = manual_observation_service.directory(draft.id) / "preview.jpg"
@@ -199,9 +200,15 @@ async def preview_manual_observation(draft_id: str, _auth: AuthContext = Depends
 
 
 @router.get("/{draft_id}/media", response_class=Response)
+@router.head("/{draft_id}/media", response_class=Response, include_in_schema=False)
 async def media_manual_observation(draft_id: str, _auth: AuthContext = Depends(require_owner)):
     draft = await manual_observation_service.get(draft_id)
     path = manual_observation_service.directory(draft.id) / draft.source_filename
     if not path.is_file():
         raise HTTPException(status_code=404, detail="Original media unavailable.")
-    return FileResponse(path, media_type=draft.content_type, filename=draft.original_filename)
+    return FileResponse(
+        path,
+        media_type=draft.content_type,
+        filename=draft.original_filename,
+        headers={"Cache-Control": "private, no-store"},
+    )

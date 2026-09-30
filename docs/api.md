@@ -243,8 +243,14 @@ candidate does not clear the configured promotion threshold. The SSE stream emit
 - `POST /api/manual-observations/{draft_id}/retry` (owner; returns `202`)
 - `POST /api/manual-observations/{draft_id}/confirm` (owner)
 - `DELETE /api/manual-observations/{draft_id}` (owner; unsaved drafts only)
-- `GET /api/manual-observations/{draft_id}/preview` (owner)
-- `GET /api/manual-observations/{draft_id}/media` (owner)
+- `GET /api/manual-observations/{draft_id}/preview` (owner; also supports `HEAD`)
+- `GET /api/manual-observations/{draft_id}/media` (owner; also supports `HEAD` and byte ranges)
+
+These two exact read routes accept the owner HttpOnly session cookie so browser image and
+video elements can load the draft without tokens in their URLs. Draft identifiers must be
+32 lowercase hexadecimal characters. Cookie authentication does not authorize draft status,
+upload, retry, confirmation or deletion. Guests cannot read draft media. Preview responses
+are private; original media sends `Cache-Control: private, no-store`.
 
 Upload and retry responses expose durable status, progress, model alternatives, inference
 provider/model/input provenance, common/scientific taxonomy names, optional extracted GPS

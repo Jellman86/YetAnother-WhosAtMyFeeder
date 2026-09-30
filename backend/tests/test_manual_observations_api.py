@@ -7,6 +7,7 @@ import pytest_asyncio
 from PIL import Image
 
 from app.config import settings
+from app.auth import create_access_token, SESSION_COOKIE
 from app.database import close_db, get_db, init_db
 from app.main import app
 from app.services.manual_observation_service import _gps_coordinates_from_ifd, _prepare_classification_results
@@ -121,6 +122,90 @@ async def test_upload_creates_durable_analysis_draft(client: httpx.AsyncClient):
     assert status.status_code == 200
     assert status.json()["content_sha256"]
     assert (await client.delete(f"/api/manual-observations/{payload['id']}")).status_code == 200
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("media_type", ["image", "video"])
+async def test_owner_cookie_reads_upload_preview_and_ranged_media_without_authorizing_writes(
+    client: httpx.AsyncClient, monkeypatch, tmp_path, media_type
+):
+    monkeypatch.setattr(settings.auth, "enabled", True)
+    monkeypatch.setattr(settings.auth, "initial_setup_complete", True)
+    token = create_access_token("draft-owner")
+    headers = {"Authorization": f"Bearer {token}"}
+    content = _jpeg_bytes((31, 90, 122))
+    filename, mime = "bird.jpg", "image/jpeg"
+    if media_type == "video":
+        import cv2
+        import numpy as np
+
+        path = tmp_path / "bird.mp4"
+        writer = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*"mp4v"), 5, (64, 48))
+        assert writer.isOpened(), "The test runtime must provide the existing OpenCV MPEG4 encoder"
+        try:
+            for _ in range(5):
+                writer.write(np.full((48, 64, 3), (31, 90, 122), dtype=np.uint8))
+        finally:
+            writer.release()
+        content = path.read_bytes()
+        filename, mime = "bird.mp4", "video/mp4"
+    with patch("app.services.manual_observation_service.manual_observation_service._run_analysis", new=AsyncMock()):
+        upload = await client.post(
+            "/api/manual-observations", headers=headers, files={"media": (filename, content, mime)}
+        )
+    assert upload.status_code == 202
+    draft = upload.json()
+    client.cookies.set(SESSION_COOKIE, token, path="/api")
+    try:
+        preview = await client.get(draft["preview_url"])
+        assert preview.status_code == 200
+        with Image.open(io.BytesIO(preview.content)) as image:
+            image.load()
+            assert image.width > 0 and image.height > 0
+        assert preview.headers["cache-control"].startswith("private")
+        head = await client.head(draft["preview_url"])
+        assert head.status_code == 200 and head.content == b""
+        assert int(head.headers["content-length"]) == len(preview.content)
+        media = await client.get(draft["media_url"], headers={"Range": "bytes=0-31"})
+        assert media.status_code == 206
+        assert media.content == content[:32]
+        assert media.headers["content-range"] == f"bytes 0-31/{len(content)}"
+        assert media.headers["cache-control"] == "private, no-store"
+        media_head = await client.head(draft["media_url"])
+        assert media_head.status_code == 200 and media_head.content == b""
+        assert int(media_head.headers["content-length"]) == len(content)
+
+        # Cookie admission is limited to these media reads. All draft operations
+        # still require a Bearer-authenticated owner, even with an owner cookie.
+        for method, route in [
+            ("GET", f"/api/manual-observations/{draft['id']}"),
+            ("POST", f"/api/manual-observations/{draft['id']}/retry"),
+            ("POST", f"/api/manual-observations/{draft['id']}/confirm"),
+            ("DELETE", f"/api/manual-observations/{draft['id']}"),
+        ]:
+            assert (await client.request(method, route, json={})).status_code == 401
+        assert (
+            await client.post("/api/manual-observations", files={"media": (filename, content, mime)})
+        ).status_code == 401
+
+        client.cookies.clear()
+        for bad_cookie in (None, "forged-token"):
+            if bad_cookie:
+                client.cookies.set(SESSION_COOKIE, bad_cookie, path="/api")
+            for route in (draft["preview_url"], draft["media_url"]):
+                assert (await client.get(route)).status_code == 401
+        monkeypatch.setattr(settings.auth, "session_expiry_hours", -1)
+        client.cookies.set(SESSION_COOKIE, create_access_token("expired-owner"), path="/api")
+        for route in (draft["preview_url"], draft["media_url"]):
+            assert (await client.get(route)).status_code == 401
+        client.cookies.clear()
+        monkeypatch.setattr(settings.public_access, "enabled", True)
+        for route in (draft["preview_url"], draft["media_url"]):
+            assert (await client.get(route)).status_code == 403
+        client.cookies.set(SESSION_COOKIE, token, path="/api")
+        assert (await client.get("/api/manual-observations/not-a-draft/preview")).status_code == 403
+    finally:
+        assert (await client.delete(f"/api/manual-observations/{draft['id']}", headers=headers)).status_code == 200
 
 
 @pytest.mark.asyncio
