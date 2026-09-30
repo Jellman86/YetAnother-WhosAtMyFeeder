@@ -16,12 +16,32 @@ def test_an_event_frigate_no_longer_has_is_missing():
     assert reason == "event_not_found"
 
 
-def test_a_lookup_failure_with_no_reason_still_names_one():
-    """A reason of `None` would reach the policy and be recorded as an empty
-    error, leaving an owner with a row marked missing and nothing saying why."""
+def test_a_lookup_failure_without_a_reason_is_unknown():
     missing, reason = evaluate_media_presence(None, None, media="any", clips_enabled=True)
-    assert missing is True
-    assert reason == "event_not_found"
+    assert missing is None
+    assert reason == "event_response_unusable"
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        "event_timeout",
+        "event_request_error",
+        "event_unknown_error",
+        "event_http_401",
+        "event_http_403",
+        "event_http_429",
+        "event_http_500",
+        "event_http_503",
+    ],
+)
+def test_a_transient_lookup_error_is_unknown_not_missing(error):
+    assert evaluate_media_presence(None, error, media="any", clips_enabled=True) == (None, error)
+
+
+@pytest.mark.parametrize("event", [{}, [], "invalid", {"id": "evt"}, {"has_clip": "false"}, {"has_snapshot": None}])
+def test_an_unusable_event_response_does_not_prove_absence(event):
+    assert evaluate_media_presence(event, None, media="any", clips_enabled=True) == (None, "event_response_unusable")
 
 
 def test_an_event_with_all_its_media_is_present():

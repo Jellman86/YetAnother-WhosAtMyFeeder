@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Preserve detection history and its saved media state when a Frigate event check fails.
+  Scheduled and manual media scans distinguish confirmed absence from timeouts, server errors
+  and unusable responses, and report failed checks separately from missing media.
+
 - Prefer a reliable crop of the visit's species over a near-equivalent whole scene, and allow
   positive identity evidence to replace an older crop showing another bird. Owner photo choices
   are protected from later automatic and live snapshot updates.

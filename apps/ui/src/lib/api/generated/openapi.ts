@@ -1317,6 +1317,7 @@ export interface components {
     checked: number;
     cleared_missing_count: number;
     deleted_count: number;
+    errors?: number;
     kept_count: number;
     marked_missing_count: number;
     message?: string | null;

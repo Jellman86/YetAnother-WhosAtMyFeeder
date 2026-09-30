@@ -32,7 +32,7 @@ from app.services.frigate_client import frigate_client
 from app.services.timezone_repair_service import timezone_repair_service
 from app.services.media_cache import media_cache
 from app.services.maintenance_coordinator import maintenance_coordinator
-from app.services.media_integrity_scan import MEDIA_INTEGRITY_SCAN_KIND
+from app.services.media_integrity_scan import MEDIA_INTEGRITY_SCAN_KIND, evaluate_media_presence
 from app.services.ai_service import AIService
 from app.services.frigate_missing_policy import apply_missing_policy, clear_missing_state_if_present
 from app.services.smtp_service import smtp_service
@@ -392,6 +392,7 @@ class PurgeMissingMediaResponse(BaseModel):
     cleared_missing_count: int
     checked: int
     missing: int
+    errors: int = 0
     message: Optional[str] = None
 
 
@@ -2470,16 +2471,16 @@ async def _purge_missing_media(kind: Literal["clip", "snapshot"]) -> dict:
 
     semaphore = asyncio.Semaphore(PURGE_CHECK_CONCURRENCY)
 
-    async def check(event_id: str) -> tuple[str, bool, str | None]:
+    async def check(event_id: str) -> tuple[str, bool | None, str | None]:
         async with semaphore:
-            event_data, error = await frigate_client.get_event_with_error(event_id)
-            if not event_data:
-                return event_id, True, error or "event_not_found"
-            if kind == "clip":
-                has_media = bool(event_data.get("has_clip", False))
-                return event_id, not has_media, None if has_media else "clip_unavailable"
-            has_media = bool(event_data.get("has_snapshot", True))
-            return event_id, not has_media, None if has_media else "snapshot_unavailable"
+            try:
+                event_data, error = await frigate_client.get_event_with_error(event_id)
+            except Exception:
+                return event_id, None, "event_request_error"
+            missing, reason = evaluate_media_presence(
+                event_data, error, media=kind, clips_enabled=settings.frigate.clips_enabled
+            )
+            return event_id, missing, reason
 
     results = await asyncio.gather(*(check(event_id) for event_id in event_ids))
     missing_count = sum(1 for _event_id, missing, _error in results if missing)
@@ -2490,6 +2491,8 @@ async def _purge_missing_media(kind: Literal["clip", "snapshot"]) -> dict:
     async with get_db() as db:
         repo = DetectionRepository(db)
         for event_id, missing, error in results:
+            if missing is None:
+                continue
             if missing:
                 counts = await apply_missing_policy(
                     repo=repo,
@@ -2518,6 +2521,7 @@ async def _purge_missing_media(kind: Literal["clip", "snapshot"]) -> dict:
         "cleared_missing_count": cleared_missing_count,
         "checked": len(event_ids),
         "missing": missing_count,
+        "errors": sum(missing is None for _event_id, missing, _error in results),
     }
 
 
@@ -2556,21 +2560,16 @@ async def _purge_missing_all_media() -> dict:
 
     semaphore = asyncio.Semaphore(PURGE_CHECK_CONCURRENCY)
 
-    async def check(event_id: str) -> tuple[str, bool, str | None]:
+    async def check(event_id: str) -> tuple[str, bool | None, str | None]:
         async with semaphore:
-            event_data, error = await frigate_client.get_event_with_error(event_id)
-            if not event_data:
-                return event_id, True, error or "event_not_found"
-
-            missing_reasons: list[str] = []
-            if settings.frigate.clips_enabled and not bool(event_data.get("has_clip", False)):
-                missing_reasons.append("clip_unavailable")
-            if not bool(event_data.get("has_snapshot", True)):
-                missing_reasons.append("snapshot_unavailable")
-
-            if missing_reasons:
-                return event_id, True, ",".join(missing_reasons)
-            return event_id, False, None
+            try:
+                event_data, error = await frigate_client.get_event_with_error(event_id)
+            except Exception:
+                return event_id, None, "event_request_error"
+            missing, reason = evaluate_media_presence(
+                event_data, error, media="any", clips_enabled=settings.frigate.clips_enabled
+            )
+            return event_id, missing, reason
 
     results = await asyncio.gather(*(check(event_id) for event_id in event_ids))
     missing_count = sum(1 for _event_id, missing, _error in results if missing)
@@ -2582,6 +2581,8 @@ async def _purge_missing_all_media() -> dict:
     async with get_db() as db:
         repo = DetectionRepository(db)
         for event_id, missing, error in results:
+            if missing is None:
+                continue
             if missing:
                 counts = await apply_missing_policy(
                     repo=repo,
@@ -2610,6 +2611,7 @@ async def _purge_missing_all_media() -> dict:
         "cleared_missing_count": cleared_missing_count,
         "checked": len(event_ids),
         "missing": missing_count,
+        "errors": sum(missing is None for _event_id, missing, _error in results),
     }
 
 

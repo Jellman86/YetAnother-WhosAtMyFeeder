@@ -61,15 +61,27 @@ def evaluate_media_presence(
     *,
     media: str,
     clips_enabled: bool,
-) -> tuple[bool, Optional[str]]:
+) -> tuple[bool | None, Optional[str]]:
     """Decide whether a detection's upstream media is missing, and why.
 
     `has_snapshot` defaults to True because Frigate omits it on some event
     shapes, and absence of the field is not evidence of absence of the snapshot.
-    A clip is only expected when Frigate clips are enabled at all.
+    A clip is only expected when Frigate clips are enabled at all. None means
+    unknown: an unsuccessful lookup must not change the saved presence state.
     """
-    if not event_data:
-        return True, error or "event_not_found"
+    if event_data is None:
+        if error == "event_not_found":
+            return True, error
+        return None, error or "event_response_unusable"
+    if error:
+        return None, error
+    if not isinstance(event_data, dict) or not event_data:
+        return None, "event_response_unusable"
+    for flag in ("has_clip", "has_snapshot"):
+        if flag in event_data and not isinstance(event_data[flag], bool):
+            return None, "event_response_unusable"
+    if media in ("any", "clip") and clips_enabled and "has_clip" not in event_data:
+        return None, "event_response_unusable"
 
     reasons: list[str] = []
     if media in ("any", "clip") and clips_enabled and not bool(event_data.get("has_clip", False)):
@@ -216,7 +228,7 @@ async def _run_scan_locked(maintenance) -> MediaIntegrityScanResult:
                 log.debug("Media integrity check failed", event_id=event_id, error=str(exc))
                 return event_id, False, None, True
             missing, reason = evaluate_media_presence(event_data, error, media=media, clips_enabled=clips_enabled)
-            return event_id, missing, reason, False
+            return event_id, missing is True, reason, missing is None
 
     results = await asyncio.gather(*(check(row["frigate_event"]) for row in candidates))
 

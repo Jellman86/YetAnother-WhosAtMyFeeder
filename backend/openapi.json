@@ -9110,6 +9110,11 @@
             "title": "Deleted Count",
             "type": "integer"
           },
+          "errors": {
+            "default": 0,
+            "title": "Errors",
+            "type": "integer"
+          },
           "kept_count": {
             "title": "Kept Count",
             "type": "integer"

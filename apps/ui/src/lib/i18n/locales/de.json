@@ -621,7 +621,7 @@
       "auto_analyze_unknowns": "Automatisch ausführen (täglich)",
       "purge_missing_clips_confirm": "Erkennungen scannen, deren Clips in Frigate fehlen, und die konfigurierte Richtlinie anwenden?",
       "purge_missing_snapshots_confirm": "Erkennungen scannen, deren Schnappschüsse in Frigate fehlen, und die konfigurierte Richtlinie anwenden?",
-      "purge_missing_scan_success": "Scan abgeschlossen: {checked} geprüft, {missing} fehlend, {deleted} gelöscht, {marked} als fehlend markiert, {kept} behalten, {restored} wiederhergestellt.",
+      "purge_missing_scan_success": "Scan abgeschlossen: {checked} geprüft, {missing} fehlend, {deleted} gelöscht, {marked} als fehlend markiert, {kept} behalten, {restored} wiederhergestellt. {errors} konnten nicht geprüft werden; ihr gespeicherter Zustand blieb erhalten.",
       "clear_favorites_button": "Alle Favoriten löschen",
       "clear_favorites_desc": "Entfernt jede Favoritenmarkierung samt archiviertem Foto und Clip. Erkennungen und zwischengespeicherte Medien bleiben.",
       "clear_favorites_confirm": "Alle Favoritenmarkierungen samt archivierten Fotos und Clips entfernen? Die Besuche bleiben in der Historie. Das kann nicht rückgängig gemacht werden.",

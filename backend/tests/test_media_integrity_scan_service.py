@@ -5,11 +5,13 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 import pytest_asyncio
+import httpx
 
 from app.config import settings
 from app.database import close_db, get_db, init_db
 from app.services import media_integrity_scan as scan_module
 from app.services.media_integrity_scan import run_media_integrity_scan
+from app.services.frigate_client import FrigateClient
 
 
 @pytest_asyncio.fixture(autouse=True)
@@ -137,6 +139,55 @@ async def test_a_retired_event_is_marked_missing():
     assert result.status == "completed"
     assert result.marked_missing_count == 1
     assert (await _status_of("evt-gone"))[0] == "missing"
+
+
+@pytest.mark.parametrize("behavior", ["keep", "mark_missing", "delete"])
+@pytest.mark.parametrize("error", ["event_http_503", "event_timeout", "event_unknown_error"])
+@pytest.mark.asyncio
+async def test_a_per_event_failure_after_healthy_preflight_preserves_history(behavior, error):
+    settings.maintenance.frigate_missing_behavior = behavior
+    await _insert("evt-transient")
+    before = await _status_of("evt-transient")
+    with (
+        patch.object(scan_module.frigate_client, "get_version", new=AsyncMock(return_value="0.17")),
+        patch.object(scan_module.frigate_client, "get_event_with_error", new=AsyncMock(return_value=(None, error))),
+    ):
+        result = await run_media_integrity_scan()
+    assert await _status_of("evt-transient") == before
+    assert result.errors == 1
+    assert result.missing == result.deleted_count == result.marked_missing_count == 0
+    assert result.pending == 1
+
+
+@pytest.mark.parametrize("behavior", ["keep", "mark_missing", "delete"])
+@pytest.mark.parametrize("failure", [401, 403, 429, 500, 503, "timeout", "connection", "json", "shape"])
+@pytest.mark.asyncio
+async def test_real_frigate_error_responses_leave_scheduled_history_retryable(monkeypatch, behavior, failure):
+    settings.maintenance.frigate_missing_behavior = behavior
+    await _insert("evt-transport")
+    before = await _status_of("evt-transport")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/api/version"):
+            return httpx.Response(200, text="0.17")
+        if failure == "timeout":
+            raise httpx.ReadTimeout("fixture timeout", request=request)
+        if failure == "connection":
+            raise httpx.ConnectError("fixture unavailable", request=request)
+        if failure == "json":
+            return httpx.Response(200, content=b"not-json")
+        if failure == "shape":
+            return httpx.Response(200, json=[])
+        return httpx.Response(failure)
+
+    client = FrigateClient()
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as transport:
+        client._client = transport
+        monkeypatch.setattr(scan_module, "frigate_client", client)
+        result = await run_media_integrity_scan()
+    assert await _status_of("evt-transport") == before
+    assert result.errors == result.pending == 1
+    assert result.missing == result.deleted_count == result.marked_missing_count == 0
 
 
 @pytest.mark.asyncio
