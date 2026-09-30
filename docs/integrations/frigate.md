@@ -73,6 +73,13 @@ the next page. Failed visits wait 30 minutes, then one hour, then two hours betw
 after the final failed attempt automatic retries stop. Cancelling unfinished work leaves it
 retryable. Manual uploads are not sent to Frigate for full-visit processing.
 
+Cache-budget eviction records a durable decision for both photo and full-visit work.
+Automatic reconciliation cannot refill that media after a restart or overwrite the
+decision with a late success or failure. Admitted jobs are protected while their
+fetch runs; the admission lock is released during network work. An owner can still
+explicitly request the clip through the media proxy. The automatic recovery window
+remains the last 24 hours.
+
 ## Update recovery
 
 Normal updates can recover a missed start or an initial snapshot/inference failure. Once a visit

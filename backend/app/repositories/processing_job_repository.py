@@ -126,7 +126,14 @@ class ProcessingJobRepository:
             revision=int(row[6] or 0),
         )
 
-    async def record_success(self, pipeline: str, event_id: str, *, expected_revision: int | None = None) -> None:
+    async def record_success(
+        self,
+        pipeline: str,
+        event_id: str,
+        *,
+        expected_revision: int | None = None,
+        preserve_storage_eviction: bool = False,
+    ) -> None:
         await self.db.execute(
             """
             INSERT INTO processing_job_state (
@@ -137,9 +144,10 @@ class ProcessingJobRepository:
                 retry_after = NULL,
                 last_error = NULL,
                 updated_at = CURRENT_TIMESTAMP
-            WHERE ? IS NULL OR processing_job_state.revision = ?
+            WHERE (? IS NULL OR processing_job_state.revision = ?)
+              AND (NOT ? OR COALESCE(processing_job_state.last_error, '') != 'storage_evicted')
             """,
-            (pipeline, event_id, expected_revision, expected_revision),
+            (pipeline, event_id, expected_revision, expected_revision, int(preserve_storage_eviction)),
         )
         await self.db.commit()
 
@@ -152,9 +160,12 @@ class ProcessingJobRepository:
         retry_delays_seconds: tuple[float, ...],
         now: Optional[datetime] = None,
         expected_revision: int | None = None,
+        preserve_storage_eviction: bool = False,
     ) -> ProcessingJobState:
         current = await self.get(pipeline, event_id)
         if current is not None and expected_revision is not None and current.revision != expected_revision:
+            return current
+        if current is not None and preserve_storage_eviction and current.last_error == "storage_evicted":
             return current
         attempt_count = int(current.attempt_count if current is not None else 0) + 1
         timestamp = now or datetime.now(timezone.utc)
@@ -176,7 +187,8 @@ class ProcessingJobRepository:
                 retry_after = excluded.retry_after,
                 last_error = excluded.last_error,
                 updated_at = CURRENT_TIMESTAMP
-            WHERE ? IS NULL OR processing_job_state.revision = ?
+            WHERE (? IS NULL OR processing_job_state.revision = ?)
+              AND (NOT ? OR COALESCE(processing_job_state.last_error, '') != 'storage_evicted')
             """,
             (
                 pipeline,
@@ -187,6 +199,7 @@ class ProcessingJobRepository:
                 str(error)[:500],
                 expected_revision,
                 expected_revision,
+                int(preserve_storage_eviction),
             ),
         )
         await self.db.commit()
