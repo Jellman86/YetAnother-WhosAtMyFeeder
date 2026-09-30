@@ -51,6 +51,7 @@
     "ai": {
       "provider_not_configured": "AI провайдер не настроен",
       "api_key_missing": "API ключ не настроен для {provider}",
+      "context_changed": "Анализ или переписка изменились. Обновите страницу перед повторной попыткой.",
       "analysis_failed": "Не удалось проанализировать изображение",
       "image_fetch_failed": "Не удалось получить изображение из Frigate",
       "gemini_not_configured": "API ключ Gemini не настроен",

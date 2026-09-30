@@ -51,6 +51,7 @@
     "ai": {
       "provider_not_configured": "AIプロバイダーが設定されていません",
       "api_key_missing": "{provider}のAPIキーが設定されていません",
+      "context_changed": "分析または会話が変更されました。更新してからもう一度お試しください。",
       "analysis_failed": "画像の分析に失敗しました",
       "image_fetch_failed": "Frigateからの画像取得に失敗しました",
       "gemini_not_configured": "Gemini APIキーが設定されていません",

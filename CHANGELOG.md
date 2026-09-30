@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Keep the saved analysis and chat when regeneration fails. Successful regeneration replaces both together; stale concurrent analysis and chat replies return a translated refresh message rather than overwriting newer owner input.
+
 - Apply notification cooldown before concurrent deliveries start. Failed or wholly cancelled deliveries remain retryable; a completed channel delivery still starts the cooldown if another channel is cancelled.
 
 - Report failed, empty or malformed provider responses as errors across analysis, charts and chat. Failed replies are never saved as answers; rate-limit and temporary-unavailability responses retain retry information. Provider logs omit response bodies and credentials.

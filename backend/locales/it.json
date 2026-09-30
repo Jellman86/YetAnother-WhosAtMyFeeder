@@ -51,6 +51,7 @@
     "ai": {
       "provider_not_configured": "Provider AI non configurato",
       "api_key_missing": "Chiave API non configurata per {provider}",
+      "context_changed": "L’analisi o la conversazione è cambiata. Aggiorna prima di riprovare.",
       "analysis_failed": "Impossibile analizzare l'immagine",
       "image_fetch_failed": "Impossibile recuperare immagine da Frigate",
       "gemini_not_configured": "Chiave API Gemini non configurata",

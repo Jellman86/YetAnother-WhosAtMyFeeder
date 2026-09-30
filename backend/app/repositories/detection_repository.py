@@ -18,6 +18,14 @@ from app.utils.api_datetime import serialize_api_datetime, serialize_storage_dat
 
 log = structlog.get_logger()
 
+
+@dataclass(frozen=True)
+class AIAnalysisRevision:
+    analysis: str | None
+    timestamp: str | None
+    last_turn_id: int
+
+
 # Species alias sets change only when a new label variant lands, but the
 # lookup reads the detections table - a fixed cost the species filter used to
 # pay on every request (#258). Cached per process, briefly.
@@ -1386,19 +1394,51 @@ class DetectionRepository:
             )
             return False
 
-    async def update_ai_analysis(self, frigate_event: str, analysis: str) -> datetime:
-        """Update AI naturalist analysis for an event."""
+    async def get_ai_analysis_revision(self, frigate_event: str) -> AIAnalysisRevision | None:
+        async with self.db.execute(
+            """SELECT ai_analysis, ai_analysis_timestamp,
+                      (SELECT COALESCE(MAX(id), 0) FROM ai_conversation_turns WHERE frigate_event = d.frigate_event)
+               FROM detections d WHERE frigate_event = ?""",
+            (frigate_event,),
+        ) as cursor:
+            row = await cursor.fetchone()
+        return AIAnalysisRevision(row[0], row[1], row[2]) if row else None
+
+    async def update_ai_analysis(
+        self,
+        frigate_event: str,
+        analysis: str,
+        *,
+        expected_revision: AIAnalysisRevision,
+        reset_conversation: bool,
+    ) -> datetime | None:
+        """Replace only the context read before external work; clear its chat atomically."""
         now = utc_naive_now()
-        await self.db.execute(
-            """
-            UPDATE detections
-            SET ai_analysis = ?,
-                ai_analysis_timestamp = ?
-            WHERE frigate_event = ?
-        """,
-            (analysis, now, frigate_event),
-        )
-        await self.db.commit()
+        try:
+            await self.db.execute("BEGIN IMMEDIATE")
+            cursor = await self.db.execute(
+                """UPDATE detections SET ai_analysis = ?, ai_analysis_timestamp = ?
+                   WHERE frigate_event = ? AND ai_analysis IS ? AND ai_analysis_timestamp IS ?
+                     AND (SELECT COALESCE(MAX(id), 0) FROM ai_conversation_turns WHERE frigate_event = ?) = ?""",
+                (
+                    analysis,
+                    now,
+                    frigate_event,
+                    expected_revision.analysis,
+                    expected_revision.timestamp,
+                    frigate_event,
+                    expected_revision.last_turn_id,
+                ),
+            )
+            if cursor.rowcount != 1:
+                await self.db.rollback()
+                return None
+            if reset_conversation:
+                await self.db.execute("DELETE FROM ai_conversation_turns WHERE frigate_event = ?", (frigate_event,))
+            await self.db.commit()
+        except BaseException:
+            await self.db.rollback()
+            raise
         return now
 
     async def hide_detection(self, frigate_event: str, *, skip_manually_tagged: bool = False) -> bool:
