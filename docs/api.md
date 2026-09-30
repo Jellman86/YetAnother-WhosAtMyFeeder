@@ -542,6 +542,13 @@ retrying; the server does not repeat a paid provider call.
   optional `media_cache_per_species_maximum` and `media_cache_max_size_mb` limits. Limits preserve
   detection history and favourites. `media_cache_bird_scan_mode` accepts `standard` or `intensive`.
 
+Published ordinary cache files left after a capture deletion are retried every five
+minutes independently of optional limits and the cache-enabled switch. Active media
+writers and current parent records protect their files; failed local cleanup is retried
+on the next pass. Favourite archives and hidden temporary files are outside this sweep.
+Local atomic publication/deletion finishes before cancellation releases its coordination;
+a stalled filesystem can therefore delay shutdown.
+
 Archived favourite media is resolved before Frigate availability/context checks for MP4 and HEAD
 requests. Byte ranges and the existing access/download permissions apply. HLS requests for
 archived videos return 404 so the player uses the retained MP4; no archive transcoding is required.
