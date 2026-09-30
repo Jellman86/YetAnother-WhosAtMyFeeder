@@ -6,6 +6,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Keep BirdWeather station credentials out of failed-report and verbose HTTP request logs,
+  while retaining the error type and HTTP status for diagnosis.
+
 - Refuse guest media access when detection visibility cannot be checked, with a retryable
   response instead of falling back to an upstream snapshot or clip.
 
