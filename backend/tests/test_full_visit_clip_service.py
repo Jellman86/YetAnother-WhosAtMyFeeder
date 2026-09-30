@@ -521,6 +521,7 @@ async def test_trigger_for_event_uses_single_flight_lock_per_event():
 @pytest.mark.asyncio
 async def test_reconcile_recent_detections_triggers_missing_recent_candidates():
     service = FullVisitClipService()
+    service._record_reconcile_outcome = AsyncMock()
     candidate = SimpleNamespace(frigate_event="evt-reconcile-1", camera_name="cam1")
 
     db_ctx = AsyncMock()
@@ -549,6 +550,7 @@ async def test_reconcile_recent_detections_triggers_missing_recent_candidates():
 @pytest.mark.asyncio
 async def test_reconcile_recent_detections_skips_candidates_with_persisted_recording_clip():
     service = FullVisitClipService()
+    service._record_reconcile_outcome = AsyncMock()
     candidate = SimpleNamespace(frigate_event="evt-reconcile-skip", camera_name="cam1")
 
     db_ctx = AsyncMock()

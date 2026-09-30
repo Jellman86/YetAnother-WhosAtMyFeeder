@@ -10,6 +10,7 @@ import structlog
 from app.config import settings
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
+from app.repositories.processing_job_repository import ProcessingJobRepository
 from app.routers.proxy import _get_recording_clip_context, _is_no_recordings_response
 from app.services.frigate_client import frigate_client
 from app.services.media_cache import media_cache
@@ -29,6 +30,8 @@ FULL_VISIT_RECONCILE_LIMIT = 100
 FULL_VISIT_FAILURE_COOLDOWN_SECONDS = 1800.0
 FULL_VISIT_QUEUE_MAX = 128
 FULL_VISIT_WORKERS = 2
+FULL_VISIT_PROCESSING_PIPELINE = "full_visit_clip"
+FULL_VISIT_RECONCILE_RETRY_DELAYS = (1800.0, 3600.0, 7200.0)
 RecordingFetchOutcome = Literal["complete", "partial", "unavailable"]
 
 
@@ -409,10 +412,12 @@ class FullVisitClipService:
                 detection.frigate_event,
                 min_duration_seconds=min_duration_seconds,
             ):
+                await self._record_reconcile_outcome(detection.frigate_event, ready=True)
                 continue
             if media_cache.get_recording_clip_duration_seconds(
                 detection.frigate_event
             ) is not None and self._partial_upgrade_exhausted(detection.frigate_event):
+                await self._record_reconcile_outcome(detection.frigate_event, ready=True)
                 continue
             ready = await self.trigger_for_event(
                 detection.frigate_event,
@@ -420,9 +425,25 @@ class FullVisitClipService:
                 source="reconcile",
                 lang="en",
             )
+            await self._record_reconcile_outcome(detection.frigate_event, ready=ready)
             if ready:
                 generated += 1
         return generated
+
+    async def _record_reconcile_outcome(self, event_id: str, *, ready: bool) -> None:
+        # The visit owns this durable state. Cached/finished heads are no longer
+        # selected, and failed heads wait for a bounded retry even after restart.
+        async with get_db() as db:
+            repo = ProcessingJobRepository(db)
+            if ready:
+                await repo.record_success(FULL_VISIT_PROCESSING_PIPELINE, event_id)
+            else:
+                await repo.record_failure(
+                    FULL_VISIT_PROCESSING_PIPELINE,
+                    event_id,
+                    error="recording_unavailable",
+                    retry_delays_seconds=FULL_VISIT_RECONCILE_RETRY_DELAYS,
+                )
 
     async def _reconcile_loop(self) -> None:
         try:

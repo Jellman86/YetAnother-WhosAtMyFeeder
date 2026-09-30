@@ -1115,15 +1115,19 @@ class DetectionRepository:
             f"""SELECT {DETECTION_SELECT_COLUMNS}
                FROM detections d
                LEFT JOIN detection_favorites f ON f.detection_id = d.id
+               LEFT JOIN processing_job_state p ON p.event_id = d.frigate_event AND p.pipeline = 'full_visit_clip'
                WHERE d.frigate_event IS NOT NULL
                  AND d.frigate_event != ''
+                 AND d.frigate_event NOT GLOB 'manual_*'
                  AND d.camera_name IS NOT NULL
                  AND d.camera_name != ''
                  AND d.detection_time <= ?
                  AND d.detection_time >= ?
-               ORDER BY d.detection_time DESC
+                 AND (p.event_id IS NULL OR p.status IN ('queued', 'retryable'))
+                 AND (p.retry_after IS NULL OR julianday(p.retry_after) <= julianday(?))
+               ORDER BY d.detection_time DESC, d.id DESC
                LIMIT ?""",
-            (detected_before, detected_after, limit),
+            (detected_before, detected_after, serialize_storage_datetime(utc_naive_now()), limit),
         ) as cursor:
             rows = await cursor.fetchall()
         return [_row_to_detection(row) for row in rows]
