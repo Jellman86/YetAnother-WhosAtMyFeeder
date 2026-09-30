@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Start keyboard reading of the activity heatmap at its busiest slot when the grid receives focus. Refresh browser coverage for the current grid, weather panels, precipitation shading, keyboard navigation and mobile touch interactions.
+
 - Keep the saved analysis and chat when regeneration fails. Successful regeneration replaces both together; stale concurrent analysis and chat replies return a translated refresh message rather than overwriting newer owner input.
 
 - Apply notification cooldown before concurrent deliveries start. Failed or wholly cancelled deliveries remain retryable; a completed channel delivery still starts the cooldown if another channel is cancelled.

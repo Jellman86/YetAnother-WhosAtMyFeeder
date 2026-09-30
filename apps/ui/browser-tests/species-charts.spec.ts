@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Locator } from '@playwright/test';
 
 const start = '2026-09-01T00:00:00Z';
 const end = '2026-09-08T00:00:00Z';
@@ -70,16 +70,16 @@ test('trend, composition and heatmap render and respond to controls', async ({ p
         const chart = (node as HTMLCanvasElement & { __chartjs?: { data: { datasets: unknown[] } } }).__chartjs;
         return chart?.data.datasets.length;
     })).toBe(4);
-    await expect(page.getByRole('group', { name: 'Hour x weekday activity' }).getByRole('button')).toHaveCount(168);
-    await expect(page.getByRole('button', { name: 'Mon 08:00: 12' })).toBeVisible();
+    await expect(page.getByRole('grid', { name: /Activity by weekday and hour/ }).getByRole('gridcell')).toHaveCount(168);
+    await expect(page.getByRole('gridcell', { name: 'Mon 08:00 to 09:00: 12 detections. Busiest slot', exact: true })).toBeVisible();
 
-    await page.getByRole('button', { name: 'Hide Robin' }).focus();
+    await page.getByRole('group', { name: 'Species composition' }).getByRole('button', { name: 'Hide Robin' }).focus();
     await page.keyboard.press('Enter');
     await expect.poll(() => donut.evaluate(node => (node as HTMLCanvasElement & { __chartjs?: { getDataVisibility(index: number): boolean } }).__chartjs?.getDataVisibility(0))).toBe(false);
-    await expect(page.getByRole('button', { name: 'Show Robin' })).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.getByRole('group', { name: 'Species composition' }).getByRole('button', { name: 'Show Robin' })).toHaveAttribute('aria-pressed', 'false');
 
     await page.getByRole('button', { name: 'Toggle theme' }).click();
-    await expect(page.getByRole('button', { name: 'Hide Robin' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('group', { name: 'Species composition' }).getByRole('button', { name: 'Hide Robin' })).toHaveAttribute('aria-pressed', 'true');
     await expect.poll(() => donut.evaluate(node => (node as HTMLCanvasElement & { __chartjs?: { getDataVisibility(index: number): boolean } }).__chartjs?.getDataVisibility(0))).toBe(true);
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath('species-charts.png'), fullPage: true });
@@ -97,16 +97,89 @@ test('weather overlays and reduced motion preserve an understandable trend', asy
     await page.getByText('Weather overlays', { exact: true }).click();
     await page.getByRole('button', { name: 'Temperature' }).click();
     await page.getByRole('button', { name: 'Avg wind' }).click();
-    await page.getByRole('button', { name: 'Show precip' }).click();
+    const temperature = page.locator('[data-leaderboard-weather-panel="temperature"] canvas');
+    const wind = page.locator('[data-leaderboard-weather-panel="wind"] canvas');
+    await expect(temperature).toBeVisible();
+    await expect(wind).toBeVisible();
+    for (const [canvas, expected] of [[temperature, [12, 13, 14, 15, 16, 17, 18]], [wind, [6, 7, 8, 9, 10, 11, 12]]] as const) {
+        await expect.poll(() => canvas.evaluate(node => {
+            const chart = (node as HTMLCanvasElement & { __chartjs?: { data: { datasets: Array<{ data: unknown[] }> }; scales: Record<string, unknown> } }).__chartjs;
+            return { values: chart?.data.datasets[0].data, scales: Object.keys(chart?.scales ?? {}).sort() };
+        })).toEqual({ values: expected, scales: ['x', 'y'] });
+    }
     await expect.poll(() => trend.evaluate(node => {
-        const chart = (node as HTMLCanvasElement & { __chartjs?: { data: { datasets: Array<{ yAxisID?: string }> }; scales: Record<string, unknown> } }).__chartjs;
-        return {
-            axes: chart?.data.datasets.map(dataset => dataset.yAxisID),
-            scales: Object.keys(chart?.scales ?? {}).sort(),
-        };
-    })).toEqual({ axes: ['y', 'y', 'y', 'y', 'temperature', 'wind'], scales: ['temperature', 'wind', 'x', 'y'] });
+        const chart = (node as HTMLCanvasElement & { __chartjs?: { data: { datasets: Array<{ label?: string }> } } }).__chartjs;
+        return chart?.data.datasets.map(dataset => dataset.label);
+    })).toEqual(['Robin', 'Dunnock', 'Wren', 'Other']);
+    // The configured 300 ms chart animation must settle before sampling pixels.
+    await page.waitForTimeout(350);
+    const beforeRain = await rainPixels(trend);
+    if (!beforeRain) throw new Error('Trend chart did not initialize');
+    await page.getByRole('button', { name: 'Show precip' }).click();
+    await expect.poll(async () => {
+        const pixels = await rainPixels(trend);
+        return pixels !== null && JSON.stringify(pixels[0]) !== JSON.stringify(beforeRain[0]) && JSON.stringify(pixels[1]) === JSON.stringify(beforeRain[1]);
+    }).toBe(true);
+    await page.getByRole('button', { name: 'Show precip' }).click();
+    await expect.poll(() => rainPixels(trend)).toEqual(beforeRain);
+    await page.getByRole('button', { name: 'Temperature', exact: true }).click();
+    await expect(temperature).toHaveCount(0);
+    await expect(wind).toBeVisible();
 
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.reload();
     await expect.poll(() => trend.evaluate(node => (node as HTMLCanvasElement & { __chartjs?: { options: { animation: unknown } } }).__chartjs?.options.animation)).toBe(false);
 });
+
+test('heatmap keyboard reading starts at the peak and follows grid navigation', async ({ page }) => {
+    const grid = page.getByRole('grid', { name: /Activity by weekday and hour/ });
+    const peak = grid.getByRole('gridcell', { name: 'Mon 08:00 to 09:00: 12 detections. Busiest slot', exact: true });
+    await page.keyboard.press('Tab');
+    await grid.focus();
+    await expect(grid).toBeFocused();
+    await expect.poll(() => grid.getAttribute('aria-activedescendant')).toBe(await peak.getAttribute('id'));
+    const tooltip = page.locator('[data-heatmap-tooltip]');
+    await expect(tooltip).toContainText('12 detections');
+    for (const [key, slot] of [['ArrowRight', 'Mon 09:00'], ['ArrowLeft', 'Mon 08:00'], ['ArrowDown', 'Tue 08:00'], ['Home', 'Tue 00:00'], ['End', 'Tue 23:00'], ['ArrowUp', 'Mon 23:00']] as const) {
+        await page.keyboard.press(key);
+        await expect(tooltip).toContainText(slot);
+        const cell = grid.getByRole('gridcell', { name: new RegExp(`^${slot}`) });
+        await expect.poll(() => grid.getAttribute('aria-activedescendant')).toBe(await cell.getAttribute('id'));
+    }
+    await page.keyboard.press('Escape');
+    await expect(tooltip).toHaveCount(0);
+    await expect(grid).toBeFocused();
+});
+
+test('heatmap pointer and touch reading show the selected slot and dismiss cleanly', async ({ page, isMobile }) => {
+    const grid = page.getByRole('grid', { name: /Activity by weekday and hour/ });
+    const peak = grid.getByRole('gridcell', { name: 'Mon 08:00 to 09:00: 12 detections. Busiest slot', exact: true });
+    const tooltip = page.locator('[data-heatmap-tooltip]');
+    if (isMobile) {
+        await peak.tap();
+        await expect(tooltip).toContainText('12 detections');
+        await peak.tap();
+        await expect(tooltip).toHaveCount(0);
+        await grid.getByRole('gridcell', { name: 'Sat 17:00 to 18:00: 5 detections', exact: true }).tap();
+        await expect(tooltip).toContainText('5 detections');
+        await page.getByRole('button', { name: 'Toggle theme' }).tap();
+    } else {
+        await peak.hover();
+        await expect(tooltip).toContainText('12 detections');
+        await page.getByRole('button', { name: 'Toggle theme' }).hover();
+    }
+    await expect(tooltip).toHaveCount(0);
+});
+
+async function rainPixels(canvas: Locator): Promise<number[][] | null> {
+    return canvas.evaluate(node => {
+        const element = node as HTMLCanvasElement & { __chartjs?: { scales: { x: { getPixelForValue(index: number): number } }; chartArea: { top: number }; currentDevicePixelRatio: number } };
+        const chart = element.__chartjs;
+        const context = element.getContext('2d');
+        if (!chart || !context) return null;
+        return [3, 0].map(index => Array.from(context.getImageData(
+            Math.floor((chart.scales.x.getPixelForValue(index) + 4) * chart.currentDevicePixelRatio),
+            Math.floor((chart.chartArea.top + 4) * chart.currentDevicePixelRatio), 1, 1
+        ).data));
+    });
+}

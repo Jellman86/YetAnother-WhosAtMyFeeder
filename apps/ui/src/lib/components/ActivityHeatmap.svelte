@@ -138,8 +138,8 @@
         if (active && root && !root.contains(event.target as Node)) hide();
     }
 
-    function onFocus() {
-        if (!root?.matches(':focus-visible')) return;
+    function onFocus(event: FocusEvent) {
+        if (!(event.currentTarget instanceof HTMLElement) || !event.currentTarget.matches(':focus-visible')) return;
         readingByKeyboard = true;
         const startRow = peak ? DAY_ORDER.indexOf(peak.day_of_week) : 0;
         show(active ?? { row: Math.max(0, startRow), hour: peak?.hour ?? 0 });
