@@ -445,7 +445,7 @@
                 >
                     <input type="number" min="0" max="10000" step="1"
                         bind:value={cachePerSpeciesMaximum} aria-labelledby="setting-cache-per_species_maximum"
-                        class="w-24 rounded-xl border border-slate-200 bg-white px-3 py-2 text-right text-sm font-semibold text-slate-900 focus-ring dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
+                        class="input-base w-24 py-2 text-right font-semibold" />
                 </SettingsRow>
 
                 <SettingsRow
@@ -455,7 +455,7 @@
                 >
                     <input type="number" min="0" max="1048576" step="1"
                         bind:value={cacheMaxSizeMb} aria-labelledby="setting-cache-max_size_mb"
-                        class="w-24 rounded-xl border border-slate-200 bg-white px-3 py-2 text-right text-sm font-semibold text-slate-900 focus-ring dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
+                        class="input-base w-24 py-2 text-right font-semibold" />
                 </SettingsRow>
 
                 <button
