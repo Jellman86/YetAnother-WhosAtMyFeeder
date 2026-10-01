@@ -1794,3 +1794,19 @@ async def test_settings_import_that_opts_out_of_telemetry_forgets_the_installati
         forget.assert_awaited_once_with("install-123")
     finally:
         settings_router._apply_imported_settings(snapshot)
+
+
+@pytest.mark.asyncio
+async def test_settings_roundtrip_classification_image_source_and_rejects_unknown(client, monkeypatch):
+    monkeypatch.setattr(settings.auth, "enabled", False)
+    monkeypatch.setattr(settings.public_access, "enabled", False)
+    monkeypatch.setattr(settings.frigate, "classification_image_source", "frigate_snapshot")
+    before = (await client.get("/api/settings")).json()
+    assert before["classification_image_source"] == "frigate_snapshot"
+    response = await client.post("/api/settings", json={"classification_image_source": "recording_snapshot"})
+    assert response.status_code == 200
+    assert (await client.get("/api/settings")).json()["classification_image_source"] == "recording_snapshot"
+    assert settings.frigate.classification_image_source == "recording_snapshot"
+    assert (await client.post("/api/settings", json={"classification_image_source": "random"})).status_code == 422
+    assert settings.frigate.classification_image_source == "recording_snapshot"
+    await client.post("/api/settings", json={"classification_image_source": "frigate_snapshot"})

@@ -1041,7 +1041,14 @@
       "external_url_desc": "上のサーバーアドレスと異なる場合に、ブラウザがFrigateを開くために使うアドレスです。検出の「Frigateで開く」リンクに使われます。",
       "external_url_placeholder": "https://frigate.example.com",
       "ingest_labels": "処理する Frigate ラベル",
-      "ingest_labels_desc": "カンマ区切り。Frigate モデルが鳥に使うラベル（例: bird、duck、goose）を追加してください。ここに挙げたものはすべて鳥の識別パイプラインを通ります。"
+      "ingest_labels_desc": "カンマ区切り。Frigate モデルが鳥に使うラベル（例: bird、duck、goose）を追加してください。ここに挙げたものはすべて鳥の識別パイプラインを通ります。",
+      "classification_image_source": "新しい検出の識別に使う画像",
+      "classification_image_source_desc": "検出スナップショットの方が高速です。録画ストリームが検出ストリームより大きく、同じ画角を映している場合、録画フレームはより細部を表示できます。識別精度の向上は保証されません。",
+      "classification_image_snapshot": "検出スナップショット",
+      "classification_image_recording": "録画フレーム",
+      "classification_image_recording_cost": "Frigate は検出ごとに録画フレームを 1 枚デコードし、YA-WAMF はより大きな画像をダウンロードして処理します。",
+      "classification_image_recording_fallback": "録画の保持と、Frigate のクリーンなスナップショットコピー ({setting}) が必要です。どちらかがない、フレームが大きくない、縦横比が異なる、または読み込みが合計 5 秒を超える場合は、検出スナップショットを使用します。",
+      "classification_image_recording_scope": "新しい検出に適用され、見逃した検出として取得した過去のイベントも含みます。保存しても過去のイベントは取得されず、既存の写真も変更されません。再分類では保存済みの写真が優先されます。"
     },
     "cameras": {
       "title": "アクティブなカメラ",

@@ -223,6 +223,10 @@ class FrigateSettings(BaseModel):
         le=3600,
         description="Seconds of recording to include after the detection timestamp",
     )
+    classification_image_source: Literal["frigate_snapshot", "recording_snapshot"] = Field(
+        default="frigate_snapshot",
+        description="Initial image source. Recording snapshots use a matching higher-resolution retained frame, with immediate snapshot fallback.",
+    )
     recording_frame_classification_fallback: bool = Field(
         default=True,
         description=(

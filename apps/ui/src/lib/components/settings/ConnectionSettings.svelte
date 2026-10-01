@@ -15,6 +15,8 @@
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
     import SettingsInput from './_primitives/SettingsInput.svelte';
     import AdvancedSection from './_primitives/AdvancedSection.svelte';
+    import ClassificationImageSourceSetting from './ClassificationImageSourceSetting.svelte';
+    import type { ClassificationImageSource } from '../../api/settings';
 
     let {
         frigateUrl = $bindable(''),
@@ -26,6 +28,7 @@
         mqttUsername = $bindable(''),
         mqttPassword = $bindable(''),
         mqttPasswordSaved = $bindable(false),
+        classificationImageSource = $bindable<ClassificationImageSource>('frigate_snapshot'),
         clipsEnabled = $bindable(true),
         recordingClipEnabled = $bindable(false),
         recordingClipBeforeSeconds = $bindable(30),
@@ -55,6 +58,7 @@
         mqttUsername: string;
         mqttPassword: string;
         mqttPasswordSaved: boolean;
+        classificationImageSource: ClassificationImageSource;
         clipsEnabled: boolean;
         recordingClipEnabled: boolean;
         recordingClipBeforeSeconds: number;
@@ -451,6 +455,8 @@
                 </SettingsRow>
             </div>
         {/if}
+
+        <ClassificationImageSourceSetting bind:value={classificationImageSource} />
 
         <SettingsRow
             labelId="setting-clips-enabled"

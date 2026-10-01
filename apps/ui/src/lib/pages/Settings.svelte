@@ -57,7 +57,7 @@
         type PurgeMissingMediaResult,
         type RecordingClipCapability
     } from '../api';
-    import type { BlockedSpeciesEntry, NotificationSpeciesFilterMode, Settings as SettingsPayload } from '../api/settings';
+    import type { BlockedSpeciesEntry, ClassificationImageSource, NotificationSpeciesFilterMode, Settings as SettingsPayload } from '../api/settings';
     import { themeStore, type ColorTheme, type FontTheme, type Theme } from '../stores/theme.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { analysisQueueStatusStore } from '../stores/analysis_queue_status.svelte';
@@ -87,6 +87,7 @@
     import SettingsRow from '../components/settings/_primitives/SettingsRow.svelte';
     import SettingsToggle from '../components/settings/_primitives/SettingsToggle.svelte';
     import { locationSettingsDirty } from '../settings/location-dirty';
+    import { inferenceProviderForSave, parseInferenceProvider, type InferenceProvider } from '../settings/inference-providers';
     import { normalizeDateFormat, normalizeTimeFormat } from '../utils/datetime';
     import { getErrorMessage } from '../utils/error-handling';
 
@@ -150,14 +151,6 @@
 
     function normalizeColorTheme(value: unknown): ColorTheme {
         return value === 'default' || value === 'bluetit' ? value : 'bluetit';
-    }
-
-    function normalizeInferenceProvider(
-        value: unknown
-    ): 'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu' {
-        return value === 'cpu' || value === 'cuda' || value === 'intel_gpu' || value === 'intel_cpu'
-            ? value
-            : 'auto';
     }
 
     function normalizeFrigateMissingBehavior(value: unknown): 'mark_missing' | 'keep' | 'delete' {
@@ -226,6 +219,7 @@
     let birdnetSourcesError = $state<string | null>(null);
     let audioBufferHours = $state(24);
     let audioCorrelationWindowSeconds = $state(300);
+    let classificationImageSource = $state<ClassificationImageSource>('frigate_snapshot');
     let clipsEnabled = $state(true);
     let recordingClipEnabled = $state(false);
     let recordingClipBeforeSeconds = $state(30);
@@ -248,7 +242,7 @@
     let videoClassificationFrames = $state(15);
     let birdModelRegionOverride = $state<'auto' | 'eu' | 'na'>('auto');
     let imageExecutionMode = $state<'in_process' | 'subprocess' | string>('subprocess');
-    let inferenceProvider = $state<'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu'>('auto');
+    let inferenceProvider = $state<InferenceProvider>('auto');
     let videoCircuitOpen = $state(false);
     let videoCircuitUntil = $state<string | null>(null);
     let videoCircuitFailures = $state(0);
@@ -1767,6 +1761,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'birdnetEnabled', val: birdnetEnabled, store: s.birdnet_enabled ?? true },
             { key: 'birdnetUrl', val: birdnetUrl, store: s.birdnet_url || '' },
             { key: 'birdnetExternalUrl', val: birdnetExternalUrl, store: s.birdnet_external_url || '' },
+            { key: 'classificationImageSource', val: classificationImageSource, store: s.classification_image_source ?? 'frigate_snapshot' },
             { key: 'clipsEnabled', val: clipsEnabled, store: s.clips_enabled ?? true },
             { key: 'recordingClipEnabled', val: recordingClipEnabled, store: s.recording_clip_enabled ?? false },
             { key: 'recordingClipBeforeSeconds', val: recordingClipBeforeSeconds, store: s.recording_clip_before_seconds ?? 30 },
@@ -1786,7 +1781,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'videoClassificationFrames', val: videoClassificationFrames, store: s.video_classification_frames ?? 15 },
             { key: 'imageExecutionMode', val: imageExecutionMode, store: s.image_execution_mode ?? 'subprocess' },
             { key: 'strictNonFiniteOutput', val: strictNonFiniteOutput, store: s.strict_non_finite_output ?? true },
-            { key: 'inferenceProvider', val: inferenceProvider, store: normalizeInferenceProvider(s.inference_provider) },
+            { key: 'inferenceProvider', val: inferenceProvider, store: parseInferenceProvider(s.inference_provider) ?? 'auto' },
             { key: 'selectedCameras', val: JSON.stringify(selectedCameras), store: JSON.stringify(s.cameras || []) },
             { key: 'retentionDays', val: retentionDays, store: s.retention_days || 0 },
             { key: 'maintenanceMaxConcurrent', val: maintenanceMaxConcurrent, store: s.maintenance_max_concurrent ?? 1 },
@@ -2835,6 +2830,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             }
             audioBufferHours = settings.audio_buffer_hours ?? 24;
             audioCorrelationWindowSeconds = settings.audio_correlation_window_seconds ?? 300;
+            classificationImageSource = settings.classification_image_source ?? 'frigate_snapshot';
             clipsEnabled = settings.clips_enabled ?? true;
             recordingClipEnabled = settings.recording_clip_enabled ?? false;
             recordingClipBeforeSeconds = settings.recording_clip_before_seconds ?? 30;
@@ -2856,7 +2852,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             birdModelRegionOverride = resolveBirdModelRegionOverrideFromSettings(settings.bird_model_region_override);
             imageExecutionMode = settings.image_execution_mode ?? 'subprocess';
             strictNonFiniteOutput = settings.strict_non_finite_output ?? true;
-            inferenceProvider = normalizeInferenceProvider(settings.inference_provider);
+            inferenceProvider = parseInferenceProvider(settings.inference_provider) ?? 'auto';
             videoCircuitOpen = settings.video_classification_circuit_open ?? false;
             videoCircuitUntil = settings.video_classification_circuit_until ?? null;
             videoCircuitFailures = settings.video_classification_circuit_failures ?? 0;
@@ -3195,6 +3191,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 nest_dedupe_minutes: nestDedupeMinutes,
                 audio_buffer_hours: audioBufferHours,
                 audio_correlation_window_seconds: audioCorrelationWindowSeconds,
+                classification_image_source: classificationImageSource,
                 clips_enabled: clipsEnabled,
                 recording_clip_enabled: recordingClipEnabled,
                 recording_clip_before_seconds: recordingClipBeforeSeconds,
@@ -3216,7 +3213,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 ...buildBirdModelRegionOverrideSettings(birdModelRegionOverride),
                 image_execution_mode: imageExecutionMode,
                 strict_non_finite_output: strictNonFiniteOutput,
-                inference_provider: inferenceProvider,
+                inference_provider: inferenceProviderForSave(inferenceProvider, settingsStore.settings?.inference_provider),
                 cameras: selectedCameras,
                 retention_days: retentionDays,
                 maintenance_max_concurrent: maintenanceMaxConcurrent,
@@ -3462,6 +3459,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:selectedCameras
                     bind:cameraRoles
                     bind:nestDedupeMinutes
+                    bind:classificationImageSource
                     bind:clipsEnabled
                     bind:recordingClipEnabled
                     bind:recordingClipBeforeSeconds

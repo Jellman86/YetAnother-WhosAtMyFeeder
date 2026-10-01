@@ -16,6 +16,7 @@ from app.services.classification_input_provenance import (
     frigate_snapshot_input_provenance,
 )
 from app.services.frigate_client import frigate_client
+from app.services.recording_snapshot_input import prefer_recording_snapshot
 from app.services.high_quality_snapshot_service import high_quality_snapshot_service
 from app.services.media_cache import media_cache
 from app.services.detection_service import DetectionService
@@ -304,6 +305,9 @@ class BackfillService:
             # Frigate only honours snapshot crop query parameters while an event is
             # active. Historical events therefore use the saved snapshot policy.
             snapshot_provenance = frigate_snapshot_input_provenance(event)
+            snapshot_data, snapshot_provenance = await prefer_recording_snapshot(
+                frigate_event, event, snapshot_data, snapshot_provenance
+            )
 
             # Classify the image (async to use thread pool)
             image = await asyncio.to_thread(decode_image_bytes, snapshot_data)
@@ -387,6 +391,11 @@ class BackfillService:
                                 frigate_event,
                                 snapshot_data,
                                 source=snapshot_provenance.input_source,
+                                **(
+                                    {"recording_alignment": snapshot_provenance.recording_alignment()}
+                                    if snapshot_provenance.recording_alignment()
+                                    else {}
+                                ),
                             )
                         )
                     if snapshot_cached and settings.media_cache.high_quality_event_snapshots:

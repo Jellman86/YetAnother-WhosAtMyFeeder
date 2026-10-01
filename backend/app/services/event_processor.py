@@ -1209,13 +1209,12 @@ class EventProcessor:
             # active event, while a known non-null end marker is completed.
             # Keeping that distinction aligned with the requested Frigate
             # representation prevents both missed crops and double-cropping.
-            event_snapshot_state = {
-                "end_time": (
-                    getattr(event, "end_time_ts", None) if bool(getattr(event, "end_time_known", False)) else None
-                ),
-                "data": getattr(event, "data", {}),
-            }
+            event_snapshot_state = self._snapshot_context(event)
+            event_snapshot_state["camera"] = event.camera
+            event_snapshot_state.setdefault("end_time", None)
             snapshot_provenance = frigate_snapshot_input_provenance(event_snapshot_state)
+            if settings.frigate.classification_image_source == "recording_snapshot":
+                snapshot_provenance = cached_snapshot_input_provenance({"source": "frigate_snapshot"})
             snapshot_source = snapshot_provenance.input_source
             last_snapshot_error: str | None = None
             for retry_index in range(retry_budget + 1):
@@ -1252,6 +1251,20 @@ class EventProcessor:
                     start_time_ts=getattr(event, "start_time_ts", None),
                 )
                 snapshot_provenance = cached_snapshot_input_provenance({"source": snapshot_source})
+                if snapshot_source == "frigate_recording_snapshot" and snapshot_data:
+                    # The fallback's source label cannot carry alignment. Verify
+                    # the retained photo again before using or republishing hints.
+                    try:
+                        metadata_result = media_cache.get_snapshot_metadata(event.frigate_event)
+                        metadata = await metadata_result if inspect.isawaitable(metadata_result) else metadata_result
+                        if isinstance(metadata, dict) and metadata.get("source") == "frigate_recording_snapshot":
+                            snapshot_provenance = await asyncio.to_thread(
+                                cached_snapshot_input_provenance, metadata, snapshot_data=snapshot_data
+                            )
+                    except Exception as exc:
+                        log.debug(
+                            "Cached recording alignment unavailable", event_id=event.frigate_event, error=str(exc)
+                        )
             if not snapshot_data:
                 if settings.classification.trust_frigate_sublabel and event.sub_label:
                     log.info(
@@ -1268,6 +1281,13 @@ class EventProcessor:
                 )
                 return None
 
+            from app.services.recording_snapshot_input import prefer_recording_snapshot
+
+            snapshot_data, snapshot_provenance = await prefer_recording_snapshot(
+                event.frigate_event, event_snapshot_state, snapshot_data, snapshot_provenance
+            )
+            snapshot_source = snapshot_provenance.input_source
+            event.recording_alignment = snapshot_provenance.recording_alignment()
             image = await asyncio.to_thread(decode_image_bytes, snapshot_data)
             results = await self.classifier.classify_async_live(
                 image,
@@ -1331,7 +1351,9 @@ class EventProcessor:
             except Exception as exc:
                 log.debug("Cached snapshot provenance unavailable", event_id=event_id, error=str(exc))
                 metadata = None
-            cached_provenance = cached_snapshot_input_provenance(metadata)
+            cached_provenance = await asyncio.to_thread(
+                cached_snapshot_input_provenance, metadata, snapshot_data=cached_snapshot
+            )
             self._record_stage_fallback("classify_snapshot", event_id)
             log.info("Using cached snapshot fallback for classification", event_id=event_id)
             return cached_snapshot, cached_provenance.input_source
@@ -1691,6 +1713,11 @@ class EventProcessor:
                         snapshot_data,
                         source=str(snapshot_source or "frigate_snapshot"),
                         event_hints=high_quality_snapshot_service.extract_event_hints(event_context),
+                        **(
+                            {"recording_alignment": event.recording_alignment}
+                            if getattr(event, "recording_alignment", None)
+                            else {}
+                        ),
                     )
                     snapshot_cached = True
                 except Exception as exc:

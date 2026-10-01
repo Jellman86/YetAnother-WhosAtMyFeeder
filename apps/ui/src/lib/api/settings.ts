@@ -11,6 +11,8 @@ export interface BlockedSpeciesEntry {
 
 export type NotificationSpeciesFilterMode = 'none' | 'blacklist' | 'whitelist';
 
+export type ClassificationImageSource = NonNullable<components['schemas']['SettingsResponse']['classification_image_source']>;
+
 export interface Settings {
     frigate_url: string;
     frigate_ingest_labels?: string[];
@@ -27,6 +29,7 @@ export interface Settings {
     camera_audio_mapping: Record<string, string>;
     camera_roles: Record<string, 'feeder' | 'nest'>;
     nest_dedupe_minutes: number;
+    classification_image_source?: ClassificationImageSource;
     clips_enabled: boolean;
     recording_clip_enabled: boolean;
     recording_clip_before_seconds: number;

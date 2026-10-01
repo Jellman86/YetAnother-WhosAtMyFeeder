@@ -1041,7 +1041,14 @@
       "external_url_desc": "Die Adresse, über die dein Browser Frigate öffnet, wenn sie von der Serveradresse oben abweicht. Wird für den Link 'In Frigate öffnen' einer Erkennung verwendet.",
       "external_url_placeholder": "https://frigate.example.com",
       "ingest_labels": "Frigate-Labels, auf die reagiert wird",
-      "ingest_labels_desc": "Kommagetrennt. Fügen Sie die Labels hinzu, die Ihr Frigate-Modell für Vögel verwendet (z. B. bird, duck, goose); alles hier durchläuft die Vogel-Erkennungspipeline."
+      "ingest_labels_desc": "Kommagetrennt. Fügen Sie die Labels hinzu, die Ihr Frigate-Modell für Vögel verwendet (z. B. bird, duck, goose); alles hier durchläuft die Vogel-Erkennungspipeline.",
+      "classification_image_source": "Bildquelle für neue Erkennungen",
+      "classification_image_source_desc": "Der Erkennungs-Snapshot ist schneller. Ein Aufnahme-Frame kann mehr Details zeigen, wenn der Aufnahmestream größer als der Erkennungsstream ist und denselben Bildausschnitt zeigt. Eine bessere Bestimmung ist nicht garantiert.",
+      "classification_image_snapshot": "Erkennungs-Snapshot",
+      "classification_image_recording": "Aufnahme-Frame",
+      "classification_image_recording_cost": "Frigate dekodiert pro Erkennung einen Aufnahme-Frame, und YA-WAMF lädt das größere Bild herunter und verarbeitet es.",
+      "classification_image_recording_fallback": "Erfordert aufbewahrte Aufnahmen und die saubere Snapshot-Kopie in Frigate ({setting}). Fehlt eines davon, ist der Frame nicht größer, hat er ein anderes Seitenverhältnis oder dauern die Abrufe insgesamt länger als fünf Sekunden, wird der Erkennungs-Snapshot verwendet.",
+      "classification_image_recording_scope": "Gilt für neue Erkennungen, auch für vergangene Ereignisse, die als verpasste Erkennungen abgerufen werden. Speichern ruft keine vergangenen Ereignisse ab und ändert keine vorhandenen Fotos; die Reklassifizierung bevorzugt gespeicherte Fotos."
     },
     "cameras": {
       "title": "Aktive Kameras",

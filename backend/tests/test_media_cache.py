@@ -518,3 +518,19 @@ def test_cache_path_helpers_contain_benign_ids(tmp_path, monkeypatch):
     path = service._snapshot_path("evt-1234.ok_id")
     assert path == snapshots / "evt-1234.ok_id.jpg"
     assert str(path).startswith(str(snapshots))
+
+
+@pytest.mark.asyncio
+async def test_recording_alignment_survives_hint_update_but_never_another_photograph(tmp_path, monkeypatch):
+    service, _ = _make_service(tmp_path, monkeypatch)
+    alignment = {"frame_time": 105.25, "box": [0.25, 0.2, 0.1, 0.15]}
+    await service.cache_snapshot(
+        "evt-align", b"first", source="frigate_recording_snapshot", recording_alignment=alignment
+    )
+    assert (await service.get_snapshot_metadata("evt-align"))["recording_alignment"] == alignment
+    await service.update_snapshot_event_hints("evt-align", {"data": {"box": [0.8, 0.1, 0.1, 0.1]}})
+    assert (await service.get_snapshot_metadata("evt-align"))["recording_alignment"] == alignment
+    await service.replace_snapshot("evt-align", b"second", source="hq_candidate_full_frame")
+    assert "recording_alignment" not in await service.get_snapshot_metadata("evt-align")
+    await service.cache_snapshot("evt-align", b"third", source="frigate_recording_snapshot")
+    assert "recording_alignment" not in await service.get_snapshot_metadata("evt-align")

@@ -26,7 +26,11 @@ from app.services.inference_health import InferenceHealth, Outcome, RuntimeKey
 from app.services.openvino_cache import resolve_openvino_cache_dir
 from app.services.startup_status import startup_status
 from app.utils.canonical_species import should_hide_species_label
-from app.utils.frigate_coordinates import normalize_frigate_hint_box, restore_frigate_hint_box
+from app.utils.frigate_coordinates import (
+    frigate_snapshot_crop_box,
+    normalize_frigate_hint_box,
+    restore_frigate_hint_box,
+)
 from app.utils.runtime_flavor import get_image_flavor, image_flavor_warning, packaged_inference_providers
 
 # TFLite runtime
@@ -5312,37 +5316,9 @@ class ClassifierService:
 
     @staticmethod
     def _frigate_snapshot_crop_box(
-        box: tuple[int, int, int, int],
-        image_size: tuple[int, int],
+        box: tuple[int, int, int, int], image_size: tuple[int, int]
     ) -> tuple[int, int, int, int] | None:
-        """Recreate Frigate's saved-snapshot crop region defensively.
-
-        Frigate centres a square around the tracked box, uses a 1.1 multiplier,
-        rounds the side to a multiple of four, and keeps at least 300 pixels of
-        context. Capping the square to the actual image makes the equivalent
-        operation safe for unusually small or externally supplied snapshots.
-        """
-        left, top, right, bottom = box
-        image_width, image_height = image_size
-        box_width = right - left
-        box_height = bottom - top
-        if image_width <= 0 or image_height <= 0 or box_width <= 0 or box_height <= 0:
-            return None
-
-        longest_edge = max(box_width, box_height)
-        side = int((longest_edge * 1.1) // 4 * 4)
-        side = max(300, side)
-        side = min(side, image_width, image_height)
-        if side <= 0:
-            return None
-
-        centre_x = left + (box_width / 2.0)
-        centre_y = top + (box_height / 2.0)
-        crop_left = int(centre_x - (side / 2.0))
-        crop_top = int(centre_y - (side / 2.0))
-        crop_left = max(0, min(image_width - side, crop_left))
-        crop_top = max(0, min(image_height - side, crop_top))
-        return crop_left, crop_top, crop_left + side, crop_top + side
+        return frigate_snapshot_crop_box(box, image_size)
 
     def _resolve_frigate_snapshot_crop(
         self,
@@ -5351,6 +5327,16 @@ class ClassifierService:
         input_context: ClassificationInputContext,
     ) -> dict[str, Any] | None:
         """Restore the crop Frigate supplies for an active event snapshot."""
+        aligned_region = self._input_context_extra(input_context, "frigate_snapshot_crop_region")
+        if self._input_context_extra(input_context, "input_source") == "frigate_recording_snapshot":
+            crop_box = self._restore_frigate_hint_box(aligned_region, image.size)
+            if crop_box is not None:
+                return {
+                    "crop_image": image.crop(crop_box),
+                    "box": crop_box,
+                    "confidence": None,
+                    "reason": "frigate_snapshot_scaled_crop",
+                }
         for hint_key, reason in (("frigate_box", "frigate_box"), ("frigate_region", "frigate_region")):
             raw_hint = self._input_context_extra(input_context, hint_key)
             box = self._restore_frigate_hint_box(raw_hint, image.size)
@@ -5707,7 +5693,9 @@ class ClassifierService:
         supplied_source = str(self._input_context_extra(input_context, "input_source") or "").strip().lower()
         if bool(crop_diagnostics.get("crop_applied")):
             crop_reason = str(crop_diagnostics.get("crop_reason") or "").strip().lower()
-            if crop_reason in {"frigate_box", "frigate_region"}:
+            if crop_reason in {"frigate_box", "frigate_region", "frigate_snapshot_scaled_crop"}:
+                if supplied_source == "frigate_recording_snapshot":
+                    return "recording_snapshot_frigate_hint_crop", True
                 return "snapshot_frigate_hint_crop", True
             return "snapshot_model_crop", True
         if supplied_source:

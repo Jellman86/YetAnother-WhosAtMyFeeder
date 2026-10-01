@@ -1008,7 +1008,7 @@ async def test_classifier_supervisor_uses_video_specific_ready_timeout():
             video_path="/tmp/test.mp4",
         )
     )
-    await asyncio.sleep(0.05)
+    await _wait_for_sent(created)
 
     assert created[0].ready_timeout_seen == pytest.approx(0.05)
     await created[0].events.put(

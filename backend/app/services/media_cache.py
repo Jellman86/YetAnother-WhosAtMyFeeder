@@ -394,6 +394,7 @@ class MediaCacheService:
         image_bytes: bytes,
         source: str = "frigate_snapshot",
         event_hints: Optional[dict] = None,
+        recording_alignment: Optional[dict] = None,
     ) -> Optional[Path]:
         """Cache a snapshot image.
 
@@ -414,7 +415,9 @@ class MediaCacheService:
                     return self._snapshot_path(event_id)
                 path = self._snapshot_path(event_id)
                 await self._write_bytes_atomic(path, image_bytes)
-                await self._write_snapshot_metadata(event_id, source=source, event_hints=event_hints)
+                await self._write_snapshot_metadata(
+                    event_id, source=source, event_hints=event_hints, recording_alignment=recording_alignment
+                )
                 await self.delete_thumbnail(event_id)
             log.debug("Cached snapshot", event_id=event_id, size=len(image_bytes))
             return path
@@ -472,6 +475,7 @@ class MediaCacheService:
         event_hints: Optional[dict] = None,
         manual_selection: bool | None = None,
         manual_candidate_id: str | None = None,
+        recording_alignment: Optional[dict] = None,
     ) -> None:
         # Snapshot provenance changes as media is upgraded, but event-time
         # localization does not. Preserve those bounded hints so a later clip
@@ -493,6 +497,9 @@ class MediaCacheService:
             metadata["manual_candidate_id"] = manual_candidate_id if manual_selection else None
         if isinstance(event_hints, dict):
             metadata["event_hints"] = event_hints
+        metadata.pop("recording_alignment", None)
+        if source == "frigate_recording_snapshot" and isinstance(recording_alignment, dict):
+            metadata["recording_alignment"] = recording_alignment
         path = self._snapshot_metadata_path(event_id)
         encoded = json.dumps(metadata, sort_keys=True).encode("utf-8")
         await self._write_bytes_atomic(path, encoded)
@@ -511,6 +518,7 @@ class MediaCacheService:
                 event_id,
                 source=str(metadata.get("source") or "unknown"),
                 event_hints=event_hints,
+                recording_alignment=metadata.get("recording_alignment"),
             )
         return True
 

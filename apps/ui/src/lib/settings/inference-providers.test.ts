@@ -4,6 +4,8 @@ import {
     buildInferenceProviderChoices,
     getProviderPreferenceOrder,
     getRuntimeProviderOrder,
+    inferenceProviderForSave,
+    parseInferenceProvider,
 } from './inference-providers';
 
 const baseStatus: ClassifierStatus = {
@@ -173,5 +175,40 @@ describe('inference provider choices', () => {
         expect(buildInferenceProviderChoices(null, 'auto')).toEqual([
             { value: 'auto', unavailable: false },
         ]);
+    });
+});
+
+describe('saved inference provider preservation', () => {
+    it('recognises every provider the settings API accepts, including Intel NPU', () => {
+        for (const provider of ['auto', 'cpu', 'cuda', 'intel_gpu', 'intel_cpu', 'intel_npu']) {
+            expect(parseInferenceProvider(provider)).toBe(provider);
+        }
+    });
+
+    it('does not mistake a missing or unrecognised value for a provider', () => {
+        for (const value of [undefined, null, '', 'Intel_NPU', ' intel_npu', 'rocm', 42]) {
+            expect(parseInferenceProvider(value)).toBeNull();
+        }
+    });
+
+    it('writes a saved Intel NPU choice back unchanged on an unrelated settings save', () => {
+        const stored = 'intel_npu';
+        const form = parseInferenceProvider(stored) ?? 'auto';
+
+        expect(inferenceProviderForSave(form, stored)).toBe('intel_npu');
+    });
+
+    it('sends the form value when the stored value is known or absent', () => {
+        expect(inferenceProviderForSave('cpu', 'intel_npu')).toBe('cpu');
+        expect(inferenceProviderForSave('auto', 'intel_npu')).toBe('auto');
+        expect(inferenceProviderForSave('intel_npu', 'auto')).toBe('intel_npu');
+        expect(inferenceProviderForSave('auto', undefined)).toBe('auto');
+        expect(inferenceProviderForSave('auto', null)).toBe('auto');
+    });
+
+    it('leaves an unrecognised stored value untouched instead of rewriting it to Auto', () => {
+        expect(inferenceProviderForSave('auto', 'Intel_NPU')).toBeUndefined();
+        expect(inferenceProviderForSave('auto', 'rocm')).toBeUndefined();
+        expect(inferenceProviderForSave('intel_cpu', 'rocm')).toBe('intel_cpu');
     });
 });

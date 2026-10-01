@@ -9931,6 +9931,15 @@
             "title": "Cameras",
             "type": "array"
           },
+          "classification_image_source": {
+            "default": "frigate_snapshot",
+            "enum": [
+              "frigate_snapshot",
+              "recording_snapshot"
+            ],
+            "title": "Classification Image Source",
+            "type": "string"
+          },
           "classification_min_confidence": {
             "default": 0.4,
             "title": "Classification Min Confidence",
@@ -12054,6 +12063,16 @@
             },
             "title": "Cameras",
             "type": "array"
+          },
+          "classification_image_source": {
+            "default": "frigate_snapshot",
+            "description": "Initial classification image source; recordings fall back to the detection snapshot",
+            "enum": [
+              "frigate_snapshot",
+              "recording_snapshot"
+            ],
+            "title": "Classification Image Source",
+            "type": "string"
           },
           "classification_min_confidence": {
             "default": 0.4,

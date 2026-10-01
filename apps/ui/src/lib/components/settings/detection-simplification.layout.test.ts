@@ -7,6 +7,7 @@ import advancedSectionSource from './_primitives/AdvancedSection.svelte?raw';
 import detectionSettingsSource from './DetectionSettings.svelte?raw';
 import statusBandSource from './DetectionStatusBand.svelte?raw';
 import modelManagerSource from '../../pages/models/ModelManager.svelte?raw';
+import settingsPageSource from '../../pages/Settings.svelte?raw';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -106,6 +107,18 @@ describe('Detection settings, status first', () => {
         expect(detectionSettingsSource).toContain('providerPreferenceLabel');
         expect(detectionSettingsSource).toContain('configuredProviderUnavailable');
         expect(detectionSettingsSource).not.toContain("{ value: 'cuda', label:");
+    });
+
+    it('keeps the saved provider, including Intel NPU, through Settings hydration, dirty checks and saves', () => {
+        expect(settingsPageSource).not.toContain('function normalizeInferenceProvider');
+        expect(settingsPageSource).toContain("let inferenceProvider = $state<InferenceProvider>('auto');");
+        expect(settingsPageSource).toContain("inferenceProvider = parseInferenceProvider(settings.inference_provider) ?? 'auto';");
+        expect(settingsPageSource).toContain(
+            "{ key: 'inferenceProvider', val: inferenceProvider, store: parseInferenceProvider(s.inference_provider) ?? 'auto' }"
+        );
+        expect(settingsPageSource).toContain(
+            'inference_provider: inferenceProviderForSave(inferenceProvider, settingsStore.settings?.inference_provider),'
+        );
     });
 
     it('keeps shared disclosures semantic, readable, and keyboard visible', () => {
