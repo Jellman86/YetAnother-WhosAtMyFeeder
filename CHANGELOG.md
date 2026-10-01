@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Keep a guest leaderboard's scroll position steady while live updates clear and recheck shared records. Reserve the existing page height during the read, with an accessible loading state that respects reduced motion.
+
 - Bound Wikimedia species reference photos to supported thumbnails, including older cached metadata, so tiny leaderboard portraits do not download and decode full-resolution originals. Keep smaller provider renditions and species details intact without refreshing the catalogue.
 
 - Keep final Frigate still candidates attached to their saved capture during cache cleanup, including older metadata, so live crop and counted-frame images are not mistaken for deleted visits.

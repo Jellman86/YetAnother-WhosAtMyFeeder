@@ -97,6 +97,8 @@
     let audioLoadState = $state<AudioLoadState>('disabled');
     let sourceMode = $state<SourceMode>('seen');
     let loading = $state(true);
+    let pageElement: HTMLDivElement | undefined;
+    let refreshHeight = $state(0);
     let error = $state<string | null>(null);
     let span = $state<LeaderboardSpan>('month');
     let leaderboardWindow = $state<{ start: string; end: string } | null>(null);
@@ -494,6 +496,9 @@
         if (version <= handledPublicHistoryVersion || !authStore.isGuest) return;
         handledPublicHistoryVersion = version;
         untrack(() => {
+            // Clear private records immediately, but keep the document tall enough
+            // that the browser does not clamp the reader's scroll position.
+            refreshHeight = pageElement?.getBoundingClientRect().height ?? 0;
             species = [];
             audioSpecies = [];
             timeline = null;
@@ -707,6 +712,8 @@
         if (loadGeneration === leaderboardLoadGeneration) {
             loading = false;
             leaderboardAbortController = null;
+            await tick();
+            if (loadGeneration === leaderboardLoadGeneration) refreshHeight = 0;
         }
     }
 
@@ -1541,7 +1548,7 @@
     {/if}
 {/snippet}
 
-<div class="space-y-10" data-leaderboard-page>
+<div class="space-y-10" data-leaderboard-page bind:this={pageElement} style:min-height={refreshHeight ? `${refreshHeight}px` : undefined}>
     <!-- Ranking controls -->
     <div class="border-y border-slate-200/80 py-4 dark:border-slate-700/70">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -1656,9 +1663,9 @@
     {/if}
 
     {#if loading && leaderboardRows.length === 0}
-        <div class="space-y-3">
+        <div class="space-y-3" role="status" aria-label={$_('common.loading', { default: 'Loading…' })}>
             {#each [1, 2, 3, 4, 5, 6] as _}
-                <div class="h-16 bg-slate-100 dark:bg-slate-800 rounded-xl animate-pulse"></div>
+                <div class="h-16 rounded-xl bg-slate-100 motion-safe:animate-pulse dark:bg-slate-800" aria-hidden="true"></div>
             {/each}
         </div>
     {:else if sourceMode !== 'seen' && audioLoadState === 'error'}
