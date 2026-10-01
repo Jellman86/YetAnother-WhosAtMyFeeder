@@ -18,3 +18,7 @@ Click **Test connection** in the BirdWeather settings section. This sends a mock
 tested without entering it again; typing a replacement tests the value currently in
 the form. The staged dialog reports the real provider response and keeps failures
 visible until you close or retry it.
+
+Failed reports log the error type and HTTP status without the station token or provider
+exception text. BirdWeather request URLs also redact the station credential when verbose HTTP
+logging is enabled. Keep the token private when sharing configuration or third-party logs.
