@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Request, Response, Depends, Query
 from pydantic import Field
 import os
+import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Literal
 from collections import Counter
@@ -50,7 +51,7 @@ class SystemTelemetryResponse(APIModel):
 @guest_rate_limit()
 async def get_system_telemetry(request: Request, response: Response) -> SystemTelemetryResponse:
     """Return one live host-utilization sample for the sidebar's rolling graph."""
-    sample = system_telemetry_sampler.sample()
+    sample = await asyncio.to_thread(system_telemetry_sampler.sample)
     response.headers["Cache-Control"] = "no-store"
     primary = sample.primary_accelerator
     accelerator = None

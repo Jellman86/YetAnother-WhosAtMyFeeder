@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Read live device telemetry off the API event loop, so a busy device or concurrent sampling cannot stall other page requests.
+
 - Keep repeated filtering and fault attempts visible on Health without duplicate row IDs crashing the page.
 
 - Complete Unraid app metadata with setup, licence and screenshot links. Keep Frigate and MQTT settings editable in the app, and correct template import, bridge-network and existing-install guidance.
