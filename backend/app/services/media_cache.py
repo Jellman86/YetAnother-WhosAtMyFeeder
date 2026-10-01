@@ -1,6 +1,8 @@
 """Media cache service for storing snapshots and clips locally."""
 
 import asyncio
+from contextlib import asynccontextmanager
+from functools import wraps
 import json
 import os
 import time
@@ -12,7 +14,7 @@ import aiofiles.os
 import structlog
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
-from typing import Awaitable, Callable, Optional
+from typing import Any, AsyncIterator, Awaitable, Callable, Optional
 
 from app.utils.tasks import create_background_task
 
@@ -113,6 +115,17 @@ def _valid_clip_duration_seconds(path: Path) -> Optional[float]:
     return _clip_duration_seconds(path)
 
 
+def _tracks_media_write(method: Callable) -> Callable:
+    """Register actual file producers, including owner requests outside background queues."""
+
+    @wraps(method)
+    async def tracked(self: "MediaCacheService", event_id: str, *args, **kwargs):
+        async with self._media_write_lease(event_id):
+            return await method(self, event_id, *args, **kwargs)
+
+    return tracked
+
+
 class MediaCacheService:
     """Manages local caching of snapshots and clips from Frigate.
 
@@ -130,6 +143,8 @@ class MediaCacheService:
             weakref.WeakValueDictionary()
         )
         self._snapshot_commit_locks: weakref.WeakValueDictionary[str, asyncio.Lock] = weakref.WeakValueDictionary()
+        self._media_lifecycle_locks: weakref.WeakValueDictionary[str, asyncio.Lock] = weakref.WeakValueDictionary()
+        self._active_media_writes: dict[str, int] = {}
         try:
             self._ensure_dirs()
         except Exception as e:
@@ -179,6 +194,60 @@ class MediaCacheService:
             lock = asyncio.Lock()
             self._snapshot_commit_locks[event_id] = lock
         return lock
+
+    @staticmethod
+    def _media_write_owner(event_id: str) -> str:
+        try:
+            owner = sanitize_event_id(event_id)
+        except ValueError:
+            # Preserve the underlying cache method's invalid-ID behavior.
+            return event_id
+        candidate = _CANDIDATE_CACHE_KEY.fullmatch(owner)
+        return candidate.group(1) if candidate else owner
+
+    def _media_lifecycle_lock(self, event_id: str) -> asyncio.Lock:
+        owner = self._media_write_owner(event_id)
+        lock = self._media_lifecycle_locks.get(owner)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._media_lifecycle_locks[owner] = lock
+        return lock
+
+    @asynccontextmanager
+    async def _media_write_lease(self, event_id: str) -> AsyncIterator[None]:
+        owner = self._media_write_owner(event_id)
+        async with self._media_lifecycle_lock(owner):
+            self._active_media_writes[owner] = self._active_media_writes.get(owner, 0) + 1
+        try:
+            yield
+        finally:
+            # No await here: cancellation must always release the lease.
+            remaining = self._active_media_writes[owner] - 1
+            if remaining:
+                self._active_media_writes[owner] = remaining
+            else:
+                self._active_media_writes.pop(owner, None)
+
+    def get_active_write_event_ids(self) -> set[str]:
+        return set(self._active_media_writes)
+
+    async def _complete_file_operation(self, operation: Callable, *args) -> Any:
+        """Keep lifecycle locks until executor I/O really finishes, even after cancellation."""
+        task = asyncio.create_task(asyncio.to_thread(operation, *args))
+        cancellation = None
+        while not task.done():
+            try:
+                await asyncio.shield(task)
+            except asyncio.CancelledError as exc:
+                cancellation = exc
+            except BaseException:
+                break
+        if cancellation is not None:
+            # Retrieve a worker exception before propagating the caller cancellation.
+            if not task.cancelled():
+                task.exception()
+            raise cancellation
+        return task.result()
 
     async def _emit_recording_clip_cached(self, event_id: str) -> None:
         """Notify listeners after a validated recording clip is available."""
@@ -309,7 +378,7 @@ class MediaCacheService:
         try:
             async with aiofiles.open(tmp_path, "wb") as f:
                 await f.write(data)
-            await asyncio.to_thread(tmp_path.replace, path)
+            await self._complete_file_operation(tmp_path.replace, path)
             return path
         except Exception:
             try:
@@ -318,6 +387,7 @@ class MediaCacheService:
                 pass
             raise
 
+    @_tracks_media_write
     async def cache_snapshot(
         self,
         event_id: str,
@@ -352,6 +422,7 @@ class MediaCacheService:
             log.error("Failed to cache snapshot", event_id=event_id, error=str(e))
             return None
 
+    @_tracks_media_write
     async def replace_snapshot(
         self,
         event_id: str,
@@ -426,6 +497,7 @@ class MediaCacheService:
         encoded = json.dumps(metadata, sort_keys=True).encode("utf-8")
         await self._write_bytes_atomic(path, encoded)
 
+    @_tracks_media_write
     async def update_snapshot_event_hints(self, event_id: str, event_hints: Optional[dict]) -> bool:
         """Merge fresher event-time hints without rewriting the photograph."""
         if not self._available or not isinstance(event_hints, dict):
@@ -464,6 +536,7 @@ class MediaCacheService:
             log.debug("Failed to read cached snapshot metadata", event_id=event_id, error=str(e))
             return None
 
+    @_tracks_media_write
     async def cache_thumbnail(
         self, event_id: str, image_bytes: bytes, source: str = "frigate_thumbnail"
     ) -> Optional[Path]:
@@ -611,6 +684,7 @@ class MediaCacheService:
             log.error("Failed to delete cached thumbnail", event_id=event_id, error=str(e))
             return False
 
+    @_tracks_media_write
     async def cache_clip(self, event_id: str, clip_bytes: bytes) -> Optional[Path]:
         """Cache a video clip.
 
@@ -648,6 +722,7 @@ class MediaCacheService:
                 pass
             return None
 
+    @_tracks_media_write
     async def cache_clip_streaming(self, event_id: str, chunks) -> Optional[Path]:
         """Cache a video clip from a stream of chunks.
 
@@ -696,6 +771,7 @@ class MediaCacheService:
                 pass
             return None
 
+    @_tracks_media_write
     async def cache_recording_clip(self, event_id: str, clip_bytes: bytes) -> Optional[Path]:
         """Cache a full-visit recording clip."""
         if not self._available:
@@ -769,7 +845,7 @@ class MediaCacheService:
                 )
                 return path
 
-            await asyncio.to_thread(tmp_path.replace, path)
+            await self._complete_file_operation(tmp_path.replace, path)
             self._invalidate_recording_clip_duration_cache(path)
         log.debug(
             "Cached recording clip atomically",
@@ -781,6 +857,7 @@ class MediaCacheService:
         await self._emit_recording_clip_cached(event_id)
         return path
 
+    @_tracks_media_write
     async def cache_recording_clip_streaming(self, event_id: str, chunks) -> Optional[Path]:
         """Cache a recording clip from a stream of chunks."""
         if not self._available:
@@ -941,6 +1018,7 @@ class MediaCacheService:
         except ValueError:
             return False
 
+    @_tracks_media_write
     async def cache_preview_assets(self, event_id: str, sprite_bytes: bytes, manifest_json: str) -> bool:
         """Cache generated timeline preview assets for an event."""
         if not self._available:
@@ -1001,9 +1079,17 @@ class MediaCacheService:
 
     async def delete_cached_media(self, event_id: str):
         """Delete all files owned by this visit, including candidate sidecars."""
-        async with self._snapshot_commit_lock(event_id):
-            await asyncio.to_thread(self._delete_visit_files_sync, event_id)
+        async with (
+            self._snapshot_commit_lock(event_id),
+            self._recording_clip_commit_lock(event_id),
+            self._media_lifecycle_lock(event_id),
+        ):
+            if self._media_write_owner(event_id) in self.get_active_write_event_ids():
+                # A missing-parent visit will be retried by mandatory orphan recovery.
+                return
+            await self._complete_file_operation(self._delete_visit_files_sync, event_id)
 
+    @_tracks_media_write
     async def set_manual_snapshot_selection(self, event_id: str, selected: bool) -> None:
         async with self._snapshot_commit_lock(event_id):
             metadata = await self.get_snapshot_metadata(event_id) or {}

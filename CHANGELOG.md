@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Retry leftover media cleanup every five minutes after a visit is deleted, even with cache budgets or caching disabled. Active owner/background writers and ambiguous legacy filenames are protected; cancellation waits for local file work before releasing cleanup coordination.
+
 - Remember automatic full-visit clip eviction alongside photo eviction. Late fetch outcomes and restarts cannot refill deliberately evicted media; admitted background jobs are protected while they run.
 
 - Match all regenerated bird boxes together before transferring IDs, corrections or exclusions. Reranking overlapping crops no longer moves an owner’s decision to another bird; ambiguous reviewed matches preserve the existing frame.

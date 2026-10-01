@@ -295,6 +295,10 @@ Retention, caching, imports, and the destructive tools.
   cache can temporarily exceed the budget, or stay above it if protected media alone exceed it.
   Limits run at startup and every five minutes, and when **Clear cached files** is used. The budget
   and species maximum take priority over the minimum kept through age cleanup.
+  Published files whose capture has been deleted are also retried at startup and every
+  five minutes, even with caching disabled or both limits at `0`. This recovers interrupted
+  or failed post-delete cleanup. Active owner/background writes, still-referenced files
+  and favourite archives are retained. Hidden temporary files are outside this sweep.
 
   Environment equivalents are `MEDIA_CACHE__BIRD_SCAN_MODE=standard|intensive`,
   `MEDIA_CACHE__PER_SPECIES_MAXIMUM=0..10000`, and `MEDIA_CACHE__MAX_SIZE_MB=0..1048576`.
