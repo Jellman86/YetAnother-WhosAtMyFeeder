@@ -64,6 +64,8 @@ describe('getDetectionClassificationSource', () => {
         expect(getClassificationInputKind('full_frame')).toBe('video_full');
         expect(getClassificationInputKind('hq_candidate_model_crop')).toBe('snapshot_crop');
         expect(getClassificationInputKind('snapshot_model_crop')).toBe('snapshot_crop');
+        expect(getClassificationInputKind('video_evidence_crop')).toBe('snapshot_crop');
+        expect(getClassificationInputKind('video_evidence_full_frame')).toBe('snapshot_full');
         expect(getClassificationInputKind('hq_candidate_full_frame')).toBe('snapshot_full');
         expect(getClassificationInputKind('cached_snapshot_unknown')).toBe('snapshot_full');
         expect(getClassificationInputKind('frigate_sublabel')).toBe('upstream');

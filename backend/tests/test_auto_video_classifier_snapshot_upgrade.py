@@ -117,6 +117,44 @@ async def test_process_event_triggers_snapshot_upgrade_when_clip_valid():
 
 
 @pytest.mark.asyncio
+async def test_video_photo_finishes_before_completion_with_hq_disabled():
+    service = AutoVideoClassifierService()
+    top = {"label": "Robin", "score": 0.92, "index": 1}
+    service._classifier = MagicMock()
+    service._classifier.classify_video_async = AsyncMock(return_value=[top])
+    service._update_status = AsyncMock()
+    service._save_results = AsyncMock(return_value=True)
+    service._wait_for_clip = AsyncMock(return_value=(True, None))
+    settings.media_cache.high_quality_event_snapshots = False
+    sequence = []
+
+    async def photo(*args, **kwargs):
+        sequence.append("photo")
+        return "replaced"
+
+    async def publish(*args, **kwargs):
+        sequence.append("completed")
+
+    with (
+        patch.object(
+            auto_video_classifier_module.frigate_client,
+            "get_event_with_error",
+            new=AsyncMock(return_value=({"has_clip": True}, None)),
+        ),
+        patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()),
+        patch.object(
+            auto_video_classifier_module, "replace_video_snapshot", new=AsyncMock(side_effect=photo), create=True
+        ) as replace,
+        patch.object(
+            auto_video_classifier_module.video_classification_waiter, "publish", new=AsyncMock(side_effect=publish)
+        ),
+    ):
+        await service._process_event("evt-video-photo-off", "cam1", skip_delay=True)
+    replace.assert_awaited_once_with("evt-video-photo-off", ANY, top, clip_variant="event", automatic=True)
+    assert sequence == ["photo", "completed"]
+
+
+@pytest.mark.asyncio
 async def test_process_event_records_temporal_abstention_without_breaker_failure():
     service = AutoVideoClassifierService()
     service._classifier = MagicMock()
@@ -618,6 +656,55 @@ async def test_process_event_passes_event_id_into_video_classification_context()
         "frigate_box": [0.2, 0.3, 0.4, 0.5],
         "frigate_region": [0.1, 0.2, 0.8, 0.9],
         "frigate_path_data": [[[0.4, 0.8], 100.5]],
+    }
+
+
+@pytest.mark.asyncio
+async def test_process_event_passes_existing_target_identity_to_video_worker():
+    service = AutoVideoClassifierService()
+    service._classifier = MagicMock()
+    service._classifier.classify_video_async = AsyncMock(
+        return_value=[
+            {
+                "label": "Baeolophus bicolor",
+                "score": 0.96,
+                "index": 1,
+            }
+        ]
+    )
+    service._update_status = AsyncMock()
+    service._save_results = AsyncMock()
+    service._wait_for_clip = AsyncMock(return_value=(True, None))
+    async with get_db() as db:
+        await DetectionRepository(db).create(
+            Detection(
+                detection_time=auto_video_classifier_module.utc_naive_now(),
+                detection_index=1,
+                score=0.8,
+                category_name="Baeolophus bicolor",
+                display_name="Tufted Titmouse",
+                scientific_name="Baeolophus bicolor",
+                common_name="Tufted Titmouse",
+                frigate_event="evt-existing-video-target",
+                camera_name="cam1",
+            )
+        )
+    with (
+        patch.object(
+            auto_video_classifier_module.frigate_client,
+            "get_event_with_error",
+            new=AsyncMock(return_value=({"has_clip": True}, None)),
+        ),
+        patch.object(
+            auto_video_classifier_module.broadcaster,
+            "broadcast",
+            new=AsyncMock(),
+        ),
+    ):
+        await service._process_event("evt-existing-video-target", "cam1", skip_delay=True)
+    assert set(service._classifier.classify_video_async.await_args.kwargs["input_context"]["event_target_labels"]) == {
+        "Baeolophus bicolor",
+        "Tufted Titmouse",
     }
 
 
@@ -1125,7 +1212,7 @@ async def test_process_event_top_frames_ranked_by_score_descending():
     # Verify ranking logic directly via the internal helper
     persisted: list[dict] = []
 
-    async def collect(frigate_event, frame_scores, clip_variant):
+    async def collect(frigate_event, frame_scores, clip_variant, **kwargs):
         from app.services.auto_video_classifier_service import _VIDEO_TOP_FRAMES_LIMIT
 
         sorted_frames = sorted(frame_scores, key=lambda f: f["frame_score"], reverse=True)

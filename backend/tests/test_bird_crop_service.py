@@ -11,6 +11,34 @@ def _make_image(width: int = 100, height: int = 100) -> Image.Image:
     return Image.new("RGB", (width, height), color="white")
 
 
+def test_video_multi_crop_uses_one_native_scan_and_keeps_other_birds(monkeypatch):
+    service = BirdCropService()
+    scans = []
+    monkeypatch.setattr(service, "_ensure_model_for_tier", lambda tier: object())
+
+    def infer(model, image):
+        scans.append(image.size)
+        return [{"box": (100, 100, 200, 200), "confidence": 0.9}, {"box": (400, 100, 500, 200), "confidence": 0.8}]
+
+    monkeypatch.setattr(service, "_infer_candidates", infer)
+    monkeypatch.setattr(
+        service, "generate_classification_candidate_crop", lambda image: pytest.fail("unbounded fallback")
+    )
+    crops = service.generate_video_classification_candidate_crops(_make_image(3840, 2160), max_crops=3)
+    assert len(crops) == 2
+    assert scans == [(3840, 2160)]
+
+
+def test_video_multi_crop_does_not_escalate_detector_misses(monkeypatch):
+    service = BirdCropService()
+    monkeypatch.setattr(service, "_ensure_model_for_tier", lambda tier: object())
+    monkeypatch.setattr(service, "_infer_candidates", lambda model, image: [])
+    monkeypatch.setattr(
+        service, "generate_classification_candidate_crop", lambda image: pytest.fail("unbounded fallback")
+    )
+    assert service.generate_video_classification_candidate_crops(_make_image(), max_crops=3) == []
+
+
 @pytest.mark.parametrize("provider", ["cpu", "cuda"])
 def test_crop_session_preloads_packaged_libraries_only_before_cuda(monkeypatch, tmp_path, provider):
     calls = []

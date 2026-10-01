@@ -310,6 +310,7 @@ async def _build_snapshot_status(event_id: str, *, check_original_frigate_snapsh
 
     already_hq_bird_crop = source in {
         "high_quality_bird_crop",
+        "video_evidence_crop",
         "hq_candidate_frigate_hint_crop",
         "hq_candidate_model_crop",
     }
@@ -391,7 +392,7 @@ async def _build_snapshot_candidates_response(request: Request, event_id: str) -
         birds = await BirdObservationRepository(db).list_for_event(event_id)
     current_source = status.source
     current_candidate_id = None
-    if current_source and current_source.startswith("hq_candidate_"):
+    if current_source and current_source.startswith(("hq_candidate_", "video_evidence_")):
         selected_candidate = next((item for item in candidates if bool(item.get("selected"))), None)
         if selected_candidate and str(selected_candidate.get("snapshot_source") or "") == current_source:
             current_candidate_id = str(selected_candidate.get("candidate_id") or "")

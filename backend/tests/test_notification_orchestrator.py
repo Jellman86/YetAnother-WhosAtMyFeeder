@@ -99,6 +99,8 @@ async def test_notify_after_video_uses_completed_video_result(monkeypatch):
         video_classification_status="completed",
         video_classification_label="Blue Jay",
         video_classification_score=0.93,
+        category_name="Blue Jay",
+        score=0.93,
     )
     orchestrator._get_detection = AsyncMock(side_effect=[pending, completed])  # type: ignore[method-assign]
     orchestrator._send_notification = AsyncMock(return_value=True)  # type: ignore[method-assign]
@@ -178,6 +180,8 @@ async def test_notify_after_video_does_not_wait_when_db_is_already_final(monkeyp
         video_classification_status="completed",
         video_classification_label="Northern Cardinal",
         video_classification_score=0.91,
+        category_name="Northern Cardinal",
+        score=0.91,
     )
     orchestrator._get_detection = AsyncMock(return_value=completed)  # type: ignore[method-assign]
     orchestrator._send_notification = AsyncMock(return_value=True)  # type: ignore[method-assign]
@@ -197,6 +201,95 @@ async def test_notify_after_video_does_not_wait_when_db_is_already_final(monkeyp
     kwargs = orchestrator._send_notification.call_args.kwargs
     assert kwargs["label"] == "Northern Cardinal"
     assert kwargs["score"] == pytest.approx(0.91)
+
+
+@pytest.mark.asyncio
+async def test_video_notification_uses_retained_primary_and_current_audio_when_raw_video_was_rejected(monkeypatch):
+    orchestrator = NotificationOrchestrator()
+    event = _event("evt-rejected-video-notification")
+    completed = SimpleNamespace(
+        video_classification_status="completed",
+        video_classification_label="Northern Cardinal",
+        video_classification_score=0.99,
+        category_name="Baeolophus bicolor",
+        display_name="Tufted Titmouse",
+        score=0.95,
+        audio_confirmed=False,
+        audio_species=None,
+        manual_tagged=True,
+        is_hidden=False,
+    )
+    orchestrator._get_detection = AsyncMock(return_value=completed)
+    orchestrator._send_notification = AsyncMock(return_value=True)
+    orchestrator._mark_notified = AsyncMock()
+    monkeypatch.setattr(settings.classification, "threshold", 0.8)
+    await orchestrator._notify_after_video(
+        event, {"label": "Tufted Titmouse", "score": 0.95, "audio_confirmed": True}, True, "Northern Cardinal"
+    )
+    kwargs = orchestrator._send_notification.call_args.kwargs
+    assert kwargs["label"] == "Baeolophus bicolor"
+    assert kwargs["score"] == 0.95
+    assert kwargs["audio_confirmed"] is False
+    assert kwargs["audio_species"] is None
+
+
+@pytest.mark.asyncio
+async def test_video_notification_waits_for_photo_even_after_species_result_is_saved(monkeypatch):
+    orchestrator = NotificationOrchestrator()
+    event = _event("evt-video-photo-still-working")
+    completed = SimpleNamespace(
+        video_classification_status="completed",
+        category_name="Tufted Titmouse",
+        score=0.95,
+        video_classification_label="Tufted Titmouse",
+        video_classification_score=0.95,
+    )
+    orchestrator._get_detection = AsyncMock(return_value=completed)
+    orchestrator._send_notification = AsyncMock(return_value=True)
+    orchestrator._mark_notified = AsyncMock()
+    with (
+        patch(
+            "app.services.notification_orchestrator.video_classification_waiter.get_state",
+            new=AsyncMock(return_value={"status": "processing"}),
+        ),
+        patch(
+            "app.services.notification_orchestrator.video_classification_waiter.wait_for_final_status",
+            new=AsyncMock(return_value={"status": "completed"}),
+        ) as wait,
+    ):
+        await orchestrator._notify_after_video(
+            event, {"label": "Tufted Titmouse", "score": 0.95, "audio_confirmed": False}, False, None
+        )
+    wait.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("condition", ["deleted", "hidden", "blocked", "unknown"])
+async def test_video_notification_cannot_bypass_final_visit_visibility_or_species_filter(monkeypatch, condition):
+    orchestrator = NotificationOrchestrator()
+    event = _event("evt-final-filter-" + condition)
+    final = SimpleNamespace(
+        video_classification_status="completed",
+        category_name="Unknown Bird" if condition == "unknown" else "Tufted Titmouse",
+        score=0.99,
+        video_classification_label="Northern Cardinal",
+        video_classification_score=0.99,
+        is_hidden=condition == "hidden",
+        audio_confirmed=False,
+    )
+    orchestrator._get_detection = AsyncMock(return_value=None if condition == "deleted" else final)
+    orchestrator._send_notification = AsyncMock(return_value=True)
+    monkeypatch.setattr(
+        settings.classification, "blocked_labels", ["Tufted Titmouse"] if condition == "blocked" else []
+    )
+    with patch(
+        "app.services.notification_orchestrator.video_classification_waiter.wait_for_final_status",
+        new=AsyncMock(return_value={"status": "completed"}),
+    ):
+        await orchestrator._notify_after_video(
+            event, {"label": "Tufted Titmouse", "score": 0.95, "audio_confirmed": False}, False, None
+        )
+    orchestrator._send_notification.assert_not_awaited()
 
 
 @pytest.mark.asyncio

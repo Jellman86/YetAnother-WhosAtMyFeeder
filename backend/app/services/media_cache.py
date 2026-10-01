@@ -437,6 +437,17 @@ class MediaCacheService:
                 if metadata.get("manual_selection"):
                     return self._snapshot_path(event_id)
                 path = self._snapshot_path(event_id)
+                previous_source = str(metadata.get("source") or "")
+                refined = previous_source.startswith(("high_quality_", "hq_candidate_", "video_evidence_"))
+                if source.startswith("frigate_") and refined and await self.get_snapshot_path(event_id) is not None:
+                    if isinstance(event_hints, dict):
+                        await self._write_snapshot_metadata(
+                            event_id,
+                            source=previous_source,
+                            event_hints=event_hints,
+                            recording_alignment=metadata.get("recording_alignment"),
+                        )
+                    return path
                 await self._write_bytes_atomic(path, image_bytes)
                 await self._write_snapshot_metadata(
                     event_id, source=source, event_hints=event_hints, recording_alignment=recording_alignment

@@ -568,6 +568,44 @@ class BirdCropService:
         guided_reason = "unavailable" if not accurate_available else str(guided_result.get("reason") or "miss")
         return self._with_fallback_reason(fallback, f"guided_{guided_reason}")
 
+    def generate_video_classification_candidate_crops(
+        self,
+        image: Image.Image,
+        *,
+        max_crops: int = 3,
+    ) -> list[dict[str, Any]]:
+        """Retain alternative birds from one bounded video detector pass."""
+        if not isinstance(image, Image.Image):
+            return []
+        try:
+            model = self._ensure_model_for_tier("accurate")
+            raw = self._infer_candidates(model, image) if model is not None else []
+        except Exception as exc:
+            log.debug("Video multi-bird detector unavailable", error=str(exc))
+            return []
+        selected: list[dict[str, Any]] = []
+        for candidate in sorted(raw, key=lambda item: self._coerce_confidence(item) or 0.0, reverse=True):
+            result = self._select_best_valid_candidate(
+                image,
+                [candidate],
+                detector_tier="accurate",
+                fallback_reason=None,
+                confidence_threshold_ceiling=self.CLASSIFICATION_CANDIDATE_CONFIDENCE_FLOOR,
+                min_crop_size_ceiling=self.CLASSIFICATION_CANDIDATE_MIN_DETECTION_SIZE,
+                minimum_output_size=self.CLASSIFICATION_CANDIDATE_MIN_OUTPUT_SIZE,
+            )
+            if not isinstance(result.get("crop_image"), Image.Image):
+                continue
+            if any(
+                self._box_overlap_ratio(result.get("detector_box"), prior.get("detector_box")) >= 0.6
+                for prior in selected
+            ):
+                continue
+            selected.append(self._annotate_candidate_strategy(result, strategy="video_native"))
+            if len(selected) >= max(1, min(3, int(max_crops))):
+                break
+        return selected
+
     def generate_video_classification_candidate_crop(
         self,
         image: Image.Image,

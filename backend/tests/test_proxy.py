@@ -2388,10 +2388,15 @@ async def test_snapshot_candidates_response_includes_model_crop_miss_reason_when
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("source", ["hq_candidate_model_crop", "video_evidence_crop"])
 async def test_snapshot_candidates_response_no_model_crop_miss_reason_when_model_crop_present(
     client: httpx.AsyncClient,
+    source: str,
+    monkeypatch,
 ):
     """When model_crop candidates exist, model_crop_miss_reason is None."""
+    monkeypatch.setattr(settings.media_cache, "enabled", True)
+    monkeypatch.setattr(settings.media_cache, "cache_snapshots", True)
     with (
         patch("app.routers.proxy.get_db") as mock_get_db,
         patch("app.routers.proxy.DetectionRepository") as mock_repo_cls,
@@ -2404,7 +2409,7 @@ async def test_snapshot_candidates_response_no_model_crop_miss_reason_when_model
         mock_db = AsyncMock()
         mock_get_db.return_value.__aenter__.return_value = mock_db
         mock_get_snapshot.return_value = b"snapshot"
-        mock_get_metadata.return_value = {"source": "hq_candidate_model_crop"}
+        mock_get_metadata.return_value = {"source": source}
         mock_repo = mock_repo_cls.return_value
         mock_bird_repo_cls.return_value.list_for_event = AsyncMock(return_value=[])
         mock_repo.list_snapshot_candidates = AsyncMock(
@@ -2423,7 +2428,7 @@ async def test_snapshot_candidates_response_no_model_crop_miss_reason_when_model
                     "selected": True,
                     "thumbnail_ref": "evt__cand-mc__thumb",
                     "image_ref": "evt__cand-mc__image",
-                    "snapshot_source": "hq_candidate_model_crop",
+                    "snapshot_source": source,
                 }
             ]
         )
@@ -2432,6 +2437,7 @@ async def test_snapshot_candidates_response_no_model_crop_miss_reason_when_model
     assert response.status_code == 200
     body = response.json()
     assert body.get("model_crop_miss_reason") is None
+    assert body["current_candidate_id"] == "cand-mc"
 
 
 @pytest.mark.asyncio

@@ -11,6 +11,8 @@ from app.services.notification_service import notification_service
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.video_classification_waiter import video_classification_waiter
 from app.utils.tasks import create_background_task
+from app.utils.blocked_species import is_blocked_species
+from app.utils.canonical_species import should_hide_species_label
 
 log = structlog.get_logger()
 
@@ -160,33 +162,34 @@ class NotificationOrchestrator:
                 )
             return
 
-        label = classification["label"]
-        score = classification["score"]
-        video_confirmed = False
-        final_status = None
-
         det = await self._get_detection(event.frigate_event)
-        if det and det.video_classification_status in {"completed", "failed"}:
-            final_status = det.video_classification_status
-        else:
-            waiter_state = await video_classification_waiter.wait_for_final_status(event.frigate_event, timeout=timeout)
-            if waiter_state:
-                final_status = waiter_state.get("status")
+        pipeline_state = await video_classification_waiter.get_state(event.frigate_event)
+        media_pending = pipeline_state is not None and pipeline_state.get("status") not in {"completed", "failed"}
+        if det is None or det.video_classification_status not in {"completed", "failed"} or media_pending:
+            await video_classification_waiter.wait_for_final_status(event.frigate_event, timeout=timeout)
             det = await self._get_detection(event.frigate_event)
-            if det and det.video_classification_status in {"completed", "failed"}:
-                final_status = det.video_classification_status
 
-        if (
-            final_status == "completed"
-            and det
-            and det.video_classification_label
-            and det.video_classification_score is not None
+        if det is None or getattr(det, "is_hidden", False):
+            return
+        label = str(
+            getattr(det, "category_name", None) or getattr(det, "scientific_name", None) or classification["label"]
+        )
+        score = float(getattr(det, "score", classification["score"]) or 0.0)
+        audio_confirmed = bool(getattr(det, "audio_confirmed", False))
+        audio_species = getattr(det, "audio_species", None)
+        if should_hide_species_label(label) or is_blocked_species(
+            blocked_labels=settings.classification.blocked_labels,
+            blocked_species=settings.classification.blocked_species,
+            label=label,
+            scientific_name=getattr(det, "scientific_name", None),
+            common_name=getattr(det, "common_name", None),
+            taxa_id=getattr(det, "taxa_id", None),
+            extra_labels=[getattr(det, "display_name", None)],
         ):
-            label = det.video_classification_label
-            score = det.video_classification_score
-            video_confirmed = det.video_classification_score >= settings.classification.threshold
-
-        if video_confirmed or snapshot_confirmed:
+            return
+        # Dedicated video columns are evidence, including rejected refinements.
+        # Only the saved identity and its current audio confirmation may be sent.
+        if score >= settings.classification.threshold or audio_confirmed:
             sent = await self._send_notification(
                 event,
                 label=label,

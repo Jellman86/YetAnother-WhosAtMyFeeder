@@ -167,7 +167,8 @@ from app.services.video_classification_policy import (  # noqa: E402
     VIDEO_MIN_FRAME_SEPARATION_SECONDS,
     VIDEO_SPARSE_POOL_MAX_FRAMES,
     assess_temporal_consensus,
-    select_temporal_source_consensus,
+    build_target_temporal_consensus,
+    select_event_temporal_source_consensus,
 )
 from app.utils.classifier_labels import (  # noqa: E402
     build_grouped_classifier_labels,
@@ -5426,26 +5427,30 @@ class ClassifierService:
         image: Image.Image,
         *,
         input_context: ClassificationInputContext,
-    ) -> list[tuple[str, Image.Image]]:
+    ) -> list[tuple[str, Image.Image, tuple[int, int, int, int] | None]]:
         """Return bounded, independently evaluated views of one video frame."""
         if bool(input_context.is_cropped):
             supplied_source = str(self._input_context_extra(input_context, "input_source") or "provided_crop")
-            return [(supplied_source, image)]
+            return [(supplied_source, image, None)]
 
-        candidates: list[tuple[str, Image.Image]] = [("full_frame", image)]
+        candidates: list[tuple[str, Image.Image, tuple[int, int, int, int] | None]] = [("full_frame", image, None)]
         seen_boxes: set[tuple[int, int, int, int]] = set()
 
         hint_result = self._resolve_frigate_hint_crop(image, input_context=input_context)
         hint_image = hint_result.get("crop_image") if isinstance(hint_result, dict) else None
         hint_box: tuple[int, int, int, int] | None = None
         if isinstance(hint_image, Image.Image):
-            candidates.append(("frigate_hint_crop", hint_image))
             raw_hint_box = hint_result.get("box")
             if isinstance(raw_hint_box, tuple) and len(raw_hint_box) == 4:
                 hint_box = raw_hint_box
                 seen_boxes.add(raw_hint_box)
+            candidates.append(("frigate_hint_crop", hint_image, hint_box))
 
         if self._bird_crop_detector_available():
+            if hint_box is None and self._input_context_extra(input_context, "event_target_labels"):
+                native = self._video_native_model_candidates(image, seen_boxes=seen_boxes)
+                if native is not None:
+                    return candidates + native
             try:
                 model_result = self._resolve_model_candidate_crop(image, search_box=hint_box)
             except Exception as exc:
@@ -5455,8 +5460,35 @@ class ClassifierService:
             model_box = model_result.get("box") if isinstance(model_result, dict) else None
             duplicate_box = isinstance(model_box, tuple) and len(model_box) == 4 and model_box in seen_boxes
             if isinstance(model_image, Image.Image) and not duplicate_box:
-                candidates.append(("model_crop", model_image))
+                candidates.append(("model_crop", model_image, model_box))
+            elif not isinstance(model_image, Image.Image) and self._input_context_extra(
+                input_context, "event_target_labels"
+            ):
+                # A geometrically valid box may contain empty background after departure.
+                # One guided miss must not prevent checking the other birds in the scene.
+                candidates.extend(self._video_native_model_candidates(image, seen_boxes=seen_boxes) or [])
 
+        return candidates
+
+    def _video_native_model_candidates(
+        self,
+        image: Image.Image,
+        *,
+        seen_boxes: set[tuple[int, int, int, int]],
+    ) -> list[tuple[str, Image.Image, tuple[int, int, int, int]]] | None:
+        if not callable(getattr(type(self._bird_crop_service), "generate_video_classification_candidate_crops", None)):
+            return None
+        try:
+            results = self._bird_crop_service.generate_video_classification_candidate_crops(image, max_crops=3)
+        except Exception as exc:
+            log.debug("Video multi-crop detector failed; retaining other inputs", error=str(exc))
+            return []
+        candidates = []
+        for result in results[:3]:
+            crop, box = result.get("crop_image"), result.get("box")
+            if isinstance(crop, Image.Image) and isinstance(box, tuple) and len(box) == 4 and box not in seen_boxes:
+                candidates.append(("model_crop", crop, box))
+                seen_boxes.add(box)
         return candidates
 
     def _resolve_crop_by_priority(
@@ -6684,6 +6716,9 @@ class ClassifierService:
 
             scores_by_input_source: dict[str, list[np.ndarray]] = {source: [] for source in expected_input_sources}
             offsets_by_input_source: dict[str, list[float | None]] = {source: [] for source in expected_input_sources}
+            all_scores_by_input_source: dict[str, list[np.ndarray]] = {}
+            all_offsets_by_input_source: dict[str, list[float | None]] = {}
+            best_snapshot_evidence: dict[tuple[str, int], dict[str, Any]] = {}
             processed_frame_count = 0
             any_valid_scores = False
             skipped_unknown_frame_count = 0
@@ -6751,7 +6786,7 @@ class ClassifierService:
                     input_context=frame_input_context,
                 )
                 stage_seconds["candidate_generation"] += time.perf_counter() - stage_started
-                for input_source, candidate_image in frame_candidates:
+                for input_source, candidate_image, crop_box in frame_candidates:
                     candidate_counts[input_source] = candidate_counts.get(input_source, 0) + 1
                     if input_source not in scores_by_input_source:
                         expected_input_sources.append(input_source)
@@ -6775,8 +6810,28 @@ class ClassifierService:
                         bird_model = active_bird_model
                     if len(scores) > 0:
                         any_valid_scores = True
-                        candidate_scores[input_source] = scores
-                        candidate_images[input_source] = candidate_image
+                        all_scores_by_input_source.setdefault(input_source, []).append(scores)
+                        all_offsets_by_input_source.setdefault(input_source, []).append(frame_offset_sec)
+                        if np.all(np.isfinite(scores)):
+                            candidate_index = int(np.argmax(scores))
+                            candidate_score = float(scores[candidate_index])
+                            key = (input_source, candidate_index)
+                            previous_evidence = best_snapshot_evidence.get(key)
+                            if previous_evidence is None or candidate_score > previous_evidence["score"]:
+                                best_snapshot_evidence[key] = {
+                                    "frame_index": int(idx),
+                                    "frame_offset_seconds": frame_offset_sec,
+                                    "frame_width": int(image.width),
+                                    "frame_height": int(image.height),
+                                    "crop_box": list(crop_box) if crop_box is not None else None,
+                                    "input_source": input_source,
+                                    "input_is_cropped": input_source != "full_frame",
+                                    "score": candidate_score,
+                                }
+                        previous = candidate_scores.get(input_source)
+                        if previous is None or float(np.max(scores)) > float(np.max(previous)):
+                            candidate_scores[input_source] = scores
+                            candidate_images[input_source] = candidate_image
 
                 labels = list(getattr(bird_model, "labels", []) or [])
                 class_count = len(labels)
@@ -6866,7 +6921,43 @@ class ClassifierService:
                 SourceTemporalConsensus(input_source=input_source, consensus=assessment.consensus)
                 for input_source, assessment in source_assessments.items()
             ]
-            selected_source_consensus = select_temporal_source_consensus(source_consensuses)
+            raw_target_labels = self._input_context_extra(normalized_input_context, "event_target_labels")
+            target_labels = {
+                " ".join(normalize_classifier_label(str(label)).replace("_", " ").split()).casefold()
+                for label in (raw_target_labels if isinstance(raw_target_labels, list) else [])
+                if not should_hide_species_label(label)
+            }
+            target_indices = {
+                index
+                for index, label in enumerate(labels)
+                if " ".join(normalize_classifier_label(label).replace("_", " ").split()).casefold() in target_labels
+            }
+            target_consensuses = (
+                [
+                    SourceTemporalConsensus(
+                        input_source=source,
+                        consensus=build_target_temporal_consensus(
+                            scores,
+                            target_class_indices=target_indices,
+                            minimum_frame_score=max(minimum_frame_score, float(settings.classification.threshold)),
+                            excluded_class_indices=excluded_class_indices,
+                            frame_offsets_seconds=all_offsets_by_input_source[source],
+                        ),
+                    )
+                    for source, scores in all_scores_by_input_source.items()
+                ]
+                if target_indices and fps > 0
+                else []
+            )
+            selected_source_consensus = select_event_temporal_source_consensus(
+                source_consensuses,
+                target_consensuses=target_consensuses,
+                minimum_tracked_score=max(minimum_frame_score, float(settings.classification.threshold)),
+            )
+            event_target_selected = selected_source_consensus is not None and (
+                selected_source_consensus.input_source == "frigate_hint_crop"
+                or selected_source_consensus in target_consensuses
+            )
             consensus_diagnostics = {
                 input_source: {
                     "reason": assessment.reason,
@@ -6938,6 +7029,7 @@ class ClassifierService:
                         else "no_source_consensus"
                     )
                 ),
+                "event_target_selected": event_target_selected,
                 "runtime": self.runtime_identity(),
                 "crop_detector_runtime": {
                     "active_providers": dict(crop_status.get("active_providers") or {}),
@@ -6989,10 +7081,12 @@ class ClassifierService:
                         "model_name": model_name,
                         "input_source": input_source,
                         "input_is_cropped": input_source != "full_frame",
+                        "event_target_selected": event_target_selected,
                         "temporal_supporting_frames": evidence.supporting_frame_count,
                         "temporal_evaluated_frames": consensus.evaluated_frame_count,
                         "temporal_independent_frames": consensus.independent_frame_count,
                         "temporal_required_frames": consensus.required_supporting_frames,
+                        "_video_snapshot_evidence": best_snapshot_evidence.get((input_source, int(i))),
                     }
                 )
 
@@ -7196,6 +7290,8 @@ class ClassifierService:
                 await callback_result
 
         if not base_results:
+            return base_results
+        if base_results[0].get("event_target_selected"):
             return base_results
         if not bool(getattr(settings.classification, "personalized_rerank_enabled", False)):
             return base_results

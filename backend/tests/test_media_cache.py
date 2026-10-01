@@ -218,6 +218,40 @@ async def test_snapshot_event_hints_can_be_refreshed_without_rewriting_image(tmp
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "refined_source",
+    ["high_quality_bird_crop", "hq_candidate_full_frame", "video_evidence_crop", "video_evidence_full_frame"],
+)
+async def test_late_frigate_snapshot_preserves_refined_photo_and_thumbnail(tmp_path, monkeypatch, refined_source):
+    service, _ = _make_service(tmp_path, monkeypatch)
+    event_id = "evt-late-frigate"
+    await service.replace_snapshot(event_id, b"identified-bird", source=refined_source)
+    await service.cache_thumbnail(event_id, b"identified-thumb")
+    await service.cache_snapshot(
+        event_id,
+        b"empty-branch",
+        event_hints={"end_time": 105.0},
+        recording_alignment={"frame_time": 106.0, "box": [0.1, 0.2, 0.3, 0.4]},
+    )
+    assert await service.get_snapshot(event_id) == b"identified-bird"
+    assert await service.get_thumbnail(event_id) == b"identified-thumb"
+    metadata = await service.get_snapshot_metadata(event_id)
+    assert metadata["source"] == refined_source
+    assert metadata["event_hints"] == {"end_time": 105.0}
+    assert "recording_alignment" not in metadata
+
+
+@pytest.mark.asyncio
+async def test_late_frigate_snapshot_recovers_missing_automatic_refined_photo(tmp_path, monkeypatch):
+    service, _ = _make_service(tmp_path, monkeypatch)
+    path = await service.replace_snapshot("evt-missing-refined", b"old", source="high_quality_bird_crop")
+    path.unlink()
+    await service.cache_snapshot("evt-missing-refined", b"recovered")
+    assert await service.get_snapshot("evt-missing-refined") == b"recovered"
+    assert (await service.get_snapshot_metadata("evt-missing-refined"))["source"] == "frigate_snapshot"
+
+
+@pytest.mark.asyncio
 async def test_recording_clip_cache_uses_distinct_key_from_event_clip(tmp_path, monkeypatch):
     service, _snapshots = _make_service(tmp_path, monkeypatch)
     event_id = "evt_recording"

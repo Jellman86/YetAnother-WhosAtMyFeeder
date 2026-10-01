@@ -276,7 +276,9 @@ Deep video uses temporal consensus rather than a single maximum frame. YA-WAMF k
 full frame, then adds a time-aligned Frigate tracked-object crop and detector crop when available.
 These are alternate views of each sampled frame, not extra votes: each input source needs at least
 three independent evaluated moments and two confident votes, one species must own 60% of that
-source's confident votes, and conflicting source winners cause the analysis to abstain. Samples
+source's confident votes. Reliable tracked-object evidence has priority over other birds in the
+scene, followed by repeated, confident crop evidence for the existing event species. Without
+either target anchor, conflicting source winners cause the analysis to abstain. Samples
 less than 250 ms apart collapse into one moment. Low-confidence decoded frames count as coverage,
 not votes against a fleeting visitor; accepted confidence is the median of at most the five
 strongest supporting moments. When the sources agree, YA-WAMF keeps the strongest consensus and
