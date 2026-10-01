@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Keep the bird that triggered a Frigate event ahead of another species elsewhere in the video. Prioritize reliable tracked crops and repeated, confident evidence for the existing species; inspect up to three native detector crops when the target has no valid hint, without tiled video scans or detector retries. Weak, single-frame guesses still cannot lock an identification in.
+
 - Keep a guest leaderboard's scroll position steady while live updates clear and recheck shared records. Reserve the existing page height during the read, with an accessible loading state that respects reduced motion.
 
 - Keep review and detection photographs visible when a whole-scene or candidate image is missing. Reserve photo, frame-strip and counted-frame space during loading and failure, retain the chosen moment when its candidate files have expired, and place outlines on the exact unscaled frame within letterboxing.

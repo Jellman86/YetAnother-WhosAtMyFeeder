@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 import statistics
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Iterable
 
 import numpy as np
@@ -287,3 +287,69 @@ def select_temporal_source_consensus(
             item.consensus.score,
         ),
     )
+
+
+def build_target_temporal_consensus(
+    frame_scores: Iterable[np.ndarray],
+    *,
+    target_class_indices: set[int],
+    minimum_frame_score: float,
+    excluded_class_indices: set[int] | None = None,
+    frame_offsets_seconds: Iterable[float | None] | None = None,
+) -> TemporalConsensus | None:
+    """Require repeated positive identification of the existing event species.
+
+    Other birds can dominate a scene without disproving the tracked bird. Only
+    crops whose top identification matches the target may support it; secondary
+    logits, weak guesses and duplicate crops at one moment cannot lock it in.
+    Nonmatching frames still count towards evaluated temporal coverage.
+    """
+    if not target_class_indices:
+        return None
+    target_scores: list[np.ndarray] = []
+    for raw in frame_scores:
+        scores = np.asarray(raw, dtype=np.float64).reshape(-1)
+        if not scores.size or not np.all(np.isfinite(scores)) or int(np.argmax(scores)) in target_class_indices:
+            target_scores.append(scores)
+        else:
+            target_scores.append(np.zeros_like(scores))
+    consensus = build_temporal_consensus(
+        target_scores,
+        minimum_frame_score=max(0.6, minimum_frame_score),
+        excluded_class_indices=excluded_class_indices,
+        frame_offsets_seconds=frame_offsets_seconds,
+    )
+    return (
+        replace(consensus, evaluated_frame_count=consensus.independent_frame_count) if consensus is not None else None
+    )
+
+
+def select_event_temporal_source_consensus(
+    source_consensuses: Iterable[SourceTemporalConsensus],
+    *,
+    target_consensuses: Iterable[SourceTemporalConsensus],
+    minimum_tracked_score: float = 0.6,
+) -> SourceTemporalConsensus | None:
+    """Prioritize tracked-object evidence, then a repeatedly identified event target.
+
+    The Frigate crop locates the event's bird; a full-frame winner may identify
+    a different visitor. Without either anchor, retain source disagreement
+    abstention rather than claiming which bird triggered the event.
+    """
+    sources = list(source_consensuses)
+    tracked = next(
+        (
+            item
+            for item in sources
+            if item.input_source == "frigate_hint_crop"
+            and item.consensus is not None
+            and item.consensus.score >= minimum_tracked_score
+        ),
+        None,
+    )
+    if tracked is not None:
+        return tracked
+    targets = [item for item in target_consensuses if item.consensus is not None]
+    if targets:
+        return max(targets, key=lambda item: (item.consensus.supporting_frame_count, item.consensus.score))
+    return select_temporal_source_consensus(sources)

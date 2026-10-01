@@ -23,8 +23,15 @@ YA-WAMF keeps the existing identification.
    Samples less than 250 ms apart collapse into one moment, and every winning source needs three
    independent evaluated moments. Decoded frames below the confidence floor prove source coverage
    but do not vote against a fleeting visitor. A detector crop can win from sparse recurring
-   evidence without occupying a fixed percentage of a long visit. Conflicting source winners cause
-   an abstention instead of adding misleading extra votes.
+   evidence without occupying a fixed percentage of a long visit. A reliable tracked-object crop
+   has priority over a different bird elsewhere in the frame. Otherwise, two separated, confident
+   identifications of the existing event species keep that target ahead of a scene winner; a weak
+   guess or single glimpse does not. Without either anchor, conflicting source winners cause an
+   abstention instead of adding misleading extra votes. When an existing target has no valid hint,
+   video inference checks up to three distinct native detector crops per sampled frame. This is one
+   native detector pass, without tiled scanning or retries, but may add two species-classifier
+   calls. A guided detector miss in an otherwise valid box also permits that native pass, because
+   the bird may already have left the hinted position.
 5. A video result must still clear the configured promotion threshold before a user-requested run
    can replace the stored identification. If temporal evidence abstains or stays below that
    threshold, YA-WAMF tries the best retained snapshot. If neither route has usable evidence, it

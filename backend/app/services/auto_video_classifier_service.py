@@ -1781,6 +1781,19 @@ class AutoVideoClassifierService:
                             else (event_data or {}).get("start_time")
                         ),
                     )
+                    async with get_db() as db:
+                        target_detection = await DetectionRepository(db).get_by_frigate_event(frigate_event)
+                    if target_detection is not None:
+                        input_context["event_target_labels"] = [
+                            str(label)
+                            for label in (
+                                target_detection.category_name,
+                                target_detection.scientific_name,
+                                target_detection.common_name,
+                                target_detection.display_name,
+                            )
+                            if label and not should_hide_species_label(label)
+                        ]
                     results = await asyncio.wait_for(
                         self._classifier.classify_video_async(
                             tmp_path,

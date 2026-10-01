@@ -622,6 +622,55 @@ async def test_process_event_passes_event_id_into_video_classification_context()
 
 
 @pytest.mark.asyncio
+async def test_process_event_passes_existing_target_identity_to_video_worker():
+    service = AutoVideoClassifierService()
+    service._classifier = MagicMock()
+    service._classifier.classify_video_async = AsyncMock(
+        return_value=[
+            {
+                "label": "Baeolophus bicolor",
+                "score": 0.96,
+                "index": 1,
+            }
+        ]
+    )
+    service._update_status = AsyncMock()
+    service._save_results = AsyncMock()
+    service._wait_for_clip = AsyncMock(return_value=(True, None))
+    async with get_db() as db:
+        await DetectionRepository(db).create(
+            Detection(
+                detection_time=auto_video_classifier_module.utc_naive_now(),
+                detection_index=1,
+                score=0.8,
+                category_name="Baeolophus bicolor",
+                display_name="Tufted Titmouse",
+                scientific_name="Baeolophus bicolor",
+                common_name="Tufted Titmouse",
+                frigate_event="evt-existing-video-target",
+                camera_name="cam1",
+            )
+        )
+    with (
+        patch.object(
+            auto_video_classifier_module.frigate_client,
+            "get_event_with_error",
+            new=AsyncMock(return_value=({"has_clip": True}, None)),
+        ),
+        patch.object(
+            auto_video_classifier_module.broadcaster,
+            "broadcast",
+            new=AsyncMock(),
+        ),
+    ):
+        await service._process_event("evt-existing-video-target", "cam1", skip_delay=True)
+    assert set(service._classifier.classify_video_async.await_args.kwargs["input_context"]["event_target_labels"]) == {
+        "Baeolophus bicolor",
+        "Tufted Titmouse",
+    }
+
+
+@pytest.mark.asyncio
 async def test_process_event_prefers_cached_recording_clip_when_available():
     service = AutoVideoClassifierService()
     service._classifier = MagicMock()

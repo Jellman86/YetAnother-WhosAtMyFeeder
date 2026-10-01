@@ -58,6 +58,101 @@ from app.services.native_crash_quarantine import NativeCrashQuarantinedError  # 
 
 
 @pytest.mark.asyncio
+async def test_video_preserves_repeated_event_target_when_another_bird_dominates_full_frames(
+    mock_tflite,
+    mock_os_path_exists,
+    monkeypatch,
+):
+    model = types.SimpleNamespace(loaded=True, labels=["Cardinalis cardinalis", "Baeolophus bicolor"])
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+    service._models["bird"] = model
+    full = Image.new("RGB", (100, 100), "red")
+    crop = Image.new("RGB", (40, 40), "blue")
+    monkeypatch.setattr(
+        service,
+        "_video_frame_candidates",
+        lambda image, **kwargs: [
+            ("full_frame", full, None),
+            ("model_crop", crop, (10, 20, 50, 60)),
+        ],
+    )
+    monkeypatch.setattr(
+        service,
+        "_classify_raw_with_runtime_recovery",
+        lambda image, **kwargs: (
+            np.array([0.04, 0.96]) if image is crop else np.array([0.92, 0.08]),
+            model,
+        ),
+    )
+    monkeypatch.setattr(
+        classifier_service_module,
+        "_read_selected_video_frames",
+        lambda cap, indices: iter((int(index), True, np.zeros((100, 100, 3), dtype=np.uint8)) for index in indices),
+    )
+    with patch("app.services.classifier_service.cv2.VideoCapture") as capture:
+        capture.return_value.isOpened.return_value = True
+        capture.return_value.get.side_effect = lambda prop: 30 if prop == 7 else 10
+        results = service.classify_video(
+            "/tmp/clip.mp4",
+            max_frames=5,
+            input_context={
+                "event_target_labels": ["Baeolophus bicolor"],
+                "include_video_diagnostics": True,
+            },
+        )
+    assert results[0]["label"] == "Baeolophus bicolor"
+    assert results[0]["input_source"] == "model_crop"
+    assert results[0]["temporal_supporting_frames"] == 5
+    await service.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_personalization_cannot_replace_a_verified_event_target(mock_tflite, mock_os_path_exists, monkeypatch):
+    result = {"label": "Baeolophus bicolor", "score": 0.96, "index": 1, "event_target_selected": True}
+    supervisor = types.SimpleNamespace(classify_video=AsyncMock(return_value=[result]))
+    monkeypatch.setattr(settings.classification, "personalized_rerank_enabled", True)
+    monkeypatch.setattr(settings.classification, "image_execution_mode", "subprocess")
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService(supervisor=supervisor)
+    with patch.object(classifier_service_module.personalization_service, "rerank", new=AsyncMock()) as rerank:
+        assert await service.classify_video_async("/tmp/clip.mp4", camera_name="cam") == [result]
+        rerank.assert_not_awaited()
+    await service.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_empty_frigate_hint_still_searches_other_positions_for_existing_target(
+    mock_tflite,
+    mock_os_path_exists,
+    monkeypatch,
+):
+    class Detector:
+        def generate_video_classification_candidate_crops(self, image, *, max_crops):
+            return [{"crop_image": image.crop((60, 60, 90, 90)), "box": (60, 60, 90, 90)}]
+
+        def get_status(self):
+            return {"installed": True, "enabled_for_runtime": True}
+
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+    service._bird_crop_service = Detector()
+    monkeypatch.setattr(service, "_resolve_model_candidate_crop", lambda image, **kwargs: None)
+    candidates = service._video_frame_candidates(
+        Image.new("RGB", (100, 100)),
+        input_context=classifier_service_module._normalize_classification_input_context(
+            {
+                "frigate_box": [0.1, 0.1, 0.78, 0.78],
+                "event_target_labels": ["Baeolophus bicolor"],
+            }
+        ),
+    )
+    assert [source for source, _, _ in candidates] == ["full_frame", "frigate_hint_crop", "model_crop"]
+    assert candidates[-1][2] == (60, 60, 90, 90)
+    await service.shutdown()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("priority", ["live", "background"])
 async def test_native_crash_quarantine_never_uses_in_process_fallback(priority):
     service = ClassifierService.__new__(ClassifierService)
@@ -3980,7 +4075,7 @@ async def test_classify_video_compares_frigate_crop_when_model_crop_policy_is_di
 
 
 @pytest.mark.asyncio
-async def test_classify_video_abstains_when_full_frame_and_frigate_crop_disagree(
+async def test_classify_video_prioritizes_tracked_bird_when_full_frame_shows_another_species(
     mock_tflite, mock_os_path_exists, monkeypatch
 ):
     class _DisagreeingBirdModel:
@@ -4006,7 +4101,8 @@ async def test_classify_video_abstains_when_full_frame_and_frigate_crop_disagree
             input_context={"is_cropped": False, "frigate_box": [0.1, 0.1, 0.78, 0.78]},
         )
 
-        assert results == []
+        assert results[0]["label"] == "Sparrowhawk"
+        assert results[0]["input_source"] == "frigate_hint_crop"
         await service.shutdown()
 
 
@@ -4225,7 +4321,7 @@ async def test_video_model_crop_uses_frigate_hint_as_guided_search_region(
             input_context=input_context,
         )
 
-        assert [source for source, _image in candidates] == ["full_frame", "frigate_hint_crop", "model_crop"]
+        assert [source for source, _image, _box in candidates] == ["full_frame", "frigate_hint_crop", "model_crop"]
         assert crop_service.guided_calls == [((100, 100), (1, 1, 97, 97))]
         await service.shutdown()
 
