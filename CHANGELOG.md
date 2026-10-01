@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Send delayed video notifications using the visit's accepted species and current audio confirmation, after the photo work finishes. Rejected video guesses, deleted or hidden visits, and blocked or unknown species cannot bypass the saved result.
+
 - Synchronize the saved photo with the exact positively identified video moment and crop, even when optional high-quality scanning is disabled. Preserve manual choices and storage eviction, keep existing frame choices, and prevent late Frigate snapshots from overwriting refined photos.
 
 - Keep the bird that triggered a Frigate event ahead of another species elsewhere in the video. Prioritize reliable tracked crops and repeated, confident evidence for the existing species; inspect up to three native detector crops when the target has no valid hint, without tiled video scans or detector retries. Weak, single-frame guesses still cannot lock an identification in.

@@ -138,6 +138,11 @@ Choose a delivery mode in **Settings → Notifications**:
 - **Silent:** Disable all notifications.
 - **Advanced (Custom):** Manually toggle the exact triggers.
 
+Delayed video notifications wait for the associated photo work within the notification
+timeout. They use the visit's accepted identification and current audio confirmation,
+including manual corrections, rather than a video guess that the promotion rules
+rejected. Deleted, hidden, blocked and unknown visits are checked again before delivery.
+
 ## How it Works
 
 1. **Event Trigger:** A detection is processed and saved to the database.
