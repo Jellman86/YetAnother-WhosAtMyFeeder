@@ -75,7 +75,7 @@ class MediaStorageService:
                 rows = await DetectionRepository(db).list_cached_media_visits(list(sizes))
             visits = [CachedVisit(**row, bytes_on_disk=sizes[row["event_id"]]) for row in rows]
             from app.services.high_quality_snapshot_service import high_quality_snapshot_service, HQ_PROCESSING_PIPELINE
-            from app.services.full_visit_clip_service import full_visit_clip_service
+            from app.services.full_visit_clip_service import full_visit_clip_service, FULL_VISIT_PROCESSING_PIPELINE
 
             # In-flight clip/frame commits must finish before their visit can be evicted.
             protected = set(high_quality_snapshot_service.get_active_event_ids())
@@ -110,6 +110,9 @@ class MediaStorageService:
                             from app.repositories.processing_job_repository import ProcessingJobRepository
 
                             await ProcessingJobRepository(db).mark_storage_evicted(HQ_PROCESSING_PIPELINE, event_id)
+                            await ProcessingJobRepository(db).mark_storage_evicted(
+                                FULL_VISIT_PROCESSING_PIPELINE, event_id
+                            )
                             freed = await asyncio.to_thread(
                                 cache_module.media_cache._delete_visit_files_sync, event_id, files[event_id]
                             )

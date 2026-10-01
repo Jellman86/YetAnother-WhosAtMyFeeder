@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Remember automatic full-visit clip eviction alongside photo eviction. Late fetch outcomes and restarts cannot refill deliberately evicted media; admitted background jobs are protected while they run.
+
 - Match all regenerated bird boxes together before transferring IDs, corrections or exclusions. Reranking overlapping crops no longer moves an owner’s decision to another bird; ambiguous reviewed matches preserve the existing frame.
 
 - Reject late analysis and chat replies when the capture’s species, time or weather changes during generation. The prompt and revision are read together; unrelated favourite changes still allow completion.
