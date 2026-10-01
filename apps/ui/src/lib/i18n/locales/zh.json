@@ -1047,7 +1047,7 @@
       "classification_image_snapshot": "检测快照",
       "classification_image_recording": "录像帧",
       "classification_image_recording_cost": "Frigate 会为每次检测解码一帧录像，YA-WAMF 会下载并处理这张更大的图像。",
-      "classification_image_recording_fallback": "需要保留录像。如果该帧缺失、不更大、宽高比不同或五秒内未就绪，则使用检测快照。",
+      "classification_image_recording_fallback": "需要保留录像以及 Frigate 的干净快照副本 ({setting})。如果缺少其中任一项、该帧不更大、宽高比不同，或读取总计超过五秒，则使用检测快照。",
       "classification_image_recording_scope": "适用于新检测，包括作为漏检获取的过去事件。保存不会获取过去事件，也不会更改已有照片；重新分类优先使用已保存的照片。"
     },
     "cameras": {

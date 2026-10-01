@@ -113,7 +113,7 @@ async def prefer_recording_snapshot(
 ) -> tuple[bytes | None, ClassificationInputProvenance]:
     """Try one bounded frame read; keep the original on every unavailable/unsafe path.
 
-    Cropped or unknown inputs cannot establish the detection coordinate space.
+    A clean Frigate copy establishes the native detection coordinate space.
     Retained owner-selected photos are handled before this function by callers.
     """
     if settings.frigate.classification_image_source != "recording_snapshot" or not snapshot or provenance.is_cropped:
@@ -127,26 +127,36 @@ async def prefer_recording_snapshot(
     from app.services.frigate_client import frigate_client
 
     selected_client = client if client is not None else frigate_client
+    # A failed full-frame verification must not feed native coordinates to a
+    # saved JPEG whose crop/resize policy is unknown, even if it is still usable.
+    fallback_provenance = ClassificationInputProvenance("frigate_snapshot_unaligned", False)
     try:
-        detection_size = await asyncio.to_thread(_image_size, snapshot)
-        alignment = _snapshot_alignment(event, detection_size)
-        if alignment is None:
-            return snapshot, provenance
-        frame_time, box = alignment
-        # Include connection-pool waits in the deadline. Never wait for Frigate
-        # to persist a live recording segment before admitting the event.
+        # Saved event JPEGs can ignore crop/height query parameters after an
+        # event ends. Only a clean copy establishes the native pixel space.
+        # The deadline includes both reads, processing and connection-pool waits.
         async with asyncio.timeout(RECORDING_SNAPSHOT_TIMEOUT_SECONDS):
+            clean, error = await selected_client.get_alignment_snapshot_with_error(
+                event_id, timeout=RECORDING_SNAPSHOT_TIMEOUT_SECONDS
+            )
+            if not clean:
+                log.debug("Clean snapshot unavailable; keeping detection snapshot", event_id=event_id, reason=error)
+                return snapshot, fallback_provenance
+            detection_size = await asyncio.to_thread(_image_size, clean)
+            alignment = _snapshot_alignment(event, detection_size)
+            if alignment is None:
+                return snapshot, fallback_provenance
+            frame_time, box = alignment
             recording, error = await selected_client.get_recording_snapshot_with_error(
                 camera, frame_time, timeout=RECORDING_SNAPSHOT_TIMEOUT_SECONDS
             )
             if not recording:
                 log.debug("Recording snapshot unavailable; keeping detection snapshot", event_id=event_id, reason=error)
-                return snapshot, provenance
+                return snapshot, fallback_provenance
             recording, recording_size = await asyncio.to_thread(_prepare_recording_snapshot, recording)
         dw, dh = detection_size
         rw, rh = recording_size
         if rw <= dw or rh <= dh or not math.isclose(rw / rh, dw / dh, rel_tol=0.01):
-            return snapshot, provenance
+            return snapshot, fallback_provenance
         detected_box = restore_frigate_hint_box(box, detection_size)
         crop_box = frigate_snapshot_crop_box(detected_box, detection_size) if detected_box else None
         crop_region = normalize_frigate_hint_box(crop_box, detection_size) if crop_box else None
@@ -162,4 +172,4 @@ async def prefer_recording_snapshot(
         log.debug(
             "Recording snapshot unavailable; keeping detection snapshot", event_id=event_id, error=type(exc).__name__
         )
-        return snapshot, provenance
+        return snapshot, fallback_provenance

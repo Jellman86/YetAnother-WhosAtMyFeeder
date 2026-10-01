@@ -55,7 +55,11 @@ a usable HQ source even when neither an event clip nor a cached recording clip i
 In **Settings → Connection → Identify new detections from**, choose **Detection snapshot**
 (the default) or **Recording frame**. The recording option
 requests one full-resolution still through Frigate's [recording snapshot API](https://docs.frigate.video/integrations/api/get-snapshot-from-recording-camera-name-recordings-frame-time-snapshot-format-get/),
-using the best snapshot's timestamp and its matching tracked-bird box. The lossless PNG response
+using the best snapshot's timestamp and its matching tracked-bird box. A full clean snapshot copy
+establishes the native detection dimensions: completed event JPEGs can ignore crop and height
+queries and may be saved cropped or resized. Frigate's current WebP and older PNG clean-copy
+endpoints are supported; enable `snapshots.clean_copy` in Frigate. If no valid clean copy is
+available, the original detection snapshot is kept. The lossless PNG recording response
 is saved as JPEG at quality 95, avoiding Frigate's default recording JPEG compression. Pixel coordinates from
 MQTT are scaled from the full detection frame; historical normalized coordinates scale directly.
 The full recording frame is retained, and its crop alignment is saved with that photograph for
@@ -65,7 +69,7 @@ setting does not change the separate high-quality photo or counted-bird pipeline
 The detect and recording streams must show the same view. Different aspect ratios or recording
 frames that are not larger keep the detection snapshot. This cannot correct different lenses,
 digital zoom or PTZ views. Frigate needs retained recordings and best-snapshot timestamp metadata;
-older events without that metadata use the snapshot. Requests have a five-second total deadline
+older events without that metadata use the snapshot. The clean-copy and recording reads share a five-second total deadline
 and no retention wait or repeated recording retry. A live recording segment may not yet be
 available, so live ingest can fall back even when the completed event has a recording later.
 Existing end-of-event photo refinement remains responsible for later photo improvements.

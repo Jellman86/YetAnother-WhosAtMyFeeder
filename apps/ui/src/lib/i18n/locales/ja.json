@@ -1047,7 +1047,7 @@
       "classification_image_snapshot": "検出スナップショット",
       "classification_image_recording": "録画フレーム",
       "classification_image_recording_cost": "Frigate は検出ごとに録画フレームを 1 枚デコードし、YA-WAMF はより大きな画像をダウンロードして処理します。",
-      "classification_image_recording_fallback": "録画の保持が必要です。フレームがない、大きくない、縦横比が異なる、または 5 秒以内に準備できない場合は、検出スナップショットを使用します。",
+      "classification_image_recording_fallback": "録画の保持と、Frigate のクリーンなスナップショットコピー ({setting}) が必要です。どちらかがない、フレームが大きくない、縦横比が異なる、または読み込みが合計 5 秒を超える場合は、検出スナップショットを使用します。",
       "classification_image_recording_scope": "新しい検出に適用され、見逃した検出として取得した過去のイベントも含みます。保存しても過去のイベントは取得されず、既存の写真も変更されません。再分類では保存済みの写真が優先されます。"
     },
     "cameras": {

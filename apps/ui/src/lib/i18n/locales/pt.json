@@ -1057,7 +1057,7 @@
       "classification_image_snapshot": "Snapshot da detecção",
       "classification_image_recording": "Quadro da gravação",
       "classification_image_recording_cost": "O Frigate decodifica um quadro da gravação para cada detecção, e o YA-WAMF baixa e processa a imagem maior.",
-      "classification_image_recording_fallback": "Requer gravações retidas. Se o quadro estiver ausente, não for maior, tiver outro formato ou não ficar pronto em cinco segundos, é usado o snapshot da detecção.",
+      "classification_image_recording_fallback": "Requer gravações retidas e a cópia limpa do snapshot no Frigate ({setting}). Se faltar alguma delas, o quadro não for maior, tiver outro formato ou as leituras levarem mais de cinco segundos no total, é usado o snapshot da detecção.",
       "classification_image_recording_scope": "Aplica-se a novas detecções, incluindo eventos passados obtidos como detecções perdidas. Salvar não obtém eventos passados nem altera fotos existentes; a reclassificação prefere fotos salvas."
     },
     "cameras": {

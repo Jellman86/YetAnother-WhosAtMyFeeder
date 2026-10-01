@@ -8,6 +8,8 @@
 
     const descriptionId = 'classification-image-source-desc';
     const recordingNoteId = 'classification-image-source-recording-note';
+    // A Frigate config key, so it stays literal in every language.
+    const CLEAN_COPY_SETTING = 'snapshots.clean_copy';
 
     // The recording frame costs Frigate work and can silently fall back, so its
     // terms are only shown, and announced with the select, once it is chosen.
@@ -37,10 +39,10 @@
         <div
             id={recordingNoteId}
             data-recording-frame-note
-            class="mt-3 space-y-1.5 text-xs leading-relaxed text-slate-600 dark:text-slate-400"
+            class="mt-3 space-y-1.5 break-words text-xs leading-relaxed text-slate-600 dark:text-slate-400"
         >
             <p>{$_('settings.frigate.classification_image_recording_cost', { default: 'Frigate decodes one recording frame for each detection, and YA-WAMF downloads and processes the larger image.' })}</p>
-            <p>{$_('settings.frigate.classification_image_recording_fallback', { default: 'Needs retained recordings. If the frame is missing, not larger, a different shape or not ready within five seconds, the detection snapshot is used.' })}</p>
+            <p>{$_('settings.frigate.classification_image_recording_fallback', { default: 'Needs retained recordings and the clean snapshot copy in Frigate ({setting}). If either is missing, the frame is not larger, it is a different shape, or the reads take longer than five seconds in total, the detection snapshot is used.', values: { setting: CLEAN_COPY_SETTING } })}</p>
             <p>{$_('settings.frigate.classification_image_recording_scope', { default: 'Applies to new detections, including past events fetched as missed detections. Saving does not fetch past events or change existing photos; reclassification prefers saved photos.' })}</p>
         </div>
     {/if}

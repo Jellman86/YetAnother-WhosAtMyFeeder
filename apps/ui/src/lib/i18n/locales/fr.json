@@ -1047,7 +1047,7 @@
       "classification_image_snapshot": "Instantané de détection",
       "classification_image_recording": "Image d’enregistrement",
       "classification_image_recording_cost": "Frigate décode une image d’enregistrement par détection, et YA-WAMF télécharge et traite l’image plus grande.",
-      "classification_image_recording_fallback": "Nécessite des enregistrements conservés. Si l’image manque, n’est pas plus grande, a un autre format ou n’est pas prête en cinq secondes, l’instantané de détection est utilisé.",
+      "classification_image_recording_fallback": "Nécessite des enregistrements conservés et la copie propre de l’instantané dans Frigate ({setting}). Si l’un des deux manque, si l’image n’est pas plus grande, a un autre format ou si les lectures prennent plus de cinq secondes au total, l’instantané de détection est utilisé.",
       "classification_image_recording_scope": "S’applique aux nouvelles détections, y compris aux événements passés récupérés comme détections manquées. Sauvegarder ce réglage ne récupère aucun événement passé et ne modifie pas les photos existantes. La reclassification privilégie les photos sauvegardées."
     },
     "cameras": {

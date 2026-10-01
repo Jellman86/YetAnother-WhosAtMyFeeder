@@ -11,6 +11,7 @@ from app.services.classification_input_provenance import (
     build_snapshot_classification_input_context,
     cached_snapshot_input_provenance,
     frigate_snapshot_input_provenance,
+    ClassificationInputProvenance,
 )
 
 
@@ -18,6 +19,15 @@ def image_bytes(size):
     buffer = io.BytesIO()
     Image.new("RGB", size).save(buffer, format="JPEG")
     return buffer.getvalue()
+
+
+def recording_client(**methods):
+    return SimpleNamespace(
+        **{
+            "get_alignment_snapshot_with_error": AsyncMock(return_value=(image_bytes((1280, 720)), None)),
+            **methods,
+        }
+    )
 
 
 @pytest.fixture
@@ -41,7 +51,7 @@ async def test_prefers_native_recording_at_snapshot_timestamp_with_scaled_matchi
     if mqtt:
         event["data"] = {"box": [800, 300, 900, 500]}
         event["snapshot"] = {"frame_time": 105.25, "box": [320, 144, 448, 252]}
-    client = SimpleNamespace(get_recording_snapshot_with_error=AsyncMock(return_value=(recording, None)))
+    client = recording_client(get_recording_snapshot_with_error=AsyncMock(return_value=(recording, None)))
     data, provenance = await prefer_recording_snapshot(
         "evt",
         event,
@@ -81,8 +91,11 @@ async def test_does_not_guess_recording_timestamp_or_box(recording_mode, change)
         event["camera"] = None
     original = image_bytes((1280, 720))
     provenance = frigate_snapshot_input_provenance(event)
-    client = SimpleNamespace(get_recording_snapshot_with_error=AsyncMock())
-    assert await prefer_recording_snapshot("evt", event, original, provenance, client=client) == (original, provenance)
+    client = recording_client(get_recording_snapshot_with_error=AsyncMock())
+    fallback = (
+        provenance if change == "no_camera" else ClassificationInputProvenance("frigate_snapshot_unaligned", False)
+    )
+    assert await prefer_recording_snapshot("evt", event, original, provenance, client=client) == (original, fallback)
     client.get_recording_snapshot_with_error.assert_not_awaited()
 
 
@@ -98,8 +111,11 @@ async def test_unavailable_invalid_smaller_or_different_aspect_recording_keeps_s
     event = {"camera": "birdcam", "data": {"snapshot_frame_time": 105.25, "box": [0.25, 0.2, 0.1, 0.15]}}
     original = image_bytes((1280, 720))
     provenance = frigate_snapshot_input_provenance(event)
-    client = SimpleNamespace(get_recording_snapshot_with_error=AsyncMock(return_value=(recording, "not_retained")))
-    assert await prefer_recording_snapshot("evt", event, original, provenance, client=client) == (original, provenance)
+    client = recording_client(get_recording_snapshot_with_error=AsyncMock(return_value=(recording, "not_retained")))
+    assert await prefer_recording_snapshot("evt", event, original, provenance, client=client) == (
+        original,
+        ClassificationInputProvenance("frigate_snapshot_unaligned", False),
+    )
 
 
 @pytest.mark.asyncio
@@ -107,7 +123,7 @@ async def test_snapshot_default_adds_no_recording_requests(monkeypatch):
     from app.services.recording_snapshot_input import prefer_recording_snapshot
 
     monkeypatch.setattr(settings.frigate, "classification_image_source", "frigate_snapshot")
-    client = SimpleNamespace(get_recording_snapshot_with_error=AsyncMock())
+    client = recording_client(get_recording_snapshot_with_error=AsyncMock())
     provenance = frigate_snapshot_input_provenance(None)
     assert await prefer_recording_snapshot("evt", {}, b"original", provenance, client=client) == (
         b"original",
@@ -148,10 +164,10 @@ async def test_recording_deadline_and_cancellation_do_not_wait_for_retention(rec
     event = {"camera": "birdcam", "data": {"snapshot_frame_time": 105.25, "box": [0.25, 0.2, 0.1, 0.15]}}
     original = image_bytes((1280, 720))
     provenance = frigate_snapshot_input_provenance(event)
-    client = SimpleNamespace(get_recording_snapshot_with_error=slow)
+    client = recording_client(get_recording_snapshot_with_error=slow)
     assert await module.prefer_recording_snapshot("evt", event, original, provenance, client=client) == (
         original,
-        provenance,
+        ClassificationInputProvenance("frigate_snapshot_unaligned", False),
     )
     task = asyncio.create_task(module.prefer_recording_snapshot("evt", event, original, provenance, client=client))
     await asyncio.sleep(0)
@@ -185,6 +201,7 @@ async def test_live_ingest_classifies_recording_full_frame_with_matching_box(rec
     classifier.classify_async_live = AsyncMock(return_value=[{"label": "Bird", "score": 0.9, "index": 1}])
     monkeypatch.setattr(frigate_client, "get_snapshot_with_error", AsyncMock(return_value=(detection, None)))
     monkeypatch.setattr(frigate_client, "get_recording_snapshot_with_error", AsyncMock(return_value=(recording, None)))
+    monkeypatch.setattr(frigate_client, "get_alignment_snapshot_with_error", AsyncMock(return_value=(detection, None)))
     result = await EventProcessor(classifier)._classify_snapshot(event)
     assert result[1:] == (recording, "frigate_recording_snapshot")
     assert classifier.classify_async_live.call_args.args[0].size == (3840, 2160)
@@ -210,6 +227,9 @@ async def test_backfill_classifies_and_retains_recording_alignment(recording_mod
     )
     service.detection_service.save_detection = AsyncMock(return_value=(True, True))
     monkeypatch.setattr(module.frigate_client, "get_snapshot", AsyncMock(return_value=detection))
+    monkeypatch.setattr(
+        module.frigate_client, "get_alignment_snapshot_with_error", AsyncMock(return_value=(detection, None))
+    )
     monkeypatch.setattr(
         module.frigate_client, "get_recording_snapshot_with_error", AsyncMock(return_value=(recording, None))
     )
@@ -238,13 +258,13 @@ async def test_oversized_recording_is_rejected_before_pixel_decode(recording_mod
     monkeypatch.setattr(module, "MAX_RECORDING_SNAPSHOT_PIXELS", 1280 * 720)
     original = image_bytes((1280, 720))
     event = {"camera": "birdcam", "data": {"snapshot_frame_time": 105.25, "box": [0.25, 0.2, 0.1, 0.15]}}
-    client = SimpleNamespace(
+    client = recording_client(
         get_recording_snapshot_with_error=AsyncMock(return_value=(image_bytes((3840, 2160)), None))
     )
     provenance = frigate_snapshot_input_provenance(event)
     assert await module.prefer_recording_snapshot("evt", event, original, provenance, client=client) == (
         original,
-        provenance,
+        ClassificationInputProvenance("frigate_snapshot_unaligned", False),
     )
 
 
@@ -256,7 +276,7 @@ async def test_reclassification_keeps_retained_owner_photo_without_recording_fet
         get_snapshot=AsyncMock(return_value=b"owner-photo"),
         get_snapshot_metadata=AsyncMock(return_value={"source": "hq_candidate_full_frame", "manual_selection": True}),
     )
-    client = SimpleNamespace(get_snapshot=AsyncMock(), get_recording_snapshot_with_error=AsyncMock())
+    client = recording_client(get_snapshot=AsyncMock(), get_recording_snapshot_with_error=AsyncMock())
     image, provenance = await load_snapshot_classification_input(
         "evt", media_cache_service=cache, frigate_client_service=client
     )
@@ -275,7 +295,7 @@ async def test_recording_crop_scales_the_entire_snapshot_region_including_minimu
     event = {"camera": "birdcam", "data": {"snapshot_frame_time": 105.25, "box": [0.25, 0.2, 0.1, 0.15]}}
     detection = image_bytes((1280, 720))
     recording = image_bytes((3840, 2160))
-    client = SimpleNamespace(get_recording_snapshot_with_error=AsyncMock(return_value=(recording, None)))
+    client = recording_client(get_recording_snapshot_with_error=AsyncMock(return_value=(recording, None)))
     _, provenance = await prefer_recording_snapshot(
         "evt", event, detection, frigate_snapshot_input_provenance(event), client=client
     )
@@ -313,7 +333,7 @@ async def test_cached_recording_hint_is_withheld_when_image_and_metadata_do_not_
     event = {"camera": "birdcam", "data": {"snapshot_frame_time": 105.25, "box": [0.25, 0.2, 0.1, 0.15]}}
     original = image_bytes((1280, 720))
     recording = image_bytes((3840, 2160))
-    client = SimpleNamespace(
+    client = recording_client(
         get_recording_snapshot_with_error=AsyncMock(return_value=(recording, None)), get_snapshot=AsyncMock()
     )
     _, provenance = await prefer_recording_snapshot(
@@ -343,7 +363,7 @@ async def test_lossless_recording_input_is_retained_as_high_quality_jpeg(recordi
     Image.new("RGB", (3840, 2160), (200, 40, 80)).save(buffer, format="PNG")
     event = {"camera": "birdcam", "data": {"snapshot_frame_time": 105.25, "box": [0.25, 0.2, 0.1, 0.15]}}
     original = image_bytes((1280, 720))
-    client = SimpleNamespace(get_recording_snapshot_with_error=AsyncMock(return_value=(buffer.getvalue(), None)))
+    client = recording_client(get_recording_snapshot_with_error=AsyncMock(return_value=(buffer.getvalue(), None)))
     retained, provenance = await prefer_recording_snapshot(
         "evt", event, original, frigate_snapshot_input_provenance(event), client=client
     )
@@ -407,3 +427,65 @@ async def test_live_snapshot_fallback_preserves_cached_recording_alignment(
     else:
         assert context["frigate_box"] == alignment["box"]
         assert event.recording_alignment == alignment
+
+
+@pytest.mark.asyncio
+async def test_recording_uses_clean_detection_dimensions_not_saved_cropped_or_resized_jpeg(recording_mode):
+    from app.services.recording_snapshot_input import prefer_recording_snapshot
+
+    original = image_bytes((300, 300))
+    clean = image_bytes((1280, 720))
+    recording = image_bytes((3840, 2160))
+    event = {"camera": "birdcam", "data": {"snapshot_frame_time": 105.25, "box": [0.25, 0.2, 0.1, 0.15]}}
+    client = recording_client(
+        get_alignment_snapshot_with_error=AsyncMock(return_value=(clean, None)),
+        get_recording_snapshot_with_error=AsyncMock(return_value=(recording, None)),
+    )
+    data, provenance = await prefer_recording_snapshot(
+        "evt", event, original, frigate_snapshot_input_provenance(event), client=client
+    )
+    assert data == recording
+    assert provenance.input_source == "frigate_recording_snapshot"
+    assert provenance.recording_crop_region == pytest.approx([234 / 1280, 48 / 720, 300 / 1280, 300 / 720])
+    client.get_alignment_snapshot_with_error.assert_awaited_once_with("evt", timeout=5.0)
+
+
+@pytest.mark.asyncio
+async def test_recording_without_clean_detection_frame_keeps_original_without_guessing_dimensions(recording_mode):
+    from app.services.recording_snapshot_input import prefer_recording_snapshot
+
+    original = image_bytes((640, 360))
+    event = {"camera": "birdcam", "data": {"snapshot_frame_time": 105.25, "box": [0.25, 0.2, 0.1, 0.15]}}
+    provenance = frigate_snapshot_input_provenance(event)
+    client = recording_client(
+        get_alignment_snapshot_with_error=AsyncMock(return_value=(None, "clean_copy_missing")),
+        get_recording_snapshot_with_error=AsyncMock(return_value=(image_bytes((3840, 2160)), None)),
+    )
+    assert await prefer_recording_snapshot("evt", event, original, provenance, client=client) == (
+        original,
+        ClassificationInputProvenance("frigate_snapshot_unaligned", False),
+    )
+    client.get_recording_snapshot_with_error.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_missing_clean_frame_never_applies_native_hints_to_an_unverified_saved_snapshot(recording_mode):
+    from app.services.recording_snapshot_input import prefer_recording_snapshot
+
+    original = image_bytes((300, 300))
+    event = {
+        "camera": "birdcam",
+        "end_time": 110.0,
+        "data": {"snapshot_frame_time": 105.25, "box": [0.25, 0.2, 0.1, 0.15]},
+    }
+    client = recording_client(
+        get_alignment_snapshot_with_error=AsyncMock(return_value=(None, "missing")),
+        get_recording_snapshot_with_error=AsyncMock(),
+    )
+    data, provenance = await prefer_recording_snapshot(
+        "evt", event, original, frigate_snapshot_input_provenance(event), client=client
+    )
+    assert data == original
+    context = build_snapshot_classification_input_context(event_id="evt", event_data=event, provenance=provenance)
+    assert "frigate_box" not in context
+    assert "restore_frigate_snapshot_crop" not in context

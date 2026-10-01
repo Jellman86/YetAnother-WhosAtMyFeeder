@@ -93,7 +93,7 @@ describe('initial classification image setting', () => {
         expect(attribute(select, 'aria-describedby')?.split(' ')).toEqual([DESCRIPTION_ID, RECORDING_NOTE_ID]);
         expect(body).toContain(`id="${RECORDING_NOTE_ID}"`);
         expect(body).toContain(strings.classification_image_recording_cost);
-        expect(body).toContain(strings.classification_image_recording_fallback);
+        expect(body).toContain(strings.classification_image_recording_fallback.replace('{setting}', 'snapshots.clean_copy'));
         expect(body).toContain(strings.classification_image_recording_scope);
     });
 
@@ -211,8 +211,46 @@ describe('initial classification image copy', () => {
 
     it('keeps the inline fallbacks in step with English', () => {
         for (const key of KEYS) {
-            expect(componentSource, key).toContain(`{ default: '${strings[key]}' }`);
+            expect(componentSource, key).toContain(`{ default: '${strings[key]}'`);
         }
         expect(strings.classification_image_recording_fallback).toContain('five seconds');
     });
+
+    it('states that the recording frame needs retained recordings and the clean snapshot copy', () => {
+        const fallback = strings.classification_image_recording_fallback;
+
+        expect(fallback).toContain('retained recordings');
+        expect(fallback).toContain('clean snapshot copy');
+        expect(fallback).toContain('five seconds in total');
+        expect(componentSource).toContain("const CLEAN_COPY_SETTING = 'snapshots.clean_copy';");
+        expect(componentSource).toContain('values: { setting: CLEAN_COPY_SETTING }');
+    });
+
+    it('wraps long setting names in the recording note instead of clipping them', () => {
+        const note = renderSetting('recording_snapshot').match(/<div\b[^>]*data-recording-frame-note[^>]*>/)?.[0] ?? '';
+
+        expect(attribute(note, 'class')?.split(/\s+/)).toContain('break-words');
+    });
+
+    const FIVE_SECONDS: Record<keyof typeof LOCALES, string> = {
+        en: 'five seconds',
+        de: 'fünf Sekunden',
+        es: 'cinco segundos',
+        fr: 'cinq secondes',
+        it: 'cinque secondi',
+        ja: '5 秒',
+        pt: 'cinco segundos',
+        ru: 'пяти секунд',
+        zh: '五秒'
+    };
+
+    for (const [name, locale] of Object.entries(LOCALES) as Array<[keyof typeof LOCALES, typeof en]>) {
+        it(`${name} names the clean copy requirement and the five-second total`, () => {
+            const fallback = String((locale.settings.frigate as Record<string, unknown>).classification_image_recording_fallback);
+
+            expect(fallback, `${name} fallback names the Frigate setting through a placeholder`).toContain('({setting})');
+            expect(fallback, `${name} fallback must not translate the setting name`).not.toContain('clean_copy');
+            expect(fallback, `${name} fallback keeps the five-second bound`).toContain(FIVE_SECONDS[name]);
+        });
+    }
 });
