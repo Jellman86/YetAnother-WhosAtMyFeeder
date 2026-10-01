@@ -8,6 +8,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 - Preserve an explicitly selected Intel NPU when saving unrelated settings, so a settings reload does not silently switch it to automatic device selection.
 
+- Offer a higher-resolution recording frame for initial bird identification and backfill, using the best snapshot timestamp and scaled matching coordinates. Missing, slow or mismatched recordings fall back to the detection snapshot; retained photos keep their own crop alignment for reclassification. The faster snapshot source remains the default.
+
 - Keep guest audio evidence lookups within each capture’s time window using the timestamp index, avoiding repeated scans of shared audio history while preserving microphone mapping and visibility rules.
 
 - Read live device telemetry off the API event loop, so a busy device or concurrent sampling cannot stall other page requests.

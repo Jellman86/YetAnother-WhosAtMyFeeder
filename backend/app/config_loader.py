@@ -151,6 +151,7 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
         "frigate_external_url": os.environ.get("FRIGATE__FRIGATE_EXTERNAL_URL", ""),
         "frigate_auth_token": os.environ.get("FRIGATE__FRIGATE_AUTH_TOKEN", None),
         "main_topic": os.environ.get("FRIGATE__MAIN_TOPIC", "frigate"),
+        "classification_image_source": os.environ.get("FRIGATE__CLASSIFICATION_IMAGE_SOURCE", "frigate_snapshot"),
         "clips_enabled": os.environ.get("FRIGATE__CLIPS_ENABLED", "true").lower() == "true",
         "recording_clip_enabled": os.environ.get("FRIGATE__RECORDING_CLIP_ENABLED", "false").lower() == "true",
         "recording_clip_before_seconds": int(os.environ.get("FRIGATE__RECORDING_CLIP_BEFORE_SECONDS", "30")),

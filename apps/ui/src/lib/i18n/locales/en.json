@@ -1051,7 +1051,14 @@
       "external_url_desc": "The address your browser uses to open Frigate when it differs from the server address above. Used for the 'open in Frigate' link on a detection.",
       "external_url_placeholder": "https://frigate.example.com",
       "ingest_labels": "Frigate labels to act on",
-      "ingest_labels_desc": "Comma-separated. Add the labels your Frigate model uses for birds (e.g. bird, duck, goose); everything listed flows through the bird identification pipeline."
+      "ingest_labels_desc": "Comma-separated. Add the labels your Frigate model uses for birds (e.g. bird, duck, goose); everything listed flows through the bird identification pipeline.",
+      "classification_image_source": "Identify new detections from",
+      "classification_image_source_desc": "The detection snapshot is faster. A recording frame can show more detail when the recording stream is larger than the detect stream and shows the same view. It does not guarantee a better identification.",
+      "classification_image_snapshot": "Detection snapshot",
+      "classification_image_recording": "Recording frame",
+      "classification_image_recording_cost": "Frigate decodes one recording frame for each detection, and YA-WAMF downloads and processes the larger image.",
+      "classification_image_recording_fallback": "Needs retained recordings. If the frame is missing, not larger, a different shape or not ready within five seconds, the detection snapshot is used.",
+      "classification_image_recording_scope": "Applies to new detections, including past events fetched as missed detections. Saving does not fetch past events or change existing photos; reclassification prefers saved photos."
     },
     "cameras": {
       "title": "Active Cameras",

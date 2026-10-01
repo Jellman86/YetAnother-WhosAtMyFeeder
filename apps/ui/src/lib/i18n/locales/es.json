@@ -1041,7 +1041,14 @@
       "external_url_desc": "La dirección que usa tu navegador para abrir Frigate cuando difiere de la dirección del servidor de arriba. Se usa para el enlace 'Abrir en Frigate' de una detección.",
       "external_url_placeholder": "https://frigate.example.com",
       "ingest_labels": "Etiquetas de Frigate a procesar",
-      "ingest_labels_desc": "Separadas por comas. Añade las etiquetas que tu modelo de Frigate usa para aves (p. ej. bird, duck, goose); todo lo listado pasa por la canalización de identificación de aves."
+      "ingest_labels_desc": "Separadas por comas. Añade las etiquetas que tu modelo de Frigate usa para aves (p. ej. bird, duck, goose); todo lo listado pasa por la canalización de identificación de aves.",
+      "classification_image_source": "Imagen para identificar nuevas detecciones",
+      "classification_image_source_desc": "La instantánea de detección es más rápida. Un fotograma de grabación puede mostrar más detalle si el flujo de grabación es más grande que el de detección y muestra la misma vista. No garantiza una mejor identificación.",
+      "classification_image_snapshot": "Instantánea de detección",
+      "classification_image_recording": "Fotograma de grabación",
+      "classification_image_recording_cost": "Frigate decodifica un fotograma de grabación por cada detección, y YA-WAMF descarga y procesa la imagen más grande.",
+      "classification_image_recording_fallback": "Requiere grabaciones conservadas. Si el fotograma falta, no es más grande, tiene otra forma o no está listo en cinco segundos, se usa la instantánea de detección.",
+      "classification_image_recording_scope": "Se aplica a las detecciones nuevas, incluidos los eventos pasados obtenidos como detecciones perdidas. Guardar no obtiene eventos pasados ni cambia las fotos existentes; la reclasificación prefiere las fotos guardadas."
     },
     "cameras": {
       "title": "Cámaras Activas",

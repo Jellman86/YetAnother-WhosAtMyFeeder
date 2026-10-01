@@ -70,3 +70,37 @@ def restore_frigate_hint_box(
     if right_i <= left_i or bottom_i <= top_i:
         return None
     return left_i, top_i, right_i, bottom_i
+
+
+def frigate_snapshot_crop_box(
+    box: tuple[int, int, int, int],
+    image_size: tuple[int, int],
+) -> tuple[int, int, int, int] | None:
+    """Recreate Frigate's saved-snapshot crop region defensively.
+
+    Frigate centres a square around the tracked box, uses a 1.1 multiplier,
+    rounds the side to a multiple of four, and keeps at least 300 pixels of
+    context. Capping the square to the actual image makes the equivalent
+    operation safe for unusually small or externally supplied snapshots.
+    """
+    left, top, right, bottom = box
+    image_width, image_height = image_size
+    box_width = right - left
+    box_height = bottom - top
+    if image_width <= 0 or image_height <= 0 or box_width <= 0 or box_height <= 0:
+        return None
+
+    longest_edge = max(box_width, box_height)
+    side = int((longest_edge * 1.1) // 4 * 4)
+    side = max(300, side)
+    side = min(side, image_width, image_height)
+    if side <= 0:
+        return None
+
+    centre_x = left + (box_width / 2.0)
+    centre_y = top + (box_height / 2.0)
+    crop_left = int(centre_x - (side / 2.0))
+    crop_top = int(centre_y - (side / 2.0))
+    crop_left = max(0, min(image_width - side, crop_left))
+    crop_top = max(0, min(image_height - side, crop_top))
+    return crop_left, crop_top, crop_left + side, crop_top + side

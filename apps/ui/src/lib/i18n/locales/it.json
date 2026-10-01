@@ -1051,7 +1051,14 @@
       "external_url_desc": "L'indirizzo che il browser usa per aprire Frigate quando differisce dall'indirizzo del server qui sopra. Usato per il link 'Apri in Frigate' di un rilevamento.",
       "external_url_placeholder": "https://frigate.example.com",
       "ingest_labels": "Etichette Frigate da elaborare",
-      "ingest_labels_desc": "Separate da virgole. Aggiungi le etichette che il tuo modello Frigate usa per gli uccelli (es. bird, duck, goose); tutto ciò che è elencato passa per la pipeline di identificazione degli uccelli."
+      "ingest_labels_desc": "Separate da virgole. Aggiungi le etichette che il tuo modello Frigate usa per gli uccelli (es. bird, duck, goose); tutto ciò che è elencato passa per la pipeline di identificazione degli uccelli.",
+      "classification_image_source": "Immagine per identificare i nuovi rilevamenti",
+      "classification_image_source_desc": "Lo snapshot del rilevamento è più veloce. Un fotogramma della registrazione può mostrare più dettagli se il flusso di registrazione è più grande di quello di rilevamento e mostra la stessa inquadratura. Non garantisce un’identificazione migliore.",
+      "classification_image_snapshot": "Snapshot del rilevamento",
+      "classification_image_recording": "Fotogramma registrato",
+      "classification_image_recording_cost": "Frigate decodifica un fotogramma della registrazione per ogni rilevamento e YA-WAMF scarica ed elabora l’immagine più grande.",
+      "classification_image_recording_fallback": "Richiede registrazioni conservate. Se il fotogramma manca, non è più grande, ha una forma diversa o non è pronto entro cinque secondi, viene usato lo snapshot del rilevamento.",
+      "classification_image_recording_scope": "Si applica ai nuovi rilevamenti, compresi gli eventi passati recuperati come rilevamenti mancati. Il salvataggio non recupera eventi passati né modifica le foto esistenti; la riclassificazione preferisce le foto salvate."
     },
     "cameras": {
       "title": "Telecamere Attive",

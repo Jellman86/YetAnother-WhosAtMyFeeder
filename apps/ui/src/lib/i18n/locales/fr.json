@@ -1041,7 +1041,14 @@
       "external_url_desc": "L'adresse que votre navigateur utilise pour ouvrir Frigate lorsqu'elle diffère de l'adresse du serveur ci-dessus. Utilisée pour le lien « Ouvrir dans Frigate » d'une détection.",
       "external_url_placeholder": "https://frigate.example.com",
       "ingest_labels": "Étiquettes Frigate à traiter",
-      "ingest_labels_desc": "Séparées par des virgules. Ajoutez les étiquettes que votre modèle Frigate utilise pour les oiseaux (p. ex. bird, duck, goose) ; tout ce qui est listé passe par le pipeline d'identification des oiseaux."
+      "ingest_labels_desc": "Séparées par des virgules. Ajoutez les étiquettes que votre modèle Frigate utilise pour les oiseaux (p. ex. bird, duck, goose) ; tout ce qui est listé passe par le pipeline d'identification des oiseaux.",
+      "classification_image_source": "Image pour identifier les nouvelles détections",
+      "classification_image_source_desc": "L’instantané de détection est plus rapide. Une image d’enregistrement peut montrer plus de détails si le flux d’enregistrement est plus grand que le flux de détection et montre la même vue. Une meilleure identification n’est pas garantie.",
+      "classification_image_snapshot": "Instantané de détection",
+      "classification_image_recording": "Image d’enregistrement",
+      "classification_image_recording_cost": "Frigate décode une image d’enregistrement par détection, et YA-WAMF télécharge et traite l’image plus grande.",
+      "classification_image_recording_fallback": "Nécessite des enregistrements conservés. Si l’image manque, n’est pas plus grande, a un autre format ou n’est pas prête en cinq secondes, l’instantané de détection est utilisé.",
+      "classification_image_recording_scope": "S’applique aux nouvelles détections, y compris aux événements passés récupérés comme détections manquées. Sauvegarder ce réglage ne récupère aucun événement passé et ne modifie pas les photos existantes. La reclassification privilégie les photos sauvegardées."
     },
     "cameras": {
       "title": "Caméras actives",

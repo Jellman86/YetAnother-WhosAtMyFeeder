@@ -1424,6 +1424,7 @@ export interface components {
     camera_audio_mapping: Record<string, string>;
     camera_roles: Record<string, "feeder" | "nest">;
     cameras: Array<string>;
+    classification_image_source?: "frigate_snapshot" | "recording_snapshot";
     classification_min_confidence?: number;
     classification_threshold?: number | null;
     clips_enabled?: boolean;
@@ -1630,6 +1631,7 @@ export interface components {
     camera_audio_mapping?: Record<string, string>;
     camera_roles?: Record<string, "feeder" | "nest">;
     cameras?: Array<string>;
+    classification_image_source?: "frigate_snapshot" | "recording_snapshot";
     classification_min_confidence?: number;
     classification_threshold?: number | null;
     clips_enabled?: boolean;

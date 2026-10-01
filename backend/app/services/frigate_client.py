@@ -272,6 +272,34 @@ class FrigateClient:
             log.error("Unexpected error fetching recording clip", camera=camera, error=str(e))
             return None, "clip_unknown_error"
 
+    async def get_recording_snapshot_with_error(
+        self, camera: str, frame_time: float, timeout: float = 5.0
+    ) -> tuple[Optional[bytes], Optional[str]]:
+        """Fetch one native-resolution frame without downloading a recording clip."""
+        from urllib.parse import quote
+
+        if (
+            not isinstance(camera, str)
+            or not camera.strip()
+            or camera in {".", ".."}
+            or isinstance(frame_time, bool)
+            or not isinstance(frame_time, (int, float))
+            or not math.isfinite(frame_time)
+            or frame_time <= 0
+        ):
+            return None, "recording_snapshot_invalid_input"
+        try:
+            response = await self.get(
+                f"api/{quote(camera, safe='')}/recordings/{frame_time}/snapshot.png", timeout=timeout
+            )
+            if response.status_code == 200 and response.headers.get("content-type", "").startswith("image/"):
+                return response.content, None
+            return None, f"recording_snapshot_http_{response.status_code}"
+        except httpx.TimeoutException:
+            return None, "recording_snapshot_timeout"
+        except httpx.RequestError:
+            return None, "recording_snapshot_request_error"
+
     async def get_thumbnail(self, event_id: str) -> Optional[bytes]:
         """Fetch thumbnail image for an event."""
         try:

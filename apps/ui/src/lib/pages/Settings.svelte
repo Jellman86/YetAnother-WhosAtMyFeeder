@@ -57,7 +57,7 @@
         type PurgeMissingMediaResult,
         type RecordingClipCapability
     } from '../api';
-    import type { BlockedSpeciesEntry, NotificationSpeciesFilterMode, Settings as SettingsPayload } from '../api/settings';
+    import type { BlockedSpeciesEntry, ClassificationImageSource, NotificationSpeciesFilterMode, Settings as SettingsPayload } from '../api/settings';
     import { themeStore, type ColorTheme, type FontTheme, type Theme } from '../stores/theme.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { analysisQueueStatusStore } from '../stores/analysis_queue_status.svelte';
@@ -219,6 +219,7 @@
     let birdnetSourcesError = $state<string | null>(null);
     let audioBufferHours = $state(24);
     let audioCorrelationWindowSeconds = $state(300);
+    let classificationImageSource = $state<ClassificationImageSource>('frigate_snapshot');
     let clipsEnabled = $state(true);
     let recordingClipEnabled = $state(false);
     let recordingClipBeforeSeconds = $state(30);
@@ -1760,6 +1761,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'birdnetEnabled', val: birdnetEnabled, store: s.birdnet_enabled ?? true },
             { key: 'birdnetUrl', val: birdnetUrl, store: s.birdnet_url || '' },
             { key: 'birdnetExternalUrl', val: birdnetExternalUrl, store: s.birdnet_external_url || '' },
+            { key: 'classificationImageSource', val: classificationImageSource, store: s.classification_image_source ?? 'frigate_snapshot' },
             { key: 'clipsEnabled', val: clipsEnabled, store: s.clips_enabled ?? true },
             { key: 'recordingClipEnabled', val: recordingClipEnabled, store: s.recording_clip_enabled ?? false },
             { key: 'recordingClipBeforeSeconds', val: recordingClipBeforeSeconds, store: s.recording_clip_before_seconds ?? 30 },
@@ -2828,6 +2830,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             }
             audioBufferHours = settings.audio_buffer_hours ?? 24;
             audioCorrelationWindowSeconds = settings.audio_correlation_window_seconds ?? 300;
+            classificationImageSource = settings.classification_image_source ?? 'frigate_snapshot';
             clipsEnabled = settings.clips_enabled ?? true;
             recordingClipEnabled = settings.recording_clip_enabled ?? false;
             recordingClipBeforeSeconds = settings.recording_clip_before_seconds ?? 30;
@@ -3188,6 +3191,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 nest_dedupe_minutes: nestDedupeMinutes,
                 audio_buffer_hours: audioBufferHours,
                 audio_correlation_window_seconds: audioCorrelationWindowSeconds,
+                classification_image_source: classificationImageSource,
                 clips_enabled: clipsEnabled,
                 recording_clip_enabled: recordingClipEnabled,
                 recording_clip_before_seconds: recordingClipBeforeSeconds,
@@ -3455,6 +3459,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:selectedCameras
                     bind:cameraRoles
                     bind:nestDedupeMinutes
+                    bind:classificationImageSource
                     bind:clipsEnabled
                     bind:recordingClipEnabled
                     bind:recordingClipBeforeSeconds
