@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Find species by common or scientific name in **Needs your call**, using the same taxonomy search as the full record. Keep search results tied to the current query and visit, and distinguish loading or failed searches from an empty result.
+
 - Send delayed video notifications using the visit's accepted species and current audio confirmation, after the photo work finishes. Rejected video guesses, deleted or hidden visits, and blocked or unknown species cannot bypass the saved result.
 
 - Synchronize the saved photo with the exact positively identified video moment and crop, even when optional high-quality scanning is disabled. Preserve manual choices and storage eviction, keep existing frame choices, and prevent late Frigate snapshots from overwriting refined photos.

@@ -210,7 +210,9 @@ frame keeps the bird list without misleading outlines.
 
 In **Needs your call**, choose a species or **Skip for now** before the supporting counted-bird
 details. The `s` shortcut skips from dialog or button focus; typing in the species search and
-modified keys keep their normal behavior. Progress remains visible on phones.
+modified keys keep their normal behavior. Progress remains visible on phones. Search species by
+common or scientific name, such as **Goldcrest** or `Regulus regulus`. The search uses the same
+taxonomy results as the full record; before typing, the picker offers species seen at this feeder.
 
 **Settings → Data → Snapshot quality → Best available event snapshots** is an automatic outcome,
 not a source selector. When enabled, YA-WAMF samples up to three centre/track-weighted moments from

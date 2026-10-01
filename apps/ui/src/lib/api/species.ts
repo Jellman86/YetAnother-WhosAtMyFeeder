@@ -152,7 +152,12 @@ export async function exportEbirdCsv(range?: EbirdExportRange): Promise<void> {
 
 export type SearchResult = paths['/api/species/search']['get']['response'][number];
 
-export async function searchSpecies(query: string, limit?: number, hydrateMissing: boolean = false): Promise<SearchResult[]> {
+export async function searchSpecies(
+    query: string,
+    limit?: number,
+    hydrateMissing: boolean = false,
+    signal?: AbortSignal
+): Promise<SearchResult[]> {
     const params = new URLSearchParams();
     params.set('q', query);
     if (limit !== undefined) {
@@ -161,7 +166,7 @@ export async function searchSpecies(query: string, limit?: number, hydrateMissin
     if (hydrateMissing) {
         params.set('hydrate_missing', 'true');
     }
-    const response = await apiFetch(`${API_BASE}/species/search?${params.toString()}`);
+    const response = await apiFetch(`${API_BASE}/species/search?${params.toString()}`, { signal });
     return handleResponse<SearchResult[]>(response);
 }
 

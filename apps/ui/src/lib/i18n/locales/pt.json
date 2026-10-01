@@ -367,6 +367,7 @@
       "threshold_note": "O modelo ficou abaixo do limiar de identificação.",
       "search": "Procurar espécie…",
       "no_matches": "Nenhuma espécie corresponde. Tente menos letras.",
+      "search_failed": "Não foi possível pesquisar espécies. Altere a pesquisa para tentar novamente.",
       "skip": "Ignorar por agora",
       "not_a_bird": "Não é uma ave, ocultar",
       "delete": "Eliminar permanentemente",

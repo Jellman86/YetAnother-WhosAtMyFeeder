@@ -367,6 +367,7 @@
       "threshold_note": "Il modello è rimasto sotto la soglia di identificazione.",
       "search": "Cerca specie…",
       "no_matches": "Nessuna specie corrisponde. Prova con meno lettere.",
+      "search_failed": "Impossibile cercare le specie. Modifica la ricerca per riprovare.",
       "skip": "Salta per ora",
       "not_a_bird": "Non è un uccello, nascondi",
       "delete": "Elimina definitivamente",

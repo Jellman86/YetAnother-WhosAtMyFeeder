@@ -56,7 +56,7 @@
 {:else if open}
     <ReviewQueueModal
         {queue}
-        labels={Object.values(NAMES).map((name) => name.common)}
+        labels={Object.values(NAMES).map((name) => params.get('labels') === 'scientific' ? name.scientific : name.common)}
         onidentify={(detection, species) => { events = [...events, `identify ${detection.frigate_event} ${species}`]; }}
         onhide={(detection) => { events = [...events, `hide ${detection.frigate_event}`]; }}
         onopen={(detection) => { events = [...events, `open ${detection.frigate_event}`]; }}
