@@ -8,6 +8,8 @@ aiosqlite==0.22.1
 aiofiles>=25.1.0
 httpx==0.28.1
 python-multipart==0.0.32
+# Windows does not provide a system IANA timezone database.
+tzdata==2026.4; sys_platform == "win32"
 
 # Image processing.
 #

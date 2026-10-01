@@ -168,7 +168,11 @@ def mock_os_path_exists():
 
 
 @pytest.fixture(autouse=True)
-def force_in_process_mode():
+def force_in_process_mode(monkeypatch, tmp_path):
+    # Unit tests own provider capabilities. Installed-model gates exercise the
+    # real accelerator; constructor tests must not probe the host repeatedly.
+    monkeypatch.setattr(classifier_service_module, "_detect_cuda_hardware_available", lambda: False)
+    monkeypatch.setenv("OPENVINO_CACHE_DIR", str(tmp_path / "openvino-cache"))
     original_mode = settings.classification.image_execution_mode
     settings.classification.image_execution_mode = "in_process"
     try:
@@ -184,7 +188,7 @@ def test_runtime_benchmark_is_opt_in_by_default(monkeypatch):
 
 
 def _stub_init_bird_model(self):
-    self._models["bird"] = MagicMock(loaded=True, error=None, labels=[])
+    self._models["bird"] = MagicMock(loaded=True, error=None, labels=[], model_path="", labels_path="")
 
 
 class _FallbackReadyModel:
@@ -1367,15 +1371,15 @@ async def test_init_bird_model_falls_through_when_runtime_fallback_load_fails(mo
         "supported_inference_providers": ["intel_gpu", "intel_cpu", "cpu"],
     }
 
-    openvino_model = MagicMock()
+    openvino_model = MagicMock(model_path="", labels_path="")
     openvino_model.load.return_value = False
     openvino_model.error = "openvino compile failed"
 
-    onnx_fallback_model = MagicMock()
+    onnx_fallback_model = MagicMock(model_path="", labels_path="")
     onnx_fallback_model.load.return_value = False
     onnx_fallback_model.error = "onnx fallback failed"
 
-    tflite_fallback_model = MagicMock()
+    tflite_fallback_model = MagicMock(model_path="", labels_path="")
     tflite_fallback_model.loaded = True
     tflite_fallback_model.error = None
     tflite_fallback_model.labels = []
@@ -1439,7 +1443,7 @@ async def test_init_bird_model_surfaces_model_config_provider_warning_in_status(
         ],
     }
 
-    bird_model = MagicMock()
+    bird_model = MagicMock(model_path="", labels_path="")
     bird_model.loaded = True
     bird_model.error = None
     bird_model.labels = []
@@ -1515,13 +1519,13 @@ async def test_init_bird_model_refuses_slow_openvino_gpu_runtime_and_exposes_ben
         "supported_inference_providers": ["intel_gpu", "intel_cpu", "cpu"],
     }
 
-    gpu_model = MagicMock()
+    gpu_model = MagicMock(model_path="", labels_path="")
     gpu_model.load.return_value = True
     gpu_model.error = None
     gpu_model.labels = []
     gpu_model.get_status.return_value = {"loaded": True, "runtime": "openvino", "device": "GPU"}
 
-    cpu_fallback = MagicMock()
+    cpu_fallback = MagicMock(model_path="", labels_path="")
     cpu_fallback.load.return_value = True
     cpu_fallback.error = None
     cpu_fallback.labels = []
@@ -1600,7 +1604,7 @@ async def test_init_bird_model_mounts_openvino_gpu_when_runtime_benchmark_passes
         "supported_inference_providers": ["intel_gpu", "intel_cpu", "cpu"],
     }
 
-    gpu_model = MagicMock()
+    gpu_model = MagicMock(model_path="", labels_path="")
     gpu_model.load.return_value = True
     gpu_model.error = None
     gpu_model.labels = []
@@ -1667,14 +1671,14 @@ async def test_init_bird_model_refuses_slow_onnxruntime_cuda_and_exposes_benchma
         "supported_inference_providers": ["cuda", "cpu"],
     }
 
-    cuda_model = MagicMock()
+    cuda_model = MagicMock(model_path="", labels_path="")
     cuda_model.load.return_value = True
     cuda_model.error = None
     cuda_model.labels = []
     cuda_model.session.get_providers.return_value = ["CUDAExecutionProvider", "CPUExecutionProvider"]
     cuda_model.get_status.return_value = {"loaded": True, "runtime": "onnx"}
 
-    cpu_fallback = MagicMock()
+    cpu_fallback = MagicMock(model_path="", labels_path="")
     cpu_fallback.load.return_value = True
     cpu_fallback.error = None
     cpu_fallback.labels = []
@@ -1750,7 +1754,7 @@ async def test_init_bird_model_mounts_onnxruntime_cuda_when_runtime_benchmark_pa
         "supported_inference_providers": ["cuda", "cpu"],
     }
 
-    cuda_model = MagicMock()
+    cuda_model = MagicMock(model_path="", labels_path="")
     cuda_model.load.return_value = True
     cuda_model.error = None
     cuda_model.labels = []
@@ -1960,7 +1964,9 @@ async def test_classify_video_ignores_unknown_frames_when_known_evidence_exists(
 
     with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
         service = ClassifierService()
-        service._models["bird"] = MagicMock(loaded=True, labels=["Unknown", "Robin", "Blue Jay"])
+        service._models["bird"] = MagicMock(
+            model_path="", labels_path="", loaded=True, labels=["Unknown", "Robin", "Blue Jay"]
+        )
         monkeypatch.setattr("cv2.VideoCapture", _FakeCapture)
         monkeypatch.setattr(service, "_classify_raw_with_runtime_recovery", _fake_classify_raw)
 
@@ -3173,7 +3179,7 @@ async def test_register_gpu_unhealthy_signal_triggers_fallback_from_maintenance_
     """Maintenance video timeouts should trigger the same GPU fallback as live
     lease expiries. Exercises the issue-33 path where overnight batch runs see
     no live traffic to surface an unhealthy Intel GPU on their own."""
-    fallback_model = MagicMock(loaded=True, error=None)
+    fallback_model = MagicMock(model_path="", labels_path="", loaded=True, error=None)
     with patch.object(ClassifierService, "_init_bird_model", return_value=None):
         monkeypatch.setattr(
             classifier_service_module,
@@ -3188,7 +3194,9 @@ async def test_register_gpu_unhealthy_signal_triggers_fallback_from_maintenance_
         service._accel_caps["intel_gpu_available"] = True
         service._accel_caps["intel_cpu_available"] = True
         service._load_runtime_fallback_bird_model = MagicMock(
-            return_value=(fallback_model, "openvino", "intel_cpu", "maintenance fallback")
+            model_path="",
+            labels_path="",
+            return_value=(fallback_model, "openvino", "intel_cpu", "maintenance fallback"),
         )
 
         service.register_gpu_unhealthy_signal("maintenance_video_timeout", event_id="evt-1")
@@ -3211,7 +3219,7 @@ async def test_register_gpu_unhealthy_signal_triggers_fallback_from_maintenance_
 async def test_register_gpu_unhealthy_signal_uses_inference_health_verdict_for_fallback(
     mock_tflite, mock_os_path_exists, monkeypatch
 ):
-    fallback_model = MagicMock(loaded=True, error=None)
+    fallback_model = MagicMock(model_path="", labels_path="", loaded=True, error=None)
     with patch.object(ClassifierService, "_init_bird_model", return_value=None):
         monkeypatch.setattr(
             classifier_service_module,
@@ -3226,7 +3234,9 @@ async def test_register_gpu_unhealthy_signal_uses_inference_health_verdict_for_f
         service._accel_caps["intel_gpu_available"] = True
         service._accel_caps["intel_cpu_available"] = True
         service._load_runtime_fallback_bird_model = MagicMock(
-            return_value=(fallback_model, "openvino", "intel_cpu", "inference health fallback")
+            model_path="",
+            labels_path="",
+            return_value=(fallback_model, "openvino", "intel_cpu", "inference health fallback"),
         )
         runtime_key = classifier_service_module.RuntimeKey.from_values(
             "openvino",
@@ -3252,7 +3262,7 @@ async def test_register_gpu_unhealthy_signal_uses_inference_health_verdict_for_f
 async def test_register_gpu_unhealthy_signal_does_not_depend_on_legacy_signal_deque(
     mock_tflite, mock_os_path_exists, monkeypatch
 ):
-    fallback_model = MagicMock(loaded=True, error=None)
+    fallback_model = MagicMock(model_path="", labels_path="", loaded=True, error=None)
     with patch.object(ClassifierService, "_init_bird_model", return_value=None):
         monkeypatch.setattr(
             classifier_service_module,
@@ -3267,7 +3277,9 @@ async def test_register_gpu_unhealthy_signal_does_not_depend_on_legacy_signal_de
         service._accel_caps["intel_gpu_available"] = True
         service._accel_caps["intel_cpu_available"] = True
         service._load_runtime_fallback_bird_model = MagicMock(
-            return_value=(fallback_model, "openvino", "intel_cpu", "inference health fallback")
+            model_path="",
+            labels_path="",
+            return_value=(fallback_model, "openvino", "intel_cpu", "inference health fallback"),
         )
         runtime_key = classifier_service_module.RuntimeKey.from_values(
             "openvino",
@@ -3301,7 +3313,7 @@ async def test_register_gpu_unhealthy_signal_does_not_double_count_live_lease_ex
         service._inference_backend = "openvino"
         service._active_inference_provider = "intel_gpu"
         service._image_execution_mode = "in_process"
-        service._load_runtime_fallback_bird_model = MagicMock()
+        service._load_runtime_fallback_bird_model = MagicMock(model_path="", labels_path="")
         runtime_key = classifier_service_module.RuntimeKey.from_values(
             "openvino",
             "intel_gpu",
@@ -3331,7 +3343,7 @@ async def test_register_gpu_unhealthy_signal_noop_off_openvino_intel_gpu(mock_tf
         service._inference_backend = "onnxruntime"
         service._active_inference_provider = "cpu"
         service._image_execution_mode = "in_process"
-        service._load_runtime_fallback_bird_model = MagicMock()
+        service._load_runtime_fallback_bird_model = MagicMock(model_path="", labels_path="")
 
         service.register_gpu_unhealthy_signal("maintenance_video_timeout")
         service._load_runtime_fallback_bird_model.assert_not_called()
@@ -3873,7 +3885,7 @@ async def test_classifier_service_classify_video_forwards_input_context_to_frame
 
     with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
         service = ClassifierService()
-        service._models["bird"] = MagicMock(labels=["Robin", "Sparrow"])
+        service._models["bird"] = MagicMock(model_path="", labels_path="", labels=["Robin", "Sparrow"])
         monkeypatch.setattr("cv2.VideoCapture", _FakeCapture)
         monkeypatch.setattr(service, "_classify_raw_with_runtime_recovery", _fake_classify_raw)
 
@@ -5936,7 +5948,7 @@ async def test_classifier_status_exposes_openvino_runtime_diagnostics_block():
             },
         }
     )
-    service._models["bird"] = MagicMock()
+    service._models["bird"] = MagicMock(model_path="", labels_path="")
     service._models["bird"].get_status.return_value = {
         "loaded": True,
         "runtime": "openvino",

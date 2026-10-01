@@ -125,6 +125,17 @@ def pytest_configure(config):
 
 
 @pytest.fixture(autouse=True)
+def isolate_config_hostname_resolution(monkeypatch):
+    """Configuration tests must not depend on host DNS or Docker service names."""
+    import socket
+
+    def unresolved(_hostname):
+        raise socket.gaierror("No external DNS in unit tests")
+
+    monkeypatch.setattr(socket, "gethostbyname_ex", unresolved)
+
+
+@pytest.fixture(autouse=True)
 def disable_rate_limiting():
     """Disable rate limiting for all tests by default."""
     from app.ratelimit import limiter

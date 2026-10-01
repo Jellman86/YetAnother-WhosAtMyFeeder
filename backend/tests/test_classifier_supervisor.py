@@ -16,6 +16,14 @@ from app.services.classifier_supervisor import (
 from app.services.native_crash_quarantine import NativeCrashQuarantine, NativeCrashQuarantinedError
 
 
+async def _wait_for_sent(created):
+    async def sent():
+        while not created or not created[0].sent_messages:
+            await asyncio.sleep(0)
+
+    await asyncio.wait_for(sent(), 2)
+
+
 @pytest.mark.asyncio
 @pytest.mark.skipif(sys.platform != "linux", reason="Linux signal/reaping contract, no macOS crash reporter")
 async def test_real_native_child_crash_is_reaped_and_persistently_quarantined(tmp_path):
@@ -510,7 +518,7 @@ async def test_classifier_supervisor_classify_starts_requested_pool_only():
             model_id="default",
         )
     )
-    await asyncio.sleep(0.01)
+    await _wait_for_sent(created)
 
     assert [worker.worker_name for worker in created] == ["background-0"]
     await created[0].events.put(
@@ -601,7 +609,7 @@ async def test_classifier_supervisor_assigns_work_to_idle_worker():
             model_id="default",
         )
     )
-    await asyncio.sleep(0.01)
+    await _wait_for_sent(created)
     assert created[0].sent_messages[0]["type"] == "classify"
     await created[0].events.put(
         {
@@ -780,7 +788,7 @@ async def test_classifier_supervisor_abort_request_replaces_matching_worker():
             model_id="default",
         )
     )
-    await asyncio.sleep(0.01)
+    await _wait_for_sent(created)
 
     aborted = await supervisor.abort_request(
         priority="live",
@@ -826,7 +834,7 @@ async def test_classifier_supervisor_abort_request_ignores_stale_token():
             model_id="default",
         )
     )
-    await asyncio.sleep(0.01)
+    await _wait_for_sent(created)
 
     aborted = await supervisor.abort_request(
         priority="live",
@@ -1076,7 +1084,7 @@ async def test_classifier_supervisor_ignores_stale_results_from_replaced_worker(
             model_id="default",
         )
     )
-    await asyncio.sleep(0.01)
+    await _wait_for_sent(created)
     first_request_id = created[0].sent_messages[0]["request_id"]
     created[0].last_heartbeat_monotonic = time.monotonic() - 1.0
 
@@ -1304,7 +1312,7 @@ async def test_classifier_supervisor_records_worker_runtime_recovery():
             model_id="default",
         )
     )
-    await asyncio.sleep(0.01)
+    await _wait_for_sent(created)
     request_id = created[0].sent_messages[0]["request_id"]
     await created[0].events.put(
         {
@@ -1381,7 +1389,7 @@ async def test_classifier_supervisor_does_not_block_result_on_slow_async_progres
             progress_callback=_slow_progress,
         )
     )
-    await asyncio.sleep(0.01)
+    await _wait_for_sent(created)
     request_id = created[0].sent_messages[0]["request_id"]
 
     await created[0].events.put(
