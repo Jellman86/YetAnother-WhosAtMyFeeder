@@ -6,6 +6,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Flush completed SQLite restore points through a writable handle before atomic publication, so native Windows backups retain committed WAL data and preserve previous restore points on failure.
 - Package IANA timezone data for Windows development installs and make worker lifecycle regression clocks independent of host timer resolution.
 - Handle Windows native worker fault statuses with persistent launch-profile quarantine and readable fault names. Normal termination and out-of-memory statuses do not claim a native compiler or memory fault.
 - Read Windows worker input through a bounded binary reader, and launch workers, runtime probes and validation/test children directly while preserving virtual environment dependencies, so requests, timeouts and shutdown own the native process. Cancelled crop validation reaps its child before returning.

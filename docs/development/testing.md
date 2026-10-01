@@ -93,7 +93,8 @@ failure and optional Frigate write-back failure. It never sends Telegram message
 `test_database_backups.py` now restores real SQLite snapshots, including committed
 WAL rows and owner metadata. Uncommitted writes are excluded. Corrupt input, failed
 writes, locked databases, filename collisions and clock corrections cannot replace
-the previous restore point with a partial copy.
+the previous restore point with a partial copy. Completed snapshots are flushed
+through a writable file handle before publication, including on native Windows.
 
 ## Hardware and longer checks
 

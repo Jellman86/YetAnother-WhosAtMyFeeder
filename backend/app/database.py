@@ -209,7 +209,7 @@ def _backup_db(
                     raise sqlite3.DatabaseError("Pre-migration backup integrity check failed")
             # Publish only a complete, checked snapshot on the same filesystem.
             # Close all handles first so this also works on Windows.
-            with open(partial, "rb") as completed:
+            with open(partial, "r+b") as completed:
                 os.fsync(completed.fileno())
             os.replace(partial, dst)
         finally:
