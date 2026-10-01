@@ -105,6 +105,11 @@ Each HTTP response captures one UTC day for admission, counts and audio evidence
 midnight passes while it is being built. Later requests and background work use the current
 day. Sharing preferences are still checked when used.
 
+Live updates recheck shared history and clear records that may no longer be public. The
+leaderboard temporarily keeps its previous page height during that read, so a short loading
+placeholder does not move a visitor's scroll position. This preserves no old record content;
+the temporary height is released when the replacement or error state renders.
+
 **With the default Keep Everything retention policy, both public windows cover 365 days.**
 The stored seven-day values apply only when you select custom windows. Check both windows
 before sharing your URL.

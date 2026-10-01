@@ -171,6 +171,59 @@ test('heatmap pointer and touch reading show the selected slot and dismiss clean
     await expect(tooltip).toHaveCount(0);
 });
 
+test('guest revalidation clears old records without collapsing the scrolled page', async ({ page }) => {
+    await page.goto('/browser-tests/species-charts.html?guest');
+    await expect(page.getByRole('grid', { name: /Activity by weekday and hour/ })).toBeVisible();
+    const oldGeometry = await page.evaluate(() => {
+        window.scrollTo(0, Math.min(900, document.documentElement.scrollHeight - innerHeight - 40));
+        return { y: scrollY, height: document.documentElement.scrollHeight };
+    });
+    expect(oldGeometry.y).toBeGreaterThan(100);
+    let release = () => {};
+    const waiting = new Promise<void>(resolve => { release = resolve; });
+    let requested = false;
+    await page.route('**/api/leaderboard/species?*', async route => {
+        requested = true;
+        await waiting;
+        await route.fulfill({ json: { span: 'month', species, window_start: start, window_end: end } });
+    });
+    try {
+        await page.evaluate(() => document.dispatchEvent(new Event('fixture-public-history')));
+        await expect.poll(() => requested).toBe(true);
+        await expect(page.locator('[data-leaderboard-rankings]')).toHaveCount(0);
+        await expect.poll(() => page.evaluate(() => scrollY)).toBeCloseTo(oldGeometry.y, 0);
+        await expect.poll(() => page.evaluate(() => document.documentElement.scrollHeight)).toBeGreaterThanOrEqual(oldGeometry.height - 2);
+    } finally {
+        release();
+    }
+    await expect(page.getByRole('grid', { name: /Activity by weekday and hour/ })).toBeVisible();
+    await expect.poll(() => page.evaluate(() => scrollY)).toBeCloseTo(oldGeometry.y, 0);
+    await expect(page.locator('[data-leaderboard-page]')).not.toHaveAttribute('style', /min-height: [1-9]/);
+});
+
+test('a failed guest refresh drops old records and releases the temporary page height', async ({ page }) => {
+    await page.goto('/browser-tests/species-charts.html?guest');
+    await expect(page.getByRole('grid', { name: /Activity by weekday and hour/ })).toBeVisible();
+    await page.route('**/api/leaderboard/species?*', route => route.fulfill({ status: 503, json: { detail: 'Unavailable' } }));
+    await page.evaluate(() => document.dispatchEvent(new Event('fixture-public-history')));
+    await expect(page.getByRole('button', { name: 'Retry', exact: true })).toBeVisible();
+    await expect(page.locator('[data-leaderboard-rankings]')).toHaveCount(0);
+    await expect(page.locator('[data-leaderboard-page]')).not.toHaveAttribute('style', /min-height: [1-9]/);
+});
+
+test('repeated guest refreshes and a new window do not leave a fixed page height', async ({ page }) => {
+    await page.goto('/browser-tests/species-charts.html?guest');
+    await expect(page.getByRole('grid', { name: /Activity by weekday and hour/ })).toBeVisible();
+    for (let index = 0; index < 3; index += 1) {
+        await page.evaluate(() => document.dispatchEvent(new Event('fixture-public-history')));
+        await expect(page.getByRole('grid', { name: /Activity by weekday and hour/ })).toBeVisible();
+        await expect(page.locator('[data-leaderboard-page]')).not.toHaveAttribute('style', /min-height: [1-9]/);
+    }
+    await page.getByRole('button', { name: 'Week', exact: true }).click();
+    await expect(page.getByRole('grid', { name: /Activity by weekday and hour/ })).toBeVisible();
+    await expect(page.locator('[data-leaderboard-page]')).not.toHaveAttribute('style', /min-height: [1-9]/);
+});
+
 async function rainPixels(canvas: Locator): Promise<number[][] | null> {
     return canvas.evaluate(node => {
         const element = node as HTMLCanvasElement & { __chartjs?: { scales: { x: { getPixelForValue(index: number): number } }; chartArea: { top: number }; currentDevicePixelRatio: number } };
