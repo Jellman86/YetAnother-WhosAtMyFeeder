@@ -308,6 +308,7 @@ build something better."*
   definition and wants nothing from anyone, so it renders in slate with its reason in words. Amber
   on those rows would contradict 1.3 and put seven of them under a heading saying nothing failed.
 - **Touch targets**: `min-h-11` on anything interactive, including chips and inline actions.
+- **Text reflow**: capture detail sheets fit 320px at 200% text. Media flex items need `min-w-0` so an aspect ratio plus a minimum height cannot widen the sheet in Safari. Fact labels, technical disclosure chrome and footer controls wrap when enlarged text no longer fits; complete names remain readable and controls retain their touch-target floor. Check the actual modal in Chromium and WebKit, including a full-resolution whole-scene peek and its outline geometry.
 - **Disclosures**: a collapsible section is not required to look like every other one — a terminal
   panel and an inline "show technical details" link are different things — but all of them owe the
   reader the same three signals: it says whether it is open (a chevron that rotates on `group-open`,
