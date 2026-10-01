@@ -116,7 +116,7 @@ def test_gpu_probe_ignores_a_counter_that_went_backwards(tmp_path: Path) -> None
 
 
 def test_nvidia_gpu_is_named_and_declared_unreadable(tmp_path: Path) -> None:
-    (tmp_path / "0000:01:00.0").mkdir(parents=True)
+    (tmp_path / "gpu0").mkdir(parents=True)
     reading = NvidiaPresenceProbe(gpu_root=tmp_path).read()[0]
 
     assert reading.label == "NVIDIA GPU"

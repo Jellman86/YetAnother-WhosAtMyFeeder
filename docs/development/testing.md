@@ -152,6 +152,11 @@ from a single pass. Review every failure, even when another repeat passes.
 
 ### Native Windows validation
 
+Install `requirements-base.txt`, `requirements-provider-cuda.txt` and
+`requirements-dev.txt` into an isolated Python 3.12 virtual environment. The base
+requirements include Windows timezone data, because Windows has no system IANA
+database. Run worker lifecycle tests before the installed-model CUDA gate.
+
 Windows workers use bounded binary stdin reads in a thread so heartbeats continue
 while waiting for requests. The parent launches the base interpreter directly
 with [CPython's virtual environment launcher hint](https://github.com/python/cpython/blob/3.12/Modules/getpath.py), retaining the environment's

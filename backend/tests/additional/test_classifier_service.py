@@ -131,11 +131,11 @@ class TestClassifierService:
                 mock_manager.active_model_id = "test-model"
 
                 # Mock model instance
-                old_model = MagicMock()
+                old_model = MagicMock(model_path="", labels_path="")
                 old_model.cleanup = MagicMock()
                 old_model.load = MagicMock()
 
-                new_model = MagicMock()
+                new_model = MagicMock(model_path="", labels_path="")
                 new_model.load = MagicMock()
 
                 MockModel.side_effect = [old_model, new_model]
@@ -184,7 +184,7 @@ class TestClassifierService:
                 mock_manager.get_active_model_paths = MagicMock(return_value=("/model.tflite", "/labels.txt", 224))
                 mock_manager.active_model_id = "test-model"
 
-                mock_model = MagicMock()
+                mock_model = MagicMock(model_path="", labels_path="")
                 mock_model.load = MagicMock()
                 mock_model.loaded = True
                 mock_model.labels = ["bird1", "bird2"]
@@ -229,7 +229,7 @@ class TestClassifierService:
                 mock_manager.get_active_model_paths = MagicMock(return_value=("/model.tflite", "/labels.txt", 224))
                 mock_manager.active_model_id = "test-model"
 
-                mock_model = MagicMock()
+                mock_model = MagicMock(model_path="", labels_path="")
                 mock_model.load = MagicMock()
                 mock_model.loaded = True
                 mock_model.labels = ["bird1", "bird2"]
@@ -271,7 +271,7 @@ class TestClassifierService:
                 mock_manager.get_active_model_paths = MagicMock(return_value=("/model.tflite", "/labels.txt", 224))
                 mock_manager.active_model_id = "test-model"
 
-                mock_model = MagicMock()
+                mock_model = MagicMock(model_path="", labels_path="")
                 mock_model.load = MagicMock()
                 mock_model.loaded = True
                 MockModel.return_value = mock_model

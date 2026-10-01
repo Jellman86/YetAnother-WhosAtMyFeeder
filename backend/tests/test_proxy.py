@@ -704,6 +704,7 @@ async def test_get_recording_clip_context_prefers_aware_detection_time_without_f
 
 
 @pytest.mark.asyncio
+@pytest.mark.skipif(not hasattr(time, "tzset"), reason="POSIX local timezone switching via TZ/tzset")
 async def test_get_recording_clip_context_falls_back_to_local_timezone_for_naive_detection(monkeypatch):
     previous_tz = __import__("os").environ.get("TZ")
     monkeypatch.setenv("TZ", "Europe/Helsinki")
