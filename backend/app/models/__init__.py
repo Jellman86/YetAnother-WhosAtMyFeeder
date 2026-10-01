@@ -1,6 +1,7 @@
-from pydantic import BaseModel, field_serializer
+from pydantic import BaseModel, field_serializer, field_validator
 from datetime import datetime
 from app.utils.api_datetime import serialize_api_datetime
+from app.utils.reference_images import bounded_reference_thumbnail
 
 
 class OAuthAuthorizeResponse(BaseModel):
@@ -194,6 +195,11 @@ class SpeciesInfo(APIModel):
     conservation_status: str | None = None
     taxa_id: int | None = None
     cached_at: datetime | None = None
+
+    @field_validator("thumbnail_url")
+    @classmethod
+    def bound_reference_photo(cls, value: str | None) -> str | None:
+        return bounded_reference_thumbnail(value)
 
 
 class SpeciesRangeMap(APIModel):

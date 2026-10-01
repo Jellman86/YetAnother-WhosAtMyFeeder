@@ -375,7 +375,10 @@ Notes:
 - `GET /api/species`
 - `GET /api/species/search`
 - `GET /api/species/{species_name}/stats`
-- `GET /api/species/{species_name}/info`
+- `GET /api/species/{species_name}/info` returns cached reference metadata. Known Wikimedia
+  JPEG/PNG originals and oversized reference thumbnails use a supported 960-pixel rendition;
+  smaller renditions and other providers retain their URLs. This also applies to older cache
+  rows without a catalogue refresh or database write.
 - `GET /api/species/{species_name}/range`
 - `GET /api/species/common-name-override?scientific_name=...` (owner)
 - `PUT /api/species/common-name-override` (owner; preserves the provider name separately)

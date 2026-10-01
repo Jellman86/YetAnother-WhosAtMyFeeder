@@ -2247,8 +2247,6 @@ async def _get_wikipedia_summary(
     client: httpx.AsyncClient, article_title: str, original_name: str, lang: str
 ) -> SpeciesInfo:
     """Fetch the summary for a Wikipedia article."""
-    import re
-
     base_url = f"https://{lang}.wikipedia.org/api/rest_v1/page/summary"
     encoded = quote(article_title.replace(" ", "_"))
     url = f"{base_url}/{encoded}"
@@ -2261,16 +2259,12 @@ async def _get_wikipedia_summary(
             description = data.get("description", "")
             extract = data.get("extract", "")
 
-            # Get the best available image
+            # SpeciesInfo bounds originals to a supported reference-photo size.
             thumbnail_url = None
             if "originalimage" in data:
                 thumbnail_url = data["originalimage"].get("source")
             elif "thumbnail" in data:
-                thumb_url = data["thumbnail"].get("source", "")
-                if "/thumb/" in thumb_url and "px-" in thumb_url:
-                    thumbnail_url = re.sub(r"/\d+px-", "/800px-", thumb_url)
-                else:
-                    thumbnail_url = thumb_url
+                thumbnail_url = data["thumbnail"].get("source", "")
 
             wikipedia_url = data.get("content_urls", {}).get("desktop", {}).get("page")
             return SpeciesInfo(

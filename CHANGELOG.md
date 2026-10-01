@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Bound Wikimedia species reference photos to supported thumbnails, including older cached metadata, so tiny leaderboard portraits do not download and decode full-resolution originals. Keep smaller provider renditions and species details intact without refreshing the catalogue.
+
 - Keep final Frigate still candidates attached to their saved capture during cache cleanup, including older metadata, so live crop and counted-frame images are not mistaken for deleted visits.
 - Advertise candidate image and thumbnail URLs only when their files are retained, and keep unchanged file URLs stable across reads. Missing media preserves candidate choices and counted bird corrections.
 
