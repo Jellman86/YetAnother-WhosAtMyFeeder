@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Reject late analysis and chat replies when the capture’s species, time or weather changes during generation. The prompt and revision are read together; unrelated favourite changes still allow completion.
+
 - Keep guest audio confirmations and counts tied to the camera’s mapped microphones, batch evidence reads across each page, and exclude tomorrow’s audio from today-only views. Guest leaderboard portraits are checked against current visibility before ranking; saved observation pins follow the selected location precision.
 
 - Apply public-history limits and current visibility to cached AI conversations, species statistics, charts, all audio views and media. Guests cannot retrieve hidden, older or unknown BirdNET media by its upstream ID; failed visibility checks return a retryable error. Live public messages carry only refresh signals, with bounded follow-up fetches through the public API and a refresh when sharing settings change. Hidden audio cannot remain in public visual labels or confirmation counts. Failed public refreshes clear stale rows and retry, and signing out discards owner detail caches. Owner live updates retain their detailed payloads.

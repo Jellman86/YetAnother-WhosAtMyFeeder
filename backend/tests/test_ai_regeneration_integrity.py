@@ -276,3 +276,63 @@ def test_conflict_message_is_available_in_every_backend_locale(language):
     path = Path(__file__).resolve().parents[1] / "locales" / f"{language}.json"
     value = json.loads(path.read_text())["errors"]["ai"]["context_changed"]
     assert isinstance(value, str) and value.strip()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "change",
+    ["display_name='Cardinal'", "temperature=30", "weather_condition='Rain'", "detection_time='2026-09-02 10:00:00'"],
+)
+@pytest.mark.parametrize("conversation", [False, True])
+async def test_prompt_context_edits_reject_late_provider_result(regeneration, monkeypatch, change, conversation):
+    r = regeneration
+    before = await r.state()
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    async def pending(*args, **kwargs):
+        entered.set()
+        await release.wait()
+        return "Stale provider result"
+
+    if conversation:
+        monkeypatch.setattr(ai.ai_service, "chat_detection", pending)
+        request = asyncio.create_task(
+            r.client.post("/api/events/regen-fixture/conversation", json={"message": "New question"})
+        )
+    else:
+        r.provider.side_effect = pending
+        request = asyncio.create_task(r.client.post(r.route))
+    await asyncio.wait_for(entered.wait(), 2)
+    try:
+        async with r.database() as db:
+            await db.execute(f"UPDATE detections SET {change} WHERE frigate_event='regen-fixture'")
+            await db.commit()
+    finally:
+        release.set()
+    response = await request
+    assert response.status_code == 409
+    row, turns = await r.state()
+    assert row == before[0]
+    assert turns[:2] == before[1]
+    assert all(content != "Stale provider result" for _, content in turns)
+
+
+@pytest.mark.asyncio
+async def test_unrelated_favorite_edit_does_not_invalidate_prompt(regeneration):
+    r = regeneration
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    async def pending(**kwargs):
+        entered.set()
+        await release.wait()
+        return "Current context result"
+
+    r.provider.side_effect = pending
+    request = asyncio.create_task(r.client.post(r.route))
+    await asyncio.wait_for(entered.wait(), 2)
+    try:
+        async with r.database() as db:
+            await DetectionRepository(db).favorite_detection("regen-fixture")
+    finally:
+        release.set()
+    assert (await request).status_code == 200

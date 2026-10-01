@@ -149,9 +149,13 @@ async def analyze_event(
     # and a pooled connection held across them is a fifth of the server's
     # capacity spent waiting on someone else's network.
     async with privacy_checked_db(get_db) as db:
-        detection = await DetectionRepository(db).get_by_frigate_event(event_id)
+        context = await DetectionRepository(db).get_ai_prompt_context(event_id)
 
-        if not detection or (not auth.is_owner and not public_event_visible(detection)):
+        if context is None:
+            raise HTTPException(status_code=404, detail=i18n_service.translate("errors.detection_not_found", lang))
+
+        detection, revision = context
+        if not auth.is_owner and not public_event_visible(detection):
             raise HTTPException(status_code=404, detail=i18n_service.translate("errors.detection_not_found", lang))
 
         # Check if analysis already exists and force is not set
@@ -164,10 +168,6 @@ async def analyze_event(
 
         if not auth.is_owner:
             raise HTTPException(status_code=403, detail="Owner access required to generate AI analysis.")
-
-        revision = await DetectionRepository(db).get_ai_analysis_revision(event_id)
-        if revision is None:
-            raise HTTPException(status_code=404, detail=i18n_service.translate("errors.detection_not_found", lang))
 
     frames: list[bytes] = []
     frame_source: str | None = None
@@ -319,13 +319,11 @@ async def post_event_conversation(
     # Record the question and build the prompt under one connection, then
     # release it for the duration of the model call.
     async with get_db() as db:
-        detection = await DetectionRepository(db).get_by_frigate_event(event_id)
-        if not detection:
+        context = await DetectionRepository(db).get_ai_prompt_context(event_id)
+        if context is None:
             raise HTTPException(status_code=404, detail=i18n_service.translate("errors.detection_not_found", lang))
 
-        revision = await DetectionRepository(db).get_ai_analysis_revision(event_id)
-        if revision is None:
-            raise HTTPException(status_code=404, detail=i18n_service.translate("errors.detection_not_found", lang))
+        detection, revision = context
         convo_repo = AIConversationRepository(db)
         history = await convo_repo.list_turns(event_id)
         question = await convo_repo.add_turn(event_id, "user", body.message)

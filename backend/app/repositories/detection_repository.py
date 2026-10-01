@@ -19,11 +19,16 @@ from app.utils.api_datetime import serialize_api_datetime, serialize_storage_dat
 log = structlog.get_logger()
 
 
+AI_PROMPT_CONTEXT_COLUMNS = ("id", "display_name", "detection_time", "temperature", "weather_condition")
+AI_PROMPT_CONTEXT_PREDICATE = " AND ".join(f"{column} IS ?" for column in AI_PROMPT_CONTEXT_COLUMNS)
+
+
 @dataclass(frozen=True)
 class AIAnalysisRevision:
     analysis: str | None
     timestamp: str | None
     last_turn_id: int
+    prompt_context: tuple
 
 
 # Species alias sets change only when a new label variant lands, but the
@@ -1449,15 +1454,30 @@ class DetectionRepository:
             )
             return False
 
-    async def get_ai_analysis_revision(self, frigate_event: str) -> AIAnalysisRevision | None:
+    async def get_ai_prompt_context(self, frigate_event: str) -> tuple[Detection, AIAnalysisRevision] | None:
+        """Read the prompt and its compare-and-swap token from the same SQLite snapshot."""
+        context_columns = ", ".join(f"d.{column}" for column in AI_PROMPT_CONTEXT_COLUMNS)
         async with self.db.execute(
-            """SELECT ai_analysis, ai_analysis_timestamp,
-                      (SELECT COALESCE(MAX(id), 0) FROM ai_conversation_turns WHERE frigate_event = d.frigate_event)
-               FROM detections d WHERE frigate_event = ?""",
+            f"""SELECT {DETECTION_SELECT_COLUMNS}, d.ai_analysis, d.ai_analysis_timestamp,
+                       (SELECT COALESCE(MAX(id), 0) FROM ai_conversation_turns
+                        WHERE frigate_event = d.frigate_event), {context_columns}
+                FROM detections d LEFT JOIN detection_favorites f ON f.detection_id = d.id
+                WHERE d.frigate_event = ?""",
             (frigate_event,),
         ) as cursor:
             row = await cursor.fetchone()
-        return AIAnalysisRevision(row[0], row[1], row[2]) if row else None
+        if not row:
+            return None
+        context_size = len(AI_PROMPT_CONTEXT_COLUMNS)
+        revision_start = len(row) - context_size - 3
+        revision = AIAnalysisRevision(
+            row[revision_start], row[revision_start + 1], row[revision_start + 2], tuple(row[-context_size:])
+        )
+        return _row_to_detection(row[:revision_start]), revision
+
+    async def get_ai_analysis_revision(self, frigate_event: str) -> AIAnalysisRevision | None:
+        context = await self.get_ai_prompt_context(frigate_event)
+        return context[1] if context else None
 
     async def update_ai_analysis(
         self,
@@ -1472,9 +1492,10 @@ class DetectionRepository:
         try:
             await self.db.execute("BEGIN IMMEDIATE")
             cursor = await self.db.execute(
-                """UPDATE detections SET ai_analysis = ?, ai_analysis_timestamp = ?
+                f"""UPDATE detections SET ai_analysis = ?, ai_analysis_timestamp = ?
                    WHERE frigate_event = ? AND ai_analysis IS ? AND ai_analysis_timestamp IS ?
-                     AND (SELECT COALESCE(MAX(id), 0) FROM ai_conversation_turns WHERE frigate_event = ?) = ?""",
+                     AND (SELECT COALESCE(MAX(id), 0) FROM ai_conversation_turns WHERE frigate_event = ?) = ?
+                     AND {AI_PROMPT_CONTEXT_PREDICATE}""",
                 (
                     analysis,
                     now,
@@ -1483,6 +1504,7 @@ class DetectionRepository:
                     expected_revision.timestamp,
                     frigate_event,
                     expected_revision.last_turn_id,
+                    *expected_revision.prompt_context,
                 ),
             )
             if cursor.rowcount != 1:
