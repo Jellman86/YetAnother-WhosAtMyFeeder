@@ -9,13 +9,8 @@
 
     $effect(() => {
         if (!pending || !dialogEl) return;
-        const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         // Cancel comes first, so the trap's initial focus lands on the safe answer.
-        const releaseFocus = trapFocus(dialogEl);
-        return () => {
-            releaseFocus();
-            previouslyFocused?.focus();
-        };
+        return trapFocus(dialogEl);
     });
 
     function handleKeydown(event: KeyboardEvent) {

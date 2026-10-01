@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Return keyboard focus to the opener when detection details or other shared dialogs close. Nested dialogs keep their own focus, removed openers fall back to the page content, and closing cancels pending initial focus.
+
 - Allow owner-started Gmail, Outlook and iNaturalist connections to finish on private instances without a Bearer header on the provider redirect. Only exact callback routes bypass normal request authentication; each consumes an expiring, single-use, provider-bound owner state. Failed token storage is reported as a failed connection.
 
 - Preserve browser-language date settings and independent clock choices when opening or saving Settings. Appearance now offers the saved browser-language date option.
