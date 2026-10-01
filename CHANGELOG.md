@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Apply notification cooldown before concurrent deliveries start. Failed or wholly cancelled deliveries remain retryable; a completed channel delivery still starts the cooldown if another channel is cancelled.
+
 - Report failed, empty or malformed provider responses as errors across analysis, charts and chat. Failed replies are never saved as answers; rate-limit and temporary-unavailability responses retain retry information. Provider logs omit response bodies and credentials.
 
 - Show manual-upload draft photos and video to signed-in owners through the existing HttpOnly media cookie. Only exact draft preview/media GET and HEAD routes accept it; writes and guests remain protected. Original draft media is private and is not cached by shared proxies.

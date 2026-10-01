@@ -121,6 +121,13 @@ different UI language does not quietly break your filter.
 A minimum gap in minutes between notifications, across all channels (default `0`, disabled).
 Use it to reduce notification frequency when the feeder is busy.
 
+When enabled, only one delivery can begin at a time, even when separate visits
+reach different delivery workers together. A delivery with no eligible channels,
+or with no successful channel, leaves the next visit eligible. A completed channel
+starts the cooldown even if another channel is cancelled. Turning the cooldown
+off allows concurrent deliveries as before. This is local delivery admission;
+it cannot guarantee whether a remote service accepted a request interrupted in transit.
+
 ## Notification Modes
 
 Choose a delivery mode in **Settings → Notifications**:
