@@ -34,6 +34,12 @@ from app.utils.api_datetime import serialize_api_datetime
 from app.utils.language import get_user_language
 from app.utils.enrichment import get_effective_enrichment_settings
 from app.utils.audio_localization import localize_audio_species_name
+from app.utils.public_access import (
+    hide_public_audio_fields,
+    refresh_public_audio_fields,
+    public_events_cutoff,
+    public_events_end,
+)
 from app.utils.timezone import get_user_timezone
 from app.auth import require_owner, AuthContext
 from app.auth import get_auth_context_with_legacy
@@ -900,14 +906,15 @@ def _dedupe_inaturalist_candidates(candidates: list[dict]) -> list[dict]:
 
 
 @router.get("/species", response_model=list[SpeciesCountItem])
-async def get_species_list(request: Request):
+async def get_species_list(request: Request, auth: AuthContext = Depends(get_auth_context_with_legacy)):
     """Get list of all species with counts."""
     lang = get_user_language(request)
+    bounds = {} if auth.is_owner else {"start_date": public_events_cutoff(), "end_date": public_events_end()}
     async with get_db() as db:
         repo = DetectionRepository(db)
         await repo.ensure_recent_rollups(90)
-        stats = await repo.get_species_leaderboard_base()
-        unified_metrics = await repo.get_unified_species_window_metrics()
+        stats = await repo.get_species_leaderboard_base(**bounds)
+        unified_metrics = await repo.get_unified_species_window_metrics(**bounds)
 
         # Transform unknown bird labels for display and aggregate counts
         unknown_labels = settings.classification.unknown_bird_labels
@@ -982,9 +989,9 @@ async def get_species_list(request: Request):
             )
 
         # Add aggregated "Unknown Bird" entry if any were found
-        unknown_stats = await repo.get_species_aggregate_for_name("Unknown Bird")
+        unknown_stats = await repo.get_species_aggregate_for_name("Unknown Bird", **bounds)
         if unknown_stats:
-            unknown_rollup = await repo.get_window_metrics_for_species_name("Unknown Bird")
+            unknown_rollup = await repo.get_window_metrics_for_species_name("Unknown Bird", **bounds)
             trend_delta = unknown_rollup.get("count_7d", 0) - unknown_rollup.get("count_prev_7d", 0)
             trend_pct = 0.0
             prev = unknown_rollup.get("count_prev_7d", 0)
@@ -1021,6 +1028,7 @@ async def get_species_list(request: Request):
 @guest_rate_limit()
 async def get_leaderboard_species(
     request: Request,
+    auth: AuthContext = Depends(get_auth_context_with_legacy),
     span: Literal["day", "week", "month"] = Query("week", description="Rolling window for leaderboard stats"),
 ):
     """Leaderboard species stats for a rolling window aligned to the current time.
@@ -1044,6 +1052,11 @@ async def get_leaderboard_species(
     prev_start = window_start - window
     prev_end = window_start
 
+    bounds = {} if auth.is_owner else {"start_date": public_events_cutoff(), "end_date": public_events_end()}
+    if not auth.is_owner:
+        cutoff = public_events_cutoff().replace(tzinfo=None)
+        window_start = max(window_start, cutoff)
+        prev_start = max(prev_start, cutoff)
     unknown_labels = settings.classification.unknown_bird_labels
 
     # Read everything the database has to say first and give the connection back.
@@ -1057,6 +1070,7 @@ async def get_leaderboard_species(
             window_end=window_end,
             prev_start=prev_start,
             prev_end=prev_end,
+            public_audio_evidence=not auth.is_owner,
         )
         unknown = await repo.get_species_leaderboard_window_for_name(
             species_name="Unknown Bird",
@@ -1064,8 +1078,9 @@ async def get_leaderboard_species(
             window_end=window_end,
             prev_start=prev_start,
             prev_end=prev_end,
+            public_audio_evidence=not auth.is_owner,
         )
-        history_start, _ = await repo.get_detection_time_bounds()
+        history_start, _ = await repo.get_detection_time_bounds(**bounds)
 
     nearby = await nearby_species_service.get_report()
 
@@ -1113,7 +1128,9 @@ async def get_leaderboard_species(
                 "window_avg_confidence": r.get("window_avg_confidence", 0.0),
                 "window_camera_count": r.get("window_camera_count", 0),
                 "window_confirmed_count": r.get("window_confirmed_count", 0),
-                "window_audio_confirmed_count": r.get("window_audio_confirmed_count", 0),
+                "window_audio_confirmed_count": r.get("window_audio_confirmed_count", 0)
+                if auth.is_owner or settings.public_access.show_audio
+                else 0,
                 "window_visit_count": r.get("window_visit_count", 0),
                 "window_prev_visit_count": r.get("prev_visit_count", 0),
                 "reported_nearby": reported_nearby(
@@ -1142,7 +1159,9 @@ async def get_leaderboard_species(
                 "window_avg_confidence": unknown.get("window_avg_confidence", 0.0),
                 "window_camera_count": unknown.get("window_camera_count", 0),
                 "window_confirmed_count": unknown.get("window_confirmed_count", 0),
-                "window_audio_confirmed_count": unknown.get("window_audio_confirmed_count", 0),
+                "window_audio_confirmed_count": unknown.get("window_audio_confirmed_count", 0)
+                if auth.is_owner or settings.public_access.show_audio
+                else 0,
                 "window_visit_count": unknown.get("window_visit_count", 0),
                 "window_prev_visit_count": unknown.get("prev_visit_count", 0),
             }
@@ -1156,7 +1175,8 @@ async def get_leaderboard_species(
         "window_start": window_start.replace(tzinfo=timezone.utc).isoformat(),
         "window_end": window_end.replace(tzinfo=timezone.utc).isoformat(),
         "history_start": serialize_api_datetime(history_start) if history_start else None,
-        "previous_window_complete": previous_window_is_complete(history_start=history_start, prev_start=prev_start),
+        "previous_window_complete": prev_start < prev_end
+        and previous_window_is_complete(history_start=history_start, prev_start=prev_start),
         "nearby_radius_km": nearby.radius_km if nearby else None,
         "nearby_days_back": nearby.days_back if nearby else None,
         "species": filtered,
@@ -1169,6 +1189,7 @@ async def get_species_stats(
     species_name: str, request: Request, auth: AuthContext = Depends(get_auth_context_with_legacy)
 ):
     """Get comprehensive statistics for a species."""
+    bounds = {} if auth.is_owner else {"start_date": public_events_cutoff(), "end_date": public_events_end()}
     lang = get_user_language(request)
     hide_camera_names = (
         not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
@@ -1208,7 +1229,7 @@ async def get_species_stats(
         confidence_count = 0
 
         for label in query_labels:
-            basic_stats = await repo.get_species_basic_stats(label)
+            basic_stats = await repo.get_species_basic_stats(label, **bounds)
             if basic_stats["total"] > 0:
                 total_stats["total"] += basic_stats["total"]
                 if basic_stats["first_seen"]:
@@ -1231,15 +1252,15 @@ async def get_species_stats(
                 confidence_count += basic_stats["total"]
 
                 # Aggregate distributions
-                label_hourly_counts = await repo.get_species_utc_hourly_counts(label)
+                label_hourly_counts = await repo.get_species_utc_hourly_counts(label, **bounds)
                 _accumulate_local_distributions((hourly, daily, monthly), label_hourly_counts, user_tz)
 
                 # Get camera breakdown
-                label_cameras = await repo.get_camera_breakdown(label)
+                label_cameras = await repo.get_camera_breakdown(label, **bounds)
                 all_camera_stats.extend(label_cameras)
 
                 # Get recent sightings
-                label_recent = await repo.get_recent_by_species(label, limit=5)
+                label_recent = await repo.get_recent_by_species(label, limit=5, **bounds)
                 recent.extend(label_recent)
 
         if total_stats["total"] == 0:
@@ -1281,7 +1302,14 @@ async def get_species_stats(
         # Convert dataclass detections to Pydantic models
         # Also transform display_name for unknown bird labels
         recent_detections = []
+        public_audio = (
+            await repo.get_public_audio_for_detections(recent)
+            if not auth.is_owner and settings.public_access.show_audio
+            else {}
+        )
         for d in recent:
+            if not auth.is_owner:
+                await refresh_public_audio_fields(d, repo, public_audio.get(d.frigate_event, {}))
             common_name = d.common_name
             if d.taxa_id:
                 if lang != "en":
@@ -1343,6 +1371,10 @@ async def get_species_stats(
                     taxa_id=public_species["taxa_id"],
                 )
             )
+
+        if not auth.is_owner and not settings.public_access.show_audio:
+            for detection in recent_detections:
+                hide_public_audio_fields(detection)
 
         # Get taxonomy names for the main species
         if alias_info:
@@ -2330,7 +2362,7 @@ async def get_leaderboard_portraits(
         return LeaderboardPortraitsResponse(span=span, portraits=[])
     cache_key = (span, limit, is_guest)
     cached = _portraits_cache.get(cache_key)
-    if cached and (asyncio.get_running_loop().time() - cached[0]) < PORTRAITS_CACHE_SECONDS:
+    if not is_guest and cached and (asyncio.get_running_loop().time() - cached[0]) < PORTRAITS_CACHE_SECONDS:
         return LeaderboardPortraitsResponse(span=span, portraits=[LeaderboardPortraitResponse(**p) for p in cached[1]])
 
     now = datetime.now(timezone.utc).replace(tzinfo=None)
@@ -2341,6 +2373,14 @@ async def get_leaderboard_portraits(
         guest_cutoff = (
             now - timedelta(days=max_days) if max_days > 0 else now.replace(hour=0, minute=0, second=0, microsecond=0)
         )
+
+    if is_guest:
+        from app.utils.public_access import public_events_cutoff, public_events_end
+
+        window_start = max(window_start, public_events_cutoff().replace(tzinfo=None), guest_cutoff)
+        public_end = public_events_end()
+        if public_end is not None:
+            window_end = min(window_end, public_end.replace(tzinfo=None))
 
     unknown_labels = settings.classification.unknown_bird_labels
     async with get_db() as db:
@@ -2359,7 +2399,12 @@ async def get_leaderboard_portraits(
             and not should_hide_species_label(r["species"])
         ][:limit]
         recent_by_species = {
-            r["species"]: await repo.get_recent_by_species(r["species"], limit=PORTRAIT_CANDIDATES_PER_SPECIES)
+            r["species"]: await repo.get_recent_by_species(
+                r["species"],
+                limit=PORTRAIT_CANDIDATES_PER_SPECIES,
+                start_date=window_start if is_guest else None,
+                end_date=window_end if is_guest else None,
+            )
             for r in ranked
         }
 
@@ -2382,7 +2427,8 @@ async def get_leaderboard_portraits(
             )
             break
 
-    _portraits_cache[cache_key] = (asyncio.get_running_loop().time(), portraits)
+    if not is_guest:
+        _portraits_cache[cache_key] = (asyncio.get_running_loop().time(), portraits)
     return LeaderboardPortraitsResponse(span=span, portraits=[LeaderboardPortraitResponse(**p) for p in portraits])
 
 

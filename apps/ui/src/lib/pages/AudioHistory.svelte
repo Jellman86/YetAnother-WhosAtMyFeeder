@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
+    import { onMount, untrack } from 'svelte';
     import { _, locale } from 'svelte-i18n';
     import {
         fetchAudioHistory,
@@ -14,6 +14,8 @@
     import { chartjs, toggleChartSlice, type CanvasChartConfig } from '../actions/chartjs';
     import { themeStore } from '../stores/theme.svelte';
     import { authStore } from '../stores/auth.svelte';
+    import { detectionsStore } from '../stores/detections.svelte';
+    import { createAudioHistoryLoader } from './audio-history-loader';
     import { withAuthParams } from '../api/core';
     import { appApiPath, toAppPath } from '../app/url-base';
     import { fetchSettings } from '../api/settings';
@@ -119,30 +121,42 @@
         };
     }
 
-    async function loadAudioHistory() {
-        loading = true;
-        error = null;
-        try {
-            const [nextHistory, nextSummary] = await Promise.all([
-                fetchAudioHistory(requestParams(true)),
-                fetchAudioSummary(requestParams(false))
-            ]);
+    const audioHistoryLoader = createAudioHistoryLoader({
+        fetchHistory: () => fetchAudioHistory(requestParams(true)),
+        fetchSummary: () => fetchAudioSummary(requestParams(false)),
+        begin: () => { loading = true; error = null; },
+        apply: (nextHistory, nextSummary) => {
             history = nextHistory;
             summary = nextSummary;
             hiddenChartState = { theme: '', indices: [] };
-        } catch (e) {
-            error = getErrorMessage(e) || 'Unable to load BirdNET history.';
+        },
+        clear: () => {
             history = null;
             summary = null;
+            if (authStore.isGuest) selectedSpecies = null;
+        },
+        fail: (e) => {
+            error = getErrorMessage(e) || 'Unable to load BirdNET history.';
             if (isTransientRequestError(e)) {
                 logger.warn('BirdNET history fetch failed (transient)', { message: error });
             } else {
                 logger.error('Failed to load BirdNET history', e);
             }
-        } finally {
-            loading = false;
-        }
+        },
+        finish: () => { loading = false; }
+    });
+
+    async function loadAudioHistory() {
+        await audioHistoryLoader.load();
     }
+
+    let handledPublicHistoryVersion = detectionsStore.publicHistoryVersion;
+    $effect(() => {
+        const version = detectionsStore.publicHistoryVersion;
+        if (version <= handledPublicHistoryVersion || !authStore.isGuest) return;
+        handledPublicHistoryVersion = version;
+        untrack(() => { void audioHistoryLoader.load(true); });
+    });
 
     async function changeVisibility(id: number, hidden: boolean): Promise<void> {
         if (!authStore.canModify || changingVisibility) return;
@@ -329,6 +343,7 @@
         void loadAudioHistory();
         void loadBirdnetUrl();
         return () => {
+            audioHistoryLoader.dispose();
             motionPreference.removeEventListener('change', syncMotionPreference);
             classObserver.disconnect();
         };

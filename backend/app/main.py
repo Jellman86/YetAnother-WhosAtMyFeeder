@@ -1220,25 +1220,6 @@ async def sse_endpoint(request: Request, stream_auth: StreamAuth = Depends(get_s
     auth = stream_auth.context
     session_exp = stream_auth.session_exp
 
-    hide_camera_names = (
-        not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
-    )
-
-    def sanitize_message_for_guest(message: dict) -> dict:
-        if not hide_camera_names:
-            return message
-
-        sanitized = dict(message)
-        data = sanitized.get("data")
-        if isinstance(data, dict):
-            data = dict(data)
-            if "camera" in data:
-                data["camera"] = "Hidden"
-            if "camera_name" in data:
-                data["camera_name"] = "Hidden"
-            sanitized["data"] = data
-        return sanitized
-
     async def event_generator():
         queue = await broadcaster.subscribe()
         message_count = 0
@@ -1254,24 +1235,44 @@ async def sse_endpoint(request: Request, stream_auth: StreamAuth = Depends(get_s
                     # Wait for a message or a timeout for heartbeat
                     message = await asyncio.wait_for(queue.get(), timeout=20.0)
 
-                    # Filter sensitive events for guests
                     if not auth.is_owner:
-                        event_type = message.get("type", "")
-                        # Block owner-only events from public users
-                        if event_type in [
-                            "settings_updated",
-                            "backfill_started",
-                            "backfill_progress",
-                            "backfill_complete",
-                            "backfill_failed",
-                        ]:
+                        # Re-evaluate sharing on every delivery, not only at connect.
+                        if not settings.public_access.enabled:
+                            yield f"data: {json.dumps({'type': 'public_access_changed'})}\n\n"
+                            return
+                        # Guests receive invalidations only. The HTTP history routes
+                        # re-check current parent visibility and sharing preferences.
+                        # Never forward raw producer fields, IDs, diagnostics, or
+                        # future owner message types through a denylist.
+                        event_type = message.get("type")
+                        if event_type in {
+                            "detection",
+                            "detection_updated",
+                            "detection_deleted",
+                            "audio_history_changed",
+                        }:
+                            message = {"type": "public_history_changed"}
+                        elif event_type == "settings_updated":
+                            data = message.get("data")
+                            fields = data.get("changed_fields") if isinstance(data, dict) else None
+                            if isinstance(fields, list) and not any(
+                                isinstance(field, str)
+                                and (
+                                    field.startswith("public_access")
+                                    or field in {"maintenance", "maintenance_retention_days"}
+                                )
+                                for field in fields
+                            ):
+                                continue
+                            message = {"type": "public_access_changed"}
+                        else:
                             continue
-
-                    if not auth.is_owner:
-                        message = sanitize_message_for_guest(message)
 
                     yield f"data: {json.dumps(message)}\n\n"
                 except asyncio.TimeoutError:
+                    if not auth.is_owner and not settings.public_access.enabled:
+                        yield f"data: {json.dumps({'type': 'public_access_changed'})}\n\n"
+                        return
                     # Send a JSON heartbeat rather than a comment-only frame. Some
                     # browser/proxy combinations are less reliable at keeping SSE
                     # streams alive when idle traffic is only comments.

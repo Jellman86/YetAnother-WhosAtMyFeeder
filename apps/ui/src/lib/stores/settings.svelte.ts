@@ -15,6 +15,7 @@ export class SettingsStore {
     isLoading = $state(false);
     error = $state<string | null>(null);
     private _loadPromise: Promise<void> | null = null;
+    private loadGeneration = 0;
     private readonly staleTracker = new StaleTracker(300_000); // 5 minutes
     private readonly fetchSettings: () => Promise<Settings>;
     private readonly canReadSettings: () => boolean;
@@ -31,13 +32,17 @@ export class SettingsStore {
         if (!this.canReadSettings()) return;
         if (this._loadPromise) return this._loadPromise;
 
+        const generation = this.loadGeneration;
         this._loadPromise = (async () => {
             this.isLoading = true;
             this.error = null;
             try {
-                this.settings = await this.fetchSettings();
+                const settings = await this.fetchSettings();
+                if (generation !== this.loadGeneration || !this.canReadSettings()) return;
+                this.settings = settings;
                 this.staleTracker.touch();
             } catch (e) {
+                if (generation !== this.loadGeneration || !this.canReadSettings()) return;
                 const errorMessage = e instanceof Error ? e.message : 'Failed to load settings';
                 const isAuthExpected =
                     typeof errorMessage === 'string' &&
@@ -52,8 +57,10 @@ export class SettingsStore {
                     }
                 }
             } finally {
-                this.isLoading = false;
-                this._loadPromise = null;
+                if (generation === this.loadGeneration) {
+                    this.isLoading = false;
+                    this._loadPromise = null;
+                }
             }
         })();
 
@@ -67,11 +74,17 @@ export class SettingsStore {
     }
 
     update(newSettings: Settings) {
+        if (!this.canReadSettings()) return;
         this.settings = newSettings;
     }
 
     clear() {
+        this.loadGeneration += 1;
+        this._loadPromise = null;
         this.settings = null;
+        this.isLoading = false;
+        this.error = null;
+        this.staleTracker.reset();
     }
 
     // Computed properties for common settings

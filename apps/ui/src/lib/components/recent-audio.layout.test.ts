@@ -21,7 +21,7 @@ describe('RecentAudio dashboard widget layout', () => {
         expect(recentAudioSource).toContain('if (!document.hidden)');
         expect(recentAudioSource).not.toContain('setInterval(loadAudio');
         expect(recentAudioSource).not.toContain('setInterval(loadSummary');
-        expect(recentAudioSource).toContain('audioController?.abort();');
-        expect(recentAudioSource).toContain('summaryController?.abort();');
+        expect(recentAudioSource).toContain('audioLoader.dispose();');
+        expect(recentAudioSource).toContain('summaryLoader.dispose();');
     });
 });

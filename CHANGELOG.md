@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Keep guest audio confirmations and counts tied to the camera’s mapped microphones, batch evidence reads across each page, and exclude tomorrow’s audio from today-only views. Guest leaderboard portraits are checked against current visibility before ranking; saved observation pins follow the selected location precision.
+
+- Apply public-history limits and current visibility to cached AI conversations, species statistics, charts, all audio views and media. Guests cannot retrieve hidden, older or unknown BirdNET media by its upstream ID; failed visibility checks return a retryable error. Live public messages carry only refresh signals, with bounded follow-up fetches through the public API and a refresh when sharing settings change. Hidden audio cannot remain in public visual labels or confirmation counts. Failed public refreshes clear stale rows and retry, and signing out discards owner detail caches. Owner live updates retain their detailed payloads.
+
 - Increase bird-correction, mobile header, sidebar account/theme controls and language-picker hit regions to at least 44 px. Existing icons, labels and colours are retained, with keyboard and narrow-phone checks for non-overlapping controls.
 
 - Start keyboard reading of the activity heatmap at its busiest slot when the grid receives focus. Refresh browser coverage for the current grid, weather panels, precipitation shading, keyboard navigation and mobile touch interactions.

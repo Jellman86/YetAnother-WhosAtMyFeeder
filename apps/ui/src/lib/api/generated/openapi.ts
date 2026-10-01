@@ -238,6 +238,7 @@ export interface components {
     needs_initial_setup?: boolean;
     public_access_allow_clip_downloads?: boolean;
     public_access_enabled: boolean;
+    public_access_rate_limit_per_minute?: number;
     public_access_show_ai_conversation?: boolean;
     public_access_show_audio?: boolean;
     public_access_show_clips?: boolean;

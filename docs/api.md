@@ -683,13 +683,21 @@ Benchmarks every installed classifier against labelled feeder images. See
 - Guest/public endpoints are rate-limited by public-access settings.
 - Video share-link creation is rate-limited.
 
+The public `/api/auth/status` response advertises `public_access_rate_limit_per_minute`
+so clients can pace history refreshes. Limits apply per endpoint and client address;
+the field is pacing metadata and grants no extra access.
+
 ## Best Practices
 
 1. Prefer JWT auth over legacy API key.
 2. Use HTTPS in production.
 3. Put YA-WAMF behind a reverse proxy with explicit trusted proxy hosts.
 4. Treat Swagger/OpenAPI as canonical for integration code generation.
-5. Use SSE (`/api/sse`) for realtime UI updates instead of short polling.
+
+5. Use SSE (`/api/sse`) for realtime UI updates instead of short polling. Owner streams
+   carry detailed messages. Guest streams carry only `public_history_changed` and
+   `public_access_changed` invalidations, in addition to connection/heartbeat frames;
+   fetch allowed data through the public HTTP API and refresh sharing preferences.
 
 ## See Also
 
