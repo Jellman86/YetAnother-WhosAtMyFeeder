@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Keep capture details readable on narrow phones with enlarged text. The photo stays within the sheet, long names and camera labels wrap, and footer actions and technical details reflow while retaining their touch targets.
+
 - Rework how several birds in one capture are shown. The record lists every counted bird, with an explicit Show all for large sets, and repeated species are told apart by position. Each bird's thumbnail is cut from the frame it was counted on; hovering, focusing or choosing it highlights that bird on the frame. Outlines are drawn only on that exact full-resolution frame, which may differ from the photograph, and are withheld with a stated reason when the frame is missing, resized or ambiguous. Unknown birds keep their low-confidence guess as a guess. The Dashboard field log says when a visit had several birds in one capture, or that every bird was excluded, using a new owner-only `bird_summary` on event rows; a capture without counted birds says nothing rather than zero. Counts follow the server's configured unknown-label policy, refresh during the existing owner checks, and cannot be replaced by an unrelated parent update or a superseded capture read.
 
 - Use UTC calendar days consistently for public history and media windows. Guests no longer lose current visits around local midnight on non-UTC servers; About photographs and leaderboard portraits use the same midnight media boundary. Each response keeps admission, counts and audio evidence on one UTC day when midnight passes during a query. Local capture-time display and owner date filters are unchanged.

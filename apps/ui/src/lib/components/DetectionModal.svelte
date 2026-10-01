@@ -2321,7 +2321,7 @@
 
         <div class="flex-1 overflow-y-auto flex flex-col lg:overflow-hidden lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
                 <div class="flex min-h-0 shrink-0 flex-col bg-slate-950 lg:shrink lg:overflow-y-auto lg:border-r lg:border-slate-200/70 dark:lg:border-slate-700/60">
-                    <div class="relative aspect-[4/3] min-h-72 shrink-0 overflow-hidden bg-slate-950 sm:aspect-video lg:flex-1" data-detection-photograph>
+                    <div class="relative min-w-0 aspect-[4/3] min-h-72 shrink-0 overflow-hidden bg-slate-950 sm:aspect-video lg:flex-1" data-detection-photograph>
                     {#if showMediaSlotVideoAnalysis}
                         <div class="absolute inset-0 bg-gradient-to-br from-indigo-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800"></div>
                         <div class="relative z-10 h-full flex flex-col justify-between p-4 sm:p-5">
@@ -2615,7 +2615,7 @@
                     {/if}
                 </div>
 
-            <div class="flex flex-1 flex-col gap-5 lg:overflow-y-auto p-5 sm:p-6 {showTagDropdown ? 'blur-sm pointer-events-none select-none' : ''}">
+            <div class="flex min-w-0 flex-1 flex-col gap-5 break-words lg:overflow-y-auto p-5 sm:p-6 {showTagDropdown ? 'blur-sm pointer-events-none select-none' : ''}">
             <!-- Detection ID -->
             <!-- The disclosure is the window chrome: clicking the title bar opens the terminal.
                  Dark in both themes on purpose, because that is what a terminal is. -->
@@ -2624,7 +2624,7 @@
                 class="group order-last rounded-lg border border-slate-300 dark:border-slate-700/70 {terminalTheme.shell}"
             >
                 <summary
-                    class="flex min-h-11 cursor-pointer list-none items-center gap-1.5 rounded-[7px] px-3 py-1.5 marker:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-400 group-open:rounded-b-none group-open:border-b group-open:border-slate-800 {windowChrome ===
+                    class="flex min-h-11 flex-wrap cursor-pointer list-none items-center gap-1.5 rounded-[7px] px-3 py-1.5 marker:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-400 group-open:rounded-b-none group-open:border-b group-open:border-slate-800 {windowChrome ===
                     'windows'
                         ? 'bg-[#000080]'
                         : 'bg-slate-900/80'}"
@@ -2764,7 +2764,7 @@
                 </div>
 
                 {#if currentClassificationSource !== 'manual'}
-                    <div class="mt-2 flex items-center gap-2.5">
+                    <div class="mt-2 flex flex-wrap items-center gap-2.5">
                         <span class="text-sm font-bold tabular-nums text-slate-900 dark:text-white">
                             {Math.round((detection.score || 0) * 100)}%
                         </span>
@@ -2947,28 +2947,28 @@
                 {/key}
             {/if}
             <dl class="divide-y divide-slate-200/70 border-y border-slate-200/70 text-xs dark:divide-slate-700/50 dark:border-slate-700/50" data-detection-facts>
-                <div class="flex items-baseline justify-between gap-3 py-2">
+                <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2">
                     <dt class="flex items-center gap-2 text-slate-500 dark:text-slate-400">
                         <svg class="h-3.5 w-3.5 shrink-0 text-slate-400 dark:text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8h11v8H4z" /><path stroke-linecap="round" stroke-linejoin="round" d="m15 12 5-3v6l-5-3z" /></svg>
                         {$_('detection.fact_seen', { default: 'Seen' })}
                     </dt>
-                    <dd class="text-right font-medium text-slate-800 dark:text-slate-100">
+                    <dd class="min-w-0 max-w-full text-right font-medium text-slate-800 dark:text-slate-100">
                         {formatDateTime(detection.detection_time)} &middot; {detection.camera_name}
                     </dd>
                 </div>
                 {#if weatherSummary}
-                    <div class="flex items-baseline justify-between gap-3 py-2" data-detection-weather-row>
+                    <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2" data-detection-weather-row>
                         <dt class="flex items-center gap-2 text-slate-500 dark:text-slate-400">
                             <svg class="h-3.5 w-3.5 shrink-0 text-sky-500/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 15a4 4 0 004 4h9a4 4 0 100-8h-1a5 5 0 10-9 4H7a4 4 0 00-4 4z" /></svg>
                             {$_('detection.fact_conditions', { default: 'Conditions' })}
                         </dt>
-                        <dd class="text-right font-medium text-slate-800 dark:text-slate-100">
+                        <dd class="min-w-0 max-w-full text-right font-medium text-slate-800 dark:text-slate-100">
                             {weatherSummary}
                         </dd>
                     </div>
                 {/if}
                 {#if detection.frigate_score != null}
-                    <div class="flex items-baseline justify-between gap-3 py-2">
+                    <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2">
                         <dt
                             class="flex items-center gap-2 text-slate-500 dark:text-slate-400"
                             title={$_('detection.fact_frigate_hint', {
@@ -2979,18 +2979,18 @@
                             <svg class="h-3.5 w-3.5 shrink-0 text-indigo-500/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2" /></svg>
                             {$_('detection.fact_frigate', { default: 'Spotted as a bird' })}
                         </dt>
-                        <dd class="text-right font-medium text-slate-800 dark:text-slate-100">
+                        <dd class="min-w-0 max-w-full text-right font-medium text-slate-800 dark:text-slate-100">
                             {Math.round((detection.frigate_score || 0) * 100)}%
                         </dd>
                     </div>
                 {/if}
                 {#if birdnetEnabled && !isManualObservation}
-                <div class="flex items-baseline justify-between gap-3 py-2">
+                <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2">
                     <dt class="flex items-center gap-2 text-slate-500 dark:text-slate-400">
                         <svg class="h-3.5 w-3.5 shrink-0 text-emerald-500/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3h6v11a3 3 0 01-6 0zM5 11a7 7 0 0014 0M12 18v3" /></svg>
                         {$_('detection.fact_heard', { default: 'Heard nearby' })}
                     </dt>
-                    <dd class="text-right font-medium {effectiveAudioConfirmed ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-500 dark:text-slate-400'}">
+                    <dd class="min-w-0 max-w-full text-right font-medium {effectiveAudioConfirmed ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-500 dark:text-slate-400'}">
                         {audioFactValue}
                     </dd>
                 </div>
@@ -3323,7 +3323,7 @@
                         <div class="group relative overflow-hidden rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/50 dark:bg-slate-900/30 p-5 hover:bg-white/80 dark:hover:bg-slate-900/50 transition-all duration-300">
                             <div class="absolute inset-0 bg-gradient-to-br from-brand-500/5 via-transparent to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                             
-                            <div class="relative flex items-center justify-between gap-3 mb-3">
+                            <div class="relative flex flex-wrap items-center justify-between gap-3 mb-3">
                                 <div class="flex items-center gap-2">
                                     <div class="p-1.5 rounded-lg bg-brand-500/10 text-brand-600 dark:text-brand-400">
                                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -3814,7 +3814,7 @@
             {/if}
 
 	            <!-- Bottom Actions -->
-            <div class="flex gap-2 pt-2">
+            <div class="flex flex-wrap gap-2 pt-2">
 	                {#if hasOwnerDetectionActions}
 	                    <button
 	                        onclick={handleDelete}
@@ -3847,7 +3847,7 @@
                 {/if}
                 <button
                     onclick={handleSpeciesInfo}
-                    class="btn btn-primary flex-1 px-3 py-2.5 text-xs shadow-lg shadow-brand-500/20"
+                    class="btn btn-primary flex-1 px-3 py-2.5 text-xs shadow-lg shadow-brand-500/20 min-h-11 min-w-11 break-words"
                 >
                     {$_('actions.species_info')}
                 </button>
