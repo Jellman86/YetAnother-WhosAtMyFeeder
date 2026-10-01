@@ -1,5 +1,8 @@
 import json
 import signal
+import time
+from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -89,3 +92,49 @@ def test_native_signal_is_batched_as_sanitized_deduplicated_health_telemetry(tmp
     assert report["issues"][0]["sample_context"]["configured_provider"] == "intel_gpu"
     assert "active_provider" not in report["issues"][0]["sample_context"]
     assert "secret" not in json.dumps(report)
+
+
+@pytest.mark.parametrize("replacement", [False, True])
+def test_artifact_digest_does_not_reuse_coarse_timestamps_for_changed_weights(tmp_path, monkeypatch, replacement):
+    path = tmp_path / "model.onnx"
+    path.write_bytes(b"weights")
+    timestamp = time.time_ns() if not replacement else time.time_ns() - 10_000_000_000
+    original_stat = Path.stat
+
+    def coarse_stat(candidate, *args, **kwargs):
+        stat = original_stat(candidate, *args, **kwargs)
+        if candidate != path:
+            return stat
+        return SimpleNamespace(
+            st_mode=stat.st_mode,
+            st_size=stat.st_size,
+            st_mtime_ns=timestamp,
+            st_ctime_ns=timestamp,
+            st_ino=stat.st_ino,
+            st_dev=stat.st_dev,
+        )
+
+    monkeypatch.setattr(Path, "stat", coarse_stat)
+    before = artifact_digest(str(path))
+    if replacement:
+        updated = tmp_path / "updated"
+        updated.write_bytes(b"updated")
+        updated.replace(path)
+    else:
+        path.write_bytes(b"updated")
+
+    assert artifact_digest(str(path)) != before
+
+
+def test_settled_unchanged_weights_reuse_the_hash_cache(tmp_path, monkeypatch):
+    from unittest.mock import Mock
+    import app.services.native_crash_quarantine as module
+
+    path = tmp_path / "settled.onnx"
+    path.write_bytes(b"weights")
+    monkeypatch.setattr(module, "time", SimpleNamespace(time_ns=lambda: time.time_ns() + 3_000_000_000))
+    hashing = Mock(wraps=module._hash_artifact_file)
+    monkeypatch.setattr(module, "_hash_artifact_file", hashing)
+    digests = [artifact_digest(str(path)) for _ in range(10)]
+    assert len(set(digests)) == 1
+    hashing.assert_called_once_with(path)

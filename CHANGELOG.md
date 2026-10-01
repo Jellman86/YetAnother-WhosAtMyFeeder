@@ -6,6 +6,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Refresh native-worker model fingerprints after rapid same-size writes and atomic replacements on filesystems with coarse timestamps, while retaining cached hashes for settled unchanged weights.
 - Allow native Windows startup and diagnostics when POSIX process counters and user/group IDs are unavailable. Missing measurements remain unavailable rather than guessed.
 - Load bundled CUDA libraries before crop-detector sessions, so a fresh GPU validation process can use the NVIDIA provider without relying on the species classifier to load it first.
 

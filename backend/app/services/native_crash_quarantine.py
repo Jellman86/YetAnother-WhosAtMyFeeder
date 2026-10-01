@@ -21,6 +21,7 @@ from typing import Any, Callable
 import structlog
 
 log = structlog.get_logger()
+ARTIFACT_STAT_SETTLE_NS = 2_000_000_000
 
 
 def artifact_digest(path: str) -> str | None:
@@ -34,13 +35,22 @@ def artifact_digest(path: str) -> str | None:
         return None
     if not candidate.is_file():
         return None
-    return _artifact_digest(str(candidate), stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
+    # Same-size writes can share a filesystem timestamp tick, notably in WSL.
+    # Recent revisions are hashed directly until their metadata has settled;
+    # inode identity separately invalidates atomic replacements.
+    if max(stat.st_mtime_ns, stat.st_ctime_ns) > time.time_ns() - ARTIFACT_STAT_SETTLE_NS:
+        return _hash_artifact_file(candidate)
+    return _artifact_digest(str(candidate), stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns, stat.st_dev, stat.st_ino)
 
 
 @lru_cache(maxsize=64)
-def _artifact_digest(path: str, size: int, modified: int, changed: int) -> str:
+def _artifact_digest(path: str, size: int, modified: int, changed: int, device: int, inode: int) -> str:
+    return _hash_artifact_file(Path(path))
+
+
+def _hash_artifact_file(path: Path) -> str:
     digest = hashlib.sha256()
-    with Path(path).open("rb") as stream:
+    with path.open("rb") as stream:
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
