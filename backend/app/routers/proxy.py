@@ -908,8 +908,12 @@ async def require_event_access(event_id: str, auth: AuthContext, lang: str, medi
             detection = await repo.get_by_frigate_event(event_id)
     except sqlite3.OperationalError as exc:
         log = structlog.get_logger()
-        log.warning("Failed to check event access; allowing fallback", error=str(exc))
-        return
+        log.warning("Failed to check event access; refusing media", error_type=type(exc).__name__)
+        raise HTTPException(
+            status_code=503,
+            detail=i18n_service.translate("errors.proxy.access_check_unavailable", lang),
+            headers={"Retry-After": "5"},
+        ) from exc
 
     if not detection or detection.is_hidden or not detection.detection_time:
         raise HTTPException(status_code=404, detail=i18n_service.translate("errors.proxy.event_not_found", lang))

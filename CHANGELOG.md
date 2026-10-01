@@ -6,6 +6,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Refuse guest media access when detection visibility cannot be checked, with a retryable
+  response instead of falling back to an upstream snapshot or clip.
+
 - Preserve detection history and its saved media state when a Frigate event check fails.
   Scheduled and manual media scans distinguish confirmed absence from timeouts, server errors
   and unusable responses, and report failed checks separately from missing media.

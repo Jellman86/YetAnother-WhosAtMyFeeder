@@ -31,7 +31,8 @@
       "preview_not_found": "Clip timeline previews are not available",
       "preview_generation_failed": "Failed to generate clip timeline previews",
       "preview_disabled": "Clip timeline previews are disabled because media cache is disabled",
-      "download_forbidden": "Скачивание клипов недоступно для публичных пользователей"
+      "download_forbidden": "Скачивание клипов недоступно для публичных пользователей",
+      "access_check_unavailable": "Не удалось проверить доступ к медиа. Попробуйте ещё раз."
     },
     "events": {
       "snapshot_fetch_failed": "Не удалось получить снимок из Frigate",
