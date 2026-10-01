@@ -76,6 +76,11 @@ retryable. Manual uploads are not sent to Frigate for full-visit processing.
 Cache-budget eviction records a durable decision for both photo and full-visit work.
 An admitted budget eviction finishes its file deletion and durable database decision before
 shutdown cancellation returns. Favourite protection is rechecked before deletion.
+If a generated variant filename also matches another saved visit's literal ID, the
+whole ambiguous file group is retained under both per-species and size limits.
+Every possible parent is rechecked before deletion, and active alias writers are
+protected. Eviction can resume after the conflicting parent is removed. These
+conservative groups can leave the cache above its configured budget.
 Automatic reconciliation cannot refill that media after a restart or overwrite the
 decision with a late success or failure. Admitted jobs are protected while their
 fetch runs; the admission lock is released during network work. An owner can still
