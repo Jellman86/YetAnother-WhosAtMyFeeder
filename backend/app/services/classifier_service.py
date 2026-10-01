@@ -6718,6 +6718,7 @@ class ClassifierService:
             offsets_by_input_source: dict[str, list[float | None]] = {source: [] for source in expected_input_sources}
             all_scores_by_input_source: dict[str, list[np.ndarray]] = {}
             all_offsets_by_input_source: dict[str, list[float | None]] = {}
+            best_snapshot_evidence: dict[tuple[str, int], dict[str, Any]] = {}
             processed_frame_count = 0
             any_valid_scores = False
             skipped_unknown_frame_count = 0
@@ -6785,7 +6786,7 @@ class ClassifierService:
                     input_context=frame_input_context,
                 )
                 stage_seconds["candidate_generation"] += time.perf_counter() - stage_started
-                for input_source, candidate_image, _crop_box in frame_candidates:
+                for input_source, candidate_image, crop_box in frame_candidates:
                     candidate_counts[input_source] = candidate_counts.get(input_source, 0) + 1
                     if input_source not in scores_by_input_source:
                         expected_input_sources.append(input_source)
@@ -6811,6 +6812,22 @@ class ClassifierService:
                         any_valid_scores = True
                         all_scores_by_input_source.setdefault(input_source, []).append(scores)
                         all_offsets_by_input_source.setdefault(input_source, []).append(frame_offset_sec)
+                        if np.all(np.isfinite(scores)):
+                            candidate_index = int(np.argmax(scores))
+                            candidate_score = float(scores[candidate_index])
+                            key = (input_source, candidate_index)
+                            previous_evidence = best_snapshot_evidence.get(key)
+                            if previous_evidence is None or candidate_score > previous_evidence["score"]:
+                                best_snapshot_evidence[key] = {
+                                    "frame_index": int(idx),
+                                    "frame_offset_seconds": frame_offset_sec,
+                                    "frame_width": int(image.width),
+                                    "frame_height": int(image.height),
+                                    "crop_box": list(crop_box) if crop_box is not None else None,
+                                    "input_source": input_source,
+                                    "input_is_cropped": input_source != "full_frame",
+                                    "score": candidate_score,
+                                }
                         previous = candidate_scores.get(input_source)
                         if previous is None or float(np.max(scores)) > float(np.max(previous)):
                             candidate_scores[input_source] = scores
@@ -7069,6 +7086,7 @@ class ClassifierService:
                         "temporal_evaluated_frames": consensus.evaluated_frame_count,
                         "temporal_independent_frames": consensus.independent_frame_count,
                         "temporal_required_frames": consensus.required_supporting_frames,
+                        "_video_snapshot_evidence": best_snapshot_evidence.get((input_source, int(i))),
                     }
                 )
 

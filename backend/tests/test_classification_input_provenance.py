@@ -32,6 +32,13 @@ def test_cached_full_frame_provenance_is_not_marked_as_cropped():
     assert provenance.is_cropped is False
 
 
+@pytest.mark.parametrize("source,cropped", [("video_evidence_crop", True), ("video_evidence_full_frame", False)])
+def test_verified_video_photo_preserves_its_input_geometry(source, cropped):
+    provenance = cached_snapshot_input_provenance({"source": source})
+    assert provenance.input_source == source
+    assert provenance.is_cropped is cropped
+
+
 def test_unknown_cached_snapshot_provenance_fails_safe_to_uncropped():
     provenance = cached_snapshot_input_provenance({"source": "unexpected_external_value"})
 

@@ -121,3 +121,18 @@ ignored. See [Maintenance concurrency](../setup/configuration.md#maintenance-con
 - The active model must be downloaded. Deep Video Analysis uses the same model as real-time detection.
 
 See the [Recommended Frigate Config](../setup/frigate-config.md) for the exact recording settings needed.
+
+## Keeping the photo aligned
+
+After video analysis, the saved photo uses the exact frame and crop that positively
+identified the accepted species. This lightweight step decodes one previously
+analysed moment and performs no additional inference. It works when optional
+high-quality photo scanning is disabled. When scanning is enabled, a retained
+photo already verified for the current species keeps its quality. The supporting
+moment is included first in the frames supplied to that scan.
+
+Automatic photo changes respect manual identifications and photo choices, hidden
+visits, blocked species and storage eviction. A rejected video result cannot
+replace the photo with a different species. Later routine Frigate snapshot writes
+update event hints without overwriting a retained refined photo. Extraction
+failures preserve the current photo and do not discard a successful classification.

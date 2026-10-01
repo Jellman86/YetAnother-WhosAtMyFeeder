@@ -22,6 +22,7 @@ from app.services.high_quality_snapshot_service import high_quality_snapshot_ser
 from app.services import classifier_service as classifier_service_module
 from app.services.broadcaster import broadcaster
 from app.services.media_cache import media_cache
+from app.services.video_snapshot_service import replace_video_snapshot
 from app.services.video_classification_waiter import video_classification_waiter
 from app.services.error_diagnostics import error_diagnostics_history
 from app.services.frigate_missing_policy import apply_missing_policy
@@ -1982,17 +1983,20 @@ class AutoVideoClassifierService:
                 if results:
                     top = results[0]
                     # 5. Save results to DB
-                    await self._save_results(
+                    usable_result = await self._save_results(
                         frigate_event,
                         top,
+                        publish_completion=False,
                         video_diagnostics=video_diagnostics,
                         manual_tagged=(source == "manual" or frigate_event in self._manual_requested_ids),
                     )
                     self._record_success(frigate_event, source=source)
 
                     # Persist top video-analysis frames for HQ snapshot reuse
-                    if _video_frame_scores:
-                        await self._persist_video_top_frames(frigate_event, _video_frame_scores, clip_variant)
+                    if _video_frame_scores or top.get("_video_snapshot_evidence"):
+                        await self._persist_video_top_frames(
+                            frigate_event, _video_frame_scores, clip_variant, snapshot_evidence=top
+                        )
 
                     # Generate HQ snapshot after top frames are persisted so the
                     # crop model works on the best-scored frames from this run.
@@ -2023,6 +2027,23 @@ class AutoVideoClassifierService:
                                 event_id=frigate_event,
                                 error=str(e),
                             )
+
+                    await replace_video_snapshot(
+                        frigate_event,
+                        Path(tmp_path),
+                        top,
+                        clip_variant=clip_variant,
+                        automatic=not manual_reclassification_requested(),
+                    )
+                    await video_classification_waiter.publish(
+                        frigate_event,
+                        "completed",
+                        label=top.get("label")
+                        if usable_result and not should_hide_species_label(top.get("label"))
+                        else None,
+                        score=top.get("score") if usable_result else None,
+                        error=None,
+                    )
 
                     # Broadcast completion
                     await self._broadcast_reclassification_completed(
@@ -2728,6 +2749,8 @@ class AutoVideoClassifierService:
         frigate_event: str,
         frame_scores: list[dict],
         clip_variant: str,
+        *,
+        snapshot_evidence: dict | None = None,
     ) -> None:
         """Persist top-N video-analysis frames for HQ snapshot reuse."""
         try:
@@ -2736,6 +2759,21 @@ class AutoVideoClassifierService:
                 limit=_VIDEO_TOP_FRAMES_LIMIT,
                 clip_variant=clip_variant,
             )
+            evidence = (snapshot_evidence or {}).get("_video_snapshot_evidence")
+            if isinstance(evidence, dict) and type(evidence.get("frame_index")) is int:
+                frame_index = evidence["frame_index"]
+                preferred = {
+                    "frame_index": frame_index,
+                    "frame_offset_seconds": evidence.get("frame_offset_seconds"),
+                    "frame_score": evidence["score"],
+                    "top_score": evidence["score"],
+                    "top_label": snapshot_evidence.get("label"),
+                    "clip_variant": clip_variant,
+                }
+                top_frames = [preferred] + [frame for frame in top_frames if frame["frame_index"] != frame_index]
+                top_frames = [
+                    {**frame, "rank": rank} for rank, frame in enumerate(top_frames[:_VIDEO_TOP_FRAMES_LIMIT], 1)
+                ]
             async with get_db() as db:
                 await DetectionRepository(db).replace_video_top_frames(frigate_event, top_frames)
         except Exception as e:
@@ -2748,7 +2786,8 @@ class AutoVideoClassifierService:
         *,
         video_diagnostics: dict | None = None,
         manual_tagged: bool = False,
-    ):
+        publish_completion: bool = True,
+    ) -> bool:
         """Save final results via DetectionService to handle intelligent overrides."""
         from app.services.detection_service import DetectionService
 
@@ -2766,13 +2805,17 @@ class AutoVideoClassifierService:
             video_diagnostics=video_diagnostics,
             manual_tagged=manual_tagged,
         )
-        await video_classification_waiter.publish(
-            frigate_event,
-            "completed",
-            label=result.get("label") if usable_result and not should_hide_species_label(result.get("label")) else None,
-            score=result.get("score") if usable_result else None,
-            error=None,
-        )
+        if publish_completion:
+            await video_classification_waiter.publish(
+                frigate_event,
+                "completed",
+                label=result.get("label")
+                if usable_result and not should_hide_species_label(result.get("label"))
+                else None,
+                score=result.get("score") if usable_result else None,
+                error=None,
+            )
+        return usable_result
         # _record_success is already called on completion in _process_event.
 
     async def _classify_from_snapshot(

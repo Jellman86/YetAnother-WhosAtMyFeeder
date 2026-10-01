@@ -104,6 +104,11 @@ async def test_video_preserves_repeated_event_target_when_another_bird_dominates
     assert results[0]["label"] == "Baeolophus bicolor"
     assert results[0]["input_source"] == "model_crop"
     assert results[0]["temporal_supporting_frames"] == 5
+    evidence = results[0]["_video_snapshot_evidence"]
+    assert evidence["crop_box"] == [10, 20, 50, 60]
+    assert evidence["frame_width"] == evidence["frame_height"] == 100
+    assert evidence["score"] == pytest.approx(0.96)
+    assert evidence["frame_index"] == 0
     await service.shutdown()
 
 
