@@ -4,7 +4,9 @@ import asyncio
 from contextlib import asynccontextmanager
 from functools import wraps
 import json
+import hashlib
 import os
+import stat
 import time
 import uuid
 import weakref
@@ -315,6 +317,27 @@ class MediaCacheService:
 
     def _thumbnail_metadata_path(self, event_id: str) -> Path:
         return self._thumbnail_path(event_id).with_suffix(".jpg.meta.json")
+
+    async def get_cached_image_version(self, event_id: str, *, thumbnail: bool = False) -> str | None:
+        """Return a stable revision only for a retained, nonempty image file.
+
+        Listing candidate metadata must not read whole images or touch their LRU
+        access times. Filesystem work stays off the event loop, and replacing a
+        file invalidates its URL even when the replacement has the same size.
+        """
+        if not event_id:
+            return None
+        try:
+            path = self._thumbnail_path(event_id) if thumbnail else self._snapshot_path(event_id)
+            info = await aiofiles.os.stat(path)
+        except (OSError, ValueError):
+            return None
+        if not stat.S_ISREG(info.st_mode) or info.st_size <= 0:
+            return None
+        # Reading media updates atime (and therefore ctime on Linux). Only the
+        # atomically replaced file's identity and content-write time version it.
+        revision = f"{info.st_mtime_ns}:{info.st_size}:{info.st_ino}"
+        return hashlib.sha256(revision.encode()).hexdigest()[:16]
 
     def _clip_path(self, event_id: str) -> Path:
         """Get the path for a cached clip.

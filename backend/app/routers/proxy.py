@@ -353,35 +353,40 @@ async def _list_snapshot_candidates(event_id: str) -> list[dict]:
         return await repo.list_snapshot_candidates(event_id)
 
 
-def _candidate_thumbnail_url(request: Request, event_id: str, candidate_id: str) -> str:
-    import time
-
+def _candidate_thumbnail_url(request: Request, event_id: str, candidate_id: str, version: str) -> str:
     return (
         request.url_for(
             "get_snapshot_candidate_thumbnail",
             event_id=event_id,
             candidate_id=candidate_id,
         ).path
-        + f"?v={int(time.time())}"
+        + f"?v={version}"
     )
 
 
-def _candidate_image_url(request: Request, event_id: str, candidate_id: str) -> str:
-    import time
-
+def _candidate_image_url(request: Request, event_id: str, candidate_id: str, version: str) -> str:
     return (
         request.url_for(
             "get_snapshot_candidate_image",
             event_id=event_id,
             candidate_id=candidate_id,
         ).path
-        + f"?v={int(time.time())}"
+        + f"?v={version}"
     )
 
 
 async def _build_snapshot_candidates_response(request: Request, event_id: str) -> "SnapshotCandidateListResponse":
     status = await _build_snapshot_status(event_id, check_original_frigate_snapshot=False)
     candidates = await _list_snapshot_candidates(event_id)
+    from app.services.media_cache import media_cache
+
+    media_versions = await asyncio.gather(
+        *(
+            media_cache.get_cached_image_version(str(candidate.get(ref) or "").strip(), thumbnail=thumbnail)
+            for candidate in candidates
+            for ref, thumbnail in (("image_ref", False), ("thumbnail_ref", True))
+        )
+    )
     async with get_db() as db:
         birds = await BirdObservationRepository(db).list_for_event(event_id)
     current_source = status.source
@@ -445,17 +450,21 @@ async def _build_snapshot_candidates_response(request: Request, event_id: str) -
                         request,
                         event_id,
                         str(candidate.get("candidate_id") or ""),
+                        media_versions[index * 2],
                     )
-                    if str(candidate.get("image_ref") or "").strip()
+                    if media_versions[index * 2] is not None
                     else None
                 ),
                 thumbnail_url=_candidate_thumbnail_url(
                     request,
                     event_id,
                     str(candidate.get("candidate_id") or ""),
-                ),
+                    media_versions[index * 2 + 1],
+                )
+                if media_versions[index * 2 + 1] is not None
+                else None,
             )
-            for candidate in candidates
+            for index, candidate in enumerate(candidates)
         ],
     )
 

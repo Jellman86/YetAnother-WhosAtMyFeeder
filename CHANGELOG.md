@@ -7,6 +7,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ## [Unreleased]
 
 - Keep final Frigate still candidates attached to their saved capture during cache cleanup, including older metadata, so live crop and counted-frame images are not mistaken for deleted visits.
+- Advertise candidate image and thumbnail URLs only when their files are retained, and keep unchanged file URLs stable across reads. Missing media preserves candidate choices and counted bird corrections.
 
 - Preserve an explicitly selected Intel NPU when saving unrelated settings, so a settings reload does not silently switch it to automatic device selection.
 
