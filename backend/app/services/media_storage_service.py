@@ -75,6 +75,25 @@ class MediaStorageService:
         )
         return protected
 
+    @staticmethod
+    def _possible_owners(event_id: str, paths: list[Path]) -> set[str]:
+        """A generated variant name may also be a supported literal visit ID."""
+        owners = {event_id}
+        for path in paths:
+            for suffix in (".jpg.meta.json", ".mp4.meta.json", ".jpg", ".mp4", ".json"):
+                if path.name.endswith(suffix):
+                    stem = path.name[: -len(suffix)]
+                    owners.add(stem)
+                    # A literal candidate visit may have only its generated thumbnail.
+                    # Preserve the intermediate ID before canonicalizing candidate keys.
+                    for variant in ("_thumb", "_recording", "_preview"):
+                        if stem.endswith(variant):
+                            owners.add(stem[: -len(variant)])
+                            break
+                    break
+        owners.update(cache_module.media_cache._media_write_owner(owner) for owner in tuple(owners))
+        return owners
+
     async def _recover_orphaned_media(self, files: dict[str, list[Path]]) -> int:
         """Retry post-delete filesystem cleanup independently of optional cache budgets."""
         async with get_db() as db:
@@ -84,12 +103,7 @@ class MediaStorageService:
         for event_id in files.keys() - valid_ids - self._protected_event_ids():
             # A legacy variant suffix can also be part of a literal event ID.
             # Keep ambiguous files while any possible parent still exists.
-            possible_owners = {event_id}
-            for path in files[event_id]:
-                for suffix in (".jpg.meta.json", ".mp4.meta.json", ".jpg", ".mp4", ".json"):
-                    if path.name.endswith(suffix):
-                        possible_owners.add(path.name[: -len(suffix)])
-                        break
+            possible_owners = self._possible_owners(event_id, files[event_id])
             if possible_owners & (valid_ids | self._protected_event_ids()):
                 continue
             async with (
@@ -131,8 +145,15 @@ class MediaStorageService:
         async with get_db() as db:
             await db.execute("BEGIN IMMEDIATE")
             try:
-                current = await DetectionRepository(db).list_cached_media_visits([event_id])
-                if not current or current[0]["is_favorite"]:
+                possible_owners = self._possible_owners(event_id, paths)
+                current = await DetectionRepository(db).list_cached_media_visits(sorted(possible_owners))
+                # Reserve the final DB decision for every possible parent, including
+                # a newly inserted literal suffix owner. Ambiguity cannot destroy it.
+                if (
+                    not current
+                    or any(row["event_id"] != event_id or row["is_favorite"] for row in current)
+                    or possible_owners & self._protected_event_ids()
+                ):
                     await db.rollback()
                     return None
                 await ProcessingJobRepository(db).mark_storage_evicted(HQ_PROCESSING_PIPELINE, event_id)
@@ -172,11 +193,21 @@ class MediaStorageService:
             if not options.enabled or not (options.per_species_maximum or options.max_size_mb):
                 return result
             sizes, files = await asyncio.to_thread(self._inventory)
+            owners = {event_id: self._possible_owners(event_id, paths) for event_id, paths in files.items()}
             async with get_db() as db:
-                rows = await DetectionRepository(db).list_cached_media_visits(list(sizes))
+                all_rows = await DetectionRepository(db).list_cached_media_visits(
+                    sorted(set().union(*owners.values())) if owners else []
+                )
+            rows = [row for row in all_rows if row["event_id"] in sizes]
             visits = [CachedVisit(**row, bytes_on_disk=sizes[row["event_id"]]) for row in rows]
             # In-flight clip/frame commits must finish before their visit can be evicted.
             protected = self._protected_event_ids()
+            live_ids = {row["event_id"] for row in all_rows}
+            protected.update(
+                event_id
+                for event_id, possible in owners.items()
+                if possible & protected or (possible - {event_id}) & live_ids
+            )
             evictions = select_media_evictions(
                 visits,
                 per_species_maximum=options.per_species_maximum,
@@ -187,9 +218,12 @@ class MediaStorageService:
                 async with (
                     cache_module.media_cache._snapshot_commit_lock(event_id),
                     cache_module.media_cache._recording_clip_commit_lock(event_id),
-                    cache_module.media_cache._media_lifecycle_lock(event_id),
+                    AsyncExitStack() as leases,
                 ):
-                    if event_id in self._protected_event_ids():
+                    write_owners = {cache_module.media_cache._media_write_owner(owner) for owner in owners[event_id]}
+                    for owner in sorted(write_owners):
+                        await leases.enter_async_context(cache_module.media_cache._media_lifecycle_lock(owner))
+                    if owners[event_id] & self._protected_event_ids():
                         continue
                     freed = await self._finish_budget_eviction(event_id, files[event_id])
                     if freed is None:
