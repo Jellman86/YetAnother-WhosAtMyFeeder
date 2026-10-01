@@ -65,6 +65,14 @@ instead of treating partial history as a successful empty result. The import can
 detections and missing cached snapshots, but it cannot recreate BirdNET-Go audio that YA-WAMF never
 stored.
 
+## Full-visit reconciliation
+
+Automatic full-visit reconciliation searches the last 24 hours in bounded batches. Completed
+or cached visits are remembered across restarts so they cannot keep older uncached visits off
+the next page. Failed visits wait 30 minutes, then one hour, then two hours between retries;
+after the final failed attempt automatic retries stop. Cancelling unfinished work leaves it
+retryable. Manual uploads are not sent to Frigate for full-visit processing.
+
 ## Update recovery
 
 Normal updates can recover a missed start or an initial snapshot/inference failure. Once a visit
