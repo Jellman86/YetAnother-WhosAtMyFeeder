@@ -921,6 +921,10 @@ class BirdCropService:
         normalized_provider = str(provider or "cpu").strip().lower()
         if normalized_provider in {"cpu", "cuda"}:
             ort = self._import_onnxruntime()
+            if normalized_provider == "cuda":
+                preload_dlls = getattr(ort, "preload_dlls", None)
+                if callable(preload_dlls):
+                    preload_dlls(directory="")
             sess_options = ort.SessionOptions()
             ort_provider = "CUDAExecutionProvider" if normalized_provider == "cuda" else "CPUExecutionProvider"
             session = ort.InferenceSession(
