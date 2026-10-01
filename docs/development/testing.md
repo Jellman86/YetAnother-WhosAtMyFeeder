@@ -67,6 +67,10 @@ and translations, and substitute only media responses. They check:
 - Previews escape a deliberately clipping ancestor and remain inside the viewport.
 - Keyboard dismissal, focus, touch activation, unmount cleanup and expired images.
 - Loading and empty states, and no horizontal overflow at mobile width.
+- Species composition controls, the 168-cell activity grid, initial keyboard
+  reading at the busiest slot, arrow/Home/End navigation, Escape and touch dismissal.
+- Separate temperature/wind charts with the expected samples, precipitation
+  shading only in wet buckets, chart capture for analysis and reduced motion.
 
 Unexpected API requests and uncaught JavaScript errors fail the fixture. Its HTML
 is a development test entry, not included in the production build. New browser
