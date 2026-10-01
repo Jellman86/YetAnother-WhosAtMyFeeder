@@ -1,6 +1,14 @@
 import os
 
 
+def get_process_uid_gid() -> str | None:
+    """POSIX identity is unavailable on native Windows, not a diagnostic failure."""
+    try:
+        return f"{os.getuid()}:{os.getgid()}"
+    except (AttributeError, OSError):
+        return None
+
+
 def get_ram_usage_string() -> str | None:
     """Returns a formatted string of current system RAM usage (e.g., '4.2GB / 16.0GB'), or None if unavailable."""
     try:

@@ -1,4 +1,5 @@
 import asyncio
+import os
 from pathlib import Path
 
 import httpx
@@ -9,6 +10,27 @@ from app.routers import stats as stats_router
 from app.services.accelerator_telemetry import AcceleratorReading, AcceleratorSampler, NpuBusyTimeProbe
 from app.services.system_telemetry import SystemTelemetrySample, SystemTelemetrySampler
 from app.services.update_service import update_service
+
+
+def test_process_sampler_without_posix_sysconf_reports_no_attribution(monkeypatch, tmp_path):
+    from app.services.system_telemetry import ProcessLoadSampler
+
+    monkeypatch.delattr(os, "sysconf", raising=False)
+    sampler = ProcessLoadSampler(proc_root=tmp_path / "missing-proc")
+
+    assert sampler.sample() == []
+
+
+def test_process_sampler_with_unavailable_sysconf_reports_no_attribution(monkeypatch, tmp_path):
+    from app.services.system_telemetry import ProcessLoadSampler
+
+    def unavailable(name):
+        raise ValueError("Unsupported configuration value")
+
+    monkeypatch.setattr(os, "sysconf", unavailable, raising=False)
+    sampler = ProcessLoadSampler(proc_root=tmp_path / "missing-proc")
+
+    assert sampler.sample() == []
 
 
 def _write_cpu_stat(path: Path, *, user: int, system: int, idle: int) -> None:

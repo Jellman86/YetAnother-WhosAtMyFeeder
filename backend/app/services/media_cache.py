@@ -17,6 +17,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Any, AsyncIterator, Awaitable, Callable, Optional
 
 from app.utils.tasks import create_background_task
+from app.utils.system_stats import get_process_uid_gid
 
 log = structlog.get_logger()
 
@@ -157,8 +158,7 @@ class MediaCacheService:
                 cache_base=str(CACHE_BASE_DIR),
                 snapshots=str(SNAPSHOTS_DIR),
                 clips=str(CLIPS_DIR),
-                uid=os.getuid(),
-                gid=os.getgid(),
+                process_uid_gid=get_process_uid_gid(),
                 error=str(e),
             )
 
@@ -1473,7 +1473,7 @@ class MediaCacheService:
             "previews_dir": str(PREVIEWS_DIR),
             "previews_exists": previews_exists,
             "previews_writable": os.access(PREVIEWS_DIR, os.W_OK | os.X_OK) if previews_exists else False,
-            "process_uid_gid": f"{os.getuid()}:{os.getgid()}",
+            "process_uid_gid": get_process_uid_gid(),
         }
 
 

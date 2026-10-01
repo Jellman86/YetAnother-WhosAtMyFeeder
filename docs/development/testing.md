@@ -150,6 +150,12 @@ must actually be exercised to pass. Registry-incompatible combinations are expli
 not applicable; candidate combinations are tested but do not gain supported status
 from a single pass. Review every failure, even when another repeat passes.
 
+### Native Windows validation
+
+Missing POSIX process counters or user/group IDs must not prevent native startup.
+Process attribution and unavailable IDs remain unmeasured in diagnostics. The
+Linux process-counter tests use explicit counters and still verify attribution.
+
 ### Native OpenVINO crash reproducer
 
 Verify the application recovery contract separately with real installed weights:

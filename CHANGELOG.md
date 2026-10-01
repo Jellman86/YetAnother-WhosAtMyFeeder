@@ -6,6 +6,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Allow native Windows startup and diagnostics when POSIX process counters and user/group IDs are unavailable. Missing measurements remain unavailable rather than guessed.
 - Load bundled CUDA libraries before crop-detector sessions, so a fresh GPU validation process can use the NVIDIA provider without relying on the species classifier to load it first.
 
 - Keep capture details readable on narrow phones with enlarged text. The photo stays within the sheet, long names and camera labels wrap, and footer actions and technical details reflow while retaining their touch targets.

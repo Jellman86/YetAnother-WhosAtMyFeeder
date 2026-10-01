@@ -135,11 +135,19 @@ class ProcessLoadSampler:
         self._proc_root = Path(proc_root)
         self._pid = pid if pid is not None else os.getpid()
         self._cpu_count = max(1, cpu_count if cpu_count is not None else (os.cpu_count() or 1))
-        self._clock_ticks = clock_ticks_per_second or int(os.sysconf("SC_CLK_TCK"))
-        self._page_size = page_size or int(os.sysconf("SC_PAGE_SIZE"))
+        self._clock_ticks = clock_ticks_per_second or self._sysconf_positive_int("SC_CLK_TCK")
+        self._page_size = page_size or self._sysconf_positive_int("SC_PAGE_SIZE")
         self._clock = clock
         self._previous: dict[int, tuple[int, float]] = {}
         self._lock = Lock()
+
+    @staticmethod
+    def _sysconf_positive_int(name: str) -> int | None:
+        try:
+            value = int(os.sysconf(name))
+            return value if value > 0 else None
+        except (AttributeError, OSError, TypeError, ValueError):
+            return None
 
     def _read_stat(self, pid: int) -> tuple[int, int, str] | None:
         """Return (ppid, cpu ticks, comm) for a pid, or None when it is gone."""
@@ -222,6 +230,8 @@ class ProcessLoadSampler:
         return "other_child", comm, None
 
     def sample(self) -> list[ProcessLoad]:
+        if self._clock_ticks is None or self._page_size is None:
+            return []
         with self._lock:
             now = self._clock()
             seen: dict[int, tuple[int, float]] = {}

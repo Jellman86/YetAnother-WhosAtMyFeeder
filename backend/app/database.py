@@ -12,6 +12,7 @@ from pathlib import Path
 from contextlib import asynccontextmanager, contextmanager, closing
 from contextvars import ContextVar
 from typing import Optional
+from app.utils.system_stats import get_process_uid_gid
 
 log = structlog.get_logger()
 
@@ -70,7 +71,7 @@ def get_db_path_diagnostics() -> dict:
         "parent": str(parent),
         "parent_exists": exists,
         "parent_writable": writable,
-        "process_uid_gid": f"{os.getuid()}:{os.getgid()}",
+        "process_uid_gid": get_process_uid_gid(),
     }
 
 
@@ -93,7 +94,7 @@ def _assert_db_path_writable(db_path: str) -> None:
             owner = "unknown"
         raise RuntimeError(
             "DB_PATH directory is not writable by current process: "
-            f"path={parent} owner={owner} mode={mode} process_uid_gid={os.getuid()}:{os.getgid()}. "
+            f"path={parent} owner={owner} mode={mode} process_uid_gid={get_process_uid_gid() or 'unavailable'}. "
             f"Set DB_PATH to a writable location (current: {db_path})."
         )
 
@@ -105,7 +106,7 @@ def _assert_db_path_writable(db_path: str) -> None:
     except Exception as e:
         raise RuntimeError(
             "DB_PATH directory exists but write probe failed: "
-            f"path={parent} process_uid_gid={os.getuid()}:{os.getgid()} error={e}. "
+            f"path={parent} process_uid_gid={get_process_uid_gid() or 'unavailable'} error={e}. "
             f"Set DB_PATH to a writable location (current: {db_path})."
         ) from e
 
