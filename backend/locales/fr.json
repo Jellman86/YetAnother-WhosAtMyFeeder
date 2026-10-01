@@ -51,6 +51,7 @@
     "ai": {
       "provider_not_configured": "Fournisseur IA non configuré",
       "api_key_missing": "Clé API non configurée pour {provider}",
+      "context_changed": "L’analyse ou la conversation a changé. Actualisez avant de réessayer.",
       "analysis_failed": "Échec de l'analyse de l'image",
       "image_fetch_failed": "Échec de la récupération de l'image depuis Frigate",
       "gemini_not_configured": "Clé API Gemini non configurée",

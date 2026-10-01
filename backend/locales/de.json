@@ -51,6 +51,7 @@
     "ai": {
       "provider_not_configured": "KI-Anbieter nicht konfiguriert",
       "api_key_missing": "API-Schlüssel nicht konfiguriert für {provider}",
+      "context_changed": "Die Analyse oder das Gespräch hat sich geändert. Bitte vor dem nächsten Versuch aktualisieren.",
       "analysis_failed": "Bildanalyse fehlgeschlagen",
       "image_fetch_failed": "Bild konnte nicht von Frigate abgerufen werden",
       "gemini_not_configured": "Gemini-API-Schlüssel nicht konfiguriert",

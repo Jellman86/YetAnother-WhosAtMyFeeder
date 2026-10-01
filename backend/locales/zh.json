@@ -51,6 +51,7 @@
     "ai": {
       "provider_not_configured": "AI 提供商未配置",
       "api_key_missing": "{provider} 的 API 密钥未配置",
+      "context_changed": "分析或对话已更改。请刷新后重试。",
       "analysis_failed": "图像分析失败",
       "image_fetch_failed": "从 Frigate 获取图像失败",
       "gemini_not_configured": "Gemini API 密钥未配置",

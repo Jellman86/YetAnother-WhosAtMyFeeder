@@ -157,10 +157,9 @@ async def analyze_event(
         if not auth.is_owner:
             raise HTTPException(status_code=403, detail="Owner access required to generate AI analysis.")
 
-        # If regenerating analysis, clear any existing AI chat thread so the new
-        # analysis starts with a fresh conversation context.
-        if force:
-            await AIConversationRepository(db).delete_turns(event_id)
+        revision = await DetectionRepository(db).get_ai_analysis_revision(event_id)
+        if revision is None:
+            raise HTTPException(status_code=404, detail=i18n_service.translate("errors.detection_not_found", lang))
 
     frames: list[bytes] = []
     frame_source: str | None = None
@@ -205,10 +204,16 @@ async def analyze_event(
         mime_type="image/jpeg",
     )
     _raise_for_ai_error(analysis)
+    if not analysis:
+        raise HTTPException(status_code=502, detail="AI analysis failed.")
 
     # Save analysis to database
     async with get_db() as db:
-        analysis_timestamp = await DetectionRepository(db).update_ai_analysis(event_id, analysis)
+        analysis_timestamp = await DetectionRepository(db).update_ai_analysis(
+            event_id, analysis, expected_revision=revision, reset_conversation=force
+        )
+    if analysis_timestamp is None:
+        raise HTTPException(status_code=409, detail=i18n_service.translate("errors.ai.context_changed", lang))
 
     return AIAnalysisResponse(
         analysis=analysis,
@@ -310,13 +315,16 @@ async def post_event_conversation(
         if not detection:
             raise HTTPException(status_code=404, detail=i18n_service.translate("errors.detection_not_found", lang))
 
+        revision = await DetectionRepository(db).get_ai_analysis_revision(event_id)
+        if revision is None:
+            raise HTTPException(status_code=404, detail=i18n_service.translate("errors.detection_not_found", lang))
         convo_repo = AIConversationRepository(db)
         history = await convo_repo.list_turns(event_id)
-        await convo_repo.add_turn(event_id, "user", body.message)
+        question = await convo_repo.add_turn(event_id, "user", body.message)
 
         prompt = ai_service.build_conversation_prompt(
             species=detection.display_name,
-            analysis=detection.ai_analysis,
+            analysis=revision.analysis,
             history=[{"role": t.role, "content": t.content} for t in history],
             question=body.message,
             language=lang,
@@ -328,7 +336,8 @@ async def post_event_conversation(
     async with get_db() as db:
         convo_repo = AIConversationRepository(db)
         if reply:
-            await convo_repo.add_turn(event_id, "assistant", reply)
+            if not await convo_repo.add_reply_if_context_current(event_id, question.id, reply, revision):
+                raise HTTPException(status_code=409, detail=i18n_service.translate("errors.ai.context_changed", lang))
         turns = await convo_repo.list_turns(event_id)
 
     return [

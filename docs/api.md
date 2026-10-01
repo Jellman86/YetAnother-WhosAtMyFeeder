@@ -459,6 +459,12 @@ an error rather than successful analysis text. Failed replies are not cached or 
 assistant conversation turns, and do not replace an existing successful analysis. A failed
 chat request retains the owner's question. Retrying requires a new explicit request.
 
+Forced analysis regeneration clears the conversation only when the new analysis is
+successfully saved, in the same database transaction. A changed analysis or new
+conversation turn during provider work returns `409` and preserves the newer state.
+A late chat reply also returns `409` if its question was cleared or its analysis
+changed. Refresh before retrying; the server does not repeat a paid provider call.
+
 ### Settings and Maintenance
 
 - `GET /api/settings` (owner)
