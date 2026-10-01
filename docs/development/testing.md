@@ -167,6 +167,13 @@ Missing POSIX process counters or user/group IDs must not prevent native startup
 Process attribution and unavailable IDs remain unmeasured in diagnostics. The
 Linux process-counter tests use explicit counters and still verify attribution.
 
+Crash quarantine recognises documented Windows memory/compiler fault statuses
+in addition to POSIX fault signals. It preserves the exact launch profile across
+restarts and records a readable status without attributing a fault to a specific
+library. Ordinary exits, Ctrl+C and memory exhaustion do not establish a native
+fault. Synthetic exit-status tests prove recovery handling, not an actual GPU
+crash.
+
 Model fingerprints hash recent revisions directly until file timestamps settle.
 Stable weights retain the hash cache, and atomic replacement invalidates it through
 file identity even when size and timestamps match. This guards rapid same-size
