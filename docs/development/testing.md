@@ -156,6 +156,12 @@ Missing POSIX process counters or user/group IDs must not prevent native startup
 Process attribution and unavailable IDs remain unmeasured in diagnostics. The
 Linux process-counter tests use explicit counters and still verify attribution.
 
+Model fingerprints hash recent revisions directly until file timestamps settle.
+Stable weights retain the hash cache, and atomic replacement invalidates it through
+file identity even when size and timestamps match. This guards rapid same-size
+updates on coarse-timestamp filesystems without hashing every settled model on
+every request.
+
 ### Native OpenVINO crash reproducer
 
 Verify the application recovery contract separately with real installed weights:
