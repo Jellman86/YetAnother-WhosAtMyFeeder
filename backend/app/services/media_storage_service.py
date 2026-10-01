@@ -122,6 +122,47 @@ class MediaStorageService:
                     log.warning("Orphaned media recovery failed; will retry", event_id=event_id, error=str(exc))
         return freed
 
+    async def _evict_budget_visit(self, event_id: str, paths: list[Path]) -> int | None:
+        from app.repositories.processing_job_repository import ProcessingJobRepository
+        from app.services.high_quality_snapshot_service import HQ_PROCESSING_PIPELINE
+        from app.services.full_visit_clip_service import FULL_VISIT_PROCESSING_PIPELINE
+
+        # This transaction belongs to the admitted operation, not its cancelled caller.
+        async with get_db() as db:
+            await db.execute("BEGIN IMMEDIATE")
+            try:
+                current = await DetectionRepository(db).list_cached_media_visits([event_id])
+                if not current or current[0]["is_favorite"]:
+                    await db.rollback()
+                    return None
+                await ProcessingJobRepository(db).mark_storage_evicted(HQ_PROCESSING_PIPELINE, event_id)
+                await ProcessingJobRepository(db).mark_storage_evicted(FULL_VISIT_PROCESSING_PIPELINE, event_id)
+                freed = await cache_module.media_cache._complete_file_operation(
+                    cache_module.media_cache._delete_visit_files_sync, event_id, paths
+                )
+                await db.commit()
+                return freed
+            except BaseException:
+                await db.rollback()
+                raise
+
+    async def _finish_budget_eviction(self, event_id: str, paths: list[Path]) -> int | None:
+        """Hold lifecycle locks until irreversible deletion and its durable commit finish."""
+        task = asyncio.create_task(self._evict_budget_visit(event_id, paths), name="media_budget_eviction")
+        cancellation = None
+        while not task.done():
+            try:
+                await asyncio.shield(task)
+            except asyncio.CancelledError as exc:
+                cancellation = exc
+            except BaseException:
+                break
+        if cancellation is not None:
+            if not task.cancelled():
+                task.exception()
+            raise cancellation
+        return task.result()
+
     async def enforce_limits(self) -> dict[str, int]:
         result = {"visits_evicted": 0, "bytes_freed": 0}
         options = settings.media_cache
@@ -134,9 +175,6 @@ class MediaStorageService:
             async with get_db() as db:
                 rows = await DetectionRepository(db).list_cached_media_visits(list(sizes))
             visits = [CachedVisit(**row, bytes_on_disk=sizes[row["event_id"]]) for row in rows]
-            from app.services.high_quality_snapshot_service import HQ_PROCESSING_PIPELINE
-            from app.services.full_visit_clip_service import FULL_VISIT_PROCESSING_PIPELINE
-
             # In-flight clip/frame commits must finish before their visit can be evicted.
             protected = self._protected_event_ids()
             evictions = select_media_evictions(
@@ -153,27 +191,9 @@ class MediaStorageService:
                 ):
                     if event_id in self._protected_event_ids():
                         continue
-                    # Lock DB writers while rechecking favourite protection and removing files.
-                    async with get_db() as db:
-                        await db.execute("BEGIN IMMEDIATE")
-                        try:
-                            current = await DetectionRepository(db).list_cached_media_visits([event_id])
-                            if not current or current[0]["is_favorite"]:
-                                await db.rollback()
-                                continue
-                            from app.repositories.processing_job_repository import ProcessingJobRepository
-
-                            await ProcessingJobRepository(db).mark_storage_evicted(HQ_PROCESSING_PIPELINE, event_id)
-                            await ProcessingJobRepository(db).mark_storage_evicted(
-                                FULL_VISIT_PROCESSING_PIPELINE, event_id
-                            )
-                            freed = await cache_module.media_cache._complete_file_operation(
-                                cache_module.media_cache._delete_visit_files_sync, event_id, files[event_id]
-                            )
-                            await db.commit()
-                        except BaseException:
-                            await db.rollback()
-                            raise
+                    freed = await self._finish_budget_eviction(event_id, files[event_id])
+                    if freed is None:
+                        continue
                     result["visits_evicted"] += 1
                     result["bytes_freed"] += freed
             if result["visits_evicted"]:
