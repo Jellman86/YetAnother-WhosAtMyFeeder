@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Keep final Frigate still candidates attached to their saved capture during cache cleanup, including older metadata, so live crop and counted-frame images are not mistaken for deleted visits.
+
 - Preserve an explicitly selected Intel NPU when saving unrelated settings, so a settings reload does not silently switch it to automatic device selection.
 
 - Offer a higher-resolution recording frame for initial bird identification and backfill, using the best snapshot timestamp and scaled matching coordinates. A clean detection copy establishes native coordinates even when a saved event image is cropped or resized. Missing, slow or mismatched recordings fall back to the detection snapshot; retained photos keep their own crop alignment for reclassification. The faster snapshot source remains the default.
