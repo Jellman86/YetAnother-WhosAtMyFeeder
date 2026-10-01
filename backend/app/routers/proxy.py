@@ -10,7 +10,7 @@ from pathlib import Path as FilePath
 from time import perf_counter
 from tempfile import NamedTemporaryFile
 from urllib.parse import quote_plus, urlsplit
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, HTTPException, Response, Path, Query, Request, Depends, Security
 from fastapi.responses import FileResponse, StreamingResponse
 from starlette.background import BackgroundTask
@@ -26,6 +26,7 @@ from app.services.frigate_client import frigate_client
 from app.services.high_quality_snapshot_service import high_quality_snapshot_service
 from app.services.i18n_service import i18n_service
 from app.utils.language import get_user_language
+from app.utils.api_datetime import utc_naive_datetime
 from app.utils.frigate_recording import (
     RecordingCameraIssue,
     RecordingCapabilityReason,
@@ -46,7 +47,7 @@ from app.repositories.detection_repository import DetectionRepository
 from app.repositories.bird_observation_repository import BirdObservationRepository
 from app.repositories.video_share_repository import VideoShareRepository
 from app.utils.api_datetime import serialize_api_datetime
-from app.utils.public_access import effective_public_media_days
+from app.utils.public_access import public_media_window
 from app.utils.integration_url import validated_http_base_url
 from app.utils.hls import is_hls_asset, rewrite_hls_playlist
 
@@ -919,19 +920,10 @@ async def require_event_access(event_id: str, auth: AuthContext, lang: str, medi
         raise HTTPException(status_code=404, detail=i18n_service.translate("errors.proxy.event_not_found", lang))
 
     if settings.public_access.enabled:
-        max_days = effective_public_media_days()
-        detection_date = detection.detection_time.date()
-        if max_days > 0:
-            cutoff = date.today() - timedelta(days=max_days)
-            if detection_date < cutoff:
-                raise HTTPException(
-                    status_code=404, detail=i18n_service.translate("errors.proxy.event_not_found", lang)
-                )
-        else:
-            if detection_date != date.today():
-                raise HTTPException(
-                    status_code=404, detail=i18n_service.translate("errors.proxy.event_not_found", lang)
-                )
+        cutoff, end = public_media_window()
+        stamp = utc_naive_datetime(detection.detection_time)
+        if stamp < cutoff.replace(tzinfo=None) or (end is not None and stamp >= end.replace(tzinfo=None)):
+            raise HTTPException(status_code=404, detail=i18n_service.translate("errors.proxy.event_not_found", lang))
 
 
 def _normalize_detection_timestamp(value: datetime | None) -> int | None:

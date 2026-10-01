@@ -219,7 +219,11 @@ Who can reach YA-WAMF, and what a visitor can see.
   save other settings.
 - **Public Access** — a read-only, rate-limited guest view. **Show camera names**, **Share
   audio**, **Share photographs**, and **Share video** are separate switches, all enforced at
-  the server. You also choose how far back the public history reaches.
+  the server. You also choose how far back the public history reaches. Public history and
+  media windows use UTC calendar days; “today only” runs from 00:00 UTC to the next midnight,
+  independent of the server timezone and local capture-time display. Each response uses
+  one UTC day for its history, counts and audio evidence; background work and later
+  requests use a fresh day.
 - **Trusted Proxy Hosts** — if you run behind a reverse proxy, list its IPs, CIDR ranges, or
   container/DNS names so client IP addresses are trusted correctly.
 

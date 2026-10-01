@@ -8,7 +8,7 @@ in the media cache's snapshot metadata; the database does not know.
 
 import asyncio
 from collections import OrderedDict
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from io import BytesIO
 from pathlib import Path as FilePath
 from typing import Awaitable, Callable, Optional
@@ -32,7 +32,7 @@ from app.services.media_cache import media_cache
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.utils.api_datetime import serialize_api_datetime
 from app.utils.language import get_user_language
-from app.utils.public_access import effective_public_media_days
+from app.utils.public_access import public_media_window
 
 router = APIRouter()
 
@@ -143,12 +143,10 @@ async def get_about_showcase(
     start_datetime: datetime | None = None
     end_datetime: datetime | None = None
     if is_guest:
-        max_days = effective_public_media_days()
-        if max_days > 0:
-            start_datetime = datetime.combine(date.today() - timedelta(days=max_days), datetime.min.time())
-        else:
-            start_datetime = datetime.combine(date.today(), datetime.min.time())
-            end_datetime = datetime.combine(date.today(), datetime.max.time())
+        start, end = public_media_window()
+        start_datetime = start.replace(tzinfo=None)
+        # The repository's date-range API has an inclusive upper bound.
+        end_datetime = end.replace(tzinfo=None) - timedelta(microseconds=1) if end is not None else None
 
     async with get_db() as db:
         repo = DetectionRepository(db)

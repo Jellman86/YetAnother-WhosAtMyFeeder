@@ -1,14 +1,42 @@
 from __future__ import annotations
 
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, contextmanager
+from contextvars import ContextVar
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 import sqlite3
+from typing import Iterator
 
 from fastapi import HTTPException
 
 from app.config import settings
 from app.database import DatabasePoolTimeout
 from app.utils.api_datetime import utc_naive_datetime
+
+
+@dataclass
+class PublicCalendarScope:
+    day: date | None = None
+    active: bool = True
+
+    def close(self) -> None:
+        # Child tasks inherit the same object; resetting only our token would
+        # leave their copied contexts holding yesterday's policy after response.
+        self.active = False
+
+
+_request_calendar: ContextVar[PublicCalendarScope | None] = ContextVar("public_request_calendar", default=None)
+
+
+@contextmanager
+def public_calendar_scope() -> Iterator[PublicCalendarScope]:
+    calendar = PublicCalendarScope()
+    token = _request_calendar.set(calendar)
+    try:
+        yield calendar
+    finally:
+        calendar.close()
+        _request_calendar.reset(token)
 
 
 def _cap_public_days(value: int) -> int:
@@ -68,23 +96,59 @@ def hide_public_audio_fields(detection) -> None:
     detection.audio_context_species = None
 
 
-def public_events_cutoff() -> datetime:
-    """Same date-at-midnight boundary used by the public visual-history routes."""
-    return datetime.combine(
-        date.today() - timedelta(days=effective_public_events_days()), datetime.min.time(), tzinfo=timezone.utc
-    )
+def public_utc_day(now: datetime | None = None) -> date:
+    """Share one lazily captured UTC day within a response, including child queries."""
+    if now is not None and (now.tzinfo is None or now.utcoffset() is None):
+        raise ValueError("Public calendar bounds require an aware datetime")
+    calendar = _request_calendar.get()
+    if calendar is not None and calendar.active and calendar.day is not None:
+        return calendar.day
+    instant = now if now is not None else datetime.now(timezone.utc)
+    if instant.tzinfo is None or instant.utcoffset() is None:
+        raise ValueError("Public calendar bounds require an aware datetime")
+    day = instant.astimezone(timezone.utc).date()
+    if calendar is not None and calendar.active:
+        calendar.day = day
+    return day
 
 
-def public_events_end() -> datetime | None:
-    return public_events_cutoff() + timedelta(days=1) if effective_public_events_days() == 0 else None
+def _public_window(days: int, now: datetime | None = None) -> tuple[datetime, datetime | None]:
+    start = datetime.combine(public_utc_day(now) - timedelta(days=days), datetime.min.time(), tzinfo=timezone.utc)
+    return start, start + timedelta(days=1) if days == 0 else None
 
 
-def public_event_visible(event) -> bool:
+def public_events_window(now: datetime | None = None) -> tuple[datetime, datetime | None]:
+    """Read one policy instant for an inclusive start and exclusive today-only end."""
+    return _public_window(effective_public_events_days(), now)
+
+
+def public_event_query_bounds(now: datetime | None = None) -> dict[str, datetime | None]:
+    """Repository history queries share the same single-instant UTC admission bounds."""
+    start, end = public_events_window(now)
+    return {"start_date": start, "end_date": end}
+
+
+def public_events_cutoff(now: datetime | None = None) -> datetime:
+    """Inclusive midnight UTC boundary for shared event history."""
+    return public_events_window(now)[0]
+
+
+def public_events_end(now: datetime | None = None) -> datetime | None:
+    """Exclusive next midnight UTC in today-only mode."""
+    return public_events_window(now)[1]
+
+
+def public_media_window(now: datetime | None = None) -> tuple[datetime, datetime | None]:
+    """Shared photographs and clips use the same UTC calendar policy as history."""
+    return _public_window(effective_public_media_days(), now)
+
+
+def public_event_visible(event, now: datetime | None = None) -> bool:
     if event is None or event.is_hidden:
         return False
     stamp = utc_naive_datetime(event.detection_time)
-    cutoff = public_events_cutoff().replace(tzinfo=None)
-    return stamp >= cutoff and (effective_public_events_days() != 0 or stamp < cutoff + timedelta(days=1))
+    cutoff, end = public_events_window(now)
+    return stamp >= cutoff.replace(tzinfo=None) and (end is None or stamp < end.replace(tzinfo=None))
 
 
 @asynccontextmanager
