@@ -37,7 +37,7 @@ describe('health timeline', () => {
             visits: [visit('a', '2026-08-15T06:12:04Z'), visit('b', '2026-08-15T05:53:41Z')],
             filtered: [drop('x', '2026-08-15T06:15:57Z'), drop('y', '2026-08-15T06:01:29Z')]
         });
-        expect(rows.map(row => row.key)).toEqual(['drop:x', 'visit:a', 'drop:y', 'visit:b']);
+        expect(rows.map(row => row.kind === 'visit' ? row.visit.key : row.drop.eventId)).toEqual(['x', 'a', 'y', 'b']);
         expect(rows.map(row => row.kind)).toEqual(['filtered', 'visit', 'filtered', 'visit']);
     });
 
@@ -64,7 +64,27 @@ describe('health timeline', () => {
             filtered: [drop('x', null), drop('y', 'not a date')]
         });
         expect(rows[0].key).toBe('visit:a');
-        expect(rows.slice(1).map(row => row.key).sort()).toEqual(['drop:x', 'drop:y']);
+        expect(rows.slice(1).map(row => row.kind !== 'visit' && row.drop.eventId).sort()).toEqual(['x', 'y']);
+    });
+
+    it('keeps repeated attempts for one event renderable without losing history', () => {
+        const first = drop('repeated', '2026-08-15T06:12:04Z');
+        const second = drop('repeated', '2026-08-15T06:12:05Z');
+        const fault = { ...second, reason: 'snapshot_unavailable' };
+        const rows = buildHealthTimeline({ filtered: [second, first], faults: [fault, { ...fault }] });
+        expect(rows).toHaveLength(4);
+        expect(new Set(rows.map(row => row.key)).size).toBe(4);
+        const refreshed = buildHealthTimeline({
+            filtered: [drop('repeated', '2026-08-15T06:12:06Z'), second, first],
+            faults: [fault, { ...fault }]
+        });
+        expect(refreshed.slice(1).map(row => row.key)).toEqual(rows.map(row => row.key));
+    });
+
+    it('keeps identical attempts with missing timestamps independently renderable', () => {
+        const rows = buildHealthTimeline({ filtered: [drop('repeated', null), drop('repeated', null)] });
+        expect(rows).toHaveLength(2);
+        expect(new Set(rows.map(row => row.key)).size).toBe(2);
     });
 
     it('honours the row limit and copes with an empty feeder', () => {

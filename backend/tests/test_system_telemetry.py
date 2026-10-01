@@ -1,5 +1,6 @@
 import asyncio
 import os
+import threading
 from pathlib import Path
 
 import httpx
@@ -103,6 +104,54 @@ async def test_system_telemetry_endpoint_returns_live_sample_without_caching(mon
         "cpu_percent": 37.5,
         "accelerator": {"kind": "npu", "label": "NPU", "utilization_percent": 18.2},
     }
+
+
+@pytest.mark.asyncio
+async def test_telemetry_device_reads_do_not_run_on_the_request_event_loop(monkeypatch) -> None:
+    event_loop_thread = threading.get_ident()
+
+    class DeviceSampler:
+        def sample(self) -> SystemTelemetrySample:
+            assert threading.get_ident() != event_loop_thread
+            return SystemTelemetrySample(cpu_percent=12.5)
+
+    monkeypatch.setattr(stats_router, "system_telemetry_sampler", DeviceSampler())
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get("/api/system-telemetry")
+    assert response.status_code == 200
+    assert response.json()["cpu_percent"] == 12.5
+    assert response.headers["cache-control"] == "no-store"
+
+
+@pytest.mark.asyncio
+async def test_waiting_for_a_telemetry_device_keeps_other_requests_responsive(monkeypatch) -> None:
+    entered = threading.Event()
+    release = threading.Event()
+    finished = threading.Event()
+
+    class BlockedDeviceSampler:
+        def sample(self) -> SystemTelemetrySample:
+            entered.set()
+            try:
+                # A watchdog keeps the broken implementation from hanging the test.
+                release.wait(timeout=2)
+                return SystemTelemetrySample(cpu_percent=None)
+            finally:
+                finished.set()
+
+    monkeypatch.setattr(stats_router, "system_telemetry_sampler", BlockedDeviceSampler())
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        telemetry = asyncio.create_task(client.get("/api/system-telemetry"))
+        try:
+            assert await asyncio.to_thread(entered.wait, 3)
+            version = await client.get("/api/version")
+            assert version.status_code == 200
+            assert not finished.is_set(), "Telemetry blocked an unrelated API request"
+        finally:
+            release.set()
+            await telemetry
 
 
 @pytest.mark.asyncio
