@@ -2396,9 +2396,10 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 deleted: (result.deleted_count ?? 0).toLocaleString(),
                 marked: (result.marked_missing_count ?? 0).toLocaleString(),
                 kept: (result.kept_count ?? 0).toLocaleString(),
-                restored: (result.cleared_missing_count ?? 0).toLocaleString()
+                restored: (result.cleared_missing_count ?? 0).toLocaleString(),
+                errors: (result.errors ?? 0).toLocaleString()
             },
-            default: 'Scan complete: checked {checked}, missing {missing}, deleted {deleted}, marked missing {marked}, kept {kept}, restored {restored}.'
+            default: 'Scan complete: checked {checked}, missing {missing}, deleted {deleted}, marked missing {marked}, kept {kept}, restored {restored}. Unable to check {errors}; their saved state was preserved.'
         });
     }
 

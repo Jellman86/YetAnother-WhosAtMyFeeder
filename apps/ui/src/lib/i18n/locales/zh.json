@@ -621,7 +621,7 @@
       "auto_analyze_unknowns": "自动运行（每日）",
       "purge_missing_clips_confirm": "要扫描 Frigate 中缺失片段的检测并应用已配置策略吗？",
       "purge_missing_snapshots_confirm": "要扫描 Frigate 中缺失快照的检测并应用已配置策略吗？",
-      "purge_missing_scan_success": "扫描完成：已检查 {checked}，缺失 {missing}，已删除 {deleted}，已标记缺失 {marked}，已保留 {kept}，已恢复 {restored}。",
+      "purge_missing_scan_success": "扫描完成：已检查 {checked}，缺失 {missing}，已删除 {deleted}，已标记缺失 {marked}，已保留 {kept}，已恢复 {restored}。 无法检查 {errors} 项；已保留其保存的状态。",
       "clear_favorites_button": "删除所有收藏",
       "clear_favorites_desc": "移除每个收藏标记及其归档的照片和片段。检测记录和媒体缓存保留。",
       "clear_favorites_confirm": "移除所有收藏标记及其归档的照片和片段？到访记录仍保留在历史中。此操作无法撤销。",

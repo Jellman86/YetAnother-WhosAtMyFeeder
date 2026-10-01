@@ -489,6 +489,9 @@ model metadata. Passing undeclared rows are reported as `declared: false` and un
 - `POST /api/maintenance/purge-missing-media` (owner) — applies your configured missing-media
   policy to every detection whose Frigate event or media has gone. With the policy set to `delete`
   this **permanently removes** those detections; `mark_missing` and `keep` do not.
+  All three missing-media scan endpoints return an `errors` count for unsuccessful event checks.
+  Timeouts, authentication/server errors and unusable responses leave the existing detection
+  and its media state unchanged. Only confirmed absence applies the missing-media policy.
 - `GET /api/maintenance/timezone-repair/preview` (owner) — reports which legacy detections have a
   timestamp shift, validated against Frigate, and changes nothing.
 - `POST /api/maintenance/timezone-repair/apply` (owner) — applies those repairs. Requires

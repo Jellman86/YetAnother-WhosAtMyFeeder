@@ -258,6 +258,9 @@ Retention, caching, imports, and the destructive tools.
   detections and each species' newest kept visits stay.
   The **Advanced → Maintenance & media integrity** disclosure holds the periodic re-check against
   Frigate and what to do when upstream media has gone.
+  A failed event lookup is reported as an unsuccessful check, not missing media. Timeouts,
+  authentication errors, server errors and unusable responses preserve the saved state for a
+  later retry. A manual scan can clear an earlier missing flag only after confirming the media.
 - **Media Cache** — cache snapshots and clips locally to reduce load on Frigate and speed up
   the UI. **Clear cached files** asks first, then deletes cached media older than the retention
   period and cached files that no longer belong to a detection. Favourites and each species'

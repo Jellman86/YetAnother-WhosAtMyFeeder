@@ -621,7 +621,7 @@
       "auto_analyze_unknowns": "Ejecutar automáticamente (diario)",
       "purge_missing_clips_confirm": "¿Escanear detecciones cuyos clips faltan en Frigate y aplicar la política configurada?",
       "purge_missing_snapshots_confirm": "¿Escanear detecciones cuyas instantáneas faltan en Frigate y aplicar la política configurada?",
-      "purge_missing_scan_success": "Escaneo completo: {checked} comprobadas, {missing} faltantes, {deleted} eliminadas, {marked} marcadas como faltantes, {kept} conservadas, {restored} restauradas.",
+      "purge_missing_scan_success": "Escaneo completo: {checked} comprobadas, {missing} faltantes, {deleted} eliminadas, {marked} marcadas como faltantes, {kept} conservadas, {restored} restauradas. No se pudieron comprobar {errors}; se conservó su estado guardado.",
       "clear_favorites_button": "Eliminar todos los favoritos",
       "clear_favorites_desc": "Quita cada marca de favorito con su foto y clip archivados. Las detecciones y la caché de medios se conservan.",
       "clear_favorites_confirm": "¿Quitar todas las marcas de favorito con sus fotos y clips archivados? Las visitas siguen en el historial. No se puede deshacer.",

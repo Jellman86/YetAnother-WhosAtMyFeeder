@@ -88,5 +88,8 @@ describe('locale coverage for settings data cache quality strings', () => {
                 expect(String(value).length).toBeGreaterThan(0);
             }
         });
+        it(`${localeName} scan result distinguishes failed checks from missing media`, () => {
+            expect(pick(locale, 'settings.data.purge_missing_scan_success')).toContain('{errors}');
+        });
     }
 });
