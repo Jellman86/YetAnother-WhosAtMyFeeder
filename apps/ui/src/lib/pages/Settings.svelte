@@ -87,6 +87,7 @@
     import SettingsRow from '../components/settings/_primitives/SettingsRow.svelte';
     import SettingsToggle from '../components/settings/_primitives/SettingsToggle.svelte';
     import { locationSettingsDirty } from '../settings/location-dirty';
+    import { inferenceProviderForSave, parseInferenceProvider, type InferenceProvider } from '../settings/inference-providers';
     import { normalizeDateFormat, normalizeTimeFormat } from '../utils/datetime';
     import { getErrorMessage } from '../utils/error-handling';
 
@@ -150,14 +151,6 @@
 
     function normalizeColorTheme(value: unknown): ColorTheme {
         return value === 'default' || value === 'bluetit' ? value : 'bluetit';
-    }
-
-    function normalizeInferenceProvider(
-        value: unknown
-    ): 'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu' {
-        return value === 'cpu' || value === 'cuda' || value === 'intel_gpu' || value === 'intel_cpu'
-            ? value
-            : 'auto';
     }
 
     function normalizeFrigateMissingBehavior(value: unknown): 'mark_missing' | 'keep' | 'delete' {
@@ -248,7 +241,7 @@
     let videoClassificationFrames = $state(15);
     let birdModelRegionOverride = $state<'auto' | 'eu' | 'na'>('auto');
     let imageExecutionMode = $state<'in_process' | 'subprocess' | string>('subprocess');
-    let inferenceProvider = $state<'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu'>('auto');
+    let inferenceProvider = $state<InferenceProvider>('auto');
     let videoCircuitOpen = $state(false);
     let videoCircuitUntil = $state<string | null>(null);
     let videoCircuitFailures = $state(0);
@@ -1786,7 +1779,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'videoClassificationFrames', val: videoClassificationFrames, store: s.video_classification_frames ?? 15 },
             { key: 'imageExecutionMode', val: imageExecutionMode, store: s.image_execution_mode ?? 'subprocess' },
             { key: 'strictNonFiniteOutput', val: strictNonFiniteOutput, store: s.strict_non_finite_output ?? true },
-            { key: 'inferenceProvider', val: inferenceProvider, store: normalizeInferenceProvider(s.inference_provider) },
+            { key: 'inferenceProvider', val: inferenceProvider, store: parseInferenceProvider(s.inference_provider) ?? 'auto' },
             { key: 'selectedCameras', val: JSON.stringify(selectedCameras), store: JSON.stringify(s.cameras || []) },
             { key: 'retentionDays', val: retentionDays, store: s.retention_days || 0 },
             { key: 'maintenanceMaxConcurrent', val: maintenanceMaxConcurrent, store: s.maintenance_max_concurrent ?? 1 },
@@ -2856,7 +2849,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             birdModelRegionOverride = resolveBirdModelRegionOverrideFromSettings(settings.bird_model_region_override);
             imageExecutionMode = settings.image_execution_mode ?? 'subprocess';
             strictNonFiniteOutput = settings.strict_non_finite_output ?? true;
-            inferenceProvider = normalizeInferenceProvider(settings.inference_provider);
+            inferenceProvider = parseInferenceProvider(settings.inference_provider) ?? 'auto';
             videoCircuitOpen = settings.video_classification_circuit_open ?? false;
             videoCircuitUntil = settings.video_classification_circuit_until ?? null;
             videoCircuitFailures = settings.video_classification_circuit_failures ?? 0;
@@ -3216,7 +3209,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 ...buildBirdModelRegionOverrideSettings(birdModelRegionOverride),
                 image_execution_mode: imageExecutionMode,
                 strict_non_finite_output: strictNonFiniteOutput,
-                inference_provider: inferenceProvider,
+                inference_provider: inferenceProviderForSave(inferenceProvider, settingsStore.settings?.inference_provider),
                 cameras: selectedCameras,
                 retention_days: retentionDays,
                 maintenance_max_concurrent: maintenanceMaxConcurrent,

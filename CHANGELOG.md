@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Preserve an explicitly selected Intel NPU when saving unrelated settings, so a settings reload does not silently switch it to automatic device selection.
+
 - Keep guest audio evidence lookups within each capture’s time window using the timestamp index, avoiding repeated scans of shared audio history while preserving microphone mapping and visibility rules.
 
 - Read live device telemetry off the API event loop, so a busy device or concurrent sampling cannot stall other page requests.

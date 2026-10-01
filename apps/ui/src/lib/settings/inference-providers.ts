@@ -22,6 +22,27 @@ function isInferenceProvider(value: string | null | undefined): value is Inferen
     return INFERENCE_PROVIDERS.includes(value as InferenceProvider);
 }
 
+/** The saved provider when it is one the form can show, else null. Exact match, like the API. */
+export function parseInferenceProvider(value: unknown): InferenceProvider | null {
+    return typeof value === 'string' && isInferenceProvider(value) ? value : null;
+}
+
+/**
+ * The provider a whole-form settings save should send. A stored value the form
+ * cannot represent is left out rather than replaced by the Auto fallback, so an
+ * unrelated save never rewrites it; an explicit new choice is still sent.
+ */
+export function inferenceProviderForSave(
+    formValue: InferenceProvider,
+    storedValue: unknown,
+): InferenceProvider | undefined {
+    const storedIsUnrecognised = storedValue !== undefined
+        && storedValue !== null
+        && storedValue !== ''
+        && parseInferenceProvider(storedValue) === null;
+    return storedIsUnrecognised && formValue === 'auto' ? undefined : formValue;
+}
+
 function uniqueSelectableProviders(values: string[] | null | undefined): InferenceProvider[] {
     const providers: InferenceProvider[] = [];
     for (const value of values ?? []) {
