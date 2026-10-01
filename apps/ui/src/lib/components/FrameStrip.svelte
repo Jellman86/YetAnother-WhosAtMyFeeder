@@ -1,6 +1,7 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
     import { portal } from '../utils/portal';
+    import MediaImage from './MediaImage.svelte';
     import {
         formatOffset,
         momentImageUrl,
@@ -28,6 +29,13 @@
         busy?: boolean;
         /** The camera's own snapshot, for the as-recorded moment which has no candidate record. */
         asRecordedUrl?: string | null;
+        /**
+         * The record's saved photograph. It is the current moment's own picture, so it stands in
+         * when that moment's candidate file is gone, and only for that moment.
+         */
+        photographUrl?: string | null;
+        /** What to say when the visit has no frames at all; the strip's own wording otherwise. */
+        emptyText?: string | null;
         canRegenerate?: boolean;
         regeneratePending?: boolean;
         onuse: (moment: FrameMoment) => void;
@@ -42,6 +50,8 @@
         applyingKey = null,
         busy = false,
         asRecordedUrl = null,
+        photographUrl = null,
+        emptyText = null,
         canRegenerate = false,
         regeneratePending = false,
         onuse,
@@ -49,6 +59,8 @@
     }: Props = $props();
 
     let openIndex = $state<number | null>(null);
+    // With one moment there is nothing to choose between, so it carries no "Chosen" mark.
+    const marksChoice = $derived(moments.length > 1);
     const hasMultipleBirdChoices = $derived(moments.some((moment) => moment.choice === 'crop'));
     let rootEl = $state<HTMLElement | null>(null);
     let triggers = $state<HTMLElement[]>([]);
@@ -277,20 +289,14 @@
         };
     }
 
-    // A thumbnail that fails to load degrades to a same-size placeholder, never a hole.
-    let failed = $state<Set<string>>(new Set());
-    function markFailed(key: string): void {
-        const next = new Set(failed);
-        next.add(key);
-        failed = next;
+    // A thumbnail that fails to load degrades to a same-size placeholder, never a hole. The
+    // current moment first falls back to the saved photograph, which is the same picture.
+    function thumbnailSources(moment: FrameMoment): Array<string | null> {
+        return [moment.asRecorded ? asRecordedUrl : momentThumbnailUrl(moment), isCurrent(moment) ? photographUrl : null];
     }
 
-    function thumbnailFor(moment: FrameMoment): string | null {
-        return moment.asRecorded ? asRecordedUrl : momentThumbnailUrl(moment);
-    }
-
-    function imageFor(moment: FrameMoment): string | null {
-        return moment.asRecorded ? asRecordedUrl : momentImageUrl(moment);
+    function imageSources(moment: FrameMoment): Array<string | null> {
+        return [moment.asRecorded ? asRecordedUrl : momentImageUrl(moment), isCurrent(moment) ? photographUrl : null];
     }
 
     function framingLabel(moment: FrameMoment): string {
@@ -340,7 +346,7 @@
             {#if loading}
                 {$_('detection.snapshot_candidates_loading', { default: 'Loading frames...' })}
             {:else if moments.length === 0}
-                {$_('detection.frame_strip_empty', { default: 'No frames kept from this visit yet.' })}
+                {emptyText ?? $_('detection.frame_strip_empty', { default: 'No frames kept from this visit yet.' })}
             {:else if moments.length === 1}
                 {hasMultipleBirdChoices
                     ? $_('detection.photo_option_count_one', { default: '1 photo option from this visit' })
@@ -361,9 +367,14 @@
     <div class="flex min-w-0 items-center gap-1.5">
         <div class="snapshot-strip-shell relative min-w-0 flex-1" data-snapshot-strip-shell>
             <div class="snapshot-strip -my-2 flex min-w-0 gap-1.5 overflow-x-auto px-1 py-3" use:watchOverflow>
+                {#if loading && moments.length === 0}
+                    <!-- Holds a thumbnail's room while the frames are read, so they arrive in place. -->
+                    <span class="shrink-0 rounded-md p-1" aria-hidden="true" data-frame-strip-pending>
+                        <span class="block h-9 w-12 rounded-md bg-slate-800/70"></span>
+                    </span>
+                {/if}
                 {#each moments as moment, index (moment.key)}
                     {@const chosen = isCurrent(moment)}
-                    {@const thumb = thumbnailFor(moment)}
                     <div
                         class="relative shrink-0"
                         onpointerenter={(event) => hoverOpen(index, event)}
@@ -373,9 +384,9 @@
                         <button
                             type="button"
                             bind:this={triggers[index]}
-                            class="relative min-h-11 min-w-11 shrink-0 rounded-md p-1 transition duration-200 ease-out motion-reduce:transform-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 {chosen
+                            class="relative block min-h-11 min-w-11 shrink-0 rounded-md p-1 transition duration-200 ease-out motion-reduce:transform-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 {chosen && marksChoice
                                 ? 'z-10 -translate-y-1 scale-105 bg-white/15 opacity-100 shadow-lg shadow-black/50'
-                                : 'opacity-80 hover:opacity-100'}"
+                                : chosen ? 'opacity-100' : 'opacity-80 hover:opacity-100'}"
                             aria-pressed={chosen}
                             aria-expanded={openIndex === index}
                             aria-label={$_(hasMultipleBirdChoices ? 'detection.photo_option_compare' : 'detection.frame_compare', {
@@ -385,25 +396,18 @@
                             onclick={(event) => { event.stopPropagation(); show(index); }}
                             onkeydown={(event) => handleTriggerKeydown(event, index)}
                         >
-                            {#if thumb && !failed.has(moment.key)}
-                                <img
-                                    src={thumb}
-                                    alt=""
-                                    loading="lazy"
-                                    decoding="async"
-                                    width="48"
-                                    height="36"
-                                    class="h-9 w-12 rounded-md object-cover"
-                                    onerror={() => markFailed(moment.key)}
-                                />
-                            {:else}
-                                <span class="flex h-9 w-12 items-center justify-center rounded-md bg-slate-800 text-slate-500" aria-hidden="true">
-                                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2 1.586-1.586a2 2 0 012.828 0L20 14M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                    </svg>
-                                </span>
-                            {/if}
-                            {#if chosen}
+                            <MediaImage
+                                sources={thumbnailSources(moment)}
+                                alt=""
+                                loading="lazy"
+                                decoding="async"
+                                width={48}
+                                height={36}
+                                class="block h-9 w-12 rounded-md bg-slate-800 object-cover"
+                                placeholderClass="text-slate-500"
+                                iconClass="h-4 w-4"
+                            />
+                            {#if chosen && marksChoice}
                                 <span class="pointer-events-none absolute bottom-1.5 left-1.5 rounded bg-brand-500 px-1 text-[9px] font-bold leading-4 text-slate-950">
                                     {$_('detection.frame_chosen_badge', { default: 'Chosen' })}
                                 </span>
@@ -411,7 +415,6 @@
                         </button>
 
                         {#if openIndex === index && anchor}
-                            {@const image = imageFor(moment)}
                             {@const read = readLine(moment)}
                             {@const applying = applyingKey === moment.key}
                             {#if anchor.sheet}
@@ -452,24 +455,16 @@
                                 >
                                     <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" stroke-linecap="round" /></svg>
                                 </button>
-                                {#if image && !failed.has(moment.key)}
-                                    <img
-                                        src={image}
-                                        alt={hasMultipleBirdChoices
-                                            ? $_('detection.photo_option_image_alt', { default: 'Candidate photograph from this visit' })
-                                            : primaryName}
-                                        loading="lazy"
-                                        decoding="async"
-                                        class="w-full bg-slate-950 object-contain {anchor.sheet ? 'h-56' : 'h-40'}"
-                                        onerror={() => markFailed(moment.key)}
-                                    />
-                                {:else}
-                                    <div class="flex h-40 w-full items-center justify-center bg-slate-950 text-slate-600" aria-hidden="true">
-                                        <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2 1.586-1.586a2 2 0 012.828 0L20 14M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                        </svg>
-                                    </div>
-                                {/if}
+                                <MediaImage
+                                    sources={imageSources(moment)}
+                                    alt={hasMultipleBirdChoices
+                                        ? $_('detection.photo_option_image_alt', { default: 'Candidate photograph from this visit' })
+                                        : primaryName}
+                                    decoding="async"
+                                    class="w-full bg-slate-950 object-contain {anchor.sheet ? 'h-56' : 'h-40'}"
+                                    placeholderClass="text-slate-600"
+                                    iconClass="h-8 w-8"
+                                />
                                 <div class="flex flex-col gap-1.5 p-3 text-[13px]">
                                     <div class="flex items-baseline justify-between gap-2">
                                         <span class="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">

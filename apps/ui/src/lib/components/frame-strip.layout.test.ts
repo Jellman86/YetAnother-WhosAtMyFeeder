@@ -117,8 +117,8 @@ describe('the frame strip is one ordered set of moments (#256)', () => {
     });
 
     it('degrades a missing thumbnail to a placeholder of the same size', () => {
-        expect(stripSource).toContain('failed.has(moment.key)');
-        expect(stripSource).toContain('h-9 w-12 items-center justify-center rounded-md bg-slate-800');
+        expect(stripSource).toContain("import MediaImage from './MediaImage.svelte'");
+        expect(stripSource).toContain('class=\"block h-9 w-12 rounded-md bg-slate-800 object-cover\"');
     });
 });
 
@@ -156,21 +156,21 @@ describe('the record uses the strip and drops the framing toggle (#256)', () => 
         // The peek only exists when the same moment has an uncropped frame to show, so never
         // over Frigate's own snapshot, whose "matching" frame would be another moment's.
         expect(modalSource).toContain('findMatchingFullFrameCandidate');
-        expect(modalSource).toContain("currentSnapshotSource !== 'frigate_snapshot'\n        && !!(fullFrameSnapshotCandidate");
+        expect(modalSource).toContain("currentSnapshotSource !== 'frigate_snapshot'\n        && wholeSceneSources.length > 0");
         expect(modalSource).toContain('{#if canPeekWholeScene}');
     });
 
     it('outlines every retained bird crop on the matching whole scene', () => {
-        expect(modalSource).toContain('wholeScene.measure(heroImageEl, wholeSceneCrops[0]?.crop_box, otherCropBoxes)');
-        expect(modalSource).toContain('onload={measureWholeScene}');
+        expect(modalSource).toContain('wholeScene.measure(sceneImageEl, wholeSceneCrops[0]?.crop_box, otherCropBoxes)');
+        expect(modalSource).toContain('onload={wholeSceneLoaded}');
         expect(modalSource).toContain('data-detection-whole-scene-outline');
         expect(modalSource).toContain('data-detection-other-bird-outline');
         expect(reviewSource).toContain('data-review-other-bird-outline');
-        expect(modalSource).toContain('{#if wholeScene.showing && wholeScene.outline}');
+        expect(modalSource).toContain('{#if wholeSceneReady && wholeScene.outline}');
     });
 
     it('offers the whole-scene rescue only while pinned, and Escape unpins before it closes', () => {
-        expect(modalSource).toContain('{#if wholeScene.pinned && wholeScene.showing}');
+        expect(modalSource).toContain('{#if wholeScene.pinned && wholeSceneReady}');
         expect(modalSource).toContain('detection.whole_scene_use');
         expect(modalSource).toContain('detection.whole_scene_back');
         expect(modalSource).toContain('useWholeSceneAsPhotograph()');

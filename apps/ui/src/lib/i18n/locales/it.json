@@ -364,7 +364,6 @@
       "done_note": "Ogni visita ha una specie. Le tue correzioni migliorano l'ordinamento per telecamera.",
       "skipped_note": "{count} rimandate. Restano in coda.",
       "back": "Torna alla dashboard",
-      "what_is_it": "Che cos'è?",
       "threshold_note": "Il modello è rimasto sotto la soglia di identificazione.",
       "search": "Cerca specie…",
       "no_matches": "Nessuna specie corrisponde. Prova con meno lettere.",

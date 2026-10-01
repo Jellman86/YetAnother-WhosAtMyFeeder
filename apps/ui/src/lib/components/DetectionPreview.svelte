@@ -236,7 +236,7 @@
                         decoding="async"
                         width="36"
                         height="36"
-                        class="h-9 w-9 rounded-lg border-2 border-white object-cover dark:border-slate-900"
+                        class="h-9 w-9 rounded-lg border-2 border-white bg-slate-100 object-cover dark:border-slate-900 dark:bg-slate-800"
                         onerror={() => markFailed(frame.frigate_event)}
                     />
                 {/if}
@@ -290,7 +290,7 @@
                             })}
                             loading="lazy"
                             decoding="async"
-                            class="h-32 w-full object-cover"
+                            class="h-32 w-full bg-slate-100 object-cover dark:bg-slate-800"
                             onerror={() => markFailed(frame.frigate_event)}
                         />
                     {/if}

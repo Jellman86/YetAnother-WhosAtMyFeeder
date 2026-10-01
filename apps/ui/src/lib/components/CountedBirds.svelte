@@ -159,7 +159,7 @@
 
     function boxStyle(bird: BirdObservation): string {
         if (!sceneSize) return 'display:none';
-        const box = sceneBoxPercent(bird.crop_box, sceneSize);
+        const box = sceneBoxPercent(bird.crop_box, sceneSize, 16 / 9);
         return `left:${box.left}%;top:${box.top}%;width:${box.width}%;height:${box.height}%`;
     }
 
@@ -278,22 +278,33 @@
                     : $_('detection.counted_birds.note', { default: 'Counted on one analysed frame. The detector can miss birds or mark other objects, and a bird here is not followed across frames.' })}
             </p>
 
-            {#if scene.status === 'ready' && !sceneFailed && (outlined || !sceneSize)}
+            {#if scene.status === 'ready'}
+                <!-- The counted frame keeps its box whatever happens to its image: a frame that fails
+                     to load becomes a placeholder of the same size, and one whose pixels cannot carry
+                     the boxes is still shown, without outlines. -->
                 <figure class="space-y-1.5" data-counted-birds-scene>
-                    <!-- The box takes the image's own proportions, so the outlines sit on its pixels with no letterboxing. -->
+                    <!-- Reserve the same box before decoding. Outlines map to the contained
+                         image's pixels, excluding any letterbox, without moving the bird rows. -->
                     <div
-                        class="relative w-full overflow-hidden rounded-xl bg-slate-950 {sceneSize ? '' : 'aspect-video'}"
-                        style={sceneSize ? `aspect-ratio:${sceneSize.width} / ${sceneSize.height}` : undefined}
+                        class="relative aspect-video w-full overflow-hidden rounded-xl bg-slate-950"
                         data-counted-birds-frame
                     >
-                        <img
-                            src={scene.imageUrl}
-                            alt={$_('detection.counted_birds.frame_alt', { default: 'Whole capture with counted birds marked' })}
-                            class="absolute inset-0 block h-full w-full"
-                            decoding="async"
-                            onload={measure}
-                            onerror={measureFailed}
-                        />
+                        {#if sceneFailed}
+                            <span class="absolute inset-0 flex items-center justify-center text-slate-700" aria-hidden="true" data-media-placeholder>
+                                <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2 1.586-1.586a2 2 0 012.828 0L20 14M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                            </span>
+                        {:else}
+                            <img
+                                src={scene.imageUrl}
+                                alt={$_('detection.counted_birds.frame_alt', { default: 'Whole capture with counted birds marked' })}
+                                class="absolute inset-0 block h-full w-full object-contain"
+                                decoding="async"
+                                onload={measure}
+                                onerror={measureFailed}
+                            />
+                        {/if}
                         {#if outlined}
                             {#each rows as bird (bird.id)}
                                 {#if !bird.is_hidden || bird.id === highlightedId}
@@ -327,16 +338,19 @@
                             },
                             default: 'Counted on frame {frame} of {clip}.'
                         })}
-                        {#if samePhotoFrame === true}
+                        {#if unavailable}
+                            <span class="text-slate-600 dark:text-slate-300" data-counted-birds-unavailable={unavailable}>
+                                {$_(`detection.counted_birds.unavailable_${unavailable}`, { default: 'The birds cannot be outlined on the counted frame.' })}
+                            </span>
+                        {:else if samePhotoFrame === true}
                             {$_('detection.counted_birds.scene_same_frame', { default: 'The photograph comes from this frame.' })}
                         {:else if samePhotoFrame === false}
                             {$_('detection.counted_birds.scene_other_frame', { default: 'The photograph comes from a different frame, so birds may sit differently there.' })}
                         {/if}
                     </figcaption>
                 </figure>
-            {/if}
-            {#if unavailable && unavailable !== 'no_birds'}
-                <p class="rounded-lg border border-dashed border-slate-300 px-3 py-2 text-xs leading-5 text-slate-600 dark:border-slate-600 dark:text-slate-300" data-counted-birds-unavailable={unavailable}>
+            {:else if unavailable && unavailable !== 'no_birds'}
+                <p class="text-xs leading-5 text-slate-600 dark:text-slate-300" data-counted-birds-unavailable={unavailable}>
                     {$_(`detection.counted_birds.unavailable_${unavailable}`, { default: 'The birds cannot be outlined on the counted frame.' })}
                 </p>
             {/if}

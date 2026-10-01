@@ -364,7 +364,6 @@
       "done_note": "Chaque visite a une espèce. Vos corrections affinent le classement par caméra.",
       "skipped_note": "{count} pour plus tard. Elles restent dans la file.",
       "back": "Retour au tableau de bord",
-      "what_is_it": "Qu'est-ce que c'est ?",
       "threshold_note": "Le modèle est resté sous le seuil d'identification.",
       "search": "Rechercher une espèce…",
       "no_matches": "Aucune espèce ne correspond. Essayez moins de lettres.",

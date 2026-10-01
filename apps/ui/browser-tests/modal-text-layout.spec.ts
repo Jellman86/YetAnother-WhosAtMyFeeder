@@ -88,11 +88,11 @@ test('text reflow keeps the whole-scene peek on full-resolution pixels and its c
     const peek = page.locator('[data-detection-whole-scene-peek]');
     await peek.click();
     await expect(peek).toHaveAttribute('aria-pressed', 'true');
-    const image = page.locator('[data-detection-photograph] img.relative');
+    const image = page.locator('[data-detection-whole-scene-image]');
     await expect(image).toHaveAttribute('src', /\/api\/layout-full\/image\.jpg/);
     await expect(page.locator('[data-detection-whole-scene-outline]')).toHaveCount(1);
     const geometry = await page.locator('[data-detection-photograph]').evaluate(element => {
-        const image = element.querySelector<HTMLImageElement>('img.relative');
+        const image = element.querySelector<HTMLImageElement>('[data-detection-whole-scene-image]');
         const outline = element.querySelector<HTMLElement>('[data-detection-whole-scene-outline]');
         if (!image || !outline) throw new Error('Missing actual image or crop outline');
         const frame = element.getBoundingClientRect();

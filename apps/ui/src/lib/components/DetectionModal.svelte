@@ -2,6 +2,7 @@
     import Map from './Map.svelte';
     import {
         getSnapshotUrl,
+        getThumbnailUrl,
         fetchEvents,
         getOriginalFrigateSnapshotUrl,
         fetchSnapshotStatus,
@@ -46,6 +47,7 @@
     import ReclassificationOverlay from './ReclassificationOverlay.svelte';
     import FrameStrip from './FrameStrip.svelte';
     import CountedBirds from './CountedBirds.svelte';
+    import MediaImage from './MediaImage.svelte';
     import { currentMoment, groupCandidatesIntoMoments, preferredCandidate, type FrameMoment } from '../utils/frame-moments';
     import { WholeScenePeek } from '../utils/whole-scene-peek.svelte';
     import { speciesPickerNames } from '../utils/species-picker';
@@ -798,7 +800,9 @@
     const frameMoments = $derived<FrameMoment[]>(
         authStore.hasOwnerAccess
             ? groupCandidatesIntoMoments(
-                snapshotCandidates.filter((item) => item.thumbnail_url || item.image_url),
+                snapshotCandidates.filter((item) =>
+                    item.thumbnail_url || item.image_url || item.candidate_id === currentSnapshotCandidateId
+                ),
                 { asRecordedAvailable: originalFrigateSnapshotAvailable }
             )
             : []
@@ -857,13 +861,20 @@
     // The photograph is always the crop. The whole scene is a look, not a mode (#256): the shared
     // controller peeks on hover or focus with the crop outlined and pins on click, so the one
     // rescue that needs the whole scene can be offered. Persisting anything stays a named action.
-    let heroImageEl = $state<HTMLImageElement | null>(null);
     // Frigate's own snapshot has no candidate record, so the "matching" whole frame would be
     // another moment's: different evidence, not a safe peek.
+    // A whole scene that failed to load is not offered again; the photograph stays where it was.
+    let failedSceneUrls = $state<ReadonlySet<string>>(new Set());
+    const wholeSceneSources = $derived(
+        // Full resolution only: a scene thumbnail is too small to judge by and cannot carry the outlines.
+        [fullFrameSnapshotCandidate?.image_url].filter(
+            (url): url is string => !!url && !failedSceneUrls.has(url)
+        )
+    );
     const canPeekWholeScene = $derived(
         authStore.hasOwnerAccess
         && currentSnapshotSource !== 'frigate_snapshot'
-        && !!(fullFrameSnapshotCandidate?.image_url ?? fullFrameSnapshotCandidate?.thumbnail_url)
+        && wholeSceneSources.length > 0
     );
     const wholeScene = new WholeScenePeek(() => canPeekWholeScene);
     const currentCropCandidate = $derived(
@@ -872,24 +883,47 @@
             ?? null
     );
     const wholeSceneCrops = $derived(sameFrameCropCandidates(snapshotCandidates, currentCropCandidate));
-    const mediaImageUrl = $derived.by(() => {
-        if (wholeScene.showing && fullFrameSnapshotCandidate?.image_url) {
-            return fullFrameSnapshotCandidate.image_url;
-        }
-        if (wholeScene.showing && fullFrameSnapshotCandidate?.thumbnail_url) {
-            return fullFrameSnapshotCandidate.thumbnail_url;
-        }
-        return snapshotImageUrl;
-    });
+    // The saved photograph, then the camera's thumbnail of the same capture, then a placeholder:
+    // a working picture is never given up for a missing one. The ambient wash follows whichever
+    // one is actually drawn.
+    const photographSources = $derived([snapshotImageUrl, getThumbnailUrl(detection.frigate_event)]);
+    /** A crop fills the frame; a whole scene is shown whole. Its scene failing does not change that. */
+    const photographIsCrop = $derived(
+        authStore.hasOwnerAccess && currentSnapshotSource !== 'frigate_snapshot' && !!fullFrameSnapshotCandidate
+    );
+    let photographDrawnUrl = $state<string | null>(null);
+    let sceneImageEl = $state<HTMLImageElement | null>(null);
+    /** The scene URL that has finished drawing; until then the photograph stays visible beneath. */
+    let sceneLoadedUrl = $state<string | null>(null);
+    const wholeSceneReady = $derived(
+        wholeScene.showing && sceneLoadedUrl !== null && sceneLoadedUrl === wholeSceneSources[0]
+    );
+
+    function wholeSceneLoaded(image: HTMLImageElement): void {
+        sceneLoadedUrl = image.getAttribute('src');
+        measureWholeScene();
+    }
+
+    function wholeSceneFailed(url: string): void {
+        failedSceneUrls = new Set([...failedSceneUrls, url]);
+        if (wholeSceneSources.length === 0) wholeScene.reset();
+    }
+
     $effect(() => {
         // A new detection starts on its own stored frame.
         void detection.frigate_event;
         wholeScene.reset();
+        untrack(() => {
+            failedSceneUrls = new Set();
+            photographDrawnUrl = null;
+        });
     });
     // The outlines are DOM measurements, taken once the whole scene has loaded and again when
     // the window changes size.
     function measureWholeScene() {
-        if (!fullFrameSnapshotCandidate?.image_url) {
+        // Crop boxes are frame pixels; only the full-resolution scene shares them, never its thumbnail.
+        const sceneUrl = fullFrameSnapshotCandidate?.image_url;
+        if (!sceneUrl || !sceneImageEl || sceneImageEl.getAttribute('src') !== sceneUrl) {
             wholeScene.outline = null;
             wholeScene.otherOutlines = [];
             return;
@@ -897,12 +931,13 @@
         const otherCropBoxes = wholeSceneCrops.slice(1).flatMap((candidate) =>
             candidate.crop_box ? [candidate.crop_box] : []
         );
-        wholeScene.measure(heroImageEl, wholeSceneCrops[0]?.crop_box, otherCropBoxes);
+        wholeScene.measure(sceneImageEl, wholeSceneCrops[0]?.crop_box, otherCropBoxes);
     }
     $effect(() => {
         if (!wholeScene.showing) {
             wholeScene.outline = null;
             wholeScene.otherOutlines = [];
+            sceneLoadedUrl = null;
             return;
         }
         measureWholeScene();
@@ -2374,17 +2409,32 @@
                             </div>
                         </div>
                     {:else}
-                        <img data-detection-media-ambient src={snapshotImageUrl} alt="" aria-hidden="true" class="absolute inset-0 h-full w-full scale-110 object-cover opacity-25 blur-2xl" />
+                        {#if photographDrawnUrl}
+                            <img data-detection-media-ambient src={photographDrawnUrl} alt="" aria-hidden="true" class="absolute inset-0 h-full w-full scale-110 object-cover opacity-25 blur-2xl" />
+                        {/if}
                         <div class="absolute inset-0 bg-slate-950/55" aria-hidden="true"></div>
-                        <img
-                            bind:this={heroImageEl}
-                            src={mediaImageUrl}
+                        <!-- The photograph stays drawn under a peek, and only steps aside once the whole
+                             scene has actually loaded over it. -->
+                        <MediaImage
+                            sources={photographSources}
                             alt={detection.display_name}
-                            onload={measureWholeScene}
-                            class="relative h-full w-full {wholeScene.showing
-                                ? 'object-contain'
-                                : canPeekWholeScene ? 'object-cover' : 'object-contain'}"
+                            class="relative h-full w-full {photographIsCrop ? 'object-cover' : 'object-contain'} {wholeSceneReady ? 'opacity-0' : ''}"
+                            placeholderClass="text-slate-600"
+                            iconClass="h-10 w-10"
+                            onload={(image) => { photographDrawnUrl = image.getAttribute('src'); }}
                         />
+                        {#if canPeekWholeScene && wholeScene.showing}
+                            <MediaImage
+                                bind:element={sceneImageEl}
+                                sources={wholeSceneSources}
+                                alt=""
+                                class="absolute inset-0 h-full w-full object-contain {wholeSceneReady ? 'opacity-100' : 'opacity-0'}"
+                                placeholderClass="hidden"
+                                onload={wholeSceneLoaded}
+                                onfail={wholeSceneFailed}
+                                data-detection-whole-scene-image
+                            />
+                        {/if}
                         {#if canPeekWholeScene}
                             <!-- The whole scene is a look, not a mode (#256). Hover or focus peeks at it with
                                  same-frame crops outlined; a click pins it and offers the one rescue that needs it. -->
@@ -2402,7 +2452,7 @@
                                 onblur={wholeScene.leave}
                                 onclick={(event) => { event.stopPropagation(); wholeScene.toggle(); }}
                             ></button>
-                            {#if wholeScene.showing && wholeScene.outline}
+                            {#if wholeSceneReady && wholeScene.outline}
                                 <div
                                     class="pointer-events-none absolute z-20 rounded-sm border-2 border-solid border-sky-300 {wholeScene.otherOutlines.length === 0 ? 'shadow-[0_0_0_9999px_rgba(2,6,23,0.35)]' : ''}"
                                     style="left: {wholeScene.outline.left}px; top: {wholeScene.outline.top}px; width: {wholeScene.outline.width}px; height: {wholeScene.outline.height}px;"
@@ -2418,7 +2468,7 @@
                                     ></div>
                                 {/each}
                             {/if}
-                            {#if wholeScene.showing}
+                            {#if wholeSceneReady}
                                 <span
                                     class="pointer-events-none absolute left-3 top-3 z-30 rounded-full border border-white/15 bg-slate-950/70 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm"
                                     data-detection-whole-scene-chip
@@ -2451,7 +2501,7 @@
                                     </p>
                                 </div>
 
-                                {#if wholeScene.pinned && wholeScene.showing}
+                                {#if wholeScene.pinned && wholeSceneReady}
                                     <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center" data-detection-whole-scene-actions>
                                         <button
                                             type="button"
@@ -2604,6 +2654,7 @@
                             applyingKey={applyingMomentKey}
                             busy={snapshotApplyPending || snapshotGeneratePending}
                             asRecordedUrl={originalFrigateSnapshotAvailable ? originalFrigateSnapshotUrl : null}
+                            photographUrl={snapshotImageUrl}
                             canRegenerate={Boolean(snapshotStatus?.high_quality_bird_crop_enabled)}
                             regeneratePending={snapshotGeneratePending}
                             onuse={(moment) => { void handleUseMoment(moment); }}

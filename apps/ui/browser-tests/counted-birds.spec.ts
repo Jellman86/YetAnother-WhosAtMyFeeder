@@ -81,13 +81,18 @@ test('outlines the exact count frame, not the portrait frame, on the image conte
     await expect(page.locator('[data-counted-birds-provenance]')).toContainText('frame 150 of the event clip');
     await expect(page.locator('[data-counted-birds-provenance]')).toContainText('different frame');
 
-    const image = await page.locator('[data-counted-birds-frame] img').boundingBox();
-    const cardinal = await page.locator('[data-counted-bird-outline="4"]').boundingBox();
-    expect(image && cardinal).toBeTruthy();
-    expect(Math.abs(image!.width / image!.height - 3840 / 2160)).toBeLessThan(0.01);
-    expect((cardinal!.x - image!.x) / image!.width).toBeCloseTo(1454 / 3840, 2);
-    expect((cardinal!.y - image!.y) / image!.height).toBeCloseTo(1265 / 2160, 2);
-    expect(cardinal!.width / image!.width).toBeCloseTo((1642 - 1454) / 3840, 2);
+    // Read both rectangles in one layout snapshot. A font swap between separate
+    // browser round trips can move both together and falsify their relative position.
+    const { image, cardinal } = await page.locator('[data-counted-birds-frame]').evaluate(frame => {
+        const image = frame.querySelector('img');
+        const cardinal = frame.querySelector('[data-counted-bird-outline="4"]');
+        if (!image || !cardinal) throw new Error('Missing counted frame or bird outline');
+        return { image: image.getBoundingClientRect().toJSON(), cardinal: cardinal.getBoundingClientRect().toJSON() };
+    });
+    expect(Math.abs(image.width / image.height - 3840 / 2160)).toBeLessThan(0.01);
+    expect((cardinal.x - image.x) / image.width).toBeCloseTo(1454 / 3840, 2);
+    expect((cardinal.y - image.y) / image.height).toBeCloseTo(1265 / 2160, 2);
+    expect(cardinal.width / image.width).toBeCloseTo((1642 - 1454) / 3840, 2);
 
     // The counted total is the stored count; the Unknown bird stays Unknown with its guess stated.
     await expect(page.locator('[data-counted-birds-total]')).toHaveText('2');
@@ -148,7 +153,8 @@ test('a resized image cannot carry frame-pixel boxes, so outlines are withheld a
     await open(page, 'case=resized');
     await expect(page.locator('[data-counted-birds-unavailable="geometry"]')).toBeVisible();
     await expect(page.locator('[data-counted-bird-outline]')).toHaveCount(0);
-    await expect(page.locator('[data-counted-birds-scene]')).toHaveCount(0);
+    // Keep the frame's reserved space and honest geometry warning, with no boxes.
+    await expect(page.locator('[data-counted-birds-scene]')).toHaveCount(1);
     await expect(page.locator('[data-counted-bird-row]')).toHaveCount(2);
     await expect(page.locator('[data-counted-bird-crop="placeholder"]')).toHaveCount(2);
 });
