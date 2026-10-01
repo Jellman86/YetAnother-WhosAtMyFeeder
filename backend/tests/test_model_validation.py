@@ -275,7 +275,8 @@ def test_provider_signature_ignores_unrelated_runtime_packages(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_cancelled_probe_reaps_a_child_that_exits_during_cancellation(monkeypatch):
+@pytest.mark.parametrize("probe", [mv._probe_one_provider, mv._probe_one_crop_provider])
+async def test_cancelled_probe_reaps_a_child_that_exits_during_cancellation(monkeypatch, probe):
     import asyncio
     from types import SimpleNamespace
     from unittest.mock import AsyncMock, Mock
@@ -287,5 +288,5 @@ async def test_cancelled_probe_reaps_a_child_that_exits_during_cancellation(monk
     )
     monkeypatch.setattr(asyncio, "create_subprocess_exec", AsyncMock(return_value=process))
     with pytest.raises(asyncio.CancelledError):
-        await mv._probe_one_provider("intel_gpu", model_id="test")
+        await probe("intel_gpu", model_id="test")
     assert process.communicate.await_count == 2
