@@ -44,6 +44,23 @@ The eight classified photo crops per frame are a performance limit on photograph
 limit on counted detector boxes. The count still reflects only birds the detector localized in an
 analyzed frame, so it must not be presented as an exact census.
 
+The counted frame need not be the photograph's frame. `CountedBirds` resolves the exact retained
+full frame (same clip variant, frame index and, where the observation names it, candidate) and
+outlines birds only on its full-resolution image, whose decoded size is the boxes' coordinate
+space. A thumbnail, a possibly cropped Frigate fallback, an ambiguous match or a box outside the
+decoded size withholds the outlines and says why; the list stays. Each bird's thumbnail is cut
+from that frame by CSS, so it costs no request, and hovering, focusing or choosing its row
+highlights it on the frame. Drawn boxes are never controls; the rows are. Repeated species are
+told apart by position from the left. The field log reports a visit's busiest single capture
+("3 birds in one capture") from the owner-only `bird_summary`, never a sum across repeat frames,
+and says nothing for a capture with no stored birds, because not counted is not zero.
+Use the server's `is_unknown` decision on each bird so configured unknown labels and
+noncanonical taxa agree with the field log. Unrelated parent/SSE patches must not overwrite
+the summary from an authoritative event read. Background HQ counts are picked up by the
+existing visible-owner checks (once a minute), using stale and single-flight guards. Guests
+add no count reads, and completions do not trigger one request per capture. An open record
+rereads its scene when that authoritative count changes; superseded reads cannot apply.
+
 ### 1.3 Say what needs a human, and say why
 
 Work that is waiting is first-class: the review queue is a docked card with a count, not a filter

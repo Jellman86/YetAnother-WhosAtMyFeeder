@@ -4,6 +4,7 @@
     import type { Detection } from '../api';
     import type { DetectionVisit } from '../utils/visit-grouping';
     import type { HealthTimelineRow } from '../utils/health-timeline';
+    import { visitBirdMarker, type VisitBirdMarker } from '../utils/visit-birds';
     import { formatTime } from '../utils/datetime';
     import { getBirdNames } from '../naming';
     import { settingsStore } from '../stores/settings.svelte';
@@ -74,6 +75,23 @@
 
     function quietScore(score: number | null): string {
         return score === null ? '' : `${Math.round(score * 100)}%`;
+    }
+
+    function birdsText(marker: VisitBirdMarker): string {
+        const { counted, unknown, excluded } = marker.summary;
+        if (counted === 0) {
+            return $_('dashboard.field_log.birds_none_counted', {
+                values: { count: excluded },
+                default: 'No birds counted, {count} excluded'
+            });
+        }
+        const birds = $_('dashboard.field_log.birds_in_capture', {
+            values: { count: counted },
+            default: '{count} birds in one capture'
+        });
+        return unknown > 0
+            ? `${birds}, ${$_('dashboard.field_log.birds_unknown', { values: { count: unknown }, default: '{count} unknown' })}`
+            : birds;
     }
 
     function barTone(score: number): string {
@@ -180,6 +198,7 @@
                 {@const visit = row.visit}
                 {@const naming = names(visit.lead)}
                 {@const score = visit.best.score ?? 0}
+                {@const birds = visitBirdMarker(visit)}
                 <li
                     class="grid grid-cols-[3.4rem_0.6rem_auto_minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-1 rounded-xl border-b border-slate-200/60 px-2 py-2 last:border-b-0 sm:grid-cols-[4.5rem_0.75rem_auto_minmax(0,1fr)_auto_auto_5rem] sm:gap-x-3 sm:py-2.5 dark:border-slate-700/40"
                     class:bg-gradient-to-r={visit.needsReview}
@@ -192,7 +211,7 @@
                         {span(visit)}
                     </span>
 
-                    <span class="relative flex h-full justify-center" aria-hidden="true">
+                    <span class="relative flex h-full justify-center" class:row-span-2={!!birds} aria-hidden="true">
                         <!-- The spine runs behind the nodes so the day reads as one thread. -->
                         <span class="absolute inset-y-[-0.7rem] w-px bg-slate-200 dark:bg-slate-700/70"></span>
                         <span
@@ -217,8 +236,10 @@
                                 {naming.primary}
                             </span>
                             {#if visit.frames.length > 1}
-                                <span class="shrink-0 text-xs font-medium text-slate-500 dark:text-slate-400">
-                                    ×{visit.frames.length}
+                                <!-- Captures, not birds: the bird count below says how many birds one capture held. -->
+                                <span class="shrink-0 text-xs font-medium text-slate-500 dark:text-slate-400" data-field-log-captures>
+                                    <span aria-hidden="true">×{visit.frames.length}</span>
+                                    <span class="sr-only">{$_('dashboard.field_log.captures', { values: { count: visit.frames.length }, default: '{count} captures in this visit' })}</span>
                                 </span>
                             {/if}
                         </p>
@@ -295,6 +316,24 @@
                             </button>
                         {/if}
                     </span>
+
+                    <!-- Its own grid row, so the bird count wraps instead of truncating beside the name. -->
+                    {#if birds}
+                        {@const text = birdsText(birds)}
+                        <button
+                            type="button"
+                            class="col-span-3 col-start-3 -mt-1 inline-flex min-h-11 items-center gap-1.5 justify-self-start rounded-lg px-1 text-left text-xs font-medium sm:col-span-4 sm:col-start-4 text-slate-600 transition-colors hover:text-brand-700 focus-ring dark:text-slate-300 dark:hover:text-brand-300"
+                            aria-label={$_('dashboard.field_log.birds_open', { values: { summary: text }, default: '{summary}, open that capture' })}
+                            onclick={() => onselect?.(birds.detection)}
+                            data-field-log-birds={birds.summary.counted}
+                        >
+                            <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M16 7h.01M3.4 18H12a8 8 0 0 0 8-8V7a4 4 0 0 0-7.28-2.3L2 20" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m20 7 2 .5-2 .5M10 18v3M14 17.75V21" />
+                            </svg>
+                            <span class="min-w-0">{text}</span>
+                        </button>
+                    {/if}
                 </li>
                 {/if}
             {/each}

@@ -6,6 +6,9 @@ import json
 import aiosqlite
 
 from app.services.bird_observation_selection import BirdObservation, BirdObservationSelection
+from app.utils.canonical_species import should_hide_species_label
+
+SUMMARY_EVENT_PAGE_SIZE = 400
 
 
 class BirdObservationRepository:
@@ -247,6 +250,53 @@ class BirdObservationRepository:
         ) as cursor:
             row = await cursor.fetchone()
         return {"birds": int(row[0] or 0), "captures": int(row[1] or 0)}
+
+    async def summaries_for_events(self, frigate_events: list[str]) -> dict[str, dict]:
+        """Per-capture totals from stored owner decisions; a capture without rows has no entry.
+
+        No entry is not a measured zero: an empty count is never persisted. The join keeps
+        the summary to current parents, so an orphaned row cannot describe a deleted capture.
+        """
+        groups: dict[str, list[tuple[str, bool, int, bool]]] = {}
+        unique_events = list(dict.fromkeys(frigate_events))
+        for start in range(0, len(unique_events), SUMMARY_EVENT_PAGE_SIZE):
+            page = unique_events[start : start + SUMMARY_EVENT_PAGE_SIZE]
+            placeholders = ",".join("?" for _ in page)
+            async with self.db.execute(
+                f"""SELECT b.frigate_event, b.species, b.is_hidden, COUNT(*),
+                           MIN(CASE WHEN b.detector_confidence IS NULL THEN 1 ELSE 0 END)
+                    FROM bird_observations b JOIN detections d ON d.frigate_event = b.frigate_event
+                    WHERE b.frigate_event IN ({placeholders})
+                    GROUP BY b.frigate_event, b.species, b.is_hidden""",
+                page,
+            ) as cursor:
+                for event, species, hidden, count, hint_only in await cursor.fetchall():
+                    groups.setdefault(str(event), []).append((str(species), bool(hidden), int(count), bool(hint_only)))
+        return {event: self._summarize(rows) for event, rows in groups.items()}
+
+    @staticmethod
+    def _summarize(groups: list[tuple[str, bool, int, bool]]) -> dict:
+        named: dict[str, int] = {}
+        counted = unknown = excluded = 0
+        for species, hidden, count, _ in groups:
+            if hidden:
+                excluded += count
+                continue
+            counted += count
+            if should_hide_species_label(species):
+                unknown += count
+            else:
+                named[species] = named.get(species, 0) + count
+        return {
+            "counted": counted,
+            "unknown": unknown,
+            "excluded": excluded,
+            "species": [
+                {"species": species, "count": count}
+                for species, count in sorted(named.items(), key=lambda item: (-item[1], item[0]))
+            ],
+            "hint_only": all(hint_only for *_, hint_only in groups),
+        }
 
     async def count_by_species_between(self, start: datetime, end: datetime) -> list[dict[str, int | str]]:
         async with self.db.execute(

@@ -9,7 +9,8 @@ import structlog
 from PIL import Image
 
 from app.database import get_db
-from app.models import DetectionListItemResponse, DetectionResponse
+from app.models import DetectionBirdSummary, DetectionListItemResponse, DetectionResponse
+from app.repositories.bird_observation_repository import BirdObservationRepository
 from app.repositories.detection_repository import DetectionRepository
 from app.config import settings
 from app.services.classifier_service import get_classifier
@@ -608,7 +609,10 @@ _LIST_FIELDS = {
     "audio_score",
     "audio_confirmed",
     "audio_context_species",
+    "bird_summary",
 }
+# Localized birds are owner evidence from the private candidate scan, never a guest field.
+_OWNER_ONLY_FIELDS = {"bird_summary"}
 _DETAIL_FIELDS = set()  # Empty = all fields
 
 
@@ -765,6 +769,8 @@ async def get_events(
 
             results = await asyncio.gather(*(lookup(taxa_id) for taxa_id in taxa_ids))
             localized_names = {taxa_id: name for taxa_id, name in results if name}
+
+        bird_summaries = await BirdObservationRepository(db).summaries_for_events(event_ids) if auth.is_owner else {}
 
         public_audio = {}
         if not auth.is_owner:
@@ -938,6 +944,9 @@ async def get_events(
                 ai_analysis=event.ai_analysis,
                 ai_analysis_timestamp=event.ai_analysis_timestamp,
             )
+            if auth.is_owner:
+                summary = bird_summaries.get(event.frigate_event)
+                response_event.bird_summary = DetectionBirdSummary.model_validate(summary) if summary else None
             if not auth.is_owner:
                 # Public HTTP responses are the authoritative projection used after
                 # SSE invalidation; producer diagnostics are owner information.
@@ -970,6 +979,8 @@ async def get_events(
                 selected_fields = {f.strip() for f in fields.split(",") if f.strip()}
                 # Always include id and frigate_event for navigation
                 selected_fields.update({"id", "frigate_event"})
+            if selected_fields and not auth.is_owner:
+                selected_fields = selected_fields - _OWNER_ONLY_FIELDS
 
             if selected_fields:
                 log.info("Filtering fields", count=len(selected_fields))

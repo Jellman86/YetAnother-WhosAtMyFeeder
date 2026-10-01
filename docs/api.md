@@ -191,6 +191,17 @@ fresh day. This does not cache sharing preferences.
 - `POST /api/events/{event_id}/reclassify` (owner)
 - `POST /api/events/{event_id}/classify-wildlife` (owner)
 
+For owners, each event row from `GET /api/events` (default, `fields=detail`, `fields=list`, or a
+custom field list naming it) carries `bird_summary`: the localized birds stored for that capture,
+read in one batched query per page. `counted` excludes birds the owner excluded, `unknown` counts
+counted birds classified as unknown under the configured label policy (including noncanonical taxa),
+`excluded` counts exclusions, `species` groups
+the counted named birds by their stored (owner-corrected) species, and `hint_only` is true when
+every bird came from Frigate's tracked box. Repeated species stay separate observations; they are
+birds located in one analysed frame, not unique animals. `null` means no observations are stored,
+which is not a measured zero. Guests never receive the field. Other routes that return detections
+leave it unset.
+
 `PATCH /api/events/{event_id}` accepts `{"display_name": "Blue Tit"}`. A successful response
 always includes `manual_tagged: true` and the retained taxonomy fields. If the requested name is
 the current species or another known name for the same taxon, `status` is `unchanged`: YA-WAMF
@@ -286,7 +297,9 @@ per-file limits above.
     completed-track clean-snapshot baseline.
   - `birds` lists the individual observations counted from one analyzed full frame. Each row
     includes its box, suggested or corrected species, detector confidence when available, and
-    `is_hidden`. The eight classified photo crops per frame do not limit the number of counted
+    `is_hidden`, and server-derived `is_unknown`. The unknown decision uses the same configured
+    label and noncanonical-taxon policy as `bird_summary`, including after an owner correction.
+    The eight classified photo crops per frame do not limit the number of counted
     detector boxes. In Intensive scan mode, large high-resolution frames are also scanned in overlapping tiles so distant
     birds occupy more detector pixels. Frigate supplies one tracked-object hint per event; a
     hint-only count can miss other birds, and local detector results can include false positives.

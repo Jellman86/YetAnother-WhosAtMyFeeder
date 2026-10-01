@@ -6,6 +6,7 @@
     import CountedBirds from './CountedBirds.svelte';
     import { getBirdNames } from '../naming';
     import { settingsStore } from '../stores/settings.svelte';
+    import { authStore } from '../stores/auth.svelte';
     import {
         currentMoment,
         groupCandidatesIntoMoments,
@@ -56,6 +57,8 @@
     // and its whole scene. Choosing one changes the photograph and nothing else.
     let candidates = $state<SnapshotCandidate[]>([]);
     let countedBirds = $state<BirdObservation[]>([]);
+    /** Advanced on every reread of the birds, so an edit answered after it is not applied. */
+    let countedBirdsGeneration = $state(0);
     let photograph = $state<SnapshotCandidate | null>(null);
     const wholeSceneCrops = $derived(sameFrameCropCandidates(candidates, photograph));
     let currentCandidateId = $state<string | null>(null);
@@ -112,11 +115,17 @@
         failedImageUrls = new Set();
     });
 
+    let candidateReadEpoch = 0;
+
     async function loadCandidates(eventId: string, isCancelled: () => boolean): Promise<void> {
+        const requestEpoch = ++candidateReadEpoch;
+        const isCurrent = () => requestEpoch === candidateReadEpoch && !isCancelled()
+            && session.current?.frigate_event === eventId && authStore.hasOwnerAccess;
+        if (!isCurrent()) return;
         cropLoading = true;
         try {
             const response = await fetchSnapshotCandidates(eventId);
-            if (isCancelled()) return;
+            if (!isCurrent()) return;
             const all = response.candidates ?? [];
             const cropped = all.filter(
                 (candidate) => candidate.crop_box && (candidate.image_url || candidate.thumbnail_url)
@@ -135,38 +144,44 @@
             );
             candidates = all;
             countedBirds = response.birds ?? [];
+            countedBirdsGeneration += 1;
             currentCandidateId = response.current_candidate_id ?? null;
             currentSource = response.current_source ?? null;
         } catch {
             // No scan has been run for this event, so there is no crop to show.
-            if (!isCancelled()) {
+            if (isCurrent()) {
                 crop = null;
                 fullFrame = null;
                 photograph = null;
                 candidates = [];
                 countedBirds = [];
+                countedBirdsGeneration += 1;
             }
         } finally {
-            if (!isCancelled()) cropLoading = false;
+            if (isCurrent()) cropLoading = false;
         }
     }
 
     $effect(() => {
         const eventId = session.current?.frigate_event;
+        candidateReadEpoch += 1;
         crop = null;
         fullFrame = null;
         photograph = null;
         candidates = [];
         countedBirds = [];
+        // Read untracked: this effect must not rerun because it advanced the generation.
+        untrack(() => { countedBirdsGeneration += 1; });
         currentCandidateId = null;
         currentSource = null;
         wholeScene.reset();
-        if (!eventId) return;
+        if (!eventId || !authStore.hasOwnerAccess) return;
 
         let cancelled = false;
         void loadCandidates(eventId, () => cancelled);
         return () => {
             cancelled = true;
+            candidateReadEpoch += 1;
         };
     });
 
@@ -203,6 +218,12 @@
     // The outlines are DOM measurements, taken once the whole scene has loaded and again when
     // the window changes size.
     function measureWholeScene(): void {
+        // Crop boxes are frame pixels; only the full-resolution scene shares them.
+        if (!fullFrame?.image_url) {
+            wholeScene.outline = null;
+            wholeScene.otherOutlines = [];
+            return;
+        }
         const otherCropBoxes = wholeSceneCrops.slice(1).flatMap((candidate) =>
             candidate.crop_box ? [candidate.crop_box] : []
         );
@@ -491,13 +512,18 @@
 
                 <div class="flex flex-col gap-3 p-4 md:min-h-0 md:overflow-y-auto">
                     {#if countedBirds.length > 0}
-                        <CountedBirds
-                            eventId={current.frigate_event}
-                            birds={countedBirds}
-                            {candidates}
-                            speciesOptions={labels}
-                            onchanged={(updated) => { countedBirds = countedBirds.map((bird) => bird.id === updated.id ? updated : bird); onbirdschanged?.(); }}
-                        />
+                        {#key current.frigate_event}
+                            <CountedBirds
+                                eventId={current.frigate_event}
+                                birds={countedBirds}
+                                {candidates}
+                                {photograph}
+                                speciesOptions={labels}
+                                generation={countedBirdsGeneration}
+                                onchanged={(updated) => { countedBirds = countedBirds.map((bird) => bird.id === updated.id ? updated : bird); onbirdschanged?.(); }}
+                                onstale={() => { const eventId = current.frigate_event; void loadCandidates(eventId, () => session.current?.frigate_event !== eventId); onbirdschanged?.(); }}
+                            />
+                        {/key}
                     {/if}
                     <div>
                         <p class="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">

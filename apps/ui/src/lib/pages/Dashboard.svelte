@@ -271,6 +271,7 @@
             asNumber(d.video_classification_score),
             asText(d.ai_analysis),
             asText(d.ai_analysis_timestamp),
+            JSON.stringify(d.bird_summary ?? null),
         ].join('|');
     }
 
@@ -538,6 +539,12 @@
             analyzingAI = false;
         }
     }
+
+    /** A bird correction, exclusion or recount changes the day's total and the log's summaries. */
+    function handleBirdsChanged(): void {
+        void loadSummary(true);
+        void detectionsStore.refreshAfterOwnerEdit();
+    }
 </script>
 
 <div class="space-y-6">
@@ -626,7 +633,7 @@
         newSpecies: newSpeciesEntries
     })}
     <ReviewQueueModal
-        onbirdschanged={() => { void loadSummary(true); }}
+        onbirdschanged={handleBirdsChanged}
         queue={fullQueue.items}
         reasons={fullQueue.reasons}
         labels={classifierLabels}
@@ -642,7 +649,7 @@
 <!-- Event Detail Modal -->
 {#if selectedEvent}
     <DetectionModal
-        onbirdschanged={() => { void loadSummary(true); }}
+        onbirdschanged={handleBirdsChanged}
         detection={selectedEvent}
         {classifierLabels}
         llmReady={llmReady}

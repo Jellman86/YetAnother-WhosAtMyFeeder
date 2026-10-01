@@ -282,6 +282,7 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
       t,
       shouldNotify,
       hasOwnerAccess: () => authStore.showSettings,
+      refreshOwnerHistory: () => detectionsStore.refreshIfStale(),
       applyNotificationPolicy,
       notificationCenter,
       jobProgress: jobProgressStore,
