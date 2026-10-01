@@ -11,7 +11,7 @@
 
 <div class="md:hidden sticky top-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-b border-slate-200/80 dark:border-slate-700/50 h-[var(--app-chrome-height,4rem)] flex items-center px-4 justify-between">
     <button
-        class="p-2 -ml-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+        class="btn btn-ghost min-h-11 min-w-11 p-2 -ml-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
         onclick={onToggleMenu}
         aria-label={toggleMenuLabel}
     >
@@ -27,7 +27,7 @@
         <span class="text-sm font-bold text-gradient">{appTitle}</span>
     </div>
     <button
-        class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
+        class="btn btn-ghost min-h-11 min-w-11 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
         onclick={onToggleTheme}
         aria-label={switchThemeLabel}
     >

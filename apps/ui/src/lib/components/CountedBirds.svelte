@@ -120,10 +120,10 @@
                         {#if !bird.manual_species && !bird.is_hidden}
                             <span class="text-[10px] text-slate-500 dark:text-slate-400">{$_('detection.counted_birds.suggested', { default: 'Suggested' })}</span>
                         {/if}
-                        <button type="button" class="min-h-9 rounded-lg px-2 font-semibold text-brand-700 hover:bg-brand-50 focus-ring dark:text-brand-300 dark:hover:bg-brand-950/30" disabled={savingId !== null} onclick={() => { editingId = editingId === bird.id ? null : bird.id; speciesInput = bird.species === 'Unknown Bird' ? '' : bird.species; }}>
+                        <button type="button" class="btn btn-ghost min-h-11 min-w-11 rounded-lg px-2 text-xs font-semibold text-brand-700 hover:bg-brand-50 focus-ring dark:text-brand-300 dark:hover:bg-brand-950/30" disabled={savingId !== null} onclick={() => { editingId = editingId === bird.id ? null : bird.id; speciesInput = bird.species === 'Unknown Bird' ? '' : bird.species; }}>
                             {$_('detection.counted_birds.correct', { default: 'Correct' })}
                         </button>
-                        <button type="button" class="min-h-9 rounded-lg px-2 font-semibold text-slate-600 hover:bg-slate-100 focus-ring dark:text-slate-300 dark:hover:bg-slate-800" disabled={savingId !== null} onclick={() => { void toggleHidden(bird); }}>
+                        <button type="button" class="btn btn-ghost min-h-11 min-w-11 rounded-lg px-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 focus-ring dark:text-slate-300 dark:hover:bg-slate-800" disabled={savingId !== null} onclick={() => { void toggleHidden(bird); }}>
                             {bird.is_hidden ? $_('detection.counted_birds.restore', { default: 'Restore' }) : $_('detection.counted_birds.exclude', { default: 'Exclude' })}
                         </button>
                     </div>
@@ -138,7 +138,7 @@
                         {#if speciesSuggestions.length > 0}
                             <ul class="mt-1 max-h-40 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-900" aria-label={$_('detection.counted_birds.suggestions', { default: 'Matching species' })}>
                                 {#each speciesSuggestions as suggestion (suggestion)}
-                                    <li><button type="button" class="min-h-9 w-full rounded-md px-2 text-left text-xs text-slate-700 hover:bg-brand-50 focus-ring dark:text-slate-200 dark:hover:bg-brand-950/30" onclick={() => { speciesInput = suggestion; }}>{suggestion}</button></li>
+                                    <li><button type="button" class="btn btn-ghost min-h-11 min-w-11 w-full justify-start rounded-md px-2 text-left text-xs text-slate-700 hover:bg-brand-50 focus-ring dark:text-slate-200 dark:hover:bg-brand-950/30" onclick={() => { speciesInput = suggestion; }}>{suggestion}</button></li>
                                 {/each}
                             </ul>
                         {/if}
