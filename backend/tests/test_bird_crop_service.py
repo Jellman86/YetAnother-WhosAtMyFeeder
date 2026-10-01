@@ -11,6 +11,38 @@ def _make_image(width: int = 100, height: int = 100) -> Image.Image:
     return Image.new("RGB", (width, height), color="white")
 
 
+@pytest.mark.parametrize("provider", ["cpu", "cuda"])
+def test_crop_session_preloads_packaged_libraries_only_before_cuda(monkeypatch, tmp_path, provider):
+    calls = []
+
+    class FakeSession:
+        def get_providers(self):
+            return ["CUDAExecutionProvider" if provider == "cuda" else "CPUExecutionProvider"]
+
+        def get_inputs(self):
+            return [types.SimpleNamespace(name="images", shape=[1, 3, 416, 416])]
+
+    def preload_dlls(*, directory):
+        calls.append(("preload", directory))
+
+    def create_session(*args, **kwargs):
+        calls.append(("session", kwargs["providers"]))
+        return FakeSession()
+
+    ort = types.SimpleNamespace(preload_dlls=preload_dlls, SessionOptions=object, InferenceSession=create_session)
+    service = BirdCropService()
+    monkeypatch.setattr(service, "_import_onnxruntime", lambda: ort)
+
+    service._load_model_on_provider(
+        tier="accurate", model_path=tmp_path / "model.onnx", model_config={}, provider=provider
+    )
+
+    expected = [("session", ["CUDAExecutionProvider" if provider == "cuda" else "CPUExecutionProvider"])]
+    if provider == "cuda":
+        expected.insert(0, ("preload", ""))
+    assert calls == expected
+
+
 def test_observation_boxes_are_not_capped_by_photo_choice_limit(monkeypatch):
     service = BirdCropService()
     image = _make_image(1000, 100)

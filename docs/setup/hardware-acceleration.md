@@ -29,6 +29,13 @@ A failed or interrupted check does not retry on every restart: validate the mode
 A different runtime or model artifact permits a new automatic attempt. New, never-validated
 accelerators still require manual validation.
 
+### CUDA library loading
+
+The crop detector loads ONNX Runtime's packaged CUDA libraries before creating
+its own CUDA session. It does not depend on the species classifier having loaded
+them first. CPU sessions avoid CUDA preloading, and strict hardware validation
+still rejects an unexpected CPU fallback.
+
 ## Prerequisites
 
 - A host accelerator YA-WAMF supports: an Intel integrated GPU (`/dev/dri`), an
