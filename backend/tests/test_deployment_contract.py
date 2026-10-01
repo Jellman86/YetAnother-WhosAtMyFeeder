@@ -333,3 +333,46 @@ def test_every_published_image_names_its_git_revision() -> None:
         assert "org.opencontainers.image.revision=${{ github.sha }}" in with_block
         assert "org.opencontainers.image.version=${{ env.APP_VERSION_BASE }}" in with_block
         assert "org.opencontainers.image.source=https://github.com/${{ github.repository }}" in with_block
+
+
+def test_unraid_template_exposes_documentation_license_and_existing_brand_assets() -> None:
+    from urllib.parse import urlparse
+    from PIL import Image
+
+    template = ET.parse(REPO_ROOT / "unraid/yawamf.xml").getroot()
+    profile = ET.parse(REPO_ROOT / "ca_profile.xml").getroot()
+    base = "https://raw.githubusercontent.com/Jellman86/YetAnother-WhosAtMyFeeder/main/"
+    assert template.findtext("ReadMe") == (
+        "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/main/docs/setup/unraid.md"
+    )
+    assert template.findtext("License") == "MIT"
+    assert template.findtext("Icon") == profile.findtext("Icon")
+    for field in ("Icon", "Screenshot"):
+        url = template.findtext(field)
+        assert url and urlparse(url).scheme == "https" and url.startswith(base)
+        path = REPO_ROOT / url.removeprefix(base)
+        with Image.open(path) as asset:
+            asset.verify()
+        if field == "Icon":
+            with Image.open(path) as icon:
+                assert icon.size == (512, 512)
+
+
+def test_unraid_connection_settings_remain_editable_after_restart() -> None:
+    template = ET.parse(REPO_ROOT / "unraid/yawamf.xml").getroot()
+    pinned_connections = [
+        config.get("Target")
+        for config in template.findall("Config")
+        if (config.get("Target") or "").startswith("FRIGATE__")
+    ]
+    assert pinned_connections == []
+
+
+def test_unraid_guide_has_a_local_template_import_and_complete_connection_setup() -> None:
+    guide = (REPO_ROOT / "docs/setup/unraid.md").read_text(encoding="utf-8")
+    assert "paste the template URL" not in guide
+    assert "/boot/config/plugins/dockerMan/templates-user/my-YA-WAMF.xml" in guide
+    assert "Frigate & MQTT connection" in guide
+    assert "Settings → Connection" in guide
+    assert "FRIGATE__FRIGATE_URL" in guide and "overrides" in guide
+    assert "Docker Safe New" not in guide
