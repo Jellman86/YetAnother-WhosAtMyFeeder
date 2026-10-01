@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Preserve favourites accepted during automatic missing-media deletion. The final database
+  decision checks favourites atomically before cached photos are removed; a simultaneous
+  favourite request for an already deleted visit returns not found cleanly.
+
 - Keep BirdWeather station credentials out of failed-report and verbose HTTP request logs,
   while retaining the error type and HTTP status for diagnosis.
 
