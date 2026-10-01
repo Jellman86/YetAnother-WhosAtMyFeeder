@@ -292,6 +292,11 @@ per-file limits above.
 - `GET /api/frigate/{event_id}/snapshot.jpg`
 - `GET /api/frigate/{event_id}/snapshot/status` (owner; reports the effective best-available policy)
 - `GET /api/frigate/{event_id}/snapshot/candidates` (owner)
+  - `image_url` and `thumbnail_url` are nullable independently when the corresponding cached
+    file is missing or empty. Candidate choices and counted bird records remain available.
+    Retained media URLs use stable file revisions: reading an unchanged image does not
+    change its URL, while replacing it changes its revision. A file can still expire between
+    listing and loading; clients must keep a working saved photo and handle media failures.
   - Candidate rows include optional `crop_strategy` provenance (`native`, `frigate_guided`,
     `sliced_2x2`, or `fast_native`) for model-generated crops, and `frigate_final_box` for the
     completed-track clean-snapshot baseline.

@@ -14,7 +14,14 @@ from app.services import media_storage_service as storage
 from test_full_visit_budget_eviction import budget_visit_history as budget_visit_history
 
 
-ALIASES = ("_recording", "_thumb", "_preview", "__model_crop__f1__c0__0123456789__image")
+ALIASES = (
+    "_recording",
+    "_thumb",
+    "_preview",
+    "__model_crop__f1__c0__0123456789__image",
+    "__full_frame__final__0123456789__image",
+    "__model_crop__final__c2__0123456789__image",
+)
 
 
 async def create_alias(database, alias, *, favorite=False):

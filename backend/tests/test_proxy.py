@@ -1625,6 +1625,11 @@ async def test_proxy_snapshot_candidates_lists_persisted_candidates(client: http
     settings.media_cache.enabled = True
     settings.media_cache.cache_snapshots = True
     with (
+        patch(
+            "app.services.media_cache.media_cache.get_cached_image_version",
+            new_callable=AsyncMock,
+            return_value="retained-revision",
+        ),
         patch("app.routers.proxy.get_db") as mock_get_db,
         patch("app.routers.proxy.DetectionRepository") as mock_repo_cls,
         patch("app.routers.proxy.BirdObservationRepository") as mock_bird_repo_cls,
