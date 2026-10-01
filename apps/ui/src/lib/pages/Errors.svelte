@@ -16,7 +16,8 @@
         faultDropCount,
         hasExpectedDrops,
         recentFaultDetections,
-        recentFilteredDetections
+        recentFilteredDetections,
+        keyedPipelineDetections
     } from '../utils/pipeline-health';
     import { getFrigateMediaAdvisory, getVideoClassifierCardState } from '../errors/health';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
@@ -777,7 +778,7 @@
                                     <div class="mt-4 border-t border-current/15 pt-3">
                                         <p class="text-xs font-black uppercase tracking-wider opacity-70">{$_('jobs.errors_filtered_recent', { default: 'Most recent' })}</p>
                                         <ul class="mt-2 space-y-1.5 text-xs font-semibold">
-                                            {#each recentFilteredDetections(health?.event_pipeline) as entry (entry.eventId)}
+                                            {#each keyedPipelineDetections(recentFilteredDetections(health?.event_pipeline)) as { key, entry } (key)}
                                                 <li
                                                     class="flex items-baseline justify-between gap-3"
                                                     title={`${filteredReasonLabel(entry.reason)}${entry.timestamp ? ` · ${formatDateTime(Date.parse(entry.timestamp))}` : ''} · ${entry.eventId}`}

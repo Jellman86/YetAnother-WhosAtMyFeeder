@@ -84,6 +84,28 @@ export interface FilteredDetection {
 
 export type FaultDetection = FilteredDetection;
 
+/**
+ * An event can have several pipeline attempts. Give each attempt a stable key,
+ * retaining even indistinguishable records instead of silently hiding history.
+ * Count duplicates from the oldest end so a new attempt does not rename older rows.
+ */
+export function keyedPipelineDetections(
+    detections: readonly FilteredDetection[]
+): { key: string; entry: FilteredDetection }[] {
+    const occurrences = new Map<string, number>();
+    const keyed: { key: string; entry: FilteredDetection }[] = [];
+    for (let index = detections.length - 1; index >= 0; index--) {
+        const entry = detections[index];
+        const identity = JSON.stringify([
+            entry.eventId, entry.timestamp, entry.reason, entry.label, entry.score
+        ]);
+        const occurrence = occurrences.get(identity) ?? 0;
+        occurrences.set(identity, occurrence + 1);
+        keyed.push({ key: `${identity}:${occurrence}`, entry });
+    }
+    return keyed.reverse();
+}
+
 function toText(value: unknown): string | null {
     if (typeof value !== 'string') return null;
     const trimmed = value.trim();

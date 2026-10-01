@@ -1,5 +1,5 @@
 import type { DetectionVisit } from './visit-grouping';
-import type { FaultDetection, FilteredDetection } from './pipeline-health';
+import { keyedPipelineDetections, type FaultDetection, type FilteredDetection } from './pipeline-health';
 
 /**
  * The Health page shows one thread of what the feeder did: visits it kept and
@@ -55,11 +55,11 @@ export function buildHealthTimeline({
     for (const visit of visits) {
         rows.push({ kind: 'visit', key: `visit:${visit.key}`, at: parse(visit.endTime), visit });
     }
-    for (const drop of filtered) {
-        rows.push({ kind: 'filtered', key: `drop:${drop.eventId}`, at: parse(drop.timestamp), drop });
+    for (const { key, entry: drop } of keyedPipelineDetections(filtered)) {
+        rows.push({ kind: 'filtered', key: `drop:${key}`, at: parse(drop.timestamp), drop });
     }
-    for (const drop of faults) {
-        rows.push({ kind: 'fault', key: `fault:${drop.eventId}`, at: parse(drop.timestamp), drop });
+    for (const { key, entry: drop } of keyedPipelineDetections(faults)) {
+        rows.push({ kind: 'fault', key: `fault:${key}`, at: parse(drop.timestamp), drop });
     }
 
     rows.sort((left, right) => {
