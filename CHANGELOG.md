@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Keep guest audio evidence lookups within each capture’s time window using the timestamp index, avoiding repeated scans of shared audio history while preserving microphone mapping and visibility rules.
+
 - Read live device telemetry off the API event loop, so a busy device or concurrent sampling cannot stall other page requests.
 
 - Keep repeated filtering and fault attempts visible on Health without duplicate row IDs crashing the page.

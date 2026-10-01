@@ -83,15 +83,27 @@ async def _public_audio_conditions_sql(db: aiosqlite.Connection, *, match_specie
     await db.create_function("public_audio_species_matches", 3, _audio_species_matches, deterministic=True)
     await db.create_function("public_audio_window_bound", 2, window_bound, deterministic=True)
     public_start, public_end = public_events_window()
-    bounds, params = _history_bounds_sql(public_start, public_end, "a.timestamp")
-    sql = f"""a.is_hidden = 0{bounds}
-        AND a.timestamp >= public_audio_window_bound(d.detection_time, ?)
-        AND a.timestamp <= public_audio_window_bound(d.detection_time, ?)
-        AND public_audio_mapping_matches(d.camera_name, a.sensor_id, a.raw_data)"""
+    seconds = int(settings.frigate.audio_correlation_window_seconds)
+    # Competing inequalities let SQLite seek the whole shared-history range and
+    # evaluate the capture bound once per audio row. One intersected range makes
+    # the timestamp index seek only this capture's authorized correlation window.
+    sql = """a.is_hidden = 0
+        AND a.timestamp >= MAX(?, public_audio_window_bound(d.detection_time, ?))"""
+    params = [serialize_storage_datetime(public_start), -seconds]
+    if public_end is None:
+        sql += " AND a.timestamp <= public_audio_window_bound(d.detection_time, ?)"
+        params.append(seconds)
+    else:
+        end = serialize_storage_datetime(public_end)
+        sql += """ AND a.timestamp <= MIN(?, public_audio_window_bound(d.detection_time, ?))
+            AND a.timestamp <> ?"""
+        # MIN caps the inclusive seek at midnight; excluding that exact endpoint
+        # retains the public window's exclusive end without a competing range.
+        params.extend([end, seconds, end])
+    sql += " AND public_audio_mapping_matches(d.camera_name, a.sensor_id, a.raw_data)"
     if match_species:
         sql += " AND public_audio_species_matches(a.species, a.scientific_name, d.audio_species)"
-    seconds = int(settings.frigate.audio_correlation_window_seconds)
-    return sql, [*params, -seconds, seconds]
+    return sql, params
 
 
 async def _public_audio_evidence_sql(db: aiosqlite.Connection) -> tuple[str, list]:

@@ -302,3 +302,105 @@ async def test_public_portraits_apply_window_before_species_limit(private_histor
     assert response.status_code == 200, response.text
     assert [row["frigate_event"] for row in response.json()["portraits"]] == ["current"]
     species.clear_portraits_cache()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("public_days", [0, 7])
+async def test_public_audio_lookup_work_depends_on_capture_window_not_shared_history(
+    private_history, monkeypatch, public_days
+):
+    today, factory = private_history
+    monkeypatch.setattr(settings.public_access, "show_historical_days", public_days)
+    from app.repositories.detection_repository import DetectionRepository
+
+    capture_time = today + timedelta(hours=12)
+    stamp = capture_time.replace(tzinfo=None).isoformat(sep=" ")
+    unrelated_stamp = (today + timedelta(hours=2)).replace(tzinfo=None).isoformat(sep=" ")
+    async with factory() as db:
+        await db.execute("DELETE FROM detections")
+        await db.execute("DELETE FROM audio_detections")
+        await db.execute(
+            "INSERT INTO detections(frigate_event,camera_name,detection_time,detection_index,score,display_name,category_name,audio_confirmed,audio_species) VALUES('capture','secret-camera',?,1,.9,'Robin','Robin',1,'Robin')",
+            (stamp,),
+        )
+        await db.executemany(
+            "INSERT INTO audio_detections(timestamp,species,confidence,sensor_id,raw_data,is_hidden) VALUES(?,'Robin',.99,'micA','{}',0)",
+            [(unrelated_stamp,)] * 1000,
+        )
+        await db.execute(
+            "INSERT INTO audio_detections(timestamp,species,confidence,sensor_id,raw_data,is_hidden) VALUES(?,'Robin',.75,'micA','{}',0)",
+            (stamp,),
+        )
+        await db.commit()
+        calls = 0
+        register = db.create_function
+
+        async def counted_registration(name, arity, function, **kwargs):
+            if name == "public_audio_window_bound":
+                original = function
+
+                def counted(*args):
+                    nonlocal calls
+                    calls += 1
+                    return original(*args)
+
+                function = counted
+            await register(name, arity, function, **kwargs)
+
+        monkeypatch.setattr(db, "create_function", counted_registration)
+        repo = DetectionRepository(db)
+        evidence = await repo.get_public_audio_for_detections(await repo.get_all())
+    assert evidence["capture"]["primary"]["confidence"] == 0.75
+    assert evidence["capture"]["context"] == []
+    assert calls < 20, "The indexed capture lookup scanned unrelated shared audio history"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("public_days", [0, 7])
+@pytest.mark.parametrize("seconds", [0, 120])
+@pytest.mark.parametrize("capture_offset", [0, 12 * 3600, 24 * 3600 - 1])
+async def test_public_audio_indexed_bounds_preserve_midnight_and_capture_edges(
+    private_history, monkeypatch, public_days, seconds, capture_offset
+):
+    from app.repositories.detection_repository import _public_audio_conditions_sql
+    from app.utils.api_datetime import serialize_storage_datetime
+    from app.utils.public_access import public_events_window
+
+    today, factory = private_history
+    monkeypatch.setattr(settings.public_access, "show_historical_days", public_days)
+    monkeypatch.setattr(settings.frigate, "audio_correlation_window_seconds", seconds)
+    target = today + timedelta(seconds=capture_offset)
+    cutoff, end = public_events_window(today)
+    samples = sorted(
+        {
+            cutoff - timedelta(microseconds=1),
+            cutoff,
+            today,
+            today + timedelta(days=1) - timedelta(microseconds=1),
+            today + timedelta(days=1),
+            target - timedelta(seconds=seconds, microseconds=1),
+            target - timedelta(seconds=seconds),
+            target,
+            target + timedelta(seconds=seconds),
+            target + timedelta(seconds=seconds, microseconds=1),
+        }
+    )
+    async with factory() as db:
+        await db.execute("DELETE FROM audio_detections")
+        await db.executemany(
+            "INSERT INTO audio_detections(timestamp,species,confidence,sensor_id,raw_data,is_hidden) VALUES(?,'Robin',.9,'micA','{}',0)",
+            [(serialize_storage_datetime(stamp),) for stamp in samples],
+        )
+        sql, params = await _public_audio_conditions_sql(db)
+        query = f"""WITH d(camera_name,detection_time,audio_species) AS (VALUES (?,?,?))
+            SELECT a.timestamp FROM d JOIN audio_detections a ON {sql} ORDER BY a.timestamp"""
+        async with db.execute(query, ["secret-camera", serialize_storage_datetime(target), "Robin", *params]) as cursor:
+            actual = [row[0] for row in await cursor.fetchall()]
+    expected = [
+        serialize_storage_datetime(stamp)
+        for stamp in samples
+        if stamp >= cutoff
+        and (end is None or stamp < end)
+        and target - timedelta(seconds=seconds) <= stamp <= target + timedelta(seconds=seconds)
+    ]
+    assert actual == expected
