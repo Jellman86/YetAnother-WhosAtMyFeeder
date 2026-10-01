@@ -152,6 +152,17 @@ from a single pass. Review every failure, even when another repeat passes.
 
 ### Native Windows validation
 
+Windows workers use bounded binary stdin reads in a thread so heartbeats continue
+while waiting for requests. The parent launches the base interpreter directly
+with [CPython's virtual environment launcher hint](https://github.com/python/cpython/blob/3.12/Modules/getpath.py), retaining the environment's
+packages and ownership of the actual worker process. Runtime discovery probes,
+model validation and hardware/regression gates use the same launch helper.
+Cancelled crop validation kills and reaps its child before returning, including
+a child that exits during cancellation. An explicitly restricted child environment
+stays restricted. The same CPU recovery
+overrides remain confined to the child. Test small and large messages, readiness,
+heartbeats, parent EOF and confirmed termination on the real Windows host.
+
 Missing POSIX process counters or user/group IDs must not prevent native startup.
 Process attribution and unavailable IDs remain unmeasured in diagnostics. The
 Linux process-counter tests use explicit counters and still verify attribution.

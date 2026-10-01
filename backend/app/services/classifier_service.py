@@ -15,7 +15,6 @@ import json
 import math
 import re
 import subprocess
-import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -134,6 +133,8 @@ OpenVINOCore = _OPENVINO_SUPPORT["core_class"]
 OPENVINO_AVAILABLE = bool(_OPENVINO_SUPPORT["available"])
 
 from app.config import settings  # noqa: E402
+from app.utils.python_subprocess import python_subprocess_launch  # noqa: E402
+
 from app.services.native_crash_quarantine import (  # noqa: E402
     NativeCrashQuarantine,
     NativeCrashQuarantinedError,
@@ -1127,9 +1128,11 @@ def _probe_onnxruntime_cuda_provider_safe() -> dict:
         "    print(json.dumps({'ok': False, 'error': f'{type(e).__name__}: {e}'}))\n"
         "    sys.exit(2)\n"
     )
+    executable, child_environment = python_subprocess_launch()
     try:
         proc = subprocess.run(
-            [sys.executable, "-c", script],
+            [executable, "-c", script],
+            env=child_environment,
             capture_output=True,
             text=True,
             timeout=5,
@@ -1182,9 +1185,11 @@ def _probe_openvino_devices_safe() -> dict:
         "    print(json.dumps({'ok': False, 'error': f'{type(e).__name__}: {e}'}))\n"
         "    sys.exit(2)\n"
     )
+    executable, child_environment = python_subprocess_launch()
     try:
         proc = subprocess.run(
-            [sys.executable, "-c", script],
+            [executable, "-c", script],
+            env=child_environment,
             capture_output=True,
             text=True,
             timeout=5,
@@ -1249,9 +1254,11 @@ def _probe_openvino_gpu_plugin_error_safe() -> Optional[str]:
         "    print(f'{type(e).__name__}: {e}')\n"
         "    sys.exit(2)\n"
     )
+    executable, child_environment = python_subprocess_launch()
     try:
         proc = subprocess.run(
-            [sys.executable, "-c", script],
+            [executable, "-c", script],
+            env=child_environment,
             capture_output=True,
             text=True,
             timeout=5,

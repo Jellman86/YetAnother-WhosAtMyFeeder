@@ -44,6 +44,7 @@ from typing import Any
 
 import structlog
 
+from app.utils.python_subprocess import python_subprocess_launch
 from app.utils.runtime_flavor import get_image_flavor, packaged_inference_providers
 
 log = structlog.get_logger()
@@ -659,16 +660,15 @@ async def _probe_one_provider(
     image_paths: list[str] | None = None,
 ) -> dict | None:
     """Compile and run the active model on one provider in a child process."""
-    import sys as _sys
-
     try:
         import app as _app_pkg
 
         backend_root = str(Path(_app_pkg.__file__).resolve().parent.parent)
     except Exception:
         backend_root = None
+    executable, child_environment = python_subprocess_launch()
     args = [
-        _sys.executable,
+        executable,
         "-m",
         "scripts.probe_bird_model_provider",
         "--provider",
@@ -682,6 +682,7 @@ async def _probe_one_provider(
     try:
         proc = await asyncio.create_subprocess_exec(
             *args,
+            env=child_environment,
             cwd=backend_root,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.DEVNULL,
@@ -731,16 +732,15 @@ async def _probe_one_crop_provider(
     image_paths: list[str] | None = None,
 ) -> dict | None:
     """Compile and run one exact crop detector in a disposable child process."""
-    import sys as _sys
-
     try:
         import app as _app_pkg
 
         backend_root = str(Path(_app_pkg.__file__).resolve().parent.parent)
     except Exception:
         backend_root = None
+    executable, child_environment = python_subprocess_launch()
     args = [
-        _sys.executable,
+        executable,
         "-m",
         "scripts.probe_crop_model_provider",
         "--provider",
@@ -754,11 +754,20 @@ async def _probe_one_crop_provider(
     try:
         proc = await asyncio.create_subprocess_exec(
             *args,
+            env=child_environment,
             cwd=backend_root,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.DEVNULL,
         )
         stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+    except asyncio.CancelledError:
+        if proc is not None and proc.returncode is None:
+            try:
+                proc.kill()
+            except ProcessLookupError:
+                pass
+            await proc.communicate()
+        raise
     except asyncio.TimeoutError:
         try:
             if proc is not None:

@@ -292,8 +292,10 @@ async def test_real_cpu_child_fault_is_reaped_and_blocks_all_workload_retries(tm
 
 @pytest.mark.asyncio
 async def test_failed_cleanup_never_reuses_worker_in_another_pool(tmp_path):
+    from unittest.mock import AsyncMock
+
     worker = Worker()
-    worker.delay = 10
+    worker.next_event = AsyncMock(side_effect=TimeoutError("classification timed out"))
     runner = recovery(tmp_path, worker)
     original_kill = worker.kill
 
@@ -302,7 +304,7 @@ async def test_failed_cleanup_never_reuses_worker_in_another_pool(tmp_path):
 
     worker.kill = unreaped
     with pytest.raises(NativeCpuRecoveryUnavailable, match="cleanup"):
-        await classify(runner, timeout=0.01)
+        await classify(runner)
     with pytest.raises(NativeCpuRecoveryUnavailable):
         await classify(runner, "background")
     assert len(worker.sent) == 1
