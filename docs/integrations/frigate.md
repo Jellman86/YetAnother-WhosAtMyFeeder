@@ -74,6 +74,8 @@ after the final failed attempt automatic retries stop. Cancelling unfinished wor
 retryable. Manual uploads are not sent to Frigate for full-visit processing.
 
 Cache-budget eviction records a durable decision for both photo and full-visit work.
+An admitted budget eviction finishes its file deletion and durable database decision before
+shutdown cancellation returns. Favourite protection is rechecked before deletion.
 Automatic reconciliation cannot refill that media after a restart or overwrite the
 decision with a late success or failure. Admitted jobs are protected while their
 fetch runs; the admission lock is released during network work. An owner can still
