@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onDestroy, untrack } from 'svelte';
-    import { applySnapshotCandidate, fetchFeederSpecies, fetchSnapshotCandidates, getSnapshotUrl, getThumbnailUrl } from '../api';
+    import { applySnapshotCandidate, fetchFeederSpecies, fetchSnapshotCandidates, getSnapshotUrl, getThumbnailUrl, searchSpecies } from '../api';
     import type { BirdObservation, Detection, SearchResult, SnapshotCandidate } from '../api';
     import FrameStrip from './FrameStrip.svelte';
     import CountedBirds from './CountedBirds.svelte';
@@ -16,6 +16,7 @@
     } from '../utils/frame-moments';
     import { getErrorMessage } from '../utils/error-handling';
     import { speciesPickerNames, withoutCurrentSpecies } from '../utils/species-picker';
+    import { getManualTagSearchOptions } from '../search/manual-tag-search';
     import { toastStore } from '../stores/toast.svelte';
     import { confirmAction } from '../stores/confirm_dialog.svelte';
     import { advance, createReviewSession, type ReviewSession } from '../utils/review-session';
@@ -29,7 +30,7 @@
 
     interface Props {
         queue: Detection[];
-        /** Species the classifier knows, searched only once someone types. */
+        /** Species the classifier knows, offered when correcting a counted bird. */
         labels?: string[];
         /** Why each detection is queued; absent means a low score. */
         reasons?: Map<string, ReviewReason>;
@@ -104,16 +105,42 @@
         .then((results) => (feederSpecies = results))
         .catch(() => (feederSpeciesFailed = true));
 
-    const searching = $derived(search.trim().length > 0);
+    // Typing searches the species catalogue, not the raw classifier labels: many models
+    // label by scientific name only, so "Goldcrest" matched nothing while "Regulus regulus"
+    // did. The answer is kept with the words it answers, so a late reply to an earlier
+    // query can never fill the list under a newer one.
+    const SEARCH_DEBOUNCE_MS = 200;
+    let searchAnswer = $state.raw<{ term: string; results: SearchResult[]; failed: boolean } | null>(null);
+    const searchTerm = $derived(search.trim());
+    const searching = $derived(searchTerm.length > 0);
+    const currentAnswer = $derived(searching && searchAnswer?.term === searchTerm ? searchAnswer : null);
+
+    $effect(() => {
+        const term = searchTerm;
+        // Clearing, moving to the next visit, closing, or losing owner access all rerun or
+        // tear down this effect, which abandons whatever search was still outstanding.
+        if (!term || !authStore.hasOwnerAccess) return;
+        const controller = new AbortController();
+        const timer = setTimeout(async () => {
+            const options = getManualTagSearchOptions(term);
+            try {
+                const results = await searchSpecies(term, options.limit, options.hydrateMissing, controller.signal);
+                if (!controller.signal.aborted) searchAnswer = { term, results, failed: false };
+            } catch {
+                if (!controller.signal.aborted) searchAnswer = { term, results: [], failed: true };
+            }
+        }, SEARCH_DEBOUNCE_MS);
+        return () => {
+            clearTimeout(timer);
+            controller.abort();
+        };
+    });
+
     const matches = $derived.by(() => {
-        const term = search.trim().toLowerCase();
-        if (term) {
-            return labels
-                .filter((label) => label.toLowerCase().includes(term))
-                .slice(0, 8)
-                .map((label) => ({ id: label, primary: label, secondary: null }));
-        }
-        return withoutCurrentSpecies(feederSpecies ?? [], session.current)
+        const results = searching
+            ? (currentAnswer?.results ?? [])
+            : withoutCurrentSpecies(feederSpecies ?? [], session.current);
+        return results
             .map((result) => ({ id: result.id, ...speciesPickerNames(result) }))
             .filter((choice, index, all) => all.findIndex((other) => other.id === choice.id) === index);
     });
@@ -639,7 +666,13 @@
                             </li>
                         {:else}
                             <li class="px-2 py-3 text-xs text-slate-500 dark:text-slate-400">
-                                {#if searching}
+                                {#if searching && !currentAnswer}
+                                    {$_('common.loading')}
+                                {:else if currentAnswer?.failed}
+                                    {$_('dashboard.review_session.search_failed', {
+                                        default: "Couldn't search species. Edit the search to try again."
+                                    })}
+                                {:else if searching}
                                     {$_('dashboard.review_session.no_matches', {
                                         default: 'No species matches that. Try fewer letters.'
                                     })}

@@ -367,6 +367,7 @@
       "threshold_note": "Das Modell lag unter der Benennungsschwelle.",
       "search": "Art suchen…",
       "no_matches": "Keine Art passt dazu. Versuchen Sie weniger Buchstaben.",
+      "search_failed": "Die Artensuche ist fehlgeschlagen. Ändern Sie die Suche, um es erneut zu versuchen.",
       "skip": "Vorerst überspringen",
       "not_a_bird": "Kein Vogel, ausblenden",
       "delete": "Endgültig löschen",

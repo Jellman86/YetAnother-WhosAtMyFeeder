@@ -367,6 +367,7 @@
       "threshold_note": "The model scored this below the naming threshold.",
       "search": "Search species…",
       "no_matches": "No species matches that. Try fewer letters.",
+      "search_failed": "Couldn't search species. Edit the search to try again.",
       "skip": "Skip for now",
       "not_a_bird": "Not a bird, hide it",
       "delete": "Delete permanently",

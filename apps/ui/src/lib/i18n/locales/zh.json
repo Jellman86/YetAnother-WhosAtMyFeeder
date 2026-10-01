@@ -367,6 +367,7 @@
       "threshold_note": "模型的判定低于命名阈值。",
       "search": "搜索物种…",
       "no_matches": "没有匹配的物种，试试更少的字母。",
+      "search_failed": "无法搜索物种。请修改搜索内容后重试。",
       "skip": "暂时跳过",
       "not_a_bird": "不是鸟，隐藏",
       "delete": "永久删除",
