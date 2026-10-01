@@ -57,6 +57,7 @@ FALSE_POSITIVE_TOMBSTONE_TTL_SECONDS = 600.0
 # failed ingest. Remembering that decision keeps the terminal `end` recovery from
 # reclassifying an event whose snapshot Frigate has already discarded.
 CLASSIFICATION_DECIDED_TOMBSTONE_TTL_SECONDS = 600.0
+UPDATE_RECOVERY_RETRY_SECONDS = 5.0
 EVENT_STAGE_TIMEOUT_CLASSIFY_SECONDS = max(1.0, float(os.getenv("EVENT_STAGE_TIMEOUT_CLASSIFY_SECONDS", "60")))
 EVENT_STAGE_TIMEOUT_CONTEXT_SECONDS = max(0.5, float(os.getenv("EVENT_STAGE_TIMEOUT_CONTEXT_SECONDS", "6")))
 EVENT_STAGE_TIMEOUT_AUDIO_CORRELATE_SECONDS = max(
@@ -204,6 +205,7 @@ class EventProcessor:
         self.notification_orchestrator = NotificationOrchestrator()
         self._false_positive_tombstones: dict[str, float] = {}
         self._classification_decided_tombstones: dict[str, float] = {}
+        self._update_recovery_attempts: dict[str, float] = {}
         self._started_events = 0
         self._completed_events = 0
         self._dropped_events = 0
@@ -583,6 +585,7 @@ class EventProcessor:
                 self._record_drop(event.frigate_event, "end_recovery_lookup_failed")
                 return
             if existing_detection is not None:
+                self._update_recovery_attempts.pop(event.frigate_event, None)
                 await self._handle_terminal_event_enrichment(event)
                 await self._enqueue_notification_flow(
                     event=event,
@@ -604,7 +607,8 @@ class EventProcessor:
                     auto_full_visit_enabled=self._auto_full_visit_enabled(),
                 )
                 return
-            if self._is_classification_decided_tombstone_active(event.frigate_event):
+            update_recovery_attempted = self._update_recovery_attempts.pop(event.frigate_event, None) is not None
+            if self._is_classification_decided_tombstone_active(event.frigate_event) and not update_recovery_attempted:
                 log.info(
                     "Skipping terminal recovery - classification already rejected this event",
                     event_id=event.frigate_event,
@@ -633,9 +637,13 @@ class EventProcessor:
                 self._record_drop(event.frigate_event, "update_recovery_lookup_failed")
                 return
             if existing_detection is not None:
+                self._update_recovery_attempts.pop(event.frigate_event, None)
                 duration_ms = (time.monotonic() - started) * 1000.0
                 self._record_completed(event.frigate_event, duration_ms)
                 self._record_recent_outcome(event.frigate_event, "update_already_ingested")
+                return
+            if not self._admit_update_recovery(event.frigate_event):
+                self._record_drop(event.frigate_event, "update_recovery_cooldown")
                 return
             log.info(
                 "Retrying failed initial ingest from Frigate update",
@@ -903,6 +911,17 @@ class EventProcessor:
         expired = [event_id for event_id, expiry in self._classification_decided_tombstones.items() if expiry <= now]
         for event_id in expired:
             self._classification_decided_tombstones.pop(event_id, None)
+
+    def _admit_update_recovery(self, event_id: str) -> bool:
+        now = time.monotonic()
+        for expired_id, attempted_at in list(self._update_recovery_attempts.items()):
+            if now - attempted_at >= CLASSIFICATION_DECIDED_TOMBSTONE_TTL_SECONDS:
+                self._update_recovery_attempts.pop(expired_id, None)
+        previous = self._update_recovery_attempts.get(event_id)
+        if previous is not None and now - previous < UPDATE_RECOVERY_RETRY_SECONDS:
+            return False
+        self._update_recovery_attempts[event_id] = now
+        return True
 
     def _mark_classification_decided_tombstone(self, event_id: str) -> None:
         if not event_id:

@@ -41,9 +41,11 @@ class NotificationOrchestrator:
         if notify_mode == "final":
             return event_type == "end" and not already_notified, was_updated
         if notify_mode == "standard":
-            return event_type == "new" and not already_notified, was_updated
+            return (
+                event_type == "new" or (event_type == "update" and was_inserted)
+            ) and not already_notified, was_updated
         if notify_mode == "realtime":
-            if event_type == "new":
+            if event_type == "new" or (event_type == "update" and was_inserted):
                 return not already_notified, was_updated
             return was_updated, was_updated
         if event_type == "new":

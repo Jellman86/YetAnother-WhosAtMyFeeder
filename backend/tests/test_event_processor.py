@@ -137,6 +137,19 @@ def test_parse_event_accepts_update_events_for_bounded_recovery():
     assert event.type == "update"
 
 
+def test_update_recovery_cooldown_is_per_event_and_expires_without_blocking_later_frames():
+    processor = EventProcessor(MagicMock())
+    with patch("app.services.event_processor.time.monotonic", return_value=100):
+        assert processor._admit_update_recovery("first")
+        assert not processor._admit_update_recovery("first")
+        assert processor._admit_update_recovery("second")
+    with patch("app.services.event_processor.time.monotonic", return_value=105):
+        assert processor._admit_update_recovery("first")
+    with patch("app.services.event_processor.time.monotonic", return_value=1000):
+        assert processor._admit_update_recovery("third")
+    assert processor._update_recovery_attempts == {"third": 1000}
+
+
 def test_event_data_snapshot_context_preserves_localization_and_retention_signals():
     event = EventData(
         {

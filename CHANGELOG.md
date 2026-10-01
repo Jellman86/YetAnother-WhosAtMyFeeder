@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Recover missed or failed initial detections from normal Frigate updates, with bounded retries
+  and one final recovery attempt after an update retry. Existing visits avoid repeated inference;
+  out-of-order updates cannot replace a pending completed event or undo a false-positive withdrawal.
+
 - Keep cached photographs and owner photo choices when Frigate withdraws a false-positive
   event. Automatic withdrawal hides untagged visits without destroying their recovery media;
   owner-tagged visits remain visible.
