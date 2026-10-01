@@ -279,6 +279,9 @@ Retention, caching, imports, and the destructive tools.
   high-resolution frames and classifies up to eight crop choices. Intensive is the upgrade default,
   preserving existing behaviour. Both count all usable detector boxes from the selected scene;
   neither promises to find every bird in the clip, and uncertain species remain Unknown Bird.
+  Per-bird corrections and exclusions are retained during background regeneration. Matching
+  boxes from the same source frame keep their observation IDs; a different frame cannot replace
+  a frame containing owner-reviewed birds.
 - **Maximum cached visits per species** — keep media for the newest configured number of visits
   of each canonical species. Favourites are exempt. `0` means unlimited. This removes cached media,
   including alternate photos and clips, while keeping visits and counted-bird records.

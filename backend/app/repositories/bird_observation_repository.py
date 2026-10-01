@@ -44,6 +44,21 @@ class BirdObservationRepository:
         """Replace one analyzed frame; an empty retry never erases counted history."""
         if not selection.birds or selection.clip_variant is None or selection.frame_index is None:
             return False
+        try:
+            if self.db.in_transaction:
+                # Repository callers may already own a write transaction. Reserve
+                # writes without nesting BEGIN or releasing that caller's work.
+                await self.db.execute("UPDATE bird_observations SET id = id WHERE 0")
+            else:
+                await self.db.execute("BEGIN IMMEDIATE")
+            changed = await self._replace_generated_locked(frigate_event, selection)
+            await self.db.commit()
+            return changed
+        except BaseException:
+            await self.db.rollback()
+            raise
+
+    async def _replace_generated_locked(self, frigate_event: str, selection: BirdObservationSelection) -> bool:
         existing = await self.list_for_event(frigate_event)
         manually_reviewed = [bird for bird in existing if bird["manual_species"] or bird["is_hidden"]]
         if manually_reviewed and any(
@@ -52,22 +67,36 @@ class BirdObservationRepository:
         ):
             return False
 
-        reviewed_remaining = list(manually_reviewed)
+        remaining = list(existing)
         rows = []
         for bird_index, bird in enumerate(selection.birds):
             # Crop indices can shift when the detector reranks boxes. A stable-looking
             # candidate ID is not enough to transfer a person's species correction.
             reviewed = max(
-                reviewed_remaining,
+                [old for old in remaining if old["manual_species"] or old["is_hidden"]],
                 key=lambda old: self._box_overlap(old["crop_box"], bird.box),
                 default=None,
             )
             if reviewed is not None and self._box_overlap(reviewed["crop_box"], bird.box) >= 0.4:
-                reviewed_remaining.remove(reviewed)
+                matched = reviewed
             else:
                 reviewed = None
+                matched = max(
+                    [
+                        old
+                        for old in remaining
+                        if old["clip_variant"] == selection.clip_variant and old["frame_index"] == selection.frame_index
+                    ],
+                    key=lambda old: self._box_overlap(old["crop_box"], bird.box),
+                    default=None,
+                )
+                if matched is not None and self._box_overlap(matched["crop_box"], bird.box) < 0.4:
+                    matched = None
+            if matched is not None:
+                remaining.remove(matched)
             rows.append(
                 (
+                    matched["id"] if matched else None,
                     frigate_event,
                     bird_index,
                     bird.candidate_id,
@@ -82,9 +111,12 @@ class BirdObservationRepository:
                     int(bool(reviewed and reviewed["is_hidden"])),
                 )
             )
-        for reviewed in reviewed_remaining:
+        for reviewed in remaining:
+            if not (reviewed["manual_species"] or reviewed["is_hidden"]):
+                continue
             rows.append(
                 (
+                    reviewed["id"],
                     frigate_event,
                     len(rows),
                     reviewed["candidate_id"],
@@ -100,19 +132,31 @@ class BirdObservationRepository:
                 )
             )
 
-        try:
-            await self.db.execute("DELETE FROM bird_observations WHERE frigate_event = ?", (frigate_event,))
-            await self.db.executemany(
-                """INSERT INTO bird_observations
-                   (frigate_event, bird_index, candidate_id, clip_variant, frame_index, crop_box_json,
-                    detector_confidence, species, classifier_label, classifier_score, manual_species, is_hidden)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                rows,
-            )
-            await self.db.commit()
-        except Exception:
-            await self.db.rollback()
-            raise
+        retained_ids = {row[0] for row in rows if row[0] is not None}
+        await self.db.executemany(
+            "DELETE FROM bird_observations WHERE frigate_event = ? AND id = ?",
+            [(frigate_event, old["id"]) for old in existing if old["id"] not in retained_ids],
+        )
+        # Free the unique per-capture indices while reranking. Keeping matched
+        # IDs lets an owner edit waiting behind this transaction target its bird.
+        await self.db.execute(
+            "UPDATE bird_observations SET bird_index = -id - 1 WHERE frigate_event = ?", (frigate_event,)
+        )
+        await self.db.executemany(
+            """UPDATE bird_observations
+               SET bird_index = ?, candidate_id = ?, clip_variant = ?, frame_index = ?, crop_box_json = ?,
+                   detector_confidence = ?, species = ?, classifier_label = ?, classifier_score = ?,
+                   manual_species = ?, is_hidden = ?, updated_at = CURRENT_TIMESTAMP
+               WHERE frigate_event = ? AND id = ?""",
+            [(*row[2:], row[1], row[0]) for row in rows if row[0] is not None],
+        )
+        await self.db.executemany(
+            """INSERT INTO bird_observations
+               (frigate_event, bird_index, candidate_id, clip_variant, frame_index, crop_box_json,
+                detector_confidence, species, classifier_label, classifier_score, manual_species, is_hidden)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            [row[1:] for row in rows if row[0] is None],
+        )
         return True
 
     @staticmethod
