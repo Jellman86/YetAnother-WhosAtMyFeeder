@@ -59,6 +59,10 @@ export class DetectionsStore {
     private MAX_PATCH_ITEMS = 2000;
     private loadPromise: Promise<boolean> | null = null;
     private accessGeneration = 0;
+    /** Advanced by each accepted owner bird edit; a list read before it is not applied. */
+    private ownerEvidenceEpoch = 0;
+    private queuedOwnerRefresh: Promise<void> | null = null;
+    private queuedOwnerRefreshToken: symbol | null = null;
 
     private readonly staleTracker = new StaleTracker(30_000); // 30 seconds
 
@@ -74,7 +78,9 @@ export class DetectionsStore {
         const eventId = typeof updated?.frigate_event === 'string' ? updated.frigate_event.trim() : '';
         if (!eventId) return;
 
-        const definedEntries = Object.entries(updated).filter(([, value]) => value !== undefined);
+        // Bird evidence is authoritative only on event reads. A parent edit can
+        // carry an older full Detection; other projections may carry unset null.
+        const definedEntries = Object.entries(updated).filter(([key, value]) => key !== 'bird_summary' && value !== undefined);
         if (definedEntries.length === 0) return;
 
         const patch = Object.fromEntries(definedEntries) as Partial<Detection>;
@@ -102,6 +108,7 @@ export class DetectionsStore {
     resetForAccessChange(): void {
         this.accessGeneration += 1;
         this.loadPromise = null;
+        this.queuedOwnerRefresh = null;
         this.isLoading = false;
         this.clearHistory();
         this.progressMap = new Map();
@@ -130,9 +137,31 @@ export class DetectionsStore {
         if (!loaded) throw new Error('Public history refresh failed');
     }
 
+    /**
+     * Bird summaries come from the server after an owner correction or exclusion, never from a
+     * client patch. Edits arriving together share one load after any read already in flight.
+     */
+    refreshAfterOwnerEdit(): Promise<void> {
+        this.ownerEvidenceEpoch += 1;
+        if (this.queuedOwnerRefresh) return this.queuedOwnerRefresh;
+        const generation = this.accessGeneration;
+        const pending = this.loadPromise;
+        const token = Symbol('owner-refresh');
+        this.queuedOwnerRefreshToken = token;
+        this.queuedOwnerRefresh = (async () => {
+            await pending;
+            // Once started, a later edit queues behind this load rather than joining it.
+            if (this.queuedOwnerRefreshToken === token) this.queuedOwnerRefresh = null;
+            if (generation !== this.accessGeneration) return;
+            await this.loadInitial();
+        })();
+        return this.queuedOwnerRefresh;
+    }
+
     async loadInitial(): Promise<boolean> {
         if (this.loadPromise) return this.loadPromise;
         const generation = this.accessGeneration;
+        const evidenceEpoch = this.ownerEvidenceEpoch;
         this.loadPromise = (async () => {
             this.isLoading = true;
             try {
@@ -152,6 +181,8 @@ export class DetectionsStore {
                     })
                 ]);
                 if (generation !== this.accessGeneration) return false;
+                // Read before an owner bird edit: the queued refresh supplies the current rows.
+                if (evidenceEpoch !== this.ownerEvidenceEpoch) return true;
                 this.detections = recent;
                 this.totalToday = countResult.count;
                 this.markMutated();
@@ -198,7 +229,7 @@ export class DetectionsStore {
         }
 
         const index = this.detections.findIndex(d => d.frigate_event === updated.frigate_event);
-        const definedEntries = Object.entries(updated).filter(([, value]) => value !== undefined);
+        const definedEntries = Object.entries(updated).filter(([key, value]) => key !== 'bird_summary' && value !== undefined);
         if (definedEntries.length === 0) return;
         const definedPatch = Object.fromEntries(definedEntries) as Partial<Detection>;
         if (index !== -1) {

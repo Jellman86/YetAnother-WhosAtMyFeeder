@@ -305,28 +305,39 @@
         return `${url}${separator}v=${token}`;
     }
 
+    let snapshotControlsEpoch = 0;
+    let snapshotControlsSubject: string | null = null;
+
     async function refreshSnapshotControls(eventId: string) {
+        const requestEpoch = ++snapshotControlsEpoch;
+        const isCurrent = () => requestEpoch === snapshotControlsEpoch
+            && detection?.frigate_event === eventId && hasOwnerDetectionActions;
+        if (!isCurrent()) return;
         snapshotCandidatesLoading = true;
+        snapshotCandidatesError = false;
         try {
             const [status, candidateList] = await Promise.all([
                 fetchSnapshotStatus(eventId),
                 fetchSnapshotCandidates(eventId)
             ]);
-            if (detection.frigate_event !== eventId) return;
+            if (!isCurrent()) return;
             snapshotStatus = status;
             snapshotCandidates = candidateList.candidates ?? [];
             countedBirds = candidateList.birds ?? [];
+            countedBirdsGeneration += 1;
             currentSnapshotCandidateId = candidateList.current_candidate_id ?? null;
             currentSnapshotSource = candidateList.current_source ?? status.source ?? null;
         } catch {
-            if (detection.frigate_event !== eventId) return;
+            if (!isCurrent()) return;
             snapshotStatus = null;
             snapshotCandidates = [];
             countedBirds = [];
+            countedBirdsGeneration += 1;
+            snapshotCandidatesError = true;
             currentSnapshotCandidateId = null;
             currentSnapshotSource = null;
         } finally {
-            if (detection.frigate_event === eventId) {
+            if (isCurrent()) {
                 snapshotCandidatesLoading = false;
             }
         }
@@ -383,7 +394,11 @@
 
     $effect(() => {
         const eventId = detection?.frigate_event;
+        // A changed authoritative count also retires an open record's older scan.
+        void detection?.bird_summary;
+        snapshotControlsEpoch += 1;
         if (!eventId || !hasOwnerDetectionActions) {
+            snapshotControlsSubject = null;
             snapshotStatus = null;
             snapshotCandidates = [];
             countedBirds = [];
@@ -393,8 +408,14 @@
             return;
         }
 
-        snapshotCandidates = [];
-        countedBirds = [];
+        if (snapshotControlsSubject !== eventId) {
+            snapshotControlsSubject = eventId;
+            snapshotCandidates = [];
+            countedBirds = [];
+            // Keep keyed rows and focus while rereading this same capture.
+            untrack(() => { countedBirdsGeneration += 1; });
+        }
+        snapshotCandidatesError = false;
         snapshotCandidatesLoading = true;
 
         void (async () => {
@@ -404,7 +425,7 @@
                 // refreshSnapshotControls already set conservative state
             }
         })();
-
+        return () => { snapshotControlsEpoch += 1; };
     });
 
     let aiAnalysis = $state<string | null>(null);
@@ -505,7 +526,10 @@
     let snapshotStatus = $state<SnapshotStatusResponse | null>(null);
     let snapshotCandidates = $state<SnapshotCandidate[]>([]);
     let countedBirds = $state<BirdObservation[]>([]);
+    /** Advanced on every reread of the birds, so an edit answered after it is not applied. */
+    let countedBirdsGeneration = $state(0);
     let snapshotCandidatesLoading = $state(false);
+    let snapshotCandidatesError = $state(false);
     let snapshotApplyPending = $state(false);
     let snapshotGeneratePending = $state(false);
     let currentSnapshotCandidateId = $state<string | null>(null);
@@ -865,6 +889,11 @@
     // The outlines are DOM measurements, taken once the whole scene has loaded and again when
     // the window changes size.
     function measureWholeScene() {
+        if (!fullFrameSnapshotCandidate?.image_url) {
+            wholeScene.outline = null;
+            wholeScene.otherOutlines = [];
+            return;
+        }
         const otherCropBoxes = wholeSceneCrops.slice(1).flatMap((candidate) =>
             candidate.crop_box ? [candidate.crop_box] : []
         );
@@ -1629,6 +1658,8 @@
             snapshotRefreshToken = Date.now();
             await refreshSnapshotControls(eventId);
             if (!detection || detection.frigate_event !== eventId) return;
+            // Regeneration can recount the birds, so the log's summary is reread too.
+            onbirdschanged?.();
             resetMediaView();
             if (result.status === 'existing_crop_preserved') {
                 toastStore.warning($_('detection.snapshot_existing_crop_preserved', { default: 'No reliable new crop was found; the existing crop was kept.' }));
@@ -2896,14 +2927,24 @@
                  into the consolidated video-status notice above. -->
 
             <!-- The facts, as rows rather than four separate boxes -->
-            {#if authStore.hasOwnerAccess && countedBirds.length > 0}
-                <CountedBirds
-                    eventId={detection.frigate_event}
-                    birds={countedBirds}
-                    candidates={snapshotCandidates}
-                    speciesOptions={classifierLabels}
-                    onchanged={(updated) => { countedBirds = countedBirds.map((bird) => bird.id === updated.id ? updated : bird); onbirdschanged?.(); }}
-                />
+            {#if hasOwnerDetectionActions && detection.observation_source !== 'manual_upload'}
+                {#key detection.frigate_event}
+                    <CountedBirds
+                        eventId={detection.frigate_event}
+                        birds={countedBirds}
+                        candidates={snapshotCandidates}
+                        photograph={currentSnapshotSource === 'frigate_snapshot' ? null : currentCropCandidate}
+                        speciesOptions={classifierLabels}
+                        generation={countedBirdsGeneration}
+                        loading={snapshotCandidatesLoading}
+                        error={snapshotCandidatesError}
+                        regenerating={snapshotGeneratePending}
+                        countingAvailable={Boolean(snapshotStatus?.high_quality_bird_crop_enabled)}
+                        onretry={() => { void refreshSnapshotControls(detection.frigate_event); }}
+                        onchanged={(updated) => { countedBirds = countedBirds.map((bird) => bird.id === updated.id ? updated : bird); onbirdschanged?.(); }}
+                        onstale={() => { void refreshSnapshotControls(detection.frigate_event); onbirdschanged?.(); }}
+                    />
+                {/key}
             {/if}
             <dl class="divide-y divide-slate-200/70 border-y border-slate-200/70 text-xs dark:divide-slate-700/50 dark:border-slate-700/50" data-detection-facts>
                 <div class="flex items-baseline justify-between gap-3 py-2">

@@ -194,6 +194,7 @@ interface LiveUpdateDeps {
     t: TranslateFn;
     shouldNotify: () => boolean;
     hasOwnerAccess?: () => boolean;
+    refreshOwnerHistory?: () => Promise<void>;
     applyNotificationPolicy: (id: string, signature: string, throttleMs?: number) => boolean;
     notificationCenter: NotificationCenterLike;
     jobProgress: JobProgressLike;
@@ -286,8 +287,15 @@ export class LiveUpdateCoordinator {
     }
 
     async runOwnerSystemChecks() {
-        if (!this.deps.shouldNotify()) return;
         if (this.deps.hasOwnerAccess && !this.deps.hasOwnerAccess()) return;
+        // HQ work does not emit per-capture count updates. Reuse the existing
+        // owner check cadence, with the store's stale/single-flight guard.
+        try {
+            await this.deps.refreshOwnerHistory?.();
+        } catch {
+            this.deps.logger.warn('owner_history_refresh_failed');
+        }
+        if (!this.deps.shouldNotify()) return;
         let startupInstanceId = 'unknown';
 
         try {

@@ -14,7 +14,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, HTTPException, Response, Path, Query, Request, Depends, Security
 from fastapi.responses import FileResponse, StreamingResponse
 from starlette.background import BackgroundTask
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from fastapi.security import HTTPAuthorizationCredentials
 import httpx
 import sqlite3
@@ -27,6 +27,7 @@ from app.services.high_quality_snapshot_service import high_quality_snapshot_ser
 from app.services.i18n_service import i18n_service
 from app.utils.language import get_user_language
 from app.utils.api_datetime import utc_naive_datetime
+from app.utils.canonical_species import should_hide_species_label
 from app.utils.frigate_recording import (
     RecordingCameraIssue,
     RecordingCapabilityReason,
@@ -658,6 +659,12 @@ class BirdObservationResponse(BaseModel):
     classifier_score: float
     manual_species: bool
     is_hidden: bool
+    is_unknown: bool = False
+
+    @model_validator(mode="after")
+    def apply_unknown_species_policy(self) -> "BirdObservationResponse":
+        self.is_unknown = should_hide_species_label(self.species)
+        return self
 
 
 class BirdObservationUpdateRequest(BaseModel):

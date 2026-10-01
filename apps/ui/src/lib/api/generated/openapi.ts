@@ -339,12 +339,17 @@ export interface components {
     frame_index: number;
     id: number;
     is_hidden: boolean;
+    is_unknown?: boolean;
     manual_species: boolean;
     species: string;
 };
     BirdObservationUpdateRequest: {
     is_hidden?: boolean | null;
     species?: string | null;
+};
+    BirdSpeciesCount: {
+    count: number;
+    species: string;
 };
     BirdWeatherTestRequest: {
     token?: string | null;
@@ -637,12 +642,20 @@ export interface components {
     weather_wind_direction?: number | null;
     weather_wind_speed?: number | null;
 };
+    DetectionBirdSummary: {
+    counted: number;
+    excluded: number;
+    hint_only: boolean;
+    species: Array<components['schemas']['BirdSpeciesCount']>;
+    unknown: number;
+};
     DetectionListItemResponse: {
     archive_state?: string | null;
     audio_confirmed?: boolean;
     audio_context_species?: Array<string> | null;
     audio_score?: number | null;
     audio_species?: string | null;
+    bird_summary?: components['schemas']['DetectionBirdSummary'] | null;
     camera_name: string;
     category_name: string;
     detection_index: number;
@@ -670,6 +683,7 @@ export interface components {
     audio_context_species?: Array<string> | null;
     audio_score?: number | null;
     audio_species?: string | null;
+    bird_summary?: components['schemas']['DetectionBirdSummary'] | null;
     camera_name: string;
     category_name: string;
     common_name?: string | null;

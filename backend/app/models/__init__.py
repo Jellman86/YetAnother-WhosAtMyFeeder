@@ -89,6 +89,24 @@ class Detection(APIModel):
     ai_analysis_timestamp: datetime | None = None
 
 
+class BirdSpeciesCount(BaseModel):
+    species: str
+    count: int
+
+
+class DetectionBirdSummary(BaseModel):
+    """Localized birds stored for one capture: owner decisions, not unique individuals.
+
+    Owner-only. Null means no observation evidence is stored, which is not a measured zero.
+    """
+
+    counted: int
+    unknown: int
+    excluded: int
+    species: list[BirdSpeciesCount]
+    hint_only: bool
+
+
 class DetectionResponse(Detection):
     has_clip: bool = False  # Clip availability from Frigate
     has_snapshot: bool = True  # Snapshot availability from Frigate
@@ -97,6 +115,7 @@ class DetectionResponse(Detection):
     observation_latitude: float | None = None
     observation_longitude: float | None = None
     observation_location_source: str | None = None
+    bird_summary: DetectionBirdSummary | None = None
 
 
 class DetectionListItemResponse(APIModel):
@@ -124,6 +143,7 @@ class DetectionListItemResponse(APIModel):
     observation_latitude: float | None = None
     observation_longitude: float | None = None
     observation_location_source: str | None = None
+    bird_summary: DetectionBirdSummary | None = None
 
 
 class FrigateEvent(APIModel):

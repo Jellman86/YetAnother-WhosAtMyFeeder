@@ -114,3 +114,59 @@ it('withdraws invalidated rows even if only the count request fails', async () =
     expect(store.detections).toEqual([]);
     expect(store.totalToday).toBe(0);
 });
+
+it('does not replay an owner summary read before a bird edit, and coalesces the follow-up load', async () => {
+    const { DetectionsStore } = await import('./detections.svelte');
+    const store = new DetectionsStore();
+    let releaseOld: (value: unknown[]) => void = () => undefined;
+    const before = { frigate_event: 'flock', bird_summary: { counted: 2, unknown: 0, excluded: 0, species: [], hint_only: false } };
+    const after = { frigate_event: 'flock', bird_summary: { counted: 1, unknown: 0, excluded: 1, species: [], hint_only: false } };
+    fetchEvents.mockImplementationOnce(() => new Promise((resolve) => { releaseOld = resolve; }))
+        .mockResolvedValueOnce([after]);
+    fetchEventsCount.mockResolvedValue({ count: 1 });
+
+    const oldLoad = store.loadInitial();
+    const refreshes = [store.refreshAfterOwnerEdit(), store.refreshAfterOwnerEdit(), store.refreshAfterOwnerEdit()];
+    releaseOld([before]);
+    await oldLoad;
+    expect(store.detections).toEqual([]);
+    await Promise.all(refreshes);
+
+    expect(fetchEvents).toHaveBeenCalledTimes(2);
+    expect(store.detections).toEqual([after]);
+});
+
+it('drops a queued owner refresh when access changes before it starts', async () => {
+    const { DetectionsStore } = await import('./detections.svelte');
+    const store = new DetectionsStore();
+    let releaseOld: (value: unknown[]) => void = () => undefined;
+    fetchEvents.mockImplementationOnce(() => new Promise((resolve) => { releaseOld = resolve; }));
+    fetchEventsCount.mockResolvedValue({ count: 0 });
+
+    const oldLoad = store.loadInitial();
+    const refresh = store.refreshAfterOwnerEdit();
+    store.resetForAccessChange();
+    releaseOld([{ frigate_event: 'owner-event', bird_summary: { counted: 3 } }]);
+    await Promise.all([oldLoad, refresh]);
+
+    expect(fetchEvents).toHaveBeenCalledTimes(1);
+    expect(store.detections).toEqual([]);
+});
+
+it('keeps authoritative bird summaries out of unrelated detection patches', async () => {
+    const { DetectionsStore } = await import('./detections.svelte');
+    const store = new DetectionsStore();
+    const summary = { counted: 2, unknown: 1, excluded: 0, species: [], hint_only: false };
+    fetchEvents.mockResolvedValue([{ frigate_event: 'flock', bird_summary: summary }]);
+    fetchEventsCount.mockResolvedValue({ count: 1 });
+    await store.loadInitial();
+
+    // A manual parent tag can copy an older full Detection. A stats/SSE projection
+    // can instead carry null because that endpoint does not read bird evidence.
+    store.updateDetection({ frigate_event: 'flock', display_name: 'Blue Jay', bird_summary: { ...summary, counted: 99 } } as never);
+    store.updateDetection({ frigate_event: 'flock', score: 0.8, bird_summary: null } as never);
+
+    expect(store.detections[0].bird_summary).toEqual(summary);
+    expect(store.getDetectionPatch('flock')).not.toHaveProperty('bird_summary');
+    expect(store.getDetectionPatch('flock')).toMatchObject({ display_name: 'Blue Jay', score: 0.8 });
+});

@@ -2188,6 +2188,11 @@
             "title": "Is Hidden",
             "type": "boolean"
           },
+          "is_unknown": {
+            "default": false,
+            "title": "Is Unknown",
+            "type": "boolean"
+          },
           "manual_species": {
             "title": "Manual Species",
             "type": "boolean"
@@ -2240,6 +2245,24 @@
           }
         },
         "title": "BirdObservationUpdateRequest",
+        "type": "object"
+      },
+      "BirdSpeciesCount": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "species": {
+            "title": "Species",
+            "type": "string"
+          }
+        },
+        "required": [
+          "species",
+          "count"
+        ],
+        "title": "BirdSpeciesCount",
         "type": "object"
       },
       "BirdWeatherTestRequest": {
@@ -4315,6 +4338,43 @@
         "title": "Detection",
         "type": "object"
       },
+      "DetectionBirdSummary": {
+        "description": "Localized birds stored for one capture: owner decisions, not unique individuals.\n\nOwner-only. Null means no observation evidence is stored, which is not a measured zero.",
+        "properties": {
+          "counted": {
+            "title": "Counted",
+            "type": "integer"
+          },
+          "excluded": {
+            "title": "Excluded",
+            "type": "integer"
+          },
+          "hint_only": {
+            "title": "Hint Only",
+            "type": "boolean"
+          },
+          "species": {
+            "items": {
+              "$ref": "#/components/schemas/BirdSpeciesCount"
+            },
+            "title": "Species",
+            "type": "array"
+          },
+          "unknown": {
+            "title": "Unknown",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "counted",
+          "unknown",
+          "excluded",
+          "species",
+          "hint_only"
+        ],
+        "title": "DetectionBirdSummary",
+        "type": "object"
+      },
       "DetectionListItemResponse": {
         "properties": {
           "archive_state": {
@@ -4368,6 +4428,16 @@
               }
             ],
             "title": "Audio Species"
+          },
+          "bird_summary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DetectionBirdSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "camera_name": {
             "title": "Camera Name",
@@ -4577,6 +4647,16 @@
               }
             ],
             "title": "Audio Species"
+          },
+          "bird_summary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DetectionBirdSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "camera_name": {
             "title": "Camera Name",

@@ -39,6 +39,8 @@ function buildCoordinator(options?: {
     shouldNotify?: boolean;
     fetchAnalysisStatus?: () => Promise<any>;
     checkHealth?: () => Promise<any>;
+    hasOwnerAccess?: boolean;
+    refreshOwnerHistory?: () => Promise<void>;
 }) {
     const calls = {
         upsertRunning: [] as any[],
@@ -72,7 +74,8 @@ function buildCoordinator(options?: {
     const coordinator = new LiveUpdateCoordinator({
         t: (key: string) => key,
         shouldNotify: () => options?.shouldNotify ?? true,
-        hasOwnerAccess: () => true,
+        hasOwnerAccess: () => options?.hasOwnerAccess ?? true,
+        refreshOwnerHistory: options?.refreshOwnerHistory,
         applyNotificationPolicy: () => true,
         notificationCenter: {
             items: notificationItems,
@@ -309,6 +312,21 @@ describe('LiveUpdateCoordinator reclassify fallback', () => {
         const { coordinator, calls } = buildCoordinator();
         await coordinator.runOwnerSystemChecks();
         expect(calls.syncDiagnosticsWorkspace).toHaveLength(1);
+    });
+
+    it('refreshes stale owner history during existing checks even when notifications are off', async () => {
+        const refreshOwnerHistory = vi.fn(async () => undefined);
+        const { coordinator, calls } = buildCoordinator({ refreshOwnerHistory, shouldNotify: false });
+        await coordinator.runOwnerSystemChecks();
+        expect(refreshOwnerHistory).toHaveBeenCalledOnce();
+        expect(calls.ingestHealth).toEqual([]);
+    });
+
+    it('does not refresh owner history during guest system checks', async () => {
+        const refreshOwnerHistory = vi.fn(async () => undefined);
+        const { coordinator } = buildCoordinator({ refreshOwnerHistory, hasOwnerAccess: false });
+        await coordinator.runOwnerSystemChecks();
+        expect(refreshOwnerHistory).not.toHaveBeenCalled();
     });
 
     it('clears synthetic batch analysis state when the backend instance changes', async () => {
