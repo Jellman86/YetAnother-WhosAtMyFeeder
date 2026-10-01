@@ -13,6 +13,7 @@ import json
 import os
 from pathlib import Path
 import signal
+import sys
 import tempfile
 import threading
 import time
@@ -22,6 +23,28 @@ import structlog
 
 log = structlog.get_logger()
 ARTIFACT_STAT_SETTLE_NS = 2_000_000_000
+_WINDOWS_NATIVE_FAULTS = {
+    0xC0000005: "STATUS_ACCESS_VIOLATION",
+    0xC000001D: "STATUS_ILLEGAL_INSTRUCTION",
+    0xC000008E: "STATUS_FLOAT_DIVIDE_BY_ZERO",
+    0xC0000094: "STATUS_INTEGER_DIVIDE_BY_ZERO",
+    0xC00000FD: "STATUS_STACK_OVERFLOW",
+    0xC0000374: "STATUS_HEAP_CORRUPTION",
+    0xC0000409: "STATUS_STACK_BUFFER_OVERRUN",
+}
+
+
+def _native_fault_name(exit_code: int | None) -> str | None:
+    if exit_code is None:
+        return None
+    if sys.platform == "win32":
+        status = _WINDOWS_NATIVE_FAULTS.get(exit_code & 0xFFFFFFFF)
+        if status is not None:
+            return status
+    for name in ("SIGSEGV", "SIGABRT", "SIGBUS", "SIGILL", "SIGFPE"):
+        if hasattr(signal, name) and exit_code == -int(getattr(signal, name)):
+            return name
+    return None
 
 
 def artifact_digest(path: str) -> str | None:
@@ -92,12 +115,7 @@ class NativeCrashQuarantine:
         """Block in memory before any cancellable persistence await."""
         # SIGKILL can mean our deadline or the OOM killer. SIGTERM is normal
         # shutdown. Neither establishes a native memory/compiler fault.
-        faults = {
-            -int(getattr(signal, name))
-            for name in ("SIGSEGV", "SIGABRT", "SIGBUS", "SIGILL", "SIGFPE")
-            if hasattr(signal, name)
-        }
-        if profile is None or exit_code not in faults:
+        if profile is None or _native_fault_name(exit_code) is None:
             return False
         key = self._key(profile)
         with self._lock:
@@ -125,7 +143,7 @@ class NativeCrashQuarantine:
                     reason_code="native_classifier_crash",
                     message="A native classifier process crashed; its launch profile is quarantined.",
                     context={
-                        "error_type": signal.Signals(-exit_code).name,
+                        "error_type": _native_fault_name(exit_code),
                         "configured_provider": profile.get("provider"),
                         "model_id": profile.get("model_id"),
                         "status": "quarantined",

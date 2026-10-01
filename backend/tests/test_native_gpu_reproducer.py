@@ -14,7 +14,7 @@ from scripts.reproduce_native_gpu_crash import child_environment, classify_outco
         (0, {}, False, "incomplete"),
         (-signal.SIGSEGV, {"phase": "compile"}, False, "native_crash"),
         (1, {"phase": "error"}, False, "failed"),
-        (-signal.SIGKILL, {}, True, "timeout"),
+        (-9, {}, True, "timeout"),
     ],
 )
 def test_only_complete_clean_child_exit_passes(code, report, timeout, expected):

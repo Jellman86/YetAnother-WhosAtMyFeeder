@@ -6,6 +6,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Handle Windows native worker fault statuses with persistent launch-profile quarantine and readable fault names. Normal termination and out-of-memory statuses do not claim a native compiler or memory fault.
 - Read Windows worker input through a bounded binary reader, and launch workers, runtime probes and validation/test children directly while preserving virtual environment dependencies, so requests, timeouts and shutdown own the native process. Cancelled crop validation reaps its child before returning.
 - Refresh native-worker model fingerprints after rapid same-size writes and atomic replacements on filesystems with coarse timestamps, while retaining cached hashes for settled unchanged weights.
 - Allow native Windows startup and diagnostics when POSIX process counters and user/group IDs are unavailable. Missing measurements remain unavailable rather than guessed.
