@@ -281,7 +281,11 @@ Retention, caching, imports, and the destructive tools.
   neither promises to find every bird in the clip, and uncertain species remain Unknown Bird.
   Per-bird corrections and exclusions are retained during background regeneration. Matching
   boxes from the same source frame keep their observation IDs; a different frame cannot replace
-  a frame containing owner-reviewed birds.
+  a frame containing owner-reviewed birds. All candidate locations are matched together,
+  so reranking overlapping crops cannot move a correction to another box. If a reviewed
+  location has equally plausible matches, regeneration preserves the existing frame and
+  its count instead of choosing one. This is spatial matching within that source frame,
+  not tracking individual birds between frames.
 - **Maximum cached visits per species** — keep media for the newest configured number of visits
   of each canonical species. Favourites are exempt. `0` means unlimited. This removes cached media,
   including alternate photos and clips, while keeping visits and counted-bird records.

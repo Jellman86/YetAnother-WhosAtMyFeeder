@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Match all regenerated bird boxes together before transferring IDs, corrections or exclusions. Reranking overlapping crops no longer moves an owner’s decision to another bird; ambiguous reviewed matches preserve the existing frame.
+
 - Reject late analysis and chat replies when the capture’s species, time or weather changes during generation. The prompt and revision are read together; unrelated favourite changes still allow completion.
 
 - Keep guest audio confirmations and counts tied to the camera’s mapped microphones, batch evidence reads across each page, and exclude tomorrow’s audio from today-only views. Guest leaderboard portraits are checked against current visibility before ranking; saved observation pins follow the selected location precision.

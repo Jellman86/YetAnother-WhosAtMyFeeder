@@ -2,6 +2,8 @@
 
 import asyncio
 from contextlib import closing
+from itertools import product
+import random
 from datetime import datetime
 import os
 import sqlite3
@@ -130,3 +132,77 @@ async def test_failed_regeneration_restores_indices_ids_and_owner_decisions(fixt
         await repo.replace_generated("edit-race", SELECTION)
     assert not repo.db.in_transaction
     assert await owner.list_for_event("edit-race") == before
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("edit", ["species", "exclude"])
+@pytest.mark.parametrize("reverse", [False, True])
+async def test_overlapping_reranked_birds_keep_owner_edits_on_the_best_spatial_match(fixture_birds, edit, reverse):
+    repo, owner = fixture_birds
+    birds = (
+        BirdObservation("a", (0, 0, 50, 50), 0.9, "Robin", "Robin", 0.9),
+        BirdObservation("b", (30, 0, 80, 50), 0.9, "Cardinal", "Cardinal", 0.9),
+    )
+    first = BirdObservationSelection("frigate_snapshot", 0, "whole", birds)
+    await repo.replace_generated("edit-race", first)
+    original = await owner.list_for_event("edit-race")
+    corrected = original[0]
+    if edit == "species":
+        await owner.set_species("edit-race", corrected["id"], "Blue Jay")
+    else:
+        await owner.set_hidden("edit-race", corrected["id"], True)
+    reordered = BirdObservationSelection("frigate_snapshot", 0, "whole", tuple(reversed(birds)) if reverse else birds)
+    assert await repo.replace_generated("edit-race", reordered)
+    after = await owner.list_for_event("edit-race")
+    by_box = {tuple(bird["crop_box"]): bird for bird in after}
+    for old in original:
+        assert by_box[tuple(old["crop_box"])]["id"] == old["id"]
+    reviewed = by_box[(0, 0, 50, 50)]
+    other = by_box[(30, 0, 80, 50)]
+    assert not other["manual_species"] and not other["is_hidden"]
+    if edit == "species":
+        assert reviewed["species"] == "Blue Jay" and reviewed["manual_species"]
+    else:
+        assert reviewed["is_hidden"]
+
+
+def test_spatial_assignment_optimizes_all_pairs_instead_of_consuming_the_first_best_edge():
+    assert BirdObservationRepository._maximum_weight_assignment([[0.9, 0.8], [0.8, 0]]) == [1, 0]
+
+
+@pytest.mark.asyncio
+async def test_ambiguous_owner_association_preserves_the_entire_reviewed_frame(fixture_birds):
+    repo, owner = fixture_birds
+    original = (await owner.list_for_event("edit-race"))[0]
+    await owner.set_species("edit-race", original["id"], "Blue Jay")
+    before = await owner.list_for_event("edit-race")
+    ambiguous = BirdObservationSelection(
+        "frigate_snapshot",
+        0,
+        "whole",
+        (
+            BirdObservation("left", (5, 10, 55, 60), 0.9, "Robin", "Robin", 0.9),
+            BirdObservation("right", (15, 10, 65, 60), 0.9, "Robin", "Robin", 0.9),
+        ),
+    )
+    assert await repo.replace_generated("edit-race", ambiguous) is False
+    assert await owner.list_for_event("edit-race") == before
+
+
+def test_global_spatial_assignment_matches_exhaustive_optimum_with_unmatched_slots():
+    randomizer = random.Random(42)
+    for row_count in range(1, 5):
+        for old_count in range(0, 4):
+            for _ in range(5):
+                weights = [[randomizer.randrange(0, 11) / 10 for _ in range(old_count)] for _ in range(row_count)]
+                assignment = BirdObservationRepository._maximum_weight_assignment(weights)
+                assigned = [old for old in assignment if old is not None]
+                assert len(assigned) == len(set(assigned))
+                actual = sum(weights[new][old] for new, old in enumerate(assignment) if old is not None)
+                optimum = max(
+                    sum(weights[new][old] for new, old in enumerate(candidate) if old is not None)
+                    for candidate in product([None, *range(old_count)], repeat=row_count)
+                    if len([old for old in candidate if old is not None])
+                    == len(set(old for old in candidate if old is not None))
+                )
+                assert actual == pytest.approx(optimum)
