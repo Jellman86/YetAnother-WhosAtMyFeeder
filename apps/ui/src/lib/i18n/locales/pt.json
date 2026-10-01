@@ -478,7 +478,8 @@
       "desc": "Escolha o formato de exibição para as datas.",
       "us": "Estados Unidos (MM/DD/AAAA)",
       "uk": "Reino Unido (DD/MM/AAAA)",
-      "ymd": "Japão/China (AAAA-MM-DD)"
+      "ymd": "Japão/China (AAAA-MM-DD)",
+      "locale": "Seguir o idioma do navegador"
     },
     "time_format": {
       "label": "Formato da hora",

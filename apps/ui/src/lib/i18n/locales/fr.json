@@ -468,7 +468,8 @@
       "desc": "Choisissez le format d’affichage des dates.",
       "us": "États-Unis (MM/JJ/AAAA)",
       "uk": "Royaume-Uni (JJ/MM/AAAA)",
-      "ymd": "Japon/Chine (AAAA-MM-JJ)"
+      "ymd": "Japon/Chine (AAAA-MM-JJ)",
+      "locale": "Suivre la langue du navigateur"
     },
     "time_format": {
       "label": "Format de l’heure",

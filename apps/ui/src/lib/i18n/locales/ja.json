@@ -468,7 +468,8 @@
       "desc": "日付の表示形式を選択します。",
       "us": "米国 (MM/DD/YYYY)",
       "uk": "英国 (DD/MM/YYYY)",
-      "ymd": "日本/中国 (YYYY-MM-DD)"
+      "ymd": "日本/中国 (YYYY-MM-DD)",
+      "locale": "ブラウザーの言語に従う"
     },
     "time_format": {
       "label": "時刻の形式",

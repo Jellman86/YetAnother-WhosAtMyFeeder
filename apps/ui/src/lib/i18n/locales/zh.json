@@ -468,7 +468,8 @@
       "desc": "选择日期的显示格式。",
       "us": "美国 (MM/DD/YYYY)",
       "uk": "英国 (DD/MM/YYYY)",
-      "ymd": "日本/中国 (YYYY-MM-DD)"
+      "ymd": "日本/中国 (YYYY-MM-DD)",
+      "locale": "跟随浏览器语言"
     },
     "time_format": {
       "label": "时间格式",
