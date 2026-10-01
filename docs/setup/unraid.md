@@ -21,34 +21,72 @@ LAN, put them behind an authenticated reverse proxy — see
 
 ## Install with the template
 
-1. In the Unraid web UI, go to **Docker → Add Container**.
-2. In **Template**, paste the template URL:
+### Community Applications
 
-   ```
-   https://raw.githubusercontent.com/Jellman86/YetAnother-WhosAtMyFeeder/main/unraid/yawamf.xml
-   ```
+In **Apps**, search for **YA-WAMF**, confirm that the repository is
+`ghcr.io/jellman86/yawamf-monalithic`, and select **Install**. The listing provides
+the template, app icon and project/support links.
 
-3. The fields populate from the template. Review these:
-   - **WebUI Port** — host port for the UI (default `9852`; the container listens on `8080`).
-   - **Config** — `/config` → `/mnt/user/appdata/ya-wamf/config`.
-   - **Data** — `/data` → `/mnt/user/appdata/ya-wamf/data` (SQLite detections database and cached media; this grows with your retention window, so keep it on fast storage).
-   - **Frigate URL** — set this to your Frigate instance, e.g. `http://192.168.1.10:5000`.
+### Manual template import
+
+If the listing is unavailable, save the published template locally. The
+**Docker → Add Container → Template** control selects local templates; it does
+not accept a remote URL. From the Unraid terminal:
+
+```sh
+install -d /boot/config/plugins/dockerMan/templates-user
+template=/boot/config/plugins/dockerMan/templates-user/my-YA-WAMF.xml
+test ! -e "$template" &&
+  curl -fL --output /tmp/yawamf-template.xml \
+    https://raw.githubusercontent.com/Jellman86/YetAnother-WhosAtMyFeeder/main/unraid/yawamf.xml &&
+  install -m 0644 /tmp/yawamf-template.xml "$template"
+```
+
+Use this command for a new installation. For an existing installation, keep its
+saved template and edit that container so your paths, ports and device settings
+are retained.
+
+1. Go to **Docker → Add Container**.
+2. In **Template**, select **YA-WAMF** under **User templates**.
+3. Review these fields:
+   - **WebUI Port**: host port for the UI (default `9852`; the container listens on `8080`).
+   - **Config**: `/config` mapped to `/mnt/user/appdata/ya-wamf/config`.
+   - **Data**: `/data` mapped to `/mnt/user/appdata/ya-wamf/data` (SQLite history, models and cached media). Keep it on fast storage.
 4. Click **Apply**.
 
-The template runs the container as `nobody:users` (uid `99` / gid `100`) via
-`--user 99:100`, which matches Unraid's default appdata ownership — so `/config`
-and `/data` are writable without any `chown`. If you point appdata at a share with
-different ownership, either set it to `99:100` or run the Unraid **Docker Safe New
-Permissions** tool. (The image does not honour `PUID`/`PGID` environment variables,
-so the run-as user is set with `--user` instead.)
+The template runs as uid `99` / gid `100` (`nobody:users`) via `--user 99:100`.
+Unraid creates missing mapped directories with this ownership. Existing
+directories must already permit this user to write; importing a template does
+not repair their permissions. If needed, stop YA-WAMF and correct ownership on
+only its **Config** and **Data** directories. The image does not honour
+`PUID`/`PGID` variables.
 
 ## Expected result
 
-Unraid pulls `ghcr.io/jellman86/yawamf-monalithic:latest` and starts the
-full compatibility container. When its health check passes, click the container's **WebUI** icon (or
-browse to `http://<your-unraid-ip>:9852/`) and you should see the dashboard.
-Authentication is disabled by default for first-time setup — set a password under
-**Settings → Security** before exposing it beyond your trusted network.
+Unraid pulls `ghcr.io/jellman86/yawamf-monalithic:latest` and starts the full
+compatibility container. First startup can take several minutes while the
+database and species catalogue are prepared. Open **WebUI** or
+`http://<your-unraid-ip>:9852/`, then complete the first-run wizard.
+
+In **Frigate & MQTT connection**, enter the Frigate API URL and MQTT broker
+address, port and credentials, then test both connections. Use LAN addresses,
+for example `http://192.168.1.10:5000`, or hostnames reachable from the container.
+The default Docker **bridge** network does not resolve container names such as
+`frigate` or `mqtt`; those names require a shared user-defined network. For a
+Frigate API that requires authentication, provide its URL and token together
+(see [Frigate](../integrations/frigate.md)). Later changes belong in
+**Settings → Connection**.
+
+The current template leaves connection settings in the app. Older installs
+may still have `FRIGATE__FRIGATE_URL` in their saved Unraid template; it overrides
+the saved Frigate URL on restart. To move an existing install to in-app settings,
+first note that URL, remove the variable from the container's edit form, apply
+the change, and save the URL in **Settings → Connection**. Keep intentional
+environment overrides if you manage configuration externally.
+
+Authentication is disabled initially. Set an admin password during setup or
+under **Settings → Security** before exposing the service beyond a trusted
+network. See [Authentication & Access](../features/authentication.md).
 
 ## Optional: hardware acceleration
 
@@ -73,7 +111,7 @@ The available stable Repository tags are:
 
 Start with `latest`. Once the installation is healthy, edit only the tag portion
 of **Repository** if you want a smaller image; keep the same `/config` and `/data`
-paths. Pinned releases use the same suffix, such as `v2.17.0-intel`.
+paths. Pinned releases use the same suffix, such as `v2.21.1-intel`.
 
 Do not add `YAWAMF_IMAGE_FLAVOR` to the template. It is read-only identity baked
 into each image, and overriding it does not install a runtime. Also avoid adding
@@ -97,8 +135,10 @@ Port, Variable, Label or Device**, and add:
 - Config Type **Device**, Value `/dev/accel/accel0` — Intel Core Ultra "AI Boost" NPU (`intel_npu`).
 
 Add only the device you actually have. Then pick the provider under
-**Settings → Detection → Inference Provider**. GPU/NPU access can also require the
-container user to be in the host `render` group — see
+**Settings → Detection → Inference Provider**. GPU/NPU access can also require
+supplementary host groups. Look up the numeric group owning the render or
+accelerator device, then append `--group-add <gid>`
+to **Extra Parameters**, preserving `--user 99:100`. See
 [Hardware Acceleration](hardware-acceleration.md) for the full detail and fallback
 behaviour.
 
@@ -112,7 +152,8 @@ behaviour.
    to `latest-cuda` for the smaller CUDA image.
 3. Follow the NVIDIA Driver plugin's current container-runtime instructions for
    your Unraid release. The established Docker-runtime path is to enable
-   **Advanced view**, add `--runtime=nvidia` to **Extra Parameters**, and add:
+   **Advanced view**, append `--runtime=nvidia` to **Extra Parameters**, keeping
+   the existing `--user 99:100`, and add:
    - `NVIDIA_VISIBLE_DEVICES` with the GPU UUID shown by the plugin (or `all` when
      deliberately exposing every GPU), and
    - `NVIDIA_DRIVER_CAPABILITIES=compute,utility`.

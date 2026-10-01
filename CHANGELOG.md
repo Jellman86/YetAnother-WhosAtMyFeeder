@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Complete Unraid app metadata with setup, licence and screenshot links. Keep Frigate and MQTT settings editable in the app, and correct template import, bridge-network and existing-install guidance.
+
 - Flush completed SQLite restore points through a writable handle before atomic publication, so native Windows backups retain committed WAL data and preserve previous restore points on failure.
 - Package IANA timezone data for Windows development installs and make worker lifecycle regression clocks independent of host timer resolution.
 - Handle Windows native worker fault statuses with persistent launch-profile quarantine and readable fault names. Normal termination and out-of-memory statuses do not claim a native compiler or memory fault.
