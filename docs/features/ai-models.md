@@ -295,3 +295,8 @@ analysis without requiring a live event. A successful diagnostic therefore prove
 accepts a representative production request, but it is not a provider load benchmark. Rate limits
 and temporary provider unavailability remain retryable; when the provider supplies `Retry-After`,
 the panel shows it.
+
+Connection-test failures use safe guidance rather than quoting provider response bodies or
+exception messages, which may contain credentials. Logs record the provider, HTTP status when
+available, error type and diagnostic stage. A rejected key still asks you to check its access;
+image-admission failures ask you to check vision support and image limits.

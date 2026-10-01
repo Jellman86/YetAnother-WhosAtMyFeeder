@@ -327,22 +327,46 @@ class AIService:
         except httpx.HTTPStatusError as e:
             detail = e.response.text if e.response is not None else str(e)
             status = e.response.status_code if e.response is not None else 502
-            log.error("LLM test failed", status=status, model=model, error=detail)
-            message = self._describe_http_error(status, model, detail)
+            failure_stage = self._failure_stage_for_http_error(status, detail)
+            log.error(
+                "ai_connection_test_failed",
+                provider=provider,
+                status=status,
+                error_type=type(e).__name__,
+                failure_stage=failure_stage,
+            )
+            message = self._describe_http_error(status, model, "")
+            if status in (400, 413, 415, 422):
+                message = (
+                    "The model could not accept the diagnostic images. Choose a vision model "
+                    "that supports multiple images, or check the provider's image limits."
+                )
+            elif message.startswith("AI provider error"):
+                message += " Check the provider and model settings, then try again."
             hint = status if status in (429, 503) else (400 if 400 <= status < 500 else 502)
             return AIConnectionTestResult(
                 ok=False,
                 message=message,
                 http_status_hint=hint,
-                failure_stage=self._failure_stage_for_http_error(status, detail),
+                failure_stage=failure_stage,
                 retryable=status in (408, 429, 500, 502, 503, 504),
                 retry_after_seconds=self._retry_after_seconds(e.response),
             )
         except Exception as e:
-            log.error("LLM test failed", error=str(e))
+            log.error(
+                "ai_connection_test_failed",
+                provider=provider,
+                status=None,
+                error_type=type(e).__name__,
+                failure_stage="provider",
+            )
             return AIConnectionTestResult(
                 ok=False,
-                message=f"AI test failed: {str(e)}",
+                message=(
+                    "The AI provider could not be reached. Check the connection and try again."
+                    if isinstance(e, httpx.RequestError)
+                    else "The AI provider returned an invalid response. Try again or choose another model."
+                ),
                 http_status_hint=502,
                 failure_stage="provider",
                 retryable=True,
