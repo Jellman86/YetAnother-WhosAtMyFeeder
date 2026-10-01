@@ -81,6 +81,7 @@ from app.routers import (
 )
 from app.config import settings, _expand_trusted_hosts
 from app.middleware.language import LanguageMiddleware
+from app.middleware.public_calendar import PublicCalendarMiddleware
 from app.utils.tasks import create_background_task
 from app.utils.runtime_flavor import get_image_flavor
 from app.services.label_enrichment import start_background_map_refresh
@@ -804,6 +805,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 
 
 app.add_middleware(LanguageMiddleware)
+app.add_middleware(PublicCalendarMiddleware)
 
 # CORS configuration - Note: wildcard origins cannot be used with credentials
 app.add_middleware(

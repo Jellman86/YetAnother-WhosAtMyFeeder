@@ -159,6 +159,15 @@ This is the current route map (grouped). Use OpenAPI for full schemas.
 
 ### Events
 
+Public event-history and media windows use UTC calendar days. Custom `0` starts at
+00:00 UTC and excludes the next midnight; custom `N` starts at midnight UTC `N` days
+ago. Public audio, AI access, filter counts, About photographs and leaderboard portraits
+use the corresponding shared history/media bounds. Owner date filters are unchanged.
+One UTC calendar day is captured per HTTP response, so nested queries, totals and audio
+projection cannot switch to another day's evidence midway through a request. The calendar
+is released when the response body completes; later requests and background work use a
+fresh day. This does not cache sharing preferences.
+
 - `GET /api/events`
 - `GET /api/events/count`
 - `GET /api/events/filters` Species and camera options, each with a detection count, plus totals

@@ -97,6 +97,14 @@ medium is not shared rather than shown a broken image or an error.
 | **Media window** | Follow retention | How far back snapshots and clips are served, capped at 365 days. In custom mode, `0` means today only. |
 | **Location precision** | **Approximate** | How precisely guest-facing features may use your configured location. |
 
+Public history and media windows use **UTC calendar days**, regardless of the server’s `TZ`
+setting. “Today only” starts at 00:00 UTC and excludes the next midnight; a custom `N`-day
+window starts at 00:00 UTC `N` days ago. Capture times can still be displayed in your local
+timezone. Photographs in About and leaderboard portraits follow the same media calendar.
+Each HTTP response captures one UTC day for admission, counts and audio evidence, even if
+midnight passes while it is being built. Later requests and background work use the current
+day. Sharing preferences are still checked when used.
+
 **With the default Keep Everything retention policy, both public windows cover 365 days.**
 The stored seven-day values apply only when you select custom windows. Check both windows
 before sharing your URL.

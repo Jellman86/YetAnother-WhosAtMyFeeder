@@ -37,8 +37,8 @@ from app.utils.audio_localization import localize_audio_species_name
 from app.utils.public_access import (
     hide_public_audio_fields,
     refresh_public_audio_fields,
-    public_events_cutoff,
-    public_events_end,
+    public_events_window,
+    public_event_query_bounds,
 )
 from app.utils.timezone import get_user_timezone
 from app.auth import require_owner, AuthContext
@@ -909,7 +909,7 @@ def _dedupe_inaturalist_candidates(candidates: list[dict]) -> list[dict]:
 async def get_species_list(request: Request, auth: AuthContext = Depends(get_auth_context_with_legacy)):
     """Get list of all species with counts."""
     lang = get_user_language(request)
-    bounds = {} if auth.is_owner else {"start_date": public_events_cutoff(), "end_date": public_events_end()}
+    bounds = {} if auth.is_owner else public_event_query_bounds()
     async with get_db() as db:
         repo = DetectionRepository(db)
         await repo.ensure_recent_rollups(90)
@@ -1052,9 +1052,9 @@ async def get_leaderboard_species(
     prev_start = window_start - window
     prev_end = window_start
 
-    bounds = {} if auth.is_owner else {"start_date": public_events_cutoff(), "end_date": public_events_end()}
+    bounds = {} if auth.is_owner else public_event_query_bounds(now.replace(tzinfo=timezone.utc))
     if not auth.is_owner:
-        cutoff = public_events_cutoff().replace(tzinfo=None)
+        cutoff = bounds["start_date"].replace(tzinfo=None)
         window_start = max(window_start, cutoff)
         prev_start = max(prev_start, cutoff)
     unknown_labels = settings.classification.unknown_bird_labels
@@ -1189,7 +1189,7 @@ async def get_species_stats(
     species_name: str, request: Request, auth: AuthContext = Depends(get_auth_context_with_legacy)
 ):
     """Get comprehensive statistics for a species."""
-    bounds = {} if auth.is_owner else {"start_date": public_events_cutoff(), "end_date": public_events_end()}
+    bounds = {} if auth.is_owner else public_event_query_bounds()
     lang = get_user_language(request)
     hide_camera_names = (
         not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
@@ -2352,7 +2352,7 @@ async def get_leaderboard_portraits(
     """
     from app.routers.about import is_crop_source
     from app.services.media_cache import media_cache
-    from app.utils.public_access import effective_public_media_days
+    from app.utils.public_access import public_media_window
 
     if not (settings.media_cache.enabled and settings.media_cache.cache_snapshots):
         return LeaderboardPortraitsResponse(span=span, portraits=[])
@@ -2369,16 +2369,14 @@ async def get_leaderboard_portraits(
     window_start, window_end = _portraits_window(span, now)
     guest_cutoff: datetime | None = None
     if is_guest:
-        max_days = effective_public_media_days()
-        guest_cutoff = (
-            now - timedelta(days=max_days) if max_days > 0 else now.replace(hour=0, minute=0, second=0, microsecond=0)
-        )
+        media_start, media_end = public_media_window(now.replace(tzinfo=timezone.utc))
+        guest_cutoff = media_start.replace(tzinfo=None)
+        if media_end is not None:
+            window_end = min(window_end, media_end.replace(tzinfo=None))
 
     if is_guest:
-        from app.utils.public_access import public_events_cutoff, public_events_end
-
-        window_start = max(window_start, public_events_cutoff().replace(tzinfo=None), guest_cutoff)
-        public_end = public_events_end()
+        event_start, public_end = public_events_window(now.replace(tzinfo=timezone.utc))
+        window_start = max(window_start, event_start.replace(tzinfo=None), guest_cutoff)
         if public_end is not None:
             window_end = min(window_end, public_end.replace(tzinfo=None))
 

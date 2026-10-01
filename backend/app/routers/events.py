@@ -3,7 +3,7 @@ import time
 import unicodedata
 from fastapi import APIRouter, HTTPException, Query, Request, Depends
 from typing import List, Optional, Literal
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from pydantic import BaseModel, Field
 import structlog
 from PIL import Image
@@ -37,7 +37,9 @@ from app.utils.public_access import (
     hide_public_audio_fields,
     refresh_public_audio_fields,
     approximate_coordinate,
-    public_events_end,
+    public_events_cutoff,
+    public_utc_day,
+    public_events_window,
 )
 from app.utils.api_datetime import serialize_api_datetime
 from app.utils.canonical_species import (
@@ -430,13 +432,11 @@ class EventFilters(BaseModel):
 _event_filters_cache: dict[tuple[str, bool, str], tuple[float, EventFilters]] = {}
 
 
-def _event_filter_start_date(auth: AuthContext) -> datetime | None:
+def _event_filter_start_date(auth: AuthContext, now: datetime | None = None) -> datetime | None:
     """Match facet visibility to the same history boundary as guest event lists."""
     if auth.is_owner or not settings.public_access.enabled:
         return None
-    public_days = effective_public_events_days()
-    cutoff_date = date.today() - timedelta(days=public_days) if public_days > 0 else date.today()
-    return datetime.combine(cutoff_date, datetime.min.time())
+    return public_events_cutoff(now).replace(tzinfo=None)
 
 
 class EventsCountResponse(BaseModel):
@@ -459,8 +459,9 @@ async def get_event_filters(
     hide_camera_names = (
         not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
     )
-    start_date = _event_filter_start_date(auth)
-    end_date = None if auth.is_owner else public_events_end()
+    policy_now = datetime.now(timezone.utc)
+    start_date = _event_filter_start_date(auth, policy_now)
+    end_date = None if auth.is_owner else public_events_window(policy_now)[1]
     lang = get_user_language(request)
     cache_scope = start_date.date().isoformat() if start_date else "owner"
     cache_key = (lang, hide_camera_names, cache_scope)
@@ -676,15 +677,16 @@ async def get_events(
     # Apply public access restrictions
     if not auth.is_owner and settings.public_access.enabled:
         # Restrict historical data for guests
+        today = public_utc_day()
         max_days = effective_public_events_days()
         if max_days > 0:
-            cutoff_date = date.today() - timedelta(days=max_days)
+            cutoff_date = today - timedelta(days=max_days)
             if start_date is None or start_date < cutoff_date:
                 start_date = cutoff_date
         else:
             # Only show today's data
-            start_date = date.today()
-            end_date = date.today()
+            start_date = today
+            end_date = today
 
         # Limit result count for guests
         limit = min(limit, 50)
@@ -1078,14 +1080,15 @@ async def get_events_count(
     )
     # Apply public access restrictions
     if not auth.is_owner and settings.public_access.enabled:
+        today = public_utc_day()
         max_days = effective_public_events_days()
         if max_days > 0:
-            cutoff_date = date.today() - timedelta(days=max_days)
+            cutoff_date = today - timedelta(days=max_days)
             if start_date is None or start_date < cutoff_date:
                 start_date = cutoff_date
         else:
-            start_date = date.today()
-            end_date = date.today()
+            start_date = today
+            end_date = today
         include_hidden = False
         only_hidden = False
         if not settings.public_access.show_audio:

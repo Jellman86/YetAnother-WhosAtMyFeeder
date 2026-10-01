@@ -25,7 +25,7 @@ from app.utils.public_access import (
     hide_public_audio_fields,
     refresh_public_audio_fields,
     public_events_cutoff,
-    public_events_end,
+    public_event_query_bounds,
     effective_public_events_days,
 )
 from app.utils.api_datetime import serialize_api_datetime, utc_naive_now
@@ -474,7 +474,7 @@ async def get_daily_summary(request: Request, auth: AuthContext = Depends(get_au
     end_dt = utc_naive_now()
     start_dt = end_dt - timedelta(hours=24)
     if not auth.is_owner:
-        start_dt = max(start_dt, public_events_cutoff().replace(tzinfo=None))
+        start_dt = max(start_dt, public_events_cutoff(end_dt.replace(tzinfo=timezone.utc)).replace(tzinfo=None))
 
     async with get_db() as db:
         repo = DetectionRepository(db)
@@ -792,12 +792,12 @@ async def get_detection_timeline_span(
     # slow or unreachable weather host cannot hold pool capacity.
     async with get_db() as db:
         repo = DetectionRepository(db)
-        bounds = {} if auth.is_owner else {"start_date": public_events_cutoff(), "end_date": public_events_end()}
+        bounds = {} if auth.is_owner else public_event_query_bounds(now.replace(tzinfo=timezone.utc))
 
         if span == "day":
             window_start = now - timedelta(hours=24)
             if not auth.is_owner:
-                window_start = max(window_start, public_events_cutoff().replace(tzinfo=None))
+                window_start = max(window_start, bounds["start_date"].replace(tzinfo=None))
             window_end = now
             bucket = "hour"
             points = _build_local_timeline_points(
@@ -812,7 +812,7 @@ async def get_detection_timeline_span(
             days = 7 if span == "week" else 30
             window_start = now - timedelta(days=days)
             if not auth.is_owner:
-                window_start = max(window_start, public_events_cutoff().replace(tzinfo=None))
+                window_start = max(window_start, bounds["start_date"].replace(tzinfo=None))
             window_end = now
             bucket = "day"
             points = _build_local_timeline_points(
@@ -1160,22 +1160,22 @@ async def get_detection_activity_heatmap(
 
     async with get_db() as db:
         repo = DetectionRepository(db)
-        bounds = {} if auth.is_owner else {"start_date": public_events_cutoff(), "end_date": public_events_end()}
+        bounds = {} if auth.is_owner else public_event_query_bounds(now.replace(tzinfo=timezone.utc))
 
         if span == "day":
             window_start = now - timedelta(hours=24)
             if not auth.is_owner:
-                window_start = max(window_start, public_events_cutoff().replace(tzinfo=None))
+                window_start = max(window_start, bounds["start_date"].replace(tzinfo=None))
             window_end = now
         elif span == "week":
             window_start = now - timedelta(days=7)
             if not auth.is_owner:
-                window_start = max(window_start, public_events_cutoff().replace(tzinfo=None))
+                window_start = max(window_start, bounds["start_date"].replace(tzinfo=None))
             window_end = now
         elif span == "month":
             window_start = now - timedelta(days=30)
             if not auth.is_owner:
-                window_start = max(window_start, public_events_cutoff().replace(tzinfo=None))
+                window_start = max(window_start, bounds["start_date"].replace(tzinfo=None))
             window_end = now
         else:
             oldest, _newest = await repo.get_detection_time_bounds(**bounds)

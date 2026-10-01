@@ -62,7 +62,7 @@ def _audio_species_matches(species: object, scientific_name: object, primary: ob
 
 async def _public_audio_conditions_sql(db: aiosqlite.Connection, *, match_species: bool = True) -> tuple[str, list]:
     from app.config import settings
-    from app.utils.public_access import public_events_cutoff, public_events_end
+    from app.utils.public_access import public_events_window
 
     mappings = {
         camera: _parse_mapping_filter_values(value)
@@ -82,7 +82,8 @@ async def _public_audio_conditions_sql(db: aiosqlite.Connection, *, match_specie
     await db.create_function("public_audio_mapping_matches", 3, mapping_matches, deterministic=True)
     await db.create_function("public_audio_species_matches", 3, _audio_species_matches, deterministic=True)
     await db.create_function("public_audio_window_bound", 2, window_bound, deterministic=True)
-    bounds, params = _history_bounds_sql(public_events_cutoff(), public_events_end(), "a.timestamp")
+    public_start, public_end = public_events_window()
+    bounds, params = _history_bounds_sql(public_start, public_end, "a.timestamp")
     sql = f"""a.is_hidden = 0{bounds}
         AND a.timestamp >= public_audio_window_bound(d.detection_time, ?)
         AND a.timestamp <= public_audio_window_bound(d.detection_time, ?)

@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Use UTC calendar days consistently for public history and media windows. Guests no longer lose current visits around local midnight on non-UTC servers; About photographs and leaderboard portraits use the same midnight media boundary. Each response keeps admission, counts and audio evidence on one UTC day when midnight passes during a query. Local capture-time display and owner date filters are unchanged.
+
 - Retry leftover media cleanup every five minutes after a visit is deleted, even with cache budgets or caching disabled. Active owner/background writers and ambiguous legacy filenames are protected; cancellation waits for local file work before releasing cleanup coordination.
 
 - Remember automatic full-visit clip eviction alongside photo eviction. Late fetch outcomes and restarts cannot refill deliberately evicted media; admitted background jobs are protected while they run.
