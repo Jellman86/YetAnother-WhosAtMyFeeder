@@ -171,6 +171,31 @@ class AIService:
             return message
         return message.replace(secret, "***REDACTED***")
 
+    @staticmethod
+    def _response_text(value: object) -> str | AIAnalysisError:
+        if isinstance(value, str) and value.strip():
+            return value
+        return AIAnalysisError("AI returned an empty or invalid response. Try again.", retryable=True)
+
+    def _provider_failure(self, provider: str, error: Exception) -> AIAnalysisError:
+        response = error.response if isinstance(error, httpx.HTTPStatusError) else None
+        status = response.status_code if response is not None else None
+        log.error("ai_provider_request_failed", provider=provider, status=status, error_type=type(error).__name__)
+        if status is not None:
+            hint = status if status in (429, 503) else (400 if status < 500 else 502)
+            return AIAnalysisError(
+                self._describe_http_error(status, settings.llm.model, ""),
+                http_status_hint=hint,
+                retryable=status in (408, 429, 500, 502, 503, 504),
+                retry_after_seconds=self._retry_after_seconds(response),
+            )
+        message = (
+            "The AI provider request failed. Try again."
+            if isinstance(error, httpx.RequestError)
+            else "AI analysis failed because the provider returned an invalid response. Try again."
+        )
+        return AIAnalysisError(message, retryable=True)
+
     async def test_connection(self, provider: str, model: str, api_key: str) -> AIConnectionTestResult:
         """Test LLM connectivity with a bounded multi-frame vision prompt.
 
@@ -191,7 +216,7 @@ class AIService:
 
         try:
             if provider == "gemini":
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
                 payload = {
                     "contents": [
                         {
@@ -207,7 +232,7 @@ class AIService:
                     "generationConfig": {"temperature": 0.1, "maxOutputTokens": 16},
                 }
                 async with httpx.AsyncClient(timeout=15.0) as client:
-                    resp = await client.post(url, json=payload)
+                    resp = await client.post(url, headers={"x-goog-api-key": api_key}, json=payload)
                     resp.raise_for_status()
                     candidates = resp.json().get("candidates", [])
                     if candidates:
@@ -334,13 +359,13 @@ class AIService:
     ) -> Optional[str]:
         """Send image(s) and metadata to LLM for analysis."""
         if not settings.llm.enabled or not settings.llm.api_key:
-            return "AI Analysis is disabled or API key is missing."
+            return AIAnalysisError("AI Analysis is disabled or API key is missing.", http_status_hint=400)
 
         images = [(img, mime_type) for img in (image_list or []) if img]
         if not images and image_data:
             images = [(image_data, mime_type)]
         if not images:
-            return "No image data available for AI analysis."
+            return AIAnalysisError("No image data available for AI analysis.", http_status_hint=400)
 
         prompt = self._build_prompt(species, metadata, language)
         if settings.llm.provider == "gemini":
@@ -352,16 +377,16 @@ class AIService:
         elif settings.llm.provider == "openrouter":
             return await self._analyze_openrouter_prompt(prompt, images, feature="analysis")
 
-        return "Unsupported AI provider."
+        return AIAnalysisError("Unsupported AI provider.", http_status_hint=400)
 
     async def analyze_chart(
         self, image_data: bytes, metadata: dict, language: Optional[str] = None, mime_type: str = "image/png"
     ) -> Optional[str]:
         """Analyze a leaderboard chart image for trends."""
         if not settings.llm.enabled or not settings.llm.api_key:
-            return "AI Analysis is disabled or API key is missing."
+            return AIAnalysisError("AI Analysis is disabled or API key is missing.", http_status_hint=400)
         if not image_data:
-            return "No image data available for AI analysis."
+            return AIAnalysisError("No image data available for AI analysis.", http_status_hint=400)
 
         prompt = self._build_chart_prompt(metadata, language)
         images = [(image_data, mime_type)]
@@ -375,12 +400,12 @@ class AIService:
         elif settings.llm.provider == "openrouter":
             return await self._analyze_openrouter_prompt(prompt, images, feature="chart")
 
-        return "Unsupported AI provider."
+        return AIAnalysisError("Unsupported AI provider.", http_status_hint=400)
 
     async def chat_detection(self, prompt: str) -> Optional[str]:
         """Send a text-only prompt for follow-up conversation."""
         if not settings.llm.enabled or not settings.llm.api_key:
-            return "AI Analysis is disabled or API key is missing."
+            return AIAnalysisError("AI Analysis is disabled or API key is missing.", http_status_hint=400)
 
         if settings.llm.provider == "gemini":
             return await self._generate_gemini_text(prompt, feature="chat")
@@ -391,13 +416,13 @@ class AIService:
         elif settings.llm.provider == "openrouter":
             return await self._generate_openrouter_text(prompt, feature="chat")
 
-        return "Unsupported AI provider."
+        return AIAnalysisError("Unsupported AI provider.", http_status_hint=400)
 
     async def _analyze_gemini_prompt(
         self, prompt: str, images: list[tuple[bytes, str]], feature: str = "analysis"
     ) -> Optional[str]:
         """Analyze using Google Gemini API."""
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.llm.model}:generateContent?key={settings.llm.api_key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.llm.model}:generateContent"
 
         parts = [{"text": prompt}]
         for image_data, mime_type in images:
@@ -416,7 +441,7 @@ class AIService:
 
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
-                resp = await client.post(url, json=payload)
+                resp = await client.post(url, headers={"x-goog-api-key": settings.llm.api_key}, json=payload)
                 resp.raise_for_status()
 
                 data = resp.json()
@@ -437,17 +462,15 @@ class AIService:
                     content = candidates[0].get("content", {})
                     parts = content.get("parts", [])
                     if parts:
-                        return parts[0].get("text")
+                        return self._response_text(parts[0].get("text"))
 
-                log.warning("Gemini returned no candidates", response=resp.text)
-                return AIAnalysisError("AI returned an empty response.", retryable=True)
-        except Exception as e:
-            safe_error = self._redact_secret(str(e), settings.llm.api_key)
-            log.error("Gemini analysis failed", error=safe_error)
-            return f"Error during AI analysis: {safe_error}"
+                log.warning("ai_provider_empty_response", provider="gemini")
+                return self._response_text(None)
+        except Exception as error:
+            return self._provider_failure("gemini", error)
 
     async def _generate_gemini_text(self, prompt: str, feature: str = "chat") -> Optional[str]:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.llm.model}:generateContent?key={settings.llm.api_key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.llm.model}:generateContent"
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {
@@ -459,7 +482,7 @@ class AIService:
         }
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
-                resp = await client.post(url, json=payload)
+                resp = await client.post(url, headers={"x-goog-api-key": settings.llm.api_key}, json=payload)
                 resp.raise_for_status()
                 data = resp.json()
                 candidates = data.get("candidates", [])
@@ -478,13 +501,11 @@ class AIService:
                     content = candidates[0].get("content", {})
                     parts = content.get("parts", [])
                     if parts:
-                        return parts[0].get("text")
-                log.warning("Gemini returned no candidates", response=resp.text)
-                return "AI returned an empty response."
-        except Exception as e:
-            safe_error = self._redact_secret(str(e), settings.llm.api_key)
-            log.error("Gemini text generation failed", error=safe_error)
-            return f"Error during AI analysis: {safe_error}"
+                        return self._response_text(parts[0].get("text"))
+                log.warning("ai_provider_empty_response", provider="gemini")
+                return self._response_text(None)
+        except Exception as error:
+            return self._provider_failure("gemini", error)
 
     async def _analyze_openai_prompt(
         self, prompt: str, images: list[tuple[bytes, str]], feature: str = "analysis"
@@ -520,12 +541,11 @@ class AIService:
 
                 choices = data.get("choices", [])
                 if choices:
-                    return choices[0].get("message", {}).get("content")
+                    return self._response_text(choices[0].get("message", {}).get("content"))
 
-                return AIAnalysisError("AI returned an empty response.", retryable=True)
-        except Exception as e:
-            log.error("OpenAI analysis failed", error=str(e))
-            return f"Error during AI analysis: {str(e)}"
+                return self._response_text(None)
+        except Exception as error:
+            return self._provider_failure("openai", error)
 
     async def _generate_openai_text(self, prompt: str, feature: str = "chat") -> Optional[str]:
         url = "https://api.openai.com/v1/chat/completions"
@@ -550,11 +570,10 @@ class AIService:
 
                 choices = data.get("choices", [])
                 if choices:
-                    return choices[0].get("message", {}).get("content")
-                return "AI returned an empty response."
-        except Exception as e:
-            log.error("OpenAI text generation failed", error=str(e))
-            return f"Error during AI analysis: {str(e)}"
+                    return self._response_text(choices[0].get("message", {}).get("content"))
+                return self._response_text(None)
+        except Exception as error:
+            return self._provider_failure("openai", error)
 
     async def _analyze_claude_prompt(
         self, prompt: str, images: list[tuple[bytes, str]], feature: str = "analysis"
@@ -597,12 +616,11 @@ class AIService:
 
                 content = data.get("content", [])
                 if content and len(content) > 0:
-                    return content[0].get("text")
+                    return self._response_text(content[0].get("text"))
 
-                return "AI returned an empty response."
-        except Exception as e:
-            log.error("Claude analysis failed", error=str(e))
-            return f"Error during AI analysis: {str(e)}"
+                return self._response_text(None)
+        except Exception as error:
+            return self._provider_failure("claude", error)
 
     async def _generate_claude_text(self, prompt: str, feature: str = "chat") -> Optional[str]:
         url = "https://api.anthropic.com/v1/messages"
@@ -635,11 +653,10 @@ class AIService:
 
                 content = data.get("content", [])
                 if content and len(content) > 0:
-                    return content[0].get("text")
-                return "AI returned an empty response."
-        except Exception as e:
-            log.error("Claude text generation failed", error=str(e))
-            return f"Error during AI analysis: {str(e)}"
+                    return self._response_text(content[0].get("text"))
+                return self._response_text(None)
+        except Exception as error:
+            return self._provider_failure("claude", error)
 
     async def _analyze_openrouter_prompt(
         self, prompt: str, images: list[tuple[bytes, str]], feature: str = "analysis"
@@ -683,31 +700,11 @@ class AIService:
 
                 choices = data.get("choices", [])
                 if choices:
-                    return choices[0].get("message", {}).get("content")
+                    return self._response_text(choices[0].get("message", {}).get("content"))
 
-                return AIAnalysisError("AI returned an empty response.", retryable=True)
-        except httpx.HTTPStatusError as e:
-            try:
-                detail = e.response.json().get("error", {}).get("message") or e.response.text
-            except Exception:
-                detail = e.response.text if e.response is not None else str(e)
-            status = e.response.status_code if e.response is not None else None
-            log.error(
-                "OpenRouter analysis failed",
-                status=status,
-                model=settings.llm.model,
-                error=detail,
-            )
-            hint = status if status in (429, 503) else (400 if status is not None and 400 <= status < 500 else 502)
-            return AIAnalysisError(
-                self._describe_http_error(status, settings.llm.model, detail),
-                http_status_hint=hint,
-                retryable=status in (408, 429, 500, 502, 503, 504),
-                retry_after_seconds=self._retry_after_seconds(e.response),
-            )
-        except Exception as e:
-            log.error("OpenRouter analysis failed", error=str(e))
-            return AIAnalysisError(f"AI analysis failed: {str(e)}", retryable=True)
+                return self._response_text(None)
+        except Exception as error:
+            return self._provider_failure("openrouter", error)
 
     async def _generate_openrouter_text(self, prompt: str, feature: str = "chat") -> Optional[str]:
         """Generate text using OpenRouter (OpenAI-compatible API)."""
@@ -741,30 +738,10 @@ class AIService:
 
                 choices = data.get("choices", [])
                 if choices:
-                    return choices[0].get("message", {}).get("content")
-                return AIAnalysisError("AI returned an empty response.", retryable=True)
-        except httpx.HTTPStatusError as e:
-            try:
-                detail = e.response.json().get("error", {}).get("message") or e.response.text
-            except Exception:
-                detail = e.response.text if e.response is not None else str(e)
-            log.error(
-                "OpenRouter text generation failed",
-                status=e.response.status_code if e.response is not None else None,
-                model=settings.llm.model,
-                error=detail,
-            )
-            status = e.response.status_code if e.response is not None else None
-            hint = status if status in (429, 503) else (400 if status is not None and 400 <= status < 500 else 502)
-            return AIAnalysisError(
-                self._describe_http_error(status, settings.llm.model, detail),
-                http_status_hint=hint,
-                retryable=status in (408, 429, 500, 502, 503, 504),
-                retry_after_seconds=self._retry_after_seconds(e.response),
-            )
-        except Exception as e:
-            log.error("OpenRouter text generation failed", error=str(e))
-            return AIAnalysisError(f"AI analysis failed: {str(e)}", retryable=True)
+                    return self._response_text(choices[0].get("message", {}).get("content"))
+                return self._response_text(None)
+        except Exception as error:
+            return self._provider_failure("openrouter", error)
 
     def _build_prompt(self, species: str, metadata: dict, language: Optional[str] = None) -> str:
         """Construct the prompt for the LLM."""
