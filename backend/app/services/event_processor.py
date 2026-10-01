@@ -960,11 +960,10 @@ class EventProcessor:
         from the daily rollups, so the visible result matches a delete while
         staying recoverable. A detection the owner tagged themselves is left
         alone; that tag is their own judgement and outranks Frigate's.
+        Cached media stays available for recovery and follows the ordinary
+        retention/budget policy, including its favourite protections.
         """
         try:
-            # Clean up cached media immediately
-            await media_cache.delete_cached_media(frigate_event_id)
-
             async with get_db() as db:
                 repo = DetectionRepository(db)
                 hidden = await repo.hide_detection(frigate_event_id, skip_manually_tagged=True)
