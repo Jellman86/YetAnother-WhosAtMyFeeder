@@ -42,8 +42,8 @@ describe('Counted birds keep scene, bird and capture identity', () => {
     });
 
     it('outlines the whole-scene peek only on the full-resolution image', () => {
-        expect(detectionModalSource).toContain('if (!fullFrameSnapshotCandidate?.image_url) {');
-        expect(reviewQueueSource).toContain('if (!fullFrame?.image_url) {');
+        expect(detectionModalSource).toContain('if (!sceneUrl || !sceneImageEl || sceneImageEl.getAttribute(\'src\') !== sceneUrl) {');
+        expect(reviewQueueSource).toContain('if (!fullFrame?.image_url || !sceneEl || sceneEl.getAttribute(\'src\') !== fullFrame.image_url) {');
     });
 
     it('refreshes the field log from the server after a bird edit instead of patching it', () => {

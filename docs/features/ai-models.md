@@ -202,6 +202,16 @@ photo. A failed or empty generation keeps previously saved choices. Fallback cro
 the recorded species and meet the same detail requirements as normal candidates; otherwise
 the existing crop or full scene is kept. Frame preview names describe the displayed photograph.
 
+The saved photograph remains visible while a whole-scene preview loads, and returns if that
+preview fails. Missing candidate files do not remove the visit, its chosen moment or its counted
+birds. Photo, frame-strip and counted-frame areas keep their reserved space during loading and
+failure. Outlines use the exact full frame, with letterboxing accounted for; a resized or missing
+frame keeps the bird list without misleading outlines.
+
+In **Needs your call**, choose a species or **Skip for now** before the supporting counted-bird
+details. The `s` shortcut skips from dialog or button focus; typing in the species search and
+modified keys keep their normal behavior. Progress remains visible on phones.
+
 **Settings → Data → Snapshot quality → Best available event snapshots** is an automatic outcome,
 not a source selector. When enabled, YA-WAMF samples up to three centre/track-weighted moments from
 the main-stream clip, spreading them across the tracked interval when available and otherwise using

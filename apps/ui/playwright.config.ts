@@ -1,6 +1,11 @@
 import { defineConfig, devices } from '@playwright/test';
 
 // Deliberately local-only: no automatic CI matrix or paid browser service.
+// PLAYWRIGHT_PORT lets a second checkout run its fixtures beside another one's server.
+// Typed locally: the UI has no Node type package, and this is the only environment read.
+const environment = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
+const port = Number(environment.PLAYWRIGHT_PORT ?? 4178);
+
 export default defineConfig({
     testDir: './browser-tests',
     fullyParallel: true,
@@ -11,7 +16,7 @@ export default defineConfig({
     reporter: 'list',
     outputDir: './playwright-results',
     use: {
-        baseURL: 'http://127.0.0.1:4178',
+        baseURL: `http://127.0.0.1:${port}`,
         locale: 'en-GB',
         timezoneId: 'Europe/London',
         trace: 'retain-on-failure',
@@ -25,8 +30,8 @@ export default defineConfig({
         { name: 'mobile-webkit', use: { ...devices['iPhone 13'] } }
     ],
     webServer: {
-        command: 'npm run dev -- --host 127.0.0.1 --port 4178 --strictPort',
-        url: 'http://127.0.0.1:4178/browser-tests/fixture.html',
+        command: `npm run dev -- --host 127.0.0.1 --port ${port} --strictPort`,
+        url: `http://127.0.0.1:${port}/browser-tests/fixture.html`,
         reuseExistingServer: false,
         timeout: 60_000
     }

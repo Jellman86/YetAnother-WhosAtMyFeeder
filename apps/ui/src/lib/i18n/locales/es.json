@@ -364,7 +364,6 @@
       "done_note": "Cada visita tiene especie. Tus correcciones mejoran el orden por cámara.",
       "skipped_note": "{count} para más tarde. Siguen en la cola.",
       "back": "Volver al panel",
-      "what_is_it": "¿Qué es?",
       "threshold_note": "El modelo quedó por debajo del umbral de identificación.",
       "search": "Buscar especie…",
       "no_matches": "Ninguna especie coincide. Prueba con menos letras.",

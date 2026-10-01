@@ -147,6 +147,17 @@ describe('scene geometry', () => {
         expect(percent.height).toBeCloseTo(10.602, 2);
     });
 
+    it.each([
+        [{ width: 100, height: 100 }, 16 / 9, { left: 21.875, top: 0, width: 56.25, height: 100 }],
+        [{ width: 400, height: 300 }, 16 / 9, { left: 12.5, top: 0, width: 75, height: 100 }],
+        [{ width: 240, height: 100 }, 16 / 9, { left: 0, top: 12.96296296, width: 100, height: 74.07407407 }]
+    ])('maps the complete image inside a reserved frame without outlining its letterbox', (size, aspect, expected) => {
+        const actual = sceneBoxPercent([0, 0, size.width, size.height], size, aspect);
+        for (const key of ['left', 'top', 'width', 'height'] as const) {
+            expect(actual[key]).toBeCloseTo(expected[key], 6);
+        }
+    });
+
     it('frames a crop thumbnail around the bird without enlarging the stored box', () => {
         const crop = cropBackground([858, 1151, 967, 1352], fullSize, 48);
         // The taller side (201px) plus a margin fills the square, so the scene is scaled down.

@@ -364,7 +364,6 @@
       "done_note": "Todas as visitas têm espécie. As suas correções melhoram a ordenação por câmara.",
       "skipped_note": "{count} para mais tarde. Continuam na fila.",
       "back": "Voltar ao painel",
-      "what_is_it": "O que é?",
       "threshold_note": "O modelo ficou abaixo do limiar de identificação.",
       "search": "Procurar espécie…",
       "no_matches": "Nenhuma espécie corresponde. Tente menos letras.",

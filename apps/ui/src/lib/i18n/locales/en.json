@@ -364,7 +364,6 @@
       "done_note": "Every visit has a species. Your corrections feed the per-camera ranking.",
       "skipped_note": "{count} left for later. They stay in the queue.",
       "back": "Back to the dashboard",
-      "what_is_it": "What is it?",
       "threshold_note": "The model scored this below the naming threshold.",
       "search": "Search species…",
       "no_matches": "No species matches that. Try fewer letters.",

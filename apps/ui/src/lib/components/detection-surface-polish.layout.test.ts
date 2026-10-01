@@ -93,7 +93,7 @@ describe('detection surface polish', () => {
 
     it('preserves the complete stored image when a matching full frame is unavailable', () => {
         expect(detectionModalSource).toContain('findMatchingFullFrameCandidate');
-        expect(detectionModalSource).toContain("canPeekWholeScene ? 'object-cover' : 'object-contain'");
+        expect(detectionModalSource).toContain("photographIsCrop ? 'object-cover' : 'object-contain'");
     });
 
     it('keeps media controls and snapshot choices in one ordered footer flow', () => {

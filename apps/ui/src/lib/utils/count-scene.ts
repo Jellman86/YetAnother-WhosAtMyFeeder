@@ -94,14 +94,18 @@ export function sceneGeometryIsValid(birds: readonly BirdObservation[], size: So
 
 export function sceneBoxPercent(
     box: readonly number[],
-    size: SourceSize
+    size: SourceSize,
+    frameAspectRatio = size.width / size.height
 ): { left: number; top: number; width: number; height: number } {
     const [left, top, right, bottom] = box;
+    const imageAspectRatio = size.width / size.height;
+    const widthFraction = Math.min(1, imageAspectRatio / frameAspectRatio);
+    const heightFraction = Math.min(1, frameAspectRatio / imageAspectRatio);
     return {
-        left: (left / size.width) * 100,
-        top: (top / size.height) * 100,
-        width: ((right - left) / size.width) * 100,
-        height: ((bottom - top) / size.height) * 100
+        left: ((1 - widthFraction) / 2 + (left / size.width) * widthFraction) * 100,
+        top: ((1 - heightFraction) / 2 + (top / size.height) * heightFraction) * 100,
+        width: ((right - left) / size.width) * widthFraction * 100,
+        height: ((bottom - top) / size.height) * heightFraction * 100
     };
 }
 

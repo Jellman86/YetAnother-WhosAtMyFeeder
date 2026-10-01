@@ -2,6 +2,7 @@
     import { getThumbnailUrl } from '../api';
     import type { Detection } from '../api';
     import type { ReviewQueue } from '../utils/review-queue';
+    import MediaImage from './MediaImage.svelte';
     import { formatDate, formatTime } from '../utils/datetime';
     import { _ } from 'svelte-i18n';
 
@@ -71,14 +72,15 @@
                         class="flex w-full items-center gap-2.5 rounded-xl px-1.5 py-1.5 text-left transition-colors hover:bg-white/70 focus-ring dark:hover:bg-slate-800/60"
                         onclick={() => onreview?.(detection)}
                     >
-                        <img
-                            src={getThumbnailUrl(detection.frigate_event)}
+                        <MediaImage
+                            sources={[getThumbnailUrl(detection.frigate_event)]}
                             alt=""
                             loading="lazy"
                             decoding="async"
-                            width="32"
-                            height="32"
-                            class="h-8 w-8 shrink-0 rounded-lg object-cover"
+                            width={32}
+                            height={32}
+                            class="h-8 w-8 shrink-0 rounded-lg bg-slate-100 object-cover dark:bg-slate-800"
+                            iconClass="h-4 w-4"
                         />
                         <span class="min-w-0 flex-1">
                             <span class="block truncate text-xs font-semibold text-slate-800 dark:text-slate-100">
@@ -114,7 +116,7 @@
             </p>
         {/if}
 
-        <button class="btn btn-primary mt-3 w-full px-3 py-2 text-xs" onclick={() => onreviewall?.()}>
+        <button class="btn btn-primary mt-3 min-h-11 w-full px-3 py-2 text-xs" onclick={() => onreviewall?.()}>
             {$_('dashboard.review_queue.work_through', { default: 'Work through the queue' })}
         </button>
     {/if}

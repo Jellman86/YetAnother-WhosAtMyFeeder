@@ -1,9 +1,10 @@
 <script lang="ts">
     import { onDestroy, untrack } from 'svelte';
-    import { applySnapshotCandidate, fetchFeederSpecies, fetchSnapshotCandidates, getThumbnailUrl } from '../api';
+    import { applySnapshotCandidate, fetchFeederSpecies, fetchSnapshotCandidates, getSnapshotUrl, getThumbnailUrl } from '../api';
     import type { BirdObservation, Detection, SearchResult, SnapshotCandidate } from '../api';
     import FrameStrip from './FrameStrip.svelte';
     import CountedBirds from './CountedBirds.svelte';
+    import MediaImage from './MediaImage.svelte';
     import { getBirdNames } from '../naming';
     import { settingsStore } from '../stores/settings.svelte';
     import { authStore } from '../stores/auth.svelte';
@@ -17,7 +18,7 @@
     import { speciesPickerNames, withoutCurrentSpecies } from '../utils/species-picker';
     import { toastStore } from '../stores/toast.svelte';
     import { confirmAction } from '../stores/confirm_dialog.svelte';
-    import { advance, createReviewSession, remaining, type ReviewSession } from '../utils/review-session';
+    import { advance, createReviewSession, type ReviewSession } from '../utils/review-session';
     import { formatDate, formatTime } from '../utils/datetime';
     import { trapFocus } from '../utils/focus-trap';
     import { portal } from '../utils/portal';
@@ -46,12 +47,14 @@
     let { queue, labels = [], reasons, onidentify, onhide, onblock, ondelete, onopen, onclose, onbirdschanged }: Props = $props();
 
     let session = $state<ReviewSession>(untrack(() => createReviewSession(queue)));
-    // A wide feeder shot does not settle what a 56% blur is; the crop the classifier
-    // scored does. Crops exist only for events that have been scanned, so this is a
-    // best-effort enrichment rather than something the flow depends on.
-    let crop = $state<SnapshotCandidate | null>(null);
+    // The photograph is the record's own saved snapshot, the picture already chosen for it. The
+    // candidate list only describes it: which frames exist, where the crop sits in its scene,
+    // which birds were counted. A candidate file can be gone while its row remains, so the list
+    // never swaps a working photograph for one of its own URLs.
     let fullFrame = $state<SnapshotCandidate | null>(null);
     let cropLoading = $state(false);
+    /** Advanced when the saved photograph changes on the server, so the old bytes are not reused. */
+    let photographVersion = $state(0);
     // Every frame kept from the visit, in one strip, the same as the detection record (#256):
     // a reviewer deciding what a blurred shape is should see every moment, not only the crop
     // and its whole scene. Choosing one changes the photograph and nothing else.
@@ -66,19 +69,26 @@
     let applyingKey = $state<string | null>(null);
     let applyPending = $state(false);
     const moments = $derived<FrameMoment[]>(
-        groupCandidatesIntoMoments(candidates.filter((item) => item.thumbnail_url || item.image_url))
+        // The current frame still has the saved photograph even when its candidate files expired.
+        groupCandidatesIntoMoments(candidates.filter((item) =>
+            item.thumbnail_url || item.image_url || item.candidate_id === currentCandidateId
+        ))
     );
     const activeMoment = $derived(currentMoment(moments, currentCandidateId, currentSource));
-    let imageEl = $state<HTMLImageElement | null>(null);
     // The photograph is the crop; the whole scene is a look, not a mode (#256). Same
     // controller as the detection record, so the two surfaces behave alike.
-    const canPeek = $derived(
-        Boolean(photograph?.crop_box) && Boolean(fullFrame?.image_url || fullFrame?.thumbnail_url)
+    // A whole scene that failed to load is not offered again; the photograph stays where it was.
+    let failedSceneUrls = $state<ReadonlySet<string>>(new Set());
+    const wholeSceneSources = $derived(
+        // Full resolution only: a scene thumbnail is too small to judge by and cannot carry the outlines.
+        [fullFrame?.image_url].filter(
+            (url): url is string => !!url && !failedSceneUrls.has(url)
+        )
     );
+    const canPeek = $derived(Boolean(photograph?.crop_box) && wholeSceneSources.length > 0);
     const wholeScene = new WholeScenePeek(() => canPeek);
     let search = $state('');
     let busy = $state(false);
-    let failedImageUrls = $state<Set<string>>(new Set());
     let dialogEl = $state<HTMLElement | null>(null);
 
     // The queue is captured once on open: items resolving underneath would move the
@@ -112,7 +122,6 @@
         // A new subject starts with a clean picker.
         void session.current?.frigate_event;
         search = '';
-        failedImageUrls = new Set();
     });
 
     let candidateReadEpoch = 0;
@@ -127,17 +136,11 @@
             const response = await fetchSnapshotCandidates(eventId);
             if (!isCurrent()) return;
             const all = response.candidates ?? [];
-            const cropped = all.filter(
-                (candidate) => candidate.crop_box && (candidate.image_url || candidate.thumbnail_url)
-            );
-            const preferredCrop =
-                cropped.find((candidate) => candidate.selected) ??
-                cropped.sort((left, right) => right.ranking_score - left.ranking_score)[0] ??
-                null;
-            // The photograph is whatever is chosen, crop or whole scene; the peek needs a crop.
-            const selected = all.find((candidate) => candidate.selected && (candidate.image_url || candidate.thumbnail_url));
-            photograph = selected ?? preferredCrop;
-            crop = preferredCrop;
+            // Which candidate the saved photograph is. Its record, not its file: the file may be
+            // gone, and the photograph on screen does not depend on it.
+            photograph = all.find((candidate) => candidate.candidate_id === response.current_candidate_id)
+                ?? all.find((candidate) => candidate.selected)
+                ?? null;
             fullFrame = findMatchingFullFrameCandidate(
                 response.candidates ?? [],
                 photograph?.candidate_id ?? null
@@ -150,7 +153,6 @@
         } catch {
             // No scan has been run for this event, so there is no crop to show.
             if (isCurrent()) {
-                crop = null;
                 fullFrame = null;
                 photograph = null;
                 candidates = [];
@@ -165,7 +167,6 @@
     $effect(() => {
         const eventId = session.current?.frigate_event;
         candidateReadEpoch += 1;
-        crop = null;
         fullFrame = null;
         photograph = null;
         candidates = [];
@@ -174,6 +175,7 @@
         untrack(() => { countedBirdsGeneration += 1; });
         currentCandidateId = null;
         currentSource = null;
+        failedSceneUrls = new Set();
         wholeScene.reset();
         if (!eventId || !authStore.hasOwnerAccess) return;
 
@@ -194,6 +196,7 @@
         try {
             await applySnapshotCandidate(eventId, { mode: 'candidate', candidate_id: candidate.candidate_id });
             wholeScene.reset();
+            photographVersion += 1;
             await loadCandidates(eventId, () => session.current?.frigate_event !== eventId);
             toastStore.success($_('detection.snapshot_apply_success', { default: 'Snapshot updated' }));
         } catch (e) {
@@ -204,22 +207,49 @@
         }
     }
 
-    const imageUrl = $derived(
-        wholeScene.showing && (fullFrame?.image_url || fullFrame?.thumbnail_url)
-            ? (fullFrame.image_url ?? fullFrame.thumbnail_url ?? '')
-            : photograph?.image_url || photograph?.thumbnail_url
-              ? (photograph.image_url ?? photograph.thumbnail_url ?? '')
-              : crop?.image_url || crop?.thumbnail_url
-                ? (crop.image_url ?? crop.thumbnail_url ?? '')
-                : session.current
-                  ? getThumbnailUrl(session.current.frigate_event)
-                  : ''
+    // The saved photograph first, then the camera's thumbnail of the same capture: a working
+    // picture is never given up for a missing one.
+    const photographSources = $derived(
+        session.current
+            ? [
+                  withVersion(getSnapshotUrl(session.current.frigate_event), photographVersion),
+                  getThumbnailUrl(session.current.frigate_event)
+              ]
+            : []
     );
+
+    /** The bands the visual standard sets, in their tones for the dark media surface. */
+    function scoreTone(score: number): string {
+        if (score < 0.6) return 'text-accent-300';
+        if (score < 0.85) return 'text-brand-300';
+        return 'text-success-300';
+    }
+
+    function withVersion(url: string, version: number): string {
+        if (version === 0) return url;
+        return `${url}${url.includes('?') ? '&' : '?'}v=${version}`;
+    }
+
+    let sceneEl = $state<HTMLImageElement | null>(null);
+    /** The scene URL that has finished drawing; until then the photograph stays visible beneath. */
+    let sceneLoadedUrl = $state<string | null>(null);
+    const sceneReady = $derived(wholeScene.showing && sceneLoadedUrl !== null && sceneLoadedUrl === wholeSceneSources[0]);
+
+    function sceneLoaded(image: HTMLImageElement): void {
+        sceneLoadedUrl = image.getAttribute('src');
+        measureWholeScene();
+    }
+
+    function sceneFailed(url: string): void {
+        failedSceneUrls = new Set([...failedSceneUrls, url]);
+        if (wholeSceneSources.length === 0) wholeScene.reset();
+    }
+
     // The outlines are DOM measurements, taken once the whole scene has loaded and again when
     // the window changes size.
     function measureWholeScene(): void {
-        // Crop boxes are frame pixels; only the full-resolution scene shares them.
-        if (!fullFrame?.image_url) {
+        // Crop boxes are frame pixels; only the full-resolution scene shares them, never its thumbnail.
+        if (!fullFrame?.image_url || !sceneEl || sceneEl.getAttribute('src') !== fullFrame.image_url) {
             wholeScene.outline = null;
             wholeScene.otherOutlines = [];
             return;
@@ -227,12 +257,13 @@
         const otherCropBoxes = wholeSceneCrops.slice(1).flatMap((candidate) =>
             candidate.crop_box ? [candidate.crop_box] : []
         );
-        wholeScene.measure(imageEl, wholeSceneCrops[0]?.crop_box, otherCropBoxes);
+        wholeScene.measure(sceneEl, wholeSceneCrops[0]?.crop_box, otherCropBoxes);
     }
     $effect(() => {
         if (!wholeScene.showing) {
             wholeScene.outline = null;
             wholeScene.otherOutlines = [];
+            sceneLoadedUrl = null;
             return;
         }
         measureWholeScene();
@@ -240,11 +271,6 @@
         return () => window.removeEventListener('resize', measureWholeScene);
     });
     onDestroy(wholeScene.destroy);
-    const imageFailed = $derived(Boolean(imageUrl && failedImageUrls.has(imageUrl)));
-
-    function markImageFailed(url: string): void {
-        failedImageUrls = new Set([...failedImageUrls, url]);
-    }
 
     $effect(() => {
         if (!dialogEl) return;
@@ -323,7 +349,8 @@
             return;
         }
         // Skip is the only shortcut: identifying by accident is not recoverable in one keystroke.
-        if (event.key === 's' && !busy && !session.done && event.target === dialogEl) {
+        const shortcutFocus = event.target === dialogEl || event.target instanceof HTMLButtonElement;
+        if (event.key === 's' && shortcutFocus && !event.ctrlKey && !event.metaKey && !event.altKey && !busy && !session.done) {
             event.preventDefault();
             skip();
         }
@@ -344,7 +371,7 @@
         onkeydown={handleKeydown}
         class="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
     >
-        <header class="flex items-center gap-3 border-b border-slate-200 px-5 py-3 dark:border-slate-700">
+        <header class="relative flex items-center gap-3 border-b border-slate-200 py-2 pl-5 pr-2 dark:border-slate-700">
             <div class="min-w-0">
                 <h2 id="review-session-title" class="font-display text-base font-bold text-slate-900 dark:text-white">
                     {$_('dashboard.review_queue.title', { default: 'Needs your call' })}
@@ -362,16 +389,21 @@
                 </p>
             </div>
 
-            <div class="ml-auto flex items-center gap-3">
-                <div class="hidden h-1.5 w-32 overflow-hidden rounded-full bg-slate-200 sm:block dark:bg-slate-700" aria-hidden="true">
-                    <div
-                        class="h-full rounded-full bg-brand-500 transition-[width] duration-300 motion-reduce:transition-none"
-                        style="width: {session.total === 0 ? 100 : (session.index / session.total) * 100}%"
-                    ></div>
-                </div>
-                <button class="btn btn-ghost min-h-11 px-3 py-1.5 text-sm" onclick={onclose}>
-                    {$_('common.close', { default: 'Close' })}
-                </button>
+            <button
+                type="button"
+                class="ml-auto inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500/60 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
+                aria-label={$_('common.close', { default: 'Close' })}
+                onclick={onclose}
+            >
+                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" stroke-linecap="round" /></svg>
+            </button>
+
+            <!-- Progress rides the header's own rule, on every screen size; the words above say it too. -->
+            <div class="absolute inset-x-0 -bottom-px h-0.5" aria-hidden="true">
+                <div
+                    class="h-full bg-brand-500 transition-[width] duration-300 motion-reduce:transition-none"
+                    style="width: {session.total === 0 ? 100 : (session.index / session.total) * 100}%"
+                ></div>
             </div>
         </header>
 
@@ -409,78 +441,97 @@
                  rail beneath it. The two-column grid only applies where there is room. -->
             <div class="flex min-h-0 flex-1 flex-col overflow-y-auto md:grid md:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)] md:overflow-hidden">
                 <div class="flex shrink-0 flex-col bg-slate-950 md:min-h-0 md:justify-center">
-                    {#if imageFailed}
-                        <div class="flex items-center justify-center py-16 text-slate-600">
-                            <svg class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2 1.586-1.586a2 2 0 012.828 0L20 14M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                        </div>
-                    {:else}
-                        <div class="relative">
-                            <img
-                                bind:this={imageEl}
-                                src={imageUrl}
-                                alt={$_('dashboard.review_session.image_alt', {
-                                    values: { camera: current.camera_name },
-                                    default: 'Unidentified detection on {camera}'
-                                })}
-                                class="max-h-[52vh] w-full object-contain"
-                                onload={measureWholeScene}
-                                onerror={() => markImageFailed(imageUrl)}
-                            />
-                            {#if canPeek}
-                                <!-- Hover or focus peeks at the whole scene with same-frame crops outlined; a tap or
-                                     click pins it. No switch, and no strategy name: how the crop was found is
-                                     the app's plumbing, not the reviewer's concern. -->
-                                <button
-                                    type="button"
-                                    class="absolute inset-0 {wholeScene.pinned ? 'cursor-zoom-out' : 'cursor-zoom-in'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/70"
-                                    data-review-whole-scene-peek
-                                    aria-pressed={wholeScene.pinned}
-                                    aria-label={wholeScene.pinned
-                                        ? $_('detection.whole_scene_back', { default: 'Back to the crop' })
-                                        : $_('detection.whole_scene_show', { default: 'Show the whole scene' })}
-                                    onmouseenter={wholeScene.enter}
-                                    onmouseleave={wholeScene.leave}
-                                    onfocus={wholeScene.show}
-                                    onblur={wholeScene.leave}
-                                    onclick={wholeScene.toggle}
-                                ></button>
-                                {#if wholeScene.showing && wholeScene.outline}
-                                    <div
-                                        class="pointer-events-none absolute z-20 rounded-sm border-2 border-solid border-sky-300 {wholeScene.otherOutlines.length === 0 ? 'shadow-[0_0_0_9999px_rgba(2,6,23,0.35)]' : ''}"
-                                        style="left: {wholeScene.outline.left}px; top: {wholeScene.outline.top}px; width: {wholeScene.outline.width}px; height: {wholeScene.outline.height}px;"
-                                        aria-hidden="true"
-                                    ><span class="absolute left-0 top-0 rounded bg-sky-300 px-1.5 py-0.5 text-[10px] font-bold text-slate-950">{$_('detection.frame_chosen_badge', { default: 'Chosen' })}</span></div>
-                                    {#each wholeScene.otherOutlines as outline}
-                                        <div
-                                            class="pointer-events-none absolute z-10 rounded-sm border-2 border-dashed border-white/90"
-                                            style="left: {outline.left}px; top: {outline.top}px; width: {outline.width}px; height: {outline.height}px;"
-                                            data-review-other-bird-outline
-                                            aria-hidden="true"
-                                        ></div>
-                                    {/each}
-                                {/if}
-                                {#if wholeScene.showing}
-                                    <span class="pointer-events-none absolute left-3 top-3 z-30 rounded-full border border-white/15 bg-slate-950/70 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm">
-                                        {wholeScene.otherOutlines.length > 0
-                                            ? $_('detection.whole_scene_multiple_outlined', { values: { count: wholeScene.otherOutlines.length + 1 }, default: 'Whole scene, {count} crop regions outlined' })
-                                            : wholeScene.pinned
-                                                ? $_('detection.whole_scene_chip_pinned', { default: 'Whole scene, the crop is outlined' })
-                                                : $_('detection.whole_scene_chip', { default: 'Whole scene' })}
-                                    </span>
-                                {/if}
+                    <!-- One box for the photograph whatever it is doing: loading, drawn, peeking at the
+                         whole scene or missing. Nothing beneath it moves when an image arrives or fails. -->
+                    <div class="relative aspect-[4/3] max-h-[52vh] w-full overflow-hidden" data-review-photograph>
+                        <MediaImage
+                            sources={photographSources}
+                            alt={$_('dashboard.review_session.image_alt', {
+                                values: { camera: current.camera_name },
+                                default: 'Unidentified detection on {camera}'
+                            })}
+                            class="absolute inset-0 h-full w-full object-contain"
+                            placeholderClass="text-slate-700"
+                            iconClass="h-10 w-10"
+                        />
+                        {#if canPeek}
+                            <!-- The whole scene is drawn over the photograph only once it has loaded, so a
+                                 scene that is slow or missing never takes the photograph away. -->
+                            {#if wholeScene.showing}
+                                <MediaImage
+                                    bind:element={sceneEl}
+                                    sources={wholeSceneSources}
+                                    alt=""
+                                    class="absolute inset-0 h-full w-full bg-slate-950 object-contain transition-opacity duration-150 motion-reduce:transition-none {sceneReady ? 'opacity-100' : 'opacity-0'}"
+                                    placeholderClass="hidden"
+                                    onload={sceneLoaded}
+                                    onfail={sceneFailed}
+                                    data-review-whole-scene-image
+                                />
                             {/if}
-                        </div>
-                    {/if}
-                    <div class="px-4 pt-3" data-review-species-heading>
+                            <!-- Hover or focus peeks at the whole scene with same-frame crops outlined; a tap or
+                                 click pins it. No switch, and no strategy name: how the crop was found is
+                                 the app's plumbing, not the reviewer's concern. -->
+                            <button
+                                type="button"
+                                class="absolute inset-0 {wholeScene.pinned ? 'cursor-zoom-out' : 'cursor-zoom-in'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/70"
+                                data-review-whole-scene-peek
+                                aria-pressed={wholeScene.pinned}
+                                aria-label={wholeScene.pinned
+                                    ? $_('detection.whole_scene_back', { default: 'Back to the crop' })
+                                    : $_('detection.whole_scene_show', { default: 'Show the whole scene' })}
+                                onmouseenter={wholeScene.enter}
+                                onmouseleave={wholeScene.leave}
+                                onfocus={wholeScene.show}
+                                onblur={wholeScene.leave}
+                                onclick={wholeScene.toggle}
+                            ></button>
+                            {#if sceneReady && wholeScene.outline}
+                                <div
+                                    class="pointer-events-none absolute z-20 rounded-sm border-2 border-solid border-sky-300 {wholeScene.otherOutlines.length === 0 ? 'shadow-[0_0_0_9999px_rgba(2,6,23,0.35)]' : ''}"
+                                    style="left: {wholeScene.outline.left}px; top: {wholeScene.outline.top}px; width: {wholeScene.outline.width}px; height: {wholeScene.outline.height}px;"
+                                    data-review-whole-scene-outline
+                                    aria-hidden="true"
+                                ><span class="absolute left-0 top-0 rounded bg-sky-300 px-1.5 py-0.5 text-[10px] font-bold text-slate-950">{$_('detection.frame_chosen_badge', { default: 'Chosen' })}</span></div>
+                                {#each wholeScene.otherOutlines as outline}
+                                    <div
+                                        class="pointer-events-none absolute z-10 rounded-sm border-2 border-dashed border-white/90"
+                                        style="left: {outline.left}px; top: {outline.top}px; width: {outline.width}px; height: {outline.height}px;"
+                                        data-review-other-bird-outline
+                                        aria-hidden="true"
+                                    ></div>
+                                {/each}
+                            {/if}
+                            {#if sceneReady}
+                                <span class="pointer-events-none absolute left-3 top-3 z-30 rounded-full border border-white/15 bg-slate-950/70 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm">
+                                    {wholeScene.otherOutlines.length > 0
+                                        ? $_('detection.whole_scene_multiple_outlined', { values: { count: wholeScene.otherOutlines.length + 1 }, default: 'Whole scene, {count} crop regions outlined' })
+                                        : wholeScene.pinned
+                                            ? $_('detection.whole_scene_chip_pinned', { default: 'Whole scene, the crop is outlined' })
+                                            : $_('detection.whole_scene_chip', { default: 'Whole scene' })}
+                                </span>
+                            {/if}
+                        {/if}
+                    </div>
+                    <!-- Who, then when and where, as one block: the record's media footer reads the same way. -->
+                    <div class="px-4 pt-3 {authStore.hasOwnerAccess ? '' : 'pb-4'}" data-review-species-heading>
                         <h3 class="break-words font-display text-xl font-bold leading-tight text-white">{naming.primary}</h3>
                         {#if naming.secondary}
                             <p class="mt-0.5 break-words text-sm italic text-slate-300">{naming.secondary}</p>
                         {/if}
+                        <p class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-400">
+                            <span>{formatDate(current.detection_time)} {formatTime(current.detection_time)}</span>
+                            <span>{current.camera_name}</span>
+                            <span class="font-semibold tabular-nums {scoreTone(current.score ?? 0)}">
+                                <span class="sr-only">{$_('detection.confidence', { default: 'Confidence' })}</span>
+                                {Math.round((current.score ?? 0) * 100)}%
+                            </span>
+                            {#if current.weather_condition}<span>{current.weather_condition}</span>{/if}
+                        </p>
                     </div>
-                    {#if moments.length > 0}
-                        <div class="pt-2" data-review-frame-strip>
+                    {#if authStore.hasOwnerAccess}
+                        <!-- Held from the first paint, so the frames arriving do not push anything down. -->
+                        <div class="pt-3" data-review-frame-strip>
                             <FrameStrip
                                 {moments}
                                 current={activeMoment}
@@ -488,48 +539,24 @@
                                 loading={cropLoading}
                                 {applyingKey}
                                 busy={applyPending || busy}
+                                photographUrl={photographSources[0] ?? null}
+                                emptyText={candidates.some((candidate) => candidate.crop_box)
+                                    ? null
+                                    : $_('dashboard.review_session.no_crop', {
+                                          default: 'No crop stored for this detection. Open the full record to scan for one.'
+                                      })}
                                 onuse={(moment) => { void useMoment(moment); }}
                             />
                         </div>
                     {/if}
-                    {#if !canPeek && !cropLoading && !crop}
-                        <p class="px-4 pt-2 text-[10px] text-slate-500">
-                            {$_('dashboard.review_session.no_crop', {
-                                default: 'No crop stored for this detection. Open the full record to scan for one.'
-                            })}
-                        </p>
-                    {/if}
-
-                    <p class="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-[11px] text-slate-400">
-                        <span>{formatDate(current.detection_time)} {formatTime(current.detection_time)}</span>
-                        <span>{current.camera_name}</span>
-                        <span class="font-semibold text-accent-300">
-                            {Math.round((current.score ?? 0) * 100)}%
-                        </span>
-                        {#if current.weather_condition}<span>{current.weather_condition}</span>{/if}
-                    </p>
                 </div>
 
                 <div class="flex flex-col gap-3 p-4 md:min-h-0 md:overflow-y-auto">
-                    {#if countedBirds.length > 0}
-                        {#key current.frigate_event}
-                            <CountedBirds
-                                eventId={current.frigate_event}
-                                birds={countedBirds}
-                                {candidates}
-                                {photograph}
-                                speciesOptions={labels}
-                                generation={countedBirdsGeneration}
-                                onchanged={(updated) => { countedBirds = countedBirds.map((bird) => bird.id === updated.id ? updated : bird); onbirdschanged?.(); }}
-                                onstale={() => { const eventId = current.frigate_event; void loadCandidates(eventId, () => session.current?.frigate_event !== eventId); onbirdschanged?.(); }}
-                            />
-                        {/key}
-                    {/if}
-                    <div>
-                        <p class="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
-                            {$_('dashboard.review_session.what_is_it', { default: 'What is it?' })}
-                        </p>
-                        <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                    <!-- Why this needs a person, in words, with the amber the app keeps for that. The
+                         header already asks for the call, so there is no second heading over it. -->
+                    <p class="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-200" data-review-reason>
+                        <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-500" aria-hidden="true"></span>
+                        <span>
                             {#if isNewSpecies}
                                 {$_('dashboard.review_session.new_species_note', {
                                     values: { species: current.display_name },
@@ -540,8 +567,8 @@
                                     default: 'The model scored this below the naming threshold.'
                                 })}
                             {/if}
-                        </p>
-                    </div>
+                        </span>
+                    </p>
 
                     {#if isNewSpecies}
                         <div class="flex flex-wrap gap-2" data-review-new-species-actions>
@@ -579,35 +606,39 @@
                         />
                     </label>
 
-                    <p class="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                    <p id="review-species-choices" class="-mb-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
                         {searching
                             ? $_('dashboard.review_session.all_species', { default: 'All species' })
                             : $_('dashboard.review_session.seen_here', { default: 'Seen at this feeder' })}
                     </p>
 
-                    <ul class="flex flex-col gap-1.5 md:min-h-0 md:flex-1 md:overflow-y-auto">
+                    <!-- One list, rows split by hairlines rather than a stack of cards. -->
+                    <ul
+                        class="flex flex-col divide-y divide-slate-200/70 border-y border-slate-200/70 md:min-h-40 md:flex-1 md:overflow-y-auto dark:divide-slate-700/50 dark:border-slate-700/50"
+                        aria-labelledby="review-species-choices"
+                    >
                         {#each matches as choice (choice.id)}
                             <li>
                                 <button
-                                    class="flex w-full items-center justify-between gap-2 rounded-xl border border-slate-200 px-3 py-2 text-left text-sm text-slate-800 transition-colors hover:border-brand-400 hover:bg-brand-50 focus-ring disabled:opacity-50 dark:border-slate-700 dark:text-slate-100 dark:hover:border-brand-600 dark:hover:bg-brand-950/30"
+                                    class="group flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-2 py-2 text-left text-sm text-slate-800 transition-colors hover:bg-brand-50 focus-ring disabled:opacity-50 dark:text-slate-100 dark:hover:bg-brand-950/30"
                                     disabled={busy}
                                     onclick={() => identify(choice.id)}
                                 >
                                     <span class="min-w-0">
-                                        <span class="block truncate">{choice.primary}</span>
+                                        <span class="block truncate font-medium">{choice.primary}</span>
                                         {#if choice.secondary}
                                             <span class="block truncate text-xs italic text-slate-500 dark:text-slate-400">
                                                 {choice.secondary}
                                             </span>
                                         {/if}
                                     </span>
-                                    <span class="shrink-0 text-[11px] font-semibold text-brand-700 dark:text-brand-300">
+                                    <span class="shrink-0 text-xs font-semibold text-brand-700 group-hover:underline dark:text-brand-300">
                                         {$_('dashboard.field_log.identify', { default: 'Identify' })}
                                     </span>
                                 </button>
                             </li>
                         {:else}
-                            <li class="px-1 py-2 text-xs text-slate-500 dark:text-slate-400">
+                            <li class="px-2 py-3 text-xs text-slate-500 dark:text-slate-400">
                                 {#if searching}
                                     {$_('dashboard.review_session.no_matches', {
                                         default: 'No species matches that. Try fewer letters.'
@@ -627,7 +658,8 @@
                         {/each}
                     </ul>
 
-                    <div class="flex flex-wrap gap-2 border-t border-slate-200 pt-3 dark:border-slate-700">
+                    <!-- The list's own rule above separates these; a second one would only double it. -->
+                    <div class="flex flex-wrap gap-2 pt-1" data-review-actions>
                         <button class="btn btn-secondary min-h-11 px-3 py-2 text-xs" disabled={busy} onclick={skip}>
                             {$_('dashboard.review_session.skip', { default: 'Skip for now' })}
                         </button>
@@ -650,15 +682,25 @@
                             {$_('dashboard.review_session.full_record', { default: 'Open full record' })}
                         </button>
                     </div>
+                    <!-- The decision comes first on every screen; the birds counted in the capture are
+                         supporting detail one scroll beneath it, in focus order as well as on screen. -->
+                    {#if countedBirds.length > 0}
+                        {#key current.frigate_event}
+                            <CountedBirds
+                                eventId={current.frigate_event}
+                                birds={countedBirds}
+                                {candidates}
+                                {photograph}
+                                speciesOptions={labels}
+                                generation={countedBirdsGeneration}
+                                onchanged={(updated) => { countedBirds = countedBirds.map((bird) => bird.id === updated.id ? updated : bird); onbirdschanged?.(); }}
+                                onstale={() => { const eventId = current.frigate_event; void loadCandidates(eventId, () => session.current?.frigate_event !== eventId); onbirdschanged?.(); }}
+                            />
+                        {/key}
+                    {/if}
                 </div>
             </div>
 
-            <footer class="border-t border-slate-200 px-5 py-2 text-[11px] text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                {$_('dashboard.review_session.remaining', {
-                    values: { count: remaining(session) },
-                    default: '{count} still to look at'
-                })}
-            </footer>
         {/if}
     </div>
 </div>

@@ -19,9 +19,9 @@ describe('review queue walk-through', () => {
         expect(modalSource).toContain('use:portal');
     });
 
-    it('states position, progress and what is left', () => {
+    it('states position, progress and the completed summary', () => {
         expect(modalSource).toContain('dashboard.review_session.position');
-        expect(modalSource).toContain('dashboard.review_session.remaining');
+        expect(modalSource).toContain('dashboard.review_session.summary');
         expect(modalSource).toContain('motion-reduce:transition-none');
     });
 
@@ -42,10 +42,11 @@ describe('review queue walk-through', () => {
         expect(dashboardSource).not.toContain('suggestions=');
     });
 
-    it('shows the crop the classifier scored when one exists, and says so when it does not', () => {
+    it('keeps the chosen saved photograph while reading candidate framing metadata', () => {
         expect(modalSource).toContain('fetchSnapshotCandidates');
-        expect(modalSource).toContain('crop.image_url ?? crop.thumbnail_url');
-        expect(modalSource).toContain('fullFrame.image_url ?? fullFrame.thumbnail_url');
+        expect(modalSource).toContain('getSnapshotUrl(session.current.frigate_event)');
+        expect(modalSource).toContain('sources={photographSources}');
+        expect(modalSource).toContain('sources={wholeSceneSources}');
         expect(modalSource).toContain('findMatchingFullFrameCandidate, sameFrameCropCandidates');
         expect(modalSource).toMatch(
             /findMatchingFullFrameCandidate\(\s*response\.candidates \?\? \[\],\s*photograph\?\.candidate_id \?\? null\s*\)/
@@ -60,7 +61,7 @@ describe('review queue walk-through', () => {
         expect(modalSource).toContain('onmouseenter={wholeScene.enter}');
         expect(modalSource).toContain('onfocus={wholeScene.show}');
         expect(modalSource).toContain('onclick={wholeScene.toggle}');
-        expect(modalSource).toContain('wholeScene.measure(imageEl, wholeSceneCrops[0]?.crop_box, otherCropBoxes)');
+        expect(modalSource).toContain('wholeScene.measure(sceneEl, wholeSceneCrops[0]?.crop_box, otherCropBoxes)');
         expect(modalSource).toContain('data-review-other-bird-outline');
         expect(modalSource).toContain('detection.whole_scene_chip_pinned');
         expect(modalSource).not.toContain('dashboard.review_session.crop\'');
@@ -73,12 +74,13 @@ describe('review queue walk-through', () => {
 
     it('shows every frame kept from the visit in the same strip as the record, and choosing one changes only the photograph', () => {
         expect(modalSource).toContain("import FrameStrip from './FrameStrip.svelte'");
-        expect(modalSource).toContain('groupCandidatesIntoMoments(candidates.filter((item) => item.thumbnail_url || item.image_url))');
+        expect(modalSource).toContain('groupCandidatesIntoMoments(candidates.filter(');
+        expect(modalSource).toContain('item.thumbnail_url || item.image_url || item.candidate_id === currentCandidateId');
         expect(modalSource).toContain('data-review-frame-strip');
         expect(modalSource).toContain('current={activeMoment}');
         expect(modalSource).toContain("applySnapshotCandidate(eventId, { mode: 'candidate', candidate_id: candidate.candidate_id })");
         // The photograph is whatever is chosen, crop or whole scene; the strip reflects it after a change.
-        expect(modalSource).toContain('photograph = selected ?? preferredCrop;');
+        expect(modalSource).toContain('candidate.candidate_id === response.current_candidate_id');
         expect(modalSource).toContain('await loadCandidates(eventId, () => session.current?.frigate_event !== eventId);');
         // Regeneration stays on the full record, where the scan's status is shown.
         expect(modalSource).not.toContain('onregenerate=');
@@ -95,7 +97,7 @@ describe('review queue walk-through', () => {
         expect(heading).toBeDefined();
         expect(heading).toMatch(/<h3[^>]*>\s*\{naming.primary\}\s*<\/h3>/);
         expect(heading).not.toMatch(/\bhidden\b|\babsolute\b/);
-        expect(modalSource.indexOf('data-review-species-heading')).toBeGreaterThan(modalSource.indexOf('onerror={() => markImageFailed(imageUrl)}'));
+        expect(modalSource.indexOf('data-review-species-heading')).toBeGreaterThan(modalSource.indexOf('sources={photographSources}'));
         expect(modalSource.indexOf('data-review-species-heading')).toBeLessThan(modalSource.indexOf('data-review-frame-strip'));
     });
 
@@ -136,7 +138,30 @@ describe('review queue walk-through', () => {
     });
 
     it('degrades when a snapshot is missing instead of showing a hole', () => {
-        expect(modalSource).toContain('let failedImageUrls = $state<Set<string>>(new Set())');
-        expect(modalSource).toContain('failedImageUrls.has(imageUrl)');
+        expect(modalSource).toContain("import MediaImage from './MediaImage.svelte'");
+        expect(modalSource).toContain('getThumbnailUrl(session.current.frigate_event)');
+    });
+
+    it('says why the item needs a person in words, under one heading, with species as hairline rows', () => {
+        const reason = modalSource.match(/<p[^>]*data-review-reason[^>]*>([\s\S]*?)<\/p>/)?.[1];
+        expect(reason).toContain('bg-amber-500');
+        expect(reason).toContain('dashboard.review_session.threshold_note');
+        expect(reason).toContain('dashboard.review_session.new_species_note');
+        expect(modalSource).not.toContain('dashboard.review_session.what_is_it');
+        // Rows inside a list are split by hairlines, not nested cards (layout-patterns §6).
+        expect(modalSource).toMatch(/<ul\s+class="[^"]*divide-y[^"]*"\s+aria-labelledby="review-species-choices"/);
+        expect(modalSource).not.toContain('rounded-xl border border-slate-200 px-3 py-2 text-left');
+    });
+
+    it('bands the score like every other surface and labels it for screen readers', () => {
+        expect(modalSource).toContain('{scoreTone(current.score ?? 0)}');
+        expect(modalSource).toContain("$_('detection.confidence', { default: 'Confidence' })");
+        expect(modalSource).not.toContain('font-semibold text-accent-300');
+    });
+
+    it('closes from a labelled icon button and shows progress on every screen size', () => {
+        expect(modalSource).toContain("aria-label={$_('common.close', { default: 'Close' })}");
+        expect(modalSource).toContain('absolute inset-x-0 -bottom-px h-0.5');
+        expect(modalSource).not.toContain('hidden h-1.5 w-32');
     });
 });
