@@ -3846,29 +3846,34 @@ async def test_hq_photo_requires_current_species_and_the_baseline_confidence_gat
         assert bundle["photo_outcome"] == "bird_presence_unconfirmed"
 
 
+_CACHED_CLIP = b"\x00\x00\x00\x18ftypmp42" + b"\x01" * 1024
+
+
 @pytest.mark.asyncio
-async def test_clip_lookup_uses_the_cached_event_clip_before_asking_frigate(tmp_path, monkeypatch):
-    """A visit Frigate has expired still plays from YA-WAMF's cached clip, so regenerating its photo
-    must use the same clip rather than poll Frigate for half a minute and report it missing."""
+async def test_a_requested_photo_uses_the_cached_clip_without_asking_frigate(tmp_path, monkeypatch):
+    """A visit Frigate has expired still plays from YA-WAMF's cached clip, so Generate must use that clip
+    rather than poll Frigate for half a minute and report it missing."""
     cache_service = _make_cache_service(tmp_path, monkeypatch)
-    clip = b"\x00\x00\x00\x18ftypmp42" + b"\x01" * 1024
-    await cache_service.cache_clip("evt_expired_upstream", clip)
+    await cache_service.cache_clip("evt_expired_upstream", _CACHED_CLIP)
     frigate = AsyncMock(return_value=(None, "clip_not_found"))
-    monkeypatch.setattr(hq_module.frigate_client, "get_clip_with_error", frigate)
-    sleep = AsyncMock()
-    monkeypatch.setattr(hq_module.asyncio, "sleep", sleep)
+    monkeypatch.setattr(hq_module.high_quality_snapshot_service, "_wait_for_clip", frigate)
 
-    assert await hq_module.high_quality_snapshot_service._wait_for_clip("evt_expired_upstream") == (clip, None)
+    service = hq_module.high_quality_snapshot_service
+    assert await service._load_event_clip("evt_expired_upstream", prefer_cached=True) == (_CACHED_CLIP, None)
     frigate.assert_not_awaited()
-    sleep.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-async def test_clip_lookup_still_polls_frigate_without_a_cached_clip(tmp_path, monkeypatch):
-    _make_cache_service(tmp_path, monkeypatch)
-    frigate = AsyncMock(return_value=(b"live-clip", None))
-    monkeypatch.setattr(hq_module.frigate_client, "get_clip_with_error", frigate)
-    monkeypatch.setattr(hq_module.asyncio, "sleep", AsyncMock())
+async def test_the_automatic_photo_asks_frigate_first_and_falls_back_to_the_cached_clip(tmp_path, monkeypatch):
+    """A clip played mid-visit can be cached cut short, so the automatic pass prefers Frigate's full clip."""
+    cache_service = _make_cache_service(tmp_path, monkeypatch)
+    await cache_service.cache_clip("evt_cached", _CACHED_CLIP)
+    service = hq_module.high_quality_snapshot_service
 
-    assert await hq_module.high_quality_snapshot_service._wait_for_clip("evt_live") == (b"live-clip", None)
-    frigate.assert_awaited_once()
+    frigate = AsyncMock(return_value=(b"full-clip", None))
+    monkeypatch.setattr(service, "_wait_for_clip", frigate)
+    assert await service._load_event_clip("evt_cached", prefer_cached=False) == (b"full-clip", None)
+
+    frigate.return_value = (None, "clip_not_found")
+    assert await service._load_event_clip("evt_cached", prefer_cached=False) == (_CACHED_CLIP, None)
+    assert await service._load_event_clip("evt_uncached", prefer_cached=False) == (None, "clip_not_found")
