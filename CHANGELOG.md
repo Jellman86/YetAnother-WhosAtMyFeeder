@@ -6,6 +6,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Replace the leaderboard's photo showcase with a spotlight. A bar across the top shows each species'
+  share of the window in its chart colour. One species at a time is shown large beside the ranked list,
+  with its photograph no larger than 1.5 times its stored size (the old hero stretched small crops until
+  they went soft), its share, confidence and evidence, and a strip of the days it was on camera. The
+  spotlight tours the list slowly until you choose a species or pause it, and never moves under reduced
+  motion. Species that are probably misidentifications are kept out of the tour and listed beneath it
+  under Needs a check.
+
 - Crop a retried event's snapshot around the bird in that snapshot. When the first classification
   failed and YA-WAMF retried from Frigate's later event update, it cut the saved best frame using
   the bird's latest position, which can be somewhere else once the bird has moved or flown off.

@@ -1,6 +1,6 @@
 <script lang="ts">
-    import SpeciesShowcase from '../components/SpeciesShowcase.svelte';
-    import { buildShowcaseRows, SHOWCASE_TILES } from '../leaderboard/showcase';
+    import SpeciesSpotlight from '../components/SpeciesSpotlight.svelte';
+    import { buildShowcaseRows, presenceFor, SPOTLIGHT_PORTRAITS } from '../leaderboard/showcase';
     import { onDestroy, tick, untrack } from 'svelte';
     import {
         analyzeLeaderboardGraph,
@@ -238,7 +238,7 @@
         void publicVersion;
         const controller = new AbortController();
         portraits = [];
-        void fetchLeaderboardPortraits(requestedSpan, controller.signal)
+        void fetchLeaderboardPortraits(requestedSpan, controller.signal, SPOTLIGHT_PORTRAITS)
             .then((response) => {
                 if (!controller.signal.aborted) portraits = response.portraits;
             })
@@ -311,6 +311,13 @@
     // confirmation counts, so there the band says so instead of counting.
     let evidenceKnown = $derived(rowEvidence.size > 0 && [...rowEvidence.values()].every((evidence) => evidence !== 'unknown'));
     let corroboratedCount = $derived([...rowEvidence.values()].filter(isCorroborated).length);
+    // The spotlight names its species' evidence, and says nothing where the evidence is unknown.
+    function spotlightEvidence(key: string): string | null {
+        const row = leaderboardRows.find((candidate) => candidate.species === key);
+        if (!row) return null;
+        const evidence = evidenceOf(row);
+        return evidence === 'unknown' ? null : evidenceLabel(evidence);
+    }
     function evidenceLabel(evidence: SpeciesEvidence): string {
         if (evidence === 'confirmed') return $_('leaderboard.evidence_confirmed', { default: 'Confirmed by you' });
         if (evidence === 'seen_and_heard') return $_('leaderboard.evidence_seen_and_heard', { default: 'Also heard' });
@@ -1695,7 +1702,7 @@
         </div>
     {:else}
         {#if sourceMode !== 'heard' && sourceLeader && sourceLeader.count > 0}
-            <SpeciesShowcase
+            <SpeciesSpotlight
                 rows={showcaseRows}
                 eyebrow={showcaseEyebrow}
                 rankEyebrow={(rank) => span === 'day'
@@ -1716,7 +1723,11 @@
                       : count === 1
                           ? $_('leaderboard.showcase_detection', { default: 'detection' })
                           : $_('leaderboard.showcase_detections', { values: { count }, default: 'detections' })}
-                moreCount={Math.max(0, leaderboardRows.length - (SHOWCASE_TILES + 1))}
+                colourFor={(key) => speciesSeriesColor(speciesSlot().get(key) ?? SPECIES_SERIES_SLOTS, isDark())}
+                otherColour={otherSeriesColor(isDark())}
+                presenceFor={(row) => presenceFor(row.names, timeline)}
+                evidenceFor={spotlightEvidence}
+                nearbyRadiusKm={nearbyCheck?.radiusKm ?? null}
                 onopen={(key) => (selectedSpecies = key)}
                 onmore={scrollToRankings}
             />

@@ -22,9 +22,12 @@ export type LeaderboardPortrait = LeaderboardPortraitsResponse['portraits'][numb
 /** This feeder's own photograph of each leading species, the newest stored crop, or none. */
 export async function fetchLeaderboardPortraits(
     span: LeaderboardSpan = 'month',
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    limit?: number
 ): Promise<LeaderboardPortraitsResponse> {
-    const response = await apiFetch(`${API_BASE}/leaderboard/portraits?span=${encodeURIComponent(span)}`, {
+    const params = new URLSearchParams({ span });
+    if (limit !== undefined) params.set('limit', String(limit));
+    const response = await apiFetch(`${API_BASE}/leaderboard/portraits?${params.toString()}`, {
         signal,
         timeoutMs: 15_000
     });
