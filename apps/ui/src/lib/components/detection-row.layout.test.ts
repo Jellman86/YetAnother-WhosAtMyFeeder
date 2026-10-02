@@ -66,11 +66,10 @@ describe('the Explorer list row', () => {
         // The row no longer loads its own image. DetectionPreview owns it, and
         // holds the guarantee more firmly than the row did: the thumbnail is
         // decorative (`alt=""`), so there is no text to spill even before
-        // `onerror` fires, and a failure swaps in an explicit placeholder.
+        // `onerror` fires. That a failure swaps in the placeholder, and that a
+        // later photograph is tried again, is proven in thumbnail-refresh.spec.ts.
         expect(detectionRowSource).toContain('<DetectionPreview');
         expect(previewSource).toContain('alt=""');
-        expect(previewSource).toContain('onerror={() => markFailed(frame.frigate_event)}');
-        expect(previewSource).toContain('failed.has(frame.frigate_event)');
     });
 });
 

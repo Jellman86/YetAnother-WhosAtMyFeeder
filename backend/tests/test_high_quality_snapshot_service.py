@@ -239,7 +239,7 @@ async def test_replace_from_clip_path_persists_and_selects_ranked_snapshot_candi
     await cache_service.cache_snapshot("evt_candidates", b"frigate-bytes")
     monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True, raising=False)
 
-    async def fake_generate(event_id, clip_path, event_data=None, clip_variant="event"):
+    async def fake_generate(event_id, clip_path, event_data=None, clip_variant="event", clip_start_timestamp=None):
         assert event_id == "evt_candidates"
         # The clip reaches candidate generation as a file, never as bytes (#341).
         assert Path(clip_path).read_bytes() == b"clip-bytes"
@@ -824,6 +824,7 @@ def test_candidate_frame_indices_prefers_event_path_timing():
     indices = service._candidate_frame_indices(
         frame_count=90,
         fps=30.0,
+        clip_start_timestamp=100.0,
         event_data={
             "start_time": 100.0,
             "end_time": 103.0,
@@ -848,6 +849,7 @@ def test_candidate_frame_indices_prefers_path_point_nearest_box_center():
     indices = service._candidate_frame_indices(
         frame_count=90,
         fps=30.0,
+        clip_start_timestamp=100.0,
         event_data={
             "start_time": 100.0,
             "data": {
@@ -872,6 +874,7 @@ def test_candidate_frame_indices_never_count_adjacent_frames_as_independent_samp
     indices = service._candidate_frame_indices(
         frame_count=300,
         fps=30.0,
+        clip_start_timestamp=100.0,
         event_data={
             "start_time": 100.0,
             "data": {
@@ -895,6 +898,7 @@ def test_candidate_frame_indices_distribute_real_quark_path_around_visible_inter
     indices = service._candidate_frame_indices(
         frame_count=300,
         fps=30.0,
+        clip_start_timestamp=1784561844.911783,
         event_data={
             "start_time": 1784561844.911783,
             "data": {
@@ -948,9 +952,15 @@ def test_event_hint_box_tracks_the_nearest_path_point_and_rejects_stale_hints():
         },
     }
 
-    first = service._event_hints_for_frame(event_data, frame_offset_seconds=0.0, clip_variant="event")
-    last = service._event_hints_for_frame(event_data, frame_offset_seconds=6.0, clip_variant="event")
-    stale = service._event_hints_for_frame(event_data, frame_offset_seconds=3.0, clip_variant="event")
+    first = service._event_hints_for_frame(
+        event_data, frame_offset_seconds=0.0, clip_variant="event", clip_start_timestamp=100.0
+    )
+    last = service._event_hints_for_frame(
+        event_data, frame_offset_seconds=6.0, clip_variant="event", clip_start_timestamp=100.0
+    )
+    stale = service._event_hints_for_frame(
+        event_data, frame_offset_seconds=3.0, clip_variant="event", clip_start_timestamp=100.0
+    )
     recording = service._event_hints_for_frame(event_data, frame_offset_seconds=6.0, clip_variant="recording")
 
     assert first is not event_data
@@ -961,7 +971,7 @@ def test_event_hint_box_tracks_the_nearest_path_point_and_rejects_stale_hints():
     assert recording is None
 
 
-def test_event_hint_box_tracks_mqtt_pixel_box_using_decoded_frame_size():
+def test_event_hint_withholds_pixel_tracking_size_when_detect_resolution_is_unknown():
     service = hq_module.HighQualitySnapshotService()
     event_data = {
         "start_time": 100.0,
@@ -975,11 +985,11 @@ def test_event_hint_box_tracks_mqtt_pixel_box_using_decoded_frame_size():
         event_data,
         frame_offset_seconds=0.0,
         clip_variant="event",
+        clip_start_timestamp=100.0,
         image_size=(100, 100),
     )
 
-    assert tracked is not None
-    assert tracked["data"]["box"] == pytest.approx([0.4, 0.4, 0.2, 0.2])
+    assert tracked is None
 
 
 def test_path_sampling_compares_bottom_centre_points_with_the_final_box():
@@ -1008,6 +1018,7 @@ def test_event_hint_path_without_a_valid_box_fails_closed():
         },
         frame_offset_seconds=0.0,
         clip_variant="event",
+        clip_start_timestamp=100.0,
     )
 
     assert result is None
@@ -2369,7 +2380,7 @@ async def test_process_event_keeps_full_frame_when_hint_crop_identity_is_unverif
 
 
 @pytest.mark.asyncio
-async def test_process_event_prefers_frigate_hint_before_crop_model(tmp_path, monkeypatch):
+async def test_unknown_clip_origin_uses_detector_without_reusing_static_frigate_box(tmp_path, monkeypatch):
     cache_service = _make_cache_service(tmp_path, monkeypatch)
     await cache_service.cache_snapshot("evt_hint_first", b"frigate-bytes")
     monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True, raising=False)
@@ -2407,7 +2418,7 @@ async def test_process_event_prefers_frigate_hint_before_crop_model(tmp_path, mo
     result = await hq_module.high_quality_snapshot_service.process_event("evt_hint_first")
 
     assert result == "replaced"
-    fake_crop_service.generate_crop.assert_not_called()
+    fake_crop_service.generate_crop.assert_called_once()
     cached = await cache_service.get_snapshot("evt_hint_first")
     assert cached is not None
     with Image.open(BytesIO(cached)) as img:
@@ -2415,7 +2426,7 @@ async def test_process_event_prefers_frigate_hint_before_crop_model(tmp_path, mo
 
 
 @pytest.mark.asyncio
-async def test_process_event_ignores_legacy_model_priority_when_frigate_hint_is_available(tmp_path, monkeypatch):
+async def test_unknown_clip_origin_never_trusts_static_box_under_legacy_priority(tmp_path, monkeypatch):
     cache_service = _make_cache_service(tmp_path, monkeypatch)
     await cache_service.cache_snapshot("evt_model_first", b"frigate-bytes")
     monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True, raising=False)
@@ -2454,7 +2465,7 @@ async def test_process_event_ignores_legacy_model_priority_when_frigate_hint_is_
     result = await hq_module.high_quality_snapshot_service.process_event("evt_model_first")
 
     assert result == "replaced"
-    fake_crop_service.generate_crop.assert_not_called()
+    fake_crop_service.generate_crop.assert_called_once()
     cached = await cache_service.get_snapshot("evt_model_first")
     assert cached is not None
     with Image.open(BytesIO(cached)) as img:
@@ -3096,7 +3107,15 @@ async def test_generate_candidates_uses_stored_top_frames_when_present(tmp_path,
 
     used_indices: list[int] = []
 
-    def fake_extract(clip_path, *, event_id, event_data=None, clip_variant="event", override_frame_indices=None):
+    def fake_extract(
+        clip_path,
+        *,
+        event_id,
+        event_data=None,
+        clip_variant="event",
+        override_frame_indices=None,
+        clip_start_timestamp=None,
+    ):
         if override_frame_indices is not None:
             used_indices.extend(override_frame_indices)
         return []
@@ -3127,7 +3146,15 @@ async def test_generate_candidates_falls_back_when_no_stored_top_frames(tmp_path
 
     used_override: list = []
 
-    def fake_extract(clip_path, *, event_id, event_data=None, clip_variant="event", override_frame_indices=None):
+    def fake_extract(
+        clip_path,
+        *,
+        event_id,
+        event_data=None,
+        clip_variant="event",
+        override_frame_indices=None,
+        clip_start_timestamp=None,
+    ):
         used_override.append(override_frame_indices)
         return []
 
@@ -3177,3 +3204,110 @@ async def test_empty_candidate_regeneration_preserves_existing_frame_choices(mon
     monkeypatch.setattr(hq_module, "DetectionRepository", repository)
     await service._persist_snapshot_candidates("evt", [])
     repository.assert_not_called()
+
+
+def test_unknown_event_clip_origin_never_uses_path_timing_or_a_static_crop_hint():
+    service = hq_module.HighQualitySnapshotService()
+    event = {"start_time": 100, "data": {"box": [0.2, 0.3, 0.1, 0.1], "path_data": [[[0.25, 0.4], 100]]}}
+    assert service._event_hints_for_frame(event, frame_offset_seconds=0, clip_variant="event") is None
+    assert service._candidate_frame_indices(frame_count=300, fps=15, event_data=event) == [150, 75, 225]
+
+
+def test_hq_hint_and_frame_sampling_use_the_clip_origin_instead_of_the_event_origin():
+    service = hq_module.HighQualitySnapshotService()
+    event = {"start_time": 100, "data": {"box": [0.2, 0.3, 0.1, 0.1], "path_data": [[[0.25, 0.4], 100]]}}
+    assert (
+        service._event_hints_for_frame(event, frame_offset_seconds=0, clip_variant="event", clip_start_timestamp=90)
+        is None
+    )
+    hint = service._event_hints_for_frame(event, frame_offset_seconds=10, clip_variant="event", clip_start_timestamp=90)
+    assert hint["data"]["box"] == pytest.approx([0.2, 0.3, 0.1, 0.1])
+    assert service._target_frame_indices_from_event_path(
+        frame_count=300, fps=15, event_data=event, clip_start_timestamp=90
+    ) == [150]
+
+
+@pytest.mark.asyncio
+async def test_hq_regeneration_keeps_prior_retained_photograph_candidate(monkeypatch):
+    old = {
+        "candidate_id": "retained",
+        "source_mode": "retained_photo",
+        "clip_variant": "retained_snapshot",
+        "frame_index": 0,
+        "image_ref": "retained-image",
+        "ranking_score": 0,
+        "selected": False,
+    }
+    repo = MagicMock()
+    repo.list_snapshot_candidates = AsyncMock(return_value=[old])
+    repo.replace_snapshot_candidates = AsyncMock()
+    birds = MagicMock()
+    birds.list_for_event = AsyncMock(return_value=[])
+
+    @asynccontextmanager
+    async def database():
+        yield object()
+
+    monkeypatch.setattr(hq_module, "get_db", database)
+    monkeypatch.setattr(hq_module, "DetectionRepository", lambda db: repo)
+    monkeypatch.setattr(hq_module, "BirdObservationRepository", lambda db: birds)
+    monkeypatch.setattr(hq_module.media_cache, "get_snapshot", AsyncMock(return_value=None))
+    remove = AsyncMock()
+    monkeypatch.setattr(hq_module.media_cache, "delete_snapshot", remove)
+    new = {
+        "candidate_id": "new",
+        "source_mode": "full_frame",
+        "clip_variant": "event",
+        "frame_index": 2,
+        "ranking_score": 0.9,
+    }
+    await hq_module.HighQualitySnapshotService()._persist_snapshot_candidates("evt", [new])
+    assert repo.replace_snapshot_candidates.await_args.args[1] == [new, old]
+    remove.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_hq_keeps_current_photo_even_when_its_old_crop_row_is_replaced(tmp_path, monkeypatch):
+    from app.services import video_snapshot_service as video_module
+
+    cache = _make_cache_service(tmp_path, monkeypatch)
+    monkeypatch.setattr(video_module, "media_cache", cache)
+    photo = _jpeg_bytes("red", size=(640, 480))
+    await cache.cache_snapshot("evt-prior", photo, source="video_evidence_crop")
+    await cache.cache_snapshot("old-image", photo, source="snapshot_candidate")
+    old = {
+        "candidate_id": "old",
+        "frame_index": 4,
+        "clip_variant": "event",
+        "source_mode": "model_crop",
+        "image_ref": "old-image",
+        "ranking_score": 0.8,
+        "selected": True,
+    }
+    new = {
+        "candidate_id": "new",
+        "frame_index": 5,
+        "clip_variant": "event",
+        "source_mode": "full_frame",
+        "ranking_score": 0.9,
+        "selected": True,
+    }
+    repo = MagicMock()
+    repo.list_snapshot_candidates = AsyncMock(return_value=[old])
+    repo.replace_snapshot_candidates = AsyncMock()
+    birds = MagicMock()
+    birds.list_for_event = AsyncMock(return_value=[])
+
+    @asynccontextmanager
+    async def database():
+        yield object()
+
+    monkeypatch.setattr(hq_module, "get_db", database)
+    monkeypatch.setattr(hq_module, "DetectionRepository", lambda db: repo)
+    monkeypatch.setattr(hq_module, "BirdObservationRepository", lambda db: birds)
+    await hq_module.HighQualitySnapshotService()._persist_snapshot_candidates("evt-prior", [new])
+    rows = repo.replace_snapshot_candidates.await_args.args[1]
+    retained = next(row for row in rows if row["source_mode"] == "retained_photo")
+    assert retained["selected"] is False
+    assert await cache.get_snapshot(retained["image_ref"]) == photo
+    assert retained["frame_offset_seconds"] is None

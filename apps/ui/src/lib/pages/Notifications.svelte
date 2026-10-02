@@ -18,6 +18,7 @@
     import { formatDateTime, formatTime } from '../utils/datetime';
     import { getThumbnailUrl } from '../api';
     import { authStore } from '../stores/auth.svelte';
+    import { detectionsStore } from '../stores/detections.svelte';
     import { toAppPath } from '../app/url-base';
     import Pagination from '../components/Pagination.svelte';
     import { paginateItems } from '../utils/pagination';
@@ -241,20 +242,24 @@
                             </span>
                             <div class="flex items-start gap-3 py-3">
                                 {#if capture}
+                                    {@const thumbnailUrl = getThumbnailUrl(capture, detectionsStore.settledMediaVersion(capture))}
                                     <!-- The capture is the evidence, same as the field log. Fixed box
                                          and a placeholder underneath, so a missing image cannot shift
-                                         the row or imply a state. -->
+                                         the row or imply a state. Keyed, so a photograph saved by a
+                                         later run is drawn even where the earlier one failed. -->
                                     <span class="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-md border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800">
-                                        <img
-                                            src={getThumbnailUrl(capture)}
-                                            alt=""
-                                            loading="lazy"
-                                            decoding="async"
-                                            width="32"
-                                            height="32"
-                                            class="h-8 w-8 object-cover"
-                                            onerror={(event) => event.currentTarget.classList.add('hidden')}
-                                        />
+                                        {#key thumbnailUrl}
+                                            <img
+                                                src={thumbnailUrl}
+                                                alt=""
+                                                loading="lazy"
+                                                decoding="async"
+                                                width="32"
+                                                height="32"
+                                                class="h-8 w-8 object-cover"
+                                                onerror={(event) => event.currentTarget.classList.add('hidden')}
+                                            />
+                                        {/key}
                                     </span>
                                 {:else}
                                     <span class="grid h-8 w-8 shrink-0 place-items-center rounded-md border {TONE_ICON[tone]}">

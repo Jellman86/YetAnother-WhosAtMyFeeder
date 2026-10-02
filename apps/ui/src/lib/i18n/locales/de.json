@@ -2062,7 +2062,8 @@
         "top_candidates": "Häufigste Kandidaten",
         "full_frame": "Vollbild",
         "frigate_hint_crop": "Frigate-geführter Ausschnitt",
-        "model_crop": "KI-Ausschnitt"
+        "model_crop": "KI-Ausschnitt",
+        "frigate_region_crop": "Von Frigate verfolgter Bereich"
       },
       "blocked_label": "Mit blockierter Art übereinstimmend — nicht angewendet"
     },
@@ -2194,10 +2195,14 @@
     "snapshot_framing_whole": "Ganzes Bild",
     "snapshot_framing_close": "Nah am Vogel",
     "snapshot_framing_as_recorded": "Wie von Frigate aufgenommen",
+    "snapshot_framing_previous": "Ein früheres Foto",
+    "previous_photo_note": "Das Foto dieses Eintrags, bevor eine spätere Analyse es ersetzt hat.",
     "frame_strip_count": "{count} Bilder aus diesem Besuch",
     "photo_option_count_one": "1 Fotooption von diesem Besuch",
     "photo_option_count": "{count} Fotooptionen von diesem Besuch",
     "frame_strip_hint": "Die Wahl ändert das Foto, nicht die Bestimmung.",
+    "frame_strip_scroll_left": "Nach links scrollen",
+    "frame_strip_scroll_right": "Nach rechts scrollen",
     "frame_position": "Bild {position} von {count}",
     "frame_compare": "Bild {position} von {count} vergleichen",
     "photo_option_image_alt": "Mögliches Foto von diesem Besuch",

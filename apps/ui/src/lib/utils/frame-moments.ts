@@ -6,7 +6,8 @@ import type { SnapshotCandidate } from '../api';
  * The classifier produces several candidates per frame: the whole scene, a crop guided by the
  * camera's box, a crop from the bird detector. Which subsystem produced a picture is the app's
  * own plumbing (#256). Ordinary framings of one frame fold into one thumbnail. When the detector
- * finds several birds in that frame, each crop becomes a separate photograph choice.
+ * finds several birds in that frame, each crop becomes a separate photograph choice. A photograph
+ * the record used before a later run replaced it is a moment of its own: no frame, no time.
  */
 export interface FrameMoment {
     /** Stable identity within the strip. */
@@ -23,14 +24,19 @@ export interface FrameMoment {
     read: { label: string; score: number | null } | null;
     /** The camera's own saved snapshot, which has no candidate record. */
     asRecorded: boolean;
+    /** A photograph kept when a later run replaced it. Which frame it shows, and when, is unknown. */
+    previous: SnapshotCandidate | null;
     /** Multi-bird frames expose their photographs; ordinary frames fold their framings. */
-    choice: 'as_recorded' | 'folded' | 'crop' | 'whole';
+    choice: 'as_recorded' | 'previous' | 'folded' | 'crop' | 'whole';
 }
 
 export const AS_RECORDED_KEY = 'as-recorded';
 
 const WHOLE_SCENE_MODES = new Set(['full_frame', 'hq_candidate_full_frame']);
-const CROP_PREFERENCE = ['model_crop', 'frigate_hint_crop'];
+// The tracked region is the camera's own subject, so it is a framing of the frame and never one
+// more bird; it is also the loosest crop, so it comes last.
+const CROP_PREFERENCE = ['model_crop', 'frigate_hint_crop', 'frigate_region_crop'];
+const PREVIOUS_PHOTO_MODE = 'retained_photo';
 
 function isWholeSceneCandidate(candidate: SnapshotCandidate): boolean {
     return WHOLE_SCENE_MODES.has(candidate.source_mode);
@@ -65,14 +71,31 @@ function cropsAreSpatiallyDistinct(left: SnapshotCandidate, right: SnapshotCandi
 
 /**
  * Fold candidates into moments, oldest first. The camera's own snapshot, when it is still
- * available, leads the strip: it is the one picture that exists before any analysis ran.
+ * available, leads the strip: it is the one picture that exists before any analysis ran. Earlier
+ * photographs follow it, each on its own, since they too came before the run that replaced them.
  */
 export function groupCandidatesIntoMoments(
     candidates: SnapshotCandidate[],
     options: { asRecordedAvailable?: boolean } = {}
 ): FrameMoment[] {
     const groups = new Map<string, SnapshotCandidate[]>();
+    const previousPhotos: FrameMoment[] = [];
     for (const candidate of candidates) {
+        if (candidate.source_mode === PREVIOUS_PHOTO_MODE) {
+            previousPhotos.push({
+                key: `previous:${candidate.candidate_id}`,
+                position: 0,
+                frameIndex: null,
+                offsetSeconds: null,
+                crop: null,
+                whole: null,
+                read: pickRead(candidate),
+                asRecorded: false,
+                previous: candidate,
+                choice: 'previous'
+            });
+            continue;
+        }
         const key = `${candidate.clip_variant}:${candidate.frame_index}`;
         const group = groups.get(key);
         if (group) group.push(candidate);
@@ -90,9 +113,11 @@ export function groupCandidatesIntoMoments(
             whole: null,
             read: null,
             asRecorded: true,
+            previous: null,
             choice: 'as_recorded'
         });
     }
+    moments.push(...previousPhotos);
 
     const grouped = [...groups.entries()].flatMap(([key, group]): FrameMoment[] => {
         const offsets = group
@@ -124,6 +149,7 @@ export function groupCandidatesIntoMoments(
                     whole,
                     read: pickRead(whole),
                     asRecorded: false,
+                    previous: null,
                     choice: 'whole'
                 });
             }
@@ -137,6 +163,7 @@ export function groupCandidatesIntoMoments(
                     whole,
                     read: pickRead(candidate),
                     asRecorded: false,
+                    previous: null,
                     choice: 'crop'
                 });
             }
@@ -153,6 +180,7 @@ export function groupCandidatesIntoMoments(
             whole,
             read: pickRead(shown),
             asRecorded: false,
+            previous: null,
             choice: 'folded'
         } satisfies FrameMoment];
     });
@@ -168,6 +196,7 @@ export function groupCandidatesIntoMoments(
 
 /** The candidate a moment stands for: close on the bird when it can be, the whole scene otherwise. */
 export function preferredCandidate(moment: FrameMoment): SnapshotCandidate | null {
+    if (moment.choice === 'previous') return moment.previous;
     if (moment.choice === 'crop') return moment.crop;
     if (moment.choice === 'whole') return moment.whole;
     return moment.whole?.selected ? moment.whole : moment.crop ?? moment.whole;

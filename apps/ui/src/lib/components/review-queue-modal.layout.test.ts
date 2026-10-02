@@ -96,7 +96,8 @@ describe('review queue walk-through', () => {
         const heading = modalSource.match(/<div[^>]*data-review-species-heading[^>]*>([\s\S]*?)<\/div>/)?.[1];
         expect(heading).toBeDefined();
         expect(heading).toMatch(/<h3[^>]*>\s*\{naming.primary\}\s*<\/h3>/);
-        expect(heading).not.toMatch(/\bhidden\b|\babsolute\b/);
+        // No class hides or lifts it out of flow; decorative separators may still be aria-hidden.
+        expect(heading).not.toMatch(/class="[^"]*\b(hidden|absolute)\b/);
         expect(modalSource.indexOf('data-review-species-heading')).toBeGreaterThan(modalSource.indexOf('sources={photographSources}'));
         expect(modalSource.indexOf('data-review-species-heading')).toBeLessThan(modalSource.indexOf('data-review-frame-strip'));
     });
@@ -139,7 +140,10 @@ describe('review queue walk-through', () => {
 
     it('degrades when a snapshot is missing instead of showing a hole', () => {
         expect(modalSource).toContain("import MediaImage from './MediaImage.svelte'");
-        expect(modalSource).toContain('getThumbnailUrl(session.current.frigate_event)');
+        // The saved photograph first, then the camera's thumbnail of the same capture.
+        expect(modalSource).toMatch(
+            /getSnapshotUrl\(session\.current\.frigate_event\)[^\]]*getThumbnailUrl\(session\.current\.frigate_event[,)]/
+        );
     });
 
     it('says why the item needs a person in words, under one heading, with species as hairline rows', () => {
@@ -163,5 +167,58 @@ describe('review queue walk-through', () => {
         expect(modalSource).toContain("aria-label={$_('common.close', { default: 'Close' })}");
         expect(modalSource).toContain('absolute inset-x-0 -bottom-px h-0.5');
         expect(modalSource).not.toContain('hidden h-1.5 w-32');
+    });
+
+    it('fills a phone like the detection record and floats as the same dialog from sm up', () => {
+        const dialog = modalSource.match(/<div\s+bind:this=\{dialogEl\}[\s\S]*?class="([^"]*)"/)?.[1] ?? '';
+        expect(dialog).toContain('max-h-[100dvh]');
+        expect(dialog).toContain('rounded-none');
+        expect(dialog).toContain('sm:max-h-[92vh]');
+        expect(dialog).toContain('sm:rounded-3xl');
+        expect(dialog).toContain('max-w-5xl');
+        expect(dialog).toContain('dark:bg-slate-800');
+        expect(modalSource).toContain('bg-slate-950/70 p-0 backdrop-blur-sm sm:p-4');
+    });
+
+    it('states the position beside the title in one header row', () => {
+        const position = modalSource.match(/<p[^>]*data-review-position[^>]*>/)?.[0] ?? '';
+        expect(position).toContain('tabular-nums');
+        expect(modalSource.indexOf('data-review-position')).toBeGreaterThan(modalSource.indexOf('id="review-session-title"'));
+        expect(modalSource).toMatch(/<div class="flex min-w-0 items-baseline[^"]*">\s*<h2 id="review-session-title"/);
+    });
+
+    it('flags the reason with the amber wash flagged rows use, not a nested card', () => {
+        const reason = modalSource.match(/<p[^>]*data-review-reason[^>]*>/)?.[0] ?? '';
+        expect(reason).toContain('bg-gradient-to-r from-amber-50');
+        expect(reason).toContain('dark:from-amber-500/10');
+        expect(reason).not.toMatch(/\brounded|\bborder\b|\bshadow/);
+    });
+
+    it('keeps one repeated Identify quiet until its row is pointed at or focused', () => {
+        const identify = modalSource.match(/<span class="([^"]*)">\s*\{\$_\('dashboard\.field_log\.identify'/)?.[1] ?? '';
+        expect(identify).toContain('text-slate-500');
+        expect(identify).toContain('group-hover:text-brand-700');
+        expect(identify).toContain('group-focus-visible:text-brand-700');
+    });
+
+    it('opens the full record from beneath the photograph, after Close in focus order', () => {
+        const fullRecord = modalSource.indexOf("'dashboard.review_session.full_record'");
+        expect(fullRecord).toBeGreaterThan(modalSource.indexOf("aria-label={$_('common.close', { default: 'Close' })}"));
+        expect(fullRecord).toBeGreaterThan(modalSource.indexOf('data-review-species-heading'));
+        expect(fullRecord).toBeLessThan(modalSource.indexOf('data-review-frame-strip'));
+        const actions = modalSource.match(/<div[^>]*data-review-actions[^>]*>([\s\S]*?)<!-- The decision comes first/)?.[1] ?? '';
+        expect(actions).not.toContain('full_record');
+    });
+
+    it('keeps the decisions in reach on a phone without covering the rail on wider screens', () => {
+        const actions = modalSource.match(/<div[^>]*data-review-actions[^>]*>/)?.[0] ?? '';
+        expect(actions).toContain('sticky bottom-0');
+        expect(actions).toContain('md:static');
+        expect(actions).toContain('border-t');
+    });
+
+    it('marks a clear queue with the success scale, which every theme keeps green', () => {
+        expect(modalSource).not.toContain('emerald');
+        expect(modalSource).toContain('bg-success-100 text-success-700');
     });
 });

@@ -302,7 +302,7 @@
         });
     }
 
-    function withCacheBust(url: string, token: number): string {
+    function withCacheBust(url: string, token: string): string {
         const separator = url.includes('?') ? '&' : '?';
         return `${url}${separator}v=${token}`;
     }
@@ -398,6 +398,8 @@
         const eventId = detection?.frigate_event;
         // A changed authoritative count also retires an open record's older scan.
         void detection?.bird_summary;
+        // detection_updated precedes the run's photo work; only the settled run has saved it.
+        void settledMediaVersion;
         snapshotControlsEpoch += 1;
         if (!eventId || !hasOwnerDetectionActions) {
             snapshotControlsSubject = null;
@@ -539,6 +541,10 @@
     /** The strip moment being saved as the photograph, while the request is in flight. */
     let applyingMomentKey = $state<string | null>(null);
     let snapshotRefreshToken = $state(Date.now());
+    const settledMediaVersion = $derived(
+        detectionsStore.settledMediaVersion(detection.frigate_event)
+    );
+    const snapshotCacheToken = $derived(`${snapshotRefreshToken}.${settledMediaVersion}`);
     let tagSearchQuery = $state('');
     let searchResults = $state<SearchResult[]>([]);
     let isSearching = $state(false);
@@ -783,8 +789,8 @@
     const birdnetEnabled = $derived(
         (settingsStore.settings?.birdnet_enabled ?? authStore.birdnetEnabled ?? false) && authStore.canViewAudio
     );
-    const snapshotImageUrl = $derived.by(() => withCacheBust(getSnapshotUrl(detection.frigate_event), snapshotRefreshToken));
-    const originalFrigateSnapshotUrl = $derived.by(() => withCacheBust(getOriginalFrigateSnapshotUrl(detection.frigate_event), snapshotRefreshToken));
+    const snapshotImageUrl = $derived.by(() => withCacheBust(getSnapshotUrl(detection.frigate_event), snapshotCacheToken));
+    const originalFrigateSnapshotUrl = $derived.by(() => withCacheBust(getOriginalFrigateSnapshotUrl(detection.frigate_event), String(snapshotRefreshToken)));
     let canShowFavoriteAction = $derived(
         authStore.canModify
         && !readOnly
@@ -886,7 +892,10 @@
     // The saved photograph, then the camera's thumbnail of the same capture, then a placeholder:
     // a working picture is never given up for a missing one. The ambient wash follows whichever
     // one is actually drawn.
-    const photographSources = $derived([snapshotImageUrl, getThumbnailUrl(detection.frigate_event)]);
+    const photographSources = $derived([
+        snapshotImageUrl,
+        getThumbnailUrl(detection.frigate_event, settledMediaVersion)
+    ]);
     /** A crop fills the frame; a whole scene is shown whole. Its scene failing does not change that. */
     const photographIsCrop = $derived(
         authStore.hasOwnerAccess && currentSnapshotSource !== 'frigate_snapshot' && !!fullFrameSnapshotCandidate
@@ -1115,6 +1124,9 @@
         }
         if (source === 'frigate_hint_crop') {
             return $_('detection.video_analysis.evidence.frigate_hint_crop', { default: 'Frigate-guided crop' });
+        }
+        if (source === 'frigate_region_crop') {
+            return $_('detection.video_analysis.evidence.frigate_region_crop', { default: 'Frigate-tracked area' });
         }
         if (source === 'model_crop') {
             return $_('detection.video_analysis.evidence.model_crop', { default: 'AI crop' });

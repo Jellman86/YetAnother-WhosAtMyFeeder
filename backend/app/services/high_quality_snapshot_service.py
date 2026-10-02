@@ -43,7 +43,7 @@ from app.services.bird_observation_selection import (
 from app.repositories.processing_job_repository import ProcessingJobRepository
 from app.utils.canonical_species import should_hide_species_label
 from app.utils.classifier_labels import normalize_classifier_label
-from app.utils.frigate_coordinates import normalize_frigate_hint_box, restore_frigate_hint_box
+from app.utils.frigate_coordinates import normalized_frigate_video_hint, restore_frigate_hint_box
 from app.utils.tasks import create_background_task
 from app.utils.image_io import decode_image_bytes
 
@@ -330,7 +330,7 @@ class HighQualitySnapshotService:
         if event_data is None:
             event_data = await self._load_persisted_event_hints(event_id)
         await self._persist_event_hints(event_id, event_data)
-        snapshot_event_data = event_data if clip_variant == "event" else None
+        snapshot_event_data = None
         selected_candidate = None
         classification_candidates: list[dict[str, Any]] = []
         try:
@@ -465,6 +465,7 @@ class HighQualitySnapshotService:
         event_data: Optional[dict[str, Any]] = None,
         *,
         clip_variant: str = "event",
+        clip_start_timestamp: float | None = None,
     ) -> str:
         """Best-effort replacement from a clip already on disk; the caller owns the file (#341)."""
         if not self.enabled():
@@ -490,7 +491,7 @@ class HighQualitySnapshotService:
             if crop_event_data is None:
                 crop_event_data = await self._load_persisted_event_hints(event_id)
             await self._persist_event_hints(event_id, crop_event_data)
-            snapshot_event_data = crop_event_data if clip_variant == "event" else None
+            snapshot_event_data = None
             selected_candidate = None
             classification_candidates: list[dict[str, Any]] = []
             try:
@@ -499,6 +500,7 @@ class HighQualitySnapshotService:
                     Path(clip_path),
                     event_data=crop_event_data,
                     clip_variant=clip_variant,
+                    clip_start_timestamp=clip_start_timestamp,
                 )
                 if candidate_bundle:
                     candidates = candidate_bundle.get("candidates") or []
@@ -621,6 +623,7 @@ class HighQualitySnapshotService:
         *,
         event_data: Optional[dict[str, Any]] = None,
         clip_variant: str = "event",
+        clip_start_timestamp: float | None = None,
     ) -> dict[str, Any]:
         tmp_path = await asyncio.to_thread(_write_temp_clip, clip_bytes)
         try:
@@ -629,6 +632,7 @@ class HighQualitySnapshotService:
                 tmp_path,
                 event_data=event_data,
                 clip_variant=clip_variant,
+                clip_start_timestamp=clip_start_timestamp,
             )
         finally:
             with contextlib.suppress(Exception):
@@ -641,6 +645,7 @@ class HighQualitySnapshotService:
         *,
         event_data: Optional[dict[str, Any]] = None,
         clip_variant: str = "event",
+        clip_start_timestamp: float | None = None,
     ) -> dict[str, Any]:
         """Candidate generation against a clip already on disk; the caller owns the file (#341)."""
         preferred_indices = await self._load_preferred_frame_indices(event_id, clip_variant=clip_variant)
@@ -654,6 +659,7 @@ class HighQualitySnapshotService:
                 event_id=event_id,
                 event_data=event_data,
                 clip_variant=clip_variant,
+                clip_start_timestamp=clip_start_timestamp,
                 override_frame_indices=preferred_indices,
             )
         except Exception as exc:
@@ -1106,6 +1112,7 @@ class HighQualitySnapshotService:
         event_data: Optional[dict[str, Any]] = None,
         clip_variant: str = "event",
         override_frame_indices: Optional[list[int]] = None,
+        clip_start_timestamp: float | None = None,
     ) -> list[dict[str, Any]]:
         cap = cv2.VideoCapture(str(clip_path))
         if not cap.isOpened():
@@ -1121,6 +1128,7 @@ class HighQualitySnapshotService:
                     fps=fps,
                     event_data=event_data,
                     clip_variant=clip_variant,
+                    clip_start_timestamp=clip_start_timestamp,
                 )
                 candidate_indices = self._select_temporally_diverse_frame_indices(
                     [*override_frame_indices, *fallback_indices],
@@ -1134,6 +1142,7 @@ class HighQualitySnapshotService:
                     fps=fps,
                     event_data=event_data,
                     clip_variant=clip_variant,
+                    clip_start_timestamp=clip_start_timestamp,
                 )[:HQ_MAX_CROP_SCORING_FRAMES]
             seen: set[str] = set()
             used_frame_indices: list[int] = []
@@ -1157,6 +1166,7 @@ class HighQualitySnapshotService:
                     event_data,
                     frame_offset_seconds=frame_offset_seconds,
                     clip_variant=clip_variant,
+                    clip_start_timestamp=clip_start_timestamp,
                     image_size=base_image.size,
                 )
                 source_ordinals: Counter[str] = Counter()
@@ -1438,19 +1448,10 @@ class HighQualitySnapshotService:
         frame_offset_seconds: Optional[float],
         clip_variant: str,
         image_size: tuple[int, int] | None = None,
+        clip_start_timestamp: float | None = None,
     ) -> Optional[dict[str, Any]]:
-        """Return a Frigate hint translated to the tracked position at this frame.
-
-        Event clips share Frigate's event timeline, so path points can move the
-        tracked box safely. Full-visit recordings may begin before the event and
-        partial recordings may begin late; without an explicit clip-start
-        timestamp, applying the event box to that different timeline would be
-        misleading, so recording frames rely on the model detector instead.
-        """
-
-        if not isinstance(event_data, dict):
-            return None
-        if str(clip_variant or "event").strip().lower() != "event":
+        """Align tracked coordinates only against a known clip origin."""
+        if not isinstance(event_data, dict) or clip_start_timestamp is None:
             return None
         raw_payload = event_data.get("data")
         payload = raw_payload if isinstance(raw_payload, dict) else {}
@@ -1470,9 +1471,9 @@ class HighQualitySnapshotService:
             if all(math.isfinite(value) for value in (x, y, timestamp)) and 0.0 <= x <= 1.0 and 0.0 <= y <= 1.0:
                 path_points.append((timestamp, x, y))
         if not path_points:
-            return event_data
+            return None
         try:
-            start_time = float(event_data.get("start_time"))
+            start_time = float(clip_start_timestamp)
             offset = float(frame_offset_seconds)
         except (TypeError, ValueError):
             return None
@@ -1489,7 +1490,7 @@ class HighQualitySnapshotService:
         raw_box = payload.get("box")
         if image_size is None:
             image_size = (1, 1)
-        normalized_box = normalize_frigate_hint_box(raw_box, image_size)
+        normalized_box = normalized_frigate_video_hint(raw_box)
         if normalized_box is None:
             return None
         _left, _top, width, height = normalized_box
@@ -1669,6 +1670,19 @@ class HighQualitySnapshotService:
                     else None
                 )
             )
+            from app.services.video_snapshot_service import retained_snapshot_candidate
+
+            preserved_photos = [item for item in existing if item.get("source_mode") == "retained_photo"]
+            if manual_choice and chosen is not None:
+                preserved_photos.append(chosen)
+            retained = await retained_snapshot_candidate(
+                event_id,
+                await media_cache.get_snapshot(event_id),
+                metadata,
+                preserved_photos,
+            )
+            if retained is not None:
+                candidates = list(candidates) + [retained]
             if manual_choice:
                 candidates = [{**item, "selected": False} for item in candidates]
                 if chosen is not None:
@@ -1681,8 +1695,13 @@ class HighQualitySnapshotService:
             candidates = list(candidates) + [
                 {**item, "selected": False}
                 for item in existing
-                if item.get("source_mode") == "full_frame"
-                and (item.get("clip_variant"), item.get("frame_index")) in reviewed_frames
+                if (
+                    item.get("source_mode") == "retained_photo"
+                    or (
+                        item.get("source_mode") == "full_frame"
+                        and (item.get("clip_variant"), item.get("frame_index")) in reviewed_frames
+                    )
+                )
                 and str(item.get("candidate_id") or "") not in new_ids
             ]
             existing_image_refs = {
@@ -2582,6 +2601,7 @@ class HighQualitySnapshotService:
         fps: float,
         event_data: Optional[dict[str, Any]] = None,
         clip_variant: str = "event",
+        clip_start_timestamp: float | None = None,
     ) -> list[int]:
         if frame_count <= 0:
             return [0]
@@ -2592,6 +2612,7 @@ class HighQualitySnapshotService:
                 frame_count=frame_count,
                 fps=fps,
                 event_data=event_data,
+                clip_start_timestamp=clip_start_timestamp,
             )
         mid = frame_count // 2
         center_weighted_anchors = [mid, frame_count // 4, (frame_count * 3) // 4]
@@ -2715,11 +2736,12 @@ class HighQualitySnapshotService:
         frame_count: int,
         fps: float,
         event_data: Optional[dict[str, Any]],
+        clip_start_timestamp: float | None = None,
     ) -> list[int]:
-        if frame_count <= 0 or fps <= 0.0 or not isinstance(event_data, dict):
+        if frame_count <= 0 or fps <= 0.0 or not isinstance(event_data, dict) or clip_start_timestamp is None:
             return []
         try:
-            start_time = float(event_data.get("start_time"))
+            start_time = float(clip_start_timestamp)
         except (TypeError, ValueError):
             return []
         if not math.isfinite(start_time):
@@ -2749,8 +2771,9 @@ class HighQualitySnapshotService:
         clip_duration_seconds = float(frame_count) / float(fps)
         indices: list[int] = []
         for target_time in ordered_timestamps:
-            offset_seconds = max(0.0, target_time - start_time)
-            offset_seconds = min(offset_seconds, max(0.0, clip_duration_seconds))
+            offset_seconds = target_time - start_time
+            if not 0.0 <= offset_seconds < clip_duration_seconds:
+                continue
             indices.append(int(round(offset_seconds * fps)))
         return indices
 

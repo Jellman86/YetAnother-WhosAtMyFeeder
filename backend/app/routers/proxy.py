@@ -182,22 +182,6 @@ async def _proxy_hls_asset(request: Request, upstream_url: str, asset: str, lang
     )
 
 
-async def _cached_snapshot_allowed_for_current_settings(media_cache, event_id: str) -> bool:
-    """Return False when a cached HQ snapshot should not be served under current settings."""
-    if settings.media_cache.high_quality_event_snapshots:
-        return True
-
-    metadata = await media_cache.get_snapshot_metadata(event_id)
-    source = str((metadata or {}).get("source") or "").strip()
-    # Legacy cached snapshots have no metadata. When HQ snapshots are disabled,
-    # refresh them once so old full-frame HQ replacements do not keep winning.
-    if not source or source in HIGH_QUALITY_SNAPSHOT_SOURCES or source.startswith("hq_candidate_"):
-        await media_cache.delete_snapshot(event_id)
-        await media_cache.delete_thumbnail(event_id)
-        return False
-    return True
-
-
 # Validate event_id format (Frigate uses UUIDs, numeric IDs, or timestamp-based IDs with dots)
 EVENT_ID_PATTERN = re.compile(r"^[a-zA-Z0-9\-_.]+$")
 CAMERA_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_\-]+$")
@@ -211,8 +195,18 @@ def validate_camera_name(camera: str) -> bool:
     return bool(CAMERA_NAME_PATTERN.match(camera)) and len(camera) <= 64
 
 
-def _is_probably_thumbnail_sized_snapshot(image_bytes: bytes) -> bool:
+def _is_probably_thumbnail_sized_snapshot(image_bytes: bytes, *, source: str | None = None) -> bool:
     """Detect obviously thumbnail-sized cached "snapshots" from earlier shared-cache behavior."""
+    # Genuine distant-bird portraits can be smaller than a thumbnail. Only
+    # repair ambiguous legacy entries; explicit snapshot provenance wins.
+    if source in HIGH_QUALITY_SNAPSHOT_SOURCES | {
+        "frigate_snapshot_cropped",
+        "frigate_snapshot_unverified",
+        "frigate_recording_snapshot",
+        "video_evidence_crop",
+        "video_evidence_full_frame",
+    } or str(source or "").startswith("hq_candidate_"):
+        return False
     if len(image_bytes) > 16_384:
         return False
 
@@ -1873,14 +1867,18 @@ async def proxy_snapshot(
         return FileResponse(manual_snapshot, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
 
     # Check cache first
+    retained_legacy_photo: bytes | None = None
     if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
         cached = await media_cache.get_snapshot(event_id)
         if cached:
-            cache_allowed = await _cached_snapshot_allowed_for_current_settings(media_cache, event_id)
-            if cache_allowed and not _is_probably_thumbnail_sized_snapshot(cached):
+            metadata = await media_cache.get_snapshot_metadata(event_id) or {}
+            if metadata.get("manual_selection") or not _is_probably_thumbnail_sized_snapshot(
+                cached, source=metadata.get("source")
+            ):
                 return Response(content=cached, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
-            if cache_allowed:
-                await media_cache.delete_snapshot(event_id)
+            # Keep the last retained image until a replacement is fetched.
+            # Frigate may have already expired this historical event.
+            retained_legacy_photo = cached
 
     # The cache is the live photograph; a favourite's archived copy stands in when the cache has
     # nothing, and outlives Frigate's own rotation (#178).
@@ -1901,12 +1899,16 @@ async def proxy_snapshot(
             params={"crop": 1, "quality": 95},
         )
         if resp.status_code == 404:
+            if retained_legacy_photo is not None:
+                return Response(
+                    content=retained_legacy_photo, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS
+                )
             raise HTTPException(status_code=404, detail=i18n_service.translate("errors.proxy.snapshot_not_found", lang))
         resp.raise_for_status()
 
         # Cache the response
         if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
-            await media_cache.cache_snapshot(event_id, resp.content)
+            await media_cache.cache_snapshot(event_id, resp.content, source="frigate_snapshot_unverified")
 
         return Response(
             content=resp.content,
@@ -1914,13 +1916,19 @@ async def proxy_snapshot(
             headers=SNAPSHOT_NO_STORE_HEADERS,
         )
     except httpx.TimeoutException:
+        if retained_legacy_photo is not None:
+            return Response(content=retained_legacy_photo, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
         raise HTTPException(status_code=504, detail=i18n_service.translate("errors.proxy.frigate_timeout", lang))
     except httpx.HTTPStatusError as e:
+        if retained_legacy_photo is not None:
+            return Response(content=retained_legacy_photo, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
         raise HTTPException(
             status_code=e.response.status_code,
             detail=i18n_service.translate("errors.proxy.frigate_error", lang, status_code=e.response.status_code),
         )
     except httpx.RequestError:
+        if retained_legacy_photo is not None:
+            return Response(content=retained_legacy_photo, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
         raise HTTPException(
             status_code=502,
             detail=i18n_service.translate("errors.proxy.connection_failed", lang, url=settings.frigate.frigate_url),
@@ -2855,14 +2863,14 @@ async def proxy_thumb(
         cached = await media_cache.get_thumbnail(event_id)
         snapshot_cached = await media_cache.get_snapshot(event_id)
         thumbnail_metadata = await media_cache.get_thumbnail_metadata(event_id)
-        if snapshot_cached and not await _cached_snapshot_allowed_for_current_settings(media_cache, event_id):
-            snapshot_cached = None
-            cached = None
         if snapshot_cached:
             if (
                 cached
                 and _cached_thumbnail_allowed_for_current_snapshot(thumbnail_metadata, has_snapshot=True)
-                and not _is_probably_thumbnail_sized_snapshot(cached)
+                and (
+                    thumbnail_metadata.get("source") == "snapshot_derived"
+                    or not _is_probably_thumbnail_sized_snapshot(cached)
+                )
             ):
                 return Response(content=cached, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
             try:
@@ -2897,7 +2905,7 @@ async def proxy_thumb(
         try:
             derived = await asyncio.to_thread(_build_display_thumbnail_from_snapshot, snapshot)
             if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
-                await media_cache.cache_snapshot(event_id, snapshot, source="frigate_snapshot_cropped")
+                await media_cache.cache_snapshot(event_id, snapshot, source="frigate_snapshot_unverified")
                 await media_cache.cache_thumbnail(event_id, derived, source="snapshot_derived")
             return Response(content=derived, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
         except (OSError, ValueError):

@@ -27,6 +27,7 @@ _CROPPED_SNAPSHOT_SOURCES = frozenset(
 )
 _FULL_FRAME_SNAPSHOT_SOURCES = frozenset(
     {
+        "frigate_snapshot_unverified",
         "frigate_snapshot",
         "frigate_snapshot_uncropped",
         "frigate_recording_frame",

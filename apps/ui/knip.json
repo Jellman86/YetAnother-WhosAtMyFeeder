@@ -1,4 +1,4 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "entry": ["public/sw.js", "browser-tests/fixture.ts", "browser-tests/audio-charts.ts", "browser-tests/species-charts.ts", "browser-tests/counted-birds.ts", "browser-tests/snapshot-candidates-race.ts", "browser-tests/modal-text-layout.ts", "browser-tests/media-settings.ts", "browser-tests/focus.ts", "browser-tests/touch-targets.ts", "browser-tests/review-media.ts", "browser-tests/**/*.spec.ts"]
+  "entry": ["public/sw.js", "browser-tests/fixture.ts", "browser-tests/audio-charts.ts", "browser-tests/species-charts.ts", "browser-tests/counted-birds.ts", "browser-tests/snapshot-candidates-race.ts", "browser-tests/modal-text-layout.ts", "browser-tests/media-settings.ts", "browser-tests/focus.ts", "browser-tests/touch-targets.ts", "browser-tests/review-media.ts", "browser-tests/thumbnail-refresh.ts", "browser-tests/**/*.spec.ts"]
 }

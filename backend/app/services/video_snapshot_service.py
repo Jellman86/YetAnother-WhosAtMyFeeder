@@ -57,7 +57,11 @@ def extract_video_snapshot(clip_path: Path, evidence: dict[str, Any]) -> tuple[I
         left, top, right, bottom = box
         if not 0 <= left < right <= dimensions[0] or not 0 <= top < bottom <= dimensions[1]:
             return None
-    elif evidence.get("input_is_cropped") and evidence.get("input_source") in {"model_crop", "frigate_hint_crop"}:
+    elif evidence.get("input_is_cropped") and evidence.get("input_source") in {
+        "model_crop",
+        "frigate_hint_crop",
+        "frigate_region_crop",
+    }:
         return None
     capture = cv2.VideoCapture(str(clip_path))
     try:
@@ -93,10 +97,13 @@ def _candidates(
     portrait, scene = images
     cropped = bool(evidence.get("input_is_cropped"))
     source = "video_evidence_crop" if cropped else "video_evidence_full_frame"
+    crop_mode = (
+        evidence.get("input_source")
+        if evidence.get("input_source") in {"frigate_region_crop", "frigate_hint_crop"}
+        else "model_crop"
+    )
     roles = (
-        [("full_frame", scene, False)]
-        if not cropped
-        else [("full_frame", scene, False), ("model_crop", portrait, True)]
+        [("full_frame", scene, False)] if not cropped else [("full_frame", scene, False), (crop_mode, portrait, True)]
     )
     rows = []
     for mode, image, selected in roles:
@@ -129,6 +136,45 @@ def _candidates(
     return rows
 
 
+def _retained_thumbnail(image_bytes: bytes) -> bytes | None:
+    try:
+        from app.utils.image_io import decode_image_bytes
+
+        return _jpeg(decode_image_bytes(image_bytes, convert_rgb=True), thumbnail=True)
+    except Exception:
+        return None
+
+
+async def retained_snapshot_candidate(
+    event_id: str, photo: bytes | None, metadata: dict[str, Any], existing: list[dict[str, Any]]
+) -> dict[str, Any] | None:
+    """Keep the prior photograph before replacement; the caller holds its commit lock."""
+    if not photo:
+        return None
+    for old in existing:
+        if old.get("image_ref") and await media_cache.get_snapshot(old["image_ref"]) == photo:
+            return None
+    digest = hashlib.sha256(photo).hexdigest()[:12]
+    candidate_id = f"{event_id}__retained_snapshot__{digest}"
+    thumbnail = await asyncio.to_thread(_retained_thumbnail, photo)
+    return {
+        "candidate_id": candidate_id,
+        "frame_index": 0,
+        "frame_offset_seconds": None,
+        "source_mode": "retained_photo",
+        "clip_variant": "retained_snapshot",
+        "classifier_label": None,
+        "classifier_score": None,
+        "ranking_score": 0,
+        "selected": False,
+        "snapshot_source": metadata.get("source") or "cached_snapshot_unknown",
+        "image_ref": f"{candidate_id}__image",
+        "thumbnail_ref": f"{candidate_id}__thumb" if thumbnail else None,
+        "image_bytes": photo,
+        "thumbnail_bytes": thumbnail,
+    }
+
+
 async def _commit_video_snapshot(
     event_id: str,
     result: dict[str, Any],
@@ -144,6 +190,10 @@ async def _commit_video_snapshot(
         metadata = await media_cache.get_snapshot_metadata(event_id) or {}
         if metadata.get("manual_selection"):
             return "manual_selection_preserved"
+        previous_photo = await media_cache.get_snapshot(event_id)
+        async with get_db() as db:
+            existing = await DetectionRepository(db).list_snapshot_candidates(event_id)
+        retained = await retained_snapshot_candidate(event_id, previous_photo, metadata, existing)
         async with get_db() as db:
             # Reserve identity while the already-encoded files are committed. A
             # correction cannot slip between this check and the photo write.
@@ -171,7 +221,6 @@ async def _commit_video_snapshot(
             }
             if _label_key(result.get("label")) not in expected:
                 return "primary_identity_preserved"
-            existing = await repo.list_snapshot_candidates(event_id)
             current = next((item for item in existing if item.get("selected")), None)
             if (
                 current
@@ -189,6 +238,8 @@ async def _commit_video_snapshot(
                 )
                 if current_bytes and current_bytes == await media_cache.get_snapshot(event_id):
                     return "matching_photo_preserved"
+            if retained is not None:
+                candidates.append(retained)
             new_ids = {item["candidate_id"] for item in candidates}
             rows = [{**item, "selected": False} for item in existing if item["candidate_id"] not in new_ids]
             for candidate in candidates:
@@ -196,13 +247,13 @@ async def _commit_video_snapshot(
                     media_cache._snapshot_path(candidate["image_ref"]), candidate["image_bytes"]
                 )
                 await media_cache._write_snapshot_metadata(candidate["image_ref"], source="snapshot_candidate")
-                await media_cache.cache_thumbnail(
-                    candidate["thumbnail_ref"], candidate["thumbnail_bytes"], source="snapshot_candidate"
-                )
+                if candidate.get("thumbnail_ref") and candidate.get("thumbnail_bytes"):
+                    await media_cache.cache_thumbnail(
+                        candidate["thumbnail_ref"], candidate["thumbnail_bytes"], source="snapshot_candidate"
+                    )
                 rows.append(
                     {key: value for key, value in candidate.items() if key not in {"image_bytes", "thumbnail_bytes"}}
                 )
-            previous_photo = await media_cache.get_snapshot(event_id)
             photo_path = media_cache._snapshot_path(event_id)
             metadata_path = media_cache._snapshot_metadata_path(event_id)
             try:

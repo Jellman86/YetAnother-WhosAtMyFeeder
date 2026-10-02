@@ -8,6 +8,7 @@
     import { getBirdNames } from '../naming';
     import { settingsStore } from '../stores/settings.svelte';
     import { authStore } from '../stores/auth.svelte';
+    import { detectionsStore } from '../stores/detections.svelte';
     import {
         currentMoment,
         groupCandidatesIntoMoments,
@@ -56,6 +57,10 @@
     let cropLoading = $state(false);
     /** Advanced when the saved photograph changes on the server, so the old bytes are not reused. */
     let photographVersion = $state(0);
+    /** A finished reclassification can also save a new photograph and frames for this capture. */
+    const settledMediaVersion = $derived(
+        session.current ? detectionsStore.settledMediaVersion(session.current.frigate_event) : 0
+    );
     // Every frame kept from the visit, in one strip, the same as the detection record (#256):
     // a reviewer deciding what a blurred shape is should see every moment, not only the crop
     // and its whole scene. Choosing one changes the photograph and nothing else.
@@ -191,19 +196,27 @@
         }
     }
 
+    let candidateSubject: string | null = null;
+
     $effect(() => {
         const eventId = session.current?.frigate_event;
+        void settledMediaVersion;
         candidateReadEpoch += 1;
-        fullFrame = null;
-        photograph = null;
-        candidates = [];
-        countedBirds = [];
-        // Read untracked: this effect must not rerun because it advanced the generation.
-        untrack(() => { countedBirdsGeneration += 1; });
-        currentCandidateId = null;
-        currentSource = null;
-        failedSceneUrls = new Set();
-        wholeScene.reset();
+        // A settled run rereads the same capture in place, keeping its frames on screen meanwhile.
+        const sameCapture = !!eventId && eventId === candidateSubject && authStore.hasOwnerAccess;
+        candidateSubject = eventId ?? null;
+        if (!sameCapture) {
+            fullFrame = null;
+            photograph = null;
+            candidates = [];
+            countedBirds = [];
+            // Read untracked: this effect must not rerun because it advanced the generation.
+            untrack(() => { countedBirdsGeneration += 1; });
+            currentCandidateId = null;
+            currentSource = null;
+            failedSceneUrls = new Set();
+            wholeScene.reset();
+        }
         if (!eventId || !authStore.hasOwnerAccess) return;
 
         let cancelled = false;
@@ -239,8 +252,8 @@
     const photographSources = $derived(
         session.current
             ? [
-                  withVersion(getSnapshotUrl(session.current.frigate_event), photographVersion),
-                  getThumbnailUrl(session.current.frigate_event)
+                  withVersion(getSnapshotUrl(session.current.frigate_event), photographVersion, settledMediaVersion),
+                  getThumbnailUrl(session.current.frigate_event, settledMediaVersion)
               ]
             : []
     );
@@ -252,9 +265,9 @@
         return 'text-success-300';
     }
 
-    function withVersion(url: string, version: number): string {
-        if (version === 0) return url;
-        return `${url}${url.includes('?') ? '&' : '?'}v=${version}`;
+    function withVersion(url: string, version: number, settledVersion: number): string {
+        if (version === 0 && settledVersion === 0) return url;
+        return `${url}${url.includes('?') ? '&' : '?'}v=${version}.${settledVersion}`;
     }
 
     let sceneEl = $state<HTMLImageElement | null>(null);
@@ -386,7 +399,7 @@
 
 <div
     use:portal
-    class="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm"
+    class="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/70 p-0 backdrop-blur-sm sm:p-4"
     data-review-queue-modal
 >
     <div
@@ -396,14 +409,14 @@
         aria-labelledby="review-session-title"
         tabindex="-1"
         onkeydown={handleKeydown}
-        class="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
+        class="flex h-[100dvh] max-h-[100dvh] w-full max-w-5xl flex-col overflow-hidden rounded-none border border-white/20 bg-white shadow-2xl dark:bg-slate-800 sm:h-auto sm:max-h-[92vh] sm:rounded-3xl"
     >
-        <header class="relative flex items-center gap-3 border-b border-slate-200 py-2 pl-5 pr-2 dark:border-slate-700">
-            <div class="min-w-0">
-                <h2 id="review-session-title" class="font-display text-base font-bold text-slate-900 dark:text-white">
+        <header class="relative flex items-center gap-3 border-b border-slate-200 py-1.5 pl-5 pr-2 dark:border-slate-700">
+            <div class="flex min-w-0 items-baseline gap-x-2.5">
+                <h2 id="review-session-title" class="truncate font-display text-base font-bold text-slate-900 dark:text-white">
                     {$_('dashboard.review_queue.title', { default: 'Needs your call' })}
                 </h2>
-                <p class="text-xs text-slate-500 dark:text-slate-400">
+                <p class="shrink-0 text-xs tabular-nums text-slate-500 dark:text-slate-400" data-review-position>
                     {session.done
                         ? $_('dashboard.review_session.summary', {
                               values: { resolved: session.resolved, skipped: session.skipped },
@@ -436,7 +449,7 @@
 
         {#if session.done}
             <div class="flex flex-col items-center justify-center gap-3 px-6 py-14 text-center">
-                <div class="grid h-14 w-14 place-items-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+                <div class="grid h-14 w-14 place-items-center rounded-full bg-success-100 text-success-700 dark:bg-success-950/50 dark:text-success-300">
                     <svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6" />
                     </svg>
@@ -540,21 +553,40 @@
                             {/if}
                         {/if}
                     </div>
-                    <!-- Who, then when and where, as one block: the record's media footer reads the same way. -->
-                    <div class="px-4 pt-3 {authStore.hasOwnerAccess ? '' : 'pb-4'}" data-review-species-heading>
-                        <h3 class="break-words font-display text-xl font-bold leading-tight text-white">{naming.primary}</h3>
-                        {#if naming.secondary}
-                            <p class="mt-0.5 break-words text-sm italic text-slate-300">{naming.secondary}</p>
+                    <!-- Who, then when and where, as one block: the record's media footer reads the same way.
+                         The way into the full record sits with the capture it opens, not among the decisions. -->
+                    <div class="flex items-start gap-3 px-4 pt-3 {authStore.hasOwnerAccess ? '' : 'pb-4'}" data-review-species-heading>
+                        <div class="min-w-0 flex-1">
+                            <h3 class="break-words font-display text-xl font-bold leading-tight text-white">{naming.primary}</h3>
+                            {#if naming.secondary}
+                                <p class="mt-0.5 break-words text-sm italic text-slate-300">{naming.secondary}</p>
+                            {/if}
+                            <p class="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-slate-400">
+                                <span>{formatDate(current.detection_time)} {formatTime(current.detection_time)}</span>
+                                <span aria-hidden="true">&middot;</span>
+                                <span>{current.camera_name}</span>
+                                <span aria-hidden="true">&middot;</span>
+                                <span class="font-semibold tabular-nums {scoreTone(current.score ?? 0)}">
+                                    <span class="sr-only">{$_('detection.confidence', { default: 'Confidence' })}</span>
+                                    {Math.round((current.score ?? 0) * 100)}%
+                                </span>
+                                {#if current.weather_condition}
+                                    <span aria-hidden="true">&middot;</span>
+                                    <span>{current.weather_condition}</span>
+                                {/if}
+                            </p>
+                        </div>
+                        {#if onopen}
+                            <button
+                                type="button"
+                                class="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-full border border-white/20 bg-white/5 text-xs font-semibold text-white/90 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 sm:px-3.5"
+                                onclick={() => onopen?.(current)}
+                            >
+                                <!-- A phone keeps the width for the name; the arrow alone still names itself. -->
+                                <span class="sr-only sm:not-sr-only">{$_('dashboard.review_session.full_record', { default: 'Open full record' })}</span>
+                                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                            </button>
                         {/if}
-                        <p class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-400">
-                            <span>{formatDate(current.detection_time)} {formatTime(current.detection_time)}</span>
-                            <span>{current.camera_name}</span>
-                            <span class="font-semibold tabular-nums {scoreTone(current.score ?? 0)}">
-                                <span class="sr-only">{$_('detection.confidence', { default: 'Confidence' })}</span>
-                                {Math.round((current.score ?? 0) * 100)}%
-                            </span>
-                            {#if current.weather_condition}<span>{current.weather_condition}</span>{/if}
-                        </p>
                     </div>
                     {#if authStore.hasOwnerAccess}
                         <!-- Held from the first paint, so the frames arriving do not push anything down. -->
@@ -579,9 +611,9 @@
                 </div>
 
                 <div class="flex flex-col gap-3 p-4 md:min-h-0 md:overflow-y-auto">
-                    <!-- Why this needs a person, in words, with the amber the app keeps for that. The
-                         header already asks for the call, so there is no second heading over it. -->
-                    <p class="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-200" data-review-reason>
+                    <!-- Why this needs a person, in words, with the amber wash flagged rows carry elsewhere.
+                         The header already asks for the call, so there is no second heading over it. -->
+                    <p class="-mx-4 -mt-4 flex items-start gap-2 bg-gradient-to-r from-amber-50 to-transparent px-4 py-3 text-sm text-slate-700 dark:from-amber-500/10 dark:text-slate-200" data-review-reason>
                         <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-500" aria-hidden="true"></span>
                         <span>
                             {#if isNewSpecies}
@@ -659,7 +691,8 @@
                                             </span>
                                         {/if}
                                     </span>
-                                    <span class="shrink-0 text-xs font-semibold text-brand-700 group-hover:underline dark:text-brand-300">
+                                    <!-- Said on every row for the button's name, but only the row in hand calls attention to it. -->
+                                    <span class="shrink-0 text-xs font-semibold text-slate-500 transition-colors group-hover:text-brand-700 group-focus-visible:text-brand-700 dark:text-slate-400 dark:group-hover:text-brand-300 dark:group-focus-visible:text-brand-300">
                                         {$_('dashboard.field_log.identify', { default: 'Identify' })}
                                     </span>
                                 </button>
@@ -691,8 +724,9 @@
                         {/each}
                     </ul>
 
-                    <!-- The list's own rule above separates these; a second one would only double it. -->
-                    <div class="flex flex-wrap gap-2 pt-1" data-review-actions>
+                    <!-- On a phone the list can run to every species this feeder has seen, so the ways out
+                         stay pinned at the foot of the screen until their own place scrolls into view. -->
+                    <div class="sticky bottom-0 z-10 -mx-4 flex flex-wrap gap-2 border-t border-slate-200/70 bg-white px-4 py-3 md:static md:mx-0 md:border-t-0 md:bg-transparent md:px-0 md:py-0 md:pt-1 dark:border-slate-700/50 dark:bg-slate-800 md:dark:bg-transparent" data-review-actions>
                         <button class="btn btn-secondary min-h-11 px-3 py-2 text-xs" disabled={busy} onclick={skip}>
                             {$_('dashboard.review_session.skip', { default: 'Skip for now' })}
                         </button>
@@ -708,12 +742,6 @@
                                 {$_('dashboard.review_session.delete', { default: 'Delete permanently' })}
                             </button>
                         {/if}
-                        <button
-                            class="btn btn-ghost ml-auto min-h-11 px-3 py-2 text-xs"
-                            onclick={() => onopen?.(current)}
-                        >
-                            {$_('dashboard.review_session.full_record', { default: 'Open full record' })}
-                        </button>
                     </div>
                     <!-- The decision comes first on every screen; the birds counted in the capture are
                          supporting detail one scroll beneath it, in focus order as well as on screen. -->

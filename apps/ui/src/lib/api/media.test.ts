@@ -8,7 +8,8 @@ import {
     applySnapshotCandidate,
     getHlsUrl,
     getOriginalFrigateSnapshotUrl,
-    getRecordingHlsUrl
+    getRecordingHlsUrl,
+    getThumbnailUrl
 } from './media';
 
 describe('HLS media URLs', () => {
@@ -189,5 +190,13 @@ describe('snapshot HQ crop helpers', () => {
 
     it('builds an original Frigate snapshot URL through auth params', () => {
         expect(getOriginalFrigateSnapshotUrl('evt-11')).toContain('/api/frigate/evt-11/snapshot/original.jpg');
+    });
+});
+
+describe('getThumbnailUrl', () => {
+    it('keeps the plain URL until a run has settled, then versions it by the settled count', () => {
+        expect(getThumbnailUrl('evt-1')).toMatch(/\/api\/frigate\/evt-1\/thumbnail\.jpg$/);
+        expect(getThumbnailUrl('evt-1', 0)).toMatch(/\/api\/frigate\/evt-1\/thumbnail\.jpg$/);
+        expect(getThumbnailUrl('evt-1', 2)).toMatch(/\/api\/frigate\/evt-1\/thumbnail\.jpg\?v=2$/);
     });
 });

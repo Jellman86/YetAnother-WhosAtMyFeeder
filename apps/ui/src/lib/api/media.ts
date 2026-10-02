@@ -10,8 +10,14 @@ export function getOriginalFrigateSnapshotUrl(frigateEvent: string): string {
     return withAuthParams(`${API_BASE}/frigate/${frigateEvent}/snapshot/original.jpg`);
 }
 
-export function getThumbnailUrl(frigateEvent: string): string {
-    return withAuthParams(`${API_BASE}/frigate/${frigateEvent}/thumbnail.jpg`);
+/**
+ * `version` is the capture's settled reclassification count: a finished run can save a new
+ * photograph behind the same address, and a page that already drew the old one would keep it.
+ */
+export function getThumbnailUrl(frigateEvent: string, version = 0): string {
+    const url = withAuthParams(`${API_BASE}/frigate/${frigateEvent}/thumbnail.jpg`);
+    if (version === 0) return url;
+    return `${url}${url.includes('?') ? '&' : '?'}v=${version}`;
 }
 
 export function getClipUrl(frigateEvent: string): string {

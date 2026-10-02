@@ -2062,7 +2062,8 @@
         "top_candidates": "繰り返し現れた上位候補",
         "full_frame": "フルフレーム",
         "frigate_hint_crop": "Frigateガイド切り抜き",
-        "model_crop": "AI切り抜き"
+        "model_crop": "AI切り抜き",
+        "frigate_region_crop": "Frigateが追跡した範囲"
       },
       "blocked_label": "ブロック対象の種に一致 — 適用されません"
     },
@@ -2194,10 +2195,14 @@
     "snapshot_framing_whole": "全体のフレーム",
     "snapshot_framing_close": "鳥に寄った画",
     "snapshot_framing_as_recorded": "Frigate が記録したまま",
+    "snapshot_framing_previous": "以前の写真",
+    "previous_photo_note": "後の解析で置き換えられる前に、この記録で使われていた写真です。",
     "frame_strip_count": "この訪問の {count} フレーム",
     "photo_option_count_one": "この訪問の写真候補 1 枚",
     "photo_option_count": "この訪問の写真候補 {count} 枚",
     "frame_strip_hint": "選ぶと写真が変わります。判定は変わりません。",
+    "frame_strip_scroll_left": "左へスクロール",
+    "frame_strip_scroll_right": "右へスクロール",
     "frame_position": "フレーム {position} / {count}",
     "frame_compare": "フレーム {position} / {count} を比較",
     "photo_option_image_alt": "この訪問の写真候補",

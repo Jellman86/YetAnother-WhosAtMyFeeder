@@ -6,6 +6,8 @@ import SnapshotCandidatesRaceFixture from './SnapshotCandidatesRaceFixture.svelt
 declare global {
     interface Window {
         snapshotRace?: {
+            completeAnalysis: (id?: 'A' | 'B') => void;
+            progressAnalysis: (frames: number) => void;
             setCapture: (id: 'A' | 'B') => void;
             setOwner: (owner: boolean) => void;
             setSummary: (counted: number) => void;

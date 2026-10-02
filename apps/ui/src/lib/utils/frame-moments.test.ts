@@ -50,6 +50,52 @@ describe('groupCandidatesIntoMoments (#256)', () => {
         expect(moments.map((moment) => moment.position)).toEqual([1, 2]);
     });
 
+    it('keeps every earlier photograph reachable on its own, with no frame number or time', () => {
+        const retained = (id: string) => candidate({
+            candidate_id: `evt__retained_snapshot__${id}`,
+            source_mode: 'retained_photo',
+            clip_variant: 'retained_snapshot',
+            frame_index: 0,
+            frame_offset_seconds: null,
+            thumbnail_url: `/thumb/${id}.jpg`,
+            image_url: `/image/${id}.jpg`
+        });
+        const moments = groupCandidatesIntoMoments([
+            candidate({ candidate_id: 'frame-4', frame_index: 4, frame_offset_seconds: 2.5, selected: true }),
+            retained('first'),
+            retained('second')
+        ], { asRecordedAvailable: true });
+
+        expect(moments.map((moment) => moment.choice)).toEqual(['as_recorded', 'previous', 'previous', 'folded']);
+        const previous = moments.filter((moment) => moment.choice === 'previous');
+        expect(previous.map((moment) => preferredCandidate(moment)?.candidate_id)).toEqual([
+            'evt__retained_snapshot__first',
+            'evt__retained_snapshot__second'
+        ]);
+        expect(new Set(previous.map((moment) => moment.key)).size).toBe(2);
+        for (const moment of previous) {
+            // A kept still is not a known frame of the clip, so it claims neither an index nor a time.
+            expect(moment.frameIndex).toBeNull();
+            expect(moment.offsetSeconds).toBeNull();
+            expect(moment.crop).toBeNull();
+            expect(moment.whole).toBeNull();
+        }
+        expect(momentThumbnailUrl(previous[1])).toBe('/thumb/second.jpg');
+        expect(currentMoment(moments, 'evt__retained_snapshot__second', 'video_evidence_crop')?.key).toBe(previous[1].key);
+    });
+
+    it('treats the tracked region as a framing of its frame, not as one more bird', () => {
+        const moments = groupCandidatesIntoMoments([
+            candidate({ candidate_id: 'whole-6', frame_index: 6, source_mode: 'full_frame' }),
+            candidate({ candidate_id: 'region-6', frame_index: 6, source_mode: 'frigate_region_crop', crop_box: [660, 689, 1302, 1331], selected: true }),
+            candidate({ candidate_id: 'model-6', frame_index: 6, source_mode: 'model_crop', crop_box: [900, 900, 1100, 1100] })
+        ]);
+
+        expect(moments).toHaveLength(1);
+        expect(moments[0].choice).toBe('folded');
+        expect(preferredCandidate(moments[0])?.candidate_id).toBe('region-6');
+    });
+
     it('keeps the same frame index apart across clip variants', () => {
         const moments = groupCandidatesIntoMoments([
             candidate({ candidate_id: 'event-1', frame_index: 1, clip_variant: 'event' }),

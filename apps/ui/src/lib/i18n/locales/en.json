@@ -2010,7 +2010,8 @@
         "top_candidates": "Top recurring candidates",
         "full_frame": "Full frame",
         "frigate_hint_crop": "Frigate-guided crop",
-        "model_crop": "AI crop"
+        "model_crop": "AI crop",
+        "frigate_region_crop": "Frigate-tracked area"
       },
       "errors": {
         "clip_unavailable": "Clip not available. Using snapshot analysis instead.",
@@ -2204,10 +2205,14 @@
     "snapshot_framing_whole": "Whole frame",
     "snapshot_framing_close": "Close on the bird",
     "snapshot_framing_as_recorded": "As Frigate recorded it",
+    "snapshot_framing_previous": "An earlier photograph",
+    "previous_photo_note": "The photograph this record had before a later analysis replaced it.",
     "frame_strip_count": "{count} frames from this visit",
     "photo_option_count": "{count} photo options from this visit",
     "photo_option_count_one": "1 photo option from this visit",
     "frame_strip_hint": "Choosing one changes the photograph, not the identification.",
+    "frame_strip_scroll_left": "Scroll left",
+    "frame_strip_scroll_right": "Scroll right",
     "frame_position": "Frame {position} of {count}",
     "frame_compare": "Compare frame {position} of {count}",
     "photo_option_position": "Photo option {position} of {count}",

@@ -3,7 +3,7 @@ import type { Detection } from './api';
 export type DetectionClassificationSource = 'snapshot' | 'manual' | 'video';
 export type ClassificationInputKind = 'video_crop' | 'video_full' | 'snapshot_crop' | 'snapshot_full' | 'upstream' | 'unknown';
 
-const VIDEO_CROP_SOURCES = new Set(['frigate_hint_crop', 'model_crop', 'provided_crop']);
+const VIDEO_CROP_SOURCES = new Set(['frigate_hint_crop', 'frigate_region_crop', 'model_crop', 'provided_crop']);
 const VIDEO_FULL_SOURCES = new Set(['full_frame']);
 const SNAPSHOT_CROP_SOURCES = new Set([
     'frigate_snapshot_cropped',
