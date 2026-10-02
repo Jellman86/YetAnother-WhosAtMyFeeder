@@ -2559,7 +2559,8 @@
     "spotlight_needs_check": "À vérifier",
     "spotlight_review": "Vérifier",
     "spotlight_of_total": "du total",
-    "spotlight_no_photo": "Pas encore de photo de cette mangeoire"
+    "spotlight_no_photo": "Pas encore de photo de cette mangeoire",
+    "spotlight_feeder_photo": "Photo de cette mangeoire"
   },
   "about": {
     "how_it_works": "Comment ça marche",

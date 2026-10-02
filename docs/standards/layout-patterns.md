@@ -189,6 +189,11 @@ of the window the species was on camera, from the timeline's per-species series;
 only, never those series' frame counts, and a species the timeline did not chart has no strip
 rather than an empty one.
 
+Each segment of the bar opens a pop-out on hover and keyboard focus, under the hover contract (§4):
+the species' common and scientific names over its stock photograph, labelled with its source, and
+its count and share; the grouped segments list their species. On touch a tap chooses the species
+instead, and the spotlight names it.
+
 The spotlight tours the list slowly. Choosing a species, from the list or the bar, ends the tour;
 a pointer or keyboard focus on the spotlight rests it; a Pause control stops it; under reduced
 motion it never starts and nothing grows into place. It is not announced while it tours, and is

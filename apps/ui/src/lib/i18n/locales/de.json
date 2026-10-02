@@ -2559,7 +2559,8 @@
     "spotlight_needs_check": "Bitte prüfen",
     "spotlight_review": "Prüfen",
     "spotlight_of_total": "vom Gesamtwert",
-    "spotlight_no_photo": "Noch kein Foto von diesem Futterplatz"
+    "spotlight_no_photo": "Noch kein Foto von diesem Futterplatz",
+    "spotlight_feeder_photo": "Foto von diesem Futterplatz"
   },
   "about": {
     "how_it_works": "Wie es funktioniert",

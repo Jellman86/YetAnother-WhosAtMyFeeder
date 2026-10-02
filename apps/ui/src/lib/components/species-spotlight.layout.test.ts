@@ -43,12 +43,29 @@ describe('the leaderboard spotlight', () => {
         expect(spotlightSource).toContain('@media (prefers-reduced-motion: reduce)');
         // A choice ends the tour; a pointer or focus on the spotlight rests it.
         expect(spotlightSource).toMatch(/function choose\(key: string\): void \{\s*chosenKey = key;\s*tourOn = false;/);
-        expect(spotlightSource).toContain("style:animation-play-state={held ? 'paused' : 'running'}");
+        expect(spotlightSource).toContain("style:animation-play-state={held || openKey !== null ? 'paused' : 'running'}");
         expect(spotlightSource).toContain('onanimationend={advance}');
         // A pause control, as WCAG 2.2.2 asks of anything that moves on its own.
         expect(spotlightSource).toContain('data-spotlight-tour');
         // Not announced while it tours; announced once someone chooses.
         expect(spotlightSource).toContain("aria-live={touring ? 'off' : 'polite'}");
+    });
+
+    it('names each segment of the bar in a pop-out that follows the hover contract', () => {
+        // A hovering pointer or keyboard focus opens it, never a touch replay; a tap chooses the species.
+        expect(spotlightSource).toContain("if (event.pointerType !== 'touch') openPopout(segment.key, event.currentTarget);");
+        expect(spotlightSource).toContain("if (event.currentTarget.matches(':focus-visible')) openPopout(segment.key, event.currentTarget);");
+        expect(spotlightSource).toContain('const POPOUT_GRACE_MS = 120;');
+        expect(spotlightSource).toContain('onpointerenter={cancelPopoutClose}');
+        expect(spotlightSource).toContain("if (event.key === 'Escape' && openKey !== null)");
+        expect(spotlightSource).toContain('aria-expanded={openKey === segment.key}');
+        expect(spotlightSource).toContain('role="tooltip"');
+        // Common and scientific name over the species' stock photograph, labelled with its source.
+        expect(spotlightSource).toContain('{popout.row.displayName}');
+        expect(spotlightSource).toContain('{popout.row.subName}');
+        expect(spotlightSource).toContain('const stock = stockPictureFor(popout.row)');
+        expect(spotlightSource).toContain('data-spotlight-popout-source');
+        expect(spotlightSource).toContain(':global(.reduced-motion) .spotlight-popout');
     });
 
     it('draws presence from the timeline it already has, and only presence', () => {

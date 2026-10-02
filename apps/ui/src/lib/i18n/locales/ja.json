@@ -2559,7 +2559,8 @@
     "spotlight_needs_check": "要確認",
     "spotlight_review": "確認する",
     "spotlight_of_total": "全体に占める割合",
-    "spotlight_no_photo": "この給餌台の写真はまだありません"
+    "spotlight_no_photo": "この給餌台の写真はまだありません",
+    "spotlight_feeder_photo": "この給餌台の写真"
   },
   "about": {
     "how_it_works": "仕組み",

@@ -2569,7 +2569,8 @@
     "spotlight_needs_check": "Needs a check",
     "spotlight_review": "Review",
     "spotlight_of_total": "of the total",
-    "spotlight_no_photo": "No photo from this feeder yet"
+    "spotlight_no_photo": "No photo from this feeder yet",
+    "spotlight_feeder_photo": "Photo from this feeder"
   },
   "about": {
     "how_it_works": "How it works",

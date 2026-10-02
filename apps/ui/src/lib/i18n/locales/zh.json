@@ -2559,7 +2559,8 @@
     "spotlight_needs_check": "需要核实",
     "spotlight_review": "核实",
     "spotlight_of_total": "占总数",
-    "spotlight_no_photo": "此喂食器暂无照片"
+    "spotlight_no_photo": "此喂食器暂无照片",
+    "spotlight_feeder_photo": "来自此喂食器的照片"
   },
   "about": {
     "how_it_works": "工作原理",

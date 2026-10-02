@@ -103,6 +103,58 @@
         tourEpoch += 1;
     }
 
+    // Each segment of the bar previews its species on hover and keyboard focus (never on touch,
+    // where a tap chooses the species and the spotlight names it). The pop-out stays open while the
+    // pointer travels into it, closes on Escape, and rests the tour while it is open.
+    const POPOUT_WIDTH = 256;
+    const POPOUT_GRACE_MS = 120;
+    const popoutId = `spotlight-popout-${Math.random().toString(36).slice(2, 9)}`;
+    let barElement = $state<HTMLElement | null>(null);
+    let checksElement = $state<HTMLElement | null>(null);
+    let openKey = $state<string | null>(null);
+    let popoutLeft = $state(0);
+    let closeTimer: ReturnType<typeof setTimeout> | undefined;
+    const popout = $derived.by(() => {
+        if (openKey === null) return null;
+        if (openKey === 'others') {
+            const listed = new Set(groups.list.map((row) => row.key));
+            return { kind: 'others' as const, row: null, members: rows.filter((row) => !row.flagged && !listed.has(row.key)) };
+        }
+        if (openKey === 'checks') return { kind: 'checks' as const, row: null, members: groups.checks };
+        const row = rowByKey(openKey);
+        return row ? { kind: 'species' as const, row, members: [] } : null;
+    });
+    function openPopout(key: string, trigger: HTMLElement): void {
+        clearTimeout(closeTimer);
+        if (barElement) {
+            const bar = barElement.getBoundingClientRect();
+            const segment = trigger.getBoundingClientRect();
+            const half = POPOUT_WIDTH / 2;
+            const centre = segment.left - bar.left + segment.width / 2;
+            popoutLeft = Math.min(Math.max(centre, half), Math.max(half, bar.width - half));
+        }
+        openKey = key;
+    }
+    function cancelPopoutClose(): void {
+        clearTimeout(closeTimer);
+    }
+    function schedulePopoutClose(): void {
+        clearTimeout(closeTimer);
+        closeTimer = setTimeout(() => (openKey = null), POPOUT_GRACE_MS);
+    }
+    function closeOnEscape(event: KeyboardEvent): void {
+        if (event.key === 'Escape' && openKey !== null) {
+            clearTimeout(closeTimer);
+            openKey = null;
+        }
+    }
+    $effect(() => () => clearTimeout(closeTimer));
+    function pickSegment(key: string, kind: 'species' | 'others' | 'checks'): void {
+        if (kind === 'species') choose(key);
+        else if (kind === 'others') onmore?.();
+        else checksElement?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'nearest' });
+    }
+
     // The bar grows into place once, on first paint.
     let grown = $state(false);
     $effect(() => {
@@ -124,6 +176,13 @@
         return null;
     }
     const picture = $derived(selected ? pictureFor(selected) : null);
+    // The pop-out shows the species' stock (reference) photograph, which is what helps put a name to
+    // a colour; the feeder's own crop stands in only where there is no reference.
+    function stockPictureFor(row: ShowcaseRow): Picture {
+        if (row.reference && !failed.has(row.reference)) return { url: row.reference, source: 'reference', raw: row.reference };
+        if (row.photo && !failed.has(row.photo)) return { url: withAuthParams(row.photo), source: 'feeder', raw: row.photo };
+        return null;
+    }
 
     let stageWidth = $state(0);
     let stageHeight = $state(0);
@@ -200,33 +259,91 @@
             {/if}
         </div>
 
-        <div class="flex h-12 gap-1 overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-900" data-spotlight-share>
-            {#each segments as segment (segment.key)}
-                {#if segment.kind === 'species'}
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div class="relative" bind:this={barElement} onkeydown={closeOnEscape}>
+            <div class="flex h-12 gap-1 overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-900" data-spotlight-share>
+                {#each segments as segment (segment.key)}
                     <button
                         type="button"
-                        class="spotlight-segment min-w-0 overflow-hidden whitespace-nowrap text-left text-sm font-semibold {segment.percent >= 5 ? 'px-3' : 'px-0'} text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white"
+                        class="spotlight-segment min-w-0 overflow-hidden whitespace-nowrap text-left text-sm font-semibold {segment.kind === 'species' && segment.percent >= 5 ? 'px-3' : 'px-0'} {segment.kind === 'checks' ? 'bg-amber-500/70 dark:bg-amber-700/80' : ''} text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white"
                         style:flex-basis="{barReady ? segment.percent : 0}%"
-                        style:background-color={colourFor(segment.key)}
-                        style:opacity={segment.key === selected.key ? 1 : 0.6}
+                        style:background-color={segment.kind === 'species' ? colourFor(segment.key) : segment.kind === 'others' ? otherColour : undefined}
+                        style:opacity={segment.key === selected.key || segment.key === openKey ? 1 : 0.6}
                         aria-label={segmentLabel(segment.key, segment.kind, segment.count)}
-                        aria-pressed={segment.key === selected.key}
-                        onclick={() => choose(segment.key)}
+                        aria-pressed={segment.kind === 'species' ? segment.key === selected.key : undefined}
+                        aria-expanded={openKey === segment.key}
+                        aria-describedby={openKey === segment.key ? popoutId : undefined}
+                        onpointerenter={(event) => {
+                            if (event.pointerType !== 'touch') openPopout(segment.key, event.currentTarget);
+                        }}
+                        onpointerleave={schedulePopoutClose}
+                        onfocus={(event) => {
+                            if (event.currentTarget.matches(':focus-visible')) openPopout(segment.key, event.currentTarget);
+                        }}
+                        onblur={schedulePopoutClose}
+                        onclick={() => pickSegment(segment.key, segment.kind)}
+                        data-spotlight-segment={segment.kind}
                     >
-                        {#if segment.percent >= 22}{rowByKey(segment.key)?.displayName} {segment.count.toLocaleString()}{:else if segment.percent >= 5}{segment.count.toLocaleString()}{/if}
+                        {#if segment.kind === 'species'}
+                            {#if segment.percent >= 22}{rowByKey(segment.key)?.displayName} {segment.count.toLocaleString()}{:else if segment.percent >= 5}{segment.count.toLocaleString()}{/if}
+                        {/if}
                     </button>
-                {:else}
-                    <div
-                        class="spotlight-segment min-w-0 {segment.kind === 'checks' ? 'bg-amber-500/70 dark:bg-amber-700/80' : ''}"
-                        style:flex-basis="{barReady ? segment.percent : 0}%"
-                        style:background-color={segment.kind === 'others' ? otherColour : undefined}
-                        style:opacity="0.6"
-                        title={segmentLabel(segment.key, segment.kind, segment.count)}
-                    >
-                        <span class="sr-only">{segmentLabel(segment.key, segment.kind, segment.count)}</span>
-                    </div>
-                {/if}
-            {/each}
+                {/each}
+            </div>
+
+            {#if popout}
+                <div
+                    id={popoutId}
+                    role="tooltip"
+                    class="spotlight-popout absolute bottom-full z-30 mb-2 w-64 -translate-x-1/2 rounded-xl border border-slate-200 bg-white p-3 shadow-xl dark:border-slate-700 dark:bg-slate-900"
+                    style:left="{popoutLeft}px"
+                    onpointerenter={cancelPopoutClose}
+                    onpointerleave={schedulePopoutClose}
+                    data-spotlight-popout
+                >
+                    {#if popout.kind === 'species' && popout.row}
+                        {@const stock = stockPictureFor(popout.row)}
+                        <div class="mb-2.5 flex h-36 items-center justify-center overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-800">
+                            {#if stock}
+                                <img src={stock.url} alt="" class="h-full w-full object-cover" onerror={() => markFailed(stock.raw)} />
+                            {:else}
+                                <span class="text-xs italic text-slate-500 dark:text-slate-400">{$_('leaderboard.spotlight_no_photo', { default: 'No photo from this feeder yet' })}</span>
+                            {/if}
+                        </div>
+                        <p class="font-display text-lg font-bold leading-tight text-slate-900 dark:text-white">{popout.row.displayName}</p>
+                        {#if popout.row.subName}
+                            <p class="text-sm italic text-slate-500 dark:text-slate-400">{popout.row.subName}</p>
+                        {/if}
+                        <p class="mt-1.5 text-sm tabular-nums text-slate-700 dark:text-slate-200">
+                            {popout.row.count.toLocaleString()} {countLabel(popout.row.count)} · {percentText(popout.row.count)}
+                        </p>
+                        {#if stock}
+                            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400" data-spotlight-popout-source>
+                                {stock.source === 'reference'
+                                    ? referenceLabel(popout.row)
+                                    : $_('leaderboard.spotlight_feeder_photo', { default: 'Photo from this feeder' })}
+                            </p>
+                        {/if}
+                    {:else}
+                        <p class="font-display text-base font-bold text-slate-900 dark:text-white">
+                            {popout.kind === 'checks'
+                                ? $_('leaderboard.spotlight_needs_check', { default: 'Needs a check' })
+                                : $_('leaderboard.other_species', { default: 'Other' })}
+                        </p>
+                        <ul class="mt-1.5 space-y-1 text-sm">
+                            {#each popout.members.slice(0, 6) as member (member.key)}
+                                <li class="flex justify-between gap-3">
+                                    <span class="min-w-0 truncate text-slate-700 dark:text-slate-200">{member.displayName}</span>
+                                    <span class="shrink-0 tabular-nums text-slate-500 dark:text-slate-400">{member.count.toLocaleString()}</span>
+                                </li>
+                            {/each}
+                        </ul>
+                        {#if popout.members.length > 6}
+                            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{$_('leaderboard.showcase_more', { values: { count: popout.members.length - 6 }, default: '{count} more below' })}</p>
+                        {/if}
+                    {/if}
+                </div>
+            {/if}
         </div>
 
         <div
@@ -261,7 +378,7 @@
                             class="spotlight-progress absolute left-0 top-0 h-1"
                             style:background-color={colourFor(selected.key)}
                             style:animation-duration="{TOUR_MS}ms"
-                            style:animation-play-state={held ? 'paused' : 'running'}
+                            style:animation-play-state={held || openKey !== null ? 'paused' : 'running'}
                             onanimationend={advance}
                             data-spotlight-progress
                         ></div>
@@ -412,7 +529,7 @@
         </div>
 
         {#if groups.checks.length > 0}
-            <div class="flex flex-wrap items-center gap-3 border-t border-slate-200 pt-4 dark:border-slate-700" data-spotlight-checks>
+            <div class="flex flex-wrap items-center gap-3 border-t border-slate-200 pt-4 dark:border-slate-700" bind:this={checksElement} data-spotlight-checks>
                 <div class="flex w-full flex-col gap-1 sm:w-52">
                     <span class="inline-flex items-center gap-1.5 self-start rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-900 dark:bg-amber-950/70 dark:text-amber-300">
                         <span class="h-1.5 w-1.5 rounded-full bg-amber-500" aria-hidden="true"></span>{$_('leaderboard.spotlight_needs_check', { default: 'Needs a check' })}
@@ -482,12 +599,36 @@
         animation-fill-mode: forwards;
     }
 
+    /* The pop-out rises a little into place; under reduced motion it simply appears. */
+    @keyframes spotlight-popout {
+        from {
+            opacity: 0;
+            transform: translate(-50%, 4px) scale(0.98);
+        }
+        to {
+            opacity: 1;
+            transform: translate(-50%, 0) scale(1);
+        }
+    }
+
+    .spotlight-popout {
+        animation: spotlight-popout 0.16s ease-out;
+    }
+
     @media (prefers-reduced-motion: reduce) {
+        .spotlight-popout {
+            animation: none;
+        }
+
         .spotlight-segment,
         .spotlight-fill,
         .spotlight-cell {
             transition: none;
         }
+    }
+
+    :global(.reduced-motion) .spotlight-popout {
+        animation: none;
     }
 
     :global(.reduced-motion) .spotlight-segment,

@@ -2569,7 +2569,8 @@
     "spotlight_needs_check": "Требует проверки",
     "spotlight_review": "Проверить",
     "spotlight_of_total": "от общего",
-    "spotlight_no_photo": "Фото с этой кормушки пока нет"
+    "spotlight_no_photo": "Фото с этой кормушки пока нет",
+    "spotlight_feeder_photo": "Фото с этой кормушки"
   },
   "about": {
     "how_it_works": "Как это работает",
