@@ -2265,7 +2265,7 @@ class ONNXModelInstance:
             log.error(f"ONNX inference failed for {self.name}", error=str(exc))
             raise InvalidInferenceOutputError(
                 backend="onnxruntime",
-                provider=(self.ort_providers[0] if self.ort_providers else "cpu"),
+                provider=self._session_primary_provider or (self.ort_providers[0] if self.ort_providers else "cpu"),
                 detail=f"{self.name} inference execution failed: {exc}",
                 diagnostics={"exception_type": type(exc).__name__},
             ) from exc
@@ -2280,14 +2280,14 @@ class ONNXModelInstance:
         except Exception as exc:
             raise InvalidInferenceOutputError(
                 backend="onnxruntime",
-                provider=(self.ort_providers[0] if self.ort_providers else "cpu"),
+                provider=self._session_primary_provider or (self.ort_providers[0] if self.ort_providers else "cpu"),
                 detail=f"{self.name} returned an invalid output structure: {exc}",
                 diagnostics={"exception_type": type(exc).__name__},
             ) from exc
         if probs.size == 0:
             raise InvalidInferenceOutputError(
                 backend="onnxruntime",
-                provider=(self.ort_providers[0] if self.ort_providers else "cpu"),
+                provider=self._session_primary_provider or (self.ort_providers[0] if self.ort_providers else "cpu"),
                 detail=f"{self.name} inference produced no finite probabilities",
             )
         return probs

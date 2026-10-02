@@ -6,7 +6,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
-- Allow a reported CPU fallback during model startup while still rejecting an unexpected CUDA-to-CPU session change during inference.
+- Allow a reported CPU fallback during model startup while still rejecting an unexpected CUDA-to-CPU session change during inference. Attribute CPU-session execution errors to the active CPU provider.
 
 - Keep packaged cuDNN dependencies discoverable during native Windows CUDA inference. Prevent silent whole-session CPU retries from being reported as successful GPU work; recovery remains controlled by the application.
 

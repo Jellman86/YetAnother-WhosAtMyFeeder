@@ -95,3 +95,17 @@ def test_cuda_session_disables_internal_execution_retry():
     session = SimpleNamespace(disable_fallback=Mock())
     module.prevent_internal_cuda_fallback(session)
     session.disable_fallback.assert_called_once_with()
+
+
+def test_cpu_started_session_errors_identify_the_actual_cpu_provider():
+    import numpy as np
+    import pytest
+    from app.services.classifier_service import InvalidInferenceOutputError, ONNXModelInstance
+
+    model = ONNXModelInstance("bird", "unused", "unused", ort_providers=["CUDAExecutionProvider"])
+    model.session = SimpleNamespace(
+        get_providers=lambda: ["CPUExecutionProvider"], run=Mock(side_effect=RuntimeError("CPU execution failed"))
+    )
+    with pytest.raises(InvalidInferenceOutputError) as failure:
+        model._run_inference("images", np.zeros((1, 3, 32, 32)))
+    assert failure.value.provider == "CPUExecutionProvider"
