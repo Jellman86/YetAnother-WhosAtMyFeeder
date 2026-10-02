@@ -75,10 +75,9 @@ def _preload_onnxruntime_cuda_runtime_libraries() -> None:
     """
     if ort is None:
         return
-    preload_dlls = getattr(ort, "preload_dlls", None)
-    if not callable(preload_dlls):
-        return
-    preload_dlls(directory="")
+    from app.utils.cuda_runtime import preload_packaged_cuda_libraries
+
+    preload_packaged_cuda_libraries(ort)
 
 
 def _detect_openvino_support() -> dict:
@@ -2204,6 +2203,10 @@ class ONNXModelInstance:
             if "CUDAExecutionProvider" in providers:
                 _preload_onnxruntime_cuda_runtime_libraries()
             self.session = ort.InferenceSession(self.model_path, sess_options, providers=providers)
+            if "CUDAExecutionProvider" in providers:
+                from app.utils.cuda_runtime import prevent_internal_cuda_fallback
+
+                prevent_internal_cuda_fallback(self.session)
             self.loaded = True
             self.error = None
             log.info(f"{self.name} ONNX model loaded successfully", input_size=self.input_size, providers=providers)
@@ -2240,7 +2243,12 @@ class ONNXModelInstance:
         """Run the provider and expose execution failures to recovery policy."""
         try:
             with self._lock:
-                return self.session.run(None, {input_name: input_tensor})
+                outputs = self.session.run(None, {input_name: input_tensor})
+                if self.ort_providers and self.ort_providers[0] == "CUDAExecutionProvider":
+                    from app.utils.cuda_runtime import verify_cuda_session_provider
+
+                    verify_cuda_session_provider(self.session)
+                return outputs
         except Exception as exc:
             log.error(f"ONNX inference failed for {self.name}", error=str(exc))
             raise InvalidInferenceOutputError(
@@ -2325,8 +2333,8 @@ class ONNXModelInstance:
             except Exception:
                 report["active_providers"] = []
             input_name = self.session.get_inputs()[0].name
-            with self._lock:
-                outputs = self.session.run(None, {input_name: input_tensor})
+            outputs = self._run_inference(input_name, input_tensor)
+            report["active_providers"] = list(self.session.get_providers() or [])
             logits = np.asarray(outputs[0])
             if logits.ndim > 0 and logits.shape[0] == 1:
                 logits = logits[0]
@@ -2337,6 +2345,10 @@ class ONNXModelInstance:
         except Exception as exc:
             report["status"] = "runtime_error"
             report["error"] = _summarize_runtime_exception(exc, max_len=600)
+            try:
+                report["active_providers"] = list(self.session.get_providers() or [])
+            except Exception:
+                report["active_providers"] = []
             return report
 
     def cleanup(self):

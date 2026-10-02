@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Keep packaged cuDNN dependencies discoverable during native Windows CUDA inference. Prevent silent whole-session CPU retries from being reported as successful GPU work; recovery remains controlled by the application.
+
 - Keep tracked-region crops and earlier-photo choices attached to their visit during cache recovery and storage eviction, including older sidecars containing the photo key.
 
 - Avoid decoding a video again when the saved photo already positively matches the accepted species. Check owner choices and retained bytes first, and recheck every staged replacement before saving.
