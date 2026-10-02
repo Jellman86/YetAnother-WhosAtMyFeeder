@@ -127,7 +127,9 @@ describe('dashboard field desk layout', () => {
     it('reuses the existing thumbnail proxy for the preview instead of a second endpoint', () => {
         expect(previewSource).toContain("import { getThumbnailUrl } from '../api'");
         expect(previewSource).toContain('loading="lazy"');
-        expect(previewSource.match(/getThumbnailUrl/g) ?? []).toHaveLength(3);
+        // Stack and panel draw the same proxy address; thumbnail-refresh.spec.ts proves both
+        // show it. No other media endpoint may creep in beside it.
+        expect(previewSource).not.toMatch(/['"`]\/api\//);
         expect(previewSource).toContain('onopen?.(frame)');
         expect(fieldLogSource).toContain('onopen={(frame) => onselect?.(frame)}');
         expect(previewSource).toContain('min-h-11 min-w-11');

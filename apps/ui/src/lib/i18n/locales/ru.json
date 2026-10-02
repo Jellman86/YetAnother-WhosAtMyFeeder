@@ -2072,7 +2072,8 @@
         "top_candidates": "Наиболее частые кандидаты",
         "full_frame": "Полный кадр",
         "frigate_hint_crop": "Кадрирование по Frigate",
-        "model_crop": "ИИ-кадрирование"
+        "model_crop": "ИИ-кадрирование",
+        "frigate_region_crop": "Область, отслеженная Frigate"
       },
       "blocked_label": "Совпадение с заблокированным видом — не применено"
     },
@@ -2204,10 +2205,14 @@
     "snapshot_framing_whole": "Весь кадр",
     "snapshot_framing_close": "Крупно на птице",
     "snapshot_framing_as_recorded": "Как записал Frigate",
+    "snapshot_framing_previous": "Прежняя фотография",
+    "previous_photo_note": "Фотография этой записи до того, как её заменил более поздний анализ.",
     "frame_strip_count": "{count} кадров этого визита",
     "photo_option_count_one": "1 вариант фото этого визита",
     "photo_option_count": "{count} вариантов фото этого визита",
     "frame_strip_hint": "Выбор меняет фотографию, а не определение.",
+    "frame_strip_scroll_left": "Прокрутить влево",
+    "frame_strip_scroll_right": "Прокрутить вправо",
     "frame_position": "Кадр {position} из {count}",
     "frame_compare": "Сравнить кадр {position} из {count}",
     "photo_option_image_alt": "Возможное фото этого визита",

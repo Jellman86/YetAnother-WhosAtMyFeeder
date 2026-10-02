@@ -61,6 +61,8 @@ describe('getDetectionClassificationSource', () => {
 
     it('maps persisted input provenance to honest user-facing source kinds', () => {
         expect(getClassificationInputKind('frigate_hint_crop')).toBe('video_crop');
+        // The camera's tracked area cut from video frames is a cropped video input, not an unknown one.
+        expect(getClassificationInputKind('frigate_region_crop')).toBe('video_crop');
         expect(getClassificationInputKind('full_frame')).toBe('video_full');
         expect(getClassificationInputKind('hq_candidate_model_crop')).toBe('snapshot_crop');
         expect(getClassificationInputKind('snapshot_model_crop')).toBe('snapshot_crop');

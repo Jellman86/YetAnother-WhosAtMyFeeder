@@ -1,6 +1,7 @@
 <script lang="ts">
     import { getThumbnailUrl } from '../api';
     import type { Detection } from '../api';
+    import { detectionsStore } from '../stores/detections.svelte';
     import type { ReviewQueue } from '../utils/review-queue';
     import MediaImage from './MediaImage.svelte';
     import { formatDate, formatTime } from '../utils/datetime';
@@ -73,7 +74,7 @@
                         onclick={() => onreview?.(detection)}
                     >
                         <MediaImage
-                            sources={[getThumbnailUrl(detection.frigate_event)]}
+                            sources={[getThumbnailUrl(detection.frigate_event, detectionsStore.settledMediaVersion(detection.frigate_event))]}
                             alt=""
                             loading="lazy"
                             decoding="async"

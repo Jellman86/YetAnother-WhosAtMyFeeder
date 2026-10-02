@@ -113,7 +113,7 @@ interface DetectionsStoreLike {
         reason: string | null,
         diagnostics: Detection['video_classification_diagnostics']
     ): void;
-    dismissReclassification(eventId: string): void;
+    failReclassification(eventId: string): void;
     markReclassificationStrategyChanged(
         eventId: string,
         from: string | null,
@@ -592,7 +592,7 @@ export class LiveUpdateCoordinator {
                     });
                     this.clearReclassifyProgressNotification(eventId);
                 }
-                this.deps.detectionsStore.dismissReclassification(eventId);
+                this.deps.detectionsStore.failReclassification(eventId);
                 return;
             }
 

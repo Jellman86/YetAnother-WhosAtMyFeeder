@@ -1,4 +1,12 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
+
+// Isolate layout from the external font service. app.css @imports it and WebKit applies no app
+// styles until it answers, so a slow answer left the modal mounted and observed unstyled; the
+// restyle then reported a ResizeObserver loop.
+async function withoutWebFonts(page: Page): Promise<void> {
+    await page.route('https://fonts.googleapis.com/**', route => route.fulfill({ contentType: 'text/css', body: '' }));
+    await page.route('https://fonts.gstatic.com/**', route => route.abort());
+}
 
 test('German capture details reflow at 320px and 200% text with owner controls and long labels', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 320, height: 740 });
@@ -6,6 +14,7 @@ test('German capture details reflow at 320px and 200% text with owner controls a
     await page.addInitScript(() => localStorage.setItem('preferred-language', 'de'));
     const errors: string[] = [];
     page.on('pageerror', error => errors.push(error.message));
+    await withoutWebFonts(page);
     await page.route(url => url.pathname.startsWith('/api/'), async route => {
         const path = new URL(route.request().url()).pathname;
         if (path.endsWith('/snapshot/candidates')) return route.fulfill({ json: {
@@ -37,7 +46,9 @@ test('German capture details reflow at 320px and 200% text with owner controls a
             const overflow = getComputedStyle(node).overflowX;
             return overflow !== 'hidden' && node.scrollWidth > node.clientWidth + 1;
         }).map(node => ({ tag: node.tagName, class: node.className, width: node.clientWidth, scroll: node.scrollWidth, text: node.textContent?.trim().slice(0, 100) })),
-        controls: [...element.querySelectorAll<HTMLElement>('button, summary')].filter(node => node.offsetParent !== null).map(node => ({
+        controls: [...element.querySelectorAll<HTMLElement>('button, summary')].filter(node =>
+            node.offsetParent !== null && getComputedStyle(node).visibility !== 'hidden'
+        ).map(node => ({
             name: node.getAttribute('aria-label') ?? node.getAttribute('title') ?? node.textContent?.trim(),
             width: node.getBoundingClientRect().width, height: node.getBoundingClientRect().height
         }))
@@ -57,6 +68,7 @@ test('text reflow keeps the whole-scene peek on full-resolution pixels and its c
     await page.addInitScript(() => localStorage.setItem('preferred-language', 'de'));
     const errors: string[] = [];
     page.on('pageerror', error => errors.push(error.message));
+    await withoutWebFonts(page);
     const fullId = 'layout__full_frame__f150__fixture';
     const cropId = 'layout__model_crop__f150__fixture';
     await page.route(url => url.pathname.startsWith('/api/'), async route => {

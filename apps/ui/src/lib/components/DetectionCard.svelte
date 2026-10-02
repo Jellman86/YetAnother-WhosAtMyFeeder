@@ -74,7 +74,12 @@
         detection.temperature !== undefined && detection.temperature !== null
     );
 
-    let imageError = $state(false);
+    const thumbnailUrl = $derived(
+        getThumbnailUrl(detection.frigate_event, detectionsStore.settledMediaVersion(detection.frigate_event))
+    );
+    // A failure belongs to the address that failed, so a photograph saved by a later run is tried.
+    let failedThumbnailUrl = $state<string | null>(null);
+    const imageError = $derived(failedThumbnailUrl === thumbnailUrl);
     let imageLoaded = $state(false);
     let cardElement = $state<HTMLElement | null>(null);
     let isVisible = $state(false);
@@ -220,14 +225,14 @@
                 <div class="absolute inset-0 bg-slate-100 dark:bg-slate-800 animate-shimmer bg-[length:200%_100%] bg-gradient-to-r from-transparent via-slate-200/10 to-transparent"></div>
             {/if}
             <img
-                src={getThumbnailUrl(detection.frigate_event)}
+                src={thumbnailUrl}
                 alt="{$_('detection.image_alt', { values: { species: primaryName, camera: detection.camera_name } })}"
                 loading="lazy"
                 class="w-full h-full object-cover transition-transform duration-300 ease-out
                        group-hover:scale-[1.025]
                        {imageLoaded ? 'opacity-100' : 'opacity-0'}"
                 onload={() => imageLoaded = true}
-                onerror={() => imageError = true}
+                onerror={(event) => failedThumbnailUrl = event.currentTarget.getAttribute('src')}
             />
             <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 opacity-60"></div>
             <div class="absolute inset-0 bg-brand-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>

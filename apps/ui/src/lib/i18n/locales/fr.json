@@ -2062,7 +2062,8 @@
         "top_candidates": "Candidats les plus récurrents",
         "full_frame": "Image complète",
         "frigate_hint_crop": "Recadrage guidé par Frigate",
-        "model_crop": "Recadrage IA"
+        "model_crop": "Recadrage IA",
+        "frigate_region_crop": "Zone suivie par Frigate"
       },
       "blocked_label": "Correspond à une espèce bloquée — non appliqué"
     },
@@ -2194,10 +2195,14 @@
     "snapshot_framing_whole": "Image entière",
     "snapshot_framing_close": "Gros plan sur l'oiseau",
     "snapshot_framing_as_recorded": "Tel que Frigate l'a enregistré",
+    "snapshot_framing_previous": "Une photo précédente",
+    "previous_photo_note": "La photo de cette fiche avant qu'une analyse ultérieure ne la remplace.",
     "frame_strip_count": "{count} images de cette visite",
     "photo_option_count_one": "1 photo au choix pour cette visite",
     "photo_option_count": "{count} photos au choix pour cette visite",
     "frame_strip_hint": "En choisir une change la photographie, pas l'identification.",
+    "frame_strip_scroll_left": "Défiler vers la gauche",
+    "frame_strip_scroll_right": "Défiler vers la droite",
     "frame_position": "Image {position} sur {count}",
     "frame_compare": "Comparer l'image {position} sur {count}",
     "photo_option_image_alt": "Photo candidate de cette visite",

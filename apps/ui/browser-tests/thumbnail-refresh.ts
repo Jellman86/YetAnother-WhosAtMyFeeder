@@ -1,12 +1,11 @@
 import { mount } from 'svelte';
 import { i18nReady } from '../src/lib/i18n';
 import '../src/app.css';
-import ReviewMediaFixture from './ReviewMediaFixture.svelte';
+import ThumbnailRefreshFixture from './ThumbnailRefreshFixture.svelte';
 
 declare global {
     interface Window {
-        reviewMedia?: {
-            setRecord: (id: string) => void;
+        thumbnailRefresh?: {
             progressAnalysis: (id: string, frames: number) => void;
             completeAnalysis: (id: string) => void;
         };
@@ -15,5 +14,5 @@ declare global {
 
 await i18nReady;
 const target = document.getElementById('app');
-if (!target) throw new Error('Missing review media fixture mount');
-mount(ReviewMediaFixture, { target });
+if (!target) throw new Error('Missing thumbnail refresh fixture mount');
+mount(ThumbnailRefreshFixture, { target });

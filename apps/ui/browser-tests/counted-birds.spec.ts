@@ -18,6 +18,10 @@ interface Fixture {
 }
 
 async function open(page: Page, query: string, fixture: Fixture = { requests: [] }, waitUntil: 'load' | 'domcontentloaded' = 'load'): Promise<Fixture> {
+    // Isolate layout from the external font service. A web font swapping in late moved the phone
+    // list 40px between mouse down and up, so a click reached neither row.
+    await page.route('https://fonts.googleapis.com/**', route => route.fulfill({ contentType: 'text/css', body: '' }));
+    await page.route('https://fonts.gstatic.com/**', route => route.abort());
     await page.route(url => url.pathname.startsWith('/api/'), async route => {
         const path = new URL(route.request().url()).pathname;
         fixture.requests.push(`${route.request().method()} ${path}`);

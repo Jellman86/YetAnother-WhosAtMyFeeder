@@ -55,7 +55,7 @@ function buildCoordinator(options?: {
         startReclassification: [] as any[],
         updateReclassificationProgress: [] as any[],
         completeReclassification: [] as any[],
-        dismissReclassification: [] as any[],
+        failReclassification: [] as any[],
         markReclassificationStrategyChanged: [] as any[],
         syncDiagnosticsWorkspace: [] as any[]
     };
@@ -106,7 +106,7 @@ function buildCoordinator(options?: {
             startReclassification: (...args: any[]) => calls.startReclassification.push(args),
             updateReclassificationProgress: (...args: any[]) => calls.updateReclassificationProgress.push(args),
             completeReclassification: (...args: any[]) => calls.completeReclassification.push(args),
-            dismissReclassification: (...args: any[]) => calls.dismissReclassification.push(args),
+            failReclassification: (...args: any[]) => calls.failReclassification.push(args),
             markReclassificationStrategyChanged: (...args: any[]) => calls.markReclassificationStrategyChanged.push(args)
         },
         settingsStore: {
@@ -261,7 +261,7 @@ describe('LiveUpdateCoordinator reclassify fallback', () => {
                 startReclassification: () => undefined,
                 updateReclassificationProgress: () => undefined,
                 completeReclassification: () => undefined,
-                dismissReclassification: () => undefined,
+                failReclassification: () => undefined,
                 markReclassificationStrategyChanged: () => undefined
             },
             settingsStore: { liveAnnouncements: false },
@@ -668,7 +668,7 @@ describe('LiveUpdateCoordinator reclassify fallback', () => {
         expect(calls.completeReclassification).toEqual([
             ['evt-terminal-failure', [], 'failed', 'video_timeout', null]
         ]);
-        expect(calls.dismissReclassification).toHaveLength(0);
+        expect(calls.failReclassification).toHaveLength(0);
     });
 
     it('settles an explicit reclassification failure and dismisses its overlay', () => {
@@ -684,7 +684,7 @@ describe('LiveUpdateCoordinator reclassify fallback', () => {
         });
 
         expect(calls.markFailed).toHaveLength(1);
-        expect(calls.dismissReclassification).toEqual([['evt-failed']]);
+        expect(calls.failReclassification).toEqual([['evt-failed']]);
         expect(calls.completeReclassification).toHaveLength(0);
     });
 

@@ -6,6 +6,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Refresh open detection and review photographs, frame choices, card thumbnails and previews after analysis finishes, including an unchanged species. Retry images that failed before the new photograph was saved without refreshing on every progress update.
+
+- Reach every photo choice with strip edge controls, touch scrolling or Left/Right/Home/End keys. Keep the chosen photo visible and close comparisons before the record, with reliable focus and mobile backdrops.
+
+- Give **Needs your call** the same dialog styling as the record, a calmer species list and review reason, and mobile decision controls that stay within reach.
+
 - Preserve genuine small bird photographs and existing photos when HQ scanning is turned off. Keep legacy photos when Frigate refresh fails, and record unverified Frigate snapshot framing conservatively for later classification.
 
 - Keep primary video evidence within the tracked bird's region and observed path, so an old wrong label cannot select a distant bird. Use exact path timing in video and HQ scans only when the clip's first-frame timestamp is known.

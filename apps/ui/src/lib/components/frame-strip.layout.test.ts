@@ -98,16 +98,34 @@ describe('the frame strip is one ordered set of moments (#256)', () => {
     it('keeps overflowing moments clickable beneath a non-interactive fade', () => {
         expect(stripSource).toContain('.snapshot-strip');
         expect(stripSource).toContain('scrollbar-width: none');
-        expect(stripSource).toContain('node.scrollLeft + node.clientWidth < node.scrollWidth - 1');
+        expect(stripSource).toContain('moreBefore = node.scrollLeft > 1;');
+        expect(stripSource).toContain('moreAfter = node.scrollLeft + node.clientWidth < node.scrollWidth - 1;');
         expect(stripSource).toContain("node.addEventListener('scroll', update, { passive: true })");
-        expect(stripSource).toContain("style.setProperty('--strip-fade-opacity', hasMoreToRight ? '1' : '0')");
         expect(stripSource).toContain('data-snapshot-strip-fade');
         expect(stripSource).toContain('pointer-events-none');
         expect(stripSource).not.toContain('mask-image:');
         // The container keeps its size when the moment list changes, so a resize observer
-        // alone would leave the fade describing a strip that is no longer there.
+        // alone would leave the ends describing a strip that is no longer there.
         expect(stripSource).toContain('new MutationObserver(update)');
         expect(stripSource).toContain('{ childList: true }');
+    });
+
+    it('gives a strip that runs on a control at each end, and the keyboard a way along it', () => {
+        expect(stripSource).toContain('data-frame-strip-scroller');
+        expect(stripSource).toContain('data-frame-strip-back');
+        expect(stripSource).toContain('data-frame-strip-forward');
+        expect(stripSource).toContain("$_('detection.frame_strip_scroll_left', { default: 'Scroll left' })");
+        expect(stripSource).toContain("$_('detection.frame_strip_scroll_right', { default: 'Scroll right' })");
+        // A hidden end control never catches a tap while it fades out.
+        expect(stripSource).toContain("'pointer-events-none invisible opacity-0'");
+        expect(stripSource).toContain("window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'");
+        for (const key of ["'ArrowLeft'", "'ArrowRight'", "'Home'", "'End'"]) {
+            expect(stripSource).toContain(`key === ${key}`);
+        }
+        // Only keyboard focus moves the strip; moving it under a press would drop the click.
+        expect(stripSource).toContain('if (isKeyboardFocus(target)) reveal(target, false);');
+        // The photograph in use is brought into view when the strip opens.
+        expect(stripSource).toContain('if (trigger) reveal(trigger, true);');
     });
 
     it('lifts the chosen moment like a dock item without using an active outline', () => {

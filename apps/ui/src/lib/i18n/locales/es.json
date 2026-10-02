@@ -2062,7 +2062,8 @@
         "top_candidates": "Candidatos más recurrentes",
         "full_frame": "Fotograma completo",
         "frigate_hint_crop": "Recorte guiado por Frigate",
-        "model_crop": "Recorte de IA"
+        "model_crop": "Recorte de IA",
+        "frigate_region_crop": "Zona seguida por Frigate"
       },
       "blocked_label": "Coincide con una especie bloqueada — no aplicado"
     },
@@ -2194,10 +2195,14 @@
     "snapshot_framing_whole": "Fotograma completo",
     "snapshot_framing_close": "De cerca al ave",
     "snapshot_framing_as_recorded": "Tal como lo grabó Frigate",
+    "snapshot_framing_previous": "Una foto anterior",
+    "previous_photo_note": "La foto que tenía este registro antes de que un análisis posterior la reemplazara.",
     "frame_strip_count": "{count} fotogramas de esta visita",
     "photo_option_count_one": "1 opción de foto de esta visita",
     "photo_option_count": "{count} opciones de foto de esta visita",
     "frame_strip_hint": "Elegir uno cambia la fotografía, no la identificación.",
+    "frame_strip_scroll_left": "Desplazar a la izquierda",
+    "frame_strip_scroll_right": "Desplazar a la derecha",
     "frame_position": "Fotograma {position} de {count}",
     "frame_compare": "Comparar el fotograma {position} de {count}",
     "photo_option_image_alt": "Foto candidata de esta visita",

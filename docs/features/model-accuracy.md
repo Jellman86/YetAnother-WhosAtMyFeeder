@@ -219,6 +219,18 @@ diagnostics; routine replacements and matching photographs do not. A kept photo 
 distinguished from extraction or storage failure without filling the warning history with
 successful work.
 
+Open records, review windows, cards and previews reread their photographs after the run settles,
+including when the accepted species did not change. They keep existing choices visible while
+rereading, and retry a failed image when a later photograph has been saved. Progress ticks do
+not refresh media. Earlier photographs are separate photo options, with no claimed clip timing
+or individual classifier read.
+
+The photo strip offers controls at either end that has more choices, native touch scrolling,
+and Left/Right/Home/End keyboard movement. It brings an offscreen chosen photo into view. Escape
+closes the comparison before the record and returns focus appropriately. **Needs your call**
+uses the record's dialog styling, fills the phone screen and keeps its decision controls within
+reach as the species list scrolls.
+
 When no source clears the policy, YA-WAMF stores a bounded diagnostic summary on the detection:
 decoded frames, independent moments, confident votes, the support required for each source, up to
 three confident candidates, and separate all-score observation context. **Detection details → Show

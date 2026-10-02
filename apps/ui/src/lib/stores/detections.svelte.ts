@@ -50,6 +50,12 @@ export class DetectionsStore {
     isLoading = $state(false);
     connected = $state(false);
     progressMap = $state<Map<string, ReclassificationProgress>>(new Map());
+    /**
+     * The media version each event was given when its latest run settled, kept apart from
+     * progressMap so an open record can reread its saved photograph once the run settles, without
+     * reacting to every progress tick, and even after its overlay was dismissed or pruned.
+     */
+    settledReclassifications = $state<Map<string, number>>(new Map());
     mutationVersion = $state(0);
     publicHistoryVersion = $state(0);
     patchMap = $state<Map<string, Partial<Detection>>>(new Map());
@@ -57,6 +63,13 @@ export class DetectionsStore {
     private MAX_ITEMS = 50;
     private MAX_RECLASSIFICATION_FRAMES = 240;
     private MAX_PATCH_ITEMS = 2000;
+    private MAX_SETTLED_ITEMS = 2000;
+    /**
+     * Versions are drawn from one sequence for the life of the document and never reset, so an
+     * access change that forgets which events settled cannot hand out a URL this page has already
+     * cached with an older photograph.
+     */
+    private lastMediaVersion = 0;
     private loadPromise: Promise<boolean> | null = null;
     private accessGeneration = 0;
     /** Advanced by each accepted owner bird edit; a list read before it is not applied. */
@@ -112,6 +125,7 @@ export class DetectionsStore {
         this.isLoading = false;
         this.clearHistory();
         this.progressMap = new Map();
+        this.settledReclassifications = new Map();
         this.publicHistoryVersion = 0;
         this.staleTracker.reset();
     }
@@ -410,6 +424,8 @@ export class DetectionsStore {
         const now = Date.now();
         const newMap = new Map(this.progressMap);
         const existing = newMap.get(eventId);
+        // A repeated completion for a run already shown as finished has no new work to read.
+        if (existing?.status !== 'completed') this.noteReclassificationSettled(eventId);
         if (existing) {
             newMap.set(eventId, {
                 ...existing,
@@ -476,6 +492,31 @@ export class DetectionsStore {
             lastUpdateAt: Date.now()
         });
         this.progressMap = newMap;
+    }
+
+    /** A hard failure can follow partly saved work, so the record is reread as well as closed. */
+    failReclassification(eventId: string) {
+        this.noteReclassificationSettled(eventId);
+        this.dismissReclassification(eventId);
+    }
+
+    private noteReclassificationSettled(eventId: string) {
+        if (!eventId || typeof eventId !== 'string') return;
+        const next = new Map(this.settledReclassifications);
+        this.lastMediaVersion += 1;
+        next.delete(eventId);
+        next.set(eventId, this.lastMediaVersion);
+        while (next.size > this.MAX_SETTLED_ITEMS) {
+            const oldestKey = next.keys().next().value;
+            if (!oldestKey) break;
+            next.delete(oldestKey);
+        }
+        this.settledReclassifications = next;
+    }
+
+    /** 0 until a run for the event settles; afterwards a version no earlier settle has used. */
+    settledMediaVersion(eventId: string): number {
+        return this.settledReclassifications.get(eventId) ?? 0;
     }
 
     dismissReclassification(eventId: string) {

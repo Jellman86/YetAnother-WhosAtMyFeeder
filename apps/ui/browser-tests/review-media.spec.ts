@@ -56,6 +56,8 @@ function candidateUrl(capture: string, id: string, kind: 'image' | 'thumbnail'):
 
 interface Plan {
     candidateMediaAbsent?: boolean;
+    /** Photographs a later run replaced, kept as the backend keeps them: no frame, no time, no read. */
+    retainedPhotos?: string[];
     fullSize?: { width: number; height: number };
     /** Path fragments that answer 404. */
     missing: string[];
@@ -80,7 +82,7 @@ function gate(): { promise: Promise<void>; release: () => void } {
 
 function candidateList(capture: Capture, plan: Plan) {
     const chosen = plan.selection[capture];
-    const candidates = CANDIDATES[capture].map((spec) => ({
+    const candidates: Record<string, unknown>[] = CANDIDATES[capture].map((spec) => ({
         candidate_id: `${capture}__${spec.id}`,
         frame_index: spec.frame,
         frame_offset_seconds: spec.offset ?? null,
@@ -96,6 +98,25 @@ function candidateList(capture: Capture, plan: Plan) {
         image_url: plan.candidateMediaAbsent ? null : candidateUrl(capture, spec.id, 'image'),
         thumbnail_url: plan.candidateMediaAbsent ? null : candidateUrl(capture, spec.id, 'thumbnail')
     }));
+    for (const digest of plan.retainedPhotos ?? []) {
+        const id = `retained_snapshot__${digest}`;
+        candidates.push({
+            candidate_id: `${capture}__${id}`,
+            frame_index: 0,
+            frame_offset_seconds: null,
+            source_mode: 'retained_photo',
+            clip_variant: 'retained_snapshot',
+            crop_box: null,
+            crop_confidence: null,
+            classifier_label: null,
+            classifier_score: null,
+            ranking_score: 0,
+            selected: id === chosen,
+            snapshot_source: 'frigate_snapshot_cropped',
+            image_url: candidateUrl(capture, id, 'image'),
+            thumbnail_url: candidateUrl(capture, id, 'thumbnail')
+        });
+    }
     const chosenSpec = CANDIDATES[capture].find((spec) => spec.id === chosen);
     const birds = capture === 'tit'
         ? [{
@@ -467,6 +488,39 @@ test.describe('the frame strip marks the photograph honestly', () => {
         await expect.poll(async () => (await queuePhoto(page)).images.some((image) => image.loaded)).toBe(true);
     });
 
+    test('each earlier photograph is its own option, named as one, with no frame time, and can be restored', async ({ page }, testInfo) => {
+        const plan = newPlan();
+        plan.retainedPhotos = ['a1b2c3d4e5f6', '0f9e8d7c6b5a'];
+        await openQueue(page, plan, '&queue=wren,robin');
+        const strip = page.locator('[data-frame-strip]');
+        const triggers = strip.locator('button[aria-pressed]');
+        await expect(triggers).toHaveCount(4);
+        // Kept stills are not frames of the clip, so the strip counts photo options.
+        await expect(strip).toContainText('4 photo options from this visit');
+        await settle(page);
+        await page.screenshot({ path: testInfo.outputPath('wren-earlier-photos-strip.png') });
+
+        for (const index of [0, 1]) {
+            await triggers.nth(index).click();
+            const panel = page.locator('[data-frame-strip-panel]');
+            await expect(panel).toContainText('An earlier photograph');
+            await expect(panel).toContainText('before a later analysis replaced it');
+            await expect(panel).not.toContainText('Frame ');
+            await expect(panel).not.toContainText(/\d+:\d{2}/);
+            await expect(panel.getByRole('button', { name: 'Use this photo' })).toBeVisible();
+            if (index === 0) await page.screenshot({ path: testInfo.outputPath('wren-earlier-photo-panel.png') });
+            await page.keyboard.press('Escape');
+            await expect(panel).toHaveCount(0);
+        }
+
+        await triggers.nth(1).click();
+        await page.getByRole('button', { name: 'Use this photo' }).click();
+        await expect.poll(() => plan.selection.wren).toBe('retained_snapshot__0f9e8d7c6b5a');
+        await expect(triggers.nth(1)).toHaveAttribute('aria-pressed', 'true');
+        await expect(triggers.nth(0)).toHaveAttribute('aria-pressed', 'false');
+        expect(plan.errors).toEqual([]);
+    });
+
     test('the strip holds its row while its frames are read', async ({ page }) => {
         const plan = newPlan();
         const list = gate();
@@ -619,6 +673,303 @@ test.describe('the detection record degrades the same way', () => {
         const shown = await images(page, '[data-detection-photograph]');
         expect(shown.every((image) => image.src.includes('/robin/')), JSON.stringify(shown)).toBe(true);
         expect(shown.filter((image) => image.broken)).toEqual([]);
+        expect(plan.errors).toEqual([]);
+    });
+});
+
+test.describe('Needs your call after a reclassification settles', () => {
+    test('the open capture rereads its photograph and frames when its run settles, and on nothing else', async ({ page }) => {
+        const plan = newPlan();
+        await openQueue(page, plan);
+        const listReads = () => plan.requests.filter((request) => /^GET \/api\/frigate\/tit\/snapshot\/candidates$/.test(request)).length;
+        await expect.poll(listReads).toBe(1);
+        await expect.poll(async () => (await queuePhoto(page)).images.some((image) => image.loaded)).toBe(true);
+        const before = (await queuePhoto(page)).images[0]?.src;
+        expect(before).toContain('/api/frigate/tit/snapshot.jpg');
+
+        await page.evaluate(() => {
+            window.reviewMedia?.progressAnalysis('tit', 12);
+            window.reviewMedia?.completeAnalysis('robin');
+        });
+        await settle(page);
+        expect(listReads()).toBe(1);
+        expect((await queuePhoto(page)).images[0]?.src).toBe(before);
+
+        const list = gate();
+        plan.heldLists.set('tit', list.promise);
+        await page.evaluate(() => window.reviewMedia?.completeAnalysis('tit'));
+        await expect.poll(listReads).toBe(2);
+        // The same capture is reread in place: its frames stay while the new list is on its way.
+        await expect(page.locator('[data-frame-strip-pending]')).toHaveCount(0);
+        list.release();
+        await expect.poll(async () => (await queuePhoto(page)).images.find((image) => image.loaded)?.src).not.toBe(before);
+        expect((await queuePhoto(page)).images.find((image) => image.loaded)?.src).toContain('/api/frigate/tit/snapshot.jpg');
+        expect(plan.errors).toEqual([]);
+    });
+});
+
+// Twenty-two choices: twenty earlier photographs, then the wren's two frames, the later of which
+// is the photograph. Far more than any record or queue width shows at once, so the strip has a
+// start, a middle and an end, and the photograph in use sits at the far end.
+const MANY_KEPT = Array.from({ length: 20 }, (_, index) => `kept${String(index).padStart(2, '0')}cafe`);
+const FIRST_KEPT = `retained_snapshot__${MANY_KEPT[0]}`;
+
+interface StripView { scrollLeft: number; maxScroll: number; reachable: number[]; chosen: number; chosenReachable: boolean }
+
+/**
+ * Which thumbnails a pointer can actually land on right now: inside the strip's visible width
+ * and not under an edge control or anything else. A thumbnail half off the edge is not reached.
+ */
+async function stripView(page: Page): Promise<StripView> {
+    return page.locator('[data-frame-strip-scroller]').evaluate((scroller) => {
+        const view = scroller.getBoundingClientRect();
+        const triggers = [...scroller.querySelectorAll<HTMLElement>('button[aria-pressed]')];
+        const reachableAt = (trigger: HTMLElement) => {
+            const rect = trigger.getBoundingClientRect();
+            if (rect.left < view.left - 1 || rect.right > view.right + 1) return false;
+            // Both ends of the thumbnail, so a control covering half of it does not count.
+            return [rect.left + 6, rect.right - 6].every((x) => {
+                const hit = document.elementFromPoint(x, rect.top + rect.height / 2);
+                return hit !== null && trigger.contains(hit);
+            });
+        };
+        const reachable = triggers.flatMap((trigger, index) => (reachableAt(trigger) ? [index] : []));
+        const chosen = triggers.findIndex((trigger) => trigger.getAttribute('aria-pressed') === 'true');
+        return {
+            scrollLeft: Math.round(scroller.scrollLeft),
+            maxScroll: scroller.scrollWidth - scroller.clientWidth,
+            reachable,
+            chosen,
+            chosenReachable: chosen >= 0 && reachable.includes(chosen)
+        };
+    });
+}
+
+/**
+ * Where a thumbnail sits, by geometry alone: wholly inside the strip's visible width and clear of
+ * any edge control that is showing. Unlike stripView this holds while a phone's comparison sheet
+ * covers the strip, so keyboard focus can be checked before the sheet is dismissed.
+ */
+async function thumbnailPlacement(page: Page, index: number): Promise<{ inStrip: boolean; clearOfControls: boolean }> {
+    return page.locator('[data-frame-strip-scroller]').evaluate((scroller, at) => {
+        const view = scroller.getBoundingClientRect();
+        const trigger = scroller.querySelectorAll<HTMLElement>('button[aria-pressed]')[at];
+        const rect = trigger.getBoundingClientRect();
+        const controls = [...document.querySelectorAll<HTMLElement>('[data-frame-strip-back], [data-frame-strip-forward]')]
+            .filter((control) => getComputedStyle(control).visibility !== 'hidden')
+            .map((control) => control.getBoundingClientRect());
+        return {
+            inStrip: rect.left >= view.left - 1 && rect.right <= view.right + 1,
+            clearOfControls: controls.every((control) => rect.right <= control.left + 1 || rect.left >= control.right - 1)
+        };
+    }, index);
+}
+
+async function settledStrip(page: Page): Promise<StripView> {
+    let previous = -1;
+    // Smooth scrolling takes a few frames; wait until the strip stops moving.
+    await expect.poll(async () => {
+        const now = (await stripView(page)).scrollLeft;
+        const still = now === previous;
+        previous = now;
+        return still;
+    }, { intervals: [80] }).toBe(true);
+    return stripView(page);
+}
+
+test.describe('a strip with more choices than fit', () => {
+    const surfaces = [
+        { name: 'Needs your call', open: openQueue },
+        { name: 'the detection record', open: openRecord }
+    ];
+
+    for (const surface of surfaces) {
+        test(`${surface.name}: every choice is reached by the edge controls, from the start through the middle to the end`, async ({ page }, testInfo) => {
+            const plan = newPlan();
+            plan.retainedPhotos = MANY_KEPT;
+            plan.selection.wren = FIRST_KEPT;
+            await surface.open(page, plan, '&queue=wren');
+            const strip = page.locator('[data-frame-strip]');
+            const triggers = strip.locator('button[aria-pressed]');
+            await expect(triggers).toHaveCount(22);
+            await expect(strip).toContainText('22 photo options from this visit');
+            const back = strip.locator('[data-frame-strip-back]');
+            const forward = strip.locator('[data-frame-strip-forward]');
+
+            let view = await settledStrip(page);
+            expect(view.maxScroll, 'the fixture must overflow').toBeGreaterThan(200);
+            expect(view.scrollLeft).toBe(0);
+            expect(view.chosenReachable, 'the chosen frame starts in view').toBe(true);
+            await expect(back).toBeHidden();
+            await expect(forward).toBeVisible();
+            await page.screenshot({ path: testInfo.outputPath('many-start.png') });
+
+            const reached = new Set(view.reachable);
+            let sawMiddle = false;
+            for (let step = 0; step < 30 && view.scrollLeft < view.maxScroll - 1; step += 1) {
+                await forward.click();
+                view = await settledStrip(page);
+                view.reachable.forEach((index) => reached.add(index));
+                if (view.scrollLeft > 0 && view.scrollLeft < view.maxScroll - 1 && !sawMiddle) {
+                    sawMiddle = true;
+                    await expect(back).toBeVisible();
+                    await expect(forward).toBeVisible();
+                    await page.screenshot({ path: testInfo.outputPath('many-middle.png') });
+                }
+            }
+            expect(sawMiddle, 'one press must not jump straight to the end').toBe(true);
+            expect(view.scrollLeft).toBeGreaterThanOrEqual(view.maxScroll - 1);
+            await expect(forward).toBeHidden();
+            await expect(back).toBeVisible();
+            expect(view.reachable).toContain(21);
+            await page.screenshot({ path: testInfo.outputPath('many-end.png') });
+            expect([...reached].sort((a, b) => a - b), 'a choice was never reachable').toEqual([...Array(22).keys()]);
+
+            // A choice reached at the far end compares and applies like any other, and the strip
+            // stays where the person left it.
+            await triggers.nth(21).click();
+            const panel = page.locator('[data-frame-strip-panel]');
+            await expect(panel).toContainText('Photo option 22 of 22');
+            if ((page.viewportSize()?.width ?? 1280) < 640) {
+                // The sheet's backdrop lies over the whole modal, so a tap above the sheet closes it
+                // rather than reaching the record or the queue's decisions beneath.
+                const topmost = await page.evaluate(() => {
+                    const hit = document.elementFromPoint(window.innerWidth / 2, 24);
+                    return hit?.hasAttribute('data-frame-strip-backdrop') ?? false;
+                });
+                expect(topmost, 'the sheet backdrop is beneath the modal').toBe(true);
+            }
+            await panel.getByRole('button', { name: 'Use this photo' }).click();
+            await expect.poll(() => plan.selection.wren).toBe('f40-model');
+            await expect(triggers.nth(21)).toHaveAttribute('aria-pressed', 'true');
+            // Its Use button gives way to a label, and focus must not fall to the page with it.
+            // On a phone the comparison is a sheet over the strip that stays to show the result,
+            // with focus on its Close, so Escape closes it and leaves the record open. A desktop
+            // pop-out closes as the button goes, and focus returns to its thumbnail.
+            if ((page.viewportSize()?.width ?? 1280) < 640) {
+                await expect(panel).toContainText('The photograph now');
+                await expect(panel.getByRole('button', { name: 'Close' })).toBeFocused();
+                await page.keyboard.press('Escape');
+            } else if (await panel.count()) {
+                await page.keyboard.press('Escape');
+            }
+            await expect(panel).toHaveCount(0);
+            await expect(page.locator('[data-frame-strip-backdrop]')).toHaveCount(0);
+            await expect(page.getByRole('dialog').first()).toBeVisible();
+            await expect(triggers.nth(21)).toBeFocused();
+            view = await settledStrip(page);
+            expect(view.chosenReachable).toBe(true);
+            expect(view.scrollLeft).toBeGreaterThanOrEqual(view.maxScroll - 1);
+
+            for (let step = 0; step < 30 && view.scrollLeft > 0; step += 1) {
+                await back.click();
+                view = await settledStrip(page);
+            }
+            expect(view.scrollLeft).toBe(0);
+            await expect(back).toBeHidden();
+            expect(plan.errors).toEqual([]);
+        });
+
+        test(`${surface.name}: a chosen photograph far along the strip is brought into view when it opens`, async ({ page }, testInfo) => {
+            const plan = newPlan();
+            plan.retainedPhotos = MANY_KEPT;
+            await surface.open(page, plan, '&queue=wren');
+            await expect(page.locator('[data-frame-strip] button[aria-pressed="true"]')).toHaveCount(1);
+            const view = await settledStrip(page);
+            await page.screenshot({ path: testInfo.outputPath('many-chosen-offscreen.png') });
+            expect(view.chosen).toBe(21);
+            expect(view.scrollLeft).toBeGreaterThan(0);
+            expect(view.chosenReachable, JSON.stringify(view)).toBe(true);
+            await expect(page.locator('[data-frame-strip-back]')).toBeVisible();
+        });
+    }
+
+    test('the keyboard moves along the strip and every thumbnail it reaches is in view', async ({ page }) => {
+        const plan = newPlan();
+        plan.retainedPhotos = MANY_KEPT;
+        await openQueue(page, plan, '&queue=wren');
+        const triggers = page.locator('[data-frame-strip] button[aria-pressed]');
+        await expect(triggers).toHaveCount(22);
+        const panel = page.locator('[data-frame-strip-panel]');
+        const sheet = (page.viewportSize()?.width ?? 1280) < 640;
+
+        // Keyboard focus opens the comparison for its thumbnail: a pop-out beside it, or on a
+        // phone a sheet over the strip. Either way the thumbnail is placed clear of the edges,
+        // Escape closes the comparison and leaves focus where it was, and the thumbnail is then
+        // one a finger or pointer actually lands on.
+        const checkFocused = async (index: number, why: string) => {
+            await expect(triggers.nth(index)).toBeFocused();
+            await settledStrip(page);
+            // An edge control fades for 150 ms after its end comes into view.
+            await expect.poll(() => thumbnailPlacement(page, index), { message: why }).toEqual({ inStrip: true, clearOfControls: true });
+            await expect(panel).toContainText(`Photo option ${index + 1} of 22`);
+            await expect(page.locator('[data-frame-strip-backdrop]')).toHaveCount(sheet ? 1 : 0);
+            await page.keyboard.press('Escape');
+            await expect(panel).toHaveCount(0);
+            await expect(page.locator('[data-frame-strip-backdrop]')).toHaveCount(0);
+            await expect(triggers.nth(index)).toBeFocused();
+            expect((await settledStrip(page)).reachable, why).toContain(index);
+        };
+
+        // The photograph in use is the last of them, so the strip opens at its far end.
+        await triggers.nth(0).focus();
+        await checkFocused(0, 'Tab-style focus landed under the edge');
+
+        for (let index = 1; index <= 12; index += 1) {
+            await page.keyboard.press('ArrowRight');
+            await expect(triggers.nth(index)).toBeFocused();
+            // The comparison follows focus along the strip.
+            await expect(panel).toContainText(`Photo option ${index + 1} of 22`);
+        }
+        await checkFocused(12, 'focus moved onto a thumbnail hidden under the edge');
+
+        await page.keyboard.press('End');
+        await checkFocused(21, 'End left the last thumbnail under the edge');
+
+        await page.keyboard.press('ArrowLeft');
+        await expect(triggers.nth(20)).toBeFocused();
+
+        await page.keyboard.press('Home');
+        await checkFocused(0, 'Home left the first thumbnail under the edge');
+
+        // Down still carries focus into the comparison, as it did before the strip could scroll.
+        await page.keyboard.press('ArrowDown');
+        await expect(panel).toContainText('Photo option 1 of 22');
+        await expect(panel.getByRole('button', { name: 'Close' })).toBeFocused();
+        expect(plan.errors).toEqual([]);
+    });
+
+    test('on a narrow phone the strip stays inside the screen and its ends are reached by tap and by swipe', async ({ page }, testInfo) => {
+        await page.setViewportSize({ width: 360, height: 780 });
+        const plan = newPlan();
+        plan.retainedPhotos = MANY_KEPT;
+        plan.selection.wren = FIRST_KEPT;
+        await openQueue(page, plan, '&queue=wren');
+        const strip = page.locator('[data-frame-strip]');
+        await expect(strip.locator('button[aria-pressed]')).toHaveCount(22);
+        let view = await settledStrip(page);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
+        const box = await page.locator('[data-frame-strip-scroller]').boundingBox();
+        expect((box?.x ?? -1) >= 0 && (box?.x ?? 0) + (box?.width ?? 0) <= 360).toBe(true);
+        expect(view.reachable.length).toBeGreaterThanOrEqual(3);
+
+        const forward = strip.locator('[data-frame-strip-forward]');
+        const back = strip.locator('[data-frame-strip-back]');
+        const target = await forward.boundingBox();
+        expect(target?.width ?? 0, 'the edge control is too small to tap').toBeGreaterThanOrEqual(24);
+        expect(target?.height ?? 0, 'the edge control is too small to tap').toBeGreaterThanOrEqual(24);
+        await forward.click();
+        view = await settledStrip(page);
+        expect(view.scrollLeft).toBeGreaterThan(0);
+        await page.screenshot({ path: testInfo.outputPath('many-phone-middle.png') });
+
+        // A swipe is the strip's own scrolling; the controls follow it.
+        await page.locator('[data-frame-strip-scroller]').evaluate((scroller) => { scroller.scrollLeft = scroller.scrollWidth; });
+        view = await settledStrip(page);
+        await expect(forward).toBeHidden();
+        await expect(back).toBeVisible();
+        expect(view.reachable).toContain(21);
+        await page.screenshot({ path: testInfo.outputPath('many-phone-end.png') });
         expect(plan.errors).toEqual([]);
     });
 });

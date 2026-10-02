@@ -2,6 +2,7 @@
     import ReviewQueueModal from '../src/lib/components/ReviewQueueModal.svelte';
     import DetectionModal from '../src/lib/components/DetectionModal.svelte';
     import { authStore } from '../src/lib/stores/auth.svelte';
+    import { detectionsStore } from '../src/lib/stores/detections.svelte';
     import type { Detection } from '../src/lib/api';
 
     // Prop/auth boundary fixture. The actual queue and record own every candidate read and every
@@ -40,7 +41,17 @@
     let open = $state(true);
     let events = $state<string[]>([]);
     window.reviewMedia = {
-        setRecord(id) { record = capture(id); }
+        setRecord(id) { record = capture(id); },
+        progressAnalysis(id, frames) {
+            detectionsStore.startReclassification(id, frames, 'video');
+            for (let frame = 1; frame <= frames; frame += 1) {
+                detectionsStore.updateReclassificationProgress(id, frame, frames, 0.5, 'Fixture bird');
+            }
+        },
+        completeAnalysis(id) {
+            detectionsStore.startReclassification(id, 15, 'video');
+            detectionsStore.completeReclassification(id, [], 'success');
+        }
     };
 </script>
 

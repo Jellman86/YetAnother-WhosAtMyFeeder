@@ -17,9 +17,43 @@ function candidateResponse(eventId: string, stale: boolean) {
 
 interface CandidateFixture { held: Route | null; heldRefresh: Route | null; holdRefresh: boolean; requestsA: number; errors: string[]; }
 
+test('completed reclassification refreshes an open record even when its species and bird count do not change', async ({ page }) => {
+    const fixture = await open(page);
+    await release(fixture, false);
+    await expect(page.locator('[data-counted-birds-total]')).toHaveText('1');
+    await page.evaluate(() => window.snapshotRace?.completeAnalysis());
+    await expect.poll(() => fixture.requestsA).toBe(2);
+    await expect(page.locator('[data-counted-birds-total]')).toHaveText('2');
+    expect(fixture.errors).toEqual([]);
+});
+
+test('progress ticks and another record finishing do not reread the open record until it finishes', async ({ page }) => {
+    const fixture = await open(page);
+    await release(fixture, false);
+    await expect(page.locator('[data-counted-birds-total]')).toHaveText('1');
+    const photograph = page.locator('img[alt="Capture A"]').first();
+    const firstPhoto = await photograph.getAttribute('src');
+    await page.evaluate(() => {
+        window.snapshotRace?.progressAnalysis(12);
+        window.snapshotRace?.completeAnalysis('B');
+    });
+    await page.waitForTimeout(150);
+    expect(fixture.requestsA).toBe(1);
+    expect(await photograph.getAttribute('src')).toBe(firstPhoto);
+    await page.evaluate(() => window.snapshotRace?.completeAnalysis());
+    await expect.poll(() => fixture.requestsA).toBe(2);
+    await expect(page.locator('[data-counted-birds-total]')).toHaveText('2');
+    await expect.poll(() => photograph.getAttribute('src')).not.toBe(firstPhoto);
+    expect(fixture.errors).toEqual([]);
+});
+
 async function open(page: Page): Promise<CandidateFixture> {
     const fixture: CandidateFixture = { held: null, heldRefresh: null, holdRefresh: false, requestsA: 0, errors: [] };
     page.on('pageerror', error => fixture.errors.push(error.message));
+    // Isolate the HTTP/prop race from a late external stylesheet applying after the modal
+    // mounts. The actual application fonts are checked separately against Quark.
+    await page.route('https://fonts.googleapis.com/**', route => route.fulfill({ contentType: 'text/css', body: '' }));
+    await page.route('https://fonts.gstatic.com/**', route => route.abort());
     await page.route(url => url.pathname.startsWith('/api/'), async route => {
         const path = new URL(route.request().url()).pathname;
         const match = /^\/api\/frigate\/(A|B)\/snapshot\/candidates$/.exec(path);

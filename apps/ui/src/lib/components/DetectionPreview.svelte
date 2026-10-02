@@ -1,6 +1,7 @@
 <script lang="ts">
     import { getThumbnailUrl } from '../api';
     import type { Detection } from '../api';
+    import { detectionsStore } from '../stores/detections.svelte';
     import { formatTime } from '../utils/datetime';
     import { formatTemperature } from '../utils/temperature';
     import { getTemperatureUnitForSystem, resolveWeatherUnitSystem } from '../utils/weather-units';
@@ -176,13 +177,19 @@
         };
     });
 
+    function thumbnailUrl(frame: Detection): string {
+        return getThumbnailUrl(frame.frigate_event, detectionsStore.settledMediaVersion(frame.frigate_event));
+    }
+
     // Snapshots can disappear upstream; a missing one degrades to a placeholder of the
-    // same size rather than a hole that shifts the row (CLAUDE.md §5).
+    // same size rather than a hole that shifts the row (CLAUDE.md §5). Failures are kept per
+    // address, so a photograph saved by a later run is tried.
     let failed = $state<Set<string>>(new Set());
 
-    function markFailed(eventId: string): void {
+    function markFailed(url: string | null): void {
+        if (!url) return;
         const next = new Set(failed);
-        next.add(eventId);
+        next.add(url);
         failed = next;
     }
 
@@ -219,7 +226,7 @@
             role="presentation"
         >
             {#snippet thumbnail(frame: Detection)}
-                {#if failed.has(frame.frigate_event)}
+                {#if failed.has(thumbnailUrl(frame))}
                     <span
                         class="flex h-9 w-9 items-center justify-center rounded-lg border-2 border-white bg-slate-100 text-slate-300 dark:border-slate-900 dark:bg-slate-800 dark:text-slate-600"
                         aria-hidden="true"
@@ -230,14 +237,14 @@
                     </span>
                 {:else}
                     <img
-                        src={getThumbnailUrl(frame.frigate_event)}
+                        src={thumbnailUrl(frame)}
                         alt=""
                         loading="lazy"
                         decoding="async"
                         width="36"
                         height="36"
                         class="h-9 w-9 rounded-lg border-2 border-white bg-slate-100 object-cover dark:border-slate-900 dark:bg-slate-800"
-                        onerror={() => markFailed(frame.frigate_event)}
+                        onerror={(event) => markFailed(event.currentTarget.getAttribute('src'))}
                     />
                 {/if}
             {/snippet}
@@ -275,7 +282,7 @@
                     onmouseenter={cancelScheduledClose}
                     onmouseleave={() => hide()}
                 >
-                    {#if failed.has(frame.frigate_event)}
+                    {#if failed.has(thumbnailUrl(frame))}
                         <div class="flex h-32 w-full items-center justify-center bg-slate-100 text-slate-300 dark:bg-slate-800 dark:text-slate-600">
                             <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2 1.586-1.586a2 2 0 012.828 0L20 14M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -283,7 +290,7 @@
                         </div>
                     {:else}
                         <img
-                            src={getThumbnailUrl(frame.frigate_event)}
+                            src={thumbnailUrl(frame)}
                             alt={$_('dashboard.field_log.preview_alt', {
                                 values: { species: primaryName, camera: frame.camera_name },
                                 default: '{species} on {camera}'
@@ -291,7 +298,7 @@
                             loading="lazy"
                             decoding="async"
                             class="h-32 w-full bg-slate-100 object-cover dark:bg-slate-800"
-                            onerror={() => markFailed(frame.frigate_event)}
+                            onerror={(event) => markFailed(event.currentTarget.getAttribute('src'))}
                         />
                     {/if}
                     <div class="space-y-1 p-3">

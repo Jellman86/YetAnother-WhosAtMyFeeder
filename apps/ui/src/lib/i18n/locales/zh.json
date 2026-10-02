@@ -2062,7 +2062,8 @@
         "top_candidates": "最常出现的候选物种",
         "full_frame": "完整画面",
         "frigate_hint_crop": "Frigate 引导裁剪",
-        "model_crop": "AI 裁剪"
+        "model_crop": "AI 裁剪",
+        "frigate_region_crop": "Frigate 跟踪的区域"
       },
       "blocked_label": "匹配到已屏蔽的物种 — 未应用"
     },
@@ -2194,10 +2195,14 @@
     "snapshot_framing_whole": "完整画面",
     "snapshot_framing_close": "聚焦这只鸟",
     "snapshot_framing_as_recorded": "Frigate 记录的原样",
+    "snapshot_framing_previous": "之前的照片",
+    "previous_photo_note": "此记录在后续分析替换之前使用的照片。",
     "frame_strip_count": "本次来访的 {count} 帧",
     "photo_option_count_one": "本次来访的 1 个照片选项",
     "photo_option_count": "本次来访的 {count} 个照片选项",
     "frame_strip_hint": "选择一帧只会更换照片，不会改变识别结果。",
+    "frame_strip_scroll_left": "向左滚动",
+    "frame_strip_scroll_right": "向右滚动",
     "frame_position": "第 {position} 帧，共 {count} 帧",
     "frame_compare": "比较第 {position} 帧，共 {count} 帧",
     "photo_option_image_alt": "本次来访的候选照片",
