@@ -167,7 +167,7 @@ own Close, because there is no hover to lose.
 
 ```
 span bar: day, week, month, total · seen, heard, both
-showcase: the leader expanded, the rest as tiles, in the expanded-view manner of a photo library
+spotlight: a share bar of the window, one species shown large beside the ranked list, flagged species apart
 standing band: species, detections, busiest hour, heard or confirmed, rising, most recent
 rankings (with evidence), then analytics
 ```
@@ -181,15 +181,28 @@ start. Rankings count visits (`window_visit_count`, the same ten-minute rule as
 The timeline and the composition chart share one colour per species
 (`leaderboard/species-palette.ts`, validated for colour-blind separation on both surfaces).
 
-The showcase (`SpeciesShowcase`) is the leaderboard's centrepiece. Every species is a photograph:
-this feeder's own newest crop (`/api/leaderboard/portraits`), or, where there is none, the
-species' reference image from the taxonomy cache, labelled as a reference photo and never passed
-off as the feeder's. Clicking a tile brings it forward and the leader it replaces takes the slot
-the tile left, so nothing else in the grid moves; each species is one element for its whole life
-there, and the two boxes are measured before and after the change and animated between them (no
-transition pairing, which is not reliable across blocks). The grid's tracks come from the
-container's aspect ratio alone, so a box in flight never resizes a cell. Under reduced motion
-nothing drifts or morphs. The last tile points at the full rankings.
+The spotlight (`SpeciesSpotlight`) is the leaderboard's centrepiece. A bar across the top shows
+who made up the window, each species in its chart colour, so a species that dominates reads as a
+proportion rather than as one more large photograph. Beside the ranked list, one species at a time
+is shown large: this feeder's own newest crop (`/api/leaderboard/portraits`), never enlarged past
+1.5 times its stored size because feeder crops are small and go soft when stretched, over a
+blurred copy of itself. Where there is no crop the species' reference image stands in, labelled as
+a reference photo and never passed off as the feeder's. A strip beneath marks which days (or hours)
+of the window the species was on camera, from the timeline's per-species series; it draws presence
+only, never those series' frame counts, and a species the timeline did not chart has no strip
+rather than an empty one.
+
+Each segment of the bar opens a pop-out on hover and keyboard focus, under the hover contract (§4):
+the species' common and scientific names over its stock photograph, labelled with its source, and
+its count and share; the grouped segments list their species. On touch a tap chooses the species
+instead, and the spotlight names it.
+
+The spotlight tours the list slowly. Choosing a species, from the list or the bar, ends the tour;
+a pointer or keyboard focus on the spotlight rests it; a Pause control stops it; under reduced
+motion it never starts and nothing grows into place. It is not announced while it tours, and is
+announced politely once someone chooses. Species that are probably misidentifications never take
+a place in the tour or the list: they are counted in the bar and named beneath it under "Needs a
+check", each opening its record. Ranks are the table's own, so the list can skip a number.
 
 ### Reference (About)
 
