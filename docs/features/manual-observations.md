@@ -24,8 +24,17 @@ clips, and older wildlife media that you want in the same searchable history as 
    confirmation.
 
 The review step shows the winning input source, model, provider, and confidence when the classifier
-reports them. A crop badge means the classifier obtained stronger evidence from a crop; it does not
-refer to thumbnail generation.
+reports them. **Scored input: Best crop** means the classifier obtained stronger evidence from a crop.
+
+### Videos with more than one bird
+
+A video can show several species. For each suggestion, the analysis keeps that species' best frame
+and the box around the bird, and the review shows it beside the suggestion. Choosing a suggestion,
+or typing its common or scientific name, shows that bird's frame; **Whole frame** shows the frame
+around it so you can check the crop found the bird you meant. The saved observation's photo is the
+frame of the species you confirm. If you later pick a different species on the saved record, the
+photo moves to that species' frame. When no frame singled out the chosen species, the photo is the
+video's first frame, and the review says so.
 
 ## Reliability and privacy
 
@@ -64,7 +73,8 @@ path.
 
 If analysis fails, read the inline message and select **Retry analysis**. The original file remains
 safe. If the container stopped during analysis, the job becomes retryable rather than silently
-creating a partial detection. Use **Start over** to discard an unsaved draft and its media.
+creating a partial detection. Use **Start over** to discard an unsaved draft and its media; it asks
+first, because the uploaded file is deleted.
 
 An HTTP `413 Request Entity Too Large` before analysis usually means an external reverse proxy is
 still applying its default request limit. Allow up to 256 MiB specifically for

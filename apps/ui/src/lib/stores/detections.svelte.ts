@@ -514,6 +514,11 @@ export class DetectionsStore {
         this.settledReclassifications = next;
     }
 
+    /** A species correction moved the photo behind the same address (an uploaded video's, #481). */
+    notePhotoChanged(eventId: string) {
+        this.noteReclassificationSettled(eventId);
+    }
+
     /** 0 until a run for the event settles; afterwards a version no earlier settle has used. */
     settledMediaVersion(eventId: string): number {
         return this.settledReclassifications.get(eventId) ?? 0;

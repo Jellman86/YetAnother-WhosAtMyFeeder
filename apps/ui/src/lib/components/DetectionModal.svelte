@@ -1541,6 +1541,7 @@
             const nextDetection = applyManualTagResult(detection, result);
             Object.assign(detection, nextDetection);
             detectionsStore.updateDetection(nextDetection);
+            if (result.photo_changed) detectionsStore.notePhotoChanged(detection.frigate_event);
             showTagDropdown = false;
             tagSearchQuery = '';
             aiAnalysis = nextDetection.ai_analysis ?? null;

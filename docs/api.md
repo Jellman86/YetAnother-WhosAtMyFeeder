@@ -286,8 +286,10 @@ can change their framing. Full-frame Frigate coordinates must not be reapplied t
 - `DELETE /api/manual-observations/{draft_id}` (owner; unsaved drafts only)
 - `GET /api/manual-observations/{draft_id}/preview` (owner; also supports `HEAD`)
 - `GET /api/manual-observations/{draft_id}/media` (owner; also supports `HEAD` and byte ranges)
+- `GET /api/manual-observations/{draft_id}/species/{position}/{view}` (owner; `view` is `photo` or
+  `scene`; also supports `HEAD`; `404` when no frame localised that suggestion)
 
-These two exact read routes accept the owner HttpOnly session cookie so browser image and
+These exact read routes accept the owner HttpOnly session cookie so browser image and
 video elements can load the draft without tokens in their URLs. Draft identifiers must be
 32 lowercase hexadecimal characters. Cookie authentication does not authorize draft status,
 upload, retry, confirmation or deletion. Guests cannot read draft media. Preview responses
@@ -295,11 +297,15 @@ are private; original media sends `Cache-Control: private, no-store`.
 
 Upload and retry responses expose durable status, progress, model alternatives, inference
 provider/model/input provenance, common/scientific taxonomy names, optional extracted GPS
-coordinates, and local preview/media URLs. The confirmation body accepts optional `latitude` and
+coordinates, and local preview/media URLs. For a video, each suggestion the analysis localised in
+a frame also carries `photo_url` (that species' best frame, cropped to the bird), `scene_url` (the
+whole frame) and `frame_offset_seconds`; they are null otherwise. The confirmation body accepts optional `latitude` and
 `longitude` together plus `location_source` (`image_metadata`, `manual_pin`, or `none` to clear an
 extracted location). Confirmation creates a normal
 detection with `observation_source: "manual_upload"`; its owner-confirmed species stays distinct
-from the retained top classifier result. Detection responses expose confirmed location as
+from the retained top classifier result. A saved video's photo is the confirmed species' best frame
+when the analysis localised one, and the video's first frame otherwise. A later species correction
+through `PATCH /api/events/{event_id}` moves the photo the same way and reports `photo_changed`. Detection responses expose confirmed location as
 `observation_latitude`, `observation_longitude`, and `observation_location_source`. Manual media is
 served through the canonical snapshot, thumbnail, and clip routes but is excluded from Frigate
 reconciliation and BirdNET-Go context lookup.

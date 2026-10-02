@@ -47,12 +47,20 @@
       "crop": "Meilleur recadrage",
       "model": "Modèle",
       "provider": "Fournisseur",
-      "original": "Tel qu’importé",
       "compare": "Comparer les éléments",
-      "scored_help": "Voici exactement l’entrée évaluée par le classificateur.",
-      "original_help": "Votre fichier d’origine, conservé tel quel.",
       "input": "Entrée évaluée",
-      "file": "Fichier"
+      "file": "Fichier",
+      "bird": "Oiseau",
+      "whole_frame": "Image entière",
+      "your_photo": "Votre photo",
+      "first_frame": "Première image",
+      "species_frame_alt": "Meilleure image de {species}",
+      "species_frame_help": "La meilleure image de {species}, à {time} dans la vidéo. Elle devient la photo de l'observation.",
+      "species_frame_help_untimed": "La meilleure image de {species} dans la vidéo. Elle devient la photo de l'observation.",
+      "no_species_frame_help": "Aucune image n'isole {species} ; l'observation garde donc la première image de la vidéo comme photo.",
+      "first_frame_help": "La première image de la vidéo.",
+      "photo_help": "Votre photo, conservée telle quelle. Le classificateur a évalué l'image entière.",
+      "photo_cropped_help": "Votre photo, conservée telle quelle. Le classificateur a évalué un recadrage autour de l'oiseau."
     },
     "errors": {
       "load": "L’état de l’analyse n’a pas pu être chargé.",
@@ -81,7 +89,8 @@
       "progress": "Progression de l’analyse",
       "failed_title": "Analyse arrêtée en toute sécurité",
       "failed_body": "Votre média original reste conservé. Réessayez lorsque le modèle sera disponible.",
-      "retry": "Relancer l’analyse"
+      "retry": "Relancer l’analyse",
+      "failed_reason": "Raison donnée par le classificateur :"
     },
     "review": {
       "preview_alt": "Aperçu de l’observation",
@@ -94,7 +103,10 @@
       "notes": "Remarques",
       "saving": "Enregistrement de l’observation…",
       "save": "Enregistrer l’observation",
-      "save_species": "Ajouter {species}"
+      "save_species": "Ajouter {species}",
+      "several_species": "Chaque suggestion montre l'oiseau sur lequel elle a été évaluée. Si la vidéo montre plus d'un oiseau, choisissez celui de cette observation et sa photo suivra.",
+      "no_frame": "Aucune image",
+      "when_help": "Laissez vide pour utiliser l'heure de l'enregistrement."
     },
     "location": {
       "title": "Lieu de l’observation",
@@ -119,12 +131,18 @@
       "title": "Observation enregistrée",
       "body": "La fiche vérifiée fait maintenant partie de votre historique et des totaux par espèce.",
       "view": "Voir la détection",
-      "another": "En ajouter une autre"
+      "another": "En ajouter une autre",
+      "photo": "La photo enregistrée avec {species}"
     },
     "start_over": "Recommencer",
     "bar": {
       "kept": "Conservé tel qu’importé",
       "hint": "Rien n’est ajouté avant votre validation"
+    },
+    "discard": {
+      "title": "Abandonner cet envoi ?",
+      "message": "Le fichier envoyé et son analyse sont supprimés. Rien n'a été ajouté à vos observations.",
+      "confirm": "Abandonner l'envoi"
     }
   },
   "setup": {

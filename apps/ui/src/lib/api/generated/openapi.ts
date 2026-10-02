@@ -1141,6 +1141,7 @@ export interface components {
 };
     ManualObservationPrediction: {
     common_name?: string | null;
+    frame_offset_seconds?: number | null;
     inference_backend?: string | null;
     inference_provider?: string | null;
     input_is_cropped?: boolean | null;
@@ -1148,6 +1149,8 @@ export interface components {
     label: string;
     model_id?: string | null;
     model_name?: string | null;
+    photo_url?: string | null;
+    scene_url?: string | null;
     scientific_name?: string | null;
     score: number;
     taxa_id?: number | null;
@@ -1188,6 +1191,7 @@ export interface components {
     manual_tagged: boolean;
     new_species: string;
     old_species?: string | null;
+    photo_changed?: boolean;
     scientific_name?: string | null;
     species?: string | null;
     status: "updated" | "unchanged";
@@ -3705,6 +3709,19 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: components['schemas']['ManualObservationResponse'];
+    };
+  };
+  "/api/manual-observations/{draft_id}/species/{position}/{view}": {
+    get: {
+      operationId: "species_photo_manual_observation_api_manual_observations__draft_id__species__position___view__get";
+      path: {
+    draft_id: string;
+    position: number;
+    view: "photo" | "scene";
+};
+      query: never;
+      requestBody: unknown;
+      response: unknown;
     };
   };
   "/api/models/available": {
