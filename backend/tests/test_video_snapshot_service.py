@@ -144,7 +144,14 @@ async def test_video_photo_respects_owner_choices_current_identity_and_eviction(
     if condition == "manual_photo":
         await module.media_cache.set_manual_snapshot_selection(event_id, True)
     monkeypatch.setattr(module.archive_service, "refresh_photograph", AsyncMock())
-    await module.replace_video_snapshot(event_id, clip, _result(), clip_variant="event")
+    outcome = await module.replace_video_snapshot(event_id, clip, _result(), clip_variant="event")
+    expected = {
+        "manual_photo": "manual_selection_preserved",
+        "different_species": "primary_identity_preserved",
+        "storage_evicted": "storage_evicted",
+        "blocked": "blocked_species",
+    }
+    assert outcome == expected.get(condition, "owner_identification_preserved")
     assert await module.media_cache.get_snapshot(event_id) == b"owner-photo"
     module.archive_service.refresh_photograph.assert_not_awaited()
 
@@ -154,17 +161,19 @@ async def test_video_photo_rechecks_identity_after_decode(clip, monkeypatch):
     event_id = "video-photo-correction-during-decode"
     await _seed(event_id)
     await module.media_cache.cache_snapshot(event_id, b"owner-photo")
-    original = module.extract_video_snapshot
+    original = module.asyncio.to_thread
 
     async def decode_then_correct(fn, *args, **kwargs):
-        decoded = original(*args, **kwargs)
-        async with get_db() as db:
-            await db.execute("UPDATE detections SET manual_tagged = 1 WHERE frigate_event = ?", (event_id,))
-            await db.commit()
+        decoded = await original(fn, *args, **kwargs)
+        if fn is module.extract_video_snapshot:
+            async with get_db() as db:
+                await db.execute("UPDATE detections SET manual_tagged = 1 WHERE frigate_event = ?", (event_id,))
+                await db.commit()
         return decoded
 
     monkeypatch.setattr(module.asyncio, "to_thread", decode_then_correct)
-    await module.replace_video_snapshot(event_id, clip, _result(), clip_variant="event")
+    outcome = await module.replace_video_snapshot(event_id, clip, _result(), clip_variant="event")
+    assert outcome == "owner_identification_preserved"
     assert await module.media_cache.get_snapshot(event_id) == b"owner-photo"
 
 
@@ -280,8 +289,31 @@ async def test_retained_photo_keeps_original_bytes_with_bounded_thumbnail(monkey
     with Image.open(BytesIO(retained["thumbnail_bytes"])) as thumbnail:
         assert thumbnail.width <= 320
         assert thumbnail.height <= 240
-    monkeypatch.setattr(module.media_cache, "get_snapshot", AsyncMock(return_value=original))
+    await module.media_cache.cache_snapshot(retained["image_ref"], original)
     assert await module.retained_snapshot_candidate("evt", original, {}, [retained]) is None
+
+
+@pytest.mark.asyncio
+async def test_retention_uses_saved_hash_without_reading_every_candidate(monkeypatch):
+    import hashlib
+
+    photo = b"saved-photo"
+    ref = "evt-hash__model_crop__f2__aaaaaaaaaa__image"
+    await module.media_cache.cache_snapshot(ref, photo)
+    read = AsyncMock(side_effect=AssertionError("hash lookup should not read candidate JPEGs"))
+    monkeypatch.setattr(module.media_cache, "get_snapshot", read)
+    existing = [{"candidate_id": "known", "image_ref": ref, "content_sha256": hashlib.sha256(photo).hexdigest()}]
+    assert await module.retained_snapshot_candidate("evt-hash", photo, {}, existing) is None
+    read.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_legacy_duplicate_comparison_is_bounded(monkeypatch):
+    read = AsyncMock(return_value=b"other-photo")
+    monkeypatch.setattr(module.media_cache, "get_snapshot", read)
+    existing = [{"candidate_id": f"legacy-{i}", "image_ref": f"legacy-{i}"} for i in range(100)]
+    assert await module.retained_snapshot_candidate("evt", b"new-photo", {}, existing) is not None
+    assert read.await_count <= 8
 
 
 def test_video_candidate_keeps_tracked_region_provenance():
@@ -349,3 +381,70 @@ async def test_photo_preflight_does_not_decode_for_an_owner_selected_photo(clip,
         == "manual_selection_preserved"
     )
     decode.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_saved_hash_does_not_prevent_restoring_a_missing_earlier_photo():
+    import hashlib
+
+    photo = b"missing-prior-photo"
+    row = {"candidate_id": "missing", "content_sha256": hashlib.sha256(photo).hexdigest(), "image_ref": "not-on-disk"}
+    restored = await module.retained_snapshot_candidate("restore-earlier", photo, {}, [row])
+    assert restored["image_bytes"] == photo
+    assert restored["content_sha256"] == row["content_sha256"]
+
+
+@pytest.mark.asyncio
+async def test_baseline_repeated_accepted_species_changes_bound_photo_choices(monkeypatch):
+    from PIL import Image
+
+    event = "bounded-baseline-photos"
+    await _seed(event)
+    original = module._jpeg(Image.new("RGB", (80, 60), "red"))
+    await module.media_cache.cache_snapshot(event, original, source="frigate_snapshot")
+    monkeypatch.setattr(module.archive_service, "refresh_photograph", AsyncMock())
+    for i in range(25):
+        result = _result()
+        result["label"] = f"Accepted bird {i}"
+        async with get_db() as db:
+            await db.execute(
+                "UPDATE detections SET category_name=?,display_name=? WHERE frigate_event=?",
+                (result["label"], result["label"], event),
+            )
+            await db.commit()
+        scene = Image.new("RGB", (80, 60), (i * 7, 45, 70))
+        candidates = module._candidates(
+            event, result, result["_video_snapshot_evidence"], (scene.crop((10, 20, 50, 50)), scene), "event"
+        )
+        assert (
+            await module._commit_video_snapshot(
+                event, result, result["_video_snapshot_evidence"], candidates, automatic=True
+            )
+            == "replaced"
+        )
+    async with get_db() as db:
+        rows = await DetectionRepository(db).list_snapshot_candidates(event)
+    assert len(rows) <= 21
+    assert len([row for row in rows if row["selected"]]) == 1
+    assert all([await module.media_cache.get_snapshot(row["image_ref"]) for row in rows])
+    retained = next(row for row in rows if row["source_mode"] == "retained_photo")
+    assert await module.media_cache.get_snapshot(retained["image_ref"]) == original
+
+
+@pytest.mark.asyncio
+async def test_replacing_a_reused_candidate_key_keeps_earlier_bytes_and_creation_time():
+    import hashlib
+
+    photo = b"earlier-key-photo"
+    ref = "reused-key-photo"
+    await module.media_cache.cache_snapshot(ref, photo, source="snapshot_candidate")
+    row = {
+        "candidate_id": "reused",
+        "image_ref": ref,
+        "selected": True,
+        "content_sha256": hashlib.sha256(photo).hexdigest(),
+        "created_at": "2026-01-01 00:00:00",
+    }
+    retained = await module.retained_snapshot_candidate("reuse", photo, {}, [row], replaced_candidate_ids={"reused"})
+    assert retained["image_bytes"] == photo
+    assert retained["created_at"] == row["created_at"]

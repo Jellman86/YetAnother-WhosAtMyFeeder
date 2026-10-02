@@ -16,6 +16,9 @@ from app.config import settings
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 from app.repositories.processing_job_repository import ProcessingJobRepository
+from app.repositories.bird_observation_repository import BirdObservationRepository
+from app.utils.api_datetime import serialize_storage_datetime, utc_naive_now
+from app.utils.photo_retention import MAX_EARLIER_PHOTO_CHOICES, merge_photo_choices
 from app.services.archive_service import archive_service
 from app.services.media_cache import media_cache
 from app.utils.canonical_species import should_hide_species_label
@@ -106,6 +109,7 @@ def _candidates(
         [("full_frame", scene, False)] if not cropped else [("full_frame", scene, False), (crop_mode, portrait, True)]
     )
     rows = []
+    created_at = serialize_storage_datetime(utc_naive_now())
     for mode, image, selected in roles:
         selected = selected or not cropped
         image_bytes = _jpeg(image)
@@ -129,6 +133,8 @@ def _candidates(
                 "snapshot_source": source if selected else "video_evidence_full_frame",
                 "image_ref": f"{candidate_id}__image",
                 "thumbnail_ref": f"{candidate_id}__thumb",
+                "content_sha256": hashlib.sha256(image_bytes).hexdigest(),
+                "created_at": created_at,
                 "image_bytes": image_bytes,
                 "thumbnail_bytes": _jpeg(image, thumbnail=True),
             }
@@ -146,16 +152,42 @@ def _retained_thumbnail(image_bytes: bytes) -> bytes | None:
 
 
 async def retained_snapshot_candidate(
-    event_id: str, photo: bytes | None, metadata: dict[str, Any], existing: list[dict[str, Any]]
+    event_id: str,
+    photo: bytes | None,
+    metadata: dict[str, Any],
+    existing: list[dict[str, Any]],
+    *,
+    replaced_candidate_ids: set[str] | None = None,
+    photo_content_sha256: str | None = None,
 ) -> dict[str, Any] | None:
     """Keep the prior photograph before replacement; the caller holds its commit lock."""
     if not photo:
         return None
+    content_sha256 = photo_content_sha256 or await asyncio.to_thread(lambda: hashlib.sha256(photo).hexdigest())
+    candidate_id = f"{event_id}__retained_snapshot__{content_sha256[:12]}"
+    replaced_candidate_ids = replaced_candidate_ids or set()
+    created_at = serialize_storage_datetime(utc_naive_now())
     for old in existing:
-        if old.get("image_ref") and await media_cache.get_snapshot(old["image_ref"]) == photo:
-            return None
-    digest = hashlib.sha256(photo).hexdigest()[:12]
-    candidate_id = f"{event_id}__retained_snapshot__{digest}"
+        if old.get("content_sha256") == content_sha256 and old.get("image_ref"):
+            if await asyncio.to_thread(media_cache._snapshot_path(old["image_ref"]).is_file):
+                if old["candidate_id"] not in replaced_candidate_ids:
+                    return None
+                created_at = min(created_at, str(old.get("created_at") or created_at))
+    legacy = [old for old in existing if not old.get("content_sha256") and old.get("image_ref")]
+    legacy.sort(
+        key=lambda row: (
+            row.get("candidate_id") == candidate_id,
+            bool(row.get("selected")),
+            str(row.get("created_at") or ""),
+        ),
+        reverse=True,
+    )
+    for old in legacy[:MAX_EARLIER_PHOTO_CHOICES]:
+        if await media_cache.get_snapshot(old["image_ref"]) == photo:
+            old["content_sha256"] = content_sha256
+            if old["candidate_id"] not in replaced_candidate_ids:
+                return None
+            created_at = min(created_at, str(old.get("created_at") or created_at))
     thumbnail = await asyncio.to_thread(_retained_thumbnail, photo)
     return {
         "candidate_id": candidate_id,
@@ -170,9 +202,23 @@ async def retained_snapshot_candidate(
         "snapshot_source": metadata.get("source") or "cached_snapshot_unknown",
         "image_ref": f"{candidate_id}__image",
         "thumbnail_ref": f"{candidate_id}__thumb" if thumbnail else None,
+        "content_sha256": content_sha256,
+        "created_at": created_at,
         "image_bytes": photo,
         "thumbnail_bytes": thumbnail,
     }
+
+
+async def prune_unreferenced_photo_files(existing: list[dict[str, Any]], retained: list[dict[str, Any]]) -> None:
+    """Delete superseded candidate files only after their row replacement commits."""
+    for field, delete in (("image_ref", media_cache.delete_snapshot), ("thumbnail_ref", media_cache.delete_thumbnail)):
+        kept = {row.get(field) for row in retained if row.get(field)}
+        stale = {row.get(field) for row in existing if row.get(field)} - kept
+        for reference in sorted(stale):
+            try:
+                await delete(reference)
+            except Exception as exc:
+                log.warning("Unable to prune earlier photo file", reference=reference, error=str(exc))
 
 
 async def _snapshot_preservation_outcome(
@@ -254,7 +300,17 @@ async def _commit_video_snapshot(
         previous_photo = await media_cache.get_snapshot(event_id)
         async with get_db() as db:
             existing = await DetectionRepository(db).list_snapshot_candidates(event_id)
-        retained = await retained_snapshot_candidate(event_id, previous_photo, metadata, existing)
+        displayed_photo_sha256 = (
+            await asyncio.to_thread(lambda: hashlib.sha256(previous_photo).hexdigest()) if previous_photo else None
+        )
+        retained = await retained_snapshot_candidate(
+            event_id,
+            previous_photo,
+            metadata,
+            existing,
+            replaced_candidate_ids={item["candidate_id"] for item in candidates},
+            photo_content_sha256=displayed_photo_sha256,
+        )
         async with get_db() as db:
             # Reserve identity while the already-encoded files are committed. A
             # correction cannot slip between this check and the photo write.
@@ -267,8 +323,18 @@ async def _commit_video_snapshot(
                 return preserved
             if retained is not None:
                 candidates.append(retained)
-            new_ids = {item["candidate_id"] for item in candidates}
-            rows = [{**item, "selected": False} for item in existing if item["candidate_id"] not in new_ids]
+            birds = await BirdObservationRepository(db).list_for_event(event_id)
+            rows = merge_photo_choices(
+                existing,
+                candidates,
+                reviewed_frames={(bird["clip_variant"], bird["frame_index"]) for bird in birds},
+                manual_candidate_id=metadata.get("manual_candidate_id"),
+                displayed_photo_sha256=displayed_photo_sha256,
+            )
+            rows = [
+                {key: value for key, value in item.items() if key not in {"image_bytes", "thumbnail_bytes"}}
+                for item in rows
+            ]
             for candidate in candidates:
                 await media_cache._write_bytes_atomic(
                     media_cache._snapshot_path(candidate["image_ref"]), candidate["image_bytes"]
@@ -278,9 +344,6 @@ async def _commit_video_snapshot(
                     await media_cache.cache_thumbnail(
                         candidate["thumbnail_ref"], candidate["thumbnail_bytes"], source="snapshot_candidate"
                     )
-                rows.append(
-                    {key: value for key, value in candidate.items() if key not in {"image_bytes", "thumbnail_bytes"}}
-                )
             photo_path = media_cache._snapshot_path(event_id)
             metadata_path = media_cache._snapshot_metadata_path(event_id)
             try:
@@ -297,6 +360,7 @@ async def _commit_video_snapshot(
                 else:
                     await media_cache._complete_file_operation(metadata_path.unlink, True)
                 raise
+            await prune_unreferenced_photo_files(existing, rows)
             await media_cache.delete_thumbnail(event_id)
     await archive_service.refresh_photograph(event_id)
     log.info(

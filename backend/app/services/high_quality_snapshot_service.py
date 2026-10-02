@@ -46,6 +46,7 @@ from app.utils.classifier_labels import normalize_classifier_label
 from app.utils.frigate_coordinates import normalized_frigate_video_hint, restore_frigate_hint_box
 from app.utils.tasks import create_background_task
 from app.utils.image_io import decode_image_bytes
+from app.utils.api_datetime import serialize_storage_datetime, utc_naive_now
 
 log = structlog.get_logger()
 
@@ -1648,84 +1649,73 @@ class HighQualitySnapshotService:
 
     async def _persist_snapshot_candidates_locked(self, event_id: str, candidates: list[dict[str, Any]]) -> None:
         metadata = await media_cache.get_snapshot_metadata(event_id) or {}
-        stale_image_refs: list[str] = []
-        stale_thumbnail_refs: list[str] = []
         async with get_db() as db:
             repo = DetectionRepository(db)
             existing = await repo.list_snapshot_candidates(event_id)
-            reviewed_birds = [
-                bird
-                for bird in await BirdObservationRepository(db).list_for_event(event_id)
-                if bird["manual_species"] or bird["is_hidden"]
-            ]
-            reviewed_frames = {(bird["clip_variant"], bird["frame_index"]) for bird in reviewed_birds}
-            manual_choice = bool(metadata.get("manual_selection"))
-            chosen_id = metadata.get("manual_candidate_id")
-            chosen = (
-                next((item for item in existing if str(item.get("candidate_id") or "") == chosen_id), None)
-                if chosen_id
-                else (
-                    next((item for item in existing if item.get("selected")), None)
-                    if "manual_candidate_id" not in metadata
-                    else None
-                )
+            birds = await BirdObservationRepository(db).list_for_event(event_id)
+        previous = {row["candidate_id"]: row for row in existing}
+        created_at = serialize_storage_datetime(utc_naive_now())
+        candidates = [
+            {
+                **row,
+                "created_at": row.get("created_at")
+                or previous.get(row["candidate_id"], {}).get("created_at")
+                or created_at,
+            }
+            for row in candidates
+        ]
+        reviewed_frames = {(bird["clip_variant"], bird["frame_index"]) for bird in birds}
+        manual_choice = bool(metadata.get("manual_selection"))
+        chosen_id = metadata.get("manual_candidate_id")
+        chosen = (
+            next((item for item in existing if str(item.get("candidate_id") or "") == chosen_id), None)
+            if chosen_id
+            else (
+                next((item for item in existing if item.get("selected")), None)
+                if "manual_candidate_id" not in metadata
+                else None
             )
-            from app.services.video_snapshot_service import retained_snapshot_candidate
+        )
+        from app.services.video_snapshot_service import retained_snapshot_candidate
+        from app.utils.photo_retention import merge_photo_choices, photo_content_key
 
-            preserved_photos = [item for item in existing if item.get("source_mode") == "retained_photo"]
-            if manual_choice and chosen is not None:
-                preserved_photos.append(chosen)
-            retained = await retained_snapshot_candidate(
-                event_id,
-                await media_cache.get_snapshot(event_id),
-                metadata,
-                preserved_photos,
-            )
-            if retained is not None:
-                candidates = list(candidates) + [retained]
-            if manual_choice:
-                candidates = [{**item, "selected": False} for item in candidates]
-                if chosen is not None:
-                    reviewed_frames.add((chosen.get("clip_variant"), chosen.get("frame_index")))
-                    candidates = [item for item in candidates if item.get("candidate_id") != chosen["candidate_id"]]
-                    candidates.append({**chosen, "selected": True})
-            new_ids = {str(item.get("candidate_id") or "") for item in candidates}
-            # A regeneration can select a different frame. Keep the old whole frame so a
-            # manually corrected bird still has a visible, auditable box in its original scene.
-            candidates = list(candidates) + [
-                {**item, "selected": False}
-                for item in existing
-                if (
-                    item.get("source_mode") == "retained_photo"
-                    or (
-                        item.get("source_mode") == "full_frame"
-                        and (item.get("clip_variant"), item.get("frame_index")) in reviewed_frames
-                    )
-                )
-                and str(item.get("candidate_id") or "") not in new_ids
-            ]
-            existing_image_refs = {
-                str(item.get("image_ref") or "").strip()
-                for item in existing
-                if str(item.get("image_ref") or "").strip()
-            }
-            existing_thumbnail_refs = {
-                str(item.get("thumbnail_ref") or "").strip()
-                for item in existing
-                if str(item.get("thumbnail_ref") or "").strip()
-            }
-            new_image_refs = {
-                str(item.get("image_ref") or "").strip()
-                for item in candidates
-                if str(item.get("image_ref") or "").strip()
-            }
-            new_thumbnail_refs = {
-                str(item.get("thumbnail_ref") or "").strip()
-                for item in candidates
-                if str(item.get("thumbnail_ref") or "").strip()
-            }
-            stale_image_refs = sorted(existing_image_refs - new_image_refs)
-            stale_thumbnail_refs = sorted(existing_thumbnail_refs - new_thumbnail_refs)
+        displayed_photo = await media_cache.get_snapshot(event_id)
+        displayed_photo_sha256 = (
+            await asyncio.to_thread(lambda: hashlib.sha256(displayed_photo).hexdigest()) if displayed_photo else None
+        )
+        retained = await retained_snapshot_candidate(
+            event_id,
+            displayed_photo,
+            metadata,
+            existing,
+            replaced_candidate_ids={item["candidate_id"] for item in candidates if item.get("image_bytes")},
+            photo_content_sha256=displayed_photo_sha256,
+        )
+        if retained is not None:
+            candidates = list(candidates) + [retained]
+        if manual_choice:
+            candidates = [{**item, "selected": False} for item in candidates]
+            if chosen is not None:
+                reviewed_frames.add((chosen.get("clip_variant"), chosen.get("frame_index")))
+                candidates = [item for item in candidates if item.get("candidate_id") != chosen["candidate_id"]]
+                candidates.append({**chosen, "selected": True})
+        for row in candidates:
+            image_bytes = row.get("image_bytes")
+            thumbnail_bytes = row.get("thumbnail_bytes")
+            if isinstance(image_bytes, (bytes, bytearray)):
+                digest = await asyncio.to_thread(lambda: hashlib.sha256(image_bytes).hexdigest())
+                row["content_sha256"] = digest
+                row["image_ref"] = photo_content_key(event_id, row, digest) + "__image"
+            if isinstance(thumbnail_bytes, (bytes, bytearray)):
+                digest = await asyncio.to_thread(lambda: hashlib.sha256(thumbnail_bytes).hexdigest())
+                row["thumbnail_ref"] = photo_content_key(event_id, row, digest) + "__thumb"
+        candidates = merge_photo_choices(
+            existing,
+            candidates,
+            reviewed_frames=reviewed_frames,
+            manual_candidate_id=chosen.get("candidate_id") if manual_choice and chosen else None,
+            displayed_photo_sha256=displayed_photo_sha256,
+        )
 
         for candidate in candidates:
             image_ref = str(candidate.get("image_ref") or "")
@@ -1747,10 +1737,9 @@ class HighQualitySnapshotService:
         async with get_db() as db:
             repo = DetectionRepository(db)
             await repo.replace_snapshot_candidates(event_id, persisted_rows)
-        for image_ref in stale_image_refs:
-            await media_cache.delete_snapshot(image_ref)
-        for thumbnail_ref in stale_thumbnail_refs:
-            await media_cache.delete_thumbnail(thumbnail_ref)
+        from app.services.video_snapshot_service import prune_unreferenced_photo_files
+
+        await prune_unreferenced_photo_files(existing, persisted_rows)
 
     async def _persist_bird_observations(self, event_id: str, selection: BirdObservationSelection | None) -> None:
         if not isinstance(selection, BirdObservationSelection) or not selection.birds:
