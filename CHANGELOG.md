@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Keep tracked-region crops and earlier-photo choices attached to their visit during cache recovery and storage eviction, including older sidecars containing the photo key.
+
 - Avoid decoding a video again when the saved photo already positively matches the accepted species. Check owner choices and retained bytes first, and recheck every staged replacement before saving.
 
 - Hold the background page still while **Needs your call** is open, restore its position on close, and keep the full-screen dialog within the viewport. Wrap its title and species names at enlarged text sizes.
