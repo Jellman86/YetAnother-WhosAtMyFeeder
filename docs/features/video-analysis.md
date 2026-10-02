@@ -49,6 +49,15 @@ fallback. A sublabel can also be YA-WAMF's own earlier write-back, so it is not 
 independent species evidence. Video runs do not add the current Frigate sublabel as another
 prior.
 
+When the first label was such a fallback, YA-WAMF records that it was borrowed. Its own
+classifier did not reach the threshold on the event image, so a borrowed label is not used as
+the species prior: it would otherwise favour that species wherever it appears in the clip, such
+as another bird sitting in view throughout a short visit. While the stored label is still that
+borrowed one, a video result replaces it once it clears the normal threshold. It does not have
+to beat the sub-label's score, which comes from Frigate's model, or the stricter margin that
+applies when a video result disagrees with an independent Frigate sublabel. Visits saved before
+this was recorded keep the earlier rule.
+
 Existing visits without preserved initial classification remain unknown; migration does not
 copy a possibly overwritten current label into their history. They still use available tracked
 geometry and temporal consensus. Diagnostics report whether the species prior came from the
