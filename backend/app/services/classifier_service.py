@@ -2158,6 +2158,7 @@ class ONNXModelInstance:
         self.input_size = input_size
         self.ort_providers = list(ort_providers or ["CPUExecutionProvider"])
         self.session = None
+        self._session_primary_provider: str | None = None
         self.labels: list[str] = []
         self.grouped_labels: list[str] = []
         self.loaded = False
@@ -2203,7 +2204,8 @@ class ONNXModelInstance:
             if "CUDAExecutionProvider" in providers:
                 _preload_onnxruntime_cuda_runtime_libraries()
             self.session = ort.InferenceSession(self.model_path, sess_options, providers=providers)
-            if "CUDAExecutionProvider" in providers:
+            self._session_primary_provider = self._active_primary_provider()
+            if self._session_primary_provider == "CUDAExecutionProvider":
                 from app.utils.cuda_runtime import prevent_internal_cuda_fallback
 
                 prevent_internal_cuda_fallback(self.session)
@@ -2239,14 +2241,24 @@ class ONNXModelInstance:
         """Apply softmax to convert logits to probabilities."""
         return _safe_softmax(x, context=f"{self.name}:onnx")
 
+    def _active_primary_provider(self) -> str | None:
+        get_providers = getattr(self.session, "get_providers", None)
+        providers = list(get_providers() or []) if callable(get_providers) else []
+        return providers[0] if providers else None
+
     def _run_inference(self, input_name: str, input_tensor: np.ndarray) -> list[Any]:
         """Run the provider and expose execution failures to recovery policy."""
         try:
             with self._lock:
-                outputs = self.session.run(None, {input_name: input_tensor})
-                if self.ort_providers and self.ort_providers[0] == "CUDAExecutionProvider":
+                if self._session_primary_provider is None:
+                    self._session_primary_provider = self._active_primary_provider()
+                enforce_cuda = self._session_primary_provider == "CUDAExecutionProvider"
+                if enforce_cuda:
                     from app.utils.cuda_runtime import verify_cuda_session_provider
 
+                    verify_cuda_session_provider(self.session)
+                outputs = self.session.run(None, {input_name: input_tensor})
+                if enforce_cuda:
                     verify_cuda_session_provider(self.session)
                 return outputs
         except Exception as exc:
@@ -2357,6 +2369,7 @@ class ONNXModelInstance:
             # ONNX sessions don't have explicit cleanup,
             # but we can dereference to allow garbage collection
             self.session = None
+        self._session_primary_provider = None
         self.loaded = False
         log.info(f"{self.name} ONNX model resources cleaned up")
 

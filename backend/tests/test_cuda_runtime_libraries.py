@@ -50,14 +50,32 @@ def test_classifier_rejects_output_after_internal_cuda_session_fallback():
     import pytest
     from app.services.classifier_service import InvalidInferenceOutputError, ONNXModelInstance
 
-    session = SimpleNamespace(
-        get_providers=lambda: ["CPUExecutionProvider"],
-        run=lambda *args: [np.array([[0.8, 0.2]])],
-    )
+    providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+
+    def run(*args):
+        providers[:] = ["CPUExecutionProvider"]
+        return [np.array([[0.8, 0.2]])]
+
+    session = SimpleNamespace(get_providers=lambda: providers, run=Mock(side_effect=run))
     model = ONNXModelInstance("bird", "unused", "unused", ort_providers=["CUDAExecutionProvider"])
     model.session = session
     with pytest.raises(InvalidInferenceOutputError, match="provider changed"):
         model._run_inference("images", np.zeros((1, 3, 32, 32)))
+    with pytest.raises(InvalidInferenceOutputError, match="provider changed"):
+        model._run_inference("images", np.zeros((1, 3, 32, 32)))
+    assert session.run.call_count == 1
+
+
+def test_classifier_accepts_reported_cpu_session_when_cuda_failed_during_startup():
+    import numpy as np
+    from app.services.classifier_service import ONNXModelInstance
+
+    expected = [np.array([[0.8, 0.2]])]
+    session = SimpleNamespace(get_providers=lambda: ["CPUExecutionProvider"], run=Mock(return_value=expected))
+    model = ONNXModelInstance("bird", "unused", "unused", ort_providers=["CUDAExecutionProvider"])
+    model.session = session
+    assert model._run_inference("images", np.zeros((1, 3, 32, 32))) is expected
+    session.run.assert_called_once()
 
 
 def test_detector_rejects_output_after_internal_cuda_session_fallback(monkeypatch):
@@ -73,7 +91,7 @@ def test_detector_rejects_output_after_internal_cuda_session_fallback(monkeypatc
         detector.run_detector_outputs({"session": session, "provider": "cuda"}, Image.new("RGB", (32, 32)))
 
 
-def test_onnx_internal_retry_is_disabled_but_provider_node_fallback_is_unchanged():
+def test_cuda_session_disables_internal_execution_retry():
     session = SimpleNamespace(disable_fallback=Mock())
     module.prevent_internal_cuda_fallback(session)
     session.disable_fallback.assert_called_once_with()

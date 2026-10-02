@@ -281,7 +281,7 @@ The script creates a timestamped backup of the original model before replacement
    - YA-WAMF now validates the actual ONNX Runtime session providers and will report a CPU fallback if the session initializes without `CUDAExecutionProvider`.
 6. **Native Windows inference fails after CUDA loaded successfully**
    - The packaged NVIDIA DLL directories are added to the application's own search path before preloading. This lets cuDNN find the additional libraries it loads during inference, without changing the host's saved environment.
-   - A failed CUDA execution is passed to the application's recovery policy. ONNX Runtime cannot silently retry the whole session on CPU and have that work reported as CUDA. CPU execution for individual unsupported graph nodes is still allowed.
+   - A failed CUDA execution is passed to the application's recovery policy. During inference, ONNX Runtime cannot silently retry the whole session on CPU and have that work reported as CUDA. CPU execution for individual unsupported graph nodes is still allowed.
    - Check a completed model or video test, including its active providers. A successful provider load alone does not establish successful GPU inference.
 
 ### Startup Health Signals
