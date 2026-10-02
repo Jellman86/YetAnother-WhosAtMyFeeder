@@ -23,6 +23,7 @@
     import { advance, createReviewSession, type ReviewSession } from '../utils/review-session';
     import { formatDate, formatTime } from '../utils/datetime';
     import { trapFocus } from '../utils/focus-trap';
+    import { lockDocumentScroll } from '../utils/document-scroll-lock';
     import { portal } from '../utils/portal';
     import { findMatchingFullFrameCandidate, sameFrameCropCandidates } from '../utils/detection-evidence';
     import { WholeScenePeek } from '../utils/whole-scene-peek.svelte';
@@ -312,6 +313,9 @@
     });
     onDestroy(wholeScene.destroy);
 
+    // The page behind holds still, and its scrollbars go, while the queue covers it.
+    $effect(() => lockDocumentScroll());
+
     $effect(() => {
         if (!dialogEl) return;
         return trapFocus(dialogEl);
@@ -413,7 +417,7 @@
     >
         <header class="relative flex items-center gap-3 border-b border-slate-200 py-1.5 pl-5 pr-2 dark:border-slate-700">
             <div class="flex min-w-0 items-baseline gap-x-2.5">
-                <h2 id="review-session-title" class="truncate font-display text-base font-bold text-slate-900 dark:text-white">
+                <h2 id="review-session-title" class="break-words font-display text-base font-bold text-slate-900 dark:text-white">
                     {$_('dashboard.review_queue.title', { default: 'Needs your call' })}
                 </h2>
                 <p class="shrink-0 text-xs tabular-nums text-slate-500 dark:text-slate-400" data-review-position>
@@ -684,9 +688,9 @@
                                     onclick={() => identify(choice.id)}
                                 >
                                     <span class="min-w-0">
-                                        <span class="block truncate font-medium">{choice.primary}</span>
+                                        <span class="block break-words font-medium">{choice.primary}</span>
                                         {#if choice.secondary}
-                                            <span class="block truncate text-xs italic text-slate-500 dark:text-slate-400">
+                                            <span class="block break-words text-xs italic text-slate-500 dark:text-slate-400">
                                                 {choice.secondary}
                                             </span>
                                         {/if}

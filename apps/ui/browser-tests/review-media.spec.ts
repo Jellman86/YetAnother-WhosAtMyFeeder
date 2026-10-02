@@ -973,3 +973,135 @@ test.describe('a strip with more choices than fit', () => {
         expect(plan.errors).toEqual([]);
     });
 });
+
+interface Fit {
+    viewport: { width: number; height: number };
+    overlay: { x: number; y: number; width: number; height: number };
+    dialog: { x: number; y: number; width: number; height: number };
+    openerTop: number;
+    scrollY: number;
+}
+
+async function fit(page: Page): Promise<Fit> {
+    return page.evaluate(() => {
+        const rect = (element: Element | null) => {
+            const box = element?.getBoundingClientRect();
+            return { x: box?.x ?? NaN, y: box?.y ?? NaN, width: box?.width ?? NaN, height: box?.height ?? NaN };
+        };
+        return {
+            // The visual viewport is what a person sees, scrollbars included.
+            viewport: { width: window.innerWidth, height: window.innerHeight },
+            overlay: rect(document.querySelector('[data-review-queue-modal]')),
+            dialog: rect(document.querySelector('[data-review-queue-modal] [role="dialog"]')),
+            openerTop: rect(document.querySelector('[data-open-queue]')).y,
+            scrollY: window.scrollY
+        };
+    });
+}
+
+test.describe('Needs your call over a long, scrolled page', () => {
+    for (const text of ['100%', '200%'] as const) {
+        test(`${text} text: the queue covers the screen, holds the page still and hands it back where it was`, async ({ page, isMobile }, testInfo) => {
+            const plan = newPlan();
+            await serve(page, plan);
+            await page.goto('/browser-tests/review-media.html?surface=queue&page=tall&theme=dark', { waitUntil: 'domcontentloaded' });
+            if (text !== '100%') await page.addStyleTag({ content: `html{font-size:${text}!important}` });
+            const opener = page.locator('[data-open-queue]');
+            await expect(opener).toBeVisible();
+            // Quark's dashboard was 1173px down when the queue opened over it.
+            await page.evaluate(() => window.scrollTo(0, 1173));
+            await expect(opener).toBeInViewport();
+            const before = await fit(page);
+            expect(before.scrollY).toBeGreaterThan(1000);
+            // From the keyboard, so every engine has an opener to hand focus back to (WebKit does
+            // not focus a clicked button).
+            await opener.focus();
+            await page.keyboard.press('Enter');
+            await expect(page.locator('[data-review-species-heading]')).toBeVisible();
+            await settle(page);
+
+            const open = await fit(page);
+            await page.screenshot({ path: testInfo.outputPath(`scrolled-page-${text.replace('%', '')}.png`) });
+            const { width, height } = open.viewport;
+            // The backdrop reaches every edge: no strip of page or page scrollbar beside or below it.
+            expect(open.overlay).toEqual({ x: 0, y: 0, width, height });
+            // The dialog sits wholly on screen, and on a phone it is the screen.
+            expect(open.dialog.x).toBeGreaterThanOrEqual(0);
+            expect(open.dialog.y).toBeGreaterThanOrEqual(0);
+            expect(open.dialog.x + open.dialog.width).toBeLessThanOrEqual(width);
+            expect(open.dialog.y + open.dialog.height).toBeLessThanOrEqual(height);
+            if (width < 640) expect(open.dialog).toEqual({ x: 0, y: 0, width, height });
+
+            // The page behind does not move while the queue is open, by script or by wheel.
+            await page.evaluate(() => window.scrollBy(0, 400));
+            if (!isMobile) {
+                const photo = await page.locator('[data-review-photograph]').boundingBox();
+                await page.mouse.move((photo?.x ?? 0) + 20, (photo?.y ?? 0) + 20);
+                await page.mouse.wheel(0, 600);
+            }
+            await settle(page);
+            expect((await fit(page)).openerTop).toBe(before.openerTop);
+
+            // The last decision is reached inside the dialog and stays on screen.
+            const last = page.getByRole('button', { name: 'Not a bird, hide it', exact: true });
+            await last.scrollIntoViewIfNeeded();
+            const lastBox = await last.boundingBox();
+            expect(lastBox?.y ?? -1).toBeGreaterThanOrEqual(0);
+            expect((lastBox?.y ?? 0) + (lastBox?.height ?? height + 1)).toBeLessThanOrEqual(height);
+            expect((await fit(page)).openerTop).toBe(before.openerTop);
+            // Text wraps rather than pushing anything sideways: only the frame strip scrolls across.
+            const sideways = await page.locator('[data-review-queue-modal] [role="dialog"]').evaluate((dialog) =>
+                [dialog, ...dialog.querySelectorAll('*')].filter((element) =>
+                    ['auto', 'scroll'].includes(getComputedStyle(element).overflowX)
+                    && element.scrollWidth > element.clientWidth + 1
+                    && !element.matches('[data-frame-strip-scroller]')).length);
+            expect(sideways, 'something in the dialog scrolls sideways').toBe(0);
+            // The dialog's name is read whole, not cut short, at any text size.
+            const title = page.locator('#review-session-title');
+            expect(await title.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+            await expect(title).toHaveText('Needs your call');
+            // Nor are the species names a choice is made from.
+            const names = page.locator('[aria-labelledby="review-species-choices"] button > span:first-child > span');
+            expect(await names.count()).toBeGreaterThan(0);
+            expect(await names.evaluateAll((spans) => spans.filter((span) => span.scrollWidth > span.clientWidth).length)).toBe(0);
+
+            await page.keyboard.press('Escape');
+            await expect(page.locator('[data-review-queue-modal]')).toHaveCount(0);
+            await expect(opener).toBeFocused();
+            const after = await fit(page);
+            expect(after.scrollY).toBe(before.scrollY);
+            expect(after.openerTop).toBe(before.openerTop);
+            // And the page scrolls again once it is handed back.
+            await page.evaluate(() => window.scrollBy(0, 200));
+            expect((await fit(page)).scrollY).toBe(before.scrollY + 200);
+            expect(plan.errors).toEqual([]);
+        });
+    }
+
+    test('handing over to the full record keeps the page still, and closing the record returns it', async ({ page }) => {
+        const plan = newPlan();
+        await serve(page, plan);
+        await page.goto('/browser-tests/review-media.html?surface=queue&page=tall', { waitUntil: 'domcontentloaded' });
+        const opener = page.locator('[data-open-queue]');
+        await expect(opener).toBeVisible();
+        await page.evaluate(() => window.scrollTo(0, 1173));
+        const before = await fit(page);
+        await opener.click();
+        await page.getByRole('button', { name: 'Open full record', exact: true }).click();
+        const record = page.locator('[data-detection-detail-modal]');
+        await expect(record).toBeVisible();
+        await expect(page.locator('[data-review-queue-modal]')).toHaveCount(0);
+        await settle(page);
+        await page.evaluate(() => window.scrollBy(0, 400));
+        expect((await fit(page)).openerTop).toBe(before.openerTop);
+
+        await record.getByRole('button', { name: 'Close', exact: true }).first().click();
+        await expect(record).toHaveCount(0);
+        const after = await fit(page);
+        expect(after.scrollY).toBe(before.scrollY);
+        expect(after.openerTop).toBe(before.openerTop);
+        await page.evaluate(() => window.scrollBy(0, 200));
+        expect((await fit(page)).scrollY).toBe(before.scrollY + 200);
+        expect(plan.errors).toEqual([]);
+    });
+});

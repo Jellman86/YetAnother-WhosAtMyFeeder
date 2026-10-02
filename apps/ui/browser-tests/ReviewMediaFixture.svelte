@@ -38,7 +38,12 @@
 
     const queue = (params.get('queue') ?? 'tit,robin,wren').split(',').map(capture);
     let record = $state<Detection>(queue[0]);
-    let open = $state(true);
+    // `page=tall` puts the queue over a long, scrolled dashboard the way the owner reaches it,
+    // opened from a button rather than on load.
+    const tallPage = params.get('page') === 'tall';
+    let open = $state(!tallPage);
+    // As on the dashboard, opening the full record closes the queue and opens the record.
+    let handedOff = $state(false);
     let events = $state<string[]>([]);
     window.reviewMedia = {
         setRecord(id) { record = capture(id); },
@@ -55,23 +60,33 @@
     };
 </script>
 
-{#if surface === 'record'}
-    <DetectionModal
-        detection={record}
-        classifierLabels={[]}
-        llmReady={false}
-        showVideoButton={false}
-        onClose={() => {}}
-        onViewSpecies={() => {}}
-    />
-{:else if open}
+{#if tallPage}
+    <div style="height: 1400px" aria-hidden="true"></div>
+    <button type="button" data-open-queue onclick={() => { open = true; }}>Open the queue</button>
+    <div style="height: 2000px" aria-hidden="true"></div>
+{/if}
+<!-- Two blocks in the dashboard's order, so the queue hands over to the record as it does there. -->
+{#if surface !== 'record' && open}
     <ReviewQueueModal
         {queue}
         labels={Object.values(NAMES).map((name) => params.get('labels') === 'scientific' ? name.scientific : name.common)}
         onidentify={(detection, species) => { events = [...events, `identify ${detection.frigate_event} ${species}`]; }}
         onhide={(detection) => { events = [...events, `hide ${detection.frigate_event}`]; }}
-        onopen={(detection) => { events = [...events, `open ${detection.frigate_event}`]; }}
+        onopen={(detection) => {
+            events = [...events, `open ${detection.frigate_event}`];
+            if (tallPage) { open = false; record = detection; handedOff = true; }
+        }}
         onclose={() => { open = false; }}
+    />
+{/if}
+{#if surface === 'record' || handedOff}
+    <DetectionModal
+        detection={record}
+        classifierLabels={[]}
+        llmReady={false}
+        showVideoButton={false}
+        onClose={() => { handedOff = false; }}
+        onViewSpecies={() => {}}
     />
 {/if}
 <output class="sr-only" data-fixture-events>{events.join('\n')}</output>
