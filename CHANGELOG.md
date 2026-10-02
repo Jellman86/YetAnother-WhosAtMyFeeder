@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Avoid decoding a video again when the saved photo already positively matches the accepted species. Check owner choices and retained bytes first, and recheck every staged replacement before saving.
+
 - Hold the background page still while **Needs your call** is open, restore its position on close, and keep the full-screen dialog within the viewport. Wrap its title and species names at enlarged text sizes.
 
 - Refresh open detection and review photographs, frame choices, card thumbnails and previews after analysis finishes, including an unchanged species. Retry images that failed before the new photograph was saved without refreshing on every progress update.

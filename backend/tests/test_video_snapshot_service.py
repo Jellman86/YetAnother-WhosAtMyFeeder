@@ -293,3 +293,59 @@ def test_video_candidate_keeps_tracked_region_provenance():
         "evt", result, evidence, (Image.new("RGB", (40, 30)), Image.new("RGB", (80, 60))), "event"
     )
     assert next(row for row in rows if row["selected"])["source_mode"] == "frigate_region_crop"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("problem", [None, "missing_candidate", "different_bytes", "low_score", "different_label"])
+async def test_photo_preflight_skips_decode_only_for_verified_matching_bytes(clip, monkeypatch, problem):
+    from unittest.mock import Mock
+
+    event_id = f"photo-preflight-{problem}"
+    await _seed(event_id)
+    cache = module.media_cache
+    await cache.cache_snapshot(event_id, b"verified-photo", source="high_quality_bird_crop")
+    ref = f"{event_id}__model_crop__f2__abc__image"
+    if problem != "missing_candidate":
+        await cache.cache_snapshot(ref, b"other-photo" if problem == "different_bytes" else b"verified-photo")
+    async with get_db() as db:
+        await DetectionRepository(db).replace_snapshot_candidates(
+            event_id,
+            [
+                {
+                    "candidate_id": "chosen",
+                    "selected": True,
+                    "image_ref": ref,
+                    "classifier_label": "Cardinalis cardinalis"
+                    if problem == "different_label"
+                    else "Baeolophus bicolor",
+                    "classifier_score": 0.3 if problem == "low_score" else 0.94,
+                }
+            ],
+        )
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True)
+    decode = Mock(wraps=module.extract_video_snapshot)
+    monkeypatch.setattr(module, "extract_video_snapshot", decode)
+    outcome = await module.replace_video_snapshot(event_id, clip, _result(), clip_variant="event")
+    if problem is None:
+        assert outcome == "matching_photo_preserved"
+        decode.assert_not_called()
+    else:
+        assert outcome == "replaced"
+        decode.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_photo_preflight_does_not_decode_for_an_owner_selected_photo(clip, monkeypatch):
+    from unittest.mock import Mock
+
+    event_id = "photo-preflight-owner-choice"
+    await _seed(event_id)
+    await module.media_cache.cache_snapshot(event_id, b"owner-photo")
+    await module.media_cache.set_manual_snapshot_selection(event_id, True)
+    decode = Mock(side_effect=AssertionError("owner choice should not decode"))
+    monkeypatch.setattr(module, "extract_video_snapshot", decode)
+    assert (
+        await module.replace_video_snapshot(event_id, clip, _result(), clip_variant="event")
+        == "manual_selection_preserved"
+    )
+    decode.assert_not_called()

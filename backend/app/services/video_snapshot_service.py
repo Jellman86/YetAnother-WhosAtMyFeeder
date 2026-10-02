@@ -175,6 +175,69 @@ async def retained_snapshot_candidate(
     }
 
 
+async def _snapshot_preservation_outcome(
+    event_id: str,
+    result: dict[str, Any],
+    metadata: dict[str, Any],
+    existing: list[dict[str, Any]],
+    repo: DetectionRepository,
+    *,
+    automatic: bool,
+) -> str | None:
+    from app.services.high_quality_snapshot_service import HQ_PROCESSING_PIPELINE
+
+    if metadata.get("manual_selection"):
+        return "manual_selection_preserved"
+    state = await ProcessingJobRepository(repo.db).get(HQ_PROCESSING_PIPELINE, event_id)
+    if state and state.last_error == "storage_evicted":
+        return "storage_evicted"
+    detection = await repo.get_by_frigate_event(event_id)
+    if detection is None or (automatic and detection.manual_tagged) or detection.is_hidden:
+        return "owner_identification_preserved"
+    if is_blocked_species(
+        blocked_labels=settings.classification.blocked_labels,
+        blocked_species=settings.classification.blocked_species,
+        label=result.get("label"),
+        scientific_name=detection.scientific_name,
+        common_name=detection.common_name,
+        taxa_id=detection.taxa_id,
+        extra_labels=[detection.category_name, detection.display_name],
+    ):
+        return "blocked_species"
+    expected = {
+        _label_key(getattr(detection, field, None))
+        for field in ("category_name", "scientific_name", "common_name", "display_name")
+    }
+    if _label_key(result.get("label")) not in expected:
+        return "primary_identity_preserved"
+    current = next((item for item in existing if item.get("selected")), None)
+    if (
+        current
+        and (
+            settings.media_cache.high_quality_event_snapshots
+            or str(metadata.get("source") or "").startswith("video_evidence_")
+        )
+        and _label_key(current.get("classifier_label")) in expected
+        and float(current.get("classifier_score") or 0) >= max(0.6, settings.classification.threshold)
+        and current.get("image_ref")
+    ):
+        current_bytes = await media_cache.get_snapshot(current["image_ref"])
+        if current_bytes and current_bytes == await media_cache.get_snapshot(event_id):
+            return "matching_photo_preserved"
+    return None
+
+
+async def _snapshot_preflight(event_id: str, result: dict[str, Any], *, automatic: bool) -> str | None:
+    # An affirmative preservation decision needs no decoding or write reservation.
+    # Any staged replacement repeats these checks under the final commit lock.
+    async with media_cache._media_write_lease(event_id), media_cache._snapshot_commit_lock(event_id):
+        metadata = await media_cache.get_snapshot_metadata(event_id) or {}
+        async with get_db() as db:
+            repo = DetectionRepository(db)
+            existing = await repo.list_snapshot_candidates(event_id)
+            return await _snapshot_preservation_outcome(event_id, result, metadata, existing, repo, automatic=automatic)
+
+
 async def _commit_video_snapshot(
     event_id: str,
     result: dict[str, Any],
@@ -183,8 +246,6 @@ async def _commit_video_snapshot(
     *,
     automatic: bool,
 ) -> str:
-    from app.services.high_quality_snapshot_service import HQ_PROCESSING_PIPELINE
-
     selected = next(candidate for candidate in candidates if candidate["selected"])
     async with media_cache._media_write_lease(event_id), media_cache._snapshot_commit_lock(event_id):
         metadata = await media_cache.get_snapshot_metadata(event_id) or {}
@@ -199,45 +260,11 @@ async def _commit_video_snapshot(
             # correction cannot slip between this check and the photo write.
             await db.execute("BEGIN IMMEDIATE")
             repo = DetectionRepository(db)
-            detection = await repo.get_by_frigate_event(event_id)
-            state = await ProcessingJobRepository(db).get(HQ_PROCESSING_PIPELINE, event_id)
-            if state and state.last_error == "storage_evicted":
-                return "storage_evicted"
-            if detection is None or (automatic and detection.manual_tagged) or detection.is_hidden:
-                return "owner_identification_preserved"
-            if is_blocked_species(
-                blocked_labels=settings.classification.blocked_labels,
-                blocked_species=settings.classification.blocked_species,
-                label=result.get("label"),
-                scientific_name=detection.scientific_name,
-                common_name=detection.common_name,
-                taxa_id=detection.taxa_id,
-                extra_labels=[detection.category_name, detection.display_name],
-            ):
-                return "blocked_species"
-            expected = {
-                _label_key(getattr(detection, field, None))
-                for field in ("category_name", "scientific_name", "common_name", "display_name")
-            }
-            if _label_key(result.get("label")) not in expected:
-                return "primary_identity_preserved"
-            current = next((item for item in existing if item.get("selected")), None)
-            if (
-                current
-                and (
-                    settings.media_cache.high_quality_event_snapshots
-                    or str(metadata.get("source") or "").startswith("video_evidence_")
-                )
-                and _label_key(current.get("classifier_label")) in expected
-                and float(current.get("classifier_score") or 0) >= max(0.6, settings.classification.threshold)
-            ):
-                current_bytes = (
-                    await media_cache.get_snapshot(str(current.get("image_ref") or ""))
-                    if current.get("image_ref")
-                    else None
-                )
-                if current_bytes and current_bytes == await media_cache.get_snapshot(event_id):
-                    return "matching_photo_preserved"
+            preserved = await _snapshot_preservation_outcome(
+                event_id, result, metadata, existing, repo, automatic=automatic
+            )
+            if preserved is not None:
+                return preserved
             if retained is not None:
                 candidates.append(retained)
             new_ids = {item["candidate_id"] for item in candidates}
@@ -301,9 +328,13 @@ async def replace_video_snapshot(
             isinstance(score, bool)
             or not isinstance(score, (int, float))
             or not math.isfinite(score)
+            or score > 1
             or score < max(0.6, settings.classification.threshold)
         ):
             return "weak_evidence"
+        preserved = await _snapshot_preflight(event_id, result, automatic=automatic)
+        if preserved is not None:
+            return preserved
         images = await asyncio.to_thread(extract_video_snapshot, clip_path, evidence)
         if images is None:
             return "frame_extract_failed"
