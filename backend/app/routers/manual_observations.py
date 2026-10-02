@@ -28,6 +28,11 @@ class ManualObservationPrediction(BaseModel):
     scientific_name: str | None = None
     common_name: str | None = None
     taxa_id: int | None = None
+    photo_url: str | None = Field(
+        default=None, description="This species' best frame in a video, cropped to the bird; null without one."
+    )
+    scene_url: str | None = Field(default=None, description="The whole frame photo_url was cropped from.")
+    frame_offset_seconds: float | None = Field(default=None, description="Where in the video that frame is.")
 
 
 class ManualObservationResponse(BaseModel):
@@ -93,13 +98,19 @@ def _response(draft: ManualObservationDraft) -> ManualObservationResponse:
     current = max(0, min(draft.progress_current, total)) if total else 0
     percent = round(current / total * 100) if total else (100 if draft.status in {"ready", "saved"} else 0)
     predictions = []
-    for item in draft.results or []:
+    for position, item in enumerate(draft.results or []):
         label = str(item.get("label") or "").strip()
         if label:
+            photo = item.get("photo") if isinstance(item.get("photo"), dict) else None
+            species_base = f"/api/manual-observations/{draft.id}/species/{position}"
+            offset = (photo or {}).get("frame_offset_seconds")
             predictions.append(
                 ManualObservationPrediction(
                     label=label,
                     score=float(item.get("score") or 0),
+                    photo_url=f"{species_base}/photo" if photo else None,
+                    scene_url=f"{species_base}/scene" if photo else None,
+                    frame_offset_seconds=float(offset) if isinstance(offset, (int, float)) else None,
                     **{
                         key: item.get(key)
                         for key in (
@@ -196,6 +207,20 @@ async def preview_manual_observation(draft_id: str, _auth: AuthContext = Depends
     path = manual_observation_service.directory(draft.id) / "preview.jpg"
     if not path.is_file():
         raise HTTPException(status_code=404, detail="Preview unavailable.")
+    return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=300"})
+
+
+@router.get("/{draft_id}/species/{position}/{view}", response_class=Response)
+@router.head("/{draft_id}/species/{position}/{view}", response_class=Response, include_in_schema=False)
+async def species_photo_manual_observation(
+    draft_id: str,
+    position: int,
+    view: Literal["photo", "scene"],
+    _auth: AuthContext = Depends(require_owner),
+):
+    path = await manual_observation_service.species_photo_path(draft_id, position, scene=view == "scene")
+    if path is None:
+        raise HTTPException(status_code=404, detail="No frame shows this species.")
     return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=300"})
 
 

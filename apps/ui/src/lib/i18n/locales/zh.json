@@ -47,12 +47,20 @@
       "crop": "最佳裁剪",
       "model": "模型",
       "provider": "提供程序",
-      "original": "上传时的原图",
       "compare": "对比依据",
-      "scored_help": "这正是分类器实际评分的输入。",
-      "original_help": "你的原始文件，按原样保存。",
       "input": "评分输入",
-      "file": "文件"
+      "file": "文件",
+      "bird": "鸟",
+      "whole_frame": "完整画面",
+      "your_photo": "你的照片",
+      "first_frame": "第一帧",
+      "species_frame_alt": "{species} 的最佳画面",
+      "species_frame_help": "{species} 的最佳画面，位于视频 {time}。它将作为这条观察记录的照片。",
+      "species_frame_help_untimed": "视频中 {species} 的最佳画面。它将作为这条观察记录的照片。",
+      "no_species_frame_help": "没有画面能单独定位 {species}，因此观察记录将使用视频的第一帧作为照片。",
+      "first_frame_help": "视频的第一帧。",
+      "photo_help": "你的照片，按上传原样保存。分类器评估了完整画面。",
+      "photo_cropped_help": "你的照片，按上传原样保存。分类器评估了鸟周围的裁剪区域。"
     },
     "errors": {
       "load": "无法加载分析状态。",
@@ -81,7 +89,8 @@
       "progress": "分析进度",
       "failed_title": "分析已安全停止",
       "failed_body": "原始媒体仍已保存。模型可用后请重试。",
-      "retry": "重试分析"
+      "retry": "重试分析",
+      "failed_reason": "分类器给出的原因："
     },
     "review": {
       "preview_alt": "观察记录预览",
@@ -94,7 +103,10 @@
       "notes": "备注",
       "saving": "正在保存观察记录…",
       "save": "保存观察记录",
-      "save_species": "添加 {species}"
+      "save_species": "添加 {species}",
+      "several_species": "每个建议都显示用于评分的那只鸟。如果视频中有不止一只鸟，选择这条观察记录对应的鸟，照片会随之更换。",
+      "no_frame": "无画面",
+      "when_help": "留空则使用保存时的时间。"
     },
     "location": {
       "title": "目击地点",
@@ -119,12 +131,18 @@
       "title": "观察记录已保存",
       "body": "已核实的记录现已计入检测历史和物种统计。",
       "view": "查看检测",
-      "another": "再添加一条"
+      "another": "再添加一条",
+      "photo": "与 {species} 一起保存的照片"
     },
     "start_over": "重新开始",
     "bar": {
       "kept": "按上传时的原样保存",
       "hint": "在你确认之前不会添加任何内容"
+    },
+    "discard": {
+      "title": "放弃这次上传？",
+      "message": "上传的文件及其分析将被删除。你的观察记录中尚未添加任何内容。",
+      "confirm": "放弃上传"
     }
   },
   "setup": {

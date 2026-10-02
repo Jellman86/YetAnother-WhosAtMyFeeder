@@ -47,12 +47,20 @@
       "crop": "Ritaglio migliore",
       "model": "Modello",
       "provider": "Motore",
-      "original": "Come caricato",
       "compare": "Confronta le prove",
-      "scored_help": "Questo è esattamente l’input valutato dal classificatore.",
-      "original_help": "Il tuo file originale, conservato così com’è.",
       "input": "Input valutato",
-      "file": "File"
+      "file": "File",
+      "bird": "Uccello",
+      "whole_frame": "Fotogramma intero",
+      "your_photo": "La tua foto",
+      "first_frame": "Primo fotogramma",
+      "species_frame_alt": "Miglior fotogramma di {species}",
+      "species_frame_help": "Il miglior fotogramma di {species}, a {time} nel video. Diventa la foto dell'osservazione.",
+      "species_frame_help_untimed": "Il miglior fotogramma di {species} nel video. Diventa la foto dell'osservazione.",
+      "no_species_frame_help": "Nessun fotogramma ha individuato {species}, quindi l'osservazione mantiene come foto il primo fotogramma del video.",
+      "first_frame_help": "Il primo fotogramma del video.",
+      "photo_help": "La tua foto, conservata come caricata. Il classificatore ha valutato il fotogramma intero.",
+      "photo_cropped_help": "La tua foto, conservata come caricata. Il classificatore ha valutato un ritaglio intorno all'uccello."
     },
     "errors": {
       "load": "Impossibile caricare lo stato dell’analisi.",
@@ -81,7 +89,8 @@
       "progress": "Avanzamento dell’analisi",
       "failed_title": "Analisi interrotta in sicurezza",
       "failed_body": "Il file originale è ancora conservato. Riprova quando il modello sarà disponibile.",
-      "retry": "Riprova l’analisi"
+      "retry": "Riprova l’analisi",
+      "failed_reason": "Motivo indicato dal classificatore:"
     },
     "review": {
       "preview_alt": "Anteprima dell’osservazione",
@@ -94,7 +103,10 @@
       "notes": "Note",
       "saving": "Salvataggio dell’osservazione…",
       "save": "Salva osservazione",
-      "save_species": "Aggiungi {species}"
+      "save_species": "Aggiungi {species}",
+      "several_species": "Ogni suggerimento mostra l'uccello su cui è stato valutato. Se il video mostra più di un uccello, scegli quello di questa osservazione e la foto lo seguirà.",
+      "no_frame": "Nessun fotogramma",
+      "when_help": "Lascia vuoto per usare l'ora del salvataggio."
     },
     "location": {
       "title": "Luogo dell’avvistamento",
@@ -119,12 +131,18 @@
       "title": "Osservazione salvata",
       "body": "La scheda verificata ora fa parte della cronologia e dei totali per specie.",
       "view": "Visualizza rilevamento",
-      "another": "Aggiungine un’altra"
+      "another": "Aggiungine un’altra",
+      "photo": "La foto salvata con {species}"
     },
     "start_over": "Ricomincia",
     "bar": {
       "kept": "Conservato così come caricato",
       "hint": "Non viene aggiunto nulla finché non lo esamini"
+    },
+    "discard": {
+      "title": "Scartare questo caricamento?",
+      "message": "Il file caricato e la sua analisi vengono eliminati. Non è stato aggiunto nulla alle tue osservazioni.",
+      "confirm": "Scarta caricamento"
     }
   },
   "setup": {

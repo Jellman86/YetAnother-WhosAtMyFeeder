@@ -7822,6 +7822,18 @@
             ],
             "title": "Common Name"
           },
+          "frame_offset_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Where in the video that frame is.",
+            "title": "Frame Offset Seconds"
+          },
           "inference_backend": {
             "anyOf": [
               {
@@ -7891,6 +7903,30 @@
               }
             ],
             "title": "Model Name"
+          },
+          "photo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "This species' best frame in a video, cropped to the bird; null without one.",
+            "title": "Photo Url"
+          },
+          "scene_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The whole frame photo_url was cropped from.",
+            "title": "Scene Url"
           },
           "scientific_name": {
             "anyOf": [
@@ -8186,6 +8222,11 @@
               }
             ],
             "title": "Old Species"
+          },
+          "photo_changed": {
+            "default": false,
+            "title": "Photo Changed",
+            "type": "boolean"
           },
           "scientific_name": {
             "anyOf": [
@@ -24478,6 +24519,74 @@
           }
         ],
         "summary": "Retry Manual Observation",
+        "tags": [
+          "manual observations"
+        ]
+      }
+    },
+    "/api/manual-observations/{draft_id}/species/{position}/{view}": {
+      "get": {
+        "operationId": "species_photo_manual_observation_api_manual_observations__draft_id__species__position___view__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "title": "Draft Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "position",
+            "required": true,
+            "schema": {
+              "title": "Position",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "view",
+            "required": true,
+            "schema": {
+              "enum": [
+                "photo",
+                "scene"
+              ],
+              "title": "View",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Species Photo Manual Observation",
         "tags": [
           "manual observations"
         ]
