@@ -2223,7 +2223,16 @@ class HighQualitySnapshotService:
                 return
 
     async def _wait_for_clip(self, event_id: str) -> tuple[Optional[bytes], Optional[str]]:
-        """Poll Frigate for clip availability with bounded retries."""
+        """Use the cached event clip when there is one, otherwise poll Frigate with bounded retries."""
+        # The player serves the cached clip after Frigate has expired the event, so a photo request must
+        # use it too; polling Frigate first spent half a minute and then reported a playable clip missing.
+        cached_path = media_cache.get_clip_path(event_id)
+        if cached_path is not None:
+            try:
+                return await asyncio.to_thread(cached_path.read_bytes), None
+            except OSError as exc:
+                log.warning("Cached event clip unreadable; asking Frigate", event_id=event_id, error=str(exc))
+
         await asyncio.sleep(self.INITIAL_DELAY_SECONDS)
 
         last_error: Optional[str] = None
