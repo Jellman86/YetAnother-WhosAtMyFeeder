@@ -124,6 +124,13 @@ measuring accuracy rather than confidence.
 
 ### Completed-track baseline (21 July 2026)
 
+Saved photographs carry source metadata. Genuine small generated crops remain usable instead
+of being discarded as legacy thumbnails. Regular Frigate JPEGs fetched by the photo proxy have
+unverified framing: ended-event crop queries may be ignored, and the camera may crop or resize
+its saved image. Reclassification does not reapply full-frame coordinates to those JPEGs.
+If Frigate has expired an event or cannot refresh an ambiguous legacy image, the retained image
+stays available. Turning off future HQ scanning keeps existing photographs and owner selections.
+
 HQ selection now treats Frigate's completed-event best frame as a protected baseline instead of
 assuming that a sampled recording frame is automatically better. At Frigate `end`, YA-WAMF fetches
 the full-resolution clean copy, applies the box tied to Frigate's selected snapshot (falling back

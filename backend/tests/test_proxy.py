@@ -1151,7 +1151,7 @@ async def test_proxy_snapshot_cache_hit_sets_no_store_headers(client: httpx.Asyn
 
 
 @pytest.mark.asyncio
-async def test_proxy_snapshot_refetches_hq_cached_snapshot_when_hq_disabled(client: httpx.AsyncClient):
+async def test_proxy_keeps_retained_hq_photo_when_future_hq_scanning_is_disabled(client: httpx.AsyncClient):
     original_cache_enabled = settings.media_cache.enabled
     original_cache_snapshots = settings.media_cache.cache_snapshots
     original_hq_snapshots = settings.media_cache.high_quality_event_snapshots
@@ -1188,15 +1188,11 @@ async def test_proxy_snapshot_refetches_hq_cached_snapshot_when_hq_disabled(clie
             response = await client.get("/api/frigate/test_event_id/snapshot.jpg")
 
             assert response.status_code == 200
-            assert response.content == cropped_snapshot
-            mock_delete_snapshot.assert_awaited_once_with("test_event_id")
-            mock_delete_thumbnail.assert_awaited_once_with("test_event_id")
-            mock_client.get.assert_awaited_once_with(
-                f"{settings.frigate.frigate_url}/api/events/test_event_id/snapshot.jpg",
-                headers={},
-                params={"crop": 1, "quality": 95},
-            )
-            mock_cache_snapshot.assert_awaited_once_with("test_event_id", cropped_snapshot)
+            assert response.content == hq_snapshot
+            mock_delete_snapshot.assert_not_awaited()
+            mock_delete_thumbnail.assert_not_awaited()
+            mock_client.get.assert_not_awaited()
+            mock_cache_snapshot.assert_not_awaited()
         finally:
             settings.media_cache.enabled = original_cache_enabled
             settings.media_cache.cache_snapshots = original_cache_snapshots
@@ -1297,6 +1293,84 @@ async def test_proxy_thumbnail_keeps_known_frigate_thumbnail_without_snapshot(cl
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("source", ["video_evidence_crop", "hq_candidate_model_crop", "frigate_snapshot_cropped"])
+async def test_proxy_keeps_small_photographs_with_known_snapshot_provenance(client, monkeypatch, source):
+    monkeypatch.setattr(settings.media_cache, "enabled", True)
+    monkeypatch.setattr(settings.media_cache, "cache_snapshots", True)
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True)
+    image = Image.new("RGB", (175, 175), (12, 34, 56))
+    buffer = io.BytesIO()
+    image.save(buffer, format="JPEG", quality=95)
+    photograph = buffer.getvalue()
+    with (
+        patch("app.services.media_cache.media_cache.get_snapshot", AsyncMock(return_value=photograph)),
+        patch("app.services.media_cache.media_cache.get_snapshot_metadata", AsyncMock(return_value={"source": source})),
+        patch("app.services.media_cache.media_cache.delete_snapshot", AsyncMock()) as delete,
+        patch("app.routers.proxy.get_http_client") as upstream,
+    ):
+        response = await client.get("/api/frigate/test_event_id/snapshot.jpg")
+    assert response.status_code == 200
+    assert response.content == photograph
+    delete.assert_not_awaited()
+    upstream.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("hq_enabled", [False, True])
+async def test_owner_selected_small_photo_survives_hq_setting_changes(client, monkeypatch, hq_enabled):
+    monkeypatch.setattr(settings.media_cache, "enabled", True)
+    monkeypatch.setattr(settings.media_cache, "cache_snapshots", True)
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", hq_enabled)
+    buffer = io.BytesIO()
+    Image.new("RGB", (175, 175), (12, 34, 56)).save(buffer, format="JPEG", quality=95)
+    photograph = buffer.getvalue()
+    with (
+        patch("app.services.media_cache.media_cache.get_snapshot", AsyncMock(return_value=photograph)),
+        patch(
+            "app.services.media_cache.media_cache.get_snapshot_metadata",
+            AsyncMock(return_value={"source": "high_quality_bird_crop", "manual_selection": True}),
+        ),
+        patch("app.services.media_cache.media_cache.delete_snapshot", AsyncMock()) as delete,
+        patch("app.routers.proxy.get_http_client") as upstream,
+    ):
+        response = await client.get("/api/frigate/test_event_id/snapshot.jpg")
+    assert response.status_code == 200
+    assert response.content == photograph
+    delete.assert_not_awaited()
+    upstream.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("hq_enabled", [False, True])
+@pytest.mark.parametrize("failure", [404, 503, "timeout", "connection"])
+async def test_legacy_small_photo_survives_unavailable_frigate_refresh(client, monkeypatch, failure, hq_enabled):
+    monkeypatch.setattr(settings.media_cache, "enabled", True)
+    monkeypatch.setattr(settings.media_cache, "cache_snapshots", True)
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", hq_enabled)
+    buffer = io.BytesIO()
+    Image.new("RGB", (175, 175), (12, 34, 56)).save(buffer, format="JPEG", quality=95)
+    photograph = buffer.getvalue()
+    upstream = MagicMock()
+    if isinstance(failure, int):
+        upstream.get = AsyncMock(return_value=httpx.Response(failure, request=httpx.Request("GET", "http://frigate")))
+    else:
+        error = httpx.ReadTimeout("Unavailable") if failure == "timeout" else httpx.ConnectError("Unavailable")
+        upstream.get = AsyncMock(side_effect=error)
+    with (
+        patch("app.services.media_cache.media_cache.get_snapshot", AsyncMock(return_value=photograph)),
+        patch("app.services.media_cache.media_cache.get_snapshot_metadata", AsyncMock(return_value={})),
+        patch("app.services.media_cache.media_cache.delete_snapshot", AsyncMock()) as delete,
+        patch("app.services.archive_service.archive_service.snapshot_path", AsyncMock(return_value=None)),
+        patch("app.routers.proxy.get_http_client", return_value=upstream),
+    ):
+        response = await client.get("/api/frigate/test_event_id/snapshot.jpg")
+    assert response.status_code == 200
+    assert response.content == photograph
+    assert response.headers["cache-control"] == "no-store, max-age=0"
+    delete.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_proxy_snapshot_refetches_when_cached_snapshot_is_thumbnail_sized(client: httpx.AsyncClient):
     original_cache_enabled = settings.media_cache.enabled
     original_cache_snapshots = settings.media_cache.cache_snapshots
@@ -1336,7 +1410,9 @@ async def test_proxy_snapshot_refetches_when_cached_snapshot_is_thumbnail_sized(
                 headers={},
                 params={"crop": 1, "quality": 95},
             )
-            mock_cache_snapshot.assert_awaited_once_with("test_event_id", refreshed_snapshot)
+            mock_cache_snapshot.assert_awaited_once_with(
+                "test_event_id", refreshed_snapshot, source="frigate_snapshot_unverified"
+            )
         finally:
             settings.media_cache.enabled = original_cache_enabled
             settings.media_cache.cache_snapshots = original_cache_snapshots
@@ -1378,7 +1454,9 @@ async def test_proxy_snapshot_cache_miss_fetches_cropped_frigate_snapshot(client
                 headers={"Authorization": "Bearer token"},
                 params={"crop": 1, "quality": 95},
             )
-            mock_cache_snapshot.assert_awaited_once_with("test_event_id", cropped_snapshot)
+            mock_cache_snapshot.assert_awaited_once_with(
+                "test_event_id", cropped_snapshot, source="frigate_snapshot_unverified"
+            )
         finally:
             settings.media_cache.enabled = original_cache_enabled
             settings.media_cache.cache_snapshots = original_cache_snapshots
@@ -2462,3 +2540,30 @@ async def test_regenerate_frames_runs_even_for_an_existing_hq_crop(client, monke
     assert response.status_code == 200
     assert response.json()["result"] == "existing_crop_preserved"
     process.assert_awaited_once_with("test_event_id", manual_override=True)
+
+
+@pytest.mark.asyncio
+async def test_small_derived_thumbnail_is_served_without_reencoding_on_repeated_reads(client, monkeypatch):
+    monkeypatch.setattr(settings.media_cache, "enabled", True)
+    monkeypatch.setattr(settings.media_cache, "cache_snapshots", True)
+    buffer = io.BytesIO()
+    Image.new("RGB", (96, 96), "green").save(buffer, "JPEG")
+    thumbnail = buffer.getvalue()
+    with (
+        patch("app.services.media_cache.media_cache.get_snapshot", new=AsyncMock(return_value=b"retained-photo")),
+        patch("app.services.media_cache.media_cache.get_thumbnail", new=AsyncMock(return_value=thumbnail)),
+        patch(
+            "app.services.media_cache.media_cache.get_thumbnail_metadata",
+            new=AsyncMock(return_value={"source": "snapshot_derived"}),
+        ),
+        patch("app.services.media_cache.media_cache.cache_thumbnail", new_callable=AsyncMock) as write,
+        patch("app.routers.proxy._build_display_thumbnail_from_snapshot") as encode,
+        patch("app.routers.proxy.get_http_client") as network,
+    ):
+        for _ in range(2):
+            response = await client.get("/api/frigate/test_event_id/thumbnail.jpg")
+            assert response.status_code == 200
+            assert response.content == thumbnail
+        encode.assert_not_called()
+        write.assert_not_awaited()
+        network.assert_not_called()

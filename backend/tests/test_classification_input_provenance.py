@@ -244,3 +244,16 @@ async def test_load_snapshot_keeps_cached_image_when_metadata_read_fails():
     assert provenance.input_source == "cached_snapshot_unknown"
     assert provenance.is_cropped is False
     client.get_snapshot.assert_not_awaited()
+
+
+def test_unverified_frigate_jpeg_never_reuses_full_frame_coordinates():
+    provenance = cached_snapshot_input_provenance({"source": "frigate_snapshot_unverified"})
+    context = build_snapshot_classification_input_context(
+        event_id="unknown-framing",
+        event_data={"data": {"box": [0.2, 0.3, 0.1, 0.1]}},
+        provenance=provenance,
+    )
+    assert provenance.input_source == "frigate_snapshot_unverified"
+    assert context["is_cropped"] is False
+    assert "frigate_box" not in context
+    assert "restore_frigate_snapshot_crop" not in context

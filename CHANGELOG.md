@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Preserve genuine small bird photographs and existing photos when HQ scanning is turned off. Keep legacy photos when Frigate refresh fails, and record unverified Frigate snapshot framing conservatively for later classification.
+
 - Find species by common or scientific name in **Needs your call**, using the same taxonomy search as the full record. Keep search results tied to the current query and visit, and distinguish loading or failed searches from an empty result.
 
 - Send delayed video notifications using the visit's accepted species and current audio confirmation, after the photo work finishes. Rejected video guesses, deleted or hidden visits, and blocked or unknown species cannot bypass the saved result.

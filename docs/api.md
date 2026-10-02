@@ -249,6 +249,9 @@ the final evidence route when video is unavailable, temporal sources abstain, or
 candidate does not clear the configured promotion threshold. The SSE stream emits
 `reclassification_strategy_changed` before that fallback.
 
+Regular proxy-fetched JPEGs use `frigate_snapshot_unverified` provenance because camera settings
+can change their framing. Full-frame Frigate coordinates must not be reapplied to those bytes.
+
 - `POST /api/events/bulk/delete` (owner) — **irreversibly** deletes several detections by Frigate
   event ID in one request. Duplicate and empty IDs are dropped, and an empty list is a `400`. The
   response separates the IDs actually deleted from those that did not exist. This is a hard delete:
