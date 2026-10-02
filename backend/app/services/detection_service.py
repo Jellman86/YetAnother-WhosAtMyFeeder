@@ -3,7 +3,7 @@ import os
 import asyncio
 import math
 from app.config import settings
-from app.repositories.detection_repository import DetectionRepository, Detection
+from app.repositories.detection_repository import INITIAL_LABEL_SOURCE_FRIGATE_SUBLABEL, Detection, DetectionRepository
 from app.services.classifier_service import ClassifierService, get_classifier
 from app.services.species_catalog_resolver import ShadowResolution, species_catalog_resolver
 from app.services.broadcaster import broadcaster
@@ -226,10 +226,12 @@ class DetectionService:
                 final_score=final_score,
                 event_id=frigate_event,
             )
+            # The classifier's own output index belongs to a different label; carrying
+            # it would attribute this borrowed species to a model output.
             return {
                 "label": frigate_sub_label,
                 "score": final_score,
-                "index": top.get("index", -1),
+                "index": -1,
                 "source": "frigate_fallback",
                 "input_source": "frigate_sublabel",
             }, "frigate_fallback"
@@ -529,7 +531,14 @@ class DetectionService:
             )
 
             # Atomic upsert: insert or update only if score is higher
-            was_inserted, was_updated = await repo.upsert_if_higher_score(detection)
+            was_inserted, was_updated = await repo.upsert_if_higher_score(
+                detection,
+                initial_label_source=(
+                    INITIAL_LABEL_SOURCE_FRIGATE_SUBLABEL
+                    if classification.get("source") == "frigate_fallback"
+                    else None
+                ),
+            )
             changed = was_inserted or was_updated
 
             if changed:
@@ -718,6 +727,18 @@ class DetectionService:
             # never cleared that threshold in the first place.
             baseline_gate = threshold if current_score >= threshold else effective_floor
             base_required_score = max(current_score, baseline_gate)
+            # A label borrowed from Frigate's sub-label is not YA-WAMF's identification:
+            # its own classifier stayed below threshold, and the stored score is on
+            # Frigate's model scale. Checking the sub-label against itself would add a
+            # second-opinion guard to the very opinion under test, so a confident
+            # YA-WAMF video result only has to clear the normal threshold.
+            borrowed_frigate_label = (
+                not manual_tagged
+                and not existing_is_unknown
+                and await repo.has_unchanged_initial_label_from(frigate_event, INITIAL_LABEL_SOURCE_FRIGATE_SUBLABEL)
+            )
+            if borrowed_frigate_label:
+                base_required_score = threshold
 
             normalized_video_label = str(normalized_video_label or "").strip().casefold()
             normalized_sub_label = normalize_sub_label(getattr(existing, "sub_label", None))
@@ -728,7 +749,9 @@ class DetectionService:
 
             required_score = base_required_score
             override_reason = "score_gate_passed"
-            if sublabel_disagrees:
+            if borrowed_frigate_label:
+                override_reason = "replaces_borrowed_frigate_sublabel"
+            elif sublabel_disagrees:
                 disagreement_min_score = min(0.95, threshold + 0.20)
                 required_score = max(required_score, disagreement_min_score)
                 override_reason = "score_gate_passed_with_sublabel_disagreement"
@@ -908,6 +931,7 @@ class DetectionService:
                     threshold=threshold,
                     existing_is_unknown=existing_is_unknown,
                     sublabel_disagrees=sublabel_disagrees,
+                    borrowed_frigate_label=borrowed_frigate_label,
                     sub_label=normalized_sub_label,
                     video_label=normalized_video_label,
                     manual_tagged=manual_tagged,

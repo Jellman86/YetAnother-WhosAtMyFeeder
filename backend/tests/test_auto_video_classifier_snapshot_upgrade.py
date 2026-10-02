@@ -670,7 +670,8 @@ async def test_process_event_passes_event_id_into_video_classification_context()
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "identity_state", ["unchanged", "automatic_overturn", "manual_correction", "manual_reanalysis", "legacy"]
+    "identity_state",
+    ["unchanged", "automatic_overturn", "manual_correction", "manual_reanalysis", "legacy", "borrowed_frigate_label"],
 )
 async def test_process_event_uses_initial_identity_unless_manually_corrected(identity_state):
     event_id = f"evt-existing-video-target-{identity_state}"
@@ -711,6 +712,12 @@ async def test_process_event_uses_initial_identity_unless_manually_corrected(ide
             )
         if identity_state == "manual_correction":
             await DetectionRepository(db).confirm_manual_species_tag(frigate_event=event_id)
+        if identity_state == "borrowed_frigate_label":
+            await db.execute(
+                "UPDATE detection_initial_classifications SET label_source = 'frigate_sublabel' "
+                "WHERE detection_id = (SELECT id FROM detections WHERE frigate_event = ?)",
+                (event_id,),
+            )
         if identity_state == "legacy":
             await db.execute(
                 "DELETE FROM detection_initial_classifications WHERE detection_id = (SELECT id FROM detections WHERE frigate_event = ?)",
@@ -755,6 +762,9 @@ async def test_process_event_uses_initial_identity_unless_manually_corrected(ide
     if identity_state == "legacy":
         assert context.get("event_target_labels", []) == []
         assert context["event_target_label_source"] == "unavailable"
+    elif identity_state == "borrowed_frigate_label":
+        assert context["event_target_labels"] == []
+        assert context["event_target_label_source"] == "initial_frigate_sublabel_not_used"
     elif identity_state == "manual_correction":
         assert set(context["event_target_labels"]) == {"Dryobates pubescens", "Downy Woodpecker"}
         assert context["event_target_label_source"] == "manual_correction"

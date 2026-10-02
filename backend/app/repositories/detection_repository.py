@@ -18,6 +18,10 @@ from app.utils.api_datetime import serialize_api_datetime, serialize_storage_dat
 
 log = structlog.get_logger()
 
+# Recorded with the first classification when the stored species is a trusted
+# Frigate sub-label rather than YA-WAMF's own identification.
+INITIAL_LABEL_SOURCE_FRIGATE_SUBLABEL = "frigate_sublabel"
+
 
 AI_PROMPT_CONTEXT_COLUMNS = ("id", "display_name", "detection_time", "temperature", "weather_condition")
 AI_PROMPT_CONTEXT_PREDICATE = " AND ".join(f"{column} IS ?" for column in AI_PROMPT_CONTEXT_COLUMNS)
@@ -606,6 +610,43 @@ class DetectionRepository:
         ) as cursor:
             row = await cursor.fetchone()
         return list(dict.fromkeys(str(label) for label in row if label)) if row is not None else None
+
+    async def get_initial_label_source(self, frigate_event: str) -> str | None:
+        """Where the first stored label came from, or None when it was not recorded."""
+        if not await self._table_exists("detection_initial_classifications"):
+            return None
+        async with self.db.execute(
+            """SELECT i.label_source FROM detection_initial_classifications i
+               JOIN detections d ON d.id = i.detection_id WHERE d.frigate_event = ?""",
+            (frigate_event,),
+        ) as cursor:
+            row = await cursor.fetchone()
+        return str(row[0]) if row is not None and row[0] else None
+
+    async def has_unchanged_initial_label_from(self, frigate_event: str, label_source: str) -> bool:
+        """Whether the stored label is still the first one, and that one came from ``label_source``.
+
+        Any later write that changed the species or its score (a better classification, a
+        video result, an owner choice) means the current label no longer rests on that source.
+        """
+        if not await self._table_exists("detection_initial_classifications"):
+            return False
+        async with self.db.execute(
+            """SELECT 1 FROM detection_initial_classifications i
+               JOIN detections d ON d.id = i.detection_id
+               WHERE d.frigate_event = ? AND i.label_source = ?
+                 AND d.category_name = i.category_name AND d.score = i.score""",
+            (frigate_event, label_source),
+        ) as cursor:
+            return await cursor.fetchone() is not None
+
+    async def _record_initial_label_source(self, frigate_event: str, label_source: str) -> None:
+        if await self._table_exists("detection_initial_classifications"):
+            await self.db.execute(
+                """UPDATE detection_initial_classifications SET label_source = ?
+                   WHERE detection_id = (SELECT id FROM detections WHERE frigate_event = ?)""",
+                (label_source, frigate_event),
+            )
 
     async def get_owner_species_choice_labels(self, frigate_event: str) -> list[str] | None:
         if not await self._table_exists("detection_species_choices"):
@@ -2025,8 +2066,13 @@ class DetectionRepository:
         )
         await self.db.commit()
 
-    async def upsert_if_higher_score(self, detection: Detection) -> tuple[bool, bool]:
+    async def upsert_if_higher_score(
+        self, detection: Detection, *, initial_label_source: str | None = None
+    ) -> tuple[bool, bool]:
         """Insert if missing, otherwise update only when score/audio is better.
+
+        ``initial_label_source`` is recorded with the first classification, in the
+        same transaction as the insert, and never on an update.
 
         Returns:
             Tuple of (was_inserted, was_updated)
@@ -2079,6 +2125,8 @@ class DetectionRepository:
         )
         inserted = await self._last_statement_changes() > 0
         if inserted:
+            if initial_label_source:
+                await self._record_initial_label_source(detection.frigate_event, initial_label_source)
             await self.db.commit()
             return (True, False)
 

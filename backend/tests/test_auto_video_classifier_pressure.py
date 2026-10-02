@@ -65,7 +65,7 @@ def _build_service(monkeypatch):
     monkeypatch.setitem(
         sys.modules,
         "app.repositories.detection_repository",
-        types.SimpleNamespace(DetectionRepository=object),
+        types.SimpleNamespace(DetectionRepository=object, INITIAL_LABEL_SOURCE_FRIGATE_SUBLABEL="frigate_sublabel"),
     )
     monkeypatch.setitem(
         sys.modules,
