@@ -595,6 +595,40 @@ class DetectionRepository:
         self.db = db
         self._table_exists_cache: dict[str, bool] = {}
 
+    async def get_initial_classification_labels(self, frigate_event: str) -> list[str] | None:
+        if not await self._table_exists("detection_initial_classifications"):
+            return None
+        async with self.db.execute(
+            """SELECT i.category_name, i.scientific_name, i.common_name, i.display_name
+               FROM detection_initial_classifications i
+               JOIN detections d ON d.id = i.detection_id WHERE d.frigate_event = ?""",
+            (frigate_event,),
+        ) as cursor:
+            row = await cursor.fetchone()
+        return list(dict.fromkeys(str(label) for label in row if label)) if row is not None else None
+
+    async def get_owner_species_choice_labels(self, frigate_event: str) -> list[str] | None:
+        if not await self._table_exists("detection_species_choices"):
+            return None
+        async with self.db.execute(
+            """SELECT c.category_name, c.scientific_name, c.common_name, c.display_name
+               FROM detection_species_choices c JOIN detections d ON d.id = c.detection_id
+               WHERE d.frigate_event = ?""",
+            (frigate_event,),
+        ) as cursor:
+            row = await cursor.fetchone()
+        return list(dict.fromkeys(str(label) for label in row if label)) if row is not None else None
+
+    async def _record_owner_species_choice(self, frigate_event: str) -> None:
+        if await self._table_exists("detection_species_choices"):
+            await self.db.execute(
+                """INSERT OR REPLACE INTO detection_species_choices
+                   (detection_id, category_name, display_name, scientific_name, common_name)
+                   SELECT id, category_name, display_name, scientific_name, common_name
+                   FROM detections WHERE frigate_event = ?""",
+                (frigate_event,),
+            )
+
     async def replace_snapshot_candidates(
         self,
         frigate_event: str,
@@ -2930,6 +2964,7 @@ class DetectionRepository:
                 frigate_event,
             ),
         )
+        await self._record_owner_species_choice(frigate_event)
 
     async def confirm_manual_species_tag(self, *, frigate_event: str) -> None:
         """Record a human confirmation without rewriting the stored species identity."""
@@ -2937,6 +2972,7 @@ class DetectionRepository:
             "UPDATE detections SET manual_tagged = 1 WHERE frigate_event = ?",
             (frigate_event,),
         )
+        await self._record_owner_species_choice(frigate_event)
 
     def _species_floor_sql(self, minimum: int) -> str:
         """Ids of the newest `minimum` visible detections of each canonical species.

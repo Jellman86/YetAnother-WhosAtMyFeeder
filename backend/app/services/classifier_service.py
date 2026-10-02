@@ -20,10 +20,11 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from PIL import Image
-from typing import Optional, Any, Awaitable, Callable, Iterable, Literal, NoReturn
+from typing import Optional, Any, Awaitable, Callable, Iterable, Literal, NoReturn, NamedTuple
 
 from app.services.inference_health import InferenceHealth, Outcome, RuntimeKey
 from app.services.openvino_cache import resolve_openvino_cache_dir
+from app.services.photo_presence import has_localized_bird
 from app.services.startup_status import startup_status
 from app.utils.canonical_species import should_hide_species_label
 from app.utils.frigate_coordinates import (
@@ -32,6 +33,15 @@ from app.utils.frigate_coordinates import (
     restore_frigate_hint_box,
 )
 from app.utils.runtime_flavor import get_image_flavor, image_flavor_warning, packaged_inference_providers
+
+
+class VideoFrameCandidate(NamedTuple):
+    source: str
+    image: Image.Image
+    crop_box: tuple[int, int, int, int] | None
+    detector_box: tuple[int, int, int, int] | None = None
+    detector_confidence: float | None = None
+
 
 # TFLite runtime
 try:
@@ -5494,22 +5504,22 @@ class ClassifierService:
         image: Image.Image,
         *,
         input_context: ClassificationInputContext,
-    ) -> list[tuple[str, Image.Image, tuple[int, int, int, int] | None]]:
+    ) -> list[VideoFrameCandidate]:
         """Return bounded, independently evaluated views of one video frame."""
         if bool(input_context.is_cropped):
             supplied_source = str(self._input_context_extra(input_context, "input_source") or "provided_crop")
-            return [(supplied_source, image, None)]
+            return [VideoFrameCandidate(supplied_source, image, None)]
 
         subject_box = restore_frigate_hint_box(
             self._input_context_extra(input_context, "event_subject_region"), image.size
         )
-        candidates: list[tuple[str, Image.Image, tuple[int, int, int, int] | None]] = (
-            [("frigate_region_crop", image.crop(subject_box), subject_box)]
+        candidates: list[VideoFrameCandidate] = (
+            [VideoFrameCandidate("frigate_region_crop", image.crop(subject_box), subject_box)]
             if subject_box is not None
-            else [("full_frame", image, None)]
+            else [VideoFrameCandidate("full_frame", image, None)]
         )
 
-        def within_subject(candidate: tuple[str, Image.Image, tuple[int, int, int, int] | None]) -> bool:
+        def within_subject(candidate: VideoFrameCandidate) -> bool:
             if subject_box is None:
                 return True
             box = candidate[2]
@@ -5532,10 +5542,10 @@ class ClassifierService:
             if isinstance(raw_hint_box, tuple) and len(raw_hint_box) == 4:
                 hint_box = raw_hint_box
                 seen_boxes.add(raw_hint_box)
-            candidates.append(("frigate_hint_crop", hint_image, hint_box))
+            candidates.append(VideoFrameCandidate("frigate_hint_crop", hint_image, hint_box))
 
         if self._bird_crop_detector_available():
-            if hint_box is None and self._input_context_extra(input_context, "event_target_labels"):
+            if hint_box is None:
                 native = self._video_native_model_candidates(image, seen_boxes=seen_boxes)
                 if native is not None:
                     return [candidate for candidate in candidates + native if within_subject(candidate)]
@@ -5548,10 +5558,16 @@ class ClassifierService:
             model_box = model_result.get("box") if isinstance(model_result, dict) else None
             duplicate_box = isinstance(model_box, tuple) and len(model_box) == 4 and model_box in seen_boxes
             if isinstance(model_image, Image.Image) and not duplicate_box:
-                candidates.append(("model_crop", model_image, model_box))
-            elif not isinstance(model_image, Image.Image) and self._input_context_extra(
-                input_context, "event_target_labels"
-            ):
+                candidates.append(
+                    VideoFrameCandidate(
+                        "model_crop",
+                        model_image,
+                        model_box,
+                        model_result.get("detector_box"),
+                        model_result.get("confidence"),
+                    )
+                )
+            elif not isinstance(model_image, Image.Image):
                 # A geometrically valid box may contain empty background after departure.
                 # One guided miss must not prevent checking the other birds in the scene.
                 candidates.extend(self._video_native_model_candidates(image, seen_boxes=seen_boxes) or [])
@@ -5563,7 +5579,7 @@ class ClassifierService:
         image: Image.Image,
         *,
         seen_boxes: set[tuple[int, int, int, int]],
-    ) -> list[tuple[str, Image.Image, tuple[int, int, int, int]]] | None:
+    ) -> list[VideoFrameCandidate] | None:
         if not callable(getattr(type(self._bird_crop_service), "generate_video_classification_candidate_crops", None)):
             return None
         try:
@@ -5575,7 +5591,9 @@ class ClassifierService:
         for result in results[:3]:
             crop, box = result.get("crop_image"), result.get("box")
             if isinstance(crop, Image.Image) and isinstance(box, tuple) and len(box) == 4 and box not in seen_boxes:
-                candidates.append(("model_crop", crop, box))
+                candidates.append(
+                    VideoFrameCandidate("model_crop", crop, box, result.get("detector_box"), result.get("confidence"))
+                )
                 seen_boxes.add(box)
         return candidates
 
@@ -6874,7 +6892,12 @@ class ClassifierService:
                     input_context=frame_input_context,
                 )
                 stage_seconds["candidate_generation"] += time.perf_counter() - stage_started
-                for input_source, candidate_image, crop_box in frame_candidates:
+                for frame_candidate in frame_candidates:
+                    input_source, candidate_image, crop_box = (
+                        frame_candidate.source,
+                        frame_candidate.image,
+                        frame_candidate.crop_box,
+                    )
                     candidate_counts[input_source] = candidate_counts.get(input_source, 0) + 1
                     if input_source not in scores_by_input_source:
                         expected_input_sources.append(input_source)
@@ -6906,7 +6929,7 @@ class ClassifierService:
                             key = (input_source, candidate_index)
                             previous_evidence = best_snapshot_evidence.get(key)
                             if previous_evidence is None or candidate_score > previous_evidence["score"]:
-                                best_snapshot_evidence[key] = {
+                                photo_evidence = {
                                     "frame_index": int(idx),
                                     "frame_offset_seconds": frame_offset_sec,
                                     "frame_width": int(image.width),
@@ -6915,7 +6938,16 @@ class ClassifierService:
                                     "input_source": input_source,
                                     "input_is_cropped": input_source != "full_frame",
                                     "score": candidate_score,
+                                    "presence_source": "bird_crop_detector"
+                                    if input_source == "model_crop" and crop_box is not None
+                                    else None,
+                                    "bird_box": list(frame_candidate.detector_box)
+                                    if frame_candidate.detector_box is not None
+                                    else None,
+                                    "detector_confidence": frame_candidate.detector_confidence,
                                 }
+                                if has_localized_bird(photo_evidence):
+                                    best_snapshot_evidence[key] = photo_evidence
                         previous = candidate_scores.get(input_source)
                         if previous is None or float(np.max(scores)) > float(np.max(previous)):
                             candidate_scores[input_source] = scores
@@ -7119,6 +7151,10 @@ class ClassifierService:
                 ),
                 "event_target_selected": event_target_selected,
                 "runtime": self.runtime_identity(),
+                "event_target_label_source": self._input_context_extra(
+                    normalized_input_context, "event_target_label_source"
+                )
+                or "unavailable",
                 "crop_detector_runtime": {
                     "active_providers": dict(crop_status.get("active_providers") or {}),
                     "provider_fallbacks": dict(crop_status.get("provider_fallbacks") or {}),
@@ -7174,7 +7210,7 @@ class ClassifierService:
                         "temporal_evaluated_frames": consensus.evaluated_frame_count,
                         "temporal_independent_frames": consensus.independent_frame_count,
                         "temporal_required_frames": consensus.required_supporting_frames,
-                        "_video_snapshot_evidence": best_snapshot_evidence.get((input_source, int(i))),
+                        "_video_snapshot_evidence": best_snapshot_evidence.get(("model_crop", int(i))),
                     }
                 )
 

@@ -25,9 +25,9 @@ YA-WAMF keeps the existing identification.
    but do not vote against a fleeting visitor. A detector crop can win from sparse recurring
    evidence without occupying a fixed percentage of a long visit. A reliable tracked-object crop
    has priority over a different bird elsewhere in the frame. Otherwise, two separated, confident
-   identifications of the existing event species keep that target ahead of a scene winner; a weak
+   identifications of the initial event species keep that target ahead of a scene winner; a weak
    guess or single glimpse does not. Without either anchor, conflicting source winners cause an
-   abstention instead of adding misleading extra votes. When an existing target has no valid hint,
+   abstention instead of adding misleading extra votes. When a frame has no valid hint,
    video inference checks up to three distinct native detector crops per sampled frame. This is one
    native detector pass, without tiled scanning or retries, but may add two species-classifier
    calls. A guided detector miss in an otherwise valid box also permits that native pass, because
@@ -37,6 +37,26 @@ YA-WAMF keeps the existing identification.
    threshold, YA-WAMF tries the best retained snapshot. If neither route has usable evidence, it
    returns **No confident result**, preserves the existing identification, and records no manual
    override.
+
+The first saved classification is retained separately from later labels. Repeated analysis uses
+that initial classification as a soft prior, or an explicitly confirmed or chosen species.
+Clicking Reclassify requests a model decision and does not turn its output into a human
+species choice or erase a previous explicit species choice. Another confirmation or manual
+species choice replaces that prior. The existing manual lock still protects both actions from automatic changes.
+A prior is not proof of which bird Frigate tracked and cannot force a result without repeated
+confident video support. A genuinely wrong initial label can still change. The first saved classification may have used a trusted Frigate sublabel as a snapshot
+fallback. A sublabel can also be YA-WAMF's own earlier write-back, so it is not proof of
+independent species evidence. Video runs do not add the current Frigate sublabel as another
+prior.
+
+Existing visits without preserved initial classification remain unknown; migration does not
+copy a possibly overwritten current label into their history. They still use available tracked
+geometry and temporal consensus. Diagnostics report whether the species prior came from the
+initial classification, an explicit manual correction or was unavailable. Native multi-crop
+search does not require a species prior; older and Unknown visits keep the same bounded
+search. Duplicate ingestion and a backfill with a different model do not rewrite the initial
+classification. A downgrade removes this new provenance while preserving detections;
+re-upgrading cannot recover that discarded provenance.
 
 For retained full-visit recordings, a Frigate event box is used only at sampled timestamps that
 match the event's tracked `path_data`. YA-WAMF never repeats one static event box across the whole
@@ -124,15 +144,36 @@ See the [Recommended Frigate Config](../setup/frigate-config.md) for the exact r
 
 ## Keeping the photo aligned
 
-After video analysis, the saved photo uses the exact frame and crop that positively
-identified the accepted species. This lightweight step decodes one previously
-analysed moment and performs no additional inference. It works when optional
-high-quality photo scanning is disabled. When scanning is enabled, a retained
-photo already verified for the current species keeps its quality. When its saved
-bytes match the selected, verified candidate, this check happens before decoding
-the video again. Owner choices and corrections are checked again before any new
-photo is saved. The supporting
-moment is included first in the frames supplied to that scan.
+After video analysis, a replacement photo uses an exact sampled frame and crop where
+an object detector localized a bird and the species model supported the accepted species.
+Object confidence and species confidence are checked separately. Weak exploratory detector
+proposals still help classification but cannot select the photo. This step reuses localization
+from the video analysis, decodes one previously analysed moment and performs no additional
+inference. It works when optional high-quality photo scanning is disabled.
+
+HQ scanning reuses its existing detector work to check the chosen full frame or crop. A
+matching, checked HQ photo remains selected when its retained bytes match the displayed photo;
+that check happens before another video decode. Older HQ choices without sufficient object
+localization may be replaced once by a suitable video crop. The initial and previous photos
+remain available through the normal retention rules.
+
+HQ and baseline photo changes use the same species-confidence floor: the configured classification
+threshold or 60%, whichever is higher. A photo must support the current accepted species; a weaker
+HQ candidate cannot displace a stronger baseline photo and then be replaced on every repeated check.
+
+If no suitable localized photo is available, YA-WAMF keeps the current photo and records
+`bird_presence_unconfirmed`. This includes an absent or disabled crop detector, detector misses
+and cases where no localized crop supports the accepted species. A species score alone cannot
+prove that a bird is visible. Small or partly hidden birds can be missed, and an object detector
+can still mistake background for a bird. Classification success therefore does not guarantee
+a new photograph. A completed scan with no suitable localized bird does not repeatedly
+rescan the same media on a timer; an explicit new scan or final-event refresh can try again.
+Disabled media caching, disabled snapshot caching and unavailable cache storage are reported
+separately. A persisted replacement needs writable snapshot caching; analysis does not silently
+change those settings. Missing clips retain their bounded availability retries. A temporary detector or species-inference
+failure, or deferred work while live processing is busy, also retains bounded retries with a distinct
+reason. These are incomplete scans, not confirmed presence misses. Classification refinement remains
+independent of photo eligibility. Owner choices and corrections are checked again before saving.
 
 Automatic photo changes respect manual identifications and photo choices, hidden
 visits, blocked species and storage eviction. A rejected video result cannot

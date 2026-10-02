@@ -372,7 +372,8 @@ async def test_process_event_still_classifies_when_snapshot_upgrade_fails():
 
 
 @pytest.mark.asyncio
-async def test_process_event_falls_back_to_snapshot_when_clip_not_retained_for_batch_mode():
+async def test_process_event_falls_back_to_snapshot_when_clip_not_retained_for_batch_mode(monkeypatch):
+    monkeypatch.setattr(auto_video_classifier_module, "_active_model_id_or_none", lambda: "model.tflite")
     service = AutoVideoClassifierService()
     service._classifier = MagicMock()
     service._classifier.classify_async_background = AsyncMock(
@@ -483,7 +484,8 @@ async def test_manual_reclassification_falls_back_for_any_unavailable_video_erro
 
 
 @pytest.mark.asyncio
-async def test_process_event_snapshot_fallback_retries_background_overload_then_succeeds():
+async def test_process_event_snapshot_fallback_retries_background_overload_then_succeeds(monkeypatch):
+    monkeypatch.setattr(auto_video_classifier_module, "_active_model_id_or_none", lambda: "model.tflite")
     service = AutoVideoClassifierService()
     service._classifier = MagicMock()
     service._classifier.classify_async_background = AsyncMock(
@@ -667,7 +669,11 @@ async def test_process_event_passes_event_id_into_video_classification_context()
 
 
 @pytest.mark.asyncio
-async def test_process_event_passes_existing_target_identity_to_video_worker():
+@pytest.mark.parametrize(
+    "identity_state", ["unchanged", "automatic_overturn", "manual_correction", "manual_reanalysis", "legacy"]
+)
+async def test_process_event_uses_initial_identity_unless_manually_corrected(identity_state):
+    event_id = f"evt-existing-video-target-{identity_state}"
     service = AutoVideoClassifierService()
     service._classifier = MagicMock()
     service._classifier.classify_video_async = AsyncMock(
@@ -692,10 +698,46 @@ async def test_process_event_passes_existing_target_identity_to_video_worker():
                 display_name="Tufted Titmouse",
                 scientific_name="Baeolophus bicolor",
                 common_name="Tufted Titmouse",
-                frigate_event="evt-existing-video-target",
+                frigate_event=event_id,
                 camera_name="cam1",
             )
         )
+    async with get_db() as db:
+        if identity_state in {"automatic_overturn", "manual_correction"}:
+            await db.execute(
+                "UPDATE detections SET category_name = 'Dryobates pubescens', scientific_name = 'Dryobates pubescens', "
+                "display_name = 'Downy Woodpecker', common_name = 'Downy Woodpecker', manual_tagged = ? WHERE frigate_event = ?",
+                (identity_state in {"manual_correction", "manual_reanalysis"}, event_id),
+            )
+        if identity_state == "manual_correction":
+            await DetectionRepository(db).confirm_manual_species_tag(frigate_event=event_id)
+        if identity_state == "legacy":
+            await db.execute(
+                "DELETE FROM detection_initial_classifications WHERE detection_id = (SELECT id FROM detections WHERE frigate_event = ?)",
+                (event_id,),
+            )
+        await db.commit()
+    if identity_state == "manual_reanalysis":
+        from app.services.detection_service import DetectionService
+
+        with (
+            patch(
+                "app.services.detection_service.taxonomy_service.get_names",
+                new=AsyncMock(
+                    return_value={"scientific_name": "Dryobates pubescens", "common_name": "Downy Woodpecker"}
+                ),
+            ),
+            patch(
+                "app.services.audio.audio_service.audio_service.correlate_species",
+                new=AsyncMock(return_value=(False, None, None)),
+            ),
+            patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()),
+        ):
+            assert await DetectionService(service._classifier).apply_video_result(
+                event_id, "Dryobates pubescens", 0.98, 2, manual_tagged=True
+            )
+        async with get_db() as db:
+            assert (await DetectionRepository(db).get_by_frigate_event(event_id)).manual_tagged
     with (
         patch.object(
             auto_video_classifier_module.frigate_client,
@@ -708,11 +750,17 @@ async def test_process_event_passes_existing_target_identity_to_video_worker():
             new=AsyncMock(),
         ),
     ):
-        await service._process_event("evt-existing-video-target", "cam1", skip_delay=True)
-    assert set(service._classifier.classify_video_async.await_args.kwargs["input_context"]["event_target_labels"]) == {
-        "Baeolophus bicolor",
-        "Tufted Titmouse",
-    }
+        await service._process_event(event_id, "cam1", skip_delay=True)
+    context = service._classifier.classify_video_async.await_args.kwargs["input_context"]
+    if identity_state == "legacy":
+        assert context.get("event_target_labels", []) == []
+        assert context["event_target_label_source"] == "unavailable"
+    elif identity_state == "manual_correction":
+        assert set(context["event_target_labels"]) == {"Dryobates pubescens", "Downy Woodpecker"}
+        assert context["event_target_label_source"] == "manual_correction"
+    else:
+        assert set(context["event_target_labels"]) == {"Baeolophus bicolor", "Tufted Titmouse"}
+        assert context["event_target_label_source"] == "initial_classification"
 
 
 @pytest.mark.asyncio

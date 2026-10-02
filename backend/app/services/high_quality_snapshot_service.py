@@ -22,7 +22,7 @@ import structlog
 from PIL import Image
 
 from app.config import settings
-from app.services.bird_crop_service import bird_crop_service
+from app.services.bird_crop_service import BirdDetectionError, bird_crop_service, detector_scan_failed
 from app.services.frigate_client import frigate_client
 from app.services.hq_classification_refinement import (
     HQ_REFINEMENT_MIN_TEMPORAL_SEPARATION_SECONDS,
@@ -34,6 +34,7 @@ from app.services.classification_input_provenance import cached_snapshot_input_p
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 from app.repositories.bird_observation_repository import BirdObservationRepository
+from app.services.photo_presence import attach_photo_presence, has_localized_bird, has_confident_photo_species
 from app.services.bird_observation_selection import (
     BirdObservationSelection,
     select_bird_observations,
@@ -98,6 +99,14 @@ def crop_source_order(priority: str) -> tuple[str, ...]:
         str(priority or "").strip().lower(),
         CROP_SOURCE_ORDERS[DEFAULT_CROP_SOURCE_PRIORITY],
     )
+
+
+class PhotoScanRetry(RuntimeError):
+    """Photo work was incomplete and can recover without replacing the old image."""
+
+    def __init__(self, outcome: str):
+        super().__init__(outcome)
+        self.outcome = outcome
 
 
 class HighQualitySnapshotService:
@@ -351,6 +360,13 @@ class HighQualitySnapshotService:
                 await self._persist_bird_observations(event_id, candidate_bundle.get("bird_selection"))
                 classification_candidates = candidates
                 selected_candidate = candidate_bundle.get("selected_candidate")
+                if candidate_bundle.get("photo_outcome") == "bird_presence_unconfirmed":
+                    await self._apply_classification_refinement(event_id, classification_candidates)
+                    return self._record_outcome(event_id, "bird_presence_unconfirmed")
+        except PhotoScanRetry as exc:
+            return self._record_outcome(event_id, exc.outcome)
+        except BirdDetectionError:
+            return self._record_outcome(event_id, "detector_error")
         except Exception as e:
             log.warning("High-quality snapshot candidate generation failed", event_id=event_id, error=str(e))
 
@@ -372,14 +388,23 @@ class HighQualitySnapshotService:
                     snapshot_event_data,
                     clip_variant,
                 )
+            except BirdDetectionError:
+                return self._record_outcome(event_id, "detector_error")
             except Exception as e:
                 log.warning("High-quality snapshot extraction failed", event_id=event_id, error=str(e))
                 return self._record_outcome(event_id, "frame_extract_failed")
-            image_bytes, crop_applied = await self._identity_safe_fallback_crop(
-                event_id,
-                image_bytes,
-                snapshot_event_data,
-            )
+            try:
+                image_bytes, crop_applied = await self._identity_safe_fallback_crop(
+                    event_id,
+                    image_bytes,
+                    snapshot_event_data,
+                )
+            except PhotoScanRetry as exc:
+                return self._record_outcome(event_id, exc.outcome)
+            except BirdDetectionError:
+                return self._record_outcome(event_id, "detector_error")
+            if image_bytes is None:
+                return self._record_outcome(event_id, "bird_presence_unconfirmed")
             snapshot_source = "high_quality_bird_crop" if crop_applied else "high_quality_snapshot"
 
         if not crop_applied and await self._should_preserve_existing_crop(event_id, selected_candidate):
@@ -509,6 +534,19 @@ class HighQualitySnapshotService:
                     await self._persist_bird_observations(event_id, candidate_bundle.get("bird_selection"))
                     classification_candidates = candidates
                     selected_candidate = candidate_bundle.get("selected_candidate")
+                    if candidate_bundle.get("photo_outcome") == "bird_presence_unconfirmed":
+                        await self._apply_classification_refinement(event_id, classification_candidates)
+                        result = self._record_outcome(event_id, "bird_presence_unconfirmed")
+                        await self._persist_processing_outcome(event_id, result, expected_revision=revision)
+                        return result
+            except PhotoScanRetry as exc:
+                result = self._record_outcome(event_id, exc.outcome)
+                await self._persist_processing_outcome(event_id, result, expected_revision=revision)
+                return result
+            except BirdDetectionError:
+                result = self._record_outcome(event_id, "detector_error")
+                await self._persist_processing_outcome(event_id, result, expected_revision=revision)
+                return result
             except Exception as e:
                 log.warning("High-quality snapshot candidate generation failed", event_id=event_id, error=str(e))
 
@@ -528,14 +566,34 @@ class HighQualitySnapshotService:
                         snapshot_event_data,
                         clip_variant,
                     )
+                except BirdDetectionError:
+                    result = self._record_outcome(event_id, "detector_error")
+                    await self._persist_processing_outcome(event_id, result, expected_revision=revision)
+                    return result
                 except Exception as e:
                     log.warning("High-quality snapshot extraction failed", event_id=event_id, error=str(e))
-                    return self._record_outcome(event_id, "frame_extract_failed")
-                image_bytes, crop_applied = await self._identity_safe_fallback_crop(
-                    event_id,
-                    image_bytes,
-                    snapshot_event_data,
-                )
+                    result = self._record_outcome(event_id, "frame_extract_failed")
+                    await self._persist_processing_outcome(event_id, result, expected_revision=revision)
+                    return result
+                try:
+                    image_bytes, crop_applied = await self._identity_safe_fallback_crop(
+                        event_id,
+                        image_bytes,
+                        snapshot_event_data,
+                    )
+                except PhotoScanRetry as exc:
+                    result = self._record_outcome(event_id, exc.outcome)
+                    await self._persist_processing_outcome(event_id, result, expected_revision=revision)
+                    return result
+                except BirdDetectionError:
+                    result = self._record_outcome(event_id, "detector_error")
+                    await self._persist_processing_outcome(event_id, result, expected_revision=revision)
+                    return result
+                if image_bytes is None:
+                    await self._apply_classification_refinement(event_id, classification_candidates)
+                    result = self._record_outcome(event_id, "bird_presence_unconfirmed")
+                    await self._persist_processing_outcome(event_id, result, expected_revision=revision)
+                    return result
                 snapshot_source = "high_quality_bird_crop" if crop_applied else "high_quality_snapshot"
 
             if not crop_applied and await self._should_preserve_existing_crop(event_id, selected_candidate):
@@ -663,6 +721,8 @@ class HighQualitySnapshotService:
                 clip_start_timestamp=clip_start_timestamp,
                 override_frame_indices=preferred_indices,
             )
+        except BirdDetectionError:
+            raise
         except Exception as exc:
             extraction_error = exc
             log.warning(
@@ -694,11 +754,19 @@ class HighQualitySnapshotService:
 
         ranked = self._rank_snapshot_candidates(scored)
         expected_labels = await self._load_expected_species_labels(event_id)
+        observation_candidates = await self._detect_count_candidates(scored)
+        supported = attach_photo_presence(scored, observation_candidates)
+        expected_keys = {self._candidate_label_key(label) for label in expected_labels}
+        supported = [
+            candidate
+            for candidate in supported
+            if has_confident_photo_species(candidate, threshold=settings.classification.threshold)
+            and (not expected_keys or self._candidate_label_key(candidate.get("classifier_label")) in expected_keys)
+        ]
         selected_candidate = self._select_canonical_snapshot_candidate(
-            ranked,
+            supported,
             expected_labels=expected_labels,
         )
-        observation_candidates = await self._detect_count_candidates(scored)
         bird_selection = select_bird_observations(
             scored + observation_candidates, selected_candidate=selected_candidate
         )
@@ -716,6 +784,7 @@ class HighQualitySnapshotService:
             "selected_candidate": selected_candidate,
             "candidates": persisted,
             "bird_selection": bird_selection,
+            "photo_outcome": None if selected_candidate is not None else "bird_presence_unconfirmed",
         }
 
     async def _detect_count_candidates(self, scored: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -748,10 +817,10 @@ class HighQualitySnapshotService:
                     continue
                 try:
                     image = await asyncio.to_thread(decode_image_bytes, bytes(image_bytes), convert_rgb=True)
-                    boxes = await asyncio.to_thread(detector, image)
+                    boxes = await asyncio.to_thread(detector, image, raise_on_error=True)
                 except Exception as exc:
                     log.warning("Whole-frame bird count failed", candidate_id=full.get("candidate_id"), error=str(exc))
-                    continue
+                    raise BirdDetectionError("Whole-frame bird count failed") from exc
             for index, item in enumerate(boxes):
                 box = item.get("box") if isinstance(item, dict) else None
                 confidence = item.get("confidence") if isinstance(item, dict) else None
@@ -1261,10 +1330,12 @@ class HighQualitySnapshotService:
                 model_results = multi_generator(
                     image,
                     max_crops=HQ_MAX_MODEL_CROPS_PER_FRAME if settings.media_cache.bird_scan_mode == "intensive" else 3,
+                    raise_on_error=True,
                     **({"search_box": search_box} if search_box is not None else {}),
                 )
             except Exception as exc:
                 log.warning("Multi-bird snapshot crop generation failed", event_id=event_id, error=str(exc))
+                raise BirdDetectionError("Multi-bird snapshot crop generation failed") from exc
         if not model_results:
             fallback = self._crop_candidate_from_bird_model(
                 image,
@@ -1545,6 +1616,7 @@ class HighQualitySnapshotService:
             log.debug(
                 "Snapshot candidate classifier scoring failed", candidate_id=candidate.get("candidate_id"), error=str(e)
             )
+            raise PhotoScanRetry("classifier_error") from e
 
         grayscale = cv2.cvtColor(np.asarray(image), cv2.COLOR_RGB2GRAY)
         sharpness = float(cv2.Laplacian(grayscale, cv2.CV_64F).var())
@@ -1693,6 +1765,25 @@ class HighQualitySnapshotService:
         )
         if retained is not None:
             candidates = list(candidates) + [retained]
+        if not manual_choice and not any(row.get("selected") for row in candidates) and displayed_photo:
+            current = next((row for row in existing if row.get("selected")), None)
+            if current is not None:
+                digest = current.get("content_sha256")
+                matches_displayed = (
+                    digest == displayed_photo_sha256
+                    if digest
+                    else (
+                        bool(current.get("image_ref"))
+                        and await media_cache.get_snapshot(current["image_ref"]) == displayed_photo
+                    )
+                )
+                if matches_displayed:
+                    candidates = [row for row in candidates if row["candidate_id"] != current["candidate_id"]]
+                    candidates.append({**current, "selected": True})
+                elif retained is not None:
+                    retained["selected"] = True
+            elif retained is not None:
+                retained["selected"] = True
         if manual_choice:
             candidates = [{**item, "selected": False} for item in candidates]
             if chosen is not None:
@@ -2284,18 +2375,26 @@ class HighQualitySnapshotService:
 
     async def _identity_safe_fallback_crop(
         self, event_id: str, image_bytes: bytes, event_data: Optional[dict[str, Any]]
-    ) -> tuple[bytes, bool]:
+    ) -> tuple[bytes | None, bool]:
         """A failed candidate pass must not bypass the normal species and detail gates."""
+        if self._automatic_crop_enabled() and not self._background_crop_work_allowed():
+            raise PhotoScanRetry("inference_deferred")
         cropped, applied = await asyncio.to_thread(self._maybe_crop_snapshot_bytes, event_id, image_bytes, event_data)
         if not applied:
-            return image_bytes, False
+            return None, False
         expected = await self._load_expected_species_labels(event_id)
         if not expected:
-            return image_bytes, False
+            return None, False
         candidate = await self._score_snapshot_candidate({"image_bytes": cropped, "source_mode": "model_crop"})
-        if candidate and self._select_best_trusted_candidate([candidate], expected_labels=expected):
+        if (
+            candidate
+            and has_confident_photo_species(candidate, threshold=settings.classification.threshold)
+            and self._candidate_label_key(candidate.get("classifier_label"))
+            in {self._candidate_label_key(label) for label in expected}
+            and self._select_best_trusted_candidate([candidate], expected_labels=expected)
+        ):
             return cropped, True
-        return image_bytes, False
+        return None, False
 
     def _maybe_crop_snapshot_bytes(
         self,
@@ -2326,6 +2425,19 @@ class HighQualitySnapshotService:
                 event_id=event_id,
                 reason=(crop_result or {}).get("reason") if isinstance(crop_result, dict) else "invalid_crop_result",
             )
+            return image_bytes, False
+
+        if not has_localized_bird(
+            {
+                "presence_source": "bird_crop_detector",
+                "bird_box": crop_result.get("detector_box"),
+                "detector_confidence": crop_result.get("confidence"),
+                "crop_box": crop_result.get("box"),
+                "frame_width": source_image.width,
+                "frame_height": source_image.height,
+                "input_is_cropped": True,
+            }
+        ):
             return image_bytes, False
 
         try:
@@ -2400,7 +2512,9 @@ class HighQualitySnapshotService:
             crop_result = bird_crop_service.generate_crop(image, detector_tier="accurate")
         except Exception as e:
             log.warning("High-quality bird crop generation failed", event_id=event_id, error=str(e))
-            return None
+            raise BirdDetectionError("Bird crop generation failed") from e
+        if isinstance(crop_result, dict) and detector_scan_failed(crop_result):
+            raise BirdDetectionError("Bird crop inference failed")
         if not self._has_crop_image(crop_result):
             return crop_result if isinstance(crop_result, dict) else None
         return self._expand_model_crop_context(image, crop_result)
@@ -2436,7 +2550,9 @@ class HighQualitySnapshotService:
             crop_result = candidate_generator(image)
         except Exception as e:
             log.warning("High-quality bird crop candidate generation failed", event_id=event_id, error=str(e))
-            return None
+            raise BirdDetectionError("Bird crop candidate generation failed") from e
+        if isinstance(crop_result, dict) and detector_scan_failed(crop_result):
+            raise BirdDetectionError("Bird crop candidate inference failed")
         if not self._has_crop_image(crop_result):
             return crop_result if isinstance(crop_result, dict) else None
         return self._expand_model_crop_context(image, crop_result)
@@ -3036,7 +3152,7 @@ class HighQualitySnapshotService:
                     HQ_PROCESSING_PIPELINE,
                     event_id,
                     error=result,
-                    retry_delays_seconds=HQ_RETRY_DELAYS_SECONDS,
+                    retry_delays_seconds=() if result == "bird_presence_unconfirmed" else HQ_RETRY_DELAYS_SECONDS,
                     expected_revision=expected_revision,
                 )
         except Exception as exc:

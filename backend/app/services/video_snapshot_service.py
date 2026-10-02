@@ -23,6 +23,12 @@ from app.services.archive_service import archive_service
 from app.services.media_cache import media_cache
 from app.utils.canonical_species import should_hide_species_label
 from app.utils.blocked_species import is_blocked_species
+from app.services.photo_presence import (
+    DETECTOR_PHOTO_STRATEGY,
+    has_localized_bird,
+    has_reusable_bird_presence,
+    has_confident_photo_species,
+)
 
 log = structlog.get_logger()
 
@@ -125,7 +131,10 @@ def _candidates(
                 "source_mode": mode,
                 "clip_variant": clip_variant,
                 "crop_box": evidence.get("crop_box") if selected and cropped else None,
-                "crop_strategy": "video_evidence",
+                "crop_strategy": DETECTOR_PHOTO_STRATEGY
+                if selected and has_localized_bird(evidence)
+                else "video_evidence",
+                "crop_confidence": evidence.get("detector_confidence") if selected else None,
                 "selected": selected,
                 "classifier_label": result["label"] if selected else None,
                 "classifier_score": evidence["score"] if selected else None,
@@ -264,8 +273,9 @@ async def _snapshot_preservation_outcome(
             or str(metadata.get("source") or "").startswith("video_evidence_")
         )
         and _label_key(current.get("classifier_label")) in expected
-        and float(current.get("classifier_score") or 0) >= max(0.6, settings.classification.threshold)
+        and has_confident_photo_species(current, threshold=settings.classification.threshold)
         and current.get("image_ref")
+        and has_reusable_bird_presence(current)
     ):
         current_bytes = await media_cache.get_snapshot(current["image_ref"])
         if current_bytes and current_bytes == await media_cache.get_snapshot(event_id):
@@ -377,15 +387,18 @@ async def replace_video_snapshot(
 ) -> str:
     """Best effort baseline photo, independent of optional expensive HQ scanning."""
     evidence = result.get("_video_snapshot_evidence")
-    if (
-        not settings.media_cache.enabled
-        or not settings.media_cache.cache_snapshots
-        or not isinstance(evidence, dict)
-        or not media_cache._available
-    ):
-        return "disabled_or_no_evidence"
+    if not settings.media_cache.enabled:
+        return "media_cache_disabled"
+    if not settings.media_cache.cache_snapshots:
+        return "snapshot_caching_disabled"
+    if not media_cache._available:
+        return "media_cache_unavailable"
+    if not isinstance(evidence, dict):
+        return "bird_presence_unconfirmed"
     if should_hide_species_label(result.get("label")):
         return "weak_evidence"
+    if not has_localized_bird(evidence):
+        return "bird_presence_unconfirmed"
     try:
         score = evidence.get("score")
         if (

@@ -12,6 +12,9 @@ import pytest_asyncio
 from PIL import Image
 
 from app.config import settings
+from app.database import get_db
+from app.repositories.detection_repository import Detection, DetectionRepository
+from app.utils.api_datetime import utc_naive_now
 from app.services import high_quality_snapshot_service as hq_module
 from app.services import media_cache as media_cache_module
 
@@ -32,6 +35,43 @@ def _jpeg_bytes(color: str, size: tuple[int, int] = (32, 32), *, quality: int = 
     buffer = BytesIO()
     Image.new("RGB", size, color=color).save(buffer, format="JPEG", quality=quality)
     return buffer.getvalue()
+
+
+async def _mock_supported_photo_bundle(monkeypatch, method, event_id):
+    """Queue/cache tests isolate the already-checked photo selection boundary."""
+    async with get_db() as db:
+        await DetectionRepository(db).create(
+            Detection(
+                detection_time=utc_naive_now(),
+                detection_index=0,
+                score=0.9,
+                display_name="House Finch",
+                category_name="House Finch",
+                frigate_event=event_id,
+                camera_name="test",
+            )
+        )
+    candidate = {
+        "candidate_id": "supported-photo",
+        "source_mode": "full_frame",
+        "clip_variant": "event",
+        "frame_index": 2,
+        "image_bytes": b"derived-bytes",
+        "crop_strategy": "detector_supported",
+        "crop_confidence": 0.9,
+        "selected": True,
+    }
+    monkeypatch.setattr(
+        hq_module.high_quality_snapshot_service,
+        method,
+        AsyncMock(
+            return_value={
+                "selected_candidate": candidate,
+                "candidates": [candidate],
+                "photo_outcome": None,
+            }
+        ),
+    )
 
 
 def _clip_file(tmp_path):
@@ -66,7 +106,7 @@ def test_final_frigate_model_crop_keeps_detector_confidence_and_tight_box():
 async def test_whole_frame_count_is_not_limited_by_photo_crop_choices(monkeypatch):
     service = hq_module.HighQualitySnapshotService()
     boxes = [{"box": (index * 60, 0, index * 60 + 40, 40), "confidence": 0.9 - index * 0.02} for index in range(10)]
-    monkeypatch.setattr(hq_module.bird_crop_service, "detect_observation_boxes", lambda image: boxes)
+    monkeypatch.setattr(hq_module.bird_crop_service, "detect_observation_boxes", lambda image, **kwargs: boxes)
     scored = [
         {
             "candidate_id": "whole",
@@ -100,7 +140,7 @@ async def test_whole_frame_count_is_not_limited_by_photo_crop_choices(monkeypatc
 async def test_count_reuses_photo_crop_detector_boxes_without_a_second_frame_scan(monkeypatch):
     service = hq_module.HighQualitySnapshotService()
 
-    def unexpected_rescan(_image):
+    def unexpected_rescan(_image, **kwargs):
         raise AssertionError("the photo crop already supplied every detector box")
 
     monkeypatch.setattr(hq_module.bird_crop_service, "detect_observation_boxes", unexpected_rescan)
@@ -491,7 +531,7 @@ def test_candidate_generation_keeps_multiple_model_birds_without_changing_visit_
     monkeypatch.setattr(service, "_crop_from_event_hints", lambda image, event_data: None)
 
     class _CropService:
-        def generate_classification_candidate_crops(self, image, *, max_crops):
+        def generate_classification_candidate_crops(self, image, *, max_crops, raise_on_error=False):
             assert max_crops == hq_module.HQ_MAX_MODEL_CROPS_PER_FRAME
             return [
                 {"crop_image": image.crop((20, 20, 220, 220)), "box": (20, 20, 220, 220), "reason": "selected"},
@@ -1559,7 +1599,7 @@ async def test_final_clean_snapshot_keeps_multiple_bird_crops_when_clip_is_unava
     )
 
     class _CropService:
-        def generate_classification_candidate_crops(self, image, *, max_crops, search_box):
+        def generate_classification_candidate_crops(self, image, *, max_crops, search_box, raise_on_error=False):
             assert max_crops == hq_module.HQ_MAX_MODEL_CROPS_PER_FRAME
             assert search_box is not None
             return [
@@ -1928,7 +1968,7 @@ def test_persisted_candidates_keep_every_bird_crop_from_final_still():
     assert "final-whole" in persisted_ids
 
 
-def test_maybe_crop_snapshot_bytes_prefers_event_hint_over_model_crop(monkeypatch):
+def test_raw_photo_crop_does_not_treat_event_hint_as_bird_presence(monkeypatch):
     service = hq_module.HighQualitySnapshotService()
     monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshot_bird_crop", True, raising=False)
     monkeypatch.setattr(service, "_background_crop_work_allowed", lambda: True)
@@ -1955,14 +1995,14 @@ def test_maybe_crop_snapshot_bytes_prefers_event_hint_over_model_crop(monkeypatc
         {"data": {"box": [5, 5, 25, 25]}},
     )
 
-    assert crop_applied is True
+    assert crop_applied is False
     fake_crop_service.generate_crop.assert_not_called()
     with Image.open(BytesIO(cropped_bytes)) as img:
-        assert img.size == (32, 32)
+        assert img.size == (100, 80)
 
 
-def test_maybe_crop_snapshot_bytes_falls_back_to_hint_when_model_finds_no_crop(monkeypatch):
-    """When the model is installed but returns no_candidate, hints should be used as fallback."""
+def test_raw_photo_crop_keeps_original_when_only_an_unverified_hint_exists(monkeypatch):
+    """A hint alone cannot certify that a bird is still inside its crop."""
     service = hq_module.HighQualitySnapshotService()
     monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshot_bird_crop", True, raising=False)
     monkeypatch.setattr(service, "_background_crop_work_allowed", lambda: True)
@@ -1979,10 +2019,10 @@ def test_maybe_crop_snapshot_bytes_falls_back_to_hint_when_model_finds_no_crop(m
         {"data": {"box": [5, 5, 25, 25]}},
     )
 
-    assert crop_applied is True
+    assert crop_applied is False
     fake_crop_service.generate_crop.assert_not_called()
     with Image.open(BytesIO(cropped_bytes)) as img:
-        assert img.size == (32, 32)
+        assert img.size == (100, 80)
 
 
 def test_maybe_crop_snapshot_bytes_keeps_full_frame_when_model_and_hints_both_fail(monkeypatch):
@@ -2161,6 +2201,7 @@ async def test_final_replacement_is_deferred_instead_of_dropped_while_live_pass_
 
 @pytest.mark.asyncio
 async def test_process_event_replaces_cached_snapshot_with_clip_frame(tmp_path, monkeypatch):
+    await _mock_supported_photo_bundle(monkeypatch, "generate_snapshot_candidates_from_clip_bytes", "evt_replace")
     cache_service = _make_cache_service(tmp_path, monkeypatch)
     await cache_service.cache_snapshot("evt_replace", b"frigate-bytes")
     settings.media_cache.high_quality_event_snapshots = True
@@ -2332,12 +2373,11 @@ async def test_scheduled_replacement_uses_stored_event_hints_without_refetch(tmp
     fake_crop_service.generate_crop.assert_not_called()
     cached = await cache_service.get_snapshot("evt_scheduled_hint")
     assert cached is not None
-    with Image.open(BytesIO(cached)) as img:
-        assert img.size == (100, 80)
+    assert cached == b"frigate-bytes"
 
 
 @pytest.mark.asyncio
-async def test_process_event_keeps_full_frame_when_hint_crop_identity_is_unverified(tmp_path, monkeypatch):
+async def test_process_event_keeps_existing_photo_when_hint_crop_identity_is_unverified(tmp_path, monkeypatch):
     cache_service = _make_cache_service(tmp_path, monkeypatch)
     await cache_service.cache_snapshot("evt_hint_crop", b"frigate-bytes")
     monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True, raising=False)
@@ -2368,15 +2408,14 @@ async def test_process_event_keeps_full_frame_when_hint_crop_identity_is_unverif
 
     result = await hq_module.high_quality_snapshot_service.process_event("evt_hint_crop")
 
-    assert result == "replaced"
+    assert result == "bird_presence_unconfirmed"
     fake_crop_service.generate_crop.assert_not_called()
     cached = await cache_service.get_snapshot("evt_hint_crop")
     assert cached is not None
-    with Image.open(BytesIO(cached)) as img:
-        assert img.size == (100, 80)
+    assert cached == b"frigate-bytes"
     status = hq_module.high_quality_snapshot_service.get_status()
-    assert status["outcomes"]["replaced"] == 1
-    assert status["last_result"] == {"event_id": "evt_hint_crop", "result": "replaced"}
+    assert status["outcomes"]["bird_presence_unconfirmed"] == 1
+    assert status["last_result"] == {"event_id": "evt_hint_crop", "result": "bird_presence_unconfirmed"}
 
 
 @pytest.mark.asyncio
@@ -2417,12 +2456,11 @@ async def test_unknown_clip_origin_uses_detector_without_reusing_static_frigate_
 
     result = await hq_module.high_quality_snapshot_service.process_event("evt_hint_first")
 
-    assert result == "replaced"
+    assert result == "bird_presence_unconfirmed"
     fake_crop_service.generate_crop.assert_called_once()
     cached = await cache_service.get_snapshot("evt_hint_first")
     assert cached is not None
-    with Image.open(BytesIO(cached)) as img:
-        assert img.size == (100, 80)
+    assert cached == b"frigate-bytes"
 
 
 @pytest.mark.asyncio
@@ -2464,16 +2502,15 @@ async def test_unknown_clip_origin_never_trusts_static_box_under_legacy_priority
 
     result = await hq_module.high_quality_snapshot_service.process_event("evt_model_first")
 
-    assert result == "replaced"
+    assert result == "bird_presence_unconfirmed"
     fake_crop_service.generate_crop.assert_called_once()
     cached = await cache_service.get_snapshot("evt_model_first")
     assert cached is not None
-    with Image.open(BytesIO(cached)) as img:
-        assert img.size == (100, 80)
+    assert cached == b"frigate-bytes"
 
 
 @pytest.mark.asyncio
-async def test_process_event_keeps_full_frame_when_detector_crop_identity_is_unverified(tmp_path, monkeypatch):
+async def test_process_event_keeps_existing_photo_when_detector_crop_identity_is_unverified(tmp_path, monkeypatch):
     cache_service = _make_cache_service(tmp_path, monkeypatch)
     await cache_service.cache_snapshot("evt_crop", b"frigate-bytes")
     monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True, raising=False)
@@ -2508,16 +2545,15 @@ async def test_process_event_keeps_full_frame_when_detector_crop_identity_is_unv
 
     result = await hq_module.high_quality_snapshot_service.process_event("evt_crop")
 
-    assert result == "replaced"
+    assert result == "bird_presence_unconfirmed"
     fake_crop_service.generate_crop.assert_called_once()
     cached = await cache_service.get_snapshot("evt_crop")
     assert cached is not None
-    with Image.open(BytesIO(cached)) as img:
-        assert img.size == (64, 64)
+    assert cached == b"frigate-bytes"
 
 
 @pytest.mark.asyncio
-async def test_process_event_falls_back_to_hq_frame_when_bird_crop_unavailable(tmp_path, monkeypatch):
+async def test_process_event_keeps_existing_photo_when_bird_crop_unavailable(tmp_path, monkeypatch):
     cache_service = _make_cache_service(tmp_path, monkeypatch)
     await cache_service.cache_snapshot("evt_crop_fallback", b"frigate-bytes")
     monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True, raising=False)
@@ -2547,8 +2583,8 @@ async def test_process_event_falls_back_to_hq_frame_when_bird_crop_unavailable(t
 
     result = await hq_module.high_quality_snapshot_service.process_event("evt_crop_fallback")
 
-    assert result == "replaced"
-    assert await cache_service.get_snapshot("evt_crop_fallback") == frame_bytes
+    assert result == "bird_presence_unconfirmed"
+    assert await cache_service.get_snapshot("evt_crop_fallback") == b"frigate-bytes"
 
 
 @pytest.mark.asyncio
@@ -2607,8 +2643,8 @@ async def test_process_event_falls_back_to_cached_recording_clip_when_event_clip
 
     result = await hq_module.high_quality_snapshot_service.process_event("evt_recording_fallback")
 
-    assert result == "replaced"
-    assert await cache_service.get_snapshot("evt_recording_fallback") == b"derived-from-recording:" + (b"r" * 1024)
+    assert result == "bird_presence_unconfirmed"
+    assert await cache_service.get_snapshot("evt_recording_fallback") == b"frigate-bytes"
     assert extraction_call == {
         "clip_bytes": b"r" * 1024,
         "event_data": None,
@@ -2792,6 +2828,7 @@ async def test_deferred_snapshot_replacements_drain_after_capacity_frees(tmp_pat
 
 @pytest.mark.asyncio
 async def test_high_quality_snapshot_service_status_tracks_outcomes(tmp_path, monkeypatch):
+    await _mock_supported_photo_bundle(monkeypatch, "generate_snapshot_candidates_from_clip_bytes", "evt_status")
     cache_service = _make_cache_service(tmp_path, monkeypatch)
     await cache_service.cache_snapshot("evt_status", b"frigate-bytes")
     settings.media_cache.high_quality_event_snapshots = True
@@ -2823,6 +2860,7 @@ async def test_high_quality_snapshot_service_status_tracks_outcomes(tmp_path, mo
 
 @pytest.mark.asyncio
 async def test_replace_from_clip_path_replaces_cached_snapshot_when_enabled(tmp_path, monkeypatch):
+    await _mock_supported_photo_bundle(monkeypatch, "generate_snapshot_candidates_from_clip_path", "evt_clip_bytes")
     cache_service = _make_cache_service(tmp_path, monkeypatch)
     await cache_service.cache_snapshot("evt_clip_bytes", b"frigate-bytes")
     settings.media_cache.high_quality_event_snapshots = True
@@ -2886,6 +2924,7 @@ async def test_replace_from_clip_path_preserves_original_on_extraction_failure(t
 
 @pytest.mark.asyncio
 async def test_replace_from_clip_path_satisfies_queued_event_without_duplicate_worker_processing(tmp_path, monkeypatch):
+    await _mock_supported_photo_bundle(monkeypatch, "generate_snapshot_candidates_from_clip_path", "evt_clip_queued")
     cache_service = _make_cache_service(tmp_path, monkeypatch)
     await cache_service.cache_snapshot("evt_clip_queued", b"frigate-bytes")
     settings.media_cache.high_quality_event_snapshots = True
@@ -2929,6 +2968,9 @@ async def test_replace_from_clip_path_satisfies_queued_event_without_duplicate_w
 
 @pytest.mark.asyncio
 async def test_replace_from_clip_path_satisfies_deferred_event_without_later_worker_processing(tmp_path, monkeypatch):
+    await _mock_supported_photo_bundle(
+        monkeypatch, "generate_snapshot_candidates_from_clip_path", "evt_clip_deferred_2"
+    )
     cache_service = _make_cache_service(tmp_path, monkeypatch)
     await cache_service.cache_snapshot("evt_clip_deferred_1", b"frigate-bytes")
     await cache_service.cache_snapshot("evt_clip_deferred_2", b"frigate-bytes")
@@ -3188,13 +3230,14 @@ async def test_fallback_crop_requires_the_recorded_species(monkeypatch, label, e
                 "image_width": 240,
                 "image_height": 240,
                 "classifier_label": label,
+                "classifier_score": 0.95,
                 "ranking_score": 0.99,
             }
         ),
     )
     result, cropped = await service._identity_safe_fallback_crop("evt", whole, None)
     assert cropped is expected_crop
-    assert result == (crop if expected_crop else whole)
+    assert result == (crop if expected_crop else None)
 
 
 @pytest.mark.asyncio
@@ -3311,3 +3354,493 @@ async def test_hq_keeps_current_photo_even_when_its_old_crop_row_is_replaced(tmp
     assert prior["selected"] is False
     assert await cache.get_snapshot(prior["image_ref"]) == photo
     assert prior["frame_index"] == 4
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("visible", [True, False])
+async def test_hq_photo_selection_requires_a_bird_localized_in_the_chosen_moment(monkeypatch, visible):
+    service = hq_module.HighQualitySnapshotService()
+    candidates = [
+        {
+            "candidate_id": "empty-hint",
+            "source_mode": "frigate_hint_crop",
+            "clip_variant": "event",
+            "frame_index": 1,
+            "crop_box": [0, 0, 160, 160],
+            "image_width": 160,
+            "image_height": 160,
+            "frame_width": 640,
+            "frame_height": 480,
+            "classifier_label": "House Finch",
+            "classifier_score": 0.99,
+            "ranking_score": 0.99,
+        }
+    ]
+    if visible:
+        candidates.append(
+            {
+                "candidate_id": "visible-bird",
+                "source_mode": "model_crop",
+                "clip_variant": "event",
+                "frame_index": 2,
+                "crop_box": [200, 100, 360, 260],
+                "detector_box": [240, 140, 280, 180],
+                "crop_confidence": 0.9,
+                "image_width": 160,
+                "image_height": 160,
+                "frame_width": 640,
+                "frame_height": 480,
+                "classifier_label": "House Finch",
+                "classifier_score": 0.82,
+                "ranking_score": 0.8,
+            }
+        )
+    monkeypatch.setattr(service, "_score_snapshot_candidate", AsyncMock(side_effect=lambda candidate: candidate))
+    monkeypatch.setattr(service, "_load_expected_species_labels", AsyncMock(return_value={"House Finch"}))
+    monkeypatch.setattr(service, "_detect_count_candidates", AsyncMock(return_value=[]))
+    bundle = await service._score_and_select_snapshot_candidates("photo-presence", candidates)
+    if visible:
+        assert bundle["selected_candidate"]["candidate_id"] == "visible-bird"
+    else:
+        assert bundle["selected_candidate"] is None
+        assert bundle["photo_outcome"] == "bird_presence_unconfirmed"
+    assert {candidate["candidate_id"] for candidate in bundle["candidates"]} == {
+        candidate["candidate_id"] for candidate in candidates
+    }
+
+
+@pytest.mark.asyncio
+async def test_hq_presence_rejection_cannot_bypass_selection_through_raw_frame_fallback(tmp_path, monkeypatch):
+    cache = _make_cache_service(tmp_path, monkeypatch)
+    await cache.cache_snapshot("hq-unconfirmed", b"original-photo")
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True)
+    service = hq_module.high_quality_snapshot_service
+    monkeypatch.setattr(
+        service,
+        "generate_snapshot_candidates_from_clip_path",
+        AsyncMock(
+            return_value={
+                "selected_candidate": None,
+                "candidates": [],
+                "photo_outcome": "bird_presence_unconfirmed",
+            }
+        ),
+    )
+    monkeypatch.setattr(service, "_persist_event_hints", AsyncMock())
+    monkeypatch.setattr(service, "_load_event_data_for_crop", AsyncMock(return_value={}))
+
+    def unsafe_fallback(*args, **kwargs):
+        raise AssertionError("unconfirmed photo must not bypass presence selection")
+
+    monkeypatch.setattr(service, "_extract_snapshot_from_clip_path", unsafe_fallback)
+    outcome = await service.replace_from_clip_path("hq-unconfirmed", _clip_file(tmp_path))
+    assert outcome == "bird_presence_unconfirmed"
+    assert await cache.get_snapshot("hq-unconfirmed") == b"original-photo"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("confidence", [None, 0.03, 0.9])
+async def test_raw_hq_fallback_does_not_replace_from_unlocalized_high_species_score(monkeypatch, confidence):
+    service = hq_module.HighQualitySnapshotService()
+    monkeypatch.setattr(service, "_background_crop_work_allowed", lambda: True)
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshot_bird_crop", True)
+    image = Image.new("RGB", (640, 480), "blue")
+    crop = image.crop((200, 100, 360, 260))
+    monkeypatch.setattr(
+        service,
+        "_crop_snapshot_best_available",
+        lambda *args, **kwargs: {
+            "crop_image": crop,
+            "box": (200, 100, 360, 260),
+            "detector_box": (240, 140, 280, 180) if confidence is not None else None,
+            "confidence": confidence,
+        },
+    )
+    monkeypatch.setattr(service, "_load_expected_species_labels", AsyncMock(return_value={"House Finch"}))
+    monkeypatch.setattr(
+        service,
+        "_score_snapshot_candidate",
+        AsyncMock(
+            side_effect=lambda candidate: {
+                **candidate,
+                "image_width": 160,
+                "image_height": 160,
+                "classifier_label": "House Finch",
+                "classifier_score": 0.99,
+                "ranking_score": 0.99,
+            }
+        ),
+    )
+    replacement, applied = await service._identity_safe_fallback_crop("photo", _jpeg_bytes("blue", (640, 480)), None)
+    if confidence is None or confidence < 0.08:
+        assert replacement is None
+        assert applied is False
+    else:
+        assert replacement is not None
+        assert applied is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("from_clip_path", [True, False])
+async def test_hq_photo_abstention_keeps_selection_refines_species_and_records_durable_outcome(
+    tmp_path,
+    monkeypatch,
+    from_clip_path,
+):
+    from app.repositories.processing_job_repository import ProcessingJobRepository
+
+    event_id = "hq-photo-abstention-" + str(from_clip_path)
+    cache = _make_cache_service(tmp_path, monkeypatch)
+    original = _jpeg_bytes("blue", (160, 160))
+    await cache.cache_snapshot(event_id, original, source="video_evidence_crop")
+    image_ref = event_id + "__model_crop__f1__aaaaaaaaaa__image"
+    await cache.cache_snapshot(image_ref, original, source="snapshot_candidate")
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        await repo.create(
+            Detection(
+                detection_time=utc_naive_now(),
+                detection_index=0,
+                score=0.9,
+                display_name="House Finch",
+                category_name="House Finch",
+                frigate_event=event_id,
+                camera_name="test",
+            )
+        )
+        await repo.replace_snapshot_candidates(
+            event_id,
+            [
+                {
+                    "candidate_id": "original-selected",
+                    "selected": True,
+                    "image_ref": image_ref,
+                    "source_mode": "model_crop",
+                    "clip_variant": "event",
+                    "frame_index": 1,
+                    "crop_box": [0, 0, 160, 160],
+                    "crop_confidence": 0.9,
+                    "classifier_label": "House Finch",
+                    "classifier_score": 0.9,
+                }
+            ],
+        )
+        await ProcessingJobRepository(db).enqueue(hq_module.HQ_PROCESSING_PIPELINE, event_id)
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True)
+    service = hq_module.high_quality_snapshot_service
+    candidates = [
+        {
+            "candidate_id": "new-exploratory",
+            "source_mode": "model_crop",
+            "clip_variant": "event",
+            "frame_index": 2,
+            "crop_box": [0, 0, 160, 160],
+            "crop_confidence": 0.03,
+            "classifier_label": "House Finch",
+            "classifier_score": 0.99,
+            "image_bytes": _jpeg_bytes("gray", (160, 160)),
+            "selected": False,
+        }
+    ]
+    bundle = {"selected_candidate": None, "candidates": candidates, "photo_outcome": "bird_presence_unconfirmed"}
+    monkeypatch.setattr(service, "generate_snapshot_candidates_from_clip_path", AsyncMock(return_value=bundle))
+    monkeypatch.setattr(service, "generate_snapshot_candidates_from_clip_bytes", AsyncMock(return_value=bundle))
+    monkeypatch.setattr(service, "_wait_for_clip", AsyncMock(return_value=(b"clip", None)))
+    monkeypatch.setattr(service, "_load_event_data_for_crop", AsyncMock(return_value={}))
+    monkeypatch.setattr(service, "_persist_event_hints", AsyncMock())
+    refinement = AsyncMock(return_value=False)
+    monkeypatch.setattr(service, "_apply_classification_refinement", refinement)
+    outcome = (
+        (await service.replace_from_clip_path(event_id, _clip_file(tmp_path)))
+        if from_clip_path
+        else (await service.process_event(event_id))
+    )
+    assert outcome == "bird_presence_unconfirmed"
+    assert await cache.get_snapshot(event_id) == original
+    async with get_db() as db:
+        rows = await DetectionRepository(db).list_snapshot_candidates(event_id)
+        state = await ProcessingJobRepository(db).get(hq_module.HQ_PROCESSING_PIPELINE, event_id)
+    assert [row["candidate_id"] for row in rows if row["selected"]] == ["original-selected"]
+    assert state.status == "terminal"
+    assert state.last_error == "bird_presence_unconfirmed"
+    assert state.attempt_count == 1
+    assert not state.can_attempt(utc_naive_now())
+    refinement.assert_awaited_once()
+    assert refinement.await_args.args[0] == event_id
+    assert refinement.await_args.args[1][0]["crop_confidence"] == 0.03
+
+
+@pytest.mark.asyncio
+async def test_missing_hq_media_keeps_clip_not_ready_retry_instead_of_reporting_no_bird(tmp_path, monkeypatch):
+    from app.repositories.processing_job_repository import ProcessingJobRepository
+
+    event_id = "hq-media-not-ready"
+    cache = _make_cache_service(tmp_path, monkeypatch)
+    await cache.cache_snapshot(event_id, b"original-photo")
+    async with get_db() as db:
+        await DetectionRepository(db).create(
+            Detection(
+                detection_time=utc_naive_now(),
+                detection_index=0,
+                score=0.9,
+                display_name="House Finch",
+                category_name="House Finch",
+                frigate_event=event_id,
+                camera_name="test",
+            )
+        )
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True)
+    service = hq_module.high_quality_snapshot_service
+    monkeypatch.setattr(service, "_wait_for_clip", AsyncMock(return_value=(None, "clip_not_ready")))
+    monkeypatch.setattr(service, "_load_recording_clip_bytes", AsyncMock(return_value=None))
+    monkeypatch.setattr(service, "_load_final_frigate_snapshot_candidates", AsyncMock(return_value=[]))
+    monkeypatch.setattr(service, "_load_event_data_for_crop", AsyncMock(return_value={}))
+    monkeypatch.setattr(service, "_persist_event_hints", AsyncMock())
+    assert await service.process_event(event_id) == "clip_not_ready"
+    async with get_db() as db:
+        state = await ProcessingJobRepository(db).get(hq_module.HQ_PROCESSING_PIPELINE, event_id)
+    assert state.status == "retryable"
+    assert state.last_error == "clip_not_ready"
+    assert await cache.get_snapshot(event_id) == b"original-photo"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("from_clip_path", [True, False])
+async def test_temporary_detector_failure_preserves_photo_and_retries_after_recovery(
+    tmp_path, monkeypatch, from_clip_path
+):
+    from app.services.bird_crop_service import BirdCropService
+    from app.repositories.processing_job_repository import ProcessingJobRepository
+
+    event_id = "detector-recovery-" + str(from_clip_path)
+    cache = _make_cache_service(tmp_path, monkeypatch)
+    old_photo = _jpeg_bytes("blue", (160, 160))
+    await cache.cache_snapshot(event_id, old_photo)
+    async with get_db() as db:
+        await DetectionRepository(db).create(
+            Detection(
+                detection_time=utc_naive_now(),
+                detection_index=1,
+                score=0.9,
+                display_name="House Finch",
+                category_name="House Finch",
+                frigate_event=event_id,
+                camera_name="test",
+            )
+        )
+        await ProcessingJobRepository(db).enqueue(hq_module.HQ_PROCESSING_PIPELINE, event_id)
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True)
+    detector = BirdCropService()
+    monkeypatch.setattr(hq_module, "bird_crop_service", detector)
+    monkeypatch.setattr(detector, "_ensure_model_for_tier", lambda tier: object())
+    failed = True
+
+    def infer(model, image):
+        if failed:
+            raise RuntimeError("temporary runtime failure")
+        return [{"box": (100, 100, 250, 250), "confidence": 0.9}]
+
+    monkeypatch.setattr(detector, "_infer_candidates", infer)
+    service = hq_module.HighQualitySnapshotService()
+    monkeypatch.setattr(service, "_bird_crop_model_available", lambda: True)
+    monkeypatch.setattr(service, "_load_event_data_for_crop", AsyncMock(return_value={}))
+    monkeypatch.setattr(service, "_persist_event_hints", AsyncMock())
+    monkeypatch.setattr(service, "_load_preferred_frame_indices", AsyncMock(return_value=[]))
+    monkeypatch.setattr(service, "_load_final_frigate_snapshot_candidates", AsyncMock(return_value=[]))
+    monkeypatch.setattr(service, "_load_expected_species_labels", AsyncMock(return_value=["House Finch"]))
+
+    async def score(candidate):
+        return {
+            **candidate,
+            "classifier_label": "House Finch",
+            "classifier_score": 0.95,
+            "classifier_index": 1,
+            "ranking_score": 0.95,
+        }
+
+    monkeypatch.setattr(service, "_score_snapshot_candidate", score)
+    monkeypatch.setattr(service, "_apply_classification_refinement", AsyncMock(return_value=False))
+    clip = _clip_file(tmp_path)
+
+    def extract(path, **kwargs):
+        rows = []
+        for mode, image, details in service._candidate_images_for_frame(
+            Image.new("RGB", (640, 480), "gray"), event_data=None, event_id=event_id
+        ):
+            detail = details or {}
+            rows.append(
+                {
+                    "candidate_id": event_id + "-" + mode,
+                    "source_mode": mode,
+                    "clip_variant": "event",
+                    "frame_index": 30,
+                    "image_bytes": service._encode_pil_to_jpeg_bytes(image),
+                    "frame_width": 640,
+                    "frame_height": 480,
+                    "image_width": image.width,
+                    "image_height": image.height,
+                    "crop_box": detail.get("box"),
+                    "detector_box": detail.get("detector_box"),
+                    "crop_confidence": detail.get("confidence"),
+                    "observation_boxes": detail.get("observation_boxes"),
+                }
+            )
+        return rows
+
+    monkeypatch.setattr(service, "_extract_snapshot_candidate_payloads_from_clip_path", extract)
+    monkeypatch.setattr(service, "_wait_for_clip", AsyncMock(return_value=(b"clip", None)))
+
+    async def generate_bytes(event, contents, **kwargs):
+        return await service.generate_snapshot_candidates_from_clip_path(event, clip, **kwargs)
+
+    monkeypatch.setattr(service, "generate_snapshot_candidates_from_clip_bytes", generate_bytes)
+    outcome = (
+        await service.replace_from_clip_path(event_id, clip)
+        if from_clip_path
+        else await service.process_event(event_id)
+    )
+    assert outcome == "detector_error"
+    assert await cache.get_snapshot(event_id) == old_photo
+    async with get_db() as db:
+        state = await ProcessingJobRepository(db).get(hq_module.HQ_PROCESSING_PIPELINE, event_id)
+    assert state.status == "retryable"
+    assert state.last_error == "detector_error"
+    assert state.retry_after is not None
+    failed = False
+    bundle = await service.generate_snapshot_candidates_from_clip_path(event_id, clip)
+    assert bundle["selected_candidate"]["source_mode"] == "model_crop"
+    assert bundle["selected_candidate"]["crop_confidence"] == 0.9
+
+
+@pytest.mark.asyncio
+async def test_candidate_species_inference_failure_does_not_claim_completed_no_bird_scan(monkeypatch):
+    import app.services.classifier_service as classifier_module
+
+    service = hq_module.HighQualitySnapshotService()
+    classifier = SimpleNamespace(
+        classify_async_background=AsyncMock(side_effect=RuntimeError("temporary inference failure"))
+    )
+    monkeypatch.setattr(classifier_module, "_classifier_instance", classifier)
+    with pytest.raises(RuntimeError, match="classifier_error"):
+        await service._score_snapshot_candidate({"candidate_id": "transient", "image_bytes": _jpeg_bytes("white")})
+
+
+@pytest.mark.asyncio
+async def test_pressure_deferred_fallback_does_not_claim_completed_no_bird_scan(monkeypatch):
+    service = hq_module.HighQualitySnapshotService()
+    monkeypatch.setattr(service, "_automatic_crop_enabled", lambda: True)
+    monkeypatch.setattr(service, "_background_crop_work_allowed", lambda: False)
+    with pytest.raises(RuntimeError, match="inference_deferred"):
+        await service._identity_safe_fallback_crop("busy", _jpeg_bytes("white"), None)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("from_clip_path", [True, False])
+@pytest.mark.parametrize(
+    "outcome", ["classifier_error", "inference_deferred", "detector_error", "frame_extract_failed"]
+)
+async def test_incomplete_photo_work_preserves_photo_and_durable_retry(tmp_path, monkeypatch, from_clip_path, outcome):
+    from app.repositories.processing_job_repository import ProcessingJobRepository
+
+    event_id = "incomplete-photo-" + outcome + str(from_clip_path)
+    cache = _make_cache_service(tmp_path, monkeypatch)
+    await cache.cache_snapshot(event_id, b"old-photo")
+    async with get_db() as db:
+        await DetectionRepository(db).create(
+            Detection(
+                detection_time=utc_naive_now(),
+                detection_index=1,
+                score=0.9,
+                display_name="House Finch",
+                category_name="House Finch",
+                frigate_event=event_id,
+                camera_name="test",
+            )
+        )
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True)
+    service = hq_module.HighQualitySnapshotService()
+    monkeypatch.setattr(service, "_load_event_data_for_crop", AsyncMock(return_value={}))
+    monkeypatch.setattr(service, "_persist_event_hints", AsyncMock())
+    monkeypatch.setattr(service, "_wait_for_clip", AsyncMock(return_value=(b"clip", None)))
+    if outcome in {"detector_error", "frame_extract_failed"}:
+        generation = AsyncMock(return_value={"selected_candidate": None, "candidates": []})
+        error = (
+            hq_module.BirdDetectionError("temporary detector failure")
+            if outcome == "detector_error"
+            else RuntimeError("bad frame")
+        )
+
+        def extraction_failure(*args, **kwargs):
+            raise error
+
+        monkeypatch.setattr(service, "_extract_snapshot_from_clip", extraction_failure)
+        monkeypatch.setattr(service, "_extract_snapshot_from_clip_path", extraction_failure)
+    else:
+        generation = AsyncMock(side_effect=hq_module.PhotoScanRetry(outcome))
+    monkeypatch.setattr(service, "generate_snapshot_candidates_from_clip_path", generation)
+    monkeypatch.setattr(service, "generate_snapshot_candidates_from_clip_bytes", generation)
+    result = (
+        await service.replace_from_clip_path(event_id, _clip_file(tmp_path))
+        if from_clip_path
+        else await service.process_event(event_id)
+    )
+    assert result == outcome
+    async with get_db() as db:
+        state = await ProcessingJobRepository(db).get(hq_module.HQ_PROCESSING_PIPELINE, event_id)
+    assert state.status == "retryable"
+    assert state.last_error == outcome
+    assert state.retry_after is not None
+    assert await cache.get_snapshot(event_id) == b"old-photo"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "label,score,eligible", [("House Finch", 0.55, False), ("Goldcrest", 0.95, False), ("House Finch", 0.9, True)]
+)
+async def test_hq_photo_requires_current_species_and_the_baseline_confidence_gate(monkeypatch, label, score, eligible):
+    service = hq_module.HighQualitySnapshotService()
+    monkeypatch.setattr(settings.classification, "threshold", 0.7)
+    monkeypatch.setattr(service, "_load_expected_species_labels", AsyncMock(return_value={"House Finch"}))
+    monkeypatch.setattr(service, "_detect_count_candidates", AsyncMock(return_value=[]))
+
+    async def scored(candidate):
+        return {
+            **candidate,
+            "classifier_label": label,
+            "classifier_score": score,
+            "classifier_index": 1,
+            "ranking_score": score,
+        }
+
+    monkeypatch.setattr(service, "_score_snapshot_candidate", scored)
+    shared = {
+        "frame_index": 20,
+        "clip_variant": "event",
+        "frame_width": 640,
+        "frame_height": 480,
+        "image_width": 200,
+        "image_height": 200,
+    }
+    raw = [
+        {
+            **shared,
+            "candidate_id": "localized",
+            "source_mode": "model_crop",
+            "crop_box": [100, 100, 300, 300],
+            "detector_box": [130, 130, 250, 250],
+            "crop_confidence": 0.9,
+        },
+        {
+            **shared,
+            "candidate_id": "whole",
+            "source_mode": "full_frame",
+            "crop_box": None,
+            "image_width": 640,
+            "image_height": 480,
+        },
+    ]
+    bundle = await service._score_and_select_snapshot_candidates("species-photo-gate", raw)
+    assert (bundle["selected_candidate"] is not None) is eligible
+    assert len(bundle["candidates"]) == 2
+    if not eligible:
+        assert bundle["photo_outcome"] == "bird_presence_unconfirmed"

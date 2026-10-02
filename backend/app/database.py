@@ -137,6 +137,24 @@ REQUIRED_COLUMNS = {
     "taxonomy_cache": {
         "thumbnail_url",
     },
+    "detection_initial_classifications": {
+        "detection_id",
+        "category_name",
+        "display_name",
+        "scientific_name",
+        "common_name",
+        "score",
+        "detection_index",
+        "model_artifact_id",
+        "model_output_index",
+    },
+    "detection_species_choices": {
+        "detection_id",
+        "category_name",
+        "display_name",
+        "scientific_name",
+        "common_name",
+    },
 }
 
 
