@@ -330,7 +330,7 @@ class HighQualitySnapshotService:
         initial_metadata = (await media_cache.get_snapshot_metadata(event_id) or {}) if manual_override else {}
         event_data = self._pop_crop_event_hints(event_id)
         clip_variant = "event"
-        clip_bytes, clip_error = await self._wait_for_clip(event_id)
+        clip_bytes, clip_error = await self._load_event_clip(event_id, prefer_cached=manual_override)
         if not clip_bytes:
             clip_bytes = await self._load_recording_clip_bytes(event_id)
             clip_variant = "recording"
@@ -2222,8 +2222,44 @@ class HighQualitySnapshotService:
                 self._deferred_order.appendleft(event_id)
                 return
 
+    async def _load_event_clip(self, event_id: str, *, prefer_cached: bool) -> tuple[Optional[bytes], Optional[str]]:
+        """The event clip from Frigate or from YA-WAMF's own cache.
+
+        The player serves the cached clip after Frigate has expired the event, so a photo must be able
+        to use it too. A person asking for a new photo gets it straight away. The automatic pass asks
+        Frigate first: a clip played while the visit was still running can be cached cut short.
+        """
+        if prefer_cached and (cached := await self._read_cached_event_clip(event_id)):
+            return cached, None
+        clip_bytes, clip_error = await self._wait_for_clip(event_id)
+        if clip_bytes:
+            return clip_bytes, None
+        if cached := await self._read_cached_event_clip(event_id):
+            log.info("Using cached event clip for the photo; Frigate no longer has it", event_id=event_id)
+            return cached, None
+        return None, clip_error
+
+    async def _read_cached_event_clip(self, event_id: str) -> Optional[bytes]:
+        cached_path = media_cache.get_clip_path(event_id)
+        if cached_path is None:
+            return None
+        try:
+            return await asyncio.to_thread(cached_path.read_bytes)
+        except OSError as exc:
+            log.warning("Cached event clip unreadable", event_id=event_id, error=str(exc))
+            return None
+
     async def _wait_for_clip(self, event_id: str) -> tuple[Optional[bytes], Optional[str]]:
-        """Poll Frigate for clip availability with bounded retries."""
+        """Use the cached event clip when there is one, otherwise poll Frigate with bounded retries."""
+        # The player serves the cached clip after Frigate has expired the event, so a photo request must
+        # use it too; polling Frigate first spent half a minute and then reported a playable clip missing.
+        cached_path = media_cache.get_clip_path(event_id)
+        if cached_path is not None:
+            try:
+                return await asyncio.to_thread(cached_path.read_bytes), None
+            except OSError as exc:
+                log.warning("Cached event clip unreadable; asking Frigate", event_id=event_id, error=str(exc))
+
         await asyncio.sleep(self.INITIAL_DELAY_SECONDS)
 
         last_error: Optional[str] = None
