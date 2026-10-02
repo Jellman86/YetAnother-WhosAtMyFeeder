@@ -105,3 +105,29 @@ async def test_explicit_owner_species_choice_survives_requested_model_reclassifi
         assert await repo.get_owner_species_choice_labels(event) == [expected]
         assert (await repo.get_by_frigate_event(event)).manual_tagged
         assert await repo.get_initial_classification_labels(event) == ["Dryobates pubescens"]
+
+
+@pytest.mark.asyncio
+async def test_borrowed_frigate_label_is_recorded_with_the_first_classification_only():
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        borrowed = "borrowed-frigate-label"
+        await repo.upsert_if_higher_score(
+            detection(borrowed, "Cardinalis cardinalis", 0.7667), initial_label_source="frigate_sublabel"
+        )
+        assert await repo.get_initial_label_source(borrowed) == "frigate_sublabel"
+        assert await repo.has_unchanged_initial_label_from(borrowed, "frigate_sublabel")
+
+        # A later, better write that keeps the species is no longer the borrowed opinion.
+        await repo.upsert_if_higher_score(detection(borrowed, "Cardinalis cardinalis", 0.93))
+        assert await repo.get_initial_label_source(borrowed) == "frigate_sublabel"
+        assert not await repo.has_unchanged_initial_label_from(borrowed, "frigate_sublabel")
+
+        own = "own-classifier-label"
+        await repo.upsert_if_higher_score(detection(own, "Baeolophus bicolor", 0.8))
+        # An update never rewrites where the first label came from.
+        await repo.upsert_if_higher_score(
+            detection(own, "Cardinalis cardinalis", 0.9), initial_label_source="frigate_sublabel"
+        )
+        assert await repo.get_initial_label_source(own) is None
+        assert not await repo.has_unchanged_initial_label_from(own, "frigate_sublabel")

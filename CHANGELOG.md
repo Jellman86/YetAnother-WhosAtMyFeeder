@@ -6,6 +6,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Let video analysis correct a species borrowed from Frigate (#481). When YA-WAMF's own score stayed
+  below the threshold and it used Frigate's sub-label instead, a confident video result had to beat that
+  sub-label's score plus an extra margin, so a short visit by a different bird could never correct it.
+  Such a label is now recorded as borrowed, is not used to steer which bird video analysis follows, and
+  gives way to a video result that clears the normal threshold. It also no longer carries the
+  classifier's output index for a different species. Older visits keep the earlier rule.
+
 - Raise the inference runtime floors to ONNX Runtime 1.30 (CPU, Intel and the ARM64 side of the full
   image) and OpenVINO 2026.4 (Intel and full images). Both resolve on Linux for every image
   flavour; the CUDA images keep ONNX Runtime GPU below 1.27 and stay on CUDA 12.

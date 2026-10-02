@@ -147,6 +147,7 @@ REQUIRED_COLUMNS = {
         "detection_index",
         "model_artifact_id",
         "model_output_index",
+        "label_source",
     },
     "detection_species_choices": {
         "detection_id",

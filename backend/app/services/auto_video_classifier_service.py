@@ -32,7 +32,7 @@ from app.services.classification_input_provenance import (
     load_snapshot_classification_input,
 )
 from app.database import get_db
-from app.repositories.detection_repository import DetectionRepository
+from app.repositories.detection_repository import INITIAL_LABEL_SOURCE_FRIGATE_SUBLABEL, DetectionRepository
 from app.routers.proxy import _get_valid_cached_recording_clip_path
 from app.utils.tasks import create_background_task
 from app.utils.system_stats import get_ram_usage_string
@@ -1788,11 +1788,18 @@ class AutoVideoClassifierService:
                         target_repo = DetectionRepository(db)
                         target_detection = await target_repo.get_by_frigate_event(frigate_event)
                         initial_labels = await target_repo.get_initial_classification_labels(frigate_event)
+                        initial_label_source = await target_repo.get_initial_label_source(frigate_event)
                         owner_labels = await target_repo.get_owner_species_choice_labels(frigate_event)
                     if target_detection is not None:
                         if target_detection.manual_tagged and owner_labels is not None:
                             target_labels = owner_labels
                             target_source = "manual_correction"
+                        elif initial_label_source == INITIAL_LABEL_SOURCE_FRIGATE_SUBLABEL:
+                            # YA-WAMF's classifier did not support the borrowed sub-label on the
+                            # event crop. As a prior it would favour that species wherever else it
+                            # appears in the clip, e.g. a different bird sitting in view throughout.
+                            target_labels = []
+                            target_source = "initial_frigate_sublabel_not_used"
                         else:
                             target_labels = initial_labels or []
                             target_source = "initial_classification" if initial_labels is not None else "unavailable"
