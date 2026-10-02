@@ -127,8 +127,18 @@ def build_snapshot_classification_input_context(
     event_payload = event_data if isinstance(event_data, dict) else {}
     payload = event_payload.get("data")
     payload = payload if isinstance(payload, dict) else {}
-    frigate_box = _validated_frigate_hint(payload.get("box") or event_payload.get("box"))
-    frigate_region = _validated_frigate_hint(payload.get("region") or event_payload.get("region"))
+    snapshot = event_payload.get("snapshot")
+    snapshot = snapshot if isinstance(snapshot, dict) else {}
+    # The full frame is Frigate's saved best snapshot. MQTT describes that frame in
+    # `snapshot`; its top-level box is the object's latest position and can have moved
+    # since. Box and region come from the same frame, never one from each.
+    snapshot_box = _validated_frigate_hint(snapshot.get("box"))
+    if snapshot_box is not None:
+        frigate_box = snapshot_box
+        frigate_region = _validated_frigate_hint(snapshot.get("region"))
+    else:
+        frigate_box = _validated_frigate_hint(payload.get("box") or event_payload.get("box"))
+        frigate_region = _validated_frigate_hint(payload.get("region") or event_payload.get("region"))
     if frigate_box is not None:
         context["frigate_box"] = frigate_box
     if frigate_region is not None:

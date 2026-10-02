@@ -6,6 +6,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Crop a retried event's snapshot around the bird in that snapshot. When the first classification
+  failed and YA-WAMF retried from Frigate's later event update, it cut the saved best frame using
+  the bird's latest position, which can be somewhere else once the bird has moved or flown off.
+  It now uses the box Frigate recorded for that frame, and the latest position only when Frigate
+  sent none.
+
 - Raise the inference runtime floors to ONNX Runtime 1.30 (CPU, Intel and the ARM64 side of the full
   image) and OpenVINO 2026.4 (Intel and full images). Both resolve on Linux for every image
   flavour; the CUDA images keep ONNX Runtime GPU below 1.27 and stay on CUDA 12.
