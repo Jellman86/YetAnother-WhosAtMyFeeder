@@ -15,6 +15,11 @@ from PIL import Image
 
 from app.config import settings
 from app.services.openvino_cache import resolve_openvino_cache_dir
+from app.utils.cuda_runtime import (
+    preload_packaged_cuda_libraries,
+    prevent_internal_cuda_fallback,
+    verify_cuda_session_provider,
+)
 
 log = structlog.get_logger()
 
@@ -960,9 +965,7 @@ class BirdCropService:
         if normalized_provider in {"cpu", "cuda"}:
             ort = self._import_onnxruntime()
             if normalized_provider == "cuda":
-                preload_dlls = getattr(ort, "preload_dlls", None)
-                if callable(preload_dlls):
-                    preload_dlls(directory="")
+                preload_packaged_cuda_libraries(ort)
             sess_options = ort.SessionOptions()
             ort_provider = "CUDAExecutionProvider" if normalized_provider == "cuda" else "CPUExecutionProvider"
             session = ort.InferenceSession(
@@ -973,6 +976,8 @@ class BirdCropService:
             active = list(getattr(session, "get_providers", lambda: [ort_provider])() or [])
             if not active or active[0] != ort_provider:
                 raise RuntimeError(f"{ort_provider} was requested but is not the primary active provider")
+            if normalized_provider == "cuda":
+                prevent_internal_cuda_fallback(session)
         else:
             device = {
                 "intel_cpu": "CPU",
@@ -1155,6 +1160,8 @@ class BirdCropService:
             preprocessing=dict(model.get("preprocessing") or {}),
         )
         outputs = session.run(None, {str(model.get("input_name") or "images"): input_tensor})
+        if model.get("provider") == "cuda":
+            verify_cuda_session_provider(session)
         return list(outputs or []), transform
 
     def _infer_candidates(self, model: Any, image: Image.Image) -> list[dict[str, Any]]:

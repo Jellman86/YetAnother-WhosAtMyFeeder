@@ -6,6 +6,16 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Bound automatically retained earlier photo choices to eight, while keeping the earliest available photo, manual choices and counted scenes. Store content hashes for duplicate checks, keep regenerated candidate files immutable, and prune old files only after a successful save.
+
+- Allow a reported CPU fallback during model startup while still rejecting an unexpected CUDA-to-CPU session change during inference. Attribute CPU-session execution errors to the active CPU provider.
+
+- Keep packaged cuDNN dependencies discoverable during native Windows CUDA inference. Prevent silent whole-session CPU retries from being reported as successful GPU work; recovery remains controlled by the application.
+
+- Keep tracked-region crops and earlier-photo choices attached to their visit during cache recovery and storage eviction, including older sidecars containing the photo key.
+
+- Avoid decoding a video again when the saved photo already positively matches the accepted species. Check owner choices and retained bytes first, and recheck every staged replacement before saving.
+
 - Hold the background page still while **Needs your call** is open, restore its position on close, and keep the full-screen dialog within the viewport. Wrap its title and species names at enlarged text sizes.
 
 - Refresh open detection and review photographs, frame choices, card thumbnails and previews after analysis finishes, including an unchanged species. Retry images that failed before the new photograph was saved without refreshing on every progress update.

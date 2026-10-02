@@ -75,10 +75,9 @@ def _preload_onnxruntime_cuda_runtime_libraries() -> None:
     """
     if ort is None:
         return
-    preload_dlls = getattr(ort, "preload_dlls", None)
-    if not callable(preload_dlls):
-        return
-    preload_dlls(directory="")
+    from app.utils.cuda_runtime import preload_packaged_cuda_libraries
+
+    preload_packaged_cuda_libraries(ort)
 
 
 def _detect_openvino_support() -> dict:
@@ -2159,6 +2158,7 @@ class ONNXModelInstance:
         self.input_size = input_size
         self.ort_providers = list(ort_providers or ["CPUExecutionProvider"])
         self.session = None
+        self._session_primary_provider: str | None = None
         self.labels: list[str] = []
         self.grouped_labels: list[str] = []
         self.loaded = False
@@ -2204,6 +2204,11 @@ class ONNXModelInstance:
             if "CUDAExecutionProvider" in providers:
                 _preload_onnxruntime_cuda_runtime_libraries()
             self.session = ort.InferenceSession(self.model_path, sess_options, providers=providers)
+            self._session_primary_provider = self._active_primary_provider()
+            if self._session_primary_provider == "CUDAExecutionProvider":
+                from app.utils.cuda_runtime import prevent_internal_cuda_fallback
+
+                prevent_internal_cuda_fallback(self.session)
             self.loaded = True
             self.error = None
             log.info(f"{self.name} ONNX model loaded successfully", input_size=self.input_size, providers=providers)
@@ -2236,16 +2241,31 @@ class ONNXModelInstance:
         """Apply softmax to convert logits to probabilities."""
         return _safe_softmax(x, context=f"{self.name}:onnx")
 
+    def _active_primary_provider(self) -> str | None:
+        get_providers = getattr(self.session, "get_providers", None)
+        providers = list(get_providers() or []) if callable(get_providers) else []
+        return providers[0] if providers else None
+
     def _run_inference(self, input_name: str, input_tensor: np.ndarray) -> list[Any]:
         """Run the provider and expose execution failures to recovery policy."""
         try:
             with self._lock:
-                return self.session.run(None, {input_name: input_tensor})
+                if self._session_primary_provider is None:
+                    self._session_primary_provider = self._active_primary_provider()
+                enforce_cuda = self._session_primary_provider == "CUDAExecutionProvider"
+                if enforce_cuda:
+                    from app.utils.cuda_runtime import verify_cuda_session_provider
+
+                    verify_cuda_session_provider(self.session)
+                outputs = self.session.run(None, {input_name: input_tensor})
+                if enforce_cuda:
+                    verify_cuda_session_provider(self.session)
+                return outputs
         except Exception as exc:
             log.error(f"ONNX inference failed for {self.name}", error=str(exc))
             raise InvalidInferenceOutputError(
                 backend="onnxruntime",
-                provider=(self.ort_providers[0] if self.ort_providers else "cpu"),
+                provider=self._session_primary_provider or (self.ort_providers[0] if self.ort_providers else "cpu"),
                 detail=f"{self.name} inference execution failed: {exc}",
                 diagnostics={"exception_type": type(exc).__name__},
             ) from exc
@@ -2260,14 +2280,14 @@ class ONNXModelInstance:
         except Exception as exc:
             raise InvalidInferenceOutputError(
                 backend="onnxruntime",
-                provider=(self.ort_providers[0] if self.ort_providers else "cpu"),
+                provider=self._session_primary_provider or (self.ort_providers[0] if self.ort_providers else "cpu"),
                 detail=f"{self.name} returned an invalid output structure: {exc}",
                 diagnostics={"exception_type": type(exc).__name__},
             ) from exc
         if probs.size == 0:
             raise InvalidInferenceOutputError(
                 backend="onnxruntime",
-                provider=(self.ort_providers[0] if self.ort_providers else "cpu"),
+                provider=self._session_primary_provider or (self.ort_providers[0] if self.ort_providers else "cpu"),
                 detail=f"{self.name} inference produced no finite probabilities",
             )
         return probs
@@ -2325,8 +2345,8 @@ class ONNXModelInstance:
             except Exception:
                 report["active_providers"] = []
             input_name = self.session.get_inputs()[0].name
-            with self._lock:
-                outputs = self.session.run(None, {input_name: input_tensor})
+            outputs = self._run_inference(input_name, input_tensor)
+            report["active_providers"] = list(self.session.get_providers() or [])
             logits = np.asarray(outputs[0])
             if logits.ndim > 0 and logits.shape[0] == 1:
                 logits = logits[0]
@@ -2337,6 +2357,10 @@ class ONNXModelInstance:
         except Exception as exc:
             report["status"] = "runtime_error"
             report["error"] = _summarize_runtime_exception(exc, max_len=600)
+            try:
+                report["active_providers"] = list(self.session.get_providers() or [])
+            except Exception:
+                report["active_providers"] = []
             return report
 
     def cleanup(self):
@@ -2345,6 +2369,7 @@ class ONNXModelInstance:
             # ONNX sessions don't have explicit cleanup,
             # but we can dereference to allow garbage collection
             self.session = None
+        self._session_primary_provider = None
         self.loaded = False
         log.info(f"{self.name} ONNX model resources cleaned up")
 

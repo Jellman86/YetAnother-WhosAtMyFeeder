@@ -25,6 +25,7 @@ async def _create_snapshot_candidate_table(db: aiosqlite.Connection) -> None:
             thumbnail_ref TEXT,
             image_ref TEXT,
             snapshot_source TEXT,
+            content_sha256 TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(frigate_event, candidate_id)

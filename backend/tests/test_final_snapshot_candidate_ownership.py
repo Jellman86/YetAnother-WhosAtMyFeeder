@@ -13,7 +13,7 @@ from test_full_visit_budget_eviction import budget_visit_history as budget_visit
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("source_mode", ["full_frame", "model_crop", "frigate_hint_crop"])
+@pytest.mark.parametrize("source_mode", ["full_frame", "model_crop", "frigate_hint_crop", "frigate_region_crop"])
 @pytest.mark.parametrize("crop_index", [0, 2])
 @pytest.mark.parametrize("metadata_mode", ["current", "legacy", "absent"])
 async def test_live_final_candidates_survive_orphan_recovery(
@@ -60,3 +60,22 @@ async def test_deleted_final_candidate_is_removed_with_its_real_parent(budget_vi
     await storage.MediaStorageService().enforce_limits()
     assert not path.exists()
     assert await media.get_snapshot("budget-new") is not None
+
+
+@pytest.mark.parametrize("mode,digest", [("frigate_region_crop", "a" * 10), ("retained_snapshot", "b" * 12)])
+@pytest.mark.parametrize("part", ["image", "thumb", "thumb_thumb"])
+def test_saved_video_and_earlier_photos_belong_to_their_visit(tmp_path, mode, digest, part):
+    import json
+
+    from app.services import media_cache as cache
+
+    event_id = "1790873029.831402-46oads"
+    moment = "f2__" if mode == "frigate_region_crop" else ""
+    ref = f"{event_id}__{mode}__{moment}{digest}__{part}"
+    path = tmp_path / f"{ref}.jpg"
+    path.write_bytes(b"photo")
+    assert cache.media_cache._media_write_owner(ref) == event_id
+    assert cache.cache_file_event_id(path) == event_id
+    # Older sidecars may themselves have recorded the unresolved candidate key.
+    path.with_suffix(".jpg.meta.json").write_text(json.dumps({"event_id": ref}))
+    assert cache.cache_file_event_id(path) == event_id

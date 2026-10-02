@@ -210,9 +210,9 @@ async def test_regeneration_retains_whole_frame_for_manually_reviewed_bird(monke
     await service._persist_snapshot_candidates("evt", [new_full])
 
     saved = repo.replace_snapshot_candidates.await_args.args[1]
-    assert [item["candidate_id"] for item in saved] == ["new-full", "old-full"]
-    delete_snapshot.assert_awaited_once_with("old-crop-image")
-    delete_thumbnail.assert_awaited_once_with("old-crop-thumb")
+    assert {item["candidate_id"] for item in saved} == {"new-full", "old-full", "old-crop"}
+    delete_snapshot.assert_not_awaited()
+    delete_thumbnail.assert_not_awaited()
 
 
 def _make_cache_service(tmp_path, monkeypatch):
@@ -3262,7 +3262,7 @@ async def test_hq_regeneration_keeps_prior_retained_photograph_candidate(monkeyp
         "ranking_score": 0.9,
     }
     await hq_module.HighQualitySnapshotService()._persist_snapshot_candidates("evt", [new])
-    assert repo.replace_snapshot_candidates.await_args.args[1] == [new, old]
+    assert {row["candidate_id"] for row in repo.replace_snapshot_candidates.await_args.args[1]} == {"retained", "new"}
     remove.assert_not_awaited()
 
 
@@ -3307,7 +3307,7 @@ async def test_hq_keeps_current_photo_even_when_its_old_crop_row_is_replaced(tmp
     monkeypatch.setattr(hq_module, "BirdObservationRepository", lambda db: birds)
     await hq_module.HighQualitySnapshotService()._persist_snapshot_candidates("evt-prior", [new])
     rows = repo.replace_snapshot_candidates.await_args.args[1]
-    retained = next(row for row in rows if row["source_mode"] == "retained_photo")
-    assert retained["selected"] is False
-    assert await cache.get_snapshot(retained["image_ref"]) == photo
-    assert retained["frame_offset_seconds"] is None
+    prior = next(row for row in rows if row["candidate_id"] == "old")
+    assert prior["selected"] is False
+    assert await cache.get_snapshot(prior["image_ref"]) == photo
+    assert prior["frame_index"] == 4

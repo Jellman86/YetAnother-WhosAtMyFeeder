@@ -534,7 +534,8 @@ def test_onnx_model_instance_surfaces_runtime_failure_for_provider_recovery(meth
     assert "CUDA execution provider failed" in exc.value.detail
 
 
-def test_onnx_model_instance_preloads_cuda_runtime_before_cuda_session_creation():
+@pytest.mark.parametrize("active_provider", ["CUDAExecutionProvider", "CPUExecutionProvider"])
+def test_onnx_model_instance_preloads_cuda_and_guards_only_sessions_created_on_cuda(active_provider):
     model = ONNXModelInstance(
         "test",
         "model.onnx",
@@ -545,6 +546,7 @@ def test_onnx_model_instance_preloads_cuda_runtime_before_cuda_session_creation(
 
     mock_session_options = MagicMock()
     mock_session = MagicMock()
+    mock_session.get_providers.return_value = [active_provider]
 
     with (
         patch("app.services.classifier_service.ONNX_AVAILABLE", True),
@@ -562,6 +564,13 @@ def test_onnx_model_instance_preloads_cuda_runtime_before_cuda_session_creation(
     assert success is True
     mock_preload.assert_called_once_with()
     mock_ort.InferenceSession.assert_called_once()
+    assert model._session_primary_provider == active_provider
+    if active_provider == "CUDAExecutionProvider":
+        mock_session.disable_fallback.assert_called_once_with()
+    else:
+        mock_session.disable_fallback.assert_not_called()
+    model.cleanup()
+    assert model._session_primary_provider is None
 
 
 def test_onnx_model_probe_reports_active_provider_and_output_summary():

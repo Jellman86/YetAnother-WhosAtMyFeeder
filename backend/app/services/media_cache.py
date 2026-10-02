@@ -56,7 +56,9 @@ def sanitize_event_id(event_id: str) -> str:
 
 
 _CANDIDATE_CACHE_KEY = re.compile(
-    r"^(.+)__(?:full_frame|model_crop|frigate_hint_crop)__(?:f-?\d+|final)(?:__c\d+)?__[a-f0-9]{10}__(?:image|thumb)(?:_thumb)?$"
+    r"^(.+)__(?:(?:full_frame|model_crop|frigate_hint_crop|frigate_region_crop)"
+    r"__(?:f-?\d+|final)(?:__c\d+)?__[a-f0-9]{10}|retained_snapshot__[a-f0-9]{12})"
+    r"__(?:image|thumb)(?:_thumb)?$"
 )
 
 

@@ -128,7 +128,10 @@ After video analysis, the saved photo uses the exact frame and crop that positiv
 identified the accepted species. This lightweight step decodes one previously
 analysed moment and performs no additional inference. It works when optional
 high-quality photo scanning is disabled. When scanning is enabled, a retained
-photo already verified for the current species keeps its quality. The supporting
+photo already verified for the current species keeps its quality. When its saved
+bytes match the selected, verified candidate, this check happens before decoding
+the video again. Owner choices and corrections are checked again before any new
+photo is saved. The supporting
 moment is included first in the frames supplied to that scan.
 
 Automatic photo changes respect manual identifications and photo choices, hidden
@@ -136,3 +139,22 @@ visits, blocked species and storage eviction. A rejected video result cannot
 replace the photo with a different species. Later routine Frigate snapshot writes
 update event hints without overwriting a retained refined photo. Extraction
 failures preserve the current photo and do not discard a successful classification.
+
+### Earlier photograph choices
+
+A new scan keeps its generated choices plus up to eight earlier choices. The
+earliest recorded photograph, the previously displayed photo, the owner's
+selected photograph and scenes used by
+persisted bird observations are protected. A kept crop retains its matching
+whole frame for comparison. These protections can take the total above eight;
+the limit does not reduce the birds counted in a capture or the current scan.
+
+Content hashes avoid rereading every saved JPEG to check for duplicates. Older
+rows without a hash receive at most eight byte comparisons per update. Files
+removed from the photo list are pruned only after the replacement commits.
+Existing choices are trimmed when a new photo set is saved, not at startup.
+Photographs already removed by storage eviction cannot be restored by retention.
+
+Older installations may have equal creation times for several photos because
+previous saves reset those times. Their exact original order cannot be recovered;
+Frigate photographs are preferred when choosing the protected comparison.

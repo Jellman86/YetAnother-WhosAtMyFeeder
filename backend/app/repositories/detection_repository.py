@@ -602,6 +602,8 @@ class DetectionRepository:
     ) -> None:
         if not await self._table_exists("snapshot_candidates"):
             return
+        previous = {row["candidate_id"]: row for row in await self.list_snapshot_candidates(frigate_event)}
+        now = serialize_storage_datetime(utc_naive_now())
         await self.db.execute(
             "DELETE FROM snapshot_candidates WHERE frigate_event = ?",
             (frigate_event,),
@@ -627,8 +629,10 @@ class DetectionRepository:
                     selected,
                     thumbnail_ref,
                     image_ref,
-                    snapshot_source
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    snapshot_source,
+                    content_sha256,
+                    created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     frigate_event,
@@ -647,6 +651,10 @@ class DetectionRepository:
                     candidate.get("thumbnail_ref"),
                     candidate.get("image_ref"),
                     candidate.get("snapshot_source"),
+                    candidate.get("content_sha256"),
+                    candidate.get("created_at")
+                    or previous.get(str(candidate.get("candidate_id") or ""), {}).get("created_at")
+                    or now,
                 ),
             )
         await self.db.commit()
@@ -671,7 +679,9 @@ class DetectionRepository:
                 selected,
                 thumbnail_ref,
                 image_ref,
-                snapshot_source
+                snapshot_source,
+                content_sha256,
+                created_at
             FROM snapshot_candidates
             WHERE frigate_event = ?
             ORDER BY ranking_score DESC, frame_index ASC, candidate_id ASC
@@ -705,6 +715,8 @@ class DetectionRepository:
                     "thumbnail_ref": row[12],
                     "image_ref": row[13],
                     "snapshot_source": row[14],
+                    "content_sha256": row[15],
+                    "created_at": row[16],
                 }
             )
         return result
