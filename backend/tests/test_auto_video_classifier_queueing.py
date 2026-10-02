@@ -795,16 +795,26 @@ async def test_process_event_uses_cached_clip_when_precheck_returns_event_not_fo
         "has_clip",
         lambda event_id: True,
     )
+    hints = {"start_time": 100.0, "data": {"box": [0.25, 0.35, 0.04, 0.14], "region": [0.17, 0.31, 0.17, 0.30]}}
+    monkeypatch.setattr(
+        auto_video_classifier_module.media_cache,
+        "get_snapshot_metadata",
+        AsyncMock(return_value={"event_hints": hints}),
+    )
     # _load_preferred_clip returns no clip — this causes a graceful early exit after
     # the precheck bypass without needing to mock the entire classification pipeline.
     load_clip_mock = AsyncMock(return_value=(None, "clip_not_retained", "event", None))
     monkeypatch.setattr(service, "_load_preferred_clip", load_clip_mock)
     monkeypatch.setattr(service, "_record_failure", lambda *args, **kwargs: None)
 
-    await service._process_event("evt-cached-clip", "cam1", skip_delay=True)
+    snapshot = AsyncMock(return_value=None)
+    monkeypatch.setattr(service, "_classify_from_snapshot", snapshot)
+    await service._process_event("evt-cached-clip", "cam1", skip_delay=True, fallback_to_snapshot=True)
 
     # Key assertion: precheck bypass occurred — _load_preferred_clip was called.
     load_clip_mock.assert_awaited_once()
+
+    assert snapshot.await_args.kwargs["event_data"] == hints
 
 
 @pytest.mark.asyncio

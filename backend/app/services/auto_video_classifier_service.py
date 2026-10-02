@@ -1517,9 +1517,13 @@ class AutoVideoClassifierService:
                             "has_recording_clip": _has_recording_clip,
                         },
                     )
-                    event_data = (
-                        None  # box/region hints unavailable; _build_classification_input_context handles None safely
+                    metadata = await media_cache.get_snapshot_metadata(frigate_event) or {}
+                    persisted_hints = metadata.get("event_hints")
+                    event_data = high_quality_snapshot_service.extract_event_hints(
+                        persisted_hints if isinstance(persisted_hints, dict) else None
                     )
+                    if not isinstance(event_data, dict):
+                        event_data = None
                 else:
                     # If the user has full-visit recording clips enabled, the
                     # auto-fetch of the recording clip is asynchronous and may
@@ -1776,11 +1780,9 @@ class AutoVideoClassifierService:
                         event_data=event_data,
                         is_cropped=False,
                         clip_variant=clip_variant,
-                        clip_start_timestamp=(
-                            clip_start_timestamp
-                            if clip_start_timestamp is not None
-                            else (event_data or {}).get("start_time")
-                        ),
+                        # Event clips include configurable pre-capture footage.
+                        # An event timestamp cannot establish their first frame.
+                        clip_start_timestamp=clip_start_timestamp,
                     )
                     async with get_db() as db:
                         target_detection = await DetectionRepository(db).get_by_frigate_event(frigate_event)
@@ -2012,6 +2014,7 @@ class AutoVideoClassifierService:
                                     Path(tmp_path),
                                     event_data=event_data,
                                     clip_variant=clip_variant,
+                                    clip_start_timestamp=clip_start_timestamp,
                                 ),
                                 timeout=_HQ_SNAPSHOT_TIMEOUT_SECONDS,
                             )
@@ -2028,13 +2031,24 @@ class AutoVideoClassifierService:
                                 error=str(e),
                             )
 
-                    await replace_video_snapshot(
+                    photo_outcome = await replace_video_snapshot(
                         frigate_event,
                         Path(tmp_path),
                         top,
                         clip_variant=clip_variant,
                         automatic=not manual_reclassification_requested(),
                     )
+                    log.info("Video photograph update settled", event_id=frigate_event, photo_outcome=photo_outcome)
+                    if photo_outcome not in {"replaced", "matching_photo_preserved"}:
+                        self._record_diagnostic(
+                            frigate_event,
+                            reason_code="video_photo_update",
+                            message="Video photograph update finished",
+                            severity="warning"
+                            if photo_outcome in {"frame_extract_failed", "snapshot_replace_failed"}
+                            else "info",
+                            context={"photo_outcome": photo_outcome},
+                        )
                     await video_classification_waiter.publish(
                         frigate_event,
                         "completed",
@@ -2050,6 +2064,7 @@ class AutoVideoClassifierService:
                         frigate_event,
                         results,
                         outcome="success",
+                        photo_outcome=photo_outcome,
                     )
 
                     log.info(
@@ -2658,6 +2673,7 @@ class AutoVideoClassifierService:
         outcome: Literal["success", "no_result", "failed"],
         reason: str | None = None,
         diagnostics: dict | None = None,
+        photo_outcome: str | None = None,
     ) -> None:
         """Publish an explicit terminal result for progress and notification clients."""
         data: dict = {
@@ -2665,6 +2681,8 @@ class AutoVideoClassifierService:
             "results": results,
             "outcome": outcome,
         }
+        if photo_outcome:
+            data["photo_outcome"] = photo_outcome
         if reason:
             data["reason"] = reason
         if diagnostics:

@@ -47,6 +47,21 @@ def normalize_frigate_hint_box(
     return left, top, width, height
 
 
+def normalized_frigate_video_hint(raw_hint: Any) -> tuple[float, float, float, float] | None:
+    """Accept only resolution-independent hints for video frames.
+
+    MQTT pixel corners use the detect stream, whose dimensions need not match
+    the recording. Without that original resolution, their scale is unknown.
+    """
+    if not isinstance(raw_hint, (list, tuple)) or len(raw_hint) != 4:
+        return None
+    if any(isinstance(value, bool) or not isinstance(value, (int, float)) for value in raw_hint):
+        return None
+    if not all(math.isfinite(value) and 0 <= value <= 1 for value in raw_hint):
+        return None
+    return normalize_frigate_hint_box(raw_hint, (1, 1))
+
+
 def restore_frigate_hint_box(
     raw_hint: Any,
     image_size: tuple[int, int],

@@ -195,11 +195,29 @@ calibration and formal risk/coverage selection require a representative labelled
 described by [Guo et al.](https://proceedings.mlr.press/v70/guo17a.html) and
 [Geifman and El-Yaniv](https://papers.nips.cc/paper/2017/hash/4a8423d5e91fda00bb7e46540e2b0cf1-Abstract.html).
 
-Frigate `path_data` now guides video crops as well as HQ snapshots. YA-WAMF aligns each absolute
-bottom-centre path point with the actual event-clip or retained recording start timestamp, restores
-the tracked box at that sampled moment, and ignores a path point more than 0.75 seconds away. A
-retained recording never reuses the event's one static box outside those aligned moments; when
-tracking metadata is absent or stale, full-frame and detector-crop evidence remain available.
+Frigate `path_data` guides precise video crops only when the first frame's absolute timestamp is
+known. The event's start time alone cannot establish that timestamp because event clips include
+pre-capture footage. Video classification and HQ scanning withhold exact path crops and
+path-targeted frame indices when the clip origin is unknown. Retained recording metadata can
+supply a trustworthy origin; stale path points more than 0.75 seconds away remain unusable.
+
+The tracked region, extended to cover observed path positions, also bounds primary video evidence.
+An old label alone cannot select a distant bird outside that region.
+Native crops need at least half their area inside that region; the broader region itself is
+scored as another input. Confidence and independent-frame requirements remain unchanged. Bird
+counts and alternate HQ photo choices still inspect the whole scene. Retained event hints can
+supply this spatial context after Frigate deletes its event; no clip start is inferred from them.
+Only normalized hints can guide video when the original detect-stream resolution is unknown.
+MQTT pixel corners are not scaled using recording dimensions. Conflicting confident region and
+current-target evidence abstains instead of reinforcing an old identity.
+
+Reclassification finishes photo work before reporting completion. The previous photograph is
+retained as a separate choice before video or HQ work replaces it, even if Frigate has removed
+its copy. The retained still has no inferred clip timestamp. Photo-update outcomes appear in
+completion events and structured logs. Owner, identity, storage and failure outcomes also enter
+diagnostics; routine replacements and matching photographs do not. A kept photo can be
+distinguished from extraction or storage failure without filling the warning history with
+successful work.
 
 When no source clears the policy, YA-WAMF stores a bounded diagnostic summary on the detection:
 decoded frames, independent moments, confident votes, the support required for each source, up to

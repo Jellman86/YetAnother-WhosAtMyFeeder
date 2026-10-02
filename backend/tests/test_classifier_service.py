@@ -4066,6 +4066,7 @@ async def test_classify_video_compares_frigate_crop_when_model_crop_policy_is_di
             max_frames=3,
             input_context={
                 "is_cropped": False,
+                "clip_start_timestamp": 100.0,
                 "event_id": "evt-distant-bird",
                 "frigate_box": [0.1, 0.1, 0.78, 0.78],
             },
@@ -4074,8 +4075,9 @@ async def test_classify_video_compares_frigate_crop_when_model_crop_policy_is_di
         assert results[0]["label"] == "Wood Pigeon"
         assert results[0]["input_source"] == "frigate_hint_crop"
         assert results[0]["input_is_cropped"] is True
-        assert model.seen_sizes.count((100, 100)) == 3
-        assert len([size for size in model.seen_sizes if size != (100, 100)]) == 3
+        assert model.seen_sizes.count((100, 100)) == 0
+        assert model.seen_sizes.count((78, 78)) == 3
+        assert model.seen_sizes.count((96, 96)) == 3
         await service.shutdown()
 
 
@@ -4103,7 +4105,7 @@ async def test_classify_video_prioritizes_tracked_bird_when_full_frame_shows_ano
         results = service.classify_video(
             "/tmp/demo.mp4",
             max_frames=3,
-            input_context={"is_cropped": False, "frigate_box": [0.1, 0.1, 0.78, 0.78]},
+            input_context={"is_cropped": False, "clip_start_timestamp": 100.0, "frigate_box": [0.1, 0.1, 0.78, 0.78]},
         )
 
         assert results[0]["label"] == "Sparrowhawk"
@@ -4358,7 +4360,7 @@ async def test_video_frigate_hint_follows_time_aligned_tracking_path(mock_tflite
 
 
 @pytest.mark.asyncio
-async def test_video_frigate_hint_tracks_mqtt_pixel_box_using_decoded_frame_size(mock_tflite, mock_os_path_exists):
+async def test_video_withholds_pixel_tracking_size_when_detect_resolution_is_unknown(mock_tflite, mock_os_path_exists):
     with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
         service = ClassifierService()
         context = classifier_service_module._normalize_classification_input_context(
@@ -4376,7 +4378,7 @@ async def test_video_frigate_hint_tracks_mqtt_pixel_box_using_decoded_frame_size
             image_size=(100, 100),
         )
 
-        assert tracked == pytest.approx([0.4, 0.4, 0.2, 0.2])
+        assert tracked is None
         await service.shutdown()
 
 
@@ -6648,3 +6650,68 @@ async def test_classifier_service_shutdown_closes_all_executors():
     assert service._live_image_executor._shutdown is True
     assert service._background_image_executor._shutdown is True
     assert service._video_executor._shutdown is True
+
+
+def test_unknown_clip_timeline_cannot_search_for_the_event_species_in_unrelated_birds(monkeypatch):
+    service = ClassifierService.__new__(ClassifierService)
+
+    class Detector:
+        def generate_video_classification_candidate_crops(self, image, *, max_crops):
+            return [
+                {"crop_image": image.crop((75, 60, 85, 80)), "box": (75, 60, 85, 80)},
+                {"crop_image": image.crop((24, 35, 29, 49)), "box": (24, 35, 29, 49)},
+            ]
+
+    service._bird_crop_service = Detector()
+    monkeypatch.setattr(service, "_resolve_frigate_hint_crop", lambda image, **kwargs: None)
+    context = classifier_service_module._normalize_classification_input_context(
+        {
+            "clip_variant": "event",
+            "frigate_region": [0.17, 0.31, 0.17, 0.30],
+            "frigate_box": [0.25, 0.35, 0.04, 0.14],
+            "frigate_path_data": [[[0.27, 0.49], 100]],
+            "event_target_labels": ["Haemorhous mexicanus"],
+        }
+    )
+    frame_context = service._video_frame_input_context(context, frame_offset_seconds=14, image_size=(100, 100))
+    candidates = service._video_frame_candidates(Image.new("RGB", (100, 100)), input_context=frame_context)
+    assert "frigate_box" not in frame_context.model_dump()
+    assert all(box is not None for _, _, box in candidates)
+    assert not any(box == (75, 60, 85, 80) for _, _, box in candidates)
+    assert any(box == (24, 35, 29, 49) for _, _, box in candidates)
+    assert candidates[0][0] == "frigate_region_crop"
+
+
+@pytest.mark.parametrize("variant", ["event", "recording"])
+def test_unknown_timeline_subject_region_includes_moving_path_without_precise_hints(variant):
+    service = ClassifierService.__new__(ClassifierService)
+    context = classifier_service_module._normalize_classification_input_context(
+        {
+            "clip_variant": variant,
+            "frigate_box": [0.2, 0.3, 0.1, 0.2],
+            "frigate_region": [0.1, 0.2, 0.3, 0.4],
+            "frigate_path_data": [[[0.8, 0.9], 100], [[float("nan"), 0.5], 101], [[True, 0.5], 102]],
+        }
+    )
+    frame = service._video_frame_input_context(context, frame_offset_seconds=1, image_size=(1000, 1000)).model_dump()
+    assert frame["event_subject_region"] == pytest.approx([0.1, 0.2, 0.75, 0.7])
+    assert "frigate_box" not in frame
+    assert "frigate_region" not in frame
+
+
+def test_video_does_not_apply_detect_pixel_hints_to_a_different_recording_resolution(monkeypatch):
+    service = ClassifierService.__new__(ClassifierService)
+    service._bird_crop_service = None
+    monkeypatch.setattr(service, "_resolve_frigate_hint_crop", lambda image, **kwargs: None)
+    context = classifier_service_module._normalize_classification_input_context(
+        {
+            "frigate_box": [326, 255, 378, 353],
+            "frigate_region": [220, 230, 434, 444],
+            "frigate_path_data": [[[0.27, 0.49], 100]],
+            "clip_start_timestamp": 100,
+        }
+    )
+    frame = service._video_frame_input_context(context, frame_offset_seconds=0, image_size=(3840, 2160))
+    assert "event_subject_region" not in frame.model_dump()
+    assert "frigate_box" not in frame.model_dump()
+    assert service._video_frame_candidates(Image.new("RGB", (3840, 2160)), input_context=frame)[0][0] == "full_frame"

@@ -350,6 +350,18 @@ def select_event_temporal_source_consensus(
     if tracked is not None:
         return tracked
     targets = [item for item in target_consensuses if item.consensus is not None]
+    region = next(
+        (
+            item
+            for item in sources
+            if item.input_source == "frigate_region_crop"
+            and item.consensus is not None
+            and item.consensus.score >= minimum_tracked_score
+        ),
+        None,
+    )
+    if region is not None and any(item.consensus.winner_index != region.consensus.winner_index for item in targets):
+        return None
     if targets:
         return max(targets, key=lambda item: (item.consensus.supporting_frame_count, item.consensus.score))
     return select_temporal_source_consensus(sources)

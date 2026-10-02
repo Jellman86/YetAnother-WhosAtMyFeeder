@@ -28,7 +28,7 @@ from app.services.startup_status import startup_status
 from app.utils.canonical_species import should_hide_species_label
 from app.utils.frigate_coordinates import (
     frigate_snapshot_crop_box,
-    normalize_frigate_hint_box,
+    normalized_frigate_video_hint,
     restore_frigate_hint_box,
 )
 from app.utils.runtime_flavor import get_image_flavor, image_flavor_warning, packaged_inference_providers
@@ -5247,7 +5247,7 @@ class ClassifierService:
             return None
         if image_size is None:
             image_size = (1, 1)
-        normalized_box = normalize_frigate_hint_box(raw_box, image_size)
+        normalized_box = normalized_frigate_video_hint(raw_box)
         if normalized_box is None:
             return None
         _left, _top, width, height = normalized_box
@@ -5295,14 +5295,56 @@ class ClassifierService:
 
         A Frigate event's top-level box describes one tracked instant. Reusing it
         across a full-visit recording repeatedly classifies the same background
-        patch after a fleeting bird has moved away. Recording clips therefore use
-        a Frigate hint only when ``path_data`` can align it to this frame. Event
-        clips retain the static fallback when no tracking path was supplied.
+        patch after a fleeting bird has moved away. Precise hints require a
+        known clip origin and aligned path data. A broader spatial prior remains
+        useful when the exact frame timing is unknown.
         """
         frame_context_payload = dict(input_context.model_dump())
         clip_variant = str(self._input_context_extra(input_context, "clip_variant") or "event").strip().lower()
+        # A spatial prior survives unknown pre-capture timing and also constrains
+        # full-visit recordings. Include the observed path so a moving bird is
+        # not excluded merely because the final region covers its last position.
+        subject_region = normalized_frigate_video_hint(
+            self._input_context_extra(input_context, "frigate_region")
+        ) or normalized_frigate_video_hint(self._input_context_extra(input_context, "frigate_box"))
+        for key in ("frigate_box", "frigate_region"):
+            if normalized_frigate_video_hint(frame_context_payload.get(key)) is None:
+                frame_context_payload.pop(key, None)
         raw_path_data = self._input_context_extra(input_context, "frigate_path_data")
-        requires_time_aligned_hint = clip_variant == "recording" or bool(raw_path_data)
+        if subject_region is not None:
+            normalized_region = subject_region
+            tracked_size = normalized_frigate_video_hint(self._input_context_extra(input_context, "frigate_box"))
+            if normalized_region is not None and tracked_size is not None and isinstance(raw_path_data, list):
+                left, top, width, height = normalized_region
+                right, bottom = left + width, top + height
+                for item in raw_path_data:
+                    if (
+                        not isinstance(item, (list, tuple))
+                        or not item
+                        or not isinstance(item[0], (list, tuple))
+                        or len(item[0]) < 2
+                    ):
+                        continue
+                    x, y = item[0][:2]
+                    if (
+                        isinstance(x, bool)
+                        or isinstance(y, bool)
+                        or not isinstance(x, (int, float))
+                        or not isinstance(y, (int, float))
+                    ):
+                        continue
+                    if not math.isfinite(x) or not math.isfinite(y) or not 0 <= x <= 1 or not 0 <= y <= 1:
+                        continue
+                    left, top = min(left, x - tracked_size[2] / 2), min(top, y - tracked_size[3])
+                    right, bottom = max(right, x + tracked_size[2] / 2), max(bottom, y)
+                left, top, right, bottom = max(0, left), max(0, top), min(1, right), min(1, bottom)
+                subject_region = [left, top, right - left, bottom - top]
+            frame_context_payload["event_subject_region"] = subject_region
+        requires_time_aligned_hint = (
+            clip_variant == "recording"
+            or bool(raw_path_data)
+            or self._input_context_extra(input_context, "clip_start_timestamp") is None
+        )
         if requires_time_aligned_hint:
             frame_context_payload.pop("frigate_box", None)
             frame_context_payload.pop("frigate_region", None)
@@ -5433,7 +5475,28 @@ class ClassifierService:
             supplied_source = str(self._input_context_extra(input_context, "input_source") or "provided_crop")
             return [(supplied_source, image, None)]
 
-        candidates: list[tuple[str, Image.Image, tuple[int, int, int, int] | None]] = [("full_frame", image, None)]
+        subject_box = restore_frigate_hint_box(
+            self._input_context_extra(input_context, "event_subject_region"), image.size
+        )
+        candidates: list[tuple[str, Image.Image, tuple[int, int, int, int] | None]] = (
+            [("frigate_region_crop", image.crop(subject_box), subject_box)]
+            if subject_box is not None
+            else [("full_frame", image, None)]
+        )
+
+        def within_subject(candidate: tuple[str, Image.Image, tuple[int, int, int, int] | None]) -> bool:
+            if subject_box is None:
+                return True
+            box = candidate[2]
+            if box is None:
+                return False
+            left, top, right, bottom = box
+            area = max(0, right - left) * max(0, bottom - top)
+            overlap = max(0, min(right, subject_box[2]) - max(left, subject_box[0])) * max(
+                0, min(bottom, subject_box[3]) - max(top, subject_box[1])
+            )
+            return area > 0 and overlap / area >= 0.5
+
         seen_boxes: set[tuple[int, int, int, int]] = set()
 
         hint_result = self._resolve_frigate_hint_crop(image, input_context=input_context)
@@ -5450,7 +5513,7 @@ class ClassifierService:
             if hint_box is None and self._input_context_extra(input_context, "event_target_labels"):
                 native = self._video_native_model_candidates(image, seen_boxes=seen_boxes)
                 if native is not None:
-                    return candidates + native
+                    return [candidate for candidate in candidates + native if within_subject(candidate)]
             try:
                 model_result = self._resolve_model_candidate_crop(image, search_box=hint_box)
             except Exception as exc:
@@ -5468,7 +5531,7 @@ class ClassifierService:
                 # One guided miss must not prevent checking the other birds in the scene.
                 candidates.extend(self._video_native_model_candidates(image, seen_boxes=seen_boxes) or [])
 
-        return candidates
+        return [candidate for candidate in candidates if within_subject(candidate)]
 
     def _video_native_model_candidates(
         self,

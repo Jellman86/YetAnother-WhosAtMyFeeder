@@ -249,6 +249,17 @@ the final evidence route when video is unavailable, temporal sources abstain, or
 candidate does not clear the configured promotion threshold. The SSE stream emits
 `reclassification_strategy_changed` before that fallback.
 
+Video `reclassification_completed` events are emitted after photograph work settles. A successful
+run can include `photo_outcome`, such as `replaced`, `matching_photo_preserved`,
+`manual_selection_preserved`, `owner_identification_preserved`, `primary_identity_preserved`,
+`storage_evicted`, `blocked_species`, `disabled_or_no_evidence`, `frame_extract_failed`, or
+`snapshot_replace_failed`. Owner, identity, storage and failure outcomes also enter processing
+diagnostics; routine replacements and matching photographs do not. Species success does not imply
+a photograph was replaced; existing owner choices remain protected.
+
+A prior photograph retained during replacement can appear among snapshot candidates with
+`source_mode: "retained_photo"`, `clip_variant: "retained_snapshot"`, and no frame offset or
+classifier prediction. Its `frame_index: 0` is a storage placeholder, not evidence of clip timing.
 Regular proxy-fetched JPEGs use `frigate_snapshot_unverified` provenance because camera settings
 can change their framing. Full-frame Frigate coordinates must not be reapplied to those bytes.
 

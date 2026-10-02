@@ -357,3 +357,18 @@ def test_source_consensus_prefers_stronger_evidence_when_sources_agree():
     assert selected is not None
     assert selected.input_source == "model_crop"
     assert selected.consensus.supporting_frame_count == 3
+
+
+def test_old_target_cannot_override_a_conflicting_confident_tracked_region():
+    region = SourceTemporalConsensus(
+        "frigate_region_crop", build_temporal_consensus([np.array([0.08, 0.92])] * 3, minimum_frame_score=0.7)
+    )
+    old_target = SourceTemporalConsensus(
+        "model_crop", build_temporal_consensus([np.array([0.94, 0.06])] * 3, minimum_frame_score=0.7)
+    )
+    assert (
+        select_event_temporal_source_consensus(
+            [region, old_target], target_consensuses=[old_target], minimum_tracked_score=0.7
+        )
+        is None
+    )

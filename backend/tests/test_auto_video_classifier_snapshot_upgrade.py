@@ -112,12 +112,14 @@ async def test_process_event_triggers_snapshot_upgrade_when_clip_valid():
         ANY,
         event_data={"has_clip": True},
         clip_variant="event",
+        clip_start_timestamp=None,
     )
     service._save_results.assert_awaited_once()
 
 
 @pytest.mark.asyncio
-async def test_video_photo_finishes_before_completion_with_hq_disabled():
+@pytest.mark.parametrize("photo_outcome", ["replaced", "matching_photo_preserved", "frame_extract_failed"])
+async def test_video_photo_finishes_before_completion_with_hq_disabled(photo_outcome):
     service = AutoVideoClassifierService()
     top = {"label": "Robin", "score": 0.92, "index": 1}
     service._classifier = MagicMock()
@@ -130,7 +132,7 @@ async def test_video_photo_finishes_before_completion_with_hq_disabled():
 
     async def photo(*args, **kwargs):
         sequence.append("photo")
-        return "replaced"
+        return photo_outcome
 
     async def publish(*args, **kwargs):
         sequence.append("completed")
@@ -141,7 +143,7 @@ async def test_video_photo_finishes_before_completion_with_hq_disabled():
             "get_event_with_error",
             new=AsyncMock(return_value=({"has_clip": True}, None)),
         ),
-        patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()),
+        patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()) as broadcast,
         patch.object(
             auto_video_classifier_module, "replace_video_snapshot", new=AsyncMock(side_effect=photo), create=True
         ) as replace,
@@ -152,6 +154,11 @@ async def test_video_photo_finishes_before_completion_with_hq_disabled():
         await service._process_event("evt-video-photo-off", "cam1", skip_delay=True)
     replace.assert_awaited_once_with("evt-video-photo-off", ANY, top, clip_variant="event", automatic=True)
     assert sequence == ["photo", "completed"]
+
+    completion = [
+        call.args[0] for call in broadcast.await_args_list if call.args[0]["type"] == "reclassification_completed"
+    ]
+    assert completion[-1]["data"]["photo_outcome"] == photo_outcome
 
 
 @pytest.mark.asyncio
@@ -359,6 +366,7 @@ async def test_process_event_still_classifies_when_snapshot_upgrade_fails():
         ANY,
         event_data={"has_clip": True},
         clip_variant="event",
+        clip_start_timestamp=None,
     )
     service._save_results.assert_awaited_once()
 
@@ -652,7 +660,6 @@ async def test_process_event_passes_event_id_into_video_classification_context()
         "event_id": "evt-batch-video-context",
         "clip_variant": "event",
         "include_video_diagnostics": True,
-        "clip_start_timestamp": 100.0,
         "frigate_box": [0.2, 0.3, 0.4, 0.5],
         "frigate_region": [0.1, 0.2, 0.8, 0.9],
         "frigate_path_data": [[[0.4, 0.8], 100.5]],

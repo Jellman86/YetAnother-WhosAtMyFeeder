@@ -239,3 +239,57 @@ async def test_cancellation_during_photo_commit_keeps_files_and_selected_row_tog
         selected["image_ref"]
     )
     assert module.media_cache.get_active_write_event_ids() == set()
+
+
+@pytest.mark.asyncio
+async def test_replacement_retains_the_previous_photo_without_a_candidate_or_frigate_copy(clip, monkeypatch):
+    from io import BytesIO
+    from PIL import Image
+
+    event_id = "video-photo-retained-original"
+    await _seed(event_id)
+    data = BytesIO()
+    Image.new("RGB", (80, 60), "yellow").save(data, format="JPEG")
+    original = data.getvalue()
+    await module.media_cache.cache_snapshot(event_id, original, source="frigate_snapshot_cropped")
+    monkeypatch.setattr(module.archive_service, "refresh_photograph", AsyncMock())
+    assert await module.replace_video_snapshot(event_id, clip, _result(), clip_variant="event") == "replaced"
+    async with get_db() as db:
+        rows = await DetectionRepository(db).list_snapshot_candidates(event_id)
+    photos = [await module.media_cache.get_snapshot(row["image_ref"]) for row in rows]
+    assert original in photos
+    kept = rows[photos.index(original)]
+    assert kept["selected"] is False
+    assert kept["clip_variant"] == "retained_snapshot"
+    assert kept["classifier_label"] is None
+
+
+@pytest.mark.asyncio
+async def test_retained_photo_keeps_original_bytes_with_bounded_thumbnail(monkeypatch):
+    from io import BytesIO
+    from PIL import Image
+
+    buffer = BytesIO()
+    Image.new("RGB", (1920, 1080), "yellow").save(buffer, "JPEG")
+    original = buffer.getvalue()
+    retained = await module.retained_snapshot_candidate("evt", original, {"source": "frigate_snapshot"}, [])
+    assert retained["image_bytes"] == original
+    assert retained["frame_offset_seconds"] is None
+    assert retained["classifier_label"] is None
+    assert retained["clip_variant"] == "retained_snapshot"
+    with Image.open(BytesIO(retained["thumbnail_bytes"])) as thumbnail:
+        assert thumbnail.width <= 320
+        assert thumbnail.height <= 240
+    monkeypatch.setattr(module.media_cache, "get_snapshot", AsyncMock(return_value=original))
+    assert await module.retained_snapshot_candidate("evt", original, {}, [retained]) is None
+
+
+def test_video_candidate_keeps_tracked_region_provenance():
+    from PIL import Image
+
+    result = _result()
+    evidence = {**result["_video_snapshot_evidence"], "input_source": "frigate_region_crop"}
+    rows = module._candidates(
+        "evt", result, evidence, (Image.new("RGB", (40, 30)), Image.new("RGB", (80, 60))), "event"
+    )
+    assert next(row for row in rows if row["selected"])["source_mode"] == "frigate_region_crop"
