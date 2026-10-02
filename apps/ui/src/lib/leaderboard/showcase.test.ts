@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildShowcaseRows, portraitFor, SHOWCASE_TILES, swapDisplayOrder } from './showcase';
+import { buildShowcaseRows, portraitFor, presenceFor, shareSegments, spotlightGroups } from './showcase';
 
 const portraits = [
     { species: 'Dunnock', scientific_name: 'Prunella modularis', taxa_id: 13988, frigate_event: 'd1', image_url: '/api/about/showcase/d1.jpg' },
@@ -43,12 +43,12 @@ describe('the leaderboard showcase rows', () => {
         expect(rows[1]).toMatchObject({ key: 'Dunnock', photo: '/api/about/showcase/d1.jpg', reference: null });
     });
 
-    it('takes the leader plus one tile per slot, in rank order', () => {
-        const many = Array.from({ length: 20 }, (_, i) => row(`Species ${i}`));
+    it('keeps every ranked species with its table rank and the names the timeline knows it by', () => {
+        const many = Array.from({ length: 20 }, (_, i) => row(`Species ${i}`, i === 1 ? { scientific_name: 'Parus major' } : {}));
         const rows = buildShowcaseRows(many, { trendAvailable: true, sourceMode: 'seen', portraits: [], referenceFor: () => ({ url: null, source: null }) });
-        expect(rows).toHaveLength(SHOWCASE_TILES + 1);
-        expect(rows[0].key).toBe('Species 0');
-        expect(rows[0].trend).toBe('+6');
+        expect(rows).toHaveLength(20);
+        expect(rows[0]).toMatchObject({ key: 'Species 0', rank: 1, trend: '+6' });
+        expect(rows[1]).toMatchObject({ rank: 2, names: ['Species 1', 'Parus major'] });
     });
 });
 
@@ -67,12 +67,88 @@ describe('the showcase flag', () => {
     });
 });
 
-describe('the showcase display order', () => {
-    it('lets a chosen species and the leader trade places, and moves nothing else', () => {
-        expect(swapDisplayOrder(['a', 'b', 'c', 'd'], 'a', 'c')).toEqual(['c', 'b', 'a', 'd']);
-        // Bringing the one already forward changes nothing.
-        expect(swapDisplayOrder(['c', 'b', 'a', 'd'], 'c', 'c')).toEqual(['c', 'b', 'a', 'd']);
-        // A key the order does not know cannot be swapped in.
-        expect(swapDisplayOrder(['a', 'b'], 'a', 'zz')).toEqual(['a', 'b']);
+const ranked = (counts: Array<[string, number, boolean?]>) =>
+    buildShowcaseRows(
+        counts.map(([species, count]) => row(species, { count })),
+        {
+            trendAvailable: false,
+            sourceMode: 'seen',
+            portraits: [],
+            referenceFor: () => ({ url: null, source: null }),
+            isFlagged: (candidate) => counts.find(([species]) => species === candidate.species)?.[2] === true
+        }
+    );
+
+describe('the spotlight groups and share bar', () => {
+    const rows = ranked([
+        ['Dunnock', 251],
+        ['European Robin', 32],
+        ['Great Tit', 6],
+        ['Golden-crowned Sparrow', 4, true],
+        ['Goldcrest', 3],
+        ['Eurasian Wren', 1]
+    ]);
+
+    it('keeps flagged species out of the tour and the list, and sums the rest instead of dropping them', () => {
+        const groups = spotlightGroups(rows, 3);
+        expect(groups.list.map((item) => item.key)).toEqual(['Dunnock', 'European Robin', 'Great Tit']);
+        // Ranks stay the table's: the flagged fourth does not renumber the fifth.
+        expect(groups.list.map((item) => item.rank)).toEqual([1, 2, 3]);
+        expect(groups.others).toEqual({ species: 2, count: 4 });
+        expect(groups.checks.map((item) => item.key)).toEqual(['Golden-crowned Sparrow']);
+    });
+
+    it('fills the bar exactly: listed species, everyone else, then what needs a check', () => {
+        const segments = shareSegments(rows, 3);
+        expect(segments.map((segment) => [segment.key, segment.kind, segment.count])).toEqual([
+            ['Dunnock', 'species', 251],
+            ['European Robin', 'species', 32],
+            ['Great Tit', 'species', 6],
+            ['others', 'others', 4],
+            ['checks', 'checks', 4]
+        ]);
+        expect(segments.reduce((sum, segment) => sum + segment.percent, 0)).toBeCloseTo(100, 6);
+        expect(segments[0].percent).toBeCloseTo((251 / 297) * 100, 6);
+    });
+
+    it('draws nothing for an empty window', () => {
+        expect(shareSegments(ranked([['Dunnock', 0]]))).toEqual([]);
+    });
+});
+
+describe('the spotlight presence strip', () => {
+    const timeline = {
+        bucket: 'day',
+        points: [
+            { bucket_start: '2026-09-01T00:00:00Z', label: 'Sep 01' },
+            { bucket_start: '2026-09-02T00:00:00Z', label: 'Sep 02' },
+            { bucket_start: '2026-09-03T00:00:00Z', label: 'Sep 03' }
+        ],
+        compare_series: [
+            {
+                species: 'Prunella modularis',
+                points: [
+                    { bucket_start: '2026-09-01T00:00:00Z', count: 14 },
+                    { bucket_start: '2026-09-02T00:00:00Z', count: 0 },
+                    { bucket_start: '2026-09-03T00:00:00Z', count: 1 }
+                ]
+            }
+        ]
+    };
+
+    it('marks each bucket the species was on camera in, by any of its names, without its counts', () => {
+        expect(presenceFor(['Dunnock', 'Prunella modularis'], timeline)).toEqual({
+            present: [true, false, true],
+            bucket: 'day',
+            firstLabel: 'Sep 01',
+            lastLabel: 'Sep 03'
+        });
+    });
+
+    it('has no strip for a species the timeline did not chart, or a bucket it cannot name', () => {
+        // An empty strip would read as "never seen"; none says "not charted".
+        expect(presenceFor(['Goldcrest'], timeline)).toBeNull();
+        expect(presenceFor(['Prunella modularis'], { ...timeline, bucket: 'week' })).toBeNull();
+        expect(presenceFor(['Prunella modularis'], null)).toBeNull();
     });
 });
