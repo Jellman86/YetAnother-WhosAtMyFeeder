@@ -6,6 +6,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Crop a retried event's snapshot around the bird in that snapshot. When the first classification
+  failed and YA-WAMF retried from Frigate's later event update, it cut the saved best frame using
+  the bird's latest position, which can be somewhere else once the bird has moved or flown off.
+  It now uses the box Frigate recorded for that frame, and the latest position only when Frigate
+  sent none.
+
 - Let video analysis correct a species borrowed from Frigate (#481). When YA-WAMF's own score stayed
   below the threshold and it used Frigate's sub-label instead, a confident video result had to beat that
   sub-label's score plus an extra margin, so a short visit by a different bird could never correct it.

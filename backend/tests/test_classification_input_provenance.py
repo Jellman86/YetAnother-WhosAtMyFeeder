@@ -257,3 +257,52 @@ def test_unverified_frigate_jpeg_never_reuses_full_frame_coordinates():
     assert context["is_cropped"] is False
     assert "frigate_box" not in context
     assert "restore_frigate_snapshot_crop" not in context
+
+
+def test_full_frame_snapshot_is_cropped_with_its_own_box_not_the_latest_mqtt_box():
+    # MQTT `after.box` is where the bird was last tracked; the saved snapshot is the
+    # best frame, described by `after.snapshot`. A bird that flew off moved its box away.
+    provenance = frigate_snapshot_input_provenance({"end_time": 1234.5})
+
+    context = build_snapshot_classification_input_context(
+        event_id="event-mqtt-recovery",
+        event_data={
+            "end_time": 1234.5,
+            "data": {"box": [470, 520, 560, 600], "region": [400, 450, 700, 750]},
+            "snapshot": {"frame_time": 1230.0, "box": [584, 607, 710, 709], "region": [464, 502, 784, 822]},
+        },
+        provenance=provenance,
+    )
+
+    assert context["frigate_box"] == [584, 607, 710, 709]
+    assert context["frigate_region"] == [464, 502, 784, 822]
+    assert context["restore_frigate_snapshot_crop"] is True
+
+
+def test_snapshot_box_without_region_does_not_borrow_the_latest_region():
+    provenance = frigate_snapshot_input_provenance({"end_time": 1234.5})
+
+    context = build_snapshot_classification_input_context(
+        event_id="event-mqtt-snapshot-box-only",
+        event_data={
+            "end_time": 1234.5,
+            "data": {"box": [470, 520, 560, 600], "region": [400, 450, 700, 750]},
+            "snapshot": {"box": [584, 607, 710, 709]},
+        },
+        provenance=provenance,
+    )
+
+    assert context["frigate_box"] == [584, 607, 710, 709]
+    assert "frigate_region" not in context
+
+
+def test_malformed_snapshot_box_falls_back_to_the_event_box():
+    provenance = frigate_snapshot_input_provenance({"end_time": 1234.5})
+
+    context = build_snapshot_classification_input_context(
+        event_id="event-mqtt-bad-snapshot",
+        event_data={"end_time": 1234.5, "data": {"box": [786, 323, 910, 417]}, "snapshot": {"box": "nope"}},
+        provenance=provenance,
+    )
+
+    assert context["frigate_box"] == [786, 323, 910, 417]
