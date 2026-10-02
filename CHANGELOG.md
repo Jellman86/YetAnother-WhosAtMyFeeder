@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Raise the inference runtime floors to ONNX Runtime 1.30 (CPU, Intel and the ARM64 side of the full
+  image) and OpenVINO 2026.4 (Intel and full images). Both resolve on Linux for every image
+  flavour; the CUDA images keep ONNX Runtime GPU below 1.27 and stay on CUDA 12.
+
 - Give an uploaded video's photo the bird you confirm, not whatever its first frame shows (#481). Analysis keeps each suggested species' best frame and bird box, the review shows that frame beside every suggestion with a **Bird** and **Whole frame** view, and saving uses the chosen species' frame. Picking a different species on a saved upload moves its photo to that species' frame, or back to the first frame when none localised it. The review no longer calls the uploaded photo "the exact input the classifier scored", **Start over** asks before deleting an upload, an empty **Observed at** says it means the save time, and a failed analysis gives the classifier's reason separately from the plain explanation.
 
 - Regenerate a visit's photo from YA-WAMF's cached clip when Frigate has already expired the event. The clip still played, but **Generate** polled Frigate for about half a minute and then reported the clip missing. **Generate** now uses the cached clip straight away; the automatic photo pass still asks Frigate first, because a clip played during a visit can be cached cut short, and falls back to the cached clip.
