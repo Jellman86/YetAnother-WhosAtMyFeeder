@@ -984,7 +984,11 @@ enforcement suite (lint/format/coverage/OpenAPI-drift/type-freshness/migration-s
 Telemetry trends show completed UTC days and distinguish rolling reporting windows from retained
 installations; Health Data identifies lifetime counters sent by older clients. Scheduled unknown
 analysis waits for Frigate readiness and retries transient outages, and taxonomy updates avoid
-nested database connection acquisitions.
+nested database connection acquisitions. The 2.21.0 release also makes leaderboard rankings use
+visits in bounded windows, states when evidence or trend history is incomplete, and makes the
+weekday heatmap readable across pointer, touch and keyboard input. Backfills stop after repeated
+classifier-unavailable outcomes; confirmed native worker crashes can use isolated CPU recovery
+while the accelerator remains visibly unhealthy.
 
 ---
 

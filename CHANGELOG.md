@@ -179,6 +179,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   The dashboard shows birds found in analyzed captures separately from visits; this estimate can
   miss birds or include false positives, and repeat captures can count a bird again.
 
+## [2.21.1] - 2026-09-27
+
+- **Backfill counts match saved history.** New means a detection was inserted; Updated means an
+  existing detection's automatic classification improved. Settings, job progress and the API show
+  the two counts separately. This changes reporting only and does not rewrite detection history.
+
+## [2.21.0] - 2026-09-27
+
 - Make the leaderboard's weekday heatmap readable. Pointing at a slot now shows its day, hour and
   count straight away (the old native tooltip took a second and never appeared on a phone); a tap
   does the same on touch screens, and the arrow keys read it from the keyboard. Bars along the top
@@ -261,10 +269,6 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   out the species already on the record, and typing still searches everything.
 
 ### Fixed
-
-- Count backfilled detections inserted into history separately from existing detections whose
-  automatic classification improved. The Settings summary, job status, progress messages and
-  synchronous API now report both, so "New" matches database growth.
 
 - **Destructive buttons ask in the app, and work in every browser.** "Reset Database & Cache",
   "Clear Personalization Data", deleting favourites, visits, models and evaluation runs, and
