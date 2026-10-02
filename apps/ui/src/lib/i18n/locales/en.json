@@ -47,12 +47,20 @@
       "crop": "Best crop",
       "model": "Model",
       "provider": "Provider",
-      "original": "As uploaded",
       "compare": "Compare evidence",
-      "scored_help": "This is the exact input the classifier scored.",
-      "original_help": "Your original file, kept exactly as uploaded.",
       "input": "Scored input",
-      "file": "File"
+      "file": "File",
+      "bird": "Bird",
+      "whole_frame": "Whole frame",
+      "your_photo": "Your photo",
+      "first_frame": "First frame",
+      "species_frame_alt": "Best frame of {species}",
+      "species_frame_help": "The best frame of {species}, {time} into the video. This becomes the observation's photo.",
+      "species_frame_help_untimed": "The best frame of {species} in the video. This becomes the observation's photo.",
+      "no_species_frame_help": "No frame singled out {species}, so the observation keeps the first frame of the video as its photo.",
+      "first_frame_help": "The first frame of the video.",
+      "photo_help": "Your photo, kept as uploaded. The classifier scored the whole frame.",
+      "photo_cropped_help": "Your photo, kept as uploaded. The classifier scored a crop around the bird."
     },
     "errors": {
       "load": "The analysis status could not be loaded.",
@@ -81,7 +89,8 @@
       "progress": "Analysis progress",
       "failed_title": "Analysis stopped safely",
       "failed_body": "Your original media is still stored. Retry when the model is available.",
-      "retry": "Retry analysis"
+      "retry": "Retry analysis",
+      "failed_reason": "Reason given by the classifier:"
     },
     "review": {
       "preview_alt": "Observation preview",
@@ -94,7 +103,10 @@
       "notes": "Notes",
       "saving": "Saving observation…",
       "save": "Save observation",
-      "save_species": "Add {species}"
+      "save_species": "Add {species}",
+      "several_species": "This video shows more than one bird. Each suggestion shows the bird it was scored on; choose the one this observation is for and its photo follows.",
+      "no_frame": "No frame",
+      "when_help": "Leave empty to use the time you save it."
     },
     "location": {
       "title": "Sighting location",
@@ -119,12 +131,18 @@
       "title": "Observation saved",
       "body": "The verified record is now part of your detection history and species totals.",
       "view": "View detection",
-      "another": "Add another"
+      "another": "Add another",
+      "photo": "The photo saved with {species}"
     },
     "start_over": "Start over",
     "bar": {
       "kept": "Kept exactly as uploaded",
       "hint": "Nothing is added until you review it"
+    },
+    "discard": {
+      "title": "Discard this upload?",
+      "message": "The uploaded file and its analysis are deleted. Nothing has been added to your observations.",
+      "confirm": "Discard upload"
     }
   },
   "setup": {

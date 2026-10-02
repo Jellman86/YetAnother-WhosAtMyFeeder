@@ -37,10 +37,12 @@ def _label_key(value: object) -> str:
     return " ".join(str(value or "").replace("_", " ").split()).casefold()
 
 
-def extract_video_snapshot(clip_path: Path, evidence: dict[str, Any]) -> tuple[Image.Image, Image.Image] | None:
-    """Decode one verified moment, retaining its exact crop geometry without ML."""
-    from app.services.classifier_service import _read_selected_video_frames
-
+def _verified_moment(
+    evidence: object,
+) -> tuple[int, tuple[int, int], tuple[int, int, int, int] | None] | None:
+    """Return the frame, frame size and crop a piece of evidence claims, or None when it is not trustworthy."""
+    if not isinstance(evidence, dict):
+        return None
     frame_index = evidence.get("frame_index")
     dimensions = (evidence.get("frame_width"), evidence.get("frame_height"))
     if type(frame_index) is not int or frame_index < 0:
@@ -66,25 +68,50 @@ def extract_video_snapshot(clip_path: Path, evidence: dict[str, Any]) -> tuple[I
         left, top, right, bottom = box
         if not 0 <= left < right <= dimensions[0] or not 0 <= top < bottom <= dimensions[1]:
             return None
-    elif evidence.get("input_is_cropped") and evidence.get("input_source") in {
+        return frame_index, dimensions, (left, top, right, bottom)
+    if evidence.get("input_is_cropped") and evidence.get("input_source") in {
         "model_crop",
         "frigate_hint_crop",
         "frigate_region_crop",
     }:
         return None
+    return frame_index, dimensions, None
+
+
+def extract_video_snapshots(clip_path: Path, evidences: list[object]) -> list[tuple[Image.Image, Image.Image] | None]:
+    """Decode several verified moments in one forward pass, keeping each one's exact crop geometry."""
+    from app.services.classifier_service import _read_selected_video_frames
+
+    moments = [_verified_moment(evidence) for evidence in evidences]
+    extracted: list[tuple[Image.Image, Image.Image] | None] = [None] * len(evidences)
+    if not any(moments):
+        return extracted
     capture = cv2.VideoCapture(str(clip_path))
     try:
-        if not capture.isOpened() or frame_index >= int(capture.get(cv2.CAP_PROP_FRAME_COUNT) or 0):
-            return None
-        _, decoded, frame = next(iter(_read_selected_video_frames(capture, [frame_index])))
-        if not decoded:
-            return None
-        scene = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)).convert("RGB")
-        if scene.size != dimensions:
-            return None
-        return (scene.crop(tuple(box)) if box is not None else scene), scene
+        if not capture.isOpened():
+            return extracted
+        frame_count = int(capture.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+        wanted = sorted({moment[0] for moment in moments if moment is not None and moment[0] < frame_count})
+        scenes: dict[int, Image.Image] = {}
+        for frame_index, decoded, frame in _read_selected_video_frames(capture, wanted):
+            if decoded:
+                scenes[frame_index] = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)).convert("RGB")
+        for position, moment in enumerate(moments):
+            if moment is None:
+                continue
+            frame_index, dimensions, box = moment
+            scene = scenes.get(frame_index)
+            if scene is None or scene.size != dimensions:
+                continue
+            extracted[position] = (scene.crop(box) if box is not None else scene), scene
+        return extracted
     finally:
         capture.release()
+
+
+def extract_video_snapshot(clip_path: Path, evidence: dict[str, Any]) -> tuple[Image.Image, Image.Image] | None:
+    """Decode one verified moment, retaining its exact crop geometry without ML."""
+    return extract_video_snapshots(clip_path, [evidence])[0]
 
 
 def _jpeg(image: Image.Image, *, thumbnail: bool = False) -> bytes:

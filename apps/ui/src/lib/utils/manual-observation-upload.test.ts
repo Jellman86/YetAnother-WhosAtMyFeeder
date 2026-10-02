@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
     MAX_MANUAL_IMAGE_BYTES,
     MAX_MANUAL_VIDEO_BYTES,
+    findPredictionForSpecies,
+    formatVideoOffset,
     validateManualObservationUpload
 } from './manual-observation-upload';
 
@@ -31,5 +33,29 @@ describe('manual observation upload validation', () => {
             ok: false,
             reason: 'unsupported_type'
         });
+    });
+});
+
+describe('manual observation species photo', () => {
+    const predictions = [
+        { label: 'Baeolophus bicolor', common_name: 'Tufted Titmouse', photo_url: '/t' },
+        { label: 'Dryobates_pubescens', scientific_name: 'Dryobates pubescens', common_name: 'Downy Woodpecker', photo_url: '/d' }
+    ];
+
+    it('finds the suggestion a species refers to by any of its names', () => {
+        expect(findPredictionForSpecies(predictions, 'downy  woodpecker')?.photo_url).toBe('/d');
+        expect(findPredictionForSpecies(predictions, 'Dryobates pubescens')?.photo_url).toBe('/d');
+        expect(findPredictionForSpecies(predictions, 'Baeolophus bicolor')?.photo_url).toBe('/t');
+    });
+
+    it('finds nothing for a species the analysis did not suggest', () => {
+        expect(findPredictionForSpecies(predictions, 'Carolina Wren')).toBeNull();
+        expect(findPredictionForSpecies(predictions, '   ')).toBeNull();
+    });
+
+    it('says where a frame is in minutes and seconds', () => {
+        expect(formatVideoOffset(4.6)).toBe('0:04');
+        expect(formatVideoOffset(72)).toBe('1:12');
+        expect(formatVideoOffset(-1)).toBe('0:00');
     });
 });

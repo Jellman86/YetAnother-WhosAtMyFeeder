@@ -47,12 +47,20 @@
       "crop": "Bester Ausschnitt",
       "model": "Modell",
       "provider": "Anbieter",
-      "original": "Wie hochgeladen",
       "compare": "Belege vergleichen",
-      "scored_help": "Genau diese Eingabe hat der Klassifikator bewertet.",
-      "original_help": "Ihre Originaldatei, unverändert gespeichert.",
       "input": "Bewertete Eingabe",
-      "file": "Datei"
+      "file": "Datei",
+      "bird": "Vogel",
+      "whole_frame": "Ganzes Bild",
+      "your_photo": "Dein Foto",
+      "first_frame": "Erstes Bild",
+      "species_frame_alt": "Bestes Bild von {species}",
+      "species_frame_help": "Das beste Bild von {species}, bei {time} im Video. Es wird das Foto der Beobachtung.",
+      "species_frame_help_untimed": "Das beste Bild von {species} im Video. Es wird das Foto der Beobachtung.",
+      "no_species_frame_help": "Kein Bild zeigt eindeutig {species}, daher behält die Beobachtung das erste Bild des Videos als Foto.",
+      "first_frame_help": "Das erste Bild des Videos.",
+      "photo_help": "Dein Foto, unverändert gespeichert. Der Klassifikator hat das ganze Bild bewertet.",
+      "photo_cropped_help": "Dein Foto, unverändert gespeichert. Der Klassifikator hat einen Ausschnitt um den Vogel bewertet."
     },
     "errors": {
       "load": "Der Analysestatus konnte nicht geladen werden.",
@@ -81,7 +89,8 @@
       "progress": "Analysefortschritt",
       "failed_title": "Analyse sicher angehalten",
       "failed_body": "Dein Originalmedium bleibt gespeichert. Wiederhole den Vorgang, sobald das Modell verfügbar ist.",
-      "retry": "Analyse wiederholen"
+      "retry": "Analyse wiederholen",
+      "failed_reason": "Vom Klassifikator genannter Grund:"
     },
     "review": {
       "preview_alt": "Vorschau der Beobachtung",
@@ -94,7 +103,10 @@
       "notes": "Notizen",
       "saving": "Beobachtung wird gespeichert…",
       "save": "Beobachtung speichern",
-      "save_species": "{species} hinzufügen"
+      "save_species": "{species} hinzufügen",
+      "several_species": "Dieses Video zeigt mehr als einen Vogel. Jeder Vorschlag zeigt den Vogel, an dem er bewertet wurde; wähle den, für den diese Beobachtung gilt, und das Foto folgt deiner Wahl.",
+      "no_frame": "Kein Bild",
+      "when_help": "Leer lassen, um den Zeitpunkt des Speicherns zu verwenden."
     },
     "location": {
       "title": "Sichtungsort",
@@ -119,12 +131,18 @@
       "title": "Beobachtung gespeichert",
       "body": "Der bestätigte Eintrag gehört nun zu deinem Erkennungsverlauf und den Artensummen.",
       "view": "Erkennung anzeigen",
-      "another": "Weitere hinzufügen"
+      "another": "Weitere hinzufügen",
+      "photo": "Das mit {species} gespeicherte Foto"
     },
     "start_over": "Neu beginnen",
     "bar": {
       "kept": "Genau so gespeichert wie hochgeladen",
       "hint": "Es wird nichts hinzugefügt, bevor Sie es geprüft haben"
+    },
+    "discard": {
+      "title": "Diesen Upload verwerfen?",
+      "message": "Die hochgeladene Datei und ihre Analyse werden gelöscht. Zu deinen Beobachtungen wurde nichts hinzugefügt.",
+      "confirm": "Upload verwerfen"
     }
   },
   "setup": {

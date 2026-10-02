@@ -12,6 +12,11 @@ export interface ManualObservationPrediction {
     scientific_name?: string | null;
     common_name?: string | null;
     taxa_id?: number | null;
+    /** This species' best frame in a video, cropped to the bird; null when no frame singled it out. */
+    photo_url?: string | null;
+    /** The whole frame `photo_url` was cropped from. */
+    scene_url?: string | null;
+    frame_offset_seconds?: number | null;
 }
 
 export interface ManualObservation {

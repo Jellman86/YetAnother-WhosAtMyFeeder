@@ -47,12 +47,20 @@
       "crop": "Mejor recorte",
       "model": "Modelo",
       "provider": "Proveedor",
-      "original": "Tal como se subió",
       "compare": "Comparar evidencia",
-      "scored_help": "Esta es exactamente la entrada que puntuó el clasificador.",
-      "original_help": "Tu archivo original, conservado tal cual.",
       "input": "Entrada puntuada",
-      "file": "Archivo"
+      "file": "Archivo",
+      "bird": "Ave",
+      "whole_frame": "Fotograma completo",
+      "your_photo": "Tu foto",
+      "first_frame": "Primer fotograma",
+      "species_frame_alt": "Mejor fotograma de {species}",
+      "species_frame_help": "El mejor fotograma de {species}, en el {time} del vídeo. Será la foto de la observación.",
+      "species_frame_help_untimed": "El mejor fotograma de {species} en el vídeo. Será la foto de la observación.",
+      "no_species_frame_help": "Ningún fotograma destacó a {species}, así que la observación conserva el primer fotograma del vídeo como foto.",
+      "first_frame_help": "El primer fotograma del vídeo.",
+      "photo_help": "Tu foto, tal como se subió. El clasificador evaluó el fotograma completo.",
+      "photo_cropped_help": "Tu foto, tal como se subió. El clasificador evaluó un recorte alrededor del ave."
     },
     "errors": {
       "load": "No se pudo cargar el estado del análisis.",
@@ -81,7 +89,8 @@
       "progress": "Progreso del análisis",
       "failed_title": "Análisis detenido de forma segura",
       "failed_body": "El archivo original sigue guardado. Vuelve a intentarlo cuando el modelo esté disponible.",
-      "retry": "Reintentar análisis"
+      "retry": "Reintentar análisis",
+      "failed_reason": "Motivo indicado por el clasificador:"
     },
     "review": {
       "preview_alt": "Vista previa de la observación",
@@ -94,7 +103,10 @@
       "notes": "Notas",
       "saving": "Guardando observación…",
       "save": "Guardar observación",
-      "save_species": "Añadir {species}"
+      "save_species": "Añadir {species}",
+      "several_species": "Este vídeo muestra más de un ave. Cada sugerencia muestra el ave con la que se evaluó; elige la de esta observación y su foto la seguirá.",
+      "no_frame": "Sin fotograma",
+      "when_help": "Déjalo vacío para usar la hora en que lo guardes."
     },
     "location": {
       "title": "Ubicación del avistamiento",
@@ -119,12 +131,18 @@
       "title": "Observación guardada",
       "body": "El registro verificado ya forma parte de tu historial y de los totales por especie.",
       "view": "Ver detección",
-      "another": "Añadir otra"
+      "another": "Añadir otra",
+      "photo": "La foto guardada con {species}"
     },
     "start_over": "Empezar de nuevo",
     "bar": {
       "kept": "Conservado tal como se subió",
       "hint": "No se añade nada hasta que lo revises"
+    },
+    "discard": {
+      "title": "¿Descartar esta subida?",
+      "message": "Se eliminan el archivo subido y su análisis. No se ha añadido nada a tus observaciones.",
+      "confirm": "Descartar subida"
     }
   },
   "setup": {

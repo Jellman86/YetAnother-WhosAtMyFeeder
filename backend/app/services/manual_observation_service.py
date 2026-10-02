@@ -41,6 +41,66 @@ ALLOWED_MEDIA = {
     "video/webm": ("video", ".webm"),
 }
 GPS_INFO_TAG = 34853
+SCENE_MAX_EDGE = 1920
+CHOSEN_PHOTO_FILENAME = "photo.jpg"
+
+
+def species_photo_filename(position: int, *, scene: bool = False) -> str:
+    return f"species-{position}-scene.jpg" if scene else f"species-{position}.jpg"
+
+
+def _name_key(value: object) -> str:
+    return " ".join(str(value or "").replace("_", " ").split()).casefold()
+
+
+def _result_for_species(results: list[dict], names: list[str | None]) -> tuple[int, dict] | None:
+    """Find the suggestion a confirmed name refers to, whichever of its names the person used."""
+    wanted = {_name_key(name) for name in names if _name_key(name)}
+    for position, item in enumerate(results):
+        known = {_name_key(item.get(key)) for key in ("label", "scientific_name", "common_name")}
+        if wanted & known:
+            return position, item
+    return None
+
+
+def _write_species_photos(draft_dir: Path, source_path: Path, results: list[dict]) -> list[dict]:
+    """Save each suggested species' own best frame so the photo can follow the species a person confirms.
+
+    A video can hold several species. The analysis already knows, per species, the frame and bird box
+    that scored it best; without this the record's photo would be whichever bird the first frame shows.
+    """
+    from app.services.video_snapshot_service import extract_video_snapshots
+
+    for stale in draft_dir.glob("species-*.jpg"):
+        stale.unlink(missing_ok=True)
+    evidences = [item.pop("_video_snapshot_evidence", None) for item in results]
+    for position, (item, images) in enumerate(zip(results, extract_video_snapshots(source_path, evidences))):
+        if images is not None:
+            _save_species_photo(draft_dir, position, images)
+            item["photo"] = {"frame_offset_seconds": evidences[position].get("frame_offset_seconds")}
+    return results
+
+
+def _save_species_photo(draft_dir: Path, position: int, images: tuple[Image.Image, Image.Image]) -> None:
+    portrait, scene = images
+    scene = scene.copy()
+    scene.thumbnail((SCENE_MAX_EDGE, SCENE_MAX_EDGE), Image.Resampling.LANCZOS)
+    portrait.save(draft_dir / species_photo_filename(position), "JPEG", quality=92, optimize=True)
+    scene.save(draft_dir / species_photo_filename(position, scene=True), "JPEG", quality=88, optimize=True)
+
+
+def _species_photo_from_stored_evidence(draft_dir: Path, source_path: Path, position: int, item: dict) -> Path | None:
+    """Build one species' photo for a video analysed before photos were saved per species.
+
+    Those analyses stored the classifier's evidence with each suggestion, so the frame can still be found.
+    """
+    from app.services.video_snapshot_service import extract_video_snapshots
+
+    images = extract_video_snapshots(source_path, [item.get("_video_snapshot_evidence")])[0]
+    if images is None:
+        return None
+    _save_species_photo(draft_dir, position, images)
+    return draft_dir / species_photo_filename(position)
 
 
 def _rational_as_float(value: object) -> float:
@@ -360,9 +420,20 @@ class ManualObservationService:
                 )
             if not results:
                 raise RuntimeError("The classifier did not return a usable result.")
-            results = await _prepare_classification_results(results, classifier)
+            results = await _prepare_classification_results(results[:10], classifier)
+            if draft.media_type == "video":
+                try:
+                    results = await asyncio.to_thread(
+                        _write_species_photos, self.directory(draft_id), source_path, results
+                    )
+                except Exception as exc:
+                    # The identification stands without per-species photos; the record keeps the first frame.
+                    log.warning("Manual observation species photos failed", draft_id=draft_id, error=str(exc))
+                    for item in results:
+                        item.pop("_video_snapshot_evidence", None)
+                        item.pop("photo", None)
             async with get_db() as db:
-                await ManualObservationRepository(db).mark_ready(draft_id, results[:10])
+                await ManualObservationRepository(db).mark_ready(draft_id, results)
         except asyncio.CancelledError:
             async with get_db() as db:
                 await ManualObservationRepository(db).mark_failed(
@@ -497,7 +568,63 @@ class ManualObservationService:
                 longitude=saved_longitude,
                 location_source=saved_location_source,
             )
+        await self._use_photo_of(
+            draft, [normalized_label, taxonomy.get("scientific_name"), taxonomy.get("common_name")]
+        )
         return event_id
+
+    async def _use_photo_of(self, draft: ManualObservationDraft, names: list[str | None]) -> bool:
+        """Make the record's photo the named species' best frame, or the upload's own preview without one.
+
+        Returns whether the photo the record shows changed.
+        """
+        draft_dir = self.directory(draft.id)
+        chosen = draft_dir / CHOSEN_PHOTO_FILENAME
+        match = _result_for_species(draft.results or [], names)
+
+        def apply() -> bool:
+            source = None
+            if match is not None:
+                position, item = match
+                candidate = draft_dir / species_photo_filename(position)
+                if item.get("photo") and candidate.is_file():
+                    source = candidate
+                elif isinstance(item.get("_video_snapshot_evidence"), dict):
+                    source = _species_photo_from_stored_evidence(
+                        draft_dir, draft_dir / draft.source_filename, position, item
+                    )
+            if source is None:
+                if not chosen.is_file():
+                    return False
+                chosen.unlink()
+                return True
+            content = source.read_bytes()
+            if chosen.is_file() and chosen.read_bytes() == content:
+                return False
+            staging = draft_dir / f".{CHOSEN_PHOTO_FILENAME}.{uuid.uuid4().hex}.tmp"
+            try:
+                staging.write_bytes(content)
+                os.replace(staging, chosen)
+            finally:
+                staging.unlink(missing_ok=True)
+            return True
+
+        try:
+            return await asyncio.to_thread(apply)
+        except Exception as exc:
+            # The species change itself has already been saved; a photo that cannot follow keeps the old one.
+            log.warning("Manual observation photo could not follow the species", draft_id=draft.id, error=str(exc))
+            return False
+
+    async def follow_species(self, event_id: str, names: list[str | None]) -> bool:
+        """Keep a saved upload's photo on the bird its species now names. Returns whether the photo changed."""
+        if not event_id.startswith("manual_"):
+            return False
+        async with get_db() as db:
+            draft = await ManualObservationRepository(db).get_by_event_id(event_id)
+        if draft is None or draft.media_type != "video":
+            return False
+        return await self._use_photo_of(draft, names)
 
     async def delete(self, draft_id: str) -> None:
         draft = await self.get(draft_id)
@@ -518,7 +645,20 @@ class ManualObservationService:
             draft = await ManualObservationRepository(db).get_by_event_id(event_id)
         if not draft:
             return None
-        path = self.directory(draft.id) / ("preview.jpg" if preview else draft.source_filename)
+        draft_dir = self.directory(draft.id)
+        if preview:
+            chosen = draft_dir / CHOSEN_PHOTO_FILENAME
+            path = chosen if chosen.is_file() else draft_dir / "preview.jpg"
+        else:
+            path = draft_dir / draft.source_filename
+        return path if path.is_file() else None
+
+    async def species_photo_path(self, draft_id: str, position: int, *, scene: bool) -> Path | None:
+        draft = await self.get(draft_id)
+        results = draft.results or []
+        if not 0 <= position < len(results) or not results[position].get("photo"):
+            return None
+        path = self.directory(draft.id) / species_photo_filename(position, scene=scene)
         return path if path.is_file() else None
 
     async def delete_saved_event_media(self, event_id: str) -> None:

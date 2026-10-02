@@ -970,6 +970,8 @@
             ));
 
             for (const eventId of result.updated_event_ids) {
+                // An uploaded video's photo follows its species, so it may now be a different bird.
+                if (eventId.startsWith('manual_')) detectionsStore.notePhotoChanged(eventId);
                 const existing = events.find((event) => event.frigate_event === eventId);
                 if (existing) {
                     detectionsStore.updateDetection({

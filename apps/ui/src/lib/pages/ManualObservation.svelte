@@ -13,9 +13,14 @@
     } from '../api';
     import { withAuthParams } from '../api/core';
     import LocationPicker from '../components/LocationPicker.svelte';
+    import { confirmAction } from '../stores/confirm_dialog.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { toastStore } from '../stores/toast.svelte';
-    import { validateManualObservationUpload } from '../utils/manual-observation-upload';
+    import {
+        findPredictionForSpecies,
+        formatVideoOffset,
+        validateManualObservationUpload
+    } from '../utils/manual-observation-upload';
 
     let { onNavigate } = $props<{ onNavigate: (path: string) => void }>();
 
@@ -60,33 +65,71 @@
             ? [configuredLatitude, configuredLongitude]
             : [20, 0];
     });
+    // The suggestion the species field names, however it was typed. A video can show several
+    // species, and the saved photo is this suggestion's own best frame (#481).
+    const selectedPrediction = $derived(findPredictionForSpecies(draft?.predictions ?? [], selectedLabel));
+    const selectedSpeciesName = $derived(
+        selectedPrediction ? predictionPrimaryName(selectedPrediction) : selectedLabel.trim()
+    );
+    const isVideo = $derived(draft?.media_type === 'video');
+    const speciesPhotoUrl = $derived(selectedPrediction?.photo_url ? withAuthParams(selectedPrediction.photo_url) : null);
+    const speciesSceneUrl = $derived(selectedPrediction?.scene_url ? withAuthParams(selectedPrediction.scene_url) : null);
+    const showsSuggestionPhotos = $derived(isVideo && (draft?.predictions ?? []).some((prediction) => prediction.photo_url));
+    const severalSpeciesPictured = $derived(
+        (draft?.predictions ?? []).slice(0, 4).filter((prediction) => prediction.photo_url).length > 1
+    );
+
     // Name the action by what it does, not by the verb (CLAUDE.md §5).
     const confirmLabel = $derived.by(() => {
-        const chosen = (selectedLabel || '').trim();
-        return chosen
+        return selectedSpeciesName
             ? $_('manual_observation.review.save_species', {
-                  values: { species: chosen },
+                  values: { species: selectedSpeciesName },
                   default: 'Add {species}'
               })
             : $_('manual_observation.review.save', { default: 'Add observation' });
     });
 
-    // The evidence panel can show either the exact input the model scored or the original
-    // upload; comparing the two is how you tell a bad crop from a bad classification.
-    let evidenceView = $state<'scored' | 'original'>('scored');
-    const originalImageUrl = $derived(
-        draft && draft.media_type === 'image' ? withAuthParams(draft.media_url) : null
+    // A species with its own frame can be seen as the bird alone or in the whole frame around it,
+    // which is how you check the crop picked the bird you meant. Picking a suggestion opens on its
+    // bird again, because the whole frame was asked for one species only.
+    let wholeFrameShownFor = $state<string | null>(null);
+    const evidenceView = $derived<'bird' | 'scene'>(
+        selectedPrediction && wholeFrameShownFor === selectedPrediction.label ? 'scene' : 'bird'
     );
-    const canCompareEvidence = $derived(
-        Boolean(originalImageUrl) && (topPrediction?.input_is_cropped ?? false)
+    const evidenceImageUrl = $derived(
+        speciesPhotoUrl ? (evidenceView === 'scene' && speciesSceneUrl ? speciesSceneUrl : speciesPhotoUrl) : previewUrl
     );
-
-    $effect(() => {
-        // A new draft starts on the scored input again.
-        void draft?.id;
-        evidenceView = 'scored';
+    const evidenceCaption = $derived.by(() => {
+        if (!isVideo) {
+            return topPrediction?.input_is_cropped
+                ? $_('manual_observation.evidence.photo_cropped_help', { default: 'Your photo, kept as uploaded. The classifier scored a crop around the bird.' })
+                : $_('manual_observation.evidence.photo_help', { default: 'Your photo, kept as uploaded. The classifier scored the whole frame.' });
+        }
+        if (speciesPhotoUrl && selectedPrediction) {
+            const offset = selectedPrediction.frame_offset_seconds;
+            return offset != null
+                ? $_('manual_observation.evidence.species_frame_help', {
+                      values: { species: selectedSpeciesName, time: formatVideoOffset(offset) },
+                      default: 'The best frame of {species}, {time} into the video. This becomes the observation\'s photo.'
+                  })
+                : $_('manual_observation.evidence.species_frame_help_untimed', {
+                      values: { species: selectedSpeciesName },
+                      default: 'The best frame of {species} in the video. This becomes the observation\'s photo.'
+                  });
+        }
+        return selectedSpeciesName
+            ? $_('manual_observation.evidence.no_species_frame_help', {
+                  values: { species: selectedSpeciesName },
+                  default: 'No frame singled out {species}, so the observation keeps the first frame of the video as its photo.'
+              })
+            : $_('manual_observation.evidence.first_frame_help', { default: 'The first frame of the video.' });
     });
 
+    const evidenceBadge = $derived(
+        !isVideo
+            ? $_('manual_observation.evidence.your_photo', { default: 'Your photo' })
+            : $_('manual_observation.evidence.first_frame', { default: 'First frame' })
+    );
     const sourceLabel = $derived.by(() => {
         const source = topPrediction?.input_source;
         if (!source) return $_('manual_observation.evidence.full_frame', { default: 'Full frame' });
@@ -233,6 +276,11 @@
     }
 
     async function startOver(): Promise<void> {
+        if (draft && draft.status !== 'saved' && !(await confirmAction({
+            title: $_('manual_observation.discard.title', { default: 'Discard this upload?' }),
+            message: $_('manual_observation.discard.message', { default: 'The uploaded file and its analysis are deleted. Nothing has been added to your observations.' }),
+            confirmLabel: $_('manual_observation.discard.confirm', { default: 'Discard upload' })
+        }))) return;
         clearPoll();
         if (draft && draft.status !== 'saved') {
             try { await discardManualObservation(draft.id); } catch { /* The draft may already have expired. */ }
@@ -376,7 +424,12 @@
                             <p class="text-xs font-bold uppercase tracking-[0.16em] text-brand-700 dark:text-brand-300">{draft?.media_type === 'video' ? $_('manual_observation.analysis.video', { default: 'Temporal analysis' }) : $_('manual_observation.analysis.image', { default: 'Image analysis' })}</p>
                             <h3 class="mt-2 text-xl font-bold text-slate-900 dark:text-white">{draft?.status === 'failed' ? $_('manual_observation.analysis.failed_title', { default: 'Analysis needs another try' }) : $_('manual_observation.analysis.title', { default: 'Finding the strongest evidence' })}</h3>
                             {#if draft?.status === 'failed'}
-                                <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{draft.error_message ?? $_('manual_observation.analysis.failed_body', { default: 'The original is safe. Retry the analysis without uploading it again.' })}</p>
+                                {#if draft.error_code === 'interrupted' && draft.error_message}
+                                    <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{draft.error_message}</p>
+                                {:else}
+                                    <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{$_('manual_observation.analysis.failed_body', { default: 'The original is safe. Retry the analysis without uploading it again.' })}</p>
+                                    {#if draft.error_message}<p class="mt-2 text-xs text-slate-500 dark:text-slate-400">{$_('manual_observation.analysis.failed_reason', { default: 'Reason given by the classifier:' })} <code class="break-all font-mono">{draft.error_message}</code></p>{/if}
+                                {/if}
                                 <div class="mt-5 flex flex-wrap gap-3"><button class="btn btn-primary px-4 py-2.5" onclick={retryAnalysis}>{$_('manual_observation.analysis.retry', { default: 'Retry analysis' })}</button><button class="btn btn-ghost px-4 py-2.5" onclick={startOver}>{$_('manual_observation.start_over', { default: 'Start over' })}</button></div>
                             {:else}
                                 <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{draft?.progress_message ?? $_('manual_observation.analysis.body', { default: 'Comparing the full frame with useful crops and ranking the strongest video frames.' })}</p>
@@ -387,37 +440,38 @@
                 </div>
             {:else if stage === 3}
                 <div class="grid gap-7 xl:grid-cols-[minmax(0,1.35fr)_minmax(20rem,.85fr)]">
-                    <div data-manual-observation-evidence>
+                    <!-- The photo stays in view while the form beside it is filled in. -->
+                    <div class="xl:sticky xl:top-6 xl:self-start" data-manual-observation-evidence>
                         <div class="relative overflow-hidden rounded-2xl bg-slate-950 aspect-[4/3] xl:aspect-[3/2]">
                             <img
-                                src={evidenceView === 'original' ? (originalImageUrl ?? previewUrl ?? '') : (previewUrl ?? '')}
-                                alt={$_('manual_observation.review.preview_alt', { default: 'Evidence selected for review' })}
+                                src={evidenceImageUrl ?? ''}
+                                alt={speciesPhotoUrl
+                                    ? $_('manual_observation.evidence.species_frame_alt', { values: { species: selectedSpeciesName }, default: 'Best frame of {species}' })
+                                    : $_('manual_observation.review.preview_alt', { default: 'Observation preview' })}
                                 class="h-full w-full object-contain"
+                                data-manual-observation-photo
                             />
-                            {#if canCompareEvidence}
+                            {#if speciesPhotoUrl && speciesSceneUrl && selectedPrediction}
+                                {@const speciesLabel = selectedPrediction.label}
                                 <div class="absolute right-3 top-3 flex gap-1 rounded-full border border-white/15 bg-black/60 p-1 backdrop-blur" role="group" aria-label={$_('manual_observation.evidence.compare', { default: 'Compare evidence' })}>
                                     <button
                                         type="button"
-                                        class="min-h-11 rounded-full px-3 text-xs font-bold transition-colors focus-ring {evidenceView === 'scored' ? 'bg-white/90 text-slate-900' : 'text-white/80 hover:text-white'}"
-                                        aria-pressed={evidenceView === 'scored'}
-                                        onclick={() => (evidenceView = 'scored')}
-                                    >{sourceLabel}</button>
+                                        class="min-h-11 rounded-full px-3 text-xs font-bold transition-colors focus-ring {evidenceView === 'bird' ? 'bg-white/90 text-slate-900' : 'text-white/80 hover:text-white'}"
+                                        aria-pressed={evidenceView === 'bird'}
+                                        onclick={() => (wholeFrameShownFor = null)}
+                                    >{$_('manual_observation.evidence.bird', { default: 'Bird' })}</button>
                                     <button
                                         type="button"
-                                        class="min-h-11 rounded-full px-3 text-xs font-bold transition-colors focus-ring {evidenceView === 'original' ? 'bg-white/90 text-slate-900' : 'text-white/80 hover:text-white'}"
-                                        aria-pressed={evidenceView === 'original'}
-                                        onclick={() => (evidenceView = 'original')}
-                                    >{$_('manual_observation.evidence.original', { default: 'As uploaded' })}</button>
+                                        class="min-h-11 rounded-full px-3 text-xs font-bold transition-colors focus-ring {evidenceView === 'scene' ? 'bg-white/90 text-slate-900' : 'text-white/80 hover:text-white'}"
+                                        aria-pressed={evidenceView === 'scene'}
+                                        onclick={() => (wholeFrameShownFor = speciesLabel)}
+                                    >{$_('manual_observation.evidence.whole_frame', { default: 'Whole frame' })}</button>
                                 </div>
                             {:else}
-                                <div class="absolute left-3 top-3 rounded-full border border-white/20 bg-black/55 px-3 py-1.5 text-xs font-bold text-white backdrop-blur">{sourceLabel}</div>
+                                <div class="absolute left-3 top-3 rounded-full border border-white/20 bg-black/55 px-3 py-1.5 text-xs font-bold text-white backdrop-blur">{evidenceBadge}</div>
                             {/if}
                         </div>
-                        <p class="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
-                            {evidenceView === 'scored'
-                                ? $_('manual_observation.evidence.scored_help', { default: 'This is the exact input the classifier scored.' })
-                                : $_('manual_observation.evidence.original_help', { default: 'Your original file, kept exactly as uploaded.' })}
-                        </p>
+                        <p class="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400" aria-live="polite">{evidenceCaption}</p>
                         <dl class="mt-3 grid grid-cols-2 gap-x-4 gap-y-2.5 border-t border-slate-200 pt-3 text-xs dark:border-slate-700">
                             <div>
                                 <dt class="text-slate-500 dark:text-slate-400">{$_('manual_observation.evidence.model', { default: 'Model' })}</dt>
@@ -440,9 +494,10 @@
                     <div>
                         <h3 class="text-xl font-bold text-slate-900 dark:text-white">{$_('manual_observation.review.title', { default: 'Does this look right?' })}</h3>
                         <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{$_('manual_observation.review.body', { default: 'Choose a suggestion or correct it before this becomes part of your observation history.' })}</p>
-                        <fieldset class="mt-5 space-y-2"><legend class="sr-only">{$_('manual_observation.review.candidates', { default: 'Classification candidates' })}</legend>{#each (draft?.predictions ?? []).slice(0, 4) as prediction, index}<label class="flex cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-3 transition {selectedLabel === prediction.label ? 'border-brand-400 bg-brand-50/70 dark:border-brand-600 dark:bg-brand-950/30' : 'border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600'}"><input type="radio" class="h-4 w-4 accent-teal-600" name="candidate" value={prediction.label} bind:group={selectedLabel} /><span class="min-w-0 flex-1"><span class="block truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{predictionPrimaryName(prediction)}</span>{#if predictionSecondaryName(prediction)}<span class="mt-0.5 block truncate text-xs italic text-slate-500 dark:text-slate-400">{predictionSecondaryName(prediction)}</span>{/if}</span><span class="text-xs font-bold tabular-nums {index === 0 ? 'text-brand-700 dark:text-brand-300' : 'text-slate-500 dark:text-slate-400'}">{Math.round(prediction.score * 100)}%</span></label>{/each}</fieldset>
+                        {#if severalSpeciesPictured}<p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300" data-manual-observation-several-species>{$_('manual_observation.review.several_species', { default: 'This video shows more than one bird. Each suggestion shows the bird it was scored on; choose the one this observation is for and its photo follows.' })}</p>{/if}
+                        <fieldset class="mt-5 space-y-2"><legend class="sr-only">{$_('manual_observation.review.candidates', { default: 'Classification candidates' })}</legend>{#each (draft?.predictions ?? []).slice(0, 4) as prediction, index}<label class="flex cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-3 transition {selectedPrediction === prediction ? 'border-brand-400 bg-brand-50/70 dark:border-brand-600 dark:bg-brand-950/30' : 'border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600'}"><input type="radio" class="h-4 w-4 accent-teal-600" name="candidate" value={prediction.label} checked={selectedPrediction === prediction} onchange={() => { selectedLabel = prediction.label; wholeFrameShownFor = null; }} />{#if showsSuggestionPhotos}<span class="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-800" data-manual-observation-suggestion-photo>{#if prediction.photo_url}<img src={withAuthParams(prediction.photo_url)} alt="" loading="lazy" class="h-full w-full object-cover" onerror={(event) => event.currentTarget.classList.add('invisible')} />{:else}<span class="px-1 text-center text-[10px] font-semibold leading-tight text-slate-500 dark:text-slate-400">{$_('manual_observation.review.no_frame', { default: 'No frame' })}</span>{/if}</span>{/if}<span class="min-w-0 flex-1"><span class="block truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{predictionPrimaryName(prediction)}</span>{#if predictionSecondaryName(prediction)}<span class="mt-0.5 block truncate text-xs italic text-slate-500 dark:text-slate-400">{predictionSecondaryName(prediction)}</span>{/if}</span><span class="text-xs font-bold tabular-nums {index === 0 ? 'text-brand-700 dark:text-brand-300' : 'text-slate-500 dark:text-slate-400'}">{Math.round(prediction.score * 100)}%</span></label>{/each}</fieldset>
                         <label class="mt-4 block"><span class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{$_('manual_observation.review.species', { default: 'Confirmed species' })}</span><input class="input-base mt-2 min-h-11" list="manual-species-labels" bind:value={selectedLabel} autocomplete="off" /><datalist id="manual-species-labels">{#each speciesLabels as label}<option value={label}></option>{/each}</datalist></label>
-                        <div class="mt-4 grid gap-4 sm:grid-cols-2"><label><span class="text-xs font-bold text-slate-600 dark:text-slate-300">{$_('manual_observation.review.when', { default: 'Observed at' })}</span><input class="input-base mt-1.5 min-h-11" type="datetime-local" bind:value={observedAt} /></label><label><span class="text-xs font-bold text-slate-600 dark:text-slate-300">{$_('manual_observation.review.location', { default: 'Camera or place name' })}</span><input class="input-base mt-1.5 min-h-11" bind:value={cameraName} maxlength="100" /></label></div>
+                        <div class="mt-4 grid gap-4 sm:grid-cols-2"><label><span class="text-xs font-bold text-slate-600 dark:text-slate-300">{$_('manual_observation.review.when', { default: 'Observed at' })}</span><input class="input-base mt-1.5 min-h-11" type="datetime-local" bind:value={observedAt} aria-describedby="manual-observation-when-help" /><span id="manual-observation-when-help" class="mt-1 block text-xs text-slate-500 dark:text-slate-400">{$_('manual_observation.review.when_help', { default: 'Leave empty to use the time you save it.' })}</span></label><label><span class="text-xs font-bold text-slate-600 dark:text-slate-300">{$_('manual_observation.review.location', { default: 'Camera or place name' })}</span><input class="input-base mt-1.5 min-h-11" bind:value={cameraName} maxlength="100" /></label></div>
                         <section class="mt-5 border-t border-slate-200 pt-5 dark:border-slate-700" aria-labelledby="manual-observation-location-title">
                             <div class="flex flex-wrap items-start justify-between gap-3">
                                 <div>
@@ -464,7 +519,7 @@
                     </div>
                 </div>
             {:else}
-                <div class="mx-auto flex max-w-xl flex-col items-center py-10 text-center"><div class="grid h-16 w-16 place-items-center rounded-full bg-success-100 text-success-700 ring-8 ring-success-50 dark:bg-success-900/50 dark:text-success-300 dark:ring-success-950/40"><svg class="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6" /></svg></div><p class="mt-6 text-xs font-bold uppercase tracking-[0.16em] text-success-700 dark:text-success-300">{$_('manual_observation.saved.eyebrow', { default: 'Field record complete' })}</p><h3 class="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{$_('manual_observation.saved.title', { default: 'Observation added' })}</h3><p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{$_('manual_observation.saved.body', { default: 'The original media, classification evidence, and your confirmed species are now safely linked.' })}</p><div class="mt-7 flex flex-wrap justify-center gap-3"><button class="btn btn-primary px-5 py-2.5" onclick={() => onNavigate(`/events?event=${encodeURIComponent(draft?.saved_event_id ?? '')}`)}>{$_('manual_observation.saved.view', { default: 'View detection' })}</button><button class="btn btn-secondary px-5 py-2.5" onclick={startOver}>{$_('manual_observation.saved.another', { default: 'Add another' })}</button></div></div>
+                <div class="mx-auto flex max-w-xl flex-col items-center py-10 text-center"><div class="grid h-16 w-16 place-items-center rounded-full bg-success-100 text-success-700 ring-8 ring-success-50 dark:bg-success-900/50 dark:text-success-300 dark:ring-success-950/40"><svg class="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6" /></svg></div><p class="mt-6 text-xs font-bold uppercase tracking-[0.16em] text-success-700 dark:text-success-300">{$_('manual_observation.saved.eyebrow', { default: 'Field record complete' })}</p><h3 class="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{$_('manual_observation.saved.title', { default: 'Observation added' })}</h3><p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{$_('manual_observation.saved.body', { default: 'The original media, classification evidence, and your confirmed species are now safely linked.' })}</p>{#if speciesPhotoUrl ?? previewUrl}<figure class="mt-6 w-full max-w-xs" data-manual-observation-saved-photo><div class="aspect-[4/3] overflow-hidden rounded-xl bg-slate-950"><img src={speciesPhotoUrl ?? previewUrl ?? ''} alt="" class="h-full w-full object-contain" /></div><figcaption class="mt-2 text-xs text-slate-500 dark:text-slate-400">{$_('manual_observation.saved.photo', { values: { species: selectedSpeciesName }, default: 'The photo saved with {species}' })}</figcaption></figure>{/if}<div class="mt-7 flex flex-wrap justify-center gap-3"><button class="btn btn-primary px-5 py-2.5" onclick={() => onNavigate(`/events?event=${encodeURIComponent(draft?.saved_event_id ?? '')}`)}>{$_('manual_observation.saved.view', { default: 'View detection' })}</button><button class="btn btn-secondary px-5 py-2.5" onclick={startOver}>{$_('manual_observation.saved.another', { default: 'Add another' })}</button></div></div>
             {/if}
         </div>
 </section>

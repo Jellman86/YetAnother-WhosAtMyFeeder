@@ -25,6 +25,19 @@ describe('manual observation flow layout', () => {
         expect(page).toContain('aria-live="polite"');
     });
 
+    it('asks before discarding an upload and its analysis', () => {
+        expect(page).toContain('confirmAction({');
+        expect(page).toContain('manual_observation.discard.confirm');
+        expect(page).toContain("draft && draft.status !== 'saved' && !(await confirmAction(");
+    });
+
+    it('says what an empty time means and keeps raw classifier errors out of the sentence', () => {
+        expect(page).toContain('manual_observation.review.when_help');
+        expect(page).toContain('aria-describedby="manual-observation-when-help"');
+        expect(page).toContain("draft.error_code === 'interrupted'");
+        expect(page).toContain('manual_observation.analysis.failed_reason');
+    });
+
     it('shows friendly species names and retains an editable sighting location', () => {
         expect(page).toContain('prediction.common_name');
         expect(page).toContain('prediction.scientific_name');

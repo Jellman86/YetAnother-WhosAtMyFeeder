@@ -82,6 +82,7 @@ class ManualTagResponse(BaseModel):
     common_name: str | None = None
     taxa_id: int | None = None
     manual_tagged: bool
+    photo_changed: bool = False
 
 
 def _build_event_classification_input_context(
@@ -1641,6 +1642,15 @@ async def _apply_manual_tag_update(
         audio_species=audio_species,
     )
 
+    # An uploaded video can show several species; its photo follows the one the record now names.
+    photo_changed = False
+    if event_id.startswith("manual_"):
+        from app.services.manual_observation_service import manual_observation_service
+
+        photo_changed = await manual_observation_service.follow_species(
+            event_id, [new_species, stored_display_name, sci_name, com_name]
+        )
+
     refreshed_detection = await repo.get_by_frigate_event(event_id)
     payload_source = refreshed_detection or detection
     await broadcaster.broadcast(
@@ -1672,6 +1682,7 @@ async def _apply_manual_tag_update(
         "common_name": com_name,
         "taxa_id": t_id,
         "manual_tagged": True,
+        "photo_changed": photo_changed,
     }
 
 
