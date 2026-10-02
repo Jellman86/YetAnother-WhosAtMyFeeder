@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Preserve the first classification separately from later automatic results. Video retries use this original evidence or a manual correction as a soft prior, so an automatic overturn cannot become its own starting evidence. Historical visits without original provenance remain unknown, so reanalysis of an older multi-species visit may choose a different supported bird. Explicit species choices remain separate from requested model runs, and multi-crop search also works without a species prior.
+
 - Bound automatically retained earlier photo choices to eight, while keeping the earliest available photo, manual choices and counted scenes. Store content hashes for duplicate checks, keep regenerated candidate files immutable, and prune old files only after a successful save.
 
 - Allow a reported CPU fallback during model startup while still rejecting an unexpected CUDA-to-CPU session change during inference. Attribute CPU-session execution errors to the active CPU provider.

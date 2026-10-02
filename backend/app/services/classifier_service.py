@@ -5535,7 +5535,7 @@ class ClassifierService:
             candidates.append(("frigate_hint_crop", hint_image, hint_box))
 
         if self._bird_crop_detector_available():
-            if hint_box is None and self._input_context_extra(input_context, "event_target_labels"):
+            if hint_box is None:
                 native = self._video_native_model_candidates(image, seen_boxes=seen_boxes)
                 if native is not None:
                     return [candidate for candidate in candidates + native if within_subject(candidate)]
@@ -5549,9 +5549,7 @@ class ClassifierService:
             duplicate_box = isinstance(model_box, tuple) and len(model_box) == 4 and model_box in seen_boxes
             if isinstance(model_image, Image.Image) and not duplicate_box:
                 candidates.append(("model_crop", model_image, model_box))
-            elif not isinstance(model_image, Image.Image) and self._input_context_extra(
-                input_context, "event_target_labels"
-            ):
+            elif not isinstance(model_image, Image.Image):
                 # A geometrically valid box may contain empty background after departure.
                 # One guided miss must not prevent checking the other birds in the scene.
                 candidates.extend(self._video_native_model_candidates(image, seen_boxes=seen_boxes) or [])
@@ -7119,6 +7117,10 @@ class ClassifierService:
                 ),
                 "event_target_selected": event_target_selected,
                 "runtime": self.runtime_identity(),
+                "event_target_label_source": self._input_context_extra(
+                    normalized_input_context, "event_target_label_source"
+                )
+                or "unavailable",
                 "crop_detector_runtime": {
                     "active_providers": dict(crop_status.get("active_providers") or {}),
                     "provider_fallbacks": dict(crop_status.get("provider_fallbacks") or {}),

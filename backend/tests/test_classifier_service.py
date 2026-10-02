@@ -127,7 +127,9 @@ async def test_personalization_cannot_replace_a_verified_event_target(mock_tflit
 
 
 @pytest.mark.asyncio
-async def test_empty_frigate_hint_still_searches_other_positions_for_existing_target(
+@pytest.mark.parametrize("targets", [["Baeolophus bicolor"], []])
+async def test_empty_frigate_hint_search_does_not_depend_on_species_provenance(
+    targets,
     mock_tflite,
     mock_os_path_exists,
     monkeypatch,
@@ -148,7 +150,7 @@ async def test_empty_frigate_hint_still_searches_other_positions_for_existing_ta
         input_context=classifier_service_module._normalize_classification_input_context(
             {
                 "frigate_box": [0.1, 0.1, 0.78, 0.78],
-                "event_target_labels": ["Baeolophus bicolor"],
+                "event_target_labels": targets,
             }
         ),
     )
@@ -6661,7 +6663,8 @@ async def test_classifier_service_shutdown_closes_all_executors():
     assert service._video_executor._shutdown is True
 
 
-def test_unknown_clip_timeline_cannot_search_for_the_event_species_in_unrelated_birds(monkeypatch):
+@pytest.mark.parametrize("targets", [["Haemorhous mexicanus"], []])
+def test_unknown_clip_timeline_cannot_search_for_the_event_species_in_unrelated_birds(monkeypatch, targets):
     service = ClassifierService.__new__(ClassifierService)
 
     class Detector:
@@ -6679,7 +6682,7 @@ def test_unknown_clip_timeline_cannot_search_for_the_event_species_in_unrelated_
             "frigate_region": [0.17, 0.31, 0.17, 0.30],
             "frigate_box": [0.25, 0.35, 0.04, 0.14],
             "frigate_path_data": [[[0.27, 0.49], 100]],
-            "event_target_labels": ["Haemorhous mexicanus"],
+            "event_target_labels": targets,
         }
     )
     frame_context = service._video_frame_input_context(context, frame_offset_seconds=14, image_size=(100, 100))

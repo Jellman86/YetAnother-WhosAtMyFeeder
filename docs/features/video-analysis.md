@@ -25,9 +25,9 @@ YA-WAMF keeps the existing identification.
    but do not vote against a fleeting visitor. A detector crop can win from sparse recurring
    evidence without occupying a fixed percentage of a long visit. A reliable tracked-object crop
    has priority over a different bird elsewhere in the frame. Otherwise, two separated, confident
-   identifications of the existing event species keep that target ahead of a scene winner; a weak
+   identifications of the initial event species keep that target ahead of a scene winner; a weak
    guess or single glimpse does not. Without either anchor, conflicting source winners cause an
-   abstention instead of adding misleading extra votes. When an existing target has no valid hint,
+   abstention instead of adding misleading extra votes. When a frame has no valid hint,
    video inference checks up to three distinct native detector crops per sampled frame. This is one
    native detector pass, without tiled scanning or retries, but may add two species-classifier
    calls. A guided detector miss in an otherwise valid box also permits that native pass, because
@@ -37,6 +37,26 @@ YA-WAMF keeps the existing identification.
    threshold, YA-WAMF tries the best retained snapshot. If neither route has usable evidence, it
    returns **No confident result**, preserves the existing identification, and records no manual
    override.
+
+The first saved classification is retained separately from later labels. Repeated analysis uses
+that initial classification as a soft prior, or an explicitly confirmed or chosen species.
+Clicking Reclassify requests a model decision and does not turn its output into a human
+species choice or erase a previous explicit species choice. Another confirmation or manual
+species choice replaces that prior. The existing manual lock still protects both actions from automatic changes.
+A prior is not proof of which bird Frigate tracked and cannot force a result without repeated
+confident video support. A genuinely wrong initial label can still change. The first saved classification may have used a trusted Frigate sublabel as a snapshot
+fallback. A sublabel can also be YA-WAMF's own earlier write-back, so it is not proof of
+independent species evidence. Video runs do not add the current Frigate sublabel as another
+prior.
+
+Existing visits without preserved initial classification remain unknown; migration does not
+copy a possibly overwritten current label into their history. They still use available tracked
+geometry and temporal consensus. Diagnostics report whether the species prior came from the
+initial classification, an explicit manual correction or was unavailable. Native multi-crop
+search does not require a species prior; older and Unknown visits keep the same bounded
+search. Duplicate ingestion and a backfill with a different model do not rewrite the initial
+classification. A downgrade removes this new provenance while preserving detections;
+re-upgrading cannot recover that discarded provenance.
 
 For retained full-visit recordings, a Frigate event box is used only at sampled timestamps that
 match the event's tracked `path_data`. YA-WAMF never repeats one static event box across the whole

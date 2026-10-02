@@ -1785,18 +1785,21 @@ class AutoVideoClassifierService:
                         clip_start_timestamp=clip_start_timestamp,
                     )
                     async with get_db() as db:
-                        target_detection = await DetectionRepository(db).get_by_frigate_event(frigate_event)
+                        target_repo = DetectionRepository(db)
+                        target_detection = await target_repo.get_by_frigate_event(frigate_event)
+                        initial_labels = await target_repo.get_initial_classification_labels(frigate_event)
+                        owner_labels = await target_repo.get_owner_species_choice_labels(frigate_event)
                     if target_detection is not None:
+                        if target_detection.manual_tagged and owner_labels is not None:
+                            target_labels = owner_labels
+                            target_source = "manual_correction"
+                        else:
+                            target_labels = initial_labels or []
+                            target_source = "initial_classification" if initial_labels is not None else "unavailable"
                         input_context["event_target_labels"] = [
-                            str(label)
-                            for label in (
-                                target_detection.category_name,
-                                target_detection.scientific_name,
-                                target_detection.common_name,
-                                target_detection.display_name,
-                            )
-                            if label and not should_hide_species_label(label)
+                            str(label) for label in target_labels if label and not should_hide_species_label(label)
                         ]
+                        input_context["event_target_label_source"] = target_source
                     results = await asyncio.wait_for(
                         self._classifier.classify_video_async(
                             tmp_path,
