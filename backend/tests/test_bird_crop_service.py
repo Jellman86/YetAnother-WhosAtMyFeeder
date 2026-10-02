@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 from PIL import Image
 
+from app.config import settings
 from app.services.bird_crop_service import BirdCropService
 
 
@@ -819,3 +820,71 @@ def test_infer_candidates_parses_fixed_size_ssd_outputs_and_restores_image_box()
     assert len(candidates) == 1
     assert candidates[0]["confidence"] == pytest.approx(0.93)
     assert candidates[0]["box"] == pytest.approx((80.0, 40.0, 240.0, 120.0))
+
+
+@pytest.mark.parametrize("api", ["generate_classification_candidate_crops", "detect_observation_boxes"])
+def test_photo_scan_can_report_transient_runtime_failure_without_changing_default_fail_soft(api, monkeypatch):
+    from app.services.bird_crop_service import BirdDetectionError
+
+    service = BirdCropService()
+    monkeypatch.setattr(service, "_ensure_model_for_tier", lambda tier: object())
+
+    def fail(model, image):
+        raise RuntimeError("temporary runtime failure")
+
+    monkeypatch.setattr(service, "_infer_candidates", fail)
+    image = _make_image(640, 480)
+    assert getattr(service, api)(image) == []
+    with pytest.raises(BirdDetectionError):
+        getattr(service, api)(image, raise_on_error=True)
+
+
+@pytest.mark.parametrize("failure_path", ["sliced", "guided"])
+def test_strict_photo_scan_reports_failure_in_fallback_regions(monkeypatch, failure_path):
+    from app.services.bird_crop_service import BirdDetectionError
+
+    service = BirdCropService()
+    image = _make_image(3840, 2160)
+    monkeypatch.setattr(settings.media_cache, "bird_scan_mode", "balanced")
+    monkeypatch.setattr(service, "_ensure_model_for_tier", lambda tier: object() if tier == "accurate" else None)
+
+    def infer(model, region):
+        if region.size == image.size:
+            return []
+        raise RuntimeError("temporary region inference failure")
+
+    monkeypatch.setattr(service, "_infer_candidates", infer)
+    kwargs = {"search_box": (10, 10, 500, 500)} if failure_path == "guided" else {}
+    assert service.generate_classification_candidate_crops(image, **kwargs) == []
+    with pytest.raises(BirdDetectionError):
+        service.generate_classification_candidate_crops(image, raise_on_error=True, **kwargs)
+
+
+@pytest.mark.parametrize("failure", ["load", "inference"])
+@pytest.mark.parametrize("fast_available", [True, False])
+def test_ordinary_crop_retains_runtime_failure_when_fallback_finds_no_bird(monkeypatch, failure, fast_available):
+    service = BirdCropService()
+
+    def load(tier):
+        if tier == "accurate" and failure == "load":
+            raise RuntimeError("temporary load failure")
+        return {"tier": tier} if tier == "accurate" or fast_available else None
+
+    def infer(model, image):
+        if model["tier"] == "accurate":
+            raise RuntimeError("temporary inference failure")
+        return []
+
+    monkeypatch.setattr(service, "_ensure_model_for_tier", load)
+    monkeypatch.setattr(service, "_infer_candidates", infer)
+    result = service.generate_crop(_make_image(640, 480), detector_tier="accurate")
+    assert result["crop_image"] is None
+    assert result.get("runtime_error") is True
+
+
+def test_absent_crop_models_are_not_runtime_failures(monkeypatch):
+    service = BirdCropService()
+    monkeypatch.setattr(service, "_ensure_model_for_tier", lambda tier: None)
+    result = service.generate_crop(_make_image(640, 480), detector_tier="accurate")
+    assert result["crop_image"] is None
+    assert not result.get("runtime_error")

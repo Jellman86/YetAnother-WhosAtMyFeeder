@@ -252,10 +252,17 @@ candidate does not clear the configured promotion threshold. The SSE stream emit
 Video `reclassification_completed` events are emitted after photograph work settles. A successful
 run can include `photo_outcome`, such as `replaced`, `matching_photo_preserved`,
 `manual_selection_preserved`, `owner_identification_preserved`, `primary_identity_preserved`,
-`storage_evicted`, `blocked_species`, `disabled_or_no_evidence`, `frame_extract_failed`, or
+`storage_evicted`, `blocked_species`, `media_cache_disabled`, `snapshot_caching_disabled`,
+`media_cache_unavailable`, `bird_presence_unconfirmed`, `detector_error`, `classifier_error`,
+`inference_deferred`, `frame_extract_failed`, or
 `snapshot_replace_failed`. Owner, identity, storage and failure outcomes also enter processing
 diagnostics; routine replacements and matching photographs do not. Species success does not imply
-a photograph was replaced; existing owner choices remain protected.
+a photograph was replaced; existing owner choices remain protected. `bird_presence_unconfirmed`
+means no suitable photo had sufficiently confident detector localization inside its bounds.
+The current photo remains available, including when the crop detector is absent or disabled.
+Species confidence alone is not bird-presence evidence. The three cache outcomes distinguish
+the overall media-cache switch, snapshot caching and unavailable storage. Older builds used the
+combined `disabled_or_no_evidence` outcome; that older result alone cannot identify the cause.
 
 A prior photograph retained during replacement can appear among snapshot candidates with
 `source_mode: "retained_photo"`, `clip_variant: "retained_snapshot"`, and no frame offset or

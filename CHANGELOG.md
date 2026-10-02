@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Choose automatic video and HQ photographs only when an object detector localizes a bird inside that photo. Keep exploratory weak crops for classification, retain real detector boxes and confidence separately from species scores, and reuse checked HQ photos without decoding the video again. Apply the same accepted-species confidence gate to HQ and baseline photos to prevent repeated weak-photo replacements. If localization is unavailable, keep the current photo and report why. Distinguish disabled caching, unavailable storage and missing localization, keep the chosen photo selected when a scan abstains, and avoid repeatedly scanning unchanged media for the same presence miss. Temporary detector/classifier failures and pressure-deferred work keep bounded retries; this does not guarantee every small or partly hidden bird is detected.
+
 - Preserve the first classification separately from later automatic results. Video retries use this original evidence or a manual correction as a soft prior, so an automatic overturn cannot become its own starting evidence. Historical visits without original provenance remain unknown, so reanalysis of an older multi-species visit may choose a different supported bird. Explicit species choices remain separate from requested model runs, and multi-crop search also works without a species prior.
 
 - Bound automatically retained earlier photo choices to eight, while keeping the earliest available photo, manual choices and counted scenes. Store content hashes for duplicate checks, keep regenerated candidate files immutable, and prune old files only after a successful save.

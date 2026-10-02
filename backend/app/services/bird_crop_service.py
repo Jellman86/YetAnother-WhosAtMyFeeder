@@ -24,6 +24,17 @@ from app.utils.cuda_runtime import (
 log = structlog.get_logger()
 
 
+class BirdDetectionError(RuntimeError):
+    """A scan failed at runtime rather than finding no usable bird."""
+
+
+def detector_scan_failed(result: dict[str, Any]) -> bool:
+    return (
+        result.get("runtime_error") is True
+        or str(result.get("reason") or "").removesuffix("_no_fallback") == "inference_failed"
+    )
+
+
 def _openvino_dimension_value(dimension: Any) -> int | str:
     """Convert an OpenVINO dimension into the ORT-like shape form we consume."""
     try:
@@ -235,7 +246,11 @@ class BirdCropService:
             "fast",
             fallback_reason=fallback_reason,
         )
-        if fast_available:
+        if fast_result.get("reason") == "selected":
+            return fast_result
+        if detector_scan_failed(result):
+            return self._with_fallback_reason(result, fallback_reason)
+        if fast_available or detector_scan_failed(fast_result):
             return fast_result
         if not model_available:
             return self._empty_result(
@@ -273,6 +288,7 @@ class BirdCropService:
                     "load_failed",
                     detector_tier=detector_tier,
                     fallback_reason=fallback_reason,
+                    runtime_error=bool(self._model_errors.get(detector_tier)),
                 ),
                 False,
             )
@@ -351,6 +367,8 @@ class BirdCropService:
             sliced_result = self._generate_sliced_classification_candidate_crop(image)
             if sliced_result is not None and sliced_result.get("reason") == "selected":
                 return sliced_result
+            if sliced_result is not None and detector_scan_failed(sliced_result):
+                native_result = sliced_result
 
         accurate_reason = str(native_result.get("reason") or "unavailable").removesuffix("_no_fallback")
         fallback_reason = "accurate_unavailable" if not accurate_available else f"accurate_{accurate_reason}"
@@ -360,6 +378,12 @@ class BirdCropService:
             fallback_reason=fallback_reason,
         )
         if fast_available:
+            if fast_result.get("reason") != "selected" and detector_scan_failed(native_result):
+                return native_result
+            return self._annotate_candidate_strategy(fast_result, strategy="fast_native")
+        if detector_scan_failed(native_result):
+            return native_result
+        if detector_scan_failed(fast_result):
             return self._annotate_candidate_strategy(fast_result, strategy="fast_native")
         if not accurate_available:
             return self._annotate_candidate_strategy(
@@ -378,24 +402,31 @@ class BirdCropService:
         *,
         max_crops: int = 3,
         search_box: tuple[int, int, int, int] | None = None,
+        raise_on_error: bool = False,
     ) -> list[dict[str, Any]]:
         """Find a bounded set of distinct birds for per-crop species scoring."""
         if not isinstance(image, Image.Image):
             return []
         limit = max(1, min(8, int(max_crops)))
         selected: list[dict[str, Any]] = []
+        guided_failed = False
         if search_box is not None:
             guided = self.generate_guided_classification_candidate_crop(
                 image, search_box=search_box, allow_fallback=False
             )
             if isinstance(guided.get("crop_image"), Image.Image):
                 selected.append(guided)
+            guided_failed = detector_scan_failed(guided)
 
         try:
             model = self._ensure_model_for_tier("accurate")
+            if model is None and raise_on_error and self._model_errors.get("accurate"):
+                raise BirdDetectionError("Bird detector model failed to load")
             raw_candidates = self._infer_frame_candidates(model, image) if model is not None else []
         except Exception as exc:
             log.warning("Multi-bird crop detection failed", error=str(exc))
+            if raise_on_error:
+                raise BirdDetectionError("Multi-bird crop detection failed") from exc
             raw_candidates = []
 
         ranked = sorted(
@@ -429,13 +460,15 @@ class BirdCropService:
             fallback = self.generate_classification_candidate_crop(image)
             if isinstance(fallback.get("crop_image"), Image.Image):
                 selected.append(fallback)
+            elif raise_on_error and (guided_failed or detector_scan_failed(fallback)):
+                raise BirdDetectionError("Bird crop fallback inference failed")
         if selected:
             # Keep every detector box with the first photo choice. HQ counting can reuse this
             # scan instead of running the full-frame and tile detector a second time.
             selected[0]["observation_boxes"] = self._usable_observation_boxes(raw_candidates, image.size)
         return selected[:limit]
 
-    def detect_observation_boxes(self, image: Image.Image) -> list[dict[str, Any]]:
+    def detect_observation_boxes(self, image: Image.Image, *, raise_on_error: bool = False) -> list[dict[str, Any]]:
         """Return every usable bird box; photo-crop limits do not cap the count."""
         if not isinstance(image, Image.Image):
             return []
@@ -444,6 +477,8 @@ class BirdCropService:
             raw = self._infer_frame_candidates(model, image) if model is not None else []
         except Exception as exc:
             log.warning("Bird observation detection failed", error=str(exc))
+            if raise_on_error:
+                raise BirdDetectionError("Bird observation detection failed") from exc
             return []
         return self._usable_observation_boxes(raw, image.size)
 
@@ -678,6 +713,7 @@ class BirdCropService:
             return None
 
         selected: list[dict[str, Any]] = []
+        failed_result: dict[str, Any] | None = None
         for tile_box in tile_boxes:
             tile = image.crop(tile_box)
             tile_result, available = self._generate_classification_candidate_for_tier(
@@ -685,7 +721,9 @@ class BirdCropService:
                 strategy="sliced_2x2",
             )
             if not available:
-                return None
+                return failed_result
+            if detector_scan_failed(tile_result):
+                failed_result = tile_result
             if tile_result.get("reason") != "selected":
                 continue
             selected.append(
@@ -698,7 +736,7 @@ class BirdCropService:
                 )
             )
         if not selected:
-            return None
+            return failed_result
         return max(selected, key=lambda result: float(result.get("confidence") or 0.0))
 
     def _classification_tile_boxes(
@@ -2007,7 +2045,9 @@ class BirdCropService:
         confidence: float | None = None,
         detector_tier: str | None = None,
         fallback_reason: str | None = None,
+        runtime_error: bool = False,
     ) -> dict[str, Any]:
+        runtime_error = runtime_error or reason == "inference_failed"
         if not self.fallback_to_original:
             reason = f"{reason}_no_fallback"
         return {
@@ -2017,6 +2057,7 @@ class BirdCropService:
             "reason": reason,
             "detector_tier": detector_tier,
             "fallback_reason": fallback_reason,
+            "runtime_error": runtime_error,
         }
 
 

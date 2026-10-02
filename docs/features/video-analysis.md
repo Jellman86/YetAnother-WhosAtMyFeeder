@@ -144,15 +144,36 @@ See the [Recommended Frigate Config](../setup/frigate-config.md) for the exact r
 
 ## Keeping the photo aligned
 
-After video analysis, the saved photo uses the exact frame and crop that positively
-identified the accepted species. This lightweight step decodes one previously
-analysed moment and performs no additional inference. It works when optional
-high-quality photo scanning is disabled. When scanning is enabled, a retained
-photo already verified for the current species keeps its quality. When its saved
-bytes match the selected, verified candidate, this check happens before decoding
-the video again. Owner choices and corrections are checked again before any new
-photo is saved. The supporting
-moment is included first in the frames supplied to that scan.
+After video analysis, a replacement photo uses an exact sampled frame and crop where
+an object detector localized a bird and the species model supported the accepted species.
+Object confidence and species confidence are checked separately. Weak exploratory detector
+proposals still help classification but cannot select the photo. This step reuses localization
+from the video analysis, decodes one previously analysed moment and performs no additional
+inference. It works when optional high-quality photo scanning is disabled.
+
+HQ scanning reuses its existing detector work to check the chosen full frame or crop. A
+matching, checked HQ photo remains selected when its retained bytes match the displayed photo;
+that check happens before another video decode. Older HQ choices without sufficient object
+localization may be replaced once by a suitable video crop. The initial and previous photos
+remain available through the normal retention rules.
+
+HQ and baseline photo changes use the same species-confidence floor: the configured classification
+threshold or 60%, whichever is higher. A photo must support the current accepted species; a weaker
+HQ candidate cannot displace a stronger baseline photo and then be replaced on every repeated check.
+
+If no suitable localized photo is available, YA-WAMF keeps the current photo and records
+`bird_presence_unconfirmed`. This includes an absent or disabled crop detector, detector misses
+and cases where no localized crop supports the accepted species. A species score alone cannot
+prove that a bird is visible. Small or partly hidden birds can be missed, and an object detector
+can still mistake background for a bird. Classification success therefore does not guarantee
+a new photograph. A completed scan with no suitable localized bird does not repeatedly
+rescan the same media on a timer; an explicit new scan or final-event refresh can try again.
+Disabled media caching, disabled snapshot caching and unavailable cache storage are reported
+separately. A persisted replacement needs writable snapshot caching; analysis does not silently
+change those settings. Missing clips retain their bounded availability retries. A temporary detector or species-inference
+failure, or deferred work while live processing is busy, also retains bounded retries with a distinct
+reason. These are incomplete scans, not confirmed presence misses. Classification refinement remains
+independent of photo eligibility. Owner choices and corrections are checked again before saving.
 
 Automatic photo changes respect manual identifications and photo choices, hidden
 visits, blocked species and storage eviction. A rejected video result cannot

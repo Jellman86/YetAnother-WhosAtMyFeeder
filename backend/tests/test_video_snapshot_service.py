@@ -28,6 +28,9 @@ def _result():
             "input_source": "model_crop",
             "input_is_cropped": True,
             "score": 0.94,
+            "presence_source": "bird_crop_detector",
+            "bird_box": [10, 20, 50, 50],
+            "detector_confidence": 0.9,
         },
     }
 
@@ -328,7 +331,19 @@ def test_video_candidate_keeps_tracked_region_provenance():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("problem", [None, "missing_candidate", "different_bytes", "low_score", "different_label"])
+@pytest.mark.parametrize(
+    "problem",
+    [
+        None,
+        "hq_full",
+        "hq_hint",
+        "missing_candidate",
+        "different_bytes",
+        "low_score",
+        "different_label",
+        "unverified_presence",
+    ],
+)
 async def test_photo_preflight_skips_decode_only_for_verified_matching_bytes(clip, monkeypatch, problem):
     from unittest.mock import Mock
 
@@ -351,6 +366,14 @@ async def test_photo_preflight_skips_decode_only_for_verified_matching_bytes(cli
                     if problem == "different_label"
                     else "Baeolophus bicolor",
                     "classifier_score": 0.3 if problem == "low_score" else 0.94,
+                    "source_mode": "full_frame"
+                    if problem == "hq_full"
+                    else "frigate_hint_crop"
+                    if problem == "hq_hint"
+                    else "model_crop",
+                    "crop_box": None if problem == "hq_full" else [10, 20, 50, 50],
+                    "crop_strategy": "video_evidence" if problem == "unverified_presence" else "detector_supported",
+                    "crop_confidence": None if problem == "unverified_presence" else 0.9,
                 }
             ],
         )
@@ -358,7 +381,7 @@ async def test_photo_preflight_skips_decode_only_for_verified_matching_bytes(cli
     decode = Mock(wraps=module.extract_video_snapshot)
     monkeypatch.setattr(module, "extract_video_snapshot", decode)
     outcome = await module.replace_video_snapshot(event_id, clip, _result(), clip_variant="event")
-    if problem is None:
+    if problem in {None, "hq_full", "hq_hint"}:
         assert outcome == "matching_photo_preserved"
         decode.assert_not_called()
     else:
@@ -448,3 +471,42 @@ async def test_replacing_a_reused_candidate_key_keeps_earlier_bytes_and_creation
     retained = await module.retained_snapshot_candidate("reuse", photo, {}, [row], replaced_candidate_ids={"reused"})
     assert retained["image_bytes"] == photo
     assert retained["created_at"] == row["created_at"]
+
+
+@pytest.mark.asyncio
+async def test_no_localized_video_photo_reports_its_reason_without_decoding_or_changing_photo(clip, monkeypatch):
+    from unittest.mock import Mock
+
+    event_id = "no-localized-video-photo"
+    await _seed(event_id)
+    await module.media_cache.cache_snapshot(event_id, b"original-photo")
+    result = {**_result(), "_video_snapshot_evidence": None}
+    decode = Mock(side_effect=AssertionError("no localized photo should not decode"))
+    monkeypatch.setattr(module, "extract_video_snapshot", decode)
+    assert (
+        await module.replace_video_snapshot(event_id, clip, result, clip_variant="event") == "bird_presence_unconfirmed"
+    )
+    assert await module.media_cache.get_snapshot(event_id) == b"original-photo"
+    decode.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "disabled,outcome",
+    [
+        ("enabled", "media_cache_disabled"),
+        ("cache_snapshots", "snapshot_caching_disabled"),
+        ("available", "media_cache_unavailable"),
+    ],
+)
+async def test_video_photo_reports_the_exact_cache_gate_before_attempting_work(clip, monkeypatch, disabled, outcome):
+    from unittest.mock import Mock
+
+    if disabled == "available":
+        monkeypatch.setattr(module.media_cache, "_available", False)
+    else:
+        monkeypatch.setattr(settings.media_cache, disabled, False)
+    decode = Mock(side_effect=AssertionError("disabled cache must not decode the clip"))
+    monkeypatch.setattr(module, "extract_video_snapshot", decode)
+    assert await module.replace_video_snapshot("cache-gate", clip, _result(), clip_variant="event") == outcome
+    decode.assert_not_called()

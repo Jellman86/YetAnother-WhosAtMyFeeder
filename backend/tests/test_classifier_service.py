@@ -23,6 +23,7 @@ sys.modules["app.services.model_manager"] = mock_mm
 from app.services.classifier_service import (  # noqa: E402
     BackgroundImageClassificationUnavailableError,
     ClassifierService,
+    VideoFrameCandidate,
     InvalidInferenceOutputError,
     LiveImageClassificationOverloadedError,
     ModelInstance,
@@ -73,8 +74,8 @@ async def test_video_preserves_repeated_event_target_when_another_bird_dominates
         service,
         "_video_frame_candidates",
         lambda image, **kwargs: [
-            ("full_frame", full, None),
-            ("model_crop", crop, (10, 20, 50, 60)),
+            VideoFrameCandidate("full_frame", full, None),
+            VideoFrameCandidate("model_crop", crop, (10, 20, 50, 60), (15, 25, 45, 55), 0.9),
         ],
     )
     monkeypatch.setattr(
@@ -127,6 +128,115 @@ async def test_personalization_cannot_replace_a_verified_event_target(mock_tflit
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("localized_bird", [True, False])
+async def test_video_photo_does_not_select_high_species_confidence_without_a_localized_bird(
+    mock_tflite,
+    mock_os_path_exists,
+    monkeypatch,
+    localized_bird,
+):
+    model = types.SimpleNamespace(loaded=True, labels=["Baeolophus bicolor", "Cardinalis cardinalis"])
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+    service._models["bird"] = model
+    empty_hint = Image.new("RGB", (40, 40), "gray")
+    bird = Image.new("RGB", (40, 40), "blue")
+    monkeypatch.setattr(
+        service,
+        "_video_frame_candidates",
+        lambda image, **kwargs: [
+            VideoFrameCandidate("full_frame", image, None),
+            VideoFrameCandidate("frigate_hint_crop", empty_hint, (60, 0, 100, 40)),
+            *(
+                [VideoFrameCandidate("model_crop", bird, (10, 20, 50, 60), (15, 25, 45, 55), 0.9)]
+                if localized_bird
+                else []
+            ),
+        ],
+    )
+    monkeypatch.setattr(
+        service,
+        "_classify_raw_with_runtime_recovery",
+        lambda image, **kwargs: (
+            np.array([0.82, 0.18]) if image is bird else np.array([0.99, 0.01]),
+            model,
+        ),
+    )
+    monkeypatch.setattr(
+        classifier_service_module,
+        "_read_selected_video_frames",
+        lambda cap, indices: iter((int(index), True, np.zeros((100, 100, 3), dtype=np.uint8)) for index in indices),
+    )
+    with patch("app.services.classifier_service.cv2.VideoCapture") as capture:
+        capture.return_value.isOpened.return_value = True
+        capture.return_value.get.side_effect = lambda prop: 30 if prop == 7 else 10
+        result = service.classify_video("/tmp/clip.mp4", max_frames=5)[0]
+    assert result["label"] == "Baeolophus bicolor"
+    evidence = result["_video_snapshot_evidence"]
+    if localized_bird:
+        assert evidence["input_source"] == "model_crop"
+        assert evidence["crop_box"] == [10, 20, 50, 60]
+        assert evidence["score"] == pytest.approx(0.82)
+        assert evidence["presence_source"] == "bird_crop_detector"
+    else:
+        assert evidence is None
+    await service.shutdown()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("detector_confidence", [0.03, 0.9])
+async def test_video_photo_keeps_actual_detector_evidence_and_rejects_exploratory_proposals(
+    mock_tflite,
+    mock_os_path_exists,
+    monkeypatch,
+    detector_confidence,
+):
+    from app.services.bird_crop_service import BirdCropService
+
+    model = types.SimpleNamespace(loaded=True, labels=["Baeolophus bicolor", "Cardinalis cardinalis"])
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+    service._models["bird"] = model
+    cropper = BirdCropService()
+    service._bird_crop_service = cropper
+    monkeypatch.setattr(cropper, "get_status", lambda: {"installed": True, "enabled_for_runtime": True})
+    monkeypatch.setattr(cropper, "_ensure_model_for_tier", lambda tier: object())
+    monkeypatch.setattr(
+        cropper,
+        "_infer_candidates",
+        lambda model, image: [
+            {"box": (200, 200, 240, 240), "confidence": detector_confidence},
+        ],
+    )
+    monkeypatch.setattr(
+        service,
+        "_classify_raw_with_runtime_recovery",
+        lambda image, **kwargs: (
+            np.array([0.99, 0.01]),
+            model,
+        ),
+    )
+    monkeypatch.setattr(
+        classifier_service_module,
+        "_read_selected_video_frames",
+        lambda cap, indices: iter((int(index), True, np.zeros((600, 600, 3), dtype=np.uint8)) for index in indices),
+    )
+    with patch("app.services.classifier_service.cv2.VideoCapture") as capture:
+        capture.return_value.isOpened.return_value = True
+        capture.return_value.get.side_effect = lambda prop: 30 if prop == 7 else 10
+        result = service.classify_video("/tmp/clip.mp4", max_frames=5)[0]
+    assert result["label"] == "Baeolophus bicolor"
+    evidence = result["_video_snapshot_evidence"]
+    if detector_confidence < 0.08:
+        assert evidence is None
+    else:
+        assert evidence["bird_box"] == [200, 200, 240, 240]
+        assert evidence["crop_box"] != evidence["bird_box"]
+        assert evidence["detector_confidence"] == pytest.approx(detector_confidence)
+    await service.shutdown()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("targets", [["Baeolophus bicolor"], []])
 async def test_empty_frigate_hint_search_does_not_depend_on_species_provenance(
     targets,
@@ -154,7 +264,7 @@ async def test_empty_frigate_hint_search_does_not_depend_on_species_provenance(
             }
         ),
     )
-    assert [source for source, _, _ in candidates] == ["full_frame", "frigate_hint_crop", "model_crop"]
+    assert [candidate.source for candidate in candidates] == ["full_frame", "frigate_hint_crop", "model_crop"]
     assert candidates[-1][2] == (60, 60, 90, 90)
     await service.shutdown()
 
@@ -4339,7 +4449,7 @@ async def test_video_model_crop_uses_frigate_hint_as_guided_search_region(
             input_context=input_context,
         )
 
-        assert [source for source, _image, _box in candidates] == ["full_frame", "frigate_hint_crop", "model_crop"]
+        assert [candidate.source for candidate in candidates] == ["full_frame", "frigate_hint_crop", "model_crop"]
         assert crop_service.guided_calls == [((100, 100), (1, 1, 97, 97))]
         await service.shutdown()
 
@@ -6688,9 +6798,9 @@ def test_unknown_clip_timeline_cannot_search_for_the_event_species_in_unrelated_
     frame_context = service._video_frame_input_context(context, frame_offset_seconds=14, image_size=(100, 100))
     candidates = service._video_frame_candidates(Image.new("RGB", (100, 100)), input_context=frame_context)
     assert "frigate_box" not in frame_context.model_dump()
-    assert all(box is not None for _, _, box in candidates)
-    assert not any(box == (75, 60, 85, 80) for _, _, box in candidates)
-    assert any(box == (24, 35, 29, 49) for _, _, box in candidates)
+    assert all(candidate.crop_box is not None for candidate in candidates)
+    assert not any(candidate.crop_box == (75, 60, 85, 80) for candidate in candidates)
+    assert any(candidate.crop_box == (24, 35, 29, 49) for candidate in candidates)
     assert candidates[0][0] == "frigate_region_crop"
 
 
