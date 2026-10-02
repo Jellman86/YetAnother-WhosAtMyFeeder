@@ -6,6 +6,16 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Tidy the dashboard's right column and make it count visits. The day bar said "Today" over a rolling
+  24 hours and counted frames as visits; it now says Last 24 hours and counts visits, from new
+  `visit_count`, `hourly_visits`, `camera_visits` and per-species `visit_count` fields on the day
+  summary (the leaderboard's 10-minute rule). The column runs from what is happening to what is merely
+  interesting: At the feeder now (each camera's last visit and the window's visits, which no longer
+  undercount on a busy day, with the weather beneath), Heard (calls, species, cross-confirmed, the
+  species heard most and the latest call, with the camera-mismatch note as plain context rather than a
+  warning), Activity Pulse (visits per hour, ending at the current hour, with the busiest hour in words)
+  and Top Visitors as a compact list. Every section uses one heading style.
+
 - Crop a retried event's snapshot around the bird in that snapshot. When the first classification
   failed and YA-WAMF retried from Frigate's later event update, it cut the saved best frame using
   the bird's latest position, which can be somewhere else once the bird has moved or flown off.

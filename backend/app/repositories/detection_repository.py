@@ -162,6 +162,7 @@ def merge_species_count_rows(rows: list[dict]) -> list[dict]:
 
     def combine(target: dict, row: dict) -> None:
         target["count"] = int(target.get("count") or 0) + int(row.get("count") or 0)
+        target["visit_count"] = int(target.get("visit_count") or 0) + int(row.get("visit_count") or 0)
         row_time = row.get("latest_detection_time")
         target_time = target.get("latest_detection_time")
         if row_time is not None and (target_time is None or row_time > target_time):
@@ -5114,14 +5115,59 @@ class DetectionRepository:
             out.append((bucket_start, count))
         return out
 
+    async def get_window_visit_openings(self, start_date: datetime, end_date: datetime) -> list[dict]:
+        """The detections that open a visit in a time range, oldest first, with their camera.
+
+        Same rule as the species counts: a detection opens a visit unless the same species was on
+        the same camera within VISIT_GAP_MINUTES before it. A visit already running when the range
+        opens counts once, from its first detection inside the range.
+        """
+        canonical_key = self._canonical_key_sql(taxonomy_alias=None)
+        query = f"""
+            SELECT camera_name, detection_time
+            FROM (
+                SELECT d.camera_name,
+                       d.detection_time,
+                       LAG(d.detection_time) OVER (
+                           PARTITION BY {canonical_key}, d.camera_name ORDER BY d.detection_time, d.id
+                       ) AS previous_at
+                FROM detections d
+                WHERE d.detection_time >= ? AND d.detection_time <= ?
+                  AND (d.is_hidden = 0 OR d.is_hidden IS NULL)
+            )
+            WHERE previous_at IS NULL
+               OR (julianday(detection_time) - julianday(previous_at)) * 1440.0 > {VISIT_GAP_MINUTES}
+            ORDER BY detection_time
+        """
+        async with self.db.execute(query, (start_date.isoformat(sep=" "), end_date.isoformat(sep=" "))) as cursor:
+            rows = await cursor.fetchall()
+        return [{"camera": row[0], "opened_at": _parse_datetime(row[1])} for row in rows if row[1]]
+
+    async def get_camera_last_seen(self, start_date: datetime, end_date: datetime) -> dict[str, datetime]:
+        """The latest visible detection per camera in a time range."""
+        async with self.db.execute(
+            """SELECT camera_name, MAX(detection_time) FROM detections
+               WHERE detection_time >= ? AND detection_time <= ?
+                 AND (is_hidden = 0 OR is_hidden IS NULL)
+               GROUP BY camera_name""",
+            (start_date.isoformat(sep=" "), end_date.isoformat(sep=" ")),
+        ) as cursor:
+            rows = await cursor.fetchall()
+        return {str(row[0]): _parse_datetime(row[1]) for row in rows if row[0] and row[1]}
+
     async def get_daily_species_counts(self, start_date: datetime, end_date: datetime) -> list[dict]:
-        """Get detection counts per species for a specific time range."""
+        """Detection and visit counts per species for a time range.
+
+        A visit follows the leaderboard's rule: a detection opens one unless the same species was
+        on the same camera within VISIT_GAP_MINUTES before it.
+        """
         canonical_key = self._canonical_key_sql(taxonomy_alias=None)
         query = f"""
             WITH filtered AS (
                 SELECT
                     d.id,
                     d.detection_time,
+                    d.camera_name,
                     d.frigate_event,
                     d.scientific_name,
                     d.common_name,
@@ -5150,6 +5196,20 @@ class DetectionRepository:
                 SELECT unified_id, COUNT(*) AS count
                 FROM filtered
                 GROUP BY unified_id
+            ),
+            visits AS (
+                SELECT unified_id, COUNT(*) AS visit_count
+                FROM (
+                    SELECT unified_id,
+                           detection_time,
+                           LAG(detection_time) OVER (
+                               PARTITION BY unified_id, camera_name ORDER BY detection_time, id
+                           ) AS previous_at
+                    FROM filtered
+                )
+                WHERE previous_at IS NULL
+                   OR (julianday(detection_time) - julianday(previous_at)) * 1440.0 > {VISIT_GAP_MINUTES}
+                GROUP BY unified_id
             )
             SELECT
                 counts.unified_id,
@@ -5159,8 +5219,10 @@ class DetectionRepository:
                 ranked.scientific_name,
                 ranked.common_name,
                 ranked.display_name,
-                ranked.taxa_id
+                ranked.taxa_id,
+                COALESCE(visits.visit_count, 0) AS visit_count
             FROM counts
+            LEFT JOIN visits ON visits.unified_id = counts.unified_id
             JOIN ranked
               ON ranked.unified_id = counts.unified_id
              AND ranked.row_num = 1
@@ -5181,6 +5243,7 @@ class DetectionRepository:
                         "scientific_name": row[4],
                         "common_name": row[5],
                         "taxa_id": row[7],
+                        "visit_count": int(row[8] or 0),
                     }
                     for row in rows
                 ]

@@ -295,24 +295,18 @@
     },
     "histogram": {
       "title": "Impulso attività",
-      "last_24h": "Ultime 24 ore",
-      "tooltip": "{count} uccelli alle {time}"
+      "visits_per_hour": "Visite all'ora, ultime 24 ore",
+      "peak": "Più attività alle {time}, {count} visite",
+      "now": "ora",
+      "aria": "Visite all'ora nelle ultime 24 ore: {count} in tutto, più attività alle {time}",
+      "tooltip_visits": "{count} visite alle {time}"
     },
     "audio_feed": {
-      "title": "Audio recente",
-      "subtitle": "Feed audio in tempo reale",
-      "active": "Attivo",
-      "empty_title": "Nessuna rilevazione audio nel buffer",
-      "empty_subtitle": "Il buffer si svuota ogni 5 min",
-      "unknown_sensor": "Sensore sconosciuto",
       "open_history": "Apri cronologia audio",
       "open_birdnet": "Apri BirdNET-Go",
-      "open_in_birdnet": "Apri il rilevamento in BirdNET-Go",
-      "heard_today": "ascoltate",
       "species": "specie"
     },
     "top_visitors_title": "Visitatori frequenti",
-    "top_visitors_empty": "Nessun visitatore registrato oggi.",
     "top_visitors_count": "{count} visite",
     "field_log": {
       "title": "Diario di campo",
@@ -348,24 +342,24 @@
     "day_bar": {
       "birds_found": "uccelli trovati",
       "birds_scope": "Da {count} acquisizioni analizzate; alcuni uccelli potrebbero sfuggire",
-      "today": "Oggi",
       "visits": "visite",
       "unresolved": "non risolte",
       "calls_heard": "richiami uditi",
       "cross_confirmed": "confermati da entrambi",
-      "reconnecting": "Riconnessione…"
+      "reconnecting": "Riconnessione…",
+      "window": "Ultime 24 ore"
     },
     "desk": {
-      "cameras": "Telecamere",
       "cameras_empty": "Nessuna telecamera segnalata. Aggiungile in Impostazioni → Connessione.",
       "camera_no_visits": "nessuna visita",
-      "sensors": "Audio e telecamera",
-      "heard": "uditi",
-      "seen": "visti",
-      "both": "entrambi",
       "no_cross_confirmation": "Sono stati uditi {count} richiami, ma nessuno coincide con una visita ripresa. Microfono e telecamere potrebbero coprire zone diverse.",
-      "conditions": "Condizioni",
-      "temperature_span": "Visite tra {low} e {high}"
+      "temperature_span": "Visite tra {low} e {high}",
+      "feeder_now": "Ora alla mangiatoia",
+      "camera_offline": "non in linea",
+      "heard_title": "Ascoltato",
+      "most_heard": "I più ascoltati",
+      "latest_call": "Ultimo verso: {species} alle {time}",
+      "heard_empty": "Nessun verso ascoltato nelle ultime 24 ore."
     },
     "review_queue": {
       "title": "Richiede una tua decisione",
@@ -408,7 +402,8 @@
     "provider_checking": "Verifica dell’acceleratore dopo una modifica del runtime",
     "provider_fallback": "Il provider di inferenza selezionato non è in esecuzione",
     "provider_checking_detail": "Questa verifica viene eseguita una volta. Se riesce, il classificatore viene ricaricato automaticamente.",
-    "provider_review": "Controlla modello e provider"
+    "provider_review": "Controlla modello e provider",
+    "top_visitors_empty_window": "Nessuna visita nelle ultime 24 ore."
   },
   "common": {
     "loading": "Caricamento…",

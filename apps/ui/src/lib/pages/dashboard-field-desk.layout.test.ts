@@ -40,14 +40,34 @@ describe('dashboard field desk layout', () => {
         expect(notableNearbySource).toContain('dashboard.notable_nearby.retry');
     });
 
-    it('keeps top visitors at full width instead of compressing it into the rail', () => {
+    it('orders the rail from what is happening to what is merely interesting', () => {
         const aside = dashboardSource.indexOf('<aside');
         const asideEnd = dashboardSource.indexOf('</aside>');
-        const topVisitors = dashboardSource.indexOf('data-dashboard-top-visitors');
+        const order = ['<ReviewQueueCard', '<DeskContextCards', '<RecentAudio', '<DailyHistogram', 'data-dashboard-top-visitors'].map(
+            (marker) => dashboardSource.indexOf(marker)
+        );
+        for (const at of order) expect(at > aside && at < asideEnd).toBe(true);
+        expect([...order].sort((a, b) => a - b)).toEqual(order);
+        // A compact vertical list now, so it belongs in the rail rather than a near-empty band.
+        expect(visitorsSource).toContain('<ol class="divide-y');
+        expect(visitorsSource).not.toContain('xl:grid-cols-5');
+    });
 
-        expect(topVisitors).toBeGreaterThan(-1);
-        // The component lays out horizontally; an 18rem rail breaks it.
-        expect(topVisitors > aside && topVisitors < asideEnd).toBe(false);
+    it('counts visits everywhere the desk says visits', () => {
+        // The summary's frame count is a different unit; the day bar takes its visit count.
+        expect(dashboardSource).toContain('let last24hCount = $derived(summary?.visit_count ?? allVisits.length);');
+        expect(dashboardSource).toContain('<DailyHistogram data={summary.hourly_visits ?? []} currentHour={summaryHour} />');
+        expect(dashboardSource).toContain('cameraVisits={summary?.camera_visits ?? null}');
+        expect(visitorsSource).toContain('item.visit_count ?? item.count');
+        expect(histogramSource).toContain("dashboard.histogram.visits_per_hour");
+    });
+
+    it('draws the rolling day so it ends now, and says when it was busiest', () => {
+        expect(histogramSource).toContain('const hour = (currentHour + 1 + offset) % 24;');
+        expect(histogramSource).toContain('data-dashboard-activity-peak');
+        expect(histogramSource).toContain("dashboard.histogram.now");
+        // No unlabelled total competing with the day bar.
+        expect(histogramSource).not.toContain('text-2xl font-bold tabular-nums text-brand-700');
     });
 
     it('keeps the review queue and its actions to owners', () => {
@@ -141,7 +161,6 @@ describe('dashboard field desk layout', () => {
         expect(histogramSource).toContain('role="img"');
         expect(histogramSource).not.toContain('card-base');
         expect(recentAudioSource).toContain('data-dashboard-audio');
-        expect(recentAudioSource).toContain('divide-y');
         expect(recentAudioSource).not.toContain('card-base');
     });
 
@@ -154,11 +173,13 @@ describe('dashboard field desk layout', () => {
         expect(visitorsSource).not.toContain('card-base');
     });
 
-    it('finishes the audio preview without a doubled bottom rule', () => {
+    it('separates rail sections by space and one header shape, not rules', () => {
+        // Each section opens with the same small display heading and a muted window line.
+        for (const source of [recentAudioSource, histogramSource, visitorsSource]) {
+            expect(source).toContain('font-display text-sm font-bold text-slate-950 dark:text-white');
+        }
         expect(recentAudioSource).toContain('data-audio-history-action');
-        expect(recentAudioSource).toContain('data-dashboard-audio-list');
-        expect(recentAudioSource).toMatch(/data-dashboard-audio[^>]+border-t/);
-        expect(recentAudioSource).not.toMatch(/data-dashboard-audio[^>]+border-y/);
-        expect(recentAudioSource).not.toMatch(/data-dashboard-audio-list[^>]+border-y/);
+        expect(recentAudioSource).not.toMatch(/data-dashboard-audio[^>]+border-/);
+        expect(histogramSource).not.toMatch(/data-dashboard-activity[^>]+border-/);
     });
 });

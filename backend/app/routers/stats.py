@@ -278,10 +278,19 @@ async def get_update_status(response: Response) -> UpdateStatusResponse:
 class DailySpeciesSummary(APIModel):
     species: str
     count: int
+    # Visits, the dashboard's unit: frames of one species on one camera within the visit gap fold
+    # into one. `count` stays the detection (frame) count.
+    visit_count: int = 0
     latest_event: str  # Used for thumbnail
     scientific_name: str | None = None
     common_name: str | None = None
     taxa_id: int | None = None
+
+
+class DailyCameraVisits(APIModel):
+    camera: str
+    visits: int
+    last_seen: Optional[datetime] = None
 
 
 class DailySummaryResponse(APIModel):
@@ -292,6 +301,11 @@ class DailySummaryResponse(APIModel):
     audio_confirmations: int
     counted_birds: int = 0
     counted_captures: int = 0
+    # Visits in the same window: in total, by local hour each visit began, and by camera. A guest
+    # who may not see camera names gets no camera breakdown.
+    visit_count: int = 0
+    hourly_visits: List[int] = Field(default_factory=lambda: [0] * 24)
+    camera_visits: Optional[List[DailyCameraVisits]] = None
 
 
 class DailyCount(APIModel):
@@ -493,6 +507,7 @@ async def get_daily_summary(request: Request, auth: AuthContext = Depends(get_au
         # Transform unknowns
         unknown_labels = settings.classification.unknown_bird_labels
         unknown_count = 0
+        unknown_visits = 0
         latest_unknown_event = None
         latest_unknown_time = None
 
@@ -500,6 +515,7 @@ async def get_daily_summary(request: Request, auth: AuthContext = Depends(get_au
         for s in species_raw:
             if should_hide_species_label(s["species"], extra_unknown_labels=unknown_labels):
                 unknown_count += s["count"]
+                unknown_visits += int(s.get("visit_count") or 0)
                 # Keep the absolute latest event ID among unknowns
                 candidate_time = s.get("latest_detection_time")
                 if latest_unknown_time is None or (candidate_time is not None and candidate_time > latest_unknown_time):
@@ -522,6 +538,7 @@ async def get_daily_summary(request: Request, auth: AuthContext = Depends(get_au
                     DailySpeciesSummary(
                         species=s["species"],
                         count=s["count"],
+                        visit_count=int(s.get("visit_count") or 0),
                         latest_event=s["latest_event"],
                         scientific_name=s.get("scientific_name"),
                         common_name=common_name,
@@ -531,10 +548,15 @@ async def get_daily_summary(request: Request, auth: AuthContext = Depends(get_au
 
         if unknown_count > 0:
             summary_species.append(
-                DailySpeciesSummary(species="Unknown Bird", count=unknown_count, latest_event=latest_unknown_event)
+                DailySpeciesSummary(
+                    species="Unknown Bird",
+                    count=unknown_count,
+                    visit_count=unknown_visits,
+                    latest_event=latest_unknown_event,
+                )
             )
-            # Sort again after aggregation
-            summary_species.sort(key=lambda x: x.count, reverse=True)
+        # Visits first, as the dashboard counts them; frames break ties.
+        summary_species.sort(key=lambda x: (x.visit_count, x.count), reverse=True)
 
         # 3. Latest detection
         latest_raw = await repo.get_all(limit=1, start_date=start_dt, end_date=end_dt)
@@ -614,6 +636,23 @@ async def get_daily_summary(request: Request, auth: AuthContext = Depends(get_au
             audio_confirmations = 0
         bird_counts = await BirdObservationRepository(db).count_visible_between(start_dt, end_dt)
 
+        openings = await repo.get_window_visit_openings(start_dt, end_dt)
+        hourly_visits = [0] * 24
+        visits_by_camera: dict[str, int] = {}
+        for opening in openings:
+            local_hour = opening["opened_at"].replace(tzinfo=timezone.utc).astimezone(user_tz).hour
+            hourly_visits[local_hour] += 1
+            camera = str(opening["camera"] or "")
+            visits_by_camera[camera] = visits_by_camera.get(camera, 0) + 1
+        camera_visits = None
+        if not hide_camera_names:
+            last_seen = await repo.get_camera_last_seen(start_dt, end_dt)
+            camera_visits = [
+                DailyCameraVisits(camera=camera, visits=visits, last_seen=last_seen.get(camera))
+                for camera, visits in sorted(visits_by_camera.items(), key=lambda item: (-item[1], item[0]))
+                if camera
+            ]
+
         return DailySummaryResponse(
             hourly_distribution=hourly,
             top_species=summary_species,
@@ -622,6 +661,9 @@ async def get_daily_summary(request: Request, auth: AuthContext = Depends(get_au
             audio_confirmations=audio_confirmations,
             counted_birds=bird_counts["birds"],
             counted_captures=bird_counts["captures"],
+            visit_count=len(openings),
+            hourly_visits=hourly_visits,
+            camera_visits=camera_visits,
         )
 
 

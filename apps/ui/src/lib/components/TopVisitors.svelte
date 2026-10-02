@@ -59,14 +59,18 @@
             const key = (item.species ?? '').trim().toLowerCase();
             const existing = merged.get(key);
             if (existing) {
-                merged.set(key, { ...existing, count: existing.count + item.count });
+                merged.set(key, {
+                    ...existing,
+                    count: existing.count + item.count,
+                    visit_count: (existing.visit_count ?? 0) + (item.visit_count ?? 0)
+                });
             } else {
                 merged.set(key, item);
             }
         }
 
         return [...merged.values()]
-            .sort((left, right) => right.count - left.count)
+            .sort((left, right) => (right.visit_count ?? 0) - (left.visit_count ?? 0) || right.count - left.count)
             .slice(0, 5)
             .map((item) => {
                 const naming = getBirdNames(item, showCommon, preferSci);
@@ -85,51 +89,48 @@
     });
 </script>
 
-<section class="space-y-4">
-    <header class="flex flex-wrap items-end justify-between gap-3">
-        <div>
-            <h2 class="font-display text-xl font-bold text-slate-950 dark:text-white">{$_('dashboard.top_visitors_title')}</h2>
-            <p class="text-sm text-slate-500 dark:text-slate-400">{$_('dashboard.histogram.last_24h')}</p>
-        </div>
-    </header>
+<section class="space-y-3" aria-labelledby="dashboard-visitors-title">
+    <div>
+        <h3 id="dashboard-visitors-title" class="flex items-center gap-2 font-display text-sm font-bold text-slate-950 dark:text-white">
+            <svg class="h-4 w-4 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.24 4.24a6 6 0 0 0-8.49 0L5 11v9h9l6.24-6.24a6 6 0 0 0 0-8.49ZM16 8 2 22M17.5 15H9" /></svg>
+            {$_('dashboard.top_visitors_title')}
+        </h3>
+        <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{$_('dashboard.day_bar.window', { default: 'Last 24 hours' })}</p>
+    </div>
 
     {#if processedSpecies.length > 0}
-        <ol class="grid divide-y divide-slate-200 border-y border-slate-200 dark:divide-slate-700 dark:border-slate-700 sm:grid-cols-2 sm:divide-y-0 xl:grid-cols-5 xl:divide-x">
+        <ol class="divide-y divide-slate-200/70 dark:divide-slate-700/50">
             {#each processedSpecies as item, index (item.species)}
-                <li class="min-w-0 {index >= 2 ? 'sm:border-t sm:border-slate-200 sm:dark:border-slate-700 xl:border-t-0' : ''} {index % 2 === 1 ? 'sm:border-l sm:border-slate-200 sm:dark:border-slate-700' : ''} {index > 0 ? 'xl:border-l xl:border-slate-200 xl:dark:border-slate-700' : ''}">
+                <li>
                     <button
                         type="button"
                         onclick={() => onSpeciesClick?.(item.taxa_id ? `taxa:${item.taxa_id}` : item.species)}
-                        class="group flex min-h-24 w-full items-center gap-3 px-3 py-4 text-left transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 dark:hover:bg-slate-800/35 xl:px-4"
-                        aria-label={`${item.displayName}, ${$_('dashboard.top_visitors_count', { values: { count: item.count } })}`}
+                        class="group flex min-h-12 w-full items-center gap-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
+                        aria-label={`${item.displayName}, ${$_('dashboard.top_visitors_count', { values: { count: item.visit_count ?? item.count } })}`}
                     >
-                        <span class="relative shrink-0">
-                            <span
-                                data-dashboard-species-portrait
-                                class="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border-2 border-white bg-slate-100 text-slate-400 shadow-sm ring-1 ring-brand-200 dark:border-slate-800 dark:bg-slate-800 dark:ring-brand-800"
-                            >
-                                {#if cachedSpeciesThumb(item.species)}
-                                    <img src={cachedSpeciesThumb(item.species) ?? undefined} alt="" class="h-full w-full object-cover" loading="lazy" />
-                                {:else}
-                                    <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.24 4.24a6 6 0 0 0-8.49 0L5 11v9h9l6.24-6.24a6 6 0 0 0 0-8.49ZM16 8 2 22M17.5 15H9" /></svg>
-                                {/if}
-                            </span>
-                            <span class="absolute -left-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-brand-600 px-1 text-xs font-bold tabular-nums text-white shadow-sm dark:border-slate-900 dark:bg-brand-500 dark:text-slate-950" aria-hidden="true">{index + 1}</span>
+                        <span class="w-4 shrink-0 text-xs tabular-nums text-slate-500 dark:text-slate-400" aria-hidden="true">{index + 1}</span>
+                        <span
+                            data-dashboard-species-portrait
+                            class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 text-slate-400 dark:bg-slate-800"
+                        >
+                            {#if cachedSpeciesThumb(item.species)}
+                                <img src={cachedSpeciesThumb(item.species) ?? undefined} alt="" class="h-full w-full object-cover" loading="lazy" />
+                            {:else}
+                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.24 4.24a6 6 0 0 0-8.49 0L5 11v9h9l6.24-6.24a6 6 0 0 0 0-8.49ZM16 8 2 22M17.5 15H9" /></svg>
+                            {/if}
                         </span>
                         <span class="min-w-0 flex-1">
-                            <span class="block text-sm font-semibold leading-tight text-slate-900 transition-colors group-hover:text-brand-700 dark:text-white dark:group-hover:text-brand-300" title={item.displayName}>{item.displayName}</span>
+                            <span class="block truncate text-sm font-semibold text-slate-900 transition-colors group-hover:text-brand-700 dark:text-white dark:group-hover:text-brand-300">{item.displayName}</span>
                             {#if item.subName}
-                                <span class="mt-0.5 block truncate text-xs italic text-slate-500 dark:text-slate-400" title={item.subName}>{item.subName}</span>
+                                <span class="block truncate text-xs italic text-slate-500 dark:text-slate-400">{item.subName}</span>
                             {/if}
-                            <span class="mt-1 block text-xs font-semibold text-brand-700 dark:text-brand-300">{$_('dashboard.top_visitors_count', { values: { count: item.count } })}</span>
                         </span>
+                        <span class="shrink-0 text-sm tabular-nums text-slate-700 dark:text-slate-200">{$_('dashboard.top_visitors_count', { values: { count: item.visit_count ?? item.count } })}</span>
                     </button>
                 </li>
             {/each}
         </ol>
     {:else}
-        <div class="border-y border-dashed border-slate-200 py-10 text-center dark:border-slate-700">
-            <p class="text-sm text-slate-500 dark:text-slate-400">{$_('dashboard.top_visitors_empty')}</p>
-        </div>
+        <p class="text-xs text-slate-500 dark:text-slate-400">{$_('dashboard.top_visitors_empty_window', { default: 'No visits in the last 24 hours.' })}</p>
     {/if}
 </section>

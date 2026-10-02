@@ -295,24 +295,18 @@
     },
     "histogram": {
       "title": "活动脉冲",
-      "last_24h": "过去24小时",
-      "tooltip": "{count} 只鸟（{time}）"
+      "visits_per_hour": "每小时访问次数（过去24小时）",
+      "peak": "最繁忙：{time}，{count} 次访问",
+      "now": "现在",
+      "aria": "过去24小时每小时访问次数：共 {count} 次，最繁忙为 {time}",
+      "tooltip_visits": "{time}：{count} 次访问"
     },
     "audio_feed": {
-      "title": "最近音频",
-      "subtitle": "实时音频流",
-      "active": "活跃",
-      "empty_title": "缓冲区中没有音频检测",
-      "empty_subtitle": "缓冲区每5分钟清空",
-      "unknown_sensor": "未知传感器",
       "open_history": "打开音频历史",
       "open_birdnet": "打开 BirdNET-Go",
-      "open_in_birdnet": "在 BirdNET-Go 中打开此检测",
-      "heard_today": "次听测",
       "species": "个物种"
     },
     "top_visitors_title": "常见访客",
-    "top_visitors_empty": "今天还没有记录到访客。",
     "top_visitors_count": "访问 {count} 次",
     "field_log": {
       "title": "野外记录",
@@ -348,24 +342,24 @@
     "day_bar": {
       "birds_found": "发现的鸟",
       "birds_scope": "来自 {count} 次已分析拍摄；可能有鸟未被识别",
-      "today": "今天",
       "visits": "次到访",
       "unresolved": "未识别",
       "calls_heard": "次鸣叫",
       "cross_confirmed": "次交叉确认",
-      "reconnecting": "正在重新连接…"
+      "reconnecting": "正在重新连接…",
+      "window": "过去24小时"
     },
     "desk": {
-      "cameras": "摄像头",
       "cameras_empty": "还没有摄像头上报。请在“设置 → 连接”中添加。",
       "camera_no_visits": "无到访",
-      "sensors": "声音与画面",
-      "heard": "听到",
-      "seen": "看到",
-      "both": "两者",
       "no_cross_confirmation": "共听到 {count} 次鸣叫，但没有一次与摄像头到访对应。麦克风与摄像头覆盖的范围可能不同。",
-      "conditions": "天气条件",
-      "temperature_span": "到访时气温介于 {low} 至 {high}"
+      "temperature_span": "到访时气温介于 {low} 至 {high}",
+      "feeder_now": "喂食器当前状态",
+      "camera_offline": "离线",
+      "heard_title": "听到的声音",
+      "most_heard": "最常听到",
+      "latest_call": "最近的叫声：{time} 的 {species}",
+      "heard_empty": "过去24小时内没有听到叫声。"
     },
     "review_queue": {
       "title": "需要你确认",
@@ -408,7 +402,8 @@
     "provider_checking": "运行环境变更后正在检查加速器",
     "provider_fallback": "所选推理提供程序未运行",
     "provider_checking_detail": "此检查仅运行一次。如果加速器通过检查，分类器将自动重新加载。",
-    "provider_review": "检查模型和提供程序"
+    "provider_review": "检查模型和提供程序",
+    "top_visitors_empty_window": "过去24小时内没有访问。"
   },
   "common": {
     "loading": "加载中…",

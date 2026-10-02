@@ -2,17 +2,21 @@ import { describe, expect, it } from 'vitest';
 import recentAudioSource from './RecentAudio.svelte?raw';
 
 describe('RecentAudio dashboard widget layout', () => {
-    it('keeps the dashboard preview concise and links onward to history', () => {
-        expect(recentAudioSource).toContain('const RECENT_AUDIO_LIMIT = 4;');
+    it('summarises what was heard and links onward to the call-by-call history', () => {
+        // Only the latest call is fetched; the raw feed lives on the audio history page.
+        expect(recentAudioSource).toContain('const RECENT_AUDIO_LIMIT = 1;');
         expect(recentAudioSource).toContain('fetchRecentAudio(RECENT_AUDIO_LIMIT, signal)');
+        expect(recentAudioSource).toContain('data-dashboard-most-heard');
+        expect(recentAudioSource).toContain('data-dashboard-latest-call');
         expect(recentAudioSource).toContain("onNavigate?.('/audio')");
         expect(recentAudioSource).toMatch(/data-audio-history-action[^>]+rounded-full/);
     });
 
-    it('renders spectrograms as images instead of CSS backgrounds', () => {
-        expect(recentAudioSource).toContain('src={spec}');
-        expect(recentAudioSource).toContain('object-cover');
-        expect(recentAudioSource).not.toContain('background-image: url');
+    it('explains a microphone that matched no visit without raising it as work', () => {
+        // Amber is for what needs a person; this is context.
+        expect(recentAudioSource).toContain('data-dashboard-no-match');
+        expect(recentAudioSource).not.toContain('accent-');
+        expect(recentAudioSource).not.toContain('amber-');
     });
 
     it('serializes background refreshes and stops them with the component lifecycle', () => {

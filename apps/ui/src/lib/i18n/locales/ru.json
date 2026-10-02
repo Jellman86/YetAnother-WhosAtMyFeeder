@@ -295,24 +295,18 @@
     },
     "histogram": {
       "title": "Пульс активности",
-      "last_24h": "Последние 24 часа",
-      "tooltip": "{count} птиц в {time}"
+      "visits_per_hour": "Посещения по часам за последние 24 часа",
+      "peak": "Пик в {time}: {count} посещений",
+      "now": "сейчас",
+      "aria": "Посещения по часам за последние 24 часа: всего {count}, пик в {time}",
+      "tooltip_visits": "{count} посещений в {time}"
     },
     "audio_feed": {
-      "title": "Недавнее аудио",
-      "subtitle": "Аудиопоток в реальном времени",
-      "active": "Активно",
-      "empty_title": "Нет аудио-обнаружений в буфере",
-      "empty_subtitle": "Буфер очищается каждые 5 мин",
-      "unknown_sensor": "Неизвестный датчик",
       "open_history": "Открыть историю аудио",
       "open_birdnet": "Открыть BirdNET-Go",
-      "open_in_birdnet": "Открыть обнаружение в BirdNET-Go",
-      "heard_today": "услышано",
       "species": "видов"
     },
     "top_visitors_title": "Частые посетители",
-    "top_visitors_empty": "Сегодня посетители ещё не зафиксированы.",
     "top_visitors_count": "{count} визитов",
     "field_log": {
       "title": "Полевой журнал",
@@ -348,24 +342,24 @@
     "day_bar": {
       "birds_found": "найдено птиц",
       "birds_scope": "По {count} проанализированным снимкам; некоторые птицы могли быть пропущены",
-      "today": "Сегодня",
       "visits": "визитов",
       "unresolved": "не определено",
       "calls_heard": "голосов услышано",
       "cross_confirmed": "подтверждено обоими",
-      "reconnecting": "Переподключение…"
+      "reconnecting": "Переподключение…",
+      "window": "Последние 24 часа"
     },
     "desk": {
-      "cameras": "Камеры",
       "cameras_empty": "Камеры пока не отвечают. Добавьте их в Настройках → Подключение.",
       "camera_no_visits": "нет визитов",
-      "sensors": "Звук и камера",
-      "heard": "услышано",
-      "seen": "снято",
-      "both": "оба",
       "no_cross_confirmation": "Услышано голосов: {count}, но ни один не совпал с визитом на камеру. Микрофон и камеры могут охватывать разные участки.",
-      "conditions": "Условия",
-      "temperature_span": "Визиты проходили при {low} — {high}"
+      "temperature_span": "Визиты проходили при {low} — {high}",
+      "feeder_now": "Сейчас у кормушки",
+      "camera_offline": "не в сети",
+      "heard_title": "Услышано",
+      "most_heard": "Чаще всего слышно",
+      "latest_call": "Последний голос: {species} в {time}",
+      "heard_empty": "За последние 24 часа голосов не слышно."
     },
     "review_queue": {
       "title": "Требует вашего решения",
@@ -408,7 +402,8 @@
     "provider_checking": "Проверка ускорителя после изменения среды",
     "provider_fallback": "Выбранный провайдер распознавания не работает",
     "provider_checking_detail": "Проверка выполняется один раз. При успехе классификатор автоматически перезагрузится.",
-    "provider_review": "Проверить модель и провайдер"
+    "provider_review": "Проверить модель и провайдер",
+    "top_visitors_empty_window": "За последние 24 часа посещений не было."
   },
   "common": {
     "loading": "Загрузка…",

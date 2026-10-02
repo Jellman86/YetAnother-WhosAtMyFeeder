@@ -113,12 +113,15 @@ Four shapes cover the app. Pick one; do not blend them.
 day bar: label, 4 to 6 inline metrics, live indicator
 [ primary log, 1.55fr ]        [ context rail, 0.7fr ]
                                 queue card (the work)
-                                standing cards (cameras, sensors, conditions)
-                                reference (activity, top visitors)
+                                at the feeder now (cameras, conditions), heard
+                                reference (activity pulse, top visitors)
 ```
 
 The rail is ordered by urgency, not by data source: what needs you, then what is running, then
-what is merely interesting. The primary column is one list, not a grid of cards.
+what is merely interesting. Every rail section opens the same way, a small display heading with an
+icon and a muted line naming the window (the desk's rolling 24 hours, which the day bar names too),
+and sections are separated by space rather than rules. Counts there are visits, from the day
+summary, never the loaded page of detections, which undercounts on a busy day. The primary column is one list, not a grid of cards.
 
 ### Evidence (Add observation)
 

@@ -3444,6 +3444,35 @@
         "title": "CropGeneratorConfig",
         "type": "object"
       },
+      "DailyCameraVisits": {
+        "properties": {
+          "camera": {
+            "title": "Camera",
+            "type": "string"
+          },
+          "last_seen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen"
+          },
+          "visits": {
+            "title": "Visits",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "camera",
+          "visits"
+        ],
+        "title": "DailyCameraVisits",
+        "type": "object"
+      },
       "DailyCount": {
         "properties": {
           "count": {
@@ -3508,6 +3537,11 @@
               }
             ],
             "title": "Taxa Id"
+          },
+          "visit_count": {
+            "default": 0,
+            "title": "Visit Count",
+            "type": "integer"
           }
         },
         "required": [
@@ -3524,6 +3558,20 @@
             "title": "Audio Confirmations",
             "type": "integer"
           },
+          "camera_visits": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/DailyCameraVisits"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Camera Visits"
+          },
           "counted_birds": {
             "default": 0,
             "title": "Counted Birds",
@@ -3539,6 +3587,13 @@
               "type": "integer"
             },
             "title": "Hourly Distribution",
+            "type": "array"
+          },
+          "hourly_visits": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Hourly Visits",
             "type": "array"
           },
           "latest_detection": {
@@ -3560,6 +3615,11 @@
           },
           "total_count": {
             "title": "Total Count",
+            "type": "integer"
+          },
+          "visit_count": {
+            "default": 0,
+            "title": "Visit Count",
             "type": "integer"
           }
         },
