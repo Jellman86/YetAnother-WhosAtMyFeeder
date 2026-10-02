@@ -104,7 +104,7 @@
       "saving": "Enregistrement de l’observation…",
       "save": "Enregistrer l’observation",
       "save_species": "Ajouter {species}",
-      "several_species": "Cette vidéo montre plus d'un oiseau. Chaque suggestion montre l'oiseau sur lequel elle a été évaluée ; choisissez celui de cette observation et sa photo suivra.",
+      "several_species": "Chaque suggestion montre l'oiseau sur lequel elle a été évaluée. Si la vidéo montre plus d'un oiseau, choisissez celui de cette observation et sa photo suivra.",
       "no_frame": "Aucune image",
       "when_help": "Laissez vide pour utiliser l'heure de l'enregistrement."
     },

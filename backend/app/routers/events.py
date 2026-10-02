@@ -1642,15 +1642,6 @@ async def _apply_manual_tag_update(
         audio_species=audio_species,
     )
 
-    # An uploaded video can show several species; its photo follows the one the record now names.
-    photo_changed = False
-    if event_id.startswith("manual_"):
-        from app.services.manual_observation_service import manual_observation_service
-
-        photo_changed = await manual_observation_service.follow_species(
-            event_id, [new_species, stored_display_name, sci_name, com_name]
-        )
-
     refreshed_detection = await repo.get_by_frigate_event(event_id)
     payload_source = refreshed_detection or detection
     await broadcaster.broadcast(
@@ -1682,8 +1673,29 @@ async def _apply_manual_tag_update(
         "common_name": com_name,
         "taxa_id": t_id,
         "manual_tagged": True,
-        "photo_changed": photo_changed,
     }
+
+
+async def _photo_follows_species(result: dict, requested_species: str) -> bool:
+    """Move an uploaded video's photo to the bird its corrected species names.
+
+    Runs after the request's database connection is released: it reads its own draft row and may
+    decode a frame from the upload, which must not hold a pooled connection meanwhile.
+    """
+    event_id = str(result.get("event_id") or "")
+    if result.get("status") != "updated" or not event_id.startswith("manual_"):
+        return False
+    from app.services.manual_observation_service import manual_observation_service
+
+    try:
+        return await manual_observation_service.follow_species(
+            event_id,
+            [requested_species, result.get("new_species"), result.get("scientific_name"), result.get("common_name")],
+        )
+    except Exception as exc:
+        # The correction is already saved; a photo that cannot follow keeps the previous one.
+        log.warning("Uploaded video photo did not follow the corrected species", event_id=event_id, error=str(exc))
+        return False
 
 
 @router.post(
@@ -1972,6 +1984,7 @@ async def bulk_manual_tag_events(
         if result.get("status") == "updated":
             updated_event_ids.append(event_id)
             last_new_species = result.get("new_species") or last_new_species
+            await _photo_follows_species(result, update_request.display_name)
         else:
             unchanged_event_ids.append(event_id)
             last_new_species = result.get("new_species") or last_new_species
@@ -2063,7 +2076,7 @@ async def update_event(
         if not detection:
             raise HTTPException(status_code=404, detail=i18n_service.translate("errors.detection_not_found", lang))
 
-        return await _apply_manual_tag_update(
+        result = await _apply_manual_tag_update(
             db=db,
             repo=repo,
             detection=detection,
@@ -2071,6 +2084,8 @@ async def update_event(
             lang=lang,
             prefetched_taxonomy=prefetched_taxonomy,
         )
+    result["photo_changed"] = await _photo_follows_species(result, update_request.display_name)
+    return result
 
 
 class WildlifeClassification(BaseModel):

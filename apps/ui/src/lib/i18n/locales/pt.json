@@ -104,7 +104,7 @@
       "saving": "A guardar observação…",
       "save": "Guardar observação",
       "save_species": "Adicionar {species}",
-      "several_species": "Este vídeo mostra mais de uma ave. Cada sugestão mostra a ave em que foi avaliada; escolha a desta observação e a foto acompanha a escolha.",
+      "several_species": "Cada sugestão mostra a ave em que foi avaliada. Se o vídeo tiver mais de uma ave, escolha a desta observação e a foto acompanha a escolha.",
       "no_frame": "Sem quadro",
       "when_help": "Deixe vazio para usar a hora em que salvar."
     },

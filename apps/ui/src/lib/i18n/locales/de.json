@@ -104,7 +104,7 @@
       "saving": "Beobachtung wird gespeichert…",
       "save": "Beobachtung speichern",
       "save_species": "{species} hinzufügen",
-      "several_species": "Dieses Video zeigt mehr als einen Vogel. Jeder Vorschlag zeigt den Vogel, an dem er bewertet wurde; wähle den, für den diese Beobachtung gilt, und das Foto folgt deiner Wahl.",
+      "several_species": "Jeder Vorschlag zeigt den Vogel, an dem er bewertet wurde. Wenn das Video mehr als einen Vogel zeigt, wähle den, für den diese Beobachtung gilt, und das Foto folgt deiner Wahl.",
       "no_frame": "Kein Bild",
       "when_help": "Leer lassen, um den Zeitpunkt des Speicherns zu verwenden."
     },

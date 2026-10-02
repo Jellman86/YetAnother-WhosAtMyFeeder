@@ -104,7 +104,7 @@
       "saving": "Saving observation…",
       "save": "Save observation",
       "save_species": "Add {species}",
-      "several_species": "This video shows more than one bird. Each suggestion shows the bird it was scored on; choose the one this observation is for and its photo follows.",
+      "several_species": "Each suggestion shows the bird it was scored on. If the video has more than one bird, choose the one this observation is for and its photo follows.",
       "no_frame": "No frame",
       "when_help": "Leave empty to use the time you save it."
     },

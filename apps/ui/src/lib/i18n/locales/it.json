@@ -104,7 +104,7 @@
       "saving": "Salvataggio dell’osservazione…",
       "save": "Salva osservazione",
       "save_species": "Aggiungi {species}",
-      "several_species": "Questo video mostra più di un uccello. Ogni suggerimento mostra l'uccello su cui è stato valutato; scegli quello di questa osservazione e la foto lo seguirà.",
+      "several_species": "Ogni suggerimento mostra l'uccello su cui è stato valutato. Se il video mostra più di un uccello, scegli quello di questa osservazione e la foto lo seguirà.",
       "no_frame": "Nessun fotogramma",
       "when_help": "Lascia vuoto per usare l'ora del salvataggio."
     },

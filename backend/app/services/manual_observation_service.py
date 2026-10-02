@@ -655,11 +655,12 @@ class ManualObservationService:
 
     async def species_photo_path(self, draft_id: str, position: int, *, scene: bool) -> Path | None:
         draft = await self.get(draft_id)
-        results = draft.results or []
-        if not 0 <= position < len(results) or not results[position].get("photo"):
-            return None
-        path = self.directory(draft.id) / species_photo_filename(position, scene=scene)
-        return path if path.is_file() else None
+        # The file name comes from the draft's own suggestion list, never from the requested number.
+        for index, item in enumerate(draft.results or []):
+            if index == position and item.get("photo"):
+                path = self.directory(draft.id) / species_photo_filename(index, scene=scene)
+                return path if path.is_file() else None
+        return None
 
     async def delete_saved_event_media(self, event_id: str) -> None:
         if not event_id.startswith("manual_"):

@@ -260,3 +260,46 @@ async def test_upload_analysed_before_species_photos_still_gets_the_confirmed_bi
         assert size == (32, 32) and colour[2] > 200 and colour[0] < 60
     finally:
         assert (await client.delete(f"/api/events/{event_id}")).status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_photo_follows_a_correction_without_holding_a_database_connection(client: httpx.AsyncClient, tmp_path):
+    """Following the species can decode a frame from the upload; no pooled connection may wait on that."""
+    from app.database import get_db_pool_status
+
+    draft = await _analysed_video_draft(client, tmp_path)
+    with patch("app.services.manual_observation_service.taxonomy_service.get_names", new=AsyncMock(side_effect=_names)):
+        saved = await client.post(f"/api/manual-observations/{draft['id']}/confirm", json={"label": "Downy Woodpecker"})
+    event_id = saved.json()["event_id"]
+    real_follow = manual_observation_service.follow_species
+    seen_free: list[bool] = []
+
+    async def follow(*args, **kwargs):
+        status = get_db_pool_status()
+        seen_free.append(status["available_connections"] == status["pool_size"])
+        return await real_follow(*args, **kwargs)
+
+    try:
+        for species in ("Tufted Titmouse", "Downy Woodpecker"):
+            with (
+                patch.object(manual_observation_service, "follow_species", side_effect=follow),
+                patch("app.routers.events.taxonomy_service.get_names", new=AsyncMock(side_effect=_names)),
+                patch(
+                    "app.routers.events.audio_service.correlate_species",
+                    new=AsyncMock(return_value=(False, None, None)),
+                ),
+                patch("app.routers.events.broadcaster.broadcast", new=AsyncMock()),
+            ):
+                if species == "Tufted Titmouse":
+                    response = await client.patch(f"/api/events/{event_id}", json={"display_name": species})
+                    assert response.json()["photo_changed"] is True
+                else:
+                    response = await client.patch(
+                        "/api/events/bulk/manual-tag", json={"event_ids": [event_id], "display_name": species}
+                    )
+                    assert response.json()["updated_event_ids"] == [event_id]
+        assert seen_free == [True, True]
+        _size, colour = _dominant((await client.get(f"/api/frigate/{event_id}/snapshot.jpg")).content)
+        assert colour[2] > 200, "the bulk correction should also have moved the photo back to the woodpecker"
+    finally:
+        assert (await client.delete(f"/api/events/{event_id}")).status_code == 200
