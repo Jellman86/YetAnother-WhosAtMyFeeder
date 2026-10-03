@@ -767,7 +767,8 @@ async function thumbnailPlacement(page: Page, index: number): Promise<{ inStrip:
 
 async function settledStrip(page: Page): Promise<StripView> {
     let previous = -1;
-    // Smooth scrolling takes a few frames; wait until the strip stops moving.
+    // Let immediate focus/layout updates settle. Edge navigation also waits for scrollend below;
+    // unchanged samples alone do not establish that a native smooth scroll has finished.
     await expect.poll(async () => {
         const now = (await stripView(page)).scrollLeft;
         const still = now === previous;
@@ -777,7 +778,44 @@ async function settledStrip(page: Page): Promise<StripView> {
     return stripView(page);
 }
 
+async function scrollStripWithEdge(page: Page, direction: 'forward' | 'back'): Promise<StripView> {
+    const scroller = page.locator('[data-frame-strip-scroller]');
+    // Two unchanged polling samples can occur while a busy renderer has not started its next
+    // scroll frame. Install the listener before the click, including for reduced-motion scrolling.
+    await scroller.evaluate(element => {
+        element.setAttribute('data-test-scroll-finished', 'false');
+        element.addEventListener('scrollend', () => {
+            element.setAttribute('data-test-scroll-finished', 'true');
+        }, { once: true });
+    });
+    await page.locator(`[data-frame-strip-${direction}]`).click();
+    await expect(scroller).toHaveAttribute('data-test-scroll-finished', 'true');
+    return settledStrip(page);
+}
+
 test.describe('a strip with more choices than fit', () => {
+    test('edge navigation waits for a delayed smooth scroll before measuring the next choices', async ({ page }) => {
+        const plan = newPlan();
+        plan.retainedPhotos = MANY_KEPT;
+        plan.selection.wren = FIRST_KEPT;
+        await openRecord(page, plan, '&queue=wren');
+        const scroller = page.locator('[data-frame-strip-scroller]');
+        await expect(scroller.locator('button[aria-pressed]')).toHaveCount(22);
+        const before = await settledStrip(page);
+        // A busy renderer can leave two polling samples unchanged before native scrolling starts.
+        // Delay that boundary explicitly so the assertion does not depend on runner load.
+        await scroller.evaluate(element => {
+            const scroll = element.scrollBy.bind(element);
+            element.scrollBy = ((options: ScrollToOptions) => {
+                setTimeout(() => scroll(options), 250);
+            }) as typeof element.scrollBy;
+        });
+        const after = await scrollStripWithEdge(page, 'forward');
+        expect(after.scrollLeft).toBeGreaterThan(before.scrollLeft);
+        expect(after.reachable.some(index => !before.reachable.includes(index))).toBe(true);
+        expect(plan.errors).toEqual([]);
+    });
+
     const surfaces = [
         { name: 'Needs your call', open: openQueue },
         { name: 'the detection record', open: openRecord }
@@ -807,8 +845,7 @@ test.describe('a strip with more choices than fit', () => {
             const reached = new Set(view.reachable);
             let sawMiddle = false;
             for (let step = 0; step < 30 && view.scrollLeft < view.maxScroll - 1; step += 1) {
-                await forward.click();
-                view = await settledStrip(page);
+                view = await scrollStripWithEdge(page, 'forward');
                 view.reachable.forEach((index) => reached.add(index));
                 if (view.scrollLeft > 0 && view.scrollLeft < view.maxScroll - 1 && !sawMiddle) {
                     sawMiddle = true;
@@ -862,8 +899,7 @@ test.describe('a strip with more choices than fit', () => {
             expect(view.scrollLeft).toBeGreaterThanOrEqual(view.maxScroll - 1);
 
             for (let step = 0; step < 30 && view.scrollLeft > 0; step += 1) {
-                await back.click();
-                view = await settledStrip(page);
+                view = await scrollStripWithEdge(page, 'back');
             }
             expect(view.scrollLeft).toBe(0);
             await expect(back).toBeHidden();
@@ -958,8 +994,7 @@ test.describe('a strip with more choices than fit', () => {
         const target = await forward.boundingBox();
         expect(target?.width ?? 0, 'the edge control is too small to tap').toBeGreaterThanOrEqual(24);
         expect(target?.height ?? 0, 'the edge control is too small to tap').toBeGreaterThanOrEqual(24);
-        await forward.click();
-        view = await settledStrip(page);
+        view = await scrollStripWithEdge(page, 'forward');
         expect(view.scrollLeft).toBeGreaterThan(0);
         await page.screenshot({ path: testInfo.outputPath('many-phone-middle.png') });
 

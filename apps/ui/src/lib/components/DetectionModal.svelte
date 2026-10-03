@@ -3890,15 +3890,17 @@
                                 common_name: detection.common_name ?? null
                             } as SearchResult)}
                             disabled={updatingTag}
-                            class="btn btn-primary min-h-11 w-full px-4 text-sm sm:w-auto sm:flex-1"
+                            class="btn btn-primary min-h-11 min-w-0 w-full px-4 text-sm sm:w-auto sm:flex-1"
                             data-detection-confirm
                         >
-                            {updatingTag
-                                ? $_('common.saving')
-                                : $_('actions.confirm_species', {
-                                    values: { species: primaryName },
-                                    default: 'Confirm {species}'
-                                })}
+                            <span class="min-w-0 [overflow-wrap:anywhere]">
+                                {updatingTag
+                                    ? $_('common.saving')
+                                    : $_('actions.confirm_species', {
+                                        values: { species: primaryName },
+                                        default: 'Confirm {species}'
+                                    })}
+                            </span>
                         </button>
                     {/if}
 
@@ -3906,21 +3908,23 @@
                         type="button"
                         onclick={() => showTagDropdown = !showTagDropdown}
                         disabled={updatingTag}
-                        class="btn btn-secondary min-h-11 w-full px-4 text-sm sm:w-auto sm:flex-1"
+                        class="btn btn-secondary min-h-11 min-w-0 w-full px-4 text-sm sm:w-auto sm:flex-1"
                     >
-                        {updatingTag
-                            ? $_('common.saving')
-                            : $_('actions.pick_species', { default: 'Pick a different species' })}
+                        <span class="min-w-0 [overflow-wrap:anywhere]">
+                            {updatingTag
+                                ? $_('common.saving')
+                                : $_('actions.pick_species', { default: 'Pick a different species' })}
+                        </span>
                     </button>
 
                     {#if !isManualObservation}
                         <button
                             type="button"
                             onclick={handleReclassifyClick}
-                            class="btn btn-ghost min-h-11 w-full px-4 text-sm sm:w-auto"
+                            class="btn btn-ghost min-h-11 min-w-0 w-full px-4 text-sm sm:w-auto"
                             title={$_('actions.reclassify')}
                         >
-                            {$_('detection.score_again', { default: 'Score again' })}
+                            <span class="min-w-0 [overflow-wrap:anywhere]">{$_('detection.score_again', { default: 'Score again' })}</span>
                         </button>
                     {/if}
                 </div>

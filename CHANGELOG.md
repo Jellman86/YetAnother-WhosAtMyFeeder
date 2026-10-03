@@ -14,6 +14,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Run the Chromium browser regression suite on pull requests, retaining failed interaction
   screenshots and traces for diagnosis.
 
+- Wrap long identification buttons at enlarged text sizes, including wider fallback fonts,
+  so capture details remain within a narrow phone screen.
+
 - Keep slow video progress updates from blocking a recovered CPU worker's completed result
   or the next live classification. Bound outstanding progress work and reap stalled or crashed
   inference workers without consuming the rest of a backfill.
