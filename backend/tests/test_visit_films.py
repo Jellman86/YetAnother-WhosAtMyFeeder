@@ -128,6 +128,29 @@ async def test_a_film_answers_byte_ranges_so_safari_plays_it(film_dir, photo):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("escape", ["outside", "sibling_prefix", "symlink"])
+async def test_film_response_rejects_paths_outside_its_cache_root(film_dir, monkeypatch, escape):
+    root = film_dir / "films"
+    root.mkdir()
+    monkeypatch.setattr(films, "FILMS_DIR", root)
+    outside = film_dir / "private.webm"
+    if escape == "sibling_prefix":
+        sibling = film_dir / "films-private"
+        sibling.mkdir()
+        outside = sibling / "private.webm"
+    outside.write_bytes(b"private-file")
+    returned = outside
+    if escape == "symlink":
+        returned = root / "linked.webm"
+        returned.symlink_to(outside)
+    monkeypatch.setattr(films.visit_film_service, "ready_path", AsyncMock(return_value=returned))
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/api/about/showcase/1790957361.937179-wfjaqa.webm")
+    assert response.status_code == 404
+    assert b"private-file" not in response.content
+
+
+@pytest.mark.asyncio
 async def test_a_visit_whose_recording_is_gone_is_never_asked_for_again(tmp_path, monkeypatch):
     monkeypatch.setattr(films, "FILMS_DIR", tmp_path)
     monkeypatch.setattr(settings.media_cache, "enabled", True)

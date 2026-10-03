@@ -6,6 +6,7 @@ the media cache metadata, so full scenes are not mistaken for close photographs 
 """
 
 import asyncio
+import os
 from collections import OrderedDict
 from datetime import datetime, timedelta
 from io import BytesIO
@@ -425,7 +426,7 @@ async def get_visit_film(
     A film not made yet is asked for and answered 404 with `X-Film-Status: pending`; the card
     keeps its photograph until a later load finds the film.
     """
-    from app.services.visit_film_service import visit_film_service
+    from app.services.visit_film_service import FILMS_DIR, visit_film_service
 
     lang = get_user_language(request)
     if not validate_event_id(event_id):
@@ -435,9 +436,17 @@ async def get_visit_film(
     if path is None:
         status = await visit_film_service.request(event_id)
         raise HTTPException(status_code=404, detail="Film not available", headers={"X-Film-Status": status})
+    # Resolve symlinks off the event loop, then enforce containment at the response boundary.
+    resolved_root, resolved_path = await asyncio.gather(
+        asyncio.to_thread(os.path.realpath, FILMS_DIR), asyncio.to_thread(os.path.realpath, path)
+    )
+    safe_root = os.path.normpath(resolved_root)
+    safe_path = os.path.normpath(resolved_path)
+    if not safe_path.startswith(safe_root + os.sep):
+        raise HTTPException(status_code=404, detail="Film not available")
     # A file response answers byte ranges, which Safari needs before it plays a video. Like the
     # photograph, a guest's browser must not keep a copy once clips are turned off.
-    return FileResponse(path, media_type="video/webm", headers=SNAPSHOT_NO_STORE_HEADERS)
+    return FileResponse(safe_path, media_type="video/webm", headers=SNAPSHOT_NO_STORE_HEADERS)
 
 
 @router.get("/about/community", response_model=CommunityStatsResponse)
