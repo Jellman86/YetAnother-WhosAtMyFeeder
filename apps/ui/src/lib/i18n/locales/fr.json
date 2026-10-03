@@ -959,7 +959,15 @@
       "trusted_proxies_add": "Ajouter un hôte proxy approuvé",
       "trusted_proxies_remove": "Retirer l’hôte proxy approuvé",
       "trusted_proxies_empty": "Aucun proxy approuvé configuré (tous les proxies sont approuvés).",
-      "advanced_title": "Session & proxy inverse"
+      "advanced_title": "Session & proxy inverse",
+      "avatar": "Photo de profil",
+      "avatar_desc": "Affichée à côté de votre nom dans la barre latérale. Elle est enregistrée en petit carré ; rien d’autre du fichier n’est conservé.",
+      "avatar_upload": "Envoyer une image",
+      "avatar_replace": "Remplacer l’image",
+      "avatar_remove": "Retirer l’image",
+      "avatar_saving": "Enregistrement…",
+      "avatar_too_large": "Ce fichier dépasse 8 Mo. Choisissez une image plus petite.",
+      "avatar_failed": "Ce fichier ne peut pas servir d’image. Essayez un JPEG ou un PNG."
     },
     "public_access": {
       "title": "Accès public",
@@ -1756,7 +1764,10 @@
     "notifications_enabled": "Notifications activées",
     "system_online": "Système en ligne",
     "system_offline": "Système hors ligne",
-    "open_health": "État du système"
+    "open_health": "État du système",
+    "tile_live": "Direct",
+    "tile_audio": "Son",
+    "tile_alerts": "Alertes"
   },
   "notifications": {
     "reclassify_fallback": "⚠️ Vidéo non disponible - capture utilisée à la place",

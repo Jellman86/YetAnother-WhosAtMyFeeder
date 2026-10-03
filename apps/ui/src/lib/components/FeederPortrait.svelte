@@ -113,7 +113,7 @@
                         <dd class="mt-0.5 truncate text-sm font-semibold">
                             <button
                                 type="button"
-                                class="max-w-full truncate text-left text-brand-600 hover:underline focus-ring dark:text-brand-400"
+                                class="min-h-[44px] min-w-[44px] max-w-full truncate text-left text-brand-600 hover:underline focus-ring dark:text-brand-400"
                                 data-feeder-portrait-arrival
                                 onclick={() => onopenspecies(arrival.species)}
                             >

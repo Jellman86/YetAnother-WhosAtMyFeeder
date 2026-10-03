@@ -15,11 +15,25 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   data-saver connection. Frigate keeps recordings for days, so older visits keep their photographs.
   The share bar and Needs a check stay beneath the reel; the large touring photograph and its second
   ranked list are gone, since the reel and the rankings table cover them.
+  Motion and data-saver preferences take effect while the page is open. Film work and failure
+  records are bounded, and a recording that is still being written can be tried again later.
+  Films use the recording moment and crop bound to the saved photograph and are invalidated when
+  it changes. New final-snapshot crops retain this evidence; older or unaligned photos stay still.
 
 - Open the About page on a portrait of the feeder: when it started, its visits and species to date,
   its busiest day and its newest arrival, beside its latest visit, which plays its film once one is
   made. A species seen once is never announced as the newest arrival, and guests are told the facts
-  cover only the shared window.
+  cover only the shared window. A change to the shared history clears and refreshes a guest's
+  portrait so withdrawn visits do not keep playing.
+
+- Show the sidebar's system status as three icon tiles, Live, Audio and Alerts, instead of three lines of
+  text. A tile that is off has a slash through its icon as well as a muted colour, and each keeps its full
+  sentence as a tooltip and for screen readers.
+
+- Let the owner set a profile picture in Settings → Authentication; it replaces the initial in the
+  sidebar's account card. The upload is turned upright, cropped to a small square and re-encoded, so no
+  metadata from the original file (location included) is kept. New owner-only `GET`, `PUT` and
+  `DELETE /api/auth/avatar`; auth status reports `avatar_version` to the owner.
 
 - Tidy the dashboard's right column and make it count visits. The day bar said "Today" over a rolling
   24 hours and counted frames as visits; it now says Last 24 hours and counts visits, from new

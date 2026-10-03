@@ -106,6 +106,12 @@ curl -N "http://localhost:9852/api/sse?ticket=$TICKET"
 ### Auth status
 
 - `GET /api/auth/status`: returns auth/public-access capability flags used by the frontend.
+  For the owner it also carries `avatar_version` (null without a profile picture).
+- `GET /api/auth/avatar` (owner): the profile picture, a 256 px square JPEG; 404 without one.
+- `PUT /api/auth/avatar` (owner, multipart `image`): replaces it. The upload is decoded, turned
+  upright, centre-cropped and re-encoded, so no metadata (location included) is kept; 400 for a
+  file that is not an image, 413 above 8 MB or 40 megapixels. Returns `avatar_version`.
+- `DELETE /api/auth/avatar` (owner): removes it; the account shows its initial again.
 
 ## Health, Readiness, Version, Streaming
 
@@ -603,9 +609,20 @@ retrying; the server does not repeat a paid provider call.
 - `GET /api/about/showcase/{event_id}.webm` (guest-rate-limited). A visit film: four silent seconds
   of 640x360 VP8 WebM cut from Frigate's recording around the visit's best snapshot and framed on
   the bird, under the same access rules as the clip. Answers byte ranges and is never cached. A film
-  not made yet is asked for and answered 404 with `X-Film-Status: pending`; `unavailable` means it
-  will not be made (no media cache, no recording kept, or not a Frigate visit). The newest 40 films
-  are kept, under the media cache directory in `films/`.
+  not made yet is asked for and answered 404 with `X-Film-Status: pending`; a full work queue also
+  returns `pending` so a later request can try again. `unavailable` means the film cannot be made
+  now, including a disabled media cache, expired recording, non-Frigate visit or a retry delay.
+  Generation admits at most eight jobs and renders one at a time. Missing recordings for active
+  or very recent visits can be retried after 30 seconds; other temporary failures wait six hours.
+  Failure records are bounded to 256 entries. The newest 40 films are kept under the media cache
+  directory in `films/`. Each photo revision has an immutable film filename, so a delayed
+  response cannot read a different revision published after its access check.
+  A film requires image-bound recording timing and crop coordinates. New crops from Frigate's
+  final snapshot retain this alignment, including a manually selected crop of another bird in
+  that snapshot. Historical photos and video-derived choices without a proven recording moment
+  keep their photograph. Each film is bound to its photo revision; changing the photograph
+  invalidates it, including when that change happens during rendering. Legacy films without
+  matching provenance are not served.
 - `GET /api/about/portrait?utc_offset_minutes=` (guest-rate-limited). This feeder in a few facts:
   `started_at`, `visits` (the leaderboard's ten-minute rule), `detections`, `species`,
   `busiest_day` (the viewer's calendar day, from the offset), `newest_arrival` (seen at least three

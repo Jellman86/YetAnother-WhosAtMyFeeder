@@ -110,7 +110,7 @@ describe('the About page opens on a portrait of this feeder', () => {
         expect(portraitSource).toContain('{#if communityInstalls !== null}');
         expect(portraitSource).toContain('about.portrait.community');
         // The latest visit gone (deleted or hidden) moves the portrait on.
-        expect(aboutSource).toContain('if (portrait?.latest_visit?.frigate_event === frigateEvent) void loadPortrait();');
+        expect(aboutSource).toContain('if (portrait?.latest_visit?.frigate_event === frigateEvent) portraitRefresh += 1;');
     });
 
     it('lists the install-count read among what leaves the network', () => {

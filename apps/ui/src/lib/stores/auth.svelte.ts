@@ -28,6 +28,8 @@ class AuthStore {
     needsInitialSetup = $state(false);
     isAuthenticated = $state(false);
     username = $state<string | null>(null);
+    /** The owner's profile picture version from the status call; null without one or for a guest. */
+    avatarVersion = $state<number | null>(null);
     statusLoaded = $state(false);
     statusHealthy = $state(false);
     statusLoading = $state(false);
@@ -109,6 +111,7 @@ class AuthStore {
                 void createSessionCookie().catch(() => undefined);
             }
             this.username = status.username ?? null;
+            this.avatarVersion = status.avatar_version ?? null;
             this.httpsWarning = status.https_warning ?? false;
             this.birdnetEnabled = status.birdnet_enabled ?? false;
             this.llmEnabled = status.llm_enabled ?? false;

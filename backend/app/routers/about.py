@@ -1,9 +1,8 @@
-"""The About page's opener: this install's own captures, and the wider community's count.
+"""Feeder facts, shared card media, and the wider community's count.
 
-The reel at the top of About shows one recent photograph per species, newest first, and only
-photographs that are crops. A full frame at thumbnail size is a picture of a feeder, not of a
-bird, so it is left out rather than shown small. Which stored photograph is a crop is recorded
-in the media cache's snapshot metadata; the database does not know.
+About opens on a feeder portrait; the leaderboard uses the same card-sized photographs and
+visit films. The legacy showcase list remains available. Stored crop provenance comes from
+the media cache metadata, so full scenes are not mistaken for close photographs of a bird.
 """
 
 import asyncio
@@ -313,7 +312,7 @@ async def get_feeder_portrait(
         if visit is not None:
             film_url = None
             if not is_guest or settings.public_access.show_clips:
-                if visit_film_service.request(visit.frigate_event) == "ready":
+                if await visit_film_service.request(visit.frigate_event) == "ready":
                     film_url = f"/api/about/showcase/{quote(visit.frigate_event, safe='')}.webm"
             latest = PortraitVisit(
                 frigate_event=visit.frigate_event,
@@ -432,9 +431,9 @@ async def get_visit_film(
     if not validate_event_id(event_id):
         raise HTTPException(status_code=400, detail="Invalid event ID format")
     await require_event_access(event_id, auth, lang, media="clip")
-    path = visit_film_service.ready_path(event_id)
+    path = await visit_film_service.ready_path(event_id)
     if path is None:
-        status = visit_film_service.request(event_id)
+        status = await visit_film_service.request(event_id)
         raise HTTPException(status_code=404, detail="Film not available", headers={"X-Film-Status": status})
     # A file response answers byte ranges, which Safari needs before it plays a video. Like the
     # photograph, a guest's browser must not keep a copy once clips are turned off.

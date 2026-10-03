@@ -12,6 +12,7 @@
     import DetectionModal from '../components/DetectionModal.svelte';
     import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
     import { authStore } from '../stores/auth.svelte';
+    import { detectionsStore } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
     import { toastStore } from '../stores/toast.svelte';
@@ -52,6 +53,8 @@
     let selectedSpecies = $state<string | null>(null);
     let openingEvent = $state<string | null>(null);
     let classifierLabels = $state<string[]>([]);
+    let portraitRefresh = $state(0);
+    let portraitGeneration = 0;
 
     async function openVisit(frigateEvent: string) {
         if (openingEvent) return;
@@ -77,12 +80,12 @@
         }
     }
 
-    async function loadPortrait(signal?: AbortSignal): Promise<void> {
+    async function loadPortrait(signal: AbortSignal, generation: number): Promise<void> {
         try {
             const next = await fetchFeederPortrait(signal);
-            if (!signal?.aborted) portrait = next;
+            if (!signal.aborted && generation === portraitGeneration) portrait = next;
         } catch (error) {
-            if (signal?.aborted) return;
+            if (signal.aborted || generation !== portraitGeneration) return;
             // Without the portrait the page is still worth reading; it opens on the prose.
             if (isTransientRequestError(error)) {
                 logger.warn('Feeder portrait unavailable', { message: getErrorMessage(error) });
@@ -92,11 +95,26 @@
         }
     }
 
+    $effect(() => {
+        const publicVersion = authStore.isGuest ? detectionsStore.publicHistoryVersion : 0;
+        void publicVersion;
+        void portraitRefresh;
+        const generation = ++portraitGeneration;
+        const controller = new AbortController();
+        // A hidden or deleted visit must leave the page, including its downloaded film,
+        // before a new public projection arrives. A failed refresh stays clear.
+        portrait = null;
+        void loadPortrait(controller.signal, generation);
+        return () => {
+            controller.abort();
+            if (generation === portraitGeneration) portraitGeneration += 1;
+        };
+    });
+
     onMount(() => {
         const controller = new AbortController();
         // Each read degrades on its own: a portrait without the community count, or the
         // count without a portrait, is still an About page.
-        void loadPortrait(controller.signal);
         void fetchCommunityStats()
             .then((stats) => {
                 if (controller.signal.aborted) return;
@@ -109,7 +127,7 @@
 
     function forgetVisit(frigateEvent: string): void {
         // The latest visit was deleted or hidden: the facts and the visit beside them move on.
-        if (portrait?.latest_visit?.frigate_event === frigateEvent) void loadPortrait();
+        if (portrait?.latest_visit?.frigate_event === frigateEvent) portraitRefresh += 1;
     }
 
     const repoUrl = 'https://github.com/Jellman86/YetAnother-WhosAtMyFeeder';

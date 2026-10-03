@@ -242,6 +242,7 @@ async def retained_snapshot_candidate(
         "created_at": created_at,
         "image_bytes": photo,
         "thumbnail_bytes": thumbnail,
+        "film_alignment": metadata.get("film_alignment"),
     }
 
 
@@ -376,7 +377,12 @@ async def _commit_video_snapshot(
                 await media_cache._write_bytes_atomic(
                     media_cache._snapshot_path(candidate["image_ref"]), candidate["image_bytes"]
                 )
-                await media_cache._write_snapshot_metadata(candidate["image_ref"], source="snapshot_candidate")
+                await media_cache._write_snapshot_metadata(
+                    candidate["image_ref"],
+                    source="snapshot_candidate",
+                    image_bytes=candidate["image_bytes"],
+                    film_alignment=candidate.get("film_alignment"),
+                )
                 if candidate.get("thumbnail_ref") and candidate.get("thumbnail_bytes"):
                     await media_cache.cache_thumbnail(
                         candidate["thumbnail_ref"], candidate["thumbnail_bytes"], source="snapshot_candidate"
@@ -385,7 +391,12 @@ async def _commit_video_snapshot(
             metadata_path = media_cache._snapshot_metadata_path(event_id)
             try:
                 await media_cache._write_bytes_atomic(photo_path, selected["image_bytes"])
-                await media_cache._write_snapshot_metadata(event_id, source=selected["snapshot_source"])
+                await media_cache._write_snapshot_metadata(
+                    event_id,
+                    source=selected["snapshot_source"],
+                    image_bytes=selected["image_bytes"],
+                    film_alignment=selected.get("film_alignment"),
+                )
                 await repo.replace_snapshot_candidates(event_id, rows)
             except BaseException:
                 if previous_photo is not None:

@@ -97,7 +97,11 @@ def test_the_newest_arrival_is_a_species_seen_often_enough_or_confirmed():
 @pytest.mark.asyncio
 async def test_the_portrait_counts_visits_by_the_viewers_day(seeded_db, media_cache_on, monkeypatch):
     requested = []
-    monkeypatch.setattr(films.visit_film_service, "request", lambda event_id: requested.append(event_id) or "pending")
+    monkeypatch.setattr(
+        films.visit_film_service,
+        "request",
+        AsyncMock(side_effect=lambda event_id: requested.append(event_id) or "pending"),
+    )
     with patch("app.services.media_cache.media_cache.get_snapshot_metadata", new=AsyncMock(side_effect=_meta)):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             res = await client.get("/api/about/portrait?utc_offset_minutes=60")
@@ -123,7 +127,7 @@ async def test_the_portrait_counts_visits_by_the_viewers_day(seeded_db, media_ca
 
 @pytest.mark.asyncio
 async def test_a_made_film_is_offered_with_the_latest_visit(seeded_db, media_cache_on, monkeypatch):
-    monkeypatch.setattr(films.visit_film_service, "request", lambda event_id: "ready")
+    monkeypatch.setattr(films.visit_film_service, "request", AsyncMock(return_value="ready"))
     with patch("app.services.media_cache.media_cache.get_snapshot_metadata", new=AsyncMock(side_effect=_meta)):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             res = await client.get("/api/about/portrait")
@@ -142,7 +146,7 @@ async def test_without_a_media_cache_the_portrait_keeps_its_facts_and_drops_the_
 
 @pytest.mark.asyncio
 async def test_a_guest_is_told_the_portrait_covers_only_the_shared_window(seeded_db, media_cache_on, monkeypatch):
-    monkeypatch.setattr(films.visit_film_service, "request", lambda event_id: "pending")
+    monkeypatch.setattr(films.visit_film_service, "request", AsyncMock(return_value="pending"))
     monkeypatch.setattr(settings.auth, "enabled", True)
     monkeypatch.setattr(settings.auth, "initial_setup_complete", True)
     monkeypatch.setattr(settings.public_access, "enabled", True)

@@ -969,7 +969,15 @@
       "trusted_proxies_add": "Add trusted proxy host",
       "trusted_proxies_remove": "Remove trusted proxy host",
       "trusted_proxies_empty": "No trusted proxies configured (all proxies trusted).",
-      "advanced_title": "Session & reverse proxy"
+      "advanced_title": "Session & reverse proxy",
+      "avatar": "Profile picture",
+      "avatar_desc": "Shown beside your name in the sidebar. It is stored as a small square picture; nothing else from the file is kept.",
+      "avatar_upload": "Upload picture",
+      "avatar_replace": "Replace picture",
+      "avatar_remove": "Remove picture",
+      "avatar_saving": "Saving…",
+      "avatar_too_large": "That file is over 8 MB. Choose a smaller picture.",
+      "avatar_failed": "That file could not be used as a picture. Try a JPEG or PNG."
     },
     "public_access": {
       "title": "Public Access",
@@ -1766,7 +1774,10 @@
     "notifications_enabled": "Notifications Enabled",
     "system_online": "System Online",
     "system_offline": "System Offline",
-    "open_health": "System health"
+    "open_health": "System health",
+    "tile_live": "Live",
+    "tile_audio": "Audio",
+    "tile_alerts": "Alerts"
   },
   "notifications": {
     "reclassify_fallback": "⚠️ Video not available - snapshot used instead",

@@ -34,7 +34,7 @@
     $effect(() => {
         if (typeof window === 'undefined') return;
         const query = window.matchMedia('(prefers-reduced-motion: reduce)');
-        const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
+        const connection = (navigator as Navigator & { connection?: EventTarget & { saveData?: boolean } }).connection;
         const sync = () => {
             still =
                 query.matches ||
@@ -43,7 +43,14 @@
         };
         sync();
         query.addEventListener('change', sync);
-        return () => query.removeEventListener('change', sync);
+        connection?.addEventListener('change', sync);
+        const preferences = new MutationObserver(sync);
+        preferences.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+        return () => {
+            query.removeEventListener('change', sync);
+            connection?.removeEventListener('change', sync);
+            preferences.disconnect();
+        };
     });
 
     $effect(() => {

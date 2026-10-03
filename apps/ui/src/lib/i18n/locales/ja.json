@@ -959,7 +959,15 @@
       "trusted_proxies_add": "信頼するプロキシホストを追加",
       "trusted_proxies_remove": "信頼するプロキシホストを削除",
       "trusted_proxies_empty": "信頼するプロキシが未設定です（すべてのプロキシを信頼）。",
-      "advanced_title": "セッションとリバースプロキシ"
+      "advanced_title": "セッションとリバースプロキシ",
+      "avatar": "プロフィール画像",
+      "avatar_desc": "サイドバーの名前の横に表示されます。小さな正方形の画像として保存され、ファイルのそれ以外の情報は残りません。",
+      "avatar_upload": "画像をアップロード",
+      "avatar_replace": "画像を差し替え",
+      "avatar_remove": "画像を削除",
+      "avatar_saving": "保存中…",
+      "avatar_too_large": "ファイルが8 MBを超えています。小さい画像を選んでください。",
+      "avatar_failed": "このファイルは画像として使えません。JPEGかPNGを試してください。"
     },
     "public_access": {
       "title": "公開アクセス",
@@ -1756,7 +1764,10 @@
     "notifications_enabled": "通知有効",
     "system_online": "システムオンライン",
     "system_offline": "システムオフライン",
-    "open_health": "システムの状態"
+    "open_health": "システムの状態",
+    "tile_live": "ライブ",
+    "tile_audio": "音声",
+    "tile_alerts": "通知"
   },
   "notifications": {
     "reclassify_fallback": "⚠️ ビデオが利用不可 - 代わりにスナップショットを使用しました",

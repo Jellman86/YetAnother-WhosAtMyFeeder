@@ -196,7 +196,12 @@ the card is sharp where a stored crop is a few hundred pixels across. The photog
 underneath, so a missing film is a photograph and the layout never moves. A film is fetched only
 when its card nears the viewport, plays only while visible, is downloaded once however many copies
 of the card show it (`utils/visit-films.ts`), and is never fetched under reduced motion or a
-data-saver connection. Frigate keeps recordings for days, so older visits keep their photographs.
+data-saver connection. Changing either preference while the page is open releases the film and
+keeps the photograph. Frigate keeps recordings for days, so older visits keep their photographs.
+Films require a proven recording moment and crop bound to the saved image. New final-snapshot
+crops keep that evidence, including a selected alternative bird. Older photographs and video
+choices without exact recording alignment stay still: a film from the original tracked bird
+must not cover a photograph of a different bird. Changing the photograph invalidates the film.
 
 The share bar (`SpeciesShareBar`) sits under the reel and shows who made up the window, each
 species in its chart colour, so a species that dominates reads as a proportion rather than as one
@@ -228,7 +233,8 @@ busiest day in the viewer's own calendar days, and its newest arrival, which mus
 least three times or confirmed so a single misidentification is never announced. Beside them is
 the latest visit with a stored crop, which plays its film once one is made and opens its record. A
 guest sees the shared window only, and the heading says so, so a short window never reads as a
-young feeder. The install count beneath is a cached read of the telemetry worker's public summary,
+young feeder. A shared-history change clears the guest's portrait immediately and reloads its facts
+and latest visit; an older response cannot restore withdrawn media. The install count beneath is a cached read of the telemetry worker's public summary,
 off with update checks, and absent rather than zero when unknown.
 
 ---
