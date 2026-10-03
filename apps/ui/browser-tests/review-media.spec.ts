@@ -55,6 +55,10 @@ function candidateUrl(capture: string, id: string, kind: 'image' | 'thumbnail'):
 }
 
 interface Plan {
+    dismissed: Set<string>;
+    photoMutations: Array<{ capture: string; candidateId: string; dismissed: boolean }>;
+    dismissFailure?: boolean;
+    heldDismissals: Map<string, Promise<void>>;
     candidateMediaAbsent?: boolean;
     /** Photographs a later run replaced, kept as the backend keeps them: no frame, no time, no read. */
     retainedPhotos?: string[];
@@ -71,7 +75,7 @@ interface Plan {
 }
 
 function newPlan(): Plan {
-    return { missing: [], held: new Map(), heldLists: new Map(), selection: { ...INITIAL_SELECTION }, requests: [], errors: [] };
+    return { dismissed: new Set(), photoMutations: [], heldDismissals: new Map(), missing: [], held: new Map(), heldLists: new Map(), selection: { ...INITIAL_SELECTION }, requests: [], errors: [] };
 }
 
 function gate(): { promise: Promise<void>; release: () => void } {
@@ -94,6 +98,7 @@ function candidateList(capture: Capture, plan: Plan) {
         classifier_score: spec.score,
         ranking_score: spec.score,
         selected: spec.id === chosen,
+        photo_hidden: plan.dismissed.has(`${capture}__${spec.id}`),
         snapshot_source: `hq_candidate_${spec.mode}`,
         image_url: plan.candidateMediaAbsent ? null : candidateUrl(capture, spec.id, 'image'),
         thumbnail_url: plan.candidateMediaAbsent ? null : candidateUrl(capture, spec.id, 'thumbnail')
@@ -112,6 +117,7 @@ function candidateList(capture: Capture, plan: Plan) {
             classifier_score: null,
             ranking_score: 0,
             selected: id === chosen,
+            photo_hidden: plan.dismissed.has(`${capture}__${id}`),
             snapshot_source: 'frigate_snapshot_cropped',
             image_url: candidateUrl(capture, id, 'image'),
             thumbnail_url: candidateUrl(capture, id, 'thumbnail')
@@ -176,6 +182,25 @@ async function serve(page: Page, plan: Plan): Promise<void> {
             plan.selection[apply[1]] = (body.candidate_id ?? '').replace(`${apply[1]}__`, '');
             return route.fulfill({ json: { status: 'ok' } });
         }
+        const dismiss = /^\/api\/frigate\/(tit|robin|wren)\/snapshot\/candidates\/([^/]+)$/.exec(path);
+        if (dismiss && request.method() === 'PATCH') {
+            const capture = dismiss[1] as Capture;
+            const candidateId = decodeURIComponent(dismiss[2]);
+            const body = request.postDataJSON() as { dismissed: boolean };
+            plan.photoMutations.push({ capture, candidateId, dismissed: body.dismissed });
+            const waiting = plan.heldDismissals.get(capture);
+            if (waiting) await waiting;
+            if (plan.dismissFailure) {
+                plan.dismissFailure = false;
+                return route.fulfill({ status: 503, json: { detail: 'Photo choices unavailable' } });
+            }
+            if (body.dismissed && candidateId === `${capture}__${plan.selection[capture]}`) {
+                return route.fulfill({ status: 409, json: { detail: 'Choose another photograph first' } });
+            }
+            if (body.dismissed) plan.dismissed.add(candidateId);
+            else plan.dismissed.delete(candidateId);
+            return route.fulfill({ json: candidateList(capture, plan) });
+        }
         if (path.endsWith('.jpg') || path.endsWith('.svg')) {
             const heldKey = [...plan.held.keys()].find((key) => path.includes(key));
             if (heldKey) await plan.held.get(heldKey);
@@ -218,6 +243,109 @@ async function headingTop(page: Page): Promise<number> {
     if (!box) throw new Error('Species heading is not laid out');
     return Math.round(box.y);
 }
+
+for (const surface of ['record', 'queue'] as const) {
+    test(`${surface}: removing an unchosen photo is reversible and the chosen photo cannot be removed`, async ({ page }) => {
+        const plan = newPlan();
+        plan.retainedPhotos = ['a1b2c3d4e5f6', '0f9e8d7c6b5a'];
+        await (surface === 'record' ? openRecord : openQueue)(page, plan, '&queue=wren,robin');
+        const triggers = page.locator('[data-frame-strip] button[aria-pressed]');
+        await expect(triggers).toHaveCount(4);
+        await triggers.nth(0).click();
+        await page.locator('[data-frame-strip-panel]').getByRole('button', { name: 'Remove photo choice' }).click();
+        await expect(triggers).toHaveCount(3);
+        await expect(page.locator('[data-frame-strip-panel]')).toHaveCount(0);
+        await expect(page.getByRole('button', { name: 'Undo', exact: true })).toBeVisible();
+        expect(plan.photoMutations).toEqual([{ capture: 'wren', candidateId: 'wren__retained_snapshot__a1b2c3d4e5f6', dismissed: true }]);
+        expect(plan.selection.wren).toBe('f40-model');
+        await page.getByRole('button', { name: 'Undo', exact: true }).click();
+        await expect(triggers).toHaveCount(4);
+        await expect(page.getByRole('button', { name: 'Undo', exact: true })).toHaveCount(0);
+        expect(plan.photoMutations[1]).toEqual({ capture: 'wren', candidateId: 'wren__retained_snapshot__a1b2c3d4e5f6', dismissed: false });
+        expect(plan.dismissed.size).toBe(0);
+        if (await page.locator('[data-frame-strip-panel]').count()) await page.keyboard.press('Escape');
+        await page.locator('[data-frame-strip] button[aria-pressed="true"]').click();
+        const panel = page.locator('[data-frame-strip-panel]');
+        await expect(panel.getByRole('button', { name: 'Remove photo choice' })).toBeDisabled();
+        await expect(panel).toContainText('Choose another photograph before removing this one.');
+        expect(plan.photoMutations).toHaveLength(2);
+        expect(plan.errors).toEqual([]);
+    });
+
+    test(`${surface}: a failed photo removal keeps the choice and offers no false Undo`, async ({ page }) => {
+        const plan = newPlan();
+        plan.retainedPhotos = ['a1b2c3d4e5f6'];
+        plan.dismissFailure = true;
+        await (surface === 'record' ? openRecord : openQueue)(page, plan, '&queue=wren,robin');
+        const triggers = page.locator('[data-frame-strip] button[aria-pressed]');
+        await expect(triggers).toHaveCount(3);
+        await triggers.nth(0).click();
+        await page.locator('[data-frame-strip-panel]').getByRole('button', { name: 'Remove photo choice' }).click();
+        await expect(page.getByRole('alert').filter({ hasText: 'Could not change this photo choice. Try again.' })).toBeVisible();
+        await expect(triggers).toHaveCount(3);
+        await expect(page.getByRole('button', { name: 'Undo', exact: true })).toHaveCount(0);
+        expect(plan.dismissed.size).toBe(0);
+        expect(plan.selection.wren).toBe('f40-model');
+        expect(plan.errors).toEqual([]);
+    });
+
+    test(`${surface}: failed Undo keeps the photo hidden and can be retried`, async ({ page }) => {
+        const plan = newPlan();
+        plan.retainedPhotos = ['a1b2c3d4e5f6'];
+        await (surface === 'record' ? openRecord : openQueue)(page, plan, '&queue=wren,robin');
+        const triggers = page.locator('[data-frame-strip] button[aria-pressed]');
+        await expect(triggers).toHaveCount(3);
+        await triggers.nth(0).click();
+        await page.locator('[data-frame-strip-panel]').getByRole('button', { name: 'Remove photo choice' }).click();
+        await expect(triggers).toHaveCount(2);
+        await expect(page.locator('[data-frame-strip-panel]')).toHaveCount(0);
+        plan.dismissFailure = true;
+        const undo = page.getByRole('button', { name: 'Undo', exact: true });
+        await undo.click();
+        await expect(page.getByRole('alert').filter({ hasText: 'Could not change this photo choice. Try again.' })).toBeVisible();
+        await expect(triggers).toHaveCount(2);
+        await expect(undo).toBeEnabled();
+        expect(plan.dismissed.has('wren__retained_snapshot__a1b2c3d4e5f6')).toBe(true);
+        await undo.click();
+        await expect(triggers).toHaveCount(3);
+        await expect(undo).toHaveCount(0);
+        await expect(page.getByRole('alert').filter({ hasText: 'Could not change this photo choice. Try again.' })).toHaveCount(0);
+        expect(plan.dismissed.size).toBe(0);
+        expect(plan.selection.wren).toBe('f40-model');
+        expect(plan.errors).toEqual([]);
+    });
+}
+
+test('queue: a late photo removal cannot lock the next capture or offer its Undo', async ({ page }) => {
+    const plan = newPlan();
+    plan.retainedPhotos = ['a1b2c3d4e5f6'];
+    const waiting = gate();
+    plan.heldDismissals.set('wren', waiting.promise);
+    await openQueue(page, plan, '&queue=wren,robin');
+    const triggers = page.locator('[data-frame-strip] button[aria-pressed]');
+    await expect(triggers).toHaveCount(3);
+    try {
+        await triggers.nth(0).click();
+        await page.locator('[data-frame-strip-panel]').getByRole('button', { name: 'Remove photo choice' }).click();
+        await expect.poll(() => plan.photoMutations.length).toBe(1);
+        if (await page.locator('[data-frame-strip-panel]').count()) await page.keyboard.press('Escape');
+        await page.getByRole('button', { name: 'Skip for now' }).click();
+        await expect(page.locator('[data-review-species-heading]')).toContainText('European Robin');
+        await expect(triggers).toHaveCount(2);
+    } finally {
+        waiting.release();
+    }
+    await expect.poll(() => plan.dismissed.has('wren__retained_snapshot__a1b2c3d4e5f6')).toBe(true);
+    await expect(page.getByRole('button', { name: 'Undo', exact: true })).toHaveCount(0);
+    await triggers.nth(0).click();
+    const remove = page.locator('[data-frame-strip-panel]').getByRole('button', { name: 'Remove photo choice' });
+    await expect(remove).toBeEnabled();
+    await remove.click();
+    await expect(page.getByRole('button', { name: 'Undo', exact: true })).toBeVisible();
+    await expect.poll(() => plan.photoMutations[1]).toEqual({ capture: 'robin', candidateId: 'robin__retained_snapshot__a1b2c3d4e5f6', dismissed: true });
+    expect(plan.selection.robin).toBe('model');
+    expect(plan.errors).toEqual([]);
+});
 
 interface ImageReport { src: string; loaded: boolean; broken: boolean; width: number; height: number }
 

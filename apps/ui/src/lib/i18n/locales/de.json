@@ -3154,5 +3154,24 @@
     "notifications": "Benachrichtigungen, Erinnerungen und aktive Hintergrundaufgaben.",
     "settings": "Verbindungen, Klassifizierung, Integrationen und Personalisierung.",
     "species": "Bestenliste, Gesamtzahlen und Taxonomie-Details für die gesehenen Vögel."
+  },
+  "visits": {
+    "captures": "{count, plural, one {# Aufnahme} other {# Aufnahmen}}",
+    "total": "{count, plural, one {# Besuch} other {# Besuche}}",
+    "total_captures": "{count, plural, one {# Aufnahme} other {# Aufnahmen}}",
+    "visits": "Besuche",
+    "capture_view": "Aufnahmen",
+    "grouping": "Aufnahmen gruppieren",
+    "peak_birds": "{count} Vögel in einer Aufnahme",
+    "capture_actions": "Öffne eine Aufnahme, um die Bestimmung zu prüfen oder den Clip abzuspielen.",
+    "load_failed": "Die Aufnahmen konnten nicht geladen werden. Versuche es erneut.",
+    "load_more": "Weitere Aufnahmen laden",
+    "open_capture": "Aufnahme von {species} öffnen",
+    "multiple_species": "Mehrere Vogelarten",
+    "multiple_species_hint": "Mindestens zwei benannte Arten in einer analysierten Aufnahme.",
+    "remove_photo": "Fotoauswahl entfernen",
+    "choose_first": "Wähle ein anderes Foto, bevor du dieses entfernst.",
+    "photo_removed": "Foto aus der Auswahl entfernt.",
+    "remove_failed": "Diese Fotoauswahl konnte nicht geändert werden. Versuche es erneut."
   }
 }

@@ -3154,5 +3154,24 @@
     "notifications": "Alertes, rappels et tâches d'arrière-plan actives.",
     "settings": "Connexions, classification, intégrations et personnalisation.",
     "species": "Classement, totaux et détails taxonomiques des oiseaux observés."
+  },
+  "visits": {
+    "captures": "{count, plural, one {# capture} other {# captures}}",
+    "total": "{count, plural, one {# visite} other {# visites}}",
+    "total_captures": "{count, plural, one {# capture} other {# captures}}",
+    "visits": "Visites",
+    "capture_view": "Captures",
+    "grouping": "Regrouper les captures",
+    "peak_birds": "{count} oiseaux dans une capture",
+    "capture_actions": "Ouvrez une capture pour vérifier son identification ou lire sa vidéo.",
+    "load_failed": "Impossible de charger les captures. Réessayez.",
+    "load_more": "Charger plus de captures",
+    "open_capture": "Ouvrir la capture de {species}",
+    "multiple_species": "Plusieurs espèces d’oiseaux",
+    "multiple_species_hint": "Deux espèces identifiées ou plus dans une capture analysée.",
+    "remove_photo": "Retirer ce choix de photo",
+    "choose_first": "Choisissez une autre photographie avant de retirer celle-ci.",
+    "photo_removed": "Photo retirée des choix.",
+    "remove_failed": "Impossible de modifier ce choix de photo. Réessayez."
   }
 }

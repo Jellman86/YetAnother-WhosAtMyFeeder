@@ -76,7 +76,7 @@ export function buildHealthTimeline({
 export function representedEventCount(rows: readonly HealthTimelineRow[]): number {
     return rows.reduce((total, row) => {
         if (row.kind !== 'visit') return total + 1;
-        return total + Math.max(1, row.visit.frames.length);
+        return total + Math.max(1, (row.visit.captureCount ?? row.visit.frames.length));
     }, 0);
 }
 

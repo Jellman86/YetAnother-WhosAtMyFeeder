@@ -1,10 +1,11 @@
 <script lang="ts">
-    import { untrack } from 'svelte';
+    import { tick, untrack } from 'svelte';
     import { _ } from 'svelte-i18n';
     import { portal } from '../utils/portal';
     import MediaImage from './MediaImage.svelte';
     import {
         formatOffset,
+        preferredCandidate,
         momentImageUrl,
         momentThumbnailUrl,
         type FrameMoment
@@ -41,6 +42,8 @@
         regeneratePending?: boolean;
         onuse: (moment: FrameMoment) => void;
         onregenerate?: () => void;
+        eventId?: string;
+        onremove?: (candidateId: string, dismissed: boolean) => Promise<void>;
     }
 
     let {
@@ -56,7 +59,9 @@
         canRegenerate = false,
         regeneratePending = false,
         onuse,
-        onregenerate
+        onregenerate,
+        eventId,
+        onremove
     }: Props = $props();
 
     let openIndex = $state<number | null>(null);
@@ -64,6 +69,38 @@
     const marksChoice = $derived(moments.length > 1);
     // An earlier photograph is not a frame of the clip, so a strip holding one, like a strip of
     // several birds' crops, counts photo options rather than frames.
+    let removedPhoto = $state<{ eventId: string; candidateId: string } | null>(null);
+    let removalError = $state(false);
+    let hoverPaused = false;
+    let undoButton = $state<HTMLButtonElement | null>(null);
+    async function removeChoice(moment: FrameMoment): Promise<void> {
+        const candidate = preferredCandidate(moment);
+        const subject = eventId;
+        if (!candidate || !subject || !onremove || busy) return;
+        removalError = false;
+        try {
+            await onremove(candidate.candidate_id, true);
+            if (eventId === subject) {
+                hoverPaused = true;
+                hide(true);
+                removedPhoto = { eventId: subject, candidateId: candidate.candidate_id };
+                await tick();
+                if (eventId === subject) undoButton?.focus();
+            }
+        } catch {
+            if (eventId === subject) removalError = true;
+        }
+    }
+    async function undoRemoval(): Promise<void> {
+        if (!removedPhoto || removedPhoto.eventId !== eventId || !onremove || busy) return;
+        const previous = removedPhoto;
+        removalError = false;
+        try {
+            await onremove(previous.candidateId, false);
+            if (removedPhoto === previous) removedPhoto = null;
+        } catch { removalError = true; }
+    }
+
     const offersPhotoOptions = $derived(
         moments.some((moment) => moment.choice === 'crop' || moment.choice === 'previous')
     );
@@ -98,6 +135,7 @@
     // opens on hover: a backdrop under a hovering pointer is a mouseleave, which would close
     // what the mouseenter had just opened.
     function hoverOpen(index: number, event: PointerEvent): void {
+        if (hoverPaused) return;
         if (event.pointerType === 'touch' || isSheet()) return;
         show(index);
     }
@@ -461,7 +499,8 @@
     class="flex flex-col gap-1 px-3 pb-3"
     data-frame-strip
     aria-busy={loading || busy}
-    onmouseleave={hoverClose}
+    onpointermove={() => { hoverPaused = false; }}
+    onmouseleave={() => { hoverPaused = false; hoverClose(); }}
     onfocusout={handleFocusOut}
     onkeydown={handleKeydown}
     role="presentation"
@@ -571,7 +610,8 @@
                                 role="presentation"
                                 data-frame-strip-panel
                                 onmouseenter={cancelScheduledClose}
-                                onmouseleave={hoverClose}
+                                onpointermove={() => { hoverPaused = false; }}
+    onmouseleave={() => { hoverPaused = false; hoverClose(); }}
                                 onfocusout={handleFocusOut}
                                 onkeydown={handlePanelKeydown}
                             >
@@ -646,6 +686,15 @@
                                             {$_(offersPhotoOptions ? 'detection.photo_option_use' : 'detection.frame_use', { default: offersPhotoOptions ? 'Use this photo' : 'Use this frame' })}
                                         </button>
                                     {/if}
+                                    {#if onremove && preferredCandidate(moment)}
+                                        {@const candidate = preferredCandidate(moment)}
+                                        <button type="button" class="btn btn-ghost mt-1 min-h-11 px-3 text-xs"
+                                            disabled={busy || Boolean(candidate?.selected)}
+                                            onclick={(event) => { event.stopPropagation(); void removeChoice(moment); }}>
+                                            {$_('visits.remove_photo', { default: 'Remove photo choice' })}
+                                        </button>
+                                        {#if candidate?.selected}<p class="text-xs text-slate-500">{$_('visits.choose_first', { default: 'Choose another photograph before removing this one.' })}</p>{/if}
+                                    {/if}
                                 </div>
                               </div>
                             </div>
@@ -701,6 +750,13 @@
             </button>
         {/if}
     </div>
+    {#if removedPhoto?.eventId === eventId}
+        <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500" role="status">
+            <span>{$_('visits.photo_removed', { default: 'Photo removed from the choices.' })}</span>
+            <button type="button" class="btn btn-ghost min-h-11" bind:this={undoButton} disabled={busy} onclick={() => void undoRemoval()}>{$_('common.undo', { default: 'Undo' })}</button>
+        </div>
+    {/if}
+    {#if removalError}<p role="alert" class="mt-2 text-sm text-slate-600 dark:text-slate-300">{$_('visits.remove_failed', { default: 'Could not change this photo choice. Try again.' })}</p>{/if}
 </div>
 
 <style>

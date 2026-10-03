@@ -3154,5 +3154,24 @@
     "notifications": "アラート、リマインダー、実行中のバックグラウンドジョブ。",
     "settings": "接続、分類、連携、パーソナライズ。",
     "species": "これまでに観察した鳥のランキング、合計、分類情報。"
+  },
+  "visits": {
+    "captures": "{count, plural, one {# 件の撮影} other {# 件の撮影}}",
+    "total": "{count, plural, one {# 回の訪問} other {# 回の訪問}}",
+    "total_captures": "{count, plural, one {# 件の撮影} other {# 件の撮影}}",
+    "visits": "訪問",
+    "capture_view": "撮影",
+    "grouping": "撮影をまとめる",
+    "peak_birds": "1件の撮影に{count}羽",
+    "capture_actions": "撮影を開いて識別結果を確認するか、動画を再生します。",
+    "load_failed": "撮影を読み込めませんでした。もう一度お試しください。",
+    "load_more": "さらに撮影を読み込む",
+    "open_capture": "{species}の撮影を開く",
+    "multiple_species": "複数の鳥種",
+    "multiple_species_hint": "解析した1件の撮影に、識別済みの鳥種が2種以上。",
+    "remove_photo": "写真の選択肢を削除",
+    "choose_first": "この写真を削除する前に、別の写真を選んでください。",
+    "photo_removed": "写真を選択肢から削除しました。",
+    "remove_failed": "この写真の選択肢を変更できませんでした。もう一度お試しください。"
   }
 }

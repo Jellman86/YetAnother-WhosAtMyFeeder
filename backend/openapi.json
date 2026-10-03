@@ -5244,6 +5244,107 @@
         "title": "DetectionResponse",
         "type": "object"
       },
+      "DetectionVisitResponse": {
+        "properties": {
+          "audio_confirmed": {
+            "title": "Audio Confirmed",
+            "type": "boolean"
+          },
+          "best_score": {
+            "title": "Best Score",
+            "type": "number"
+          },
+          "capture_count": {
+            "title": "Capture Count",
+            "type": "integer"
+          },
+          "end_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Time"
+          },
+          "latest": {
+            "$ref": "#/components/schemas/DetectionResponse"
+          },
+          "needs_review": {
+            "title": "Needs Review",
+            "type": "boolean"
+          },
+          "peak_capture": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DetectionResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "representative": {
+            "$ref": "#/components/schemas/DetectionResponse"
+          },
+          "start_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Time"
+          },
+          "visit_id": {
+            "title": "Visit Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "visit_id",
+          "start_time",
+          "end_time",
+          "capture_count",
+          "best_score",
+          "needs_review",
+          "audio_confirmed",
+          "representative",
+          "latest"
+        ],
+        "title": "DetectionVisitResponse",
+        "type": "object"
+      },
+      "DetectionVisitsResponse": {
+        "properties": {
+          "gap_seconds": {
+            "title": "Gap Seconds",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "visits": {
+            "items": {
+              "$ref": "#/components/schemas/DetectionVisitResponse"
+            },
+            "title": "Visits",
+            "type": "array"
+          }
+        },
+        "required": [
+          "visits",
+          "total",
+          "gap_seconds"
+        ],
+        "title": "DetectionVisitsResponse",
+        "type": "object"
+      },
       "DetectionsActivityHeatmapCell": {
         "properties": {
           "count": {
@@ -14703,6 +14804,11 @@
             ],
             "title": "Image Url"
           },
+          "photo_hidden": {
+            "default": false,
+            "title": "Photo Hidden",
+            "type": "boolean"
+          },
           "ranking_score": {
             "title": "Ranking Score",
             "type": "number"
@@ -14747,6 +14853,19 @@
           "selected"
         ],
         "title": "SnapshotCandidateResponse",
+        "type": "object"
+      },
+      "SnapshotDismissRequest": {
+        "properties": {
+          "dismissed": {
+            "title": "Dismissed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "dismissed"
+        ],
+        "title": "SnapshotDismissRequest",
         "type": "object"
       },
       "SnapshotGenerateResponse": {
@@ -16951,6 +17070,27 @@
           "link_id"
         ],
         "title": "VideoShareRevokeResponse",
+        "type": "object"
+      },
+      "VisitCapturesResponse": {
+        "properties": {
+          "captures": {
+            "items": {
+              "$ref": "#/components/schemas/DetectionResponse"
+            },
+            "title": "Captures",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "captures",
+          "total"
+        ],
+        "title": "VisitCapturesResponse",
         "type": "object"
       },
       "WeatherBackfillRequest": {
@@ -21093,6 +21233,18 @@
             }
           },
           {
+            "description": "Owner: captures with at least two named bird species",
+            "in": "query",
+            "name": "multiple_species_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Owner: captures with at least two named bird species",
+              "title": "Multiple Species Only",
+              "type": "boolean"
+            }
+          },
+          {
             "description": "Sort order",
             "in": "query",
             "name": "sort",
@@ -21412,6 +21564,18 @@
               "default": false,
               "description": "Only count detections with audio confirmation",
               "title": "Audio Confirmed Only",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Owner: captures with at least two named bird species",
+            "in": "query",
+            "name": "multiple_species_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Owner: captures with at least two named bird species",
+              "title": "Multiple Species Only",
               "type": "boolean"
             }
           },
@@ -23230,6 +23394,79 @@
           }
         ],
         "summary": "Get Snapshot Candidates"
+      }
+    },
+    "/api/frigate/{event_id}/snapshot/candidates/{candidate_id}": {
+      "patch": {
+        "operationId": "dismiss_snapshot_candidate_api_frigate__event_id__snapshot_candidates__candidate_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "event_id",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Event Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "maxLength": 160,
+              "minLength": 1,
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SnapshotDismissRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotCandidateListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Dismiss Snapshot Candidate"
       }
     },
     "/api/frigate/{event_id}/snapshot/candidates/{candidate_id}/image.jpg": {
@@ -27464,6 +27701,378 @@
           }
         ],
         "summary": "Revoke Video Share Link"
+      }
+    },
+    "/api/visits": {
+      "get": {
+        "operationId": "get_visits_api_visits_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 24,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "start_date",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start Date"
+            }
+          },
+          {
+            "in": "query",
+            "name": "end_date",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "End Date"
+            }
+          },
+          {
+            "in": "query",
+            "name": "start_time",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start Time"
+            }
+          },
+          {
+            "in": "query",
+            "name": "end_time",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "End Time"
+            }
+          },
+          {
+            "in": "query",
+            "name": "species",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Species"
+            }
+          },
+          {
+            "in": "query",
+            "name": "camera",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Camera"
+            }
+          },
+          {
+            "in": "query",
+            "name": "multiple_species_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Multiple Species Only",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "favorites",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Favorites",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "audio_confirmed_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Audio Confirmed Only",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "only_hidden",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Only Hidden",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "default": "newest",
+              "pattern": "^(newest|oldest|confidence)$",
+              "title": "Sort",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DetectionVisitsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Visits",
+        "tags": [
+          "visits"
+        ]
+      }
+    },
+    "/api/visits/{visit_id}/captures": {
+      "get": {
+        "operationId": "get_visit_captures_api_visits__visit_id__captures_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "visit_id",
+            "required": true,
+            "schema": {
+              "title": "Visit Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "start_date",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start Date"
+            }
+          },
+          {
+            "in": "query",
+            "name": "end_date",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "End Date"
+            }
+          },
+          {
+            "in": "query",
+            "name": "start_time",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start Time"
+            }
+          },
+          {
+            "in": "query",
+            "name": "end_time",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "End Time"
+            }
+          },
+          {
+            "in": "query",
+            "name": "only_hidden",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Only Hidden",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitCapturesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Visit Captures",
+        "tags": [
+          "visits"
+        ]
       }
     },
     "/health": {

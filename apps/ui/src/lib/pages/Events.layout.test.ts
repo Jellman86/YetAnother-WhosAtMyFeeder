@@ -119,7 +119,7 @@ describe('Explorer page layout', () => {
 });
 
 it('withdraws stale guest rows and choices before reloading public history', () => {
-    expect(eventsSource).toContain('events = [];\n            totalCount = 0;\n            loading = true;');
+    expect(eventsSource).toContain('events = [];\n            pageVisits = [];\n            totalCount = 0;\n            loading = true;');
     expect(eventsSource).toContain('void refreshCurrentEventsPage(version);');
     expect(eventsSource).toContain('const filters = await eventMetadataRefresh.load(forceRefresh);');
 });

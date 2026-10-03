@@ -3154,5 +3154,24 @@
     "notifications": "Alertas, recordatorios y trabajos en segundo plano activos.",
     "settings": "Conexiones, clasificación, integraciones y personalización.",
     "species": "Clasificación, totales y detalles de taxonomía de las aves que has visto."
+  },
+  "visits": {
+    "captures": "{count, plural, one {# captura} other {# capturas}}",
+    "total": "{count, plural, one {# visita} other {# visitas}}",
+    "total_captures": "{count, plural, one {# captura} other {# capturas}}",
+    "visits": "Visitas",
+    "capture_view": "Capturas",
+    "grouping": "Agrupar capturas",
+    "peak_birds": "{count} aves en una captura",
+    "capture_actions": "Abre una captura para revisar su identificación o reproducir su vídeo.",
+    "load_failed": "No se pudieron cargar las capturas. Inténtalo de nuevo.",
+    "load_more": "Cargar más capturas",
+    "open_capture": "Abrir captura de {species}",
+    "multiple_species": "Varias especies de aves",
+    "multiple_species_hint": "Dos o más especies identificadas en una captura analizada.",
+    "remove_photo": "Quitar opción de foto",
+    "choose_first": "Elige otra fotografía antes de quitar esta.",
+    "photo_removed": "Foto quitada de las opciones.",
+    "remove_failed": "No se pudo cambiar esta opción de foto. Inténtalo de nuevo."
   }
 }

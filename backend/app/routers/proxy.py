@@ -24,6 +24,7 @@ from typing import Literal
 from app.config import settings
 from app.services.frigate_client import frigate_client
 from app.services.high_quality_snapshot_service import high_quality_snapshot_service
+from app.services.photo_choice_actions import photo_choice_lock
 from app.services.i18n_service import i18n_service
 from app.utils.language import get_user_language
 from app.utils.api_datetime import utc_naive_datetime
@@ -438,6 +439,7 @@ async def _build_snapshot_candidates_response(request: Request, event_id: str) -
                 ),
                 ranking_score=float(candidate.get("ranking_score") or 0.0),
                 selected=bool(candidate.get("selected")),
+                photo_hidden=bool(candidate.get("photo_hidden")),
                 snapshot_source=(
                     str(candidate.get("snapshot_source")) if candidate.get("snapshot_source") is not None else None
                 ),
@@ -634,6 +636,7 @@ class SnapshotGenerateResponse(SnapshotStatusResponse):
 
 
 class SnapshotCandidateResponse(BaseModel):
+    photo_hidden: bool = False
     candidate_id: str
     frame_index: int
     frame_offset_seconds: float | None = None
@@ -1764,6 +1767,37 @@ async def get_snapshot_candidate_image(
     return Response(content=image_bytes, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
 
 
+class SnapshotDismissRequest(BaseModel):
+    dismissed: bool
+
+
+@router.patch("/frigate/{event_id}/snapshot/candidates/{candidate_id}", response_model=SnapshotCandidateListResponse)
+async def dismiss_snapshot_candidate(
+    request: Request,
+    body: SnapshotDismissRequest,
+    event_id: str = Path(..., min_length=1, max_length=64),
+    candidate_id: str = Path(..., min_length=1, max_length=160),
+    auth: AuthContext = Depends(require_owner),
+):
+    if not validate_event_id(event_id):
+        raise HTTPException(400, "Invalid event ID format")
+    async with photo_choice_lock(event_id):
+        return await _dismiss_snapshot_candidate(request, body, event_id, candidate_id)
+
+
+async def _dismiss_snapshot_candidate(
+    request: Request, body: SnapshotDismissRequest, event_id: str, candidate_id: str
+) -> SnapshotCandidateListResponse:
+    async with get_db() as db:
+        try:
+            changed = await DetectionRepository(db).dismiss_snapshot_candidate(event_id, candidate_id, body.dismissed)
+        except ValueError as error:
+            raise HTTPException(409, str(error)) from error
+    if not changed:
+        raise HTTPException(404, "Photo choice unavailable")
+    return await _build_snapshot_candidates_response(request, event_id)
+
+
 @router.post("/frigate/{event_id}/snapshot/apply", response_model=SnapshotApplyResponse)
 async def apply_snapshot_candidate(
     request_body: SnapshotApplyRequest,
@@ -1773,6 +1807,11 @@ async def apply_snapshot_candidate(
     del auth
     if not validate_event_id(event_id):
         raise HTTPException(status_code=400, detail="Invalid event ID format")
+    async with photo_choice_lock(event_id):
+        return await _apply_snapshot_candidate(request_body, event_id)
+
+
+async def _apply_snapshot_candidate(request_body: SnapshotApplyRequest, event_id: str) -> SnapshotApplyResponse:
 
     from app.services.media_cache import media_cache
 
@@ -1783,15 +1822,15 @@ async def apply_snapshot_candidate(
         replaced = await media_cache.replace_snapshot(
             event_id, snapshot_bytes, source="frigate_snapshot", manual_selection=True
         )
-        if replaced:
-            # A favourite keeps the photograph as chosen; a new choice is archived again (#178).
-            from app.services.archive_service import archive_service
-
-            await archive_service.refresh_photograph(event_id)
         if not replaced:
             raise HTTPException(status_code=409, detail="Snapshot apply failed")
         async with get_db() as db:
             await DetectionRepository(db).mark_selected_snapshot_candidate(event_id, None)
+        # Archive work follows the committed choice, so cancelling it cannot
+        # leave the selected candidate describing the photograph it replaced.
+        from app.services.archive_service import archive_service
+
+        await archive_service.refresh_photograph(event_id)
         after = await _build_snapshot_status(event_id)
         return SnapshotApplyResponse(
             **after.model_dump(),
@@ -1802,6 +1841,8 @@ async def apply_snapshot_candidate(
 
     candidates = await _list_snapshot_candidates(event_id)
     candidate = _pick_snapshot_candidate(candidates, request_body)
+    if candidate and candidate.get("photo_hidden"):
+        raise HTTPException(409, "Restore this photo choice before using it")
     if candidate is None:
         raise HTTPException(status_code=404, detail="Snapshot candidate unavailable")
 
@@ -1825,16 +1866,14 @@ async def apply_snapshot_candidate(
         manual_candidate_id=str(candidate.get("candidate_id") or "") or None,
         **({"film_alignment": alignment} if alignment is not None else {}),
     )
-    if replaced:
-        # A favourite keeps the photograph as chosen; a new choice is archived again (#178).
-        from app.services.archive_service import archive_service
-
-        await archive_service.refresh_photograph(event_id)
     if not replaced:
         raise HTTPException(status_code=409, detail="Snapshot apply failed")
     applied_candidate_id = str(candidate.get("candidate_id") or "")
     async with get_db() as db:
         await DetectionRepository(db).mark_selected_snapshot_candidate(event_id, applied_candidate_id)
+    from app.services.archive_service import archive_service
+
+    await archive_service.refresh_photograph(event_id)
     after = await _build_snapshot_status(event_id)
     return SnapshotApplyResponse(
         **after.model_dump(),

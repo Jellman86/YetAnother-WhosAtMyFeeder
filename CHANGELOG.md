@@ -6,6 +6,17 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Group repeat captures into expandable visits before pagination in Explorer, Dashboard and Health.
+  Retain valid event ends from live ingest and backfill, including imports arriving out of order.
+  Visits use a shared canonical species and camera identity, verified event ends where available,
+  and a 60-second inactivity gap. Statistics use the same rule. Every original capture remains
+  available; visit counts do not claim individual bird identity or sum birds across frames.
+- Remove unwanted photo choices with Undo while retaining source images and counting evidence.
+  Choose a replacement before removing the current photograph. Removed unchanged images remain
+  excluded when snapshots are regenerated.
+- Filter Explorer for captures containing at least two identified bird species. Recent sightings
+  in species details now link to their exact detection, including captures without video.
+
 - Recover weakly detected birds with up to four small regional checks per snapshot scan, guided
   by confidently identified birds in nearby frames. Each recovered bird still needs detector
   evidence in the counted frame and keeps its own species score. Combine guided and whole-frame

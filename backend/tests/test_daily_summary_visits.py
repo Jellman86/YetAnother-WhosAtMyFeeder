@@ -48,15 +48,15 @@ async def _insert(event: str, minutes: float, species: str, camera: str, hidden:
 @pytest_asyncio.fixture
 async def seeded():
     rows = [
-        # Dunnock on birdcam: 0, 4, 9 min is one visit (each within 10 of the one before), 40 min a second.
+        # Dunnock on birdcam: 0, 24, 54 seconds is one visit, 40 min a second.
         ("dv-1", 0, "Prunella modularis", "birdcam"),
-        ("dv-2", 4, "Prunella modularis", "birdcam"),
-        ("dv-3", 9, "Prunella modularis", "birdcam"),
+        ("dv-2", 0.4, "Prunella modularis", "birdcam"),
+        ("dv-3", 0.9, "Prunella modularis", "birdcam"),
         ("dv-4", 40, "Prunella modularis", "birdcam"),
         # The same species on another camera at the same time is its own visit.
-        ("dv-5", 5, "Prunella modularis", "patiocam"),
+        ("dv-5", 0.5, "Prunella modularis", "patiocam"),
         # A robin between Dunnock frames does not split the Dunnock visit.
-        ("dv-6", 6, "Erithacus rubecula", "birdcam"),
+        ("dv-6", 0.6, "Erithacus rubecula", "birdcam"),
         # Hidden frames count for nothing.
         ("dv-7", 100, "Erithacus rubecula", "birdcam", True),
     ]
@@ -74,7 +74,7 @@ async def test_species_counts_carry_visits_by_the_leaderboard_rule(seeded):
         rows = await DetectionRepository(db).get_daily_species_counts(START, END)
     by_name = {row["scientific_name"]: row for row in rows}
     assert by_name["Prunella modularis"]["count"] == 5
-    # birdcam 0-9 min, birdcam 40 min, patiocam 5 min.
+    # birdcam 0-54 seconds, birdcam 40 min, patiocam 30 seconds.
     assert by_name["Prunella modularis"]["visit_count"] == 3
     assert by_name["Erithacus rubecula"]["count"] == 1
     assert by_name["Erithacus rubecula"]["visit_count"] == 1
@@ -86,23 +86,23 @@ async def test_visit_openings_name_each_visit_once_with_its_camera(seeded):
         repo = DetectionRepository(db)
         openings = await repo.get_window_visit_openings(START, END)
         last_seen = await repo.get_camera_last_seen(START, END)
-    assert [(item["camera"], int((item["opened_at"] - START).total_seconds() // 60)) for item in openings] == [
+    assert [(item["camera"], int((item["opened_at"] - START).total_seconds())) for item in openings] == [
         ("birdcam", 0),
-        ("patiocam", 5),
-        ("birdcam", 6),
-        ("birdcam", 40),
+        ("patiocam", 30),
+        ("birdcam", 36),
+        ("birdcam", 2400),
     ]
     # The hidden frame at 100 min is not the camera's last sighting.
     assert last_seen["birdcam"] == START + timedelta(minutes=40)
-    assert last_seen["patiocam"] == START + timedelta(minutes=5)
+    assert last_seen["patiocam"] == START + timedelta(seconds=30)
 
 
 @pytest.mark.asyncio
 async def test_a_visit_running_when_the_window_opens_counts_once_inside_it(seeded):
-    # The window opens at 4 min: the 0-9 min visit is still running and counts once, from 4 min.
+    # The window opens at 24 seconds: the visit counts from its first capture inside it.
     async with get_db() as db:
-        openings = await DetectionRepository(db).get_window_visit_openings(START + timedelta(minutes=4), END)
-    assert [int((item["opened_at"] - START).total_seconds() // 60) for item in openings] == [4, 5, 6, 40]
+        openings = await DetectionRepository(db).get_window_visit_openings(START + timedelta(seconds=24), END)
+    assert [int((item["opened_at"] - START).total_seconds()) for item in openings] == [24, 30, 36, 2400]
 
 
 @pytest.mark.asyncio
@@ -120,3 +120,20 @@ async def test_daily_summary_reports_visits_beside_frames():
         assert species["visit_count"] <= species["count"]
     if body["camera_visits"] is not None:
         assert sum(camera["visits"] for camera in body["camera_visits"]) <= body["visit_count"]
+
+
+@pytest.mark.asyncio
+async def test_visit_across_midnight_counts_only_on_its_opening_day(seeded):
+    async with get_db() as db:
+        for event, at in [("midnight-first", "2034-10-02 23:59:45"), ("midnight-next", "2034-10-03 00:00:15")]:
+            await db.execute(
+                """INSERT INTO detections (frigate_event, camera_name, detection_time, detection_index,
+                   score, display_name, category_name, scientific_name) VALUES (?, 'midnight', ?, 0,
+                   0.9, 'Turdus merula', 'Turdus merula', 'Turdus merula')""",
+                (event, at),
+            )
+        await db.commit()
+        counts = await DetectionRepository(db).get_daily_visit_counts(
+            start_date=datetime(2034, 10, 2), end_date=datetime(2034, 10, 4)
+        )
+        assert counts == {"2034-10-02": 1}

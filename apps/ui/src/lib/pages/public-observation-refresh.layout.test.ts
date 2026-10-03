@@ -25,8 +25,8 @@ it('clears visual/audio leaderboard rows, heatmaps and portraits before revalida
 it('revalidates local species records separately from reference/catalogue enrichment', () => {
     expect(detail).toContain('statsLoader.invalidate();');
     expect(detail).toContain('if (hadLocalRecord) onclose();');
-    expect(detail).toContain('showVideo = false;');
-    expect(detail).toContain('selectedSighting = null;');
+    expect(detail).toContain('clear: () => { stats = null; }');
+    expect(detail).toContain('href={toAppPath(`/events?event=${encodeURIComponent(sighting.frigate_event)}`)}');
     expect(detail).toContain('if (!observedLocalRecord && !statsPending) return;');
     expect(detail).toContain('if (destroyed || statsPending || version !== detectionsStore.publicHistoryVersion || !authStore.isGuest) return;');
 });

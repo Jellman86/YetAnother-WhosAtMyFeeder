@@ -32,14 +32,14 @@ describe('health page timeline', () => {
     it('windows visits to the same slice of time the counters describe', () => {
         // §1.1: a header saying one thing while cards count another is broken.
         expect(errorsSource).toContain('instanceWindowMs');
-        expect(errorsSource).toMatch(/withinDeskWindow\(\s*detectionsStore\.detections,\s*Date\.now\(\),\s*instanceWindow\s*\)/);
+        expect(errorsSource).toContain('const window = { startTime: started, endTime: new Date().toISOString() }');
         expect(errorsSource).toContain('errors_activity_no_window');
     });
 
     it('groups frames into visits before showing them', () => {
         // §1.2: users see birds, not frames.
-        expect(errorsSource).toContain('groupDetectionsIntoVisits');
-        expect(errorsSource).toContain('reviewThreshold');
+        expect(errorsSource).toContain('fromServerVisit(visit, window)');
+        expect(errorsSource).toContain('fetchVisits');
     });
 
     it('keeps subsystem detail available rather than deleting it', () => {

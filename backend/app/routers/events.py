@@ -11,7 +11,7 @@ from PIL import Image
 from app.database import get_db
 from app.models import DetectionBirdSummary, DetectionListItemResponse, DetectionResponse
 from app.repositories.bird_observation_repository import BirdObservationRepository
-from app.repositories.detection_repository import DetectionRepository
+from app.repositories.detection_repository import DetectionRepository, Detection as StoredDetection
 from app.config import settings
 from app.services.classifier_service import get_classifier
 from app.services.frigate_client import frigate_client
@@ -661,6 +661,9 @@ async def get_events(
     event_id: Optional[str] = Query(default=None, max_length=255, description="Filter by exact Frigate event ID"),
     favorites: bool = Query(default=False, description="Only return favorited detections"),
     audio_confirmed_only: bool = Query(default=False, description="Only return detections with audio confirmation"),
+    multiple_species_only: bool = Query(
+        default=False, description="Owner: captures with at least two named bird species"
+    ),
     sort: Literal["newest", "oldest", "confidence"] = Query(default="newest", description="Sort order"),
     include_hidden: bool = Query(default=False, description="Include hidden/ignored detections"),
     only_hidden: bool = Query(default=False, description="Return only hidden/ignored detections"),
@@ -674,7 +677,6 @@ async def get_events(
 
     Public users see limited historical data based on settings.
     """
-    lang = get_user_language(request)
     hide_camera_names = (
         not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
     )
@@ -733,10 +735,22 @@ async def get_events(
             favorite_only=favorites,
             audio_confirmed_only=audio_confirmed_only,
             public_audio_evidence=not auth.is_owner,
+            multiple_species_only=multiple_species_only and auth.is_owner,
             frigate_event=event_id,
         )
 
-        event_ids = [e.frigate_event for e in events]
+    return await present_events(events, request, auth, fields)
+
+
+async def present_events(
+    events: list[StoredDetection], request: Request, auth: AuthContext, fields: str | None = None
+) -> list[DetectionResponse] | list[dict[str, object]]:
+    lang = get_user_language(request)
+    hide_camera_names = (
+        not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
+    )
+    event_ids = [event.frigate_event for event in events]
+    async with get_db() as db:
         from app.repositories.manual_observation_repository import ManualObservationRepository
 
         manual_observation_metadata = await ManualObservationRepository(db).metadata_by_event_ids(event_ids)
@@ -1082,6 +1096,9 @@ async def get_events_count(
     camera: Optional[str] = Query(default=None, description="Filter by camera name"),
     favorites: bool = Query(default=False, description="Only count favorited detections"),
     audio_confirmed_only: bool = Query(default=False, description="Only count detections with audio confirmation"),
+    multiple_species_only: bool = Query(
+        default=False, description="Owner: captures with at least two named bird species"
+    ),
     include_hidden: bool = Query(default=False, description="Include hidden/ignored detections"),
     only_hidden: bool = Query(default=False, description="Count only hidden/ignored detections"),
     auth: AuthContext = Depends(get_auth_context_with_legacy),
@@ -1130,6 +1147,7 @@ async def get_events_count(
             favorite_only=favorites,
             audio_confirmed_only=audio_confirmed_only,
             public_audio_evidence=not auth.is_owner,
+            multiple_species_only=multiple_species_only and auth.is_owner,
         )
 
         # Determine if any filters are applied

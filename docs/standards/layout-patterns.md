@@ -183,8 +183,8 @@ A leaderboard is only as good as its identifications, so the rankings say what s
 species besides the classifier: confirmed by the owner, heard by BirdNET in the same window, or the
 camera alone (`leaderboard/evidence.ts`). A trend is claimed only when the history covers the whole
 previous window (`previous_window_complete` from the route); otherwise the page says when records
-start. Rankings count visits (`window_visit_count`, the same ten-minute rule as
-`groupDetectionsIntoVisits`), and only the all-time view, which has no visit counts, says detections.
+start. Rankings count visits (`window_visit_count`, the shared server rule of a 60-second inactivity gap after the latest verified event end,
+with capture time as the fallback), and only the all-time view, which has no visit counts, says detections.
 The timeline and the composition chart share one colour per species
 (`leaderboard/species-palette.ts`, validated for colour-blind separation on both surfaces).
 
@@ -234,7 +234,7 @@ Sections are ordered by reader: visitor, then anyone, then owner. Do not add a f
 readme and `docs/` hold the feature list.
 
 The portrait (`FeederPortrait`, `/api/about/portrait`) is one calm block of facts the feeder has
-measured: when it started, its visits (the leaderboard's ten-minute rule) and species to date, its
+measured: when it started, its visits (the shared 60-second visit rule) and species to date, its
 busiest day in the viewer's own calendar days, and its newest arrival, which must have been seen at
 least three times or confirmed so a single misidentification is never announced. Beside them is
 the latest visit with a stored crop, which plays its film once one is made and opens its record. A
@@ -262,7 +262,12 @@ off with update checks, and absent rather than zero when unknown.
 | `ReviewQueueModal` | Working a queue item by item | Use for viewing one record; that is `DetectionModal` |
 | `ActivityHeatmap` | A weekday by hour grid that reads a slot on hover, tap or arrow keys, with hour and day totals in its margins | Rely on native `title` tooltips; they arrive late and never on touch |
 
-Pure logic lives in `apps/ui/src/lib/utils/`: `visit-grouping.ts` (grouping, the desk window and
+Server grouping lives in `backend/app/repositories/visit_repository.py`, shared with statistics.
+`VisitCaptures` expands any visit into bounded chronological pages of original records; no inference
+runs to group history. `FrameStrip` removes unwanted photo choices reversibly with Undo while
+retaining counting evidence. Recent species sightings open exact detection links.
+
+Pure logic lives in `apps/ui/src/lib/utils/`: `visit-grouping.ts` (summary adapters, fixture grouping, the desk window and
 threshold-aware review decisions), `review-queue.ts` (queue selection and ordering),
 `dashboard-cameras.ts` (configured-camera scope and visit counts), `pipeline-health.ts` (which
 dropped events are faults and which are expected filtering) and `health-timeline.ts` (merging kept

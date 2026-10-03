@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { fetchVisits } from '../api/visits';
     import { onMount } from 'svelte';
     import { _ } from 'svelte-i18n';
     import { incidentWorkspaceStore } from '../stores/incident_workspace.svelte';
@@ -23,7 +24,7 @@
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings.svelte';
-    import { groupDetectionsIntoVisits, withinDeskWindow } from '../utils/visit-grouping';
+    import { fromServerVisit } from '../utils/visit-grouping';
     import {
         buildHealthTimeline,
         hiddenEventCount,
@@ -146,11 +147,8 @@
     // The health counters are measured from startup, so the visits shown beside them
     // use the same window rather than a rolling day (layout-patterns 1.1).
     const instanceWindow = $derived(instanceWindowMs(health?.startup_started_at as string | undefined));
-    const reviewThreshold = $derived(settingsStore.settings?.classification_threshold ?? null);
-    const windowedDetections = $derived(
-        instanceWindow === null ? [] : withinDeskWindow(detectionsStore.detections, Date.now(), instanceWindow)
-    );
-    const keptVisits = $derived(groupDetectionsIntoVisits(windowedDetections, { reviewThreshold }));
+    let serverVisits = $state<ReturnType<typeof fromServerVisit>[]>([]);
+    const keptVisits = $derived(serverVisits);
     const timelineRows = $derived(
         buildHealthTimeline({
             visits: keptVisits,
@@ -180,6 +178,12 @@
         refreshError = '';
         try {
             await incidentWorkspaceStore.refresh();
+            const started = workspacePayload?.health?.startup_started_at;
+            if (typeof started === 'string') {
+                const window = { startTime: started, endTime: new Date().toISOString() };
+                const result = await fetchVisits({ ...window, limit: 25, requestKey: 'health:visits' });
+                serverVisits = result.visits.map((visit) => fromServerVisit(visit, window));
+            } else serverVisits = [];
             lastRefreshedAt = Date.now();
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Failed to refresh incident workspace';

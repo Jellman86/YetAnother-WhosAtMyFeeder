@@ -26,6 +26,12 @@ function candidate(overrides: Partial<SnapshotCandidate>): SnapshotCandidate {
 }
 
 describe('groupCandidatesIntoMoments (#256)', () => {
+    it('removes dismissed photo choices while preserving the input evidence', () => {
+        const all = [candidate({ candidate_id: 'bad', photo_hidden: true }), candidate({ candidate_id: 'good', frame_index: 2 })];
+        expect(groupCandidatesIntoMoments(all).map((moment) => preferredCandidate(moment)?.candidate_id)).toEqual(['good']);
+        expect(all).toHaveLength(2);
+    });
+
     it('folds the framings of one frame into one moment, closest on the bird shown', () => {
         const moments = groupCandidatesIntoMoments([
             candidate({ candidate_id: 'whole-3', frame_index: 3, frame_offset_seconds: 4.2, source_mode: 'full_frame' }),

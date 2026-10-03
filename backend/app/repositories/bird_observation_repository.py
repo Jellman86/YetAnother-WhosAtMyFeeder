@@ -333,6 +333,50 @@ class BirdObservationRepository:
                 taxonomy.extend(await cursor.fetchall())
         return species_aliases_from_taxonomy(taxonomy)
 
+    async def multiple_species_condition(
+        self,
+        alias: str = "d",
+        *,
+        start: datetime | None = None,
+        end: datetime | None = None,
+        camera: str | None = None,
+        hidden_only: bool = False,
+        include_hidden: bool = False,
+    ) -> tuple[str, list[str]]:
+        """Use the same resolved identities as the counted-bird display.
+
+        Only captures with at least two visible boxes need identity resolution.
+        Bounded batches avoid loading historical evidence at once; no inference runs.
+        """
+        matched: list[str] = []
+        conditions = ["b.is_hidden = 0"]
+        params: list = []
+        if hidden_only:
+            conditions.append("d.is_hidden = 1")
+        elif not include_hidden:
+            conditions.append("COALESCE(d.is_hidden, 0) = 0")
+        for bound, operator in ((start, ">="), (end, "<=")):
+            if bound is not None:
+                conditions.append(f"d.detection_time {operator} ?")
+                params.append(bound.isoformat(sep=" "))
+        if camera:
+            conditions.append("d.camera_name = ?")
+            params.append(camera)
+        async with self.db.execute(
+            f"""SELECT b.frigate_event FROM bird_observations b
+                JOIN detections d ON d.frigate_event = b.frigate_event
+                WHERE {" AND ".join(conditions)} GROUP BY b.frigate_event HAVING COUNT(*) >= 2""",
+            params,
+        ) as cursor:
+            while rows := await cursor.fetchmany(SUMMARY_EVENT_PAGE_SIZE):
+                summaries = await self.summaries_for_events([row[0] for row in rows])
+                matched.extend(
+                    event
+                    for event, summary in summaries.items()
+                    if len({entry["species"].strip().casefold() for entry in summary["species"]}) >= 2
+                )
+        return f"{alias}.frigate_event IN (SELECT value FROM json_each(?))", [json.dumps(matched)]
+
     async def named_for_event(self, event: str, language: str = "en") -> list[dict]:
         birds = (await self.resolved_for_events([event])).get(event, [])
         names: dict[str, tuple | None] = {}

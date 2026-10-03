@@ -13,6 +13,8 @@ from sqlalchemy import (
     UniqueConstraint,
     Date,
     PrimaryKeyConstraint,
+    CheckConstraint,
+    DateTime,
 )
 from sqlalchemy.sql import func
 
@@ -89,6 +91,23 @@ Index("idx_detections_frigate_event", detections.c.frigate_event)
 Index("idx_detections_video_status", detections.c.video_classification_status)
 Index("idx_detections_notified_at", detections.c.notified_at)
 Index("idx_detections_frigate_status", detections.c.frigate_status)
+
+detection_event_bounds = Table(
+    "detection_event_bounds",
+    metadata,
+    Column("frigate_event", String, ForeignKey("detections.frigate_event", ondelete="CASCADE"), primary_key=True),
+    Column("start_time", DateTime, nullable=False),
+    Column("end_time", DateTime, nullable=False),
+    CheckConstraint("end_time >= start_time", name="ck_detection_event_bounds_order"),
+)
+
+snapshot_candidate_dismissals = Table(
+    "snapshot_candidate_dismissals",
+    metadata,
+    Column("frigate_event", String, ForeignKey("detections.frigate_event", ondelete="CASCADE"), primary_key=True),
+    Column("candidate_id", String, primary_key=True),
+    Column("content_identity", String, nullable=False),
+)
 
 bird_observations = Table(
     "bird_observations",

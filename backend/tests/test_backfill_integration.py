@@ -353,3 +353,46 @@ async def test_direct_save_rejects_invalid_probability_before_any_write(replay, 
     )
     assert (changed, inserted) == (False, False)
     assert await stored(replay) is None
+
+
+@pytest.mark.asyncio
+async def test_backfill_into_fresh_database_groups_out_of_order_overlapping_events(replay):
+    from datetime import timedelta
+    from app.repositories.visit_repository import VisitRepository
+
+    start = replay.event["start_time"]
+    events = [
+        {**replay.event, "id": "late-capture", "start_time": start + 200, "end_time": start + 220},
+        {**replay.event, "id": "first-capture", "start_time": start, "end_time": start + 180},
+        {**replay.event, "id": "middle-capture", "start_time": start + 20, "end_time": start + 21},
+    ]
+    began = datetime.fromtimestamp(start, timezone.utc).replace(tzinfo=None)
+    async with replay.database() as db:
+        repo = VisitRepository(db)
+        assert await repo.list_visits(multiple_species_only=True) == ([], 0)
+    for event in events:
+        assert await replay.service.process_historical_event(event) == ("new", None)
+    async with replay.database() as db:
+        repo = VisitRepository(db)
+        visits, total = await repo.list_visits(start=began, end=began + timedelta(minutes=10))
+        assert total == 1
+        assert visits[0]["visit_id"] == "first-capture"
+        assert visits[0]["capture_count"] == 3
+        captures, count = await repo.visit_captures("first-capture", limit=50)
+        assert count == 3
+        assert [capture.frigate_event for capture in captures] == ["first-capture", "middle-capture", "late-capture"]
+        assert (await db.execute_fetchall("SELECT COUNT(*) FROM detection_event_bounds"))[0][0] == 3
+        assert (await repo.get_daily_visit_counts(start_date=began, end_date=began + timedelta(minutes=10))) == {
+            began.date().isoformat(): 1
+        }
+    for event in events:
+        assert await replay.service.process_historical_event({**event, "end_time": None}) == (
+            "skipped",
+            "already_exists",
+        )
+    async with replay.database() as db:
+        repo = VisitRepository(db)
+        assert await repo.get_count() == 3
+        assert (await repo.list_visits())[1] == 1
+        assert (await db.execute_fetchall("SELECT COUNT(*) FROM detection_event_bounds"))[0][0] == 3
+        assert (await db.execute_fetchall("PRAGMA integrity_check"))[0][0] == "ok"

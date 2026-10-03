@@ -377,6 +377,7 @@ class BackfillService:
                 frigate_event=frigate_event,
                 camera=camera_name,
                 start_time=start_time,
+                **({"end_time": event["end_time"]} if event.get("end_time") is not None else {}),
                 classification=top,
                 frigate_score=frigate_score,
                 sub_label=sub_label,

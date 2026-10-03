@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 from contextlib import asynccontextmanager
 import sys
 from types import SimpleNamespace
@@ -17,6 +18,200 @@ from app.repositories.detection_repository import Detection, DetectionRepository
 from app.utils.api_datetime import utc_naive_now
 from app.services import high_quality_snapshot_service as hq_module
 from app.services import media_cache as media_cache_module
+
+
+async def _removed_photo_choices(monkeypatch, event_id, *, changed=False, remaining=True, legacy=False):
+    service = hq_module.HighQualitySnapshotService()
+    removed_bytes = _jpeg_bytes("red", size=(200, 200))
+    choices = [
+        {
+            "candidate_id": "removed-photo",
+            "source_mode": "model_crop",
+            "clip_variant": "event",
+            "frame_index": 1,
+            "crop_box": [0, 0, 200, 200],
+            "detector_box": [40, 40, 120, 120],
+            "crop_confidence": 0.9,
+            "classifier_label": "House Finch",
+            "classifier_score": 0.99,
+            "ranking_score": 0.99,
+            "frame_width": 640,
+            "frame_height": 480,
+            "image_width": 200,
+            "image_height": 200,
+            "image_bytes": removed_bytes,
+            "image_ref": event_id + "__removed_choice__image",
+        },
+        {
+            "candidate_id": "chosen-photo",
+            "source_mode": "model_crop",
+            "clip_variant": "event",
+            "frame_index": 1,
+            "crop_box": [300, 0, 500, 200],
+            "detector_box": [340, 40, 420, 120],
+            "crop_confidence": 0.9,
+            "classifier_label": "House Finch",
+            "classifier_score": 0.9,
+            "ranking_score": 0.9,
+            "frame_width": 640,
+            "frame_height": 480,
+            "image_width": 200,
+            "image_height": 200,
+            "image_bytes": _jpeg_bytes("green", size=(200, 200)),
+            "selected": True,
+        },
+        {
+            "candidate_id": "original-scene",
+            "source_mode": "full_frame",
+            "clip_variant": "event",
+            "frame_index": 1,
+            "crop_box": None,
+            "classifier_label": "House Finch",
+            "classifier_score": 0.8,
+            "ranking_score": 0.4,
+            "frame_width": 640,
+            "frame_height": 480,
+            "image_width": 640,
+            "image_height": 480,
+            "image_bytes": _jpeg_bytes("white", size=(640, 480)),
+        },
+    ]
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        await repo.create(
+            Detection(
+                detection_time=utc_naive_now(),
+                detection_index=0,
+                score=0.9,
+                display_name="House Finch",
+                category_name="House Finch",
+                frigate_event=event_id,
+                camera_name="test",
+            )
+        )
+        await repo.replace_snapshot_candidates(
+            event_id,
+            [
+                {**choice, "content_sha256": None if legacy else hashlib.sha256(choice["image_bytes"]).hexdigest()}
+                for choice in choices
+            ],
+        )
+        assert await repo.dismiss_snapshot_candidate(event_id, "removed-photo", True)
+    monkeypatch.setattr(service, "_score_snapshot_candidate", AsyncMock(side_effect=lambda candidate: dict(candidate)))
+    monkeypatch.setattr(service, "_load_expected_species_labels", AsyncMock(return_value={"House Finch"}))
+    monkeypatch.setattr(service, "_detect_count_candidates", AsyncMock(return_value=[]))
+    monkeypatch.setattr(service, "_recheck_weak_count_candidates", AsyncMock(return_value=[]))
+    if changed:
+        choices[0]["image_bytes"] = _jpeg_bytes("purple", size=(200, 200))
+    return service, choices if remaining else choices[:1], removed_bytes
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("changed,restored", [(False, False), (True, False), (False, True)])
+async def test_regeneration_respects_removed_photo_content_without_losing_count_evidence(
+    monkeypatch, changed, restored
+):
+    event = "dismissed-rescan-" + str(changed) + str(restored)
+    service, choices, _ = await _removed_photo_choices(monkeypatch, event, changed=changed)
+    if restored:
+        async with get_db() as db:
+            assert await DetectionRepository(db).dismiss_snapshot_candidate(event, "removed-photo", False)
+    bundle = await service._score_and_select_snapshot_candidates(event, choices)
+    assert bundle["selected_candidate"]["candidate_id"] == ("removed-photo" if changed or restored else "chosen-photo")
+    assert {row["candidate_id"] for row in bundle["candidates"]} == {
+        "removed-photo",
+        "chosen-photo",
+        "original-scene",
+    }
+    assert {bird.candidate_id for bird in bundle["bird_selection"].birds} == {"removed-photo", "chosen-photo"}
+    assert bundle["bird_selection"].full_frame_candidate_id == "original-scene"
+
+
+@pytest.mark.asyncio
+async def test_only_removed_photo_preserves_the_current_manual_photograph(tmp_path, monkeypatch):
+    event = "dismissed-only-rescan"
+    cache = _make_cache_service(tmp_path, monkeypatch)
+    service, choices, _ = await _removed_photo_choices(monkeypatch, event, remaining=False)
+    chosen_bytes = _jpeg_bytes("green", size=(200, 200))
+    await cache.cache_snapshot(event, chosen_bytes, source="high_quality_bird_crop")
+    assert await cache.replace_snapshot(
+        event, chosen_bytes, source="high_quality_bird_crop", manual_selection=True, manual_candidate_id="chosen-photo"
+    )
+    monkeypatch.setattr(service, "enabled", lambda: True)
+    monkeypatch.setattr(service, "_load_event_clip", AsyncMock(return_value=(b"clip", None)))
+    monkeypatch.setattr(service, "_load_event_data_for_crop", AsyncMock(return_value={}))
+    monkeypatch.setattr(service, "_persist_event_hints", AsyncMock())
+    monkeypatch.setattr(service, "_apply_classification_refinement", AsyncMock(return_value=False))
+
+    async def generate(*args, **kwargs):
+        return await service._score_and_select_snapshot_candidates(event, choices)
+
+    monkeypatch.setattr(service, "generate_snapshot_candidates_from_clip_bytes", generate)
+    outcome = await service._process_event_once(event, manual_override=True)
+    assert outcome == "bird_presence_unconfirmed"
+    assert await cache.get_snapshot(event) == chosen_bytes
+    assert (await cache.get_snapshot_metadata(event))["manual_selection"] is True
+    async with get_db() as db:
+        listed = await DetectionRepository(db).list_snapshot_candidates(event)
+        assert next(row for row in listed if row["candidate_id"] == "removed-photo")["photo_hidden"]
+        birds = await hq_module.BirdObservationRepository(db).list_for_event(event)
+        assert len(birds) == 1 and birds[0]["candidate_id"] == "removed-photo"
+
+
+@pytest.mark.asyncio
+async def test_raw_photo_fallback_cannot_reapply_removed_content(monkeypatch):
+    event = "dismissed-fallback"
+    service, choices, removed_bytes = await _removed_photo_choices(monkeypatch, event)
+    monkeypatch.setattr(service, "_automatic_crop_enabled", lambda: False)
+    monkeypatch.setattr(service, "_maybe_crop_snapshot_bytes", lambda *args: (removed_bytes, True))
+    monkeypatch.setattr(
+        service,
+        "_score_snapshot_candidate",
+        AsyncMock(
+            return_value={
+                **choices[0],
+                "crop_strategy": "detector_supported",
+            }
+        ),
+    )
+    image, applied = await service._identity_safe_fallback_crop(event, b"raw-frame", None)
+    assert image is None and applied is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("changed", [False, True])
+async def test_legacy_removed_photo_uses_retained_pixels_to_guard_fallback(tmp_path, monkeypatch, changed):
+    event = "dismissed-legacy-fallback-" + str(changed)
+    cache = _make_cache_service(tmp_path, monkeypatch)
+    service, choices, removed_bytes = await _removed_photo_choices(monkeypatch, event, legacy=True)
+    await cache.cache_snapshot(choices[0]["image_ref"], removed_bytes, source="snapshot_candidate")
+    crop = _jpeg_bytes("purple", size=(200, 200)) if changed else removed_bytes
+    monkeypatch.setattr(service, "_automatic_crop_enabled", lambda: False)
+    monkeypatch.setattr(service, "_maybe_crop_snapshot_bytes", lambda *args: (crop, True))
+    fallback = {**choices[0], "crop_strategy": "detector_supported"}
+    fallback.pop("candidate_id")
+    monkeypatch.setattr(service, "_score_snapshot_candidate", AsyncMock(return_value=fallback))
+    image, applied = await service._identity_safe_fallback_crop(event, b"raw-frame", None)
+    assert applied is changed
+    assert image == (crop if changed else None)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("changed", [False, True])
+async def test_legacy_photo_removal_survives_identical_persistence_and_next_rescan(tmp_path, monkeypatch, changed):
+    event = "dismissed-legacy-persist-" + str(changed)
+    cache = _make_cache_service(tmp_path, monkeypatch)
+    service, choices, removed_bytes = await _removed_photo_choices(monkeypatch, event, legacy=True, changed=changed)
+    await cache.cache_snapshot(choices[0]["image_ref"], removed_bytes, source="snapshot_candidate")
+    bundle = await service._score_and_select_snapshot_candidates(event, choices)
+    await service._persist_snapshot_candidates(event, bundle["candidates"])
+    async with get_db() as db:
+        stored = await DetectionRepository(db).list_snapshot_candidates(event)
+        removed = next(row for row in stored if row["candidate_id"] == "removed-photo")
+        assert removed["photo_hidden"] is not changed
+        assert removed["content_sha256"] == hashlib.sha256(choices[0]["image_bytes"]).hexdigest()
+    again = await service._score_and_select_snapshot_candidates(event, choices)
+    assert again["selected_candidate"]["candidate_id"] == ("removed-photo" if changed else "chosen-photo")
 
 
 def test_job_snapshot_keeps_timestamp_stable_between_polls():

@@ -80,7 +80,7 @@ describe('dashboard field desk layout', () => {
     });
 
     it('folds repeat frames into visits instead of printing one card per frame', () => {
-        expect(dashboardSource).toContain('groupDetectionsIntoVisits(deskDetections, { reviewThreshold })');
+        expect(dashboardSource).toContain("fetchVisits({ ...window, limit: VISIT_ROW_LIMIT, signal, requestKey: 'dashboard:visits' })");
         expect(dashboardSource).toContain('buildReviewQueue(deskDetections, { reviewThreshold, newSpecies: newSpeciesEntries })');
         expect(dashboardSource).not.toContain('LatestDetectionHero');
         expect(dashboardSource).not.toContain('data-dashboard-discovery-feed');

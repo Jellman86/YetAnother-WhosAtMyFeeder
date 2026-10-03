@@ -81,7 +81,7 @@ describe('review queue walk-through', () => {
         expect(modalSource).toContain("applySnapshotCandidate(eventId, { mode: 'candidate', candidate_id: candidate.candidate_id })");
         // The photograph is whatever is chosen, crop or whole scene; the strip reflects it after a change.
         expect(modalSource).toContain('candidate.candidate_id === response.current_candidate_id');
-        expect(modalSource).toContain('await loadCandidates(eventId, () => session.current?.frigate_event !== eventId);');
+        expect(modalSource).toContain('await loadCandidates(eventId, () => operation !== photoOperation || session.current?.frigate_event !== eventId);');
         // Regeneration stays on the full record, where the scan's status is shown.
         expect(modalSource).not.toContain('onregenerate=');
     });

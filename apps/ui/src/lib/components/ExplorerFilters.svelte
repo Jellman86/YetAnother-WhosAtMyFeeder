@@ -17,6 +17,7 @@
         cameraFilter: string;
         favoritesOnly: boolean;
         audioConfirmedOnly: boolean;
+        multipleSpeciesOnly?: boolean;
         /** Owner-only: hidden detections are soft-deleted, not gone. */
         showHidden: boolean;
         hiddenCount: number;
@@ -31,6 +32,7 @@
             cameraFilter?: string;
             favoritesOnly?: boolean;
             audioConfirmedOnly?: boolean;
+            multipleSpeciesOnly?: boolean;
             showHidden?: boolean;
             customStartDate?: string;
             customEndDate?: string;
@@ -50,6 +52,7 @@
         cameraFilter,
         favoritesOnly,
         audioConfirmedOnly,
+        multipleSpeciesOnly = false,
         showHidden,
         hiddenCount,
         canSeeHidden,
@@ -128,6 +131,7 @@
                 clear: () => onchange({ audioConfirmedOnly: false })
             });
         }
+        if (multipleSpeciesOnly) applied.push({ key: 'multiple-species', label: $_('visits.multiple_species', { default: 'Multiple bird species' }), clear: () => onchange({ multipleSpeciesOnly: false }) });
         if (showHidden) {
             applied.push({
                 key: 'hidden',
@@ -241,6 +245,15 @@
                     {$_('events.filters.only', { default: 'Only' })}
                 </p>
                 <div class="mt-2 space-y-1">
+                    {#if canSeeHidden}
+                        <button class="btn btn-ghost min-h-11 w-full justify-between text-xs" aria-pressed={multipleSpeciesOnly}
+                            onclick={() => onchange({ multipleSpeciesOnly: !multipleSpeciesOnly })}>
+                            <span>{$_('visits.multiple_species', { default: 'Multiple bird species' })}</span>
+                            <span aria-hidden="true">{multipleSpeciesOnly ? '✓' : '+'}</span>
+                        </button>
+                        <p class="px-2 text-xs text-slate-500 dark:text-slate-400">{$_('visits.multiple_species_hint', { default: 'Two or more named species in one analyzed capture.' })}</p>
+                    {/if}
+
                     <button
                         class="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-2 text-xs transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:bg-slate-800/60 {favoritesOnly
                             ? 'font-semibold text-brand-800 dark:text-brand-200'
