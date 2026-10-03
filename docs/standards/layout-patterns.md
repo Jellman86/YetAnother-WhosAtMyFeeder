@@ -251,6 +251,8 @@ off with update checks, and absent rather than zero when unknown.
 | --- | --- | --- |
 | `FieldLog` | The Dashboard's chronological visit log and its identification actions | Use for operational history or search results; Health and Explorer own those |
 | `HealthActivityTimeline` | The Health page's chronological account of recorded visits, expected filtering and fault drops, with each outcome stated explicitly | Turn it into an identification queue; the Dashboard owns outstanding work |
+| `FieldLogVisitRow` | One visit on the field log's thread, opening from its time onto its captures in the same columns | Add a second disclosure control, or colour capture nodes without also changing their shape |
+| `VisitCaptures` | A visit's chronological captures: `inline` inside a Health row, `footer` closing an Explorer card or row | Render for a single capture, repeat the visit's species, camera or day on each line, or sum birds across captures |
 | `FilteredFramePreview` | A frame the classifier rejected, which has no detection record | Use where a `Detection` exists; that is `DetectionPreview` |
 | `DetectionPreview` | Any thumbnail under ~64px | Use as a click target for navigation; click opens the record |
 | `FrameStrip` | The moments of one visit inside its record, with the comparison pop-out | Show framing variants of one moment side by side; the pop-out carries the framing |
@@ -264,8 +266,28 @@ off with update checks, and absent rather than zero when unknown.
 
 Server grouping lives in `backend/app/repositories/visit_repository.py`, shared with statistics.
 `VisitCaptures` expands any visit into bounded chronological pages of original records; no inference
-runs to group history. `FrameStrip` removes unwanted photo choices reversibly with Undo while
-retaining counting evidence. Recent species sightings open exact detection links.
+runs to group history. A visit and its captures are one object. Explorer card footers sit inside the card's single
+rounded frame. The record action covers the record section; capture actions remain separate. In the field log
+(`FieldLogVisitRow`) a visit of several captures opens from its time, which carries a chevron and
+is a real button with `aria-expanded`. The row states "13 captures" in words beside the name, apart
+from the busiest capture's bird count, so it costs no extra line. Its captures join the same thread
+in the same columns, through CSS subgrid: the time to the second, the node, the thumbnail (which
+opens that exact capture), any note, the score under the visit's score, and the clip under Open.
+A visit's node is solid; a capture's is hollow on a tinted stretch of the line, and the capture
+used as the visit photo is filled and says "Visit photo", so the two kinds differ by shape,
+position and words as well as colour. A single-capture visit has no list and keeps its Open
+action. Each line carries only what differs between captures and never repeats the species,
+camera or day. The camera chip appears on log rows only when the log holds more than one camera.
+`VisitCaptureList` reads the first page when a visit first opens and reuses it until the visit,
+window or access changes; Health rows and Explorer cards use the same loader through
+`VisitCaptures`. Explorer grids align cards to the top while one is open, so its neighbours are
+not stretched. `FrameStrip` removes unwanted photo choices reversibly with Undo while retaining
+counting evidence. Recent species sightings open exact detection links.
+
+Loading never claims a state. Until the day has been read, the field log shows placeholder rows
+in the anatomy and height of real rows, the day bar shows placeholders instead of zeros, the review
+queue does not say "Nothing waiting", and the camera list does not say none are reporting. A first
+read that fails says so with a retry. Every placeholder stands still under reduced motion.
 
 Pure logic lives in `apps/ui/src/lib/utils/`: `visit-grouping.ts` (summary adapters, fixture grouping, the desk window and
 threshold-aware review decisions), `review-queue.ts` (queue selection and ordering),

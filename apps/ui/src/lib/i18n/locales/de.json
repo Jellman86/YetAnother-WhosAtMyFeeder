@@ -323,7 +323,10 @@
       "birds_unknown": "{count} unbekannt",
       "birds_none_counted": "Keine Vögel gezählt, {count} ausgeschlossen",
       "birds_open": "{summary}, diese Aufnahme öffnen",
-      "captures": "{count} Aufnahmen in diesem Besuch"
+      "loading": "Besuche werden geladen…",
+      "unavailable": "Die Besuche konnten nicht geladen werden. Das Dashboard versucht es jede Minute erneut.",
+      "retry": "Erneut versuchen",
+      "open_species": "{species} öffnen"
     },
     "notable_nearby": {
       "title": "Bemerkenswertes in der Nähe",
@@ -347,7 +350,9 @@
       "calls_heard": "Rufe gehört",
       "cross_confirmed": "gegenbestätigt",
       "reconnecting": "Verbindung wird wiederhergestellt…",
-      "window": "Letzte 24 Stunden"
+      "window": "Letzte 24 Stunden",
+      "loading": "wird noch geladen",
+      "unavailable": "nicht verfügbar"
     },
     "desk": {
       "cameras_empty": "Noch keine Kameras gemeldet. Fügen Sie sie unter Einstellungen → Verbindung hinzu.",
@@ -359,14 +364,18 @@
       "heard_title": "Gehört",
       "most_heard": "Am häufigsten gehört",
       "latest_call": "Letzter Ruf: {species} um {time}",
-      "heard_empty": "Keine Rufe in den letzten 24 Stunden gehört."
+      "heard_empty": "Keine Rufe in den letzten 24 Stunden gehört.",
+      "cameras_loading": "Besuche pro Kamera werden geladen…",
+      "camera_visits_unavailable": "Die Besuchszahlen konnten nicht geladen werden."
     },
     "review_queue": {
       "title": "Erfordert Ihre Entscheidung",
       "empty": "Jeder Besuch heute hat eine Art. Es wartet nichts auf Sie.",
       "remaining": "{count} weitere warten",
       "work_through": "Warteschlange abarbeiten",
-      "new_species_tag": "Neue Art · {count} Sichtung(en)"
+      "new_species_tag": "Neue Art · {count} Sichtung(en)",
+      "loading": "Prüfe, ob Besuche auf dich warten…",
+      "unavailable": "Die Warteschlange konnte nicht geprüft werden, daher ist unbekannt, ob etwas wartet."
     },
     "review_session": {
       "position": "{position} von {total}",
@@ -3172,6 +3181,11 @@
     "remove_photo": "Fotoauswahl entfernen",
     "choose_first": "Wähle ein anderes Foto, bevor du dieses entfernst.",
     "photo_removed": "Foto aus der Auswahl entfernt.",
-    "remove_failed": "Diese Fotoauswahl konnte nicht geändert werden. Versuche es erneut."
+    "remove_failed": "Diese Fotoauswahl konnte nicht geändert werden. Versuche es erneut.",
+    "open_capture_at": "Aufnahme von {species} um {time} öffnen",
+    "shown_photo": "Besuchsfoto",
+    "capture_birds": "{count} Vögel",
+    "loaded_of_total": "{shown} von {total} Aufnahmen angezeigt",
+    "captures_empty": "In dieser Ansicht sind keine Aufnahmen dieses Besuchs sichtbar."
   }
 }

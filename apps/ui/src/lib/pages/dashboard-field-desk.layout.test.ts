@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import dashboardSource from './Dashboard.svelte?raw';
 import fieldLogSource from '../components/FieldLog.svelte?raw';
+import visitRowSource from '../components/FieldLogVisitRow.svelte?raw';
 import notableNearbySource from '../components/NotableNearby.svelte?raw';
 import histogramSource from '../components/DailyHistogram.svelte?raw';
 import previewSource from '../components/DetectionPreview.svelte?raw';
@@ -76,7 +77,7 @@ describe('dashboard field desk layout', () => {
         expect(dashboardSource).toContain('{#if canReview}');
         expect(dashboardSource).toContain('{#if reviewSessionOpen && canReview}');
         expect(dashboardSource).toContain('canIdentify={canReview}');
-        expect(fieldLogSource).toContain('{#if visit.needsReview && canIdentify}');
+        expect(visitRowSource).toContain('{#if visit.needsReview && canIdentify}');
     });
 
     it('folds repeat frames into visits instead of printing one card per frame', () => {
@@ -96,19 +97,20 @@ describe('dashboard field desk layout', () => {
 
     it('says in words when a visit was confirmed by a matching call', () => {
         // The header counts cross-confirmed visits; a row confirmed by a heard call says so beside
-        // its name, on a wide screen and on a phone, with the same words the record uses.
-        expect(fieldLogSource).toContain('{#if visit.audioConfirmed}');
-        expect(fieldLogSource).toContain('data-field-log-audio');
-        expect(fieldLogSource.split("$_('detection.fact_heard_yes', { default: 'matching call' })").length).toBe(3);
+        // its name at every width, and each capture that was heard says so in the visit's list, with
+        // the same words the record uses.
+        expect(visitRowSource).toContain('{#if visit.audioConfirmed}');
+        expect(visitRowSource).toContain('data-field-log-audio');
+        expect(visitRowSource.split("$_('detection.fact_heard_yes', { default: 'matching call' })").length).toBe(3);
         expect(visitGroupingSource).toContain('audioConfirmed: frames.some(');
     });
 
     it('keeps every visit row reachable and shows why a row is flagged', () => {
         expect(fieldLogSource).toContain('data-field-log-row');
-        expect(fieldLogSource).toContain('data-needs-review');
+        expect(visitRowSource).toContain('data-needs-review');
         // Colour alone must not carry the flag (CLAUDE.md §5).
-        expect(fieldLogSource).toContain('dashboard.field_log.needs_name');
-        expect(fieldLogSource).toContain('dashboard.field_log.identify');
+        expect(visitRowSource).toContain('dashboard.field_log.needs_name');
+        expect(visitRowSource).toContain('dashboard.field_log.identify');
         expect(fieldLogSource).toContain('min-h-11');
     });
 
@@ -151,7 +153,7 @@ describe('dashboard field desk layout', () => {
         // show it. No other media endpoint may creep in beside it.
         expect(previewSource).not.toMatch(/['"`]\/api\//);
         expect(previewSource).toContain('onopen?.(frame)');
-        expect(fieldLogSource).toContain('onopen={(frame) => onselect?.(frame)}');
+        expect(visitRowSource).toContain('onopen={(frame) => onselect?.(frame)}');
         expect(previewSource).toContain('min-h-11 min-w-11');
     });
 

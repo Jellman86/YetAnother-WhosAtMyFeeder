@@ -116,7 +116,7 @@
                         data-row-kind="recorded"
                     >
                         <span class="text-xs tabular-nums text-slate-500 dark:text-slate-400">{span(row)}</span>
-                        <span class="relative hidden h-full justify-center sm:flex" aria-hidden="true">
+                        <span class="relative hidden h-full justify-center sm:flex" class:sm:row-span-2={(visit.server?.capture_count ?? 0) > 1} aria-hidden="true">
                             <span class="absolute inset-y-[-0.8rem] w-px bg-slate-200 dark:bg-slate-700"></span>
                             <span class="relative mt-[0.45rem] h-2 w-2 rounded-full bg-brand-500 ring-2 ring-white dark:ring-slate-900"></span>
                         </span>
@@ -159,7 +159,7 @@
                         </span>
                         <button
                             type="button"
-                            class="btn btn-ghost absolute right-2 top-1/2 h-11 min-h-11 w-11 -translate-y-1/2 justify-self-end px-0 py-1.5 text-xs sm:static sm:h-auto sm:w-auto sm:translate-y-0 sm:px-3"
+                            class="btn btn-ghost absolute right-2 top-2.5 h-11 min-h-11 w-11 justify-self-end px-0 py-1.5 text-xs sm:static sm:h-auto sm:w-auto sm:px-3"
                             aria-label="{$_('jobs.errors_activity_view_record', { default: 'View record' })}: {naming.primary}"
                             onclick={() => onselect?.(visit.best)}
                         >
@@ -168,8 +168,10 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" />
                             </svg>
                         </button>
-                        {#if visit.server}
-                            <div class="col-span-full min-w-0"><VisitCaptures visit={visit.server} window={visit.window} {onselect} /></div>
+                        {#if visit.server && visit.server.capture_count > 1}
+                            <div class="col-span-2 col-start-2 -mt-1 min-w-0 sm:col-span-3 sm:col-start-4">
+                                <VisitCaptures visit={visit.server} window={visit.window} layout="inline" {onselect} />
+                            </div>
                         {/if}
                     </li>
                 {:else}

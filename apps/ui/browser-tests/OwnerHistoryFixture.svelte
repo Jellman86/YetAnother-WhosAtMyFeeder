@@ -11,7 +11,9 @@
     authStore.authRequired = true;
     authStore.isAuthenticated = true;
     settingsStore.settings = { enrichment_summary_provider: 'disabled' } as unknown as NonNullable<typeof settingsStore.settings>;
-    const surface = new URLSearchParams(location.search).get('surface');
+    const params = new URLSearchParams(location.search);
+    const surface = params.get('surface');
+    if (params.get('theme') === 'dark') document.documentElement.classList.add('dark');
 </script>
 
 {#if surface === 'species'}

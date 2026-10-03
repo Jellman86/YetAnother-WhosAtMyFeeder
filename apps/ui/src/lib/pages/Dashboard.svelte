@@ -320,8 +320,21 @@
     });
 
     async function loadSummary(force = false) {
+        // A retry after a failed first read is loading again, not still failed.
+        if (summary === null) summaryLoading = true;
         await summaryLoader.load();
     }
+
+    // Until the day has been read, its figures are unknown rather than zero.
+    let summaryPending = $derived(summary === null && summaryLoading);
+    let summaryUnavailable = $derived(summary === null && !summaryLoading);
+    let queueStatus = $derived<'loading' | 'ready' | 'unavailable'>(
+        detectionsStore.historyStatus === 'ready'
+            ? 'ready'
+            : detectionsStore.historyStatus === 'failed' && !detectionsStore.isLoading
+              ? 'unavailable'
+              : 'loading'
+    );
 
     $effect(() => {
         const topSpecies = summary?.top_species?.[0]?.species;
@@ -569,13 +582,14 @@
 
 <div class="space-y-6">
     <DayBar
-        visitCount={last24hCount}
+        visitCount={summary ? last24hCount : null}
         countedBirds={summary?.counted_birds ?? 0}
         countedCaptures={summary?.counted_captures ?? 0}
-        speciesCount={last24hSpecies}
-        unresolvedCount={reviewQueue.total}
+        speciesCount={summary ? last24hSpecies : null}
+        unresolvedCount={queueStatus === 'ready' || reviewQueue.total > 0 ? reviewQueue.total : null}
         audioCalls={audioSummary?.total ?? null}
         {audioConfirmations}
+        loading={summaryPending || queueStatus === 'loading'}
         connected={detectionsStore.connected}
     />
 
@@ -590,7 +604,9 @@
             <FieldLog
                 visits={visits}
                 hiddenCount={hiddenVisitCount}
-                loading={detectionsStore.isLoading}
+                loading={summaryPending}
+                unavailable={summaryUnavailable}
+                onretry={() => void loadSummary(true)}
                 canIdentify={canReview}
                 onselect={(detection) => selectedEvent = detection}
                 onidentify={(detection) => selectedEvent = detection}
@@ -610,6 +626,8 @@
             {#if canReview}
                 <ReviewQueueCard
                     queue={reviewQueue}
+                    status={queueStatus}
+                    onretry={() => void detectionsStore.loadInitial()}
                     onreview={(detection) => selectedEvent = detection}
                     onreviewall={() => (reviewSessionOpen = true)}
                 />
@@ -620,6 +638,8 @@
                 detections={deskDetections}
                 visits={allVisits}
                 cameraVisits={summary?.camera_visits ?? null}
+                loading={summaryPending}
+                unavailable={summaryUnavailable}
             />
 
             {#if birdnetEnabled}
@@ -629,7 +649,7 @@
             {#if summary}
                 <DailyHistogram data={summary.hourly_visits ?? []} currentHour={summaryHour} />
             {:else if summaryLoading}
-                <div class="h-40 animate-pulse rounded-lg bg-slate-100/60 dark:bg-slate-800/40"></div>
+                <div class="h-40 animate-pulse rounded-lg bg-slate-100/60 motion-reduce:animate-none dark:bg-slate-800/40"></div>
             {/if}
 
             <div data-dashboard-top-visitors>
@@ -639,7 +659,7 @@
                         onSpeciesClick={handleSpeciesSummaryClick}
                     />
                 {:else if summaryLoading}
-                    <div class="h-40 animate-pulse rounded-lg bg-slate-100/60 dark:bg-slate-800/40"></div>
+                    <div class="h-40 animate-pulse rounded-lg bg-slate-100/60 motion-reduce:animate-none dark:bg-slate-800/40"></div>
                 {/if}
             </div>
         </aside>

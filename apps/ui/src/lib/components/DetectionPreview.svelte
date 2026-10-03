@@ -23,6 +23,10 @@
          * The Explorer's selection mode owns every activation through the
          * row overlay, which is labelled for selecting, not previewing. */
         interactive?: boolean;
+        /** What activating the thumbnail does, when it is more specific than previewing the species. */
+        label?: string | null;
+        /** Off where the surrounding row already states the capture count in words. */
+        showCount?: boolean;
     }
 
     let {
@@ -32,7 +36,9 @@
         primaryName,
         secondaryName = null,
         onopen,
-        interactive = true
+        interactive = true,
+        label = null,
+        showCount = true
     }: Props = $props();
 
     /**
@@ -257,7 +263,7 @@
                     onclick={() => onopen?.(frame)}
                 >
                     <span class="sr-only">
-                        {$_('dashboard.field_log.preview_trigger', {
+                        {label ?? $_('dashboard.field_log.preview_trigger', {
                             values: { species: primaryName },
                             default: 'Preview {species}'
                         })}
@@ -336,12 +342,12 @@
         </div>
     {/each}
 
-    {#if frameCount > 1}
+    {#if showCount && frameCount > 1}
         <span class="ml-1.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400 sm:hidden">
             +{frameCount - 1}
         </span>
     {/if}
-    {#if frameCount > VISIBLE_FRAMES}
+    {#if showCount && frameCount > VISIBLE_FRAMES}
         <span class="ml-1.5 hidden text-[11px] font-semibold text-slate-500 sm:inline dark:text-slate-400">
             +{frameCount - VISIBLE_FRAMES}
         </span>

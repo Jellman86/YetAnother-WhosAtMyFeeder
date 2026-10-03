@@ -323,7 +323,10 @@
       "birds_unknown": "{count} unknown",
       "birds_none_counted": "No birds counted, {count} excluded",
       "birds_open": "{summary}, open that capture",
-      "captures": "{count} captures in this visit"
+      "loading": "Loading visits…",
+      "unavailable": "Visits could not be loaded. The dashboard tries again every minute.",
+      "retry": "Try again",
+      "open_species": "Open {species}"
     },
     "notable_nearby": {
       "title": "Notable nearby",
@@ -347,7 +350,9 @@
       "calls_heard": "calls heard",
       "cross_confirmed": "cross-confirmed",
       "reconnecting": "Reconnecting…",
-      "window": "Last 24 hours"
+      "window": "Last 24 hours",
+      "loading": "still loading",
+      "unavailable": "not available"
     },
     "desk": {
       "cameras_empty": "No cameras reporting yet. Add them in Settings → Connection.",
@@ -359,14 +364,18 @@
       "heard_title": "Heard",
       "most_heard": "Heard most",
       "latest_call": "Latest call: {species} at {time}",
-      "heard_empty": "No calls heard in the last 24 hours."
+      "heard_empty": "No calls heard in the last 24 hours.",
+      "cameras_loading": "Loading camera visits…",
+      "camera_visits_unavailable": "Visit counts could not be loaded."
     },
     "review_queue": {
       "title": "Needs your call",
       "empty": "Every visit today has a species. Nothing waiting on you.",
       "remaining": "{count} more waiting",
       "work_through": "Work through the queue",
-      "new_species_tag": "New species · {count} sighting(s)"
+      "new_species_tag": "New species · {count} sighting(s)",
+      "loading": "Checking for visits that need you…",
+      "unavailable": "The queue could not be checked, so it is not known whether anything is waiting."
     },
     "review_session": {
       "position": "{position} of {total}",
@@ -3172,6 +3181,11 @@
     "remove_photo": "Remove photo choice",
     "choose_first": "Choose another photograph before removing this one.",
     "photo_removed": "Photo removed from the choices.",
-    "remove_failed": "Could not change this photo choice. Try again."
+    "remove_failed": "Could not change this photo choice. Try again.",
+    "open_capture_at": "Open {species} capture at {time}",
+    "shown_photo": "Visit photo",
+    "capture_birds": "{count} birds",
+    "loaded_of_total": "{shown} of {total} captures shown",
+    "captures_empty": "No captures from this visit are visible in this view."
   }
 }

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import countedBirdsSource from './CountedBirds.svelte?raw';
 import detectionModalSource from './DetectionModal.svelte?raw';
 import reviewQueueSource from './ReviewQueueModal.svelte?raw';
-import fieldLogSource from './FieldLog.svelte?raw';
+import fieldLogSource from './FieldLogVisitRow.svelte?raw';
 import dashboardSource from '../pages/Dashboard.svelte?raw';
 
 /**

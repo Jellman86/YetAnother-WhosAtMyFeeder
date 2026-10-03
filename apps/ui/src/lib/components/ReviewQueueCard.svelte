@@ -9,11 +9,14 @@
 
     interface Props {
         queue: ReviewQueue;
+        /** Until the history is read, an empty queue is unknown, not "nothing waiting". */
+        status?: 'loading' | 'ready' | 'unavailable';
         onreview?: (detection: Detection) => void;
         onreviewall?: () => void;
+        onretry?: () => void;
     }
 
-    let { queue, onreview, onreviewall }: Props = $props();
+    let { queue, status = 'ready', onreview, onreviewall, onretry }: Props = $props();
 
     // The queue reaches back further than today, so a bare time would be ambiguous.
     function when(detection: Detection): string {
@@ -59,7 +62,30 @@
         {/if}
     </header>
 
-    {#if queue.total === 0}
+    {#if status === 'loading' && queue.total === 0}
+        <p role="status" class="sr-only">
+            {$_('dashboard.review_queue.loading', { default: 'Checking for visits that need you…' })}
+        </p>
+        <div class="mt-3 space-y-2" aria-hidden="true">
+            {#each ['w-28', 'w-20'] as width (width)}
+                <div class="flex items-center gap-2.5 px-1.5">
+                    <span class="h-8 w-8 shrink-0 rounded-lg bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-700/60" data-loading-placeholder></span>
+                    <span class="h-3 rounded bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-700/60 {width}" data-loading-placeholder></span>
+                </div>
+            {/each}
+        </div>
+    {:else if status === 'unavailable' && queue.total === 0}
+        <p class="mt-2 text-xs text-slate-600 dark:text-slate-300">
+            {$_('dashboard.review_queue.unavailable', {
+                default: 'The queue could not be checked, so it is not known whether anything is waiting.'
+            })}
+        </p>
+        {#if onretry}
+            <button type="button" class="btn btn-secondary mt-3 min-h-11 px-3 text-xs" onclick={() => onretry?.()}>
+                {$_('dashboard.field_log.retry', { default: 'Try again' })}
+            </button>
+        {/if}
+    {:else if queue.total === 0}
         <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
             {$_('dashboard.review_queue.empty', {
                 default: 'Every visit today has a species. Nothing waiting on you.'

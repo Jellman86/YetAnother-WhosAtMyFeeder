@@ -323,7 +323,10 @@
       "birds_unknown": "{count} desconhecidas",
       "birds_none_counted": "Nenhuma ave contada, {count} excluídas",
       "birds_open": "{summary}, abrir essa captura",
-      "captures": "{count} capturas nesta visita"
+      "loading": "A carregar visitas…",
+      "unavailable": "Não foi possível carregar as visitas. O painel tenta novamente a cada minuto.",
+      "retry": "Tentar novamente",
+      "open_species": "Abrir {species}"
     },
     "notable_nearby": {
       "title": "Registros notáveis próximos",
@@ -347,7 +350,9 @@
       "calls_heard": "cantos ouvidos",
       "cross_confirmed": "confirmados por ambos",
       "reconnecting": "A reconectar…",
-      "window": "Últimas 24 horas"
+      "window": "Últimas 24 horas",
+      "loading": "ainda a carregar",
+      "unavailable": "indisponível"
     },
     "desk": {
       "cameras_empty": "Ainda não há câmaras a responder. Adicione-as em Definições → Ligação.",
@@ -359,14 +364,18 @@
       "heard_title": "Ouvido",
       "most_heard": "Mais ouvidos",
       "latest_call": "Último canto: {species} às {time}",
-      "heard_empty": "Nenhum canto ouvido nas últimas 24 horas."
+      "heard_empty": "Nenhum canto ouvido nas últimas 24 horas.",
+      "cameras_loading": "A carregar visitas por câmara…",
+      "camera_visits_unavailable": "Não foi possível carregar o número de visitas."
     },
     "review_queue": {
       "title": "Precisa da sua decisão",
       "empty": "Todas as visitas de hoje têm espécie. Não há nada pendente.",
       "remaining": "Mais {count} em espera",
       "work_through": "Tratar da fila",
-      "new_species_tag": "Espécie nova · {count} avistamento(s)"
+      "new_species_tag": "Espécie nova · {count} avistamento(s)",
+      "loading": "A verificar visitas que precisam de si…",
+      "unavailable": "Não foi possível verificar a fila, por isso não se sabe se algo está à espera."
     },
     "review_session": {
       "position": "{position} de {total}",
@@ -3172,6 +3181,11 @@
     "remove_photo": "Remover opção de fotografia",
     "choose_first": "Escolha outra fotografia antes de remover esta.",
     "photo_removed": "Fotografia removida das opções.",
-    "remove_failed": "Não foi possível alterar esta opção de fotografia. Tente novamente."
+    "remove_failed": "Não foi possível alterar esta opção de fotografia. Tente novamente.",
+    "open_capture_at": "Abrir captura de {species} às {time}",
+    "shown_photo": "Foto da visita",
+    "capture_birds": "{count} aves",
+    "loaded_of_total": "{shown} de {total} capturas mostradas",
+    "captures_empty": "Nenhuma captura desta visita está visível nesta vista."
   }
 }

@@ -90,4 +90,29 @@ describe('buildDashboardCameraRows', () => {
         });
         expect(rows).toEqual([{ name: 'garden', visits: 12, status: 'unknown', lastSeen: '2026-08-12T08:45:00Z' }]);
     });
+
+    it('names configured cameras before the day is read but leaves their visits unknown, not zero', () => {
+        const rows = buildDashboardCameraRows({
+            cameraStatus: status,
+            visits: [],
+            cameraVisits: null,
+            configuredCameras: ['garden', 'front'],
+            countsMeasured: false
+        });
+        expect(rows).toEqual([
+            { name: 'front', visits: null, status: 'online', lastSeen: null },
+            { name: 'garden', visits: null, status: 'online', lastSeen: null }
+        ]);
+    });
+
+    it('ignores any loaded visits while the counts are unmeasured, so a partial page is never a total', () => {
+        const rows = buildDashboardCameraRows({
+            cameraStatus: null,
+            visits: [visit('garden', 'g1', '2026-08-12T08:00:00Z')],
+            cameraVisits: null,
+            configuredCameras: ['garden'],
+            countsMeasured: false
+        });
+        expect(rows).toEqual([{ name: 'garden', visits: null, status: 'unknown', lastSeen: null }]);
+    });
 });

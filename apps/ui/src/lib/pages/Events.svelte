@@ -1,5 +1,6 @@
 <script lang="ts">
     import VisitCaptures from '../components/VisitCaptures.svelte';
+    import { hasCaptureFooter } from '../utils/visit-captures';
     import type { DetectionVisit } from '../api/visits';
     import { onDestroy, onMount, untrack } from 'svelte';
     import {
@@ -853,6 +854,7 @@
     );
 
     const visitsByEvent = $derived(new Map(pageVisits.map((visit) => [visit.representative.frigate_event, visit])));
+    const captureWindow = $derived({ startDate: dateRange.start, endDate: dateRange.end, onlyHidden: showHidden });
 
     let visibleEvents = $derived.by(() => {
         if (selectedTimelineBucket === 'all') return events;
@@ -983,6 +985,14 @@
             return;
         }
         selectedEvent = event;
+    }
+
+    function playClip(detection: Detection) {
+        videoEventId = detection.frigate_event;
+        videoShareToken = null;
+        videoPlayIntent = 'user';
+        showVideo = true;
+        selectedEvent = null;
     }
 
     async function handleFetchFullVisit(event: Detection) {
@@ -1455,26 +1465,19 @@
                 {/if}
             </div>
         {:else if explorerView === 'list'}
-            <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white/80 dark:border-slate-800 dark:bg-slate-900/50" data-explorer-list>
+            <!-- Visits are divided from each other; inside one, only its captures footer is. -->
+            <div class="divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white/80 dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900/50" data-explorer-list>
                 {#each visibleEvents as event (eventKey(event))}
-                    <div data-explorer-visit={visitsByEvent.get(event.frigate_event)?.visit_id}>
+                    {@const visit = visitsByEvent.get(event.frigate_event)}
+                    <div class="[&>[data-detection-row]]:border-b-0" data-explorer-visit={visit?.visit_id}>
                     <DetectionRow
                         detection={event}
                         onclick={() => handleEventCardClick(event)}
-                        onPlay={() => {
-                            videoEventId = event.frigate_event;
-                            videoShareToken = null;
-                            videoPlayIntent = 'user';
-                            showVideo = true;
-                            selectedEvent = null;
-                        }}
+                        onPlay={() => playClip(event)}
                         selectionMode={selectionMode}
                         selected={selectedEventIds.includes(event.frigate_event)}
                     />
-                    {#if visitsByEvent.get(event.frigate_event)}
-                        {@const visit = visitsByEvent.get(event.frigate_event)}
-                        {#if visit}<VisitCaptures {visit} window={{ startDate: dateRange.start, endDate: dateRange.end, onlyHidden: showHidden }} onselect={handleEventCardClick} onplay={(capture) => { videoEventId = capture.frigate_event; videoShareToken = null; videoPlayIntent = 'user'; showVideo = true; selectedEvent = null; }} />{/if}
-                    {/if}
+                    {#if visit}<VisitCaptures {visit} window={captureWindow} onselect={handleEventCardClick} onplay={playClip} />{/if}
                     </div>
                 {/each}
             </div>
@@ -1482,20 +1485,21 @@
             <!-- A minimum card width keeps the overlay row's one-line guarantee
                  structural: fixed column counts measured 141-227px cards beside
                  the open sidebar and filter rail, clipping the play button. -->
-            <div class="grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-4">
+            <!-- Cards share a height at rest. While one lists its captures they align to the
+                 top instead, so its neighbours are not stretched into empty space. -->
+            <div class="grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-4 has-[[data-visit-captures-open]]:items-start">
                 {#each visibleEvents as event, index (eventKey(event))}
-                    <div class="card-base overflow-hidden" data-explorer-visit={visitsByEvent.get(event.frigate_event)?.visit_id}>
-                    <DetectionCard 
-                        detection={event} 
+                    {@const visit = visitsByEvent.get(event.frigate_event)}
+                    <!-- The card is the one outline; a visit's captures sit inside it, not in a second box. -->
+                    <div class="min-w-0" data-explorer-visit={visit?.visit_id}>
+                    {#snippet captures()}
+                        {#if visit}<VisitCaptures {visit} window={captureWindow} onselect={handleEventCardClick} onplay={playClip} />{/if}
+                    {/snippet}
+                    <DetectionCard
+                        detection={event}
                         {index}
                         onclick={() => handleEventCardClick(event)}
-                        onPlay={() => {
-                            videoEventId = event.frigate_event;
-                            videoShareToken = null;
-                            videoPlayIntent = 'user';
-                            showVideo = true;
-                            selectedEvent = null;
-                        }}
+                        onPlay={() => playClip(event)}
                         onFetchFullVisit={recordingClipFetchEnabled ? () => handleFetchFullVisit(event) : undefined}
                         fullVisitAvailable={fullVisitAvailability[event.frigate_event] === 'available'}
                         fullVisitFetched={fullVisitFetchState[event.frigate_event] === 'ready'}
@@ -1503,11 +1507,8 @@
                         hideProgress={selectedEvent?.frigate_event === event.frigate_event}
                         selectionMode={selectionMode}
                         selected={selectedEventIds.includes(event.frigate_event)}
+                        footer={visit && hasCaptureFooter(visit) ? captures : undefined}
                     />
-                    {#if visitsByEvent.get(event.frigate_event)}
-                        {@const visit = visitsByEvent.get(event.frigate_event)}
-                        {#if visit}<VisitCaptures {visit} window={{ startDate: dateRange.start, endDate: dateRange.end, onlyHidden: showHidden }} onselect={handleEventCardClick} onplay={(capture) => { videoEventId = capture.frigate_event; videoShareToken = null; videoPlayIntent = 'user'; showVideo = true; selectedEvent = null; }} />{/if}
-                    {/if}
                     </div>
                 {/each}
             </div>

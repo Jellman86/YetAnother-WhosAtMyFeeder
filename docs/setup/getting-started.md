@@ -175,12 +175,14 @@ Frigate can send many frames of one bird standing at one feeder. YA-WAMF folds
 those repeats into a single **visit**, which is what the field log, the counts
 across the top, and the leaderboard all count:
 
-![A field log entry: a time range of 05:08 PM to 05:09 PM, two snapshot thumbnails, the species Dunnock marked ×2 with its scientific name, the camera it was seen on, 99% confidence, and an Open link](../images/dashboard-field-log.png)
+![A field log visit: an expandable time range, two snapshot thumbnails, Eurasian Blackbird with its scientific name and 13 captures, 99% confidence, and an Open action](../images/dashboard-field-log.png)
 
-The `×2` is the number of frames folded into that one visit, and **Open** shows
-every frame behind it. Frames of the same species on the same camera more than
-ten minutes apart count as separate visits, so a bird that leaves and comes back
-is two visits rather than one long one.
+Beside the species, **13 captures** is the number of captures folded into that
+one visit. Choose the visit's time to list every capture along the log, each with
+its own time, thumbnail, score and clip; **Open** shows the visit's photograph. A
+visit with one capture has no list. Captures of the same species on the same camera stay one visit until
+nothing new arrives for 60 seconds after the last one ends, so a bird that leaves
+and comes back is two visits rather than one long one.
 
 Once detections start flowing, every classified visit also appears under
 **Explorer** (the page itself is headed **Events**), where you can filter by time

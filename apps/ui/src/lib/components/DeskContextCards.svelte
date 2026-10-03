@@ -18,9 +18,13 @@
         visits: DetectionVisit[];
         /** The day summary's visits per camera, for the whole window; null for a guest who may not see camera names. */
         cameraVisits?: Array<{ camera: string; visits: number; last_seen?: string | null }> | null;
+        /** The day is still being read: camera names may be known, their visits are not. */
+        loading?: boolean;
+        /** The day could not be read, so visit counts stay unknown rather than zero. */
+        unavailable?: boolean;
     }
 
-    let { detections, visits, cameraVisits = null }: Props = $props();
+    let { detections, visits, cameraVisits = null, loading = false, unavailable = false }: Props = $props();
 
     let cameraStatus = $state<CameraStatusResponse | null>(null);
     let cameraRequested = false;
@@ -54,7 +58,8 @@
             cameraStatus,
             visits,
             cameraVisits,
-            configuredCameras: settingsStore.settings?.cameras ?? null
+            configuredCameras: settingsStore.settings?.cameras ?? null,
+            countsMeasured: !loading && !unavailable
         })
     );
 
@@ -101,7 +106,24 @@
         <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{$_('dashboard.day_bar.window', { default: 'Last 24 hours' })}</p>
     </div>
 
-    {#if cameraRows.length === 0}
+    {#if loading}
+        <p role="status" class="sr-only">{$_('dashboard.desk.cameras_loading', { default: 'Loading camera visits…' })}</p>
+    {/if}
+    {#if cameraRows.length === 0 && loading}
+        <ul class="divide-y divide-slate-200/70 dark:divide-slate-700/50" aria-hidden="true">
+            {#each ['w-20', 'w-16'] as width (width)}
+                <li class="flex h-9 items-center gap-2.5 py-2">
+                    <span class="h-2 w-2 shrink-0 rounded-full bg-slate-300 dark:bg-slate-600"></span>
+                    <span class="h-3 rounded bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-700/60 {width}" data-loading-placeholder></span>
+                    <span class="ml-auto h-3 w-12 rounded bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-700/60" data-loading-placeholder></span>
+                </li>
+            {/each}
+        </ul>
+    {:else if cameraRows.length === 0 && unavailable}
+        <p class="text-xs text-slate-600 dark:text-slate-300" data-desk-camera-visits-unavailable>
+            {$_('dashboard.desk.camera_visits_unavailable', { default: 'Visit counts could not be loaded.' })}
+        </p>
+    {:else if cameraRows.length === 0}
         <p class="text-xs text-slate-500 dark:text-slate-400">
             {$_('dashboard.desk.cameras_empty', {
                 default: 'No cameras reporting yet. Add them in Settings → Connection.'
@@ -110,10 +132,10 @@
     {:else}
         <ul class="divide-y divide-slate-200/70 dark:divide-slate-700/50">
             {#each cameraRows as camera (camera.name)}
-                <li class="flex items-center gap-2.5 py-2 text-sm">
+                <li class="flex items-center gap-2.5 py-2 text-sm" data-desk-camera={camera.name}>
                     <span
                         class="h-2 w-2 shrink-0 rounded-full {camera.status === 'online'
-                            ? 'bg-emerald-500'
+                            ? 'bg-success-500'
                             : camera.status === 'offline'
                               ? 'bg-rose-500'
                               : 'bg-slate-300 dark:bg-slate-600'}"
@@ -129,16 +151,28 @@
                         <span class="shrink-0 text-xs tabular-nums text-slate-500 dark:text-slate-400">{formatTime(camera.lastSeen)}</span>
                     {/if}
                     <span class="w-20 shrink-0 text-right tabular-nums text-slate-900 dark:text-white">
-                        {camera.visits}
-                        <span class="text-xs font-normal text-slate-500 dark:text-slate-400">
-                            {camera.visits === 0
-                                ? $_('dashboard.desk.camera_no_visits', { default: 'no visits' })
-                                : $_('dashboard.day_bar.visits', { default: 'visits' })}
-                        </span>
+                        {#if camera.visits === null && loading}
+                            <span class="ml-auto inline-block h-3 w-12 translate-y-0.5 rounded bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-700/60" aria-hidden="true" data-loading-placeholder></span>
+                        {:else if camera.visits === null}
+                            <span aria-hidden="true">–</span>
+                            <span class="sr-only">{$_('dashboard.day_bar.unavailable', { default: 'not available' })}</span>
+                        {:else}
+                            {camera.visits}
+                            <span class="text-xs font-normal text-slate-500 dark:text-slate-400">
+                                {camera.visits === 0
+                                    ? $_('dashboard.desk.camera_no_visits', { default: 'no visits' })
+                                    : $_('dashboard.day_bar.visits', { default: 'visits' })}
+                            </span>
+                        {/if}
                     </span>
                 </li>
             {/each}
         </ul>
+        {#if unavailable}
+            <p class="text-xs text-slate-600 dark:text-slate-300" data-desk-camera-visits-unavailable>
+                {$_('dashboard.desk.camera_visits_unavailable', { default: 'Visit counts could not be loaded.' })}
+            </p>
+        {/if}
     {/if}
 
     {#if conditions}

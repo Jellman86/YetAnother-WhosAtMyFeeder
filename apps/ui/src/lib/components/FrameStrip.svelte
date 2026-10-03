@@ -753,7 +753,7 @@
     {#if removedPhoto?.eventId === eventId}
         <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500" role="status">
             <span>{$_('visits.photo_removed', { default: 'Photo removed from the choices.' })}</span>
-            <button type="button" class="btn btn-ghost min-h-11" bind:this={undoButton} disabled={busy} onclick={() => void undoRemoval()}>{$_('common.undo', { default: 'Undo' })}</button>
+            <button type="button" class="btn btn-ghost min-h-11 px-3 text-xs" bind:this={undoButton} disabled={busy} onclick={() => void undoRemoval()}>{$_('common.undo', { default: 'Undo' })}</button>
         </div>
     {/if}
     {#if removalError}<p role="alert" class="mt-2 text-sm text-slate-600 dark:text-slate-300">{$_('visits.remove_failed', { default: 'Could not change this photo choice. Try again.' })}</p>{/if}

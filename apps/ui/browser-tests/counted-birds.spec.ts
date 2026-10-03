@@ -258,7 +258,9 @@ test('the field log names the busiest capture, never sums frames, and opens it',
     await expect(markers.nth(0)).toHaveText('3 birds in one capture, 1 unknown');
     await expect(markers.nth(0)).toHaveAccessibleName('3 birds in one capture, 1 unknown, open that capture');
     await expect(markers.nth(1)).toHaveText('No birds counted, 1 excluded');
-    await expect(page.locator('[data-field-log-captures]')).toContainText('2 captures in this visit');
+    // Captures and birds are two numbers, stated apart, so a capture is never read as a bird.
+    await expect(page.locator('[data-field-log-captures]')).toHaveText('2 captures');
+    await expect(page.locator('[data-field-log-footer]').first()).not.toContainText('2 captures');
     await markers.nth(0).click();
     await expect(page.locator('[data-fixture-opened]')).toHaveText('visit-a-2');
 });
