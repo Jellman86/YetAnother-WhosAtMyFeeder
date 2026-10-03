@@ -295,24 +295,18 @@
     },
     "histogram": {
       "title": "Pulse d’activité",
-      "last_24h": "Dernières 24 heures",
-      "tooltip": "{count} oiseaux à {time}"
+      "visits_per_hour": "Visites par heure, dernières 24 heures",
+      "peak": "Pic à {time}, {count} visites",
+      "now": "maintenant",
+      "aria": "Visites par heure sur les dernières 24 heures : {count} au total, pic à {time}",
+      "tooltip_visits": "{count} visites à {time}"
     },
     "audio_feed": {
-      "title": "Audio récent",
-      "subtitle": "Flux audio en temps réel",
-      "active": "Actif",
-      "empty_title": "Aucune détection audio dans le buffer",
-      "empty_subtitle": "Le buffer se vide toutes les 5 min",
-      "unknown_sensor": "Capteur inconnu",
       "open_history": "Ouvrir l’historique audio",
       "open_birdnet": "Ouvrir BirdNET-Go",
-      "open_in_birdnet": "Ouvrir la détection dans BirdNET-Go",
-      "heard_today": "entendues",
       "species": "espèces"
     },
     "top_visitors_title": "Visiteurs fréquents",
-    "top_visitors_empty": "Aucun visiteur enregistré aujourd’hui.",
     "top_visitors_count": "{count} visites",
     "field_log": {
       "title": "Journal de terrain",
@@ -348,24 +342,24 @@
     "day_bar": {
       "birds_found": "oiseaux repérés",
       "birds_scope": "Sur {count} captures analysées ; des oiseaux peuvent être manqués",
-      "today": "Aujourd’hui",
       "visits": "visites",
       "unresolved": "non résolues",
       "calls_heard": "chants entendus",
       "cross_confirmed": "confirmés par les deux",
-      "reconnecting": "Reconnexion…"
+      "reconnecting": "Reconnexion…",
+      "window": "Dernières 24 heures"
     },
     "desk": {
-      "cameras": "Caméras",
       "cameras_empty": "Aucune caméra ne répond encore. Ajoutez-les dans Réglages → Connexion.",
       "camera_no_visits": "aucune visite",
-      "sensors": "Audio et caméra",
-      "heard": "entendus",
-      "seen": "vus",
-      "both": "les deux",
       "no_cross_confirmation": "{count} chants ont été entendus, mais aucun ne correspond à une visite filmée. Le microphone et les caméras ne couvrent peut-être pas la même zone.",
-      "conditions": "Conditions",
-      "temperature_span": "Visites entre {low} et {high}"
+      "temperature_span": "Visites entre {low} et {high}",
+      "feeder_now": "En ce moment à la mangeoire",
+      "camera_offline": "hors ligne",
+      "heard_title": "Entendu",
+      "most_heard": "Le plus entendu",
+      "latest_call": "Dernier chant : {species} à {time}",
+      "heard_empty": "Aucun chant entendu ces dernières 24 heures."
     },
     "review_queue": {
       "title": "Nécessite votre décision",
@@ -408,7 +402,8 @@
     "provider_checking": "Vérification de l’accélérateur après un changement du moteur",
     "provider_fallback": "Le fournisseur d’inférence sélectionné ne fonctionne pas",
     "provider_checking_detail": "Cette vérification s’exécute une fois. Si elle réussit, le classificateur se recharge automatiquement.",
-    "provider_review": "Examiner le modèle et le fournisseur"
+    "provider_review": "Examiner le modèle et le fournisseur",
+    "top_visitors_empty_window": "Aucune visite ces dernières 24 heures."
   },
   "common": {
     "loading": "Chargement…",

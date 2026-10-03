@@ -8,9 +8,21 @@ export interface DashboardCameraRow {
     lastSeen: string | null;
 }
 
+interface ServerCameraVisits {
+    camera: string;
+    visits: number;
+    last_seen?: string | null;
+}
+
 interface DashboardCameraRowsInput {
     cameraStatus: CameraStatusResponse | null;
     visits: readonly DetectionVisit[];
+    /**
+     * The server's visits per camera for the whole window. The loaded visits are only the newest
+     * page of detections, so on a busy day they undercount; they stand in only when the server
+     * gave no breakdown (a guest who may not see camera names).
+     */
+    cameraVisits?: readonly ServerCameraVisits[] | null;
     /** Null while settings load; an empty list deliberately means every camera. */
     configuredCameras: readonly string[] | null;
 }
@@ -18,15 +30,24 @@ interface DashboardCameraRowsInput {
 export function buildDashboardCameraRows({
     cameraStatus,
     visits,
+    cameraVisits = null,
     configuredCameras
 }: DashboardCameraRowsInput): DashboardCameraRow[] {
     const visitsByCamera = new Map<string, number>();
     const lastSeenByCamera = new Map<string, string>();
-    for (const visit of visits) {
-        if (!visit.camera) continue;
-        visitsByCamera.set(visit.camera, (visitsByCamera.get(visit.camera) ?? 0) + 1);
-        const seen = lastSeenByCamera.get(visit.camera);
-        if (!seen || visit.endTime > seen) lastSeenByCamera.set(visit.camera, visit.endTime);
+    if (cameraVisits) {
+        for (const entry of cameraVisits) {
+            if (!entry.camera) continue;
+            visitsByCamera.set(entry.camera, entry.visits);
+            if (entry.last_seen) lastSeenByCamera.set(entry.camera, entry.last_seen);
+        }
+    } else {
+        for (const visit of visits) {
+            if (!visit.camera) continue;
+            visitsByCamera.set(visit.camera, (visitsByCamera.get(visit.camera) ?? 0) + 1);
+            const seen = lastSeenByCamera.get(visit.camera);
+            if (!seen || visit.endTime > seen) lastSeenByCamera.set(visit.camera, visit.endTime);
+        }
     }
 
     const statusByCamera = new Map(

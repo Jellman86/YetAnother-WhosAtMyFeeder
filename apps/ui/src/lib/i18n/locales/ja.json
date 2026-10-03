@@ -295,24 +295,18 @@
     },
     "histogram": {
       "title": "活動パルス",
-      "last_24h": "過去24時間",
-      "tooltip": "{count}羽（{time}）"
+      "visits_per_hour": "1時間ごとの訪問数（過去24時間）",
+      "peak": "最も多いのは {time}（{count} 回）",
+      "now": "現在",
+      "aria": "過去24時間の1時間ごとの訪問数：合計 {count} 回、最多は {time}",
+      "tooltip_visits": "{time} に {count} 回"
     },
     "audio_feed": {
-      "title": "最近の音声",
-      "subtitle": "リアルタイム音声フィード",
-      "active": "アクティブ",
-      "empty_title": "バッファ内に音声検出はありません",
-      "empty_subtitle": "バッファは5分ごとにクリア",
-      "unknown_sensor": "不明なセンサー",
       "open_history": "音声履歴を開く",
       "open_birdnet": "BirdNET-Go を開く",
-      "open_in_birdnet": "この検出を BirdNET-Go で開く",
-      "heard_today": "検出",
       "species": "種"
     },
     "top_visitors_title": "よく来る訪問者",
-    "top_visitors_empty": "今日はまだ訪問者が記録されていません。",
     "top_visitors_count": "{count} 回の訪問",
     "field_log": {
       "title": "フィールドログ",
@@ -348,24 +342,24 @@
     "day_bar": {
       "birds_found": "見つかった鳥",
       "birds_scope": "解析済みの撮影 {count} 件から集計。見逃した鳥がいる場合があります",
-      "today": "今日",
       "visits": "回の訪問",
       "unresolved": "未確定",
       "calls_heard": "件の鳴き声",
       "cross_confirmed": "件が相互確認済み",
-      "reconnecting": "再接続中…"
+      "reconnecting": "再接続中…",
+      "window": "過去24時間"
     },
     "desk": {
-      "cameras": "カメラ",
       "cameras_empty": "まだカメラが応答していません。設定 → 接続 で追加してください。",
       "camera_no_visits": "訪問なし",
-      "sensors": "音声とカメラ",
-      "heard": "聞こえた",
-      "seen": "見えた",
-      "both": "両方",
       "no_cross_confirmation": "{count} 件の鳴き声が聞こえましたが、カメラの訪問と一致するものはありませんでした。マイクとカメラの対象範囲が異なる可能性があります。",
-      "conditions": "気象条件",
-      "temperature_span": "訪問時の気温は {low} 〜 {high}"
+      "temperature_span": "訪問時の気温は {low} 〜 {high}",
+      "feeder_now": "いまの給餌台",
+      "camera_offline": "オフライン",
+      "heard_title": "聞こえた鳴き声",
+      "most_heard": "よく聞こえた種",
+      "latest_call": "最新の鳴き声: {time} の {species}",
+      "heard_empty": "過去24時間に鳴き声は聞こえませんでした。"
     },
     "review_queue": {
       "title": "確認が必要です",
@@ -408,7 +402,8 @@
     "provider_checking": "実行環境の変更後にアクセラレーターを確認しています",
     "provider_fallback": "選択した推論プロバイダーが動作していません",
     "provider_checking_detail": "この確認は一度だけ実行されます。成功すると分類器が自動的に再読み込みされます。",
-    "provider_review": "モデルとプロバイダーを確認"
+    "provider_review": "モデルとプロバイダーを確認",
+    "top_visitors_empty_window": "過去24時間の訪問はありません。"
   },
   "common": {
     "loading": "読み込み中…",

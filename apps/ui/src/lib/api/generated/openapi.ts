@@ -539,6 +539,11 @@ export interface components {
     input_context?: components['schemas']['ClassificationInputContext'] | null;
     source_preference?: string;
 };
+    DailyCameraVisits: {
+    camera: string;
+    last_seen?: string | null;
+    visits: number;
+};
     DailyCount: {
     count: number;
     date: string;
@@ -550,15 +555,19 @@ export interface components {
     scientific_name?: string | null;
     species: string;
     taxa_id?: number | null;
+    visit_count?: number;
 };
     DailySummaryResponse: {
     audio_confirmations: number;
+    camera_visits?: Array<components['schemas']['DailyCameraVisits']> | null;
     counted_birds?: number;
     counted_captures?: number;
     hourly_distribution: Array<number>;
+    hourly_visits?: Array<number>;
     latest_detection: components['schemas']['DetectionResponse'] | null;
     top_species: Array<components['schemas']['DailySpeciesSummary']>;
     total_count: number;
+    visit_count?: number;
 };
     DailyWeatherSummary: {
     am_cloud?: number | null;

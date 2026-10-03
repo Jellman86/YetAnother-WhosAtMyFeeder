@@ -423,6 +423,11 @@ Notes:
 - `GET /api/stats/daily-summary` — includes `counted_birds` (visible child observations) and
   `counted_captures` (captures with at least one stored bird observation) for the same daily
   window. These counts cover analyzed captures and may count the same bird in later captures.
+  Visits for the same last-24-hours window use the leaderboard's rule (a frame opens a visit unless the
+  same species was on the same camera within 10 minutes before it): `visit_count`, `hourly_visits`
+  (24 local-hour buckets by when each visit began), `camera_visits` (visits and last sighting per
+  camera; `null` for a guest who may not see camera names) and `visit_count` on each `top_species`
+  entry, which is now ordered by visits. `total_count` and `hourly_distribution` still count frames.
 - `GET /api/stats/detections/daily`
 - `GET /api/stats/detections/timeline`
 - `GET /api/stats/detections/activity-heatmap` (optional `species` limits the grid to one species)

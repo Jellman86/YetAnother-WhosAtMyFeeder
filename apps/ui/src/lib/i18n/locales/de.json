@@ -295,24 +295,18 @@
     },
     "histogram": {
       "title": "Aktivitäts-Puls",
-      "last_24h": "Letzte 24 Stunden",
-      "tooltip": "{count} Vögel um {time}"
+      "visits_per_hour": "Besuche pro Stunde, letzte 24 Stunden",
+      "peak": "Am meisten los um {time}, {count} Besuche",
+      "now": "jetzt",
+      "aria": "Besuche pro Stunde in den letzten 24 Stunden: {count} insgesamt, am meisten um {time}",
+      "tooltip_visits": "{count} Besuche um {time}"
     },
     "audio_feed": {
-      "title": "Aktuelle Audio",
-      "subtitle": "Audio-Feed in Echtzeit",
-      "active": "Aktiv",
-      "empty_title": "Keine Audio-Erkennungen im Puffer",
-      "empty_subtitle": "Puffer leert sich alle 5 Min.",
-      "unknown_sensor": "Unbekannter Sensor",
       "open_history": "Audioverlauf öffnen",
       "open_birdnet": "BirdNET-Go öffnen",
-      "open_in_birdnet": "Erkennung in BirdNET-Go öffnen",
-      "heard_today": "gehört",
       "species": "Arten"
     },
     "top_visitors_title": "Häufigste Besucher",
-    "top_visitors_empty": "Heute wurden noch keine Besucher erfasst.",
     "top_visitors_count": "{count} Besuche",
     "field_log": {
       "title": "Feldprotokoll",
@@ -348,24 +342,24 @@
     "day_bar": {
       "birds_found": "Vögel gefunden",
       "birds_scope": "Aus {count} analysierten Aufnahmen; Vögel können übersehen werden",
-      "today": "Heute",
       "visits": "Besuche",
       "unresolved": "ungeklärt",
       "calls_heard": "Rufe gehört",
       "cross_confirmed": "gegenbestätigt",
-      "reconnecting": "Verbindung wird wiederhergestellt…"
+      "reconnecting": "Verbindung wird wiederhergestellt…",
+      "window": "Letzte 24 Stunden"
     },
     "desk": {
-      "cameras": "Kameras",
       "cameras_empty": "Noch keine Kameras gemeldet. Fügen Sie sie unter Einstellungen → Verbindung hinzu.",
       "camera_no_visits": "keine Besuche",
-      "sensors": "Audio vs. Kamera",
-      "heard": "gehört",
-      "seen": "gesehen",
-      "both": "beides",
       "no_cross_confirmation": "{count} Rufe wurden gehört, aber keiner passte zu einem Kamerabesuch. Mikrofon und Kameras decken möglicherweise unterschiedliche Bereiche ab.",
-      "conditions": "Bedingungen",
-      "temperature_span": "Besuche zwischen {low} und {high}"
+      "temperature_span": "Besuche zwischen {low} und {high}",
+      "feeder_now": "Jetzt am Futterplatz",
+      "camera_offline": "nicht erreichbar",
+      "heard_title": "Gehört",
+      "most_heard": "Am häufigsten gehört",
+      "latest_call": "Letzter Ruf: {species} um {time}",
+      "heard_empty": "Keine Rufe in den letzten 24 Stunden gehört."
     },
     "review_queue": {
       "title": "Erfordert Ihre Entscheidung",
@@ -408,7 +402,8 @@
     "provider_checking": "Beschleuniger wird nach einer Laufzeitänderung geprüft",
     "provider_fallback": "Der ausgewählte Inferenzanbieter läuft nicht",
     "provider_checking_detail": "Diese Prüfung läuft einmal. Bei Erfolg wird der Klassifikator automatisch neu geladen.",
-    "provider_review": "Modell und Anbieter prüfen"
+    "provider_review": "Modell und Anbieter prüfen",
+    "top_visitors_empty_window": "Keine Besuche in den letzten 24 Stunden."
   },
   "common": {
     "loading": "Laden…",

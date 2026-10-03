@@ -44,6 +44,8 @@
     const VISIT_ROW_LIMIT = 12;
 
     let summary = $state<DailySummary | null>(null);
+    // The clock hour the summary's rolling window ended in, so the activity chart ends where its data does.
+    let summaryHour = $state(new Date().getHours());
     let summaryLoading = $state(true);
     let topSpeciesInfo = $state<SpeciesInfo | null>(null);
     let selectedEvent = $state<Detection | null>(null);
@@ -275,7 +277,9 @@
         ].join('|');
     }
 
-    let last24hCount = $derived(summary?.total_count ?? detectionsStore.totalToday);
+    // Visits, as the log counts them. The summary counts the whole window; until it arrives the
+    // loaded visits stand in, never the frame count, which is a different unit.
+    let last24hCount = $derived(summary?.visit_count ?? allVisits.length);
     let last24hSpecies = $derived(summary?.top_species.length ?? 0);
     let audioConfirmations = $derived(summary?.audio_confirmations ?? 0);
 
@@ -296,7 +300,7 @@
             ]);
             return { summaryRes, labelsRes };
         },
-        apply: ({ summaryRes, labelsRes }) => { summary = summaryRes; classifierLabels = labelsRes.labels; },
+        apply: ({ summaryRes, labelsRes }) => { summary = summaryRes; summaryHour = new Date().getHours(); classifierLabels = labelsRes.labels; },
         clear: () => { summary = null; topSpeciesInfo = null; },
         fail: (e) => {
             if (authStore.isGuest) { summary = null; topSpeciesInfo = null; }
@@ -339,7 +343,7 @@
         return () => { summaryLoader.dispose(); audioSummaryLoader.dispose(); };
     });
 
-    // One audio summary for the whole desk: the day bar and the sensor card share it.
+    // The day bar's call count. The rail's Heard card polls its own summary to stay current.
     let audioSummary = $state<AudioSummaryResponse | null>(null);
 
     const audioSummaryLoader = createObservationProjectionLoader({
@@ -594,35 +598,34 @@
                 />
             {/if}
 
+            <!-- The rail runs from what is happening to what is merely interesting. -->
             <DeskContextCards
                 detections={deskDetections}
                 visits={allVisits}
-                {birdnetEnabled}
-                {audioSummary}
+                cameraVisits={summary?.camera_visits ?? null}
             />
-
-            {#if summary}
-                <DailyHistogram data={summary.hourly_distribution} />
-            {:else if summaryLoading}
-                <div class="min-h-[210px] animate-pulse border-y border-slate-200/60 bg-slate-100/60 dark:border-slate-700/60 dark:bg-slate-800/40"></div>
-            {/if}
 
             {#if birdnetEnabled}
-                <RecentAudio onNavigate={onnavigate} />
+                <RecentAudio onNavigate={onnavigate} matchedCalls={summary ? audioConfirmations : null} />
             {/if}
-        </aside>
-    </section>
 
-    <!-- Top visitors needs the full width; it does not compress into the rail. -->
-    <section data-dashboard-top-visitors>
-        {#if summary && summary.top_species.length > 0}
-            <TopVisitors
-                species={summary.top_species}
-                onSpeciesClick={handleSpeciesSummaryClick}
-            />
-        {:else if summaryLoading}
-            <div class="min-h-[150px] animate-pulse border-y border-slate-200/60 bg-slate-100/60 dark:border-slate-700/60 dark:bg-slate-800/40"></div>
-        {/if}
+            {#if summary}
+                <DailyHistogram data={summary.hourly_visits ?? []} currentHour={summaryHour} />
+            {:else if summaryLoading}
+                <div class="h-40 animate-pulse rounded-lg bg-slate-100/60 dark:bg-slate-800/40"></div>
+            {/if}
+
+            <div data-dashboard-top-visitors>
+                {#if summary}
+                    <TopVisitors
+                        species={summary.top_species}
+                        onSpeciesClick={handleSpeciesSummaryClick}
+                    />
+                {:else if summaryLoading}
+                    <div class="h-40 animate-pulse rounded-lg bg-slate-100/60 dark:bg-slate-800/40"></div>
+                {/if}
+            </div>
+        </aside>
     </section>
 </div>
 

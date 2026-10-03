@@ -29,7 +29,7 @@
     data-dashboard-day-bar
 >
     <h1 class="font-display text-lg font-bold text-slate-950 dark:text-white">
-        {$_('dashboard.day_bar.today', { default: 'Today' })}
+        {$_('dashboard.day_bar.window', { default: 'Last 24 hours' })}
     </h1>
 
     <dl class="flex flex-wrap items-baseline gap-x-4 gap-y-1.5 text-xs sm:gap-x-5 sm:gap-y-2">

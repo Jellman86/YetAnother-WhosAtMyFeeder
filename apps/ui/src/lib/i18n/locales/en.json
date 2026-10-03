@@ -295,24 +295,18 @@
     },
     "histogram": {
       "title": "Activity Pulse",
-      "last_24h": "Last 24 Hours",
-      "tooltip": "{count} birds at {time}"
+      "visits_per_hour": "Visits per hour, last 24 hours",
+      "peak": "Busiest at {time}, {count} visits",
+      "now": "now",
+      "aria": "Visits per hour over the last 24 hours: {count} in all, busiest at {time}",
+      "tooltip_visits": "{count} visits at {time}"
     },
     "audio_feed": {
-      "title": "Recent Audio",
-      "subtitle": "Real-time Audio Feed",
-      "active": "Active",
-      "empty_title": "No audio detections in buffer",
-      "empty_subtitle": "Buffer clears every 5 mins",
-      "unknown_sensor": "Unknown Sensor",
       "open_history": "Open audio history",
       "open_birdnet": "Open BirdNET-Go",
-      "open_in_birdnet": "Open detection in BirdNET-Go",
-      "heard_today": "heard",
       "species": "species"
     },
     "top_visitors_title": "Top Visitors",
-    "top_visitors_empty": "No visitors recorded yet today.",
     "top_visitors_count": "{count} visits",
     "field_log": {
       "title": "Field log",
@@ -348,24 +342,24 @@
     "day_bar": {
       "birds_found": "birds found",
       "birds_scope": "From {count} analyzed captures; birds may be missed",
-      "today": "Today",
       "visits": "visits",
       "unresolved": "unresolved",
       "calls_heard": "calls heard",
       "cross_confirmed": "cross-confirmed",
-      "reconnecting": "Reconnecting…"
+      "reconnecting": "Reconnecting…",
+      "window": "Last 24 hours"
     },
     "desk": {
-      "cameras": "Cameras",
       "cameras_empty": "No cameras reporting yet. Add them in Settings → Connection.",
       "camera_no_visits": "no visits",
-      "sensors": "Audio vs camera",
-      "heard": "heard",
-      "seen": "seen",
-      "both": "both",
       "no_cross_confirmation": "{count} calls were heard but none lined up with a camera visit. The microphone and the cameras may be covering different ground.",
-      "conditions": "Conditions",
-      "temperature_span": "Visits ranged {low} to {high}"
+      "temperature_span": "Visits ranged {low} to {high}",
+      "feeder_now": "At the feeder now",
+      "camera_offline": "offline",
+      "heard_title": "Heard",
+      "most_heard": "Heard most",
+      "latest_call": "Latest call: {species} at {time}",
+      "heard_empty": "No calls heard in the last 24 hours."
     },
     "review_queue": {
       "title": "Needs your call",
@@ -408,7 +402,8 @@
     "provider_checking": "Checking your accelerator after a runtime change",
     "provider_fallback": "Your selected inference provider is not running",
     "provider_checking_detail": "This check runs once. The classifier reloads automatically if the accelerator passes.",
-    "provider_review": "Review model and provider"
+    "provider_review": "Review model and provider",
+    "top_visitors_empty_window": "No visits in the last 24 hours."
   },
   "common": {
     "loading": "Loading…",
