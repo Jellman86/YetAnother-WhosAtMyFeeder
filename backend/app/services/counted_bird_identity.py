@@ -84,6 +84,7 @@ def resolve_bird_identities(
             # species merely because it shares this visit's display text.
             if name not in aliases or _key(aliases[name]) == _key(parent_scientific):
                 aliases[name] = parent_scientific
+    parent_identity = aliases.get(_key(accepted), accepted)
     associated: set[int] = set()
     for hint in candidates:
         if hint.get("source_mode") != "frigate_hint_crop":
@@ -106,9 +107,22 @@ def resolve_bird_identities(
         ):
             label = bird.get("classifier_label")
             if label and not should_hide_species_label(label):
+                label_key = _key(label)
                 if _score(bird.get("classifier_score")) >= threshold:
                     bird["species"] = label
-                elif parent_usable and index in associated and _key(label) in names:
+                elif (
+                    parent_usable
+                    and index in associated
+                    and label_key in names
+                    and (
+                        label_key not in aliases
+                        or (
+                            aliases[label_key] is not None
+                            and parent_identity is not None
+                            and _key(aliases[label_key]) == _key(parent_identity)
+                        )
+                    )
+                ):
                     bird["species"] = accepted
                     source = "visit"
                     score = None if detection.get("manual_tagged") else accepted_score

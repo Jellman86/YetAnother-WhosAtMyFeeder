@@ -1437,6 +1437,17 @@
             "title": "Auth Required",
             "type": "boolean"
           },
+          "avatar_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Version"
+          },
           "birdnet_enabled": {
             "default": false,
             "title": "Birdnet Enabled",
@@ -1606,6 +1617,23 @@
           "is_authenticated"
         ],
         "title": "AuthStatusResponse",
+        "type": "object"
+      },
+      "AvatarResponse": {
+        "properties": {
+          "avatar_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Version"
+          }
+        },
+        "title": "AvatarResponse",
         "type": "object"
       },
       "BackendDiagnosticEventResponse": {
@@ -2411,6 +2439,20 @@
           }
         },
         "title": "Body_probe_bird_classifier_runtime_api_classifier_probe_post",
+        "type": "object"
+      },
+      "Body_put_avatar_api_auth_avatar_put": {
+        "properties": {
+          "image": {
+            "contentMediaType": "application/octet-stream",
+            "title": "Image",
+            "type": "string"
+          }
+        },
+        "required": [
+          "image"
+        ],
+        "title": "Body_put_avatar_api_auth_avatar_put",
         "type": "object"
       },
       "Body_test_bird_classifier_api_classifier_test_post": {
@@ -17845,6 +17887,102 @@
         "tags": [
           "audio",
           "audio"
+        ]
+      }
+    },
+    "/api/auth/avatar": {
+      "delete": {
+        "description": "Remove the owner's profile picture; the account shows its initial again.",
+        "operationId": "remove_avatar_api_auth_avatar_delete",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AvatarResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Remove Avatar",
+        "tags": [
+          "auth"
+        ]
+      },
+      "get": {
+        "description": "The owner's profile picture, a 256 px square JPEG.",
+        "operationId": "get_avatar_api_auth_avatar_get",
+        "responses": {
+          "200": {
+            "content": {
+              "image/jpeg": {}
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "No profile picture"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Avatar",
+        "tags": [
+          "auth"
+        ]
+      },
+      "put": {
+        "description": "Replace the owner's profile picture. The upload is re-encoded; nothing of the original is kept.",
+        "operationId": "put_avatar_api_auth_avatar_put",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_put_avatar_api_auth_avatar_put"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AvatarResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Put Avatar",
+        "tags": [
+          "auth"
         ]
       }
     },

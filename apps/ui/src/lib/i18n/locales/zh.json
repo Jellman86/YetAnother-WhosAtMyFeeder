@@ -959,7 +959,15 @@
       "trusted_proxies_add": "添加受信任的代理主机",
       "trusted_proxies_remove": "移除受信任的代理主机",
       "trusted_proxies_empty": "未配置受信任的代理（将信任所有代理）。",
-      "advanced_title": "会话与反向代理"
+      "advanced_title": "会话与反向代理",
+      "avatar": "头像",
+      "avatar_desc": "显示在侧边栏中你的名字旁边。以小方形图片保存，文件中的其他内容一概不保留。",
+      "avatar_upload": "上传图片",
+      "avatar_replace": "更换图片",
+      "avatar_remove": "移除图片",
+      "avatar_saving": "正在保存…",
+      "avatar_too_large": "文件超过 8 MB，请选择更小的图片。",
+      "avatar_failed": "这个文件无法用作图片，请试试 JPEG 或 PNG。"
     },
     "public_access": {
       "title": "公开访问",
@@ -1756,7 +1764,10 @@
     "notifications_enabled": "通知已启用",
     "system_online": "系统在线",
     "system_offline": "系统离线",
-    "open_health": "系统状态"
+    "open_health": "系统状态",
+    "tile_live": "实时",
+    "tile_audio": "声音",
+    "tile_alerts": "提醒"
   },
   "notifications": {
     "reclassify_fallback": "⚠️ 视频不可用 - 改用快照",

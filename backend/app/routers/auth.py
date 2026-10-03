@@ -2,7 +2,7 @@
 
 import aiosqlite
 import asyncio
-from fastapi import APIRouter, Depends, HTTPException, Response, status, Request
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status, Request
 from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Optional
 from datetime import datetime
@@ -25,6 +25,7 @@ from app.auth import (
     clear_session_cookie,
 )
 from app.config import settings
+from app.services import avatar_service
 from app.services.stream_tickets import STREAM_TICKET_TTL_SECONDS, stream_tickets
 from app.database import get_db
 from app.models import MessageResponse
@@ -108,6 +109,8 @@ class AuthStatusResponse(BaseModel):
     date_format: str = "locale"
     time_format: str = "locale"
     username: Optional[str] = None
+    # The owner's profile picture version (changes when it is replaced), or None without one.
+    avatar_version: Optional[int] = None
     needs_initial_setup: bool = False
     https_warning: bool = False  # True if auth enabled over HTTP
 
@@ -370,9 +373,48 @@ async def get_auth_status(request: Request):
         date_format=settings.date_format,
         time_format=settings.time_format,
         username=username if auth_level == AuthLevel.OWNER else None,
+        avatar_version=avatar_service.avatar_version() if auth_level == AuthLevel.OWNER else None,
         needs_initial_setup=needs_setup,
         https_warning=https_warning,
     )
+
+
+class AvatarResponse(BaseModel):
+    avatar_version: Optional[int] = None
+
+
+@router.get(
+    "/auth/avatar",
+    response_class=Response,
+    responses={200: {"content": {"image/jpeg": {}}}, 404: {"description": "No profile picture"}},
+)
+async def get_avatar(_auth: AuthContext = Depends(require_owner)) -> Response:
+    """The owner's profile picture, a 256 px square JPEG."""
+    content = await avatar_service.read_avatar()
+    if content is None:
+        raise HTTPException(status_code=404, detail="No profile picture")
+    return Response(content=content, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=0"})
+
+
+@router.put("/auth/avatar", response_model=AvatarResponse)
+async def put_avatar(image: UploadFile = File(...), _auth: AuthContext = Depends(require_owner)) -> AvatarResponse:
+    """Replace the owner's profile picture. The upload is re-encoded; nothing of the original is kept."""
+    data = await image.read(avatar_service.AVATAR_MAX_UPLOAD_BYTES + 1)
+    try:
+        version = await avatar_service.save_avatar(data)
+    except avatar_service.AvatarError as exc:
+        status_code = 413 if str(exc) in {"too_large", "too_many_pixels"} else 400
+        raise HTTPException(status_code=status_code, detail=str(exc)) from exc
+    log.info("Profile picture replaced")
+    return AvatarResponse(avatar_version=version)
+
+
+@router.delete("/auth/avatar", response_model=AvatarResponse)
+async def remove_avatar(_auth: AuthContext = Depends(require_owner)) -> AvatarResponse:
+    """Remove the owner's profile picture; the account shows its initial again."""
+    await avatar_service.delete_avatar()
+    log.info("Profile picture removed")
+    return AvatarResponse(avatar_version=None)
 
 
 @router.post("/auth/initial-setup", response_model=InitialSetupResponse)

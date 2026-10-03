@@ -108,6 +108,31 @@ def test_primary_name_does_not_spread_to_another_bird(evidence):
     assert [b["species"] for b in resolve_bird_identities(**evidence)] == ["Prunella modularis", "Unknown Bird"]
 
 
+@pytest.mark.parametrize("cached_identity", ["Turdus migratorius", None])
+def test_visit_identity_cannot_override_a_conflicting_or_ambiguous_cached_crop_alias(evidence, cached_identity):
+    evidence["birds"][0]["classifier_label"] = "Robin"
+    evidence["detection"].update(
+        category_name="Erithacus rubecula",
+        scientific_name="Erithacus rubecula",
+        common_name="Robin",
+        display_name="Robin",
+    )
+    bird = resolve_bird_identities(**evidence, species_aliases={"robin": cached_identity})[0]
+    assert bird["species"] == "Unknown Bird"
+    assert bird["identity_source"] == "crop"
+    assert bird["classifier_label"] == "Robin"
+    assert bird["classifier_score"] == evidence["birds"][0]["classifier_score"]
+
+
+@pytest.mark.parametrize("species_aliases", [{}, {"dunnock": "Prunella modularis"}])
+def test_matching_crop_common_name_can_borrow_its_accepted_visit_identity(evidence, species_aliases):
+    evidence["birds"][0]["classifier_label"] = "Dunnock"
+    bird = resolve_bird_identities(**evidence, species_aliases=species_aliases)[0]
+    assert bird["species"] == "Prunella modularis"
+    assert bird["identity_source"] == "visit"
+    assert bird["identity_score"] == evidence["detection"]["score"]
+
+
 def test_crop_naming_uses_configured_threshold(evidence):
     evidence["candidates"] = []
     evidence["birds"][0]["classifier_score"] = 0.62
