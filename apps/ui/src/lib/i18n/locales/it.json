@@ -969,7 +969,15 @@
       "trusted_proxies_add": "Aggiungi host proxy attendibile",
       "trusted_proxies_remove": "Rimuovi host proxy attendibile",
       "trusted_proxies_empty": "Nessun proxy attendibile configurato (tutti i proxy sono attendibili).",
-      "advanced_title": "Sessione e reverse proxy"
+      "advanced_title": "Sessione e reverse proxy",
+      "avatar": "Immagine del profilo",
+      "avatar_desc": "Mostrata accanto al tuo nome nella barra laterale. Viene salvata come piccola immagine quadrata; nient'altro del file viene conservato.",
+      "avatar_upload": "Carica immagine",
+      "avatar_replace": "Sostituisci immagine",
+      "avatar_remove": "Rimuovi immagine",
+      "avatar_saving": "Salvataggio…",
+      "avatar_too_large": "Il file supera gli 8 MB. Scegli un'immagine più piccola.",
+      "avatar_failed": "Questo file non può essere usato come immagine. Prova un JPEG o un PNG."
     },
     "public_access": {
       "title": "Accesso Pubblico",
@@ -1766,7 +1774,10 @@
     "notifications_enabled": "Notifiche Abilitate",
     "system_online": "Sistema Online",
     "system_offline": "Sistema Offline",
-    "open_health": "Stato del sistema"
+    "open_health": "Stato del sistema",
+    "tile_live": "Diretta",
+    "tile_audio": "Suono",
+    "tile_alerts": "Avvisi"
   },
   "notifications": {
     "reclassify_fallback": "⚠️ Video non disponibile - usato snapshot",

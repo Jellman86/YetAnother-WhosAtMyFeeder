@@ -9,6 +9,50 @@
     import SettingsSelect from './_primitives/SettingsSelect.svelte';
     import SettingsSegmented from './_primitives/SettingsSegmented.svelte';
     import AdvancedSection from './_primitives/AdvancedSection.svelte';
+    import { authStore } from '../../stores/auth.svelte';
+    import { avatarStore } from '../../stores/avatar.svelte';
+    import { getErrorMessage } from '../../utils/error-handling';
+    import { logger } from '../../utils/logger';
+
+    // The profile picture saves the moment it is chosen, not with the page's Save bar, so its
+    // buttons say what they do. Checked here for size so a large photo fails before the upload.
+    const AVATAR_MAX_BYTES = 8 * 1024 * 1024;
+    let avatarInput = $state<HTMLInputElement | null>(null);
+    let avatarBusy = $state(false);
+    let avatarError = $state<string | null>(null);
+    async function chooseAvatar(event: Event): Promise<void> {
+        const input = event.currentTarget as HTMLInputElement;
+        const file = input.files?.[0];
+        input.value = '';
+        if (!file) return;
+        avatarError = null;
+        if (file.size > AVATAR_MAX_BYTES) {
+            avatarError = $_('settings.auth.avatar_too_large', { default: 'That file is over 8 MB. Choose a smaller picture.' });
+            return;
+        }
+        avatarBusy = true;
+        try {
+            await avatarStore.upload(file);
+        } catch (error) {
+            avatarError = $_('settings.auth.avatar_failed', { default: 'That file could not be used as a picture. Try a JPEG or PNG.' });
+            logger.warn('Profile picture upload failed', { message: getErrorMessage(error) });
+        } finally {
+            avatarBusy = false;
+        }
+        await authStore.loadStatus();
+    }
+    async function removeAvatar(): Promise<void> {
+        avatarError = null;
+        avatarBusy = true;
+        try {
+            await avatarStore.remove();
+            await authStore.loadStatus();
+        } catch (error) {
+            avatarError = getErrorMessage(error);
+        } finally {
+            avatarBusy = false;
+        }
+    }
 
     let {
         authEnabled = $bindable(false),
@@ -138,6 +182,51 @@
                 onchange={(v) => (authEnabled = v)}
             />
         </SettingsRow>
+
+        {#if authEnabled && authStore.isAuthenticated}
+            <SettingsRow
+                labelId="setting-auth-avatar"
+                label={$_('settings.auth.avatar', { default: 'Profile picture' })}
+                description={$_('settings.auth.avatar_desc', {
+                    default: 'Shown beside your name in the sidebar. It is stored as a small square picture; nothing else from the file is kept.'
+                })}
+                layout="stacked"
+            >
+                <div class="flex flex-wrap items-center gap-3" data-settings-avatar>
+                    {#if avatarStore.url}
+                        <img src={avatarStore.url} alt={$_('settings.auth.avatar', { default: 'Profile picture' })} class="h-14 w-14 rounded-xl object-cover" />
+                    {:else}
+                        <span class="grid h-14 w-14 place-items-center rounded-xl bg-brand-100 text-lg font-bold text-brand-700 dark:bg-brand-900/50 dark:text-brand-300" aria-hidden="true">
+                            {(authStore.username?.trim().slice(0, 1) || 'Y').toUpperCase()}
+                        </span>
+                    {/if}
+                    <input
+                        bind:this={avatarInput}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        class="sr-only"
+                        tabindex="-1"
+                        aria-hidden="true"
+                        onchange={chooseAvatar}
+                    />
+                    <button type="button" class="btn btn-secondary min-h-11 px-4 text-sm" disabled={avatarBusy} onclick={() => avatarInput?.click()}>
+                        {avatarBusy
+                            ? $_('settings.auth.avatar_saving', { default: 'Saving…' })
+                            : avatarStore.url
+                              ? $_('settings.auth.avatar_replace', { default: 'Replace picture' })
+                              : $_('settings.auth.avatar_upload', { default: 'Upload picture' })}
+                    </button>
+                    {#if avatarStore.url}
+                        <button type="button" class="btn btn-ghost min-h-11 px-4 text-sm" disabled={avatarBusy} onclick={removeAvatar}>
+                            {$_('settings.auth.avatar_remove', { default: 'Remove picture' })}
+                        </button>
+                    {/if}
+                    {#if avatarError}
+                        <p class="w-full text-xs text-red-600 dark:text-red-400" role="alert">{avatarError}</p>
+                    {/if}
+                </div>
+            </SettingsRow>
+        {/if}
 
         {#if authEnabled}
             <SettingsRow

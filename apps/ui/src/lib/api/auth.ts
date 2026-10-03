@@ -97,3 +97,27 @@ export async function createSessionCookie(): Promise<void> {
         throw new Error(await readApiErrorMessage(response, 'Could not attach the session to media requests'));
     }
 }
+
+export type AvatarResponse = paths['/api/auth/avatar']['put']['response'];
+
+/** The owner's profile picture. Fetched with the owner's credentials, so it is never a public URL. */
+export async function fetchAvatar(signal?: AbortSignal): Promise<Blob | null> {
+    const response = await apiFetch(`${API_BASE}/auth/avatar`, { cache: 'no-store', signal, timeoutMs: 10_000 });
+    if (response.status === 404) return null;
+    if (!response.ok) throw new Error(await readApiErrorMessage(response, 'Failed to load profile picture'));
+    return response.blob();
+}
+
+export async function uploadAvatar(file: File): Promise<AvatarResponse> {
+    const form = new FormData();
+    form.append('image', file);
+    const response = await apiFetch(`${API_BASE}/auth/avatar`, { method: 'PUT', body: form, timeoutMs: 30_000 });
+    if (!response.ok) throw new Error(await readApiErrorMessage(response, 'Failed to save profile picture'));
+    return response.json();
+}
+
+export async function deleteAvatar(): Promise<AvatarResponse> {
+    const response = await apiFetch(`${API_BASE}/auth/avatar`, { method: 'DELETE', timeoutMs: 10_000 });
+    if (!response.ok) throw new Error(await readApiErrorMessage(response, 'Failed to remove profile picture'));
+    return response.json();
+}

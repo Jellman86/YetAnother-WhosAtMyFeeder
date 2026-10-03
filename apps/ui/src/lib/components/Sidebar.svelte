@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { avatarStore } from '../stores/avatar.svelte';
     import { onMount } from 'svelte';
     import { themeStore } from '../stores/theme.svelte';
     import { layoutStore } from '../stores/layout.svelte';
@@ -23,6 +24,10 @@
 
     let collapsed = $derived(layoutStore.sidebarCollapsed);
     let accountInitial = $derived((authStore.username?.trim().slice(0, 1) || 'Y').toUpperCase());
+    // The picture is fetched with the owner's credentials; a guest or signed-out viewer has none.
+    $effect(() => {
+        avatarStore.sync(authStore.isAuthenticated ? authStore.avatarVersion : null);
+    });
 
     type NavSection = 'observe' | 'manage';
 
@@ -191,9 +196,13 @@
         {#if !collapsed}
             {#if authStore.isAuthenticated}
                 <div data-sidebar-account class="flex min-w-0 items-center gap-2 rounded-xl border border-slate-200/80 bg-slate-50/90 p-2 dark:border-slate-700/70 dark:bg-slate-800/55">
-                    <div class="grid h-8 w-8 flex-shrink-0 place-items-center rounded-lg bg-brand-100 text-xs font-bold text-brand-700 dark:bg-brand-900/50 dark:text-brand-300">
-                        {accountInitial}
-                    </div>
+                    {#if avatarStore.url}
+                        <img src={avatarStore.url} alt="" class="h-8 w-8 flex-shrink-0 rounded-lg object-cover" data-sidebar-avatar />
+                    {:else}
+                        <div class="grid h-8 w-8 flex-shrink-0 place-items-center rounded-lg bg-brand-100 text-xs font-bold text-brand-700 dark:bg-brand-900/50 dark:text-brand-300">
+                            {accountInitial}
+                        </div>
+                    {/if}
                     <div class="min-w-0 flex-1">
                         <div class="truncate text-xs font-semibold text-slate-800 dark:text-slate-100">{authStore.username}</div>
                         <div class="truncate text-[0.625rem] text-slate-500 dark:text-slate-400">{$_('app.title')}</div>

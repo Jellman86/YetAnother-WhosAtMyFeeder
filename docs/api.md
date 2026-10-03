@@ -106,6 +106,12 @@ curl -N "http://localhost:9852/api/sse?ticket=$TICKET"
 ### Auth status
 
 - `GET /api/auth/status`: returns auth/public-access capability flags used by the frontend.
+  For the owner it also carries `avatar_version` (null without a profile picture).
+- `GET /api/auth/avatar` (owner): the profile picture, a 256 px square JPEG; 404 without one.
+- `PUT /api/auth/avatar` (owner, multipart `image`): replaces it. The upload is decoded, turned
+  upright, centre-cropped and re-encoded, so no metadata (location included) is kept; 400 for a
+  file that is not an image, 413 above 8 MB or 40 megapixels. Returns `avatar_version`.
+- `DELETE /api/auth/avatar` (owner): removes it; the account shows its initial again.
 
 ## Health, Readiness, Version, Streaming
 

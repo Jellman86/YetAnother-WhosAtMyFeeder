@@ -216,6 +216,7 @@ export interface components {
     accessibility_reduced_motion?: boolean;
     appearance_explorer_view?: string;
     auth_required: boolean;
+    avatar_version?: number | null;
     birdnet_enabled?: boolean;
     date_format?: string;
     display_common_names?: boolean;
@@ -246,6 +247,9 @@ export interface components {
     scientific_name_primary?: boolean;
     time_format?: string;
     username?: string | null;
+};
+    AvatarResponse: {
+    avatar_version?: number | null;
 };
     BackendDiagnosticEventResponse: {
     component: string;
@@ -367,6 +371,9 @@ export interface components {
 };
     BodyProbeBirdClassifierRuntimeApiClassifierProbePost: {
     image?: string | null;
+};
+    BodyPutAvatarApiAuthAvatarPut: {
+    image: string;
 };
     BodyTestBirdClassifierApiClassifierTestPost: {
     image: string;
@@ -2388,6 +2395,29 @@ export interface paths {
 };
       requestBody: unknown;
       response: components['schemas']['AudioSummaryResponse'];
+    };
+  };
+  "/api/auth/avatar": {
+    get: {
+      operationId: "get_avatar_api_auth_avatar_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: unknown;
+    };
+    put: {
+      operationId: "put_avatar_api_auth_avatar_put";
+      path: never;
+      query: never;
+      requestBody: components['schemas']['BodyPutAvatarApiAuthAvatarPut'];
+      response: components['schemas']['AvatarResponse'];
+    };
+    delete: {
+      operationId: "remove_avatar_api_auth_avatar_delete";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['AvatarResponse'];
     };
   };
   "/api/auth/initial-setup": {
