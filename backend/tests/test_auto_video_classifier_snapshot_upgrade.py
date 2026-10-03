@@ -218,6 +218,7 @@ async def test_process_event_records_temporal_abstention_without_breaker_failure
             "outcome": "no_result",
             "reason": "video_no_results",
             "diagnostics": diagnostics,
+            "photo_outcome": "owner_identification_preserved",
         }
         diagnostic = next(
             item
@@ -277,6 +278,8 @@ async def test_manual_video_abstention_falls_back_to_best_retained_snapshot():
         "cam1",
         event_data={"has_clip": True},
         manual_tagged=True,
+        photo_outcome="owner_identification_preserved",
+        snapshot_input=ANY,
     )
     service._save_results.assert_not_awaited()
     service._record_success.assert_called_once_with("evt-manual-video-abstention", source="manual")
@@ -438,6 +441,7 @@ async def test_process_event_falls_back_to_snapshot_when_clip_not_retained_for_b
             "model_id": "model.tflite",
         },
         manual_tagged=False,
+        publish_completion=False,
     )
 
 
@@ -535,6 +539,7 @@ async def test_process_event_snapshot_fallback_retries_background_overload_then_
             "model_id": "model.tflite",
         },
         manual_tagged=False,
+        publish_completion=False,
     )
     service._record_success.assert_called_once_with("evt-batch-fallback-retry", source="maintenance")
     service._record_failure.assert_not_called()

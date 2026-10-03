@@ -134,6 +134,41 @@ jobs:
         run: npm run build
         working-directory: apps/ui
 
+  browser:
+    name: Browser regressions (Chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/ui
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/ui/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Test browser fixtures
+        run: npm run test:browser -- --project=chromium
+
+      - name: Retain failure screenshots and traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-failure-evidence
+          path: apps/ui/playwright-results
+          retention-days: 7
+
   telemetry-worker:
     name: Telemetry worker checks
     runs-on: ubuntu-latest

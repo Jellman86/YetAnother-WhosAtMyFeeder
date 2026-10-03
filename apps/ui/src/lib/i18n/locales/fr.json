@@ -1891,7 +1891,10 @@
       "save_species": "Enregistrer l’espèce",
       "show_all": "Afficher les {count} oiseaux",
       "show_fewer": "Afficher moins d’oiseaux",
-      "excluded_heading": "Exclus, non comptés"
+      "excluded_heading": "Exclus, non comptés",
+      "choose_species": "Recherchez un nom commun ou scientifique, puis choisissez une espèce.",
+      "identified_from_visit": "Identifié lors de cette visite",
+      "visit_evidence": "Le nom vient de l’identification acceptée de la visite et du cadre correspondant de Frigate. Ce recadrage seul a obtenu {score}."
     },
     "uploaded": "Importée",
     "observation_notes": "Remarques sur l’observation",

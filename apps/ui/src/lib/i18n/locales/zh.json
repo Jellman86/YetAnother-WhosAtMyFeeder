@@ -1891,7 +1891,10 @@
       "save_species": "保存种类",
       "show_all": "显示全部 {count} 只鸟",
       "show_fewer": "显示较少的鸟",
-      "excluded_heading": "已排除，不计入"
+      "excluded_heading": "已排除，不计入",
+      "choose_species": "按常用名或学名搜索，然后选择物种。",
+      "identified_from_visit": "根据本次到访识别",
+      "visit_evidence": "名称来自本次到访已接受的识别结果和匹配的 Frigate 跟踪框。此裁剪图像单独的得分为 {score}。"
     },
     "uploaded": "已上传",
     "observation_notes": "观察备注",

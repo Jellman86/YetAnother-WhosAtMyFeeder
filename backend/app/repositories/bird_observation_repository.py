@@ -7,6 +7,9 @@ import aiosqlite
 
 from app.services.bird_observation_selection import BirdObservation, BirdObservationSelection
 from app.utils.canonical_species import should_hide_species_label
+from app.config import settings
+from app.services.counted_bird_identity import resolve_bird_identities, species_aliases_from_taxonomy
+from app.repositories.species_repository import SpeciesRepository
 
 SUMMARY_EVENT_PAGE_SIZE = 400
 
@@ -251,28 +254,113 @@ class BirdObservationRepository:
             row = await cursor.fetchone()
         return {"birds": int(row[0] or 0), "captures": int(row[1] or 0)}
 
+    async def resolved_for_events(self, frigate_events: list[str]) -> dict[str, list[dict]]:
+        """Resolve stored crop evidence against current parent identity in bounded batches."""
+        resolved: dict[str, list[dict]] = {}
+        unique_events = list(dict.fromkeys(frigate_events))
+        parent_fields = ("category_name", "scientific_name", "common_name", "display_name", "score", "manual_tagged")
+        for start in range(0, len(unique_events), SUMMARY_EVENT_PAGE_SIZE):
+            page = unique_events[start : start + SUMMARY_EVENT_PAGE_SIZE]
+            placeholders = ",".join("?" for _ in page)
+            parent_columns = ",".join(f"d.{field} AS parent_{field}" for field in parent_fields)
+            async with self.db.execute(
+                f"""SELECT b.*, {parent_columns} FROM bird_observations b
+                    JOIN detections d ON d.frigate_event=b.frigate_event
+                    WHERE b.frigate_event IN ({placeholders}) ORDER BY b.bird_index""",
+                page,
+            ) as cursor:
+                names = [column[0] for column in cursor.description]
+                rows = [dict(zip(names, row, strict=True)) for row in await cursor.fetchall()]
+            birds_by_event: dict[str, list[dict]] = {}
+            parents = {}
+            for bird in rows:
+                event = bird["frigate_event"]
+                parents[event] = {field: bird.pop(f"parent_{field}") for field in parent_fields}
+                bird["crop_box"] = json.loads(bird.pop("crop_box_json"))
+                birds_by_event.setdefault(event, []).append(bird)
+            labels = {
+                str(label).strip().lower()
+                for bird in rows
+                for label in (bird.get("species"), bird.get("classifier_label"))
+                if label and not should_hide_species_label(label)
+            }
+            labels.update(
+                str(label).strip().lower()
+                for parent in parents.values()
+                for field, label in parent.items()
+                if field in parent_fields[:4] and label and not should_hide_species_label(label)
+            )
+            aliases = await self._cached_species_aliases(sorted(labels))
+            hints: dict[str, list[dict]] = {}
+            async with self.db.execute(
+                f"""SELECT frigate_event, clip_variant, frame_index, crop_box_json FROM snapshot_candidates
+                    WHERE frigate_event IN ({placeholders}) AND source_mode='frigate_hint_crop'""",
+                page,
+            ) as cursor:
+                for event, variant, frame, box in await cursor.fetchall():
+                    hints.setdefault(event, []).append(
+                        {
+                            "source_mode": "frigate_hint_crop",
+                            "clip_variant": variant,
+                            "frame_index": frame,
+                            "crop_box": json.loads(box) if box else None,
+                        }
+                    )
+            for event, birds in birds_by_event.items():
+                resolved[event] = resolve_bird_identities(
+                    birds,
+                    hints.get(event, []),
+                    parents[event],
+                    threshold=settings.classification.threshold,
+                    species_aliases=aliases,
+                )
+        return resolved
+
+    async def _cached_species_aliases(self, labels: list[str]) -> dict[str, str | None]:
+        taxonomy = []
+        # One cache lookup per label batch, shared by every capture on the page.
+        # Three alias columns keep each batch below SQLite's legacy bind limit.
+        for start in range(0, len(labels), 250):
+            batch = labels[start : start + 250]
+            placeholders = ",".join("?" for _ in batch)
+            async with self.db.execute(
+                f"""SELECT scientific_name, common_name, manual_common_name FROM taxonomy_cache
+                    WHERE LOWER(scientific_name) IN ({placeholders})
+                       OR LOWER(common_name) IN ({placeholders})
+                       OR LOWER(manual_common_name) IN ({placeholders})""",
+                batch * 3,
+            ) as cursor:
+                taxonomy.extend(await cursor.fetchall())
+        return species_aliases_from_taxonomy(taxonomy)
+
+    async def named_for_event(self, event: str, language: str = "en") -> list[dict]:
+        birds = (await self.resolved_for_events([event])).get(event, [])
+        names: dict[str, tuple | None] = {}
+        taxonomy = SpeciesRepository(self.db)
+        for bird in birds:
+            label = bird.get("scientific_name")
+            if not label or should_hide_species_label(label):
+                continue
+            if label not in names:
+                names[label] = await taxonomy.lookup_taxonomy(label, language)
+            if names[label]:
+                scientific, common, _ = names[label]
+                bird["scientific_name"], bird["common_name"] = scientific, common
+        return birds
+
     async def summaries_for_events(self, frigate_events: list[str]) -> dict[str, dict]:
         """Per-capture totals from stored owner decisions; a capture without rows has no entry.
 
         No entry is not a measured zero: an empty count is never persisted. The join keeps
         the summary to current parents, so an orphaned row cannot describe a deleted capture.
         """
-        groups: dict[str, list[tuple[str, bool, int, bool]]] = {}
-        unique_events = list(dict.fromkeys(frigate_events))
-        for start in range(0, len(unique_events), SUMMARY_EVENT_PAGE_SIZE):
-            page = unique_events[start : start + SUMMARY_EVENT_PAGE_SIZE]
-            placeholders = ",".join("?" for _ in page)
-            async with self.db.execute(
-                f"""SELECT b.frigate_event, b.species, b.is_hidden, COUNT(*),
-                           MIN(CASE WHEN b.detector_confidence IS NULL THEN 1 ELSE 0 END)
-                    FROM bird_observations b JOIN detections d ON d.frigate_event = b.frigate_event
-                    WHERE b.frigate_event IN ({placeholders})
-                    GROUP BY b.frigate_event, b.species, b.is_hidden""",
-                page,
-            ) as cursor:
-                for event, species, hidden, count, hint_only in await cursor.fetchall():
-                    groups.setdefault(str(event), []).append((str(species), bool(hidden), int(count), bool(hint_only)))
-        return {event: self._summarize(rows) for event, rows in groups.items()}
+        events = await self.resolved_for_events(frigate_events)
+        return {
+            event: self._summarize(
+                [(bird["species"], bool(bird["is_hidden"]), 1, bird["detector_confidence"] is None) for bird in birds]
+            )
+            for event, birds in events.items()
+        }
 
     @staticmethod
     def _summarize(groups: list[tuple[str, bool, int, bool]]) -> dict:

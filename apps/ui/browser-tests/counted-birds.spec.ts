@@ -26,7 +26,9 @@ async function open(page: Page, query: string, fixture: Fixture = { requests: []
         const path = new URL(route.request().url()).pathname;
         fixture.requests.push(`${route.request().method()} ${path}`);
         const patch = /^\/api\/frigate\/fixture-event\/birds\/(\d+)$/.exec(path);
-        if (path === '/api/fixture/scene-3840.svg') {
+        if (path === '/api/species/search') {
+            await route.fulfill({ json: [{ id: 'Northern Cardinal', display_name: 'Northern Cardinal', common_name: 'Northern Cardinal', scientific_name: null }] });
+        } else if (path === '/api/fixture/scene-3840.svg') {
             await route.fulfill({ contentType: 'image/svg+xml', body: svgScene(3840, 2160, CARDINAL_BOXES) });
         } else if (path === '/api/fixture/scene-960.svg') {
             await route.fulfill({ contentType: 'image/svg+xml', body: svgScene(960, 540, []) });

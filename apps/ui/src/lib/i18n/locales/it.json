@@ -1901,7 +1901,10 @@
       "save_species": "Salva specie",
       "show_all": "Mostra tutti i {count} uccelli",
       "show_fewer": "Mostra meno uccelli",
-      "excluded_heading": "Esclusi, non contati"
+      "excluded_heading": "Esclusi, non contati",
+      "choose_species": "Cerca per nome comune o scientifico, poi scegli una specie.",
+      "identified_from_visit": "Identificato durante questa visita",
+      "visit_evidence": "Il nome deriva dall’identificazione accettata della visita e dal riquadro corrispondente di Frigate. Questo ritaglio da solo ha ottenuto {score}."
     },
     "uploaded": "Caricata",
     "observation_notes": "Note sull’osservazione",

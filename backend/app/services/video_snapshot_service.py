@@ -158,10 +158,8 @@ def _candidates(
                 "source_mode": mode,
                 "clip_variant": clip_variant,
                 "crop_box": evidence.get("crop_box") if selected and cropped else None,
-                "crop_strategy": DETECTOR_PHOTO_STRATEGY
-                if selected and has_localized_bird(evidence)
-                else "video_evidence",
-                "crop_confidence": evidence.get("detector_confidence") if selected else None,
+                "crop_strategy": DETECTOR_PHOTO_STRATEGY if has_localized_bird(evidence) else "video_evidence",
+                "crop_confidence": evidence.get("detector_confidence"),
                 "selected": selected,
                 "classifier_label": result["label"] if selected else None,
                 "classifier_score": evidence["score"] if selected else None,
@@ -184,6 +182,14 @@ def _retained_thumbnail(image_bytes: bytes) -> bytes | None:
 
         return _jpeg(decode_image_bytes(image_bytes, convert_rgb=True), thumbnail=True)
     except Exception:
+        return None
+
+
+async def _cached_candidate_photo(reference: str) -> bytes | None:
+    try:
+        return await media_cache.get_snapshot(reference)
+    except Exception as exc:
+        log.warning("Snapshot candidate could not be read", reference=reference, error=str(exc))
         return None
 
 
@@ -219,7 +225,7 @@ async def retained_snapshot_candidate(
         reverse=True,
     )
     for old in legacy[:MAX_EARLIER_PHOTO_CHOICES]:
-        if await media_cache.get_snapshot(old["image_ref"]) == photo:
+        if await _cached_candidate_photo(old["image_ref"]) == photo:
             old["content_sha256"] = content_sha256
             if old["candidate_id"] not in replaced_candidate_ids:
                 return None
@@ -304,7 +310,7 @@ async def _snapshot_preservation_outcome(
         and current.get("image_ref")
         and has_reusable_bird_presence(current)
     ):
-        current_bytes = await media_cache.get_snapshot(current["image_ref"])
+        current_bytes = await _cached_candidate_photo(current["image_ref"])
         if current_bytes and current_bytes == await media_cache.get_snapshot(event_id):
             return "matching_photo_preserved"
     return None
@@ -462,4 +468,122 @@ async def replace_video_snapshot(
         return commit.result()
     except Exception as exc:
         log.warning("Video evidence photograph could not be updated", event_id=event_id, error=str(exc))
+        return "snapshot_replace_failed"
+
+
+def _identity_photo_candidates(candidates: list[dict[str, Any]], labels: set[str]) -> list[dict[str, Any]]:
+    supported = [
+        candidate
+        for candidate in candidates
+        if has_reusable_bird_presence(candidate)
+        and not (candidate.get("source_mode") == "full_frame" and candidate.get("input_is_cropped"))
+    ]
+    matching = [
+        candidate
+        for candidate in supported
+        if _label_key(candidate.get("classifier_label")) in labels
+        and has_confident_photo_species(candidate, threshold=settings.classification.threshold)
+    ]
+    scenes = [
+        candidate
+        for candidate in supported
+        if candidate.get("source_mode") == "full_frame"
+        and not candidate.get("input_is_cropped")
+        and candidate.get("snapshot_source") != "hq_candidate_frigate_snapshot_fallback"
+    ]
+    return matching + [candidate for candidate in scenes if candidate not in matching]
+
+
+async def reconcile_snapshot_identity(
+    event_id: str,
+    *,
+    clip_path: Path | None = None,
+    event_data: dict[str, Any] | None = None,
+    clip_variant: str = "event",
+    clip_start_timestamp: float | None = None,
+    automatic: bool = True,
+) -> str:
+    """Settle an abstaining run's photograph without creating a species verdict."""
+    if not settings.media_cache.enabled:
+        return "media_cache_disabled"
+    if not settings.media_cache.cache_snapshots:
+        return "snapshot_caching_disabled"
+    if not media_cache._available:
+        return "media_cache_unavailable"
+    try:
+        async with get_db() as db:
+            repo = DetectionRepository(db)
+            detection = await repo.get_by_frigate_event(event_id)
+            if detection is None:
+                return "owner_identification_preserved"
+            label = detection.category_name
+            labels = {
+                _label_key(getattr(detection, field, None))
+                for field in ("category_name", "scientific_name", "common_name", "display_name")
+                if not should_hide_species_label(getattr(detection, field, None))
+            }
+            existing = await repo.list_snapshot_candidates(event_id)
+        result = {"label": label}
+        preserved = await _snapshot_preflight(event_id, result, automatic=automatic)
+        if preserved is not None:
+            return preserved
+        candidates = _identity_photo_candidates(existing, labels)
+        for scan_clip in (False, True):
+            if scan_clip:
+                if clip_path is None or not settings.media_cache.high_quality_event_snapshots:
+                    break
+                from app.services.high_quality_snapshot_service import high_quality_snapshot_service
+
+                # Metadata alone cannot prove a retained photo remains usable.
+                # After exhausting cached images, make one evidence-only scan.
+                bundle = await high_quality_snapshot_service.generate_snapshot_candidates_from_clip_path(
+                    event_id,
+                    clip_path,
+                    event_data=event_data,
+                    clip_variant=clip_variant,
+                    clip_start_timestamp=clip_start_timestamp,
+                )
+                candidates = _identity_photo_candidates(bundle.get("candidates") or [], labels)
+            for candidate in candidates:
+                photo = candidate.get("image_bytes")
+                if not photo and candidate.get("image_ref"):
+                    photo = await _cached_candidate_photo(candidate["image_ref"])
+                if not photo:
+                    continue
+                thumbnail = await asyncio.to_thread(_retained_thumbnail, photo)
+                if thumbnail is None:
+                    continue
+                staged = {
+                    **candidate,
+                    "selected": True,
+                    "image_bytes": photo,
+                    "thumbnail_bytes": thumbnail,
+                    "thumbnail_ref": candidate.get("thumbnail_ref") or f"{candidate['candidate_id']}__thumb",
+                }
+                commit = asyncio.create_task(
+                    _commit_video_snapshot(event_id, result, candidate, [staged], automatic=automatic),
+                    name="abstained_snapshot_commit",
+                )
+                cancellation = None
+                while not commit.done():
+                    try:
+                        await asyncio.shield(commit)
+                    except asyncio.CancelledError as exc:
+                        cancellation = exc
+                    except Exception:
+                        break
+                if cancellation is not None:
+                    if not commit.cancelled():
+                        commit.exception()
+                    raise cancellation
+                outcome = commit.result()
+                if outcome == "replaced" and not (
+                    _label_key(candidate.get("classifier_label")) in labels
+                    and has_confident_photo_species(candidate, threshold=settings.classification.threshold)
+                ):
+                    return "full_frame_fallback"
+                return outcome
+        return "bird_presence_unconfirmed"
+    except Exception as exc:
+        log.warning("Abstaining photograph reconciliation failed", event_id=event_id, error=str(exc))
         return "snapshot_replace_failed"

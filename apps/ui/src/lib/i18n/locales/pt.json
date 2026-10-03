@@ -1901,7 +1901,10 @@
       "save_species": "Guardar espécie",
       "show_all": "Mostrar as {count} aves",
       "show_fewer": "Mostrar menos aves",
-      "excluded_heading": "Excluídas, não contadas"
+      "excluded_heading": "Excluídas, não contadas",
+      "choose_species": "Pesquise pelo nome comum ou científico e escolha uma espécie.",
+      "identified_from_visit": "Identificado nesta visita",
+      "visit_evidence": "O nome vem da identificação aceite da visita e da caixa correspondente do Frigate. Este recorte, por si só, obteve {score}."
     },
     "uploaded": "Carregada",
     "observation_notes": "Notas da observação",

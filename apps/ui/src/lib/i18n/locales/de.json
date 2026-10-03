@@ -1891,7 +1891,10 @@
       "save_species": "Art speichern",
       "show_all": "Alle {count} Vögel zeigen",
       "show_fewer": "Weniger Vögel zeigen",
-      "excluded_heading": "Ausgeschlossen, nicht gezählt"
+      "excluded_heading": "Ausgeschlossen, nicht gezählt",
+      "choose_species": "Nach deutschem oder wissenschaftlichem Namen suchen und eine Art auswählen.",
+      "identified_from_visit": "Anhand dieses Besuchs bestimmt",
+      "visit_evidence": "Die Art stammt aus der akzeptierten Bestimmung dieses Besuchs und dem passenden Frigate-Rahmen. Dieser Bildausschnitt allein erreichte {score}."
     },
     "uploaded": "Hochgeladen",
     "observation_notes": "Beobachtungsnotizen",

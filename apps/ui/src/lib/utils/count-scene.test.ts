@@ -216,3 +216,26 @@ describe('labels and counts', () => {
         expect(captureBirdCounts(observations)).toEqual({ counted: 3, unknown: 2, excluded: 0, species: 1 });
     });
 });
+
+
+describe('resolved counted species aliases', () => {
+    it('groups a model label and a manual correction by their effective API species', () => {
+        const birds = [
+            bird(1, [10, 10, 50, 50], { species: 'Prunella modularis', classifier_label: 'Dunnock', scientific_name: 'Prunella modularis', common_name: 'Dunnock', identity_source: 'crop' }),
+            bird(2, [100, 10, 140, 50], { species: 'Prunella modularis', classifier_label: 'Prunella modularis', scientific_name: 'Prunella modularis', common_name: 'Dunnock', manual_species: true, identity_source: 'manual' })
+        ];
+        expect(captureBirdCounts(birds)).toEqual({ counted: 2, unknown: 0, excluded: 0, species: 1 });
+        expect(repeatedSpeciesPositions(birds).get(1)).toEqual({ ordinal: 1, total: 2 });
+        expect(repeatedSpeciesPositions(birds).get(2)).toEqual({ ordinal: 2, total: 2 });
+    });
+
+    it('keeps distinct scientific species separate when their common names agree', () => {
+        const birds = [
+            bird(1, [10, 10, 50, 50], { species: 'Erithacus rubecula', scientific_name: 'Erithacus rubecula', common_name: 'Robin' }),
+            bird(2, [100, 10, 140, 50], { species: 'Turdus migratorius', scientific_name: 'Turdus migratorius', common_name: 'Robin' })
+        ];
+        expect(captureBirdCounts(birds).species).toBe(2);
+        expect(repeatedSpeciesPositions(birds).get(1)).toBeNull();
+        expect(repeatedSpeciesPositions(birds).get(2)).toBeNull();
+    });
+});

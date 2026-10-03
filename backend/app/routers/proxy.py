@@ -46,6 +46,7 @@ from app.ratelimit import guest_rate_limit, hls_rate_limit, share_create_rate_li
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 from app.repositories.bird_observation_repository import BirdObservationRepository
+from app.repositories.species_repository import SpeciesRepository
 from app.repositories.video_share_repository import VideoShareRepository
 from app.utils.api_datetime import serialize_api_datetime
 from app.utils.public_access import public_media_window
@@ -383,7 +384,7 @@ async def _build_snapshot_candidates_response(request: Request, event_id: str) -
         )
     )
     async with get_db() as db:
-        birds = await BirdObservationRepository(db).list_for_event(event_id)
+        birds = await BirdObservationRepository(db).named_for_event(event_id, get_user_language(request))
     current_source = status.source
     current_candidate_id = None
     if current_source and current_source.startswith(("hq_candidate_", "video_evidence_")):
@@ -659,6 +660,10 @@ class BirdObservationResponse(BaseModel):
     crop_box: list[float]
     detector_confidence: float | None = None
     species: str
+    common_name: str | None = None
+    scientific_name: str | None = None
+    identity_source: Literal["crop", "visit", "manual"] = "crop"
+    identity_score: float | None = None
     classifier_label: str | None = None
     classifier_score: float
     manual_species: bool
@@ -1676,6 +1681,7 @@ async def get_snapshot_candidates(
 
 @router.patch("/frigate/{event_id}/birds/{bird_id}", response_model=BirdObservationResponse)
 async def update_counted_bird(
+    request: Request,
     update: BirdObservationUpdateRequest,
     event_id: str = Path(..., min_length=1, max_length=64),
     bird_id: int = Path(..., ge=1),
@@ -1692,12 +1698,17 @@ async def update_counted_bird(
     async with get_db() as db:
         repo = BirdObservationRepository(db)
         if species is not None:
+            from app.services.classifier_service import get_classifier
+
+            species = await SpeciesRepository(db).resolve_exact_species(species, get_classifier().labels)
+            if not species or should_hide_species_label(species):
+                raise HTTPException(status_code=400, detail="Choose a complete species from the search results")
             updated = await repo.set_species(event_id, bird_id, species)
         else:
             updated = await repo.set_hidden(event_id, bird_id, bool(update.is_hidden))
         if not updated:
             raise HTTPException(status_code=404, detail="Counted bird not found")
-        birds = await repo.list_for_event(event_id)
+        birds = await repo.named_for_event(event_id, get_user_language(request))
     bird = next((item for item in birds if item["id"] == bird_id), None)
     if bird is None:
         raise HTTPException(status_code=404, detail="Counted bird not found")

@@ -1901,7 +1901,10 @@
       "save_species": "Save species",
       "show_all": "Show all {count} birds",
       "show_fewer": "Show fewer birds",
-      "excluded_heading": "Excluded, not counted"
+      "excluded_heading": "Excluded, not counted",
+      "choose_species": "Search by common or scientific name, then choose a species.",
+      "identified_from_visit": "Identified from this visit",
+      "visit_evidence": "Named from the accepted visit identification and Frigate’s matching tracked box. This crop alone scored {score}."
     },
     "uploaded": "Uploaded",
     "observation_notes": "Observation notes",

@@ -69,6 +69,12 @@
     let countedBirds = $state<BirdObservation[]>([]);
     /** Advanced on every reread of the birds, so an edit answered after it is not applied. */
     let countedBirdsGeneration = $state(0);
+    let countedBirdsLoading = $state(false);
+    let countedBirdsError = $state(false);
+    const countedParentIdentity = $derived(JSON.stringify([
+        session.current?.category_name, session.current?.scientific_name, session.current?.common_name,
+        session.current?.display_name, session.current?.score, session.current?.manual_tagged
+    ]));
     let photograph = $state<SnapshotCandidate | null>(null);
     const wholeSceneCrops = $derived(sameFrameCropCandidates(candidates, photograph));
     let currentCandidateId = $state<string | null>(null);
@@ -161,6 +167,7 @@
 
     async function loadCandidates(eventId: string, isCancelled: () => boolean): Promise<void> {
         const requestEpoch = ++candidateReadEpoch;
+        const parentIdentity = untrack(() => countedParentIdentity);
         const isCurrent = () => requestEpoch === candidateReadEpoch && !isCancelled()
             && session.current?.frigate_event === eventId && authStore.hasOwnerAccess;
         if (!isCurrent()) return;
@@ -179,8 +186,12 @@
                 photograph?.candidate_id ?? null
             );
             candidates = all;
-            countedBirds = response.birds ?? [];
-            countedBirdsGeneration += 1;
+            if (parentIdentity === countedParentIdentity) {
+                countedBirds = response.birds ?? [];
+                countedBirdsGeneration += 1;
+                countedBirdsError = false;
+                countedBirdsLoading = false;
+            }
             currentCandidateId = response.current_candidate_id ?? null;
             currentSource = response.current_source ?? null;
         } catch {
@@ -189,8 +200,11 @@
                 fullFrame = null;
                 photograph = null;
                 candidates = [];
-                countedBirds = [];
-                countedBirdsGeneration += 1;
+                if (parentIdentity === countedParentIdentity) {
+                    countedBirds = [];
+                    countedBirdsGeneration += 1;
+                    countedBirdsLoading = false;
+                }
             }
         } finally {
             if (isCurrent()) cropLoading = false;
@@ -198,6 +212,7 @@
     }
 
     let candidateSubject: string | null = null;
+    let countedIdentitySubject: { eventId: string; identity: string } | null = null;
 
     $effect(() => {
         const eventId = session.current?.frigate_event;
@@ -226,6 +241,41 @@
             cancelled = true;
             candidateReadEpoch += 1;
         };
+    });
+
+    $effect(() => {
+        const eventId = session.current?.frigate_event;
+        const identity = countedParentIdentity;
+        const previous = countedIdentitySubject;
+        countedIdentitySubject = eventId && authStore.hasOwnerAccess ? { eventId, identity } : null;
+        // Identity can change before a reclassification finishes saving its photos.
+        // Keep the frame strip's read tied to settlement while updating these names.
+        if (!eventId || !authStore.hasOwnerAccess || previous?.eventId !== eventId) {
+            countedBirdsLoading = false;
+            countedBirdsError = false;
+            return;
+        }
+        if (previous.identity === identity) return;
+        const mediaEpoch = candidateReadEpoch;
+        let cancelled = false;
+        const isCurrent = () => !cancelled && candidateReadEpoch === mediaEpoch
+            && session.current?.frigate_event === eventId && countedParentIdentity === identity && authStore.hasOwnerAccess;
+        countedBirdsLoading = true;
+        countedBirdsError = false;
+        untrack(() => { countedBirdsGeneration += 1; });
+        void (async () => {
+            try {
+                const response = await fetchSnapshotCandidates(eventId);
+                if (!isCurrent()) return;
+                countedBirds = response.birds ?? [];
+                countedBirdsGeneration += 1;
+            } catch {
+                if (isCurrent()) countedBirdsError = true;
+            } finally {
+                if (isCurrent()) countedBirdsLoading = false;
+            }
+        })();
+        return () => { cancelled = true; };
     });
 
     async function useMoment(moment: FrameMoment): Promise<void> {
@@ -749,15 +799,17 @@
                     </div>
                     <!-- The decision comes first on every screen; the birds counted in the capture are
                          supporting detail one scroll beneath it, in focus order as well as on screen. -->
-                    {#if countedBirds.length > 0}
+                    {#if countedBirds.length > 0 || countedBirdsError}
                         {#key current.frigate_event}
                             <CountedBirds
                                 eventId={current.frigate_event}
                                 birds={countedBirds}
                                 {candidates}
                                 {photograph}
-                                speciesOptions={labels}
                                 generation={countedBirdsGeneration}
+                                loading={countedBirdsLoading}
+                                error={countedBirdsError}
+                                onretry={() => { const eventId = current.frigate_event; void loadCandidates(eventId, () => session.current?.frigate_event !== eventId); }}
                                 onchanged={(updated) => { countedBirds = countedBirds.map((bird) => bird.id === updated.id ? updated : bird); onbirdschanged?.(); }}
                                 onstale={() => { const eventId = current.frigate_event; void loadCandidates(eventId, () => session.current?.frigate_event !== eventId); onbirdschanged?.(); }}
                             />

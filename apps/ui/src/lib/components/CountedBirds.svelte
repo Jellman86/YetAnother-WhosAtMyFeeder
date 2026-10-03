@@ -4,6 +4,10 @@
     import { updateCountedBird, type BirdObservation, type SnapshotCandidate } from '../api';
     import { getErrorMessage } from '../utils/error-handling';
     import { toastStore } from '../stores/toast.svelte';
+    import CountedBirdSpeciesPicker from './CountedBirdSpeciesPicker.svelte';
+    import { getBirdNames } from '../naming';
+    import { settingsStore } from '../stores/settings.svelte';
+    import { authStore } from '../stores/auth.svelte';
     import {
         birdReadingOrder,
         captureBirdCounts,
@@ -22,7 +26,6 @@
         candidates: SnapshotCandidate[];
         /** The photograph's own candidate, so the scene can say whether it is the same moment. */
         photograph?: SnapshotCandidate | null;
-        speciesOptions?: string[];
         /** Advanced by the caller whenever the birds are reread for this capture. */
         generation?: number;
         loading?: boolean;
@@ -41,7 +44,6 @@
         birds,
         candidates,
         photograph = null,
-        speciesOptions = [],
         generation = 0,
         loading = false,
         error = false,
@@ -60,7 +62,6 @@
     let previewId = $state<number | null>(null);
     let editingId = $state<number | null>(null);
     let expanded = $state(false);
-    let speciesInput = $state('');
     let saving = $state<{ birdId: number; token: number } | null>(null);
     let saveToken = 0;
     let destroyed = false;
@@ -92,12 +93,7 @@
     const firstExcludedId = $derived(rows.find((bird) => bird.is_hidden)?.id ?? null);
     const positions = $derived(repeatedSpeciesPositions(birds));
     const highlightedId = $derived(previewId ?? selectedId);
-    const busy = $derived(saving !== null || regenerating);
-    const speciesSuggestions = $derived(
-        speciesInput.trim().length >= 2
-            ? speciesOptions.filter((name) => name.toLowerCase().includes(speciesInput.trim().toLowerCase())).slice(0, 5)
-            : []
-    );
+    const busy = $derived(saving !== null || regenerating || loading);
     const samePhotoFrame = $derived(
         scene.status === 'ready' && photograph
             ? photograph.clip_variant === scene.clipVariant && photograph.frame_index === scene.frameIndex
@@ -127,7 +123,14 @@
     function speciesName(bird: BirdObservation): string {
         return isUnknownBird(bird)
             ? $_('detection.counted_birds.unknown_bird', { default: 'Unknown bird' })
-            : bird.species;
+            : getBirdNames(bird,
+                settingsStore.settings?.display_common_names ?? authStore.displayCommonNames ?? true,
+                settingsStore.settings?.scientific_name_primary ?? authStore.scientificNamePrimary ?? false).primary;
+    }
+
+    function identityScore(bird: BirdObservation): number | null {
+        if (bird.manual_species) return null;
+        return bird.identity_source === 'visit' ? bird.identity_score ?? null : bird.classifier_score;
     }
 
     function positionText(bird: BirdObservation): string | null {
@@ -177,7 +180,6 @@
 
     function startEditing(bird: BirdObservation): void {
         editingId = editingId === bird.id ? null : bird.id;
-        speciesInput = isUnknownBird(bird) ? '' : bird.species;
     }
 
     function collapse(): void {
@@ -394,20 +396,22 @@
                                     {#if position}<span>{position}</span>{/if}
                                     {#if bird.manual_species}
                                         <span>{$_('detection.counted_birds.corrected', { default: 'Your correction' })}</span>
+                                    {:else if bird.identity_source === 'visit'}
+                                        <span>{$_('detection.counted_birds.identified_from_visit', { default: 'Identified from this visit' })}</span>
                                     {:else if unknown && bird.classifier_label}
                                         <span>{$_('detection.counted_birds.too_low_to_name', { default: 'Too uncertain to name' })}</span>
                                     {/if}
-                                    {#if !bird.manual_species}
+                                    {#if identityScore(bird) !== null}
                                         <!-- On a phone the score joins this line, leaving the name the width it needs. -->
-                                        <span class="font-bold tabular-nums text-slate-600 sm:hidden dark:text-slate-300" aria-hidden="true">{percent(bird.classifier_score)}</span>
+                                        <span class="font-bold tabular-nums text-slate-600 sm:hidden dark:text-slate-300" aria-hidden="true">{percent(identityScore(bird))}</span>
                                     {/if}
                                 </span>
                             </span>
-                            {#if !bird.manual_species}
+                            {#if identityScore(bird) !== null}
                                 <span class="shrink-0 text-xs font-bold tabular-nums text-slate-600 dark:text-slate-300">
-                                    <span class="sr-only">{$_('detection.counted_birds.score_label', { default: 'This bird’s own species score' })}</span>
-                                    <span class="hidden sm:inline">{percent(bird.classifier_score)}</span>
-                                    <span class="sr-only sm:hidden">{percent(bird.classifier_score)}</span>
+                                    <span class="sr-only">{bird.identity_source === 'visit' ? $_('detection.confidence', { default: 'Confidence' }) : $_('detection.counted_birds.score_label', { default: 'This bird’s own species score' })}</span>
+                                    <span class="hidden sm:inline">{percent(identityScore(bird))}</span>
+                                    <span class="sr-only sm:hidden">{percent(identityScore(bird))}</span>
                                 </span>
                             {/if}
                             <svg class="h-4 w-4 shrink-0 text-slate-400 transition-transform motion-reduce:transition-none {open ? 'rotate-180' : ''}" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 8 5 5 5-5" /></svg>
@@ -416,7 +420,9 @@
                         {#if open}
                             <div id="counted-bird-{bird.id}" class="space-y-2 pb-3 pl-2 pr-1 pt-1 text-xs sm:pl-14 text-slate-600 dark:text-slate-300" data-counted-bird-details>
                                 <p>
-                                    {#if unknown && bird.classifier_label && !bird.manual_species}
+                                    {#if bird.identity_source === 'visit'}
+                                        {$_('detection.counted_birds.visit_evidence', { values: { score: percent(bird.classifier_score) }, default: 'Named from the accepted visit identification and Frigate’s matching tracked box. This crop alone scored {score}.' })}
+                                    {:else if unknown && bird.classifier_label && !bird.manual_species}
                                         {$_('detection.counted_birds.best_guess', { values: { label: bird.classifier_label, score: percent(bird.classifier_score) }, default: 'Best guess {label} at {score}, too low to name.' })}
                                     {:else if bird.manual_species && bird.classifier_label && bird.classifier_label !== bird.species}
                                         {$_('detection.counted_birds.model_suggested', { values: { label: bird.classifier_label, score: percent(bird.classifier_score) }, default: 'The model suggested {label} at {score}.' })}
@@ -456,22 +462,9 @@
                                     </button>
                                 </div>
                                 {#if editingId === bird.id}
-                                    <form class="flex flex-wrap gap-2" onsubmit={(event) => { event.preventDefault(); const species = speciesInput.trim(); if (species) void save(bird, { species }); }}>
-                                        <label class="min-w-0 flex-1 basis-32">
-                                            <span class="sr-only">{$_('detection.counted_birds.species_for', { values: { bird: birdLabel(bird) }, default: 'Species for {bird}' })}</span>
-                                            <input class="input-base min-h-11 w-full" maxlength="120" bind:value={speciesInput} required />
-                                        </label>
-                                        <button type="submit" class="btn btn-primary min-h-11 px-3 text-xs" disabled={busy || !speciesInput.trim()}>
-                                            {$_('detection.counted_birds.save_species', { default: 'Save species' })}
-                                        </button>
-                                    </form>
-                                    {#if speciesSuggestions.length > 0}
-                                        <ul class="max-h-40 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-900" aria-label={$_('detection.counted_birds.suggestions', { default: 'Matching species' })}>
-                                            {#each speciesSuggestions as suggestion (suggestion)}
-                                                <li><button type="button" class="btn btn-ghost min-h-11 min-w-11 w-full justify-start rounded-md px-2 text-left text-xs text-slate-700 hover:bg-brand-50 focus-ring dark:text-slate-200 dark:hover:bg-brand-950/30" onclick={() => { speciesInput = suggestion; }}>{suggestion}</button></li>
-                                            {/each}
-                                        </ul>
-                                    {/if}
+                                    {#key `${eventId}:${bird.id}:${generation}`}
+                                        <CountedBirdSpeciesPicker birdLabel={birdLabel(bird)} {busy} onsave={(species) => { void save(bird, { species }); }} />
+                                    {/key}
                                 {/if}
                             </div>
                         {/if}

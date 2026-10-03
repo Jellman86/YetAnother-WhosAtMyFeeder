@@ -22,12 +22,13 @@ from app.services.high_quality_snapshot_service import high_quality_snapshot_ser
 from app.services import classifier_service as classifier_service_module
 from app.services.broadcaster import broadcaster
 from app.services.media_cache import media_cache
-from app.services.video_snapshot_service import replace_video_snapshot
+from app.services.video_snapshot_service import reconcile_snapshot_identity, replace_video_snapshot
 from app.services.video_classification_waiter import video_classification_waiter
 from app.services.error_diagnostics import error_diagnostics_history
 from app.services.frigate_missing_policy import apply_missing_policy
 from app.services.maintenance_coordinator import maintenance_coordinator
 from app.services.classification_input_provenance import (
+    ClassificationInputProvenance,
     build_snapshot_classification_input_context,
     load_snapshot_classification_input,
 )
@@ -2088,12 +2089,35 @@ class AutoVideoClassifierService:
                         "Video classification abstained without a confident temporal result",
                         event_id=frigate_event,
                     )
+                    snapshot_input = None
+                    if snapshot_fallback_requested():
+                        # Photograph reconciliation must not change the image
+                        # or provenance used by the established fallback policy.
+                        snapshot_input = await load_snapshot_classification_input(
+                            frigate_event,
+                            event_data=event_data,
+                            media_cache_service=media_cache,
+                            frigate_client_service=frigate_client,
+                        )
+                    try:
+                        photo_outcome = await asyncio.wait_for(
+                            reconcile_snapshot_identity(
+                                frigate_event,
+                                clip_path=Path(tmp_path),
+                                event_data=event_data,
+                                clip_variant=clip_variant,
+                                clip_start_timestamp=clip_start_timestamp,
+                            ),
+                            timeout=_HQ_SNAPSHOT_TIMEOUT_SECONDS,
+                        )
+                    except asyncio.TimeoutError:
+                        photo_outcome = "photo_scan_timeout"
                     self._record_diagnostic(
                         frigate_event,
                         reason_code="video_no_results",
                         message="Video classification completed without a confident temporal result",
                         severity="info",
-                        context=video_diagnostics,
+                        context={**(video_diagnostics or {}), "photo_outcome": photo_outcome},
                     )
                     if snapshot_fallback_requested():
                         await self._broadcast_snapshot_fallback(
@@ -2106,6 +2130,8 @@ class AutoVideoClassifierService:
                             camera,
                             event_data=event_data,
                             manual_tagged=manual_reclassification_requested(),
+                            photo_outcome=photo_outcome,
+                            snapshot_input=snapshot_input,
                         )
                         if snapshot_error is None:
                             self._record_success(frigate_event, source=source)
@@ -2125,6 +2151,7 @@ class AutoVideoClassifierService:
                         outcome="no_result",
                         reason="video_no_results",
                         diagnostics=video_diagnostics,
+                        photo_outcome=photo_outcome,
                     )
 
             finally:
@@ -2853,21 +2880,33 @@ class AutoVideoClassifierService:
         *,
         event_data: dict | None = None,
         manual_tagged: bool = False,
+        photo_outcome: str | None = None,
+        snapshot_input: tuple[bytes | None, ClassificationInputProvenance] | None = None,
     ) -> str | None:
         """Fallback path for queued user-initiated analysis when Frigate clips are no longer retained."""
-        snapshot_data, provenance = await load_snapshot_classification_input(
-            frigate_event,
-            event_data=event_data,
-            media_cache_service=media_cache,
-            frigate_client_service=frigate_client,
+        snapshot_data, provenance = (
+            snapshot_input
+            if snapshot_input is not None
+            else await load_snapshot_classification_input(
+                frigate_event,
+                event_data=event_data,
+                media_cache_service=media_cache,
+                frigate_client_service=frigate_client,
+            )
         )
+
+        async def settle_photo() -> str:
+            return photo_outcome if photo_outcome is not None else await reconcile_snapshot_identity(frigate_event)
+
         if not snapshot_data:
+            photo_outcome = await settle_photo()
             await self._update_status(frigate_event, "failed", error="snapshot_fetch_failed", broadcast=True)
             await self._broadcast_reclassification_completed(
                 frigate_event,
                 [],
                 outcome="failed",
                 reason="snapshot_fetch_failed",
+                photo_outcome=photo_outcome,
             )
             return "snapshot_fetch_failed"
 
@@ -2906,6 +2945,7 @@ class AutoVideoClassifierService:
                 await asyncio.sleep(backoff_seconds)
 
         if last_unavailable_error is not None:
+            photo_outcome = await settle_photo()
             # A repeated "lease expired" here is another strong signal that
             # OpenVINO Intel GPU inference is stuck — usually because the
             # orphaned video-inference thread from the preceding video_timeout
@@ -2932,16 +2972,19 @@ class AutoVideoClassifierService:
                 [],
                 outcome="failed",
                 reason=last_unavailable_error,
+                photo_outcome=photo_outcome,
             )
             return last_unavailable_error
 
         if not results:
+            photo_outcome = await settle_photo()
             await self._update_status(frigate_event, "failed", error="snapshot_no_results", broadcast=True)
             await self._broadcast_reclassification_completed(
                 frigate_event,
                 [],
                 outcome="no_result",
                 reason="snapshot_no_results",
+                photo_outcome=photo_outcome,
             )
             return "snapshot_no_results"
 
@@ -2955,6 +2998,7 @@ class AutoVideoClassifierService:
         )
         top, reason = selection
         if not top:
+            photo_outcome = await settle_photo()
             await self._update_status(
                 frigate_event, "failed", error=reason or "snapshot_no_usable_result", broadcast=True
             )
@@ -2963,6 +3007,7 @@ class AutoVideoClassifierService:
                 [],
                 outcome="no_result",
                 reason=reason or "snapshot_no_usable_result",
+                photo_outcome=photo_outcome,
             )
             return reason or "snapshot_no_usable_result"
         top_with_provenance = attach_classification_provenance(
@@ -2970,15 +3015,25 @@ class AutoVideoClassifierService:
             input_source=provenance.input_source,
             model_id=_active_model_id_or_none(),
         )
-        await self._save_results(
+        usable_result = await self._save_results(
             frigate_event,
             top_with_provenance,
             manual_tagged=manual_tagged,
+            publish_completion=False,
+        )
+        photo_outcome = await reconcile_snapshot_identity(frigate_event, automatic=not manual_tagged)
+        await video_classification_waiter.publish(
+            frigate_event,
+            "completed",
+            label=top.get("label") if usable_result and not should_hide_species_label(top.get("label")) else None,
+            score=top.get("score") if usable_result else None,
+            error=None,
         )
         await self._broadcast_reclassification_completed(
             frigate_event,
             results,
             outcome="success",
+            photo_outcome=photo_outcome,
         )
         log.info(
             "Snapshot fallback classification completed",

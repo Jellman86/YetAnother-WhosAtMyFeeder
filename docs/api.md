@@ -331,6 +331,13 @@ per-file limits above.
     includes its box, suggested or corrected species, detector confidence when available, and
     `is_hidden`, and server-derived `is_unknown`. The unknown decision uses the same configured
     label and noncanonical-taxon policy as `bird_summary`, including after an owner correction.
+    Names include optional `common_name` and `scientific_name`. `identity_source` is `crop`,
+    `visit`, or `manual`; `identity_score` describes that identification and is null for an
+    owner-named identity. `classifier_score` remains the original crop score.
+    An uncertain bird can use the accepted visit identification
+    only when its own species guess agrees and the retained Frigate tracked box uniquely matches
+    it in the same frame. Known common/scientific aliases share one effective species count;
+    ambiguous names remain unresolved. Reads do not rewrite stored crop evidence.
     The eight classified photo crops per frame do not limit the number of counted
     detector boxes. In Intensive scan mode, large high-resolution frames are also scanned in overlapping tiles so distant
     birds occupy more detector pixels. Frigate supplies one tracked-object hint per event; a
@@ -338,6 +345,8 @@ per-file limits above.
 - `PATCH /api/frigate/{event_id}/birds/{bird_id}` (owner) — correct one counted bird's `species`
   or set `is_hidden` to exclude or restore it. Send exactly one field per request. A correction
   stays attached to the matched box when HQ candidates are regenerated.
+  A species must be a complete known common or scientific name. Partial or ambiguous names return
+  HTTP 400. Send the selected `id` from `/api/species/search` to preserve canonical identity.
 - `GET /api/frigate/{event_id}/snapshot/candidates/{candidate_id}/thumbnail.jpg` (owner) — the
   small chooser thumbnail for one candidate.
 - `GET /api/frigate/{event_id}/snapshot/candidates/{candidate_id}/image.jpg` (owner) — the retained
