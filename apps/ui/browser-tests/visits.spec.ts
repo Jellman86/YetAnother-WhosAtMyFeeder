@@ -170,3 +170,23 @@ for (const theme of ['light', 'dark']) {
         expect(errors).toEqual([]);
     });
 }
+
+
+test('a settled owner recount refreshes expanded evidence without changing visit membership', async ({ page }) => {
+    const { errors } = await prepare(page);
+    let counted = 2;
+    let requests = 0;
+    await page.route('**/api/visits/first/captures?**', route => {
+        requests += 1;
+        return route.fulfill({ json: { captures: [capture('first', {
+            bird_summary: { counted, unknown: 0, excluded: 0, species: [], hint_only: false }
+        })], total: 21 } });
+    });
+    await toggle(page).click();
+    await expect(page.locator('[data-visit-capture="first"]')).toContainText('2 birds');
+    counted = 3;
+    await page.getByRole('button', { name: 'Recount settled' }).click();
+    await expect(page.locator('[data-visit-capture="first"]')).toContainText('3 birds');
+    expect(requests).toBe(2);
+    expect(errors).toEqual([]);
+});

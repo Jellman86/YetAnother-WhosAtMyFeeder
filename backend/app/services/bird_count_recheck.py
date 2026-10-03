@@ -129,3 +129,31 @@ def recheck_confirms_seed(seed: dict[str, Any], result: dict[str, Any]) -> bool:
         and _compatible(original, box, minimum_area_ratio=0.5)
         and _intersection(crop, box) / _area(box) >= 0.8
     )
+
+
+def contextual_recheck_box(
+    seed: dict[str, Any], confirmed_box: object, neighbors: list[tuple[float, ...]]
+) -> tuple[int, int, int, int] | None:
+    """Keep a recovered bird's context only when it cannot include another localized bird."""
+    box = _box(confirmed_box)
+    width, height = seed.get("frame_width"), seed.get("frame_height")
+    if box is None or type(width) is not int or type(height) is not int or width <= 0 or height <= 0:
+        return None
+    if box[2] > width or box[3] > height:
+        return None
+    margin_x, margin_y = (box[2] - box[0]) * 0.8, (box[3] - box[1]) * 0.8
+    crop = (
+        max(0, int(box[0] - margin_x)),
+        max(0, int(box[1] - margin_y)),
+        min(width, int(box[2] + margin_x)),
+        min(height, int(box[3] + margin_y)),
+    )
+    for neighbor in neighbors:
+        other = _box(neighbor)
+        if other is None:
+            return None
+        if _compatible(box, other, minimum_area_ratio=0.5):
+            continue
+        if _intersection(crop, other) > 0:
+            return None
+    return crop

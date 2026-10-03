@@ -468,6 +468,7 @@ async def _build_snapshot_candidates_response(request: Request, event_id: str) -
 
 
 def _pick_snapshot_candidate(candidates: list[dict], request: "SnapshotApplyRequest") -> dict | None:
+    candidates = [item for item in candidates if item.get("source_mode") != "model_observation"]
     if request.mode == "candidate":
         target_id = str(request.candidate_id or "").strip()
         return next((item for item in candidates if str(item.get("candidate_id") or "") == target_id), None)

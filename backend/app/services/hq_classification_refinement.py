@@ -60,7 +60,7 @@ def _valid_crop_candidates(candidates: Iterable[dict[str, Any]]) -> list[dict[st
         if not isinstance(candidate, dict):
             continue
         source_mode = str(candidate.get("source_mode") or "full_frame").strip()
-        if source_mode == "full_frame":
+        if source_mode in {"full_frame", "model_observation"}:
             continue
         label = _canonical_label(candidate.get("classifier_label"))
         if not label or should_hide_species_label(label, extra_unknown_labels=unknown_species_labels()):
