@@ -169,7 +169,7 @@ async def test_guest_projection_never_reads_or_returns_bird_summary(history, mon
 
 
 @pytest.mark.asyncio
-async def test_page_reads_one_bounded_aggregate_per_four_hundred_events(history):
+async def test_page_reads_bird_evidence_in_bounded_batches_not_once_per_capture(history):
     path, _, statements = history
     today = datetime.combine(date.today(), datetime.min.time())
     with closing(sqlite3.connect(path)) as db:
@@ -186,7 +186,9 @@ async def test_page_reads_one_bounded_aggregate_per_four_hundred_events(history)
     assert len(rows) == 455
     aggregate_reads = [statement for statement in statements if "bird_observations" in statement]
     assert len(aggregate_reads) == 2
-    assert all("GROUP BY" in statement for statement in aggregate_reads)
+    assert all("b.frigate_event IN" in statement for statement in aggregate_reads)
+    candidate_reads = [statement for statement in statements if "FROM snapshot_candidates" in statement]
+    assert len(candidate_reads) == 2
 
 
 @pytest.mark.asyncio

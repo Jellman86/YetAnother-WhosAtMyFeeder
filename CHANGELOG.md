@@ -6,6 +6,26 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Name a counted bird from its accepted visit identification when Frigate's retained tracked box
+  uniquely matches it and its own species guess agrees. Keep the original crop score and owner
+  corrections, and use the same resolved identity in the capture summary. Search counted birds by
+  common or scientific name in both review dialogs; saving requires a complete known species.
+
+- Run the Chromium browser regression suite on pull requests, retaining failed interaction
+  screenshots and traces for diagnosis.
+
+- Wrap long identification buttons at enlarged text sizes, including wider fallback fonts,
+  so capture details remain within a narrow phone screen.
+
+- Keep slow video progress updates from blocking a recovered CPU worker's completed result
+  or the next live classification. Bound outstanding progress work and reap stalled or crashed
+  inference workers without consuming the rest of a backfill.
+
+- Reconcile the photograph when video analysis finds no confident species. Reuse a verified
+  matching choice, or an uncropped scene with a localized bird when a matching crop is unavailable.
+  Keep the accepted identification and owner choices, report the photo outcome, and preserve the
+  original snapshot input if classification falls back to it.
+
 - Show the sidebar's system status as three icon tiles, Live, Audio and Alerts, instead of three lines of
   text. A tile that is off has a slash through its icon as well as a muted colour, and each keeps its full
   sentence as a tooltip and for screen readers.

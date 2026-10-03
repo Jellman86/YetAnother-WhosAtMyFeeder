@@ -1721,7 +1721,7 @@ async def test_proxy_snapshot_candidates_lists_persisted_candidates(client: http
         mock_get_snapshot.return_value = b"snapshot"
         mock_get_metadata.return_value = {"source": "hq_candidate_model_crop"}
         mock_repo = mock_repo_cls.return_value
-        mock_bird_repo_cls.return_value.list_for_event = AsyncMock(
+        mock_bird_repo_cls.return_value.named_for_event = AsyncMock(
             return_value=[
                 {
                     "id": 1,
@@ -1789,6 +1789,8 @@ async def test_proxy_snapshot_candidates_lists_persisted_candidates(client: http
 
 @pytest.mark.asyncio
 async def test_counted_bird_update_changes_one_bird_and_rejects_ambiguous_payload(client: httpx.AsyncClient):
+    from app.repositories.species_repository import SpeciesRepository
+
     bird = {
         "id": 7,
         "bird_index": 1,
@@ -1804,13 +1806,14 @@ async def test_counted_bird_update_changes_one_bird_and_rejects_ambiguous_payloa
         "is_hidden": False,
     }
     with (
+        patch.object(SpeciesRepository, "resolve_exact_species", new=AsyncMock(return_value="Northern Cardinal")),
         patch("app.routers.proxy.get_db") as mock_get_db,
         patch("app.routers.proxy.BirdObservationRepository") as mock_repo_cls,
     ):
         mock_get_db.return_value.__aenter__.return_value = AsyncMock()
         repo = mock_repo_cls.return_value
         repo.set_species = AsyncMock(return_value=True)
-        repo.list_for_event = AsyncMock(return_value=[bird])
+        repo.named_for_event = AsyncMock(return_value=[bird])
         response = await client.patch("/api/frigate/test_event_id/birds/7", json={"species": "Northern Cardinal"})
         assert response.status_code == 200
         assert response.json()["species"] == "Northern Cardinal"
@@ -2431,7 +2434,7 @@ async def test_snapshot_candidates_response_includes_model_crop_miss_reason_when
         mock_get_snapshot.return_value = b"snapshot"
         mock_get_metadata.return_value = {"source": "high_quality_snapshot"}
         mock_repo = mock_repo_cls.return_value
-        mock_bird_repo_cls.return_value.list_for_event = AsyncMock(return_value=[])
+        mock_bird_repo_cls.return_value.named_for_event = AsyncMock(return_value=[])
         mock_repo.list_snapshot_candidates = AsyncMock(
             return_value=[
                 {
@@ -2489,7 +2492,7 @@ async def test_snapshot_candidates_response_no_model_crop_miss_reason_when_model
         mock_get_snapshot.return_value = b"snapshot"
         mock_get_metadata.return_value = {"source": source}
         mock_repo = mock_repo_cls.return_value
-        mock_bird_repo_cls.return_value.list_for_event = AsyncMock(return_value=[])
+        mock_bird_repo_cls.return_value.named_for_event = AsyncMock(return_value=[])
         mock_repo.list_snapshot_candidates = AsyncMock(
             return_value=[
                 {

@@ -213,9 +213,9 @@ describe('the record uses the strip and drops the framing toggle (#256)', () => 
         expect(confirm).toBeGreaterThan(-1);
         expect(pick).toBeGreaterThan(confirm);
         expect(score).toBeGreaterThan(pick);
-        expect(actions).toContain('class="btn btn-primary min-h-11 w-full px-4 text-sm sm:w-auto sm:flex-1"');
-        expect(actions).toContain('class="btn btn-secondary min-h-11 w-full px-4 text-sm sm:w-auto sm:flex-1"');
-        expect(actions).toContain('class="btn btn-ghost min-h-11 w-full px-4 text-sm sm:w-auto"');
+        expect(actions).toContain('class="btn btn-primary min-h-11 min-w-0 w-full px-4 text-sm sm:w-auto sm:flex-1"');
+        expect(actions).toContain('class="btn btn-secondary min-h-11 min-w-0 w-full px-4 text-sm sm:w-auto sm:flex-1"');
+        expect(actions).toContain('class="btn btn-ghost min-h-11 min-w-0 w-full px-4 text-sm sm:w-auto"');
     });
 
     it('stacks its controls full width on a phone and lets the rail name the bird', () => {

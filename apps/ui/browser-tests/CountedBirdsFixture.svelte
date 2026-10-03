@@ -115,7 +115,6 @@
             {birds}
             {candidates}
             photograph={setup.photograph}
-            speciesOptions={['House Finch', 'Northern Cardinal']}
             {generation}
             countingAvailable={scenario === 'empty'}
             error={params.get('state') === 'error'}
