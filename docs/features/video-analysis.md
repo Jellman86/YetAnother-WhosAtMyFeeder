@@ -170,6 +170,17 @@ HQ and baseline photo changes use the same species-confidence floor: the configu
 threshold or 60%, whichever is higher. A photo must support the current accepted species; a weaker
 HQ candidate cannot displace a stronger baseline photo and then be replaced on every repeated check.
 
+An abstaining video run also checks the photograph. It first reuses retained evidence;
+when HQ scanning is enabled and no suitable retained choice exists, it can generate photo
+candidates from the clip without changing the identification. A verified matching photo
+is preferred. Missing, unreadable or corrupt retained candidate files do not prevent that
+one fresh scan. Otherwise, an uncropped scene with detector-supported bird presence can
+replace a misleading crop, reported as `full_frame_fallback`. This does not claim the
+accepted species was found in that scene. Manual photos and identifications, hidden visits,
+blocked species and storage eviction remain protected. Snapshot fallback classification
+uses the original image and provenance even if this photo check changes the displayed image.
+Completion includes the photo outcome after the photo work settles.
+
 If no suitable localized photo is available, YA-WAMF keeps the current photo and records
 `bird_presence_unconfirmed`. This includes an absent or disabled crop detector, detector misses
 and cases where no localized crop supports the accepted species. A species score alone cannot

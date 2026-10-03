@@ -61,6 +61,12 @@ existing visible-owner checks (once a minute), using stale and single-flight gua
 add no count reads, and completions do not trigger one request per capture. An open record
 rereads its scene when that authoritative count changes; superseded reads cannot apply.
 
+An uncertain counted bird can use the accepted visit identity only when its own guess agrees
+and Frigate's retained tracked box uniquely identifies it in that same frame. Label this source
+as the visit and keep the separate crop score in the evidence. Other birds and owner corrections
+keep their own identity. Both counted-bird editors use the shared common/scientific species
+search; require a selected complete species and discard searches from an earlier capture or edit.
+
 ### 1.3 Say what needs a human, and say why
 
 Work that is waiting is first-class: the review queue is a docked card with a count, not a filter

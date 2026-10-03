@@ -1902,7 +1902,10 @@
       "save_species": "種類を保存",
       "show_all": "{count} 羽すべて表示",
       "show_fewer": "表示を減らす",
-      "excluded_heading": "除外（集計外）"
+      "excluded_heading": "除外（集計外）",
+      "choose_species": "一般名または学名で検索し、種を選択してください。",
+      "identified_from_visit": "この訪問の識別結果",
+      "visit_evidence": "この訪問で採用された識別結果と、一致するFrigateの追跡枠に基づく名前です。この切り抜き単独のスコアは{score}でした。"
     },
     "uploaded": "アップロード済み",
     "observation_notes": "観察メモ",

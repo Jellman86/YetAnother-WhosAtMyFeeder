@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
-// Deliberately local-only: no automatic CI matrix or paid browser service.
+// CI gates Chromium fixtures; the wider desktop/mobile matrix is available locally.
 // PLAYWRIGHT_PORT lets a second checkout run its fixtures beside another one's server.
 // Typed locally: the UI has no Node type package, and this is the only environment read.
 const environment = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};

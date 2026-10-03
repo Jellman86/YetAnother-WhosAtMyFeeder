@@ -4,12 +4,51 @@ from datetime import datetime
 
 import aiosqlite
 
+from app.utils.species_aliases import looks_like_scientific_name, parse_species_alias_label
+
 
 class SpeciesRepository:
     """Own SQL used by the species HTTP surface."""
 
     def __init__(self, db: aiosqlite.Connection) -> None:
         self.db = db
+
+    async def resolve_exact_species(self, name: str, model_labels: list[str]) -> str | None:
+        """Accept a complete known name, rejecting partial and ambiguous common names."""
+        key = name.strip().casefold()
+        async with self.db.execute(
+            """SELECT scientific_name, LOWER(scientific_name)=LOWER(?) FROM taxonomy_cache
+               WHERE LOWER(scientific_name)=LOWER(?) OR LOWER(common_name)=LOWER(?)
+                  OR LOWER(manual_common_name)=LOWER(?)
+               UNION SELECT COALESCE(NULLIF(scientific_name,''), category_name),
+                            LOWER(scientific_name)=LOWER(?) FROM detections
+               WHERE LOWER(scientific_name)=LOWER(?) OR LOWER(common_name)=LOWER(?)
+                  OR LOWER(category_name)=LOWER(?) OR LOWER(display_name)=LOWER(?)
+               UNION SELECT tc.scientific_name, 0 FROM taxonomy_translations tt
+               JOIN taxonomy_cache tc ON tc.taxa_id=tt.taxa_id WHERE LOWER(tt.common_name)=LOWER(?)""",
+            (name.strip(),) * 10,
+        ) as cursor:
+            rows = await cursor.fetchall()
+        matches = {str(row[0]).strip().casefold(): str(row[0]).strip() for row in rows if row[0]}
+        scientific_matches = {str(row[0]).strip().casefold(): str(row[0]).strip() for row in rows if row[0] and row[1]}
+        bare_labels: dict[str, str] = {}
+        for label in model_labels:
+            scientific, common = parse_species_alias_label(label)
+            if scientific and key in {label.strip().casefold(), scientific.casefold(), (common or "").casefold()}:
+                matches[scientific.casefold()] = scientific
+                if scientific.casefold() == key:
+                    scientific_matches[scientific.casefold()] = scientific
+            elif label.strip().casefold() == key:
+                bare_labels[key] = label.strip()
+                if looks_like_scientific_name(label):
+                    scientific_matches[key] = label.strip()
+        # The selected scientific identity remains exact even if another species
+        # happens to use that text as a common name.
+        if scientific_matches:
+            return next(iter(scientific_matches.values())) if len(scientific_matches) == 1 else None
+        if not matches:
+            matches = bare_labels
+        return next(iter(matches.values())) if len(matches) == 1 else None
 
     async def lookup_taxonomy(self, candidate: str, language: str) -> tuple[str | None, str | None, int | None] | None:
         async with self.db.execute(

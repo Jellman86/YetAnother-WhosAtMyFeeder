@@ -108,7 +108,7 @@ async def test_missing_media_keeps_reviewed_bird_metadata(client, candidate_medi
         "manual_species": True,
         "is_hidden": True,
     }
-    monkeypatch.setattr(proxy.BirdObservationRepository, "list_for_event", AsyncMock(return_value=[bird]))
+    monkeypatch.setattr(proxy.BirdObservationRepository, "named_for_event", AsyncMock(return_value=[bird]))
     response = (await client.get("/api/frigate/test_event_id/snapshot/candidates")).json()
     assert response["current_candidate_id"] == "candidate-1"
     assert response["birds"][0]["id"] == 7

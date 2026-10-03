@@ -15,6 +15,7 @@ from .native_crash_quarantine import NativeCrashQuarantine
 # A request that reached the shared worker with less than this share of its
 # budget already spent had a fair attempt; beyond it, a timeout is queueing.
 _UNCONTENDED_QUEUE_FRACTION = 0.05
+_PROGRESS_CLEANUP_SECONDS = 0.05
 
 
 class NativeCpuRecoveryUnavailable(RuntimeError):
@@ -43,6 +44,7 @@ class NativeCpuRecovery:
         self._generation = 0
         self._closed = False
         self._cleanup_pending = False
+        self._progress_task: asyncio.Future[Any] | None = None
 
     def _new_worker(self) -> ClassifierWorkerClient:
         self._generation += 1
@@ -129,6 +131,20 @@ class NativeCpuRecovery:
         self._closed = True
         async with self._lock:
             await self._close_worker()
+        await self._cancel_progress(self._progress_task)
+
+    def _progress_finished(self, task: asyncio.Future[Any]) -> None:
+        if not task.cancelled():
+            task.exception()
+        if self._progress_task is task:
+            self._progress_task = None
+
+    async def _cancel_progress(self, task: asyncio.Future[Any] | None) -> None:
+        if task is not None:
+            task.cancel()
+            # A callback's own cancellation cleanup may block. Keep ownership
+            # and stop further progress dispatch until it finishes.
+            await asyncio.wait({task}, timeout=_PROGRESS_CLEANUP_SECONDS)
 
     async def _next_event(self) -> dict[str, Any]:
         event_task = asyncio.create_task(self._worker.next_event())
@@ -157,6 +173,7 @@ class NativeCpuRecovery:
         deadline = loop.time() + timeout_seconds
         queued_seconds = 0.0
         previous_state: dict[str, Any] | None = None
+        progress_task: asyncio.Future[Any] | None = None
         work_kind = "video" if priority == "video" else "image"
         try:
             # Queueing, model load, identity checks and inference share one budget.
@@ -221,7 +238,7 @@ class NativeCpuRecovery:
                         continue
                     if event["type"] == "error":
                         raise NativeCpuRecoveryUnavailable("CPU worker inference failed")
-                    if event["type"] == "progress" and progress_callback is not None:
+                    if event["type"] == "progress" and progress_callback is not None and self._progress_task is None:
                         try:
                             result = progress_callback(
                                 *(
@@ -240,7 +257,11 @@ class NativeCpuRecovery:
                                 )
                             )
                             if inspect.isawaitable(result):
-                                await result
+                                # One request-owned update keeps slow progress I/O
+                                # from blocking results or accumulating per frame.
+                                progress_task = asyncio.ensure_future(result)
+                                self._progress_task = progress_task
+                                progress_task.add_done_callback(self._progress_finished)
                         except Exception:
                             pass  # Progress is best effort, never a classification result.
                     if event["type"] == "result":
@@ -275,3 +296,4 @@ class NativeCpuRecovery:
         finally:
             if acquired:
                 self._lock.release()
+            await self._cancel_progress(progress_task)

@@ -18,6 +18,7 @@
     if (params.get('theme') === 'dark') document.documentElement.classList.add('dark');
 
     const NAMES: Record<string, { common: string; scientific: string }> = {
+        dunnock: { common: 'Dunnock', scientific: 'Prunella modularis' },
         tit: { common: 'Eurasian Blue Tit', scientific: 'Cyanistes caeruleus' },
         robin: { common: 'European Robin', scientific: 'Erithacus rubecula' },
         wren: { common: 'Eurasian Wren', scientific: 'Troglodytes troglodytes' }
@@ -32,11 +33,11 @@
             scientific_name: name.scientific,
             camera_name: 'birdcam',
             detection_time: `2026-09-18T09:${String(28 + index).padStart(2, '0')}:00Z`,
-            score: 0.66
+            score: id === 'dunnock' ? 0.9396 : 0.66
         };
     }
 
-    const queue = (params.get('queue') ?? 'tit,robin,wren').split(',').map(capture);
+    let queue = $state((params.get('queue') ?? 'tit,robin,wren').split(',').map(capture));
     let record = $state<Detection>(queue[0]);
     // `page=tall` puts the queue over a long, scrolled dashboard the way the owner reaches it,
     // opened from a button rather than on load.
@@ -47,6 +48,10 @@
     let events = $state<string[]>([]);
     window.reviewMedia = {
         setRecord(id) { record = capture(id); },
+        updateParent(identity) {
+            const current = surface === 'record' ? record : queue[0];
+            if (current) Object.assign(current, identity);
+        },
         progressAnalysis(id, frames) {
             detectionsStore.startReclassification(id, frames, 'video');
             for (let frame = 1; frame <= frames; frame += 1) {

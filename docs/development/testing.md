@@ -36,7 +36,13 @@ Telemetry tests build the Worker without deploying it, then use local Miniflare
 databases. They do not require credentials or write to production Cloudflare D1.
 They now run before merge, not just during deployment.
 
-## Local browser matrix
+## Browser regressions
+
+Pull requests run the complete Chromium fixture suite in CI. Failed runs retain
+screenshots and traces for seven days. The same command works locally:
+`npm run test:browser -- --project=chromium` from `apps/ui`.
+
+For the wider local matrix:
 
 From `apps/ui`:
 
@@ -74,6 +80,8 @@ and translations, and substitute only media responses. They check:
 - Actual 44 px hit regions for bird corrections, suggestions, mobile header,
   sidebar and language-picker controls at 320 px, with keyboard operation,
   distinct hit regions and no page overflow.
+- Counted-bird identities and separate crop confidence, common/scientific species
+  searches, explicit selection before saving, stale responses and failed requests.
 
 Unexpected API requests and uncaught JavaScript errors fail the fixture. Its HTML
 is a development test entry, not included in the production build. New browser
@@ -81,6 +89,13 @@ tests belong in `browser-tests/*.spec.ts`; do not replace interaction assertions
 with checks that a source file merely contains a string.
 
 ## Joined backend paths and recovery
+
+`test_issue490_worker_processes.py` injects hangs and exits into real disposable
+child processes. It checks that live requests can finish while a background worker
+fails, that failed workers are reaped, and that failed CPU recovery is not retried
+for every item. `test_native_cpu_recovery.py` also exercises stalled progress
+callbacks so progress I/O cannot hold up an inference result. These tests do not
+establish the health of a particular GPU or driver.
 
 `test_live_notification_integration.py` sends MQTT payloads through the real
 event processor, detection policy, migrated SQLite repositories, notification

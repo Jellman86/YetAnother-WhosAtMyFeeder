@@ -29,6 +29,10 @@ from app.services.ebird_service import ebird_service
 from app.services.leaderboard_window import previous_window_is_complete
 from app.services.nearby_species_service import nearby_species_service, reported_nearby
 from app.utils.classifier_labels import collapse_classifier_label
+from app.utils.species_aliases import (
+    parse_species_alias_label as _parse_species_alias_label,
+    split_species_alias_parts as _split_species_alias_parts,
+)
 from app.utils.canonical_species import should_hide_species_label, user_facing_species_fields
 from app.utils.api_datetime import serialize_api_datetime
 from app.utils.language import get_user_language
@@ -74,7 +78,6 @@ SPECIES_SEARCH_HYDRATE_MAX = 30
 SPECIES_SEARCH_HYDRATE_CONCURRENCY = 6
 SPECIES_SEARCH_HYDRATE_LOOKUP_TIMEOUT = 2.5
 SPECIES_SEARCH_HYDRATE_TRANSLATION_TIMEOUT = 1.5
-SCIENTIFIC_NAME_PATTERN = re.compile(r"^[A-Z][a-z]+(?: [a-z][a-z-]+){1,3}$")
 
 # Species names that should NOT trigger Wikipedia lookup (no valid article exists)
 SKIP_WIKIPEDIA_LOOKUP = {"Unknown Bird", "Background", "Unknown", "No Detection", "Unidentified"}
@@ -225,37 +228,6 @@ def _canonical_species_response_name(
     if scientific_name:
         return scientific_name
     return species_label
-
-
-def _looks_like_scientific_name(value: str | None) -> bool:
-    return bool(value and SCIENTIFIC_NAME_PATTERN.match(value.strip()))
-
-
-def _split_species_alias_parts(label: str | None) -> tuple[str | None, str | None]:
-    raw = str(label or "").strip()
-    if not raw:
-        return None, None
-
-    match = re.match(r"^(.*?)\s*\((.*?)\)\s*$", raw)
-    if not match:
-        return None, None
-    left = match.group(1).strip()
-    right = match.group(2).strip()
-    return (left or None), (right or None)
-
-
-def _parse_species_alias_label(label: str | None) -> tuple[str | None, str | None]:
-    left, right = _split_species_alias_parts(label)
-    if not left or not right:
-        return None, None
-
-    left_is_scientific = _looks_like_scientific_name(left)
-    right_is_scientific = _looks_like_scientific_name(right)
-    if left_is_scientific and not right_is_scientific:
-        return left, right
-    if right_is_scientific and not left_is_scientific:
-        return right, left
-    return None, None
 
 
 async def _lookup_species_search_taxonomy(

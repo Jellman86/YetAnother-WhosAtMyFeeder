@@ -338,13 +338,17 @@ export interface components {
     classifier_label?: string | null;
     classifier_score: number;
     clip_variant: string;
+    common_name?: string | null;
     crop_box: Array<number>;
     detector_confidence?: number | null;
     frame_index: number;
     id: number;
+    identity_score?: number | null;
+    identity_source?: "crop" | "visit" | "manual";
     is_hidden: boolean;
     is_unknown?: boolean;
     manual_species: boolean;
+    scientific_name?: string | null;
     species: string;
 };
     BirdObservationUpdateRequest: {

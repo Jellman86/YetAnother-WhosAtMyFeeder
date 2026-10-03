@@ -312,6 +312,7 @@
 
     async function refreshSnapshotControls(eventId: string) {
         const requestEpoch = ++snapshotControlsEpoch;
+        const parentIdentity = untrack(() => countedParentIdentity);
         const isCurrent = () => requestEpoch === snapshotControlsEpoch
             && detection?.frigate_event === eventId && hasOwnerDetectionActions;
         if (!isCurrent()) return;
@@ -325,16 +326,23 @@
             if (!isCurrent()) return;
             snapshotStatus = status;
             snapshotCandidates = candidateList.candidates ?? [];
-            countedBirds = candidateList.birds ?? [];
-            countedBirdsGeneration += 1;
+            if (parentIdentity === countedParentIdentity) {
+                countedBirds = candidateList.birds ?? [];
+                countedBirdsGeneration += 1;
+                countedBirdsError = false;
+                countedBirdsLoading = false;
+            }
             currentSnapshotCandidateId = candidateList.current_candidate_id ?? null;
             currentSnapshotSource = candidateList.current_source ?? status.source ?? null;
         } catch {
             if (!isCurrent()) return;
             snapshotStatus = null;
             snapshotCandidates = [];
-            countedBirds = [];
-            countedBirdsGeneration += 1;
+            if (parentIdentity === countedParentIdentity) {
+                countedBirds = [];
+                countedBirdsGeneration += 1;
+                countedBirdsLoading = false;
+            }
             snapshotCandidatesError = true;
             currentSnapshotCandidateId = null;
             currentSnapshotSource = null;
@@ -532,6 +540,48 @@
     let countedBirds = $state<BirdObservation[]>([]);
     /** Advanced on every reread of the birds, so an edit answered after it is not applied. */
     let countedBirdsGeneration = $state(0);
+    let countedBirdsLoading = $state(false);
+    let countedBirdsError = $state(false);
+    const countedParentIdentity = $derived(JSON.stringify([
+        detection.category_name, detection.scientific_name, detection.common_name,
+        detection.display_name, detection.score, detection.manual_tagged
+    ]));
+    let countedIdentitySubject: { eventId: string; identity: string } | null = null;
+
+    $effect(() => {
+        const eventId = detection.frigate_event;
+        const identity = countedParentIdentity;
+        const previous = countedIdentitySubject;
+        countedIdentitySubject = hasOwnerDetectionActions ? { eventId, identity } : null;
+        // The media read owns a new capture. Parent changes reread only bird names:
+        // detection_updated can arrive before the run has finished saving its photos.
+        if (!hasOwnerDetectionActions || previous?.eventId !== eventId) {
+            countedBirdsLoading = false;
+            countedBirdsError = false;
+            return;
+        }
+        if (previous.identity === identity) return;
+        const mediaEpoch = snapshotControlsEpoch;
+        let cancelled = false;
+        const isCurrent = () => !cancelled && snapshotControlsEpoch === mediaEpoch
+            && detection.frigate_event === eventId && countedParentIdentity === identity && hasOwnerDetectionActions;
+        countedBirdsLoading = true;
+        countedBirdsError = false;
+        untrack(() => { countedBirdsGeneration += 1; });
+        void (async () => {
+            try {
+                const response = await fetchSnapshotCandidates(eventId);
+                if (!isCurrent()) return;
+                countedBirds = response.birds ?? [];
+                countedBirdsGeneration += 1;
+            } catch {
+                if (isCurrent()) countedBirdsError = true;
+            } finally {
+                if (isCurrent()) countedBirdsLoading = false;
+            }
+        })();
+        return () => { cancelled = true; };
+    });
     let snapshotCandidatesLoading = $state(false);
     let snapshotCandidatesError = $state(false);
     let snapshotApplyPending = $state(false);
@@ -2998,10 +3048,9 @@
                         birds={countedBirds}
                         candidates={snapshotCandidates}
                         photograph={currentSnapshotSource === 'frigate_snapshot' ? null : currentCropCandidate}
-                        speciesOptions={classifierLabels}
                         generation={countedBirdsGeneration}
-                        loading={snapshotCandidatesLoading}
-                        error={snapshotCandidatesError}
+                        loading={snapshotCandidatesLoading || countedBirdsLoading}
+                        error={snapshotCandidatesError || countedBirdsError}
                         regenerating={snapshotGeneratePending}
                         countingAvailable={Boolean(snapshotStatus?.high_quality_bird_crop_enabled)}
                         onretry={() => { void refreshSnapshotControls(detection.frigate_event); }}
@@ -3841,15 +3890,17 @@
                                 common_name: detection.common_name ?? null
                             } as SearchResult)}
                             disabled={updatingTag}
-                            class="btn btn-primary min-h-11 w-full px-4 text-sm sm:w-auto sm:flex-1"
+                            class="btn btn-primary min-h-11 min-w-0 w-full px-4 text-sm sm:w-auto sm:flex-1"
                             data-detection-confirm
                         >
-                            {updatingTag
-                                ? $_('common.saving')
-                                : $_('actions.confirm_species', {
-                                    values: { species: primaryName },
-                                    default: 'Confirm {species}'
-                                })}
+                            <span class="min-w-0 [overflow-wrap:anywhere]">
+                                {updatingTag
+                                    ? $_('common.saving')
+                                    : $_('actions.confirm_species', {
+                                        values: { species: primaryName },
+                                        default: 'Confirm {species}'
+                                    })}
+                            </span>
                         </button>
                     {/if}
 
@@ -3857,21 +3908,23 @@
                         type="button"
                         onclick={() => showTagDropdown = !showTagDropdown}
                         disabled={updatingTag}
-                        class="btn btn-secondary min-h-11 w-full px-4 text-sm sm:w-auto sm:flex-1"
+                        class="btn btn-secondary min-h-11 min-w-0 w-full px-4 text-sm sm:w-auto sm:flex-1"
                     >
-                        {updatingTag
-                            ? $_('common.saving')
-                            : $_('actions.pick_species', { default: 'Pick a different species' })}
+                        <span class="min-w-0 [overflow-wrap:anywhere]">
+                            {updatingTag
+                                ? $_('common.saving')
+                                : $_('actions.pick_species', { default: 'Pick a different species' })}
+                        </span>
                     </button>
 
                     {#if !isManualObservation}
                         <button
                             type="button"
                             onclick={handleReclassifyClick}
-                            class="btn btn-ghost min-h-11 w-full px-4 text-sm sm:w-auto"
+                            class="btn btn-ghost min-h-11 min-w-0 w-full px-4 text-sm sm:w-auto"
                             title={$_('actions.reclassify')}
                         >
-                            {$_('detection.score_again', { default: 'Score again' })}
+                            <span class="min-w-0 [overflow-wrap:anywhere]">{$_('detection.score_again', { default: 'Score again' })}</span>
                         </button>
                     {/if}
                 </div>

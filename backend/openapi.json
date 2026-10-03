@@ -2186,6 +2186,17 @@
             "title": "Clip Variant",
             "type": "string"
           },
+          "common_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Common Name"
+          },
           "crop_box": {
             "items": {
               "type": "number"
@@ -2212,6 +2223,27 @@
             "title": "Id",
             "type": "integer"
           },
+          "identity_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Identity Score"
+          },
+          "identity_source": {
+            "default": "crop",
+            "enum": [
+              "crop",
+              "visit",
+              "manual"
+            ],
+            "title": "Identity Source",
+            "type": "string"
+          },
           "is_hidden": {
             "title": "Is Hidden",
             "type": "boolean"
@@ -2224,6 +2256,17 @@
           "manual_species": {
             "title": "Manual Species",
             "type": "boolean"
+          },
+          "scientific_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scientific Name"
           },
           "species": {
             "title": "Species",
