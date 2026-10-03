@@ -1,4 +1,6 @@
 from unittest.mock import AsyncMock, MagicMock
+import hashlib
+import json
 
 import pytest
 from PIL import Image
@@ -75,6 +77,14 @@ async def test_abstention_reconciles_photo_without_changing_species(tmp_path, mo
         label="Cardinalis cardinalis" if matching else "Unknown",
         mode="model_crop" if matching else "full_frame",
     )
+    alignment = None
+    if matching:
+        alignment = {
+            "frame_time": 103.5,
+            "box": [0.4, 0.2, 0.1, 0.1],
+            "image_sha256": hashlib.sha256(row["image_bytes"]).hexdigest(),
+        }
+        row.update(clip_variant="frigate_snapshot", frame_index=0, film_alignment=alignment)
     scan = AsyncMock(return_value={"candidates": [row]})
     from app.services.high_quality_snapshot_service import high_quality_snapshot_service
 
@@ -89,6 +99,8 @@ async def test_abstention_reconciles_photo_without_changing_species(tmp_path, mo
     assert detection.category_name == "Cardinalis cardinalis"
     assert detection.score == 0.95
     assert next(row for row in rows if row["selected"])["classifier_label"] == row["classifier_label"]
+    assert (await photos.media_cache.get_snapshot_metadata(row["image_ref"])).get("film_alignment") == alignment
+    assert (await photos.media_cache.get_snapshot_metadata(event_id)).get("film_alignment") == alignment
     photos.archive_service.refresh_photograph.assert_awaited_once_with(event_id)
 
 
@@ -215,11 +227,21 @@ async def test_abstention_reuses_retained_matching_evidence_without_scanning(tmp
     event_id = f"abstention-reuse-{displayed}"
     await seed(event_id)
     row = candidate("retained-cardinal", label="Northern Cardinal")
-    await photos.media_cache.cache_snapshot(row["image_ref"], row["image_bytes"], source="snapshot_candidate")
+    row.update(clip_variant="frigate_snapshot", frame_index=0)
+    alignment = {
+        "frame_time": 103.5,
+        "box": [0.4, 0.2, 0.1, 0.1],
+        "image_sha256": hashlib.sha256(row["image_bytes"]).hexdigest(),
+    }
+    await photos.media_cache.cache_snapshot(
+        row["image_ref"], row["image_bytes"], source="snapshot_candidate", film_alignment=alignment
+    )
     async with get_db() as db:
         await DetectionRepository(db).replace_snapshot_candidates(event_id, [row])
     if displayed:
-        await photos.media_cache.cache_snapshot(event_id, row["image_bytes"], source="video_evidence_crop")
+        await photos.media_cache.cache_snapshot(
+            event_id, row["image_bytes"], source="video_evidence_crop", film_alignment=alignment
+        )
     from app.services.high_quality_snapshot_service import high_quality_snapshot_service
 
     scan = AsyncMock()
@@ -230,6 +252,36 @@ async def test_abstention_reuses_retained_matching_evidence_without_scanning(tmp
     )
     scan.assert_not_awaited()
     assert await photos.media_cache.get_snapshot(event_id) == row["image_bytes"]
+    assert (await photos.media_cache.get_snapshot_metadata(row["image_ref"]))["film_alignment"] == alignment
+    assert (await photos.media_cache.get_snapshot_metadata(event_id))["film_alignment"] == alignment
+
+
+@pytest.mark.asyncio
+async def test_abstention_drops_stale_film_proof_when_reusing_retained_photo(tmp_path, monkeypatch):
+    event_id = "abstention-reuse-stale-proof"
+    await seed(event_id)
+    row = candidate("stale-proof-cardinal", label="Northern Cardinal")
+    await photos.media_cache.cache_snapshot(row["image_ref"], row["image_bytes"], source="snapshot_candidate")
+    metadata = await photos.media_cache.get_snapshot_metadata(row["image_ref"])
+    metadata["film_alignment"] = {
+        "frame_time": 103.5,
+        "box": [0.4, 0.2, 0.1, 0.1],
+        "image_sha256": "0" * 64,
+    }
+    await photos.media_cache._write_bytes_atomic(
+        photos.media_cache._snapshot_metadata_path(row["image_ref"]), json.dumps(metadata).encode()
+    )
+    async with get_db() as db:
+        await DetectionRepository(db).replace_snapshot_candidates(event_id, [row])
+    from app.services.high_quality_snapshot_service import high_quality_snapshot_service
+
+    scan = AsyncMock()
+    monkeypatch.setattr(high_quality_snapshot_service, "generate_snapshot_candidates_from_clip_path", scan)
+    assert await photos.reconcile_snapshot_identity(event_id, clip_path=tmp_path / "clip.mp4") == "replaced"
+    scan.assert_not_awaited()
+    assert await photos.media_cache.get_snapshot(event_id) == row["image_bytes"]
+    assert (await photos.media_cache.get_snapshot_metadata(row["image_ref"])).get("film_alignment") is None
+    assert (await photos.media_cache.get_snapshot_metadata(event_id)).get("film_alignment") is None
 
 
 @pytest.mark.asyncio

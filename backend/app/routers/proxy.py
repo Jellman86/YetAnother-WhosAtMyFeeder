@@ -1808,9 +1808,14 @@ async def apply_snapshot_candidate(
     image_ref = str(candidate.get("image_ref") or "").strip()
     if not image_ref:
         raise HTTPException(status_code=409, detail="Snapshot candidate image unavailable")
-    image_bytes = await media_cache.get_snapshot(image_ref)
+    from app.services.media_cache import validate_film_alignment
+
+    async with media_cache._snapshot_commit_lock(image_ref):
+        image_bytes = await media_cache.get_snapshot(image_ref)
+        candidate_metadata = await media_cache.get_snapshot_metadata(image_ref) or {}
     if not image_bytes:
         raise HTTPException(status_code=409, detail="Snapshot candidate image unavailable")
+    alignment = validate_film_alignment(candidate_metadata.get("film_alignment"), image_bytes)
     snapshot_source = str(candidate.get("snapshot_source") or "high_quality_snapshot")
     replaced = await media_cache.replace_snapshot(
         event_id,
@@ -1818,6 +1823,7 @@ async def apply_snapshot_candidate(
         source=snapshot_source,
         manual_selection=True,
         manual_candidate_id=str(candidate.get("candidate_id") or "") or None,
+        **({"film_alignment": alignment} if alignment is not None else {}),
     )
     if replaced:
         # A favourite keeps the photograph as chosen; a new choice is archived again (#178).

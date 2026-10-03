@@ -100,3 +100,11 @@ async def test_no_media_cache_means_no_portraits(seeded_db):
     finally:
         settings.media_cache.enabled = original
     assert res.json() == {"span": "all", "portraits": []}
+
+
+@pytest.fixture(autouse=True)
+def film_status(monkeypatch):
+    from app.services.visit_film_service import visit_film_service
+
+    monkeypatch.setattr(visit_film_service, "ready_path", AsyncMock(return_value=None))
+    monkeypatch.setattr(visit_film_service, "request", AsyncMock(return_value="unavailable"))

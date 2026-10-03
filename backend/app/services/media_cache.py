@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from functools import wraps
 import json
 import hashlib
+import math
 import os
 import stat
 import time
@@ -40,6 +41,32 @@ SLOW_CACHE_WALK_WARN_MS = 1000.0
 # cache boundary so callers always receive None rather than an unusable path.
 _MIN_VALID_CLIP_BYTES = 512
 RecordingClipListener = Callable[[str], Awaitable[None]]
+
+
+def validate_film_alignment(alignment: Any, image_bytes: bytes) -> dict | None:
+    """Accept only absolute snapshot coordinates sealed to these exact photograph bytes."""
+    if not isinstance(alignment, dict) or not image_bytes:
+        return None
+    try:
+        moment = alignment["frame_time"]
+        if isinstance(moment, bool) or not math.isfinite(float(moment)) or float(moment) <= 0:
+            return None
+        raw_box = alignment["box"]
+        if not isinstance(raw_box, (list, tuple)) or len(raw_box) != 4:
+            return None
+        if any(isinstance(value, bool) for value in raw_box):
+            return None
+        x, y, width, height = [float(value) for value in raw_box]
+        if not all(math.isfinite(value) and 0 <= value <= 1 for value in (x, y, width, height)):
+            return None
+        if width <= 0 or height <= 0 or x + width > 1.000001 or y + height > 1.000001:
+            return None
+        digest = hashlib.sha256(image_bytes).hexdigest()
+        if alignment.get("image_sha256") != digest:
+            return None
+        return {"frame_time": float(moment), "box": [x, y, width, height], "image_sha256": digest}
+    except (KeyError, TypeError, ValueError, OverflowError):
+        return None
 
 
 def sanitize_event_id(event_id: str) -> str:
@@ -420,6 +447,7 @@ class MediaCacheService:
         source: str = "frigate_snapshot",
         event_hints: Optional[dict] = None,
         recording_alignment: Optional[dict] = None,
+        film_alignment: Optional[dict] = None,
     ) -> Optional[Path]:
         """Cache a snapshot image.
 
@@ -452,7 +480,12 @@ class MediaCacheService:
                     return path
                 await self._write_bytes_atomic(path, image_bytes)
                 await self._write_snapshot_metadata(
-                    event_id, source=source, event_hints=event_hints, recording_alignment=recording_alignment
+                    event_id,
+                    source=source,
+                    event_hints=event_hints,
+                    recording_alignment=recording_alignment,
+                    image_bytes=image_bytes,
+                    film_alignment=film_alignment,
                 )
                 await self.delete_thumbnail(event_id)
             log.debug("Cached snapshot", event_id=event_id, size=len(image_bytes))
@@ -473,6 +506,7 @@ class MediaCacheService:
         manual_candidate_id: str | None = None,
         clear_manual_selection: bool = False,
         expected_manual_selection_updated_at: str | None = None,
+        film_alignment: Optional[dict] = None,
     ) -> Optional[Path]:
         """Atomically replace a cached snapshot without exposing partial reads."""
         if not self._available:
@@ -495,6 +529,8 @@ class MediaCacheService:
                     source=source,
                     manual_selection=True if manual_selection else False if clear_manual_selection else None,
                     manual_candidate_id=manual_candidate_id,
+                    image_bytes=image_bytes,
+                    film_alignment=film_alignment,
                 )
                 await self.delete_thumbnail(event_id)
             log.debug("Replaced cached snapshot", event_id=event_id, size=len(image_bytes))
@@ -512,6 +548,8 @@ class MediaCacheService:
         manual_selection: bool | None = None,
         manual_candidate_id: str | None = None,
         recording_alignment: Optional[dict] = None,
+        image_bytes: bytes | None = None,
+        film_alignment: Optional[dict] = None,
     ) -> None:
         # Snapshot provenance changes as media is upgraded, but event-time
         # localization does not. Preserve those bounded hints so a later clip
@@ -533,6 +571,14 @@ class MediaCacheService:
             metadata["manual_candidate_id"] = manual_candidate_id if manual_selection else None
         if isinstance(event_hints, dict):
             metadata["event_hints"] = event_hints
+        if image_bytes is not None:
+            # Localization refreshed without writing the image cannot redefine its origin.
+            metadata["snapshot_photo_hints"] = (
+                {"image_sha256": hashlib.sha256(image_bytes).hexdigest(), "event_hints": event_hints}
+                if isinstance(event_hints, dict)
+                else None
+            )
+            metadata["film_alignment"] = validate_film_alignment(film_alignment, image_bytes)
         metadata.pop("recording_alignment", None)
         if source == "frigate_recording_snapshot" and isinstance(recording_alignment, dict):
             metadata["recording_alignment"] = recording_alignment

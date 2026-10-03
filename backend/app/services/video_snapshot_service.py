@@ -20,7 +20,7 @@ from app.repositories.bird_observation_repository import BirdObservationReposito
 from app.utils.api_datetime import serialize_storage_datetime, utc_naive_now
 from app.utils.photo_retention import MAX_EARLIER_PHOTO_CHOICES, merge_photo_choices
 from app.services.archive_service import archive_service
-from app.services.media_cache import media_cache
+from app.services.media_cache import media_cache, validate_film_alignment
 from app.utils.canonical_species import should_hide_species_label
 from app.utils.blocked_species import is_blocked_species
 from app.services.photo_presence import (
@@ -248,6 +248,7 @@ async def retained_snapshot_candidate(
         "created_at": created_at,
         "image_bytes": photo,
         "thumbnail_bytes": thumbnail,
+        "film_alignment": metadata.get("film_alignment"),
     }
 
 
@@ -382,7 +383,12 @@ async def _commit_video_snapshot(
                 await media_cache._write_bytes_atomic(
                     media_cache._snapshot_path(candidate["image_ref"]), candidate["image_bytes"]
                 )
-                await media_cache._write_snapshot_metadata(candidate["image_ref"], source="snapshot_candidate")
+                await media_cache._write_snapshot_metadata(
+                    candidate["image_ref"],
+                    source="snapshot_candidate",
+                    image_bytes=candidate["image_bytes"],
+                    film_alignment=candidate.get("film_alignment"),
+                )
                 if candidate.get("thumbnail_ref") and candidate.get("thumbnail_bytes"):
                     await media_cache.cache_thumbnail(
                         candidate["thumbnail_ref"], candidate["thumbnail_bytes"], source="snapshot_candidate"
@@ -391,7 +397,12 @@ async def _commit_video_snapshot(
             metadata_path = media_cache._snapshot_metadata_path(event_id)
             try:
                 await media_cache._write_bytes_atomic(photo_path, selected["image_bytes"])
-                await media_cache._write_snapshot_metadata(event_id, source=selected["snapshot_source"])
+                await media_cache._write_snapshot_metadata(
+                    event_id,
+                    source=selected["snapshot_source"],
+                    image_bytes=selected["image_bytes"],
+                    film_alignment=selected.get("film_alignment"),
+                )
                 await repo.replace_snapshot_candidates(event_id, rows)
             except BaseException:
                 if previous_photo is not None:
@@ -547,7 +558,14 @@ async def reconcile_snapshot_identity(
             for candidate in candidates:
                 photo = candidate.get("image_bytes")
                 if not photo and candidate.get("image_ref"):
-                    photo = await _cached_candidate_photo(candidate["image_ref"])
+                    reference = candidate["image_ref"]
+                    async with media_cache._snapshot_commit_lock(reference):
+                        photo = await _cached_candidate_photo(reference)
+                        metadata = (await media_cache.get_snapshot_metadata(reference) or {}) if photo else {}
+                        # Database rows omit this sidecar proof. Read it with the JPEG and seal it
+                        # to those bytes before a retained choice is staged for replacement.
+                        alignment = validate_film_alignment(metadata.get("film_alignment"), photo) if photo else None
+                    candidate = {**candidate, "film_alignment": alignment}
                 if not photo:
                     continue
                 thumbnail = await asyncio.to_thread(_retained_thumbnail, photo)

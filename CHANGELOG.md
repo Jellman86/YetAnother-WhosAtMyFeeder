@@ -6,6 +6,26 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Move the photo reel from the About page to the top of the leaderboard, with films, in place of the
+  photo spotlight. Each leading species has a card of this feeder's own photograph, in rank order,
+  opening the species. The leaders' cards play four silent seconds of the visit, cut from Frigate's
+  recording and framed on the bird, so they are sharp where a stored crop is small. Films are made
+  in the background one at a time the first time they are asked for, follow the clip sharing rules
+  for guests, load only when a card is on screen, and never play under reduced motion or a
+  data-saver connection. Frigate keeps recordings for days, so older visits keep their photographs.
+  The share bar and Needs a check stay beneath the reel; the large touring photograph and its second
+  ranked list are gone, since the reel and the rankings table cover them.
+  Motion and data-saver preferences take effect while the page is open. Film work and failure
+  records are bounded, and a recording that is still being written can be tried again later.
+  Films use the recording moment and crop bound to the saved photograph and are invalidated when
+  it changes. New final-snapshot crops retain this evidence; older or unaligned photos stay still.
+
+- Open the About page on a portrait of the feeder: when it started, its visits and species to date,
+  its busiest day and its newest arrival, beside its latest visit, which plays its film once one is
+  made. A species seen once is never announced as the newest arrival, and guests are told the facts
+  cover only the shared window. A change to the shared history clears and refreshes a guest's
+  portrait so withdrawn visits do not keep playing.
+
 - Name a counted bird from its accepted visit identification when Frigate's retained tracked box
   uniquely matches it and its own species guess agrees. Keep the original crop score and owner
   corrections, and use the same resolved identity in the capture summary. Search counted birds by
@@ -45,14 +65,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   warning), Activity Pulse (visits per hour, ending at the current hour, with the busiest hour in words)
   and Top Visitors as a compact list. Every section uses one heading style.
 
-- Replace the leaderboard's photo showcase with a spotlight. A bar across the top shows each species'
-  share of the window in its chart colour. One species at a time is shown large beside the ranked list,
-  with its photograph no larger than 1.5 times its stored size (the old hero stretched small crops until
-  they went soft), its share, confidence and evidence, and a strip of the days it was on camera. The
-  spotlight tours the list slowly until you choose a species or pause it, and never moves under reduced
-  motion. Species that are probably misidentifications are kept out of the tour and listed beneath it
-  under Needs a check. Pointing at or tabbing to a part of the bar names it: the common and scientific
-  name over the species' stock photograph, with its count and share.
+- Replace the leaderboard's photo showcase with a share bar: each species' share of the window in
+  its chart colour. Species that are probably misidentifications are kept out of its named segments
+  and listed beneath it under Needs a check. Pointing at or tabbing to a part of the bar names it:
+  the common and scientific name over the species' stock photograph, with its count and share.
 
 - Crop a retried event's snapshot around the bird in that snapshot. When the first classification
   failed and YA-WAMF retried from Frigate's later event update, it cut the saved best frame using

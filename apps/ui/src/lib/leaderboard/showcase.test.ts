@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { buildShowcaseRows, portraitFor, presenceFor, shareSegments, spotlightGroups } from './showcase';
+import { buildShowcaseRows, portraitFor, reelCards, REEL_MINIMUM, shareSegments, spotlightGroups } from './showcase';
 
 const portraits = [
-    { species: 'Dunnock', scientific_name: 'Prunella modularis', taxa_id: 13988, frigate_event: 'd1', image_url: '/api/about/showcase/d1.jpg' },
+    { species: 'Dunnock', scientific_name: 'Prunella modularis', taxa_id: 13988, frigate_event: 'd1', image_url: '/api/about/showcase/d1.jpg', film_url: '/api/about/showcase/d1.webm' },
     { species: 'Erithacus rubecula', scientific_name: 'Erithacus rubecula', taxa_id: null, frigate_event: 'r1', image_url: '/api/about/showcase/r1.jpg' }
 ];
 
@@ -27,42 +27,77 @@ const row = (species: string, extra: Record<string, unknown> = {}) => ({
 
 describe('the leaderboard showcase rows', () => {
     it('matches a species to its own photograph by taxon first, then by any of its names', () => {
-        expect(portraitFor(row('Dunnock', { taxa_id: 13988 }), portraits)).toBe('/api/about/showcase/d1.jpg');
-        expect(portraitFor(row('European Robin', { scientific_name: 'Erithacus rubecula' }), portraits)).toBe('/api/about/showcase/r1.jpg');
+        expect(portraitFor(row('Dunnock', { taxa_id: 13988 }), portraits)?.image_url).toBe('/api/about/showcase/d1.jpg');
+        expect(portraitFor(row('European Robin', { scientific_name: 'Erithacus rubecula' }), portraits)?.image_url).toBe('/api/about/showcase/r1.jpg');
         expect(portraitFor(row('Coal Tit'), portraits)).toBeNull();
     });
 
-    it('carries a reference image only as a labelled stand-in, and no trend without a window to compare', () => {
+    it('carries a reference image only as a labelled stand-in', () => {
         const rows = buildShowcaseRows([row('Coal Tit'), row('Dunnock', { taxa_id: 13988 })], {
-            trendAvailable: false,
             sourceMode: 'seen',
             portraits,
             referenceFor: (species) => (species === 'Coal Tit' ? { url: 'https://ref/coal.jpg', source: 'wikipedia' } : { url: null, source: null })
         });
-        expect(rows[0]).toMatchObject({ key: 'Coal Tit', photo: null, reference: 'https://ref/coal.jpg', referenceSource: 'wikipedia', trend: null, delta: null });
-        expect(rows[1]).toMatchObject({ key: 'Dunnock', photo: '/api/about/showcase/d1.jpg', reference: null });
+        expect(rows[0]).toMatchObject({ key: 'Coal Tit', photo: null, reference: 'https://ref/coal.jpg', referenceSource: 'wikipedia' });
+        expect(rows[1]).toMatchObject({ key: 'Dunnock', photo: '/api/about/showcase/d1.jpg', photoEvent: 'd1', film: true, reference: null });
     });
 
-    it('keeps every ranked species with its table rank and the names the timeline knows it by', () => {
+    it('keeps every ranked species with its table rank', () => {
         const many = Array.from({ length: 20 }, (_, i) => row(`Species ${i}`, i === 1 ? { scientific_name: 'Parus major' } : {}));
-        const rows = buildShowcaseRows(many, { trendAvailable: true, sourceMode: 'seen', portraits: [], referenceFor: () => ({ url: null, source: null }) });
+        const rows = buildShowcaseRows(many, { sourceMode: 'seen', portraits: [], referenceFor: () => ({ url: null, source: null }) });
         expect(rows).toHaveLength(20);
-        expect(rows[0]).toMatchObject({ key: 'Species 0', rank: 1, trend: '+6' });
-        expect(rows[1]).toMatchObject({ rank: 2, names: ['Species 1', 'Parus major'] });
+        expect(rows[0]).toMatchObject({ key: 'Species 0', rank: 1, count: 10 });
+        expect(rows[1]).toMatchObject({ rank: 2 });
+    });
+});
+
+describe('the leaderboard reel', () => {
+    const text = {
+        detail: (r: { count: number }) => `${r.count} visits`,
+        badge: (r: { rank: number }) => `#${r.rank}`,
+        label: (r: { displayName: string }) => `Open ${r.displayName}`
+    };
+    const ranked = (count: number, flagged: string[] = []) =>
+        buildShowcaseRows(
+            Array.from({ length: count }, (_, i) => row(`Species ${i}`)),
+            {
+                sourceMode: 'seen',
+                portraits: Array.from({ length: count }, (_, i) => ({
+                    species: `Species ${i}`,
+                    scientific_name: null,
+                    taxa_id: null,
+                    frigate_event: `e${i}`,
+                    image_url: `/api/about/showcase/e${i}.jpg`,
+                    film_url: i < 2 ? `/api/about/showcase/e${i}.webm` : null
+                })),
+                referenceFor: () => ({ url: null, source: null }),
+                isFlagged: (r) => flagged.includes(r.species)
+            }
+        );
+
+    it('puts every ranked species with a photograph of its own on show, in rank order, films first where made', () => {
+        const cards = reelCards(ranked(6), text);
+        expect(cards.map((card) => card.frigateEvent)).toEqual(['e0', 'e1', 'e2', 'e3', 'e4', 'e5']);
+        expect(cards[0]).toMatchObject({ title: 'Species 0', detail: '10 visits', badge: '#1', film: true, label: 'Open Species 0' });
+        expect(cards[2].film).toBe(false);
+    });
+
+    it('never shows a probable misidentification, and stays away when there are too few photographs', () => {
+        expect(reelCards(ranked(6, ['Species 1']), text).map((card) => card.key)).not.toContain('Species 1');
+        expect(reelCards(ranked(REEL_MINIMUM - 1), text)).toEqual([]);
     });
 });
 
 describe('the showcase flag', () => {
     it('carries the page\'s misidentification flag onto the tiles, and nothing when there is no rule', () => {
         const rows = buildShowcaseRows([row('Dunnock'), row('Golden-crowned Sparrow')], {
-            trendAvailable: false,
             sourceMode: 'seen',
             portraits: [],
             referenceFor: () => ({ url: null, source: null }),
             isFlagged: (candidate) => candidate.species === 'Golden-crowned Sparrow'
         });
         expect(rows.map((item) => item.flagged)).toEqual([false, true]);
-        const unflagged = buildShowcaseRows([row('Dunnock')], { trendAvailable: false, sourceMode: 'seen', portraits: [], referenceFor: () => ({ url: null, source: null }) });
+        const unflagged = buildShowcaseRows([row('Dunnock')], { sourceMode: 'seen', portraits: [], referenceFor: () => ({ url: null, source: null }) });
         expect(unflagged[0].flagged).toBe(false);
     });
 });
@@ -71,7 +106,6 @@ const ranked = (counts: Array<[string, number, boolean?]>) =>
     buildShowcaseRows(
         counts.map(([species, count]) => row(species, { count })),
         {
-            trendAvailable: false,
             sourceMode: 'seen',
             portraits: [],
             referenceFor: () => ({ url: null, source: null }),
@@ -113,42 +147,5 @@ describe('the spotlight groups and share bar', () => {
 
     it('draws nothing for an empty window', () => {
         expect(shareSegments(ranked([['Dunnock', 0]]))).toEqual([]);
-    });
-});
-
-describe('the spotlight presence strip', () => {
-    const timeline = {
-        bucket: 'day',
-        points: [
-            { bucket_start: '2026-09-01T00:00:00Z', label: 'Sep 01' },
-            { bucket_start: '2026-09-02T00:00:00Z', label: 'Sep 02' },
-            { bucket_start: '2026-09-03T00:00:00Z', label: 'Sep 03' }
-        ],
-        compare_series: [
-            {
-                species: 'Prunella modularis',
-                points: [
-                    { bucket_start: '2026-09-01T00:00:00Z', count: 14 },
-                    { bucket_start: '2026-09-02T00:00:00Z', count: 0 },
-                    { bucket_start: '2026-09-03T00:00:00Z', count: 1 }
-                ]
-            }
-        ]
-    };
-
-    it('marks each bucket the species was on camera in, by any of its names, without its counts', () => {
-        expect(presenceFor(['Dunnock', 'Prunella modularis'], timeline)).toEqual({
-            present: [true, false, true],
-            bucket: 'day',
-            firstLabel: 'Sep 01',
-            lastLabel: 'Sep 03'
-        });
-    });
-
-    it('has no strip for a species the timeline did not chart, or a bucket it cannot name', () => {
-        // An empty strip would read as "never seen"; none says "not charted".
-        expect(presenceFor(['Goldcrest'], timeline)).toBeNull();
-        expect(presenceFor(['Prunella modularis'], { ...timeline, bucket: 'week' })).toBeNull();
-        expect(presenceFor(['Prunella modularis'], null)).toBeNull();
     });
 });

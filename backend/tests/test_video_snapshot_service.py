@@ -510,3 +510,13 @@ async def test_video_photo_reports_the_exact_cache_gate_before_attempting_work(c
     monkeypatch.setattr(module, "extract_video_snapshot", decode)
     assert await module.replace_video_snapshot("cache-gate", clip, _result(), clip_variant="event") == outcome
     decode.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_retained_photo_keeps_its_byte_bound_film_alignment():
+    import hashlib
+
+    photo = b"earlier-chosen-photo"
+    alignment = {"frame_time": 101, "box": [0.1, 0.2, 0.3, 0.4], "image_sha256": hashlib.sha256(photo).hexdigest()}
+    retained = await module.retained_snapshot_candidate("earlier-aligned", photo, {"film_alignment": alignment}, [])
+    assert retained["film_alignment"] == alignment

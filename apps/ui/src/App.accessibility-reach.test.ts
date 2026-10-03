@@ -9,7 +9,7 @@ import authStoreSource from './lib/stores/auth.svelte.ts?raw';
 import settingsPageSource from './lib/pages/Settings.svelte?raw';
 import accessibilityEditorSource from './lib/components/settings/AccessibilitySettings.svelte?raw';
 import footerSource from './lib/components/Footer.svelte?raw';
-import spotlightSource from './lib/components/SpeciesSpotlight.svelte?raw';
+import spotlightSource from './lib/components/SpeciesShareBar.svelte?raw';
 
 // Vitest stubs CSS imports, so the stylesheet is read straight from disk.
 const appCss = readFileSync(new URL('./app.css', import.meta.url), 'utf-8');

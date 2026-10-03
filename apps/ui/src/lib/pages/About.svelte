@@ -6,21 +6,14 @@
     import InstanceSummary from '../components/InstanceSummary.svelte';
     import PrivacySummary from '../components/PrivacySummary.svelte';
     import { onMount } from 'svelte';
-    import {
-        fetchAboutShowcase,
-        fetchClassifierLabels,
-        fetchCommunityStats,
-        fetchEvents,
-        fetchEventFilters,
-        fetchEventsCount
-    } from '../api';
-    import type { AboutShowcaseItem, Detection } from '../api';
-    import CaptureReel from '../components/CaptureReel.svelte';
+    import { fetchClassifierLabels, fetchCommunityStats, fetchEvents, fetchFeederPortrait } from '../api';
+    import type { Detection, FeederPortrait as FeederPortraitData } from '../api';
+    import FeederPortrait from '../components/FeederPortrait.svelte';
     import DetectionModal from '../components/DetectionModal.svelte';
     import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
     import { authStore } from '../stores/auth.svelte';
+    import { detectionsStore } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings.svelte';
-    import { fetchDetectionsActivityHeatmapSpan } from '../api/leaderboard';
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
     import { toastStore } from '../stores/toast.svelte';
     import { logger } from '../utils/logger';
@@ -51,34 +44,32 @@
         })();
     });
 
-    // The colophon states what this feeder has recorded, not what the software can do.
-    let totalDetections = $state<number | null>(null);
-    let speciesCount = $state<number | null>(null);
-    let weekCount = $state<number | null>(null);
-    // The opener: this install's own photographs, one crop per species, each opening its
-    // record. The wider count is how many installs reported to telemetry this week.
-    let showcase = $state<AboutShowcaseItem[]>([]);
+    // The opener states what this feeder has recorded, not what the software can do, beside
+    // its latest visit. The wider count is how many installs reported to telemetry this week.
+    let portrait = $state.raw<FeederPortraitData | null>(null);
     let communityInstalls = $state<number | null>(null);
     let communityReadEnabled = $state<boolean | null>(null);
     let selectedEvent = $state<Detection | null>(null);
     let selectedSpecies = $state<string | null>(null);
     let openingEvent = $state<string | null>(null);
     let classifierLabels = $state<string[]>([]);
+    let portraitRefresh = $state(0);
+    let portraitGeneration = 0;
 
-    async function openCapture(item: AboutShowcaseItem) {
+    async function openVisit(frigateEvent: string) {
         if (openingEvent) return;
-        openingEvent = item.frigate_event;
+        openingEvent = frigateEvent;
         try {
             const [labels, rows] = await Promise.all([
                 authStore.hasOwnerAccess && classifierLabels.length === 0
                     ? fetchClassifierLabels().catch(() => ({ labels: [] as string[] }))
                     : Promise.resolve({ labels: classifierLabels }),
-                fetchEvents({ eventId: item.frigate_event, limit: 1 })
+                fetchEvents({ eventId: frigateEvent, limit: 1 })
             ]);
             classifierLabels = labels.labels ?? [];
             const detection = rows[0] ?? null;
             if (!detection) {
-                toastStore.error($_('about.opener.gone', { default: 'That visit is no longer in the history.' }));
+                toastStore.error($_('about.portrait.gone', { default: 'That visit is no longer in the history.' }));
                 return;
             }
             selectedEvent = detection;
@@ -89,15 +80,41 @@
         }
     }
 
+    async function loadPortrait(signal: AbortSignal, generation: number): Promise<void> {
+        try {
+            const next = await fetchFeederPortrait(signal);
+            if (!signal.aborted && generation === portraitGeneration) portrait = next;
+        } catch (error) {
+            if (signal.aborted || generation !== portraitGeneration) return;
+            // Without the portrait the page is still worth reading; it opens on the prose.
+            if (isTransientRequestError(error)) {
+                logger.warn('Feeder portrait unavailable', { message: getErrorMessage(error) });
+            } else {
+                logger.error('Failed to load the feeder portrait', error);
+            }
+        }
+    }
+
+    $effect(() => {
+        const publicVersion = authStore.isGuest ? detectionsStore.publicHistoryVersion : 0;
+        void publicVersion;
+        void portraitRefresh;
+        const generation = ++portraitGeneration;
+        const controller = new AbortController();
+        // A hidden or deleted visit must leave the page, including its downloaded film,
+        // before a new public projection arrives. A failed refresh stays clear.
+        portrait = null;
+        void loadPortrait(controller.signal, generation);
+        return () => {
+            controller.abort();
+            if (generation === portraitGeneration) portraitGeneration += 1;
+        };
+    });
+
     onMount(() => {
         const controller = new AbortController();
-        // Each read degrades on its own: a reel without a count, or a count without a reel,
-        // is still an About page.
-        void fetchAboutShowcase()
-            .then((response) => {
-                if (!controller.signal.aborted) showcase = response.items;
-            })
-            .catch((error) => logger.warn('About reel unavailable', { message: getErrorMessage(error) }));
+        // Each read degrades on its own: a portrait without the community count, or the
+        // count without a portrait, is still an About page.
         void fetchCommunityStats()
             .then((stats) => {
                 if (controller.signal.aborted) return;
@@ -105,29 +122,13 @@
                 communityReadEnabled = stats.enabled;
             })
             .catch((error) => logger.warn('Community count unavailable', { message: getErrorMessage(error) }));
-        void (async () => {
-            try {
-                const [count, filters, heatmap] = await Promise.all([
-                    fetchEventsCount(),
-                    fetchEventFilters(),
-                    fetchDetectionsActivityHeatmapSpan('week')
-                ]);
-                if (controller.signal.aborted) return;
-                totalDetections = count.count ?? null;
-                speciesCount = filters.species?.length ?? null;
-                weekCount = heatmap.total_count ?? null;
-            } catch (error) {
-                if (controller.signal.aborted) return;
-                // The colophon degrades to prose; the page is still worth reading.
-                if (isTransientRequestError(error)) {
-                    logger.warn('About summary unavailable', { message: getErrorMessage(error) });
-                } else {
-                    logger.error('Failed to load About summary', error);
-                }
-            }
-        })();
         return () => controller.abort();
     });
+
+    function forgetVisit(frigateEvent: string): void {
+        // The latest visit was deleted or hidden: the facts and the visit beside them move on.
+        if (portrait?.latest_visit?.frigate_event === frigateEvent) portraitRefresh += 1;
+    }
 
     const repoUrl = 'https://github.com/Jellman86/YetAnother-WhosAtMyFeeder';
     let docsRefBranch = $derived(docsRefForBranch(versionInfo.branch));
@@ -208,13 +209,14 @@
             </a>
         </div>
 
-        {#if showcase.length > 0}
-            <div class="-mx-1 sm:-mx-2" data-about-opener>
-                <CaptureReel items={showcase} {openingEvent} onopen={openCapture} />
-                <p class="mt-2 px-1 text-sm text-slate-500 dark:text-slate-400 sm:px-2" data-about-opener-caption>
-                    {$_('about.opener.caption', { default: 'Some of them even sat still for a photo.' })}
-                </p>
-            </div>
+        {#if portrait}
+            <FeederPortrait
+                {portrait}
+                {communityInstalls}
+                {openingEvent}
+                onopenvisit={openVisit}
+                onopenspecies={(name) => (selectedSpecies = name)}
+            />
         {/if}
 
         <div class="space-y-3 text-sm leading-6 text-slate-700 dark:text-slate-300">
@@ -223,48 +225,6 @@
                 {projectDescription.before}<a href="https://github.com/mmcc-xx/WhosAtMyFeeder" target="_blank" rel="noopener noreferrer" class="text-brand-600 hover:underline dark:text-brand-400">WhosAtMyFeeder</a>{projectDescription.after}
             </p>
         </div>
-
-        {#if totalDetections !== null}
-            <div class="border-t border-slate-200/70 pt-4 dark:border-slate-700/50">
-                <dl class="flex flex-wrap gap-x-8 gap-y-3" data-about-stats>
-                    <div>
-                        <dd class="font-display text-2xl font-bold tabular-nums text-slate-900 dark:text-white">
-                            {totalDetections?.toLocaleString() ?? '—'}
-                        </dd>
-                        <dt class="text-xs text-slate-500 dark:text-slate-400">
-                            {$_('about.stats.detections', { default: 'detections stored' })}
-                        </dt>
-                    </div>
-                    <div>
-                        <dd class="font-display text-2xl font-bold tabular-nums text-slate-900 dark:text-white">
-                            {speciesCount ?? '—'}
-                        </dd>
-                        <dt class="text-xs text-slate-500 dark:text-slate-400">
-                            {$_('about.stats.species', { default: 'species identified' })}
-                        </dt>
-                    </div>
-                    <div>
-                        <dd class="font-display text-2xl font-bold tabular-nums text-slate-900 dark:text-white">
-                            {weekCount ?? '—'}
-                        </dd>
-                        <dt class="text-xs text-slate-500 dark:text-slate-400">
-                            {$_('about.stats.week', { default: 'visits this week' })}
-                        </dt>
-                    </div>
-                    {#if communityInstalls !== null}
-                        <div data-about-community>
-                            <dd class="font-display text-2xl font-bold tabular-nums text-slate-900 dark:text-white">
-                                {communityInstalls.toLocaleString()}
-                            </dd>
-                            <dt class="text-xs text-slate-500 dark:text-slate-400">
-                                {$_('about.stats.feeders', { default: 'feeders ran it this week' })}
-                            </dt>
-                        </div>
-                    {/if}
-                </dl>
-            </div>
-        {/if}
-
     </section>
 
     <!-- How it works, annotated with what this instance is doing -->
@@ -353,9 +313,9 @@
         readOnly={!authStore.hasOwnerAccess}
         onClose={() => (selectedEvent = null)}
         onViewSpecies={(species: string) => { selectedSpecies = species; selectedEvent = null; }}
-        onDeleteSuccess={(frigateEvent: string) => { showcase = showcase.filter((item) => item.frigate_event !== frigateEvent); }}
+        onDeleteSuccess={(frigateEvent: string) => forgetVisit(frigateEvent)}
         onHideSuccess={(frigateEvent: string, _time: string | undefined, isHidden: boolean) => {
-            if (isHidden) showcase = showcase.filter((item) => item.frigate_event !== frigateEvent);
+            if (isHidden) forgetVisit(frigateEvent);
         }}
     />
 {/if}

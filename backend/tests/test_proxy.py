@@ -1884,7 +1884,10 @@ async def test_proxy_snapshot_candidate_image_returns_404_when_retained_image_is
 
 
 @pytest.mark.asyncio
-async def test_proxy_snapshot_apply_candidate_promotes_cached_candidate_image(client: httpx.AsyncClient):
+@pytest.mark.parametrize("alignment_case", ["absent", "valid", "wrong_bytes"])
+async def test_proxy_snapshot_apply_candidate_promotes_cached_candidate_image(
+    client: httpx.AsyncClient, alignment_case
+):
     with (
         patch("app.routers.proxy.get_db") as mock_get_db,
         patch("app.routers.proxy.DetectionRepository") as mock_repo_cls,
@@ -1905,28 +1908,52 @@ async def test_proxy_snapshot_apply_candidate_promotes_cached_candidate_image(cl
             return b"candidate-image" if key == "evt__cand-1__image" else b"existing-snapshot"
 
         mock_get_snapshot.side_effect = fake_get_snapshot
-        mock_get_metadata.return_value = {"source": "high_quality_snapshot"}
+        import hashlib
+
+        alignment = {
+            "frame_time": 101.0,
+            "box": [0.1, 0.2, 0.3, 0.4],
+            "image_sha256": hashlib.sha256(b"candidate-image").hexdigest(),
+        }
+        if alignment_case == "wrong_bytes":
+            alignment["image_sha256"] = "another-photo"
+        mock_get_metadata.return_value = {
+            "source": "high_quality_snapshot",
+            "film_alignment": alignment if alignment_case != "absent" else None,
+        }
         mock_replace_snapshot.return_value = Path("/tmp/test_event_id.jpg")
         mock_repo = mock_repo_cls.return_value
         mock_repo.mark_selected_snapshot_candidate = AsyncMock()
         mock_repo.list_snapshot_candidates = AsyncMock(
             return_value=[
                 {
-                    "candidate_id": "cand-1",
-                    "frame_index": 8,
-                    "frame_offset_seconds": 0.32,
+                    "candidate_id": "first-bird",
+                    "frame_index": 0,
+                    "frame_offset_seconds": None,
                     "source_mode": "model_crop",
-                    "clip_variant": "recording",
+                    "clip_variant": "frigate_snapshot",
+                    "crop_box": [700, 200, 900, 400],
+                    "selected": True,
+                    "image_ref": "evt__first-bird__image",
+                    "ranking_score": 1.0,
+                    "snapshot_source": "hq_candidate_model_crop",
+                },
+                {
+                    "candidate_id": "cand-1",
+                    "frame_index": 0,
+                    "frame_offset_seconds": None,
+                    "source_mode": "model_crop",
+                    "clip_variant": "frigate_snapshot",
                     "crop_box": [4, 4, 32, 32],
                     "crop_confidence": 0.93,
                     "classifier_label": "Robin",
                     "classifier_score": 0.91,
                     "ranking_score": 0.97,
-                    "selected": True,
+                    "selected": False,
                     "thumbnail_ref": "evt__cand-1__thumb",
                     "image_ref": "evt__cand-1__image",
                     "snapshot_source": "hq_candidate_model_crop",
-                }
+                },
             ]
         )
 
@@ -1946,6 +1973,7 @@ async def test_proxy_snapshot_apply_candidate_promotes_cached_candidate_image(cl
         source="hq_candidate_model_crop",
         manual_selection=True,
         manual_candidate_id="cand-1",
+        **({"film_alignment": alignment} if alignment_case == "valid" else {}),
     )
     mock_repo.mark_selected_snapshot_candidate.assert_awaited_once_with("test_event_id", "cand-1")
 

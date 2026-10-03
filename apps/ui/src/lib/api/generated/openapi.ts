@@ -910,6 +910,17 @@ export interface components {
     is_favorite: boolean;
     status: string;
 };
+    FeederPortraitResponse: {
+    busiest_day?: components['schemas']['PortraitDay'] | null;
+    detections: number;
+    latest_visit?: components['schemas']['PortraitVisit'] | null;
+    newest_arrival?: components['schemas']['PortraitSpecies'] | null;
+    scope: "all" | "shared";
+    shared_days?: number | null;
+    species: number;
+    started_at?: string | null;
+    visits: number;
+};
     FocusedDiagnosticsResponse: {
     backfill?: components['schemas']['BackfillFocusedDiagnosticsResponse'] | null;
     video_classifier?: components['schemas']['VideoClassifierFocusedDiagnosticsResponse'] | null;
@@ -1068,6 +1079,7 @@ export interface components {
     analysis_timestamp: string;
 };
     LeaderboardPortraitResponse: {
+    film_url?: string | null;
     frigate_event: string;
     image_url: string;
     scientific_name?: string | null;
@@ -1338,6 +1350,26 @@ export interface components {
     OAuthAuthorizeResponse: {
     authorization_url: string;
     state?: string | null;
+};
+    PortraitDay: {
+    date: string;
+    visits: number;
+};
+    PortraitSpecies: {
+    display_name: string;
+    first_seen: string;
+    scientific_name?: string | null;
+    species: string;
+    taxa_id?: number | null;
+};
+    PortraitVisit: {
+    detection_time: string;
+    display_name: string;
+    film_url?: string | null;
+    frigate_event: string;
+    image_url: string;
+    scientific_name?: string | null;
+    taxa_id?: number | null;
 };
     ProviderValidationStatus: {
     checked_at?: string | null;
@@ -2252,6 +2284,17 @@ export interface paths {
       response: components['schemas']['CommunityStatsResponse'];
     };
   };
+  "/api/about/portrait": {
+    get: {
+      operationId: "get_feeder_portrait_api_about_portrait_get";
+      path: never;
+      query: {
+    utc_offset_minutes?: number;
+};
+      requestBody: unknown;
+      response: components['schemas']['FeederPortraitResponse'];
+    };
+  };
   "/api/about/showcase": {
     get: {
       operationId: "get_about_showcase_api_about_showcase_get";
@@ -2266,6 +2309,17 @@ export interface paths {
   "/api/about/showcase/{event_id}.jpg": {
     get: {
       operationId: "get_about_reel_image_api_about_showcase__event_id__jpg_get";
+      path: {
+    event_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: unknown;
+    };
+  };
+  "/api/about/showcase/{event_id}.webm": {
+    get: {
+      operationId: "get_visit_film_api_about_showcase__event_id__webm_get";
       path: {
     event_id: string;
 };

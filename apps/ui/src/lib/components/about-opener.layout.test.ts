@@ -1,25 +1,28 @@
 import { describe, expect, it } from 'vitest';
 import reelSource from './CaptureReel.svelte?raw';
+import filmSource from './VisitFilm.svelte?raw';
+import filmsSource from '../utils/visit-films.ts?raw';
+import portraitSource from './FeederPortrait.svelte?raw';
 import aboutSource from '../pages/About.svelte?raw';
+import speciesSource from '../pages/Species.svelte?raw';
 import privacySource from './PrivacySummary.svelte?raw';
 import en from '../i18n/locales/en.json';
 
-describe('the About page opens on this feeder\'s own photographs', () => {
-    it('shows one crop per species in a reel, and each card opens the record', () => {
-        expect(aboutSource).toContain("import CaptureReel from '../components/CaptureReel.svelte';");
-        expect(aboutSource).toContain('<CaptureReel items={showcase} {openingEvent} onopen={openCapture} />');
-        expect(aboutSource).toContain('fetchEvents({ eventId: item.frigate_event, limit: 1 })');
-        expect(aboutSource).toContain('<DetectionModal');
-        expect(aboutSource).toContain('readOnly={!authStore.hasOwnerAccess}');
-        // The reel replaces the four loose thumbnails; nothing on the page is a photo you cannot open.
-        expect(aboutSource).not.toContain('data-about-photos');
-        expect(aboutSource).not.toContain('getThumbnailUrl');
+describe('the leaderboard opens on this feeder\'s own photographs', () => {
+    it('sits above the share bar, one card per leading species, each opening the species', () => {
+        const reel = speciesSource.indexOf('<CaptureReel');
+        expect(reel).toBeGreaterThan(-1);
+        expect(reel).toBeLessThan(speciesSource.indexOf('<SpeciesShareBar'));
+        expect(speciesSource).toContain("{#if sourceMode !== 'heard' && leaderboardReel.length > 0}");
+        expect(speciesSource).toContain('onopen={(card) => (selectedSpecies = card.key)}');
         // The card is the stored photograph (the crop) at card size, never the whole-scene
         // thumbnail and never the multi-megabyte original.
-        expect(reelSource).toContain('src={getReelImageUrl(item.frigate_event)}');
+        expect(reelSource).toContain('poster={getReelImageUrl(card.frigateEvent)}');
         expect(reelSource).not.toContain('getSnapshotUrl');
         expect(reelSource).toContain('<button');
-        expect(reelSource).toContain('aria-label={label(item)}');
+        expect(reelSource).toContain('aria-label={card.label}');
+        // The About page no longer carries a reel of its own.
+        expect(aboutSource).not.toContain('CaptureReel');
     });
 
     it('loops with decorative copies that readers and the Tab key never meet', () => {
@@ -56,12 +59,58 @@ describe('the About page opens on this feeder\'s own photographs', () => {
         expect(reelSource).toContain(".set[aria-hidden='true'] {\n            display: none;");
         expect(reelSource).toContain('overflow-x: auto;');
     });
+});
 
-    it('degrades one read at a time: no reel without a count, and no count without a reel', () => {
-        expect(aboutSource).toContain('{#if showcase.length > 0}');
-        expect(aboutSource).toContain('{#if communityInstalls !== null}');
-        expect(aboutSource).toContain('about.stats.feeders');
-        expect(aboutSource).toContain('about.opener.caption');
+describe('a visit film', () => {
+    it('is a photograph first: the film plays over it only once made, visible, and allowed to move', () => {
+        expect(filmSource).toContain('<img src={poster} alt=""');
+        expect(filmSource).toContain('if (!near || !film || still) return;');
+        expect(filmSource).toContain("document.documentElement.classList.contains('reduced-motion')");
+        expect(filmSource).toContain('connection?.saveData === true');
+        expect(filmSource).toContain('video.pause();');
+        // Silent decoration over a labelled card: never announced, never a Tab stop.
+        expect(filmSource).toContain('muted');
+        expect(filmSource).toContain('playsinline');
+        expect(filmSource).toContain('aria-hidden="true"');
+        expect(filmSource).toContain('tabindex="-1"');
+    });
+
+    it('is downloaded once however many copies of a card show it, and released with the last', () => {
+        expect(filmsSource).toContain('entry.holders += 1;');
+        expect(filmsSource).toContain('if (entry.holders > 0) return;');
+        expect(filmsSource).toContain('URL.revokeObjectURL(url)');
+        expect(filmsSource).toContain('entry.controller.abort();');
+    });
+});
+
+describe('the About page opens on a portrait of this feeder', () => {
+    it('states measured facts beside the latest visit, which opens its record', () => {
+        expect(aboutSource).toContain("import FeederPortrait from '../components/FeederPortrait.svelte';");
+        expect(aboutSource).toContain('fetchEvents({ eventId: frigateEvent, limit: 1 })');
+        expect(aboutSource).toContain('<DetectionModal');
+        expect(aboutSource).toContain('readOnly={!authStore.hasOwnerAccess}');
+        expect(portraitSource).toContain('onclick={() => onopenvisit(latest.frigate_event)}');
+        expect(portraitSource).toContain('film={Boolean(latest.film_url)}');
+        // The newest arrival opens the species by the label the history stores.
+        expect(portraitSource).toContain('onopenspecies(arrival.species)');
+    });
+
+    it('tells a guest the facts cover the shared window, so a short window never reads as a young feeder', () => {
+        expect(portraitSource).toContain("if (portrait.scope === 'shared')");
+        expect(en.about.portrait.shared_days).toBe('The last {days} days at this feeder.');
+        expect(en.about.portrait.since).toBe('Watching since {date}.');
+    });
+
+    it('reads the busiest day as a calendar date, so no time zone moves it', () => {
+        expect(portraitSource).toContain('formatDate(`${portrait.busiest_day.date}T12:00:00`)');
+    });
+
+    it('degrades one read at a time: no portrait is still an About page', () => {
+        expect(aboutSource).toContain('{#if portrait}');
+        expect(portraitSource).toContain('{#if communityInstalls !== null}');
+        expect(portraitSource).toContain('about.portrait.community');
+        // The latest visit gone (deleted or hidden) moves the portrait on.
+        expect(aboutSource).toContain('if (portrait?.latest_visit?.frigate_event === frigateEvent) portraitRefresh += 1;');
     });
 
     it('lists the install-count read among what leaves the network', () => {
@@ -70,7 +119,7 @@ describe('the About page opens on this feeder\'s own photographs', () => {
         expect(privacySource).toContain('communityReadEnabled ?? Boolean(settingsStore.settings?.update_check_enabled)');
         expect(aboutSource).toContain('<PrivacySummary {communityReadEnabled} />');
         expect(en.about.outbound.community_desc).toContain('update checks');
-        for (const value of JSON.stringify(en.about.opener).match(/"[^"]*"/g) ?? []) {
+        for (const value of JSON.stringify(en.about.portrait).match(/"[^"]*"/g) ?? []) {
             expect(value).not.toContain('—');
         }
     });

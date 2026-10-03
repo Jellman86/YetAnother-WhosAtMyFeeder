@@ -568,3 +568,58 @@ async def test_recording_alignment_survives_hint_update_but_never_another_photog
     assert "recording_alignment" not in await service.get_snapshot_metadata("evt-align")
     await service.cache_snapshot("evt-align", b"third", source="frigate_recording_snapshot")
     assert "recording_alignment" not in await service.get_snapshot_metadata("evt-align")
+
+
+@pytest.mark.asyncio
+async def test_photo_alignment_is_bound_to_bytes_preserved_on_hint_refresh_and_cleared_on_replacement(
+    tmp_path, monkeypatch
+):
+    import hashlib
+
+    service, _ = _make_service(tmp_path, monkeypatch)
+    photo = b"chosen-snapshot-crop"
+    alignment = {"frame_time": 101, "box": [0.1, 0.2, 0.3, 0.4], "image_sha256": hashlib.sha256(photo).hexdigest()}
+    await service.cache_snapshot(
+        "aligned",
+        photo,
+        source="hq_candidate_model_crop",
+        film_alignment=alignment,
+        event_hints={"snapshot": {"frame_time": 101}},
+    )
+    first = await service.get_snapshot_metadata("aligned")
+    assert first["film_alignment"] == alignment
+    assert first["snapshot_photo_hints"]["event_hints"]["snapshot"]["frame_time"] == 101
+    await service.update_snapshot_event_hints("aligned", {"snapshot": {"frame_time": 999}})
+    refreshed = await service.get_snapshot_metadata("aligned")
+    assert refreshed["film_alignment"] == alignment
+    assert refreshed["snapshot_photo_hints"] == first["snapshot_photo_hints"]
+    # A supplied alignment for the prior bytes cannot be re-sealed onto another photo.
+    await service.replace_snapshot(
+        "aligned", b"different-photo", source="hq_candidate_model_crop", film_alignment=alignment
+    )
+    replaced = await service.get_snapshot_metadata("aligned")
+    assert replaced["film_alignment"] is None and replaced["snapshot_photo_hints"] is None
+    await service.replace_snapshot("aligned", photo, film_alignment=alignment, manual_selection=True)
+    assert (await service.get_snapshot_metadata("aligned"))["film_alignment"] == alignment
+    await service.replace_snapshot("aligned", b"unproven-photo", manual_selection=True)
+    assert (await service.get_snapshot_metadata("aligned"))["film_alignment"] is None
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        {"frame_time": float("nan")},
+        {"frame_time": 0},
+        {"frame_time": True},
+        {"box": [0.9, 0.9, 0.5, 0.5]},
+        {"box": [0, 0, 0, 1]},
+        {"box": [1, 2, 3, 4]},
+        {"image_sha256": "another-photo"},
+    ],
+)
+def test_invalid_photo_alignment_is_never_accepted(bad):
+    import hashlib
+
+    alignment = {"frame_time": 101, "box": [0.1, 0.2, 0.3, 0.4], "image_sha256": hashlib.sha256(b"photo").hexdigest()}
+    alignment.update(bad)
+    assert media_cache_module.validate_film_alignment(alignment, b"photo") is None

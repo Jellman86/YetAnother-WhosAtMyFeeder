@@ -29,7 +29,7 @@ from app.services.hq_classification_refinement import (
     choose_hq_classification_refinement,
     crop_labels_with_independent_support,
 )
-from app.services.media_cache import media_cache
+from app.services.media_cache import media_cache, validate_film_alignment
 from app.services.classification_input_provenance import cached_snapshot_input_provenance
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
@@ -50,6 +50,61 @@ from app.utils.image_io import decode_image_bytes
 from app.utils.api_datetime import serialize_storage_datetime, utc_naive_now
 
 log = structlog.get_logger()
+
+
+def final_snapshot_film_alignment(
+    event_data: dict[str, Any], candidate: dict[str, Any], frame_size: tuple[int, int]
+) -> dict[str, Any] | None:
+    """Seal a clean final still's actual crop to its explicit recording timestamp."""
+    if (
+        candidate.get("clip_variant") != "frigate_snapshot"
+        or candidate.get("frame_index") != 0
+        or candidate.get("frame_offset_seconds") is not None
+    ):
+        return None
+    snapshot = event_data.get("snapshot")
+    payload = event_data.get("data")
+    moments = [
+        value
+        for value in (
+            snapshot.get("frame_time") if isinstance(snapshot, dict) else None,
+            payload.get("snapshot_frame_time") if isinstance(payload, dict) else None,
+        )
+        if value is not None
+    ]
+    end = event_data.get("end_time")
+    start = event_data.get("start_time")
+    bounds = [end] + ([start] if start is not None else [])
+    if not moments or any(
+        isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0
+        for value in moments + bounds
+    ):
+        return None
+    moment = float(moments[0])
+    if any(not math.isclose(float(value), moment, abs_tol=0.001, rel_tol=0) for value in moments[1:]):
+        return None
+    if moment > end or (start is not None and moment < start):
+        return None
+    crop = candidate.get("crop_box")
+    image_bytes = candidate.get("image_bytes")
+    if not isinstance(crop, (list, tuple)) or len(crop) != 4 or not isinstance(image_bytes, bytes):
+        return None
+    if any(
+        isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) for value in crop
+    ):
+        return None
+    width, height = frame_size
+    left, top, right, bottom = crop
+    if width <= 0 or height <= 0 or not (0 <= left < right <= width and 0 <= top < bottom <= height):
+        return None
+    return validate_film_alignment(
+        {
+            "frame_time": moment,
+            "box": [left / width, top / height, (right - left) / width, (bottom - top) / height],
+            "image_sha256": hashlib.sha256(image_bytes).hexdigest(),
+        },
+        image_bytes,
+    )
 
 
 def _write_temp_clip(contents: bytes) -> Path:
@@ -423,6 +478,11 @@ class HighQualitySnapshotService:
             automatic=not manual_override,
             clear_manual_selection=manual_override,
             expected_manual_selection_updated_at=initial_metadata.get("updated_at"),
+            **(
+                {"film_alignment": selected_candidate["film_alignment"]}
+                if isinstance(selected_candidate, dict) and selected_candidate.get("film_alignment")
+                else {}
+            ),
         )
         if not replaced:
             return self._record_outcome(event_id, "snapshot_replace_failed")
@@ -616,6 +676,11 @@ class HighQualitySnapshotService:
                 image_bytes,
                 source=snapshot_source,
                 automatic=True,
+                **(
+                    {"film_alignment": selected_candidate["film_alignment"]}
+                    if isinstance(selected_candidate, dict) and selected_candidate.get("film_alignment")
+                    else {}
+                ),
             )
             if not replaced:
                 return self._record_outcome(event_id, "snapshot_replace_failed")
@@ -1441,6 +1506,11 @@ class HighQualitySnapshotService:
                         crop_index=crop_index,
                     )
                 )
+        if clean_copy_available:
+            for candidate in candidates:
+                alignment = final_snapshot_film_alignment(event_data, candidate, image.size)
+                if alignment is not None:
+                    candidate["film_alignment"] = alignment
         return candidates
 
     def _build_final_snapshot_candidate_payload(
@@ -1814,7 +1884,12 @@ class HighQualitySnapshotService:
             image_bytes = candidate.get("image_bytes")
             thumbnail_bytes = candidate.get("thumbnail_bytes")
             if image_ref and isinstance(image_bytes, (bytes, bytearray)):
-                await media_cache.cache_snapshot(image_ref, bytes(image_bytes), source="snapshot_candidate")
+                await media_cache.cache_snapshot(
+                    image_ref,
+                    bytes(image_bytes),
+                    source="snapshot_candidate",
+                    **({"film_alignment": candidate["film_alignment"]} if candidate.get("film_alignment") else {}),
+                )
             if thumbnail_ref and isinstance(thumbnail_bytes, (bytes, bytearray)):
                 await media_cache.cache_thumbnail(thumbnail_ref, bytes(thumbnail_bytes), source="snapshot_candidate")
 

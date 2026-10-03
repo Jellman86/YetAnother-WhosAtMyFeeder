@@ -162,7 +162,7 @@ _COOKIE_ROUTES = (
     re.compile(r"^/api/frigate/[^/]+/(hls|recording-hls)/[^/]+$"),
     re.compile(r"^/api/frigate/[^/]+/snapshot/(original\.jpg|candidates/[^/]+/(image|thumbnail)\.jpg)$"),
     re.compile(r"^/api/frigate/camera/[^/]+/latest\.jpg$"),
-    re.compile(r"^/api/about/showcase/[^/]+\.jpg$"),
+    re.compile(r"^/api/about/showcase/[^/]+\.(jpg|webm)$"),
     re.compile(r"^/api/audio/(spectrogram|clip)/[^/]+$"),
     re.compile(r"^/api/manual-observations/[a-f0-9]{32}/(preview|media)$"),
     re.compile(r"^/api/manual-observations/[a-f0-9]{32}/species/[0-9]/(photo|scene)$"),
