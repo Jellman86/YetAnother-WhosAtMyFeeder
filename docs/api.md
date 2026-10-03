@@ -179,8 +179,8 @@ fresh day. This does not cache sharing preferences.
 - `GET /api/visits` Groups the accessible history before pagination. Accepts `limit`, `offset`,
   `start_date`/`end_date` or UTC `start_time`/`end_time`, `species`, `camera`, `favorites`,
   `audio_confirmed_only`, `only_hidden`, `multiple_species_only` and `sort` (`newest`, `oldest`,
-  `confidence`). Returns `visits`, `total` and `gap_seconds`. Each visit includes its stable
-  `visit_id` (first accessible capture), start/end, full `capture_count`, best score, review/audio
+  `confidence`). Returns `visits`, `total` and `gap_seconds`. Each visit includes
+  `visit_id` (its first accessible capture ID), start/end, full `capture_count`, best score, review/audio
   state, representative/latest records and owner-only busiest counted capture. Grouping uses
   canonical species, actual camera and a 60-second inactivity gap after the running latest
   verified event end; historical captures without bounds use capture time. Unknown and manual
@@ -190,6 +190,14 @@ fresh day. This does not cache sharing preferences.
 - `GET /api/visits/{visit_id}/captures` Rechecks access and history window on every read. Accepts
   the same date/time and hidden scope, plus `limit` (20 by default, maximum 50) and `offset`.
   Returns chronological `captures` and `total`; unavailable visits return 404.
+
+Fresh databases return an empty visit list until captures are saved. Live ingest and backfill
+retain valid Frigate event bounds. Backfill can arrive out of order: visit membership and totals
+are calculated from saved captures, so earlier captures or longer verified ends can join groups
+as an import progresses. Repeated imports preserve original capture IDs and valid stored bounds.
+Visit IDs can change when an earlier capture arrives or groups join during backfill.
+Grouping and filtering add no model inference. Upgrading existing history does not rescan media;
+captures without verified bounds continue to use their stored capture time.
 
 `GET /api/events`, `GET /api/events/count` and `GET /api/visits` accept the owner-only
 `multiple_species_only=true` filter. It matches at least two distinct resolved, named species
