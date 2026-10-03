@@ -27,6 +27,29 @@ describe('DetectionsStore loading', () => {
         expect(fetchEventsCount).toHaveBeenCalledTimes(1);
     });
 
+    it('says the history is unknown until it has been read, and keeps it known after a later failure', async () => {
+        fetchEvents.mockResolvedValueOnce([]).mockRejectedValueOnce(new Error('offline'));
+        fetchEventsCount.mockResolvedValue({ count: 0 });
+        const { DetectionsStore } = await import('./detections.svelte');
+        const store = new DetectionsStore();
+        expect(store.historyStatus).toBe('pending');
+        await store.loadInitial();
+        expect(store.historyStatus).toBe('ready');
+        await store.loadInitial();
+        expect(store.historyStatus).toBe('ready');
+        store.resetForAccessChange();
+        expect(store.historyStatus).toBe('pending');
+    });
+
+    it('reports a first read that failed rather than an empty history', async () => {
+        fetchEvents.mockRejectedValueOnce(new Error('offline'));
+        fetchEventsCount.mockResolvedValue({ count: 0 });
+        const { DetectionsStore } = await import('./detections.svelte');
+        const store = new DetectionsStore();
+        await store.loadInitial();
+        expect(store.historyStatus).toBe('failed');
+    });
+
     it('refetches after an older in-flight response when guest history is invalidated', async () => {
         let release: (value: []) => void = () => undefined;
         fetchEvents.mockImplementationOnce(() => new Promise<[]>((resolve) => { release = resolve; }))

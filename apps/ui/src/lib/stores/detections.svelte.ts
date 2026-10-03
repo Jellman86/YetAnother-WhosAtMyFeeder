@@ -48,6 +48,11 @@ export class DetectionsStore {
     detections = $state<Detection[]>([]);
     totalToday = $state(0);
     isLoading = $state(false);
+    /**
+     * Whether the recent history has been read for this access: until it has, an empty list
+     * means "not known yet", not "nothing there", and screens must not claim a quiet day.
+     */
+    historyStatus = $state<'pending' | 'ready' | 'failed'>('pending');
     connected = $state(false);
     progressMap = $state<Map<string, ReclassificationProgress>>(new Map());
     /**
@@ -123,6 +128,7 @@ export class DetectionsStore {
         this.loadPromise = null;
         this.queuedOwnerRefresh = null;
         this.isLoading = false;
+        this.historyStatus = 'pending';
         this.clearHistory();
         this.progressMap = new Map();
         this.settledReclassifications = new Map();
@@ -145,7 +151,10 @@ export class DetectionsStore {
         if (generation !== this.accessGeneration) return;
         const loaded = await this.loadInitial();
         if (generation !== this.accessGeneration) return;
-        if (!loaded) this.clearHistory();
+        if (!loaded) {
+            this.clearHistory();
+            this.historyStatus = 'failed';
+        }
         // Revalidate open guest modals and Explorer even if recent history failed.
         this.publicHistoryVersion += 1;
         if (!loaded) throw new Error('Public history refresh failed');
@@ -199,6 +208,7 @@ export class DetectionsStore {
                 if (evidenceEpoch !== this.ownerEvidenceEpoch) return true;
                 this.detections = recent;
                 this.totalToday = countResult.count;
+                this.historyStatus = 'ready';
                 this.markMutated();
                 this.staleTracker.touch();
                 return true;
@@ -210,6 +220,8 @@ export class DetectionsStore {
                 } else {
                     logger.error('Failed to load initial detections', e);
                 }
+                // History already shown stays shown; only a first read that failed is unknown.
+                if (generation === this.accessGeneration && this.historyStatus !== 'ready') this.historyStatus = 'failed';
                 return false;
             } finally {
                 // A superseded owner request must not unlock/clear a guest load.

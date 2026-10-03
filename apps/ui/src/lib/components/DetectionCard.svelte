@@ -1,4 +1,5 @@
 <script lang="ts">
+    import type { Snippet } from 'svelte';
     import type { Detection } from '../api';
     import { getThumbnailUrl } from '../api';
     import { detectionsStore } from '../stores/detections.svelte';
@@ -29,6 +30,12 @@
         fullVisitAvailable?: boolean;
         fullVisitFetched?: boolean;
         fullVisitFetchState?: 'idle' | 'fetching' | 'ready' | 'partial' | 'failed';
+        /**
+         * Content that belongs to this record, such as its visit's captures. It sits inside the
+         * card's one frame, under the record, as a separate control; the card itself still opens
+         * the record. Without it the card is the plain, closed shape.
+         */
+        footer?: Snippet;
     }
 
     let {
@@ -44,7 +51,8 @@
         selected = false,
         fullVisitAvailable: _fullVisitAvailable = false,
         fullVisitFetched = false,
-        fullVisitFetchState: _fullVisitFetchState = 'idle'
+        fullVisitFetchState: _fullVisitFetchState = 'idle',
+        footer
     }: Props = $props();
 
     // Check if this detection is being reclassified
@@ -187,7 +195,7 @@
     }
 </script>
 
-<div class="relative rounded-[2rem] transition-all duration-300 ease-out">
+<div class="relative h-full rounded-[2rem] transition-all duration-300 ease-out">
     <div
         bind:this={cardElement}
         data-detection-card
@@ -204,11 +212,13 @@
                {selectionMode && selected && !analysisActive ? 'border-2 border-cyan-300 dark:border-cyan-300/90 ring-2 ring-cyan-500/35 dark:ring-cyan-300/20 bg-cyan-50/20 dark:bg-cyan-500/5' : ''}"
         style="animation-delay: {index * 40}ms"
     >
+    <!-- The record: everything above the footer opens it, and nothing in the footer does. -->
+    <div class="relative flex flex-1 flex-col">
     <button
         type="button"
         aria-label="{$_('detection.card_label', { values: { species: primaryName, camera: detection.camera_name } })}"
         onclick={onclick}
-        class="absolute inset-0 z-10 rounded-3xl focus:outline-none focus:ring-2 focus:ring-brand-500/50"
+        class="absolute inset-0 z-10 {footer ? 'rounded-t-3xl' : 'rounded-3xl'} focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
     ></button>
 
     <!-- Reclassification Overlay -->
@@ -473,6 +483,10 @@
             <span class="truncate">{detection.camera_name}</span>
         </div>
     </div>
+    </div>
+    {#if footer}
+        <div class="relative z-20" data-detection-card-footer>{@render footer()}</div>
+    {/if}
     {#if selectionMode && selected && !analysisActive}
         <div class="absolute inset-0 z-40 overflow-hidden rounded-3xl pointer-events-none">
             <div class="absolute inset-0 bg-cyan-500/24 backdrop-blur-sm"></div>

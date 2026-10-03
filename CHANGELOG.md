@@ -16,6 +16,25 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   excluded when snapshots are regenerated.
 - Filter Explorer for captures containing at least two identified bird species. Recent sightings
   in species details now link to their exact detection, including captures without video.
+- Open a visit's captures from its time in the field log. The captures join the log's thread in the
+  same columns as the visit: each capture's time to the second, its thumbnail, score, clip and bird
+  count, on hollow nodes along a tinted stretch of the line, with the visit's photo filled and
+  marked. The row says how many captures it holds beside the name, apart from the busiest capture's
+  bird count, so a visit of many captures no longer takes an extra line. A single-capture visit
+  keeps its plain row and Open action. The camera is named on rows only when more than one camera
+  appears in the log. Health rows and Explorer cards and rows open their captures from a compact
+  control of their own. Reopening a visit reuses the captures already read, the list says how many
+  of the total are shown, and an empty or failed read is stated in words. Opening one card no longer
+  stretches its neighbours. Each Explorer card and its capture footer share one rounded frame,
+  with separate record and capture actions and visible keyboard focus. The multiple-species filter
+  now matches the filters beneath it, and the
+  photo Undo control matches Remove.
+- The dashboard no longer claims anything before it has read the day. While loading, the field log
+  shows placeholder rows shaped like its real rows, the day bar shows placeholders instead of zeros,
+  and the review queue and camera list no longer say nothing is waiting or no camera is reporting.
+  Configured cameras keep unknown visit totals until the summary loads, including after a failed
+  first read. A failed first read says so and offers to try again. Placeholders stand still under
+  reduced motion.
 
 - Recover weakly detected birds with up to four small regional checks per snapshot scan, guided
   by confidently identified birds in nearby frames. Each recovered bird still needs detector

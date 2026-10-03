@@ -110,6 +110,6 @@ test('incoming capture refresh waits for the current visit read and updates memb
     await page.waitForTimeout(900);
     expect(reads).toBe(1);
     release();
-    await expect(page.locator('[data-visit-captures="first"] summary')).toContainText('14 captures');
+    await expect(page.locator('[data-visit-captures="first"] [data-visit-captures-toggle]')).toContainText('14 captures');
     expect(reads).toBe(2);
 });

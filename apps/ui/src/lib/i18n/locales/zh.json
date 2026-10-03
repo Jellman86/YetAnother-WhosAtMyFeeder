@@ -323,7 +323,10 @@
       "birds_unknown": "{count} 只未知",
       "birds_none_counted": "没有计入的鸟，已排除 {count} 只",
       "birds_open": "{summary}，打开那次拍摄",
-      "captures": "本次到访共 {count} 次拍摄"
+      "loading": "正在加载到访…",
+      "unavailable": "无法加载到访。仪表板每分钟会重试一次。",
+      "retry": "重试",
+      "open_species": "打开{species}"
     },
     "notable_nearby": {
       "title": "附近的稀有记录",
@@ -347,7 +350,9 @@
       "calls_heard": "次鸣叫",
       "cross_confirmed": "次交叉确认",
       "reconnecting": "正在重新连接…",
-      "window": "过去24小时"
+      "window": "过去24小时",
+      "loading": "仍在加载",
+      "unavailable": "不可用"
     },
     "desk": {
       "cameras_empty": "还没有摄像头上报。请在“设置 → 连接”中添加。",
@@ -359,14 +364,18 @@
       "heard_title": "听到的声音",
       "most_heard": "最常听到",
       "latest_call": "最近的叫声：{time} 的 {species}",
-      "heard_empty": "过去24小时内没有听到叫声。"
+      "heard_empty": "过去24小时内没有听到叫声。",
+      "cameras_loading": "正在加载各摄像头的到访…",
+      "camera_visits_unavailable": "无法加载到访次数。"
     },
     "review_queue": {
       "title": "需要你确认",
       "empty": "今天的每次到访都有物种，没有待处理项。",
       "remaining": "还有 {count} 项待处理",
       "work_through": "处理待办队列",
-      "new_species_tag": "新物种 · {count} 次目击"
+      "new_species_tag": "新物种 · {count} 次目击",
+      "loading": "正在检查需要你处理的到访…",
+      "unavailable": "无法检查队列，因此不确定是否有待处理的项目。"
     },
     "review_session": {
       "position": "第 {position} 项，共 {total} 项",
@@ -3172,6 +3181,11 @@
     "remove_photo": "移除照片选项",
     "choose_first": "移除此照片前，请先选择另一张照片。",
     "photo_removed": "已从选项中移除照片。",
-    "remove_failed": "无法更改此照片选项。请重试。"
+    "remove_failed": "无法更改此照片选项。请重试。",
+    "open_capture_at": "打开 {time} 的{species}拍摄",
+    "shown_photo": "到访照片",
+    "capture_birds": "{count} 只鸟",
+    "loaded_of_total": "已显示 {shown}/{total} 次拍摄",
+    "captures_empty": "此视图中看不到本次到访的拍摄。"
   }
 }

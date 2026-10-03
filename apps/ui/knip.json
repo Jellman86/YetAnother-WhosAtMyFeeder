@@ -17,6 +17,7 @@
     "browser-tests/about-portrait.ts",
     "browser-tests/**/*.spec.ts",
     "browser-tests/visits.ts",
+    "browser-tests/field-log.ts",
     "browser-tests/owner-history.ts"
   ]
 }

@@ -323,7 +323,10 @@
       "birds_unknown": "不明 {count} 羽",
       "birds_none_counted": "数えた鳥なし、除外 {count} 羽",
       "birds_open": "{summary}、その撮影を開く",
-      "captures": "この訪問の撮影 {count} 回"
+      "loading": "訪問を読み込み中…",
+      "unavailable": "訪問を読み込めませんでした。ダッシュボードは1分ごとに再試行します。",
+      "retry": "再試行",
+      "open_species": "{species} を開く"
     },
     "notable_nearby": {
       "title": "周辺の注目記録",
@@ -347,7 +350,9 @@
       "calls_heard": "件の鳴き声",
       "cross_confirmed": "件が相互確認済み",
       "reconnecting": "再接続中…",
-      "window": "過去24時間"
+      "window": "過去24時間",
+      "loading": "読み込み中",
+      "unavailable": "利用できません"
     },
     "desk": {
       "cameras_empty": "まだカメラが応答していません。設定 → 接続 で追加してください。",
@@ -359,14 +364,18 @@
       "heard_title": "聞こえた鳴き声",
       "most_heard": "よく聞こえた種",
       "latest_call": "最新の鳴き声: {time} の {species}",
-      "heard_empty": "過去24時間に鳴き声は聞こえませんでした。"
+      "heard_empty": "過去24時間に鳴き声は聞こえませんでした。",
+      "cameras_loading": "カメラごとの訪問を読み込み中…",
+      "camera_visits_unavailable": "訪問数を読み込めませんでした。"
     },
     "review_queue": {
       "title": "確認が必要です",
       "empty": "今日の訪問にはすべて種名が付いています。保留中の項目はありません。",
       "remaining": "他に {count} 件が保留中",
       "work_through": "キューを処理する",
-      "new_species_tag": "新しい種 · {count} 回の観察"
+      "new_species_tag": "新しい種 · {count} 回の観察",
+      "loading": "確認が必要な訪問を調べています…",
+      "unavailable": "キューを確認できなかったため、待機中の項目があるかは不明です。"
     },
     "review_session": {
       "position": "{total} 件中 {position} 件目",
@@ -3172,6 +3181,11 @@
     "remove_photo": "写真の選択肢を削除",
     "choose_first": "この写真を削除する前に、別の写真を選んでください。",
     "photo_removed": "写真を選択肢から削除しました。",
-    "remove_failed": "この写真の選択肢を変更できませんでした。もう一度お試しください。"
+    "remove_failed": "この写真の選択肢を変更できませんでした。もう一度お試しください。",
+    "open_capture_at": "{time} の {species} の撮影を開く",
+    "shown_photo": "訪問の写真",
+    "capture_birds": "{count} 羽",
+    "loaded_of_total": "{total} 件中 {shown} 件の撮影を表示",
+    "captures_empty": "この表示では、この訪問の撮影は表示できません。"
   }
 }

@@ -246,10 +246,21 @@
                 </p>
                 <div class="mt-2 space-y-1">
                     {#if canSeeHidden}
-                        <button class="btn btn-ghost min-h-11 w-full justify-between text-xs" aria-pressed={multipleSpeciesOnly}
-                            onclick={() => onchange({ multipleSpeciesOnly: !multipleSpeciesOnly })}>
+                        <!-- The same row as the facets beneath it; it has no count, so its state is a check. -->
+                        <button
+                            class="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-2 text-xs transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:bg-slate-800/60 {multipleSpeciesOnly
+                                ? 'font-semibold text-brand-800 dark:text-brand-200'
+                                : 'text-slate-700 dark:text-slate-300'}"
+                            aria-pressed={multipleSpeciesOnly}
+                            onclick={() => onchange({ multipleSpeciesOnly: !multipleSpeciesOnly })}
+                            data-explorer-multiple-species-facet
+                        >
                             <span>{$_('visits.multiple_species', { default: 'Multiple bird species' })}</span>
-                            <span aria-hidden="true">{multipleSpeciesOnly ? '✓' : '+'}</span>
+                            {#if multipleSpeciesOnly}
+                                <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="m5 10 3.5 3.5L15 7" />
+                                </svg>
+                            {/if}
                         </button>
                         <p class="px-2 text-xs text-slate-500 dark:text-slate-400">{$_('visits.multiple_species_hint', { default: 'Two or more named species in one analyzed capture.' })}</p>
                     {/if}

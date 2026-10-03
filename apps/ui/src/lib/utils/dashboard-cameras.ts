@@ -3,7 +3,8 @@ import type { DetectionVisit } from './visit-grouping';
 
 export interface DashboardCameraRow {
     name: string;
-    visits: number;
+    /** Null until the day has been measured: a configured camera is not a camera with no visits. */
+    visits: number | null;
     status: 'online' | 'offline' | 'unknown';
     lastSeen: string | null;
 }
@@ -25,23 +26,30 @@ interface DashboardCameraRowsInput {
     cameraVisits?: readonly ServerCameraVisits[] | null;
     /** Null while settings load; an empty list deliberately means every camera. */
     configuredCameras: readonly string[] | null;
+    /**
+     * False until the day has been read. Settings name the cameras first, so without this a
+     * pending or failed read would show every camera with no visits, or the newest page as a total.
+     */
+    countsMeasured?: boolean;
 }
 
 export function buildDashboardCameraRows({
     cameraStatus,
     visits,
     cameraVisits = null,
-    configuredCameras
+    configuredCameras,
+    countsMeasured = true
 }: DashboardCameraRowsInput): DashboardCameraRow[] {
     const visitsByCamera = new Map<string, number>();
     const lastSeenByCamera = new Map<string, string>();
-    if (cameraVisits) {
+    // Unmeasured, nothing is counted: names come from settings and camera status alone.
+    if (countsMeasured && cameraVisits) {
         for (const entry of cameraVisits) {
             if (!entry.camera) continue;
             visitsByCamera.set(entry.camera, entry.visits);
             if (entry.last_seen) lastSeenByCamera.set(entry.camera, entry.last_seen);
         }
-    } else {
+    } else if (countsMeasured) {
         for (const visit of visits) {
             if (!visit.camera) continue;
             visitsByCamera.set(visit.camera, (visitsByCamera.get(visit.camera) ?? 0) + 1);
@@ -68,9 +76,9 @@ export function buildDashboardCameraRows({
     return [...cameraNames]
         .map((name) => ({
             name,
-            visits: visitsByCamera.get(name) ?? 0,
+            visits: countsMeasured ? (visitsByCamera.get(name) ?? 0) : null,
             status: statusByCamera.get(name) ?? 'unknown',
             lastSeen: lastSeenByCamera.get(name) ?? null
         }))
-        .sort((left, right) => right.visits - left.visits || left.name.localeCompare(right.name));
+        .sort((left, right) => (right.visits ?? 0) - (left.visits ?? 0) || left.name.localeCompare(right.name));
 }
