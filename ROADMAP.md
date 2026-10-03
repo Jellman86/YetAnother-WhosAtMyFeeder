@@ -413,6 +413,28 @@ may still refine idiom and choose a single regional convention for the generic P
 Candidate features, roughly ordered by value. These can land before `3.0` when they are ready,
 but otherwise remain post-3.0 backlog; they do not delay the release.
 
+#### Taxonomy explorer and family tree 🌳
+**Priority:** P2 | **Effort:** L | **Status:** ☐ Not started
+
+Show where each bird belongs within Animalia, from kingdom and phylum through class,
+order, suborder, family, genus and species. Include intermediate groups when the chosen
+taxonomy supports them, and make it easy to discover related birds.
+
+- Open a bird's place in the hierarchy from its species page, with common and scientific
+  names and a breadcrumb back to Animalia.
+- Explore a large, zoomable family-tree view with expandable branches, search by either
+  name, and a clear highlight for the current bird and species recorded at this feeder.
+- Offer a keyboard-accessible outline and a usable phone layout alongside the large tree.
+  Load branches as needed so the wider animal kingdom does not slow the page down.
+- Build on the versioned species catalogue and its higher-rank concepts. Show the source
+  and version, handle synonyms and missing ranks explicitly, and distinguish a taxonomy
+  hierarchy from an evolutionary tree; do not invent ancestry or divergence dates.
+
+**Done when:** a recorded bird can be followed through its available ranks to Animalia,
+related genera and families can be explored without losing the selected bird, common and
+scientific searches reach the same taxon, and source provenance, missing-rank states,
+keyboard navigation, mobile layouts and bounded branch loading are tested.
+
 #### Finish multi-user: password reset + SSO 👥
 **Priority:** P2 | **Effort:** M | **Status:** 🔄 Core shipped (v2.6.0), two gaps remain
 
