@@ -16,6 +16,7 @@
     authStore.authRequired = true;
     authStore.isAuthenticated = true;
     const params = new URLSearchParams(location.search);
+    authStore.scientificNamePrimary = params.get('names') === 'scientific';
     const phase = params.get('state') ?? 'ready';
     if (params.get('theme') === 'dark') document.documentElement.classList.add('dark');
     if (params.get('clock') === '12h') authStore.timeFormat = '12h';

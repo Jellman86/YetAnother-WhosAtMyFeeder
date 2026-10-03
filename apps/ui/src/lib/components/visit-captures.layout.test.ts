@@ -89,7 +89,7 @@ describe('visit captures read as part of their visit', () => {
     });
 
     it('closes Explorer cards and rows as a footer, without stretching neighbouring cards open', () => {
-        expect(eventsSource).toContain('has-[[data-visit-captures-open]]:items-start');
+        expect(eventsSource).toContain('<VisitCaptures floating');
         expect(eventsSource.match(/<VisitCaptures /g)?.length).toBe(2);
         expect(eventsSource).toContain('[&>[data-detection-row]]:border-b-0');
     });

@@ -34,6 +34,73 @@ function toggle(page: Page) {
 }
 const openCapture = /^Open Eurasian Blackbird capture at /;
 
+test('floating captures leave the next card in place and dismiss with Escape or outside click', async ({ page }) => {
+    const { errors } = await prepare(page, '?floating=1');
+    const next = page.locator('[data-fixture-single]');
+    const before = await next.boundingBox();
+    await toggle(page).focus();
+    await page.keyboard.press('Enter');
+    await expect(page.locator('[data-visit-capture="first"]')).toBeVisible();
+    const after = await next.boundingBox();
+    expect(after?.y).toBe(before?.y);
+    await expect(page.locator('[data-visit-capture="first"]').getByText('Eurasian Blackbird', { exact: true })).toBeVisible();
+    await expect(page.locator('[data-visit-capture="first"]').getByText('Turdus merula', { exact: true })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(toggle(page)).toHaveAttribute('aria-expanded', 'false');
+    await expect(toggle(page)).toBeFocused();
+    await toggle(page).click();
+    await page.getByRole('heading').click();
+    await expect(toggle(page)).toHaveAttribute('aria-expanded', 'false');
+    expect(errors).toEqual([]);
+});
+
+test('a thumbnail preview paints above its floating capture panel', async ({ page, isMobile }) => {
+    test.skip(isMobile, 'Touch opens the exact record without a hover preview');
+    await prepare(page, '?floating=1');
+    await toggle(page).click();
+    await page.locator('[data-visit-capture="first"] [data-detection-preview] button').hover();
+    const preview = page.locator('[data-detection-preview-panel]');
+    await expect(preview).toBeVisible();
+    expect(await preview.evaluate(element => {
+        const rect = element.getBoundingClientRect();
+        return element.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2));
+    })).toBe(true);
+});
+
+test('scrolling a floating capture control out of view closes its panel', async ({ page }) => {
+    await prepare(page, '?floating=1');
+    await page.locator('main').evaluate(element => { element.style.minHeight = '3000px'; });
+    await toggle(page).click();
+    await expect(toggle(page)).toHaveAttribute('aria-expanded', 'true');
+    await page.evaluate(() => scrollTo(0, 800));
+    await expect(toggle(page)).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.locator('[data-visit-captures-floating]')).toBeHidden();
+});
+
+for (const width of [320, 390, 1280]) {
+    test(`floating captures fit ${width}px and close after opening an exact capture`, async ({ page }, testInfo) => {
+        await page.setViewportSize({ width, height: 700 });
+        const { errors } = await prepare(page, '?floating=1&theme=dark');
+        await toggle(page).click();
+        const panel = page.locator('[data-visit-captures-floating]');
+        await expect(panel).toBeVisible();
+        const bounds = await panel.boundingBox();
+        expect(bounds?.x ?? -1).toBeGreaterThanOrEqual(0);
+        expect((bounds?.x ?? 0) + (bounds?.width ?? 0)).toBeLessThanOrEqual(width);
+        expect(bounds?.y ?? -1).toBeGreaterThanOrEqual(0);
+        expect((bounds?.y ?? 0) + (bounds?.height ?? 0)).toBeLessThanOrEqual(700);
+        await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+        await page.screenshot({ path: testInfo.outputPath(`floating-captures-${width}.png`) });
+        await panel.locator('[data-visit-capture="first"] > button').click();
+        await expect(page.getByRole('status', { name: 'Selected record' })).toHaveText('first');
+        await expect(panel).toBeHidden();
+        await toggle(page).click();
+        await panel.getByRole('button', { name: 'Close', exact: true }).click();
+        await expect(toggle(page)).toHaveAttribute('aria-expanded', 'false');
+        expect(errors).toEqual([]);
+    });
+}
+
 test('visit captures load on keyboard expansion, paginate, and open exact record or clip', async ({ page }) => {
     const { requests, errors } = await prepare(page);
     expect(requests).toHaveLength(0);

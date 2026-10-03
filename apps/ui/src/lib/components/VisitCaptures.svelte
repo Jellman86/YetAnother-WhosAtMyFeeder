@@ -18,15 +18,20 @@
          * `inline` sits inside a log row that already states both, and continues its thread.
          */
         layout?: 'footer' | 'inline';
+        /** Card grids float the captures above neighbouring cards without moving the grid. */
+        floating?: boolean;
         /** Inline context beside the toggle, such as the field log's busiest-capture count. */
         aside?: Snippet;
         onselect?: (detection: Detection) => void;
         onplay?: (detection: Detection) => void;
     }
-    let { visit, window = {}, layout = 'footer', aside, onselect, onplay }: Props = $props();
+    let { visit, window = {}, layout = 'footer', floating = false, aside, onselect, onplay }: Props = $props();
     const uid = $props.id();
     const panelId = `${uid}-captures`;
     let open = $state(false);
+    let trigger = $state<HTMLButtonElement>();
+    let panel = $state<HTMLDivElement>();
+    let position = $state('');
     const list = new VisitCaptureList(() => ({ visit, window }));
     const captures = $derived(list.captures);
     const total = $derived(list.total);
@@ -48,6 +53,48 @@
         untrack(() => list.ensure());
     });
     onDestroy(() => list.dispose());
+
+    function placePanel(): void {
+        if (!trigger) return;
+        const rect = trigger.getBoundingClientRect();
+        const { innerWidth: width, innerHeight: height } = globalThis.window;
+        if (rect.bottom <= 0 || rect.top >= height || rect.right <= 0 || rect.left >= width) {
+            if (panel?.matches(':popover-open')) panel.hidePopover();
+            return;
+        }
+        const panelWidth = Math.min(420, width - 16);
+        const left = Math.max(8, Math.min(rect.left, width - panelWidth - 8));
+        if (width < 640) {
+            position = `left:8px;bottom:8px;width:${panelWidth}px;max-height:${Math.max(0, height - 16) * 0.75}px`;
+            return;
+        }
+        const below = height - rect.bottom - 16;
+        const above = rect.top - 16;
+        const flip = below < 240 && above > below;
+        position = `left:${left}px;width:${panelWidth}px;max-height:${Math.max(0, Math.min(480, flip ? above : below))}px;${flip ? `bottom:${height - rect.top + 8}px` : `top:${rect.bottom + 8}px`}`;
+    }
+
+    // The native popover handles outside clicks, Escape, tab order and focus return.
+    // Reposition only for outside scrolling; paging inside the panel keeps its scroll position.
+    $effect(() => {
+        if (!floating || !open) return;
+        const reposition = (event: Event): void => {
+            if (event.target instanceof Node && panel?.contains(event.target)) return;
+            placePanel();
+        };
+        globalThis.window.addEventListener('resize', reposition);
+        globalThis.window.addEventListener('scroll', reposition, true);
+        return () => {
+            globalThis.window.removeEventListener('resize', reposition);
+            globalThis.window.removeEventListener('scroll', reposition, true);
+        };
+    });
+
+    function selectCapture(capture: Detection, play = false): void {
+        if (floating) panel?.hidePopover();
+        if (play) onplay?.(capture);
+        else onselect?.(capture);
+    }
 
     function names(capture: Detection): { primary: string; secondary: string | null } {
         return getBirdNames(capture, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary);
@@ -85,12 +132,14 @@
         <div class="flex flex-wrap items-center gap-x-1">
             <button
                 type="button"
+                bind:this={trigger}
+                popovertarget={floating ? panelId : undefined}
                 class={inline
                     ? '-ml-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-slate-300 dark:hover:bg-slate-800/60 dark:hover:text-white'
                     : 'flex min-h-11 w-full items-center gap-2 px-4 py-2 text-left text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 dark:text-slate-300 dark:hover:bg-slate-800/50'}
                 aria-expanded={open}
                 aria-controls={panelId}
-                onclick={() => (open = !open)}
+                onclick={() => { if (!floating) open = !open; }}
                 data-visit-captures-toggle
             >
                 <svg class="h-3.5 w-3.5 shrink-0 text-slate-400 dark:text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
@@ -115,7 +164,26 @@
             {@render aside?.()}
         </div>
 
-        <div id={panelId} hidden={!open} aria-busy={loading} class={inline ? 'pb-1' : 'pb-2'}>
+        <div
+            bind:this={panel}
+            id={panelId}
+            popover={floating ? 'auto' : undefined}
+            hidden={!floating && !open}
+            onbeforetoggle={(event) => { if (floating && event.newState === 'open') placePanel(); }}
+            ontoggle={(event) => { if (floating) open = event.newState === 'open'; }}
+            role={floating ? 'region' : undefined}
+            aria-label={floating ? $_('visits.captures', { values: { count: visit.capture_count }, default: '{count} captures' }) : undefined}
+            aria-busy={loading}
+            style={floating ? position : undefined}
+            class={floating ? 'fixed inset-auto m-0 overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white pb-2 text-slate-900 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100' : inline ? 'pb-1' : 'pb-2'}
+            data-visit-captures-floating={floating ? '' : undefined}
+        >
+            {#if floating}
+                <div class="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-1 dark:border-slate-700 dark:bg-slate-900">
+                    <p class="text-sm font-semibold">{$_('visits.captures', { values: { count: visit.capture_count }, default: '{count} captures' })}<span class="ml-2 text-xs font-normal tabular-nums text-slate-500 dark:text-slate-400">{span}</span></p>
+                    <button type="button" class="btn btn-ghost min-h-11 min-w-11 px-2" popovertarget={panelId} popovertargetaction="hide">{$_('common.close', { default: 'Close' })}</button>
+                </div>
+            {/if}
             <p class="py-1 text-[11px] text-slate-500 dark:text-slate-400 {inline ? '' : 'px-4'}">
                 {$_('visits.capture_actions', { default: 'Open a capture to review its identification or play its clip.' })}
             </p>
@@ -142,7 +210,7 @@
                                     values: { species: naming.primary, time },
                                     default: 'Open {species} capture at {time}'
                                 })}
-                                onclick={() => onselect?.(capture)}
+                                onclick={() => selectCapture(capture)}
                             ></button>
 
                             {#if inline}
@@ -161,11 +229,13 @@
                                     detection={capture}
                                     primaryName={naming.primary}
                                     secondaryName={naming.secondary}
-                                    onopen={() => onselect?.(capture)}
+                                    onopen={() => selectCapture(capture)}
                                 />
                             </div>
 
                             <div class="pointer-events-none relative z-10 min-w-0 py-1">
+                                <p class="break-words text-sm font-semibold leading-5 text-slate-800 dark:text-slate-100">{naming.primary}</p>
+                                {#if naming.secondary}<p class="break-words text-xs italic text-slate-500 dark:text-slate-400">{naming.secondary}</p>{/if}
                                 <time class="block text-xs font-semibold tabular-nums text-slate-800 dark:text-slate-100" datetime={capture.detection_time}>
                                     {time}
                                 </time>
@@ -185,7 +255,7 @@
                                         type="button"
                                         class="inline-flex h-11 w-11 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:bg-slate-800 dark:hover:text-brand-400"
                                         aria-label={$_('detection.play_video', { values: { species: `${naming.primary}, ${time}` } })}
-                                        onclick={() => onplay?.(capture)}
+                                        onclick={() => selectCapture(capture, true)}
                                     >
                                         <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                                             <path d="M8 5v14l11-7z" />

@@ -1,4 +1,6 @@
 <script lang="ts">
+    import { onMount } from 'svelte';
+    import { initKeyboardShortcuts } from '../src/lib/utils/keyboard-shortcuts';
     import { detectionsStore } from '../src/lib/stores/detections.svelte';
     import Events from '../src/lib/pages/Events.svelte';
     import SpeciesDetailModal from '../src/lib/components/SpeciesDetailModal.svelte';
@@ -13,6 +15,8 @@
     settingsStore.settings = { enrichment_summary_provider: 'disabled' } as unknown as NonNullable<typeof settingsStore.settings>;
     const params = new URLSearchParams(location.search);
     const surface = params.get('surface');
+    // The app's global Escape handler must not consume native capture-panel dismissal.
+    onMount(() => initKeyboardShortcuts({ Escape: () => {} }));
     if (params.get('theme') === 'dark') document.documentElement.classList.add('dark');
 </script>
 
