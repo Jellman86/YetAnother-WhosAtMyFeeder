@@ -11,11 +11,13 @@ from collections import OrderedDict
 from datetime import datetime, timedelta
 from io import BytesIO
 from pathlib import Path as FilePath
-from typing import Awaitable, Callable, Optional
+from typing import Awaitable, Callable, Literal, Optional
+from urllib.parse import quote
 
 import aiofiles
 import aiofiles.os
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, Response
+from fastapi.responses import FileResponse
 from PIL import Image, ImageOps
 from pydantic import BaseModel
 
@@ -32,7 +34,8 @@ from app.services.media_cache import media_cache
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.utils.api_datetime import serialize_api_datetime
 from app.utils.language import get_user_language
-from app.utils.public_access import public_media_window
+from app.utils.canonical_species import should_hide_species_label
+from app.utils.public_access import effective_public_events_days, public_events_window, public_media_window
 
 router = APIRouter()
 
@@ -64,6 +67,49 @@ class ShowcaseItem(BaseModel):
 
 class ShowcaseResponse(BaseModel):
     items: list[ShowcaseItem]
+
+
+# A species seen once could be a misidentification; the newest arrival is one seen a few times, or confirmed.
+NEWEST_ARRIVAL_MIN_DETECTIONS = 3
+
+
+class PortraitSpecies(BaseModel):
+    # The label the history stores, which opens the species; the display name is for reading.
+    species: str
+    display_name: str
+    scientific_name: str | None = None
+    taxa_id: int | None = None
+    first_seen: str
+
+
+class PortraitDay(BaseModel):
+    # The viewer's calendar day, YYYY-MM-DD.
+    date: str
+    visits: int
+
+
+class PortraitVisit(BaseModel):
+    frigate_event: str
+    display_name: str
+    scientific_name: str | None = None
+    taxa_id: int | None = None
+    detection_time: str
+    image_url: str
+    # A few silent seconds of the visit, once made; the photograph stands in until then.
+    film_url: str | None = None
+
+
+class FeederPortraitResponse(BaseModel):
+    # "all" is the whole history; "shared" is the window a guest is shown, `shared_days` long.
+    scope: Literal["all", "shared"]
+    shared_days: int | None = None
+    started_at: str | None = None
+    visits: int
+    detections: int
+    species: int
+    busiest_day: PortraitDay | None = None
+    newest_arrival: PortraitSpecies | None = None
+    latest_visit: PortraitVisit | None = None
 
 
 class CommunityStatsResponse(BaseModel):
@@ -189,6 +235,124 @@ async def get_about_showcase(
     return ShowcaseResponse(items=items)
 
 
+async def _localized_name(taxa_id: int | None, lang: str, db) -> str | None:
+    if not taxa_id:
+        return None
+    if lang != "en":
+        return await taxonomy_service.get_localized_common_name(taxa_id, lang, db=db)
+    return await taxonomy_service.get_canonical_english_name(taxa_id, db=db)
+
+
+def newest_arrival(species: list[dict], unknown_labels: list[str]) -> dict | None:
+    """The species first seen most recently, among those seen often enough, or confirmed, to trust."""
+    unknown = {label.strip().casefold() for label in unknown_labels}
+    trusted = [
+        row
+        for row in species
+        if (row["species"] or "").strip().casefold() not in unknown
+        and not should_hide_species_label(row["species"])
+        and (row["confirmed"] or row["detections"] >= NEWEST_ARRIVAL_MIN_DETECTIONS)
+    ]
+    return max(trusted, key=lambda row: row["first_seen"], default=None)
+
+
+def busiest_day(daily_visits: dict[str, int]) -> tuple[str, int] | None:
+    """The day with the most visits; of equal days, the most recent."""
+    if not daily_visits:
+        return None
+    return max(daily_visits.items(), key=lambda item: (item[1], item[0]))
+
+
+@router.get("/about/portrait", response_model=FeederPortraitResponse)
+@guest_rate_limit()
+async def get_feeder_portrait(
+    request: Request,
+    utc_offset_minutes: int = Query(0, ge=-840, le=840, description="The viewer's offset from UTC, for calendar days"),
+    auth: AuthContext = Depends(get_auth_context_with_legacy),
+) -> FeederPortraitResponse:
+    """This feeder in a few facts: since when, how many visits and species, its busiest day,
+    its newest arrival, and its latest visit. Guests see the shared window, and are told so."""
+    from app.services.visit_film_service import visit_film_service
+
+    lang = get_user_language(request)
+    is_guest = not auth.is_owner and settings.public_access.enabled
+    start: datetime | None = None
+    end: datetime | None = None
+    if is_guest:
+        window_start, window_end = public_events_window()
+        start = window_start.replace(tzinfo=None)
+        end = window_end.replace(tzinfo=None) if window_end is not None else None
+
+    unknown_labels = settings.classification.unknown_bird_labels
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        species = await repo.get_feeder_species_history(start_date=start, end_date=end)
+        daily = await repo.get_daily_visit_counts(utc_offset_minutes=utc_offset_minutes, start_date=start, end_date=end)
+        arrival = newest_arrival(species, unknown_labels)
+        arrival_name = await _localized_name(arrival["taxa_id"], lang, db) if arrival else None
+
+    latest: PortraitVisit | None = None
+    media_allowed = settings.media_cache.enabled and settings.media_cache.cache_snapshots
+    if media_allowed and (not is_guest or settings.public_access.show_snapshots):
+        media_start: datetime | None = None
+        media_end: datetime | None = None
+        if is_guest:
+            # A guest's latest visit is one they may open: inside the shared history and the shared photographs.
+            window_start, window_end = public_media_window()
+            media_start = max(window_start.replace(tzinfo=None), start) if start else window_start.replace(tzinfo=None)
+            ends = [moment for moment in (window_end.replace(tzinfo=None) if window_end else None, end) if moment]
+            # The repository's date-range API has an inclusive upper bound.
+            media_end = min(ends) - timedelta(microseconds=1) if ends else None
+        async with get_db() as db:
+            recent = await DetectionRepository(db).get_all(
+                limit=40, start_date=media_start, end_date=media_end, sort="newest"
+            )
+            picks = await stored_crops(recent, limit=1, max_reads=20)
+            visit = picks[0] if picks else None
+            visit_name = await _localized_name(visit.taxa_id, lang, db) if visit else None
+        if visit is not None:
+            film_url = None
+            if not is_guest or settings.public_access.show_clips:
+                if visit_film_service.request(visit.frigate_event) == "ready":
+                    film_url = f"/api/about/showcase/{quote(visit.frigate_event, safe='')}.webm"
+            latest = PortraitVisit(
+                frigate_event=visit.frigate_event,
+                display_name=visit_name or visit.common_name or visit.display_name,
+                scientific_name=visit.scientific_name,
+                taxa_id=visit.taxa_id,
+                detection_time=serialize_api_datetime(visit.detection_time) or "",
+                image_url=f"/api/about/showcase/{quote(visit.frigate_event, safe='')}.jpg",
+                film_url=film_url,
+            )
+
+    unknown = {label.strip().casefold() for label in unknown_labels}
+    named = [
+        row
+        for row in species
+        if (row["species"] or "").strip().casefold() not in unknown and not should_hide_species_label(row["species"])
+    ]
+    busiest = busiest_day(daily)
+    return FeederPortraitResponse(
+        scope="shared" if is_guest else "all",
+        shared_days=effective_public_events_days() if is_guest else None,
+        started_at=serialize_api_datetime(min(row["first_seen"] for row in species)) if species else None,
+        visits=sum(daily.values()),
+        detections=sum(row["detections"] for row in species),
+        species=len(named),
+        busiest_day=PortraitDay(date=busiest[0], visits=busiest[1]) if busiest else None,
+        newest_arrival=PortraitSpecies(
+            species=arrival["species"],
+            display_name=arrival_name or arrival["common_name"] or arrival["species"],
+            scientific_name=arrival["scientific_name"],
+            taxa_id=arrival["taxa_id"],
+            first_seen=serialize_api_datetime(arrival["first_seen"]) or "",
+        )
+        if arrival
+        else None,
+        latest_visit=latest,
+    )
+
+
 def resize_for_reel(image_bytes: bytes) -> bytes:
     """A card-sized JPEG of the stored photograph; the crop is kept, only the size changes."""
     with Image.open(BytesIO(image_bytes)) as opened:
@@ -244,6 +408,37 @@ async def get_about_reel_image(
     # The photograph can change (a candidate applied, the HQ pipeline settling), and a guest's
     # browser must not keep a copy once snapshots are turned off: same rule as the snapshot route.
     return Response(content=content, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
+
+
+@router.get(
+    "/about/showcase/{event_id}.webm",
+    response_class=Response,
+    responses={200: {"content": {"video/webm": {}}}, 404: {"description": "No film, or not made yet"}},
+)
+@guest_rate_limit()
+async def get_visit_film(
+    request: Request,
+    event_id: str = Path(..., min_length=1, max_length=64),
+    auth: AuthContext = Depends(get_auth_context_with_legacy),
+) -> Response:
+    """A few silent seconds of the visit, framed on the bird, under the same rules as its clip.
+
+    A film not made yet is asked for and answered 404 with `X-Film-Status: pending`; the card
+    keeps its photograph until a later load finds the film.
+    """
+    from app.services.visit_film_service import visit_film_service
+
+    lang = get_user_language(request)
+    if not validate_event_id(event_id):
+        raise HTTPException(status_code=400, detail="Invalid event ID format")
+    await require_event_access(event_id, auth, lang, media="clip")
+    path = visit_film_service.ready_path(event_id)
+    if path is None:
+        status = visit_film_service.request(event_id)
+        raise HTTPException(status_code=404, detail="Film not available", headers={"X-Film-Status": status})
+    # A file response answers byte ranges, which Safari needs before it plays a video. Like the
+    # photograph, a guest's browser must not keep a copy once clips are turned off.
+    return FileResponse(path, media_type="video/webm", headers=SNAPSHOT_NO_STORE_HEADERS)
 
 
 @router.get("/about/community", response_model=CommunityStatsResponse)

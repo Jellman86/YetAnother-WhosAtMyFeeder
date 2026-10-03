@@ -3578,6 +3578,81 @@ class DetectionRepository:
                 return (None, None)
             return (_parse_datetime(row[0]) if row[0] else None, _parse_datetime(row[1]) if row[1] else None)
 
+    async def get_feeder_species_history(
+        self, *, start_date: datetime | None = None, end_date: datetime | None = None
+    ) -> list[dict]:
+        """Every species the feeder has seen: when first and last, how often, and whether a person confirmed it."""
+        canonical_key = self._canonical_key_sql(taxonomy_alias=None)
+        bounds_sql, bounds_params = _history_bounds_sql(start_date, end_date, "d.detection_time")
+        query = f"""
+            WITH keyed AS (
+                SELECT d.id, d.detection_time, d.display_name, d.common_name, d.scientific_name, d.taxa_id,
+                       d.manual_tagged, {canonical_key} AS species_key
+                FROM detections d
+                WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL) AND d.display_name IS NOT NULL{bounds_sql}
+            ),
+            latest AS (
+                SELECT species_key, display_name, common_name, scientific_name, taxa_id,
+                       ROW_NUMBER() OVER (PARTITION BY species_key ORDER BY detection_time DESC, id DESC) AS row_num
+                FROM keyed
+            )
+            SELECT keyed.species_key, MIN(keyed.detection_time), MAX(keyed.detection_time), COUNT(*),
+                   MAX(CASE WHEN keyed.manual_tagged = 1 THEN 1 ELSE 0 END),
+                   latest.display_name, latest.common_name, latest.scientific_name, latest.taxa_id
+            FROM keyed
+            JOIN latest ON latest.species_key = keyed.species_key AND latest.row_num = 1
+            GROUP BY keyed.species_key
+        """
+        async with self.db.execute(query, bounds_params) as cursor:
+            rows = await cursor.fetchall()
+        return [
+            {
+                "species": row[5],
+                "common_name": row[6],
+                "scientific_name": row[7],
+                "taxa_id": row[8],
+                "first_seen": _parse_datetime(row[1]),
+                "last_seen": _parse_datetime(row[2]),
+                "detections": int(row[3]),
+                "confirmed": bool(row[4]),
+            }
+            for row in rows
+            if row[1] and row[2]
+        ]
+
+    async def get_daily_visit_counts(
+        self,
+        *,
+        utc_offset_minutes: int = 0,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+    ) -> dict[str, int]:
+        """Visits per local calendar day, by the leaderboard's visit rule.
+
+        The offset is the viewer's, so a day is the viewer's day; it is a fixed shift, so a
+        daylight-saving change moves the boundary by an hour on the days either side of it.
+        """
+        canonical_key = self._canonical_key_sql(taxonomy_alias=None)
+        bounds_sql, bounds_params = _history_bounds_sql(start_date, end_date, "d.detection_time")
+        offset = f"{int(utc_offset_minutes):+d} minutes"
+        query = f"""
+            SELECT date(detection_time, ?) AS day, COUNT(*)
+            FROM (
+                SELECT d.detection_time,
+                       LAG(d.detection_time) OVER (
+                           PARTITION BY {canonical_key}, d.camera_name ORDER BY d.detection_time, d.id
+                       ) AS previous_at
+                FROM detections d
+                WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL){bounds_sql}
+            )
+            WHERE previous_at IS NULL
+               OR (julianday(detection_time) - julianday(previous_at)) * 1440.0 > {VISIT_GAP_MINUTES}
+            GROUP BY day
+        """
+        async with self.db.execute(query, [offset, *bounds_params]) as cursor:
+            rows = await cursor.fetchall()
+        return {str(row[0]): int(row[1]) for row in rows if row[0]}
+
     async def get_timebucket_counts_hourly(self, start: datetime, end: datetime) -> dict[str, int]:
         """Counts grouped by UTC hour bucket within [start, end)."""
         query = """

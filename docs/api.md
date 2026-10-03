@@ -593,11 +593,24 @@ retrying; the server does not repeat a paid provider call.
 - `GET /api/cache/stats` (owner). Includes `archive_count`, `archive_size_bytes` and the favourite
   counts by archive state.
 - `GET /api/leaderboard/portraits?span=&limit=` (guest-rate-limited). This feeder's newest stored
-  crop of each leading species, for the leaderboard's spotlight; a species without one is absent.
-- `GET /api/about/showcase?limit=` (guest-rate-limited). One recent crop per species for the About
-  page's reel; guests see the public media window, and nothing when snapshots are not shared.
+  crop of each leading species, for the leaderboard's reel and spotlight; a species without one is
+  absent. `film_url` is set once a film of that visit is made; for the six leading species a film
+  not made yet is asked for in the background. Guests get films only when clips are shared.
+- `GET /api/about/showcase?limit=` (guest-rate-limited). One recent crop per species, newest first;
+  guests see the public media window, and nothing when snapshots are not shared.
 - `GET /api/about/showcase/{event_id}.jpg` (guest-rate-limited). The stored photograph at card
   size, under the same access rules as `snapshot.jpg`.
+- `GET /api/about/showcase/{event_id}.webm` (guest-rate-limited). A visit film: four silent seconds
+  of 640x360 VP8 WebM cut from Frigate's recording around the visit's best snapshot and framed on
+  the bird, under the same access rules as the clip. Answers byte ranges and is never cached. A film
+  not made yet is asked for and answered 404 with `X-Film-Status: pending`; `unavailable` means it
+  will not be made (no media cache, no recording kept, or not a Frigate visit). The newest 40 films
+  are kept, under the media cache directory in `films/`.
+- `GET /api/about/portrait?utc_offset_minutes=` (guest-rate-limited). This feeder in a few facts:
+  `started_at`, `visits` (the leaderboard's ten-minute rule), `detections`, `species`,
+  `busiest_day` (the viewer's calendar day, from the offset), `newest_arrival` (seen at least three
+  times or confirmed) and `latest_visit` (with `film_url` once made). `scope` is `shared` for a
+  guest, whose facts cover only the shared window of `shared_days`.
 - `GET /api/about/community` (guest-rate-limited). The telemetry service's active install count,
   cached for an hour; `enabled` is false when update checks are off.
 - `POST /api/cache/cleanup` (owner) — applies age retention, removes orphaned media and enforces

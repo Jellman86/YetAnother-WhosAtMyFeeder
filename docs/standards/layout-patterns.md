@@ -167,7 +167,8 @@ own Close, because there is no hover to lose.
 
 ```
 span bar: day, week, month, total · seen, heard, both
-spotlight: a share bar of the window, one species shown large beside the ranked list, flagged species apart
+reel: this feeder's own photograph of each leading species, the leaders playing a few seconds of their visit
+share bar: who made up the window, each species in its chart colour, flagged species apart
 standing band: species, detections, busiest hour, heard or confirmed, rising, most recent
 rankings (with evidence), then analytics
 ```
@@ -181,33 +182,37 @@ start. Rankings count visits (`window_visit_count`, the same ten-minute rule as
 The timeline and the composition chart share one colour per species
 (`leaderboard/species-palette.ts`, validated for colour-blind separation on both surfaces).
 
-The spotlight (`SpeciesSpotlight`) is the leaderboard's centrepiece. A bar across the top shows
-who made up the window, each species in its chart colour, so a species that dominates reads as a
-proportion rather than as one more large photograph. Beside the ranked list, one species at a time
-is shown large: this feeder's own newest crop (`/api/leaderboard/portraits`), never enlarged past
-1.5 times its stored size because feeder crops are small and go soft when stretched, over a
-blurred copy of itself. Where there is no crop the species' reference image stands in, labelled as
-a reference photo and never passed off as the feeder's. A strip beneath marks which days (or hours)
-of the window the species was on camera, from the timeline's per-species series; it draws presence
-only, never those series' frame counts, and a species the timeline did not chart has no strip
-rather than an empty one.
+The reel (`CaptureReel`) opens the page: one card per ranked species that has a stored crop of its
+own, in rank order, each opening the species. It drifts in two rows that run opposite ways, pauses
+under the pointer or focus, and stands still as a scrollable strip under reduced motion. Its loop is
+a second copy of each row, hidden from readers and out of the Tab order. Only stored crops are
+shown: a whole scene at card size is a picture of a feeder, so the backend leaves it out. A species
+flagged as a probable misidentification is never put on show, and with fewer than four photographs
+there is no reel: a strip that short reads as a gap, not a reel.
+
+The leaders' cards play a film once one is made (`VisitFilm`): four silent seconds of the visit, cut
+from Frigate's recording around the moment of the visit's best snapshot and framed on the bird, so
+the card is sharp where a stored crop is a few hundred pixels across. The photograph is always
+underneath, so a missing film is a photograph and the layout never moves. A film is fetched only
+when its card nears the viewport, plays only while visible, is downloaded once however many copies
+of the card show it (`utils/visit-films.ts`), and is never fetched under reduced motion or a
+data-saver connection. Frigate keeps recordings for days, so older visits keep their photographs.
+
+The share bar (`SpeciesShareBar`) sits under the reel and shows who made up the window, each
+species in its chart colour, so a species that dominates reads as a proportion rather than as one
+more photograph. It replaced a spotlight that showed one species large beside a second ranked list:
+the reel carries the photographs and the rankings table carries the list.
 
 Each segment of the bar opens a pop-out on hover and keyboard focus, under the hover contract (§4):
 the species' common and scientific names over its stock photograph, labelled with its source, and
-its count and share; the grouped segments list their species. On touch a tap chooses the species
-instead, and the spotlight names it.
-
-The spotlight tours the list slowly. Choosing a species, from the list or the bar, ends the tour;
-a pointer or keyboard focus on the spotlight rests it; a Pause control stops it; under reduced
-motion it never starts and nothing grows into place. It is not announced while it tours, and is
-announced politely once someone chooses. Species that are probably misidentifications never take
-a place in the tour or the list: they are counted in the bar and named beneath it under "Needs a
-check", each opening its record. Ranks are the table's own, so the list can skip a number.
+its count and share; the grouped segments list their species. On touch a tap opens the species.
+Species that are probably misidentifications never take a named segment: they are counted in the
+bar and named beneath it under "Needs a check", each opening its record.
 
 ### Reference (About)
 
 ```
-reel: this install's own photographs, one crop per species, each opening its record
+portrait: since when, visits and species, the busiest day and the newest arrival, beside the latest visit
 colophon: what this is, in plain sentences
 live diagram: the standard flow, annotated with this instance's state
 build detail: what to quote in an issue report
@@ -217,12 +222,14 @@ credits
 Sections are ordered by reader: visitor, then anyone, then owner. Do not add a feature grid; the
 readme and `docs/` hold the feature list.
 
-The reel (`CaptureReel`) drifts in two rows that run opposite ways, pauses under the pointer or
-focus, and stands still as a scrollable strip under reduced motion. Its loop is a second copy of
-each row, hidden from readers and out of the Tab order. Only stored crops are shown: a whole
-scene at card size is a picture of a feeder, so the backend leaves it out
-(`/api/about/showcase`). The install count beside the stats is a cached read of the telemetry
-worker's public summary, off with update checks, and absent rather than zero when unknown.
+The portrait (`FeederPortrait`, `/api/about/portrait`) is one calm block of facts the feeder has
+measured: when it started, its visits (the leaderboard's ten-minute rule) and species to date, its
+busiest day in the viewer's own calendar days, and its newest arrival, which must have been seen at
+least three times or confirmed so a single misidentification is never announced. Beside them is
+the latest visit with a stored crop, which plays its film once one is made and opens its record. A
+guest sees the shared window only, and the heading says so, so a short window never reads as a
+young feeder. The install count beneath is a cached read of the telemetry worker's public summary,
+off with update checks, and absent rather than zero when unknown.
 
 ---
 

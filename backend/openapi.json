@@ -6167,6 +6167,90 @@
         "title": "FavoriteResponse",
         "type": "object"
       },
+      "FeederPortraitResponse": {
+        "properties": {
+          "busiest_day": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PortraitDay"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "detections": {
+            "title": "Detections",
+            "type": "integer"
+          },
+          "latest_visit": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PortraitVisit"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "newest_arrival": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PortraitSpecies"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "scope": {
+            "enum": [
+              "all",
+              "shared"
+            ],
+            "title": "Scope",
+            "type": "string"
+          },
+          "shared_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shared Days"
+          },
+          "species": {
+            "title": "Species",
+            "type": "integer"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "visits": {
+            "title": "Visits",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "scope",
+          "visits",
+          "detections",
+          "species"
+        ],
+        "title": "FeederPortraitResponse",
+        "type": "object"
+      },
       "FocusedDiagnosticsResponse": {
         "properties": {
           "backfill": {
@@ -7216,6 +7300,17 @@
       },
       "LeaderboardPortraitResponse": {
         "properties": {
+          "film_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Film Url"
+          },
           "frigate_event": {
             "title": "Frigate Event",
             "type": "string"
@@ -9186,6 +9281,130 @@
           "authorization_url"
         ],
         "title": "OAuthAuthorizeResponse",
+        "type": "object"
+      },
+      "PortraitDay": {
+        "properties": {
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "visits": {
+            "title": "Visits",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "visits"
+        ],
+        "title": "PortraitDay",
+        "type": "object"
+      },
+      "PortraitSpecies": {
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "first_seen": {
+            "title": "First Seen",
+            "type": "string"
+          },
+          "scientific_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scientific Name"
+          },
+          "species": {
+            "title": "Species",
+            "type": "string"
+          },
+          "taxa_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taxa Id"
+          }
+        },
+        "required": [
+          "species",
+          "display_name",
+          "first_seen"
+        ],
+        "title": "PortraitSpecies",
+        "type": "object"
+      },
+      "PortraitVisit": {
+        "properties": {
+          "detection_time": {
+            "title": "Detection Time",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "film_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Film Url"
+          },
+          "frigate_event": {
+            "title": "Frigate Event",
+            "type": "string"
+          },
+          "image_url": {
+            "title": "Image Url",
+            "type": "string"
+          },
+          "scientific_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scientific Name"
+          },
+          "taxa_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taxa Id"
+          }
+        },
+        "required": [
+          "frigate_event",
+          "display_name",
+          "detection_time",
+          "image_url"
+        ],
+        "title": "PortraitVisit",
         "type": "object"
       },
       "ProviderValidationStatus": {
@@ -16844,6 +17063,65 @@
         ]
       }
     },
+    "/api/about/portrait": {
+      "get": {
+        "description": "This feeder in a few facts: since when, how many visits and species, its busiest day,\nits newest arrival, and its latest visit. Guests see the shared window, and are told so.",
+        "operationId": "get_feeder_portrait_api_about_portrait_get",
+        "parameters": [
+          {
+            "description": "The viewer's offset from UTC, for calendar days",
+            "in": "query",
+            "name": "utc_offset_minutes",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "The viewer's offset from UTC, for calendar days",
+              "maximum": 840,
+              "minimum": -840,
+              "title": "Utc Offset Minutes",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeederPortraitResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Feeder Portrait",
+        "tags": [
+          "about"
+        ]
+      }
+    },
     "/api/about/showcase": {
       "get": {
         "description": "One recent crop per species, newest first. Guests see the same window as the Explorer.",
@@ -16947,6 +17225,61 @@
           }
         ],
         "summary": "Get About Reel Image",
+        "tags": [
+          "about"
+        ]
+      }
+    },
+    "/api/about/showcase/{event_id}.webm": {
+      "get": {
+        "description": "A few silent seconds of the visit, framed on the bird, under the same rules as its clip.\n\nA film not made yet is asked for and answered 404 with `X-Film-Status: pending`; the card\nkeeps its photograph until a later load finds the film.",
+        "operationId": "get_visit_film_api_about_showcase__event_id__webm_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "event_id",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Event Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "video/webm": {}
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "No film, or not made yet"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Visit Film",
         "tags": [
           "about"
         ]

@@ -2313,6 +2313,28 @@ class LeaderboardPortraitResponse(BaseModel):
     taxa_id: int | None = None
     frigate_event: str
     image_url: str
+    # A few silent seconds of the same visit, framed on the bird, once one has been made.
+    film_url: str | None = None
+
+
+# The reel asks for films for its first few species; the rest keep their photographs.
+PORTRAIT_FILMS = 6
+
+
+def _portrait_responses(portraits: list[dict], *, films_allowed: bool) -> list[LeaderboardPortraitResponse]:
+    from app.services.visit_film_service import visit_film_service
+
+    responses = []
+    for index, portrait in enumerate(portraits):
+        film_url = None
+        if films_allowed:
+            event_id = portrait["frigate_event"]
+            if visit_film_service.ready_path(event_id) is not None:
+                film_url = f"/api/about/showcase/{quote(event_id, safe='')}.webm"
+            elif index < PORTRAIT_FILMS:
+                visit_film_service.request(event_id)
+        responses.append(LeaderboardPortraitResponse(**portrait, film_url=film_url))
+    return responses
 
 
 class LeaderboardPortraitsResponse(BaseModel):
@@ -2357,7 +2379,7 @@ async def get_leaderboard_portraits(
     cache_key = (span, limit, is_guest)
     cached = _portraits_cache.get(cache_key)
     if not is_guest and cached and (asyncio.get_running_loop().time() - cached[0]) < PORTRAITS_CACHE_SECONDS:
-        return LeaderboardPortraitsResponse(span=span, portraits=[LeaderboardPortraitResponse(**p) for p in cached[1]])
+        return LeaderboardPortraitsResponse(span=span, portraits=_portrait_responses(cached[1], films_allowed=True))
 
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     window_start, window_end = _portraits_window(span, now)
@@ -2421,7 +2443,10 @@ async def get_leaderboard_portraits(
 
     if not is_guest:
         _portraits_cache[cache_key] = (asyncio.get_running_loop().time(), portraits)
-    return LeaderboardPortraitsResponse(span=span, portraits=[LeaderboardPortraitResponse(**p) for p in portraits])
+    films_allowed = not is_guest or settings.public_access.show_clips
+    return LeaderboardPortraitsResponse(
+        span=span, portraits=_portrait_responses(portraits, films_allowed=films_allowed)
+    )
 
 
 def clear_portraits_cache() -> None:

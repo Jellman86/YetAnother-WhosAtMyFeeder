@@ -1,6 +1,7 @@
 <script lang="ts">
-    import SpeciesSpotlight from '../components/SpeciesSpotlight.svelte';
-    import { buildShowcaseRows, presenceFor, SPOTLIGHT_PORTRAITS } from '../leaderboard/showcase';
+    import CaptureReel from '../components/CaptureReel.svelte';
+    import SpeciesShareBar from '../components/SpeciesShareBar.svelte';
+    import { buildShowcaseRows, reelCards, SPOTLIGHT_PORTRAITS } from '../leaderboard/showcase';
     import { onDestroy, tick, untrack } from 'svelte';
     import {
         analyzeLeaderboardGraph,
@@ -250,7 +251,6 @@
     });
     let showcaseRows = $derived(
         buildShowcaseRows(leaderboardRows, {
-            trendAvailable,
             sourceMode,
             portraits,
             isFlagged: (row) => isUnlikelyHere(evidenceFor(row, { audioKnown }), row.reported_nearby),
@@ -260,27 +260,38 @@
             })
         })
     );
+    function showcaseCountLabel(count: number): string {
+        if (sourceMode === 'both') {
+            return countsAreVisits
+                ? $_('leaderboard.showcase_visits_and_calls', { values: { count }, default: 'visits and calls' })
+                : $_('leaderboard.showcase_detections_and_calls', { values: { count }, default: 'detections and calls' });
+        }
+        if (countsAreVisits) {
+            return count === 1
+                ? $_('leaderboard.showcase_visit', { default: 'visit' })
+                : $_('leaderboard.showcase_visits', { values: { count }, default: 'visits' });
+        }
+        return count === 1
+            ? $_('leaderboard.showcase_detection', { default: 'detection' })
+            : $_('leaderboard.showcase_detections', { values: { count }, default: 'detections' });
+    }
+    // The opener: this feeder's own photograph of each leading species, the leaders' cards
+    // playing a few seconds of the visit once a film is made. Each opens the species.
+    let leaderboardReel = $derived(
+        reelCards(showcaseRows, {
+            detail: (row) => `${row.count.toLocaleString()} ${showcaseCountLabel(row.count)}`,
+            badge: (row) => `#${row.rank}`,
+            label: (row) =>
+                $_('leaderboard.reel_open', {
+                    values: { name: row.displayName, rank: row.rank, count: row.count.toLocaleString(), unit: showcaseCountLabel(row.count) },
+                    default: 'Open {name}: rank {rank}, {count} {unit}'
+                })
+        })
+    );
     $effect(() => {
         // The reference image is what stands in for a species with no crop of its own.
         for (const row of showcaseRows) void loadSpeciesInfo(row.key);
     });
-    let showcaseEyebrow = $derived(
-        sourceMode === 'both'
-            ? $_('leaderboard.most_active', { default: 'Most active' })
-            : span === 'all' || !countsAreVisits
-              ? span === 'day'
-                ? $_('leaderboard.most_detected_day', { default: 'Most detected today' })
-                : span === 'week'
-                  ? $_('leaderboard.most_detected_week', { default: 'Most detected this week' })
-                  : span === 'all'
-                    ? $_('leaderboard.most_detected_all', { default: 'Most detected ever' })
-                    : $_('leaderboard.most_detected_month', { default: 'Most detected this month' })
-              : span === 'day'
-                ? $_('leaderboard.most_visits_day', { default: 'Most visits today' })
-                : span === 'week'
-                  ? $_('leaderboard.most_visits_week', { default: 'Most visits this week' })
-                  : $_('leaderboard.most_visits_month', { default: 'Most visits this month' })
-    );
     function scrollToRankings(): void {
         document.querySelector('[data-leaderboard-rankings]')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
@@ -311,13 +322,6 @@
     // confirmation counts, so there the band says so instead of counting.
     let evidenceKnown = $derived(rowEvidence.size > 0 && [...rowEvidence.values()].every((evidence) => evidence !== 'unknown'));
     let corroboratedCount = $derived([...rowEvidence.values()].filter(isCorroborated).length);
-    // The spotlight names its species' evidence, and says nothing where the evidence is unknown.
-    function spotlightEvidence(key: string): string | null {
-        const row = leaderboardRows.find((candidate) => candidate.species === key);
-        if (!row) return null;
-        const evidence = evidenceOf(row);
-        return evidence === 'unknown' ? null : evidenceLabel(evidence);
-    }
     function evidenceLabel(evidence: SpeciesEvidence): string {
         if (evidence === 'confirmed') return $_('leaderboard.evidence_confirmed', { default: 'Confirmed by you' });
         if (evidence === 'seen_and_heard') return $_('leaderboard.evidence_seen_and_heard', { default: 'Also heard' });
@@ -1701,32 +1705,23 @@
             </p>
         </div>
     {:else}
+        {#if sourceMode !== 'heard' && leaderboardReel.length > 0}
+            <div class="-mx-1 sm:-mx-2" data-leaderboard-reel>
+                <CaptureReel
+                    cards={leaderboardReel}
+                    label={$_('leaderboard.reel_label', { default: 'Photographs of the leading species from this feeder' })}
+                    onopen={(card) => (selectedSpecies = card.key)}
+                />
+            </div>
+        {/if}
+
         {#if sourceMode !== 'heard' && sourceLeader && sourceLeader.count > 0}
-            <SpeciesSpotlight
+            <SpeciesShareBar
                 rows={showcaseRows}
-                eyebrow={showcaseEyebrow}
-                rankEyebrow={(rank) => span === 'day'
-                    ? $_('leaderboard.showcase_rank_day', { values: { rank }, default: 'Rank {rank} today' })
-                    : span === 'week'
-                      ? $_('leaderboard.showcase_rank_week', { values: { rank }, default: 'Rank {rank} this week' })
-                      : span === 'all'
-                        ? $_('leaderboard.showcase_rank_all', { values: { rank }, default: 'Rank {rank} of all time' })
-                        : $_('leaderboard.showcase_rank_month', { values: { rank }, default: 'Rank {rank} this month' })}
-                countLabel={(count) => sourceMode === 'both'
-                    ? countsAreVisits
-                        ? $_('leaderboard.showcase_visits_and_calls', { values: { count }, default: 'visits and calls' })
-                        : $_('leaderboard.showcase_detections_and_calls', { values: { count }, default: 'detections and calls' })
-                    : countsAreVisits
-                      ? count === 1
-                          ? $_('leaderboard.showcase_visit', { default: 'visit' })
-                          : $_('leaderboard.showcase_visits', { values: { count }, default: 'visits' })
-                      : count === 1
-                          ? $_('leaderboard.showcase_detection', { default: 'detection' })
-                          : $_('leaderboard.showcase_detections', { values: { count }, default: 'detections' })}
+                label={$_('leaderboard.spotlight_share_heading', { default: 'Share by species' })}
+                countLabel={showcaseCountLabel}
                 colourFor={(key) => speciesSeriesColor(speciesSlot().get(key) ?? SPECIES_SERIES_SLOTS, isDark())}
                 otherColour={otherSeriesColor(isDark())}
-                presenceFor={(row) => presenceFor(row.names, timeline)}
-                evidenceFor={spotlightEvidence}
                 nearbyRadiusKm={nearbyCheck?.radiusKm ?? null}
                 onopen={(key) => (selectedSpecies = key)}
                 onmore={scrollToRankings}
