@@ -17,6 +17,31 @@ function candidateResponse(eventId: string, stale: boolean) {
 
 interface CandidateFixture { held: Route | null; heldRefresh: Route | null; holdRefresh: boolean; requestsA: number; errors: string[]; }
 
+test('regenerate snapshots announces recounting and refreshes the counted frame', async ({ page }) => {
+    const fixture = await open(page);
+    await release(fixture, false);
+    await expect(page.locator('[data-counted-birds-total]')).toHaveText('1');
+    const regeneration: { route: Route | null } = { route: null };
+    await page.route(url => url.pathname.endsWith('/snapshot/hq-bird-crop'), route => {
+        expect(route.request().method()).toBe('POST');
+        expect(new URL(route.request().url()).searchParams.get('regenerate')).toBe('true');
+        regeneration.route = route;
+    });
+    const button = page.getByRole('button', { name: 'Regenerate snapshots and recount birds', exact: true });
+    await button.click();
+    await expect(button).toBeDisabled();
+    await expect(page.locator('[data-counted-birds-state="recounting"]')).toBeVisible();
+    await expect.poll(() => regeneration.route !== null).toBe(true);
+    if (!regeneration.route) throw new Error('Regeneration request was not captured');
+    await regeneration.route.fulfill({ json: {
+        status: 'generated_hq_bird_crop', result: 'bird_crop_replaced', high_quality_bird_crop_enabled: true
+    } });
+    await expect(page.locator('[data-counted-birds-total]')).toHaveText('2');
+    await expect(page.locator('[data-counted-birds-state="recounting"]')).toHaveCount(0);
+    await expect(button).toBeEnabled();
+    expect(fixture.errors).toEqual([]);
+});
+
 test('completed reclassification refreshes an open record even when its species and bird count do not change', async ({ page }) => {
     const fixture = await open(page);
     await release(fixture, false);

@@ -556,6 +556,13 @@ class BirdCropService:
         union = first_area + second_area - intersection
         return intersection / union if union > 0.0 else 0.0
 
+    def refine_observation_box(self, image: Image.Image, box: tuple | list) -> dict[str, Any]:
+        """Check one small region at twice the detector's input scale, without fallback scans."""
+        region = self._square_search_box(box, image.size, minimum_size=2 * self.CLASSIFICATION_TILE_MODEL_INPUT_SIZE)
+        if region is None:
+            return self._empty_result("invalid_guided_search_box", detector_tier="accurate")
+        return self.generate_guided_classification_candidate_crop(image, search_box=region, allow_fallback=False)
+
     def generate_guided_classification_candidate_crop(
         self,
         image: Image.Image,

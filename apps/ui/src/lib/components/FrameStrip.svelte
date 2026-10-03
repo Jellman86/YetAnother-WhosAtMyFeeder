@@ -687,8 +687,8 @@
                 type="button"
                 class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-brand-300/35 bg-brand-500/15 text-brand-100 transition-colors hover:bg-brand-500/25 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
                 disabled={regeneratePending || busy}
-                title={$_('detection.snapshot_regenerate', { default: 'Regenerate snapshots' })}
-                aria-label={$_('detection.snapshot_regenerate', { default: 'Regenerate snapshots' })}
+                title={$_('detection.snapshot_regenerate', { default: 'Regenerate snapshots and recount birds' })}
+                aria-label={$_('detection.snapshot_regenerate', { default: 'Regenerate snapshots and recount birds' })}
                 onclick={(event) => { event.stopPropagation(); onregenerate?.(); }}
             >
                 {#if regeneratePending}

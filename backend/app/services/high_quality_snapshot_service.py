@@ -23,6 +23,8 @@ from PIL import Image
 
 from app.config import settings
 from app.services.bird_crop_service import BirdDetectionError, bird_crop_service, detector_scan_failed
+from app.services.bird_count_recheck import choose_count_rechecks, recheck_confirms_seed
+from app.services.species_reference import species_reference
 from app.services.frigate_client import frigate_client
 from app.services.hq_classification_refinement import (
     HQ_REFINEMENT_MIN_TEMPORAL_SEPARATION_SECONDS,
@@ -820,6 +822,7 @@ class HighQualitySnapshotService:
         ranked = self._rank_snapshot_candidates(scored)
         expected_labels = await self._load_expected_species_labels(event_id)
         observation_candidates = await self._detect_count_candidates(scored)
+        rechecked_observations = await self._recheck_weak_count_candidates(scored, observations=observation_candidates)
         supported = attach_photo_presence(scored, observation_candidates)
         expected_keys = {self._candidate_label_key(label) for label in expected_labels}
         supported = [
@@ -833,12 +836,13 @@ class HighQualitySnapshotService:
             expected_labels=expected_labels,
         )
         bird_selection = select_bird_observations(
-            scored + observation_candidates, selected_candidate=selected_candidate
+            scored + observation_candidates + rechecked_observations, selected_candidate=selected_candidate
         )
         persisted = self._select_persisted_candidates(
             ranked,
             selected_candidate=selected_candidate,
             count_full_frame_candidate_id=bird_selection.full_frame_candidate_id,
+            count_candidate_ids={bird.candidate_id for bird in bird_selection.birds},
         )
         selected_candidate_id = str((selected_candidate or {}).get("candidate_id") or "")
         for candidate in persisted:
@@ -851,6 +855,72 @@ class HighQualitySnapshotService:
             "bird_selection": bird_selection,
             "photo_outcome": None if selected_candidate is not None else "bird_presence_unconfirmed",
         }
+
+    async def _recheck_weak_count_candidates(
+        self, scored: list[dict[str, Any]], *, observations: list[dict[str, Any]] | None = None
+    ) -> list[dict[str, Any]]:
+        """Use neighboring crops as search hints, retaining only same-frame detector evidence."""
+
+        def choose() -> list[dict[str, Any]]:
+            labels = {item.get("classifier_label") for item in scored if item.get("source_mode") == "model_crop"}
+            known = {}
+            for label in labels:
+                reference = species_reference.lookup(label)
+                if reference:
+                    known[label] = reference["scientific_name"]
+            return choose_count_rechecks(scored, bird_species=known, observations=observations)
+
+        seeds = await asyncio.to_thread(choose)
+        frames: dict[str, Image.Image | None] = {}
+        observations = []
+        for seed in seeds:
+            full = next(
+                (
+                    item
+                    for item in scored
+                    if item.get("source_mode") == "full_frame"
+                    and item.get("input_is_cropped") is not True
+                    and all(
+                        item.get(key) == seed.get(key)
+                        for key in ("clip_variant", "frame_index", "frame_width", "frame_height")
+                    )
+                ),
+                None,
+            )
+            if full is None or not isinstance(full.get("image_bytes"), (bytes, bytearray)):
+                continue
+            frame_id = str(full.get("candidate_id") or "")
+            try:
+                if frame_id not in frames:
+                    frames[frame_id] = None
+                    image = await asyncio.to_thread(decode_image_bytes, bytes(full["image_bytes"]), convert_rgb=True)
+                    if image.size == (seed["frame_width"], seed["frame_height"]):
+                        frames[frame_id] = image
+                image = frames[frame_id]
+                if image is None:
+                    continue
+                result = await asyncio.to_thread(bird_crop_service.refine_observation_box, image, seed["detector_box"])
+                if not recheck_confirms_seed(seed, result):
+                    continue
+            except Exception as exc:
+                log.warning("Bird count regional recheck failed", candidate_id=seed.get("candidate_id"), error=str(exc))
+                continue
+            observations.append(
+                {
+                    "candidate_id": seed["candidate_id"],
+                    "source_mode": "model_observation",
+                    "clip_variant": seed["clip_variant"],
+                    "frame_index": seed["frame_index"],
+                    "crop_box": result["detector_box"],
+                    "crop_confidence": result["confidence"],
+                    "classifier_label": seed.get("classifier_label"),
+                    "classifier_score": seed.get("classifier_score"),
+                    "ranking_score": seed.get("ranking_score"),
+                }
+            )
+        if seeds:
+            log.info("Bird count regional rechecks", regions=len(seeds), confirmed=len(observations))
+        return observations
 
     async def _detect_count_candidates(self, scored: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Scan whole frames for every bird, independently of the photo-choice crop ceiling."""
@@ -914,6 +984,8 @@ class HighQualitySnapshotService:
                         "source_mode": "model_observation",
                         "clip_variant": full.get("clip_variant"),
                         "frame_index": full.get("frame_index"),
+                        "frame_width": full.get("frame_width"),
+                        "frame_height": full.get("frame_height"),
                         "crop_box": box,
                         "crop_confidence": confidence,
                         "classifier_label": matching.get("classifier_label") if matching else None,
@@ -939,12 +1011,12 @@ class HighQualitySnapshotService:
         *,
         selected_candidate: Optional[dict[str, Any]],
         count_full_frame_candidate_id: str | None = None,
+        count_candidate_ids: set[str] | None = None,
     ) -> list[dict[str, Any]]:
         """Retain leaders plus the canonical and auditable Frigate baselines."""
         if len(ranked) <= HQ_MAX_PERSISTED_CANDIDATES:
             return list(ranked)
 
-        persisted = list(ranked[:HQ_MAX_PERSISTED_CANDIDATES])
         best_full_frame = next(
             (item for item in ranked if str(item.get("source_mode") or "full_frame") == "full_frame"),
             None,
@@ -972,31 +1044,31 @@ class HighQualitySnapshotService:
         )
         required = [
             item
-            for item in (selected_candidate, selected_full_frame, count_full_frame, *final_snapshot_candidates)
+            for item in (
+                selected_candidate,
+                selected_full_frame,
+                count_full_frame,
+                *(item for item in ranked if item.get("candidate_id") in (count_candidate_ids or set())),
+                *final_snapshot_candidates,
+            )
             if item is not None
         ]
         if len({str(item.get("candidate_id") or "") for item in required}) < HQ_MAX_PERSISTED_CANDIDATES:
             if best_full_frame is not None:
                 required.append(best_full_frame)
+        # Reserve photo and count evidence before filling optional baseline
+        # choices; protecting every initial slot can otherwise evict the count frame.
+        required = list({str(item.get("candidate_id") or ""): item for item in required}.values())[
+            :HQ_MAX_PERSISTED_CANDIDATES
+        ]
         required_ids = {str(item.get("candidate_id") or "") for item in required}
+        persisted = (
+            required
+            + [item for item in ranked if str(item.get("candidate_id") or "") not in required_ids][
+                : HQ_MAX_PERSISTED_CANDIDATES - len(required)
+            ]
+        )
         persisted_ids = {str(item.get("candidate_id") or "") for item in persisted}
-        for candidate in required:
-            candidate_id = str(candidate.get("candidate_id") or "")
-            if candidate_id in persisted_ids:
-                continue
-            replacement_index = next(
-                (
-                    index
-                    for index in range(len(persisted) - 1, -1, -1)
-                    if str(persisted[index].get("candidate_id") or "") not in required_ids
-                ),
-                None,
-            )
-            if replacement_index is None:
-                break
-            persisted_ids.discard(str(persisted[replacement_index].get("candidate_id") or ""))
-            persisted[replacement_index] = candidate
-            persisted_ids.add(candidate_id)
         for candidate in ranked:
             candidate_id = str(candidate.get("candidate_id") or "")
             label = self._candidate_label_key(candidate.get("classifier_label"))

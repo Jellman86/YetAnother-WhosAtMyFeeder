@@ -348,6 +348,10 @@ per-file limits above.
     detector boxes. In Intensive scan mode, large high-resolution frames are also scanned in overlapping tiles so distant
     birds occupy more detector pixels. Frigate supplies one tracked-object hint per event; a
     hint-only count can miss other birds, and local detector results can include false positives.
+    A fresh snapshot scan can make up to four serial regional detector rechecks for weak crops
+    supported by a matching, confidently identified crop within ten seconds in the same clip.
+    Rechecks reuse existing frames and crop classifications. Only new same-frame detector evidence
+    changes the count; the original `classifier_score` and photo-presence evidence stay unchanged.
 - `PATCH /api/frigate/{event_id}/birds/{bird_id}` (owner) — correct one counted bird's `species`
   or set `is_hidden` to exclude or restore it. Send exactly one field per request. A correction
   stays attached to the matched box when HQ candidates are regenerated.
@@ -361,7 +365,7 @@ per-file limits above.
   photo as an owner selection, protected from later automatic snapshot writes.
 - `GET /api/frigate/{event_id}/snapshot/original.jpg` (owner)
 - `POST /api/frigate/{event_id}/snapshot/hq-bird-crop` (owner; legacy route name, generates the best available HQ image)
-  accepts `regenerate=true` to rebuild frame choices even when an HQ crop already exists. A
+  accepts `regenerate=true` to rebuild frame choices and recount localized birds even when an HQ crop already exists. A
   successful replacement releases the previous protected owner photo choice. A newer choice
   made while regeneration runs stays protected. Empty regeneration preserves saved candidates
   and the chosen photo; unavailable media returns an error rather than claiming success.
