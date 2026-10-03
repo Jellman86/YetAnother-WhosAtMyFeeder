@@ -6,6 +6,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Show the sidebar's system status as three icon tiles, Live, Audio and Alerts, instead of three lines of
+  text. A tile that is off has a slash through its icon as well as a muted colour, and each keeps its full
+  sentence as a tooltip and for screen readers.
+
+- Let the owner set a profile picture in Settings → Authentication; it replaces the initial in the
+  sidebar's account card. The upload is turned upright, cropped to a small square and re-encoded, so no
+  metadata from the original file (location included) is kept. New owner-only `GET`, `PUT` and
+  `DELETE /api/auth/avatar`; auth status reports `avatar_version` to the owner.
+
 - Tidy the dashboard's right column and make it count visits. The day bar said "Today" over a rolling
   24 hours and counted frames as visits; it now says Last 24 hours and counts visits, from new
   `visit_count`, `hourly_visits`, `camera_visits` and per-species `visit_count` fields on the day

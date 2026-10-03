@@ -959,7 +959,15 @@
       "trusted_proxies_add": "Vertrauenswürdigen Proxy-Host hinzufügen",
       "trusted_proxies_remove": "Vertrauenswürdigen Proxy-Host entfernen",
       "trusted_proxies_empty": "Keine vertrauenswürdigen Proxys konfiguriert (alle Proxys sind vertrauenswürdig).",
-      "advanced_title": "Sitzung & Reverse-Proxy"
+      "advanced_title": "Sitzung & Reverse-Proxy",
+      "avatar": "Profilbild",
+      "avatar_desc": "Wird neben deinem Namen in der Seitenleiste angezeigt. Es wird als kleines quadratisches Bild gespeichert; sonst bleibt nichts aus der Datei erhalten.",
+      "avatar_upload": "Bild hochladen",
+      "avatar_replace": "Bild ersetzen",
+      "avatar_remove": "Bild entfernen",
+      "avatar_saving": "Wird gespeichert…",
+      "avatar_too_large": "Die Datei ist größer als 8 MB. Wähle ein kleineres Bild.",
+      "avatar_failed": "Diese Datei lässt sich nicht als Bild verwenden. Versuche ein JPEG oder PNG."
     },
     "public_access": {
       "title": "Öffentlicher Zugriff",
@@ -1756,7 +1764,10 @@
     "notifications_enabled": "Benachrichtigungen aktiviert",
     "system_online": "System online",
     "system_offline": "System offline",
-    "open_health": "Systemzustand"
+    "open_health": "Systemzustand",
+    "tile_live": "Live-Daten",
+    "tile_audio": "Ton",
+    "tile_alerts": "Hinweise"
   },
   "notifications": {
     "reclassify_fallback": "⚠️ Video nicht verfügbar - stattdessen Schnappschuss verwendet",
