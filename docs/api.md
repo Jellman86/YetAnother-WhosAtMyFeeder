@@ -367,7 +367,9 @@ per-file limits above.
     label and noncanonical-taxon policy as `bird_summary`, including after an owner correction.
     Names include optional `common_name` and `scientific_name`. `identity_source` is `crop`,
     `visit`, or `manual`; `identity_score` describes that identification and is null for an
-    owner-named identity. `classifier_score` remains the original crop score.
+    owner-named identity. `classifier_score` describes the retained candidate crop used for that bird.
+    A successful contextual retry references its own candidate with `source_mode: model_observation`;
+    its `crop_box` describes the classified image, while the bird's box remains the localized detector box.
     An uncertain bird can use the accepted visit identification
     only when its own species guess agrees and the retained Frigate tracked box uniquely matches
     it in the same frame. Known common/scientific aliases share one effective species count;
@@ -378,8 +380,13 @@ per-file limits above.
     hint-only count can miss other birds, and local detector results can include false positives.
     A fresh snapshot scan can make up to four serial regional detector rechecks for weak crops
     supported by a matching, confidently identified crop within ten seconds in the same clip.
-    Rechecks reuse existing frames and crop classifications. Only new same-frame detector evidence
-    changes the count; the original `classifier_score` and photo-presence evidence stay unchanged.
+    Rechecks reuse existing frames. Only new same-frame detector evidence changes the count.
+    Each confirmed uncertain bird can receive one serial contextual classification attempt, with
+    an 80% margin on each side and no overlapping distinct localized bird. The result must agree
+    with the original canonical bird species and meet the 65% naming threshold. Its exact scored
+    crop is retained under a separate candidate ID. A timeout or disagreement preserves the
+    original crop identity and recovered count. These evidence candidates cannot be applied as
+    photograph choices or change the main visit identification; original photo scores stay unchanged.
 - `PATCH /api/frigate/{event_id}/birds/{bird_id}` (owner) — correct one counted bird's `species`
   or set `is_hidden` to exclude or restore it. Send exactly one field per request. A correction
   stays attached to the matched box when HQ candidates are regenerated.

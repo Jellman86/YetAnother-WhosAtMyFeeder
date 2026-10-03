@@ -6,6 +6,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Expanded visit captures refresh after a recount or owner edit, even when visit membership
+  stays the same.
+- Camera filters keep visit identities and expanded capture totals consistent when legacy
+  taxonomy records are ambiguous.
+- Recovered birds get one bounded contextual classification attempt when the original crop is
+  uncertain. Preserve the exact scored crop separately from photo choices and keep counts on
+  timeout or disagreement.
+
 - Group repeat captures into expandable visits before pagination in Explorer, Dashboard and Health.
   Retain valid event ends from live ingest and backfill, including imports arriving out of order.
   Visits use a shared canonical species and camera identity, verified event ends where available,

@@ -63,6 +63,7 @@ async def test_recheck_counts_two_real_regions_without_borrowing_neighbor_identi
     service = hq.HighQualitySnapshotService()
     rows = bundle()
     original = deepcopy(rows)
+    monkeypatch.setattr(service, "_score_snapshot_candidate", AsyncMock(return_value=None))
     detector = Mock(return_value={"detector_box": (1239, 1261, 1370, 1431), "confidence": 0.557})
     monkeypatch.setattr(hq.bird_crop_service, "refine_observation_box", detector)
     observations = await service._recheck_weak_count_candidates(rows)
@@ -175,6 +176,7 @@ async def test_rechecks_share_one_decoded_frame_and_budget_includes_failures(mon
         for index in range(8)
         for kind, template in (("weak", rows[1]), ("donor", rows[2]))
     ]
+    monkeypatch.setattr(service, "_score_snapshot_candidate", AsyncMock(return_value=None))
     decode = Mock(wraps=hq.decode_image_bytes)
     monkeypatch.setattr(hq, "decode_image_bytes", decode)
     lock = threading.Lock()
@@ -200,7 +202,7 @@ async def test_rechecks_share_one_decoded_frame_and_budget_includes_failures(mon
     assert len(observations) == 2
     assert calls == 4
     assert peak == 1
-    decode.assert_called_once()
+    assert sum(call.args[0] == rows[0]["image_bytes"] for call in decode.call_args_list) == 1
 
 
 @pytest.mark.asyncio

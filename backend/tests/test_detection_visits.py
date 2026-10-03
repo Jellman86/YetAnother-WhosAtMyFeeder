@@ -680,3 +680,21 @@ async def test_removal_rechecks_selection_at_the_write(repo, monkeypatch):
         "SELECT COUNT(*) FROM snapshot_candidate_dismissals WHERE frigate_event=?", (event,)
     ) as cursor:
         assert (await cursor.fetchone())[0] == 0
+
+
+@pytest.mark.asyncio
+async def test_camera_filter_does_not_change_identity_or_expanded_membership(repo):
+    await capture(repo, 0, 0, camera="feeder", species_id=777)
+    await capture(repo, 1, 20, camera="feeder")
+    await capture(repo, 2, 25, camera="patio", species_id=888)
+    options = {"start": START, "end": START + timedelta(minutes=1)}
+    all_visits, _ = await repo.list_visits(**options)
+    filtered, _ = await repo.list_visits(**options, camera="feeder")
+    expected = [v for v in all_visits if v["visit_id"] != "visit-test-2"]
+    assert [(v["visit_id"], v["capture_count"]) for v in filtered] == [
+        (v["visit_id"], v["capture_count"]) for v in expected
+    ]
+    for visit in filtered:
+        captures, total = await repo.visit_captures(visit["visit_id"], **options)
+        assert total == visit["capture_count"] == len(captures)
+        assert all(c.camera_name == "feeder" for c in captures)

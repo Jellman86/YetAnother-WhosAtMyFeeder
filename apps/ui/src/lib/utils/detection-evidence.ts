@@ -34,6 +34,7 @@ export function sameFrameCropCandidates(
         candidate.clip_variant === current.clip_variant &&
         candidate.frame_index === current.frame_index &&
         candidate.source_mode !== 'full_frame' &&
+        candidate.source_mode !== 'model_observation' &&
         candidate.crop_box?.length === 4
     )];
     const distinct: SnapshotCandidate[] = [];

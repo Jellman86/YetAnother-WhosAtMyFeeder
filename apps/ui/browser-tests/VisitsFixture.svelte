@@ -1,6 +1,7 @@
 <script lang="ts">
     import VisitCaptures from '../src/lib/components/VisitCaptures.svelte';
     import type { DetectionVisit, VisitOptions } from '../src/lib/api/visits';
+    import { detectionsStore } from '../src/lib/stores/detections.svelte';
     import { authStore } from '../src/lib/stores/auth.svelte';
     import type { Detection } from '../src/lib/api';
     authStore.statusLoaded = true;
@@ -23,6 +24,7 @@
     <button class="btn btn-secondary" onclick={() => { window = { startDate: '2026-10-03', endDate: '2026-10-03' }; }}>Change window</button>
     <button class="btn btn-secondary" onclick={() => { visit = { ...visit, capture_count: 22, end_time: '2026-10-02T10:45:10Z' }; }}>New capture</button>
     <button class="btn btn-secondary" onclick={() => { authStore.isAuthenticated = false; authStore.publicAccessEnabled = true; }}>Guest access</button>
+    <button class="btn btn-secondary" onclick={() => { detectionsStore.mutationVersion += 1; }}>Recount settled</button>
     <output aria-label="Selected record">{selected}</output>
     <output aria-label="Played record">{played}</output>
     <section class="card-base overflow-hidden {layout === 'inline' ? 'px-3' : ''}" data-fixture-visit>

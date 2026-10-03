@@ -42,9 +42,7 @@ class VisitRepository(DetectionRepository):
             if bound is not None:
                 conditions.append(f"d.detection_time {operator} ?")
                 params.append(bound.isoformat(sep=" "))
-        if camera:
-            conditions.append("d.camera_name = ?")
-            params.append(camera)
+        camera_condition = "WHERE s.camera_name = ?" if camera else ""
         has_bounds = await self._table_exists("detection_event_bounds")
         bounds_join = "LEFT JOIN detection_event_bounds b ON b.frigate_event = d.frigate_event" if has_bounds else ""
         finish_at = (
@@ -57,8 +55,9 @@ class VisitRepository(DetectionRepository):
             {str(label).strip().casefold() for label in hidden_species_exact_labels()} | {"unknown bird", ""}
         )
         placeholders = ",".join("?" for _ in labels)
-        # Resolve each exact identity to at most one catalogue id. Taxonomy cache joins
-        # can multiply captures, and mixing catalogue and legacy ids splits one bird.
+        # Infer identities across the visible time window before filtering cameras,
+        # so listing a camera and expanding its visits resolve legacy rows identically.
+        # Taxonomy cache joins can multiply captures; use unambiguous catalogue ids.
         sql = f"""
         visit_source AS (
             SELECT d.id, d.detection_time, d.score, d.display_name, d.category_name,
@@ -90,6 +89,7 @@ class VisitRepository(DetectionRepository):
             FROM visit_source s
             LEFT JOIN name_catalogue n ON n.name_key = s.name_key
             LEFT JOIN taxon_catalogue t ON t.taxa_id = s.taxa_id
+            {camera_condition}
         ),
         visit_previous AS (
             SELECT *, MAX(finish) OVER (
@@ -122,7 +122,7 @@ class VisitRepository(DetectionRepository):
             FROM visit_numbered
         )
         """
-        return sql, [*params, *labels]
+        return sql, [*params, *labels, *([camera] if camera else [])]
 
     async def _matching_condition(
         self,

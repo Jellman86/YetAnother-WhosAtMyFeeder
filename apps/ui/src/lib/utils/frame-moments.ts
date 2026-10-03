@@ -81,7 +81,7 @@ export function groupCandidatesIntoMoments(
     const groups = new Map<string, SnapshotCandidate[]>();
     const previousPhotos: FrameMoment[] = [];
     for (const candidate of candidates) {
-        if (candidate.photo_hidden) continue;
+        if (candidate.photo_hidden || candidate.source_mode === 'model_observation') continue;
         if (candidate.source_mode === PREVIOUS_PHOTO_MODE) {
             previousPhotos.push({
                 key: `previous:${candidate.candidate_id}`,

@@ -28,7 +28,7 @@ export class VisitCaptureList {
         return JSON.stringify([
             visit.visit_id, visit.capture_count, visit.end_time, visit.representative.display_name,
             window.startDate, window.endDate, window.startTime, window.endTime, window.onlyHidden,
-            authStore.hasOwnerAccess, detectionsStore.publicHistoryVersion
+            authStore.hasOwnerAccess, detectionsStore.publicHistoryVersion, detectionsStore.mutationVersion
         ]);
     });
     readonly captures = $derived(this.#result?.key === this.key ? this.#result.captures : []);

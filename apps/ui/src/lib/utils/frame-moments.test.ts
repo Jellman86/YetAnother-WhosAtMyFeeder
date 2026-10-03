@@ -259,3 +259,12 @@ describe('species-safe moment previews (#481)', () => {
         expect(moment.read?.label).toBe('House Finch');
     });
 });
+
+
+it('keeps counted-bird context evidence out of photograph choices', () => {
+    const context = candidate({ candidate_id: 'context', source_mode: 'model_observation', classifier_score: .99 });
+    const photo = candidate({ candidate_id: 'photo', source_mode: 'model_crop' });
+    const moments = groupCandidatesIntoMoments([context, photo]);
+    expect(moments).toHaveLength(1);
+    expect(preferredCandidate(moments[0])?.candidate_id).toBe('photo');
+});

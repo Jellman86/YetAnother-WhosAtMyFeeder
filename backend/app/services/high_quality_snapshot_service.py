@@ -23,7 +23,7 @@ from PIL import Image
 
 from app.config import settings
 from app.services.bird_crop_service import BirdDetectionError, bird_crop_service, detector_scan_failed
-from app.services.bird_count_recheck import choose_count_rechecks, recheck_confirms_seed
+from app.services.bird_count_recheck import choose_count_rechecks, recheck_confirms_seed, contextual_recheck_box
 from app.services.species_reference import species_reference
 from app.services.frigate_client import frigate_client
 from app.services.hq_classification_refinement import (
@@ -862,8 +862,9 @@ class HighQualitySnapshotService:
         bird_selection = select_bird_observations(
             scored + observation_candidates + rechecked_observations, selected_candidate=selected_candidate
         )
+        count_evidence = [item for item in rechecked_observations if item.get("image_bytes")]
         persisted = self._select_persisted_candidates(
-            ranked,
+            ranked + count_evidence,
             selected_candidate=selected_candidate,
             count_full_frame_candidate_id=bird_selection.full_frame_candidate_id,
             count_candidate_ids={bird.candidate_id for bird in bird_selection.birds},
@@ -937,6 +938,7 @@ class HighQualitySnapshotService:
             return choose_count_rechecks(scored, bird_species=known, observations=observations)
 
         seeds = await asyncio.to_thread(choose)
+        existing_observations = observations or []
         frames: dict[str, Image.Image | None] = {}
         observations = []
         for seed in seeds:
@@ -984,9 +986,72 @@ class HighQualitySnapshotService:
                     "ranking_score": seed.get("ranking_score"),
                 }
             )
+        for index, recovered in enumerate(observations):
+            seed = next(item for item in seeds if item["candidate_id"] == recovered["candidate_id"])
+            frame = (seed["clip_variant"], seed["frame_index"])
+            same_frame = [
+                item
+                for item in scored + existing_observations + observations
+                if (item.get("clip_variant"), item.get("frame_index")) == frame
+            ]
+            neighbors = select_bird_observations(same_frame, selected_candidate=None).birds
+            crop_box = contextual_recheck_box(seed, recovered["crop_box"], [bird.box for bird in neighbors])
+            full = next((item for item in same_frame if item.get("source_mode") == "full_frame"), None)
+            image = frames.get(str((full or {}).get("candidate_id") or ""))
+            if crop_box is None or image is None:
+                continue
+            try:
+                evidence = await self._score_recovered_bird_context(seed, recovered, image, crop_box)
+            except Exception as exc:
+                log.debug("Recovered bird context unavailable", candidate_id=seed["candidate_id"], error=str(exc))
+                continue
+            if evidence is not None:
+                observations[index] = evidence
         if seeds:
             log.info("Bird count regional rechecks", regions=len(seeds), confirmed=len(observations))
         return observations
+
+    async def _score_recovered_bird_context(
+        self,
+        seed: dict[str, Any],
+        recovered: dict[str, Any],
+        image: Image.Image,
+        crop_box: tuple[int, int, int, int],
+    ) -> dict[str, Any] | None:
+        if self._finite_candidate_score(seed.get("classifier_score")) >= MIN_SPECIES_CONFIDENCE:
+            return None
+        candidate_id = str(seed["candidate_id"]) + "__context"
+        crop = await asyncio.to_thread(image.crop, crop_box)
+        evidence = {
+            **seed,
+            **recovered,
+            "candidate_id": candidate_id,
+            "detector_box": recovered["crop_box"],
+            "crop_box": crop_box,
+            "crop_strategy": "count_context",
+            "input_is_cropped": True,
+            "snapshot_source": "count_context",
+            "selected": False,
+            "image_ref": candidate_id + "__image",
+            "thumbnail_ref": candidate_id + "__thumb",
+            "image_bytes": await asyncio.to_thread(self._encode_pil_to_jpeg_bytes, crop),
+            "thumbnail_bytes": await asyncio.to_thread(self._thumbnail_bytes_for_candidate, crop),
+        }
+        scored = await asyncio.wait_for(self._score_snapshot_candidate(evidence), timeout=15)
+        if scored is None:
+            return None
+        score = scored.get("classifier_score")
+        if type(score) not in {int, float} or not math.isfinite(score) or not MIN_SPECIES_CONFIDENCE <= score <= 1:
+            return None
+
+        def same_species() -> bool:
+            original = species_reference.lookup(seed.get("classifier_label"))
+            contextual = species_reference.lookup(scored.get("classifier_label"))
+            return bool(original and contextual and original["scientific_name"] == contextual["scientific_name"])
+
+        if not await asyncio.to_thread(same_species):
+            return None
+        return scored
 
     async def _detect_count_candidates(self, scored: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Scan whole frames for every bird, independently of the photo-choice crop ceiling."""
@@ -1249,7 +1314,7 @@ class HighQualitySnapshotService:
         usable_crops = [
             item
             for item in candidates
-            if str(item.get("source_mode") or "full_frame") != "full_frame"
+            if str(item.get("source_mode") or "full_frame") not in {"full_frame", "model_observation"}
             and self._crop_has_usable_detail(item)
             and (
                 item.get("source_mode") != "model_crop"

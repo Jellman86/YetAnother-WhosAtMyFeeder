@@ -213,8 +213,12 @@ frame keeps the bird list without misleading outlines.
 A confidently identified bird in a nearby sampled frame can guide a small recheck of a weak
 region. The scan makes at most four such checks, one at a time, reusing its existing full frames
 and species scores. A recheck must find the bird in the frame being counted; it cannot copy a
-neighboring frame's species confidence. A recovered bird can therefore be counted while its
-species remains **Unknown bird**. This does not trigger another full video analysis.
+neighboring frame's species confidence. If the recovered bird's crop is uncertain, the scan can
+classify one wider crop from that same frame, provided it includes no other localized bird.
+The result must agree with the original species guess and meet the 65% naming threshold.
+The exact wider crop is saved as counting evidence, separate from photograph choices and the
+visit's main identification. Failed, conflicting or uncertain results keep the recovered count
+and leave its species **Unknown bird**. This does not trigger another full video analysis.
 
 In **Needs your call**, choose a species or **Skip for now** before the supporting counted-bird
 details. The `s` shortcut skips from dialog or button focus; typing in the species search and
