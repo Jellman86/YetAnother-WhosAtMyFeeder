@@ -102,3 +102,49 @@ def test_failed_whole_frame_scan_on_one_frame_keeps_its_scored_crop_evidence():
 
     assert selection.frame_index == 1
     assert len(selection.birds) == 2
+
+
+def test_whole_frame_count_keeps_a_different_bird_localized_by_guided_detection():
+    guided = crop("guided-titmouse", (10, 10, 60, 60), confidence=0.14)
+    observed = crop("observed-cardinal", (90, 10, 140, 60), source_mode="model_observation")
+
+    selection = select_bird_observations([guided, observed], selected_candidate=guided)
+
+    assert [bird.candidate_id for bird in selection.birds] == ["guided-titmouse", "observed-cardinal"]
+
+
+def test_combining_guided_and_whole_frame_detections_does_not_count_a_bird_twice():
+    guided = crop("guided", (10, 10, 60, 60), confidence=0.14)
+    observed = crop("observed", (12, 12, 62, 62), source_mode="model_observation")
+    weak = crop("weak", (90, 10, 140, 60), confidence=0.03)
+
+    selection = select_bird_observations([guided, observed, weak], selected_candidate=guided)
+
+    assert len(selection.birds) == 1
+    assert selection.birds[0].candidate_id == "observed"
+
+
+def test_enclosing_group_box_does_not_suppress_two_separately_localized_birds():
+    group = crop("group", (0, 0, 200, 100), confidence=0.95, score=0.2)
+    first = crop("first", (10, 10, 60, 60), confidence=0.7)
+    second = crop("second", (130, 10, 180, 60), confidence=0.6)
+    duplicate = crop("duplicate", (12, 12, 62, 62), confidence=0.65)
+    selection = select_bird_observations([group, first, duplicate, second], selected_candidate=group)
+    assert [bird.candidate_id for bird in selection.birds] == ["first", "second"]
+
+
+def test_overlapping_duplicates_inside_a_large_box_do_not_imply_two_birds():
+    group = crop("group", (0, 0, 200, 100), confidence=0.95)
+    first = crop("first", (10, 10, 60, 60), confidence=0.7)
+    duplicate = crop("duplicate", (12, 12, 62, 62), confidence=0.65)
+    selection = select_bird_observations([group, first, duplicate], selected_candidate=group)
+    assert len(selection.birds) == 1
+
+
+def test_bridging_duplicate_does_not_hide_two_disjoint_birds_inside_a_group():
+    group = crop("group", (0, 0, 300, 100), confidence=0.95)
+    first = crop("first", (10, 10, 110, 90), confidence=0.7)
+    second = crop("second", (120, 10, 220, 90), confidence=0.6)
+    bridge = crop("bridge", (60, 10, 170, 50), confidence=0.1)
+    selection = select_bird_observations([group, first, second, bridge], selected_candidate=group)
+    assert [bird.candidate_id for bird in selection.birds] == ["first", "second"]

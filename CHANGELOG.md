@@ -6,6 +6,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Recover weakly detected birds with up to four small regional checks per snapshot scan, guided
+  by confidently identified birds in nearby frames. Each recovered bird still needs detector
+  evidence in the counted frame and keeps its own species score. Combine guided and whole-frame
+  detections without letting a box around several birds hide their separate detections.
+  **Regenerate snapshots and recount birds** now names both effects and reports the current count.
+
 - Move the photo reel from the About page to the top of the leaderboard, with films, in place of the
   photo spotlight. Each leading species has a card of this feeder's own photograph, in rank order,
   opening the species. The leaders' cards play four silent seconds of the visit, cut from Frigate's

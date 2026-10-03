@@ -1,6 +1,7 @@
 """Choose one frame's localized birds for a capture-level count."""
 
 from dataclasses import dataclass
+from itertools import combinations
 import math
 from typing import Any
 
@@ -68,6 +69,20 @@ def _frame_key(candidate: dict[str, Any]) -> tuple[str, int] | None:
     return variant, frame_index
 
 
+def _encloses_distinct_birds(box: tuple[float, ...], boxes: list[tuple[float, ...]]) -> bool:
+    area = (box[2] - box[0]) * (box[3] - box[1])
+    contained = [
+        other
+        for other in boxes
+        if (other[2] - other[0]) * (other[3] - other[1]) <= area * 0.5 and _overlap_of_smaller_box(box, other) >= 0.9
+    ]
+    if len(contained) < 2:
+        return False
+    return any(
+        _overlap_of_smaller_box(left, right) < DUPLICATE_BOX_OVERLAP for left, right in combinations(contained, 2)
+    )
+
+
 def select_bird_observations(
     candidates: list[dict[str, Any]],
     *,
@@ -91,7 +106,10 @@ def select_bird_observations(
         elif mode == "frigate_hint_crop":
             hint_by_frame.setdefault(frame, []).append((candidate, box))
 
-    by_frame.update(observations_by_frame)
+    # Guided inference can localize a bird the whole-scene scan misses. Both are
+    # detector evidence; combine them before removing duplicate boxes.
+    for frame, observations in observations_by_frame.items():
+        by_frame.setdefault(frame, []).extend(observations)
     if not by_frame:
         by_frame = hint_by_frame
     if not by_frame:
@@ -99,6 +117,8 @@ def select_bird_observations(
 
     distinct_by_frame: dict[tuple[str, int], list[tuple[dict[str, Any], tuple[float, float, float, float]]]] = {}
     for frame, items in by_frame.items():
+        boxes = [box for _, box in items]
+        items = [(candidate, box) for candidate, box in items if not _encloses_distinct_birds(box, boxes)]
         distinct: list[tuple[dict[str, Any], tuple[float, float, float, float]]] = []
         for candidate, box in sorted(
             items, key=lambda pair: _finite_score(pair[0].get("crop_confidence")) or 0.0, reverse=True

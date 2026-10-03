@@ -197,8 +197,10 @@ artifact remains CPU-only because OpenVINO rejects its `QLinearConv` graph.
 #### Best-available event snapshots
 
 Detection details keep the photograph unobscured, with titles and controls below it.
-Use **Regenerate snapshots** in the frame strip to rebuild choices, including for an existing HQ
-photo. A failed or empty generation keeps previously saved choices. Fallback crops must match
+Use **Regenerate snapshots and recount birds** in the frame strip to rebuild choices and check
+the birds again, including for an existing HQ photo. The count refreshes when the scan finishes;
+owner species corrections and exclusions remain protected. A failed or empty generation keeps
+previously saved choices. Fallback crops must match
 the recorded species and meet the same detail requirements as normal candidates; otherwise
 the existing crop or full scene is kept. Frame preview names describe the displayed photograph.
 
@@ -207,6 +209,12 @@ preview fails. Missing candidate files do not remove the visit, its chosen momen
 birds. Photo, frame-strip and counted-frame areas keep their reserved space during loading and
 failure. Outlines use the exact full frame, with letterboxing accounted for; a resized or missing
 frame keeps the bird list without misleading outlines.
+
+A confidently identified bird in a nearby sampled frame can guide a small recheck of a weak
+region. The scan makes at most four such checks, one at a time, reusing its existing full frames
+and species scores. A recheck must find the bird in the frame being counted; it cannot copy a
+neighboring frame's species confidence. A recovered bird can therefore be counted while its
+species remains **Unknown bird**. This does not trigger another full video analysis.
 
 In **Needs your call**, choose a species or **Skip for now** before the supporting counted-bird
 details. The `s` shortcut skips from dialog or button focus; typing in the species search and

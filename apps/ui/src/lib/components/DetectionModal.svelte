@@ -1763,6 +1763,11 @@
                 toastStore.warning($_('detection.snapshot_existing_crop_preserved', { default: 'No reliable new crop was found; the existing crop was kept.' }));
             } else if (result.status === 'generated_hq_snapshot') {
                 toastStore.warning($_('detection.snapshot_generated_full_frame', { default: 'No reliable crop was found; the best full frame was saved.' }));
+            } else if (snapshotCandidates.length > 0 && countedBirds.length > 0 && !snapshotCandidatesError) {
+                toastStore.success($_('detection.snapshot_scan_count', {
+                    values: { count: countedBirds.filter(bird => !bird.is_hidden).length },
+                    default: 'Snapshot scan finished. Current bird count: {count}.'
+                }));
             } else if (snapshotCandidates.length > 0) {
                 toastStore.success($_('detection.snapshot_generate_success', { default: 'Snapshots regenerated' }));
             } else {
