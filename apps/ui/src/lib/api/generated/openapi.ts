@@ -752,6 +752,23 @@ export interface components {
     weather_wind_direction?: number | null;
     weather_wind_speed?: number | null;
 };
+    DetectionVisitResponse: {
+    audio_confirmed: boolean;
+    best_score: number;
+    capture_count: number;
+    end_time: string | null;
+    latest: components['schemas']['DetectionResponse'];
+    needs_review: boolean;
+    peak_capture?: components['schemas']['DetectionResponse'] | null;
+    representative: components['schemas']['DetectionResponse'];
+    start_time: string | null;
+    visit_id: string;
+};
+    DetectionVisitsResponse: {
+    gap_seconds: number;
+    total: number;
+    visits: Array<components['schemas']['DetectionVisitResponse']>;
+};
     DetectionsActivityHeatmapCell: {
     count: number;
     day_of_week: number;
@@ -1909,11 +1926,15 @@ export interface components {
     frame_index: number;
     frame_offset_seconds?: number | null;
     image_url?: string | null;
+    photo_hidden?: boolean;
     ranking_score: number;
     selected: boolean;
     snapshot_source?: string | null;
     source_mode: string;
     thumbnail_url?: string | null;
+};
+    SnapshotDismissRequest: {
+    dismissed: boolean;
 };
     SnapshotGenerateResponse: {
     already_hq_bird_crop: boolean;
@@ -2245,6 +2266,10 @@ export interface components {
     event_id: string;
     link_id: number;
     status: string;
+};
+    VisitCapturesResponse: {
+    captures: Array<components['schemas']['DetectionResponse']>;
+    total: number;
 };
     WeatherBackfillRequest: {
     date_range?: string;
@@ -3007,6 +3032,7 @@ export interface paths {
     fields?: string | null;
     include_hidden?: boolean;
     limit?: number;
+    multiple_species_only?: boolean;
     offset?: number;
     only_hidden?: boolean;
     sort?: "newest" | "oldest" | "confidence";
@@ -3045,6 +3071,7 @@ export interface paths {
     end_date?: string | null;
     favorites?: boolean;
     include_hidden?: boolean;
+    multiple_species_only?: boolean;
     only_hidden?: boolean;
     species?: string | null;
     start_date?: string | null;
@@ -3398,6 +3425,18 @@ export interface paths {
 };
       query: never;
       requestBody: unknown;
+      response: components['schemas']['SnapshotCandidateListResponse'];
+    };
+  };
+  "/api/frigate/{event_id}/snapshot/candidates/{candidate_id}": {
+    patch: {
+      operationId: "dismiss_snapshot_candidate_api_frigate__event_id__snapshot_candidates__candidate_id__patch";
+      path: {
+    candidate_id: string;
+    event_id: string;
+};
+      query: never;
+      requestBody: components['schemas']['SnapshotDismissRequest'];
       response: components['schemas']['SnapshotCandidateListResponse'];
     };
   };
@@ -4290,6 +4329,48 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: components['schemas']['VideoShareRevokeResponse'];
+    };
+  };
+  "/api/visits": {
+    get: {
+      operationId: "get_visits_api_visits_get";
+      path: never;
+      query: {
+    audio_confirmed_only?: boolean;
+    camera?: string | null;
+    end_date?: string | null;
+    end_time?: string | null;
+    favorites?: boolean;
+    limit?: number;
+    multiple_species_only?: boolean;
+    offset?: number;
+    only_hidden?: boolean;
+    sort?: string;
+    species?: string | null;
+    start_date?: string | null;
+    start_time?: string | null;
+};
+      requestBody: unknown;
+      response: components['schemas']['DetectionVisitsResponse'];
+    };
+  };
+  "/api/visits/{visit_id}/captures": {
+    get: {
+      operationId: "get_visit_captures_api_visits__visit_id__captures_get";
+      path: {
+    visit_id: string;
+};
+      query: {
+    end_date?: string | null;
+    end_time?: string | null;
+    limit?: number;
+    offset?: number;
+    only_hidden?: boolean;
+    start_date?: string | null;
+    start_time?: string | null;
+};
+      requestBody: unknown;
+      response: components['schemas']['VisitCapturesResponse'];
     };
   };
   "/health": {

@@ -7,6 +7,7 @@
         getOriginalFrigateSnapshotUrl,
         fetchSnapshotStatus,
         fetchSnapshotCandidates,
+        dismissSnapshotCandidate,
         applySnapshotCandidate,
         generateHighQualityBirdCropSnapshot,
         analyzeDetection,
@@ -1703,6 +1704,21 @@
     }
 
     /** "Use this frame" from the strip: the photograph changes, the identification does not. */
+    async function removePhotoChoice(candidateId: string, dismissed: boolean): Promise<void> {
+        if (!hasOwnerDetectionActions || snapshotApplyPending) return;
+        const eventId = detection.frigate_event;
+        snapshotApplyPending = true;
+        try {
+            const response = await dismissSnapshotCandidate(eventId, candidateId, dismissed);
+            if (detection.frigate_event === eventId && hasOwnerDetectionActions) snapshotCandidates = response.candidates;
+        } catch (error) {
+            toastStore.error(getErrorMessage(error));
+            throw error;
+        } finally {
+            if (detection.frigate_event === eventId) snapshotApplyPending = false;
+        }
+    }
+
     async function handleUseMoment(moment: FrameMoment) {
         if (!hasOwnerDetectionActions || snapshotApplyPending) return;
         applyingMomentKey = moment.key;
@@ -2725,6 +2741,8 @@
                             photographUrl={snapshotImageUrl}
                             canRegenerate={Boolean(snapshotStatus?.high_quality_bird_crop_enabled)}
                             regeneratePending={snapshotGeneratePending}
+                            eventId={detection.frigate_event}
+                            onremove={hasOwnerDetectionActions ? removePhotoChoice : undefined}
                             onuse={(moment) => { void handleUseMoment(moment); }}
                             onregenerate={() => { void handleGenerateSnapshotCandidates(); }}
                         />

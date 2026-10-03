@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { fetchVisits } from '../api/visits';
     import { onMount, untrack } from 'svelte';
     import DetectionModal from '../components/DetectionModal.svelte';
     import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
@@ -30,7 +31,7 @@
     import { selectReclassificationStrategy } from '../utils/reclassification';
 
     import { getBirdNames } from '../naming';
-    import { groupDetectionsIntoVisits, withinDeskWindow } from '../utils/visit-grouping';
+    import { fromServerVisit, withinDeskWindow } from '../utils/visit-grouping';
     import { buildReviewQueue, type NewSpeciesEntry } from '../utils/review-queue';
     import { applyManualTagResult } from '../utils/manual-tag';
 
@@ -42,6 +43,8 @@
 
     /** The dashboard shows the recent slice of the day; Explorer holds the full history. */
     const VISIT_ROW_LIMIT = 12;
+    let serverVisits = $state<ReturnType<typeof fromServerVisit>[]>([]);
+    let totalVisits = $state(0);
 
     let summary = $state<DailySummary | null>(null);
     // The clock hour the summary's rolling window ended in, so the activity chart ends where its data does.
@@ -106,9 +109,9 @@
     let reviewThreshold = $derived(settingsStore.settings?.classification_threshold ?? null);
 
     // The day reads as visits, not frames: repeat frames of one bird fold into one row.
-    let allVisits = $derived(groupDetectionsIntoVisits(deskDetections, { reviewThreshold }));
+    let allVisits = $derived(serverVisits);
     let visits = $derived(allVisits.slice(0, VISIT_ROW_LIMIT));
-    let hiddenVisitCount = $derived(Math.max(allVisits.length - visits.length, 0));
+    let hiddenVisitCount = $derived(Math.max(totalVisits - visits.length, 0));
 
     // Reviewing is an owner capability: the identify and hide calls require it, so a guest
     // must not be shown the queue, the walk-through, or an Identify button that would 403.
@@ -293,15 +296,18 @@
     });
 
     const summaryLoader = createObservationProjectionLoader({
-        fetch: async () => {
-            const [summaryRes, labelsRes] = await Promise.all([
+        fetch: async (signal) => {
+            const now = new Date();
+            const window = { startTime: new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(), endTime: now.toISOString() };
+            const [summaryRes, labelsRes, visitsRes] = await Promise.all([
                 fetchDailySummary(),
-                fetchClassifierLabels().catch(() => ({ labels: [] }))
+                fetchClassifierLabels().catch(() => ({ labels: [] })),
+                fetchVisits({ ...window, limit: VISIT_ROW_LIMIT, signal, requestKey: 'dashboard:visits' })
             ]);
-            return { summaryRes, labelsRes };
+            return { summaryRes, labelsRes, visitsRes, window };
         },
-        apply: ({ summaryRes, labelsRes }) => { summary = summaryRes; summaryHour = new Date().getHours(); classifierLabels = labelsRes.labels; },
-        clear: () => { summary = null; topSpeciesInfo = null; },
+        apply: ({ summaryRes, labelsRes, visitsRes, window }) => { summary = summaryRes; summaryHour = new Date().getHours(); classifierLabels = labelsRes.labels; serverVisits = visitsRes.visits.map((visit) => fromServerVisit(visit, window)); totalVisits = visitsRes.total; },
+        clear: () => { summary = null; topSpeciesInfo = null; serverVisits = []; totalVisits = 0; },
         fail: (e) => {
             if (authStore.isGuest) { summary = null; topSpeciesInfo = null; }
             if (isTransientRequestError(e)) {
@@ -340,7 +346,17 @@
 
     onMount(() => {
         void loadSummary(true);
-        return () => { summaryLoader.dispose(); audioSummaryLoader.dispose(); };
+        const interval = setInterval(() => { if (document.visibilityState === 'visible') void loadSummary(); }, 60_000);
+        return () => { clearInterval(interval); summaryLoader.dispose(); audioSummaryLoader.dispose(); };
+    });
+
+    let handledVisitMutation = detectionsStore.mutationVersion;
+    $effect(() => {
+        const version = detectionsStore.mutationVersion;
+        if (version <= handledVisitMutation) return;
+        handledVisitMutation = version;
+        const timeout = setTimeout(() => { void loadSummary(); }, 2000);
+        return () => clearTimeout(timeout);
     });
 
     // The day bar's call count. The rail's Heard card polls its own summary to stay current.
@@ -578,6 +594,7 @@
                 canIdentify={canReview}
                 onselect={(detection) => selectedEvent = detection}
                 onidentify={(detection) => selectedEvent = detection}
+                onplay={(detection) => { videoEventId = detection.frigate_event; showVideo = true; }}
                 onseeall={() => onnavigate?.('/events')}
             />
 

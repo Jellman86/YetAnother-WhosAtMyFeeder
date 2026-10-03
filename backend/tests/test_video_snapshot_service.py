@@ -1,5 +1,6 @@
 from unittest.mock import AsyncMock
 import asyncio
+import hashlib
 
 import cv2
 import numpy as np
@@ -11,7 +12,171 @@ from app.repositories.detection_repository import Detection, DetectionRepository
 from app.repositories.processing_job_repository import ProcessingJobRepository
 from app.services import video_snapshot_service as module
 from app.services.high_quality_snapshot_service import HQ_PROCESSING_PIPELINE
+from app.services.photo_choice_actions import photo_choice_lock
 from app.utils.api_datetime import utc_naive_now
+
+
+async def _dismissed_video_photo(clip, event, *, legacy=False):
+    await _seed(event)
+    candidates = module._candidates(
+        event,
+        _result(),
+        _result()["_video_snapshot_evidence"],
+        module.extract_video_snapshot(clip, _result()["_video_snapshot_evidence"]),
+        "event",
+    )
+    selected = next(row for row in candidates if row["selected"])
+    removed = {**selected, "candidate_id": "removed-choice", "selected": False}
+    if legacy:
+        removed["content_sha256"] = None
+    await module.media_cache.cache_snapshot(removed["image_ref"], removed["image_bytes"], source="snapshot_candidate")
+    await module.media_cache.cache_snapshot(event, b"original-photo", source="frigate_snapshot")
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        await repo.replace_snapshot_candidates(event, [removed])
+        assert await repo.dismiss_snapshot_candidate(event, removed["candidate_id"], True)
+        await db.execute(
+            """INSERT INTO bird_observations (frigate_event, bird_index, candidate_id, clip_variant,
+            frame_index, crop_box_json, species, classifier_score, manual_species, is_hidden)
+            VALUES (?, 0, ?, 'event', 2, '[10,20,50,50]', 'Baeolophus bicolor', .94, 1, 0)""",
+            (event, removed["candidate_id"]),
+        )
+        await db.commit()
+    return candidates, removed
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("legacy", [False, True])
+async def test_video_commit_rejects_removed_pixels_under_a_new_candidate_id(clip, monkeypatch, legacy):
+    event = "video-removed-content-" + str(legacy)
+    candidates, removed = await _dismissed_video_photo(clip, event, legacy=legacy)
+    assert next(row for row in candidates if row["selected"])["candidate_id"] != removed["candidate_id"]
+    monkeypatch.setattr(module.archive_service, "refresh_photograph", AsyncMock())
+    outcome = await module._commit_video_snapshot(
+        event,
+        _result(),
+        _result()["_video_snapshot_evidence"],
+        candidates,
+        automatic=True,
+    )
+    assert outcome == "photo_choice_removed"
+    assert await module.media_cache.get_snapshot(event) == b"original-photo"
+    async with get_db() as db:
+        rows = await DetectionRepository(db).list_snapshot_candidates(event)
+        assert len(rows) == 1 and rows[0]["photo_hidden"]
+        birds = await module.BirdObservationRepository(db).list_for_event(event)
+        assert len(birds) == 1 and birds[0]["manual_species"]
+    module.archive_service.refresh_photograph.assert_not_awaited()
+
+
+def test_identity_photo_candidates_exclude_removed_choices():
+    candidate = {
+        "candidate_id": "removed",
+        "photo_hidden": True,
+        "source_mode": "model_crop",
+        "crop_box": [10, 20, 50, 50],
+        "crop_confidence": 0.9,
+        "classifier_label": "Baeolophus bicolor",
+        "classifier_score": 0.94,
+    }
+    alternative = {**candidate, "candidate_id": "available", "photo_hidden": False}
+    assert module._identity_photo_candidates([candidate, alternative], {"baeolophus bicolor"}) == [alternative]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("legacy", [False, True])
+async def test_reconciliation_skips_new_alias_of_removed_content_and_tries_another_photo(clip, monkeypatch, legacy):
+    from PIL import Image
+
+    event = "video-reconcile-removed-alias-" + str(legacy)
+    candidates, removed = await _dismissed_video_photo(clip, event, legacy=legacy)
+    alias = {**next(row for row in candidates if row["selected"]), "selected": False, "ranking_score": 10}
+    other_photo = module._jpeg(Image.new("RGB", (40, 30), "purple"))
+    alternative = {
+        **alias,
+        "candidate_id": "other-choice",
+        "image_ref": event + "__other_choice__image",
+        "image_bytes": other_photo,
+        "content_sha256": hashlib.sha256(other_photo).hexdigest(),
+        "ranking_score": 1,
+    }
+    await module.media_cache.cache_snapshot(alternative["image_ref"], other_photo, source="snapshot_candidate")
+    async with get_db() as db:
+        await DetectionRepository(db).replace_snapshot_candidates(event, [removed, alias, alternative])
+        available = module._identity_photo_candidates(
+            await DetectionRepository(db).list_snapshot_candidates(event), {"baeolophus bicolor"}
+        )
+        assert available[0]["candidate_id"] == alias["candidate_id"]
+    monkeypatch.setattr(module.archive_service, "refresh_photograph", AsyncMock())
+    assert await module.reconcile_snapshot_identity(event) == "replaced"
+    assert await module.media_cache.get_snapshot(event) == other_photo
+    async with get_db() as db:
+        rows = await DetectionRepository(db).list_snapshot_candidates(event)
+        chosen = next(row for row in rows if row["selected"])
+        assert chosen["candidate_id"] == "other-choice"
+        assert next(row for row in rows if row["candidate_id"] == removed["candidate_id"])["photo_hidden"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("legacy", [False, True])
+async def test_video_commit_allows_changed_pixels_for_a_removed_candidate_identity(clip, monkeypatch, legacy):
+    from PIL import Image
+
+    event = "video-removed-changed-content-" + str(legacy)
+    candidates, removed = await _dismissed_video_photo(clip, event, legacy=legacy)
+    selected = next(row for row in candidates if row["selected"])
+    changed = module._jpeg(Image.new("RGB", (40, 30), "purple"))
+    selected.update(
+        candidate_id=removed["candidate_id"],
+        image_ref=removed["image_ref"],
+        image_bytes=changed,
+        content_sha256=hashlib.sha256(changed).hexdigest(),
+    )
+    monkeypatch.setattr(module.archive_service, "refresh_photograph", AsyncMock())
+    assert (
+        await module._commit_video_snapshot(
+            event,
+            _result(),
+            _result()["_video_snapshot_evidence"],
+            candidates,
+            automatic=True,
+        )
+        == "replaced"
+    )
+    assert await module.media_cache.get_snapshot(event) == changed
+    async with get_db() as db:
+        chosen = await DetectionRepository(db).get_selected_snapshot_candidate(event)
+        assert chosen["candidate_id"] == removed["candidate_id"]
+        assert not chosen["photo_hidden"]
+        birds = await module.BirdObservationRepository(db).list_for_event(event)
+        assert len(birds) == 1 and birds[0]["manual_species"]
+
+
+@pytest.mark.asyncio
+async def test_video_commit_waits_for_photo_action_then_rechecks_removal(clip, monkeypatch):
+    event = "video-commit-photo-action-race"
+    candidates, _ = await _dismissed_video_photo(clip, event)
+    monkeypatch.setattr(module.archive_service, "refresh_photograph", AsyncMock())
+    async with get_db() as db:
+        assert await DetectionRepository(db).dismiss_snapshot_candidate(event, "removed-choice", False)
+    async with photo_choice_lock(event):
+        commit = asyncio.create_task(
+            module._commit_video_snapshot(
+                event,
+                _result(),
+                _result()["_video_snapshot_evidence"],
+                candidates,
+                automatic=True,
+            )
+        )
+        try:
+            with pytest.raises(asyncio.TimeoutError):
+                await asyncio.wait_for(asyncio.shield(commit), 0.1)
+        finally:
+            async with get_db() as db:
+                assert await DetectionRepository(db).dismiss_snapshot_candidate(event, "removed-choice", True)
+    assert await commit == "photo_choice_removed"
+    assert await module.media_cache.get_snapshot(event) == b"original-photo"
 
 
 def _result():

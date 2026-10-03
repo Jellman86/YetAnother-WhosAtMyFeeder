@@ -27,6 +27,8 @@ class APIModel(BaseModel):
         "first_seen",
         "last_seen",
         "cached_at",
+        "start_time",
+        "end_time",
         check_fields=False,
         when_used="json",
     )
@@ -145,6 +147,30 @@ class DetectionListItemResponse(APIModel):
     observation_longitude: float | None = None
     observation_location_source: str | None = None
     bird_summary: DetectionBirdSummary | None = None
+
+
+class DetectionVisitResponse(APIModel):
+    visit_id: str
+    start_time: datetime
+    end_time: datetime
+    capture_count: int
+    best_score: float
+    needs_review: bool
+    audio_confirmed: bool
+    representative: DetectionResponse
+    latest: DetectionResponse
+    peak_capture: DetectionResponse | None = None
+
+
+class DetectionVisitsResponse(BaseModel):
+    visits: list[DetectionVisitResponse]
+    total: int
+    gap_seconds: int
+
+
+class VisitCapturesResponse(BaseModel):
+    captures: list[DetectionResponse]
+    total: int
 
 
 class FrigateEvent(APIModel):

@@ -203,6 +203,13 @@ export async function generateHighQualityBirdCropSnapshot(frigateEvent: string):
     return handleResponse<SnapshotGenerateResponse>(response);
 }
 
+export async function dismissSnapshotCandidate(frigateEvent: string, candidateId: string, dismissed: boolean): Promise<SnapshotCandidateListResponse> {
+    const response = await apiFetch(`${API_BASE}/frigate/${encodeURIComponent(frigateEvent)}/snapshot/candidates/${encodeURIComponent(candidateId)}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dismissed })
+    });
+    return handleResponse<SnapshotCandidateListResponse>(response);
+}
+
 export async function fetchSnapshotCandidates(frigateEvent: string): Promise<SnapshotCandidateListResponse> {
     const response = await apiFetch(`${API_BASE}/frigate/${frigateEvent}/snapshot/candidates`);
     const body = await handleResponse<SnapshotCandidateListResponse>(response);

@@ -1,7 +1,10 @@
 <script lang="ts">
+    import VisitCaptures from '../components/VisitCaptures.svelte';
+    import type { DetectionVisit } from '../api/visits';
     import { onDestroy, onMount, untrack } from 'svelte';
     import {
         fetchEvents,
+        fetchVisits,
         fetchEventFilters,
         getThumbnailUrl,
         hideDetection,
@@ -72,6 +75,7 @@
     let cameraFilter = $state('');
     let favoritesOnly = $state(false);
     let audioConfirmedOnly = $state(false);
+    let multipleSpeciesOnly = $state(false);
     let sortOrder = $state<'newest' | 'oldest' | 'confidence'>('newest');
 
     let selectedEvent = $state<Detection | null>(null);
@@ -84,6 +88,8 @@
     let updatingTag = $state(false);
     const explorerView = $derived(explorerViewStore.resolve(settingsStore.settings?.appearance_explorer_view ?? authStore.explorerView));
     let selectionMode = $state(false);
+    let groupVisits = $state(true);
+    let pageVisits = $state<DetectionVisit[]>([]);
     let selectedEventIds = $state<string[]>([]);
     let showBulkTagModal = $state(false);
     let bulkTagSearchQuery = $state('');
@@ -195,7 +201,22 @@
         error = null;
         try {
             const range = dateRange;
-            const [newEvents, countRes] = await Promise.all([
+            let newEvents: Detection[];
+            let nextTotal: number;
+            let nextVisits: DetectionVisit[] = [];
+            if (groupVisits && !selectionMode) {
+                const result = await fetchVisits({
+                    limit: pageSize, offset: (currentPage - 1) * pageSize,
+                    startDate: range.start, endDate: range.end,
+                    species: speciesFilter || undefined, camera: cameraFilter || undefined,
+                    sort: sortOrder, onlyHidden: showHidden, favoritesOnly, audioConfirmedOnly, multipleSpeciesOnly,
+                    requestKey: 'events-page:visits'
+                });
+                nextVisits = result.visits;
+                newEvents = result.visits.map((visit) => visit.representative);
+                nextTotal = result.total;
+            } else {
+                const [captures, countRes] = await Promise.all([
                 fetchEvents({
                     limit: pageSize,
                     offset: (currentPage - 1) * pageSize,
@@ -207,6 +228,7 @@
                     onlyHidden: showHidden,
                     favoritesOnly,
                     audioConfirmedOnly,
+                    multipleSpeciesOnly,
                     fields: 'list',
                     requestKey: 'events-page:list'
                 }),
@@ -218,12 +240,17 @@
                     onlyHidden: showHidden,
                     favoritesOnly,
                     audioConfirmedOnly,
+                    multipleSpeciesOnly,
                     requestKey: 'events-page:count'
                 })
-            ]);
+                ]);
+                newEvents = captures;
+                nextTotal = countRes.count;
+            }
             if (loadGeneration !== eventsLoadGeneration) return;
             events = newEvents;
-            totalCount = countRes.count;
+            pageVisits = nextVisits;
+            totalCount = nextTotal;
             if (pendingEventId) {
                 const target = newEvents.find((event) => event.frigate_event === pendingEventId);
                 if (target) {
@@ -549,9 +576,23 @@
         if (reclassifyCompletionRefreshTimeout !== null) return;
         reclassifyCompletionRefreshTimeout = window.setTimeout(() => {
             reclassifyCompletionRefreshTimeout = null;
+            if (loading) {
+                scheduleReclassifyCompletionRefresh();
+                return;
+            }
             void loadEvents();
         }, 700);
     }
+
+    let handledVisitMutationVersion = detectionsStore.mutationVersion;
+    $effect(() => {
+        const version = detectionsStore.mutationVersion;
+        if (version === handledVisitMutationVersion) return;
+        handledVisitMutationVersion = version;
+        untrack(() => {
+            if (groupVisits && !selectionMode) scheduleReclassifyCompletionRefresh();
+        });
+    });
 
     let handledPublicHistoryVersion = detectionsStore.publicHistoryVersion;
     $effect(() => {
@@ -561,6 +602,7 @@
         if (version > 0 && authStore.isGuest) untrack(() => {
             eventsLoadGeneration += 1;
             events = [];
+            pageVisits = [];
             totalCount = 0;
             loading = true;
             error = null;
@@ -803,15 +845,24 @@
                 cameraFilter ||
                 favoritesOnly ||
                 audioConfirmedOnly ||
+                multipleSpeciesOnly ||
                 showHidden ||
                 datePreset !== 'all' ||
                 selectedTimelineBucket !== 'all'
         )
     );
 
+    const visitsByEvent = $derived(new Map(pageVisits.map((visit) => [visit.representative.frigate_event, visit])));
+
     let visibleEvents = $derived.by(() => {
         if (selectedTimelineBucket === 'all') return events;
-        return events.filter((event) => detectionDayKey(event) === selectedTimelineBucket);
+        return events.filter((event) => {
+            const visit = visitsByEvent.get(event.frigate_event);
+            if (!visit) return detectionDayKey(event) === selectedTimelineBucket;
+            const start = detectionDayKey({ ...event, detection_time: visit.start_time });
+            const end = detectionDayKey({ ...event, detection_time: visit.end_time });
+            return start <= selectedTimelineBucket && end >= selectedTimelineBucket;
+        });
     });
 
     $effect(() => {
@@ -911,6 +962,8 @@
     function toggleSelectionMode() {
         if (!authStore.hasOwnerAccess) return;
         selectionMode = !selectionMode;
+        currentPage = 1;
+        void loadEvents();
         selectedEventIds = [];
         showBulkTagModal = false;
     }
@@ -1096,7 +1149,17 @@
     <div class="flex flex-wrap items-center justify-between gap-3">
         <p class="text-xs text-slate-500 -mt-2">{$_('events.classification_legend')}</p>
         <div class="flex flex-wrap items-center gap-2">
-            <div class="mr-1 text-sm text-slate-500">{$_('events.total_count', { values: { count: totalCount } })}</div>
+            <div class="mr-1 text-sm text-slate-500">{groupVisits && !selectionMode
+                ? $_('visits.total', { values: { count: totalCount }, default: '{count} visits' })
+                : $_('visits.total_captures', { values: { count: totalCount }, default: '{count} captures' })}</div>
+            <div class="inline-flex rounded-xl border border-slate-200 p-0.5 dark:border-slate-700" role="group" aria-label={$_('visits.grouping', { default: 'Group captures' })}>
+                {#each [true, false] as grouped}
+                    <button class="tab-button min-h-11" aria-pressed={groupVisits === grouped && !selectionMode} disabled={selectionMode}
+                        onclick={() => { groupVisits = grouped; currentPage = 1; void loadEvents(); }}>
+                        {grouped ? $_('visits.visits', { default: 'Visits' }) : $_('visits.capture_view', { default: 'Captures' })}
+                    </button>
+                {/each}
+            </div>
             <button
                 class="btn btn-secondary hidden min-h-11 px-3 py-2 text-xs lg:inline-flex"
                 aria-expanded={!explorerFiltersStore.collapsed}
@@ -1224,6 +1287,7 @@
             {cameraFilter}
             {favoritesOnly}
             {audioConfirmedOnly}
+            {multipleSpeciesOnly}
             {showHidden}
             {hiddenCount}
             {customStartDate}
@@ -1237,6 +1301,7 @@
                 if (next.cameraFilter !== undefined) cameraFilter = next.cameraFilter;
                 if (next.favoritesOnly !== undefined) favoritesOnly = next.favoritesOnly;
                 if (next.audioConfirmedOnly !== undefined) audioConfirmedOnly = next.audioConfirmedOnly;
+                if (next.multipleSpeciesOnly !== undefined) multipleSpeciesOnly = next.multipleSpeciesOnly;
                 if (next.showHidden !== undefined) showHidden = next.showHidden;
                 if (next.customStartDate !== undefined) customStartDate = next.customStartDate;
                 if (next.customEndDate !== undefined) customEndDate = next.customEndDate;
@@ -1249,6 +1314,7 @@
                 cameraFilter = '';
                 favoritesOnly = false;
                 audioConfirmedOnly = false;
+                multipleSpeciesOnly = false;
                 showHidden = false;
                 customStartDate = '';
                 customEndDate = '';
@@ -1372,6 +1438,7 @@
                             cameraFilter = '';
                             favoritesOnly = false;
                             audioConfirmedOnly = false;
+                multipleSpeciesOnly = false;
                             showHidden = false;
                             customStartDate = '';
                             customEndDate = '';
@@ -1390,6 +1457,7 @@
         {:else if explorerView === 'list'}
             <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white/80 dark:border-slate-800 dark:bg-slate-900/50" data-explorer-list>
                 {#each visibleEvents as event (eventKey(event))}
+                    <div data-explorer-visit={visitsByEvent.get(event.frigate_event)?.visit_id}>
                     <DetectionRow
                         detection={event}
                         onclick={() => handleEventCardClick(event)}
@@ -1403,6 +1471,11 @@
                         selectionMode={selectionMode}
                         selected={selectedEventIds.includes(event.frigate_event)}
                     />
+                    {#if visitsByEvent.get(event.frigate_event)}
+                        {@const visit = visitsByEvent.get(event.frigate_event)}
+                        {#if visit}<VisitCaptures {visit} window={{ startDate: dateRange.start, endDate: dateRange.end, onlyHidden: showHidden }} onselect={handleEventCardClick} onplay={(capture) => { videoEventId = capture.frigate_event; videoShareToken = null; videoPlayIntent = 'user'; showVideo = true; selectedEvent = null; }} />{/if}
+                    {/if}
+                    </div>
                 {/each}
             </div>
         {:else}
@@ -1411,6 +1484,7 @@
                  the open sidebar and filter rail, clipping the play button. -->
             <div class="grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-4">
                 {#each visibleEvents as event, index (eventKey(event))}
+                    <div class="card-base overflow-hidden" data-explorer-visit={visitsByEvent.get(event.frigate_event)?.visit_id}>
                     <DetectionCard 
                         detection={event} 
                         {index}
@@ -1430,6 +1504,11 @@
                         selectionMode={selectionMode}
                         selected={selectedEventIds.includes(event.frigate_event)}
                     />
+                    {#if visitsByEvent.get(event.frigate_event)}
+                        {@const visit = visitsByEvent.get(event.frigate_event)}
+                        {#if visit}<VisitCaptures {visit} window={{ startDate: dateRange.start, endDate: dateRange.end, onlyHidden: showHidden }} onselect={handleEventCardClick} onplay={(capture) => { videoEventId = capture.frigate_event; videoShareToken = null; videoPlayIntent = 'user'; showVideo = true; selectedEvent = null; }} />{/if}
+                    {/if}
+                    </div>
                 {/each}
             </div>
         {/if}
@@ -1463,6 +1542,7 @@
             detectionsStore.removeDetection(deletedEventId, detectionTime);
             selectedEvent = null;
             await refreshEventMetadata(true, false);
+            await loadEvents();
         }}
         onHideSuccess={async (hiddenEventId: string, detectionTime: string | undefined, isHidden: boolean) => {
             if (isHidden) {
@@ -1482,6 +1562,7 @@
             }
             selectedEvent = null;
             await refreshEventMetadata(true, false);
+            await loadEvents();
         }}
         onPlayVideo={(frigateEvent: string, playIntent: 'auto' | 'user' = 'auto') => {
             videoEventId = frigateEvent;

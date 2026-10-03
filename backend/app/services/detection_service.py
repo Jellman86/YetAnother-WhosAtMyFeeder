@@ -402,6 +402,7 @@ class DetectionService:
         weather_precipitation: float = None,
         weather_rain: float = None,
         weather_snowfall: float = None,
+        end_time: float | None = None,
     ) -> tuple[bool, bool]:
         """
         Save or update a detection in the database and broadcast the event.
@@ -539,6 +540,10 @@ class DetectionService:
                     else None
                 ),
             )
+            if end_time is not None:
+                from app.repositories.visit_repository import VisitRepository
+
+                await VisitRepository(db).save_event_bounds(frigate_event, start_time, end_time)
             changed = was_inserted or was_updated
 
             if changed:

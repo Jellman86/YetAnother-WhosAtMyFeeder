@@ -3154,5 +3154,24 @@
     "notifications": "提醒、通知和正在运行的后台任务。",
     "settings": "连接、分类、集成与个性化。",
     "species": "已观察到的鸟类的排行榜、总数和分类详情。"
+  },
+  "visits": {
+    "captures": "{count, plural, one {# 次拍摄} other {# 次拍摄}}",
+    "total": "{count, plural, one {# 次来访} other {# 次来访}}",
+    "total_captures": "{count, plural, one {# 次拍摄} other {# 次拍摄}}",
+    "visits": "来访",
+    "capture_view": "拍摄",
+    "grouping": "合并拍摄",
+    "peak_birds": "一次拍摄中有{count}只鸟",
+    "capture_actions": "打开拍摄以检查识别结果或播放视频。",
+    "load_failed": "无法加载拍摄。请重试。",
+    "load_more": "加载更多拍摄",
+    "open_capture": "打开{species}的拍摄",
+    "multiple_species": "多种鸟类",
+    "multiple_species_hint": "一次已分析的拍摄中有两种或更多已命名的鸟类。",
+    "remove_photo": "移除照片选项",
+    "choose_first": "移除此照片前，请先选择另一张照片。",
+    "photo_removed": "已从选项中移除照片。",
+    "remove_failed": "无法更改此照片选项。请重试。"
   }
 }

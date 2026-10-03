@@ -57,6 +57,7 @@ from app.services.uptime import HEARTBEAT_INTERVAL_MINUTES
 from app.routers import (
     about,
     events,
+    visits,
     proxy,
     settings as settings_router,
     species,
@@ -822,6 +823,7 @@ app.include_router(auth_router.router, prefix="/api", tags=["auth"])
 
 # Public/mixed access routers - use new auth system with legacy fallback
 app.include_router(events.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(visits.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(about.router, prefix="/api", tags=["about"], dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(proxy.router, prefix="/api", dependencies=[Depends(proxy.get_proxy_auth_context)])
 app.include_router(species.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])

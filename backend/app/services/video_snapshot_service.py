@@ -21,6 +21,7 @@ from app.utils.api_datetime import serialize_storage_datetime, utc_naive_now
 from app.utils.photo_retention import MAX_EARLIER_PHOTO_CHOICES, merge_photo_choices
 from app.services.archive_service import archive_service
 from app.services.media_cache import media_cache, validate_film_alignment
+from app.services.photo_choice_actions import photo_choice_lock
 from app.utils.canonical_species import should_hide_species_label
 from app.utils.blocked_species import is_blocked_species
 from app.services.photo_presence import (
@@ -336,14 +337,42 @@ async def _commit_video_snapshot(
     *,
     automatic: bool,
 ) -> str:
+    async with photo_choice_lock(event_id):
+        return await _commit_video_snapshot_unlocked(event_id, result, evidence, candidates, automatic=automatic)
+
+
+async def _commit_video_snapshot_unlocked(
+    event_id: str,
+    result: dict[str, Any],
+    evidence: dict[str, Any],
+    candidates: list[dict[str, Any]],
+    *,
+    automatic: bool,
+) -> str:
     selected = next(candidate for candidate in candidates if candidate["selected"])
     async with media_cache._media_write_lease(event_id), media_cache._snapshot_commit_lock(event_id):
         metadata = await media_cache.get_snapshot_metadata(event_id) or {}
         if metadata.get("manual_selection"):
             return "manual_selection_preserved"
+        from app.services.high_quality_snapshot_service import high_quality_snapshot_service
+
+        if not await high_quality_snapshot_service._available_photo_candidates(event_id, [selected]):
+            return "photo_choice_removed"
         previous_photo = await media_cache.get_snapshot(event_id)
         async with get_db() as db:
             existing = await DetectionRepository(db).list_snapshot_candidates(event_id)
+        legacy_removed_hashes = {}
+        for row in existing:
+            if row.get("photo_hidden") and not row.get("content_sha256") and row.get("image_ref"):
+                image = await media_cache.get_snapshot(row["image_ref"])
+                if image:
+                    legacy_removed_hashes[row["candidate_id"]] = await asyncio.to_thread(
+                        lambda: hashlib.sha256(image).hexdigest()
+                    )
+        existing = [
+            {**row, "content_sha256": legacy_removed_hashes.get(row["candidate_id"], row.get("content_sha256"))}
+            for row in existing
+        ]
         displayed_photo_sha256 = (
             await asyncio.to_thread(lambda: hashlib.sha256(previous_photo).hexdigest()) if previous_photo else None
         )
@@ -403,6 +432,8 @@ async def _commit_video_snapshot(
                     image_bytes=selected["image_bytes"],
                     film_alignment=selected.get("film_alignment"),
                 )
+                for candidate_id, digest in legacy_removed_hashes.items():
+                    await repo.bind_legacy_snapshot_candidate_dismissal(event_id, candidate_id, digest)
                 await repo.replace_snapshot_candidates(event_id, rows)
             except BaseException:
                 if previous_photo is not None:
@@ -487,6 +518,7 @@ def _identity_photo_candidates(candidates: list[dict[str, Any]], labels: set[str
         candidate
         for candidate in candidates
         if has_reusable_bird_presence(candidate)
+        and not candidate.get("photo_hidden")
         and not (candidate.get("source_mode") == "full_frame" and candidate.get("input_is_cropped"))
     ]
     matching = [
@@ -595,6 +627,8 @@ async def reconcile_snapshot_identity(
                         commit.exception()
                     raise cancellation
                 outcome = commit.result()
+                if outcome == "photo_choice_removed":
+                    continue
                 if outcome == "replaced" and not (
                     _label_key(candidate.get("classifier_label")) in labels
                     and has_confident_photo_species(candidate, threshold=settings.classification.threshold)

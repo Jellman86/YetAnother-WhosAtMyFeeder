@@ -58,9 +58,10 @@ A bird classification system that integrates with [Frigate NVR](https://frigate.
 - **Home Assistant Integration** - Sensors, automation, and dashboard cards
 - **BirdWeather Reporting** - Contribute to community science
 - **Real-time Dashboard** - A chronological field log of the day with repeat frames folded into visits, a review queue for anything the classifier could not name, live updates, video playback, and species statistics
-- **Explorer** - Every classified visit as cards or a compact list, filtered by day, species, camera, favourites, and audio matches
+- **Explorer** - Expandable visits or individual captures as cards or a compact list, filtered by day, species, camera, favourites, audio matches, and captures with multiple identified bird species
 - **Add observation** - Classify a photo or clip you took yourself and file it in the same history
 - **Notifications & Jobs** - One surface for alerts and background work, with pinned progress for long-running jobs
+- **Capture review** - Open every original capture in a visit, choose its photograph, and remove unwanted photo choices with Undo. Recent sightings in species details open the exact detection.
 - **Public View (Guest Mode)** - Share a read-only, rate-limited dashboard, choosing separately whether visitors see camera names, photographs, video, and audio
 
 ## About This Project

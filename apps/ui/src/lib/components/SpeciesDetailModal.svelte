@@ -11,7 +11,6 @@
         type SpeciesStats,
         type SpeciesInfo,
         type EbirdNearbyResult,
-        type Detection,
         getThumbnailUrl,
         ApiRequestError
     } from '../api';
@@ -23,7 +22,6 @@
     import { detectionsStore } from '../stores/detections.svelte';
     import { toastStore } from '../stores/toast.svelte';
     import SimpleBarChart from './SimpleBarChart.svelte';
-    import VideoPlayer from './VideoPlayer.svelte';
     import RangeMap from './RangeMap.svelte';
     import { _, locale } from 'svelte-i18n';
     import { get } from 'svelte/store';
@@ -91,8 +89,6 @@
     let rangeMapError = $state<string | null>(null);
 
     // Video playback state
-    let showVideo = $state(false);
-    let selectedSighting = $state<Detection | null>(null);
 
     // Reclassification state
     let reclassifying = $state(false);
@@ -293,7 +289,7 @@
             }
         },
         apply: (value) => { stats = value; observedLocalRecord = Boolean(value && value.total_sightings > 0); },
-        clear: () => { stats = null; selectedSighting = null; showVideo = false; },
+        clear: () => { stats = null; },
         fail: (e) => {
             stats = null;
             error = getErrorMessage(e) || 'Failed to load species details';
@@ -634,17 +630,10 @@
                             </div>
                             <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
                                 {#each stats.recent_sightings as sighting}
-                                    <button
-                                        type="button"
+                                    <a
+                                        href={toAppPath(`/events?event=${encodeURIComponent(sighting.frigate_event)}`)}
                                         class="group relative cursor-pointer overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 text-left transition-colors hover:border-brand-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-default dark:border-slate-700 dark:bg-slate-800/50 dark:hover:border-brand-700"
-                                        aria-label={sighting.has_clip
-                                            ? $_('detection.play_video', { values: { species: sighting.display_name } })
-                                            : $_('species_detail.video_unavailable')}
-                                        disabled={!sighting.has_clip}
-                                        onclick={() => {
-                                            selectedSighting = sighting as Detection;
-                                            if (sighting.has_clip) showVideo = true;
-                                        }}
+                                        aria-label={$_('visits.open_capture', { values: { species: sighting.display_name }, default: 'Open {species} capture' })}
                                     >
                                         <div class="relative aspect-[4/3] bg-slate-200 dark:bg-slate-700">
                                             <img
@@ -659,7 +648,7 @@
                                             />
                                             {#if sighting.has_clip}
                                                 <span class="absolute bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-brand-700 shadow-sm transition-transform group-hover:scale-105 group-focus-visible:scale-105 dark:bg-slate-900/90 dark:text-brand-300">
-                                                    <svg class="ml-0.5 h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
+                                                    <svg class="ml-0.5 h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" /></svg>
                                                 </span>
                                             {/if}
                                         </div>
@@ -667,7 +656,7 @@
                                             <p class="text-xs font-medium text-slate-700 dark:text-slate-200">{formatDate(sighting.detection_time)}</p>
                                             <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{formatTime(sighting.detection_time)} · {(sighting.score * 100).toFixed(0)}%</p>
                                         </div>
-                                    </button>
+                                    </a>
                                 {/each}
                             </div>
                         </section>
@@ -1060,18 +1049,6 @@
 
     </div>
 </div>
-
-<!-- Video Player Modal -->
-{#if showVideo && selectedSighting}
-    <VideoPlayer
-        frigateEvent={selectedSighting.frigate_event}
-        playIntent="user"
-        onClose={() => {
-            showVideo = false;
-            selectedSighting = null;
-        }}
-    />
-{/if}
 
 <style>
     .animate-fade-in {

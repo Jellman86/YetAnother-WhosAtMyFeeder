@@ -1,4 +1,5 @@
 <script lang="ts">
+    import VisitCaptures from './VisitCaptures.svelte';
     import DetectionPreview from './DetectionPreview.svelte';
     import FilteredFramePreview from './FilteredFramePreview.svelte';
     import type { Detection } from '../api';
@@ -32,6 +33,7 @@
         loading?: boolean;
         onselect?: (detection: Detection) => void;
         onidentify?: (detection: Detection) => void;
+        onplay?: (detection: Detection) => void;
         onseeall?: () => void;
     }
 
@@ -46,6 +48,7 @@
         loading = false,
         onselect,
         onidentify,
+        onplay,
         onseeall
     }: Props = $props();
 
@@ -224,7 +227,7 @@
                     <DetectionPreview
                         detection={visit.best}
                         frames={visit.frames}
-                        frameCount={visit.frames.length}
+                        frameCount={(visit.captureCount ?? visit.frames.length)}
                         primaryName={naming.primary}
                         secondaryName={naming.secondary}
                         onopen={(frame) => onselect?.(frame)}
@@ -235,11 +238,11 @@
                             <span class="truncate text-sm font-semibold text-slate-900 dark:text-white">
                                 {naming.primary}
                             </span>
-                            {#if visit.frames.length > 1}
+                            {#if (visit.captureCount ?? visit.frames.length) > 1}
                                 <!-- Captures, not birds: the bird count below says how many birds one capture held. -->
                                 <span class="shrink-0 text-xs font-medium text-slate-500 dark:text-slate-400" data-field-log-captures>
-                                    <span aria-hidden="true">×{visit.frames.length}</span>
-                                    <span class="sr-only">{$_('dashboard.field_log.captures', { values: { count: visit.frames.length }, default: '{count} captures in this visit' })}</span>
+                                    <span aria-hidden="true">×{(visit.captureCount ?? visit.frames.length)}</span>
+                                    <span class="sr-only">{$_('dashboard.field_log.captures', { values: { count: (visit.captureCount ?? visit.frames.length) }, default: '{count} captures in this visit' })}</span>
                                 </span>
                             {/if}
                         </p>
@@ -333,6 +336,11 @@
                             </svg>
                             <span class="min-w-0">{text}</span>
                         </button>
+                    {/if}
+                    {#if visit.server}
+                        <div class="col-span-full min-w-0">
+                            <VisitCaptures visit={visit.server} window={visit.window} onselect={onselect} {onplay} />
+                        </div>
                     {/if}
                 </li>
                 {/if}

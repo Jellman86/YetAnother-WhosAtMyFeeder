@@ -176,6 +176,26 @@ fresh day. This does not cache sharing preferences.
 
 - `GET /api/events`
 - `GET /api/events/count`
+- `GET /api/visits` Groups the accessible history before pagination. Accepts `limit`, `offset`,
+  `start_date`/`end_date` or UTC `start_time`/`end_time`, `species`, `camera`, `favorites`,
+  `audio_confirmed_only`, `only_hidden`, `multiple_species_only` and `sort` (`newest`, `oldest`,
+  `confidence`). Returns `visits`, `total` and `gap_seconds`. Each visit includes its stable
+  `visit_id` (first accessible capture), start/end, full `capture_count`, best score, review/audio
+  state, representative/latest records and owner-only busiest counted capture. Grouping uses
+  canonical species, actual camera and a 60-second inactivity gap after the running latest
+  verified event end; historical captures without bounds use capture time. Unknown and manual
+  records remain separate. It does not identify individual birds. Access/date/hidden scope is
+  applied before grouping; species, favourite, audio and multiple-species matching selects the
+  whole accessible visit. A sharing window or correction can change membership and the first id.
+- `GET /api/visits/{visit_id}/captures` Rechecks access and history window on every read. Accepts
+  the same date/time and hidden scope, plus `limit` (20 by default, maximum 50) and `offset`.
+  Returns chronological `captures` and `total`; unavailable visits return 404.
+
+`GET /api/events`, `GET /api/events/count` and `GET /api/visits` accept the owner-only
+`multiple_species_only=true` filter. It matches at least two distinct resolved, named species
+among visible counted birds in a capture. Aliases of one species and unknown/excluded birds do
+not satisfy it. A visit matches if one of its captures qualifies. Guest requests ignore the flag.
+
 - `GET /api/events/filters` Species and camera options, each with a detection count, plus totals
   for the favourites, audio-matched and video-analysed facets. Counts exclude hidden detections;
   for public guests, they also use the configured public-history window so filter metadata cannot
@@ -357,6 +377,12 @@ per-file limits above.
   stays attached to the matched box when HQ candidates are regenerated.
   A species must be a complete known common or scientific name. Partial or ambiguous names return
   HTTP 400. Send the selected `id` from `/api/species/search` to preserve canonical identity.
+- `PATCH /api/frigate/{event_id}/snapshot/candidates/{candidate_id}` (owner). Body:
+  `{"dismissed": true}` removes a photo choice; `false` restores it. Returns the updated candidate
+  list with `photo_hidden` flags. Source images and bird evidence remain intact. The current chosen
+  photo returns 409 until another is chosen; missing choices return 404. Applying a removed choice
+  returns 409 until restored. Dismissals are tied to image content, so regeneration keeps an
+  unchanged removed image excluded while a genuinely changed image can become a new choice.
 - `GET /api/frigate/{event_id}/snapshot/candidates/{candidate_id}/thumbnail.jpg` (owner) — the
   small chooser thumbnail for one candidate.
 - `GET /api/frigate/{event_id}/snapshot/candidates/{candidate_id}/image.jpg` (owner) — the retained
@@ -434,7 +460,7 @@ Notes:
   call-matched detections in the window; `history_start` and `previous_window_complete` say whether
   the previous window was fully recorded; with eBird configured, `reported_nearby` per species and
   the `nearby_radius_km` / `nearby_days_back` of that check; `window_visit_count` and
-  `window_prev_visit_count` fold frames of one species on one camera within ten minutes, as the
+  `window_prev_visit_count` fold captures of one canonical species on one camera with a 60-second inactivity gap, as the
   dashboard does, while `window_count` stays frames)
 
 ### Statistics
@@ -443,7 +469,7 @@ Notes:
   `counted_captures` (captures with at least one stored bird observation) for the same daily
   window. These counts cover analyzed captures and may count the same bird in later captures.
   Visits for the same last-24-hours window use the leaderboard's rule (a frame opens a visit unless the
-  same species was on the same camera within 10 minutes before it): `visit_count`, `hourly_visits`
+  same canonical species was on the same camera within 60 seconds of the running latest verified event end, or capture time when the end is unavailable): `visit_count`, `hourly_visits`
   (24 local-hour buckets by when each visit began), `camera_visits` (visits and last sighting per
   camera; `null` for a guest who may not see camera names) and `visit_count` on each `top_species`
   entry, which is now ordered by visits. `total_count` and `hourly_distribution` still count frames.
@@ -637,7 +663,7 @@ retrying; the server does not repeat a paid provider call.
   invalidates it, including when that change happens during rendering. Legacy films without
   matching provenance are not served.
 - `GET /api/about/portrait?utc_offset_minutes=` (guest-rate-limited). This feeder in a few facts:
-  `started_at`, `visits` (the leaderboard's ten-minute rule), `detections`, `species`,
+  `started_at`, `visits` (the shared 60-second visit rule), `detections`, `species`,
   `busiest_day` (the viewer's calendar day, from the offset), `newest_arrival` (seen at least three
   times or confirmed) and `latest_visit` (with `film_url` once made). `scope` is `shared` for a
   guest, whose facts cover only the shared window of `shared_days`.

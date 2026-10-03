@@ -824,6 +824,17 @@ class EventProcessor:
     async def _handle_terminal_event_enrichment(self, event: EventData) -> None:
         """Schedule final media work only after the detection is durable."""
         try:
+            from app.repositories.visit_repository import VisitRepository
+
+            async with get_db() as db:
+                await VisitRepository(db).save_event_bounds(
+                    event.frigate_event,
+                    getattr(event, "start_time_ts", None),
+                    getattr(event, "end_time_ts", None),
+                )
+        except Exception as exc:
+            log.warning("Could not retain event bounds", event_id=event.frigate_event, error=str(exc))
+        try:
             retention_check = getattr(event, "not_retained_by_frigate", None)
             if callable(retention_check) and retention_check():
                 async with get_db() as db:
@@ -1657,6 +1668,7 @@ class EventProcessor:
             frigate_event=event.frigate_event,
             camera=event.camera,
             start_time=event.start_time_ts,
+            **({"end_time": event.end_time_ts} if getattr(event, "end_time_ts", None) is not None else {}),
             classification=classification,
             frigate_score=event.frigate_score,
             sub_label=event.sub_label,

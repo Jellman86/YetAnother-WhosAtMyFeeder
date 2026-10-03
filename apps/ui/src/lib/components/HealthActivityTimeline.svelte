@@ -1,4 +1,5 @@
 <script lang="ts">
+    import VisitCaptures from './VisitCaptures.svelte';
     import { _ } from 'svelte-i18n';
     import type { Detection } from '../api';
     import { getBirdNames } from '../naming';
@@ -122,7 +123,7 @@
                         <DetectionPreview
                             detection={visit.best}
                             frames={visit.frames}
-                            frameCount={visit.frames.length}
+                            frameCount={(visit.captureCount ?? visit.frames.length)}
                             primaryName={naming.primary}
                             secondaryName={naming.secondary}
                             onopen={(frame) => onselect?.(frame)}
@@ -167,6 +168,9 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" />
                             </svg>
                         </button>
+                        {#if visit.server}
+                            <div class="col-span-full min-w-0"><VisitCaptures visit={visit.server} window={visit.window} {onselect} /></div>
+                        {/if}
                     </li>
                 {:else}
                     {@const drop = row.drop}

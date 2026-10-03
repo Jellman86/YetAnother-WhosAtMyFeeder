@@ -53,7 +53,7 @@ describe('the frame strip is one ordered set of moments (#256)', () => {
         // With a backdrop, a Close and Escape, the pointer drifting off the strip is not a dismissal,
         // and a tap on the sheet's own picture (focus going nowhere) is not either.
         expect(stripSource).toContain('if (anchor?.sheet) return;\n        hide();');
-        expect(stripSource).toContain('onmouseleave={hoverClose}');
+        expect(stripSource).toContain('onmouseleave={() => { hoverPaused = false; hoverClose(); }}');
         expect(stripSource).not.toContain('onmouseleave={() => hide()}');
         // Only the sheet ignores focus going nowhere; a desktop pop-out still closes.
         expect(stripSource).toContain('if (!(next instanceof Node)) {\n            if (!anchor?.sheet) hide(true);');

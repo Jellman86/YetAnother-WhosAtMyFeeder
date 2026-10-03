@@ -289,7 +289,10 @@
     "theme.font_studio",
     "theme.horizontal",
     "theme.vertical",
-    "video_player.clip_badge"
+    "video_player.clip_badge",
+    "visits.capture_view",
+    "visits.captures",
+    "visits.total_captures"
   ],
   "it": [
     "about.instance.uptime_hours",

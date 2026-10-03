@@ -32,6 +32,7 @@ from app.services.hq_classification_refinement import (
     crop_labels_with_independent_support,
 )
 from app.services.media_cache import media_cache, validate_film_alignment
+from app.services.photo_choice_actions import photo_choice_lock
 from app.services.classification_input_provenance import cached_snapshot_input_provenance
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
@@ -380,6 +381,10 @@ class HighQualitySnapshotService:
 
     async def _process_event_once(self, event_id: str, *, manual_override: bool = False) -> str:
         """Fetch the clip, derive a frame, and atomically replace the cached snapshot."""
+        async with photo_choice_lock(event_id):
+            return await self._process_event_once_unlocked(event_id, manual_override=manual_override)
+
+    async def _process_event_once_unlocked(self, event_id: str, *, manual_override: bool = False) -> str:
         if not self.enabled():
             self._crop_event_hints.pop(event_id, None)
             return self._record_outcome(event_id, "disabled")
@@ -556,6 +561,24 @@ class HighQualitySnapshotService:
         clip_start_timestamp: float | None = None,
     ) -> str:
         """Best-effort replacement from a clip already on disk; the caller owns the file (#341)."""
+        async with photo_choice_lock(event_id):
+            return await self._replace_from_clip_path_unlocked(
+                event_id,
+                clip_path,
+                event_data,
+                clip_variant=clip_variant,
+                clip_start_timestamp=clip_start_timestamp,
+            )
+
+    async def _replace_from_clip_path_unlocked(
+        self,
+        event_id: str,
+        clip_path: Path,
+        event_data: Optional[dict[str, Any]] = None,
+        *,
+        clip_variant: str = "event",
+        clip_start_timestamp: float | None = None,
+    ) -> str:
         if not self.enabled():
             return self._record_outcome(event_id, "disabled")
 
@@ -831,6 +854,7 @@ class HighQualitySnapshotService:
             if has_confident_photo_species(candidate, threshold=settings.classification.threshold)
             and (not expected_keys or self._candidate_label_key(candidate.get("classifier_label")) in expected_keys)
         ]
+        supported = await self._available_photo_candidates(event_id, supported)
         selected_candidate = self._select_canonical_snapshot_candidate(
             supported,
             expected_labels=expected_labels,
@@ -855,6 +879,48 @@ class HighQualitySnapshotService:
             "bird_selection": bird_selection,
             "photo_outcome": None if selected_candidate is not None else "bird_presence_unconfirmed",
         }
+
+    async def _available_photo_candidates(
+        self, event_id: str, candidates: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """Apply photo-choice removal to selection without discarding detector evidence."""
+        if not candidates:
+            return candidates
+        async with get_db() as db:
+            existing = await DetectionRepository(db).list_snapshot_candidates(event_id)
+        removed = [row for row in existing if row.get("photo_hidden")]
+        if not removed:
+            return candidates
+        removed_hashes = {row["content_sha256"] for row in removed if row.get("content_sha256")}
+        removed_ids = {row["candidate_id"] for row in removed}
+        legacy_ids = set()
+        for row in removed:
+            if row.get("content_sha256"):
+                continue
+            image = await media_cache.get_snapshot(row["image_ref"]) if row.get("image_ref") else None
+            if image:
+                removed_hashes.add(await asyncio.to_thread(lambda: hashlib.sha256(image).hexdigest()))
+            else:
+                legacy_ids.add(row["candidate_id"])
+
+        def available() -> list[dict[str, Any]]:
+            result = []
+            for candidate in candidates:
+                candidate_id = candidate.get("candidate_id")
+                image = candidate.get("image_bytes")
+                if candidate_id in legacy_ids or (legacy_ids and not candidate_id):
+                    continue
+                if isinstance(image, (bytes, bytearray)):
+                    # The same frame ID may yield new pixels after regeneration. Compare
+                    # actual content, including duplicate choices and raw fallback crops.
+                    if hashlib.sha256(image).hexdigest() in removed_hashes:
+                        continue
+                elif candidate_id in removed_ids:
+                    continue
+                result.append(candidate)
+            return result
+
+        return await asyncio.to_thread(available)
 
     async def _recheck_weak_count_candidates(
         self, scored: list[dict[str, Any]], *, observations: list[dict[str, Any]] | None = None
@@ -1867,6 +1933,15 @@ class HighQualitySnapshotService:
             repo = DetectionRepository(db)
             existing = await repo.list_snapshot_candidates(event_id)
             birds = await BirdObservationRepository(db).list_for_event(event_id)
+        legacy_removed_hashes: dict[str, str] = {}
+        for row in existing:
+            if not row.get("photo_hidden") or row.get("content_sha256") or not row.get("image_ref"):
+                continue
+            image = await media_cache.get_snapshot(row["image_ref"])
+            if image:
+                legacy_removed_hashes[row["candidate_id"]] = await asyncio.to_thread(
+                    lambda: hashlib.sha256(image).hexdigest()
+                )
         previous = {row["candidate_id"]: row for row in existing}
         created_at = serialize_storage_datetime(utc_naive_now())
         candidates = [
@@ -1974,6 +2049,10 @@ class HighQualitySnapshotService:
             persisted_rows.append(row)
         async with get_db() as db:
             repo = DetectionRepository(db)
+            for row in persisted_rows:
+                old_digest = legacy_removed_hashes.get(row["candidate_id"])
+                if old_digest and old_digest == row.get("content_sha256"):
+                    await repo.bind_legacy_snapshot_candidate_dismissal(event_id, row["candidate_id"], old_digest)
             await repo.replace_snapshot_candidates(event_id, persisted_rows)
         from app.services.video_snapshot_service import prune_unreferenced_photo_files
 
@@ -2576,7 +2655,8 @@ class HighQualitySnapshotService:
             in {self._candidate_label_key(label) for label in expected}
             and self._select_best_trusted_candidate([candidate], expected_labels=expected)
         ):
-            return cropped, True
+            if await self._available_photo_candidates(event_id, [{**candidate, "image_bytes": cropped}]):
+                return cropped, True
         return None, False
 
     def _maybe_crop_snapshot_bytes(

@@ -32,6 +32,13 @@ const drop = (eventId: string, timestamp: string | null) => ({
 });
 
 describe('health timeline', () => {
+    it('counts all captures represented by a server visit summary', () => {
+        const summarized = { ...visit('a', '2026-08-15T06:12:04Z'), captureCount: 13 };
+        const rows = buildHealthTimeline({ visits: [summarized] });
+        expect(representedEventCount(rows)).toBe(13);
+        expect(hiddenEventCount(13, representedEventCount(rows))).toBe(0);
+    });
+
     it('interleaves kept visits and filtered frames newest first', () => {
         const rows = buildHealthTimeline({
             visits: [visit('a', '2026-08-15T06:12:04Z'), visit('b', '2026-08-15T05:53:41Z')],

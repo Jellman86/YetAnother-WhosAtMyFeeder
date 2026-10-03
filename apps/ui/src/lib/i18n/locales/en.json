@@ -3154,5 +3154,24 @@
     "notifications": "Alerts, reminders, and active background jobs.",
     "settings": "Connections, classification, integrations, and personalization.",
     "species": "Leaderboard, totals, and taxonomy details for the birds you have seen."
+  },
+  "visits": {
+    "captures": "{count, plural, one {# capture} other {# captures}}",
+    "total": "{count, plural, one {# visit} other {# visits}}",
+    "total_captures": "{count, plural, one {# capture} other {# captures}}",
+    "visits": "Visits",
+    "capture_view": "Captures",
+    "grouping": "Group captures",
+    "peak_birds": "{count} birds in one capture",
+    "capture_actions": "Open a capture to review its identification or play its clip.",
+    "load_failed": "Could not load the captures. Try again.",
+    "load_more": "Load more captures",
+    "open_capture": "Open {species} capture",
+    "multiple_species": "Multiple bird species",
+    "multiple_species_hint": "Two or more named species in one analyzed capture.",
+    "remove_photo": "Remove photo choice",
+    "choose_first": "Choose another photograph before removing this one.",
+    "photo_removed": "Photo removed from the choices.",
+    "remove_failed": "Could not change this photo choice. Try again."
   }
 }

@@ -36,15 +36,15 @@ async def seeded_db():
                 INSERT INTO detections (frigate_event, camera_name, detection_time, detection_index, score,
                                         display_name, category_name, is_hidden, manual_tagged)
                 VALUES
-                -- Two robin visits on the 10th: the 10:05 frame belongs to the 10:00 visit.
+                -- Two robin visits on the 10th: the 10:00:30 capture belongs to the 10:00 visit.
                 ('robin_1', 'cam1', '2026-09-10 10:00:00', 1, 0.9, 'Robin', 'bird', 0, 0),
-                ('robin_2', 'cam1', '2026-09-10 10:05:00', 1, 0.9, 'Robin', 'bird', 0, 0),
+                ('robin_2', 'cam1', '2026-09-10 10:00:30', 1, 0.9, 'Robin', 'bird', 0, 0),
                 ('robin_3', 'cam1', '2026-09-10 10:30:00', 1, 0.9, 'Robin', 'bird', 0, 0),
                 -- 23:30 UTC is the next day an hour east of UTC.
                 ('robin_late', 'cam1', '2026-09-11 23:30:00', 1, 0.9, 'Robin', 'bird', 0, 0),
                 ('dunnock_1', 'cam1', '2026-09-07 12:00:00', 1, 0.8, 'Dunnock', 'bird', 0, 0),
                 ('dunnock_2', 'cam1', '2026-09-11 12:00:00', 1, 0.8, 'Dunnock', 'bird', 0, 0),
-                ('dunnock_3', 'cam1', '2026-09-11 12:05:00', 1, 0.8, 'Dunnock', 'bird', 0, 0),
+                ('dunnock_3', 'cam1', '2026-09-11 12:00:30', 1, 0.8, 'Dunnock', 'bird', 0, 0),
                 -- Seen once, first seen last: never announced as the newest arrival.
                 ('lion', 'cam1', '2026-09-11 13:00:00', 1, 0.6, 'Mountain Lion', 'bird', 0, 0),
                 ('unknown', 'cam1', '2026-09-11 14:00:00', 1, 0.5, 'background', 'bird', 0, 0),

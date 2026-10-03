@@ -174,11 +174,6 @@ def merge_species_count_rows(rows: list[dict]) -> list[dict]:
     return merged
 
 
-# Frames of one species on one camera belong to one visit while each is within this many minutes of
-# the one before. Keep in step with VISIT_GAP_MS in apps/ui/src/lib/utils/visit-grouping.ts.
-VISIT_GAP_MINUTES = 10
-
-
 def merge_species_leaderboard_rows(rows: list[dict]) -> list[dict]:
     """Fold leaderboard rows that are the same bird under different identity keys.
 
@@ -738,8 +733,14 @@ class DetectionRepository:
     async def list_snapshot_candidates(self, frigate_event: str) -> list[dict]:
         if not await self._table_exists("snapshot_candidates"):
             return []
+        dismissed = "0"
+        if await self._table_exists("snapshot_candidate_dismissals"):
+            dismissed = """EXISTS (SELECT 1 FROM snapshot_candidate_dismissals x
+                WHERE x.frigate_event = snapshot_candidates.frigate_event
+                  AND x.candidate_id = snapshot_candidates.candidate_id
+                  AND x.content_identity = COALESCE(snapshot_candidates.content_sha256, snapshot_candidates.candidate_id))"""
         async with self.db.execute(
-            """
+            f"""
             SELECT
                 candidate_id,
                 frame_index,
@@ -757,7 +758,7 @@ class DetectionRepository:
                 image_ref,
                 snapshot_source,
                 content_sha256,
-                created_at
+                created_at, {dismissed} AS photo_hidden
             FROM snapshot_candidates
             WHERE frigate_event = ?
             ORDER BY ranking_score DESC, frame_index ASC, candidate_id ASC
@@ -793,6 +794,7 @@ class DetectionRepository:
                     "snapshot_source": row[14],
                     "content_sha256": row[15],
                     "created_at": row[16],
+                    "photo_hidden": bool(row[17]) and not bool(row[11]),
                 }
             )
         return result
@@ -803,6 +805,53 @@ class DetectionRepository:
         ) as cursor:
             rows = await cursor.fetchall()
         return [(int(row[0]), str(row[1])) for row in rows]
+
+    async def dismiss_snapshot_candidate(self, event_id: str, candidate_id: str, dismissed: bool) -> bool:
+        candidates = await self.list_snapshot_candidates(event_id)
+        candidate = next((item for item in candidates if item["candidate_id"] == candidate_id), None)
+        if candidate is None:
+            return False
+        if dismissed and candidate["selected"]:
+            raise ValueError("Choose another photograph before removing this one")
+        if dismissed:
+            await self.db.execute(
+                """INSERT INTO snapshot_candidate_dismissals (frigate_event, candidate_id, content_identity)
+                SELECT frigate_event, candidate_id, COALESCE(content_sha256, candidate_id)
+                FROM snapshot_candidates WHERE frigate_event = ? AND candidate_id = ? AND selected = 0
+                  AND COALESCE(content_sha256, candidate_id) = ?
+                ON CONFLICT(frigate_event, candidate_id)
+                DO UPDATE SET content_identity = excluded.content_identity""",
+                (event_id, candidate_id, candidate.get("content_sha256") or candidate_id),
+            )
+            if await self._last_statement_changes() == 0:
+                async with self.db.execute(
+                    "SELECT selected FROM snapshot_candidates WHERE frigate_event = ? AND candidate_id = ?",
+                    (event_id, candidate_id),
+                ) as cursor:
+                    current = await cursor.fetchone()
+                await self.db.rollback()
+                if current and current[0]:
+                    raise ValueError("Choose another photograph before removing this one")
+                return False
+        else:
+            await self.db.execute(
+                "DELETE FROM snapshot_candidate_dismissals WHERE frigate_event = ? AND candidate_id = ?",
+                (event_id, candidate_id),
+            )
+        await self.db.commit()
+        return True
+
+    async def bind_legacy_snapshot_candidate_dismissal(self, event_id: str, candidate_id: str, digest: str) -> None:
+        """Bind verified legacy pixels inside the caller's candidate replacement transaction."""
+        await self.db.execute(
+            """UPDATE snapshot_candidate_dismissals SET content_identity = ?
+            WHERE frigate_event = ? AND candidate_id = ? AND content_identity = candidate_id
+              AND EXISTS (SELECT 1 FROM snapshot_candidates s
+                  WHERE s.frigate_event = snapshot_candidate_dismissals.frigate_event
+                    AND s.candidate_id = snapshot_candidate_dismissals.candidate_id
+                    AND s.content_sha256 IS NULL AND s.selected = 0)""",
+            (digest, event_id, candidate_id),
+        )
 
     async def get_selected_snapshot_candidate(self, frigate_event: str) -> Optional[dict]:
         candidates = await self.list_snapshot_candidates(frigate_event)
@@ -2520,9 +2569,10 @@ class DetectionRepository:
         favorite_only: bool = False,
         audio_confirmed_only: bool = False,
         public_audio_evidence: bool = False,
+        multiple_species_only: bool = False,
         frigate_event: str | None = None,
     ) -> list[Detection]:
-        if self._species_fast_path_eligible(
+        if not multiple_species_only and self._species_fast_path_eligible(
             species=species,
             species_any=species_any,
             taxa_id=taxa_id,
@@ -2633,6 +2683,14 @@ class DetectionRepository:
             conditions.append("d.frigate_event = ?")
             params.append(frigate_event)
 
+        if multiple_species_only:
+            from app.repositories.bird_observation_repository import BirdObservationRepository
+
+            clause, values = await BirdObservationRepository(self.db).multiple_species_condition(
+                start=start_date, end=end_date, camera=camera, hidden_only=hidden_only, include_hidden=include_hidden
+            )
+            conditions.append(clause)
+            params.extend(values)
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
 
@@ -2666,6 +2724,7 @@ class DetectionRepository:
         audio_confirmed_only: bool = False,
         public_audio_evidence: bool = False,
         exclude_species_floor: int = 0,
+        multiple_species_only: bool = False,
     ) -> int:
         """Get total count of detections, optionally filtered."""
         has_taxonomy_cache = await self._table_exists("taxonomy_cache")
@@ -2750,6 +2809,14 @@ class DetectionRepository:
         if exclude_species_floor > 0:
             conditions.append(f"d.id NOT IN ({self._species_floor_sql(exclude_species_floor)})")
 
+        if multiple_species_only:
+            from app.repositories.bird_observation_repository import BirdObservationRepository
+
+            clause, values = await BirdObservationRepository(self.db).multiple_species_condition(
+                start=start_date, end=end_date, camera=camera, hidden_only=hidden_only, include_hidden=include_hidden
+            )
+            conditions.append(clause)
+            params.extend(values)
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
 
@@ -3632,24 +3699,15 @@ class DetectionRepository:
         The offset is the viewer's, so a day is the viewer's day; it is a fixed shift, so a
         daylight-saving change moves the boundary by an hour on the days either side of it.
         """
-        canonical_key = self._canonical_key_sql(taxonomy_alias=None)
-        bounds_sql, bounds_params = _history_bounds_sql(start_date, end_date, "d.detection_time")
+        from app.repositories.visit_repository import VisitRepository
+
+        cte, params = await VisitRepository(self.db).grouping_cte(start=start_date, end=end_date)
         offset = f"{int(utc_offset_minutes):+d} minutes"
-        query = f"""
-            SELECT date(detection_time, ?) AS day, COUNT(*)
-            FROM (
-                SELECT d.detection_time,
-                       LAG(d.detection_time) OVER (
-                           PARTITION BY {canonical_key}, d.camera_name ORDER BY d.detection_time, d.id
-                       ) AS previous_at
-                FROM detections d
-                WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL){bounds_sql}
-            )
-            WHERE previous_at IS NULL
-               OR (julianday(detection_time) - julianday(previous_at)) * 1440.0 > {VISIT_GAP_MINUTES}
-            GROUP BY day
-        """
-        async with self.db.execute(query, [offset, *bounds_params]) as cursor:
+        async with self.db.execute(
+            f"WITH {cte} SELECT date(detection_time, ?) AS day, COUNT(DISTINCT visit_id) "
+            "FROM visit_members WHERE visit_position = 1 GROUP BY day",
+            [*params, offset],
+        ) as cursor:
             rows = await cursor.fetchall()
         return {str(row[0]): int(row[1]) for row in rows if row[0]}
 
@@ -4249,51 +4307,21 @@ class DetectionRepository:
         prev_start: datetime,
         prev_end: datetime,
     ) -> dict[object, tuple[int, int]]:
-        """Visits per species key in the window and the one before it.
+        """Each window counts its visible portion of a visit once."""
+        from app.repositories.visit_repository import VisitRepository
 
-        A detection opens a visit unless the same species was on the same camera within
-        VISIT_GAP_MINUTES before it. Another bird in between does not split a visit. A visit
-        already running when a window opens counts in that window too, so each window stands
-        on its own.
-        """
-        query = f"""
-            SELECT key,
-                SUM(CASE WHEN at >= ? AND at < ?
-                          AND (previous_at IS NULL OR previous_at < ?
-                               OR (julianday(at) - julianday(previous_at)) * 1440.0 > {VISIT_GAP_MINUTES})
-                    THEN 1 ELSE 0 END) AS window_visits,
-                SUM(CASE WHEN at >= ? AND at < ?
-                          AND (previous_at IS NULL
-                               OR (julianday(at) - julianday(previous_at)) * 1440.0 > {VISIT_GAP_MINUTES})
-                    THEN 1 ELSE 0 END) AS prev_visits
-            FROM (
-                SELECT {key_sql} AS key,
-                       d.detection_time AS at,
-                       LAG(d.detection_time) OVER (
-                           PARTITION BY {key_sql}, d.camera_name ORDER BY d.detection_time
-                       ) AS previous_at
-                FROM detections d
-                {join_sql}
-                WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
-                  AND d.detection_time >= ?
-                  AND d.detection_time < ?
-                  AND {condition_sql}
-            )
-            GROUP BY key
-        """
-        params = [
-            window_start,
-            window_end,
-            window_start,
-            prev_start,
-            prev_end,
-            prev_start,
-            window_end,
-            *condition_params,
-        ]
-        async with self.db.execute(query, params) as cursor:
-            rows = await cursor.fetchall()
-        return {row[0]: (int(row[1] or 0), int(row[2] or 0)) for row in rows}
+        counts: dict[object, list[int]] = {}
+        for index, (start, end) in enumerate(((window_start, window_end), (prev_start, prev_end))):
+            cte, params = await VisitRepository(self.db).grouping_cte(start=start, end=end - timedelta(microseconds=1))
+            query = f"""WITH {cte}, openings AS (
+                SELECT DISTINCT d.visit_id, {key_sql} AS key
+                FROM visit_members d {join_sql}
+                WHERE d.visit_position = 1 AND {condition_sql}
+            ) SELECT key, COUNT(*) FROM openings GROUP BY key"""
+            async with self.db.execute(query, [*params, *condition_params]) as cursor:
+                for key, count in await cursor.fetchall():
+                    counts.setdefault(key, [0, 0])[index] = int(count)
+        return {key: (value[0], value[1]) for key, value in counts.items()}
 
     async def get_species_leaderboard_window(
         self,
@@ -5191,32 +5219,17 @@ class DetectionRepository:
         return out
 
     async def get_window_visit_openings(self, start_date: datetime, end_date: datetime) -> list[dict]:
-        """The detections that open a visit in a time range, oldest first, with their camera.
+        """The first visible capture of each shared visit inside the window."""
+        from app.repositories.visit_repository import VisitRepository
 
-        Same rule as the species counts: a detection opens a visit unless the same species was on
-        the same camera within VISIT_GAP_MINUTES before it. A visit already running when the range
-        opens counts once, from its first detection inside the range.
-        """
-        canonical_key = self._canonical_key_sql(taxonomy_alias=None)
-        query = f"""
-            SELECT camera_name, detection_time
-            FROM (
-                SELECT d.camera_name,
-                       d.detection_time,
-                       LAG(d.detection_time) OVER (
-                           PARTITION BY {canonical_key}, d.camera_name ORDER BY d.detection_time, d.id
-                       ) AS previous_at
-                FROM detections d
-                WHERE d.detection_time >= ? AND d.detection_time <= ?
-                  AND (d.is_hidden = 0 OR d.is_hidden IS NULL)
-            )
-            WHERE previous_at IS NULL
-               OR (julianday(detection_time) - julianday(previous_at)) * 1440.0 > {VISIT_GAP_MINUTES}
-            ORDER BY detection_time
-        """
-        async with self.db.execute(query, (start_date.isoformat(sep=" "), end_date.isoformat(sep=" "))) as cursor:
+        cte, params = await VisitRepository(self.db).grouping_cte(start=start_date, end=end_date)
+        async with self.db.execute(
+            f"WITH {cte} SELECT camera_name, detection_time FROM visit_members "
+            "WHERE visit_position = 1 ORDER BY at, id",
+            params,
+        ) as cursor:
             rows = await cursor.fetchall()
-        return [{"camera": row[0], "opened_at": _parse_datetime(row[1])} for row in rows if row[1]]
+        return [{"camera": row[0], "opened_at": _parse_datetime(row[1])} for row in rows]
 
     async def get_camera_last_seen(self, start_date: datetime, end_date: datetime) -> dict[str, datetime]:
         """The latest visible detection per camera in a time range."""
@@ -5234,11 +5247,14 @@ class DetectionRepository:
         """Detection and visit counts per species for a time range.
 
         A visit follows the leaderboard's rule: a detection opens one unless the same species was
-        on the same camera within VISIT_GAP_MINUTES before it.
+        on the same camera within sixty seconds of the last verified event end, or capture time.
         """
+        from app.repositories.visit_repository import VisitRepository
+
+        visit_cte, visit_params = await VisitRepository(self.db).grouping_cte(start=start_date, end=end_date)
         canonical_key = self._canonical_key_sql(taxonomy_alias=None)
         query = f"""
-            WITH filtered AS (
+            WITH {visit_cte}, filtered AS (
                 SELECT
                     d.id,
                     d.detection_time,
@@ -5248,8 +5264,9 @@ class DetectionRepository:
                     d.common_name,
                     d.display_name,
                     d.taxa_id,
+                    d.visit_position,
                     {canonical_key} AS unified_id
-                FROM detections d
+                FROM visit_members d
                 WHERE d.detection_time >= ? AND d.detection_time <= ?
                   AND (d.is_hidden = 0 OR d.is_hidden IS NULL)
             ),
@@ -5273,18 +5290,8 @@ class DetectionRepository:
                 GROUP BY unified_id
             ),
             visits AS (
-                SELECT unified_id, COUNT(*) AS visit_count
-                FROM (
-                    SELECT unified_id,
-                           detection_time,
-                           LAG(detection_time) OVER (
-                               PARTITION BY unified_id, camera_name ORDER BY detection_time, id
-                           ) AS previous_at
-                    FROM filtered
-                )
-                WHERE previous_at IS NULL
-                   OR (julianday(detection_time) - julianday(previous_at)) * 1440.0 > {VISIT_GAP_MINUTES}
-                GROUP BY unified_id
+                SELECT unified_id, COUNT(*) AS visit_count FROM filtered
+                WHERE visit_position = 1 GROUP BY unified_id
             )
             SELECT
                 counts.unified_id,
@@ -5306,7 +5313,9 @@ class DetectionRepository:
              AND filtered_latest.frigate_event = ranked.frigate_event
             ORDER BY counts.count DESC
         """
-        async with self.db.execute(query, (start_date.isoformat(sep=" "), end_date.isoformat(sep=" "))) as cursor:
+        async with self.db.execute(
+            query, [*visit_params, start_date.isoformat(sep=" "), end_date.isoformat(sep=" ")]
+        ) as cursor:
             rows = await cursor.fetchall()
             return merge_species_count_rows(
                 [

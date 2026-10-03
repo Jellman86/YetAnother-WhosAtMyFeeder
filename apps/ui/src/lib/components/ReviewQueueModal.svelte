@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onDestroy, untrack } from 'svelte';
-    import { applySnapshotCandidate, fetchFeederSpecies, fetchSnapshotCandidates, getSnapshotUrl, getThumbnailUrl, searchSpecies } from '../api';
+    import { dismissSnapshotCandidate, applySnapshotCandidate, fetchFeederSpecies, fetchSnapshotCandidates, getSnapshotUrl, getThumbnailUrl, searchSpecies } from '../api';
     import type { BirdObservation, Detection, SearchResult, SnapshotCandidate } from '../api';
     import FrameStrip from './FrameStrip.svelte';
     import CountedBirds from './CountedBirds.svelte';
@@ -80,7 +80,9 @@
     let currentCandidateId = $state<string | null>(null);
     let currentSource = $state<string | null>(null);
     let applyingKey = $state<string | null>(null);
-    let applyPending = $state(false);
+    let pendingPhotoEvent = $state<string | null>(null);
+    let photoOperation = 0;
+    const applyPending = $derived(pendingPhotoEvent !== null && pendingPhotoEvent === session.current?.frigate_event);
     const moments = $derived<FrameMoment[]>(
         // The current frame still has the saved photograph even when its candidate files expired.
         groupCandidatesIntoMoments(candidates.filter((item) =>
@@ -278,23 +280,37 @@
         return () => { cancelled = true; };
     });
 
+    async function removePhotoChoice(candidateId: string, dismissed: boolean): Promise<void> {
+        const eventId = session.current?.frigate_event;
+        if (!eventId || applyPending) return;
+        const operation = ++photoOperation;
+        pendingPhotoEvent = eventId;
+        try {
+            const response = await dismissSnapshotCandidate(eventId, candidateId, dismissed);
+            if (operation === photoOperation && session.current?.frigate_event === eventId) candidates = response.candidates;
+        } finally {
+            if (operation === photoOperation) pendingPhotoEvent = null;
+        }
+    }
+
     async function useMoment(moment: FrameMoment): Promise<void> {
         const eventId = session.current?.frigate_event;
         const candidate = preferredCandidate(moment);
         if (!eventId || !candidate || applyPending) return;
-        applyPending = true;
+        const operation = ++photoOperation;
+        pendingPhotoEvent = eventId;
         applyingKey = moment.key;
         try {
             await applySnapshotCandidate(eventId, { mode: 'candidate', candidate_id: candidate.candidate_id });
+            if (operation !== photoOperation || session.current?.frigate_event !== eventId) return;
             wholeScene.reset();
             photographVersion += 1;
-            await loadCandidates(eventId, () => session.current?.frigate_event !== eventId);
+            await loadCandidates(eventId, () => operation !== photoOperation || session.current?.frigate_event !== eventId);
             toastStore.success($_('detection.snapshot_apply_success', { default: 'Snapshot updated' }));
         } catch (e) {
             toastStore.error(getErrorMessage(e) || $_('common.error', { default: 'Action failed' }));
         } finally {
-            applyPending = false;
-            applyingKey = null;
+            if (operation === photoOperation) { pendingPhotoEvent = null; applyingKey = null; }
         }
     }
 
@@ -658,6 +674,8 @@
                                     : $_('dashboard.review_session.no_crop', {
                                           default: 'No crop stored for this detection. Open the full record to scan for one.'
                                       })}
+                                eventId={current.frigate_event}
+                                onremove={removePhotoChoice}
                                 onuse={(moment) => { void useMoment(moment); }}
                             />
                         </div>
