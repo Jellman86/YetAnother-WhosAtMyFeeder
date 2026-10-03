@@ -10,6 +10,7 @@
     authStore.isAuthenticated = true;
     const params = new URLSearchParams(location.search);
     const layout = params.get('layout') === 'inline' ? 'inline' : 'footer';
+    const floating = params.get('floating') === '1';
     if (params.get('theme') === 'dark') document.documentElement.classList.add('dark');
     const record: Detection = { frigate_event: 'first', display_name: 'Turdus merula', scientific_name: 'Turdus merula', common_name: 'Eurasian Blackbird', detection_time: '2026-10-02T10:42:21Z', camera_name: 'birdcam', score: 0.95, has_clip: true };
     const lone: Detection = { ...record, frigate_event: 'single', detection_time: '2026-10-02T11:05:00Z' };
@@ -28,7 +29,7 @@
     <output aria-label="Selected record">{selected}</output>
     <output aria-label="Played record">{played}</output>
     <section class="card-base overflow-hidden {layout === 'inline' ? 'px-3' : ''}" data-fixture-visit>
-        <VisitCaptures {visit} {window} {layout} onselect={record => selected = record.frigate_event} onplay={record => played = record.frigate_event} />
+        <VisitCaptures {visit} {window} {layout} {floating} onselect={record => selected = record.frigate_event} onplay={record => played = record.frigate_event} />
     </section>
     <section class="card-base overflow-hidden" data-fixture-single>
         <p class="p-4 text-sm">Single capture visit</p>

@@ -24,6 +24,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   excluded when snapshots are regenerated.
 - Filter Explorer for captures containing at least two identified bird species. Recent sightings
   in species details now link to their exact detection, including captures without video.
+- Expanded captures show their own species, scientific name and confidence beside the
+  thumbnail and time. Explorer card capture lists float above the grid, so opening a visit
+  keeps the following row in place. Close the panel with its Close control, Escape, or a
+  click outside it; keyboard and touch use the same capture control.
 - Open a visit's captures from its time in the field log. The captures join the log's thread in the
   same columns as the visit: each capture's time to the second, its thumbnail, score, clip and bird
   count, on hollow nodes along a tinted stretch of the line, with the visit's photo filled and

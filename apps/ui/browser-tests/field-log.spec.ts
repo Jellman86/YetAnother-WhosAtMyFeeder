@@ -10,7 +10,8 @@ function capture(visit: string, index: number) {
         frigate_event: index === 0 ? visit : `${visit}-${index}`, display_name: 'Turdus merula', scientific_name: 'Turdus merula',
         common_name: 'Eurasian Blackbird', camera_name: 'birdcam', detection_time: at, score: 0.78 + (index % 5) / 25, has_clip: true,
         ...(index === 4 ? { bird_summary: { counted: 3, unknown: 0, excluded: 0, species: [], hint_only: false } } : {}),
-        ...(index === 6 ? { audio_confirmed: true } : {})
+        ...(index === 6 ? { audio_confirmed: true } : {}),
+        ...(index === 1 ? { display_name: 'Parus major', scientific_name: 'Parus major', common_name: 'Great Tit', score: 0.81 } : {})
     };
 }
 
@@ -40,6 +41,23 @@ async function open(page: Page, query: string) {
 function row(page: Page, visitId: string): Locator {
     return page.locator(`[data-field-log-visit="${visitId}"]`);
 }
+
+test('expanded field log captures state their own species and confidence', async ({ page }) => {
+    await open(page, '');
+    await row(page, 'blackbird').locator('[data-field-log-time-toggle]').click();
+    const capture = page.locator('[data-visit-capture="blackbird-1"]');
+    await expect(capture.getByText('Great Tit', { exact: true })).toBeVisible();
+    await expect(capture.getByText('Parus major', { exact: true })).toBeVisible();
+    await expect(capture.locator('[data-visit-capture-score]:visible')).toHaveText('81%');
+});
+
+test('expanded capture species follow scientific name preferences', async ({ page }) => {
+    await open(page, '?names=scientific');
+    await row(page, 'blackbird').locator('[data-field-log-time-toggle]').click();
+    const capture = page.locator('[data-visit-capture="blackbird-1"]');
+    await expect(capture.getByRole('button', { name: /^Parus major/ }).locator('span').first()).toHaveText('Parus major');
+    await expect(capture.getByText('Great Tit', { exact: true })).toBeVisible();
+});
 
 async function box(locator: Locator) {
     const found = await locator.boundingBox();

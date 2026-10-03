@@ -1485,15 +1485,14 @@
             <!-- A minimum card width keeps the overlay row's one-line guarantee
                  structural: fixed column counts measured 141-227px cards beside
                  the open sidebar and filter rail, clipping the play button. -->
-            <!-- Cards share a height at rest. While one lists its captures they align to the
-                 top instead, so its neighbours are not stretched into empty space. -->
-            <div class="grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-4 has-[[data-visit-captures-open]]:items-start">
+            <!-- Capture panels float above the grid; every card keeps its place. -->
+            <div class="grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-4">
                 {#each visibleEvents as event, index (eventKey(event))}
                     {@const visit = visitsByEvent.get(event.frigate_event)}
                     <!-- The card is the one outline; a visit's captures sit inside it, not in a second box. -->
                     <div class="min-w-0" data-explorer-visit={visit?.visit_id}>
                     {#snippet captures()}
-                        {#if visit}<VisitCaptures {visit} window={captureWindow} onselect={handleEventCardClick} onplay={playClip} />{/if}
+                        {#if visit}<VisitCaptures floating {visit} window={captureWindow} onselect={handleEventCardClick} onplay={playClip} />{/if}
                     {/snippet}
                     <DetectionCard
                         detection={event}

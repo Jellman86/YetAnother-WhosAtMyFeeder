@@ -89,12 +89,18 @@ for (const theme of ['light', 'dark']) {
             return node === top || node.contains(top);
         });
         expect(hit).toBe(true);
+        const restingFrame = await frame.boundingBox();
         await toggle.click();
         await expect(toggle).toHaveAttribute('aria-expanded', 'true');
         await expect(page.getByRole('dialog')).toHaveCount(0);
         await expect(frame.locator('[data-visit-capture]')).toHaveCount(3);
         await expectOneOutline(item);
-        if (shots) await item.screenshot({ path: `${shots}/explorer-card-expanded-${theme}.png` });
+        const expandedFrame = await frame.boundingBox();
+        expect(expandedFrame?.height).toBe(restingFrame?.height);
+        await expect(frame.locator('[data-visit-captures-floating]')).toBeVisible();
+        if (shots) await page.screenshot({ path: `${shots}/explorer-card-expanded-${theme}.png` });
+        await page.keyboard.press('Escape');
+        await expect(toggle).toHaveAttribute('aria-expanded', 'false');
         expect(errors).toEqual([]);
     });
 }
@@ -147,11 +153,15 @@ for (const theme of ['light', 'dark']) {
         await expectOneOutline(item);
         await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
         if (shots) await item.screenshot({ path: `${shots}/explorer-card-mobile-collapsed-${theme}.png` });
+        const next = page.locator('[data-explorer-visit="single"]');
+        const before = await next.boundingBox();
         await item.locator('[data-visit-captures-toggle]').click();
         await expect(item.locator('[data-visit-capture]')).toHaveCount(3);
         await expectOneOutline(item);
+        const after = await next.boundingBox();
+        expect(after?.y).toBe(before?.y);
         await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-        if (shots) await item.screenshot({ path: `${shots}/explorer-card-mobile-expanded-${theme}.png` });
+        if (shots) await page.screenshot({ path: `${shots}/explorer-card-mobile-expanded-${theme}.png` });
         expect(errors).toEqual([]);
     });
 }

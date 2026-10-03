@@ -306,12 +306,18 @@
                         label={$_('visits.open_capture_at', { values: { species: captureNaming.primary, time }, default: 'Open {species} capture at {time}' })}
                         onopen={() => onselect?.(capture)}
                     />
-                    <p class="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-[11px] leading-4 text-slate-500 dark:text-slate-400">
-                        <span class="font-bold tabular-nums sm:hidden {scoreTone(captureScore)}" data-visit-capture-score>{percent(captureScore)}%</span>
-                        {#each notes as note (note.text)}
-                            <span class={note.emphasis ? 'font-medium text-brand-700 dark:text-brand-300' : ''}>{note.text}</span>
-                        {/each}
-                    </p>
+                    <div class="min-w-0 py-1">
+                        <button type="button" class="block min-h-11 w-full rounded-lg text-left focus-ring" onclick={() => onselect?.(capture)}>
+                            <span class="block break-words text-sm font-semibold leading-5 text-slate-800 dark:text-slate-100">{captureNaming.primary}</span>
+                            {#if captureNaming.secondary}<span class="block break-words text-xs italic text-slate-500 dark:text-slate-400">{captureNaming.secondary}</span>{/if}
+                        </button>
+                        <p class="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-[11px] leading-4 text-slate-500 dark:text-slate-400">
+                            <span class="font-bold tabular-nums sm:hidden {scoreTone(captureScore)}" data-visit-capture-score>{percent(captureScore)}%</span>
+                            {#each notes as note (note.text)}
+                                <span class={note.emphasis ? 'font-medium text-brand-700 dark:text-brand-300' : ''}>{note.text}</span>
+                            {/each}
+                        </p>
+                    </div>
                     {#if showCamera}<span class="hidden sm:block"></span>{/if}
                     <span class="hidden justify-end text-xs font-bold tabular-nums sm:flex {scoreTone(captureScore)}" data-visit-capture-score>
                         {percent(captureScore)}%
