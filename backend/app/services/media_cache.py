@@ -1477,6 +1477,19 @@ class MediaCacheService:
             except Exception:
                 pass
 
+        # Each photograph and clip carries a `.meta.json` sidecar. It is part of the file it
+        # describes, so it counts towards the size but not as a cached file of its own.
+        for directory, kind in ((SNAPSHOTS_DIR, "snapshot"), (CLIPS_DIR, "clip")):
+            for path in directory.glob("*.meta.json"):
+                try:
+                    size = path.stat().st_size
+                except Exception:
+                    continue
+                if kind == "snapshot":
+                    snapshot_size += size
+                else:
+                    clip_size += size
+
         for path in PREVIEWS_DIR.glob("*"):
             if not path.is_file() or path.name.endswith(".tmp"):
                 continue

@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- The media cache size in system checks now includes the `.meta.json` sidecar beside every
+  photograph and clip, so the reported size matches the disk. File counts are unchanged.
 - A visit's photograph is replaced only when a candidate is clearly better: the classifier's
   confidence, the picture's sharpness, exposure and size, and how sure the detector is of the bird
   are weighed together, so a marginally higher score or a tiny weak crop no longer swaps a clear
