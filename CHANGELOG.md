@@ -10,6 +10,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   later requests for that workload. Genuine inference failures and uncontended
   workload deadlines retain their existing retry protections.
 
+- Manual reclassification repairs an automatically chosen photograph even when video
+  and snapshot classification cannot establish a new species. Keep the accepted species
+  and an explicitly selected owner photograph unchanged.
 - Keep Explorer's species search and list first, with date, other filters and cameras
   collapsed initially. Selecting filters no longer squeezes the species list out of
   a short desktop window; expanded sections remain scrollable.
