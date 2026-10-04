@@ -2107,6 +2107,7 @@ class AutoVideoClassifierService:
                                 event_data=event_data,
                                 clip_variant=clip_variant,
                                 clip_start_timestamp=clip_start_timestamp,
+                                automatic=not manual_reclassification_requested(),
                             ),
                             timeout=_HQ_SNAPSHOT_TIMEOUT_SECONDS,
                         )
@@ -2896,7 +2897,11 @@ class AutoVideoClassifierService:
         )
 
         async def settle_photo() -> str:
-            return photo_outcome if photo_outcome is not None else await reconcile_snapshot_identity(frigate_event)
+            return (
+                photo_outcome
+                if photo_outcome is not None
+                else await reconcile_snapshot_identity(frigate_event, automatic=not manual_tagged)
+            )
 
         if not snapshot_data:
             photo_outcome = await settle_photo()
