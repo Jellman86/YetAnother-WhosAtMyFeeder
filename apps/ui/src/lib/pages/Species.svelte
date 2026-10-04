@@ -288,7 +288,7 @@
     const GUEST_WALL_TILES = 24;
     // The captures are kept with the span they were fetched for, so a wall never shows one window
     // under another's heading while the next load is in flight.
-    let wallFetched = $state<{ span: LeaderboardSpan; detections: Detection[] }>({ span: 'month', detections: [] });
+    let wallFetched = $state<{ span: LeaderboardSpan | null; detections: Detection[] }>({ span: null, detections: [] });
     // Dates select whole days, so the captures are cut to the window's own start and end.
     let wallDetections = $derived.by(() => {
         if (wallFetched.span !== span) return [];
@@ -300,6 +300,8 @@
             return Number.isNaN(at) || (at >= start && at <= end);
         });
     });
+    // The skeleton stands in only for a window's first answer: a refresh of a window already known to be
+    // too quiet for a wall must not push the page about with a placeholder.
     let wallLoading = $state(true);
     $effect(() => {
         const requestedSpan = span;
@@ -1779,7 +1781,7 @@
                 countLabel={showcaseCountLabel}
                 colourFor={(key) => (key ? speciesSeriesColor(speciesSlot().get(key) ?? SPECIES_SERIES_SLOTS, isDark()) : otherSeriesColor(isDark()))}
                 otherColour={otherSeriesColor(isDark())}
-                loading={wallLoading}
+                loading={wallLoading && wallFetched.span !== span}
                 maxTiles={authStore.isGuest ? GUEST_WALL_TILES : undefined}
                 onopen={(key) => (selectedSpecies = key)}
                 onchecks={scrollToChecks}
