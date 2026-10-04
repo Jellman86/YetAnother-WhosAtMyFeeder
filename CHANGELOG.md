@@ -12,6 +12,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   hovering a visit opens a pop-out with the larger photograph, names, confidence, time, camera and
   frame count. The wall matches captures to species whatever the naming mode, and the arrow keys
   move between visits.
+- Keep Explorer's species search and list first, with date, other filters and cameras
+  collapsed initially. Selecting filters no longer squeezes the species list out of
+  a short desktop window; expanded sections remain scrollable.
+
 - Expanded visit captures refresh after a recount or owner edit, even when visit membership
   stays the same.
 - Camera filters keep visit identities and expanded capture totals consistent when legacy
