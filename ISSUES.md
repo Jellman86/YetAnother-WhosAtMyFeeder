@@ -104,9 +104,6 @@ observed for the same detections. Keep this open until it is, then close. Tracke
   over a slow mount that is sustained disk work for a number nobody is looking at. Caching the
   result for a few minutes, or updating counts as files are written and removed, is the durable
   fix and a design decision rather than a mechanical one.
-- **Reported cache sizes undercount.** `get_cache_stats` counts `*.jpg` and `*.mp4` only, so the
-  `.meta.json` sidecars beside every snapshot are not in the total. On the reference install that
-  is 14,712 uncounted files.
 - **The CUDA and amd64 `full` images stay on ONNX Runtime 1.26.** 1.27 and later ship CUDA 13
   userspace, which needs the NVIDIA 580 driver series on the host, so the bump Dependabot proposed
   in #284 was closed and the window is held until 3.0 (`ROADMAP.md`, 1.7). Those images therefore
