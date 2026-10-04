@@ -6,6 +6,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- A visit's photograph is replaced only when a candidate is clearly better: the classifier's
+  confidence, the picture's sharpness, exposure and size, and how sure the detector is of the bird
+  are weighed together, so a marginally higher score or a tiny weak crop no longer swaps a clear
+  photo. A photo also needs a firmer bird detection than counting does, and the video's winning
+  photograph is in place before the high-quality scan compares against it. Photos the owner chose
+  or removed are never defended or restored.
 - Explain capture badges on hover, keyboard focus and touch, including the orange
   warning that Frigate no longer has an event or its media. Explanations remain
   readable above cards and capture panels, and close when their badge leaves view.

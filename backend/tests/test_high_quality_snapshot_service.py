@@ -4097,3 +4097,68 @@ async def test_the_automatic_photo_asks_frigate_first_and_falls_back_to_the_cach
     frigate.return_value = (None, "clip_not_found")
     assert await service._load_event_clip("evt_cached", prefer_cached=False) == (_CACHED_CLIP, None)
     assert await service._load_event_clip("evt_uncached", prefer_cached=False) == (None, "clip_not_found")
+
+
+def _incumbent_photo_bytes() -> bytes:
+    output = BytesIO()
+    Image.new("RGB", (320, 240), (90, 120, 80)).save(output, format="JPEG")
+    return output.getvalue()
+
+
+def _incumbent_row(**changes):
+    return {
+        "candidate_id": "shown",
+        "selected": True,
+        "source_mode": "model_crop",
+        "crop_box": [10, 10, 200, 200],
+        "crop_confidence": 0.6,
+        "classifier_label": "Dunnock",
+        "classifier_score": 0.95,
+        "image_ref": "shown-image",
+        **changes,
+    }
+
+
+async def _load_incumbent(monkeypatch, row, *, metadata=None, shown=None, stored=None):
+    service = hq_module.HighQualitySnapshotService()
+    repo = MagicMock()
+    repo.list_snapshot_candidates = AsyncMock(return_value=[row])
+
+    @asynccontextmanager
+    async def fake_db():
+        yield object()
+
+    photo = _incumbent_photo_bytes()
+    snapshots = {"evt": photo if shown is None else shown, "shown-image": photo if stored is None else stored}
+    monkeypatch.setattr(hq_module, "get_db", fake_db)
+    monkeypatch.setattr(hq_module, "DetectionRepository", lambda db: repo)
+    monkeypatch.setattr(hq_module.media_cache, "get_snapshot_metadata", AsyncMock(return_value=metadata or {}))
+    monkeypatch.setattr(hq_module.media_cache, "get_snapshot", AsyncMock(side_effect=lambda key: snapshots.get(key)))
+    monkeypatch.setattr(settings.classification, "threshold", 0.7)
+    return await service._load_verified_incumbent_photo("evt", {"dunnock"})
+
+
+@pytest.mark.asyncio
+async def test_the_shown_photo_is_defended_when_it_is_verified(monkeypatch):
+    incumbent = await _load_incumbent(monkeypatch, _incumbent_row())
+    assert incumbent is not None
+    assert incumbent["candidate_id"] == "shown"
+    assert 0 <= incumbent["image_quality_score"] <= 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("row", "options"),
+    [
+        (_incumbent_row(photo_hidden=True), {}),
+        (_incumbent_row(classifier_label="European Robin"), {}),
+        (_incumbent_row(crop_confidence=0.12), {}),
+        (_incumbent_row(classifier_score=0.5), {}),
+        (_incumbent_row(), {"metadata": {"manual_selection": True}}),
+        (_incumbent_row(), {"metadata": {"storage_evicted": True}}),
+        (_incumbent_row(), {"stored": b"another photograph"}),
+    ],
+    ids=["removed", "other-species", "weak-box", "weak-species", "owner-choice", "evicted", "not-displayed"],
+)
+async def test_only_a_verified_shown_photo_is_defended(monkeypatch, row, options):
+    assert await _load_incumbent(monkeypatch, row, **options) is None

@@ -2014,13 +2014,25 @@ class AutoVideoClassifierService:
                             frigate_event, _video_frame_scores, clip_variant, snapshot_evidence=top
                         )
 
+                    # The video's own winning photograph goes in first, so the HQ
+                    # scan compares its candidates against a localized incumbent
+                    # rather than whatever the live snapshot happened to be.
+                    self._note_job_progress(frigate_event, phase="updating_photo")
+                    photo_outcome = await replace_video_snapshot(
+                        frigate_event,
+                        Path(tmp_path),
+                        top,
+                        clip_variant=clip_variant,
+                        automatic=not manual_reclassification_requested(),
+                        scene_cache=video_scenes,
+                    )
+
                     # Generate HQ snapshot after top frames are persisted so the
                     # crop model works on the best-scored frames from this run.
                     # Wrapped with a hard timeout: replace_from_clip_path runs
                     # asyncio.to_thread CPU work (ONNX bird-crop model) and a
                     # synchronous classifier.classify() call with no inner timeout.
                     # A hang here holds the maintenance coordinator slot forever.
-                    self._note_job_progress(frigate_event, phase="updating_photo")
                     if settings.media_cache.high_quality_event_snapshots:
                         try:
                             await asyncio.wait_for(
@@ -2047,14 +2059,6 @@ class AutoVideoClassifierService:
                                 error=str(e),
                             )
 
-                    photo_outcome = await replace_video_snapshot(
-                        frigate_event,
-                        Path(tmp_path),
-                        top,
-                        clip_variant=clip_variant,
-                        automatic=not manual_reclassification_requested(),
-                        scene_cache=video_scenes,
-                    )
                     log.info("Video photograph update settled", event_id=frigate_event, photo_outcome=photo_outcome)
                     if photo_outcome not in {"replaced", "matching_photo_preserved"}:
                         self._record_diagnostic(

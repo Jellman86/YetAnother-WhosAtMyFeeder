@@ -94,8 +94,9 @@ def test_hq_presence_requires_the_same_moment_and_keeps_exploratory_boxes_unveri
     missing_box = {**bird, "candidate_id": "missing-box", "detector_box": None}
     supported = attach_photo_presence([whole, other_moment, empty_hint, weak, missing_box, bird], [])
     assert {candidate["candidate_id"] for candidate in supported} == {"whole", "bird"}
-    assert has_reusable_bird_presence(whole)
-    assert has_reusable_bird_presence(bird)
+    assert all(has_reusable_bird_presence(candidate) for candidate in supported)
+    assert "crop_strategy" not in whole
+    assert "crop_strategy" not in bird
     assert weak["crop_confidence"] == 0.03
     assert "crop_strategy" not in empty_hint
 
@@ -116,3 +117,30 @@ def test_photo_species_confidence_rejects_weak_or_invalid_scores(score, expected
     from app.services.photo_presence import has_confident_photo_species
 
     assert has_confident_photo_species({"classifier_score": score}, threshold=0.7) is expected
+
+
+def test_photo_requires_stronger_localization_than_counting():
+    assert not has_localized_bird({**_evidence(), "detector_confidence": 0.12})
+    assert not has_reusable_bird_presence(
+        {"source_mode": "model_crop", "crop_box": [1, 1, 160, 160], "crop_confidence": 0.12}
+    )
+    assert has_localized_bird({**_evidence(), "detector_confidence": 0.317})
+
+
+def test_presence_attachment_copies_and_prefers_the_strongest_matching_box():
+    common = {"clip_variant": "event", "frame_index": 2, "frame_width": 640, "frame_height": 480}
+    whole = {**common, "candidate_id": "scene", "source_mode": "full_frame", "crop_box": None}
+    birds = [
+        {
+            **common,
+            "candidate_id": str(score),
+            "source_mode": "model_observation",
+            "crop_box": [20, 20, 80, 80],
+            "crop_confidence": score,
+        }
+        for score in [0.3, 0.8]
+    ]
+    result = attach_photo_presence([whole], birds)
+    assert result[0]["crop_confidence"] == 0.8
+    assert "crop_confidence" not in whole
+    assert result[0] is not whole

@@ -1484,3 +1484,40 @@ async def test_a_stopped_service_does_not_queue_a_lost_visit_again(monkeypatch):
 
     requeue.assert_not_awaited()
     assert service._worker_failure_retry_tasks == {}
+
+
+@pytest.mark.asyncio
+async def test_localized_video_photo_is_available_before_hq_selection():
+    service = AutoVideoClassifierService()
+    service._classifier = MagicMock()
+    service._classifier.classify_video_async = AsyncMock(return_value=[{"label": "Robin", "score": 0.92, "index": 1}])
+    service._update_status = AsyncMock()
+    service._save_results = AsyncMock(return_value=True)
+    service._wait_for_clip = AsyncMock(return_value=(True, None))
+    settings.media_cache.high_quality_event_snapshots = True
+    order = []
+
+    async def baseline(*args, **kwargs):
+        order.append("baseline")
+        return "replaced"
+
+    async def hq(*args, **kwargs):
+        order.append("hq")
+        return "existing_crop_preserved"
+
+    with (
+        patch.object(
+            auto_video_classifier_module.frigate_client,
+            "get_event_with_error",
+            new=AsyncMock(return_value=({"has_clip": True}, None)),
+        ),
+        patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()),
+        patch.object(auto_video_classifier_module, "replace_video_snapshot", new=AsyncMock(side_effect=baseline)),
+        patch.object(
+            auto_video_classifier_module.high_quality_snapshot_service,
+            "replace_from_clip_path",
+            new=AsyncMock(side_effect=hq),
+        ),
+    ):
+        await service._process_event("evt-photo-quality-order", "cam1", skip_delay=True)
+    assert order == ["baseline", "hq"]
