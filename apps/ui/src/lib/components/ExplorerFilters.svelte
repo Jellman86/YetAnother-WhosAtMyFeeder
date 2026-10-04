@@ -190,17 +190,51 @@
 
     <div
         id="explorer-facets"
-        class="mt-3 gap-5 border-t border-slate-200 pt-3 dark:border-slate-700 {panelOpen
-            ? 'grid grid-cols-1 sm:grid-cols-3'
+        class="mt-3 gap-3 border-t border-slate-200 pt-3 dark:border-slate-700 {panelOpen
+            ? 'flex flex-col'
             : 'hidden'} {collapsed
             ? ''
-            : 'lg:!flex lg:mt-0 lg:min-h-0 lg:flex-1 lg:flex-col lg:gap-5 lg:overflow-hidden lg:border-t-0 lg:pt-0'}"
+            : 'lg:!flex lg:mt-0 lg:min-h-0 lg:flex-1 lg:flex-col lg:gap-3 lg:overflow-y-auto lg:overscroll-contain lg:border-t-0 lg:pt-0'}"
         data-explorer-facets
     >
-            <div>
+            <div class="min-w-0 shrink-0" data-explorer-species-facet>
                 <p class="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
-                    {$_('events.filters.when', { default: 'When' })}
+                    {$_('events.filters.all_species')}
                 </p>
+                <label class="mt-2 block">
+                    <span class="sr-only">{$_('events.filters.search_species', { default: 'Search species' })}</span>
+                    <input class="input-base text-xs" type="search" bind:value={search} placeholder={$_('events.filters.search_species', { default: 'Search species' })} />
+                </label>
+                <div
+                    class="mt-2 max-h-64 space-y-0.5 overflow-y-auto"
+                    data-explorer-species-list
+                >
+                    {#each visibleSpecies as item (item.value)}
+                        <button
+                            class="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-2 text-left text-xs transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:bg-slate-800/60 {speciesFilter ===
+                            item.value
+                                ? 'font-semibold text-brand-800 dark:text-brand-200'
+                                : 'text-slate-700 dark:text-slate-300'}"
+                            aria-pressed={speciesFilter === item.value}
+                            onclick={() =>
+                                onchange({ speciesFilter: speciesFilter === item.value ? '' : item.value })}
+                        >
+                            <span class="truncate">{item.display_name}</span>
+                            <span class="shrink-0 tabular-nums text-slate-500 dark:text-slate-400">{item.count ?? 0}</span>
+                        </button>
+                    {:else}
+                        <p class="px-2 py-2 text-xs text-slate-500 dark:text-slate-400">
+                            {$_('events.filters.no_species_match', { default: 'No species matches that.' })}
+                        </p>
+                    {/each}
+                </div>
+            </div>
+
+            <details class="group shrink-0" data-explorer-date-facet>
+                <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-lg px-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-slate-300 dark:hover:bg-slate-800/60 [&::-webkit-details-marker]:hidden">
+                    <span>{$_('events.filters.when', { default: 'When' })}</span>
+                    <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 7.5 5 5 5-5" /></svg>
+                </summary>
                 <div class="mt-2 flex flex-wrap gap-1.5">
                     {#each datePresets as preset}
                         <button
@@ -241,9 +275,13 @@
                     </div>
                 {/if}
 
-                <p class="mt-4 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
-                    {$_('events.filters.only', { default: 'Only' })}
-                </p>
+            </details>
+
+            <details class="group shrink-0" data-explorer-only-facet>
+                <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-lg px-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-slate-300 dark:hover:bg-slate-800/60 [&::-webkit-details-marker]:hidden">
+                    <span>{$_('events.filters.only', { default: 'Only' })}</span>
+                    <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 7.5 5 5 5-5" /></svg>
+                </summary>
                 <div class="mt-2 space-y-1">
                     {#if canSeeHidden}
                         <!-- The same row as the facets beneath it; it has no count, so its state is a check. -->
@@ -312,45 +350,13 @@
                         </span>
                     </button>
                 </div>
-            </div>
+            </details>
 
-            <div class="lg:flex lg:min-h-0 lg:flex-1 lg:flex-col" data-explorer-species-facet>
-                <p class="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
-                    {$_('events.filters.all_species')}
-                </p>
-                <label class="mt-2 block">
-                    <span class="sr-only">{$_('events.filters.search_species', { default: 'Search species' })}</span>
-                    <input class="input-base text-xs" type="search" bind:value={search} placeholder={$_('events.filters.search_species', { default: 'Search species' })} />
-                </label>
-                <div
-                    class="mt-2 max-h-56 space-y-0.5 overflow-y-auto overscroll-contain lg:min-h-0 lg:max-h-none lg:flex-1"
-                    data-explorer-species-list
-                >
-                    {#each visibleSpecies as item (item.value)}
-                        <button
-                            class="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-2 text-left text-xs transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:bg-slate-800/60 {speciesFilter ===
-                            item.value
-                                ? 'font-semibold text-brand-800 dark:text-brand-200'
-                                : 'text-slate-700 dark:text-slate-300'}"
-                            aria-pressed={speciesFilter === item.value}
-                            onclick={() =>
-                                onchange({ speciesFilter: speciesFilter === item.value ? '' : item.value })}
-                        >
-                            <span class="truncate">{item.display_name}</span>
-                            <span class="shrink-0 tabular-nums text-slate-500 dark:text-slate-400">{item.count ?? 0}</span>
-                        </button>
-                    {:else}
-                        <p class="px-2 py-2 text-xs text-slate-500 dark:text-slate-400">
-                            {$_('events.filters.no_species_match', { default: 'No species matches that.' })}
-                        </p>
-                    {/each}
-                </div>
-            </div>
-
-            <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
-                    {$_('events.filters.all_cameras')}
-                </p>
+            <details class="group shrink-0" data-explorer-camera-facet>
+                <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-lg px-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-slate-300 dark:hover:bg-slate-800/60 [&::-webkit-details-marker]:hidden">
+                    <span>{$_('events.filters.all_cameras', { default: 'All Cameras' })}</span>
+                    <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 7.5 5 5 5-5" /></svg>
+                </summary>
                 <div class="mt-2 space-y-0.5">
                     {#each cameras as camera (camera)}
                         <button
@@ -368,6 +374,6 @@
                         </button>
                     {/each}
                 </div>
-            </div>
+            </details>
     </div>
 </section>
