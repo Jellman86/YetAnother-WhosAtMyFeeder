@@ -166,8 +166,9 @@ async def test_abstention_does_not_choose_unverified_or_mismatched_photos(tmp_pa
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("correction", ["identity", "manual_photo", "hidden", "evicted"])
-async def test_abstention_photo_rechecks_owner_after_scan(tmp_path, monkeypatch, correction):
-    event_id = f"abstention-race-{correction}"
+@pytest.mark.parametrize("automatic", [True, False])
+async def test_abstention_photo_rechecks_owner_after_scan(tmp_path, monkeypatch, correction, automatic):
+    event_id = f"abstention-race-{correction}-{automatic}"
     await seed(event_id)
     before = await photos.media_cache.get_snapshot(event_id)
 
@@ -191,8 +192,11 @@ async def test_abstention_photo_rechecks_owner_after_scan(tmp_path, monkeypatch,
     from app.services.high_quality_snapshot_service import high_quality_snapshot_service
 
     monkeypatch.setattr(high_quality_snapshot_service, "generate_snapshot_candidates_from_clip_path", scan)
-    outcome = await photos.reconcile_snapshot_identity(event_id, clip_path=tmp_path / "clip.mp4")
-    assert outcome in {"manual_selection_preserved", "owner_identification_preserved", "storage_evicted"}
+    outcome = await photos.reconcile_snapshot_identity(event_id, clip_path=tmp_path / "clip.mp4", automatic=automatic)
+    if correction == "identity" and not automatic:
+        assert outcome == "primary_identity_preserved"
+    else:
+        assert outcome in {"manual_selection_preserved", "owner_identification_preserved", "storage_evicted"}
     assert await photos.media_cache.get_snapshot(event_id) == before
 
 
@@ -452,3 +456,51 @@ async def test_video_abstention_photo_change_preserves_snapshot_fallback_input(m
     assert call.kwargs["input_context"]["input_source"] == "frigate_snapshot_cropped"
     assert call.kwargs["input_context"]["is_cropped"] is True
     service._save_results.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("clip_available", [True, False])
+@pytest.mark.parametrize("weak_snapshot", [True, False])
+@pytest.mark.parametrize("owner_photo", [True, False])
+async def test_manual_reclassification_repairs_automatic_photo_after_abstention(
+    monkeypatch, clip_available, weak_snapshot, owner_photo
+):
+    event_id = f"manual-abstention-{clip_available}-{weak_snapshot}-{owner_photo}"
+    await seed(event_id, manual=True)
+    before = await photos.media_cache.get_snapshot(event_id)
+    row = candidate("retained-matching-cardinal", label="Cardinalis cardinalis")
+    await photos.media_cache.cache_snapshot(row["image_ref"], row["image_bytes"], source="snapshot_candidate")
+    async with get_db() as db:
+        await DetectionRepository(db).replace_snapshot_candidates(event_id, [row])
+    if owner_photo:
+        await photos.media_cache.set_manual_snapshot_selection(event_id, True)
+    service = auto.AutoVideoClassifierService()
+    service._classifier = MagicMock()
+    service._classifier.classify_video_async = AsyncMock(return_value=[])
+    service._classifier.classify_async_background = AsyncMock(
+        return_value=[{"label": "Other", "score": 0.1, "index": 1}] if weak_snapshot else []
+    )
+    service._load_preferred_clip = AsyncMock(
+        return_value=(clip_available, None if clip_available else "clip_unavailable", "event", None)
+    )
+    service._update_status = AsyncMock()
+    service._save_results = AsyncMock()
+    monkeypatch.setattr(auto.frigate_client, "get_event_with_error", AsyncMock(return_value=({"has_clip": True}, None)))
+    monkeypatch.setattr(auto.frigate_client, "get_snapshot", AsyncMock(return_value=None))
+    broadcast = AsyncMock()
+    monkeypatch.setattr(auto.broadcaster, "broadcast", broadcast)
+
+    await service._process_event(event_id, "test", skip_delay=True, source="manual")
+
+    assert await photos.media_cache.get_snapshot(event_id) == (before if owner_photo else row["image_bytes"])
+    async with get_db() as db:
+        detection = await DetectionRepository(db).get_by_frigate_event(event_id)
+    assert detection.category_name == "Cardinalis cardinalis"
+    assert detection.score == 0.95
+    service._save_results.assert_not_awaited()
+    completions = [
+        call.args[0]["data"]
+        for call in broadcast.await_args_list
+        if call.args[0]["type"] == "reclassification_completed"
+    ]
+    assert completions[-1]["photo_outcome"] == ("manual_selection_preserved" if owner_photo else "replaced")

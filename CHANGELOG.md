@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Manual reclassification repairs an automatically chosen photograph even when video
+  and snapshot classification cannot establish a new species. Keep the accepted species
+  and an explicitly selected owner photograph unchanged.
+
 - Expanded visit captures refresh after a recount or owner edit, even when visit membership
   stays the same.
 - Camera filters keep visit identities and expanded capture totals consistent when legacy

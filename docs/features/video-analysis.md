@@ -176,7 +176,9 @@ candidates from the clip without changing the identification. A verified matchin
 is preferred. Missing, unreadable or corrupt retained candidate files do not prevent that
 one fresh scan. Otherwise, an uncropped scene with detector-supported bird presence can
 replace a misleading crop, reported as `full_frame_fallback`. This does not claim the
-accepted species was found in that scene. Manual photos and identifications, hidden visits,
+accepted species was found in that scene. Automatic runs protect manual identifications;
+an explicit **Reclassify** request can repair an automatic photograph while keeping the
+accepted identity when classification abstains. Owner-selected photos, hidden visits,
 blocked species and storage eviction remain protected. Snapshot fallback classification
 uses the original image and provenance even if this photo check changes the displayed image.
 Completion includes the photo outcome after the photo work settles.
