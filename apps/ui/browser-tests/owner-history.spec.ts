@@ -62,7 +62,8 @@ test('Explorer sends the multiple-species filter for visits, captures and counts
     });
     await page.goto('/browser-tests/owner-history.html?surface=explorer');
     const filter = page.getByRole('button', { name: 'Multiple bird species', exact: true });
-    if (!await filter.isVisible()) await page.locator('[data-explorer-filter-toggle]').click();
+    if (!await page.locator('[data-explorer-facets]').isVisible()) await page.locator('[data-explorer-filter-toggle]').click();
+    await page.locator('[data-explorer-only-facet] summary').click();
     await expect(filter).toHaveAttribute('aria-pressed', 'false');
     await filter.click();
     await expect(filter).toHaveAttribute('aria-pressed', 'true');
