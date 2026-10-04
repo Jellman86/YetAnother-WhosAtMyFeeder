@@ -271,11 +271,12 @@ class NativeCpuRecovery:
                         return event["results"]
         except BaseException as exc:
             if acquired and started:
-                if isinstance(exc, (TimeoutError, asyncio.CancelledError)) and (
-                    queued_seconds > timeout_seconds * _UNCONTENDED_QUEUE_FRACTION
+                if isinstance(exc, asyncio.CancelledError) or (
+                    isinstance(exc, TimeoutError) and queued_seconds > timeout_seconds * _UNCONTENDED_QUEUE_FRACTION
                 ):
-                    # The budget went on waiting behind another pool's work. That
-                    # says nothing about whether CPU can serve this workload.
+                    # Caller cancellation and budget spent queueing are not
+                    # evidence that CPU cannot serve the next request. Our own
+                    # uncontended deadline still disables a slow workload.
                     if previous_state is None:
                         self._states.pop(priority, None)
                     else:

@@ -200,6 +200,37 @@ def _result():
     }
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mismatch", [None, "frame", "variant"])
+async def test_video_photo_reuses_exact_scene_and_decodes_on_provenance_mismatch(clip, tmp_path, monkeypatch, mismatch):
+    from app.services.video_scene_cache import VideoSceneCache
+
+    event = f"video-cached-scene-{mismatch}"
+    await _seed(event)
+    result = _result()
+    portrait, scene = module.extract_video_snapshot(clip, result["_video_snapshot_evidence"])
+    directory = tmp_path / "scenes"
+    directory.mkdir()
+    cache = VideoSceneCache()
+    cache.retain(result["_video_snapshot_evidence"], scene)
+    assert cache.write(directory, clip, "event", result["_video_snapshot_evidence"])
+    loaded = VideoSceneCache()
+    assert loaded.load(directory, clip, "event")
+    from unittest.mock import Mock
+
+    decode = Mock(return_value=(portrait, scene))
+    monkeypatch.setattr(module, "extract_video_snapshot", decode)
+    monkeypatch.setattr(module.archive_service, "refresh_photograph", AsyncMock())
+    if mismatch == "frame":
+        result["_video_snapshot_evidence"]["frame_index"] += 1
+    outcome = await module.replace_video_snapshot(
+        event, clip, result, clip_variant="recording" if mismatch == "variant" else "event", scene_cache=loaded
+    )
+    assert outcome == "replaced"
+    assert decode.call_count == int(mismatch is not None)
+    assert await module.media_cache.get_snapshot(event) == module._jpeg(portrait)
+
+
 @pytest.fixture(autouse=True)
 def photo_settings(monkeypatch):
     monkeypatch.setattr(settings.media_cache, "enabled", True)

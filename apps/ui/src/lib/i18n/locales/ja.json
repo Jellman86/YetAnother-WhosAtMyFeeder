@@ -2013,7 +2013,7 @@
     "video_analysis": {
       "title": "詳細なビデオ分析",
       "match": "{score}% 一致",
-      "verified_desc": "時間アンサンブルロジック（ソフト投票）により検証済み。",
+      "verified_desc": "動画内の観察に基づく結果です。",
       "in_progress": "ビデオ分析が進行中です…",
       "failed_title": "ビデオ分析に失敗しました",
       "errors": {
@@ -2896,6 +2896,7 @@
     "no_video_support": "お使いのブラウザーは動画再生をサポートしていません。"
   },
   "jobs": {
+    "phase_updating_photo": "写真を更新中",
     "frigate_media_advisory_title": "検出時に Frigate のスナップショットがないことが頻発しています",
     "frigate_media_advisory_body": "最近の検出の {percent}%（{started} 件中 {dropped} 件）は、Frigate にスナップショット、サムネイル、録画のいずれもなかったため破棄されました。通常は、追跡時間が短く Frigate イベントとして残らなかった鳥、または録画の保存期間が短いことが原因です。",
     "frigate_media_advisory_link": "減らす方法 →",

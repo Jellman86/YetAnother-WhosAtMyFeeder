@@ -12,6 +12,19 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   hovering a visit opens a pop-out with the larger photograph, names, confidence, time, camera and
   frame count. The wall matches captures to species whatever the naming mode, and the arrow keys
   move between visits.
+- Reuse the exact winning video scene for the visit photograph and matching
+  high-quality photo frames. Retain at most two scenes with a 64 MiB pixel-storage
+  budget, validate clip/frame provenance, and decode normally when reuse is unavailable.
+  Request-owned lossless artifacts are removed on completion or cancellation.
+  Video result descriptions now refer to supporting observations across the video;
+  jobs show **Updating photograph** until the photo work finishes.
+- Cancelling an isolated CPU recovery request reaps its worker without disabling
+  later requests for that workload. Genuine inference failures and uncontended
+  workload deadlines retain their existing retry protections.
+
+- Manual reclassification repairs an automatically chosen photograph even when video
+  and snapshot classification cannot establish a new species. Keep the accepted species
+  and an explicitly selected owner photograph unchanged.
 - Keep Explorer's species search and list first, with date, other filters and cameras
   collapsed initially. Selecting filters no longer squeezes the species list out of
   a short desktop window; expanded sections remain scrollable.

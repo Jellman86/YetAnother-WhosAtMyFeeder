@@ -33,6 +33,7 @@ from app.services.hq_classification_refinement import (
 )
 from app.services.media_cache import media_cache, validate_film_alignment
 from app.services.photo_choice_actions import photo_choice_lock
+from app.services.video_scene_cache import VideoSceneCache
 from app.services.classification_input_provenance import cached_snapshot_input_provenance
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
@@ -559,6 +560,7 @@ class HighQualitySnapshotService:
         *,
         clip_variant: str = "event",
         clip_start_timestamp: float | None = None,
+        scene_cache: VideoSceneCache | None = None,
     ) -> str:
         """Best-effort replacement from a clip already on disk; the caller owns the file (#341)."""
         async with photo_choice_lock(event_id):
@@ -568,6 +570,7 @@ class HighQualitySnapshotService:
                 event_data,
                 clip_variant=clip_variant,
                 clip_start_timestamp=clip_start_timestamp,
+                **({"scene_cache": scene_cache} if scene_cache is not None else {}),
             )
 
     async def _replace_from_clip_path_unlocked(
@@ -578,6 +581,7 @@ class HighQualitySnapshotService:
         *,
         clip_variant: str = "event",
         clip_start_timestamp: float | None = None,
+        scene_cache: VideoSceneCache | None = None,
     ) -> str:
         if not self.enabled():
             return self._record_outcome(event_id, "disabled")
@@ -612,6 +616,7 @@ class HighQualitySnapshotService:
                     event_data=crop_event_data,
                     clip_variant=clip_variant,
                     clip_start_timestamp=clip_start_timestamp,
+                    **({"scene_cache": scene_cache} if scene_cache is not None else {}),
                 )
                 if candidate_bundle:
                     candidates = candidate_bundle.get("candidates") or []
@@ -795,6 +800,7 @@ class HighQualitySnapshotService:
         event_data: Optional[dict[str, Any]] = None,
         clip_variant: str = "event",
         clip_start_timestamp: float | None = None,
+        scene_cache: VideoSceneCache | None = None,
     ) -> dict[str, Any]:
         """Candidate generation against a clip already on disk; the caller owns the file (#341)."""
         preferred_indices = await self._load_preferred_frame_indices(event_id, clip_variant=clip_variant)
@@ -810,6 +816,7 @@ class HighQualitySnapshotService:
                 clip_variant=clip_variant,
                 clip_start_timestamp=clip_start_timestamp,
                 override_frame_indices=preferred_indices,
+                **({"scene_cache": scene_cache} if scene_cache is not None else {}),
             )
         except BirdDetectionError:
             raise
@@ -1451,6 +1458,7 @@ class HighQualitySnapshotService:
         clip_variant: str = "event",
         override_frame_indices: Optional[list[int]] = None,
         clip_start_timestamp: float | None = None,
+        scene_cache: VideoSceneCache | None = None,
     ) -> list[dict[str, Any]]:
         cap = cv2.VideoCapture(str(clip_path))
         if not cap.isOpened():
@@ -1486,19 +1494,31 @@ class HighQualitySnapshotService:
             used_frame_indices: list[int] = []
             results: list[dict[str, Any]] = []
             for target_frame_index in candidate_indices:
-                decoded = self._read_temporally_independent_frame(
-                    cap,
-                    target_frame_index=target_frame_index,
-                    frame_count=frame_count,
-                    fps=fps,
-                    used_frame_indices=used_frame_indices,
+                base_image = (
+                    scene_cache.frame_for(clip_path, clip_variant, target_frame_index)
+                    if scene_cache is not None
+                    and not any(
+                        abs(target_frame_index - used) < self._minimum_temporal_frame_gap(fps)
+                        for used in used_frame_indices
+                    )
+                    else None
                 )
-                if decoded is None:
-                    continue
-                frame_index, frame = decoded
+                if base_image is not None:
+                    frame_index = target_frame_index
+                else:
+                    decoded = self._read_temporally_independent_frame(
+                        cap,
+                        target_frame_index=target_frame_index,
+                        frame_count=frame_count,
+                        fps=fps,
+                        used_frame_indices=used_frame_indices,
+                    )
+                    if decoded is None:
+                        continue
+                    frame_index, frame = decoded
+                    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    base_image = Image.fromarray(rgb_frame).convert("RGB")
                 used_frame_indices.append(frame_index)
-                rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                base_image = Image.fromarray(rgb_frame).convert("RGB")
                 frame_offset_seconds = (float(frame_index) / fps) if fps > 0 else None
                 frame_event_data = self._event_hints_for_frame(
                     event_data,

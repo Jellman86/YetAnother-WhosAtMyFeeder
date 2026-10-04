@@ -26,7 +26,12 @@ function titleForJob(job: ServerJob): string {
 
 /** Two jobs of one kind look identical without it, so the event stays visible as detail. */
 function detailForJob(job: ServerJob): string | undefined {
-    const parts = [job.phase, job.event_id].filter((part): part is string => Boolean(part));
+    const phase = job.phase === 'updating_photo'
+        ? get(locale)
+            ? get(_)('jobs.phase_updating_photo', { default: 'Updating photograph' })
+            : 'Updating photograph'
+        : job.phase;
+    const parts = [phase, job.event_id].filter((part): part is string => Boolean(part));
     return parts.length > 0 ? parts.join(' \u00b7 ') : undefined;
 }
 
