@@ -6,6 +6,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Large image buffers are returned to the system when freed instead of fragmenting the allocator,
+  so the service no longer creeps upward during photo work. Repeated high-quality scans of a 4K
+  clip settled at about 1.55 GB instead of rising from 1.9 to 2.2 GB.
 - The media cache size in system checks now includes the `.meta.json` sidecar beside every
   photograph and clip, so the reported size matches the disk. File counts are unchanged.
 - A visit's photograph is replaced only when a candidate is clearly better: the classifier's
