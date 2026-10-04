@@ -66,6 +66,13 @@ ENV YAWAMF_IMAGE_FLAVOR=${RUNTIME_FLAVOR}
 # pass through memory), observed live as ~3.2GB resident in the API process.
 # Two arenas bound that retention; contention at this scale is negligible.
 ENV MALLOC_ARENA_MAX=2
+# glibc raises its mmap threshold each time a large block is freed, so after the
+# first 4K frames are decoded, every later frame buffer comes from the arena heap
+# and fragments it instead of being returned. Pinning the threshold keeps large
+# image buffers in their own mappings, released on free. Measured on repeated
+# high-quality photo scans of a 4K clip: 1.9 GB rising to 2.2 GB without it,
+# flat at 1.55 GB with it.
+ENV MALLOC_MMAP_THRESHOLD_=131072
 
 LABEL io.yawamf.image.flavor="${RUNTIME_FLAVOR}"
 
