@@ -163,7 +163,7 @@ jobs:
 
       - name: Retain failure screenshots and traces
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: browser-failure-evidence
           path: apps/ui/playwright-results
