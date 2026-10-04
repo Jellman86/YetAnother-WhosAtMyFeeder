@@ -6,6 +6,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Explain capture badges on hover, keyboard focus and touch, including the orange
+  warning that Frigate no longer has an event or its media. Explanations remain
+  readable above cards and capture panels, and close when their badge leaves view.
 - The leaderboard opens on a contact sheet of this feeder's own visits instead of a drifting reel
   of one photograph per species. The share by species bar now sits on top of it as its navigation:
   hovering a segment opens it out and lights that species' visits, a click pins the highlight, and

@@ -2269,7 +2269,10 @@
     "archive_failed": "Error al archivar",
     "archive_retry": "Reintentar",
     "unfavorite_confirm": "¿Quitar el favorito? Su foto y clip archivados ({size}) se eliminan con él. La visita sigue en el historial.",
-    "unfavorite_button": "Quitar de favoritos"
+    "unfavorite_button": "Quitar de favoritos",
+    "confidence_hint": "Confianza de la identificación: {score} %.",
+    "captured_at_hint": "Capturado el {date} a las {time}.",
+    "audio_evidence_hint": "Se oyó un canto de ave coincidente cerca de esta captura."
   },
   "events": {
     "title": "Eventos",

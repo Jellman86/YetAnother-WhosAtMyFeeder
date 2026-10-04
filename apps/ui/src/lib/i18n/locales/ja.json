@@ -2269,7 +2269,10 @@
     "archive_failed": "保管に失敗しました",
     "archive_retry": "再試行",
     "unfavorite_confirm": "お気に入りを解除しますか？保管済みの写真とクリップ（{size}）も削除されます。訪問記録は履歴に残ります。",
-    "unfavorite_button": "お気に入りから削除"
+    "unfavorite_button": "お気に入りから削除",
+    "confidence_hint": "識別の信頼度：{score}%。",
+    "captured_at_hint": "{date} {time}に撮影。",
+    "audio_evidence_hint": "この撮影の近くで一致する鳥の鳴き声が聞こえました。"
   },
   "events": {
     "title": "イベント",

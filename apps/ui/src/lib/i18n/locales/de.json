@@ -2269,7 +2269,10 @@
     "archive_failed": "Archivierung fehlgeschlagen",
     "archive_retry": "Erneut versuchen",
     "unfavorite_confirm": "Favorit entfernen? Das archivierte Foto und der Clip ({size}) werden mit entfernt. Der Besuch bleibt in der Historie.",
-    "unfavorite_button": "Favorit entfernen"
+    "unfavorite_button": "Favorit entfernen",
+    "confidence_hint": "Sicherheit der Bestimmung: {score} %.",
+    "captured_at_hint": "Aufgenommen am {date} um {time}.",
+    "audio_evidence_hint": "Bei dieser Aufnahme wurde ein passender Vogelruf gehört."
   },
   "events": {
     "title": "Ereignisse",

@@ -16,6 +16,8 @@
     import { getBirdNames } from '../naming';
     import { formatDate as formatDateValue, formatTime } from '../utils/datetime';
     import { needsReview } from '../utils/visit-grouping';
+    import BadgeHint from './BadgeHint.svelte';
+    import { explanation } from '../utils/explanation';
     import DetectionPreview from './DetectionPreview.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { publicSettingsStore } from '../stores/public_settings.svelte';
@@ -139,29 +141,29 @@
     <div class="pointer-events-none relative z-10 min-w-0 py-2">
         <div class="flex min-w-0 items-center gap-1.5">
             {#if isFavorite}
-                <svg class="h-3 w-3 shrink-0 text-amber-500" viewBox="0 0 24 24" fill="currentColor" role="img" aria-label={$_('detection.favorite', { default: 'Favorite' })}>
+                <BadgeHint text={$_('detection.favorite', { default: 'Favorite' })} class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full"><svg class="h-3 w-3 text-amber-500" viewBox="0 0 24 24" fill="currentColor" role="img" aria-label={$_('detection.favorite', { default: 'Favorite' })}>
                     <path d="M11.05 2.93c.3-.92 1.6-.92 1.9 0l2.02 6.22h6.54c.97 0 1.37 1.24.59 1.81l-5.29 3.84 2.02 6.22c.3.92-.76 1.69-1.54 1.12L12 18.3l-5.29 3.84c-.78.57-1.84-.2-1.54-1.12l2.02-6.22-5.29-3.84c-.78-.57-.38-1.81.59-1.81h6.54l2.02-6.22z" />
-                </svg>
+                </svg></BadgeHint>
             {/if}
             <span class="truncate text-sm font-bold text-slate-900 dark:text-white">{primaryName}</span>
         </div>
         <div class="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap text-[11px] font-semibold text-slate-500 dark:text-slate-400">
             {#if needsAttention}
-                <span class="shrink-0 text-accent-700 dark:text-accent-300">
+                <BadgeHint text={$_('dashboard.review_session.threshold_note')} class="shrink-0 text-accent-700 dark:text-accent-300">
                     {$_('events.row_below_threshold', { default: 'Below the naming threshold' })}
-                </span>
+                </BadgeHint>
             {:else if subName && subName !== primaryName}
                 <span class="min-w-0 truncate italic">{subName}</span>
             {/if}
             {#if hasAudioConfirmed}
-                <span class="shrink-0 text-brand-600 dark:text-brand-400">
+                <BadgeHint text={$_('detection.audio_evidence_hint')} class="shrink-0 text-brand-600 dark:text-brand-400">
                     {$_('detection.fact_heard_yes', { default: 'matching call' })}
-                </span>
+                </BadgeHint>
             {/if}
             {#if upstreamMissing}
-                <span class="shrink-0 text-accent-700 dark:text-accent-300">
+                <BadgeHint text={$_('detection.upstream_missing.card_title')} class="shrink-0 text-accent-700 dark:text-accent-300">
                     {$_('detection.upstream_missing.card_label', { default: 'Missing upstream' })}
-                </span>
+                </BadgeHint>
             {/if}
             <span class="min-w-0 truncate">{detection.camera_name}</span>
         </div>
@@ -175,6 +177,7 @@
                     event.stopPropagation();
                     onPlay?.(detection);
                 }}
+                use:explanation={$_('detection.play_video', { values: { species: primaryName } })}
                 aria-label={$_('detection.play_video', { values: { species: primaryName } })}
                 class="inline-flex h-11 w-11 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:bg-slate-800 dark:hover:text-brand-400"
             >
@@ -184,11 +187,11 @@
             </button>
         {/if}
         <div class="pointer-events-none min-w-[2.75rem] text-right">
-            <div
+            <BadgeHint text={$_('detection.confidence_hint', { values: { score } })}
                 class="font-display text-sm font-bold tabular-nums leading-tight {scoreTone}"
             >
                 {score}%
-            </div>
+            </BadgeHint>
         </div>
         {#if selectionMode}
             <span

@@ -2269,7 +2269,10 @@
     "archive_failed": "Échec de l’archivage",
     "archive_retry": "Réessayer",
     "unfavorite_confirm": "Retirer le favori ? Sa photo et son clip archivés ({size}) partent avec lui. La visite reste dans l’historique.",
-    "unfavorite_button": "Retirer des favoris"
+    "unfavorite_button": "Retirer des favoris",
+    "confidence_hint": "Confiance de l’identification : {score} %.",
+    "captured_at_hint": "Capturé le {date} à {time}.",
+    "audio_evidence_hint": "Un chant d’oiseau correspondant a été entendu près de cette capture."
   },
   "events": {
     "title": "Événements",

@@ -1,5 +1,6 @@
 <script lang="ts">
     import DetectionCard from '../src/lib/components/DetectionCard.svelte';
+    import DetectionRow from '../src/lib/components/DetectionRow.svelte';
     import DetectionPreview from '../src/lib/components/DetectionPreview.svelte';
     import ReviewQueueCard from '../src/lib/components/ReviewQueueCard.svelte';
     import Notifications from '../src/lib/pages/Notifications.svelte';
@@ -20,8 +21,11 @@
         };
     }
 
-    const a = capture('A');
+    const badgeMode = new URLSearchParams(location.search).has('badges');
+    const a = { ...capture('A'), ...(badgeMode ? { is_favorite: true, audio_confirmed: true, frigate_status: 'missing', has_clip: true } : {}) };
     const b = capture('B');
+    let opened = $state(0);
+    let played = $state(0);
     notificationCenter.clear();
     notificationCenter.add({ id: 'detection:A', type: 'detection', title: 'Capture A', meta: { event_id: 'A' } });
     notificationCenter.add({ id: 'detection:B', type: 'detection', title: 'Capture B', meta: { event_id: 'B' } });
@@ -40,10 +44,15 @@
     };
 </script>
 
-<div class="grid grid-cols-2 gap-4 p-4">
-    <div data-surface="card-A"><DetectionCard detection={a} /></div>
+<div class="grid {badgeMode ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-2'} gap-4 p-4">
+    <div data-surface="card-A"><DetectionCard detection={a} onclick={() => opened++} onPlay={() => played++} fullVisitFetched={badgeMode} /></div>
     <div data-surface="card-B"><DetectionCard detection={b} /></div>
 </div>
+{#if badgeMode}
+    <div class="p-4" data-surface="row"><DetectionRow detection={a} onclick={() => opened++} /></div>
+    <output aria-label="Opened records">{opened}</output>
+    <output aria-label="Played clips">{played}</output>
+{/if}
 <div class="p-4" data-surface="queue-card">
     <ReviewQueueCard queue={{ items: [a, b], total: 2, remaining: 0, oldest: a, reasons: new Map(), newSpeciesSightings: new Map() }} />
 </div>

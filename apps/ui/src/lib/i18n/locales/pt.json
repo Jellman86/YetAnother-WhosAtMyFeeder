@@ -2279,7 +2279,10 @@
     "archive_failed": "Falha ao arquivar",
     "archive_retry": "Tentar de novo",
     "unfavorite_confirm": "Remover o favorito? A foto e o clipe arquivados ({size}) vão com ele. A visita fica no histórico.",
-    "unfavorite_button": "Remover dos favoritos"
+    "unfavorite_button": "Remover dos favoritos",
+    "confidence_hint": "Confiança da identificação: {score}%.",
+    "captured_at_hint": "Capturado em {date} às {time}.",
+    "audio_evidence_hint": "Foi ouvido um canto de ave correspondente perto desta captura."
   },
   "events": {
     "title": "Eventos",
