@@ -4,8 +4,8 @@ This document tracks known issues and testing gaps that have not been verified e
 
 If you find a bug, please open a GitHub issue with the steps to reproduce and any redacted logs.
 
-Last reviewed against the GitHub issue tracker and opt-in fleet telemetry on
-**September 27, 2026**.
+Last reviewed against the GitHub issue tracker and the reference install on
+**October 4, 2026**.
 
 ## P0: Active Regressions
 
@@ -58,26 +58,15 @@ service with real NPU workers; reporter confirmation is still needed for the ori
 combination. See the [classifier review](docs/reviews/2026-09-23-classifier-recovery-review.md) and
 the [inference isolation roadmap](ROADMAP.md#keep-the-web-service-and-ingest-off-the-inference-path-).
 
-### REG-2026-09-15-01 — Accepted detections can expire before notification dispatch
-
-The September 15 fleet review found 41 underlying occurrences across two installations in the
-preceding 30 days, including one occurrence from the then-current `dev` build. Each failure emits
-both `stage_timeout/save_and_notify` and `drop_save_and_notify_failed`; those 82 raw markers
-describe 41 failures and must not be counted as separate incidents. Current `dev` limits that
-deadline to the database decision, admits notification work immediately after commit, and only then
-runs optional Frigate sublabel, snapshot-cache and video-scheduling work. A regression test holds
-post-commit work beyond the old deadline and proves the detection is not dropped and notification
-hand-off has already happened. Keep this open until a real detection on the reference install
-confirms delivery without another paired timeout/drop marker. Tracked in the
-[telemetry-confirmed regression queue](ROADMAP.md#telemetry-confirmed-regression-queue).
-
 ### REG-2026-09-15-03 — Final-mode detection notifications
 
 Stable `2.20.1` can save a final Frigate event without dispatching its notification because the
 terminal path treated the earlier preliminary classification as unchanged. PR #467 makes the
-terminal decision authoritative in `dev`, but the reference install has not yet produced a
-qualifying accepted detection since that build was deployed. Keep this open until Telegram and the
-in-app notification timeline both prove one real final-mode detection end to end. Tracked in the
+terminal decision authoritative in `dev`. On October 4 the reference install, in final mode with
+notifications held until video analysis, dispatched Telegram notifications for real detections
+only after their video analysis completed, including one where video analysis overrode the
+preliminary species; every dispatch reported `sent`. The in-app notification timeline was not
+observed for the same detections. Keep this open until it is, then close. Tracked in the
 [telemetry-confirmed regression queue](ROADMAP.md#telemetry-confirmed-regression-queue).
 
 ## Known Remaining Exposure
@@ -123,19 +112,46 @@ in-app notification timeline both prove one real final-mode detection end to end
   in #284 was closed and the window is held until 3.0 (`ROADMAP.md`, 1.7). Those images therefore
   lack the input-validation hardening 1.29 added to several CUDA kernels. Exposure is limited: the
   runtime only loads models the owner installed, never user-supplied files.
-- **API process memory is being watched again.** #314 closed at about 340 MB resident after the
-  `MALLOC_ARENA_MAX=2` fix. On the reference install the API process measured 1.49 GB resident
-  fourteen hours after a start in subprocess mode, where it holds no model. The RSS sampler is
-  running again; if the growth continues, #314 reopens with the numbers.
+- **API process memory is growing again.** #314 closed at about 340 MB resident after the
+  `MALLOC_ARENA_MAX=2` fix. On October 4 the API process on the reference install, in subprocess
+  mode where it holds no model, measured about 0.9 GB shortly after a start and about 2 GB two
+  hours after the next one. Python's allocated block count barely moved over that time, so the
+  growth is native memory (image decoding, encoding or allocator fragmentation), not Python
+  objects. Two hundred repeated wall photograph requests did not move it. The RSS sampler was
+  restarted the same day; with a day of samples, reopen #314 with the numbers and the request mix.
 
 ## Open on the Tracker
 
-- **#490** Backfill and live-feed failures: safeguards are in `dev`; confirmation from the
-  original reporter/model/driver combination is still pending. Recent opt-in health reports for
-  `stage_timeout` came from older `2.20.3` installs, with no current-`dev` reproduction. It is the
-  only open bug report at this review; dependency-update pull requests are separate.
+- **#481** Thumbnail and species mismatch with several birds in frame: #605 repairs automatically
+  chosen photos when a manual Reclassify keeps the species; waiting for the reporter to retest the
+  original event on the latest dev build.
+- **#490** Backfill and live-feed failures: safeguards are in `dev` and #606 stops a cancelled CPU
+  recovery request from switching CPU recovery off. The reporter's original EVA-02 Intel GPU fault is
+  not shown to be fixed; waiting for fresh diagnostics.
+- **#576** Repeated video decoding during photo updates: #582 and #608 remove the repeat decoding
+  for kept and replaced photos. Open for queue and backfill profiling under sustained load and a
+  check on NVIDIA hardware.
 
 ## Recently Closed (Context)
+
+### #603 — Explorer species list on small screens
+
+#604 puts species search and the species list first in the Explorer sidebar with their own scroll
+and collapses the other sections. The reporter confirmed the fix and closed the issue.
+
+### REG-2026-09-15-01 — Accepted detections can expire before notification dispatch
+
+The September 15 fleet review found 41 underlying occurrences across two installations in the
+preceding 30 days, including one occurrence from the then-current `dev` build. Each failure emits
+both `stage_timeout/save_and_notify` and `drop_save_and_notify_failed`; those 82 raw markers
+describe 41 failures and must not be counted as separate incidents. Current `dev` limits that
+deadline to the database decision, admits notification work immediately after commit, and only then
+runs optional Frigate sublabel, snapshot-cache and video-scheduling work. A regression test holds
+post-commit work beyond the old deadline and proves the detection is not dropped and notification
+hand-off has already happened. Closed on October 4: real detections on the reference install after that day's deployment
+delivered Telegram notifications, with no `save_and_notify` stage timeout or paired drop marker
+in the pipeline health. Tracked in the
+[telemetry-confirmed regression queue](ROADMAP.md#telemetry-confirmed-regression-queue).
 
 ### REG-2026-09-23-02 — Pre-migration backups omit committed WAL data
 
