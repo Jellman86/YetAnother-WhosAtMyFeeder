@@ -16133,6 +16133,122 @@
         "title": "SystemTelemetryResponse",
         "type": "object"
       },
+      "TaxonChildrenResponse": {
+        "properties": {
+          "children": {
+            "items": {
+              "$ref": "#/components/schemas/TaxonResponse"
+            },
+            "title": "Children",
+            "type": "array"
+          },
+          "parent_id": {
+            "title": "Parent Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "parent_id",
+          "children"
+        ],
+        "title": "TaxonChildrenResponse",
+        "type": "object"
+      },
+      "TaxonLineageResponse": {
+        "properties": {
+          "lineage": {
+            "description": "From the root down to the taxon asked for",
+            "items": {
+              "$ref": "#/components/schemas/TaxonResponse"
+            },
+            "title": "Lineage",
+            "type": "array"
+          }
+        },
+        "required": [
+          "lineage"
+        ],
+        "title": "TaxonLineageResponse",
+        "type": "object"
+      },
+      "TaxonResponse": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Common name in the reader's language, else English, when one exists",
+            "title": "Name"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "principal": {
+            "description": "False for intermediate ranks a view may collapse",
+            "title": "Principal",
+            "type": "boolean"
+          },
+          "rank": {
+            "description": "kingdom, phylum, class, order, family, genus, species, or an intermediate rank",
+            "title": "Rank",
+            "type": "string"
+          },
+          "scientific_name": {
+            "title": "Scientific Name",
+            "type": "string"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The pinned source the taxon comes from",
+            "title": "Source"
+          },
+          "species_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Species beneath this taxon, on branch reads",
+            "title": "Species Count"
+          },
+          "taxon_id": {
+            "description": "Catalogue identity; for a species it is its species_id",
+            "title": "Taxon Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "taxon_id",
+          "rank",
+          "scientific_name",
+          "principal"
+        ],
+        "title": "TaxonResponse",
+        "type": "object"
+      },
       "TaxonomySyncStartResponse": {
         "properties": {
           "status": {
@@ -27361,6 +27477,126 @@
         "summary": "Get System Telemetry History",
         "tags": [
           "stats"
+        ]
+      }
+    },
+    "/api/taxonomy/{taxon_id}/children": {
+      "get": {
+        "description": "The taxa directly beneath one, in the source's order, each with the number of species it holds.",
+        "operationId": "get_taxon_children_api_taxonomy__taxon_id__children_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "taxon_id",
+            "required": true,
+            "schema": {
+              "title": "Taxon Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 500,
+              "maximum": 5000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaxonChildrenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Taxon Children",
+        "tags": [
+          "taxonomy"
+        ]
+      }
+    },
+    "/api/taxonomy/{taxon_id}/lineage": {
+      "get": {
+        "description": "Where a taxon sits: every taxon above it, root first. Catalogue data only, so the same for every reader.",
+        "operationId": "get_taxon_lineage_api_taxonomy__taxon_id__lineage_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "taxon_id",
+            "required": true,
+            "schema": {
+              "title": "Taxon Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaxonLineageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Taxon Lineage",
+        "tags": [
+          "taxonomy"
         ]
       }
     },

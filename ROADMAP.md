@@ -414,7 +414,7 @@ Candidate features, roughly ordered by value. These can land before `3.0` when t
 but otherwise remain post-3.0 backlog; they do not delay the release.
 
 #### Taxonomy explorer and family tree 🌳
-**Priority:** P2 | **Effort:** L | **Status:** ☐ Not started
+**Priority:** P2 | **Effort:** L | **Status:** 🔄 Data layer delivered: birds classified from IOC 14.2 and Catalogue of Life, lineage and branch routes ([design](docs/plans/2026-10-04-taxonomy-tree-design.md))
 
 Show where each bird belongs within Animalia, from kingdom and phylum through class,
 order, suborder, family, genus and species. Include intermediate groups when the chosen

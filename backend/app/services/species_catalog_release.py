@@ -1,7 +1,7 @@
 """The canonical content identity of a catalogue release.
 
-A release's `content_sha256` is a digest over its species, concepts, and
-names in one canonical order, independent of how the rows were inserted. The
+A release's `content_sha256` is a digest over its species, concepts, names,
+classification and model mappings in one canonical order, independent of how the rows were inserted. The
 builder records it when a release is cut, and the importer recomputes it
 before admitting a bundle, so a file altered after it was built cannot enter
 a live catalogue as if it were the release it claims to be.
@@ -35,6 +35,16 @@ def connection_content_digest(connection: sqlite3.Connection) -> str:
     ):
         digest.update(
             f"alias|{alias}|{alias_kind}|{species_id if species_id is not None else ''}|{resolution}\n".encode()
+        )
+    # The classification: a taxon's rank and parent. Written only for the rows that carry one, so a
+    # release without a classification digests exactly as it did before taxa had parents.
+    for species_id, rank, parent, sequence in connection.execute(
+        "SELECT species_id, rank, parent_species_id, sequence FROM species"
+        " WHERE rank != 'species' OR parent_species_id IS NOT NULL ORDER BY species_id"
+    ):
+        digest.update(
+            f"taxon|{species_id}|{rank}|{parent if parent is not None else ''}"
+            f"|{sequence if sequence is not None else ''}\n".encode()
         )
     for model_sha256, mapping_set_sha256, output_width in connection.execute(
         "SELECT model_sha256, mapping_set_sha256, output_width FROM model_artifacts ORDER BY model_sha256"

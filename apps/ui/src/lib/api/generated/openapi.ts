@@ -2110,6 +2110,23 @@ export interface components {
     cpu_percent?: number | null;
     sampled_at: string;
 };
+    TaxonChildrenResponse: {
+    children: Array<components['schemas']['TaxonResponse']>;
+    parent_id: number;
+};
+    TaxonLineageResponse: {
+    lineage: Array<components['schemas']['TaxonResponse']>;
+};
+    TaxonResponse: {
+    name?: string | null;
+    parent_id?: number | null;
+    principal: boolean;
+    rank: string;
+    scientific_name: string;
+    source?: string | null;
+    species_count?: number | null;
+    taxon_id: number;
+};
     TaxonomySyncStartResponse: {
     status: string;
 };
@@ -4256,6 +4273,30 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: components['schemas']['SystemTelemetryHistoryResponse'];
+    };
+  };
+  "/api/taxonomy/{taxon_id}/children": {
+    get: {
+      operationId: "get_taxon_children_api_taxonomy__taxon_id__children_get";
+      path: {
+    taxon_id: number;
+};
+      query: {
+    limit?: number;
+};
+      requestBody: unknown;
+      response: components['schemas']['TaxonChildrenResponse'];
+    };
+  };
+  "/api/taxonomy/{taxon_id}/lineage": {
+    get: {
+      operationId: "get_taxon_lineage_api_taxonomy__taxon_id__lineage_get";
+      path: {
+    taxon_id: number;
+};
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['TaxonLineageResponse'];
     };
   };
   "/api/update-status": {

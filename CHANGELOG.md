@@ -6,6 +6,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- The species catalogue now holds each bird's place in the classification: its genus, family and
+  order from the pinned IOC World Bird List 14.2 (44 orders, 254 families with their English names,
+  2,392 genera), and the ranks from Animalia down to Aves from Catalogue of Life. Each taxon points
+  at its parent, and new `GET /api/taxonomy/{taxon_id}/lineage` and `/children` routes read it.
+  Existing installs receive it through the shipped catalogue release; every species keeps its
+  identity, and a genus or family name does not resolve detection history.
 - Large image buffers are returned to the system when freed instead of fragmenting the allocator,
   so the service no longer creeps upward during photo work. Repeated high-quality scans of a 4K
   clip settled at about 1.55 GB instead of rising from 1.9 to 2.2 GB.

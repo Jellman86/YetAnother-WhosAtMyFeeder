@@ -79,6 +79,7 @@ from app.routers import (
     auth as auth_router,
     jobs as jobs_router,
     manual_observations,
+    taxonomy,
 )
 from app.config import settings, _expand_trusted_hosts
 from app.middleware.language import LanguageMiddleware
@@ -827,6 +828,9 @@ app.include_router(visits.router, prefix="/api", dependencies=[Depends(get_auth_
 app.include_router(about.router, prefix="/api", tags=["about"], dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(proxy.router, prefix="/api", dependencies=[Depends(proxy.get_proxy_auth_context)])
 app.include_router(species.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(
+    taxonomy.router, prefix="/api", tags=["taxonomy"], dependencies=[Depends(get_auth_context_with_legacy)]
+)
 app.include_router(classifier.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(ai.router, prefix="/api", tags=["ai"], dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(stats.router, prefix="/api", tags=["stats"], dependencies=[Depends(get_auth_context_with_legacy)])

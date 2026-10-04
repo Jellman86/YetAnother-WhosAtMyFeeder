@@ -478,6 +478,21 @@ Notes:
   `window_prev_visit_count` fold captures of one canonical species on one camera with a 60-second inactivity gap, as the
   dashboard does, while `window_count` stays frames)
 
+### Taxonomy
+
+Catalogue data only, the same for every reader. Birds take order, family and genus from the pinned
+IOC World Bird List release and the ranks above Aves from Catalogue of Life; each taxon says which
+in `source`. Intermediate ranks a source records (subphylum, infraphylum, parvphylum, megaclass) are
+returned with `principal: false` so a view may collapse them. A taxon id is the catalogue identity:
+for a species it is the same `species_id` detections carry.
+
+- `GET /api/taxonomy/{taxon_id}/lineage` — the taxon and every taxon above it, root first, each with
+  rank, scientific name, common name in the reader's language where one exists, and source. 404 when
+  the catalogue does not hold the taxon.
+- `GET /api/taxonomy/{taxon_id}/children` — the taxa directly beneath one in the source's order
+  (IOC sequence for birds), each with `species_count`, the species beneath it. Query: `limit`
+  (1 to 5000, default 500).
+
 ### Statistics
 
 - `GET /api/stats/daily-summary` — includes `counted_birds` (visible child observations) and

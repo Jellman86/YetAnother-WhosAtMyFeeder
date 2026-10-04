@@ -117,7 +117,8 @@ class _LiveCatalogResolver:
         self._common: dict[str, Any] = {}
 
         for scientific, species_id in connection.execute(
-            "SELECT scientific_name, species_id FROM species_concepts ORDER BY species_id"
+            "SELECT c.scientific_name, c.species_id FROM species_concepts c"
+            " JOIN species s ON s.species_id = c.species_id WHERE s.rank = 'species' ORDER BY c.species_id"
         ):
             self._put(self._scientific, str(scientific).casefold(), int(species_id))
         for alias, species_id in connection.execute(
@@ -126,7 +127,8 @@ class _LiveCatalogResolver:
         ):
             self._put(self._scientific, str(alias).casefold(), int(species_id))
         for name, species_id in connection.execute(
-            "SELECT name, species_id FROM species_names WHERE language_tag = 'en' ORDER BY species_id"
+            "SELECT n.name, n.species_id FROM species_names n JOIN species s ON s.species_id = n.species_id"
+            " WHERE n.language_tag = 'en' AND s.rank = 'species' ORDER BY n.species_id"
         ):
             self._put(self._common, str(name).casefold(), int(species_id))
             self._put(self._common, normalize_common_name(str(name)), int(species_id))

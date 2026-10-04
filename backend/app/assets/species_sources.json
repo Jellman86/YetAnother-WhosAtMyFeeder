@@ -16,6 +16,18 @@
       "notes": "One curated name per species per language; 11,276 species, 87,656 localized names. Built into app/assets/species_reference.db, whose reference_meta records this same source digest. Chosen over aggregated sources because they return several vernacular candidates with nothing to choose between them (see docs/plans/2026-08-19-species-catalogue-reconciliation.md)."
     },
     {
+      "id": "ioc-world-bird-list-master",
+      "name": "IOC World Bird List (Master List)",
+      "role": "bird-classification",
+      "version": "14.2",
+      "url": "https://www.worldbirdnames.org/new/ioc-lists/master-list-2/",
+      "licence": "CC-BY-3.0",
+      "citation": "IOC World Bird List, Frank Gill, David Donsker & Pamela Rasmussen (Eds). https://www.worldbirdnames.org/",
+      "redistribution": "bundled",
+      "content_sha256": "e923f4413df70f5daf689a3731a5b0da0be14fd8b1af4915a322d7e0d17ee233",
+      "notes": "The same IOC 14.2 release as the multilingual file, which already carries each species' order, family and sequence. The master list adds the English family names (Prunellidae: Accentors) the multilingual file lacks. Built into app/assets/species_reference.db beside the multilingual data, whose reference_meta records this digest too."
+    },
+    {
       "id": "catalogue-of-life",
       "name": "Catalogue of Life",
       "role": "canonical-taxonomy",
