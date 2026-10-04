@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Cancelling an isolated CPU recovery request reaps its worker without disabling
+  later requests for that workload. Genuine inference failures and uncontended
+  workload deadlines retain their existing retry protections.
+
 - Manual reclassification repairs an automatically chosen photograph even when video
   and snapshot classification cannot establish a new species. Keep the accepted species
   and an explicitly selected owner photograph unchanged.

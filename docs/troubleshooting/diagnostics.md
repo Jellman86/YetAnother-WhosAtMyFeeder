@@ -366,9 +366,11 @@ generation in that worker is also CPU-only. The configured provider is unchanged
 The loaded model/labels/external weights and actual provider must match before and
 after inference. Queueing, cold load and inference share the workload deadline;
 merely loading a model is not recovery. Health remains degraded after successful
-CPU inference and retains the original crash evidence. A failed or cancelled attempt that had
-its own budget is not repeated for that workload until a configuration change or process
-restart; a native crash in the CPU profile remains quarantined across restarts. Wildlife work
+CPU inference and retains the original crash evidence. A failed attempt that had its own
+budget is not repeated for that workload until a configuration change or process restart.
+Caller cancellation reaps the worker but allows a later request to try again; it does not
+establish that CPU inference is too slow. A native crash in the CPU profile remains
+quarantined across restarts. Wildlife work
 does not reuse this bird-model recovery path.
 Recovery deliberately uses one CPU worker to bound memory after a crash. A long video or
 backfill classification can consume another request's queue budget; that request fails visibly
