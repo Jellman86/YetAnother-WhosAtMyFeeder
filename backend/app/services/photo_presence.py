@@ -4,7 +4,7 @@ from collections.abc import Mapping
 import math
 from typing import Any
 
-from app.services.bird_observation_selection import MIN_DETECTOR_CONFIDENCE
+MIN_PHOTO_DETECTOR_CONFIDENCE = 0.25
 
 DETECTOR_PHOTO_STRATEGY = "detector_supported"
 
@@ -67,7 +67,11 @@ def attach_photo_presence(candidates: list[dict[str, Any]], observations: list[d
         frame = (candidate.get("clip_variant"), candidate.get("frame_index"))
         if not isinstance(frame[0], str) or type(frame[1]) is not int:
             continue
-        for bird in located:
+        for bird in sorted(
+            located,
+            key=lambda item: item.get("crop_confidence") if _usable_confidence(item.get("crop_confidence")) else -1,
+            reverse=True,
+        ):
             if candidate.get("source_mode") == "model_crop" and bird.get("candidate_id") != candidate.get(
                 "candidate_id"
             ):
@@ -85,15 +89,23 @@ def attach_photo_presence(candidates: list[dict[str, Any]], observations: list[d
                 or candidate.get("source_mode") != "full_frame",
             }
             if has_localized_bird(evidence):
-                candidate["crop_strategy"] = DETECTOR_PHOTO_STRATEGY
-                candidate["crop_confidence"] = bird.get("crop_confidence")
-                supported.append(candidate)
+                supported.append(
+                    {
+                        **candidate,
+                        "crop_strategy": DETECTOR_PHOTO_STRATEGY,
+                        "crop_confidence": bird.get("crop_confidence"),
+                    }
+                )
                 break
     return supported
 
 
 def _usable_confidence(confidence: object) -> bool:
-    return type(confidence) in {int, float} and math.isfinite(confidence) and MIN_DETECTOR_CONFIDENCE <= confidence <= 1
+    return (
+        type(confidence) in {int, float}
+        and math.isfinite(confidence)
+        and MIN_PHOTO_DETECTOR_CONFIDENCE <= confidence <= 1
+    )
 
 
 def has_confident_photo_species(candidate: Mapping[str, Any], *, threshold: float) -> bool:

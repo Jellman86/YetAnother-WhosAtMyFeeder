@@ -17,7 +17,6 @@ from pathlib import Path
 from typing import Any, Optional
 
 import cv2
-import numpy as np
 import structlog
 from PIL import Image
 
@@ -38,6 +37,7 @@ from app.services.classification_input_provenance import cached_snapshot_input_p
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 from app.repositories.bird_observation_repository import BirdObservationRepository
+from app.services.photo_quality import image_quality_score, materially_improves_photo
 from app.services.photo_presence import attach_photo_presence, has_localized_bird, has_confident_photo_species
 from app.services.bird_observation_selection import (
     BirdObservationSelection,
@@ -423,6 +423,9 @@ class HighQualitySnapshotService:
                 await self._persist_bird_observations(event_id, candidate_bundle.get("bird_selection"))
                 classification_candidates = candidates
                 selected_candidate = candidate_bundle.get("selected_candidate")
+                if selected_candidate and selected_candidate.get("preserve_existing_photo"):
+                    await self._apply_classification_refinement(event_id, classification_candidates)
+                    return self._record_outcome(event_id, "existing_crop_preserved")
                 if candidate_bundle.get("photo_outcome") == "bird_presence_unconfirmed":
                     await self._apply_classification_refinement(event_id, classification_candidates)
                     return self._record_outcome(event_id, "bird_presence_unconfirmed")
@@ -624,6 +627,11 @@ class HighQualitySnapshotService:
                     await self._persist_bird_observations(event_id, candidate_bundle.get("bird_selection"))
                     classification_candidates = candidates
                     selected_candidate = candidate_bundle.get("selected_candidate")
+                    if selected_candidate and selected_candidate.get("preserve_existing_photo"):
+                        await self._apply_classification_refinement(event_id, classification_candidates)
+                        result = self._record_outcome(event_id, "existing_crop_preserved")
+                        await self._persist_processing_outcome(event_id, result, expected_revision=revision)
+                        return result
                     if candidate_bundle.get("photo_outcome") == "bird_presence_unconfirmed":
                         await self._apply_classification_refinement(event_id, classification_candidates)
                         result = self._record_outcome(event_id, "bird_presence_unconfirmed")
@@ -854,6 +862,10 @@ class HighQualitySnapshotService:
         observation_candidates = await self._detect_count_candidates(scored)
         rechecked_observations = await self._recheck_weak_count_candidates(scored, observations=observation_candidates)
         supported = attach_photo_presence(scored, observation_candidates)
+        # Presence is attached to copies; the persisted scenes carry it too, so a moment with a
+        # located bird stays reusable as a photo scene even when no species is confident enough.
+        located = {str(candidate.get("candidate_id")): candidate for candidate in supported}
+        ranked = [located.get(str(item.get("candidate_id")), item) for item in ranked]
         expected_keys = {self._candidate_label_key(label) for label in expected_labels}
         supported = [
             candidate
@@ -870,6 +882,16 @@ class HighQualitySnapshotService:
             scored + observation_candidates + rechecked_observations, selected_candidate=selected_candidate
         )
         count_evidence = [item for item in rechecked_observations if item.get("image_bytes")]
+        # The photograph already shown stays unless a candidate is clearly better: a marginal
+        # winner (or a tiny weak crop that out-scores it by a hair) is churn, not an improvement.
+        incumbent = await self._load_verified_incumbent_photo(event_id, expected_keys)
+        if incumbent is not None and (
+            selected_candidate is None or not materially_improves_photo(selected_candidate, incumbent)
+        ):
+            selected_candidate = {**incumbent, "preserve_existing_photo": True}
+            ranked = [item for item in ranked if item.get("candidate_id") != incumbent["candidate_id"]] + [
+                selected_candidate
+            ]
         persisted = self._select_persisted_candidates(
             ranked + count_evidence,
             selected_candidate=selected_candidate,
@@ -1059,6 +1081,44 @@ class HighQualitySnapshotService:
         if not await asyncio.to_thread(same_species):
             return None
         return scored
+
+    async def _load_verified_incumbent_photo(self, event_id: str, expected_keys: set[str]) -> dict[str, Any] | None:
+        from app.services.photo_presence import has_reusable_bird_presence
+
+        metadata = await media_cache.get_snapshot_metadata(event_id) or {}
+        if metadata.get("manual_selection") or metadata.get("storage_evicted"):
+            return None
+        async with get_db() as db:
+            rows = await DetectionRepository(db).list_snapshot_candidates(event_id)
+        current = next((row for row in rows if row.get("selected")), None)
+        # A photo the owner removed is never defended as the incumbent.
+        if (
+            current is None
+            or current.get("photo_hidden")
+            or not expected_keys
+            or self._candidate_label_key(current.get("classifier_label")) not in expected_keys
+        ):
+            return None
+        if not has_reusable_bird_presence(current) or not has_confident_photo_species(
+            current, threshold=settings.classification.threshold
+        ):
+            return None
+        displayed = await media_cache.get_snapshot(event_id)
+        reference = current.get("image_ref")
+        if not displayed or not reference or await media_cache.get_snapshot(reference) != displayed:
+            return None
+        try:
+            image = await asyncio.to_thread(decode_image_bytes, displayed, convert_rgb=True)
+            quality = await asyncio.to_thread(image_quality_score, image)
+        except Exception:
+            return None
+        return {
+            **current,
+            "image_bytes": displayed,
+            "image_quality_score": quality,
+            "image_width": image.width,
+            "image_height": image.height,
+        }
 
     async def _detect_count_candidates(self, scored: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Scan whole frames for every bird, independently of the photo-choice crop ceiling."""
@@ -1911,13 +1971,8 @@ class HighQualitySnapshotService:
             )
             raise PhotoScanRetry("classifier_error") from e
 
-        grayscale = cv2.cvtColor(np.asarray(image), cv2.COLOR_RGB2GRAY)
-        sharpness = float(cv2.Laplacian(grayscale, cv2.CV_64F).var())
-        sharpness_score = min(1.0, math.log1p(max(0.0, sharpness)) / math.log1p(1000.0))
-        exposure_score = float(((grayscale >= 8) & (grayscale <= 247)).mean())
-        resolution_score = min(1.0, math.sqrt(image.width * image.height) / 512.0)
-        image_quality_score = (sharpness_score * 0.45) + (exposure_score * 0.35) + (resolution_score * 0.20)
-        ranking_score = (classifier_score * 0.85) + (image_quality_score * 0.15)
+        quality_score = await asyncio.to_thread(image_quality_score, image)
+        ranking_score = (classifier_score * 0.85) + (quality_score * 0.15)
 
         enriched = dict(candidate)
         enriched["image_width"] = image.width
@@ -1925,7 +1980,7 @@ class HighQualitySnapshotService:
         enriched["classifier_label"] = classifier_label
         enriched["classifier_score"] = classifier_score
         enriched["classifier_index"] = classifier_index
-        enriched["image_quality_score"] = image_quality_score
+        enriched["image_quality_score"] = quality_score
         enriched["ranking_score"] = ranking_score
         return enriched
 
@@ -3493,7 +3548,12 @@ class HighQualitySnapshotService:
         try:
             async with get_db() as db:
                 repo = ProcessingJobRepository(db)
-                if result in {"replaced", "bird_crop_replaced", "manual_selection_preserved"}:
+                if result in {
+                    "replaced",
+                    "bird_crop_replaced",
+                    "manual_selection_preserved",
+                    "existing_crop_preserved",
+                }:
                     await repo.record_success(HQ_PROCESSING_PIPELINE, event_id, expected_revision=expected_revision)
                     return
                 state = await repo.record_failure(
