@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Keep Explorer's species search and list first, with date, other filters and cameras
+  collapsed initially. Selecting filters no longer squeezes the species list out of
+  a short desktop window; expanded sections remain scrollable.
+
 - Expanded visit captures refresh after a recount or owner edit, even when visit membership
   stays the same.
 - Camera filters keep visit identities and expanded capture totals consistent when legacy

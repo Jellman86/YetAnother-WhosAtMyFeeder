@@ -24,13 +24,14 @@ describe('Explorer page layout', () => {
         expect(eventsSource).not.toContain('species={availableSpecies}');
     });
 
-    it('shows the complete species facet and lets it use the remaining desktop viewport', () => {
+    it('shows the complete species facet before the collapsible filters', () => {
         expect(filtersSource).toContain("filterExplorerSpecies(species, search)");
         expect(filtersSource).not.toContain('.slice(0, 12)');
         expect(filtersSource).toContain('data-explorer-species-facet');
         expect(filtersSource).toContain('data-explorer-species-list');
         expect(filtersSource).toContain('lg:max-h-[calc(100dvh-2rem)]');
-        expect(filtersSource).toContain('lg:min-h-0 lg:max-h-none lg:flex-1');
+        expect(filtersSource.indexOf('data-explorer-species-facet')).toBeLessThan(filtersSource.indexOf('data-explorer-date-facet'));
+        expect(filtersSource).toContain('lg:overflow-y-auto');
     });
 
     it('separates the timeline and pagination with space, not rules', () => {

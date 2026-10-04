@@ -113,6 +113,12 @@ by a badge.
 
 Four shapes cover the app. Pick one; do not blend them.
 
+Explorer's filter rail puts species search and its scrollable list first. Date, other
+filters and cameras use native collapsible sections, initially closed. Applied filters
+stay visible as removable tokens. The rail scrolls when expanded sections exceed the
+available height, so selecting a species never shrinks its list to zero. Phones use the
+same ordering behind the Filters button.
+
 ### Desk (Dashboard)
 
 ```
