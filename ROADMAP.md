@@ -619,7 +619,7 @@ These are high-value follow-ups. A measured regression can promote a specific it
 exit criteria; the broad initiatives do not block the release by default.
 
 #### Telemetry-confirmed regression queue
-**Priority:** P1 | **Effort:** M | **Status:** 🔄 Code complete; one fix awaits the in-app half of its live proof
+**Priority:** P1 | **Effort:** M | **Status:** ✅ Complete; all three regressions have field evidence
 
 The September 15 fleet-health review promoted three concrete regressions ahead of new reliability
 work. Their evidence, counting rules and completion criteria live in [`ISSUES.md`](ISSUES.md):
@@ -632,9 +632,9 @@ work. Their evidence, counting rules and completion criteria live in [`ISSUES.md
   is resolved in `dev`: mixed v1/v3 fleet-health reporting now combines cohorts before applying the
   privacy floor and labels cumulative legacy counters instead of presenting them as fresh events.
 - [REG-2026-09-15-03](ISSUES.md#reg-2026-09-15-03--final-mode-detection-notifications)
-  keeps the final-mode notification fix in verification until one real accepted event is seen in the
-  in-app timeline too. Telegram delivery after video analysis was confirmed on October 4; the code
-  fix is in `dev` via PR #467 and is not in stable `2.20.1`.
+  is verified in the field on October 4: a real final-mode visit reached the live page at once and
+  sent its Telegram notification only after video analysis. The fix is in `dev` via PR #467 and is
+  not in stable `2.20.1`.
 
 The queue is complete when the open regression meets its linked acceptance criteria and both fixed
 regressions have end-to-end field evidence. It is a sequencing rule for reliability work, not an

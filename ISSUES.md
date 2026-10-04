@@ -58,17 +58,6 @@ service with real NPU workers; reporter confirmation is still needed for the ori
 combination. See the [classifier review](docs/reviews/2026-09-23-classifier-recovery-review.md) and
 the [inference isolation roadmap](ROADMAP.md#keep-the-web-service-and-ingest-off-the-inference-path-).
 
-### REG-2026-09-15-03 — Final-mode detection notifications
-
-Stable `2.20.1` can save a final Frigate event without dispatching its notification because the
-terminal path treated the earlier preliminary classification as unchanged. PR #467 makes the
-terminal decision authoritative in `dev`. On October 4 the reference install, in final mode with
-notifications held until video analysis, dispatched Telegram notifications for real detections
-only after their video analysis completed, including one where video analysis overrode the
-preliminary species; every dispatch reported `sent`. The in-app notification timeline was not
-observed for the same detections. Keep this open until it is, then close. Tracked in the
-[telemetry-confirmed regression queue](ROADMAP.md#telemetry-confirmed-regression-queue).
-
 ## Known Remaining Exposure
 
 - **Accuracy-fixture provenance was not reproducible.** The downloader could drop
@@ -132,6 +121,16 @@ observed for the same detections. Keep this open until it is, then close. Tracke
   fallback. What remains is production backfill under real ingest load.
 
 ## Recently Closed (Context)
+
+### REG-2026-09-15-03 — Final-mode detection notifications
+
+Stable `2.20.1` can save a final Frigate event without dispatching its notification because the
+terminal path treated the earlier preliminary classification as unchanged. PR #467 makes the
+terminal decision authoritative in `dev`. Closed on October 4: on the reference install, in final
+mode with notifications held until video analysis, a real Blackbird visit was saved, reached an
+open owner page through the live `detection` event within a second (the same event that adds the
+in-app notification), was re-identified by video analysis, and dispatched its Telegram notification
+only after video analysis completed. Every dispatch that day reported `sent`.
 
 ### #603 — Explorer species list on small screens
 
