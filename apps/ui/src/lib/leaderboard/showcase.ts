@@ -12,12 +12,11 @@ export interface ShowcaseRow {
     count: number;
     /** This feeder's own crop, a path served by the reel's image route. */
     photo: string | null;
-    /** The visit that crop is from, and whether a film of it is ready. */
-    photoEvent: string | null;
-    film: boolean;
+    /** The species' scientific name and taxon, so a capture is matched to it whatever the naming mode. */
+    scientificName: string | null;
+    taxaId: number | null;
     /** The species' reference image from the taxonomy cache, and where it came from. */
     reference: string | null;
-    referenceSource: string | null;
     /** Probably a misidentification: only the camera backs it and nobody reported it nearby. */
     flagged: boolean;
 }
@@ -62,43 +61,6 @@ export function portraitFor(row: ShowcaseSource, portraits: LeaderboardPortrait[
     return byName ?? null;
 }
 
-/** One card in the leaderboard's reel: a visit's photograph, and its film once one is made. */
-export interface ReelCard {
-    key: string;
-    frigateEvent: string;
-    title: string;
-    detail: string;
-    badge: string;
-    film: boolean;
-    /** What a click does, for readers: the card's whole name. */
-    label: string;
-}
-
-/** Fewer photographs than this make a strip that reads as a gap, not a reel. */
-export const REEL_MINIMUM = 4;
-
-/**
- * The reel's cards: every ranked species with a photograph of its own, in rank order. A
- * flagged species (probably a misidentification) is never put on show.
- */
-export function reelCards(
-    rows: ShowcaseRow[],
-    text: { detail: (row: ShowcaseRow) => string; badge: (row: ShowcaseRow) => string; label: (row: ShowcaseRow) => string }
-): ReelCard[] {
-    const cards = rows
-        .filter((row): row is ShowcaseRow & { photoEvent: string } => !row.flagged && row.photoEvent !== null)
-        .map((row) => ({
-            key: row.key,
-            frigateEvent: row.photoEvent,
-            title: row.displayName,
-            detail: text.detail(row),
-            badge: text.badge(row),
-            film: row.film,
-            label: text.label(row)
-        }));
-    return cards.length >= REEL_MINIMUM ? cards : [];
-}
-
 export function buildShowcaseRows<T extends ShowcaseSource>(
     rows: T[],
     options: {
@@ -121,10 +83,9 @@ export function buildShowcaseRows<T extends ShowcaseSource>(
             subName: row.subName,
             count: countForMode(metricRow, options.sourceMode),
             photo: portrait?.image_url ?? null,
-            photoEvent: portrait?.frigate_event ?? null,
-            film: Boolean(portrait?.film_url),
+            scientificName: row.scientific_name ?? null,
+            taxaId: row.taxa_id ?? null,
             reference: reference.url,
-            referenceSource: reference.source,
             flagged: options.isFlagged?.(row) ?? false
         };
     });
@@ -141,7 +102,7 @@ export function spotlightGroups(rows: ShowcaseRow[], listSize = SPOTLIGHT_LIST) 
     const others = trusted.slice(listSize);
     return {
         list,
-        others: { species: others.length, count: others.reduce((sum, row) => sum + row.count, 0) },
+        others: { species: others.length, count: others.reduce((sum, row) => sum + row.count, 0), members: others.map((row) => row.key) },
         checks: rows.filter((row) => row.flagged)
     };
 }

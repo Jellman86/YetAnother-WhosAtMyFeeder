@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import reelSource from './CaptureReel.svelte?raw';
+import wallSource from './CaptureWall.svelte?raw';
 import filmSource from './VisitFilm.svelte?raw';
 import filmsSource from '../utils/visit-films.ts?raw';
 import portraitSource from './FeederPortrait.svelte?raw';
@@ -8,56 +8,54 @@ import speciesSource from '../pages/Species.svelte?raw';
 import privacySource from './PrivacySummary.svelte?raw';
 import en from '../i18n/locales/en.json';
 
-describe('the leaderboard opens on this feeder\'s own photographs', () => {
-    it('sits above the share bar, one card per leading species, each opening the species', () => {
-        const reel = speciesSource.indexOf('<CaptureReel');
-        expect(reel).toBeGreaterThan(-1);
-        expect(reel).toBeLessThan(speciesSource.indexOf('<SpeciesShareBar'));
-        expect(speciesSource).toContain("{#if sourceMode !== 'heard' && leaderboardReel.length > 0}");
-        expect(speciesSource).toContain('onopen={(card) => (selectedSpecies = card.key)}');
-        // The card is the stored photograph (the crop) at card size, never the whole-scene
+describe('the leaderboard opens on a wall of this feeder\'s own visits', () => {
+    it('sits above the share bar, every tile a visit that opens its species', () => {
+        const wall = speciesSource.indexOf('<CaptureWall');
+        expect(wall).toBeGreaterThan(-1);
+        expect(wall).toBeLessThan(speciesSource.indexOf('<SpeciesChecks'));
+        expect(speciesSource).toContain("{#if sourceMode !== 'heard' && sourceLeader && sourceLeader.count > 0}");
+        expect(wallSource).toContain('{#if loading || usable.length >= WALL_MINIMUM}');
+        expect(speciesSource).toContain('onopen={(key) => (selectedSpecies = key)}');
+        // A tile is the stored photograph (the crop) at card size, never the whole-scene
         // thumbnail and never the multi-megabyte original.
-        expect(reelSource).toContain('poster={getReelImageUrl(card.frigateEvent)}');
-        expect(reelSource).not.toContain('getSnapshotUrl');
-        expect(reelSource).toContain('<button');
-        expect(reelSource).toContain('aria-label={card.label}');
+        expect(wallSource).toContain('src={getReelImageUrl(tile.frigateEvent)}');
+        expect(wallSource).not.toContain('getSnapshotUrl');
+        expect(wallSource).toContain('<button');
+        expect(wallSource).toContain('aria-label={tileName(tile)}');
         // The About page no longer carries a reel of its own.
-        expect(aboutSource).not.toContain('CaptureReel');
+        expect(aboutSource).not.toContain('CaptureWall');
     });
 
-    it('loops with decorative copies that readers and the Tab key never meet', () => {
-        expect(reelSource).toContain('{#each copiesFor(rowIndex) as loop, copyIndex (copyIndex)}');
-        expect(reelSource).toContain('aria-hidden={loop}');
-        expect(reelSource).toContain('tabindex={loop ? -1 : 0}');
-        // The drift moves by one measured copy, and the row is covered however wide the screen
-        // is: a short row shifted by half its track would drift into empty space.
-        expect(reelSource).toContain('Math.ceil(rowWidth / setWidth) + 1');
-        expect(reelSource).toContain('transform: translateX(var(--reel-shift, -50%));');
+    it('lights the hovered species and dims the rest, on hover and on keyboard focus alike', () => {
+        expect(wallSource).toContain('onpointerenter={(event) => hoverTile(event, tile)}');
+        expect(wallSource).toContain('onfocus={(event) => focusTile(event, tile)}');
+        expect(wallSource).toContain("target.matches(':focus-visible')");
+                // Touch has no hover, so a tap opens the species instead of a pop-out.
+        expect(wallSource).toContain("event.pointerType === 'touch'");
+        // The wall dims only from the share bar: a visit under the pointer is ringed, never resized.
+        expect(wallSource).toContain('.wall.has-active .tile:not(.lit)');
+        expect(wallSource).not.toContain('transform: scale(1.07)');
     });
 
-    it('answers hover and press on every card, and a click never makes the row jump', () => {
-        expect(reelSource).toContain('hover:-translate-y-1 hover:border-brand-400/70 hover:shadow-xl active:translate-y-0 active:scale-[0.98]');
-        expect(reelSource).toContain('group-hover:scale-[1.04]');
-        // A click focuses the card, but only keyboard focus (:focus-visible) stills the reel;
-        // stilling it on a click drops the drift's transform and the whole row jumps.
-        expect(reelSource).toContain('if (!isKeyboardFocus(target)) return;');
-        expect(reelSource).toContain("target.matches(':focus-visible')");
+    it('opens a pop-out that stays inside the viewport and closes on Escape or scroll', () => {
+        expect(wallSource).toContain('role="tooltip"');
+        expect(wallSource).toContain('aria-describedby={activeTile === tile.key ? popoutId : undefined}');
+        expect(wallSource).toContain("event.key !== 'Escape'");
+        expect(wallSource).toContain("window.addEventListener('scroll', follow");
+        expect(wallSource).toContain('viewportHeight - height - 8');
+        // It can be reached with the pointer, so the text in it can be read (WCAG 1.4.13).
+        expect(wallSource).toContain('onpointerenter={holdOpen}');
     });
 
-    it('stands still and scrolls while keyboard focus is inside it, so no focused card is hidden', () => {
-        expect(reelSource).toContain('onfocusin={handleFocusIn}');
-        expect(reelSource).toContain("target.scrollIntoView({ block: 'nearest', inline: 'nearest' })");
-        expect(reelSource).toContain('.reel.still .track');
-        expect(reelSource).toContain(".reel.still .set[aria-hidden='true']");
+    it('never leaves a hole: a photograph that fails to load leaves the wall', () => {
+        expect(wallSource).toContain('use:photo={() => markFailed(tile.frigateEvent)}');
+        expect(wallSource).toContain('.filter((tile) => !failed.has(tile.frigateEvent))');
     });
 
-    it('pauses under the pointer or focus, and stands still for reduced motion', () => {
-        expect(reelSource).toContain('.reel:hover .track,\n    .reel:focus-within .track {\n        animation-play-state: paused;');
-        expect(reelSource).toContain('@media (prefers-reduced-motion: reduce)');
-        expect(reelSource).toContain(':global(.reduced-motion) .track');
-        // With no drift the loop copy would be a duplicate list, so it goes and the row scrolls.
-        expect(reelSource).toContain(".set[aria-hidden='true'] {\n            display: none;");
-        expect(reelSource).toContain('overflow-x: auto;');
+    it('stands still under reduced motion', () => {
+        expect(wallSource).toContain('@media (prefers-reduced-motion: reduce)');
+        expect(wallSource).toContain(':global(.reduced-motion) .tile.rising');
+        expect(wallSource).toContain('const rising = $derived(!introDone && !reduceMotion);');
     });
 });
 

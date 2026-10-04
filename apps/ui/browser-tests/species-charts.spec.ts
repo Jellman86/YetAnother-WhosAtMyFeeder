@@ -19,9 +19,24 @@ const species = [
     window_first_seen: start, window_last_seen: end,
 }));
 
+// The wall's captures: one visit each (an hour apart), Robin, Dunnock and Wren in turn.
+const pixel = '<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"><rect width="4" height="4" fill="#7a9a6a"/></svg>';
+let wallCaptures: Array<Record<string, unknown>>;
+const captures = (count: number) => Array.from({ length: count }, (_, index) => ({
+    frigate_event: `wall-${index}`,
+    display_name: species[index % 3].species,
+    scientific_name: species[index % 3].species,
+    score: 0.7 + (index % 5) / 20,
+    detection_time: new Date(Date.parse('2026-09-07T20:00:00Z') - index * 3_600_000).toISOString(),
+    camera_name: 'feeder',
+    has_snapshot: true,
+    has_clip: index % 4 === 0,
+}));
+
 let capturedImage: string | null;
 test.beforeEach(async ({ page }) => {
     capturedImage = null;
+    wallCaptures = [];
     await page.route(url => url.pathname.startsWith('/api/'), async route => {
         const url = new URL(route.request().url());
         const path = url.pathname;
@@ -50,6 +65,10 @@ test.beforeEach(async ({ page }) => {
             const body = route.request().postDataJSON();
             capturedImage = body.image_base64;
             await route.fulfill({ json: { analysis: 'Activity peaks on 5 September.', analysis_timestamp: end } });
+        } else if (path === '/api/events') {
+            await route.fulfill({ json: wallCaptures });
+        } else if (path.startsWith('/api/about/showcase/') && path.endsWith('.jpg')) {
+            await route.fulfill({ contentType: 'image/svg+xml', body: pixel });
         } else if (path.includes('/species/') && path.endsWith('/info')) {
             await route.fulfill({ json: {} });
         } else {
@@ -222,6 +241,49 @@ test('repeated guest refreshes and a new window do not leave a fixed page height
     await page.getByRole('button', { name: 'Week', exact: true }).click();
     await expect(page.getByRole('grid', { name: /Activity by weekday and hour/ })).toBeVisible();
     await expect(page.locator('[data-leaderboard-page]')).not.toHaveAttribute('style', /min-height: [1-9]/);
+});
+
+test('the wall shows visits, the share bar lights a species and Escape lets go of a pin', async ({ page }) => {
+    wallCaptures = captures(30);
+    await page.reload();
+    const tiles = page.locator('[data-capture-wall-tile]');
+    await expect.poll(() => tiles.count()).toBeGreaterThanOrEqual(24);
+    // One Tab stop for the whole wall.
+    await expect(page.locator('[data-capture-wall-tile][tabindex="0"]')).toHaveCount(1);
+
+    const robin = page.locator('[data-capture-wall-segment="species"]').first();
+    await robin.hover();
+    await expect.poll(() => page.locator('[data-capture-wall-tile].lit').count()).toBeGreaterThan(0);
+    const lit = await page.locator('[data-capture-wall-tile].lit').evaluateAll(nodes => [...new Set(nodes.map(node => node.getAttribute('data-species')))]);
+    expect(lit).toEqual(['Robin']);
+
+    await robin.click();
+    await expect(robin).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('[data-capture-wall-open]')).toBeVisible();
+    await page.mouse.move(0, 0);
+    await expect(page.locator('[data-capture-wall-grid].has-active')).toHaveCount(1);
+    await page.keyboard.press('Escape');
+    await expect(robin).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.locator('[data-capture-wall-grid].has-active')).toHaveCount(0);
+});
+
+test('a visit opens its pop-out on keyboard focus, arrows move between visits and Escape closes it', async ({ page }) => {
+    wallCaptures = captures(30);
+    await page.reload();
+    const first = page.locator('[data-capture-wall-tile][tabindex="0"]');
+    await expect(first).toBeVisible();
+    await first.focus();
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowLeft');
+    await expect(page.locator('[data-capture-wall-popout]')).toBeVisible();
+    await expect(page.locator('[data-capture-wall-popout]')).toContainText('Confidence');
+    const before = await page.evaluate(() => document.activeElement?.getAttribute('data-capture-wall-tile'));
+    await page.keyboard.press('ArrowRight');
+    const after = await page.evaluate(() => document.activeElement?.getAttribute('data-capture-wall-tile'));
+    expect(after).not.toBe(before);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('[data-capture-wall-popout]')).toHaveCount(0);
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
 async function rainPixels(canvas: Locator): Promise<number[][] | null> {

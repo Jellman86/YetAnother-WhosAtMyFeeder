@@ -6,6 +6,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- The leaderboard opens on a contact sheet of this feeder's own visits instead of a drifting reel
+  of one photograph per species. The share by species bar now sits on top of it as its navigation:
+  hovering a segment opens it out and lights that species' visits, a click pins the highlight, and
+  hovering a visit opens a pop-out with the larger photograph, names, confidence, time, camera and
+  frame count. The wall matches captures to species whatever the naming mode, and the arrow keys
+  move between visits.
 - Reuse the exact winning video scene for the visit photograph and matching
   high-quality photo frames. Retain at most two scenes with a 64 MiB pixel-storage
   budget, validate clip/frame provenance, and decode normally when reuse is unavailable.
