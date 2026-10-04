@@ -145,7 +145,7 @@ async def test_cancellation_reaps_worker_and_never_claims_recovery(tmp_path):
     with pytest.raises(asyncio.CancelledError):
         await task
     assert worker.closed
-    assert runner.snapshot()["live"]["status"] == "failed"
+    assert "live" not in runner.snapshot()
 
 
 @pytest.mark.asyncio
@@ -483,6 +483,76 @@ def recovery_with_fresh_workers(tmp_path, delays):
     policy = NativeCrashQuarantine(lambda: PROFILE, root=tmp_path)
     policy.record(PROFILE, -signal.SIGSEGV)
     return NativeCpuRecovery(lambda: dict(PROFILE), policy, worker_factory=factory), workers
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("priority", ["live", "background", "video"])
+@pytest.mark.parametrize("previous_success", [False, True])
+async def test_caller_cancellation_allows_later_same_workload_to_recover(tmp_path, priority, previous_success):
+    delays = {"now": 0}
+    runner, workers = recovery_with_fresh_workers(tmp_path, delays)
+
+    async def request():
+        payload = (
+            {"video_path": "/tmp/unused.mp4", "stride": 5, "max_frames": 3}
+            if priority == "video"
+            else {"image_b64": "unused", "camera_name": None, "model_id": None}
+        )
+        return await runner.run(priority=priority, timeout_seconds=5, payload=payload)
+
+    try:
+        if previous_success:
+            assert await request()
+        before = runner.snapshot().get(priority)
+        delays["now"] = 10
+        for worker in workers:
+            worker.delay = 10
+        task = asyncio.create_task(request())
+        while not workers or len(workers[-1].sent) < 1 + int(previous_success):
+            await asyncio.sleep(0)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        assert workers[-1].closed
+        assert runner.snapshot().get(priority) == before
+        delays["now"] = 0
+        assert await request()
+        assert len(workers) == 2
+        assert runner.snapshot()[priority]["status"] == "degraded"
+    finally:
+        await runner.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_queued_retry_waits_for_cancelled_worker_cleanup(tmp_path):
+    delays = {"now": 10}
+    runner, workers = recovery_with_fresh_workers(tmp_path, delays)
+    cleanup_started, release_cleanup = asyncio.Event(), asyncio.Event()
+    active = asyncio.create_task(classify(runner, timeout=5))
+    while not workers or not workers[0].sent:
+        await asyncio.sleep(0)
+    original_kill = workers[0].kill
+
+    async def delayed_kill():
+        cleanup_started.set()
+        await release_cleanup.wait()
+        await original_kill()
+
+    workers[0].kill = delayed_kill
+    delays["now"] = 0
+    queued = asyncio.create_task(classify(runner, timeout=5))
+    active.cancel()
+    await cleanup_started.wait()
+    assert len(workers) == 1
+    assert not queued.done()
+    release_cleanup.set()
+    with pytest.raises(asyncio.CancelledError):
+        await active
+    try:
+        assert await queued
+        assert len(workers) == 2 and workers[0].closed
+    finally:
+        await runner.shutdown()
 
 
 @pytest.mark.asyncio

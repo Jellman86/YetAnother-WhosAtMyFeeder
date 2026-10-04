@@ -11,6 +11,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   budget, validate clip/frame provenance, and decode normally when reuse is unavailable.
   Request-owned lossless artifacts are removed on completion or cancellation.
   Video result descriptions now refer to supporting observations across the video.
+- Cancelling an isolated CPU recovery request reaps its worker without disabling
+  later requests for that workload. Genuine inference failures and uncontended
+  workload deadlines retain their existing retry protections.
 
 - Manual reclassification repairs an automatically chosen photograph even when video
   and snapshot classification cannot establish a new species. Keep the accepted species
