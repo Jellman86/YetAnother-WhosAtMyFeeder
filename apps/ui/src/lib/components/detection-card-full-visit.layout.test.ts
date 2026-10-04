@@ -14,7 +14,7 @@ describe('detection card full-visit fetch wiring', () => {
         expect(detectionCardSource).toContain('fullVisitFetched');
         expect(detectionCardSource).toContain('fullVisitFetchState');
         expect(detectionCardSource).toContain('onFetchFullVisit');
-        expect(detectionCardSource).toContain("title={$_('video_player.full_visit_ready'");
+        expect(detectionCardSource).toContain("text={$_('video_player.full_visit_ready'");
         // The marker rides on the play button now. Beside it, a 20px circle next
         // to a 44px one read as a second, broken control.
         expect(detectionCardSource).toContain('absolute -right-0.5 -top-0.5');

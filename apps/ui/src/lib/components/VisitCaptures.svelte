@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onDestroy, untrack, type Snippet } from 'svelte';
     import { _ } from 'svelte-i18n';
+    import BadgeHint from './BadgeHint.svelte';
     import DetectionPreview from './DetectionPreview.svelte';
     import type { DetectionVisit, VisitOptions } from '../api/visits';
     import { settingsStore } from '../stores/settings.svelte';
@@ -262,9 +263,9 @@
                                         </svg>
                                     </button>
                                 {/if}
-                                <span class="pointer-events-none min-w-10 text-right text-xs font-bold tabular-nums {scoreTone(score)}">
+                                <BadgeHint target text={$_('detection.confidence_hint', { values: { score: Math.round(score * 100) } })} class="min-w-10 rounded text-right text-xs font-bold tabular-nums {scoreTone(score)}">
                                     {Math.round(score * 100)}%
-                                </span>
+                                </BadgeHint>
                             </div>
                         </li>
                     {/each}

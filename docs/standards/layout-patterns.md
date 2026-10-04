@@ -12,6 +12,17 @@ follow `ui-ux.md`.
 
 ## 1. The rules that produced these screens
 
+Capture status, time and confidence badges use `BadgeHint` for explanations on
+hover, keyboard focus and tap. Existing action buttons use the `explanation`
+action so their click keeps its original effect. Escape closes the explanation
+before its enclosing panel; scrolling a badge out of view closes its explanation.
+Keep badges above the card's record-opening overlay. The orange missing-upstream
+warning means Frigate no longer has the event or media; it does not express
+uncertainty about the bird's identity. A matching-call badge describes audio evidence.
+A badge set in a line of small text takes `target`, a full 44px touch target that does not make
+the line taller. On a phone the Field Log's lines are too close for that, so its confidence and
+matching-call markers stay plain words there; the record and the wider layout explain them.
+
 Six decisions carry most of the design. Apply them before reaching for a component.
 
 ### 1.1 One window per surface

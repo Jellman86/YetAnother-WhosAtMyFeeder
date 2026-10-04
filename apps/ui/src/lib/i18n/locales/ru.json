@@ -2279,7 +2279,10 @@
     "archive_failed": "Архивация не удалась",
     "archive_retry": "Повторить",
     "unfavorite_confirm": "Убрать из избранного? Архивные фото и клип ({size}) будут удалены вместе с ним. Визит останется в истории.",
-    "unfavorite_button": "Убрать из избранного"
+    "unfavorite_button": "Убрать из избранного",
+    "confidence_hint": "Уверенность определения: {score}%.",
+    "captured_at_hint": "Снято {date} в {time}.",
+    "audio_evidence_hint": "Рядом с этим кадром был слышен соответствующий птичий крик."
   },
   "events": {
     "title": "События",

@@ -7,6 +7,7 @@
      */
     import { onDestroy, untrack } from 'svelte';
     import { _ } from 'svelte-i18n';
+    import BadgeHint from './BadgeHint.svelte';
     import DetectionPreview from './DetectionPreview.svelte';
     import type { Detection } from '../api';
     import type { DetectionVisit as ServerVisit } from '../api/visits';
@@ -232,7 +233,7 @@
     {/if}
 
     <span class="hidden flex-col items-end gap-1 sm:flex">
-        <span class="text-xs font-bold tabular-nums {scoreTone(score)}">{percent(score)}%</span>
+        <BadgeHint text={$_('detection.confidence_hint', { values: { score: percent(score) } })} class="rounded text-xs font-bold tabular-nums {scoreTone(score)}">{percent(score)}%</BadgeHint>
         <span class="h-[3px] w-16 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
             <span class="block h-full rounded-full {barTone(score)}" style="width: {percent(score)}%"></span>
         </span>
@@ -319,9 +320,9 @@
                         </p>
                     </div>
                     {#if showCamera}<span class="hidden sm:block"></span>{/if}
-                    <span class="hidden justify-end text-xs font-bold tabular-nums sm:flex {scoreTone(captureScore)}" data-visit-capture-score>
+                    <BadgeHint text={$_('detection.confidence_hint', { values: { score: percent(captureScore) } })} data-visit-capture-score class="hidden justify-end rounded text-xs font-bold tabular-nums sm:flex {scoreTone(captureScore)}">
                         {percent(captureScore)}%
-                    </span>
+                    </BadgeHint>
                     <span class="flex justify-end">
                         {#if onplay && capture.has_clip}
                             <button

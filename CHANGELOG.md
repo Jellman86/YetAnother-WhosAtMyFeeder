@@ -6,6 +6,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Explain capture badges on hover, keyboard focus and touch, including the orange
+  warning that Frigate no longer has an event or its media. Explanations remain
+  readable above cards and capture panels, and close when their badge leaves view.
 - Reuse the exact winning video scene for the visit photograph and matching
   high-quality photo frames. Retain at most two scenes with a 64 MiB pixel-storage
   budget, validate clip/frame provenance, and decode normally when reuse is unavailable.

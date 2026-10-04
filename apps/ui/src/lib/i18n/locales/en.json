@@ -2279,7 +2279,10 @@
     "archive_failed": "Archive failed",
     "archive_retry": "Try again",
     "unfavorite_confirm": "Remove the favourite? Its archived photo and clip ({size}) go with it. The visit stays in history.",
-    "unfavorite_button": "Remove favourite"
+    "unfavorite_button": "Remove favourite",
+    "confidence_hint": "Identification confidence: {score}%.",
+    "captured_at_hint": "Captured on {date} at {time}.",
+    "audio_evidence_hint": "A matching bird call was heard near this capture."
   },
   "events": {
     "title": "Events",

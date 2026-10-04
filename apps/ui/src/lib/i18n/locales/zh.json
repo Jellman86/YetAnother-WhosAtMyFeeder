@@ -2269,7 +2269,10 @@
     "archive_failed": "归档失败",
     "archive_retry": "重试",
     "unfavorite_confirm": "取消收藏？已归档的照片和片段（{size}）会一并删除。到访记录仍保留在历史中。",
-    "unfavorite_button": "取消收藏"
+    "unfavorite_button": "取消收藏",
+    "confidence_hint": "识别置信度：{score}%。",
+    "captured_at_hint": "拍摄于 {date} {time}。",
+    "audio_evidence_hint": "此次拍摄附近听到了相符的鸟鸣。"
   },
   "events": {
     "title": "事件",

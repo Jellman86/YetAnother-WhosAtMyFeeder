@@ -2279,7 +2279,10 @@
     "archive_failed": "Archiviazione non riuscita",
     "archive_retry": "Riprova",
     "unfavorite_confirm": "Rimuovere il preferito? La foto e la clip archiviate ({size}) vanno via con esso. La visita resta nella cronologia.",
-    "unfavorite_button": "Rimuovi dai preferiti"
+    "unfavorite_button": "Rimuovi dai preferiti",
+    "confidence_hint": "Confidenza dell’identificazione: {score}%.",
+    "captured_at_hint": "Acquisito il {date} alle {time}.",
+    "audio_evidence_hint": "Vicino a questa acquisizione è stato sentito un richiamo corrispondente."
   },
   "events": {
     "title": "Eventi",
