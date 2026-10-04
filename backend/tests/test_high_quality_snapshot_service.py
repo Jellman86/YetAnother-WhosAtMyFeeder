@@ -769,9 +769,11 @@ def test_pre_cropped_frigate_fallback_without_classifier_evidence_is_not_selecte
     assert selected is None
 
 
-def test_clip_candidate_extraction_keeps_separate_birds_from_one_frame(monkeypatch):
+@pytest.mark.parametrize("reuse_scene", [False, True])
+def test_clip_candidate_extraction_keeps_separate_birds_from_one_frame(monkeypatch, tmp_path, reuse_scene):
     service = hq_module.HighQualitySnapshotService()
     frame = np.zeros((300, 500, 3), dtype=np.uint8)
+    reads = []
 
     class FakeCapture:
         def isOpened(self):
@@ -784,6 +786,7 @@ def test_clip_candidate_extraction_keeps_separate_birds_from_one_frame(monkeypat
             pass
 
         def read(self):
+            reads.append(0)
             return True, frame
 
         def release(self):
@@ -801,8 +804,29 @@ def test_clip_candidate_extraction_keeps_separate_birds_from_one_frame(monkeypat
         ],
     )
 
+    clip = tmp_path / "example.mp4"
+    clip.write_bytes(b"test decoder owns pixels")
+    cache_kwargs = {}
+    if reuse_scene:
+        from app.services.video_scene_cache import VideoSceneCache
+
+        evidence = {
+            "frame_index": 0,
+            "frame_width": 500,
+            "frame_height": 300,
+            "frame_offset_seconds": 0.0,
+            "score": 0.9,
+        }
+        directory = tmp_path / "scenes"
+        directory.mkdir()
+        cache = VideoSceneCache()
+        cache.retain(evidence, Image.fromarray(frame))
+        assert cache.write(directory, clip, "event", evidence)
+        loaded = VideoSceneCache()
+        assert loaded.load(directory, clip, "event")
+        cache_kwargs["scene_cache"] = loaded
     candidates = service._extract_snapshot_candidate_payloads_from_clip_path(
-        Path("/tmp/example.mp4"), event_id="evt-two-birds"
+        clip, event_id="evt-two-birds", **cache_kwargs
     )
 
     assert len(candidates) == 3
@@ -811,6 +835,7 @@ def test_clip_candidate_extraction_keeps_separate_birds_from_one_frame(monkeypat
         (0, 0, 200, 200),
         (280, 0, 480, 200),
     ]
+    assert len(reads) == int(not reuse_scene)
 
 
 @pytest.mark.asyncio

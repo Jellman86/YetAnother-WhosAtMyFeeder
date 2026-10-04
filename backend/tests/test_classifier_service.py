@@ -4321,8 +4321,9 @@ async def test_classify_video_uses_dynamic_model_crop_when_no_frigate_hint_exist
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("reuse_scene", [False, True])
 async def test_classify_video_accepts_three_sparse_independent_model_crops_in_a_long_visit(
-    mock_tflite, mock_os_path_exists, monkeypatch
+    mock_tflite, mock_os_path_exists, monkeypatch, tmp_path, reuse_scene
 ):
     class _FrameAwareBirdModel:
         loaded = True
@@ -4347,6 +4348,7 @@ async def test_classify_video_accepts_three_sparse_independent_model_crops_in_a_
             return {
                 "crop_image": image.crop((20, 20, 80, 80)),
                 "box": (20, 20, 80, 80),
+                "detector_box": (20, 20, 80, 80),
                 "confidence": 0.82,
                 "reason": "selected",
             }
@@ -4385,10 +4387,17 @@ async def test_classify_video_accepts_three_sparse_independent_model_crops_in_a_
         monkeypatch.setattr(classifier_service_module.cv2, "cvtColor", lambda frame, _code: frame)
         monkeypatch.setattr(settings.classification, "min_confidence", 0.45)
 
+        clip = tmp_path / "sparse-visit.mp4"
+        clip.write_bytes(b"test decoder owns pixels")
+        directory = tmp_path / "scenes"
+        directory.mkdir()
+        context = {"is_cropped": False, "include_video_diagnostics": True}
+        if reuse_scene:
+            context["_video_scene_directory"] = str(directory)
         results = service.classify_video(
-            "/tmp/sparse-visit.mp4",
+            str(clip),
             max_frames=30,
-            input_context={"is_cropped": False, "include_video_diagnostics": True},
+            input_context=context,
         )
 
         assert results[0]["label"] == "Wood Pigeon"
@@ -4409,6 +4418,14 @@ async def test_classify_video_accepts_three_sparse_independent_model_crops_in_a_
             "bird_inference",
             "total",
         }
+        if reuse_scene:
+            from app.services.video_scene_cache import VideoSceneCache
+
+            cache = VideoSceneCache()
+            assert diagnostics["performance"]["winning_scene"]["saved"]
+            assert cache.load(directory, clip, "event")
+            scene = cache.scene_for(clip, "event", results[0]["_video_snapshot_evidence"])
+            assert scene is not None and scene.size == (100, 100)
         await service.shutdown()
 
 

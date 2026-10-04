@@ -113,6 +113,7 @@ async def test_process_event_triggers_snapshot_upgrade_when_clip_valid():
         event_data={"has_clip": True},
         clip_variant="event",
         clip_start_timestamp=None,
+        scene_cache=ANY,
     )
     service._save_results.assert_awaited_once()
 
@@ -129,8 +130,16 @@ async def test_video_photo_finishes_before_completion_with_hq_disabled(photo_out
     service._wait_for_clip = AsyncMock(return_value=(True, None))
     settings.media_cache.high_quality_event_snapshots = False
     sequence = []
+    service._active_metadata["evt-video-photo-off"] = {
+        "source": "manual",
+        "phase": "analyzing",
+        "current": 15,
+        "total": 15,
+    }
 
     async def photo(*args, **kwargs):
+        job = service.get_jobs_snapshot()[0]
+        assert job["phase"] == "updating_photo" and job["status"] == "running"
         sequence.append("photo")
         return photo_outcome
 
@@ -152,7 +161,13 @@ async def test_video_photo_finishes_before_completion_with_hq_disabled(photo_out
         ),
     ):
         await service._process_event("evt-video-photo-off", "cam1", skip_delay=True)
-    replace.assert_awaited_once_with("evt-video-photo-off", ANY, top, clip_variant="event", automatic=True)
+    replace.assert_awaited_once_with(
+        "evt-video-photo-off", ANY, top, clip_variant="event", automatic=True, scene_cache=ANY
+    )
+    assert (
+        replace.await_args.kwargs["scene_cache"]
+        is service._classifier.classify_video_async.await_args.kwargs["scene_cache"]
+    )
     assert sequence == ["photo", "completed"]
 
     completion = [
@@ -370,6 +385,7 @@ async def test_process_event_still_classifies_when_snapshot_upgrade_fails():
         event_data={"has_clip": True},
         clip_variant="event",
         clip_start_timestamp=None,
+        scene_cache=ANY,
     )
     service._save_results.assert_awaited_once()
 

@@ -2013,7 +2013,7 @@
     "video_analysis": {
       "title": "Analyse vidéo profonde",
       "match": "{score}% de correspondance",
-      "verified_desc": "Vérifié via une logique d'ensemble temporelle (Soft-Voting).",
+      "verified_desc": "Appuyé par des observations dans la vidéo.",
       "in_progress": "Analyse vidéo en cours…",
       "failed_title": "Échec de l'analyse vidéo",
       "errors": {
@@ -2886,6 +2886,7 @@
     "no_video_support": "Votre navigateur ne prend pas en charge la lecture vidéo."
   },
   "jobs": {
+    "phase_updating_photo": "Mise à jour de la photographie",
     "frigate_media_advisory_title": "Frigate ne dispose souvent d’aucun instantané pour une détection",
     "frigate_media_advisory_body": "{percent} % des détections récentes ({dropped} sur {started}) ont été ignorées, car Frigate ne disposait d’aucun instantané, aperçu ou enregistrement. Cela concerne généralement des oiseaux suivis trop brièvement pour devenir des événements Frigate, ou une conservation des enregistrements trop courte.",
     "frigate_media_advisory_link": "Comment réduire ce problème →",

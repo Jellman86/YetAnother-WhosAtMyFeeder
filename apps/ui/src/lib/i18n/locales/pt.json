@@ -2023,7 +2023,7 @@
     "video_analysis": {
       "title": "Análise Profunda de Vídeo",
       "match": "{score}% Combinação",
-      "verified_desc": "Verificado via lógica de conjunto temporal (Soft-Voting).",
+      "verified_desc": "Sustentado por observações ao longo do vídeo.",
       "in_progress": "Análise de Vídeo em andamento…",
       "failed_title": "Falha na Análise de Vídeo",
       "errors": {
@@ -2886,6 +2886,7 @@
     "no_video_support": "Seu navegador não oferece suporte à reprodução de vídeo."
   },
   "jobs": {
+    "phase_updating_photo": "Atualizando a fotografia",
     "frigate_media_advisory_title": "O Frigate muitas vezes não tem uma imagem para uma deteção",
     "frigate_media_advisory_body": "{percent}% das deteções recentes ({dropped} de {started}) foram ignoradas porque o Frigate não tinha imagem, miniatura nem gravação. Normalmente, isto acontece com aves seguidas por pouco tempo que não permanecem como eventos do Frigate ou devido a uma retenção curta das gravações.",
     "frigate_media_advisory_link": "Como reduzir este problema →",
