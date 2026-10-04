@@ -112,8 +112,12 @@ class SpeciesCatalogResolver:
                 )
 
             accepted: dict[int, set[str]] = {}
+            # Species only. The genera, families and orders above them are catalogue taxa too, but a
+            # name resolving to one of those would be a new kind of identity for history rows; that
+            # change is made deliberately, not as a side effect of adding a classification.
             for species_id, scientific in connection.execute(
-                "SELECT species_id, scientific_name FROM species_concepts"
+                "SELECT c.species_id, c.scientific_name FROM species_concepts c"
+                " JOIN species s ON s.species_id = c.species_id WHERE s.rank = 'species'"
             ):
                 accepted.setdefault(int(species_id), set()).add(str(scientific).casefold())
             for species_id, alias in connection.execute(
