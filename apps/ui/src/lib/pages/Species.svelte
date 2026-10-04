@@ -1,11 +1,14 @@
 <script lang="ts">
-    import CaptureReel from '../components/CaptureReel.svelte';
-    import SpeciesShareBar from '../components/SpeciesShareBar.svelte';
-    import { buildShowcaseRows, reelCards, SPOTLIGHT_PORTRAITS } from '../leaderboard/showcase';
+    import CaptureWall from '../components/CaptureWall.svelte';
+    import SpeciesChecks from '../components/SpeciesChecks.svelte';
+    import { buildShowcaseRows, SPOTLIGHT_PORTRAITS } from '../leaderboard/showcase';
+    import { wallTiles } from '../leaderboard/wall';
     import { onDestroy, tick, untrack } from 'svelte';
     import {
         analyzeLeaderboardGraph,
         fetchDetectionsActivityHeatmapSpan,
+        fetchEvents,
+        type Detection,
         fetchDetectionsTimelineSpan,
         fetchLeaderboardAnalysis,
         fetchLeaderboardPortraits,
@@ -46,6 +49,7 @@
         resolveWeatherUnitSystem
     } from '../utils/weather-units';
     import { logger } from '../utils/logger';
+    import { toLocalYMD } from '../utils/date-only';
     import { _, locale } from 'svelte-i18n';
     import { refreshCoordinator } from '../stores/refresh_coordinator.svelte';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
@@ -275,25 +279,79 @@
             ? $_('leaderboard.showcase_detection', { default: 'detection' })
             : $_('leaderboard.showcase_detections', { values: { count }, default: 'detections' });
     }
-    // The opener: this feeder's own photograph of each leading species, the leaders' cards
-    // playing a few seconds of the visit once a film is made. Each opens the species.
-    let leaderboardReel = $derived(
-        reelCards(showcaseRows, {
-            detail: (row) => `${row.count.toLocaleString()} ${showcaseCountLabel(row.count)}`,
-            badge: (row) => `#${row.rank}`,
-            label: (row) =>
-                $_('leaderboard.reel_open', {
-                    values: { name: row.displayName, rank: row.rank, count: row.count.toLocaleString(), unit: showcaseCountLabel(row.count) },
-                    default: 'Open {name}: rank {rank}, {count} {unit}'
-                })
+    // The opener: a contact sheet of this feeder's own visits in the window. It loads beside the
+    // standings and never blocks them; a failed load simply leaves the wall out.
+    const WALL_CAPTURES = 400;
+    // A capture is matched to its species by name, scientific name or taxon, so the list carries those.
+    const WALL_FIELDS = 'frigate_event,detection_time,display_name,score,camera_name,has_clip,has_snapshot,is_hidden,observation_source,scientific_name,taxa_id';
+    // A guest's photographs share the request budget with everything else the page asks for.
+    const GUEST_WALL_TILES = 24;
+    // The captures are kept with the span they were fetched for, so a wall never shows one window
+    // under another's heading while the next load is in flight.
+    let wallFetched = $state<{ span: LeaderboardSpan; detections: Detection[] }>({ span: 'month', detections: [] });
+    // Dates select whole days, so the captures are cut to the window's own start and end.
+    let wallDetections = $derived.by(() => {
+        if (wallFetched.span !== span) return [];
+        const start = leaderboardWindow ? Date.parse(leaderboardWindow.start) : Number.NaN;
+        const end = leaderboardWindow ? Date.parse(leaderboardWindow.end) : Number.NaN;
+        if (Number.isNaN(start) || Number.isNaN(end)) return wallFetched.detections;
+        return wallFetched.detections.filter((detection) => {
+            const at = Date.parse(detection.detection_time);
+            return Number.isNaN(at) || (at >= start && at <= end);
+        });
+    });
+    let wallLoading = $state(true);
+    $effect(() => {
+        const requestedSpan = span;
+        const range = leaderboardWindow;
+        const publicVersion = authStore.isGuest ? detectionsStore.publicHistoryVersion : 0;
+        void publicVersion;
+        // The captures shown must belong to what the page now asks about: a withdrawn window is cleared at
+        // once, as the portraits are, instead of staying on screen until the new answer arrives.
+        if (requestedSpan !== 'all' && range === null) {
+            wallLoading = true;
+            return;
+        }
+        const controller = new AbortController();
+        wallLoading = true;
+        if (authStore.isGuest) wallFetched = { span: requestedSpan, detections: [] };
+        void fetchEvents({
+            limit: WALL_CAPTURES,
+            fields: WALL_FIELDS,
+            startDate: requestedSpan === 'all' || !range ? undefined : toLocalYMD(range.start),
+            endDate: requestedSpan === 'all' || !range ? undefined : toLocalYMD(range.end),
+            requestKey: 'leaderboard:wall',
+            signal: controller.signal
+        })
+            .then((response) => {
+                if (!controller.signal.aborted) wallFetched = { span: requestedSpan, detections: response };
+            })
+            .catch((error) => {
+                if (controller.signal.aborted) return;
+                wallFetched = { span: requestedSpan, detections: [] };
+                logger.warn('Leaderboard wall unavailable', { message: getErrorMessage(error) });
+            })
+            .finally(() => {
+                if (!controller.signal.aborted) wallLoading = false;
+            });
+        return () => controller.abort();
+    });
+    let leaderboardWall = $derived(
+        wallTiles(wallDetections, showcaseRows, {
+            reviewThreshold: settingsStore.settings?.classification_threshold ?? null,
+            filmEvents: new Set(portraits.filter((portrait) => portrait.film_url).map((portrait) => portrait.frigate_event))
         })
     );
     $effect(() => {
         // The reference image is what stands in for a species with no crop of its own.
         for (const row of showcaseRows) void loadSpeciesInfo(row.key);
     });
-    function scrollToRankings(): void {
-        document.querySelector('[data-leaderboard-rankings]')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    function scrollToChecks(): void {
+        const checks = document.querySelector<HTMLElement>('[data-spotlight-checks]');
+        if (!checks) return;
+        const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches || document.documentElement.classList.contains('reduced-motion');
+        checks.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'nearest' });
+        checks.querySelector<HTMLElement>('button')?.focus({ preventScroll: true });
     }
     let topByTrend = $derived(
         !trendAvailable
@@ -833,6 +891,13 @@
         if (span === 'week') return $_('leaderboard.sort_by_week');
         if (span === 'month') return $_('leaderboard.sort_by_month');
         return $_('leaderboard.sort_by_total');
+    }
+
+    function wallEyebrow(): string {
+        return $_('leaderboard.wall_eyebrow', {
+            values: { unit: showcaseCountLabel(2), window: selectedCountLabel() },
+            default: 'Most {unit} · {window}'
+        });
     }
 
     function selectedCountLabel(): string {
@@ -1705,26 +1770,25 @@
             </p>
         </div>
     {:else}
-        {#if sourceMode !== 'heard' && leaderboardReel.length > 0}
-            <div class="-mx-1 sm:-mx-2" data-leaderboard-reel>
-                <CaptureReel
-                    cards={leaderboardReel}
-                    label={$_('leaderboard.reel_label', { default: 'Photographs of the leading species from this feeder' })}
-                    onopen={(card) => (selectedSpecies = card.key)}
-                />
-            </div>
-        {/if}
-
         {#if sourceMode !== 'heard' && sourceLeader && sourceLeader.count > 0}
-            <SpeciesShareBar
+            <CaptureWall
+                tiles={leaderboardWall}
                 rows={showcaseRows}
-                label={$_('leaderboard.spotlight_share_heading', { default: 'Share by species' })}
+                eyebrow={wallEyebrow()}
+                label={$_('leaderboard.wall_label', { default: 'Photographs of recent visits to this feeder' })}
                 countLabel={showcaseCountLabel}
-                colourFor={(key) => speciesSeriesColor(speciesSlot().get(key) ?? SPECIES_SERIES_SLOTS, isDark())}
+                colourFor={(key) => (key ? speciesSeriesColor(speciesSlot().get(key) ?? SPECIES_SERIES_SLOTS, isDark()) : otherSeriesColor(isDark()))}
                 otherColour={otherSeriesColor(isDark())}
+                loading={wallLoading}
+                maxTiles={authStore.isGuest ? GUEST_WALL_TILES : undefined}
+                onopen={(key) => (selectedSpecies = key)}
+                onchecks={scrollToChecks}
+            />
+            <SpeciesChecks
+                checks={showcaseRows.filter((row) => row.flagged)}
+                countLabel={showcaseCountLabel}
                 nearbyRadiusKm={nearbyCheck?.radiusKm ?? null}
                 onopen={(key) => (selectedSpecies = key)}
-                onmore={scrollToRankings}
             />
         {/if}
 

@@ -173,8 +173,8 @@ own Close, because there is no hover to lose.
 
 ```
 span bar: day, week, month, total · seen, heard, both
-reel: this feeder's own photograph of each leading species, the leaders playing a few seconds of their visit
-share bar: who made up the window, each species in its chart colour, flagged species apart
+wall: the leader named, the share bar as its navigation, then a contact sheet of this feeder's own visits
+flagged species: probable misidentifications, named apart for a person to check
 standing band: species, detections, busiest hour, heard or confirmed, rising, most recent
 rankings (with evidence), then analytics
 ```
@@ -188,15 +188,44 @@ with capture time as the fallback), and only the all-time view, which has no vis
 The timeline and the composition chart share one colour per species
 (`leaderboard/species-palette.ts`, validated for colour-blind separation on both surfaces).
 
-The reel (`CaptureReel`) opens the page: one card per ranked species that has a stored crop of its
-own, in rank order, each opening the species. It drifts in two rows that run opposite ways, pauses
-under the pointer or focus, and stands still as a scrollable strip under reduced motion. Its loop is
-a second copy of each row, hidden from readers and out of the Tab order. Only stored crops are
-shown: a whole scene at card size is a picture of a feeder, so the backend leaves it out. A species
-flagged as a probable misidentification is never put on show, and with fewer than four photographs
-there is no reel: a strip that short reads as a gap, not a reel.
+The wall (`CaptureWall`) opens the page. Its header names the leading species, and under it the
+share bar is the wall's navigation: one segment per species in its chart colour, sized by its share,
+then the species beyond the list summed as "other species" and the flagged ones as "Needs a check"
+(`SpeciesChecks`, which lists them for a person to review). Hovering or focusing a segment opens it
+out to say its share and count and lights that species' visits while the rest step back; a click
+pins the highlight (a second click lets go, Escape too) and offers "Open" for the species, which is
+all touch has. A highlight always points at something: a segment no longer in the bar, or a species
+with no visit on the wall, dims nothing. Ink on each segment is chosen for contrast, and the focus
+ring is two-toned so it shows on every colour.
 
-The leaders' cards play a film once one is made (`VisitFilm`): four silent seconds of the visit, cut
+Under the bar is a contact sheet of this feeder's own visits in the window, newest first, one stored
+crop per visit, packed densely like a photo library: a fixed number of rows (more once "Show more
+visits" is chosen) of square cells whose size comes from the width alone. Visits are folded by the
+shared visit rule (`utils/visit-grouping.ts`) from the owner's capture list, cut to the window's own
+start and end, and shown by their strongest frame. A capture is matched to its species by the
+ranking's key, name, taxon or scientific name, so scientific-first naming and owner renames still
+light and open the right species. The leading species' strongest visits are drawn at four times the
+area, a number that grows with the wall (none under eight visits, at most four). `packTiles` lays
+them out the way the grid will and keeps the longest run with no hole, trying the last large tiles
+small when that shows more of the wall, so a full wall ends in a full row and a small one keeps
+every visit. Only stored crops are shown: a whole scene at card size is a picture of a feeder, so the
+backend leaves it out, and a photograph that fails to load leaves the wall rather than leaving a
+hole. A species flagged as a probable misidentification is never put on show, and with fewer than
+eight visits there is no wall. A guest's photographs share the request budget, so a guest's wall is
+capped.
+
+Hovering or focusing a visit rings it and draws its photograph in a little closer; the tile never
+changes size and nothing around it moves. After a short intent delay a pop-out opens beside it under
+the hover contract (§4): the larger photograph, rank, the common and scientific names, the
+classifier's confidence, when and where it was seen, how many frames the visit holds and whether a
+clip exists. Once one is open, the next visit's pop-out is immediate and the pop-out glides to it.
+It sits against the viewport on the side that points into the wall, follows its tile while the page
+scrolls, can be reached with the pointer so its text can be read, and closes on Escape, on leaving,
+or when its tile leaves the screen. On touch a tap opens the species. The wall has one Tab stop and
+the arrow keys, Home and End move between visits. It rises into place once on first paint and
+stands still under reduced motion.
+
+The pop-out plays a film once one is made (`VisitFilm`): four silent seconds of the visit, cut
 from Frigate's recording around the moment of the visit's best snapshot and framed on the bird, so
 the card is sharp where a stored crop is a few hundred pixels across. The photograph is always
 underneath, so a missing film is a photograph and the layout never moves. A film is fetched only
@@ -208,17 +237,6 @@ Films require a proven recording moment and crop bound to the saved image. New f
 crops keep that evidence, including a selected alternative bird. Older photographs and video
 choices without exact recording alignment stay still: a film from the original tracked bird
 must not cover a photograph of a different bird. Changing the photograph invalidates the film.
-
-The share bar (`SpeciesShareBar`) sits under the reel and shows who made up the window, each
-species in its chart colour, so a species that dominates reads as a proportion rather than as one
-more photograph. It replaced a spotlight that showed one species large beside a second ranked list:
-the reel carries the photographs and the rankings table carries the list.
-
-Each segment of the bar opens a pop-out on hover and keyboard focus, under the hover contract (§4):
-the species' common and scientific names over its stock photograph, labelled with its source, and
-its count and share; the grouped segments list their species. On touch a tap opens the species.
-Species that are probably misidentifications never take a named segment: they are counted in the
-bar and named beneath it under "Needs a check", each opening its record.
 
 ### Reference (About)
 

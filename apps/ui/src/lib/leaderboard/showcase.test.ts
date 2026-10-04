@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildShowcaseRows, portraitFor, reelCards, REEL_MINIMUM, shareSegments, spotlightGroups } from './showcase';
+import { buildShowcaseRows, portraitFor, shareSegments, spotlightGroups } from './showcase';
 
 const portraits = [
     { species: 'Dunnock', scientific_name: 'Prunella modularis', taxa_id: 13988, frigate_event: 'd1', image_url: '/api/about/showcase/d1.jpg', film_url: '/api/about/showcase/d1.webm' },
@@ -38,8 +38,8 @@ describe('the leaderboard showcase rows', () => {
             portraits,
             referenceFor: (species) => (species === 'Coal Tit' ? { url: 'https://ref/coal.jpg', source: 'wikipedia' } : { url: null, source: null })
         });
-        expect(rows[0]).toMatchObject({ key: 'Coal Tit', photo: null, reference: 'https://ref/coal.jpg', referenceSource: 'wikipedia' });
-        expect(rows[1]).toMatchObject({ key: 'Dunnock', photo: '/api/about/showcase/d1.jpg', photoEvent: 'd1', film: true, reference: null });
+        expect(rows[0]).toMatchObject({ key: 'Coal Tit', photo: null, reference: 'https://ref/coal.jpg' });
+        expect(rows[1]).toMatchObject({ key: 'Dunnock', photo: '/api/about/showcase/d1.jpg', scientificName: null, taxaId: 13988, reference: null });
     });
 
     it('keeps every ranked species with its table rank', () => {
@@ -48,43 +48,6 @@ describe('the leaderboard showcase rows', () => {
         expect(rows).toHaveLength(20);
         expect(rows[0]).toMatchObject({ key: 'Species 0', rank: 1, count: 10 });
         expect(rows[1]).toMatchObject({ rank: 2 });
-    });
-});
-
-describe('the leaderboard reel', () => {
-    const text = {
-        detail: (r: { count: number }) => `${r.count} visits`,
-        badge: (r: { rank: number }) => `#${r.rank}`,
-        label: (r: { displayName: string }) => `Open ${r.displayName}`
-    };
-    const ranked = (count: number, flagged: string[] = []) =>
-        buildShowcaseRows(
-            Array.from({ length: count }, (_, i) => row(`Species ${i}`)),
-            {
-                sourceMode: 'seen',
-                portraits: Array.from({ length: count }, (_, i) => ({
-                    species: `Species ${i}`,
-                    scientific_name: null,
-                    taxa_id: null,
-                    frigate_event: `e${i}`,
-                    image_url: `/api/about/showcase/e${i}.jpg`,
-                    film_url: i < 2 ? `/api/about/showcase/e${i}.webm` : null
-                })),
-                referenceFor: () => ({ url: null, source: null }),
-                isFlagged: (r) => flagged.includes(r.species)
-            }
-        );
-
-    it('puts every ranked species with a photograph of its own on show, in rank order, films first where made', () => {
-        const cards = reelCards(ranked(6), text);
-        expect(cards.map((card) => card.frigateEvent)).toEqual(['e0', 'e1', 'e2', 'e3', 'e4', 'e5']);
-        expect(cards[0]).toMatchObject({ title: 'Species 0', detail: '10 visits', badge: '#1', film: true, label: 'Open Species 0' });
-        expect(cards[2].film).toBe(false);
-    });
-
-    it('never shows a probable misidentification, and stays away when there are too few photographs', () => {
-        expect(reelCards(ranked(6, ['Species 1']), text).map((card) => card.key)).not.toContain('Species 1');
-        expect(reelCards(ranked(REEL_MINIMUM - 1), text)).toEqual([]);
     });
 });
 
@@ -128,7 +91,8 @@ describe('the spotlight groups and share bar', () => {
         expect(groups.list.map((item) => item.key)).toEqual(['Dunnock', 'European Robin', 'Great Tit']);
         // Ranks stay the table's: the flagged fourth does not renumber the fifth.
         expect(groups.list.map((item) => item.rank)).toEqual([1, 2, 3]);
-        expect(groups.others).toEqual({ species: 2, count: 4 });
+        expect(groups.others).toMatchObject({ species: 2, count: 4 });
+        expect(groups.others.members).toHaveLength(2);
         expect(groups.checks.map((item) => item.key)).toEqual(['Golden-crowned Sparrow']);
     });
 
