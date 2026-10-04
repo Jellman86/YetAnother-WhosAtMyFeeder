@@ -2020,6 +2020,7 @@ class AutoVideoClassifierService:
                     # asyncio.to_thread CPU work (ONNX bird-crop model) and a
                     # synchronous classifier.classify() call with no inner timeout.
                     # A hang here holds the maintenance coordinator slot forever.
+                    self._note_job_progress(frigate_event, phase="updating_photo")
                     if settings.media_cache.high_quality_event_snapshots:
                         try:
                             await asyncio.wait_for(
@@ -2104,6 +2105,7 @@ class AutoVideoClassifierService:
                             media_cache_service=media_cache,
                             frigate_client_service=frigate_client,
                         )
+                    self._note_job_progress(frigate_event, phase="updating_photo")
                     try:
                         photo_outcome = await asyncio.wait_for(
                             reconcile_snapshot_identity(

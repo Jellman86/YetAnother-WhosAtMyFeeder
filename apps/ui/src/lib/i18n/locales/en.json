@@ -2753,6 +2753,7 @@
     "refresh": "Refresh page"
   },
   "jobs": {
+    "phase_updating_photo": "Updating photograph",
     "title": "Jobs",
     "subtitle": "Track active background tasks and recent outcomes.",
     "pipeline_title": "Pipeline",

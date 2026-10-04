@@ -89,7 +89,8 @@ are returned in classification results or completion events. Cancellation remove
 path before deleting its files, so late executor work cannot leave a new manifest behind.
 Owner photo choices, species corrections, hidden/blocked visits, removed photos and storage
 eviction retain their final commit protections. Completion and notifications still wait for
-the photograph update. Logs separate photo decode/reuse, encoding and media commit times;
+the photograph update. The job remains running and says **Updating photograph** during this
+stage. Logs separate photo decode/reuse, encoding and media commit times;
 video diagnostics record the retained scene count, pixel budget and artifact creation time.
 
 

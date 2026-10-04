@@ -2886,6 +2886,7 @@
     "no_video_support": "Il tuo browser non supporta la riproduzione video."
   },
   "jobs": {
+    "phase_updating_photo": "Aggiornamento della fotografia",
     "frigate_media_advisory_title": "Spesso Frigate non ha un'istantanea per un rilevamento",
     "frigate_media_advisory_body": "Il {percent}% dei rilevamenti recenti ({dropped} su {started}) è stato scartato perché Frigate non disponeva di un'istantanea, un'anteprima o una registrazione. Di solito si tratta di uccelli seguiti per poco tempo che non persistono come eventi Frigate oppure di una conservazione breve delle registrazioni.",
     "frigate_media_advisory_link": "Come ridurre il problema →",

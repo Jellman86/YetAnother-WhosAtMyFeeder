@@ -2886,6 +2886,7 @@
     "no_video_support": "Ihr Browser unterstützt keine Videowiedergabe."
   },
   "jobs": {
+    "phase_updating_photo": "Foto wird aktualisiert",
     "frigate_media_advisory_title": "Frigate hat häufig keinen Schnappschuss für eine Erkennung",
     "frigate_media_advisory_body": "{percent}% der letzten Erkennungen ({dropped} von {started}) wurden verworfen, weil Frigate weder Schnappschuss, Vorschaubild noch Aufnahme bereitstellte. Ursache sind meist nur kurz verfolgte Vögel, die nicht als Frigate-Ereignis bestehen bleiben, oder eine kurze Aufbewahrungsdauer für Aufnahmen.",
     "frigate_media_advisory_link": "So lässt sich das reduzieren →",

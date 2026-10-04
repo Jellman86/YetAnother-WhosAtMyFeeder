@@ -2886,6 +2886,7 @@
     "no_video_support": "你的浏览器不支持视频播放。"
   },
   "jobs": {
+    "phase_updating_photo": "正在更新照片",
     "frigate_media_advisory_title": "Frigate 经常没有检测对应的快照",
     "frigate_media_advisory_body": "近期检测中有 {percent}%（{started} 次中的 {dropped} 次）因 Frigate 没有快照、缩略图或录像而被丢弃。这通常是因为鸟只被短暂跟踪，未能保留为 Frigate 事件，或录像保留时间过短。",
     "frigate_media_advisory_link": "如何减少此类情况 →",

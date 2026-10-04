@@ -2886,6 +2886,7 @@
     "no_video_support": "Tu navegador no admite la reproducción de vídeo."
   },
   "jobs": {
+    "phase_updating_photo": "Actualizando la fotografía",
     "frigate_media_advisory_title": "Frigate suele no tener una instantánea para una detección",
     "frigate_media_advisory_body": "Se descartó el {percent}% de las detecciones recientes ({dropped} de {started}) porque Frigate no tenía instantánea, miniatura ni grabación. Suele ocurrir con aves seguidas brevemente que no permanecen como eventos de Frigate o por una retención de grabaciones corta.",
     "frigate_media_advisory_link": "Cómo reducirlo →",

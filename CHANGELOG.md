@@ -10,7 +10,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   high-quality photo frames. Retain at most two scenes with a 64 MiB pixel-storage
   budget, validate clip/frame provenance, and decode normally when reuse is unavailable.
   Request-owned lossless artifacts are removed on completion or cancellation.
-  Video result descriptions now refer to supporting observations across the video.
+  Video result descriptions now refer to supporting observations across the video;
+  jobs show **Updating photograph** until the photo work finishes.
 - Cancelling an isolated CPU recovery request reaps its worker without disabling
   later requests for that workload. Genuine inference failures and uncontended
   workload deadlines retain their existing retry protections.

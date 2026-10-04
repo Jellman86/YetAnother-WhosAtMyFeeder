@@ -130,8 +130,16 @@ async def test_video_photo_finishes_before_completion_with_hq_disabled(photo_out
     service._wait_for_clip = AsyncMock(return_value=(True, None))
     settings.media_cache.high_quality_event_snapshots = False
     sequence = []
+    service._active_metadata["evt-video-photo-off"] = {
+        "source": "manual",
+        "phase": "analyzing",
+        "current": 15,
+        "total": 15,
+    }
 
     async def photo(*args, **kwargs):
+        job = service.get_jobs_snapshot()[0]
+        assert job["phase"] == "updating_photo" and job["status"] == "running"
         sequence.append("photo")
         return photo_outcome
 

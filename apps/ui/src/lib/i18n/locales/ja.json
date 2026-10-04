@@ -2886,6 +2886,7 @@
     "no_video_support": "お使いのブラウザーは動画再生をサポートしていません。"
   },
   "jobs": {
+    "phase_updating_photo": "写真を更新中",
     "frigate_media_advisory_title": "検出時に Frigate のスナップショットがないことが頻発しています",
     "frigate_media_advisory_body": "最近の検出の {percent}%（{started} 件中 {dropped} 件）は、Frigate にスナップショット、サムネイル、録画のいずれもなかったため破棄されました。通常は、追跡時間が短く Frigate イベントとして残らなかった鳥、または録画の保存期間が短いことが原因です。",
     "frigate_media_advisory_link": "減らす方法 →",
