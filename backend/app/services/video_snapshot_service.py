@@ -5,6 +5,7 @@ import hashlib
 from io import BytesIO
 import math
 import json
+import time
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +23,7 @@ from app.utils.photo_retention import MAX_EARLIER_PHOTO_CHOICES, merge_photo_cho
 from app.services.archive_service import archive_service
 from app.services.media_cache import media_cache, validate_film_alignment
 from app.services.photo_choice_actions import photo_choice_lock
+from app.services.video_scene_cache import VideoSceneCache
 from app.utils.canonical_species import should_hide_species_label
 from app.utils.blocked_species import is_blocked_species
 from app.services.photo_presence import (
@@ -458,7 +460,13 @@ async def _commit_video_snapshot_unlocked(
 
 
 async def replace_video_snapshot(
-    event_id: str, clip_path: Path, result: dict[str, Any], *, clip_variant: str, automatic: bool = True
+    event_id: str,
+    clip_path: Path,
+    result: dict[str, Any],
+    *,
+    clip_variant: str,
+    automatic: bool = True,
+    scene_cache: VideoSceneCache | None = None,
 ) -> str:
     """Best effort baseline photo, independent of optional expensive HQ scanning."""
     evidence = result.get("_video_snapshot_evidence")
@@ -487,10 +495,26 @@ async def replace_video_snapshot(
         preserved = await _snapshot_preflight(event_id, result, automatic=automatic)
         if preserved is not None:
             return preserved
-        images = await asyncio.to_thread(extract_video_snapshot, clip_path, evidence)
+        stage_started = time.perf_counter()
+        moment = _verified_moment(evidence)
+        scene = (
+            await asyncio.to_thread(scene_cache.scene_for, clip_path, clip_variant, evidence)
+            if scene_cache is not None and moment is not None
+            else None
+        )
+        reused_scene = scene is not None
+        images = (
+            (scene.crop(moment[2]) if moment[2] is not None else scene, scene)
+            if scene is not None and moment is not None
+            else await asyncio.to_thread(extract_video_snapshot, clip_path, evidence)
+        )
+        decode_ms = (time.perf_counter() - stage_started) * 1000
         if images is None:
             return "frame_extract_failed"
+        stage_started = time.perf_counter()
         candidates = await asyncio.to_thread(_candidates, event_id, result, evidence, images, clip_variant)
+        encode_ms = (time.perf_counter() - stage_started) * 1000
+        stage_started = time.perf_counter()
         commit = asyncio.create_task(
             _commit_video_snapshot(event_id, result, evidence, candidates, automatic=automatic),
             name="video_snapshot_commit",
@@ -507,7 +531,17 @@ async def replace_video_snapshot(
             if not commit.cancelled():
                 commit.exception()
             raise cancellation
-        return commit.result()
+        outcome = commit.result()
+        log.info(
+            "Video photograph stage timings",
+            event_id=event_id,
+            reused_scene=reused_scene,
+            decode_ms=round(decode_ms, 1),
+            encode_ms=round(encode_ms, 1),
+            commit_ms=round((time.perf_counter() - stage_started) * 1000, 1),
+            photo_outcome=outcome,
+        )
+        return outcome
     except Exception as exc:
         log.warning("Video evidence photograph could not be updated", event_id=event_id, error=str(exc))
         return "snapshot_replace_failed"

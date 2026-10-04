@@ -2013,7 +2013,7 @@
     "video_analysis": {
       "title": "詳細なビデオ分析",
       "match": "{score}% 一致",
-      "verified_desc": "時間アンサンブルロジック（ソフト投票）により検証済み。",
+      "verified_desc": "動画内の観察に基づく結果です。",
       "in_progress": "ビデオ分析が進行中です…",
       "failed_title": "ビデオ分析に失敗しました",
       "errors": {

@@ -17,6 +17,8 @@ import re
 import subprocess
 import threading
 import time
+import tempfile
+import shutil
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from PIL import Image
@@ -25,6 +27,7 @@ from typing import Optional, Any, Awaitable, Callable, Iterable, Literal, NoRetu
 from app.services.inference_health import InferenceHealth, Outcome, RuntimeKey
 from app.services.openvino_cache import resolve_openvino_cache_dir
 from app.services.photo_presence import has_localized_bird
+from app.services.video_scene_cache import VideoSceneCache
 from app.services.startup_status import startup_status
 from app.utils.canonical_species import should_hide_species_label
 from app.utils.frigate_coordinates import (
@@ -6825,6 +6828,12 @@ class ClassifierService:
             all_scores_by_input_source: dict[str, list[np.ndarray]] = {}
             all_offsets_by_input_source: dict[str, list[float | None]] = {}
             best_snapshot_evidence: dict[tuple[str, int], dict[str, Any]] = {}
+            scene_directory = self._input_context_extra(normalized_input_context, "_video_scene_directory")
+            scene_cache = (
+                VideoSceneCache(clip_path=Path(video_path), clip_variant=clip_variant)
+                if isinstance(scene_directory, str)
+                else None
+            )
             processed_frame_count = 0
             any_valid_scores = False
             skipped_unknown_frame_count = 0
@@ -6948,6 +6957,8 @@ class ClassifierService:
                                 }
                                 if has_localized_bird(photo_evidence):
                                     best_snapshot_evidence[key] = photo_evidence
+                                    if scene_cache is not None:
+                                        scene_cache.retain(photo_evidence, image)
                         previous = candidate_scores.get(input_source)
                         if previous is None or float(np.max(scores)) > float(np.max(previous)):
                             candidate_scores[input_source] = scores
@@ -7247,6 +7258,18 @@ class ClassifierService:
 
             if include_diagnostics:
                 classifications.append({"_video_diagnostics": diagnostic_payload})
+            if scene_cache is not None and classifications:
+                artifact_started = time.perf_counter()
+                winning_evidence = classifications[0].get("_video_snapshot_evidence")
+                saved = isinstance(winning_evidence, dict) and scene_cache.write(
+                    Path(scene_directory), Path(video_path), clip_variant, winning_evidence
+                )
+                diagnostic_payload["performance"]["winning_scene"] = {
+                    "saved": saved,
+                    "retained_scenes": scene_cache.retained_count,
+                    "retained_bytes": scene_cache.retained_bytes,
+                    "artifact_ms": round((time.perf_counter() - artifact_started) * 1000, 1),
+                }
             return classifications
 
         except Exception as e:
@@ -7258,6 +7281,57 @@ class ClassifierService:
                 cap.release()
 
     async def classify_video_async(
+        self,
+        video_path: str,
+        stride: int = 5,
+        max_frames: Optional[int] = None,
+        progress_callback=None,
+        camera_name: Optional[str] = None,
+        model_id: Optional[str] = None,
+        input_context: Any | None = None,
+        propagate_worker_failure: bool = False,
+        diagnostics_callback: Callable[[dict[str, Any]], Awaitable[None] | None] | None = None,
+        scene_cache: VideoSceneCache | None = None,
+    ) -> list[dict]:
+        context = dict(_normalize_classification_input_context(input_context).model_dump())
+        # Only this request owner supplies an artifact directory. Public input
+        # context must never choose a worker's output path.
+        context.pop("_video_scene_directory", None)
+        kwargs = {
+            "video_path": video_path,
+            "stride": stride,
+            "max_frames": max_frames,
+            "progress_callback": progress_callback,
+            "camera_name": camera_name,
+            "model_id": model_id,
+            "input_context": context,
+            "propagate_worker_failure": propagate_worker_failure,
+            "diagnostics_callback": diagnostics_callback,
+        }
+        if scene_cache is None:
+            return await self._classify_video_async_impl(**kwargs)
+        # A supervised cancellation reaps the worker before this scope exits.
+        # Legacy late threads cannot recreate the removed directory.
+        with tempfile.TemporaryDirectory(prefix="yawamf-video-scene-") as directory:
+            try:
+                context["_video_scene_directory"] = directory
+                results = await self._classify_video_async_impl(**kwargs)
+                await asyncio.to_thread(
+                    scene_cache.load, Path(directory), Path(video_path), str(context.get("clip_variant") or "event")
+                )
+                return results
+            finally:
+                # Remove the worker's pathname atomically before enumerating
+                # files, so a late thread cannot add a manifest during rmtree.
+                discarded = Path(directory).with_name(Path(directory).name + "-discard")
+                try:
+                    os.replace(directory, discarded)
+                except FileNotFoundError:
+                    pass
+                else:
+                    shutil.rmtree(discarded)
+
+    async def _classify_video_async_impl(
         self,
         video_path: str,
         stride: int = 5,

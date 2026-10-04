@@ -6,6 +6,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Reuse the exact winning video scene for the visit photograph and matching
+  high-quality photo frames. Retain at most two scenes with a 64 MiB pixel-storage
+  budget, validate clip/frame provenance, and decode normally when reuse is unavailable.
+  Request-owned lossless artifacts are removed on completion or cancellation.
+  Video result descriptions now refer to supporting observations across the video.
+
 - Manual reclassification repairs an automatically chosen photograph even when video
   and snapshot classification cannot establish a new species. Keep the accepted species
   and an explicitly selected owner photograph unchanged.

@@ -23,6 +23,7 @@ from app.services import classifier_service as classifier_service_module
 from app.services.broadcaster import broadcaster
 from app.services.media_cache import media_cache
 from app.services.video_snapshot_service import reconcile_snapshot_identity, replace_video_snapshot
+from app.services.video_scene_cache import VideoSceneCache
 from app.services.video_classification_waiter import video_classification_waiter
 from app.services.error_diagnostics import error_diagnostics_history
 from app.services.frigate_missing_policy import apply_missing_policy
@@ -1808,6 +1809,7 @@ class AutoVideoClassifierService:
                             str(label) for label in target_labels if label and not should_hide_species_label(label)
                         ]
                         input_context["event_target_label_source"] = target_source
+                    video_scenes = VideoSceneCache()
                     results = await asyncio.wait_for(
                         self._classifier.classify_video_async(
                             tmp_path,
@@ -1817,6 +1819,7 @@ class AutoVideoClassifierService:
                             input_context=input_context,
                             propagate_worker_failure=True,
                             diagnostics_callback=capture_video_diagnostics,
+                            scene_cache=video_scenes,
                         ),
                         timeout=timeout,
                     )
@@ -2026,6 +2029,7 @@ class AutoVideoClassifierService:
                                     event_data=event_data,
                                     clip_variant=clip_variant,
                                     clip_start_timestamp=clip_start_timestamp,
+                                    scene_cache=video_scenes,
                                 ),
                                 timeout=_HQ_SNAPSHOT_TIMEOUT_SECONDS,
                             )
@@ -2048,6 +2052,7 @@ class AutoVideoClassifierService:
                         top,
                         clip_variant=clip_variant,
                         automatic=not manual_reclassification_requested(),
+                        scene_cache=video_scenes,
                     )
                     log.info("Video photograph update settled", event_id=frigate_event, photo_outcome=photo_outcome)
                     if photo_outcome not in {"replaced", "matching_photo_preserved"}:

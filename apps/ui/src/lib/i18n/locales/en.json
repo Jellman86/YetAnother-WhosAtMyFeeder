@@ -2023,7 +2023,7 @@
     "video_analysis": {
       "title": "Deep Video Analysis",
       "match": "{score}% Match",
-      "verified_desc": "Verified via temporal ensemble logic (Soft-Voting).",
+      "verified_desc": "Supported by observations across the video.",
       "in_progress": "Video Analysis in progress…",
       "failed_title": "Video Analysis Failed",
       "fallback_title": "Result from snapshot",

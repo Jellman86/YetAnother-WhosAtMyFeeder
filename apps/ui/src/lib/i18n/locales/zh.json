@@ -2013,7 +2013,7 @@
     "video_analysis": {
       "title": "深度视频分析",
       "match": "{score}% 匹配",
-      "verified_desc": "通过时间集成逻辑（软投票）验证。",
+      "verified_desc": "由视频中的多次观察支持。",
       "in_progress": "视频分析进行中…",
       "failed_title": "视频分析失败",
       "errors": {

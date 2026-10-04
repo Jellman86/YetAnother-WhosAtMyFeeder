@@ -38,6 +38,7 @@ YA-WAMF keeps the existing identification.
    returns **No confident result**, preserves the existing identification, and records no manual
    override.
 
+
 The first saved classification is retained separately from later labels. Repeated analysis uses
 that initial classification as a soft prior, or an explicitly confirmed or chosen species.
 Clicking Reclassify requests a model decision and does not turn its output into a human
@@ -71,6 +72,26 @@ For retained full-visit recordings, a Frigate event box is used only at sampled 
 match the event's tracked `path_data`. YA-WAMF never repeats one static event box across the whole
 recording after the bird has moved away. Full-frame and detector-crop evidence remain available
 when tracked coordinates are absent.
+
+### Reusing video scenes for photographs
+
+Video analysis retains at most two decoded RGB scenes, accounting for Pillow's four-byte
+pixel storage within a 64 MiB budget. This cache only speeds up photo work; eviction never
+removes classification or counted-bird evidence. After consensus, the worker writes one
+available winning scene as a lossless, request-owned artifact. The parent validates the
+clip identity, clip variant, frame index, dimensions, offset and content hash before reuse.
+The photo crop keeps the exact geometry attached to the selected species evidence.
+
+The baseline photograph and optional high-quality scan reuse that scene where their frame
+coordinates match. Other high-quality frames, a different reranked winner, oversized scenes
+and missing or invalid artifacts use the existing decoder. No image data or artifact paths
+are returned in classification results or completion events. Cancellation removes the output
+path before deleting its files, so late executor work cannot leave a new manifest behind.
+Owner photo choices, species corrections, hidden/blocked visits, removed photos and storage
+eviction retain their final commit protections. Completion and notifications still wait for
+the photograph update. Logs separate photo decode/reuse, encoding and media commit times;
+video diagnostics record the retained scene count, pixel budget and artifact creation time.
+
 
 ## Running an Analysis
 

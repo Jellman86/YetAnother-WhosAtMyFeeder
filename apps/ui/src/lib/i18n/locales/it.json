@@ -2023,7 +2023,7 @@
     "video_analysis": {
       "title": "Analisi Video Profonda",
       "match": "{score}% Corrispondenza",
-      "verified_desc": "Verificato tramite logica insieme temporale (Soft-Voting).",
+      "verified_desc": "Supportato da osservazioni nel video.",
       "in_progress": "Analisi Video in corso…",
       "failed_title": "Analisi Video Fallita",
       "errors": {
