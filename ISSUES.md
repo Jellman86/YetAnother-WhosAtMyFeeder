@@ -126,8 +126,10 @@ observed for the same detections. Keep this open until it is, then close. Tracke
   recovery request from switching CPU recovery off. The reporter's original EVA-02 Intel GPU fault is
   not shown to be fixed; waiting for fresh diagnostics.
 - **#576** Repeated video decoding during photo updates: #582 and #608 remove the repeat decoding
-  for kept and replaced photos. Open for queue and backfill profiling under sustained load and a
-  check on NVIDIA hardware.
+  for kept and replaced photos. On NVIDIA (October 4) a photo update with reuse took about 0.15 s
+  instead of 1.2 to 1.4 s; handing the scene over adds about 0.4 to 0.5 s to classification, so
+  each video job saves about 0.7 s net. Forty CUDA jobs in a row completed with no restart or
+  fallback. What remains is production backfill under real ingest load.
 
 ## Recently Closed (Context)
 
@@ -258,12 +260,22 @@ For a step-by-step checklist, see `INTEGRATION_TESTING.md`.
 ### NVIDIA CUDA Inference Provider (Real GPU Validation)
 - Scope: End-to-end CUDA provider behavior for ONNX models on real NVIDIA hardware.
 - Code: `backend/app/services/classifier.py`, `backend/app/services/model_manager.py`, `apps/ui/src/lib/components/settings/DetectionSettings.svelte`, `apps/ui/src/lib/pages/models/ModelManager.svelte`
-- Needs testing:
-  - The full and `-cuda` images report CUDA as packaged; CPU/Intel image mismatch diagnostics remain clear and non-destructive
-  - CUDA host/runtime detection correctly reports availability only when an NVIDIA GPU is present
-  - ONNX model activation succeeds with `cuda` provider and remains stable across backend restart
-  - Live detections and manual/background reclassification flows execute on CUDA without unexpected fallback loops
-  - Failure paths surface clear diagnostics in Settings and backend logs
+- Verified on October 4, 2026 with the published `dev-cuda` image on an RTX 4070 (driver 617.14),
+  in disposable containers with no network:
+  - The image reports CUDA as packaged (ONNX Runtime GPU 1.26.0 with the CUDA provider), and the
+    hardware gate passed every applicable model and provider pair: the accurate crop detector and
+    RoPE ViT-B/14 on strict CUDA, with CPU agreement, twice each over eight real images.
+  - Video classification of the original 4K reporter clips ran on strict CUDA with identical species
+    and frame evidence with and without winning-scene reuse.
+  - High-quality photo scans with the crop detector and classifier both on CUDA kept identical
+    candidates, birds and model calls with reuse, and read one fewer frame.
+  - Forty maintenance video jobs submitted at once completed serially on CUDA in about four
+    minutes (median 5.5 s, longest 10.2 s per job) with no worker restart, no fallback and an
+    intact database.
+- Still needs testing:
+  - CUDA host/runtime detection reporting unavailable when no NVIDIA GPU is present
+  - Model activation through Settings staying on CUDA across a backend restart
+  - Failure paths surfacing clear diagnostics in Settings and backend logs
 
 ## Notes
 
