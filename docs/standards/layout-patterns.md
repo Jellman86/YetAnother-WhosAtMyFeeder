@@ -416,6 +416,10 @@ build something better."*
 
 - **Type**: Bricolage Grotesque (`font-display`) for headings and figures, Instrument Sans for
   everything else. `tabular-nums` wherever digits align in a column.
+- **Photographs in a fixed box**: fill the box (`object-cover`) unless that would cut away more
+  than a quarter of the photo, as for a tall crop of a woodpecker on a pole. Then show it whole
+  over a soft blurred copy of itself. `utils/photo-fit.ts` decides from the loaded image; the
+  detection card and the record's photograph use it (#481).
 - **Panels**: `card-base` for standing surfaces. Rows inside a list are separated by hairlines,
   not by nested cards.
 - **Flagged rows**: a left-to-right amber wash plus a state dot plus a worded reason. All three.

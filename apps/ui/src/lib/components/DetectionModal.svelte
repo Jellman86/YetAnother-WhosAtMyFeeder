@@ -52,6 +52,7 @@
     import MediaImage from './MediaImage.svelte';
     import { currentMoment, groupCandidatesIntoMoments, preferredCandidate, type FrameMoment } from '../utils/frame-moments';
     import { WholeScenePeek } from '../utils/whole-scene-peek.svelte';
+    import { photoFitFor, type PhotoFit } from '../utils/photo-fit';
     import { speciesPickerNames } from '../utils/species-picker';
     import VideoAnalysisFilmReel from './VideoAnalysisFilmReel.svelte';
     import { detectionsStore, type ReclassificationProgress } from '../stores/detections.svelte';
@@ -953,6 +954,7 @@
         authStore.hasOwnerAccess && currentSnapshotSource !== 'frigate_snapshot' && !!fullFrameSnapshotCandidate
     );
     let photographDrawnUrl = $state<string | null>(null);
+    let photographFit = $state<PhotoFit>('cover');
     let sceneImageEl = $state<HTMLImageElement | null>(null);
     /** The scene URL that has finished drawing; until then the photograph stays visible beneath. */
     let sceneLoadedUrl = $state<string | null>(null);
@@ -977,6 +979,7 @@
         untrack(() => {
             failedSceneUrls = new Set();
             photographDrawnUrl = null;
+            photographFit = 'cover';
         });
     });
     // The outlines are DOM measurements, taken once the whole scene has loaded and again when
@@ -2503,10 +2506,14 @@
                         <MediaImage
                             sources={photographSources}
                             alt={detection.display_name}
-                            class="relative h-full w-full {photographIsCrop ? 'object-cover' : 'object-contain'} {wholeSceneReady ? 'opacity-0' : ''}"
+                            class="relative h-full w-full {photographIsCrop && photographFit === 'cover' ? 'object-cover' : 'object-contain'} {wholeSceneReady ? 'opacity-0' : ''}"
                             placeholderClass="text-slate-600"
                             iconClass="h-10 w-10"
-                            onload={(image) => { photographDrawnUrl = image.getAttribute('src'); }}
+                            onload={(image) => {
+                                photographDrawnUrl = image.getAttribute('src');
+                                // A tall crop would be cut to a band: it is shown whole over the ambient fill (#481).
+                                photographFit = photoFitFor(image);
+                            }}
                         />
                         {#if canPeekWholeScene && wholeScene.showing}
                             <MediaImage
