@@ -65,11 +65,9 @@ describe('leaderboard field-journal layout', () => {
         expect(leaderboardSource).toContain('tabular-nums');
     });
 
-    it('links BirdNET-enabled leaderboards to the complete listening history', () => {
-        expect(leaderboardSource).toContain("import { toAppPath } from '../app/url-base'");
-        expect(leaderboardSource).toContain('data-leaderboard-audio-history-link');
-        expect(leaderboardSource).toContain("href={toAppPath('/audio')}");
-        expect(leaderboardSource).toContain("$_('nav.audio_history')");
+    it('leaves the listening history link to the Explorer', () => {
+        expect(leaderboardSource).not.toContain('data-leaderboard-audio-history-link');
+        expect(leaderboardSource).not.toContain("toAppPath('/audio')");
     });
 
     it('does not turn an unavailable BirdNET result into measured zero activity', () => {

@@ -34,6 +34,7 @@
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { fullVisitStore } from '../stores/full-visit.svelte';
     import { authStore } from '../stores/auth.svelte';
+    import { toAppPath } from '../app/url-base';
     import { toastStore } from '../stores/toast.svelte';
     import { confirmAction } from '../stores/confirm_dialog.svelte';
     import { _ } from 'svelte-i18n';
@@ -1151,6 +1152,11 @@
             bulkReclassifying = false;
         }
     }
+
+    // The listening history is a list of detections, so it is opened from the Explorer.
+    const audioHistoryAvailable = $derived(
+        (settingsStore.settings?.birdnet_enabled ?? authStore.birdnetEnabled ?? false) && authStore.canViewAudio
+    );
 </script>
 
 <svelte:window onkeydown={handleTimelineKeydown} />
@@ -1170,6 +1176,18 @@
                     </button>
                 {/each}
             </div>
+            {#if audioHistoryAvailable}
+                <a
+                    data-explorer-audio-history-link
+                    href={toAppPath('/audio')}
+                    class="btn btn-secondary inline-flex min-h-11 items-center gap-2 px-3 text-xs focus-visible:ring-2 focus-visible:ring-brand-500"
+                >
+                    <svg aria-hidden="true" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 12v2m4-5v8m4-13v16m4-13v10m4-7v4" />
+                    </svg>
+                    {$_('nav.audio_history')}
+                </a>
+            {/if}
             <button
                 class="btn btn-secondary hidden min-h-11 px-3 py-2 text-xs lg:inline-flex"
                 aria-expanded={!explorerFiltersStore.collapsed}

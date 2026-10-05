@@ -511,6 +511,18 @@ clips) turned off once so disk use did not jump. An unwritable media folder is r
 **Follow-up:** measure whether best-available frames can be stored smaller than JPEG 90 without a
 visible loss; on a live install they were 92% of photo storage.
 
+#### Seen and heard in one Explorer timeline 🎧
+**Priority:** P2 | **Effort:** M | **Status:** ☐ After the next release (feature freeze until then)
+
+Bring BirdNET-Go detections into the Explorer instead of a separate Audio History page: a Seen /
+Heard / Both switch, heard-only detections as audio rows in the day timeline with their spectrogram
+and clip, and a visit marked when a call was heard during it. Mock the layouts first. For now the
+Explorer links to Audio History, and the leaderboard keeps its Seen, Heard and Both rankings.
+
+**Acceptance:** one timeline answers "what was here, seen or heard" without leaving the Explorer;
+guest audio visibility rules hold; an unavailable BirdNET-Go is said plainly and never shown as no
+activity; spectrogram thumbnails are readable at row size.
+
 #### Analytics: insights panel + camera comparison 📊
 **Priority:** P2 | **Effort:** M | **Status:** ☐ Not started
 

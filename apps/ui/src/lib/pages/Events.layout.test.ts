@@ -124,3 +124,14 @@ it('withdraws stale guest rows and choices before reloading public history', () 
     expect(eventsSource).toContain('void refreshCurrentEventsPage(version);');
     expect(eventsSource).toContain('const filters = await eventMetadataRefresh.load(forceRefresh);');
 });
+
+describe('Explorer listening history link', () => {
+    it('links to the BirdNET-Go detection history when audio is enabled and visible', () => {
+        expect(eventsSource).toContain("import { toAppPath } from '../app/url-base'");
+        expect(eventsSource).toContain('data-explorer-audio-history-link');
+        expect(eventsSource).toContain("href={toAppPath('/audio')}");
+        expect(eventsSource).toContain("$_('nav.audio_history')");
+        expect(eventsSource).toMatch(/audioHistoryAvailable = \$derived\([\s\S]*?authStore\.canViewAudio/);
+        expect(eventsSource).toContain('{#if audioHistoryAvailable}');
+    });
+});
