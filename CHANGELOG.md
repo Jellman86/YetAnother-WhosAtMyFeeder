@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- The link to the BirdNET-Go listening history moves from the leaderboard to the Explorer, beside
+  its other views of past detections. The leaderboard keeps its Seen, Heard and Both rankings.
 - **Identify new detections from: Recording frame** now works for live detections. Frigate can
   serve a recording frame only once that part of the recording is written, 11 to 13 seconds after
   the moment on a live install, and YA-WAMF asked about a second after a bird arrived, so every
