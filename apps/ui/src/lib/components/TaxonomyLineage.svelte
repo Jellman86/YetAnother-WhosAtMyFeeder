@@ -54,20 +54,25 @@
         <h4 id="taxonomy-lineage-heading" class="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
             {$_('taxonomy.small_heading', { default: 'Family tree' })}
         </h4>
-        <ol class="flex flex-wrap items-start gap-y-3" aria-label={$_('taxonomy.lineage_label', { default: 'Classification, from class to species' })}>
+        <!-- A ladder, one rank per row, so a long family name never wraps the line into ragged rows. -->
+        <ol aria-label={$_('taxonomy.lineage_label', { default: 'Classification, from class to species' })}>
             {#each steps as taxon, index (taxon.taxon_id)}
+                {@const first = index === 0}
                 {@const last = index === steps.length - 1}
-                <li class="flex items-start">
-                    <div class="flex min-w-0 max-w-[9.5rem] flex-col items-center text-center" aria-current={last ? 'true' : undefined}>
-                        <span class="flex h-4 items-center" aria-hidden="true">
-                            <span class="block rounded-full {last ? 'h-3.5 w-3.5 bg-amber-400 ring-2 ring-amber-200 dark:ring-amber-900' : 'h-2.5 w-2.5 bg-amber-400/80'}"></span>
-                        </span>
-                        <span class="mt-1.5 truncate text-xs font-semibold {last ? 'text-slate-900 dark:text-white' : 'text-slate-700 dark:text-slate-200'}">{taxonLabel(taxon)}</span>
-                        <span class="text-[10px] uppercase tracking-wide text-slate-400">{$_(`taxonomy.rank.${taxon.rank}`, { default: taxon.rank })}</span>
-                    </div>
-                    {#if !last}
-                        <span class="mx-1 flex h-4 shrink-0 items-center" aria-hidden="true"><span class="block h-0.5 w-6 bg-amber-300/70 sm:w-8"></span></span>
-                    {/if}
+                <li class="flex items-stretch gap-3" aria-current={last ? 'true' : undefined}>
+                    <span class="w-16 shrink-0 self-center text-right text-[10px] uppercase tracking-wide text-slate-400">
+                        {$_(`taxonomy.rank.${taxon.rank}`, { default: taxon.rank })}
+                    </span>
+                    <span class="relative flex w-4 shrink-0 items-center justify-center" aria-hidden="true">
+                        <span class="absolute left-1/2 w-0.5 -translate-x-1/2 bg-amber-300/70 {first ? 'top-1/2' : 'top-0'} {last ? 'bottom-1/2' : 'bottom-0'}"></span>
+                        <span class="relative block rounded-full {last ? 'h-3.5 w-3.5 bg-amber-400 ring-2 ring-amber-200 dark:ring-amber-900' : 'h-2.5 w-2.5 bg-amber-400'}"></span>
+                    </span>
+                    <span class="flex min-w-0 flex-1 items-baseline gap-2 py-1">
+                        <span class="truncate text-sm {last ? 'font-bold text-slate-900 dark:text-white' : 'font-semibold text-slate-700 dark:text-slate-200'}">{taxonLabel(taxon)}</span>
+                        {#if taxon.name && taxon.rank !== 'species'}
+                            <span class="hidden truncate text-xs italic text-slate-500 dark:text-slate-400 sm:inline">{taxon.scientific_name}</span>
+                        {/if}
+                    </span>
                 </li>
             {/each}
         </ol>

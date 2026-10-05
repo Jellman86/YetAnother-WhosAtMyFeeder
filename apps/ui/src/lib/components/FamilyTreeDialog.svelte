@@ -204,6 +204,8 @@
         try {
             const saved = localStorage.getItem(MODE_KEY);
             if (saved === 'tree' || saved === 'fan' || saved === 'outline') mode = saved;
+            // A phone has no room for a sideways tree: until the reader picks a layout, it opens as the outline.
+            else if (window.matchMedia('(max-width: 639px)').matches) mode = 'outline';
         } catch {
             // Default view.
         }
@@ -287,7 +289,7 @@
                                     <span class="text-sm text-slate-500">{nodeLabel(item)}</span>
                                 {:else}
                                     <span class="text-sm font-semibold {item.current ? 'text-amber-600 dark:text-amber-300' : 'text-slate-900 dark:text-white'}">{taxonLabel(item.taxon)}</span>
-                                    {#if item.taxon.name}<span class="text-xs italic text-slate-500">{item.taxon.scientific_name}</span>{/if}
+                                    {#if item.taxon.name}<span class="hidden text-xs italic text-slate-500 sm:inline">{item.taxon.scientific_name}</span>{/if}
                                     <span class="text-[10px] uppercase tracking-wide text-slate-400">{$_(`taxonomy.rank.${item.taxon.rank}`, { default: item.taxon.rank })}</span>
                                     {#if seenText(item.taxon)}<span class="ml-auto shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">{seenText(item.taxon)}</span>{/if}
                                 {/if}
