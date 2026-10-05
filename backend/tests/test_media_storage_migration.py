@@ -162,3 +162,16 @@ def test_restoring_a_backup_from_after_the_upgrade_is_left_as_it_was():
 
     assert restored.media_cache.high_quality_event_snapshots is True
     assert restored.frigate.recording_clip_enabled is True
+
+
+def test_the_warning_says_where_each_retired_switch_was_set_and_how_to_clear_it(tmp_path: Path, monkeypatch):
+    from structlog.testing import capture_logs
+
+    monkeypatch.setenv("MEDIA_CACHE__ENABLED", "true")
+    with capture_logs() as logs:
+        _load(tmp_path, {"media_cache": {"cache_snapshots": True}})
+
+    warning = next(entry for entry in logs if entry["event"].startswith("Retired media switches"))
+    assert warning["found"] == ["media_cache.cache_snapshots in config.json", "MEDIA_CACHE__ENABLED"]
+    assert warning["turned_off"] == []
+    assert "Saving settings once removes them from config.json" in warning["hint"]

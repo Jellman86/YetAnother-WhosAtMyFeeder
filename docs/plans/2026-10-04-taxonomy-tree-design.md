@@ -54,10 +54,21 @@ ancestors, and a taxon with no recorded parent is shown as a gap.
   rules are pure (`taxonomy/tree-layout.ts`, `taxonomy/tree-model.ts`) and tested; the browser
   fixture `family-tree` drives both views.
 
+## Delivered third: phones, species details and cards
+
+- The small view is a ladder, one rank per row, so a long family name never wraps the line; the full
+  view opens on the outline on a narrow screen until another layout is chosen (#623).
+- Species details show the same ladder and the way into the full tree (#624).
+- Every name in the ladder, the tree and the outline opens a `TaxonCard` on hover, keyboard focus or
+  tap: a species with its reference photograph and captures here, a group with its size worldwide
+  and what was seen here. Pictures come from the existing species information, one request per
+  species per page, and are never asked for a genus or family (#624).
+
 ## Next
 
-1. Resolve coarser-than-species outputs to their rank on purpose, with backfill tests, and retire
+1. Search by common or scientific name inside the tree, landing on the same taxon either way.
+2. Resolve coarser-than-species outputs to their rank on purpose, with backfill tests, and retire
    the compatibility reader for them.
-2. Non-bird lineages from the pinned Catalogue of Life export (the 7,865 non-bird model classes
+3. Non-bird lineages from the pinned Catalogue of Life export (the 7,865 non-bird model classes
    currently have no parent).
-3. English names for orders, which the IOC master list does not carry.
+4. English names for orders, which the IOC master list does not carry.

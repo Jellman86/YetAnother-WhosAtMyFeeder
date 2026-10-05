@@ -142,7 +142,8 @@ settings and do not follow the `SECTION__FIELD` precedence rules above.
 media are always kept, within the retention and size limits. Either variable is still read once, on
 upgrade: if it was `false`, best-available snapshots (and, for `MEDIA_CACHE__ENABLED`, full-visit
 clips) are turned off so disk use does not jump; turn them on again afterwards if you want them. A
-startup warning names a removed variable that is still set; delete it from your compose file.
+startup warning says where a retired switch is still set: delete an environment variable from your
+compose file, and save settings once to remove the old keys from `config.json`.
 | `MAINTENANCE__CLEANUP_ENABLED` | `true` | Run the periodic cleanup job. |
 | `MAINTENANCE__MAX_CONCURRENT` | `1` | Concurrent maintenance operations. |
 | `MAINTENANCE__AUTO_DELETE_MISSING_CLIPS` | `false` | Prune records whose Frigate clip is gone. |

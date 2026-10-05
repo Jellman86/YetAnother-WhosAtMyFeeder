@@ -89,11 +89,26 @@ def migrate_imported_media_controls(config: dict[str, Any]) -> None:
         frigate = {}
         config["frigate"] = frigate
     legacy = {key: _legacy_switch_on(media.pop(key)) for key in list(LEGACY_MEDIA_SWITCH_ENV) if key in media}
-    _migrate_media_storage_controls(media, frigate, legacy)
+    _migrate_media_storage_controls(media, frigate, legacy, origin="the restored backup")
+
+
+RETIRED_MEDIA_SWITCH_HINT = (
+    "Saving settings once removes them from config.json; delete any of the environment variables from your "
+    "compose file."
+)
+
+
+def _retired_media_switches_found(legacy: dict[str, bool], origin: str) -> list[str]:
+    """Where each retired switch was set, so the warning says what to remove and where."""
+    found = []
+    for key in sorted(legacy):
+        env_key = LEGACY_MEDIA_SWITCH_ENV[key]
+        found.append(env_key if env_key in os.environ else f"media_cache.{key} in {origin}")
+    return found
 
 
 def _migrate_media_storage_controls(
-    media_cache_data: dict[str, Any], frigate_data: dict[str, Any], legacy: dict[str, bool]
+    media_cache_data: dict[str, Any], frigate_data: dict[str, Any], legacy: dict[str, bool], origin: str = "config.json"
 ) -> None:
     """Retire the "Media Cache" and "Snapshots" switches without a jump in disk use (#622).
 
@@ -106,8 +121,9 @@ def _migrate_media_storage_controls(
     if media_cache_data.get("storage_controls_migrated"):
         if legacy:
             log.warning(
-                "Ignoring removed media settings: photographs and visit media are always kept now",
-                removed=sorted(LEGACY_MEDIA_SWITCH_ENV[key] for key in legacy),
+                "Retired media switches are still set and are ignored: photographs and visit media are always kept now",
+                found=_retired_media_switches_found(legacy, origin),
+                hint=RETIRED_MEDIA_SWITCH_HINT,
             )
         return
     cache_off = legacy.get("enabled") is False
@@ -124,9 +140,10 @@ def _migrate_media_storage_controls(
     media_cache_data["storage_controls_migrated"] = True
     if legacy:
         log.warning(
-            "Media settings migrated: photographs and visit media are always kept now",
-            removed=sorted(LEGACY_MEDIA_SWITCH_ENV[key] for key in legacy),
+            "Retired media switches migrated: photographs and visit media are always kept now",
+            found=_retired_media_switches_found(legacy, origin),
             turned_off=changed,
+            hint=RETIRED_MEDIA_SWITCH_HINT,
         )
 
 
