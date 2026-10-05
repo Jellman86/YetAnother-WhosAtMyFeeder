@@ -3,8 +3,8 @@ import { test, expect } from '@playwright/test';
 test('cache limits and scanning use the existing settings controls without overflow', async ({ page }, testInfo) => {
     page.on('pageerror', error => { throw error; });
     await page.goto('/browser-tests/media-settings.html');
-    await page.getByRole('spinbutton', { name: /^Maximum cached visits per species/ }).fill('50');
-    await page.getByRole('spinbutton', { name: /^Media cache budget \(MiB\)/ }).fill('2048');
+    await page.getByRole('spinbutton', { name: /^Most visits per species with photos and video/ }).fill('50');
+    await page.getByRole('spinbutton', { name: /^Storage limit \(MiB\)/ }).fill('2048');
     await page.getByRole('button', { name: 'Advanced Snapshot quality', exact: true }).click();
     await page.getByRole('combobox', { name: 'Bird scanning effort', exact: true }).selectOption('standard');
     await expect(page.getByRole('status', { name: 'Selected cache settings' })).toHaveText('50 / 2048 / standard');

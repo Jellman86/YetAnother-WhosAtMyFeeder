@@ -405,8 +405,8 @@
 
             <SettingsRow
                 labelId="setting-cache-species-floor"
-                label={$_('settings.data.per_species_minimum', { default: 'Keep the newest per species' })}
-                description={$_('settings.data.per_species_minimum_help', { default: 'The newest visits of each species, and their cached photographs, stay through age cleanup. 0 turns this off. Clips are not held.' })}
+                label={$_('settings.data.per_species_minimum', { default: 'Keep photos of the newest visits per species' })}
+                description={$_('settings.data.per_species_minimum_help', { default: "This many of each species' newest visits keep their photos after they pass the history window, so a rare bird keeps its pictures. Video is not kept longer. 0 turns this off." })}
             >
                 <input
                     type="number"
@@ -421,8 +421,8 @@
 
             <SettingsRow
                 labelId="setting-cache-per_species_maximum"
-                label={$_('settings.data.per_species_maximum', { default: 'Maximum cached visits per species' })}
-                description={$_('settings.data.per_species_maximum_help', { default: 'Keep media for the newest visits of each species. Favourites are exempt and history stays. 0 is unlimited.' })}
+                label={$_('settings.data.per_species_maximum', { default: 'Most visits per species with photos and video' })}
+                description={$_('settings.data.per_species_maximum_help', { default: "A species' visits beyond this number lose their photos and video, oldest first. The visits stay in history. Favourites don't count. 0 means no limit." })}
             >
                 <input type="number" min="0" max="10000" step="1"
                     bind:value={cachePerSpeciesMaximum} aria-labelledby="setting-cache-per_species_maximum"
@@ -431,8 +431,8 @@
 
             <SettingsRow
                 labelId="setting-cache-max_size_mb"
-                label={$_('settings.data.max_size_mb', { default: 'Media cache budget (MiB)' })}
-                description={$_('settings.data.max_size_mb_help', { default: 'Remove older cached media when over budget. Favourites and their archive are protected. This budget and the maximum above take priority over the age-cleanup minimum. 0 is unlimited.' })}
+                label={$_('settings.data.max_size_mb', { default: 'Storage limit (MiB)' })}
+                description={$_('settings.data.max_size_mb_help', { default: 'When photos and video use more than this, the oldest are removed first. Favourites and their archive are kept. This limit and the one above win over the photo floor. 0 means no limit.' })}
             >
                 <input type="number" min="0" max="1048576" step="1"
                     bind:value={cacheMaxSizeMb} aria-labelledby="setting-cache-max_size_mb"
@@ -456,7 +456,7 @@
                 <SettingsRow
                     labelId="setting-cache-hq"
                     label={$_('settings.data.cache_high_quality_event_snapshots', { default: 'Best available event snapshots' })}
-                    description={`${$_('settings.data.cache_high_quality_event_snapshots_help', { default: 'After an event ends, choose the clearest main-stream frame and best crop available. The full frame is kept when a reliable crop cannot be made.' })} ${$_('settings.data.cache_high_quality_storage_note', { default: 'Each visit then also keeps full-resolution frames, often several MB, so set a size budget if space is tight.' })}`}
+                    description={`${$_('settings.data.cache_high_quality_event_snapshots_help', { default: 'After an event ends, choose the clearest main-stream frame and best crop available. The full frame is kept when a reliable crop cannot be made.' })} ${$_('settings.data.cache_high_quality_storage_note', { default: 'Each visit then also keeps full-resolution frames, often several MB, so set a storage limit if space is tight.' })}`}
                 >
                     <SettingsToggle
                         checked={cacheHighQualityEventSnapshots}

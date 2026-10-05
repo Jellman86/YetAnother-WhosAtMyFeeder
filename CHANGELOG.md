@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- The limits under **Settings → Data → Photos and video** say what they do. "Keep the newest per
+  species" read as if it turned clips off; it is now **Keep photos of the newest visits per
+  species** and says video is not kept longer. The cap and the budget are now **Most visits per
+  species with photos and video** and **Storage limit**, and the size shows as **Space used**.
 - The link to the BirdNET-Go listening history moves from the leaderboard to the Explorer, beside
   its other views of past detections. The leaderboard keeps its Seen, Heard and Both rankings.
 - **Identify new detections from: Recording frame** now works for live detections. Frigate can
