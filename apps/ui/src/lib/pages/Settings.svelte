@@ -1794,11 +1794,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'autoAnalyzeUnknowns', val: autoAnalyzeUnknowns, store: s.auto_analyze_unknowns ?? false },
             { key: 'blockedLabels', val: JSON.stringify(blockedLabels), store: JSON.stringify(blockedLabelsBaseline) },
             { key: 'blockedSpecies', val: JSON.stringify(blockedSpecies), store: JSON.stringify(blockedSpeciesBaseline) },
-            { key: 'cacheEnabled', val: cacheEnabled, store: s.media_cache_enabled ?? true },
-            { key: 'cacheSnapshots', val: cacheSnapshots, store: s.media_cache_snapshots ?? true },
             { key: 'cacheClips', val: cacheClips, store: s.media_cache_clips ?? false },
             { key: 'cacheHighQualityEventSnapshots', val: cacheHighQualityEventSnapshots, store: s.media_cache_high_quality_event_snapshots ?? false },
-            { key: 'cacheHighQualityEventSnapshotJpegQuality', val: cacheHighQualityEventSnapshotJpegQuality, store: s.media_cache_high_quality_event_snapshot_jpeg_quality ?? 95 },
+            { key: 'cacheHighQualityEventSnapshotJpegQuality', val: cacheHighQualityEventSnapshotJpegQuality, store: s.media_cache_high_quality_event_snapshot_jpeg_quality ?? 90 },
             { key: 'cacheRetentionDays', val: cacheRetentionDays, store: s.media_cache_retention_days ?? 0 },
             { key: 'cachePerSpeciesMaximum', val: cachePerSpeciesMaximum, store: s.media_cache_per_species_maximum ?? 0 },
             { key: 'cacheMaxSizeMb', val: cacheMaxSizeMb, store: s.media_cache_max_size_mb ?? 0 },
@@ -1963,11 +1961,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let applyingTimezoneRepair = $state(false);
 
     // Media cache state
-    let cacheEnabled = $state(true);
-    let cacheSnapshots = $state(true);
     let cacheClips = $state(false);
     let cacheHighQualityEventSnapshots = $state(false);
-    let cacheHighQualityEventSnapshotJpegQuality = $state(95);
+    let cacheHighQualityEventSnapshotJpegQuality = $state(90);
     let cacheRetentionDays = $state(0);
     let cachePerSpeciesMaximum = $state<number>(0);
     let cacheMaxSizeMb = $state<number>(0);
@@ -2878,11 +2874,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             blockedLabelsBaseline = [...blockedLabels];
             blockedSpeciesBaseline = [...blockedSpecies];
             // Media cache settings
-            cacheEnabled = settings.media_cache_enabled ?? true;
-            cacheSnapshots = settings.media_cache_snapshots ?? true;
             cacheClips = settings.media_cache_clips ?? false;
             cacheHighQualityEventSnapshots = settings.media_cache_high_quality_event_snapshots ?? false;
-            cacheHighQualityEventSnapshotJpegQuality = settings.media_cache_high_quality_event_snapshot_jpeg_quality ?? 95;
+            cacheHighQualityEventSnapshotJpegQuality = settings.media_cache_high_quality_event_snapshot_jpeg_quality ?? 90;
             cacheRetentionDays = settings.media_cache_retention_days ?? 0;
             cachePerSpeciesMaximum = settings.media_cache_per_species_maximum ?? 0;
             cacheMaxSizeMb = settings.media_cache_max_size_mb ?? 0;
@@ -3223,8 +3217,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 auto_analyze_unknowns: autoAnalyzeUnknowns,
                 blocked_labels: blockedLabels,
                 blocked_species: blockedSpecies,
-                media_cache_enabled: cacheEnabled,
-                media_cache_snapshots: cacheSnapshots,
                 media_cache_clips: cacheClips,
                 media_cache_high_quality_event_snapshots: cacheHighQualityEventSnapshots,
                 // Compatibility field: best-available snapshots always attempt an automatic crop.
@@ -3725,8 +3717,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:autoPurgeMissingClips
                     bind:autoPurgeMissingSnapshots
                     bind:autoAnalyzeUnknowns
-                    bind:cacheEnabled
-                    bind:cacheSnapshots
                     bind:cacheClips
                     bind:cacheHighQualityEventSnapshots
                     bind:cacheHighQualityEventSnapshotJpegQuality

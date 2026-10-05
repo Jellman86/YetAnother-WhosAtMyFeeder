@@ -524,9 +524,8 @@
       "purge_confirm": "{count} Erkennungen und die BirdNET-Go-Audiodaten, die älter als {days} Tage sind, endgültig löschen? Favoriten und die neuesten behaltenen Besuche jeder Art bleiben erhalten. Dies kann nicht rückgängig gemacht werden.",
       "cleaning": "Wird bereinigt…",
       "auto_cleanup_note": "Die automatische Bereinigung läuft beim Start und danach alle 24 Stunden",
-      "cache_title": "Medien-Cache",
-      "cache_snapshots": "Schnappschüsse",
-      "cache_clips": "Videoclips",
+      "cache_title": "Fotos und Videos",
+      "cache_clips": "Kopien der Frigate-Ereignisclips behalten",
       "cache_high_quality_event_snapshot_jpeg_quality": "JPEG-Qualität für HQ-Schnappschüsse",
       "cache_high_quality_event_snapshot_jpeg_quality_help": "Höhere Werte bewahren mehr Details, erzeugen aber größere abgeleitete Schnappschussdateien.",
       "cache_size": "Cache-Größe",
@@ -684,7 +683,11 @@
       "bird_scan_mode": "Aufwand der Vogelsuche",
       "bird_scan_mode_help": "Standard benötigt weniger CPU. Intensiv durchsucht auch Kacheln großer Bilder und klassifiziert mehr Ausschnitte. Beide zählen alle im ausgewählten Bild gefundenen Vögel, garantieren aber nicht jeden Vogel im Clip.",
       "bird_scan_standard": "Standard",
-      "bird_scan_intensive": "Intensiv"
+      "bird_scan_intensive": "Intensiv",
+      "cache_clips_help": "Frigate speichert diese bereits. Kopien bleiben erhalten, wenn Frigate sie löscht, jeweils etwa in Clipgröße.",
+      "cache_always_kept": "Fotos, Clips ganzer Besuche und Vorschauen werden immer behalten. Die Grenzen unten bestimmen, wie lange und wie viel Platz sie belegen.",
+      "cache_unavailable": "In den Medienordner kann nicht geschrieben werden, daher werden keine Fotos und Videos behalten. Prüfe die Ordnerrechte; die Systemprüfungen zeigen den Fehler.",
+      "cache_high_quality_storage_note": "Jeder Besuch behält dann zusätzlich Bilder in voller Auflösung, oft mehrere MB. Lege bei knappem Platz ein Speicherbudget fest."
     },
     "security": {
       "title": "Sicherheit",
@@ -1819,8 +1822,6 @@
     "live_updates_disconnected_message": "Live-Updates verbinden sich im Hintergrund erneut.",
     "system_health_title": "Warnung zum Systemstatus",
     "system_health_message": "Systemstatus: {status}",
-    "system_cache_disabled_title": "Medien-Cache deaktiviert",
-    "system_cache_disabled_message": "Timeline-Vorschauen und Medien-Caching sind in den aktuellen Einstellungen deaktiviert.",
     "open_action": "Öffnen",
     "global_progress_last": "Vor {age} aktualisiert",
     "global_progress_stale": "{count} ohne Rückmeldung",
@@ -1846,7 +1847,9 @@
     "empty_body": "Besuche erscheinen hier, sobald der Klassifikator sie benennt, und Hintergrundarbeiten während sie laufen. Neueste zuerst.",
     "empty_action": "Feldprotokoll öffnen",
     "empty_filtered": "Nichts entspricht diesem Filter.",
-    "clear_notifications": "Benachrichtigungen löschen"
+    "clear_notifications": "Benachrichtigungen löschen",
+    "system_media_storage_unavailable_title": "Medienspeicher nicht verfügbar",
+    "system_media_storage_unavailable_message": "In den Medienordner kann nicht geschrieben werden, daher werden keine Fotos und Videos behalten. Details unter Einstellungen → Daten."
   },
   "actions": {
     "confirm_delete": "Diesen gesamten {species}-Besuch löschen? Der Eintrag und seine Medien verschwinden dauerhaft aus der Historie. Ausblenden behält den Eintrag stattdessen.",

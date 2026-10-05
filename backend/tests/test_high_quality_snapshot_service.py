@@ -841,8 +841,6 @@ def test_clip_candidate_extraction_keeps_separate_birds_from_one_frame(monkeypat
 @pytest.mark.asyncio
 async def test_reconcile_recent_detections_only_reschedules_unfinished_snapshot_jobs(monkeypatch):
     service = hq_module.HighQualitySnapshotService()
-    monkeypatch.setattr(settings.media_cache, "enabled", True, raising=False)
-    monkeypatch.setattr(settings.media_cache, "cache_snapshots", True, raising=False)
     monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True, raising=False)
     monkeypatch.setattr(settings.frigate, "clips_enabled", True, raising=False)
 
@@ -2342,22 +2340,19 @@ def test_background_crop_work_is_blocked_by_classifier_pressure(monkeypatch):
 
 @pytest_asyncio.fixture(autouse=True)
 async def reset_high_quality_snapshot_service_state():
-    original_media_enabled = settings.media_cache.enabled
-    original_cache_snapshots = settings.media_cache.cache_snapshots
+    original_media_enabled = media_cache_module.media_cache._available
     original_high_quality_snapshots = settings.media_cache.high_quality_event_snapshots
     original_high_quality_bird_crop = settings.media_cache.high_quality_event_snapshot_bird_crop
     original_clips_enabled = settings.frigate.clips_enabled
     original_recording_clip_enabled = settings.frigate.recording_clip_enabled
     await hq_module.high_quality_snapshot_service.reset_state()
-    settings.media_cache.enabled = True
-    settings.media_cache.cache_snapshots = True
+    media_cache_module.media_cache._available = True
     settings.media_cache.high_quality_event_snapshots = False
     settings.media_cache.high_quality_event_snapshot_bird_crop = False
     settings.frigate.clips_enabled = True
     yield
     await hq_module.high_quality_snapshot_service.reset_state()
-    settings.media_cache.enabled = original_media_enabled
-    settings.media_cache.cache_snapshots = original_cache_snapshots
+    media_cache_module.media_cache._available = original_media_enabled
     settings.media_cache.high_quality_event_snapshots = original_high_quality_snapshots
     settings.media_cache.high_quality_event_snapshot_bird_crop = original_high_quality_bird_crop
     settings.frigate.clips_enabled = original_clips_enabled

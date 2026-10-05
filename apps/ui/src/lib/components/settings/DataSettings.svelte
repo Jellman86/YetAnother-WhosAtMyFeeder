@@ -26,8 +26,6 @@
         cleaningUp,
         clearingFavorites,
         purgingMissingMedia,
-        cacheEnabled = $bindable(true),
-        cacheSnapshots = $bindable(true),
         cacheClips = $bindable(false),
         cacheHighQualityEventSnapshots = $bindable(false),
         cacheHighQualityEventSnapshotJpegQuality = $bindable(95),
@@ -87,8 +85,6 @@
         cleaningUp: boolean;
         clearingFavorites: boolean;
         purgingMissingMedia: boolean;
-        cacheEnabled: boolean;
-        cacheSnapshots: boolean;
         cacheClips: boolean;
         cacheHighQualityEventSnapshots: boolean;
         cacheHighQualityEventSnapshotJpegQuality: number;
@@ -359,198 +355,182 @@
             </AdvancedSection>
         </SettingsCard>
 
-        <SettingsCard accent iconSnippet={cacheIcon} title={$_('settings.data.cache_title')}>
+        <SettingsCard accent iconSnippet={cacheIcon} title={$_('settings.data.cache_title', { default: 'Photos and video' })}>
+            <p class="text-sm text-slate-600 dark:text-slate-300" data-media-always-kept>
+                {$_('settings.data.cache_always_kept', { default: 'Photos, full-visit clips and previews are always kept. The limits below decide for how long and how much space they use.' })}
+            </p>
+            {#if cacheStats && cacheStats.storage_available === false}
+                <p class="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200" role="status" data-media-storage-unavailable>
+                    {$_('settings.data.cache_unavailable', { default: "The media folder can't be written, so photos and video are not being kept. Check the folder's permissions; system checks show the error." })}
+                </p>
+            {/if}
             <SettingsRow
-                labelId="setting-cache-enabled"
-                label={$_('settings.data.cache_title')}
+                labelId="setting-cache-clips"
+                label={$_('settings.data.cache_clips', { default: "Keep copies of Frigate's event clips" })}
+                description={$_('settings.data.cache_clips_help', { default: 'Frigate already keeps these. Copies survive Frigate deleting them, at about the size of the clip each.' })}
             >
                 <SettingsToggle
-                    checked={cacheEnabled}
-                    labelledBy="setting-cache-enabled"
-                    srLabel={$_('settings.data.cache_title')}
-                    onchange={(v) => (cacheEnabled = v)}
+                    checked={cacheClips}
+                    labelledBy="setting-cache-clips"
+                    srLabel={$_('settings.data.cache_clips', { default: "Keep copies of Frigate's event clips" })}
+                    onchange={(v) => (cacheClips = v)}
                 />
             </SettingsRow>
 
-            {#if cacheEnabled}
+            <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
+                <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">{$_('settings.data.cache_size')}</span>
+                <span class="text-sm font-black text-slate-900 dark:text-white">{cacheStats?.total_size_mb ?? 0} MB</span>
+            </div>
+
+            <!-- The archive is not the cache: clearing the cache leaves it alone (#178). -->
+            <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex flex-col gap-1" data-archive-usage>
+                <div class="flex items-center justify-between gap-3">
+                    <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">{$_('settings.data.archive_usage', { default: 'Archived favourites' })}</span>
+                    <span class="text-sm font-black text-slate-900 dark:text-white">
+                        {$_('settings.data.archive_usage_detail', {
+                            values: { count: cacheStats?.archive_durable ?? 0, size: `${cacheStats?.archive_size_mb ?? 0} MB` },
+                            default: '{count} kept, {size}'
+                        })}
+                    </span>
+                </div>
+                {#if (cacheStats?.archive_failed ?? 0) > 0}
+                    <p class="text-xs text-rose-600 dark:text-rose-300" data-archive-failed>
+                        {$_('settings.data.archive_failed_count', {
+                            values: { count: cacheStats?.archive_failed ?? 0 },
+                            default: '{count} could not be archived. Open the visit to try again.'
+                        })}
+                    </p>
+                {/if}
+            </div>
+
+            <SettingsRow
+                labelId="setting-cache-species-floor"
+                label={$_('settings.data.per_species_minimum', { default: 'Keep the newest per species' })}
+                description={$_('settings.data.per_species_minimum_help', { default: 'The newest visits of each species, and their cached photographs, stay through age cleanup. 0 turns this off. Clips are not held.' })}
+            >
+                <input
+                    type="number"
+                    min="0"
+                    max="10000"
+                    step="1"
+                    bind:value={cachePerSpeciesMinimum}
+                    aria-labelledby="setting-cache-species-floor"
+                    class="w-24 rounded-xl border border-slate-200 bg-white px-3 py-2 text-right text-sm font-semibold text-slate-900 focus-ring dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                />
+            </SettingsRow>
+
+            <SettingsRow
+                labelId="setting-cache-per_species_maximum"
+                label={$_('settings.data.per_species_maximum', { default: 'Maximum cached visits per species' })}
+                description={$_('settings.data.per_species_maximum_help', { default: 'Keep media for the newest visits of each species. Favourites are exempt and history stays. 0 is unlimited.' })}
+            >
+                <input type="number" min="0" max="10000" step="1"
+                    bind:value={cachePerSpeciesMaximum} aria-labelledby="setting-cache-per_species_maximum"
+                    class="input-base w-24 py-2 text-right font-semibold" />
+            </SettingsRow>
+
+            <SettingsRow
+                labelId="setting-cache-max_size_mb"
+                label={$_('settings.data.max_size_mb', { default: 'Media cache budget (MiB)' })}
+                description={$_('settings.data.max_size_mb_help', { default: 'Remove older cached media when over budget. Favourites and their archive are protected. This budget and the maximum above take priority over the age-cleanup minimum. 0 is unlimited.' })}
+            >
+                <input type="number" min="0" max="1048576" step="1"
+                    bind:value={cacheMaxSizeMb} aria-labelledby="setting-cache-max_size_mb"
+                    class="input-base w-24 py-2 text-right font-semibold" />
+            </SettingsRow>
+
+            <button
+                type="button"
+                onclick={handleCacheCleanup}
+                disabled={cleaningCache}
+                aria-label={$_('settings.data.cache_clear_button')}
+                class="w-full {buttonNeutralClass}"
+            >
+                {cleaningCache ? $_('settings.data.cleaning') : $_('settings.data.cache_clear_button')}
+            </button>
+
+            <AdvancedSection
+                id="data-cache-advanced"
+                title={$_('settings.data.cache_advanced_title', { default: 'Snapshot quality' })}
+            >
                 <SettingsRow
-                    labelId="setting-cache-snapshots"
-                    label={$_('settings.data.cache_snapshots')}
+                    labelId="setting-cache-hq"
+                    label={$_('settings.data.cache_high_quality_event_snapshots', { default: 'Best available event snapshots' })}
+                    description={`${$_('settings.data.cache_high_quality_event_snapshots_help', { default: 'After an event ends, choose the clearest main-stream frame and best crop available. The full frame is kept when a reliable crop cannot be made.' })} ${$_('settings.data.cache_high_quality_storage_note', { default: 'Each visit then also keeps full-resolution frames, often several MB, so set a size budget if space is tight.' })}`}
                 >
                     <SettingsToggle
-                        checked={cacheSnapshots}
-                        labelledBy="setting-cache-snapshots"
-                        srLabel={$_('settings.data.cache_snapshots')}
-                        onchange={(v) => (cacheSnapshots = v)}
-                    />
-                </SettingsRow>
-                <SettingsRow
-                    labelId="setting-cache-clips"
-                    label={$_('settings.data.cache_clips')}
-                >
-                    <SettingsToggle
-                        checked={cacheClips}
-                        labelledBy="setting-cache-clips"
-                        srLabel={$_('settings.data.cache_clips')}
-                        onchange={(v) => (cacheClips = v)}
+                        checked={cacheHighQualityEventSnapshots}
+                        labelledBy="setting-cache-hq"
+                        srLabel={$_('settings.data.cache_high_quality_event_snapshots', { default: 'Best available event snapshots' })}
+                        onchange={(v) => (cacheHighQualityEventSnapshots = v)}
                     />
                 </SettingsRow>
 
-                <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
-                    <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">{$_('settings.data.cache_size')}</span>
-                    <span class="text-sm font-black text-slate-900 dark:text-white">{cacheStats?.total_size_mb ?? 0} MB</span>
-                </div>
-
-                <!-- The archive is not the cache: clearing the cache leaves it alone (#178). -->
-                <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex flex-col gap-1" data-archive-usage>
-                    <div class="flex items-center justify-between gap-3">
-                        <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">{$_('settings.data.archive_usage', { default: 'Archived favourites' })}</span>
-                        <span class="text-sm font-black text-slate-900 dark:text-white">
-                            {$_('settings.data.archive_usage_detail', {
-                                values: { count: cacheStats?.archive_durable ?? 0, size: `${cacheStats?.archive_size_mb ?? 0} MB` },
-                                default: '{count} kept, {size}'
-                            })}
-                        </span>
-                    </div>
-                    {#if (cacheStats?.archive_failed ?? 0) > 0}
-                        <p class="text-xs text-rose-600 dark:text-rose-300" data-archive-failed>
-                            {$_('settings.data.archive_failed_count', {
-                                values: { count: cacheStats?.archive_failed ?? 0 },
-                                default: '{count} could not be archived. Open the visit to try again.'
-                            })}
-                        </p>
-                    {/if}
-                </div>
-
-                <SettingsRow
-                    labelId="setting-cache-species-floor"
-                    label={$_('settings.data.per_species_minimum', { default: 'Keep the newest per species' })}
-                    description={$_('settings.data.per_species_minimum_help', { default: 'The newest visits of each species, and their cached photographs, stay through age cleanup. 0 turns this off. Clips are not held.' })}
-                >
-                    <input
-                        type="number"
-                        min="0"
-                        max="10000"
-                        step="1"
-                        bind:value={cachePerSpeciesMinimum}
-                        aria-labelledby="setting-cache-species-floor"
-                        class="w-24 rounded-xl border border-slate-200 bg-white px-3 py-2 text-right text-sm font-semibold text-slate-900 focus-ring dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                    />
-                </SettingsRow>
-
-                <SettingsRow
-                    labelId="setting-cache-per_species_maximum"
-                    label={$_('settings.data.per_species_maximum', { default: 'Maximum cached visits per species' })}
-                    description={$_('settings.data.per_species_maximum_help', { default: 'Keep media for the newest visits of each species. Favourites are exempt and history stays. 0 is unlimited.' })}
-                >
-                    <input type="number" min="0" max="10000" step="1"
-                        bind:value={cachePerSpeciesMaximum} aria-labelledby="setting-cache-per_species_maximum"
-                        class="input-base w-24 py-2 text-right font-semibold" />
-                </SettingsRow>
-
-                <SettingsRow
-                    labelId="setting-cache-max_size_mb"
-                    label={$_('settings.data.max_size_mb', { default: 'Media cache budget (MiB)' })}
-                    description={$_('settings.data.max_size_mb_help', { default: 'Remove older cached media when over budget. Favourites and their archive are protected. This budget and the maximum above take priority over the age-cleanup minimum. 0 is unlimited.' })}
-                >
-                    <input type="number" min="0" max="1048576" step="1"
-                        bind:value={cacheMaxSizeMb} aria-labelledby="setting-cache-max_size_mb"
-                        class="input-base w-24 py-2 text-right font-semibold" />
-                </SettingsRow>
-
-                <button
-                    type="button"
-                    onclick={handleCacheCleanup}
-                    disabled={cleaningCache}
-                    aria-label={$_('settings.data.cache_clear_button')}
-                    class="w-full {buttonNeutralClass}"
-                >
-                    {cleaningCache ? $_('settings.data.cleaning') : $_('settings.data.cache_clear_button')}
-                </button>
-
-                <AdvancedSection
-                    id="data-cache-advanced"
-                    title={$_('settings.data.cache_advanced_title', { default: 'Snapshot quality' })}
-                >
+                {#if cacheHighQualityEventSnapshots}
                     <SettingsRow
-                        labelId="setting-cache-hq"
-                        label={$_('settings.data.cache_high_quality_event_snapshots', { default: 'Best available event snapshots' })}
-                        description={$_('settings.data.cache_high_quality_event_snapshots_help', { default: 'After an event ends, choose the clearest main-stream frame and best crop available. The full frame is kept when a reliable crop cannot be made.' })}
+                        labelId="setting-bird-scan-mode"
+                        label={$_('settings.data.bird_scan_mode', { default: 'Bird scanning effort' })}
+                        description={$_('settings.data.bird_scan_mode_help', { default: 'Standard uses less CPU. Intensive also searches tiles in large frames and classifies more crop choices. Both count every bird found in the selected scene; neither guarantees every bird in the clip is found.' })}
+                        layout="stacked"
                     >
-                        <SettingsToggle
-                            checked={cacheHighQualityEventSnapshots}
-                            labelledBy="setting-cache-hq"
-                            srLabel={$_('settings.data.cache_high_quality_event_snapshots', { default: 'Best available event snapshots' })}
-                            onchange={(v) => (cacheHighQualityEventSnapshots = v)}
+                        <SettingsSelect id="bird-scan-mode" value={cacheBirdScanMode}
+                            ariaLabel={$_('settings.data.bird_scan_mode', { default: 'Bird scanning effort' })}
+                            options={[
+                                { value: 'standard', label: $_('settings.data.bird_scan_standard', { default: 'Standard' }) },
+                                { value: 'intensive', label: $_('settings.data.bird_scan_intensive', { default: 'Intensive' }) }
+                            ]}
+                            onchange={(v) => (cacheBirdScanMode = v === 'standard' ? 'standard' : 'intensive')}
                         />
                     </SettingsRow>
+                    <div class="flex items-start gap-3 border-l-2 {cropDetectorReady ? 'border-success-400' : 'border-slate-300 dark:border-slate-600'} py-1 pl-3">
+                        <svg class="mt-0.5 h-4 w-4 flex-none {cropDetectorReady ? 'text-success-500' : 'text-slate-400'}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            {#if cropDetectorReady}
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                            {:else}
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7V4h3m10 0h3v3M4 17v3h3m10 0h3v-3M8 12h8" />
+                            {/if}
+                        </svg>
+                        <div class="min-w-0">
+                            <p class="text-sm font-bold text-slate-700 dark:text-slate-200">
+                                {cropDetectorReady
+                                    ? $_('settings.data.cache_crop_detector_ready', { default: 'Crop detector ready' })
+                                    : $_('settings.data.cache_crop_fallback_ready', { default: 'Frigate tracking fallback ready' })}
+                            </p>
+                            <p class="mt-0.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                                {cropDetectorReady
+                                    ? $_('settings.data.cache_crop_detector_ready_help', { default: 'Frigate tracking hints and the crop detectors are evaluated automatically.' })
+                                    : $_('settings.data.cache_crop_fallback_ready_help', { default: 'Frigate tracking hints are used automatically; detector crops join in when a model is installed.' })}
+                            </p>
+                        </div>
+                    </div>
 
-                    {#if cacheHighQualityEventSnapshots}
-                        <SettingsRow
-                            labelId="setting-bird-scan-mode"
-                            label={$_('settings.data.bird_scan_mode', { default: 'Bird scanning effort' })}
-                            description={$_('settings.data.bird_scan_mode_help', { default: 'Standard uses less CPU. Intensive also searches tiles in large frames and classifies more crop choices. Both count every bird found in the selected scene; neither guarantees every bird in the clip is found.' })}
-                            layout="stacked"
-                        >
-                            <SettingsSelect id="bird-scan-mode" value={cacheBirdScanMode}
-                                ariaLabel={$_('settings.data.bird_scan_mode', { default: 'Bird scanning effort' })}
-                                options={[
-                                    { value: 'standard', label: $_('settings.data.bird_scan_standard', { default: 'Standard' }) },
-                                    { value: 'intensive', label: $_('settings.data.bird_scan_intensive', { default: 'Intensive' }) }
-                                ]}
-                                onchange={(v) => (cacheBirdScanMode = v === 'standard' ? 'standard' : 'intensive')}
+                    <SettingsRow
+                        labelId="setting-cache-hq-jpeg-quality"
+                        label={$_('settings.data.cache_high_quality_event_snapshot_jpeg_quality', { default: 'HQ Snapshot JPEG Quality' })}
+                        description={$_('settings.data.cache_high_quality_event_snapshot_jpeg_quality_help', { default: 'Higher values keep more detail but create larger derived snapshot files.' })}
+                        layout="stacked"
+                    >
+                        <div class="space-y-2">
+                            <div class="flex justify-end">
+                                <span class="text-sm font-black text-slate-900 dark:text-white">{cacheHighQualityEventSnapshotJpegQuality}</span>
+                            </div>
+                            <input
+                                type="range"
+                                min="70"
+                                max="100"
+                                step="1"
+                                bind:value={cacheHighQualityEventSnapshotJpegQuality}
+                                aria-label={$_('settings.data.cache_high_quality_event_snapshot_jpeg_quality', { default: 'HQ Snapshot JPEG Quality' })}
+                                class="w-full accent-brand-500"
                             />
-                        </SettingsRow>
-                        <div class="flex items-start gap-3 border-l-2 {cropDetectorReady ? 'border-success-400' : 'border-slate-300 dark:border-slate-600'} py-1 pl-3">
-                            <svg class="mt-0.5 h-4 w-4 flex-none {cropDetectorReady ? 'text-success-500' : 'text-slate-400'}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                {#if cropDetectorReady}
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                                {:else}
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7V4h3m10 0h3v3M4 17v3h3m10 0h3v-3M8 12h8" />
-                                {/if}
-                            </svg>
-                            <div class="min-w-0">
-                                <p class="text-sm font-bold text-slate-700 dark:text-slate-200">
-                                    {cropDetectorReady
-                                        ? $_('settings.data.cache_crop_detector_ready', { default: 'Crop detector ready' })
-                                        : $_('settings.data.cache_crop_fallback_ready', { default: 'Frigate tracking fallback ready' })}
-                                </p>
-                                <p class="mt-0.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-                                    {cropDetectorReady
-                                        ? $_('settings.data.cache_crop_detector_ready_help', { default: 'Frigate tracking hints and the crop detectors are evaluated automatically.' })
-                                        : $_('settings.data.cache_crop_fallback_ready_help', { default: 'Frigate tracking hints are used automatically; detector crops join in when a model is installed.' })}
-                                </p>
+                            <div class="flex items-center justify-between text-xs font-black uppercase tracking-widest text-slate-400">
+                                <span>70</span>
+                                <span>100</span>
                             </div>
                         </div>
-
-                        <SettingsRow
-                            labelId="setting-cache-hq-jpeg-quality"
-                            label={$_('settings.data.cache_high_quality_event_snapshot_jpeg_quality', { default: 'HQ Snapshot JPEG Quality' })}
-                            description={$_('settings.data.cache_high_quality_event_snapshot_jpeg_quality_help', { default: 'Higher values keep more detail but create larger derived snapshot files.' })}
-                            layout="stacked"
-                        >
-                            <div class="space-y-2">
-                                <div class="flex justify-end">
-                                    <span class="text-sm font-black text-slate-900 dark:text-white">{cacheHighQualityEventSnapshotJpegQuality}</span>
-                                </div>
-                                <input
-                                    type="range"
-                                    min="70"
-                                    max="100"
-                                    step="1"
-                                    bind:value={cacheHighQualityEventSnapshotJpegQuality}
-                                    aria-label={$_('settings.data.cache_high_quality_event_snapshot_jpeg_quality', { default: 'HQ Snapshot JPEG Quality' })}
-                                    class="w-full accent-brand-500"
-                                />
-                                <div class="flex items-center justify-between text-xs font-black uppercase tracking-widest text-slate-400">
-                                    <span>70</span>
-                                    <span>100</span>
-                                </div>
-                            </div>
-                        </SettingsRow>
-                    {/if}
-                </AdvancedSection>
-            {/if}
+                    </SettingsRow>
+                {/if}
+            </AdvancedSection>
         </SettingsCard>
     </div>
 

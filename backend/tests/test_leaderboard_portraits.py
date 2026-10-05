@@ -7,10 +7,10 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
-from app.config import settings
 from app.database import close_db, get_db, init_db
 from app.main import app
 from app.routers.species import clear_portraits_cache
+from app.services import media_cache as media_cache_module
 
 SOURCES = {
     "dunnock_new": "high_quality_snapshot",  # whole scene: skipped
@@ -54,11 +54,10 @@ async def seeded_db():
 
 @pytest.fixture
 def media_cache_on():
-    original = (settings.media_cache.enabled, settings.media_cache.cache_snapshots)
-    settings.media_cache.enabled = True
-    settings.media_cache.cache_snapshots = True
+    original = media_cache_module.media_cache._available
+    media_cache_module.media_cache._available = True
     yield
-    settings.media_cache.enabled, settings.media_cache.cache_snapshots = original
+    media_cache_module.media_cache._available = original
 
 
 @pytest.mark.asyncio
@@ -88,18 +87,6 @@ async def test_the_limit_ranks_by_the_window_and_the_result_is_cached(seeded_db,
     assert [p["species"] for p in first.json()["portraits"]] == ["Dunnock"]
     assert second.json() == first.json()
     assert reads.await_count == 2  # the second request came from the cache
-
-
-@pytest.mark.asyncio
-async def test_no_media_cache_means_no_portraits(seeded_db):
-    original = settings.media_cache.enabled
-    settings.media_cache.enabled = False
-    try:
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            res = await client.get("/api/leaderboard/portraits?span=all")
-    finally:
-        settings.media_cache.enabled = original
-    assert res.json() == {"span": "all", "portraits": []}
 
 
 @pytest.fixture(autouse=True)

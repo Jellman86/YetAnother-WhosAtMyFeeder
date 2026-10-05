@@ -190,7 +190,7 @@ class MediaStorageService:
         async with self._lock:
             sizes, files = await asyncio.to_thread(self._inventory)
             result["bytes_freed"] += await self._recover_orphaned_media(files)
-            if not options.enabled or not (options.per_species_maximum or options.max_size_mb):
+            if not (options.per_species_maximum or options.max_size_mb):
                 return result
             sizes, files = await asyncio.to_thread(self._inventory)
             owners = {event_id: self._possible_owners(event_id, paths) for event_id, paths in files.items()}

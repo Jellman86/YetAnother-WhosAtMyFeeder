@@ -383,7 +383,7 @@ class BackfillService:
                 sub_label=sub_label,
             )
 
-            if snapshot_data and settings.media_cache.enabled and settings.media_cache.cache_snapshots:
+            if snapshot_data:
                 try:
                     snapshot_cached = await asyncio.to_thread(media_cache.has_snapshot, frigate_event)
                     if not snapshot_cached:

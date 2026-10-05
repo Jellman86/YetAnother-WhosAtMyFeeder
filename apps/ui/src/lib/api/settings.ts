@@ -70,8 +70,6 @@ export interface Settings {
     video_classification_circuit_failures?: number;
     audio_buffer_hours?: number;
     audio_correlation_window_seconds?: number;
-    media_cache_enabled: boolean;
-    media_cache_snapshots: boolean;
     media_cache_clips: boolean;
     media_cache_high_quality_event_snapshots: boolean;
     media_cache_high_quality_event_snapshot_bird_crop: boolean;

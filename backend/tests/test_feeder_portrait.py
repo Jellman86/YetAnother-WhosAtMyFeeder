@@ -16,6 +16,7 @@ from app.database import close_db, get_db, init_db
 from app.main import app
 from app.routers.about import busiest_day, newest_arrival
 from app.services import visit_film_service as films
+from app.services import media_cache as media_cache_module
 
 CROPS = {"robin_late": "hq_candidate_model_crop", "dunnock_2": "high_quality_bird_crop"}
 
@@ -59,8 +60,7 @@ async def seeded_db():
 
 @pytest.fixture
 def media_cache_on(monkeypatch):
-    monkeypatch.setattr(settings.media_cache, "enabled", True)
-    monkeypatch.setattr(settings.media_cache, "cache_snapshots", True)
+    monkeypatch.setattr(media_cache_module.media_cache, "_available", True)
 
 
 def test_the_busiest_day_has_the_most_visits_and_a_tie_goes_to_the_latest():
@@ -132,16 +132,6 @@ async def test_a_made_film_is_offered_with_the_latest_visit(seeded_db, media_cac
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             res = await client.get("/api/about/portrait")
     assert res.json()["latest_visit"]["film_url"] == "/api/about/showcase/robin_late.webm"
-
-
-@pytest.mark.asyncio
-async def test_without_a_media_cache_the_portrait_keeps_its_facts_and_drops_the_visit(seeded_db, monkeypatch):
-    monkeypatch.setattr(settings.media_cache, "enabled", False)
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        res = await client.get("/api/about/portrait")
-    body = res.json()
-    assert body["latest_visit"] is None
-    assert body["species"] == 3
 
 
 @pytest.mark.asyncio

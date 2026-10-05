@@ -20,6 +20,7 @@ from app.services.archive_service import archive_service
 from app.database import get_db, init_db, close_db
 from app.repositories.processing_job_repository import ProcessingJobRepository
 from app.repositories.maintenance_job_repository import MaintenanceJobRepository
+from app.services import media_cache as media_cache_module
 
 
 def jpeg(size: tuple[int, int]) -> bytes:
@@ -37,7 +38,7 @@ async def test_archived_video_survives_frigate_retention(tmp_path, monkeypatch, 
     api = FastAPI()
     api.include_router(proxy.router)
     api.dependency_overrides[proxy.get_proxy_auth_context] = lambda: AuthContext("owner")
-    monkeypatch.setattr(settings.media_cache, "enabled", False)
+    monkeypatch.setattr(media_cache_module.media_cache, "_available", False)
     monkeypatch.setattr(settings.frigate, "clips_enabled", True)
     monkeypatch.setattr(proxy, "require_event_access", AsyncMock())
     monkeypatch.setattr(archive_service, "clip_path", AsyncMock(return_value=None if recording else clip))
@@ -76,7 +77,7 @@ async def test_card_uses_archived_photo_when_snapshot_caching_is_off(tmp_path, m
     api.include_router(proxy.router)
     api.dependency_overrides[proxy.get_proxy_auth_context] = lambda: AuthContext("owner")
     monkeypatch.setattr(proxy, "require_event_access", AsyncMock())
-    monkeypatch.setattr(settings.media_cache, "cache_snapshots", False)
+    monkeypatch.setattr(media_cache_module.media_cache, "_available", False)
     monkeypatch.setattr(archive_service, "snapshot_path", AsyncMock(return_value=photo))
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=api), base_url="http://test") as client:
         response = await client.get("/frigate/archived/thumbnail.jpg")
@@ -292,7 +293,6 @@ async def test_storage_limit_removes_media_keeps_history_and_stops_regeneration(
         monkeypatch.setattr(cache_module, name, directory)
     service = cache_module.MediaCacheService()
     monkeypatch.setattr(cache_module, "media_cache", service)
-    monkeypatch.setattr(settings.media_cache, "enabled", True)
     monkeypatch.setattr(settings.media_cache, "per_species_maximum", 1)
     monkeypatch.setattr(settings.media_cache, "max_size_mb", 0)
     await init_db()
@@ -376,7 +376,7 @@ async def test_archived_full_visit_precedes_context_and_cached_negative_probe(tm
     api = FastAPI()
     api.include_router(proxy.router)
     api.dependency_overrides[proxy.get_proxy_auth_context] = lambda: AuthContext("owner")
-    monkeypatch.setattr(settings.media_cache, "enabled", False)
+    monkeypatch.setattr(media_cache_module.media_cache, "_available", False)
     monkeypatch.setattr(settings.frigate, "clips_enabled", True)
     monkeypatch.setattr(settings.frigate, "recording_clip_enabled", True)
     monkeypatch.setattr(proxy, "require_event_access", AsyncMock())
@@ -404,7 +404,7 @@ async def test_archive_respects_access_and_supports_range_requests(tmp_path, mon
     api = FastAPI()
     api.include_router(proxy.router)
     api.dependency_overrides[proxy.get_proxy_auth_context] = lambda: AuthContext("owner")
-    monkeypatch.setattr(settings.media_cache, "enabled", False)
+    monkeypatch.setattr(media_cache_module.media_cache, "_available", False)
     monkeypatch.setattr(settings.frigate, "clips_enabled", True)
     lookup = AsyncMock(return_value=clip)
     monkeypatch.setattr(archive_service, "video_path", lookup)

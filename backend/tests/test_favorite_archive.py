@@ -442,13 +442,13 @@ async def test_the_cache_is_served_before_the_archive(seeded_db, dirs, owner):
     # Large enough that the route does not mistake it for a thumbnail-sized stand-in.
     live_photo = b"live-photo-in-cache" + b"\xff" * (96 * 1024)
     _cache_snapshot(dirs, "fav_cached", data=live_photo, source="frigate_snapshot_cropped")
-    original = (settings.media_cache.enabled, settings.media_cache.cache_snapshots)
-    settings.media_cache.enabled = settings.media_cache.cache_snapshots = True
+    original = media_cache_module.media_cache._available
+    media_cache_module.media_cache._available = True
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             res = await client.get("/api/frigate/fav_cached/snapshot.jpg")
     finally:
-        settings.media_cache.enabled, settings.media_cache.cache_snapshots = original
+        media_cache_module.media_cache._available = original
     assert res.status_code == 200, res.text
     assert res.content == live_photo
 

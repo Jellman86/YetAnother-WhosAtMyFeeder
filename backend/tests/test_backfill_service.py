@@ -9,6 +9,7 @@ from app.services import backfill_service as backfill_module
 from app.services.backfill_service import BackfillEventHistoryIncompleteError, BackfillService
 from app.services.classifier_service import BackgroundImageClassificationUnavailableError
 from app.services.frigate_client import FrigateEventsFetchError
+from app.services import media_cache as media_cache_module
 
 
 @pytest.mark.asyncio
@@ -212,8 +213,7 @@ async def test_process_historical_event_caches_snapshot_and_schedules_high_quali
     monkeypatch.setattr("app.services.backfill_service.frigate_client.get_snapshot", _fake_snapshot)
 
     settings = backfill_module.settings
-    settings.media_cache.enabled = True
-    settings.media_cache.cache_snapshots = True
+    media_cache_module.media_cache._available = True
     settings.media_cache.high_quality_event_snapshots = True
 
     service.detection_service.save_detection = AsyncMock(return_value=(True, True))
@@ -279,8 +279,7 @@ async def test_existing_detection_repairs_a_missing_cached_snapshot(monkeypatch)
 
     monkeypatch.setattr("app.services.backfill_service.frigate_client.get_snapshot", _fake_snapshot)
     settings = backfill_module.settings
-    settings.media_cache.enabled = True
-    settings.media_cache.cache_snapshots = True
+    media_cache_module.media_cache._available = True
     settings.media_cache.high_quality_event_snapshots = True
 
     service.detection_service.save_detection = AsyncMock(return_value=(False, False))

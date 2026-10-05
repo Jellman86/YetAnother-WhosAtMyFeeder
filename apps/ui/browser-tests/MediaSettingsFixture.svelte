@@ -1,6 +1,7 @@
 <script lang="ts">
     import type { ComponentProps } from 'svelte';
     import DataSettings from '../src/lib/components/settings/DataSettings.svelte';
+    import type { CacheStats } from '../src/lib/api/maintenance';
     const noop = async (): Promise<void> => {};
     let maximum = $state(0);
     let budget = $state(0);
@@ -18,12 +19,14 @@
         cleaningUp: false,
         clearingFavorites: false,
         purgingMissingMedia: false,
-        cacheEnabled: true,
-        cacheSnapshots: true,
         cacheClips: false,
         cacheHighQualityEventSnapshots: true,
         cacheHighQualityEventSnapshotJpegQuality: 95,
-        cacheStats: null,
+        // ?storage=unavailable stands in for a media folder that cannot be written.
+        cacheStats:
+            new URLSearchParams(location.search).get('storage') === 'unavailable'
+                ? ({ storage_available: false, total_size_mb: 0 } as unknown as CacheStats)
+                : null,
         classifierStatus: null,
         cleaningCache: false,
         taxonomyStatus: null,

@@ -2745,14 +2745,6 @@
             "title": "Cache Clips",
             "type": "boolean"
           },
-          "cache_enabled": {
-            "title": "Cache Enabled",
-            "type": "boolean"
-          },
-          "cache_snapshots": {
-            "title": "Cache Snapshots",
-            "type": "boolean"
-          },
           "clip_count": {
             "title": "Clip Count",
             "type": "integer"
@@ -2819,6 +2811,11 @@
             "title": "Snapshot Size Mb",
             "type": "number"
           },
+          "storage_available": {
+            "description": "False when the media folder cannot be written: photographs and visit media are then not kept",
+            "title": "Storage Available",
+            "type": "boolean"
+          },
           "total_size_bytes": {
             "title": "Total Size Bytes",
             "type": "integer"
@@ -2840,8 +2837,7 @@
           "preview_size_mb",
           "total_size_bytes",
           "total_size_mb",
-          "cache_enabled",
-          "cache_snapshots",
+          "storage_available",
           "cache_clips",
           "retention_days",
           "retention_source"
@@ -11143,18 +11139,13 @@
             "title": "Media Cache Clips",
             "type": "boolean"
           },
-          "media_cache_enabled": {
-            "default": true,
-            "title": "Media Cache Enabled",
-            "type": "boolean"
-          },
           "media_cache_high_quality_event_snapshot_bird_crop": {
             "default": false,
             "title": "Media Cache High Quality Event Snapshot Bird Crop",
             "type": "boolean"
           },
           "media_cache_high_quality_event_snapshot_jpeg_quality": {
-            "default": 95,
+            "default": 90,
             "title": "Media Cache High Quality Event Snapshot Jpeg Quality",
             "type": "integer"
           },
@@ -11182,11 +11173,6 @@
             "default": 0,
             "title": "Media Cache Retention Days",
             "type": "integer"
-          },
-          "media_cache_snapshots": {
-            "default": true,
-            "title": "Media Cache Snapshots",
-            "type": "boolean"
           },
           "media_integrity_scan_batch_size": {
             "default": 1000,
@@ -13332,12 +13318,6 @@
             "title": "Media Cache Clips",
             "type": "boolean"
           },
-          "media_cache_enabled": {
-            "default": true,
-            "description": "Enable local media caching",
-            "title": "Media Cache Enabled",
-            "type": "boolean"
-          },
           "media_cache_high_quality_event_snapshot_bird_crop": {
             "default": false,
             "description": "Deprecated compatibility field; HQ snapshots automatically attempt every available crop source",
@@ -13345,7 +13325,7 @@
             "type": "boolean"
           },
           "media_cache_high_quality_event_snapshot_jpeg_quality": {
-            "default": 95,
+            "default": 90,
             "description": "JPEG quality for derived high-quality event snapshots",
             "maximum": 100.0,
             "minimum": 70.0,
@@ -13388,12 +13368,6 @@
             "minimum": 0.0,
             "title": "Media Cache Retention Days",
             "type": "integer"
-          },
-          "media_cache_snapshots": {
-            "default": true,
-            "description": "Cache snapshot images locally",
-            "title": "Media Cache Snapshots",
-            "type": "boolean"
           },
           "media_integrity_scan_batch_size": {
             "default": 1000,

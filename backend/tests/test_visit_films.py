@@ -9,11 +9,11 @@ import httpx
 import numpy as np
 import pytest
 
-from app.config import settings
 from app.main import app
 from app.routers import about
 from app.services import visit_film_service as films
 from app.services.media_cache import media_cache
+from app.services import media_cache as media_cache_module
 
 
 @pytest.mark.parametrize(
@@ -113,7 +113,7 @@ async def test_a_made_film_is_served_as_webm_under_the_clip_rules(film_dir, phot
 
 @pytest.mark.asyncio
 async def test_no_film_is_made_without_the_media_cache(monkeypatch):
-    monkeypatch.setattr(settings.media_cache, "enabled", False)
+    monkeypatch.setattr(media_cache_module.media_cache, "_available", False)
     assert await films.visit_film_service.request("1790957361.937179-wfjaqa") == "unavailable"
 
 
@@ -153,7 +153,6 @@ async def test_film_response_rejects_paths_outside_its_cache_root(film_dir, monk
 @pytest.mark.asyncio
 async def test_a_visit_whose_recording_is_gone_is_never_asked_for_again(tmp_path, monkeypatch):
     monkeypatch.setattr(films, "FILMS_DIR", tmp_path)
-    monkeypatch.setattr(settings.media_cache, "enabled", True)
     now = [0.0]
     service = films.VisitFilmService(clock=lambda: now[0])
     event = {"camera": "cam", "start_time": 100.0, "data": {"box": [0.4, 0.4, 0.1, 0.1], "snapshot_frame_time": 101.0}}
@@ -170,7 +169,6 @@ async def test_a_visit_whose_recording_is_gone_is_never_asked_for_again(tmp_path
 @pytest.mark.asyncio
 async def test_a_passing_failure_is_tried_again_later(tmp_path, monkeypatch):
     monkeypatch.setattr(films, "FILMS_DIR", tmp_path)
-    monkeypatch.setattr(settings.media_cache, "enabled", True)
     now = [0.0]
     service = films.VisitFilmService(clock=lambda: now[0])
     monkeypatch.setattr(
@@ -191,7 +189,6 @@ async def test_a_recording_still_arriving_can_recover_without_retrying_old_absen
     tmp_path, monkeypatch, event_state, failure, photo
 ):
     monkeypatch.setattr(films, "FILMS_DIR", tmp_path)
-    monkeypatch.setattr(settings.media_cache, "enabled", True)
     elapsed = [0.0]
     service = films.VisitFilmService(clock=lambda: elapsed[0])
     event = {
@@ -239,7 +236,6 @@ async def test_a_recording_still_arriving_can_recover_without_retrying_old_absen
 @pytest.mark.asyncio
 async def test_film_admission_is_bounded_and_deferred_requests_can_retry(tmp_path, monkeypatch):
     monkeypatch.setattr(films, "FILMS_DIR", tmp_path)
-    monkeypatch.setattr(settings.media_cache, "enabled", True)
     monkeypatch.setattr(films, "FILMS_PENDING_LIMIT", 3, raising=False)
     service = films.VisitFilmService()
     started = asyncio.Event()
@@ -273,7 +269,6 @@ async def test_film_admission_is_bounded_and_deferred_requests_can_retry(tmp_pat
 @pytest.mark.asyncio
 async def test_failed_film_memory_is_bounded_and_recent_failures_remain_remembered(tmp_path, monkeypatch):
     monkeypatch.setattr(films, "FILMS_DIR", tmp_path)
-    monkeypatch.setattr(settings.media_cache, "enabled", True)
     monkeypatch.setattr(films, "FILM_FAILURES_KEPT", 3, raising=False)
     service = films.VisitFilmService()
     monkeypatch.setattr(service, "_render", AsyncMock(side_effect=ValueError("clip_not_retained")))
@@ -309,7 +304,6 @@ def test_a_film_is_written_whole_and_leaves_no_scratch_behind(tmp_path):
 
 @pytest.fixture(autouse=True)
 def photo(tmp_path, monkeypatch):
-    monkeypatch.setattr(settings.media_cache, "enabled", True)
     path = tmp_path / "current.jpg"
     path.write_bytes(b"original-frigate-crop")
     metadata = {

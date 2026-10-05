@@ -235,8 +235,6 @@ async def test_backfill_classifies_and_retains_recording_alignment(recording_mod
     )
     monkeypatch.setattr(module.media_cache, "has_snapshot", lambda event_id: False)
     monkeypatch.setattr(module.media_cache, "cache_snapshot", AsyncMock(return_value=True))
-    monkeypatch.setattr(settings.media_cache, "enabled", True)
-    monkeypatch.setattr(settings.media_cache, "cache_snapshots", True)
     monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", False)
     event = {
         "id": "evt-record",

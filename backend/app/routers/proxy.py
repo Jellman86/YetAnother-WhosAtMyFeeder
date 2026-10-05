@@ -274,11 +274,7 @@ def _snapshot_generation_lock(event_id: str) -> asyncio.Lock:
 
 
 def _hq_bird_crop_feature_enabled() -> bool:
-    return bool(
-        settings.media_cache.enabled
-        and settings.media_cache.cache_snapshots
-        and settings.media_cache.high_quality_event_snapshots
-    )
+    return bool(settings.media_cache.high_quality_event_snapshots)
 
 
 async def _build_snapshot_status(event_id: str, *, check_original_frigate_snapshot: bool = True):
@@ -289,11 +285,10 @@ async def _build_snapshot_status(event_id: str, *, check_original_frigate_snapsh
     metadata: dict = {}
     original_frigate_snapshot_available: bool | None = None
 
-    if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
-        cached = await media_cache.get_snapshot(event_id) is not None
-        if cached:
-            metadata = await media_cache.get_snapshot_metadata(event_id) or {}
-            source = str((metadata or {}).get("source") or "").strip() or None
+    cached = await media_cache.get_snapshot(event_id) is not None
+    if cached:
+        metadata = await media_cache.get_snapshot_metadata(event_id) or {}
+        source = str((metadata or {}).get("source") or "").strip() or None
 
     if check_original_frigate_snapshot:
         original_snapshot, _error = await frigate_client.get_snapshot_with_error(
@@ -1059,8 +1054,7 @@ async def _get_cached_recording_clip_details(
     from app.services.media_cache import media_cache
 
     raw_cached_path: FilePath | None = None
-    if settings.media_cache.enabled:
-        raw_cached_path = media_cache.get_recording_clip_path(event_id)
+    raw_cached_path = media_cache.get_recording_clip_path(event_id)
     if not raw_cached_path:
         if not resolve_context:
             return None, None, None, None, None, None
@@ -1186,7 +1180,9 @@ async def _fetch_recording_clip_ready(event_id: str, lang: str) -> RecordingClip
                 raise HTTPException(status_code=404, detail=i18n_service.translate("errors.proxy.clip_not_found", lang))
             response.raise_for_status()
 
-            should_cache = settings.media_cache.enabled
+            # Stored before it is served, so a replayed visit is not fetched twice; a host that
+            # cannot write media streams it instead.
+            should_cache = media_cache.available
             if should_cache:
                 cached = await media_cache.cache_recording_clip_streaming(event_id, response.aiter_bytes())
                 if not cached:
@@ -1234,7 +1230,7 @@ async def _ensure_preview_assets(event_id: str, lang: str) -> str:
     from app.services.media_cache import media_cache
     from app.services.video_preview_service import video_preview_service
 
-    if not settings.media_cache.enabled:
+    if not media_cache.available:
         raise HTTPException(status_code=503, detail=i18n_service.translate("errors.proxy.preview_disabled", lang))
 
     if media_cache.get_preview_sprite_path(event_id) and await media_cache.get_preview_manifest(event_id):
@@ -1925,17 +1921,16 @@ async def proxy_snapshot(
 
     # Check cache first
     retained_legacy_photo: bytes | None = None
-    if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
-        cached = await media_cache.get_snapshot(event_id)
-        if cached:
-            metadata = await media_cache.get_snapshot_metadata(event_id) or {}
-            if metadata.get("manual_selection") or not _is_probably_thumbnail_sized_snapshot(
-                cached, source=metadata.get("source")
-            ):
-                return Response(content=cached, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
-            # Keep the last retained image until a replacement is fetched.
-            # Frigate may have already expired this historical event.
-            retained_legacy_photo = cached
+    cached = await media_cache.get_snapshot(event_id)
+    if cached:
+        metadata = await media_cache.get_snapshot_metadata(event_id) or {}
+        if metadata.get("manual_selection") or not _is_probably_thumbnail_sized_snapshot(
+            cached, source=metadata.get("source")
+        ):
+            return Response(content=cached, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
+        # Keep the last retained image until a replacement is fetched.
+        # Frigate may have already expired this historical event.
+        retained_legacy_photo = cached
 
     # The cache is the live photograph; a favourite's archived copy stands in when the cache has
     # nothing, and outlives Frigate's own rotation (#178).
@@ -1964,8 +1959,7 @@ async def proxy_snapshot(
         resp.raise_for_status()
 
         # Cache the response
-        if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
-            await media_cache.cache_snapshot(event_id, resp.content, source="frigate_snapshot_unverified")
+        await media_cache.cache_snapshot(event_id, resp.content, source="frigate_snapshot_unverified")
 
         return Response(
             content=resp.content,
@@ -2127,26 +2121,25 @@ async def check_clip_exists(
     if not settings.frigate.clips_enabled:
         raise HTTPException(status_code=403, detail=i18n_service.translate("errors.clip_disabled", lang))
 
-    if settings.media_cache.enabled:
-        (
-            recording_cached_path,
-            recording_state,
-            duration,
-            _camera,
-            _start,
-            _end,
-        ) = await _get_cached_recording_clip_details(event_id, lang, resolve_context=False)
-        if recording_cached_path and recording_state:
-            return Response(
-                status_code=200,
-                headers=_recording_clip_response_headers(
-                    recording_state,
-                    duration,
-                    include_variant=True,
-                ),
-            )
-        if settings.media_cache.cache_clips and media_cache.get_clip_path(event_id):
-            return Response(status_code=200)
+    (
+        recording_cached_path,
+        recording_state,
+        duration,
+        _camera,
+        _start,
+        _end,
+    ) = await _get_cached_recording_clip_details(event_id, lang, resolve_context=False)
+    if recording_cached_path and recording_state:
+        return Response(
+            status_code=200,
+            headers=_recording_clip_response_headers(
+                recording_state,
+                duration,
+                include_variant=True,
+            ),
+        )
+    if settings.media_cache.cache_clips and media_cache.get_clip_path(event_id):
+        return Response(status_code=200)
 
     from app.services.archive_service import archive_service
 
@@ -2218,18 +2211,16 @@ async def check_recording_clip_exists(
         if now - cached_time < HEAD_CACHE_TTL:
             return Response(status_code=cached_status)
 
-    if settings.media_cache.enabled:
-        cached_path, state, duration, camera_name, start_ts, end_ts = await _get_cached_recording_clip_details(
-            event_id,
-            lang,
+    cached_path, state, duration, camera_name, start_ts, end_ts = await _get_cached_recording_clip_details(
+        event_id,
+        lang,
+    )
+    if cached_path and state:
+        return Response(
+            status_code=200,
+            headers=_recording_clip_response_headers(state, duration),
         )
-        if cached_path and state:
-            return Response(
-                status_code=200,
-                headers=_recording_clip_response_headers(state, duration),
-            )
-    else:
-        camera_name, start_ts, end_ts = await _get_recording_clip_context(event_id, lang)
+
     clip_url = frigate_client.get_camera_recording_clip_url(camera_name, start_ts, end_ts)
     headers = frigate_client._get_headers()
 
@@ -2283,13 +2274,15 @@ async def fetch_recording_clip(
     if not _has_valid_share_context(request, event_id):
         await require_event_access(event_id, auth, lang, media="clip")
 
+    from app.services.media_cache import media_cache
+
     recording_state = await _fetch_recording_clip_ready(event_id, lang)
     return RecordingClipFetchResponse(
         event_id=event_id,
         status="ready" if recording_state == "complete" else "partial",
         clip_variant="recording",
         recording_state=recording_state,
-        cached=bool(settings.media_cache.enabled),
+        cached=media_cache.available,
     )
 
 
@@ -2398,56 +2391,55 @@ async def proxy_clip(
         raise HTTPException(status_code=403, detail=i18n_service.translate("errors.proxy.download_forbidden", lang))
 
     # Check cache first
-    if settings.media_cache.enabled:
-        (
-            recording_cached_path,
+    (
+        recording_cached_path,
+        recording_state,
+        duration,
+        _camera,
+        _start,
+        _end,
+    ) = await _get_cached_recording_clip_details(event_id, lang, resolve_context=False)
+    if recording_cached_path and recording_state:
+        log.info(
+            "proxy_clip_recording_cache_hit",
+            event_id=event_id,
+            recording_state=recording_state,
+            recording_duration_seconds=round(duration, 2) if duration is not None else None,
+            download=download_requested,
+            duration_ms=round((perf_counter() - request_started) * 1000, 2),
+        )
+        response_headers = _recording_clip_response_headers(
             recording_state,
             duration,
-            _camera,
-            _start,
-            _end,
-        ) = await _get_cached_recording_clip_details(event_id, lang, resolve_context=False)
-        if recording_cached_path and recording_state:
+            include_variant=True,
+        )
+        response_headers["Content-Disposition"] = (
+            f"{'attachment' if download_requested else 'inline'}; filename={event_id}.mp4"
+        )
+        return FileResponse(
+            path=recording_cached_path,
+            media_type="video/mp4",
+            filename=f"{event_id}.mp4",
+            headers=response_headers,
+        )
+    if settings.media_cache.cache_clips:
+        cached_path = media_cache.get_clip_path(event_id)
+        if cached_path:
             log.info(
-                "proxy_clip_recording_cache_hit",
+                "proxy_clip_cache_hit",
                 event_id=event_id,
-                recording_state=recording_state,
-                recording_duration_seconds=round(duration, 2) if duration is not None else None,
                 download=download_requested,
                 duration_ms=round((perf_counter() - request_started) * 1000, 2),
             )
-            response_headers = _recording_clip_response_headers(
-                recording_state,
-                duration,
-                include_variant=True,
-            )
-            response_headers["Content-Disposition"] = (
-                f"{'attachment' if download_requested else 'inline'}; filename={event_id}.mp4"
-            )
+            # Serve from cache - FileResponse handles Range requests automatically
             return FileResponse(
-                path=recording_cached_path,
+                path=cached_path,
                 media_type="video/mp4",
                 filename=f"{event_id}.mp4",
-                headers=response_headers,
+                headers={
+                    "Content-Disposition": f"{'attachment' if download_requested else 'inline'}; filename={event_id}.mp4"
+                },
             )
-        if settings.media_cache.cache_clips:
-            cached_path = media_cache.get_clip_path(event_id)
-            if cached_path:
-                log.info(
-                    "proxy_clip_cache_hit",
-                    event_id=event_id,
-                    download=download_requested,
-                    duration_ms=round((perf_counter() - request_started) * 1000, 2),
-                )
-                # Serve from cache - FileResponse handles Range requests automatically
-                return FileResponse(
-                    path=cached_path,
-                    media_type="video/mp4",
-                    filename=f"{event_id}.mp4",
-                    headers={
-                        "Content-Disposition": f"{'attachment' if download_requested else 'inline'}; filename={event_id}.mp4"
-                    },
-                )
 
     from app.services.archive_service import archive_service
 
@@ -2481,7 +2473,7 @@ async def proxy_clip(
 
     # Forward Range header if present (only when not caching)
     range_header = request.headers.get("range")
-    should_cache = settings.media_cache.enabled and settings.media_cache.cache_clips
+    should_cache = settings.media_cache.cache_clips and media_cache.available
     log.debug(
         "proxy_clip_start",
         event_id=event_id,
@@ -2626,39 +2618,36 @@ async def proxy_recording_clip(
             },
         )
 
-    if settings.media_cache.enabled:
-        cached_path, state, duration, camera_name, start_ts, end_ts = await _get_cached_recording_clip_details(
-            event_id,
-            lang,
+    cached_path, state, duration, camera_name, start_ts, end_ts = await _get_cached_recording_clip_details(
+        event_id,
+        lang,
+    )
+    if cached_path and state:
+        log.info(
+            "proxy_recording_clip_cache_hit",
+            event_id=event_id,
+            recording_state=state,
+            recording_duration_seconds=round(duration, 2) if duration is not None else None,
+            download=download_requested,
+            duration_ms=round((perf_counter() - request_started) * 1000, 2),
         )
-        if cached_path and state:
-            log.info(
-                "proxy_recording_clip_cache_hit",
-                event_id=event_id,
-                recording_state=state,
-                recording_duration_seconds=round(duration, 2) if duration is not None else None,
-                download=download_requested,
-                duration_ms=round((perf_counter() - request_started) * 1000, 2),
-            )
-            response_headers = _recording_clip_response_headers(state, duration)
-            response_headers["Content-Disposition"] = (
-                f"{'attachment' if download_requested else 'inline'}; filename={event_id}_recording.mp4"
-            )
-            return FileResponse(
-                path=cached_path,
-                media_type="video/mp4",
-                filename=f"{event_id}_recording.mp4",
-                headers=response_headers,
-            )
+        response_headers = _recording_clip_response_headers(state, duration)
+        response_headers["Content-Disposition"] = (
+            f"{'attachment' if download_requested else 'inline'}; filename={event_id}_recording.mp4"
+        )
+        return FileResponse(
+            path=cached_path,
+            media_type="video/mp4",
+            filename=f"{event_id}_recording.mp4",
+            headers=response_headers,
+        )
 
-    else:
-        camera_name, start_ts, end_ts = await _get_recording_clip_context(event_id, lang)
     clip_url = frigate_client.get_camera_recording_clip_url(camera_name, start_ts, end_ts)
     headers = frigate_client._get_headers()
 
     range_header = request.headers.get("range")
 
-    should_cache = settings.media_cache.enabled
+    should_cache = media_cache.available
     log.debug(
         "proxy_recording_clip_start",
         event_id=event_id,
@@ -2916,34 +2905,33 @@ async def proxy_thumb(
             )
         return FileResponse(manual_thumbnail, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
 
-    if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
-        cached = await media_cache.get_thumbnail(event_id)
-        snapshot_cached = await media_cache.get_snapshot(event_id)
-        thumbnail_metadata = await media_cache.get_thumbnail_metadata(event_id)
-        if snapshot_cached:
-            if (
-                cached
-                and _cached_thumbnail_allowed_for_current_snapshot(thumbnail_metadata, has_snapshot=True)
-                and (
-                    thumbnail_metadata.get("source") == "snapshot_derived"
-                    or not _is_probably_thumbnail_sized_snapshot(cached)
-                )
-            ):
-                return Response(content=cached, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
-            try:
-                derived = await asyncio.to_thread(_build_display_thumbnail_from_snapshot, snapshot_cached)
-                await media_cache.cache_thumbnail(event_id, derived, source="snapshot_derived")
-                return Response(content=derived, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
-            except Exception:
-                # Fall back to any cached thumbnail or Frigate thumbnail fetch below.
-                if cached and _cached_thumbnail_allowed_for_current_snapshot(thumbnail_metadata, has_snapshot=True):
-                    return Response(content=cached, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
-        elif (
+    cached = await media_cache.get_thumbnail(event_id)
+    snapshot_cached = await media_cache.get_snapshot(event_id)
+    thumbnail_metadata = await media_cache.get_thumbnail_metadata(event_id)
+    if snapshot_cached:
+        if (
             cached
-            and not _is_probably_thumbnail_sized_snapshot(cached)
-            and _cached_thumbnail_allowed_for_current_snapshot(thumbnail_metadata, has_snapshot=False)
+            and _cached_thumbnail_allowed_for_current_snapshot(thumbnail_metadata, has_snapshot=True)
+            and (
+                thumbnail_metadata.get("source") == "snapshot_derived"
+                or not _is_probably_thumbnail_sized_snapshot(cached)
+            )
         ):
             return Response(content=cached, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
+        try:
+            derived = await asyncio.to_thread(_build_display_thumbnail_from_snapshot, snapshot_cached)
+            await media_cache.cache_thumbnail(event_id, derived, source="snapshot_derived")
+            return Response(content=derived, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
+        except Exception:
+            # Fall back to any cached thumbnail or Frigate thumbnail fetch below.
+            if cached and _cached_thumbnail_allowed_for_current_snapshot(thumbnail_metadata, has_snapshot=True):
+                return Response(content=cached, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
+    elif (
+        cached
+        and not _is_probably_thumbnail_sized_snapshot(cached)
+        and _cached_thumbnail_allowed_for_current_snapshot(thumbnail_metadata, has_snapshot=False)
+    ):
+        return Response(content=cached, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
 
     from app.services.archive_service import archive_service
 
@@ -2961,9 +2949,8 @@ async def proxy_thumb(
     if snapshot:
         try:
             derived = await asyncio.to_thread(_build_display_thumbnail_from_snapshot, snapshot)
-            if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
-                await media_cache.cache_snapshot(event_id, snapshot, source="frigate_snapshot_unverified")
-                await media_cache.cache_thumbnail(event_id, derived, source="snapshot_derived")
+            await media_cache.cache_snapshot(event_id, snapshot, source="frigate_snapshot_unverified")
+            await media_cache.cache_thumbnail(event_id, derived, source="snapshot_derived")
             return Response(content=derived, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
         except (OSError, ValueError):
             log.debug("Card snapshot could not be decoded", event_id=event_id)
@@ -2980,8 +2967,7 @@ async def proxy_thumb(
         resp.raise_for_status()
 
         # Cache the response using a dedicated thumbnail key.
-        if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
-            await media_cache.cache_thumbnail(event_id, resp.content, source="frigate_thumbnail")
+        await media_cache.cache_thumbnail(event_id, resp.content, source="frigate_thumbnail")
 
         return Response(
             content=resp.content,

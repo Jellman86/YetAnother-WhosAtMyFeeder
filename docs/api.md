@@ -294,9 +294,11 @@ diagnostics; routine replacements and matching photographs do not. Species succe
 a photograph was replaced; existing owner choices remain protected. `bird_presence_unconfirmed`
 means no suitable photo had sufficiently confident detector localization inside its bounds.
 The current photo remains available, including when the crop detector is absent or disabled.
-Species confidence alone is not bird-presence evidence. The three cache outcomes distinguish
-the overall media-cache switch, snapshot caching and unavailable storage. Older builds used the
-combined `disabled_or_no_evidence` outcome; that older result alone cannot identify the cause.
+Species confidence alone is not bird-presence evidence. Photographs are always kept, so
+`media_cache_unavailable`, a media folder that cannot be written, is the one storage outcome. Builds
+before #622 also reported `media_cache_disabled` and `snapshot_caching_disabled` for the retired
+switches, and older builds the combined `disabled_or_no_evidence`, which alone cannot identify the
+cause.
 
 A prior photograph retained during replacement can appear among snapshot candidates with
 `source_mode: "retained_photo"`, `clip_variant: "retained_snapshot"`, and no frame offset or
@@ -671,8 +673,9 @@ retrying; the server does not repeat a paid provider call.
 - `POST /api/maintenance/analyze-unknowns` (owner)
 - `GET /api/maintenance/analysis/status` (owner)
 - `DELETE /api/maintenance/feedback/clear` (owner)
-- `GET /api/cache/stats` (owner). Includes `archive_count`, `archive_size_bytes` and the favourite
-  counts by archive state.
+- `GET /api/cache/stats` (owner). Includes `storage_available` (false when the media folder cannot
+  be written, so nothing is being kept), `archive_count`, `archive_size_bytes` and the favourite
+  counts by archive state. `cache_enabled` and `cache_snapshots` were removed with their settings.
 - `GET /api/leaderboard/portraits?span=&limit=` (guest-rate-limited). This feeder's newest stored
   crop of each leading species, for the leaderboard's reel and spotlight; a species without one is
   absent. `film_url` is set once a film of that visit is made; for the six leading species a film

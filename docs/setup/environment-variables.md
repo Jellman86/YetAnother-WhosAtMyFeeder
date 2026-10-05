@@ -131,14 +131,18 @@ settings and do not follow the `SECTION__FIELD` precedence rules above.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `MEDIA_CACHE__ENABLED` | `true` | Master switch for media caching. |
-| `MEDIA_CACHE__CACHE_SNAPSHOTS` | `true` | Cache event snapshots locally. |
-| `MEDIA_CACHE__CACHE_CLIPS` | `false` | Cache event clips locally. |
+| `MEDIA_CACHE__CACHE_CLIPS` | `false` | Keep copies of Frigate's event clips. Photographs, full-visit clips and previews are always kept. |
 | `MEDIA_CACHE__HIGH_QUALITY_EVENT_SNAPSHOTS` | `false` | Derive the clearest recorded frame and strongest reliable crop automatically. |
 | `MEDIA_CACHE__HIGH_QUALITY_EVENT_SNAPSHOT_BIRD_CROP` | `false` | Deprecated compatibility flag; crop attempts are automatic whenever HQ snapshots are enabled. |
-| `MEDIA_CACHE__HIGH_QUALITY_EVENT_SNAPSHOT_JPEG_QUALITY` | `95` | JPEG quality for high-quality snapshots. |
+| `MEDIA_CACHE__HIGH_QUALITY_EVENT_SNAPSHOT_JPEG_QUALITY` | `90` | JPEG quality for high-quality snapshots. These are full-resolution frames, often several MB each. |
 | `MEDIA_CACHE__RETENTION_DAYS` | `0` | Days to keep cached media (`0` = keep). |
 | `MAINTENANCE__RETENTION_DAYS` | `0` | Days to keep detection history (`0` = keep forever). |
+
+`MEDIA_CACHE__ENABLED` and `MEDIA_CACHE__CACHE_SNAPSHOTS` were removed (#622): photographs and visit
+media are always kept, within the retention and size limits. Either variable is still read once, on
+upgrade: if it was `false`, best-available snapshots (and, for `MEDIA_CACHE__ENABLED`, full-visit
+clips) are turned off so disk use does not jump; turn them on again afterwards if you want them. A
+startup warning names a removed variable that is still set; delete it from your compose file.
 | `MAINTENANCE__CLEANUP_ENABLED` | `true` | Run the periodic cleanup job. |
 | `MAINTENANCE__MAX_CONCURRENT` | `1` | Concurrent maintenance operations. |
 | `MAINTENANCE__AUTO_DELETE_MISSING_CLIPS` | `false` | Prune records whose Frigate clip is gone. |

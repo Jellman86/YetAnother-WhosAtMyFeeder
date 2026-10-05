@@ -38,6 +38,7 @@ function buildCoordinator(options?: {
     activeJobs?: any[];
     shouldNotify?: boolean;
     fetchAnalysisStatus?: () => Promise<any>;
+    fetchCacheStats?: () => Promise<{ storage_available?: boolean }>;
     checkHealth?: () => Promise<any>;
     hasOwnerAccess?: boolean;
     refreshOwnerHistory?: () => Promise<void>;
@@ -79,7 +80,9 @@ function buildCoordinator(options?: {
         applyNotificationPolicy: () => true,
         notificationCenter: {
             items: notificationItems,
-            add: () => undefined,
+            add: (item: any) => {
+                notificationItems.unshift(item);
+            },
             upsert: (item: any) => {
                 calls.notificationUpserts.push(item);
                 const idx = notificationItems.findIndex((existing) => existing.id === item.id);
@@ -121,7 +124,7 @@ function buildCoordinator(options?: {
             sseEvent: () => undefined
         },
         checkHealth: options?.checkHealth ?? (async () => ({})),
-        fetchCacheStats: async () => ({}),
+        fetchCacheStats: options?.fetchCacheStats ?? (async () => ({})),
         fetchAnalysisStatus: options?.fetchAnalysisStatus ?? (async () => ({
             pending: 0,
             active: 0,
@@ -300,6 +303,20 @@ describe('LiveUpdateCoordinator reclassify fallback', () => {
 
         expect(updates).toHaveLength(1);
         expect(updates[0].category_name).toBe('blue jay');
+    });
+
+    it('warns the owner only when the media folder cannot be written, and clears the retired cache notice', async () => {
+        const unwritable = buildCoordinator({ fetchCacheStats: async () => ({ storage_available: false }) });
+        unwritable.notificationItems.push({ id: 'system:cache-disabled:old-start' });
+        await unwritable.coordinator.runOwnerSystemChecks();
+        const ids = unwritable.notificationItems.map((item) => String(item.id));
+        expect(ids.some((id) => id.startsWith('system:media-storage-unavailable:'))).toBe(true);
+        expect(ids.some((id) => id.startsWith('system:cache-disabled'))).toBe(false);
+
+        // An older backend that does not report storage must not raise a false alarm.
+        const silent = buildCoordinator({ fetchCacheStats: async () => ({}) });
+        await silent.coordinator.runOwnerSystemChecks();
+        expect(silent.notificationItems.some((item) => String(item.id).startsWith('system:media-storage-unavailable'))).toBe(false);
     });
 
     it('forwards health payloads to diagnostics ingest', async () => {

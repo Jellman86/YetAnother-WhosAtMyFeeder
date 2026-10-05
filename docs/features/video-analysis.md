@@ -212,9 +212,8 @@ prove that a bird is visible. Small or partly hidden birds can be missed, and an
 can still mistake background for a bird. Classification success therefore does not guarantee
 a new photograph. A completed scan with no suitable localized bird does not repeatedly
 rescan the same media on a timer; an explicit new scan or final-event refresh can try again.
-Disabled media caching, disabled snapshot caching and unavailable cache storage are reported
-separately. A persisted replacement needs writable snapshot caching; analysis does not silently
-change those settings. Missing clips retain their bounded availability retries. A temporary detector or species-inference
+Photographs are always kept, so the one storage reason a replacement is skipped is a media folder
+that cannot be written, reported as `media_cache_unavailable` and in system checks. Missing clips retain their bounded availability retries. A temporary detector or species-inference
 failure, or deferred work while live processing is busy, also retains bounded retries with a distinct
 reason. These are incomplete scans, not confirmed presence misses. Classification refinement remains
 independent of photo eligibility. Owner choices and corrections are checked again before saving.

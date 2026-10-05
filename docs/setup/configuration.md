@@ -267,8 +267,13 @@ Retention, caching, imports, and the destructive tools.
   later retry. A manual scan can clear an earlier missing flag only after confirming the media.
   Automatic missing-media deletion checks favourites in its final database decision. A favourite
   accepted before that decision keeps its detection and cached photos, even if a scan is running.
-- **Media Cache** — cache snapshots and clips locally to reduce load on Frigate and speed up
-  the UI. **Clear cached files** asks first, then deletes cached media older than the retention
+- **Photos and video** — photographs, full-visit clips and previews are YA-WAMF's own record and are
+  always kept, within the retention and size limits; Frigate may delete its copies much sooner.
+  **Keep copies of Frigate's event clips** is the one choice, because Frigate already holds those.
+  If the media folder cannot be written, the card, system checks and `/health` say so. On upgrade
+  from a build that had the old Media Cache or Snapshots switch off, best-available snapshots (and,
+  with the cache off, full-visit clips) were turned off once, so disk use did not jump.
+  **Clear cached files** asks first, then deletes cached media older than the retention
   period and cached files that no longer belong to a detection. Favourites and each species'
   newest kept visits are protected from age cleanup. Photo variants and metadata age together.
 - **Best available event snapshots** — start from Frigate's completed clean best frame and

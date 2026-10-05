@@ -17,8 +17,6 @@ from app.utils.api_datetime import utc_naive_now
 
 @pytest.fixture(autouse=True)
 def photo_settings(monkeypatch):
-    monkeypatch.setattr(settings.media_cache, "enabled", True)
-    monkeypatch.setattr(settings.media_cache, "cache_snapshots", True)
     monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True)
     monkeypatch.setattr(settings.classification, "threshold", 0.7)
     monkeypatch.setattr(settings.classification, "blocked_labels", [])

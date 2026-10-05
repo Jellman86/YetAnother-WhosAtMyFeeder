@@ -15,6 +15,7 @@ from app.auth import AuthContext, AuthLevel
 from app.config import settings
 from app.main import app
 from app.routers import proxy
+from app.services import media_cache as media_cache_module
 
 
 @pytest.mark.asyncio
@@ -116,7 +117,7 @@ async def test_locked_database_cannot_expose_a_hidden_snapshot(monkeypatch, tmp_
     monkeypatch.setattr(settings.auth, "enabled", True)
     monkeypatch.setattr(settings.public_access, "enabled", True)
     monkeypatch.setattr(settings.public_access, "show_snapshots", True)
-    monkeypatch.setattr(settings.media_cache, "enabled", False)
+    monkeypatch.setattr(media_cache_module.media_cache, "_available", False)
     from app.services.archive_service import archive_service
 
     monkeypatch.setattr(archive_service, "snapshot_path", AsyncMock(return_value=None))

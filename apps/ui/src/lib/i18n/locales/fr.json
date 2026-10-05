@@ -524,9 +524,8 @@
       "purge_confirm": "Supprimer définitivement {count} détections et l'audio BirdNET-Go de plus de {days} jours ? Les favoris et les visites récentes conservées de chaque espèce restent. Cette action est irréversible.",
       "cleaning": "Nettoyage…",
       "auto_cleanup_note": "Le nettoyage automatique s’exécute au démarrage, puis toutes les 24 heures",
-      "cache_title": "Cache média",
-      "cache_snapshots": "Instantanés",
-      "cache_clips": "Clips vidéo",
+      "cache_title": "Photos et vidéos",
+      "cache_clips": "Garder des copies des clips d'événements Frigate",
       "cache_high_quality_event_snapshot_jpeg_quality": "Qualité JPEG de l’instantané HQ",
       "cache_high_quality_event_snapshot_jpeg_quality_help": "Des valeurs plus élevées conservent plus de détails mais créent des fichiers d’instantanés dérivés plus volumineux.",
       "cache_size": "Taille du cache",
@@ -684,7 +683,11 @@
       "bird_scan_mode": "Intensité de recherche des oiseaux",
       "bird_scan_mode_help": "Standard utilise moins de CPU. Intensif recherche aussi dans les zones des grandes images et classe davantage de recadrages. Les deux comptent tous les oiseaux trouvés dans la scène choisie, sans garantir tous les oiseaux du clip.",
       "bird_scan_standard": "Standard",
-      "bird_scan_intensive": "Intensif"
+      "bird_scan_intensive": "Intensif",
+      "cache_clips_help": "Frigate les conserve déjà. Les copies survivent à leur suppression par Frigate, chacune à peu près de la taille du clip.",
+      "cache_always_kept": "Les photos, les clips de visite complète et les aperçus sont toujours conservés. Les limites ci-dessous fixent leur durée et l'espace qu'ils occupent.",
+      "cache_unavailable": "Le dossier des médias n'est pas accessible en écriture, donc aucune photo ni vidéo n'est conservée. Vérifiez les droits du dossier ; les vérifications système affichent l'erreur.",
+      "cache_high_quality_storage_note": "Chaque visite conserve alors aussi des images en pleine résolution, souvent plusieurs Mo. Fixez un budget de taille si l'espace manque."
     },
     "security": {
       "title": "Sécurité",
@@ -1819,8 +1822,6 @@
     "live_updates_disconnected_message": "Les mises à jour en direct se reconnectent en arrière-plan.",
     "system_health_title": "Alerte d’état du système",
     "system_health_message": "État du système : {status}",
-    "system_cache_disabled_title": "Cache média désactivé",
-    "system_cache_disabled_message": "Les aperçus de la chronologie et la mise en cache des médias sont désactivés dans la configuration actuelle.",
     "open_action": "Ouvrir",
     "global_progress_last": "Mis à jour il y a {age}",
     "global_progress_stale": "{count} sans réponse",
@@ -1846,7 +1847,9 @@
     "empty_body": "Les visites apparaissent ici dès que le classifieur les nomme, et les tâches en arrière-plan pendant leur exécution. La plus récente en premier.",
     "empty_action": "Ouvrir le journal de terrain",
     "empty_filtered": "Rien ne correspond à ce filtre.",
-    "clear_notifications": "Effacer les notifications"
+    "clear_notifications": "Effacer les notifications",
+    "system_media_storage_unavailable_title": "Stockage des médias indisponible",
+    "system_media_storage_unavailable_message": "Le dossier des médias n'est pas accessible en écriture, donc aucune photo ni vidéo n'est conservée. Ouvrez Réglages → Données pour les détails."
   },
   "actions": {
     "confirm_delete": "Supprimer toute cette visite de {species} ? L'enregistrement et ses médias quittent l'historique définitivement. Masquer conserve l'enregistrement.",

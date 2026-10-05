@@ -22,6 +22,7 @@ from app.repositories.visit_repository import VisitRepository
 from app.services import backfill_service as backfill_module
 from app.services import detection_service as detection_module
 from app.services.species_catalog_resolver import ShadowResolution
+from app.services import media_cache as media_cache_module
 
 
 START = datetime(2033, 10, 3, 10)
@@ -61,7 +62,7 @@ async def history(tmp_path, fresh_history_template, monkeypatch):
     monkeypatch.setattr(settings.auth, "enabled", False)
     monkeypatch.setattr(settings.public_access, "enabled", False)
     monkeypatch.setattr(settings, "api_key", None)
-    monkeypatch.setattr(settings.media_cache, "enabled", False)
+    monkeypatch.setattr(media_cache_module.media_cache, "_available", False)
     for key, value in {
         "threshold": 0.6,
         "min_confidence": 0.6,

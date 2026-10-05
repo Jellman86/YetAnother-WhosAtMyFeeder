@@ -33,8 +33,6 @@ def jpeg(color):
 @pytest_asyncio.fixture
 async def photos(tmp_path, monkeypatch):
     event = "photo-action-" + uuid4().hex
-    monkeypatch.setattr(settings.media_cache, "enabled", True)
-    monkeypatch.setattr(settings.media_cache, "cache_snapshots", True)
     monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True)
     for name, path in (
         ("CACHE_BASE_DIR", tmp_path),

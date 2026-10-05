@@ -65,6 +65,71 @@ def _persist_generated_auth_secret(config_path: Path, secret_key: str, secret_va
         return False
 
 
+LEGACY_MEDIA_SWITCH_ENV: dict[str, str] = {
+    "enabled": "MEDIA_CACHE__ENABLED",
+    "cache_snapshots": "MEDIA_CACHE__CACHE_SNAPSHOTS",
+}
+
+
+def _legacy_switch_on(value: Any) -> bool:
+    return value is not False and str(value).strip().lower() != "false"
+
+
+def migrate_imported_media_controls(config: dict[str, Any]) -> None:
+    """Apply the same one-time media migration to a restored backup (#622).
+
+    A backup taken before the upgrade carries the removed switches and no marker; restored as it
+    stands it would turn back on what the startup migration turned off.
+    """
+    media = config.get("media_cache")
+    if not isinstance(media, dict):
+        return
+    frigate = config.get("frigate")
+    if not isinstance(frigate, dict):
+        frigate = {}
+        config["frigate"] = frigate
+    legacy = {key: _legacy_switch_on(media.pop(key)) for key in list(LEGACY_MEDIA_SWITCH_ENV) if key in media}
+    _migrate_media_storage_controls(media, frigate, legacy)
+
+
+def _migrate_media_storage_controls(
+    media_cache_data: dict[str, Any], frigate_data: dict[str, Any], legacy: dict[str, bool]
+) -> None:
+    """Retire the "Media Cache" and "Snapshots" switches without a jump in disk use (#622).
+
+    Photographs and visit media are now always kept. An install that had a switch off was storing
+    almost nothing, while its high-quality setting, and with the cache off its full-visit clips,
+    did nothing visible. Turned on silently they would cost about 4 MB and 25 MB a visit. So they
+    are turned off once, which changes nothing the owner could see, and the marker keeps any
+    later choice. An explicit environment variable is never overridden.
+    """
+    if media_cache_data.get("storage_controls_migrated"):
+        if legacy:
+            log.warning(
+                "Ignoring removed media settings: photographs and visit media are always kept now",
+                removed=sorted(LEGACY_MEDIA_SWITCH_ENV[key] for key in legacy),
+            )
+        return
+    cache_off = legacy.get("enabled") is False
+    photos_off = legacy.get("cache_snapshots") is False
+    changed: list[str] = []
+    if (cache_off or photos_off) and "MEDIA_CACHE__HIGH_QUALITY_EVENT_SNAPSHOTS" not in os.environ:
+        if media_cache_data.get("high_quality_event_snapshots"):
+            changed.append("media_cache.high_quality_event_snapshots")
+        media_cache_data["high_quality_event_snapshots"] = False
+    if cache_off and "FRIGATE__RECORDING_CLIP_ENABLED" not in os.environ:
+        if frigate_data.get("recording_clip_enabled"):
+            changed.append("frigate.recording_clip_enabled")
+        frigate_data["recording_clip_enabled"] = False
+    media_cache_data["storage_controls_migrated"] = True
+    if legacy:
+        log.warning(
+            "Media settings migrated: photographs and visit media are always kept now",
+            removed=sorted(LEGACY_MEDIA_SWITCH_ENV[key] for key in legacy),
+            turned_off=changed,
+        )
+
+
 CLASSIFICATION_ENV_OVERRIDES: dict[str, tuple[str, ...]] = {
     "write_frigate_sublabel": ("CLASSIFICATION__WRITE_FRIGATE_SUBLABEL",),
     "personalized_rerank_enabled": ("CLASSIFICATION__PERSONALIZED_RERANK_ENABLED",),
@@ -287,9 +352,7 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
     }
 
     # Media cache settings
-    media_cache_data = {
-        "enabled": os.environ.get("MEDIA_CACHE__ENABLED", "true").lower() == "true",
-        "cache_snapshots": os.environ.get("MEDIA_CACHE__CACHE_SNAPSHOTS", "true").lower() == "true",
+    media_cache_data: dict[str, Any] = {
         "cache_clips": os.environ.get("MEDIA_CACHE__CACHE_CLIPS", "false").lower()
         == "true",  # Disabled by default to avoid blocking
         "high_quality_event_snapshots": os.environ.get("MEDIA_CACHE__HIGH_QUALITY_EVENT_SNAPSHOTS", "false").lower()
@@ -299,13 +362,20 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
         ).lower()
         == "true",
         "high_quality_event_snapshot_jpeg_quality": int(
-            os.environ.get("MEDIA_CACHE__HIGH_QUALITY_EVENT_SNAPSHOT_JPEG_QUALITY", "95")
+            os.environ.get("MEDIA_CACHE__HIGH_QUALITY_EVENT_SNAPSHOT_JPEG_QUALITY", "90")
         ),
         "retention_days": int(os.environ.get("MEDIA_CACHE__RETENTION_DAYS", "0")),
         "per_species_minimum": int(os.environ.get("MEDIA_CACHE__PER_SPECIES_MINIMUM", "0")),
         "per_species_maximum": int(os.environ.get("MEDIA_CACHE__PER_SPECIES_MAXIMUM", "0")),
         "max_size_mb": int(os.environ.get("MEDIA_CACHE__MAX_SIZE_MB", "0")),
         "bird_scan_mode": os.environ.get("MEDIA_CACHE__BIRD_SCAN_MODE", "intensive"),
+        "storage_controls_migrated": False,
+    }
+    # The removed "Media Cache" and "Snapshots" switches (#622), read only to migrate them.
+    legacy_media_switches: dict[str, bool] = {
+        key: os.environ[env_key].strip().lower() == "true"
+        for key, env_key in LEGACY_MEDIA_SWITCH_ENV.items()
+        if env_key in os.environ
     }
 
     # Location settings
@@ -546,8 +616,12 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
             if "media_cache" in file_data:
                 for key, value in file_data["media_cache"].items():
                     env_key = f"MEDIA_CACHE__{key.upper()}"
-                    if env_key not in os.environ:
-                        media_cache_data[key] = value
+                    if env_key in os.environ:
+                        continue
+                    if key in LEGACY_MEDIA_SWITCH_ENV:
+                        legacy_media_switches[key] = _legacy_switch_on(value)
+                        continue
+                    media_cache_data[key] = value
 
             if "location" in file_data:
                 location_file = file_data["location"]
@@ -762,6 +836,8 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
             appearance_data["color_theme"] = "bluetit"
         appearance_data["color_theme_default_migrated"] = True
 
+    _migrate_media_storage_controls(media_cache_data, frigate_data, legacy_media_switches)
+
     if not auth_data.get("oauth_token_secret"):
         generated_oauth_secret = secrets_lib.token_urlsafe(32)
         if "AUTH__OAUTH_TOKEN_SECRET" in os.environ:
@@ -795,8 +871,6 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
     )
     log.info(
         "Media cache config",
-        enabled=media_cache_data["enabled"],
-        cache_snapshots=media_cache_data["cache_snapshots"],
         cache_clips=media_cache_data["cache_clips"],
         high_quality_event_snapshots=media_cache_data["high_quality_event_snapshots"],
         high_quality_event_snapshot_bird_crop=media_cache_data["high_quality_event_snapshot_bird_crop"],

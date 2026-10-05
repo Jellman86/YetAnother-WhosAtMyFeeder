@@ -29,7 +29,6 @@ def test_background_trigger_is_bounded_and_deduplicated(monkeypatch):
     with (
         patch("app.services.full_visit_clip_service.settings.frigate.clips_enabled", True, create=True),
         patch("app.services.full_visit_clip_service.settings.frigate.recording_clip_enabled", True, create=True),
-        patch("app.services.full_visit_clip_service.settings.media_cache.enabled", True, create=True),
     ):
         assert service.trigger_background("evt-one", "cam1") is True
         assert service.trigger_background("evt-one", "cam1") is False
@@ -78,7 +77,6 @@ async def test_trigger_for_event_noops_when_recording_clips_disabled():
     with (
         patch("app.services.full_visit_clip_service.settings.frigate.clips_enabled", True, create=True),
         patch("app.services.full_visit_clip_service.settings.frigate.recording_clip_enabled", False, create=True),
-        patch("app.services.full_visit_clip_service.settings.media_cache.enabled", True, create=True),
         patch("app.services.full_visit_clip_service.settings.media_cache.cache_clips", True, create=True),
         patch.object(service, "_fetch_once", new=AsyncMock(return_value="complete")) as mock_fetch,
     ):
@@ -95,7 +93,6 @@ async def test_trigger_for_event_noops_when_recording_clip_already_cached():
     with (
         patch("app.services.full_visit_clip_service.settings.frigate.clips_enabled", True, create=True),
         patch("app.services.full_visit_clip_service.settings.frigate.recording_clip_enabled", True, create=True),
-        patch("app.services.full_visit_clip_service.settings.media_cache.enabled", True, create=True),
         patch("app.services.full_visit_clip_service.settings.media_cache.cache_clips", True, create=True),
         patch(
             "app.services.full_visit_clip_service._get_recording_clip_context",
@@ -124,7 +121,6 @@ async def test_trigger_for_event_retries_retained_partial_then_stops_after_bound
     with (
         patch("app.services.full_visit_clip_service.settings.frigate.clips_enabled", True, create=True),
         patch("app.services.full_visit_clip_service.settings.frigate.recording_clip_enabled", True, create=True),
-        patch("app.services.full_visit_clip_service.settings.media_cache.enabled", True, create=True),
         patch("app.services.full_visit_clip_service.settings.media_cache.cache_clips", True, create=True),
         patch(
             "app.services.full_visit_clip_service._get_recording_clip_context",
@@ -161,7 +157,6 @@ async def test_trigger_for_event_bounds_unavailable_upgrades_for_retained_partia
     with (
         patch("app.services.full_visit_clip_service.settings.frigate.clips_enabled", True, create=True),
         patch("app.services.full_visit_clip_service.settings.frigate.recording_clip_enabled", True, create=True),
-        patch("app.services.full_visit_clip_service.settings.media_cache.enabled", True, create=True),
         patch(
             "app.services.full_visit_clip_service._get_recording_clip_context",
             new=AsyncMock(return_value=("cam1", 100, 130)),
@@ -192,7 +187,6 @@ async def test_trigger_for_event_promotes_partial_on_delayed_retry():
     with (
         patch("app.services.full_visit_clip_service.settings.frigate.clips_enabled", True, create=True),
         patch("app.services.full_visit_clip_service.settings.frigate.recording_clip_enabled", True, create=True),
-        patch("app.services.full_visit_clip_service.settings.media_cache.enabled", True, create=True),
         patch(
             "app.services.full_visit_clip_service._get_recording_clip_context",
             new=AsyncMock(return_value=("cam1", 100, 130)),
@@ -223,7 +217,6 @@ async def test_trigger_for_event_refetches_unmeasurable_partial_recording():
     with (
         patch("app.services.full_visit_clip_service.settings.frigate.clips_enabled", True, create=True),
         patch("app.services.full_visit_clip_service.settings.frigate.recording_clip_enabled", True, create=True),
-        patch("app.services.full_visit_clip_service.settings.media_cache.enabled", True, create=True),
         patch(
             "app.services.full_visit_clip_service._get_recording_clip_context",
             new=AsyncMock(return_value=("cam1", 100, 130)),
@@ -266,7 +259,6 @@ async def test_trigger_for_event_fetches_and_persists_recording_clip():
     with (
         patch("app.services.full_visit_clip_service.settings.frigate.clips_enabled", True, create=True),
         patch("app.services.full_visit_clip_service.settings.frigate.recording_clip_enabled", True, create=True),
-        patch("app.services.full_visit_clip_service.settings.media_cache.enabled", True, create=True),
         patch("app.services.full_visit_clip_service.settings.media_cache.cache_clips", True, create=True),
         patch("app.services.full_visit_clip_service.media_cache.get_recording_clip_path", return_value=None),
         patch(
@@ -317,7 +309,6 @@ async def test_trigger_for_event_persists_recording_clip_even_when_regular_clip_
     with (
         patch("app.services.full_visit_clip_service.settings.frigate.clips_enabled", True, create=True),
         patch("app.services.full_visit_clip_service.settings.frigate.recording_clip_enabled", True, create=True),
-        patch("app.services.full_visit_clip_service.settings.media_cache.enabled", True, create=True),
         patch("app.services.full_visit_clip_service.settings.media_cache.cache_clips", False, create=True),
         patch("app.services.full_visit_clip_service.media_cache.get_recording_clip_path", return_value=None),
         patch(
@@ -379,7 +370,6 @@ async def test_trigger_for_event_retries_temporary_unavailability():
     with (
         patch("app.services.full_visit_clip_service.settings.frigate.clips_enabled", True, create=True),
         patch("app.services.full_visit_clip_service.settings.frigate.recording_clip_enabled", True, create=True),
-        patch("app.services.full_visit_clip_service.settings.media_cache.enabled", True, create=True),
         patch("app.services.full_visit_clip_service.settings.media_cache.cache_clips", True, create=True),
         patch(
             "app.services.full_visit_clip_service._get_recording_clip_context",
@@ -403,7 +393,6 @@ async def test_trigger_for_event_waits_until_recording_window_is_complete_before
     with (
         patch("app.services.full_visit_clip_service.settings.frigate.clips_enabled", True, create=True),
         patch("app.services.full_visit_clip_service.settings.frigate.recording_clip_enabled", True, create=True),
-        patch("app.services.full_visit_clip_service.settings.media_cache.enabled", True, create=True),
         patch("app.services.full_visit_clip_service.settings.media_cache.cache_clips", True, create=True),
         patch(
             "app.services.full_visit_clip_service._get_recording_clip_context",
@@ -428,7 +417,6 @@ async def test_trigger_for_event_keeps_grace_period_when_window_just_ended():
     with (
         patch("app.services.full_visit_clip_service.settings.frigate.clips_enabled", True, create=True),
         patch("app.services.full_visit_clip_service.settings.frigate.recording_clip_enabled", True, create=True),
-        patch("app.services.full_visit_clip_service.settings.media_cache.enabled", True, create=True),
         patch(
             "app.services.full_visit_clip_service._get_recording_clip_context",
             new=AsyncMock(return_value=("cam1", 100, 130)),
@@ -459,7 +447,6 @@ async def test_trigger_for_event_throttles_repeat_failures_until_cooldown_expire
     with (
         patch("app.services.full_visit_clip_service.settings.frigate.clips_enabled", True, create=True),
         patch("app.services.full_visit_clip_service.settings.frigate.recording_clip_enabled", True, create=True),
-        patch("app.services.full_visit_clip_service.settings.media_cache.enabled", True, create=True),
         patch("app.services.full_visit_clip_service.settings.media_cache.cache_clips", True, create=True),
         patch(
             "app.services.full_visit_clip_service._get_recording_clip_context",
@@ -497,7 +484,6 @@ async def test_trigger_for_event_uses_single_flight_lock_per_event():
     with (
         patch("app.services.full_visit_clip_service.settings.frigate.clips_enabled", True, create=True),
         patch("app.services.full_visit_clip_service.settings.frigate.recording_clip_enabled", True, create=True),
-        patch("app.services.full_visit_clip_service.settings.media_cache.enabled", True, create=True),
         patch("app.services.full_visit_clip_service.settings.media_cache.cache_clips", True, create=True),
         patch(
             "app.services.full_visit_clip_service._get_recording_clip_context",
@@ -532,7 +518,6 @@ async def test_reconcile_recent_detections_triggers_missing_recent_candidates():
         patch("app.services.full_visit_clip_service.settings.frigate.clips_enabled", True, create=True),
         patch("app.services.full_visit_clip_service.settings.frigate.recording_clip_enabled", True, create=True),
         patch("app.services.full_visit_clip_service.settings.frigate.recording_clip_after_seconds", 90, create=True),
-        patch("app.services.full_visit_clip_service.settings.media_cache.enabled", True, create=True),
         patch("app.services.full_visit_clip_service.settings.media_cache.cache_clips", True, create=True),
         patch("app.services.full_visit_clip_service.get_db", return_value=db_ctx),
         patch("app.services.full_visit_clip_service.DetectionRepository") as MockRepo,
@@ -561,7 +546,6 @@ async def test_reconcile_recent_detections_skips_candidates_with_persisted_recor
         patch("app.services.full_visit_clip_service.settings.frigate.clips_enabled", True, create=True),
         patch("app.services.full_visit_clip_service.settings.frigate.recording_clip_enabled", True, create=True),
         patch("app.services.full_visit_clip_service.settings.frigate.recording_clip_after_seconds", 90, create=True),
-        patch("app.services.full_visit_clip_service.settings.media_cache.enabled", True, create=True),
         patch("app.services.full_visit_clip_service.settings.media_cache.cache_clips", True, create=True),
         patch("app.services.full_visit_clip_service.get_db", return_value=db_ctx),
         patch("app.services.full_visit_clip_service.DetectionRepository") as MockRepo,

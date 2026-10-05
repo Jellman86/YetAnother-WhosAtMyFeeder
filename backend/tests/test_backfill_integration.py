@@ -29,6 +29,7 @@ from app.services import detection_service as detection_module
 from app.services.backfill_service import BackfillService
 from app.services.maintenance_coordinator import MaintenanceCoordinator
 from app.services.species_catalog_resolver import ShadowResolution
+from app.services import media_cache as media_cache_module
 
 
 @pytest.fixture(scope="module")
@@ -81,7 +82,7 @@ async def replay(monkeypatch, tmp_path, migrated_backfill_template):
         "blocked_species": [],
     }.items():
         monkeypatch.setattr(backfill_module.settings.classification, key, value)
-    monkeypatch.setattr(backfill_module.settings.media_cache, "enabled", False)
+    monkeypatch.setattr(media_cache_module.media_cache, "_available", False)
     service = BackfillService(classifier)
     monkeypatch.setattr(router, "backfill_service", service)
     monkeypatch.setattr(router, "_JOB_STORE", {})
@@ -173,8 +174,6 @@ async def test_missing_or_corrupt_media_never_classifies_or_writes(replay, snaps
 @pytest.mark.asyncio
 @pytest.mark.parametrize("failure", ["lookup", "write", "upgrade"])
 async def test_media_failure_after_commit_does_not_misreport_saved_detection(replay, monkeypatch, failure):
-    monkeypatch.setattr(backfill_module.settings.media_cache, "enabled", True)
-    monkeypatch.setattr(backfill_module.settings.media_cache, "cache_snapshots", True)
     monkeypatch.setattr(backfill_module.settings.media_cache, "high_quality_event_snapshots", True)
     cache = MagicMock(has_snapshot=MagicMock(return_value=False), cache_snapshot=AsyncMock(return_value="test.jpg"))
     upgrade = MagicMock(return_value=True)

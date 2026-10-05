@@ -319,7 +319,6 @@ async def test_dismiss_photo_api_requires_owner_and_preserves_pixels_and_birds_o
     monkeypatch.setattr(settings.auth, "session_secret", "visit-regression-secret-with-enough-characters")
     monkeypatch.setattr(settings, "api_key", None)
     monkeypatch.setattr(settings.public_access, "enabled", True)
-    monkeypatch.setattr(settings.media_cache, "enabled", True)
     event = await capture(repo, 0, 0)
     await birds(repo, event, ["Turdus merula", "Erithacus rubecula"])
     await repo.replace_snapshot_candidates(

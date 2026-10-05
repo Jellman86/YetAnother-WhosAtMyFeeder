@@ -45,8 +45,6 @@ def test_effective_video_wait_timeout_respects_larger_manual_override(monkeypatc
 async def test_send_notification_prefers_cached_snapshot_when_frigate_event_has_expired(monkeypatch):
     orchestrator = NotificationOrchestrator()
 
-    monkeypatch.setattr(settings.media_cache, "enabled", True)
-    monkeypatch.setattr(settings.media_cache, "cache_snapshots", True)
     monkeypatch.setattr(settings.notifications.telegram, "enabled", True)
     monkeypatch.setattr(settings.notifications.telegram, "include_snapshot", True)
 

@@ -233,8 +233,6 @@ async def test_video_photo_reuses_exact_scene_and_decodes_on_provenance_mismatch
 
 @pytest.fixture(autouse=True)
 def photo_settings(monkeypatch):
-    monkeypatch.setattr(settings.media_cache, "enabled", True)
-    monkeypatch.setattr(settings.media_cache, "cache_snapshots", True)
     monkeypatch.setattr(settings.classification, "threshold", 0.7)
     monkeypatch.setattr(settings.classification, "blocked_labels", [])
     monkeypatch.setattr(settings.classification, "blocked_species", [])
@@ -689,19 +687,13 @@ async def test_no_localized_video_photo_reports_its_reason_without_decoding_or_c
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "disabled,outcome",
-    [
-        ("enabled", "media_cache_disabled"),
-        ("cache_snapshots", "snapshot_caching_disabled"),
-        ("available", "media_cache_unavailable"),
-    ],
+    [("available", "media_cache_unavailable")],
 )
 async def test_video_photo_reports_the_exact_cache_gate_before_attempting_work(clip, monkeypatch, disabled, outcome):
     from unittest.mock import Mock
 
-    if disabled == "available":
-        monkeypatch.setattr(module.media_cache, "_available", False)
-    else:
-        monkeypatch.setattr(settings.media_cache, disabled, False)
+    # Photographs are always kept (#622): only storage that cannot be written stops the work.
+    monkeypatch.setattr(module.media_cache, "_available", False)
     decode = Mock(side_effect=AssertionError("disabled cache must not decode the clip"))
     monkeypatch.setattr(module, "extract_video_snapshot", decode)
     assert await module.replace_video_snapshot("cache-gate", clip, _result(), clip_variant="event") == outcome
