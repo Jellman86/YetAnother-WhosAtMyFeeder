@@ -3,6 +3,7 @@
   "entry": [
     "public/sw.js",
     "browser-tests/fixture.ts",
+    "browser-tests/photo-fit.ts",
     "browser-tests/family-tree.ts",
     "browser-tests/audio-charts.ts",
     "browser-tests/species-charts.ts",

@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- A tall bird photo, such as a woodpecker on a pole, is shown whole on its card and in the record
+  instead of being cut to a band through the middle. Past a quarter of the photo lost, it sits
+  over a soft blurred copy of itself; scenes and near-square photos still fill the card. Nothing
+  stored changes, so existing photos benefit at once (#481).
 - The limits under **Settings → Data → Photos and video** say what they do. "Keep the newest per
   species" read as if it turned clips off; it is now **Keep photos of the newest visits per
   species** and says video is not kept longer. The cap and the budget are now **Most visits per

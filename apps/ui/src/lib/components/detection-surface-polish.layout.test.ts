@@ -93,7 +93,8 @@ describe('detection surface polish', () => {
 
     it('preserves the complete stored image when a matching full frame is unavailable', () => {
         expect(detectionModalSource).toContain('findMatchingFullFrameCandidate');
-        expect(detectionModalSource).toContain("photographIsCrop ? 'object-cover' : 'object-contain'");
+        // Not a crop: shown whole. A crop fills the box only when that cuts away little of it (#481).
+        expect(detectionModalSource).toContain("photographIsCrop && photographFit === 'cover' ? 'object-cover' : 'object-contain'");
     });
 
     it('keeps media controls and snapshot choices in one ordered footer flow', () => {

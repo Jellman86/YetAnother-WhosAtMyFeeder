@@ -13,6 +13,7 @@
     import { getBirdNames } from '../naming';
     import { formatDate as formatDateValue, formatTime } from '../utils/datetime';
     import { formatTemperature } from '../utils/temperature';
+    import { photoFitFor, type PhotoFit } from '../utils/photo-fit';
     import {
         getTemperatureUnitForSystem,
         resolveWeatherUnitSystem
@@ -91,6 +92,9 @@
     let failedThumbnailUrl = $state<string | null>(null);
     const imageError = $derived(failedThumbnailUrl === thumbnailUrl);
     let imageLoaded = $state(false);
+    // Measured per address, so a replacement photograph is fitted afresh.
+    let measuredFit = $state<{ url: string; fit: PhotoFit } | null>(null);
+    const photoFit = $derived(measuredFit?.url === thumbnailUrl ? measuredFit.fit : 'cover');
     let cardElement = $state<HTMLElement | null>(null);
     let isVisible = $state(false);
 
@@ -236,14 +240,22 @@
             {#if !imageLoaded}
                 <div class="absolute inset-0 bg-slate-100 dark:bg-slate-800 animate-shimmer bg-[length:200%_100%] bg-gradient-to-r from-transparent via-slate-200/10 to-transparent"></div>
             {/if}
+            {#if photoFit === 'contain'}
+                <!-- A tall crop is shown whole over a soft copy of itself, not cut to a band. -->
+                <img src={thumbnailUrl} alt="" aria-hidden="true" class="absolute inset-0 h-full w-full scale-110 object-cover opacity-60 blur-xl" data-card-photo-fill />
+            {/if}
             <img
                 src={thumbnailUrl}
                 alt="{$_('detection.image_alt', { values: { species: primaryName, camera: detection.camera_name } })}"
                 loading="lazy"
-                class="w-full h-full object-cover transition-transform duration-300 ease-out
+                class="relative w-full h-full {photoFit === 'contain' ? 'object-contain' : 'object-cover'} transition-transform duration-300 ease-out
                        group-hover:scale-[1.025]
                        {imageLoaded ? 'opacity-100' : 'opacity-0'}"
-                onload={() => imageLoaded = true}
+                data-card-photo-fit={photoFit}
+                onload={(event) => {
+                    imageLoaded = true;
+                    measuredFit = { url: thumbnailUrl, fit: photoFitFor(event.currentTarget as HTMLImageElement) };
+                }}
                 onerror={(event) => failedThumbnailUrl = event.currentTarget.getAttribute('src')}
             />
             <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 opacity-60"></div>

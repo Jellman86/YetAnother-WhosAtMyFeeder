@@ -127,3 +127,43 @@ test('text reflow keeps the whole-scene peek on full-resolution pixels and its c
     await testInfo.attach('whole-scene-geometry', { body: JSON.stringify(geometry), contentType: 'application/json' });
     await page.screenshot({ path: testInfo.outputPath('whole-scene-text-zoom.png'), fullPage: true });
 });
+
+test('a tall crop photograph is shown whole in the record, over its ambient fill', async ({ page }) => {
+    // A woodpecker on a pole covered the photograph box as a band of feathers (#481).
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const errors: string[] = [];
+    page.on('pageerror', error => errors.push(error.message));
+    await withoutWebFonts(page);
+    const fullId = 'tall__full_frame__f150__fixture';
+    const cropId = 'tall__model_crop__f150__fixture';
+    await page.route(url => url.pathname.startsWith('/api/'), async route => {
+        const path = new URL(route.request().url()).pathname;
+        if (path.endsWith('/snapshot/candidates')) return route.fulfill({ json: {
+            current_source: 'hq_candidate_model_crop', current_candidate_id: cropId, birds: [],
+            candidates: [
+                { candidate_id: fullId, source_mode: 'full_frame', clip_variant: 'event', frame_index: 150,
+                    ranking_score: 0.8, selected: false, image_url: '/api/tall-full/image.jpg', thumbnail_url: '/api/tall-full/thumbnail.jpg' },
+                { candidate_id: cropId, source_mode: 'model_crop', clip_variant: 'event', frame_index: 150,
+                    ranking_score: 0.9, selected: true, crop_box: [400, 100, 587, 393],
+                    image_url: '/api/tall-crop/image.jpg', thumbnail_url: '/api/tall-crop/thumbnail.jpg' }
+            ]
+        } });
+        if (path.endsWith('/snapshot/status')) return route.fulfill({ json: {
+            available: true, high_quality_bird_crop_enabled: true, source: 'hq_candidate_model_crop'
+        } });
+        if (path.endsWith('.jpg')) {
+            const [width, height] = path.includes('full') ? [1920, 1080] : path.includes('thumbnail') ? [100, 60] : [187, 293];
+            return route.fulfill({ contentType: 'image/svg+xml', body:
+                `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><rect width="${width}" height="${height}" fill="#64748b"/></svg>` });
+        }
+        if (path.startsWith('/api/audio/context/') || path === '/api/species/search' || path.includes('/conversation')) return route.fulfill({ json: [] });
+        if (path.endsWith('/classifier/status')) return route.fulfill({ json: { ready: true } });
+        return route.fulfill({ json: {} });
+    });
+    await page.goto('/browser-tests/modal-text-layout.html');
+    const photograph = page.locator('[data-detection-photograph] img:not([data-detection-media-ambient])').first();
+    await expect(photograph).toHaveJSProperty('naturalHeight', 293);
+    await expect(photograph).toHaveCSS('object-fit', 'contain');
+    await expect(page.locator('[data-detection-media-ambient]')).toHaveCount(1);
+    expect(errors).toEqual([]);
+});
