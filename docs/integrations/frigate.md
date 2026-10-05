@@ -66,15 +66,26 @@ The full recording frame is retained, and its crop alignment is saved with that 
 later reclassification. Other birds can still be localized by the configured crop model; this
 setting does not change the separate high-quality photo or counted-bird pipeline.
 
-The detect and recording streams must show the same view. Different aspect ratios or recording
-frames that are not larger keep the detection snapshot. This cannot correct different lenses,
-digital zoom or PTZ views. Frigate needs retained recordings and best-snapshot timestamp metadata;
-older events without that metadata use the snapshot. The clean-copy and recording reads share a five-second total deadline
-and no retention wait or repeated recording retry. A live recording segment may not yet be
-available, so live ingest can fall back even when the completed event has a recording later.
-Existing end-of-event photo refinement remains responsible for later photo improvements.
+The detect and recording streams must show the same view. A different aspect ratio, or a recording
+frame smaller than the detection frame, keeps the detection snapshot. A recording frame the same
+size is used: a sub stream scaled up to the detect size is a blurrier copy of the same view. This
+cannot correct different lenses, digital zoom or PTZ views. Frigate needs retained recordings and
+best-snapshot timestamp metadata; older events without that metadata use the snapshot.
 
-Recording stills add decoding work on **Frigate**, bandwidth and image decoding work on YA-WAMF.
+Frigate can serve a recording frame only once that stretch of recording is written, 10 to 15
+seconds after the moment (11 to 13 seconds measured on a live install). So a live detection waits:
+YA-WAMF identifies it 12 seconds after Frigate's best snapshot, then retries every three seconds
+until 30 seconds after it, and only then uses the detection snapshot. Each read keeps its
+five-second bound. Updates for the event wait with it, and an end that arrives meanwhile is
+handled once the detection exists. A camera whose recording frames did not arrive by the deadline
+is identified at once for the next ten minutes, so a camera without retained recordings is not
+delayed for nothing. Every fallback is logged at info with its reason. Backfill and missed past
+events read once, since their recordings already exist. Existing end-of-event photo refinement
+remains responsible for later photo improvements.
+
+New detections, and their notifications, therefore arrive about 12 seconds later with **Recording
+frame** than with **Detection snapshot**. Recording stills add decoding work on **Frigate**,
+bandwidth and image decoding work on YA-WAMF.
 They can reveal more detail but do not guarantee a more accurate model prediction. This choice
 applies to new detections and backfill; reclassification prefers retained photos, including owner
 selections. Saving the setting does not start a backfill or replace past photographs.

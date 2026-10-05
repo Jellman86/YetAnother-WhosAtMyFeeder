@@ -487,3 +487,106 @@ async def test_missing_clean_frame_never_applies_native_hints_to_an_unverified_s
     context = build_snapshot_classification_input_context(event_id="evt", event_data=event, provenance=provenance)
     assert "frigate_box" not in context
     assert "restore_frigate_snapshot_crop" not in context
+
+
+@pytest.mark.asyncio
+async def test_a_recording_the_same_size_as_an_upscaled_detect_frame_is_used(recording_mode):
+    # A sub stream scaled up to the main stream's size is a blurrier copy of the same view. The
+    # recording frame at the same size is the native picture, so equal size is not a reason to
+    # keep the detect frame.
+    from app.services.recording_snapshot_input import prefer_recording_snapshot
+
+    event = {"camera": "birdcam", "data": {"snapshot_frame_time": 105.25, "box": [0.25, 0.2, 0.1, 0.15]}}
+    recording = image_bytes((1280, 720))
+    client = recording_client(get_recording_snapshot_with_error=AsyncMock(return_value=(recording, None)))
+    data, provenance = await prefer_recording_snapshot(
+        "evt", event, image_bytes((1280, 720)), frigate_snapshot_input_provenance(event), client=client
+    )
+    assert data == recording
+    assert provenance.input_source == "frigate_recording_snapshot"
+
+
+@pytest.mark.asyncio
+async def test_a_recording_frame_not_written_yet_is_waited_for_until_its_deadline(recording_mode):
+    from app.services.recording_snapshot_input import read_recording_snapshot
+
+    event = {"camera": "birdcam", "data": {"snapshot_frame_time": 105.25, "box": [0.25, 0.2, 0.1, 0.15]}}
+    recording = image_bytes((3840, 2160))
+    reads = AsyncMock(
+        side_effect=[(None, "recording_snapshot_http_404"), (None, "recording_snapshot_http_404"), (recording, None)]
+    )
+    clock = {"now": 1000.0}
+    slept: list[float] = []
+
+    async def sleep(seconds):
+        slept.append(seconds)
+        clock["now"] += seconds
+
+    result = await read_recording_snapshot(
+        "evt",
+        event,
+        image_bytes((1280, 720)),
+        frigate_snapshot_input_provenance(event),
+        client=recording_client(get_recording_snapshot_with_error=reads),
+        ready_by=1010.0,
+        now=lambda: clock["now"],
+        sleep=sleep,
+    )
+    assert result.snapshot == recording
+    assert result.reason == "recording_frame"
+    assert reads.await_count == 3
+    assert slept and all(seconds > 0 for seconds in slept)
+
+
+@pytest.mark.asyncio
+async def test_waiting_for_a_recording_frame_stops_at_its_deadline(recording_mode):
+    from app.services.recording_snapshot_input import read_recording_snapshot
+
+    event = {"camera": "birdcam", "data": {"snapshot_frame_time": 105.25, "box": [0.25, 0.2, 0.1, 0.15]}}
+    original = image_bytes((1280, 720))
+    reads = AsyncMock(return_value=(None, "recording_snapshot_http_404"))
+    clock = {"now": 1000.0}
+
+    async def sleep(seconds):
+        clock["now"] += seconds
+
+    result = await read_recording_snapshot(
+        "evt",
+        event,
+        original,
+        frigate_snapshot_input_provenance(event),
+        client=recording_client(get_recording_snapshot_with_error=reads),
+        ready_by=1007.0,
+        now=lambda: clock["now"],
+        sleep=sleep,
+    )
+    assert result.snapshot == original
+    assert result.reason == "recording_not_ready"
+    assert clock["now"] <= 1007.0 + 5.0
+    assert 1 < reads.await_count <= 4
+
+
+@pytest.mark.asyncio
+async def test_without_a_deadline_a_missing_recording_is_read_once(recording_mode):
+    from app.services.recording_snapshot_input import read_recording_snapshot
+
+    event = {"camera": "birdcam", "data": {"snapshot_frame_time": 105.25, "box": [0.25, 0.2, 0.1, 0.15]}}
+    reads = AsyncMock(return_value=(None, "recording_snapshot_http_404"))
+    result = await read_recording_snapshot(
+        "evt",
+        event,
+        image_bytes((1280, 720)),
+        frigate_snapshot_input_provenance(event),
+        client=recording_client(get_recording_snapshot_with_error=reads),
+    )
+    assert result.reason == "recording_not_ready"
+    reads.assert_awaited_once()
+
+
+def test_the_recording_frame_time_comes_from_the_mqtt_snapshot_or_the_rest_payload():
+    from app.services.recording_snapshot_input import recording_frame_time
+
+    assert recording_frame_time({"snapshot": {"frame_time": 105.25}}) == 105.25
+    assert recording_frame_time({"data": {"snapshot_frame_time": 99.5}}) == 99.5
+    assert recording_frame_time({"snapshot": {"frame_time": "soon"}}) is None
+    assert recording_frame_time({}) is None

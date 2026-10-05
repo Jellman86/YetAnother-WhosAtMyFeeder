@@ -6,6 +6,7 @@ import os
 import structlog
 from collections import Counter, deque
 from datetime import datetime, timezone
+from collections.abc import Awaitable, Callable
 from typing import Optional, Dict, Any, Tuple
 from types import SimpleNamespace
 from io import BytesIO
@@ -41,6 +42,8 @@ from app.utils.frigate import is_ingest_label, parse_sub_label
 # Backward-compat for tests that patch event_processor.notification_service
 from app.services.notification_service import notification_service  # noqa: F401
 from app.database import durable_work, get_db
+from app.services.recording_snapshot_input import read_recording_snapshot, recording_frame_time
+from app.utils.tasks import create_background_task
 from app.repositories.detection_repository import DetectionRepository
 
 log = structlog.get_logger()
@@ -97,6 +100,17 @@ EVENT_SNAPSHOT_RECOVERY_EXTRA_RETRIES = max(
 )
 # Short window around the detection start used to pull a classification frame from
 # Frigate's continuous recording when no snapshot/thumbnail is available.
+# Frigate serves a recording frame only once its stretch of recording is written: 11 to 13 seconds
+# after the moment on a live install. A live event identified from the recording frame waits this
+# long after Frigate's best snapshot before its first read.
+RECORDING_FRAME_READY_SECONDS = max(1.0, float(os.getenv("RECORDING_FRAME_READY_SECONDS", "12")))
+# From the snapshot moment, how long reads keep retrying before the detection snapshot is used.
+RECORDING_FRAME_DEADLINE_SECONDS = max(
+    RECORDING_FRAME_READY_SECONDS, float(os.getenv("RECORDING_FRAME_DEADLINE_SECONDS", "30"))
+)
+# A camera whose recording frames did not arrive by the deadline (no recording, or recording off)
+# is identified at once for this long, so its detections are not delayed for nothing.
+RECORDING_FRAME_CAMERA_COOLDOWN_SECONDS = 600.0
 RECORDING_FRAME_FALLBACK_BEFORE_SECONDS = max(0, int(os.getenv("RECORDING_FRAME_FALLBACK_BEFORE_SECONDS", "2")))
 RECORDING_FRAME_FALLBACK_AFTER_SECONDS = max(1, int(os.getenv("RECORDING_FRAME_FALLBACK_AFTER_SECONDS", "8")))
 _CLASSIFY_SNAPSHOT_OVERLOADED = object()
@@ -116,6 +130,8 @@ class EventData:
         self.end_time_known: bool = "end_time" in after
         self.end_time_ts: Optional[float] = after.get("end_time")
         self.received_at_ts: float = float(data.get("__received_at_ts") or time.time())
+        # Set on the second pass of an event that waited for its recording frame to be written.
+        self.recording_wait_done: bool = bool(data.get("__recording_wait_done"))
         parsed_sub_label = parse_sub_label(after.get("sub_label"))
         self.sub_label: Optional[str] = parsed_sub_label.label
         self.sub_label_score: Optional[float] = parsed_sub_label.score
@@ -206,6 +222,11 @@ class EventProcessor:
         self._false_positive_tombstones: dict[str, float] = {}
         self._classification_decided_tombstones: dict[str, float] = {}
         self._update_recovery_attempts: dict[str, float] = {}
+        # Events waiting for their recording frame: the background task, and an `end` that arrived
+        # meanwhile, replayed once the event has been identified.
+        self._recording_waits: dict[str, dict[str, Any]] = {}
+        self._recording_unavailable_until: dict[str, float] = {}
+        self._sleep: Callable[[float], Awaitable[Any]] = asyncio.sleep
         self._started_events = 0
         self._completed_events = 0
         self._dropped_events = 0
@@ -416,6 +437,7 @@ class EventProcessor:
             "critical_failure_active": critical_failure_active,
             "has_unresolved_post_failure_work": has_unresolved_post_failure_work,
             "recent_outcomes": list(self._recent_outcomes),
+            "recording_frame_waits": len(self._recording_waits),
         }
 
     async def _run_stage(
@@ -573,6 +595,15 @@ class EventProcessor:
             return
 
         event_type = (event.type or "new").lower()
+        waiting = self._recording_waits.get(event.frigate_event)
+        if waiting is not None and not event.recording_wait_done:
+            # The event is identified once its recording frame exists. An end is kept and replayed
+            # after that, so its final media work still runs; updates add nothing until then.
+            if event_type == "end":
+                waiting["end_data"] = dict(data)
+            self._record_completed(event.frigate_event, (time.monotonic() - started) * 1000.0)
+            self._record_recent_outcome(event.frigate_event, f"{event_type}_held_for_recording_frame")
+            return
         if event_type == "end":
             try:
                 existing_detection = await self.detection_service.get_detection_by_frigate_event(event.frigate_event)
@@ -650,6 +681,19 @@ class EventProcessor:
                 event_id=event.frigate_event,
                 camera=event.camera,
             )
+
+        wait_seconds = None if recovering_terminal_event else self._recording_wait_seconds(event, event_type)
+        if wait_seconds is not None:
+            log.info(
+                "Waiting for the recording frame before identifying",
+                event_id=event.frigate_event,
+                camera=event.camera,
+                wait_seconds=round(wait_seconds, 1),
+            )
+            self._schedule_recording_wait(event, data, wait_seconds)
+            self._record_completed(event.frigate_event, (time.monotonic() - started) * 1000.0)
+            self._record_recent_outcome(event.frigate_event, "waiting_for_recording_frame")
+            return
 
         if not recovering_terminal_event and self._is_stale_live_event(event):
             age_seconds = round(self._live_event_age_seconds(event), 1)
@@ -820,6 +864,60 @@ class EventProcessor:
             event_id=event.frigate_event,
             duration_ms=round(duration_ms, 1),
         )
+
+    def _recording_wait_seconds(self, event: EventData, event_type: str) -> float | None:
+        """How long a live event must wait for its recording frame to be written, or None."""
+        if settings.frigate.classification_image_source != "recording_snapshot":
+            return None
+        if event_type not in {"new", "update"} or event.recording_wait_done:
+            return None
+        until = self._recording_unavailable_until.get(event.camera or "")
+        if until is not None and time.monotonic() < until:
+            return None
+        frame_time = recording_frame_time(event.snapshot_context())
+        if frame_time is None:
+            return None
+        wait = frame_time + RECORDING_FRAME_READY_SECONDS - time.time()
+        return wait if wait > 0 else None
+
+    def _note_recording_frame_outcome(self, camera: str | None, reason: str) -> None:
+        if not camera:
+            return
+        if reason == "recording_not_ready":
+            self._recording_unavailable_until[camera] = time.monotonic() + RECORDING_FRAME_CAMERA_COOLDOWN_SECONDS
+        elif reason == "recording_frame":
+            self._recording_unavailable_until.pop(camera, None)
+
+    def _schedule_recording_wait(self, event: EventData, data: Dict[str, Any], wait_seconds: float) -> None:
+        rerun = dict(data)
+        rerun["__recording_wait_done"] = True
+        entry: dict[str, Any] = {"end_data": None}
+        entry["task"] = create_background_task(
+            self._identify_after_recording_wait(event.frigate_event, rerun, wait_seconds),
+            name=f"recording_frame_wait:{event.frigate_event}",
+        )
+        self._recording_waits[event.frigate_event] = entry
+
+    async def _identify_after_recording_wait(self, event_id: str, data: Dict[str, Any], wait_seconds: float) -> None:
+        try:
+            await self._sleep(wait_seconds)
+            # Fresh for the live checks: the wait was deliberate, not a backlog.
+            data["__received_at_ts"] = time.time()
+            await self._process_payload_durably(data)
+        finally:
+            entry = self._recording_waits.pop(event_id, None)
+        end_data = entry.get("end_data") if entry else None
+        if end_data is not None:
+            await self._process_payload_durably(end_data)
+
+    async def _process_payload_durably(self, data: Dict[str, Any]) -> None:
+        """Run a payload the way an MQTT message runs: durable, and never raising."""
+        event_id = str((data.get("after") or {}).get("id") or "unknown")
+        try:
+            with durable_work():
+                await self._process_event_payload(data)
+        except Exception as e:
+            log.error("Error processing event", event_id=event_id, error=str(e), exc_info=True)
 
     async def _handle_terminal_event_enrichment(self, event: EventData) -> None:
         """Schedule final media work only after the detection is durable."""
@@ -1292,11 +1390,24 @@ class EventProcessor:
                 )
                 return None
 
-            from app.services.recording_snapshot_input import prefer_recording_snapshot
-
-            snapshot_data, snapshot_provenance = await prefer_recording_snapshot(
-                event.frigate_event, event_snapshot_state, snapshot_data, snapshot_provenance
+            frame_time = recording_frame_time(event_snapshot_state)
+            waited_for_recording = bool(getattr(event, "recording_wait_done", False))
+            recording_read = await read_recording_snapshot(
+                event.frigate_event,
+                event_snapshot_state,
+                snapshot_data,
+                snapshot_provenance,
+                # Only an event that waited keeps retrying; any other read is one bounded attempt.
+                ready_by=(
+                    frame_time + RECORDING_FRAME_DEADLINE_SECONDS
+                    if waited_for_recording and frame_time is not None
+                    else None
+                ),
+                sleep=self._sleep,
             )
+            snapshot_data, snapshot_provenance = recording_read.snapshot, recording_read.provenance
+            if waited_for_recording:
+                self._note_recording_frame_outcome(getattr(event, "camera", None), recording_read.reason)
             snapshot_source = snapshot_provenance.input_source
             event.recording_alignment = snapshot_provenance.recording_alignment()
             image = await asyncio.to_thread(decode_image_bytes, snapshot_data)

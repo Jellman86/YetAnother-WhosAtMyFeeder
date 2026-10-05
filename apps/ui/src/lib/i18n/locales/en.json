@@ -1089,8 +1089,8 @@
       "classification_image_source_desc": "The detection snapshot is faster. A recording frame can show more detail when the recording stream is larger than the detect stream and shows the same view. It does not guarantee a better identification.",
       "classification_image_snapshot": "Detection snapshot",
       "classification_image_recording": "Recording frame",
-      "classification_image_recording_cost": "Frigate decodes one recording frame for each detection, and YA-WAMF downloads and processes the larger image.",
-      "classification_image_recording_fallback": "Needs retained recordings and the clean snapshot copy in Frigate ({setting}). If either is missing, the frame is not larger, it is a different shape, or the reads take longer than five seconds in total, the detection snapshot is used.",
+      "classification_image_recording_cost": "Frigate decodes one recording frame for each detection, and YA-WAMF downloads and processes it.",
+      "classification_image_recording_fallback": "Needs retained recordings and the clean snapshot copy in Frigate ({setting}). Frigate can only serve a recording frame once that part of the recording is written, about 10 to 15 seconds later, so new detections are identified that much later. If the frame has not arrived within 30 seconds, or it is smaller or a different shape, the detection snapshot is used.",
       "classification_image_recording_scope": "Applies to new detections, including past events fetched as missed detections. Saving does not fetch past events or change existing photos; reclassification prefers saved photos."
     },
     "cameras": {

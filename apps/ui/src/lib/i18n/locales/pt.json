@@ -1089,8 +1089,8 @@
       "classification_image_source_desc": "O snapshot da detecção é mais rápido. Um quadro da gravação pode mostrar mais detalhes quando o fluxo de gravação é maior que o de detecção e mostra a mesma vista. Não garante uma identificação melhor.",
       "classification_image_snapshot": "Snapshot da detecção",
       "classification_image_recording": "Quadro da gravação",
-      "classification_image_recording_cost": "O Frigate decodifica um quadro da gravação para cada detecção, e o YA-WAMF baixa e processa a imagem maior.",
-      "classification_image_recording_fallback": "Requer gravações retidas e a cópia limpa do snapshot no Frigate ({setting}). Se faltar alguma delas, o quadro não for maior, tiver outro formato ou as leituras levarem mais de cinco segundos no total, é usado o snapshot da detecção.",
+      "classification_image_recording_cost": "O Frigate decodifica um quadro da gravação para cada detecção, e o YA-WAMF descarrega-o e processa-o.",
+      "classification_image_recording_fallback": "Requer gravações retidas e a cópia limpa do snapshot no Frigate ({setting}). O Frigate só consegue fornecer um quadro da gravação depois de essa parte da gravação estar escrita, cerca de 10 a 15 segundos depois, por isso as novas detecções são identificadas com esse atraso. Se o quadro não chegar em 30 segundos, ou for menor ou tiver outro formato, é usado o snapshot da detecção.",
       "classification_image_recording_scope": "Aplica-se a novas detecções, incluindo eventos passados obtidos como detecções perdidas. Salvar não obtém eventos passados nem altera fotos existentes; a reclassificação prefere fotos salvas."
     },
     "cameras": {

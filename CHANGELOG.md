@@ -6,6 +6,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Identify new detections from: Recording frame** now works for live detections. Frigate can
+  serve a recording frame only once that part of the recording is written, 11 to 13 seconds after
+  the moment on a live install, and YA-WAMF asked about a second after a bird arrived, so every
+  live detection quietly fell back to the lower-quality detection snapshot. A live detection now
+  waits until its recording frame exists, retrying until 30 seconds after the snapshot before
+  falling back, and its updates and end are held and handled once it is identified. New detections
+  and their notifications arrive about 12 seconds later with this setting. A recording frame the
+  same size as an upscaled detect frame is now used, a camera without recordings stops waiting for
+  ten minutes after a miss, and each fallback is logged with its reason.
 - Photos and visit video are always kept now, and the **Media Cache** and **Snapshots** switches
   are gone (#622). With either off, YA-WAMF kept no photo of its own: a visit went blank once Frigate
   dropped its event, a better photo after a reclassify had nowhere to go, and nothing said why.

@@ -41,8 +41,8 @@
             data-recording-frame-note
             class="mt-3 space-y-1.5 break-words text-xs leading-relaxed text-slate-600 dark:text-slate-400"
         >
-            <p>{$_('settings.frigate.classification_image_recording_cost', { default: 'Frigate decodes one recording frame for each detection, and YA-WAMF downloads and processes the larger image.' })}</p>
-            <p>{$_('settings.frigate.classification_image_recording_fallback', { default: 'Needs retained recordings and the clean snapshot copy in Frigate ({setting}). If either is missing, the frame is not larger, it is a different shape, or the reads take longer than five seconds in total, the detection snapshot is used.', values: { setting: CLEAN_COPY_SETTING } })}</p>
+            <p>{$_('settings.frigate.classification_image_recording_cost', { default: 'Frigate decodes one recording frame for each detection, and YA-WAMF downloads and processes it.' })}</p>
+            <p>{$_('settings.frigate.classification_image_recording_fallback', { default: 'Needs retained recordings and the clean snapshot copy in Frigate ({setting}). Frigate can only serve a recording frame once that part of the recording is written, about 10 to 15 seconds later, so new detections are identified that much later. If the frame has not arrived within 30 seconds, or it is smaller or a different shape, the detection snapshot is used.', values: { setting: CLEAN_COPY_SETTING } })}</p>
             <p>{$_('settings.frigate.classification_image_recording_scope', { default: 'Applies to new detections, including past events fetched as missed detections. Saving does not fetch past events or change existing photos; reclassification prefers saved photos.' })}</p>
         </div>
     {/if}
