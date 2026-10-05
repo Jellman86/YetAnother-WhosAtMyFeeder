@@ -3201,5 +3201,40 @@
     "capture_birds": "{count} 羽",
     "loaded_of_total": "{total} 件中 {shown} 件の撮影を表示",
     "captures_empty": "この表示では、この訪問の撮影は表示できません。"
+  },
+  "taxonomy": {
+    "title": "{name} の系統樹",
+    "small_heading": "系統樹",
+    "lineage_label": "分類（綱から種まで）",
+    "context": "{group}：世界で {total} 種、この給餌台で {seen} 種を確認。",
+    "open": "系統樹を開く",
+    "layouts": "表示",
+    "layout_tree": "ツリー",
+    "layout_fan": "扇形",
+    "layout_outline": "アウトライン",
+    "legend_path": "この鳥までの経路",
+    "legend_seen": "この給餌台で確認",
+    "legend_open": "グループを選んで開閉します",
+    "loading": "系統樹を読み込み中",
+    "outline_label": "系統樹のアウトライン",
+    "branch_failed": "ツリーの一部を読み込めませんでした。もう一度開くと再試行します。",
+    "source_note": "鳥類は IOC World Bird List、それより上位は Catalogue of Life による分類です。種のまとまりを示すもので、分岐の時期は示しません。",
+    "more": "ほか {count} 件",
+    "seen_here": "ここで {count} 種",
+    "captures_here": "ここで {count} 件の記録",
+    "this_bird": "この鳥",
+    "rank": {
+      "kingdom": "界",
+      "phylum": "門",
+      "class": "綱",
+      "order": "目",
+      "family": "科",
+      "genus": "属",
+      "species": "種",
+      "subphylum": "亜門",
+      "infraphylum": "下門",
+      "parvphylum": "小門",
+      "megaclass": "大綱"
+    }
   }
 }

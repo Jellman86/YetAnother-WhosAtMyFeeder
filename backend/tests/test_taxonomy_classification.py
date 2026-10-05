@@ -350,10 +350,53 @@ def test_the_taxonomy_routes_answer_lineage_and_branches_and_404_an_unknown_taxo
             "source": "ioc-world-bird-list",
             "principal": True,
             "parent_id": 0,
-            "species_count": None,
+            "species_count": 2,
+            "seen_species": 0,
+            "seen_count": 0,
         }
         children = client.get(f"/api/taxonomy/{_id(seed, 'Passeriformes')}/children").json()["children"]
         assert [(c["scientific_name"], c["species_count"]) for c in children] == [("Paridae", 1), ("Prunellidae", 2)]
         assert client.get("/api/taxonomy/999999/lineage").status_code == 404
+    finally:
+        app.dependency_overrides.pop(get_auth_context_with_legacy, None)
+
+
+def test_what_was_seen_here_rolls_up_the_classification(seed):
+    tree = TaxonomyTree(seed)
+    dunnock, great_tit, pigeon = (_id(seed, name) for name in ("Prunella modularis", "Parus major", "Columba palumbus"))
+    seen = {dunnock: 324, great_tit: 11, pigeon: 3}
+    lineage = {t.scientific_name: (t.seen_species, t.seen_count) for t in tree.lineage(dunnock, seen=seen)}
+    assert lineage["Prunella modularis"] == (1, 324)
+    assert lineage["Prunellidae"] == (1, 324)
+    assert lineage["Passeriformes"] == (2, 335)
+    assert lineage["Aves"] == (3, 338)
+    assert lineage["Animalia"] == (3, 338)
+    branch = {
+        t.scientific_name: (t.seen_species, t.seen_count) for t in tree.children(_id(seed, "Prunella"), seen=seen)
+    }
+    # A species never recorded here says so with zeros, not by being left out.
+    assert branch == {"Prunella collaris": (0, 0), "Prunella modularis": (1, 324)}
+    # Without a count, nothing is claimed either way.
+    assert tree.lineage(dunnock)[-1].seen_species is None
+
+
+def test_a_species_lineage_is_found_by_its_scientific_name_and_an_unknown_name_is_a_404(seed, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app.auth import AuthContext, AuthLevel, get_auth_context_with_legacy
+    from app.main import app
+    from app.routers import taxonomy as taxonomy_router
+
+    monkeypatch.setattr(taxonomy_router, "taxonomy_tree", TaxonomyTree(seed))
+    monkeypatch.setattr(taxonomy_router, "species_catalog_resolver", SpeciesCatalogResolver(seed))
+    app.dependency_overrides[get_auth_context_with_legacy] = lambda: AuthContext(auth_level=AuthLevel.OWNER)
+    try:
+        client = TestClient(app)
+        lineage = client.get("/api/taxonomy/lineage", params={"scientific_name": "Prunella modularis"}).json()[
+            "lineage"
+        ]
+        assert [t["rank"] for t in lineage if t["principal"]][-4:] == ["order", "family", "genus", "species"]
+        # A genus is not a species: the name lookup stays species-only.
+        assert client.get("/api/taxonomy/lineage", params={"scientific_name": "Prunella"}).status_code == 404
     finally:
         app.dependency_overrides.pop(get_auth_context_with_legacy, None)

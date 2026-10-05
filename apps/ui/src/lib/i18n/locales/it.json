@@ -3201,5 +3201,40 @@
     "capture_birds": "{count} uccelli",
     "loaded_of_total": "{shown} di {total} acquisizioni mostrate",
     "captures_empty": "Nessuna acquisizione di questa visita è visibile in questa vista."
+  },
+  "taxonomy": {
+    "title": "Albero di famiglia di {name}",
+    "small_heading": "Albero di famiglia",
+    "lineage_label": "Classificazione, dalla classe alla specie",
+    "context": "{group}: {total} specie nel mondo, {seen} viste a questa mangiatoia.",
+    "open": "Apri l'albero di famiglia",
+    "layouts": "Vista",
+    "layout_tree": "Albero",
+    "layout_fan": "Ventaglio",
+    "layout_outline": "Schema",
+    "legend_path": "Percorso fino a questo uccello",
+    "legend_seen": "Visto a questa mangiatoia",
+    "legend_open": "Seleziona un gruppo per aprirlo o chiuderlo",
+    "loading": "Caricamento dell'albero di famiglia",
+    "outline_label": "Schema dell'albero di famiglia",
+    "branch_failed": "Non è stato possibile caricare parte dell'albero. Riaprila per riprovare.",
+    "source_note": "Classificazione della IOC World Bird List per gli uccelli e del Catalogue of Life sopra di essi. Mostra come sono raggruppate le specie, non quando si sono separate.",
+    "more": "altri {count}",
+    "seen_here": "{count} viste qui",
+    "captures_here": "{count} catture qui",
+    "this_bird": "questo uccello",
+    "rank": {
+      "kingdom": "Regno",
+      "phylum": "Tipo",
+      "class": "Classe",
+      "order": "Ordine",
+      "family": "Famiglia",
+      "genus": "Genere",
+      "species": "Specie",
+      "subphylum": "Sottotipo",
+      "infraphylum": "Infratipo",
+      "parvphylum": "Parvtipo",
+      "megaclass": "Megaclasse"
+    }
   }
 }

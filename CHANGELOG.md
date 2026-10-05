@@ -6,6 +6,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- A detection now shows where its bird sits in the classification: a line from class to species
+  beneath the identification, with how many species its family holds worldwide and how many have
+  been seen at this feeder. "Open the family tree" shows the whole tree centred on the bird, with
+  its path open, the groups seen here marked, and the rest summed until asked for. The same tree
+  can be read as a fan or as an outline list. Branches load as they open. The taxonomy routes now
+  report what was seen beneath each taxon, and `GET /api/taxonomy/lineage?scientific_name=` finds a
+  species' lineage by name.
 - The species catalogue now holds each bird's place in the classification: its genus, family and
   order from the pinned IOC World Bird List 14.2 (44 orders, 254 families with their English names,
   2,392 genera), and the ranks from Animalia down to Aves from Catalogue of Life. Each taxon points

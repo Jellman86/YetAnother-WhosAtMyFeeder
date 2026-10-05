@@ -3201,5 +3201,40 @@
     "capture_birds": "Птиц: {count}",
     "loaded_of_total": "Показано снимков: {shown} из {total}",
     "captures_empty": "В этом представлении нет доступных снимков этого визита."
+  },
+  "taxonomy": {
+    "title": "Родословное древо: {name}",
+    "small_heading": "Родословное древо",
+    "lineage_label": "Классификация от класса до вида",
+    "context": "{group}: {total} видов в мире, {seen} замечено у этой кормушки.",
+    "open": "Открыть родословное древо",
+    "layouts": "Вид",
+    "layout_tree": "Дерево",
+    "layout_fan": "Веер",
+    "layout_outline": "Список",
+    "legend_path": "Путь к этой птице",
+    "legend_seen": "Замечено у этой кормушки",
+    "legend_open": "Выберите группу, чтобы открыть или закрыть её",
+    "loading": "Загрузка родословного древа",
+    "outline_label": "Структура родословного древа",
+    "branch_failed": "Часть дерева не загрузилась. Откройте её снова, чтобы повторить.",
+    "source_note": "Классификация по IOC World Bird List для птиц и по Catalogue of Life выше них. Показывает, как сгруппированы виды, а не когда они разошлись.",
+    "more": "ещё {count}",
+    "seen_here": "здесь замечено: {count}",
+    "captures_here": "здесь записей: {count}",
+    "this_bird": "эта птица",
+    "rank": {
+      "kingdom": "Царство",
+      "phylum": "Тип",
+      "class": "Класс",
+      "order": "Отряд",
+      "family": "Семейство",
+      "genus": "Род",
+      "species": "Вид",
+      "subphylum": "Подтип",
+      "infraphylum": "Инфратип",
+      "parvphylum": "Парвтип",
+      "megaclass": "Мегакласс"
+    }
   }
 }

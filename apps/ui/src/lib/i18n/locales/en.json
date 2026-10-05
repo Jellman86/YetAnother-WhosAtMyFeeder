@@ -3201,5 +3201,40 @@
     "capture_birds": "{count} birds",
     "loaded_of_total": "{shown} of {total} captures shown",
     "captures_empty": "No captures from this visit are visible in this view."
+  },
+  "taxonomy": {
+    "title": "Family tree of {name}",
+    "small_heading": "Family tree",
+    "lineage_label": "Classification, from class to species",
+    "context": "{group}: {total} species worldwide, {seen} seen at this feeder.",
+    "open": "Open the family tree",
+    "layouts": "Layout",
+    "layout_tree": "Tree",
+    "layout_fan": "Fan",
+    "layout_outline": "Outline",
+    "legend_path": "Path to this bird",
+    "legend_seen": "Seen at this feeder",
+    "legend_open": "Select a group to open or close it",
+    "loading": "Loading the family tree",
+    "outline_label": "Family tree outline",
+    "branch_failed": "Part of the tree could not load. Open it again to retry.",
+    "source_note": "Classification from the IOC World Bird List for birds and the Catalogue of Life above them. It shows how species are grouped, not when they diverged.",
+    "more": "{count} more",
+    "seen_here": "{count} seen here",
+    "captures_here": "{count} captures here",
+    "this_bird": "this bird",
+    "rank": {
+      "kingdom": "Kingdom",
+      "phylum": "Phylum",
+      "class": "Class",
+      "order": "Order",
+      "family": "Family",
+      "genus": "Genus",
+      "species": "Species",
+      "subphylum": "Subphylum",
+      "infraphylum": "Infraphylum",
+      "parvphylum": "Parvphylum",
+      "megaclass": "Megaclass"
+    }
   }
 }

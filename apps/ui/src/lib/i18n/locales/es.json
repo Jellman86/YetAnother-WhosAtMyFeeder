@@ -3201,5 +3201,40 @@
     "capture_birds": "{count} aves",
     "loaded_of_total": "{shown} de {total} capturas mostradas",
     "captures_empty": "Ninguna captura de esta visita es visible en esta vista."
+  },
+  "taxonomy": {
+    "title": "Árbol de familia de {name}",
+    "small_heading": "Árbol de familia",
+    "lineage_label": "Clasificación, de la clase a la especie",
+    "context": "{group}: {total} especies en el mundo, {seen} vistas en este comedero.",
+    "open": "Abrir el árbol de familia",
+    "layouts": "Vista",
+    "layout_tree": "Árbol",
+    "layout_fan": "Abanico",
+    "layout_outline": "Esquema",
+    "legend_path": "Camino hasta esta ave",
+    "legend_seen": "Vista en este comedero",
+    "legend_open": "Selecciona un grupo para abrirlo o cerrarlo",
+    "loading": "Cargando el árbol de familia",
+    "outline_label": "Esquema del árbol de familia",
+    "branch_failed": "No se pudo cargar parte del árbol. Ábrela de nuevo para reintentar.",
+    "source_note": "Clasificación de la IOC World Bird List para las aves y del Catalogue of Life por encima. Muestra cómo se agrupan las especies, no cuándo divergieron.",
+    "more": "{count} más",
+    "seen_here": "{count} vistas aquí",
+    "captures_here": "{count} capturas aquí",
+    "this_bird": "esta ave",
+    "rank": {
+      "kingdom": "Reino",
+      "phylum": "Filo",
+      "class": "Clase",
+      "order": "Orden",
+      "family": "Familia",
+      "genus": "Género",
+      "species": "Especie",
+      "subphylum": "Subfilo",
+      "infraphylum": "Infrafilo",
+      "parvphylum": "Parvfilo",
+      "megaclass": "Megaclase"
+    }
   }
 }
