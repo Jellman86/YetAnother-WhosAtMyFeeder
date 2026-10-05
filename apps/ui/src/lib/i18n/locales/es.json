@@ -1079,8 +1079,8 @@
       "classification_image_source_desc": "La instantánea de detección es más rápida. Un fotograma de grabación puede mostrar más detalle si el flujo de grabación es más grande que el de detección y muestra la misma vista. No garantiza una mejor identificación.",
       "classification_image_snapshot": "Instantánea de detección",
       "classification_image_recording": "Fotograma de grabación",
-      "classification_image_recording_cost": "Frigate decodifica un fotograma de grabación por cada detección, y YA-WAMF descarga y procesa la imagen más grande.",
-      "classification_image_recording_fallback": "Requiere grabaciones conservadas y la copia limpia de la instantánea en Frigate ({setting}). Si falta alguna, el fotograma no es más grande, tiene otra forma o las lecturas tardan más de cinco segundos en total, se usa la instantánea de detección.",
+      "classification_image_recording_cost": "Frigate decodifica un fotograma de grabación por cada detección, y YA-WAMF lo descarga y lo procesa.",
+      "classification_image_recording_fallback": "Requiere grabaciones conservadas y la copia limpia de la instantánea en Frigate ({setting}). Frigate solo puede servir un fotograma de grabación cuando esa parte de la grabación está escrita, unos 10 a 15 segundos después, así que las detecciones nuevas se identifican con ese retraso. Si el fotograma no llega en 30 segundos, o es más pequeño o tiene otra forma, se usa la instantánea de detección.",
       "classification_image_recording_scope": "Se aplica a las detecciones nuevas, incluidos los eventos pasados obtenidos como detecciones perdidas. Guardar no obtiene eventos pasados ni cambia las fotos existentes; la reclasificación prefiere las fotos guardadas."
     },
     "cameras": {

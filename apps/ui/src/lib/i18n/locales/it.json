@@ -1089,8 +1089,8 @@
       "classification_image_source_desc": "Lo snapshot del rilevamento è più veloce. Un fotogramma della registrazione può mostrare più dettagli se il flusso di registrazione è più grande di quello di rilevamento e mostra la stessa inquadratura. Non garantisce un’identificazione migliore.",
       "classification_image_snapshot": "Snapshot del rilevamento",
       "classification_image_recording": "Fotogramma registrato",
-      "classification_image_recording_cost": "Frigate decodifica un fotogramma della registrazione per ogni rilevamento e YA-WAMF scarica ed elabora l’immagine più grande.",
-      "classification_image_recording_fallback": "Richiede registrazioni conservate e la copia pulita dello snapshot in Frigate ({setting}). Se manca una delle due, il fotogramma non è più grande, ha una forma diversa o le letture richiedono più di cinque secondi in totale, viene usato lo snapshot del rilevamento.",
+      "classification_image_recording_cost": "Frigate decodifica un fotogramma della registrazione per ogni rilevamento e YA-WAMF lo scarica e lo elabora.",
+      "classification_image_recording_fallback": "Richiede registrazioni conservate e la copia pulita dello snapshot in Frigate ({setting}). Frigate può fornire un fotogramma della registrazione solo quando quella parte è stata scritta, circa 10-15 secondi dopo, quindi i nuovi rilevamenti vengono identificati con quel ritardo. Se il fotogramma non arriva entro 30 secondi, oppure è più piccolo o ha una forma diversa, si usa lo snapshot del rilevamento.",
       "classification_image_recording_scope": "Si applica ai nuovi rilevamenti, compresi gli eventi passati recuperati come rilevamenti mancati. Il salvataggio non recupera eventi passati né modifica le foto esistenti; la riclassificazione preferisce le foto salvate."
     },
     "cameras": {

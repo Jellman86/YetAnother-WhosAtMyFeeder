@@ -213,7 +213,7 @@ describe('initial classification image copy', () => {
         for (const key of KEYS) {
             expect(componentSource, key).toContain(`{ default: '${strings[key]}'`);
         }
-        expect(strings.classification_image_recording_fallback).toContain('five seconds');
+        expect(strings.classification_image_recording_fallback).toContain('30 seconds');
     });
 
     it('states that the recording frame needs retained recordings and the clean snapshot copy', () => {
@@ -221,7 +221,8 @@ describe('initial classification image copy', () => {
 
         expect(fallback).toContain('retained recordings');
         expect(fallback).toContain('clean snapshot copy');
-        expect(fallback).toContain('five seconds in total');
+        expect(fallback).toContain('10 to 15 seconds later');
+        expect(fallback).toContain('within 30 seconds');
         expect(componentSource).toContain("const CLEAN_COPY_SETTING = 'snapshots.clean_copy';");
         expect(componentSource).toContain('values: { setting: CLEAN_COPY_SETTING }');
     });
@@ -232,25 +233,26 @@ describe('initial classification image copy', () => {
         expect(attribute(note, 'class')?.split(/\s+/)).toContain('break-words');
     });
 
-    const FIVE_SECONDS: Record<keyof typeof LOCALES, string> = {
-        en: 'five seconds',
-        de: 'fünf Sekunden',
-        es: 'cinco segundos',
-        fr: 'cinq secondes',
-        it: 'cinque secondi',
-        ja: '5 秒',
-        pt: 'cinco segundos',
-        ru: 'пяти секунд',
-        zh: '五秒'
+    // A live detection waits until its recording frame is written, and gives up after 30 seconds.
+    const DEADLINE: Record<keyof typeof LOCALES, string> = {
+        en: '30 seconds',
+        de: '30 Sekunden',
+        es: '30 segundos',
+        fr: '30 secondes',
+        it: '30 secondi',
+        ja: '30 秒',
+        pt: '30 segundos',
+        ru: '30 секунд',
+        zh: '30 秒'
     };
 
     for (const [name, locale] of Object.entries(LOCALES) as Array<[keyof typeof LOCALES, typeof en]>) {
-        it(`${name} names the clean copy requirement and the five-second total`, () => {
+        it(`${name} names the clean copy requirement and the 30-second deadline`, () => {
             const fallback = String((locale.settings.frigate as Record<string, unknown>).classification_image_recording_fallback);
 
             expect(fallback, `${name} fallback names the Frigate setting through a placeholder`).toContain('({setting})');
             expect(fallback, `${name} fallback must not translate the setting name`).not.toContain('clean_copy');
-            expect(fallback, `${name} fallback keeps the five-second bound`).toContain(FIVE_SECONDS[name]);
+            expect(fallback, `${name} fallback names the deadline`).toContain(DEADLINE[name]);
         });
     }
 });

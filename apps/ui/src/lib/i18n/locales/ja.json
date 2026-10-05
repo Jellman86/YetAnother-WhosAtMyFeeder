@@ -1079,8 +1079,8 @@
       "classification_image_source_desc": "検出スナップショットの方が高速です。録画ストリームが検出ストリームより大きく、同じ画角を映している場合、録画フレームはより細部を表示できます。識別精度の向上は保証されません。",
       "classification_image_snapshot": "検出スナップショット",
       "classification_image_recording": "録画フレーム",
-      "classification_image_recording_cost": "Frigate は検出ごとに録画フレームを 1 枚デコードし、YA-WAMF はより大きな画像をダウンロードして処理します。",
-      "classification_image_recording_fallback": "録画の保持と、Frigate のクリーンなスナップショットコピー ({setting}) が必要です。どちらかがない、フレームが大きくない、縦横比が異なる、または読み込みが合計 5 秒を超える場合は、検出スナップショットを使用します。",
+      "classification_image_recording_cost": "Frigate は検出ごとに録画フレームを 1 枚デコードし、YA-WAMF がそれをダウンロードして処理します。",
+      "classification_image_recording_fallback": "録画の保持と、Frigate のクリーンなスナップショットコピー ({setting}) が必要です。Frigate が録画フレームを提供できるのは、その部分の録画が書き込まれた後、約 10〜15 秒後です。そのため新しい検出の識別もその分遅れます。30 秒以内にフレームが届かない場合、またはフレームが小さい、縦横比が異なる場合は、検出スナップショットを使用します。",
       "classification_image_recording_scope": "新しい検出に適用され、見逃した検出として取得した過去のイベントも含みます。保存しても過去のイベントは取得されず、既存の写真も変更されません。再分類では保存済みの写真が優先されます。"
     },
     "cameras": {

@@ -5,6 +5,9 @@ from __future__ import annotations
 import asyncio
 import math
 import hashlib
+import time
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from io import BytesIO
 
 from PIL import Image
@@ -23,6 +26,9 @@ from app.utils.image_io import decode_image_bytes
 
 log = structlog.get_logger()
 RECORDING_SNAPSHOT_TIMEOUT_SECONDS = 5.0
+# Frigate serves a recording frame only once its stretch of recording is written, 10 to 15 seconds
+# after the moment on a live install. A caller that can wait retries this often until its deadline.
+RECORDING_READY_RETRY_SECONDS = 3.0
 MAX_RECORDING_SNAPSHOT_BYTES = 16 * 1024 * 1024
 MAX_RECORDING_SNAPSHOT_PIXELS = 7680 * 4320
 
@@ -103,7 +109,75 @@ def _prepare_recording_snapshot(data: bytes) -> tuple[bytes, tuple[int, int]]:
         return output.getvalue(), size
 
 
+@dataclass(frozen=True)
+class RecordingRead:
+    """The image to classify, its provenance, and why: `recording_frame` when the recording was used."""
+
+    snapshot: bytes | None
+    provenance: ClassificationInputProvenance
+    reason: str
+
+
+def recording_frame_time(event_data: dict[str, Any] | None) -> float | None:
+    """The moment Frigate's best snapshot shows, from an MQTT snapshot or a REST payload."""
+    event = event_data if isinstance(event_data, dict) else {}
+    snapshot = event.get("snapshot")
+    if isinstance(snapshot, dict) and snapshot:
+        return _timestamp(snapshot.get("frame_time"))
+    payload = event.get("data")
+    return _timestamp(payload.get("snapshot_frame_time")) if isinstance(payload, dict) else None
+
+
 async def prefer_recording_snapshot(
+    event_id: str,
+    event_data: dict[str, Any] | None,
+    snapshot: bytes | None,
+    provenance: ClassificationInputProvenance,
+    *,
+    client: Any | None = None,
+) -> tuple[bytes | None, ClassificationInputProvenance]:
+    """Try one bounded frame read; keep the original on every unavailable/unsafe path."""
+    result = await read_recording_snapshot(event_id, event_data, snapshot, provenance, client=client)
+    return result.snapshot, result.provenance
+
+
+async def read_recording_snapshot(
+    event_id: str,
+    event_data: dict[str, Any] | None,
+    snapshot: bytes | None,
+    provenance: ClassificationInputProvenance,
+    *,
+    client: Any | None = None,
+    ready_by: float | None = None,
+    now: Callable[[], float] | None = None,
+    sleep: Callable[[float], Awaitable[Any]] | None = None,
+) -> RecordingRead:
+    """Read the recording frame, waiting until `ready_by` (epoch seconds) for one not yet written.
+
+    Without a deadline a missing recording is read once, as backfill and reclassification of past
+    events need. Every other reason to keep the detection snapshot is final at once.
+    """
+    clock = now or time.time
+    pause = sleep or asyncio.sleep
+    while True:
+        result = await _read_recording_snapshot_once(event_id, event_data, snapshot, provenance, client=client)
+        if result.reason != "recording_not_ready" or ready_by is None:
+            break
+        remaining = ready_by - clock()
+        if remaining <= 0:
+            break
+        await pause(min(RECORDING_READY_RETRY_SECONDS, remaining))
+    if result.reason not in {"recording_frame", "not_requested"}:
+        # Info, not debug: an owner who chose the recording frame needs to see why it was not used.
+        log.info(
+            "Recording frame not used; identifying from the detection snapshot",
+            event_id=event_id,
+            reason=result.reason,
+        )
+    return result
+
+
+async def _read_recording_snapshot_once(
     event_id: str,
     event_data: dict[str, Any] | None,
     snapshot: bytes | None,
@@ -117,13 +191,13 @@ async def prefer_recording_snapshot(
     Retained owner-selected photos are handled before this function by callers.
     """
     if settings.frigate.classification_image_source != "recording_snapshot" or not snapshot or provenance.is_cropped:
-        return snapshot, provenance
+        return RecordingRead(snapshot, provenance, "not_requested")
     if provenance.input_source not in {"frigate_snapshot", "frigate_snapshot_uncropped"}:
-        return snapshot, provenance
+        return RecordingRead(snapshot, provenance, "not_requested")
     event = event_data if isinstance(event_data, dict) else {}
     camera = event.get("camera")
     if not isinstance(camera, str) or not camera.strip():
-        return snapshot, provenance
+        return RecordingRead(snapshot, provenance, "no_camera")
     from app.services.frigate_client import frigate_client
 
     selected_client = client if client is not None else frigate_client
@@ -140,36 +214,46 @@ async def prefer_recording_snapshot(
             )
             if not clean:
                 log.debug("Clean snapshot unavailable; keeping detection snapshot", event_id=event_id, reason=error)
-                return snapshot, fallback_provenance
+                return RecordingRead(snapshot, fallback_provenance, "clean_snapshot_unavailable")
             detection_size = await asyncio.to_thread(_image_size, clean)
             alignment = _snapshot_alignment(event, detection_size)
             if alignment is None:
-                return snapshot, fallback_provenance
+                return RecordingRead(snapshot, fallback_provenance, "snapshot_time_unknown")
             frame_time, box = alignment
             recording, error = await selected_client.get_recording_snapshot_with_error(
                 camera, frame_time, timeout=RECORDING_SNAPSHOT_TIMEOUT_SECONDS
             )
             if not recording:
                 log.debug("Recording snapshot unavailable; keeping detection snapshot", event_id=event_id, reason=error)
-                return snapshot, fallback_provenance
+                # Frigate answers 404 until the stretch of recording holding the moment is written.
+                reason = "recording_not_ready" if error == "recording_snapshot_http_404" else "recording_unavailable"
+                return RecordingRead(snapshot, fallback_provenance, reason)
             recording, recording_size = await asyncio.to_thread(_prepare_recording_snapshot, recording)
         dw, dh = detection_size
         rw, rh = recording_size
-        if rw <= dw or rh <= dh or not math.isclose(rw / rh, dw / dh, rel_tol=0.01):
-            return snapshot, fallback_provenance
+        # Equal size is accepted: a sub stream scaled up to the detect size is a blurrier copy of the
+        # same view, and the recording frame is the native picture.
+        if rw < dw or rh < dh:
+            return RecordingRead(snapshot, fallback_provenance, "recording_smaller")
+        if not math.isclose(rw / rh, dw / dh, rel_tol=0.01):
+            return RecordingRead(snapshot, fallback_provenance, "recording_different_shape")
         detected_box = restore_frigate_hint_box(box, detection_size)
         crop_box = frigate_snapshot_crop_box(detected_box, detection_size) if detected_box else None
         crop_region = normalize_frigate_hint_box(crop_box, detection_size) if crop_box else None
-        return recording, ClassificationInputProvenance(
-            "frigate_recording_snapshot",
-            False,
-            frame_time,
-            box,
-            crop_region,
-            await asyncio.to_thread(lambda: hashlib.sha256(recording).hexdigest()),
+        return RecordingRead(
+            recording,
+            ClassificationInputProvenance(
+                "frigate_recording_snapshot",
+                False,
+                frame_time,
+                box,
+                crop_region,
+                await asyncio.to_thread(lambda: hashlib.sha256(recording).hexdigest()),
+            ),
+            "recording_frame",
         )
     except Exception as exc:
         log.debug(
             "Recording snapshot unavailable; keeping detection snapshot", event_id=event_id, error=type(exc).__name__
         )
-        return snapshot, fallback_provenance
+        return RecordingRead(snapshot, fallback_provenance, "recording_unavailable")
