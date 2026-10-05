@@ -5,6 +5,8 @@
     import { fanPoint, layoutTree, treePoint, type PlacedNode } from '../taxonomy/tree-layout';
     import { isSeen, taxonLabel, visibleTree, type BranchState, type TreeItem } from '../taxonomy/tree-model';
     import { portal } from '../utils/portal';
+    import { isHoverPointer, isKeyboardFocus, TaxonPeek } from '../utils/taxon-peek.svelte';
+    import TaxonCard from './TaxonCard.svelte';
     import { logger } from '../utils/logger';
 
     /**
@@ -41,6 +43,8 @@
     let branches = $state.raw<Map<number, BranchState>>(new Map());
     let expanded = $state.raw<Set<number>>(new Set());
     let failed = $state(false);
+    // One card for the whole tree: a species' reference photo, any group's size and what was seen of it.
+    const peek = new TaxonPeek();
 
     function setBranch(id: number, change: Partial<BranchState>): void {
         const next = new Map(branches);
@@ -130,9 +134,23 @@
         return node?.data.kind === 'taxon' && node.data.onPath;
     }
 
-    function activate(item: TreeItem): void {
+    function activate(item: TreeItem, element?: Element): void {
         if (item.kind === 'more') showAll(item.parentId);
-        else toggle(item.taxon);
+        // A species has nothing beneath it to open, so selecting it shows its card.
+        else if (item.taxon.rank === 'species') {
+            if (element) peek.toggle(item.taxon, item.current, element);
+        } else {
+            peek.close();
+            toggle(item.taxon);
+        }
+    }
+
+    function peekHover(event: PointerEvent, item: TreeItem): void {
+        if (item.kind === 'taxon' && isHoverPointer(event)) peek.hover(item.taxon, item.current, event.currentTarget as Element);
+    }
+
+    function peekFocus(event: FocusEvent, item: TreeItem): void {
+        if (item.kind === 'taxon' && isKeyboardFocus(event.currentTarget)) peek.focus(item.taxon, item.current, event.currentTarget as Element);
     }
 
     function nodeLabel(item: TreeItem): string {
@@ -165,7 +183,7 @@
     function onNodeKey(event: KeyboardEvent, item: TreeItem): void {
         if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
-            activate(item);
+            activate(item, event.currentTarget as Element);
         }
     }
 
@@ -184,6 +202,7 @@
     }
 
     function setMode(next: Mode): void {
+        peek.close();
         mode = next;
         try {
             localStorage.setItem(MODE_KEY, next);
@@ -196,7 +215,9 @@
     function onKey(event: KeyboardEvent): void {
         if (event.key === 'Escape') {
             event.stopPropagation();
-            onclose();
+            // An open card closes first; the tree stays open.
+            if (peek.anchor) peek.close();
+            else onclose();
         }
     }
 
@@ -280,9 +301,14 @@
                             <button
                                 type="button"
                                 class="flex w-full min-h-11 items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:bg-slate-800"
-                                aria-expanded={item.kind === 'taxon' && item.expandable ? item.expanded : undefined}
+                                aria-expanded={item.kind === 'taxon' ? (item.expandable ? item.expanded : peek.isOpen(item.taxon.taxon_id)) : undefined}
                                 aria-current={item.kind === 'taxon' && item.current ? 'true' : undefined}
-                                onclick={() => activate(item)}
+                                onclick={(event) => activate(item, event.currentTarget)}
+                                onpointerenter={(event) => peekHover(event, item)}
+                                onpointerleave={() => peek.leave()}
+                                onfocus={(event) => peekFocus(event, item)}
+                                onblur={() => peek.leave()}
+                                data-taxon-peek-trigger
                             >
                                 <span class="w-3 text-slate-400" aria-hidden="true">{item.kind === 'taxon' && item.expandable ? (item.expanded ? '▾' : '▸') : ''}</span>
                                 {#if item.kind === 'more'}
@@ -320,10 +346,15 @@
                             role="button"
                             tabindex="0"
                             aria-label={ariaFor(item)}
-                            aria-expanded={item.kind === 'taxon' && item.expandable ? item.expanded : undefined}
+                            aria-expanded={item.kind === 'taxon' ? (item.expandable ? item.expanded : peek.isOpen(item.taxon.taxon_id)) : undefined}
                             class="tree-node cursor-pointer focus:outline-none"
-                            onclick={() => activate(item)}
+                            onclick={(event) => activate(item, event.currentTarget)}
                             onkeydown={(event) => onNodeKey(event, item)}
+                            onpointerenter={(event) => peekHover(event, item)}
+                            onpointerleave={() => peek.leave()}
+                            onfocus={(event) => peekFocus(event, item)}
+                            onblur={() => peek.leave()}
+                            data-taxon-peek-trigger
                             data-family-tree-node={item.kind === 'taxon' ? item.taxon.taxon_id : `more:${item.parentId}`}
                         >
                             <circle
@@ -366,6 +397,9 @@
         </footer>
     </div>
 </div>
+
+<TaxonCard {peek} />
+
 
 <style>
     /* A halo in the canvas colour, so a branch passing behind a label never strikes it through. */

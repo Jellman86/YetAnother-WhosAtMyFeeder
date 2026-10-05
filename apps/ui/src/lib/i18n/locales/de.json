@@ -3235,6 +3235,10 @@
       "infraphylum": "Infrastamm",
       "parvphylum": "Parvstamm",
       "megaclass": "Megaklasse"
-    }
+    },
+    "reference_photo": "Referenzfoto",
+    "no_reference_photo": "Kein Referenzfoto",
+    "not_seen_here": "An diesem Futterplatz noch nicht gesehen",
+    "group_summary": "{total} Arten weltweit, {seen} hier gesehen"
   }
 }

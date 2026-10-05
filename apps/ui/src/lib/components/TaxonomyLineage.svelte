@@ -3,7 +3,9 @@
     import { fetchSpeciesLineage, type Taxon } from '../api/taxonomy';
     import { taxonLabel } from '../taxonomy/tree-model';
     import { logger } from '../utils/logger';
+    import { isHoverPointer, isKeyboardFocus, TaxonPeek } from '../utils/taxon-peek.svelte';
     import FamilyTreeDialog from './FamilyTreeDialog.svelte';
+    import TaxonCard from './TaxonCard.svelte';
 
     /**
      * Where this bird belongs, in a line from its class down to it, with one line of context and
@@ -19,6 +21,7 @@
     let lineage = $state.raw<Taxon[] | null>(null);
     let loading = $state(true);
     let open = $state(false);
+    const peek = new TaxonPeek();
 
     $effect(() => {
         const name = scientificName.trim();
@@ -67,12 +70,22 @@
                         <span class="absolute left-1/2 w-0.5 -translate-x-1/2 bg-amber-300/70 {first ? 'top-1/2' : 'top-0'} {last ? 'bottom-1/2' : 'bottom-0'}"></span>
                         <span class="relative block rounded-full {last ? 'h-3.5 w-3.5 bg-amber-400 ring-2 ring-amber-200 dark:ring-amber-900' : 'h-2.5 w-2.5 bg-amber-400'}"></span>
                     </span>
-                    <span class="flex min-w-0 flex-1 items-baseline gap-2 py-1">
+                    <button
+                        type="button"
+                        class="flex min-w-0 items-baseline gap-2 rounded-md px-1 py-1 text-left hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:bg-slate-800"
+                        aria-expanded={peek.isOpen(taxon.taxon_id)}
+                        onpointerenter={(event) => isHoverPointer(event) && peek.hover(taxon, last, event.currentTarget)}
+                        onpointerleave={() => peek.leave()}
+                        onfocus={(event) => isKeyboardFocus(event.currentTarget) && peek.focus(taxon, last, event.currentTarget)}
+                        onblur={() => peek.leave()}
+                        onclick={(event) => peek.toggle(taxon, last, event.currentTarget)}
+                        data-taxon-peek-trigger
+                    >
                         <span class="truncate text-sm {last ? 'font-bold text-slate-900 dark:text-white' : 'font-semibold text-slate-700 dark:text-slate-200'}">{taxonLabel(taxon)}</span>
                         {#if taxon.name && taxon.rank !== 'species'}
                             <span class="hidden truncate text-xs italic text-slate-500 dark:text-slate-400 sm:inline">{taxon.scientific_name}</span>
                         {/if}
-                    </span>
+                    </button>
                 </li>
             {/each}
         </ol>
@@ -84,11 +97,16 @@
                 })}
             </p>
         {/if}
-        <button type="button" class="btn btn-secondary px-3 py-1.5 text-xs" onclick={() => (open = true)} data-taxonomy-open-tree>
+        <button type="button" class="btn btn-secondary px-3 py-1.5 text-xs" onclick={() => {
+                peek.close();
+                open = true;
+            }} data-taxonomy-open-tree>
             {$_('taxonomy.open', { default: 'Open the family tree' })}
         </button>
     </section>
 {/if}
+
+<TaxonCard {peek} />
 
 {#if open && lineage}
     <FamilyTreeDialog {lineage} onclose={() => (open = false)} />

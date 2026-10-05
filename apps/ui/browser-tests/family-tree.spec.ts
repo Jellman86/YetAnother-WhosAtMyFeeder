@@ -34,11 +34,23 @@ const species = [t(51, 'species', 'Prunella collaris', 'Alpine Accentor', 40, 1)
 const columbidae = [t(60, 'family', 'Columbidae', 'Pigeons, Doves', 22, 350, 1, 3)];
 const children: Record<number, Taxon[]> = { 10: orders, 20: families, 30: genera, 40: species, 22: columbidae, 60: [] };
 
+// A plain image standing in for a Wikimedia reference photograph.
+const PICTURE = '<svg xmlns="http://www.w3.org/2000/svg" width="4" height="3"><rect width="4" height="3" fill="#6b8e23"/></svg>';
+const REFERENCE = 'https://upload.wikimedia.org/wikipedia/commons/thumb/dunnock.jpg';
+
 async function prepare(page: Page, path = '/browser-tests/family-tree.html', familyName = 'Accentors') {
     const errors: string[] = [];
+    const infoRequests: string[] = [];
     page.on('pageerror', (error) => errors.push(error.message));
+    await page.route(REFERENCE, (route) => route.fulfill({ contentType: 'image/svg+xml', body: PICTURE }));
     await page.route((url) => url.pathname.startsWith('/api/'), async (route) => {
         const url = new URL(route.request().url());
+        const info = url.pathname.match(/^\/api\/species\/(.+)\/info$/);
+        if (info) {
+            const name = decodeURIComponent(info[1]);
+            infoRequests.push(name);
+            return route.fulfill({ json: { title: name, scientific_name: name, thumbnail_url: name === 'Prunella modularis' ? REFERENCE : null } });
+        }
         if (url.pathname === '/api/taxonomy/lineage') {
             if (url.searchParams.get('scientific_name') !== 'Prunella modularis') return route.fulfill({ status: 404, json: { detail: 'Species not in the catalogue' } });
             return route.fulfill({ json: { lineage: lineage.map((taxon) => (taxon.rank === 'family' ? { ...taxon, name: familyName } : taxon)) } });
@@ -48,7 +60,7 @@ async function prepare(page: Page, path = '/browser-tests/family-tree.html', fam
         throw new Error(`Unexpected family tree fixture request: ${url}`);
     });
     await page.goto(path);
-    return { errors };
+    return { errors, infoRequests };
 }
 
 test('the detection card shows the lineage from class to species, with context, and opens the tree', async ({ page }) => {
@@ -125,4 +137,74 @@ test('the card and the tree fit a 320px phone, one rank per row even with a long
     await expect(page.locator('[data-family-tree-mode="outline"]')).toHaveAttribute('aria-pressed', 'true');
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath('family-tree-320.png') });
+});
+
+test('a name opens its card on hover and keyboard focus: a species with its reference photo, a group with its size', async ({ page }) => {
+    const { errors, infoRequests } = await prepare(page);
+    const card = page.locator('[data-taxon-card]');
+    const dunnock = page.locator('[data-taxonomy-lineage] button', { hasText: 'Dunnock' });
+    await dunnock.hover();
+    await expect(card).toBeVisible();
+    await expect(card).toHaveAttribute('aria-label', 'Dunnock');
+    await expect(card.locator('[data-taxon-card-picture]')).toHaveAttribute('src', REFERENCE);
+    await expect(card.locator('[data-taxon-card-seen]')).toHaveText('324 captures here');
+    await expect(dunnock).toHaveAttribute('aria-expanded', 'true');
+    // The pointer may travel into the card without it closing.
+    await card.hover();
+    await expect(card).toBeVisible();
+    await page.mouse.move(5, 700);
+    await expect(card).toHaveCount(0);
+    // A group has no picture: it says how big it is and what was seen of it.
+    await page.locator('[data-taxonomy-lineage] button', { hasText: 'Accentors' }).hover();
+    await expect(card).toHaveAttribute('aria-label', 'Accentors');
+    await expect(card.locator('[data-taxon-card-picture], [data-taxon-card-no-picture]')).toHaveCount(0);
+    await expect(card.locator('[data-taxon-card-seen]')).toHaveText('13 species worldwide, 1 seen here');
+    await page.mouse.move(5, 700);
+    await expect(card).toHaveCount(0);
+    // Keyboard focus opens it at once, and Escape closes it.
+    await page.locator('[data-taxonomy-lineage] button', { hasText: 'Prunella' }).focus();
+    await page.keyboard.press('Tab');
+    await expect(card).toHaveAttribute('aria-label', 'Dunnock');
+    await page.keyboard.press('Escape');
+    await expect(card).toHaveCount(0);
+    // Looking again costs no second request.
+    await dunnock.hover();
+    await expect(card.locator('[data-taxon-card-picture]')).toBeVisible();
+    expect(infoRequests).toEqual(['Prunella modularis']);
+    expect(errors).toEqual([]);
+});
+
+test('a click pins the card until a click elsewhere, so a tap can open it', async ({ page }) => {
+    await prepare(page);
+    const card = page.locator('[data-taxon-card]');
+    await page.locator('[data-taxonomy-lineage] button', { hasText: 'Dunnock' }).click();
+    await expect(card).toBeVisible();
+    await page.mouse.move(5, 700);
+    await expect(card).toBeVisible();
+    await page.mouse.click(5, 700);
+    await expect(card).toHaveCount(0);
+});
+
+test('in the tree a species opens its card, a species without a photo says so, and Escape closes the card before the tree', async ({ page }) => {
+    await prepare(page);
+    await page.getByRole('button', { name: 'Open the family tree' }).click();
+    const svg = page.locator('[data-family-tree-svg="tree"]');
+    const card = page.locator('[data-taxon-card]');
+    await svg.locator('[data-family-tree-node="more:40"]').click();
+    await svg.locator('[data-family-tree-node="51"]').click();
+    await expect(card).toHaveAttribute('aria-label', 'Alpine Accentor');
+    await expect(card.locator('[data-taxon-card-no-picture]')).toHaveText('No reference photo');
+    await expect(card.locator('[data-taxon-card-seen]')).toHaveText('Not seen at this feeder yet');
+    await expect(svg.locator('[data-family-tree-node="51"]')).toHaveAttribute('aria-expanded', 'true');
+    await page.keyboard.press('Escape');
+    await expect(card).toHaveCount(0);
+    await expect(page.locator('[data-family-tree]')).toBeVisible();
+    // Opening a group closes any card and still opens the branch.
+    await svg.locator('[data-family-tree-node="50"]').click();
+    await expect(card).toHaveAttribute('aria-label', 'Dunnock');
+    await svg.locator('[data-family-tree-node="22"]').click();
+    await expect(card).toHaveCount(0);
+    await expect(svg.locator('[data-family-tree-node="60"]')).toHaveCount(1);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('[data-family-tree]')).toHaveCount(0);
 });

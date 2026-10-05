@@ -3235,6 +3235,10 @@
       "infraphylum": "下门",
       "parvphylum": "小门",
       "megaclass": "大纲"
-    }
+    },
+    "reference_photo": "参考照片",
+    "no_reference_photo": "没有参考照片",
+    "not_seen_here": "此喂食器尚未观察到",
+    "group_summary": "全球 {total} 个物种，此处已见 {seen} 个"
   }
 }

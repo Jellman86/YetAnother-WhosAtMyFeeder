@@ -3235,6 +3235,10 @@
       "infraphylum": "Infratipo",
       "parvphylum": "Parvtipo",
       "megaclass": "Megaclasse"
-    }
+    },
+    "reference_photo": "Foto di riferimento",
+    "no_reference_photo": "Nessuna foto di riferimento",
+    "not_seen_here": "Non ancora visto a questa mangiatoia",
+    "group_summary": "{total} specie nel mondo, {seen} viste qui"
   }
 }

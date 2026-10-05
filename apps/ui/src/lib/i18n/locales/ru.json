@@ -3235,6 +3235,10 @@
       "infraphylum": "Инфратип",
       "parvphylum": "Парвтип",
       "megaclass": "Мегакласс"
-    }
+    },
+    "reference_photo": "Эталонное фото",
+    "no_reference_photo": "Нет эталонного фото",
+    "not_seen_here": "У этой кормушки ещё не замечен",
+    "group_summary": "{total} видов в мире, {seen} замечено здесь"
   }
 }

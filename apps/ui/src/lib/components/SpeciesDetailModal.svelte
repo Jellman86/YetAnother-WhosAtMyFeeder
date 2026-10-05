@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onMount, untrack } from 'svelte';
     import Map from './Map.svelte';
+    import TaxonomyLineage from './TaxonomyLineage.svelte';
     import {
         fetchSpeciesStats,
         fetchSpeciesInfo,
@@ -74,6 +75,9 @@
     });
 
     let info = $state<SpeciesInfo | null>(null);
+    // The name this feeder's records carry first, as the catalogue resolves those; the reference
+    // source's spelling only when no record holds one.
+    const lineageName = $derived(stats?.scientific_name || info?.scientific_name || null);
     let loading = $state(true);
     let error = $state<string | null>(null);
     let isUnknownBird = $state(false);
@@ -705,6 +709,12 @@
                             </div>
                         </section>
                     {/if}
+                {/if}
+
+                {#if !isUnknownBird && lineageName}
+                    <section data-species-taxonomy class="border-t border-slate-200 pt-8 dark:border-slate-700">
+                        <TaxonomyLineage scientificName={lineageName} />
+                    </section>
                 {/if}
 
                 <!-- Species Description -->

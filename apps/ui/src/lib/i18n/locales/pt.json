@@ -3235,6 +3235,10 @@
       "infraphylum": "Infrafilo",
       "parvphylum": "Parvfilo",
       "megaclass": "Megaclasse"
-    }
+    },
+    "reference_photo": "Foto de referência",
+    "no_reference_photo": "Sem foto de referência",
+    "not_seen_here": "Ainda não visto neste comedouro",
+    "group_summary": "{total} espécies no mundo, {seen} vistas aqui"
   }
 }
