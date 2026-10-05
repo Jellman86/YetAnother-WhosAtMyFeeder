@@ -4238,6 +4238,19 @@ class DetectionRepository:
             out.append((bucket_start, count))
         return out
 
+    async def species_identity_counts(
+        self, *, start_date: datetime | None = None, end_date: datetime | None = None
+    ) -> dict[int, int]:
+        """Visible detections per catalogue identity, for placing what was seen here on the taxonomy."""
+        bounds_sql, bounds_params = _history_bounds_sql(start_date, end_date, "d.detection_time")
+        query = f"""
+            SELECT d.species_id, COUNT(*) FROM detections d
+            WHERE d.species_id IS NOT NULL AND (d.is_hidden = 0 OR d.is_hidden IS NULL){bounds_sql}
+            GROUP BY d.species_id
+        """
+        async with self.db.execute(query, bounds_params) as cursor:
+            return {int(species_id): int(count) for species_id, count in await cursor.fetchall()}
+
     async def get_species_leaderboard_base(
         self, *, start_date: datetime | None = None, end_date: datetime | None = None
     ) -> list[dict]:

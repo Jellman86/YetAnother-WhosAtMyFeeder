@@ -487,11 +487,17 @@ returned with `principal: false` so a view may collapse them. A taxon id is the 
 for a species it is the same `species_id` detections carry.
 
 - `GET /api/taxonomy/{taxon_id}/lineage` — the taxon and every taxon above it, root first, each with
-  rank, scientific name, common name in the reader's language where one exists, and source. 404 when
-  the catalogue does not hold the taxon.
+  rank, scientific name, common name in the reader's language where one exists, source and
+  `species_count`, the species beneath it. 404 when the catalogue does not hold the taxon.
+- `GET /api/taxonomy/lineage?scientific_name=` — the same lineage for a species named by its
+  scientific name, as a detection carries it. Only species resolve; 404 for a name the catalogue
+  does not hold.
 - `GET /api/taxonomy/{taxon_id}/children` — the taxa directly beneath one in the source's order
-  (IOC sequence for birds), each with `species_count`, the species beneath it. Query: `limit`
-  (1 to 5000, default 500).
+  (IOC sequence for birds), each with `species_count`. Query: `limit` (1 to 5000, default 500).
+
+Every taxon in these responses also carries what this feeder has seen beneath it: `seen_species`
+(distinct species) and `seen_count` (visible detections). The owner sees the whole history; a
+guest sees the window public access allows, as everywhere else.
 
 ### Statistics
 

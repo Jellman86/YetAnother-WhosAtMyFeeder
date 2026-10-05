@@ -3201,5 +3201,40 @@
     "capture_birds": "{count} 只鸟",
     "loaded_of_total": "已显示 {shown}/{total} 次拍摄",
     "captures_empty": "此视图中看不到本次到访的拍摄。"
+  },
+  "taxonomy": {
+    "title": "{name} 的系统树",
+    "small_heading": "系统树",
+    "lineage_label": "分类（从纲到种）",
+    "context": "{group}：全球 {total} 种，此喂食器见到 {seen} 种。",
+    "open": "打开系统树",
+    "layouts": "视图",
+    "layout_tree": "树形",
+    "layout_fan": "扇形",
+    "layout_outline": "大纲",
+    "legend_path": "到这只鸟的路径",
+    "legend_seen": "在此喂食器见到",
+    "legend_open": "选择一个类群以展开或收起",
+    "loading": "正在加载系统树",
+    "outline_label": "系统树大纲",
+    "branch_failed": "部分树未能加载。重新打开即可重试。",
+    "source_note": "鸟类分类依据 IOC World Bird List，更高阶元依据 Catalogue of Life。它展示物种如何归类，而非何时分化。",
+    "more": "另外 {count} 个",
+    "seen_here": "此处见到 {count} 种",
+    "captures_here": "此处 {count} 次记录",
+    "this_bird": "这只鸟",
+    "rank": {
+      "kingdom": "界",
+      "phylum": "门",
+      "class": "纲",
+      "order": "目",
+      "family": "科",
+      "genus": "属",
+      "species": "种",
+      "subphylum": "亚门",
+      "infraphylum": "下门",
+      "parvphylum": "小门",
+      "megaclass": "大纲"
+    }
   }
 }

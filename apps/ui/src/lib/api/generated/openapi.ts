@@ -2123,6 +2123,8 @@ export interface components {
     principal: boolean;
     rank: string;
     scientific_name: string;
+    seen_count?: number | null;
+    seen_species?: number | null;
     source?: string | null;
     species_count?: number | null;
     taxon_id: number;
@@ -4273,6 +4275,17 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: components['schemas']['SystemTelemetryHistoryResponse'];
+    };
+  };
+  "/api/taxonomy/lineage": {
+    get: {
+      operationId: "get_species_lineage_api_taxonomy_lineage_get";
+      path: never;
+      query: {
+    scientific_name: string;
+};
+      requestBody: unknown;
+      response: components['schemas']['TaxonLineageResponse'];
     };
   };
   "/api/taxonomy/{taxon_id}/children": {

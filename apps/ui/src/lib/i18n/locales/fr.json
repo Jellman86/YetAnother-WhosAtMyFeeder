@@ -3201,5 +3201,40 @@
     "capture_birds": "{count} oiseaux",
     "loaded_of_total": "{shown} captures affichées sur {total}",
     "captures_empty": "Aucune capture de cette visite n’est visible dans cette vue."
+  },
+  "taxonomy": {
+    "title": "Arbre de famille : {name}",
+    "small_heading": "Arbre de famille",
+    "lineage_label": "Classification, de la classe à l'espèce",
+    "context": "{group} : {total} espèces dans le monde, {seen} vues à cette mangeoire.",
+    "open": "Ouvrir l'arbre de famille",
+    "layouts": "Affichage",
+    "layout_tree": "Arbre",
+    "layout_fan": "Éventail",
+    "layout_outline": "Plan",
+    "legend_path": "Chemin vers cet oiseau",
+    "legend_seen": "Vu à cette mangeoire",
+    "legend_open": "Sélectionnez un groupe pour l'ouvrir ou le fermer",
+    "loading": "Chargement de l'arbre de famille",
+    "outline_label": "Plan de l'arbre de famille",
+    "branch_failed": "Une partie de l'arbre n'a pas pu être chargée. Rouvrez-la pour réessayer.",
+    "source_note": "Classification de l'IOC World Bird List pour les oiseaux et du Catalogue of Life au-dessus. Elle montre comment les espèces sont regroupées, pas quand elles ont divergé.",
+    "more": "{count} de plus",
+    "seen_here": "{count} vues ici",
+    "captures_here": "{count} captures ici",
+    "this_bird": "cet oiseau",
+    "rank": {
+      "kingdom": "Règne",
+      "phylum": "Embranchement",
+      "class": "Classe",
+      "order": "Ordre",
+      "family": "Famille",
+      "genus": "Genre",
+      "species": "Espèce",
+      "subphylum": "Sous-embranchement",
+      "infraphylum": "Infra-embranchement",
+      "parvphylum": "Parvembranchement",
+      "megaclass": "Mégaclasse"
+    }
   }
 }

@@ -1,4 +1,5 @@
 <script lang="ts">
+    import TaxonomyLineage from './TaxonomyLineage.svelte';
     import Map from './Map.svelte';
     import {
         getSnapshotUrl,
@@ -3444,6 +3445,10 @@
                 </section>
             {/if}
 
+
+            {#if !isUnknownSpecies && detection.scientific_name}
+                <TaxonomyLineage scientificName={detection.scientific_name} />
+            {/if}
 
             {#if !isUnknownSpecies && (speciesInfoLoading || speciesInfo || speciesInfoError || showEbirdNearby)}
                 <section data-detection-reference class="space-y-3">

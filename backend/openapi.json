@@ -16210,6 +16210,30 @@
             "title": "Scientific Name",
             "type": "string"
           },
+          "seen_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Detections of those species here, in the reader's window",
+            "title": "Seen Count"
+          },
+          "seen_species": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Species beneath this taxon (or this species) with a detection here, in the reader's window",
+            "title": "Seen Species"
+          },
           "source": {
             "anyOf": [
               {
@@ -16231,7 +16255,7 @@
                 "type": "null"
               }
             ],
-            "description": "Species beneath this taxon, on branch reads",
+            "description": "Species at or beneath this taxon in the catalogue",
             "title": "Species Count"
           },
           "taxon_id": {
@@ -27480,6 +27504,62 @@
         ]
       }
     },
+    "/api/taxonomy/lineage": {
+      "get": {
+        "description": "Where a species sits, found by its scientific name through the catalogue (synonyms included).",
+        "operationId": "get_species_lineage_api_taxonomy_lineage_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "scientific_name",
+            "required": true,
+            "schema": {
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Scientific Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaxonLineageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Species Lineage",
+        "tags": [
+          "taxonomy"
+        ]
+      }
+    },
     "/api/taxonomy/{taxon_id}/children": {
       "get": {
         "description": "The taxa directly beneath one, in the source's order, each with the number of species it holds.",
@@ -27548,7 +27628,7 @@
     },
     "/api/taxonomy/{taxon_id}/lineage": {
       "get": {
-        "description": "Where a taxon sits: every taxon above it, root first. Catalogue data only, so the same for every reader.",
+        "description": "Where a taxon sits: every taxon above it, root first, with what was seen here beneath each.",
         "operationId": "get_taxon_lineage_api_taxonomy__taxon_id__lineage_get",
         "parameters": [
           {

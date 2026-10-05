@@ -3201,5 +3201,40 @@
     "capture_birds": "{count} Vögel",
     "loaded_of_total": "{shown} von {total} Aufnahmen angezeigt",
     "captures_empty": "In dieser Ansicht sind keine Aufnahmen dieses Besuchs sichtbar."
+  },
+  "taxonomy": {
+    "title": "Stammbaum: {name}",
+    "small_heading": "Stammbaum",
+    "lineage_label": "Systematik, von der Klasse bis zur Art",
+    "context": "{group}: {total} Arten weltweit, {seen} an diesem Futterhaus gesehen.",
+    "open": "Stammbaum öffnen",
+    "layouts": "Ansicht",
+    "layout_tree": "Baum",
+    "layout_fan": "Fächer",
+    "layout_outline": "Gliederung",
+    "legend_path": "Weg zu diesem Vogel",
+    "legend_seen": "An diesem Futterhaus gesehen",
+    "legend_open": "Eine Gruppe auswählen, um sie zu öffnen oder zu schließen",
+    "loading": "Stammbaum wird geladen",
+    "outline_label": "Gliederung des Stammbaums",
+    "branch_failed": "Ein Teil des Baums konnte nicht geladen werden. Zum erneuten Versuch noch einmal öffnen.",
+    "source_note": "Systematik nach der IOC World Bird List für Vögel und dem Catalogue of Life darüber. Sie zeigt, wie Arten gruppiert sind, nicht wann sie sich getrennt haben.",
+    "more": "{count} weitere",
+    "seen_here": "{count} hier gesehen",
+    "captures_here": "{count} Aufnahmen hier",
+    "this_bird": "dieser Vogel",
+    "rank": {
+      "kingdom": "Reich",
+      "phylum": "Stamm",
+      "class": "Klasse",
+      "order": "Ordnung",
+      "family": "Familie",
+      "genus": "Gattung",
+      "species": "Art",
+      "subphylum": "Unterstamm",
+      "infraphylum": "Infrastamm",
+      "parvphylum": "Parvstamm",
+      "megaclass": "Megaklasse"
+    }
   }
 }

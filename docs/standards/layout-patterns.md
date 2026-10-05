@@ -186,6 +186,17 @@ scientific naming preferences as the full record.
 On a phone the comparison pop-out is a sheet at the foot of the screen with a backdrop and its
 own Close, because there is no hover to lose.
 
+Beneath the identification, `TaxonomyLineage` shows where the bird sits: one line from class to
+species with each rank named, the family's species worldwide against those seen here, and "Open
+the family tree". It shows nothing when the catalogue does not hold the bird; a missing lineage is
+not an error worth the space. `FamilyTreeDialog` is the full view: a horizontal tree centred on
+the bird, as taxonomy trees are usually drawn, with Animalia and Chordata as a breadcrumb rather
+than branches. Its path is open and amber; groups seen at this feeder are green and say how many;
+everything else in an open group is summed in one "more" node. A group's label sits above its node
+so branches never cross it, and every node is a keyboard button with `aria-expanded`. The fan and
+the outline list read the same visible tree. The tree is a ranked classification, and the footer
+says so: it shows grouping, not divergence.
+
 ### Standing (Leaderboard)
 
 ```
