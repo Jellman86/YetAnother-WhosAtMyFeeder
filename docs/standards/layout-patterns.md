@@ -194,7 +194,13 @@ the bird, as taxonomy trees are usually drawn, with Animalia and Chordata as a b
 than branches. Its path is open and amber; groups seen at this feeder are green and say how many;
 everything else in an open group is summed in one "more" node. A group's label sits above its node
 so branches never cross it, and every node is a keyboard button with `aria-expanded`. The fan and
-the outline list read the same visible tree. The tree is a ranked classification, and the footer
+the outline list read the same visible tree, and a narrow screen opens on the outline until the
+reader picks another. Every name in the ladder, the tree and the outline opens a `TaxonCard` under
+the §4 contract, one card per surface driven by `utils/taxon-peek.svelte.ts`: a species shows its
+reference photograph (one species-information request per species per page, through
+`utils/taxon-pictures.ts`), a group shows its size and what was seen here. A group never asks for a
+picture, because the species-information route would cache it as a species. Selecting a species,
+which has nothing to open, pins its card; the species details show the same ladder. The tree is a ranked classification, and the footer
 says so: it shows grouping, not divergence.
 
 ### Standing (Leaderboard)

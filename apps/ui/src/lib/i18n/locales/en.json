@@ -3235,6 +3235,10 @@
       "infraphylum": "Infraphylum",
       "parvphylum": "Parvphylum",
       "megaclass": "Megaclass"
-    }
+    },
+    "reference_photo": "Reference photo",
+    "no_reference_photo": "No reference photo",
+    "not_seen_here": "Not seen at this feeder yet",
+    "group_summary": "{total} species worldwide, {seen} seen here"
   }
 }

@@ -10,6 +10,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   ladder, one rank per row, so a long family name such as "Chats, Old World Flycatchers" no longer
   breaks the line into ragged rows. The full view opens as the outline on a narrow screen until
   another layout is chosen.
+- The species details now show the family tree too. Every name in it, in the ladder and in the full
+  tree, opens a card on hover, keyboard focus or tap. A species card shows a reference photograph
+  to compare a capture against and how often it was captured here; a group's card shows how many
+  species it holds worldwide and how many were seen here.
 - A detection now shows where its bird sits in the classification: a line from class to species
   beneath the identification, with how many species its family holds worldwide and how many have
   been seen at this feeder. "Open the family tree" shows the whole tree centred on the bird, with

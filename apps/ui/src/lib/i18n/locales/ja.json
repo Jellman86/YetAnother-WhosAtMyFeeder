@@ -3235,6 +3235,10 @@
       "infraphylum": "下門",
       "parvphylum": "小門",
       "megaclass": "大綱"
-    }
+    },
+    "reference_photo": "参考写真",
+    "no_reference_photo": "参考写真なし",
+    "not_seen_here": "この餌台ではまだ見られていません",
+    "group_summary": "世界で{total}種、ここで{seen}種を確認"
   }
 }

@@ -3235,6 +3235,10 @@
       "infraphylum": "Infra-embranchement",
       "parvphylum": "Parvembranchement",
       "megaclass": "Mégaclasse"
-    }
+    },
+    "reference_photo": "Photo de référence",
+    "no_reference_photo": "Pas de photo de référence",
+    "not_seen_here": "Pas encore vu à cette mangeoire",
+    "group_summary": "{total} espèces dans le monde, {seen} vues ici"
   }
 }

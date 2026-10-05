@@ -23,6 +23,17 @@ describe('species detail field-record layout', () => {
         expect(activity).toBeGreaterThan(reference);
     });
 
+    it('places the bird in its family tree after the record and before the reference text', () => {
+        const sightings = speciesDetailSource.indexOf('data-species-recent-sightings');
+        const taxonomy = speciesDetailSource.indexOf('data-species-taxonomy');
+        const reference = speciesDetailSource.indexOf('data-species-reference');
+
+        expect(taxonomy).toBeGreaterThan(sightings);
+        expect(reference).toBeGreaterThan(taxonomy);
+        expect(speciesDetailSource).toContain('<TaxonomyLineage scientificName={lineageName} />');
+        expect(speciesDetailSource).toMatch(/\{#if !isUnknownBird && lineageName\}/);
+    });
+
     it('removes the tiny-label and card-wall treatments', () => {
         expect(speciesDetailSource).not.toMatch(/text-\[(?:9|10|11)px\]/);
         expect(speciesDetailSource.match(/card-base/g) ?? []).toHaveLength(0);
