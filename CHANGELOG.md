@@ -6,6 +6,25 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Photos and visit video are always kept now, and the **Media Cache** and **Snapshots** switches
+  are gone (#622). With either off, YA-WAMF kept no photo of its own: a visit went blank once Frigate
+  dropped its event, a better photo after a reclassify had nowhere to go, and nothing said why.
+  **Settings → Data → Photos and video** now holds only limits: how long history and media are
+  kept, a size budget, and the newest or most visits per species. The one remaining choice is
+  whether to keep copies of Frigate's own event clips, which Frigate already holds.
+  - **If you had either switch off**, the upgrade turns off best-available snapshots once, and with
+    the cache off also full-visit clips. They were doing nothing for you before, and left on they
+    would start storing several MB (frames) to about 25 MB (clips) a visit. Turn them back on in
+    Settings if you want them. Basic photos cost about 0.3 MB a visit.
+    Restoring a configuration backup taken before the upgrade gets the same one-time change.
+  - `MEDIA_CACHE__ENABLED` and `MEDIA_CACHE__CACHE_SNAPSHOTS` are read only for that one-time
+    change; a startup warning names either while it is still set.
+  - Best-available snapshots now default to JPEG quality 90 instead of 95: these are full-resolution
+    frames, and 95 roughly doubled their size for little visible difference. An existing setting
+    is kept.
+  - A media folder that cannot be written is now reported in system checks, on the card and in
+    `/health`, rather than looking like a choice. Full-visit clips stream without being stored in
+    that case instead of failing, and automatic cleanup and the size budget always run.
 - The family tree reads properly on a phone. The detection card shows the classification as a
   ladder, one rank per row, so a long family name such as "Chats, Old World Flycatchers" no longer
   breaks the line into ragged rows. The full view opens as the outline on a narrow screen until

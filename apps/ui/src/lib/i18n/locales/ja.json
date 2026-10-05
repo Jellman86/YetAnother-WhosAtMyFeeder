@@ -524,9 +524,8 @@
       "purge_confirm": "{days}日より古い{count}件の検出とBirdNET-Goの音声を完全に削除しますか？お気に入りと各種の保持中の最新の訪問は残ります。この操作は元に戻せません。",
       "cleaning": "削除中…",
       "auto_cleanup_note": "自動クリーンアップは起動時に実行され、その後は 24 時間ごとに実行されます",
-      "cache_title": "メディアキャッシュ",
-      "cache_snapshots": "スナップショット",
-      "cache_clips": "動画クリップ",
+      "cache_title": "写真と動画",
+      "cache_clips": "Frigate のイベントクリップのコピーを保持",
       "cache_high_quality_event_snapshot_jpeg_quality": "HQ スナップショット JPEG 品質",
       "cache_high_quality_event_snapshot_jpeg_quality_help": "値を高くすると詳細が保持されますが、生成されるスナップショットファイルは大きくなります。",
       "cache_size": "キャッシュサイズ",
@@ -684,7 +683,11 @@
       "bird_scan_mode": "鳥の探索の強度",
       "bird_scan_mode_help": "標準はCPUの使用量を抑えます。高強度は大きな画像を分割して探索し、より多くの切り抜きを分類します。どちらも選択した場面で見つかった鳥をすべて数えますが、動画内のすべての鳥の検出は保証しません。",
       "bird_scan_standard": "標準",
-      "bird_scan_intensive": "高強度"
+      "bird_scan_intensive": "高強度",
+      "cache_clips_help": "Frigate がすでに保持しています。コピーは Frigate が削除しても残り、1件あたりクリップとほぼ同じサイズです。",
+      "cache_always_kept": "写真、訪問全体のクリップ、プレビューは常に保持されます。保持期間と使用容量は下の上限で決まります。",
+      "cache_unavailable": "メディアフォルダーに書き込めないため、写真と動画は保持されていません。フォルダーの権限を確認してください。エラーはシステムチェックに表示されます。",
+      "cache_high_quality_storage_note": "各訪問でフル解像度のフレームも保持され、数MBになることがよくあります。容量が限られる場合はサイズ上限を設定してください。"
     },
     "security": {
       "title": "セキュリティ",
@@ -1819,8 +1822,6 @@
     "live_updates_disconnected_message": "ライブ更新はバックグラウンドで再接続中です。",
     "system_health_title": "システム状態の警告",
     "system_health_message": "システム状態: {status}",
-    "system_cache_disabled_title": "メディアキャッシュが無効です",
-    "system_cache_disabled_message": "現在の設定では、タイムラインプレビューとメディアキャッシュが無効になっています。",
     "open_action": "開く",
     "global_progress_last": "{age}前に更新",
     "global_progress_stale": "{count} 件が応答なし",
@@ -1846,7 +1847,9 @@
     "empty_body": "分類器が名前を付けた訪問と、実行中のバックグラウンド処理が、新しいものから順にここに表示されます。",
     "empty_action": "フィールドログを開く",
     "empty_filtered": "このフィルターに一致するものはありません。",
-    "clear_notifications": "通知をクリア"
+    "clear_notifications": "通知をクリア",
+    "system_media_storage_unavailable_title": "メディアの保存先を利用できません",
+    "system_media_storage_unavailable_message": "メディアフォルダーに書き込めないため、写真と動画は保持されていません。詳細は 設定 → データ を開いてください。"
   },
   "actions": {
     "confirm_delete": "この{species}の来訪をまるごと削除しますか？記録とメディアは履歴から完全に消えます。代わりに非表示にすれば記録は残ります。",

@@ -31,6 +31,7 @@ from app.services.notification_dispatcher import NotificationDispatcher
 from app.services.notification_service import NotificationService
 from app.services.mqtt_service import MQTTService
 from app.services.species_catalog_resolver import ShadowResolution
+from app.services import media_cache as media_cache_module
 
 
 @pytest.fixture(scope="module")
@@ -69,7 +70,7 @@ async def pipeline(tmp_path, monkeypatch, pipeline_schema):
         "write_frigate_sublabel": False,
     }.items():
         monkeypatch.setattr(settings.classification, name, value)
-    monkeypatch.setattr(settings.media_cache, "enabled", False)
+    monkeypatch.setattr(media_cache_module.media_cache, "_available", False)
     monkeypatch.setattr(settings.notifications, "mode", "final")
     monkeypatch.setattr(settings.notifications, "delay_until_video", False)
     monkeypatch.setattr(settings.notifications, "notification_cooldown_minutes", 0)

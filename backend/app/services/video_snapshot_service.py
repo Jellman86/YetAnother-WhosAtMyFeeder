@@ -470,11 +470,7 @@ async def replace_video_snapshot(
 ) -> str:
     """Best effort baseline photo, independent of optional expensive HQ scanning."""
     evidence = result.get("_video_snapshot_evidence")
-    if not settings.media_cache.enabled:
-        return "media_cache_disabled"
-    if not settings.media_cache.cache_snapshots:
-        return "snapshot_caching_disabled"
-    if not media_cache._available:
+    if not media_cache.available:
         return "media_cache_unavailable"
     if not isinstance(evidence, dict):
         return "bird_presence_unconfirmed"
@@ -581,11 +577,7 @@ async def reconcile_snapshot_identity(
     automatic: bool = True,
 ) -> str:
     """Settle an abstaining run's photograph without creating a species verdict."""
-    if not settings.media_cache.enabled:
-        return "media_cache_disabled"
-    if not settings.media_cache.cache_snapshots:
-        return "snapshot_caching_disabled"
-    if not media_cache._available:
+    if not media_cache.available:
         return "media_cache_unavailable"
     try:
         async with get_db() as db:

@@ -573,9 +573,12 @@ class MaintenanceSettings(BaseModel):
 
 
 class MediaCacheSettings(BaseModel):
-    enabled: bool = Field(default=True, description="Enable local media caching")
-    cache_snapshots: bool = Field(default=True, description="Cache snapshot images locally")
-    cache_clips: bool = Field(default=False, description="Cache video clips locally (may cause initial playback delay)")
+    # Photographs, full-visit clips, previews and visit films are YA-WAMF's own record and are
+    # always kept, within the retention settings below (#622). Only copies of Frigate's own
+    # event clips, which Frigate already holds, stay optional.
+    cache_clips: bool = Field(
+        default=False, description="Keep copies of Frigate's event clips (may cause initial playback delay)"
+    )
     high_quality_event_snapshots: bool = Field(
         default=False,
         description="Asynchronously replace cached event snapshots with a frame derived from the Frigate clip",
@@ -585,7 +588,9 @@ class MediaCacheSettings(BaseModel):
         description="Deprecated compatibility field; HQ snapshots automatically attempt every available crop source",
     )
     high_quality_event_snapshot_jpeg_quality: int = Field(
-        default=95,
+        # 90 rather than 95: these are 4K frames, and on a live install 95 cost about 4 MB a
+        # visit, most of all stored photographs, for little visible difference.
+        default=90,
         ge=70,
         le=100,
         description="JPEG quality for derived high-quality event snapshots",
@@ -617,6 +622,15 @@ class MediaCacheSettings(BaseModel):
     )
     retention_days: int = Field(
         default=0, ge=0, description="Days to keep cached media (0 = follow detection retention)"
+    )
+    storage_controls_migrated: bool = Field(
+        default=False,
+        description=(
+            "Internal one-time migration marker (#622). The 'Media Cache' and 'Snapshots' switches "
+            "were removed; an install that had either off had high-quality frames (and, with the "
+            "cache off, full-visit clips) turned off once so its disk use does not jump. Persisted "
+            "on the next save so a later choice is kept."
+        ),
     )
 
 

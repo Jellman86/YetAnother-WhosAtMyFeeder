@@ -431,8 +431,6 @@ export interface components {
     archive_size_mb?: number;
     archive_unavailable?: number;
     cache_clips: boolean;
-    cache_enabled: boolean;
-    cache_snapshots: boolean;
     clip_count: number;
     clip_size_bytes: number;
     clip_size_mb: number;
@@ -446,6 +444,7 @@ export interface components {
     snapshot_count: number;
     snapshot_size_bytes: number;
     snapshot_size_mb: number;
+    storage_available: boolean;
     total_size_bytes: number;
     total_size_mb: number;
 };
@@ -1563,7 +1562,6 @@ export interface components {
     maintenance_max_concurrent?: number | null;
     media_cache_bird_scan_mode?: "standard" | "intensive";
     media_cache_clips?: boolean;
-    media_cache_enabled?: boolean;
     media_cache_high_quality_event_snapshot_bird_crop?: boolean;
     media_cache_high_quality_event_snapshot_jpeg_quality?: number;
     media_cache_high_quality_event_snapshots?: boolean;
@@ -1571,7 +1569,6 @@ export interface components {
     media_cache_per_species_maximum?: number;
     media_cache_per_species_minimum?: number;
     media_cache_retention_days?: number;
-    media_cache_snapshots?: boolean;
     media_integrity_scan_batch_size?: number;
     media_integrity_scan_enabled?: boolean;
     media_integrity_scan_interval_hours?: number;
@@ -1767,7 +1764,6 @@ export interface components {
     maintenance_max_concurrent?: number | null;
     media_cache_bird_scan_mode?: "standard" | "intensive";
     media_cache_clips?: boolean;
-    media_cache_enabled?: boolean;
     media_cache_high_quality_event_snapshot_bird_crop?: boolean;
     media_cache_high_quality_event_snapshot_jpeg_quality?: number;
     media_cache_high_quality_event_snapshots?: boolean;
@@ -1775,7 +1771,6 @@ export interface components {
     media_cache_per_species_maximum?: number;
     media_cache_per_species_minimum?: number;
     media_cache_retention_days?: number;
-    media_cache_snapshots?: boolean;
     media_integrity_scan_batch_size?: number;
     media_integrity_scan_enabled?: boolean;
     media_integrity_scan_interval_hours?: number;

@@ -274,24 +274,23 @@ async def run_cleanup():
                 )
 
         # Media cache cleanup
-        if settings.media_cache.enabled:
-            cache_retention = settings.media_cache.retention_days
-            if cache_retention == 0:
-                cache_retention = settings.maintenance.retention_days
-            if cache_retention > 0:
-                async with get_db() as db:
-                    repo = DetectionRepository(db)
-                    if not favorite_event_ids:
-                        favorite_event_ids = await repo.get_favorite_frigate_event_ids()
-                    # Favourites keep everything; the per-species floor keeps photographs only (#178).
-                    floor_ids = await repo.get_species_floor_frigate_event_ids(species_floor)
-                cache_stats = await media_cache.cleanup_old_media(
-                    cache_retention,
-                    protected_event_ids=favorite_event_ids,
-                    protected_snapshot_event_ids=floor_ids,
-                )
-                if cache_stats["snapshots_deleted"] > 0 or cache_stats["clips_deleted"] > 0:
-                    log.info("Media cache cleanup completed", **cache_stats)
+        cache_retention = settings.media_cache.retention_days
+        if cache_retention == 0:
+            cache_retention = settings.maintenance.retention_days
+        if cache_retention > 0:
+            async with get_db() as db:
+                repo = DetectionRepository(db)
+                if not favorite_event_ids:
+                    favorite_event_ids = await repo.get_favorite_frigate_event_ids()
+                # Favourites keep everything; the per-species floor keeps photographs only (#178).
+                floor_ids = await repo.get_species_floor_frigate_event_ids(species_floor)
+            cache_stats = await media_cache.cleanup_old_media(
+                cache_retention,
+                protected_event_ids=favorite_event_ids,
+                protected_snapshot_event_ids=floor_ids,
+            )
+            if cache_stats["snapshots_deleted"] > 0 or cache_stats["clips_deleted"] > 0:
+                log.info("Media cache cleanup completed", **cache_stats)
 
         # The archive is never aged out; only a directory with no favourite behind it goes.
         archive_sweep = await archive_service.orphan_sweep()
@@ -1143,6 +1142,9 @@ def build_health_payload() -> dict[str, object]:
         "naming": _naming_health(),
         "db_pool": db_pool_health,
         "media_integrity_scan": get_media_integrity_scan_status(),
+        # Photographs and visit media are always kept, so a folder that cannot be written is a
+        # fault to report, not a setting someone chose (#622).
+        "media_storage": {"available": media_cache.available, "error": media_cache.unavailable_reason},
         "mqtt": mqtt_health,
         "video_classifier": video_health,
         "high_quality_snapshots": high_quality_snapshot_health,
@@ -1174,6 +1176,7 @@ def build_health_payload() -> dict[str, object]:
         or int(notification_dispatch_health.get("dropped_jobs") or 0) > 0
         or event_pipeline_health.get("status") != "ok"
         or db_pool_is_degraded(db_pool_health)
+        or not media_cache.available
     ):
         health["status"] = "degraded"
 

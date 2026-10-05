@@ -20,6 +20,7 @@ from app.main import app
 from app.models import Detection
 from app.auth import session_cookie_allowed
 from app.routers.about import REEL_IMAGE_MAX_EDGE, is_crop_source, resize_for_reel, stored_crops
+from app.services import media_cache as media_cache_module
 
 SOURCES = {
     "robin_new": "hq_candidate_model_crop",
@@ -137,11 +138,10 @@ async def seeded_db():
 
 @pytest.fixture
 def media_cache_on():
-    original = (settings.media_cache.enabled, settings.media_cache.cache_snapshots)
-    settings.media_cache.enabled = True
-    settings.media_cache.cache_snapshots = True
+    original = media_cache_module.media_cache._available
+    media_cache_module.media_cache._available = True
     yield
-    settings.media_cache.enabled, settings.media_cache.cache_snapshots = original
+    media_cache_module.media_cache._available = original
 
 
 @pytest.mark.asyncio
@@ -163,19 +163,6 @@ async def test_showcase_respects_the_limit(seeded_db, media_cache_on):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             res = await client.get("/api/about/showcase?limit=2")
     assert [i["frigate_event"] for i in res.json()["items"]] == ["robin_new", "bluetit"]
-
-
-@pytest.mark.asyncio
-async def test_showcase_is_empty_without_a_media_cache(seeded_db):
-    original = settings.media_cache.enabled
-    settings.media_cache.enabled = False
-    try:
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            res = await client.get("/api/about/showcase")
-    finally:
-        settings.media_cache.enabled = original
-    assert res.status_code == 200
-    assert res.json() == {"items": []}
 
 
 async def _meta(event_id: str) -> dict | None:

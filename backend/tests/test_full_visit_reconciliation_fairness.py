@@ -41,7 +41,6 @@ async def clip_history(tmp_path, monkeypatch):
             )
     monkeypatch.setattr(module.settings.frigate, "clips_enabled", True)
     monkeypatch.setattr(module.settings.frigate, "recording_clip_enabled", True)
-    monkeypatch.setattr(module.settings.media_cache, "enabled", True)
     monkeypatch.setattr(module.media_cache, "get_recording_clip_duration_seconds", lambda _event_id: None)
     return database
 

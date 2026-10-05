@@ -291,7 +291,6 @@ async def test_process_mqtt_message_skips_end_event_classification():
     with (
         patch("app.services.event_processor.settings.frigate.clips_enabled", True, create=True),
         patch("app.services.event_processor.settings.frigate.recording_clip_enabled", True, create=True),
-        patch("app.services.event_processor.settings.media_cache.enabled", True, create=True),
         patch("app.services.event_processor.settings.media_cache.cache_clips", True, create=True),
         patch(
             "app.services.event_processor.notification_dispatcher.enqueue",
@@ -719,7 +718,7 @@ async def test_post_commit_side_effect_failure_does_not_turn_saved_detection_int
         ),
         patch("app.services.event_processor.settings.classification.write_frigate_sublabel", True, create=True),
         patch("app.services.event_processor.settings.classification.auto_video_classification", False, create=True),
-        patch("app.services.event_processor.settings.media_cache.enabled", False, create=True),
+        patch("app.services.event_processor.media_cache._available", False),
     ):
         result = await processor._save_detection(
             event=event,
@@ -771,8 +770,6 @@ async def test_detection_post_commit_schedules_high_quality_snapshot_replacement
         patch("app.services.event_processor.high_quality_snapshot_service") as mock_hq,
         patch("app.services.event_processor.settings.classification.write_frigate_sublabel", False, create=True),
         patch("app.services.event_processor.settings.classification.auto_video_classification", False, create=True),
-        patch("app.services.event_processor.settings.media_cache.enabled", True, create=True),
-        patch("app.services.event_processor.settings.media_cache.cache_snapshots", True, create=True),
         patch("app.services.event_processor.settings.media_cache.high_quality_event_snapshots", True, create=True),
     ):
         mock_cache.cache_snapshot = AsyncMock()
@@ -834,8 +831,6 @@ async def test_detection_post_commit_skips_high_quality_snapshot_replacement_whe
         patch("app.services.event_processor.high_quality_snapshot_service") as mock_hq,
         patch("app.services.event_processor.settings.classification.write_frigate_sublabel", False, create=True),
         patch("app.services.event_processor.settings.classification.auto_video_classification", False, create=True),
-        patch("app.services.event_processor.settings.media_cache.enabled", True, create=True),
-        patch("app.services.event_processor.settings.media_cache.cache_snapshots", True, create=True),
         patch("app.services.event_processor.settings.media_cache.high_quality_event_snapshots", True, create=True),
     ):
         mock_cache.cache_snapshot = AsyncMock()

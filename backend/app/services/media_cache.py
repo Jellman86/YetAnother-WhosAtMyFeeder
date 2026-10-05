@@ -193,6 +193,15 @@ class MediaCacheService:
                 error=str(e),
             )
 
+    @property
+    def available(self) -> bool:
+        """Whether the media folder could be prepared. A state of the host, never a setting."""
+        return self._available
+
+    @property
+    def unavailable_reason(self) -> Optional[str]:
+        return self._init_error
+
     def _ensure_dirs(self):
         """Ensure cache directories exist."""
         SNAPSHOTS_DIR.mkdir(parents=True, exist_ok=True)

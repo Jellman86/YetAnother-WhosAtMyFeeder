@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, create_model
 import structlog
 
 from app.config import CONFIG_PATH, Settings as AppSettings, settings
+from app.config_loader import migrate_imported_media_controls
 from app.auth import (
     AuthContext,
     hash_password,
@@ -465,8 +466,9 @@ class CacheStatsResponse(BaseModel):
     total_size_mb: float
     oldest_file: Optional[str] = None
     newest_file: Optional[str] = None
-    cache_enabled: bool
-    cache_snapshots: bool
+    storage_available: bool = Field(
+        ..., description="False when the media folder cannot be written: photographs and visit media are then not kept"
+    )
     cache_clips: bool
     archive_count: int = 0
     archive_size_bytes: int = 0
@@ -895,8 +897,6 @@ class SettingsUpdate(BaseModel):
         default_factory=dict, description="Deprecated compatibility field; ignored by the runtime"
     )
     # Media cache settings
-    media_cache_enabled: bool = Field(True, description="Enable local media caching")
-    media_cache_snapshots: bool = Field(True, description="Cache snapshot images locally")
     media_cache_clips: bool = Field(False, description="Cache video clips locally (may cause initial playback delay)")
     media_cache_high_quality_event_snapshots: bool = Field(
         False,
@@ -907,7 +907,7 @@ class SettingsUpdate(BaseModel):
         description="Deprecated compatibility field; HQ snapshots automatically attempt every available crop source",
     )
     media_cache_high_quality_event_snapshot_jpeg_quality: int = Field(
-        95,
+        90,
         ge=70,
         le=100,
         description="JPEG quality for derived high-quality event snapshots",
@@ -1316,6 +1316,7 @@ async def import_settings(
 ) -> SettingsImportResponse:
     """Import a full configuration backup. Owner only."""
     config = _extract_import_config(payload)
+    migrate_imported_media_controls(config)
     try:
         imported = AppSettings.model_validate(config)
     except ValidationError as e:
@@ -1480,8 +1481,6 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "video_classification_maintenance_circuit_until": maintenance_circuit_status.get("open_until"),
         "video_classification_maintenance_circuit_failures": maintenance_circuit_status.get("failure_count", 0),
         # Media cache settings
-        "media_cache_enabled": settings.media_cache.enabled,
-        "media_cache_snapshots": settings.media_cache.cache_snapshots,
         "media_cache_clips": settings.media_cache.cache_clips,
         "media_cache_high_quality_event_snapshots": settings.media_cache.high_quality_event_snapshots,
         "media_cache_high_quality_event_snapshot_bird_crop": settings.media_cache.high_quality_event_snapshot_bird_crop,
@@ -1878,10 +1877,6 @@ async def update_settings(
         )
 
     # Media cache settings
-    if "media_cache_enabled" in fields_set:
-        settings.media_cache.enabled = update.media_cache_enabled
-    if "media_cache_snapshots" in fields_set:
-        settings.media_cache.cache_snapshots = update.media_cache_snapshots
     if "media_cache_clips" in fields_set:
         settings.media_cache.cache_clips = update.media_cache_clips
     if "media_cache_high_quality_event_snapshots" in fields_set:
@@ -2987,8 +2982,7 @@ async def get_cache_stats(auth: AuthContext = Depends(require_owner)):
 
     return {
         **stats,
-        "cache_enabled": settings.media_cache.enabled,
-        "cache_snapshots": settings.media_cache.cache_snapshots,
+        "storage_available": media_cache.available,
         "cache_clips": settings.media_cache.cache_clips,
         **archive_totals,
         "retention_days": retention,

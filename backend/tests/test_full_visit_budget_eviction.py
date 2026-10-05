@@ -48,7 +48,6 @@ async def budget_visit_history(tmp_path, monkeypatch):
     monkeypatch.setattr(storage, "get_db", database)
     monkeypatch.setattr(clips.settings.frigate, "clips_enabled", True)
     monkeypatch.setattr(clips.settings.frigate, "recording_clip_enabled", True)
-    monkeypatch.setattr(clips.settings.media_cache, "enabled", True)
     monkeypatch.setattr(clips.settings.media_cache, "per_species_maximum", 1)
     monkeypatch.setattr(clips.settings.media_cache, "max_size_mb", 0)
     image = BytesIO()
@@ -149,10 +148,7 @@ async def test_eviction_winning_during_failure_read_cannot_be_overwritten(budget
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("failure", [OSError("fixture disk failure"), asyncio.CancelledError()])
-@pytest.mark.parametrize("enabled", [False, True])
-async def test_post_commit_cleanup_failure_is_recovered_without_cache_caps(
-    budget_visit_history, monkeypatch, failure, enabled
-):
+async def test_post_commit_cleanup_failure_is_recovered_without_cache_caps(budget_visit_history, monkeypatch, failure):
     from app.services import frigate_missing_policy as policy
 
     database, media, _ = budget_visit_history
@@ -160,7 +156,6 @@ async def test_post_commit_cleanup_failure_is_recovered_without_cache_caps(
     monkeypatch.setattr(policy.settings.maintenance, "frigate_missing_behavior", "delete")
     monkeypatch.setattr(policy.settings.media_cache, "per_species_maximum", 0)
     monkeypatch.setattr(policy.settings.media_cache, "max_size_mb", 0)
-    monkeypatch.setattr(policy.settings.media_cache, "enabled", enabled)
     monkeypatch.setattr(media, "delete_cached_media", AsyncMock(side_effect=failure))
     async with database() as db:
         with pytest.raises(type(failure)):

@@ -122,8 +122,6 @@ def history(clock, monkeypatch, tmp_path):
         "show_audio": False,
     }.items():
         monkeypatch.setattr(settings.public_access, name, value)
-    monkeypatch.setattr(settings.media_cache, "enabled", True)
-    monkeypatch.setattr(settings.media_cache, "cache_snapshots", True)
     monkeypatch.setattr(events, "batch_check_clips", AsyncMock(return_value={}))
     monkeypatch.setattr(events.taxonomy_service, "get_names", AsyncMock(return_value={}))
     monkeypatch.setattr(about, "_snapshot_source", AsyncMock(return_value="hq_candidate_model_crop"))

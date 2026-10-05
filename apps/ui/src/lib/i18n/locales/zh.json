@@ -524,9 +524,8 @@
       "purge_confirm": "永久删除 {count} 条超过 {days} 天的检测记录和 BirdNET-Go 音频？收藏和每个物种保留的最新访问不受影响。此操作无法撤销。",
       "cleaning": "清理中…",
       "auto_cleanup_note": "自动清理在启动时运行，之后每 24 小时运行一次",
-      "cache_title": "媒体缓存",
-      "cache_snapshots": "快照",
-      "cache_clips": "视频片段",
+      "cache_title": "照片和视频",
+      "cache_clips": "保留 Frigate 事件片段的副本",
       "cache_high_quality_event_snapshot_jpeg_quality": "HQ 快照 JPEG 质量",
       "cache_high_quality_event_snapshot_jpeg_quality_help": "值越高保留的细节越多，但生成的派生快照文件也会更大。",
       "cache_size": "缓存大小",
@@ -684,7 +683,11 @@
       "bird_scan_mode": "鸟类扫描强度",
       "bird_scan_mode_help": "标准模式使用较少的 CPU。高强度模式还会分块搜索大图并分类更多裁剪图。两种模式都会统计选定场景中找到的所有鸟，但无法保证找到视频中的每只鸟。",
       "bird_scan_standard": "标准",
-      "bird_scan_intensive": "高强度"
+      "bird_scan_intensive": "高强度",
+      "cache_clips_help": "Frigate 已经保存了这些片段。即使 Frigate 删除，副本也会保留，每个约与片段大小相同。",
+      "cache_always_kept": "照片、完整访问片段和预览会一直保留。下方的限制决定保留多久以及占用多少空间。",
+      "cache_unavailable": "无法写入媒体文件夹，因此没有保留照片和视频。请检查文件夹权限；系统检查会显示错误。",
+      "cache_high_quality_storage_note": "每次访问还会保留全分辨率画面，通常有几 MB；如果空间紧张，请设置大小上限。"
     },
     "security": {
       "title": "安全",
@@ -1819,8 +1822,6 @@
     "live_updates_disconnected_message": "实时更新正在后台重新连接。",
     "system_health_title": "系统状态警告",
     "system_health_message": "系统状态：{status}",
-    "system_cache_disabled_title": "媒体缓存已禁用",
-    "system_cache_disabled_message": "当前设置下，时间线预览和媒体缓存已禁用。",
     "open_action": "打开",
     "global_progress_last": "{age} 前更新",
     "global_progress_stale": "{count} 个无响应",
@@ -1846,7 +1847,9 @@
     "empty_body": "分类器识别出的访客，以及正在运行的后台任务，都会按从新到旧的顺序显示在这里。",
     "empty_action": "打开观察日志",
     "empty_filtered": "没有符合此筛选条件的内容。",
-    "clear_notifications": "清除通知"
+    "clear_notifications": "清除通知",
+    "system_media_storage_unavailable_title": "媒体存储不可用",
+    "system_media_storage_unavailable_message": "无法写入媒体文件夹，因此没有保留照片和视频。请打开 设置 → 数据 查看详情。"
   },
   "actions": {
     "confirm_delete": "删除这次{species}的完整到访记录？该记录及其媒体将永久从历史中消失。改为隐藏则会保留记录。",

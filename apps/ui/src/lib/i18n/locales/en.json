@@ -541,9 +541,8 @@
       "purge_confirm": "Permanently delete {count} detections and the BirdNET-Go audio older than {days} days? Favourites and each species' newest kept visits stay. This cannot be undone.",
       "cleaning": "Cleaning…",
       "auto_cleanup_note": "Automatic cleanup runs at startup, then every 24 hours",
-      "cache_title": "Media Cache",
-      "cache_snapshots": "Snapshots",
-      "cache_clips": "Video Clips",
+      "cache_title": "Photos and video",
+      "cache_clips": "Keep copies of Frigate's event clips",
       "cache_high_quality_event_snapshot_jpeg_quality": "HQ Snapshot JPEG Quality",
       "cache_high_quality_event_snapshot_jpeg_quality_help": "Higher values keep more detail but create larger derived snapshot files.",
       "cache_size": "Cache Size",
@@ -694,7 +693,11 @@
       "bird_scan_mode": "Bird scanning effort",
       "bird_scan_mode_help": "Standard uses less CPU. Intensive also searches tiles in large frames and classifies more crop choices. Both count every bird found in the selected scene; neither guarantees every bird in the clip is found.",
       "bird_scan_standard": "Standard",
-      "bird_scan_intensive": "Intensive"
+      "bird_scan_intensive": "Intensive",
+      "cache_clips_help": "Frigate already keeps these. Copies survive Frigate deleting them, at about the size of the clip each.",
+      "cache_always_kept": "Photos, full-visit clips and previews are always kept. The limits below decide for how long and how much space they use.",
+      "cache_unavailable": "The media folder can't be written, so photos and video are not being kept. Check the folder's permissions; system checks show the error.",
+      "cache_high_quality_storage_note": "Each visit then also keeps full-resolution frames, often several MB, so set a size budget if space is tight."
     },
     "security": {
       "title": "Security",
@@ -1836,8 +1839,6 @@
     "live_updates_disconnected_message": "Live updates are reconnecting in the background.",
     "system_health_title": "System status warning",
     "system_health_message": "Health status: {status}",
-    "system_cache_disabled_title": "Media cache disabled",
-    "system_cache_disabled_message": "Timeline previews and media caching are disabled in current settings.",
     "open_action": "Open",
     "filter_all": "Everything",
     "filter_birds": "Birds",
@@ -1856,7 +1857,9 @@
     "empty_body": "Visits appear here as the classifier names them, and background work as it runs. Newest first.",
     "empty_action": "Open the field log",
     "empty_filtered": "Nothing matches this filter.",
-    "clear_notifications": "Clear notifications"
+    "clear_notifications": "Clear notifications",
+    "system_media_storage_unavailable_title": "Media storage unavailable",
+    "system_media_storage_unavailable_message": "The media folder can't be written, so photos and video are not being kept. Open Settings → Data for details."
   },
   "actions": {
     "confirm_delete": "Delete this whole {species} visit? The record and its media leave the history permanently. Hiding it instead keeps the record.",

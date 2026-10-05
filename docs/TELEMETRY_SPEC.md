@@ -78,6 +78,10 @@ The heartbeat payload is strictly limited to metadata about the installation and
 }
 ```
 
+`configuration.media_cache_enabled` is always `true` from #622 on, when photographs and visit media
+stopped being optional. It is still sent because earlier reports carry it, and a missing value would
+count as off. A jump to every install reporting it is that change, not installs turning it on.
+
 ## User Control (Opt-In)
 Telemetry is **disabled by default** and completely optional. Users who wish to help improve YA-WAMF can opt in at any time via the **Settings → Connection → Telemetry** toggle in the UI. You can also disable it at any time if you change your mind.
 

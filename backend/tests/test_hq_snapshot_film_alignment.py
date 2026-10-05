@@ -26,8 +26,6 @@ def boundary(tmp_path, monkeypatch):
     media = cache.MediaCacheService()
     monkeypatch.setattr(hq, "media_cache", media)
     monkeypatch.setattr(video, "media_cache", media)
-    monkeypatch.setattr(settings.media_cache, "enabled", True)
-    monkeypatch.setattr(settings.media_cache, "cache_snapshots", True)
     monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True)
     monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshot_bird_crop", False)
     image = Image.new("RGB", (600, 400), "green")

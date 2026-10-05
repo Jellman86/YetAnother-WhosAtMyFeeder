@@ -534,9 +534,8 @@
       "purge_confirm": "Eliminare definitivamente {count} rilevamenti e l'audio di BirdNET-Go più vecchi di {days} giorni? I preferiti e le visite più recenti conservate di ogni specie restano. L'operazione non può essere annullata.",
       "cleaning": "Pulizia in corso…",
       "auto_cleanup_note": "La pulizia automatica viene eseguita all'avvio e poi ogni 24 ore",
-      "cache_title": "Cache multimediale",
-      "cache_snapshots": "Istantanee",
-      "cache_clips": "Clip video",
+      "cache_title": "Foto e video",
+      "cache_clips": "Conserva copie delle clip degli eventi di Frigate",
       "cache_high_quality_event_snapshot_jpeg_quality": "Qualità JPEG istantanea HQ",
       "cache_high_quality_event_snapshot_jpeg_quality_help": "Valori più alti mantengono più dettagli ma creano file derivati delle istantanee più grandi.",
       "cache_size": "Dimensione cache",
@@ -694,7 +693,11 @@
       "bird_scan_mode": "Intensità di ricerca degli uccelli",
       "bird_scan_mode_help": "Standard usa meno CPU. Intensiva cerca anche nelle sezioni delle immagini grandi e classifica più ritagli. Entrambe contano tutti gli uccelli trovati nella scena scelta, senza garantire ogni uccello del video.",
       "bird_scan_standard": "Standard",
-      "bird_scan_intensive": "Intensiva"
+      "bird_scan_intensive": "Intensiva",
+      "cache_clips_help": "Frigate le conserva già. Le copie restano anche se Frigate le elimina, ciascuna grande circa quanto la clip.",
+      "cache_always_kept": "Foto, clip delle visite complete e anteprime vengono sempre conservate. I limiti qui sotto decidono per quanto tempo e quanto spazio occupano.",
+      "cache_unavailable": "Non è possibile scrivere nella cartella dei media, quindi foto e video non vengono conservati. Controlla i permessi della cartella; i controlli di sistema mostrano l'errore.",
+      "cache_high_quality_storage_note": "Ogni visita conserva anche fotogrammi a piena risoluzione, spesso diversi MB: imposta un limite di spazio se è scarso."
     },
     "security": {
       "title": "Sicurezza",
@@ -1829,8 +1832,6 @@
     "live_updates_disconnected_message": "Gli aggiornamenti in tempo reale si stanno ricollegando in background.",
     "system_health_title": "Avviso stato del sistema",
     "system_health_message": "Stato del sistema: {status}",
-    "system_cache_disabled_title": "Cache multimediale disattivata",
-    "system_cache_disabled_message": "Le anteprime della timeline e la cache multimediale sono disattivate nelle impostazioni correnti.",
     "open_action": "Apri",
     "global_progress_last": "Aggiornato {age} fa",
     "global_progress_stale": "{count} senza risposta",
@@ -1856,7 +1857,9 @@
     "empty_body": "Le visite compaiono qui appena il classificatore le nomina, e le attività in background mentre sono in corso. Prima le più recenti.",
     "empty_action": "Apri il diario di campo",
     "empty_filtered": "Nessun risultato per questo filtro.",
-    "clear_notifications": "Cancella notifiche"
+    "clear_notifications": "Cancella notifiche",
+    "system_media_storage_unavailable_title": "Archivio media non disponibile",
+    "system_media_storage_unavailable_message": "Non è possibile scrivere nella cartella dei media, quindi foto e video non vengono conservati. Apri Impostazioni → Dati per i dettagli."
   },
   "actions": {
     "confirm_delete": "Eliminare l'intera visita di {species}? Il record e i suoi contenuti multimediali escono dalla cronologia definitivamente. Nasconderla invece conserva il record.",

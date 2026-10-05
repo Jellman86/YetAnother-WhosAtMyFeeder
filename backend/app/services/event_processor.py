@@ -1068,7 +1068,7 @@ class EventProcessor:
 
     def _auto_full_visit_enabled(self) -> bool:
         return bool(
-            settings.frigate.clips_enabled and settings.frigate.recording_clip_enabled and settings.media_cache.enabled
+            settings.frigate.clips_enabled and settings.frigate.recording_clip_enabled and media_cache.available
         )
 
     def _live_event_age_seconds(self, event: EventData) -> float:
@@ -1716,7 +1716,7 @@ class EventProcessor:
 
         if changed:
             # Cache snapshot if we updated the DB (ensures image matches score)
-            if snapshot_data and settings.media_cache.enabled and settings.media_cache.cache_snapshots:
+            if snapshot_data:
                 snapshot_cached = False
                 try:
                     event_context = self._snapshot_context(event)

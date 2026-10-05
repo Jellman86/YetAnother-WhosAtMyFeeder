@@ -175,10 +175,6 @@ async def get_about_showcase(
     auth: AuthContext = Depends(get_auth_context_with_legacy),
 ) -> ShowcaseResponse:
     """One recent crop per species, newest first. Guests see the same window as the Explorer."""
-    if not (settings.media_cache.enabled and settings.media_cache.cache_snapshots):
-        # Without a media cache there are no stored photographs to know anything about.
-        return ShowcaseResponse(items=[])
-
     lang = get_user_language(request)
     is_guest = not auth.is_owner and settings.public_access.enabled
     if is_guest and not settings.public_access.show_snapshots:
@@ -292,8 +288,7 @@ async def get_feeder_portrait(
         arrival_name = await _localized_name(arrival["taxa_id"], lang, db) if arrival else None
 
     latest: PortraitVisit | None = None
-    media_allowed = settings.media_cache.enabled and settings.media_cache.cache_snapshots
-    if media_allowed and (not is_guest or settings.public_access.show_snapshots):
+    if not is_guest or settings.public_access.show_snapshots:
         media_start: datetime | None = None
         media_end: datetime | None = None
         if is_guest:

@@ -203,7 +203,7 @@ interface LiveUpdateDeps {
     announcer: { announce(message: string): void };
     logger: LoggerLike;
     checkHealth: () => Promise<HealthPayload>;
-    fetchCacheStats: () => Promise<{ cache_enabled?: boolean }>;
+    fetchCacheStats: () => Promise<{ storage_available?: boolean }>;
     fetchAnalysisStatus: () => Promise<AnalysisStatus>;
     diagnostics?: JobDiagnosticsLike;
     syncDiagnosticsWorkspace?: () => Promise<void>;
@@ -336,20 +336,24 @@ export class LiveUpdateCoordinator {
 
         try {
             const cache = await this.deps.fetchCacheStats();
-            if (!cache.cache_enabled) {
-                const id = `system:cache-disabled:${startupInstanceId}`;
-                this.removeNotificationsByPrefix('system:cache-disabled');
+            // Photographs and visit media are always kept (#622). The one thing that stops it is a
+            // media folder that cannot be written, and only an explicit false means that: an older
+            // backend that does not report it must not raise a false alarm.
+            this.removeNotificationsByPrefix('system:cache-disabled');
+            if (cache.storage_available === false) {
+                const id = `system:media-storage-unavailable:${startupInstanceId}`;
+                this.removeNotificationsByPrefix('system:media-storage-unavailable');
                 if (!this.deps.notificationCenter.items.some((item) => item.id === id)) {
                     this.deps.notificationCenter.add({
                         id,
                         type: 'system',
-                        title: this.deps.t('notifications.system_cache_disabled_title'),
-                        message: this.deps.t('notifications.system_cache_disabled_message'),
+                        title: this.deps.t('notifications.system_media_storage_unavailable_title'),
+                        message: this.deps.t('notifications.system_media_storage_unavailable_message'),
                         meta: { source: 'cache', route: '/settings' }
                     });
                 }
             } else {
-                this.removeNotificationsByPrefix('system:cache-disabled');
+                this.removeNotificationsByPrefix('system:media-storage-unavailable');
             }
         } catch (error) {
             this.deps.logger.warn('cache_stats_check_failed', { error });

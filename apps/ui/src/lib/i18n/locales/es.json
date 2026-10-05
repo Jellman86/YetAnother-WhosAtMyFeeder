@@ -524,9 +524,8 @@
       "purge_confirm": "¿Eliminar definitivamente {count} detecciones y el audio de BirdNET-Go de más de {days} días? Se conservan los favoritos y las visitas más recientes guardadas de cada especie. Esta acción no se puede deshacer.",
       "cleaning": "Limpiando…",
       "auto_cleanup_note": "La limpieza automática se ejecuta al iniciar y, después, cada 24 horas",
-      "cache_title": "Caché de medios",
-      "cache_snapshots": "Instantáneas",
-      "cache_clips": "Clips de vídeo",
+      "cache_title": "Fotos y vídeo",
+      "cache_clips": "Guardar copias de los clips de eventos de Frigate",
       "cache_high_quality_event_snapshot_jpeg_quality": "Calidad JPEG de instantánea HQ",
       "cache_high_quality_event_snapshot_jpeg_quality_help": "Valores más altos conservan más detalle, pero crean archivos de instantánea derivados más grandes.",
       "cache_size": "Tamaño de la caché",
@@ -684,7 +683,11 @@
       "bird_scan_mode": "Esfuerzo de búsqueda de aves",
       "bird_scan_mode_help": "Estándar usa menos CPU. Intensivo también busca por regiones en imágenes grandes y clasifica más recortes. Ambos cuentan todas las aves encontradas en la escena elegida, sin garantizar todas las aves del clip.",
       "bird_scan_standard": "Estándar",
-      "bird_scan_intensive": "Intensivo"
+      "bird_scan_intensive": "Intensivo",
+      "cache_clips_help": "Frigate ya los guarda. Las copias sobreviven aunque Frigate los borre, cada una del tamaño aproximado del clip.",
+      "cache_always_kept": "Las fotos, los clips de visita completa y las vistas previas se guardan siempre. Los límites de abajo deciden durante cuánto tiempo y cuánto espacio ocupan.",
+      "cache_unavailable": "No se puede escribir en la carpeta de medios, así que no se están guardando fotos ni vídeo. Revisa los permisos de la carpeta; las comprobaciones del sistema muestran el error.",
+      "cache_high_quality_storage_note": "Cada visita guarda además fotogramas a resolución completa, a menudo varios MB; fija un presupuesto de tamaño si falta espacio."
     },
     "security": {
       "title": "Seguridad",
@@ -1819,8 +1822,6 @@
     "live_updates_disconnected_message": "Las actualizaciones en vivo se están reconectando en segundo plano.",
     "system_health_title": "Advertencia de estado del sistema",
     "system_health_message": "Estado del sistema: {status}",
-    "system_cache_disabled_title": "Caché de medios desactivada",
-    "system_cache_disabled_message": "Las vistas previas de la línea de tiempo y la caché de medios están desactivadas en la configuración actual.",
     "open_action": "Abrir",
     "global_progress_last": "Actualizado hace {age}",
     "global_progress_stale": "{count} sin responder",
@@ -1846,7 +1847,9 @@
     "empty_body": "Las visitas aparecen aquí en cuanto el clasificador las nombra, y las tareas en segundo plano mientras se ejecutan. La más reciente primero.",
     "empty_action": "Abrir el registro de campo",
     "empty_filtered": "Nada coincide con este filtro.",
-    "clear_notifications": "Borrar notificaciones"
+    "clear_notifications": "Borrar notificaciones",
+    "system_media_storage_unavailable_title": "Almacenamiento de medios no disponible",
+    "system_media_storage_unavailable_message": "No se puede escribir en la carpeta de medios, así que no se están guardando fotos ni vídeo. Abre Ajustes → Datos para ver los detalles."
   },
   "actions": {
     "confirm_delete": "¿Eliminar toda esta visita de {species}? El registro y sus medios desaparecen de la historia permanentemente. Ocultarla, en cambio, conserva el registro.",

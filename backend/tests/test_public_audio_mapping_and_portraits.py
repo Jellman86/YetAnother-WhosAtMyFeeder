@@ -155,8 +155,6 @@ async def test_public_page_batches_audio_and_excludes_future_secondary(private_h
 @pytest.mark.asyncio
 async def test_public_portraits_revalidate_cached_hidden_photo(private_history, monkeypatch):
     today, factory = private_history
-    monkeypatch.setattr(settings.media_cache, "enabled", True)
-    monkeypatch.setattr(settings.media_cache, "cache_snapshots", True)
     monkeypatch.setattr(settings.public_access, "media_days_mode", "custom")
     monkeypatch.setattr(settings.public_access, "media_historical_days", 7)
     monkeypatch.setattr(settings.public_access, "show_historical_days", 7)
@@ -275,8 +273,6 @@ async def test_public_audio_batch_bounds_rows_and_chunks_before_mapping(private_
 @pytest.mark.asyncio
 async def test_public_portraits_apply_window_before_species_limit(private_history, monkeypatch):
     today, factory = private_history
-    monkeypatch.setattr(settings.media_cache, "enabled", True)
-    monkeypatch.setattr(settings.media_cache, "cache_snapshots", True)
     monkeypatch.setattr(settings.public_access, "media_days_mode", "custom")
     monkeypatch.setattr(settings.public_access, "media_historical_days", 0)
     from app.services.media_cache import media_cache

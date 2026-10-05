@@ -2342,9 +2342,6 @@ async def get_leaderboard_portraits(
     from app.services.media_cache import media_cache
     from app.utils.public_access import public_media_window
 
-    if not (settings.media_cache.enabled and settings.media_cache.cache_snapshots):
-        return LeaderboardPortraitsResponse(span=span, portraits=[])
-
     is_guest = not auth.is_owner and settings.public_access.enabled
     if is_guest and not settings.public_access.show_snapshots:
         return LeaderboardPortraitsResponse(span=span, portraits=[])

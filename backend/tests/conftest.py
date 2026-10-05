@@ -147,6 +147,17 @@ def disable_rate_limiting():
 
 
 @pytest.fixture(autouse=True)
+def restore_media_storage_availability():
+    """Tests that need storage to be unwritable set the media cache unavailable; it must not
+    leak, because photographs are always kept now (#622) and every later test relies on them."""
+    from app.services.media_cache import media_cache
+
+    available = media_cache._available
+    yield
+    media_cache._available = available
+
+
+@pytest.fixture(autouse=True)
 def clear_species_alias_cache_between_tests():
     """Each test owns its rows; a cached alias set from another test's data
     would leak across the per-test DELETE."""

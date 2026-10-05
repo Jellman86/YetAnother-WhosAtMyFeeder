@@ -27,7 +27,6 @@ from typing import Callable
 
 import structlog
 
-from app.config import settings
 from app.services.frigate_client import frigate_client
 from app.services.media_cache import CACHE_BASE_DIR, media_cache, validate_film_alignment
 
@@ -278,7 +277,7 @@ class VisitFilmService:
             return await self._photo_revision_unlocked(event_id)
 
     async def ready_path(self, event_id: str) -> Path | None:
-        if not settings.media_cache.enabled:
+        if not media_cache.available:
             return None
         try:
             self.path_for(event_id)
@@ -301,7 +300,7 @@ class VisitFilmService:
 
     async def request(self, event_id: str) -> str:
         """Admit films only with absolute snapshot localization bound to the current photo."""
-        if not settings.media_cache.enabled or not _EVENT_ID.match(event_id) or event_id.startswith("."):
+        if not media_cache.available or not _EVENT_ID.match(event_id) or event_id.startswith("."):
             return "unavailable"
         if await self.ready_path(event_id) is not None:
             return "ready"

@@ -84,8 +84,7 @@ class NotificationOrchestrator:
         )
 
         if snapshot_data is None and needs_snapshot:
-            if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
-                snapshot_data = await media_cache.get_snapshot(event.frigate_event)
+            snapshot_data = await media_cache.get_snapshot(event.frigate_event)
             if snapshot_data is None:
                 snapshot_data = await frigate_client.get_snapshot(event.frigate_event, crop=True, quality=85)
 

@@ -207,9 +207,9 @@ class HighQualitySnapshotService:
         self._recovery_lock = asyncio.Lock()
 
     def enabled(self) -> bool:
+        # Expensive work whose only product is a stored photograph: skipped when it cannot be stored.
         return bool(
-            settings.media_cache.enabled
-            and settings.media_cache.cache_snapshots
+            media_cache.available
             and settings.media_cache.high_quality_event_snapshots
             and (settings.frigate.clips_enabled or settings.frigate.recording_clip_enabled)
         )
