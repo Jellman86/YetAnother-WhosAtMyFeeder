@@ -414,7 +414,7 @@ Candidate features, roughly ordered by value. These can land before `3.0` when t
 but otherwise remain post-3.0 backlog; they do not delay the release.
 
 #### Taxonomy explorer and family tree 🌳
-**Priority:** P2 | **Effort:** L | **Status:** 🔄 Data layer delivered: birds classified from IOC 14.2 and Catalogue of Life, lineage and branch routes ([design](docs/plans/2026-10-04-taxonomy-tree-design.md))
+**Priority:** P2 | **Effort:** L | **Status:** 🔄 Mostly shipped in `dev`: birds classified from IOC 14.2 and Catalogue of Life; a lineage ladder on each detection and in species details; the full tree centred on the bird with its path open, seen groups marked and branches loaded as they open; fan and outline views (the outline opens first on a phone); and a card for every name, with a reference photograph for species. Remaining: search by either name inside the tree, coarser-than-species identifications at their own rank, non-bird lineages, and English order names ([design](docs/plans/2026-10-04-taxonomy-tree-design.md))
 
 Show where each bird belongs within Animalia, from kingdom and phylum through class,
 order, suborder, family, genus and species. Include intermediate groups when the chosen
@@ -495,6 +495,21 @@ until requested assets are durable (or an honest unavailable state is recorded);
 cannot remove archived media; storage usage and destructive actions are visible; per-species floors
 are canonical-taxon based; backup/restore is documented; and tests cover Frigate expiry, concurrent
 favourite/unfavourite, partial downloads, cleanup order, and disk-pressure failure.
+
+#### Always keep photos and visit media 📷
+**Priority:** P1 | **Effort:** M | **Status:** ✅ Shipped in `dev`; move to Delivered at the next release
+([#622](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/622))
+
+The "Media Cache" and "Snapshots" switches are gone. With either off, YA-WAMF kept no photo of its
+own: a visit went blank when Frigate dropped its event and the photo repair after a reclassify had
+nowhere to save (#481). Photographs, full-visit clips, previews and visit films are always kept,
+within retention and the size budget; keeping copies of Frigate's own event clips stays a choice.
+Installs that had a switch off had best-available snapshots (and, with the cache off, full-visit
+clips) turned off once so disk use did not jump. An unwritable media folder is reported in
+`/health`, cache stats, an owner notification and the settings card.
+
+**Follow-up:** measure whether best-available frames can be stored smaller than JPEG 90 without a
+visible loss; on a live install they were 92% of photo storage.
 
 #### Analytics: insights panel + camera comparison 📊
 **Priority:** P2 | **Effort:** M | **Status:** ☐ Not started

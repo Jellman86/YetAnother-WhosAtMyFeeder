@@ -18,7 +18,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
     Settings if you want them. Basic photos cost about 0.3 MB a visit.
     Restoring a configuration backup taken before the upgrade gets the same one-time change.
   - `MEDIA_CACHE__ENABLED` and `MEDIA_CACHE__CACHE_SNAPSHOTS` are read only for that one-time
-    change; a startup warning names either while it is still set.
+    change. A startup warning says where a retired switch is still set and how to clear it:
+    saving settings once removes it from `config.json`, and an environment variable needs
+    deleting from the compose file.
   - Best-available snapshots now default to JPEG quality 90 instead of 95: these are full-resolution
     frames, and 95 roughly doubled their size for little visible difference. An existing setting
     is kept.
