@@ -69,6 +69,12 @@
         const end = formatTime(visit.endTime);
         return start === end ? end : `${start}–${end}`;
     });
+    // The visit's node says what it stands for on hover.
+    const visitHint = $derived(
+        captureCount > 1
+            ? $_('visits.node_visit_many', { values: { span, count: captureCount }, default: 'Visit, {span}, {count} captures' })
+            : $_('visits.node_visit', { values: { span }, default: 'Visit at {span}' })
+    );
 
     // Captures in one visit are seconds apart, so minutes alone would print the same time twice.
     function captureTime(capture: Detection): string {
@@ -121,16 +127,16 @@
 </script>
 
 <!-- A stretch of the thread. Captures tint it so the visit they belong to is visible at a glance. -->
-{#snippet branch(dot: 'shown' | 'capture' | null)}
-    <!-- Inside an open visit the thread is neutral, so the visit's own blue node stays the one
-         accent; the key in the caption names each node. -->
+{#snippet branch(dot: 'capture' | null, hint = '')}
+    <!-- Two kinds of node only: the visit's solid one, and this ring for each of its captures. The
+         visit photo is said in words on its row, so the day's one thread runs on unchanged. -->
     <span class="relative flex h-full justify-center" aria-hidden="true">
         <span class="absolute inset-y-[-0.7rem] w-px bg-slate-200 dark:bg-slate-700/70"></span>
-        <span class="absolute inset-y-0 w-px bg-slate-300 dark:bg-slate-600"></span>
-        {#if dot === 'shown'}
-            <span class="relative my-auto h-2 w-2 rounded-full bg-brand-500 ring-2 ring-brand-200 dark:ring-brand-900" title={$_('visits.key_shown', { default: 'Visit photo' })} data-field-log-capture-dot="shown"></span>
-        {:else if dot === 'capture'}
-            <span class="relative my-auto h-2 w-2 rounded-full bg-white ring-[1.5px] ring-slate-400 dark:bg-slate-900 dark:ring-slate-500" title={$_('visits.key_capture', { default: 'Capture' })} data-field-log-capture-dot="capture"></span>
+        {#if dot === 'capture'}
+            <!-- A 20px hover area around the 8px node, so its tooltip is easy to find. -->
+            <span class="relative my-auto grid h-5 w-5 cursor-help place-items-center" title={hint} data-field-log-node-hint>
+                <span class="h-2 w-2 rounded-full bg-white ring-[1.5px] ring-slate-400 dark:bg-slate-900 dark:ring-slate-500" data-field-log-capture-dot="capture"></span>
+            </span>
         {/if}
     </span>
 {/snippet}
@@ -164,15 +170,13 @@
     <span class="relative flex h-full justify-center" aria-hidden="true">
         <!-- The spine runs behind the nodes so the day reads as one thread. -->
         <span class="absolute inset-y-[-0.7rem] w-px bg-slate-200 dark:bg-slate-700/70"></span>
-        {#if expanded}
-            <span class="absolute bottom-[-0.7rem] top-1/2 w-px bg-slate-300 dark:bg-slate-600"></span>
-        {/if}
-        <span
-            class="relative my-auto h-2 w-2 shrink-0 rounded-full ring-2 ring-white dark:ring-slate-900 {visit.needsReview
-                ? 'bg-accent-500'
-                : 'bg-brand-500'}"
-            title={$_('visits.key_visit', { default: 'Visit' })}
-        ></span>
+        <span class="relative my-auto grid h-5 w-5 shrink-0 cursor-help place-items-center" title={visitHint} data-field-log-node-hint>
+            <span
+                class="h-2 w-2 rounded-full ring-2 ring-white dark:ring-slate-900 {visit.needsReview
+                    ? 'bg-accent-500'
+                    : 'bg-brand-500'}"
+            ></span>
+        </span>
     </span>
 
     <DetectionPreview
@@ -305,7 +309,6 @@
              carries on beside it, and stays tinted while the captures beneath are open. -->
         <span class="relative col-start-2 flex h-full justify-center" aria-hidden="true">
             <span class="absolute inset-y-[-0.7rem] w-px bg-slate-200 dark:bg-slate-700/70"></span>
-            {#if expanded}<span class="absolute inset-y-[-0.25rem] w-px bg-slate-300 dark:bg-slate-600"></span>{/if}
         </span>
         <div class="col-[3/-1] -mt-1 min-w-0 sm:col-[4/-1]" data-field-log-footer>
             <button
@@ -334,11 +337,8 @@
         >
             <li class="col-span-full grid grid-cols-subgrid" data-visit-captures-caption>
                 <span></span>{@render branch(null)}
-                <p class="col-[3/-1] flex flex-wrap items-center gap-x-3 gap-y-1 py-1 text-[11px] text-slate-500 dark:text-slate-400" data-visit-captures-key>
-                    <span>{$_('visits.captures_caption', { default: 'Captures in this visit, oldest first.' })}</span>
-                    <span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-brand-500 ring-2 ring-white dark:ring-slate-900" aria-hidden="true"></span>{$_('visits.key_visit', { default: 'Visit' })}</span>
-                    <span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-brand-500 ring-2 ring-brand-200 dark:ring-brand-900" aria-hidden="true"></span>{$_('visits.key_shown', { default: 'Visit photo' })}</span>
-                    <span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-white ring-[1.5px] ring-slate-400 dark:bg-slate-900 dark:ring-slate-500" aria-hidden="true"></span>{$_('visits.key_capture', { default: 'Capture' })}</span>
+                <p class="col-[3/-1] py-1 text-[11px] text-slate-500 dark:text-slate-400">
+                    {$_('visits.captures_caption', { default: 'Captures in this visit, oldest first.' })}
                 </p>
             </li>
             {#each list.captures as capture (capture.frigate_event)}
@@ -348,7 +348,12 @@
                 {@const captureNaming = names(capture)}
                 <li class="col-span-full grid grid-cols-subgrid items-center py-0.5" data-visit-capture={capture.frigate_event}>
                     <time class="block text-[11px] tabular-nums text-slate-500 dark:text-slate-400" datetime={capture.detection_time}>{time}</time>
-                    {@render branch(server && captureFacts(capture, server).shown ? 'shown' : 'capture')}
+                    {@render branch(
+                        'capture',
+                        server && captureFacts(capture, server).shown
+                            ? $_('visits.node_capture_shown', { values: { time }, default: 'Capture at {time}, part of this visit, and its visit photo' })
+                            : $_('visits.node_capture', { values: { time }, default: 'Capture at {time}, part of this visit' })
+                    )}
                     <DetectionPreview
                         detection={capture}
                         primaryName={captureNaming.primary}

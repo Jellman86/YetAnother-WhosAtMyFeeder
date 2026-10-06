@@ -3205,11 +3205,12 @@
     "captures_empty": "No captures from this visit are visible in this view.",
     "best_capture": "best capture",
     "captures_caption": "Captures in this visit, oldest first.",
-    "key_visit": "Visit",
-    "key_shown": "Visit photo",
-    "key_capture": "Capture",
     "show_captures": "Show {count} captures",
-    "hide_captures": "Hide captures"
+    "hide_captures": "Hide captures",
+    "node_visit": "Visit at {span}",
+    "node_visit_many": "Visit, {span}, {count} captures",
+    "node_capture": "Capture at {time}, part of this visit",
+    "node_capture_shown": "Capture at {time}, part of this visit, and its visit photo"
   },
   "taxonomy": {
     "title": "Family tree of {name}",

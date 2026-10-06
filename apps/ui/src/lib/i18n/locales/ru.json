@@ -3205,11 +3205,12 @@
     "captures_empty": "В этом представлении нет доступных снимков этого визита.",
     "best_capture": "лучший снимок",
     "captures_caption": "Снимки этого визита, сначала старые.",
-    "key_visit": "Визит",
-    "key_shown": "Фото визита",
-    "key_capture": "Снимок",
     "show_captures": "Показать снимки: {count}",
-    "hide_captures": "Скрыть снимки"
+    "hide_captures": "Скрыть снимки",
+    "node_visit": "Визит в {span}",
+    "node_visit_many": "Визит, {span}, снимков: {count}",
+    "node_capture": "Снимок в {time}, часть этого визита",
+    "node_capture_shown": "Снимок в {time}, часть этого визита и его фото"
   },
   "taxonomy": {
     "title": "Родословное древо: {name}",

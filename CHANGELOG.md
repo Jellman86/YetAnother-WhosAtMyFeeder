@@ -8,10 +8,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 - An opened visit in the Explorer list and the dashboard's field log reads as one visit. A real
   button beside **Open** shows and hides its captures (on a phone, the "N captures" pill does), in
-  place of the small arrow under the time. The visit's score is labelled **best capture**. Inside an
-  open visit the thread turns neutral and the captures sit in an inset list under a key for its
-  nodes (visit, visit photo, capture), each node also named on hover. Every capture keeps its own
-  name, score and notes, set quieter than the visit.
+  place of the small arrow under the time. The visit's score is labelled **best capture**. The
+  captures sit in an inset list on the day's same thread, each with the same ring; the visit photo
+  is said in words on its row. Hovering a node names it, such as "Capture at 08:23:28, part of
+  this visit". Every capture keeps its own name, score and notes, set quieter than the visit.
 - A tall bird photo, such as a woodpecker on a pole, is shown whole on its card and in the record
   instead of being cut to a band through the middle. Past a quarter of the photo lost, it sits
   over a soft blurred copy of itself; scenes and near-square photos still fill the card. Nothing

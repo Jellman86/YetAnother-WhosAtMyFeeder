@@ -3205,11 +3205,12 @@
     "captures_empty": "この表示では、この訪問の撮影は表示できません。",
     "best_capture": "最良のキャプチャ",
     "captures_caption": "この訪問のキャプチャ（古い順）。",
-    "key_visit": "訪問",
-    "key_shown": "訪問の写真",
-    "key_capture": "キャプチャ",
     "show_captures": "{count} 件のキャプチャを表示",
-    "hide_captures": "キャプチャを隠す"
+    "hide_captures": "キャプチャを隠す",
+    "node_visit": "{span} の訪問",
+    "node_visit_many": "訪問、{span}、キャプチャ {count} 件",
+    "node_capture": "{time} のキャプチャ（この訪問の一部）",
+    "node_capture_shown": "{time} のキャプチャ（この訪問の一部で、訪問の写真）"
   },
   "taxonomy": {
     "title": "{name} の系統樹",

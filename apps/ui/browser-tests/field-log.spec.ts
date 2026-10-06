@@ -201,15 +201,15 @@ for (const theme of ['light', 'dark']) {
         const childPreview = await box(first.locator('[data-detection-preview]'));
         expect(Math.abs(childPreview.x - parentPreview.x)).toBeLessThanOrEqual(1);
         const centre = (found: { x: number; width: number }) => found.x + found.width / 2;
-        const visitDot = await blackbird.locator('[aria-hidden="true"] > .rounded-full.ring-2').first().boundingBox();
+        const visitDot = await blackbird.locator('[data-field-log-node-hint] > .rounded-full.ring-2').first().boundingBox();
         const captureDot = await box(first.locator('[data-field-log-capture-dot]'));
         expect(Math.abs(centre(captureDot) - centre(visitDot ?? captureDot))).toBeLessThanOrEqual(1);
         // Capture and visit nodes differ in fill as well as colour.
         const hollow = blackbird.locator('[data-visit-capture]').nth(1);
         const fills = await hollow.locator('[data-field-log-capture-dot]').evaluate(node => getComputedStyle(node).backgroundColor);
-        const visitFill = await blackbird.locator('[aria-hidden="true"] > .rounded-full.ring-2').first().evaluate(node => getComputedStyle(node).backgroundColor);
+        const visitFill = await blackbird.locator('[data-field-log-node-hint] > .rounded-full.ring-2').first().evaluate(node => getComputedStyle(node).backgroundColor);
         expect(fills).not.toBe(visitFill);
-        await expect(blackbird.locator('[data-field-log-capture-dot="shown"]')).toHaveCount(1);
+        await expect(blackbird.locator('[data-field-log-capture-dot="shown"]')).toHaveCount(0);
         if (shots) await page.screenshot({ path: `${shots}/field-log-after-desktop-expanded-${theme}.png`, fullPage: true });
         expect(errors).toEqual([]);
     });
@@ -300,15 +300,18 @@ test('a visit opens from its Show captures button, keys its nodes, and keeps eve
     await toggle.click();
     await expect(toggle).toHaveAttribute('aria-expanded', 'true');
     await expect(toggle).toHaveAccessibleName('Hide captures');
-    const key = visit.locator('[data-visit-captures-key]');
-    await expect(key).toContainText('Captures in this visit, oldest first.');
-    for (const name of ['Visit', 'Visit photo', 'Capture']) await expect(key.getByText(name, { exact: true })).toBeVisible();
+    await expect(visit.locator('[data-visit-captures-caption]')).toHaveText('Captures in this visit, oldest first.');
+    // Two kinds of node only: every capture has the same ring; the visit photo is said in words.
+    await expect(visit.locator('[data-field-log-capture-dot="capture"]')).toHaveCount(13);
+    // Each node names itself on hover.
+    await expect(visit.locator('[data-visit-capture="blackbird"] [data-field-log-node-hint]')).toHaveAttribute('title', /^Capture at .*, part of this visit, and its visit photo$/);
+    await expect(visit.locator('[data-visit-capture="blackbird-1"] [data-field-log-node-hint]')).toHaveAttribute('title', /^Capture at .*, part of this visit$/);
+    await expect(visit.locator('[data-field-log-node-hint]').first()).toHaveAttribute('title', /^Visit, .*, 13 captures$/);
     // Every capture keeps its own details: name, and its notes.
     const own = visit.locator('[data-visit-capture="blackbird"]');
     await expect(own.getByText('Eurasian Blackbird', { exact: true })).toBeVisible();
     await expect(own).toContainText('Visit photo');
     await expect(visit.locator('[data-visit-capture="blackbird-1"]').getByText('Great Tit', { exact: true })).toBeVisible();
-    await expect(visit.locator('[data-field-log-capture-dot="shown"]')).toHaveAttribute('title', 'Visit photo');
     await toggle.click();
     await expect(visit.locator('[data-visit-capture]').first()).toBeHidden();
 });

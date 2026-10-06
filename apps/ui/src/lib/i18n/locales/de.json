@@ -3205,11 +3205,12 @@
     "captures_empty": "In dieser Ansicht sind keine Aufnahmen dieses Besuchs sichtbar.",
     "best_capture": "beste Aufnahme",
     "captures_caption": "Aufnahmen dieses Besuchs, älteste zuerst.",
-    "key_visit": "Besuch",
-    "key_shown": "Besuchsfoto",
-    "key_capture": "Aufnahme",
     "show_captures": "{count} Aufnahmen zeigen",
-    "hide_captures": "Aufnahmen ausblenden"
+    "hide_captures": "Aufnahmen ausblenden",
+    "node_visit": "Besuch um {span}",
+    "node_visit_many": "Besuch, {span}, {count} Aufnahmen",
+    "node_capture": "Aufnahme um {time}, Teil dieses Besuchs",
+    "node_capture_shown": "Aufnahme um {time}, Teil dieses Besuchs und sein Besuchsfoto"
   },
   "taxonomy": {
     "title": "Stammbaum: {name}",

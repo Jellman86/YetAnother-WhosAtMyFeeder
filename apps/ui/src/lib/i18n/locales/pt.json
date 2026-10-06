@@ -3205,11 +3205,12 @@
     "captures_empty": "Nenhuma captura desta visita está visível nesta vista.",
     "best_capture": "melhor captura",
     "captures_caption": "Capturas desta visita, da mais antiga para a mais recente.",
-    "key_visit": "Visita",
-    "key_shown": "Foto da visita",
-    "key_capture": "Captura",
     "show_captures": "Mostrar {count} capturas",
-    "hide_captures": "Ocultar capturas"
+    "hide_captures": "Ocultar capturas",
+    "node_visit": "Visita às {span}",
+    "node_visit_many": "Visita, {span}, {count} capturas",
+    "node_capture": "Captura às {time}, parte desta visita",
+    "node_capture_shown": "Captura às {time}, parte desta visita e a sua foto"
   },
   "taxonomy": {
     "title": "Árvore de família de {name}",
