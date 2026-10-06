@@ -1250,3 +1250,49 @@ async def test_save_records_whether_the_first_label_was_borrowed_from_frigate(
         )
 
     assert mock_deps["repo"].upsert_if_higher_score.await_args.kwargs == {"initial_label_source": expected_source}
+
+
+async def _save_live(service, score):
+    with patch(
+        "app.services.detection_service.create_background_task", side_effect=lambda coro, name=None: coro.close()
+    ):
+        return await service.save_detection(
+            frigate_event="evt-birdweather",
+            camera="cam1",
+            start_time=1700000000,
+            classification={"label": "Prunella modularis", "score": score, "index": 1},
+            frigate_score=0.9,
+        )
+
+
+@pytest.mark.asyncio
+async def test_a_live_sighting_is_reported_to_birdweather_once(mock_deps):
+    service = DetectionService(MagicMock())
+    mock_deps["taxonomy"].get_names = AsyncMock(
+        return_value={"scientific_name": "Prunella modularis", "common_name": "Dunnock", "taxa_id": 3}
+    )
+    mock_deps["repo"].get_by_frigate_event = AsyncMock(return_value=None)
+    mock_deps["repo"].upsert_if_higher_score = AsyncMock(return_value=(True, False))
+    await _save_live(service, 0.7)
+
+    # A later frame of the same visit scoring higher updates the row; it is still one sighting.
+    mock_deps["repo"].get_by_frigate_event = AsyncMock(return_value=MagicMock(scientific_name="Prunella modularis"))
+    mock_deps["repo"].upsert_if_higher_score = AsyncMock(return_value=(False, True))
+    await _save_live(service, 0.9)
+
+    mock_deps["birdweather"].report_detection.assert_called_once()
+    assert mock_deps["birdweather"].report_detection.call_args.kwargs["confidence"] == 0.7
+
+
+@pytest.mark.asyncio
+async def test_a_visit_first_saved_as_unknown_is_reported_when_a_better_frame_names_it(mock_deps):
+    service = DetectionService(MagicMock())
+    mock_deps["taxonomy"].get_names = AsyncMock(
+        return_value={"scientific_name": "Prunella modularis", "common_name": "Dunnock", "taxa_id": 3}
+    )
+    mock_deps["repo"].get_by_frigate_event = AsyncMock(return_value=MagicMock(scientific_name=None))
+    mock_deps["repo"].upsert_if_higher_score = AsyncMock(return_value=(False, True))
+
+    await _save_live(service, 0.9)
+
+    mock_deps["birdweather"].report_detection.assert_called_once()

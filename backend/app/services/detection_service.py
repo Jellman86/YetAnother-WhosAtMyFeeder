@@ -88,6 +88,10 @@ async def _catalog_identity_for_refinement(
 TAXONOMY_LOOKUP_TIMEOUT_SECONDS = max(0.5, float(os.getenv("TAXONOMY_LOOKUP_TIMEOUT_SECONDS", "3")))
 
 
+def _reportable_species(scientific_name: str | None) -> bool:
+    return bool(scientific_name) and scientific_name != "Unknown Bird"
+
+
 class DetectionService:
     """
     Centralized service for processing and saving detections.
@@ -403,10 +407,14 @@ class DetectionService:
         weather_rain: float = None,
         weather_snowfall: float = None,
         end_time: float | None = None,
+        report_to_birdweather: bool = True,
     ) -> tuple[bool, bool]:
         """
         Save or update a detection in the database and broadcast the event.
         Returns (changed, was_inserted).
+
+        ``report_to_birdweather`` is false for a replay of history: those sightings were
+        reported when they happened, and BirdWeather keeps every submission as a new one.
         """
         try:
             score = float(classification["score"])
@@ -531,6 +539,7 @@ class DetectionService:
                 taxa_id=taxa_id,
             )
 
+            previous = await repo.get_by_frigate_event(frigate_event) if report_to_birdweather else None
             # Atomic upsert: insert or update only if score is higher
             was_inserted, was_updated = await repo.upsert_if_higher_score(
                 detection,
@@ -602,8 +611,14 @@ class DetectionService:
                     }
                 )
 
-                # 3. Report to BirdWeather (if enabled)
-                if scientific_name and scientific_name != "Unknown Bird":
+                # 3. Report to BirdWeather (if enabled), once per visit: the first save that names a
+                # species. A better frame of the same visit updates the row, and BirdWeather would
+                # count a second submission as a second sighting.
+                if (
+                    report_to_birdweather
+                    and _reportable_species(scientific_name)
+                    and not (previous and _reportable_species(previous.scientific_name))
+                ):
                     # Run in background to not block the main loop
                     create_background_task(
                         birdweather_service.report_detection(
