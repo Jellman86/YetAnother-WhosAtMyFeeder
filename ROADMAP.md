@@ -511,6 +511,27 @@ clips) turned off once so disk use did not jump. An unwritable media folder is r
 **Follow-up:** measure whether best-available frames can be stored smaller than JPEG 90 without a
 visible loss; on a live install they were 92% of photo storage.
 
+#### Let confident video corrections teach the initial identification 🎓
+**Priority:** P2 | **Effort:** M | **Status:** ☐ After the next release (feature freeze until then)
+
+Personalized reranking learns only from owner corrections today (`classification_feedback` rows
+with source `manual_tag`). When the deep video analysis overturns an initial identification, as with
+a Downy Woodpecker first read as a Hairy Woodpecker, the detection is fixed but the next initial
+identification learns nothing ([#481](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/481)).
+Record such corrections as feedback with their own source and a lower weight than a person's:
+
+- only when the video result is a clear consensus (several independent frames agreeing, above the
+  confidence floor), never from an abstention or a weak majority;
+- never against an owner's correction of the same detection, and withdrawn if the owner later
+  changes it;
+- weighted below `manual_tag` within the existing caps, half-life and minimum-feedback rules, and
+  reported separately in the personalization status so an owner can see what taught the model.
+
+**Acceptance:** a camera whose initial identification is often overturned by video shifts toward the
+video's answer over time without ever overriding an owner's correction; a model that learns a wrong
+video answer cannot move a score further than the existing caps allow; tests cover the consensus
+threshold, owner precedence, withdrawal and the weight.
+
 #### Moments with several species in the Explorer 🐦
 **Priority:** P2 | **Effort:** M | **Status:** ☐ After the next release (feature freeze until then)
 
