@@ -600,14 +600,15 @@ async def test_a_recording_read_that_times_out_under_load_is_retried_within_the_
 
     import app.services.recording_snapshot_input as module
 
-    monkeypatch.setattr(module, "RECORDING_SNAPSHOT_TIMEOUT_SECONDS", 0.01)
+    # A bound a slow runner can meet for a real 4K decode, and a first read well past it.
+    monkeypatch.setattr(module, "RECORDING_SNAPSHOT_TIMEOUT_SECONDS", 0.5)
     recording = image_bytes((3840, 2160))
     calls = {"n": 0}
 
     async def slow_then_ready(*args, **kwargs):
         calls["n"] += 1
         if calls["n"] == 1:
-            await asyncio.sleep(1)
+            await asyncio.sleep(2)
         return recording, None
 
     event = {"camera": "birdcam", "data": {"snapshot_frame_time": 105.25, "box": [0.25, 0.2, 0.1, 0.15]}}
