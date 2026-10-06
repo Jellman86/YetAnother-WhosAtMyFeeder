@@ -215,3 +215,10 @@ async def test_the_deferred_identification_retries_until_the_recording_frame_arr
         assert result[1] == detection
         assert clock["now"] <= NOW - 12 + module.RECORDING_FRAME_DEADLINE_SECONDS + 5
         assert "birdcam" in processor._recording_unavailable_until
+
+
+def test_a_slow_recording_read_does_not_stop_the_camera_waiting():
+    # Slow means Frigate was busy, not that the camera keeps no recordings.
+    processor, _slept, _gate = _processor()
+    processor._note_recording_frame_outcome("birdcam", "recording_slow")
+    assert "birdcam" not in processor._recording_unavailable_until

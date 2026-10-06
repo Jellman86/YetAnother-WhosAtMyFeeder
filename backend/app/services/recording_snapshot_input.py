@@ -29,6 +29,9 @@ RECORDING_SNAPSHOT_TIMEOUT_SECONDS = 5.0
 # Frigate serves a recording frame only once its stretch of recording is written, 10 to 15 seconds
 # after the moment on a live install. A caller that can wait retries this often until its deadline.
 RECORDING_READY_RETRY_SECONDS = 3.0
+# Not written yet, or Frigate too busy to answer within the bound: both pass, so a caller with a
+# deadline tries again. Every other reason to keep the detection snapshot is final.
+RETRYABLE_REASONS = frozenset({"recording_not_ready", "recording_slow"})
 MAX_RECORDING_SNAPSHOT_BYTES = 16 * 1024 * 1024
 MAX_RECORDING_SNAPSHOT_PIXELS = 7680 * 4320
 
@@ -154,14 +157,14 @@ async def read_recording_snapshot(
 ) -> RecordingRead:
     """Read the recording frame, waiting until `ready_by` (epoch seconds) for one not yet written.
 
-    Without a deadline a missing recording is read once, as backfill and reclassification of past
-    events need. Every other reason to keep the detection snapshot is final at once.
+    Without a deadline a missing or slow recording is read once, as backfill and reclassification of
+    past events need. Every other reason to keep the detection snapshot is final at once.
     """
     clock = now or time.time
     pause = sleep or asyncio.sleep
     while True:
         result = await _read_recording_snapshot_once(event_id, event_data, snapshot, provenance, client=client)
-        if result.reason != "recording_not_ready" or ready_by is None:
+        if result.reason not in RETRYABLE_REASONS or ready_by is None:
             break
         remaining = ready_by - clock()
         if remaining <= 0:
@@ -252,6 +255,10 @@ async def _read_recording_snapshot_once(
             ),
             "recording_frame",
         )
+    except TimeoutError:
+        # Seen live when several birds arrive together and Frigate decodes several 4K frames at once.
+        log.debug("Recording snapshot read ran past its bound", event_id=event_id)
+        return RecordingRead(snapshot, fallback_provenance, "recording_slow")
     except Exception as exc:
         log.debug(
             "Recording snapshot unavailable; keeping detection snapshot", event_id=event_id, error=type(exc).__name__

@@ -25,6 +25,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   and their notifications arrive about 12 seconds later with this setting. A recording frame the
   same size as an upscaled detect frame is now used, a camera without recordings stops waiting for
   ten minutes after a miss, and each fallback is logged with its reason.
+  A recording read that runs past its five-second bound, as when several birds arrive together, is
+  retried within the same 30 seconds instead of falling back at once.
 - Photos and visit video are always kept now, and the **Media Cache** and **Snapshots** switches
   are gone (#622). With either off, YA-WAMF kept no photo of its own: a visit went blank once Frigate
   dropped its event, a better photo after a reclassify had nowhere to go, and nothing said why.
