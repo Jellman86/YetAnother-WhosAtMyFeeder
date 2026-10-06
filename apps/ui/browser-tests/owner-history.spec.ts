@@ -68,8 +68,8 @@ test('Explorer sends the multiple-species filter for visits, captures and counts
     await filter.click();
     await expect(filter).toHaveAttribute('aria-pressed', 'true');
     await expect.poll(() => requests.some(url => url.pathname === '/api/visits' && url.searchParams.get('multiple_species_only') === 'true')).toBe(true);
-    const grouping = page.getByRole('group', { name: 'Group captures' });
-    await grouping.getByRole('button', { name: 'Captures', exact: true }).click();
+    const show = page.getByRole('group', { name: 'Show' });
+    await show.locator('[data-explorer-show="captures"]').click();
     for (const path of ['/api/events', '/api/events/count']) {
         await expect.poll(() => requests.some(url => url.pathname === path && url.searchParams.get('multiple_species_only') === 'true')).toBe(true);
     }
@@ -79,7 +79,9 @@ test('Explorer sends the multiple-species filter for visits, captures and counts
     for (const path of ['/api/events', '/api/events/count']) {
         await expect.poll(() => requests.slice(beforeClear).some(url => url.pathname === path && !url.searchParams.has('multiple_species_only'))).toBe(true);
     }
-    await grouping.getByRole('button', { name: 'Visits', exact: true }).click();
+    // Clear all narrows nothing about how results are shown, so the view stays on captures until asked.
+    await expect(show.locator('[data-explorer-show="captures"]')).toHaveAttribute('aria-pressed', 'true');
+    await show.locator('[data-explorer-show="visits"]').click();
     await expect.poll(() => requests.slice(beforeClear).some(url => url.pathname === '/api/visits' && !url.searchParams.has('multiple_species_only'))).toBe(true);
     expect(errors).toEqual([]);
 });

@@ -1168,14 +1168,6 @@
             <div class="mr-1 text-sm text-slate-500">{groupVisits && !selectionMode
                 ? $_('visits.total', { values: { count: totalCount }, default: '{count} visits' })
                 : $_('visits.total_captures', { values: { count: totalCount }, default: '{count} captures' })}</div>
-            <div class="inline-flex rounded-xl border border-slate-200 p-0.5 dark:border-slate-700" role="group" aria-label={$_('visits.grouping', { default: 'Group captures' })}>
-                {#each [true, false] as grouped}
-                    <button class="tab-button min-h-11" aria-pressed={groupVisits === grouped && !selectionMode} disabled={selectionMode}
-                        onclick={() => { groupVisits = grouped; currentPage = 1; void loadEvents(); }}>
-                        {grouped ? $_('visits.visits', { default: 'Visits' }) : $_('visits.capture_view', { default: 'Captures' })}
-                    </button>
-                {/each}
-            </div>
             {#if audioHistoryAvailable}
                 <a
                     data-explorer-audio-history-link
@@ -1316,6 +1308,8 @@
             {favoritesOnly}
             {audioConfirmedOnly}
             {multipleSpeciesOnly}
+            {groupVisits}
+            groupingLocked={selectionMode}
             {showHidden}
             {hiddenCount}
             {customStartDate}
@@ -1330,6 +1324,7 @@
                 if (next.favoritesOnly !== undefined) favoritesOnly = next.favoritesOnly;
                 if (next.audioConfirmedOnly !== undefined) audioConfirmedOnly = next.audioConfirmedOnly;
                 if (next.multipleSpeciesOnly !== undefined) multipleSpeciesOnly = next.multipleSpeciesOnly;
+                if (next.groupVisits !== undefined) groupVisits = next.groupVisits;
                 if (next.showHidden !== undefined) showHidden = next.showHidden;
                 if (next.customStartDate !== undefined) customStartDate = next.customStartDate;
                 if (next.customEndDate !== undefined) customEndDate = next.customEndDate;

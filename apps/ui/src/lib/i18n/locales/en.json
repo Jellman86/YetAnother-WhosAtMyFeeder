@@ -2314,7 +2314,13 @@
       "search_species": "Search species",
       "no_species_match": "No species matches that.",
       "show_rail": "Show filters",
-      "hide_rail": "Hide filters"
+      "hide_rail": "Hide filters",
+      "show": "Show",
+      "show_visits": "Visits of one species",
+      "show_visits_hint": "One bird's stay: its captures less than a minute apart.",
+      "show_captures": "Individual captures",
+      "show_captures_hint": "Every capture on its own.",
+      "show_locked": "Selecting works on individual captures."
     },
     "sort": {
       "newest": "Newest",

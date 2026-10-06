@@ -2304,7 +2304,13 @@
       "search_species": "搜索物种",
       "no_species_match": "没有匹配的物种。",
       "show_rail": "显示筛选",
-      "hide_rail": "隐藏筛选"
+      "hide_rail": "隐藏筛选",
+      "show": "显示",
+      "show_visits": "同一物种的访问",
+      "show_visits_hint": "一只鸟的停留：间隔不到一分钟的抓拍。",
+      "show_captures": "单个抓拍",
+      "show_captures_hint": "每张抓拍单独显示。",
+      "show_locked": "选择针对单个抓拍。"
     },
     "sort": {
       "newest": "最新",
