@@ -676,7 +676,7 @@
       "archive_failed_count": "{count} konnten nicht archiviert werden. Öffnen Sie den Besuch, um es erneut zu versuchen.",
       "per_species_minimum": "Fotos der neuesten Besuche je Art behalten",
       "per_species_minimum_help": "So viele der neuesten Besuche jeder Art behalten ihre Fotos, auch nach Ablauf des Verlaufszeitraums, damit seltene Vögel ihre Bilder behalten. Videos werden nicht länger behalten. 0 schaltet das aus.",
-      "per_species_maximum": "Höchstens so viele Besuche je Art mit Fotos und Videos",
+      "per_species_maximum": "Max. Besuche je Art mit Fotos und Videos",
       "per_species_maximum_help": "Besuche einer Art über diese Zahl hinaus verlieren ihre Fotos und Videos, die ältesten zuerst. Die Besuche bleiben im Verlauf. Favoriten zählen nicht mit. 0 bedeutet keine Grenze.",
       "max_size_mb": "Speichergrenze (MiB)",
       "max_size_mb_help": "Wenn Fotos und Videos mehr als das belegen, werden die ältesten zuerst entfernt. Favoriten und ihr Archiv bleiben erhalten. Diese und die obige Grenze haben Vorrang vor der Foto-Untergrenze. 0 bedeutet keine Grenze.",
@@ -684,7 +684,7 @@
       "bird_scan_mode_help": "Standard benötigt weniger CPU. Intensiv durchsucht auch Kacheln großer Bilder und klassifiziert mehr Ausschnitte. Beide zählen alle im ausgewählten Bild gefundenen Vögel, garantieren aber nicht jeden Vogel im Clip.",
       "bird_scan_standard": "Standard",
       "bird_scan_intensive": "Intensiv",
-      "cache_clips_help": "Frigate speichert diese bereits. Kopien bleiben erhalten, wenn Frigate sie löscht, jeweils etwa in Clipgröße.",
+      "cache_clips_help": "Frigate speichert diese bereits. Kopien bleiben erhalten, wenn Frigate sie löscht, und belegen jeweils etwa so viel Platz wie der Clip.",
       "cache_always_kept": "Fotos, Clips ganzer Besuche und Vorschauen werden immer behalten. Die Grenzen unten bestimmen, wie lange und wie viel Platz sie belegen.",
       "cache_unavailable": "In den Medienordner kann nicht geschrieben werden, daher werden keine Fotos und Videos behalten. Prüfe die Ordnerrechte; die Systemprüfungen zeigen den Fehler.",
       "cache_high_quality_storage_note": "Jeder Besuch behält dann zusätzlich Bilder in voller Auflösung, oft mehrere MB. Lege bei knappem Platz eine Speichergrenze fest."
@@ -1076,11 +1076,11 @@
       "ingest_labels": "Frigate-Labels, auf die reagiert wird",
       "ingest_labels_desc": "Kommagetrennt. Fügen Sie die Labels hinzu, die Ihr Frigate-Modell für Vögel verwendet (z. B. bird, duck, goose); alles hier durchläuft die Vogel-Erkennungspipeline.",
       "classification_image_source": "Bildquelle für neue Erkennungen",
-      "classification_image_source_desc": "Der Erkennungs-Snapshot ist schneller. Ein Aufnahme-Frame kann mehr Details zeigen, wenn der Aufnahmestream größer als der Erkennungsstream ist und denselben Bildausschnitt zeigt. Eine bessere Bestimmung ist nicht garantiert.",
+      "classification_image_source_desc": "Der Erkennungs-Snapshot ist schneller. Ein Aufzeichnungs-Frame kann mehr Details zeigen, wenn der Aufnahmestream größer als der Erkennungsstream ist und denselben Bildausschnitt zeigt. Eine bessere Bestimmung ist nicht garantiert.",
       "classification_image_snapshot": "Erkennungs-Snapshot",
-      "classification_image_recording": "Aufnahme-Frame",
-      "classification_image_recording_cost": "Frigate dekodiert pro Erkennung einen Aufnahme-Frame, und YA-WAMF lädt ihn herunter und verarbeitet ihn.",
-      "classification_image_recording_fallback": "Erfordert aufbewahrte Aufnahmen und die saubere Snapshot-Kopie in Frigate ({setting}). Frigate kann einen Aufnahme-Frame erst liefern, wenn dieser Teil der Aufnahme geschrieben ist, etwa 10 bis 15 Sekunden später, daher werden neue Erkennungen entsprechend später bestimmt. Ist der Frame nach 30 Sekunden nicht da, oder ist er kleiner oder anders geformt, wird der Erkennungs-Snapshot verwendet.",
+      "classification_image_recording": "Aufzeichnungs-Frame",
+      "classification_image_recording_cost": "Frigate dekodiert pro Erkennung einen Aufzeichnungs-Frame, und YA-WAMF lädt ihn herunter und verarbeitet ihn.",
+      "classification_image_recording_fallback": "Erfordert aufbewahrte Aufzeichnungen und die saubere Snapshot-Kopie in Frigate ({setting}). Frigate kann einen Aufzeichnungs-Frame erst liefern, wenn dieser Teil der Aufzeichnung geschrieben ist, etwa 10 bis 15 Sekunden später, daher werden neue Erkennungen entsprechend später bestimmt. Ist der Frame nach 30 Sekunden nicht da oder ist er kleiner oder anders geformt, wird der Erkennungs-Snapshot verwendet.",
       "classification_image_recording_scope": "Gilt für neue Erkennungen, auch für vergangene Ereignisse, die als verpasste Erkennungen abgerufen werden. Speichern ruft keine vergangenen Ereignisse ab und ändert keine vorhandenen Fotos; die Reklassifizierung bevorzugt gespeicherte Fotos."
     },
     "cameras": {
@@ -1778,7 +1778,7 @@
     "system_offline": "System offline",
     "open_health": "Systemzustand",
     "tile_live": "Live-Daten",
-    "tile_audio": "Ton",
+    "tile_audio": "Audio",
     "tile_alerts": "Hinweise"
   },
   "notifications": {
@@ -1883,7 +1883,7 @@
       "summary_unknown": "Unbekannt: {count}",
       "summary_excluded": "Ausgeschlossen: {count}",
       "excluded_tag": "{bird}, ausgeschlossen",
-      "scene_caption": "Gezählt auf Bild {frame} von {clip}.",
+      "scene_caption": "Gezählt auf Bild {frame} aus {clip}.",
       "clip_event": "dem Ereignisclip",
       "clip_recording": "der Aufzeichnung",
       "clip_frigate_snapshot": "Frigates letztem Schnappschuss",
@@ -1915,7 +1915,7 @@
       "show_all": "Alle {count} Vögel zeigen",
       "show_fewer": "Weniger Vögel zeigen",
       "excluded_heading": "Ausgeschlossen, nicht gezählt",
-      "choose_species": "Nach deutschem oder wissenschaftlichem Namen suchen und eine Art auswählen.",
+      "choose_species": "Nach gebräuchlichem oder wissenschaftlichem Namen suchen und eine Art auswählen.",
       "identified_from_visit": "Anhand dieses Besuchs bestimmt",
       "visit_evidence": "Die Art stammt aus der akzeptierten Bestimmung dieses Besuchs und dem passenden Frigate-Rahmen. Dieser Bildausschnitt allein erreichte {score}."
     },
@@ -2210,7 +2210,7 @@
     "snapshot_currently_saved": "Aktuell gespeichert",
     "audio_spectrogram_alt": "BirdNET-Go-Spektrogramm der zugehörigen Audio-Erkennung",
     "snapshot_regenerate": "Snapshots neu erzeugen und Vögel erneut zählen",
-    "snapshot_scan_count": "Bildsuche abgeschlossen. Aktuell gezählte Vögel: {count}.",
+    "snapshot_scan_count": "Snapshot-Scan abgeschlossen. Aktuell gezählte Vögel: {count}.",
     "snapshot_regenerate_no_candidates": "Snapshots neu erzeugt, aber keine auswählbaren Kandidaten gefunden.",
     "reference_disclosure": "Über {species} und Sichtungen in der Nähe",
     "identified_as": "Bestimmt als",
@@ -2568,12 +2568,12 @@
     "wall_label": "Fotos der letzten Besuche an diesem Futterhaus",
     "wall_open": "{name} öffnen",
     "wall_others": "{count} weitere Arten",
-    "wall_keys": "Mit den Pfeiltasten wechseln Sie zwischen den Besuchen.",
+    "wall_keys": "Mit den Pfeiltasten zwischen den Besuchen wechseln.",
     "wall_more": "Mehr Besuche zeigen",
     "wall_less": "Weniger Besuche zeigen",
     "wall_tile": "{name}, gesehen {time}",
     "wall_loading": "Fotos werden geladen",
-    "wall_footer": "{count} letzte Besuche. Jeder öffnet seine Art.",
+    "wall_footer": "{count} letzte Besuche. Jeder führt zu seiner Art.",
     "wall_rank": "Platz {rank}",
     "wall_clip": "Videoclip",
     "wall_confidence": "Sicherheit",
@@ -2703,7 +2703,7 @@
       "empty": "Noch keine Besuche erfasst. Das füllt sich, sobald Vögel kommen.",
       "visits": "Besuche",
       "species": "Arten",
-      "busiest_day": "Geschäftigster Tag",
+      "busiest_day": "Aktivster Tag",
       "visit_count_one": "1 Besuch",
       "visit_count": "{count} Besuche",
       "newest_arrival": "Neuester Gast",
@@ -3216,7 +3216,7 @@
     "node_visit": "Besuch um {span}",
     "node_visit_many": "Besuch, {span}, {count} Aufnahmen",
     "node_capture": "Aufnahme um {time}, Teil dieses Besuchs",
-    "node_capture_shown": "Aufnahme um {time}, Teil dieses Besuchs und sein Besuchsfoto"
+    "node_capture_shown": "Aufnahme um {time}, Teil dieses Besuchs und zugleich sein Besuchsfoto"
   },
   "taxonomy": {
     "title": "Stammbaum: {name}",
@@ -3234,7 +3234,7 @@
     "loading": "Stammbaum wird geladen",
     "outline_label": "Gliederung des Stammbaums",
     "branch_failed": "Ein Teil des Baums konnte nicht geladen werden. Zum erneuten Versuch noch einmal öffnen.",
-    "source_note": "Systematik nach der IOC World Bird List für Vögel und dem Catalogue of Life darüber. Sie zeigt, wie Arten gruppiert sind, nicht wann sie sich getrennt haben.",
+    "source_note": "Systematik nach der IOC World Bird List für Vögel und dem Catalogue of Life für die Ränge darüber. Sie zeigt, wie Arten gruppiert sind, nicht wann sie sich getrennt haben.",
     "more": "{count} weitere",
     "seen_here": "{count} hier gesehen",
     "captures_here": "{count} Aufnahmen hier",
@@ -3254,7 +3254,7 @@
     },
     "reference_photo": "Referenzfoto",
     "no_reference_photo": "Kein Referenzfoto",
-    "not_seen_here": "An diesem Futterplatz noch nicht gesehen",
+    "not_seen_here": "An diesem Futterhaus noch nicht gesehen",
     "group_summary": "{total} Arten weltweit, {seen} hier gesehen"
   }
 }

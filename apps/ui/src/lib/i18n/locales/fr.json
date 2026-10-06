@@ -106,7 +106,7 @@
       "save_species": "Ajouter {species}",
       "several_species": "Chaque suggestion montre l'oiseau sur lequel elle a été évaluée. Si la vidéo montre plus d'un oiseau, choisissez celui de cette observation et sa photo suivra.",
       "no_frame": "Aucune image",
-      "when_help": "Laissez vide pour utiliser l'heure de l'enregistrement."
+      "when_help": "Laissez vide pour utiliser l'heure à laquelle vous enregistrez."
     },
     "location": {
       "title": "Lieu de l’observation",
@@ -675,7 +675,7 @@
       "archive_usage_detail": "{count} conservés, {size}",
       "archive_failed_count": "{count} n’ont pas pu être archivés. Ouvrez la visite pour réessayer.",
       "per_species_minimum": "Garder les photos des visites les plus récentes par espèce",
-      "per_species_minimum_help": "Ce nombre de visites les plus récentes de chaque espèce garde ses photos même au-delà de la durée de l’historique, pour qu’un oiseau rare garde ses images. La vidéo n’est pas gardée plus longtemps. 0 désactive cette option.",
+      "per_species_minimum_help": "Les visites les plus récentes de chaque espèce, à hauteur de ce nombre, gardent leurs photos même au-delà de la durée de l’historique, pour qu’un oiseau rare garde ses images. La vidéo n’est pas gardée plus longtemps. 0 désactive cette option.",
       "per_species_maximum": "Visites maximum par espèce avec photos et vidéo",
       "per_species_maximum_help": "Au-delà de ce nombre, les visites d’une espèce perdent leurs photos et leur vidéo, les plus anciennes d’abord. Les visites restent dans l’historique. Les favoris ne comptent pas. 0 signifie aucune limite.",
       "max_size_mb": "Limite de stockage (Mio)",
@@ -1777,8 +1777,8 @@
     "system_online": "Système en ligne",
     "system_offline": "Système hors ligne",
     "open_health": "État du système",
-    "tile_live": "Direct",
-    "tile_audio": "Son",
+    "tile_live": "En direct",
+    "tile_audio": "Audio",
     "tile_alerts": "Alertes"
   },
   "notifications": {
@@ -1849,7 +1849,7 @@
     "empty_filtered": "Rien ne correspond à ce filtre.",
     "clear_notifications": "Effacer les notifications",
     "system_media_storage_unavailable_title": "Stockage des médias indisponible",
-    "system_media_storage_unavailable_message": "Le dossier des médias n'est pas accessible en écriture, donc aucune photo ni vidéo n'est conservée. Ouvrez Réglages → Données pour les détails."
+    "system_media_storage_unavailable_message": "Le dossier des médias n'est pas accessible en écriture, donc aucune photo ni vidéo n'est conservée. Ouvrez Paramètres → Données pour les détails."
   },
   "actions": {
     "confirm_delete": "Supprimer toute cette visite de {species} ? L'enregistrement et ses médias quittent l'historique définitivement. Masquer conserve l'enregistrement.",
@@ -1886,7 +1886,7 @@
       "scene_caption": "Compté sur l’image {frame} de {clip}.",
       "clip_event": "la séquence de l’événement",
       "clip_recording": "l’enregistrement",
-      "clip_frigate_snapshot": "la dernière capture de Frigate",
+      "clip_frigate_snapshot": "l’instantané final de Frigate",
       "clip_other": "une séquence conservée",
       "scene_same_frame": "La photo provient de cette image.",
       "scene_other_frame": "La photo provient d’une autre image, les oiseaux peuvent donc y être placés autrement.",
@@ -1902,13 +1902,13 @@
       "corrected": "Votre correction",
       "too_low_to_name": "Trop incertain pour être nommé",
       "score_label": "Score d’espèce propre à cet oiseau",
-      "best_guess": "Meilleure hypothèse {label} à {score}, trop faible pour être nommé.",
+      "best_guess": "Meilleure hypothèse : {label} à {score}, trop faible pour nommer l’oiseau.",
       "model_suggested": "Le modèle proposait {label} à {score}.",
       "own_score": "Cet oiseau obtient {score} à lui seul, indépendamment de la photo.",
       "located_hint": "Localisé d’après le cadre suivi par Frigate.",
       "located": "Localisé avec une confiance du détecteur de {score}.",
       "correct_species": "Changer l’espèce",
-      "restore_to_count": "Recompter cet oiseau",
+      "restore_to_count": "Réintégrer au comptage",
       "exclude_from_count": "Retirer du comptage",
       "species_for": "Espèce pour {bird}",
       "save_species": "Enregistrer l’espèce",
@@ -1916,7 +1916,7 @@
       "show_fewer": "Afficher moins d’oiseaux",
       "excluded_heading": "Exclus, non comptés",
       "choose_species": "Recherchez un nom commun ou scientifique, puis choisissez une espèce.",
-      "identified_from_visit": "Identifié lors de cette visite",
+      "identified_from_visit": "Identifié d’après la visite",
       "visit_evidence": "Le nom vient de l’identification acceptée de la visite et du cadre correspondant de Frigate. Ce recadrage seul a obtenu {score}."
     },
     "uploaded": "Importée",
@@ -2209,7 +2209,7 @@
     "audio_no_direct_match": "Aucune confirmation audio directe",
     "snapshot_currently_saved": "Actuellement enregistré",
     "audio_spectrogram_alt": "Spectrogramme BirdNET-Go de la détection audio correspondante",
-    "snapshot_regenerate": "Régénérer les captures et recompter les oiseaux",
+    "snapshot_regenerate": "Régénérer les instantanés et recompter les oiseaux",
     "snapshot_scan_count": "Analyse des images terminée. Nombre actuel d’oiseaux : {count}.",
     "snapshot_regenerate_no_candidates": "Captures régénérées, mais aucun candidat sélectionnable n'a été produit.",
     "reference_disclosure": "À propos de {species} et observations à proximité",
@@ -2307,10 +2307,10 @@
       "hide_rail": "Masquer les filtres",
       "show": "Afficher",
       "show_visits": "Visites d'une espèce",
-      "show_visits_hint": "Le passage d'un oiseau : ses prises de vue à moins d'une minute d'intervalle.",
-      "show_captures": "Prises de vue individuelles",
-      "show_captures_hint": "Chaque prise de vue séparément.",
-      "show_locked": "La sélection porte sur les prises de vue individuelles."
+      "show_visits_hint": "Le passage d'un oiseau : ses captures à moins d'une minute d'intervalle.",
+      "show_captures": "Captures individuelles",
+      "show_captures_hint": "Chaque capture séparément.",
+      "show_locked": "La sélection porte sur les captures individuelles."
     },
     "sort": {
       "newest": "Plus récent",
@@ -2581,7 +2581,7 @@
     "wall_camera": "Caméra",
     "wall_visit": "Visite",
     "wall_frames": "{count, plural, one {# image} other {# images}}",
-    "wall_eyebrow": "Plus de {unit} · {window}"
+    "wall_eyebrow": "Le plus de {unit} · {window}"
   },
   "about": {
     "how_it_works": "Comment ça marche",
@@ -3215,15 +3215,15 @@
     "hide_captures": "Masquer les captures",
     "node_visit": "Visite à {span}",
     "node_visit_many": "Visite, {span}, {count} captures",
-    "node_capture": "Prise de vue à {time}, dans cette visite",
-    "node_capture_shown": "Prise de vue à {time}, dans cette visite, et sa photo de visite"
+    "node_capture": "Capture à {time}, dans cette visite",
+    "node_capture_shown": "Capture à {time}, dans cette visite, et sa photo de visite"
   },
   "taxonomy": {
-    "title": "Arbre de famille : {name}",
-    "small_heading": "Arbre de famille",
+    "title": "Arbre généalogique de {name}",
+    "small_heading": "Arbre généalogique",
     "lineage_label": "Classification, de la classe à l'espèce",
     "context": "{group} : {total} espèces dans le monde, {seen} vues à cette mangeoire.",
-    "open": "Ouvrir l'arbre de famille",
+    "open": "Ouvrir l'arbre généalogique",
     "layouts": "Affichage",
     "layout_tree": "Arbre",
     "layout_fan": "Éventail",
@@ -3231,10 +3231,10 @@
     "legend_path": "Chemin vers cet oiseau",
     "legend_seen": "Vu à cette mangeoire",
     "legend_open": "Sélectionnez un groupe pour l'ouvrir ou le fermer",
-    "loading": "Chargement de l'arbre de famille",
-    "outline_label": "Plan de l'arbre de famille",
+    "loading": "Chargement de l'arbre généalogique",
+    "outline_label": "Plan de l'arbre généalogique",
     "branch_failed": "Une partie de l'arbre n'a pas pu être chargée. Rouvrez-la pour réessayer.",
-    "source_note": "Classification de l'IOC World Bird List pour les oiseaux et du Catalogue of Life au-dessus. Elle montre comment les espèces sont regroupées, pas quand elles ont divergé.",
+    "source_note": "Classification de l'IOC World Bird List pour les oiseaux et du Catalogue of Life pour les rangs supérieurs. Elle montre comment les espèces sont regroupées, pas quand elles ont divergé.",
     "more": "{count} de plus",
     "seen_here": "{count} vues ici",
     "captures_here": "{count} captures ici",

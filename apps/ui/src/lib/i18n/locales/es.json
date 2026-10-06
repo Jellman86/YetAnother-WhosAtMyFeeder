@@ -374,7 +374,7 @@
       "remaining": "{count} más en espera",
       "work_through": "Revisar la cola",
       "new_species_tag": "Especie nueva · {count} avistamiento(s)",
-      "loading": "Comprobando si hay visitas que te necesitan…",
+      "loading": "Comprobando si hay visitas pendientes de revisión…",
       "unavailable": "No se pudo comprobar la cola, así que no se sabe si hay algo pendiente."
     },
     "review_session": {
@@ -681,7 +681,7 @@
       "max_size_mb": "Límite de almacenamiento (MiB)",
       "max_size_mb_help": "Cuando las fotos y el vídeo ocupan más que esto, se eliminan primero los más antiguos. Los favoritos y su archivo se conservan. Este límite y el anterior tienen prioridad sobre el mínimo de fotos. 0 significa sin límite.",
       "bird_scan_mode": "Esfuerzo de búsqueda de aves",
-      "bird_scan_mode_help": "Estándar usa menos CPU. Intensivo también busca por regiones en imágenes grandes y clasifica más recortes. Ambos cuentan todas las aves encontradas en la escena elegida, sin garantizar todas las aves del clip.",
+      "bird_scan_mode_help": "Estándar usa menos CPU. Intensivo también busca por regiones en imágenes grandes y clasifica más recortes. Ambos cuentan todas las aves encontradas en la escena elegida; ninguno garantiza encontrar todas las aves del clip.",
       "bird_scan_standard": "Estándar",
       "bird_scan_intensive": "Intensivo",
       "cache_clips_help": "Frigate ya los guarda. Las copias sobreviven aunque Frigate los borre, cada una del tamaño aproximado del clip.",
@@ -1916,7 +1916,7 @@
       "show_fewer": "Mostrar menos aves",
       "excluded_heading": "Excluidas, sin contar",
       "choose_species": "Busca por nombre común o científico y elige una especie.",
-      "identified_from_visit": "Identificado en esta visita",
+      "identified_from_visit": "Identificada en esta visita",
       "visit_evidence": "El nombre procede de la identificación aceptada de la visita y del recuadro correspondiente de Frigate. Este recorte por sí solo obtuvo {score}."
     },
     "uploaded": "Subida",
@@ -2210,7 +2210,7 @@
     "snapshot_currently_saved": "Guardado actualmente",
     "audio_spectrogram_alt": "Espectrograma de BirdNET-Go de la detección de audio coincidente",
     "snapshot_regenerate": "Regenerar instantáneas y volver a contar las aves",
-    "snapshot_scan_count": "Exploración de imágenes terminada. Recuento actual de aves: {count}.",
+    "snapshot_scan_count": "Escaneo de instantáneas terminado. Recuento actual de aves: {count}.",
     "snapshot_regenerate_no_candidates": "Instantáneas regeneradas, pero no se obtuvieron candidatos seleccionables.",
     "reference_disclosure": "Sobre {species} y avistamientos cercanos",
     "identified_as": "Identificado como",
@@ -3216,7 +3216,7 @@
     "node_visit": "Visita a las {span}",
     "node_visit_many": "Visita, {span}, {count} capturas",
     "node_capture": "Captura a las {time}, parte de esta visita",
-    "node_capture_shown": "Captura a las {time}, parte de esta visita y su foto de la visita"
+    "node_capture_shown": "Captura a las {time}, parte de esta visita; es la foto de la visita"
   },
   "taxonomy": {
     "title": "Árbol de familia de {name}",
@@ -3254,7 +3254,7 @@
     },
     "reference_photo": "Foto de referencia",
     "no_reference_photo": "Sin foto de referencia",
-    "not_seen_here": "Aún no visto en este comedero",
+    "not_seen_here": "Aún no vista en este comedero",
     "group_summary": "{total} especies en el mundo, {seen} vistas aquí"
   }
 }
