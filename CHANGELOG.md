@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- The model picker lists RoPE ViT-B14 at 87%+ on iNat21, the published figure for the 224 px
+  version YA-WAMF ships, instead of 89%+.
 - The setup wizard's hint after the hardware check now says the Debug tab it points to only appears
   when the debug UI is enabled (`SYSTEM__DEBUG_UI_ENABLED=true`).
 - The first-run setup wizard, the Frigate, MQTT, BirdNET-Go, BirdWeather and notification test

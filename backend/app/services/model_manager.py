@@ -494,7 +494,7 @@ REMOTE_REGISTRY = [
         "description": "Mid-tier iNat21 classifier intended to bridge the gap between the small wildlife model and ConvNeXt large.",
         "architecture": "RoPE-ViT-B14-CAPI",
         "file_size_mb": 375,
-        "accuracy_tier": "Very High (89%+)",
+        "accuracy_tier": "Very High (87%+)",
         "inference_speed": "Medium-Slow (~220-400ms)",
         "runtime": "onnx",
         # Intel GPU and NPU are validated on Arrow Lake with OpenVINO 2026.2.1.
