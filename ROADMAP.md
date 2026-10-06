@@ -511,6 +511,20 @@ clips) turned off once so disk use did not jump. An unwritable media folder is r
 **Follow-up:** measure whether best-available frames can be stored smaller than JPEG 90 without a
 visible loss; on a live install they were 92% of photo storage.
 
+#### Moments with several species in the Explorer 🐦
+**Priority:** P2 | **Effort:** M | **Status:** ☐ After the next release (feature freeze until then)
+
+A visit is one species: its captures on one camera less than a minute apart. People also want to see
+the moments when several species were at the feeder together. Add **Moments with several species**
+as a third choice under **Show** in the Explorer filters, beside "Visits of one species" and
+"Individual captures": group every species on a camera by the same gap, list the species in each
+moment, and keep each one's captures reachable. It needs its own grouping on the server, counts and
+paging. Mock the row first. The existing "Multiple bird species" filter, two or more species in one
+capture, stays as it is.
+
+**Acceptance:** a robin and two tits arriving together read as one entry naming both species;
+counts, paging and guest windows match the other two views; the choice sits in the filter rail.
+
 #### Seen and heard in one Explorer timeline 🎧
 **Priority:** P2 | **Effort:** M | **Status:** ☐ After the next release (feature freeze until then)
 

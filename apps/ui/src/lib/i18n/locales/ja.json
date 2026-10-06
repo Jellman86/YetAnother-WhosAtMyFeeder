@@ -2304,7 +2304,13 @@
       "search_species": "種を検索",
       "no_species_match": "一致する種がありません。",
       "show_rail": "フィルターを表示",
-      "hide_rail": "フィルターを非表示"
+      "hide_rail": "フィルターを非表示",
+      "show": "表示",
+      "show_visits": "1 種の訪問",
+      "show_visits_hint": "1 羽の滞在：1 分未満の間隔で続くキャプチャ。",
+      "show_captures": "個別のキャプチャ",
+      "show_captures_hint": "キャプチャを 1 件ずつ。",
+      "show_locked": "選択は個別のキャプチャに対して行います。"
     },
     "sort": {
       "newest": "新しい順",

@@ -18,6 +18,10 @@
         favoritesOnly: boolean;
         audioConfirmedOnly: boolean;
         multipleSpeciesOnly?: boolean;
+        /** How results are shown: a species' visits, or every capture on its own. */
+        groupVisits?: boolean;
+        /** Selecting works on captures, so the choice is held while selecting. */
+        groupingLocked?: boolean;
         /** Owner-only: hidden detections are soft-deleted, not gone. */
         showHidden: boolean;
         hiddenCount: number;
@@ -33,6 +37,7 @@
             favoritesOnly?: boolean;
             audioConfirmedOnly?: boolean;
             multipleSpeciesOnly?: boolean;
+            groupVisits?: boolean;
             showHidden?: boolean;
             customStartDate?: string;
             customEndDate?: string;
@@ -53,6 +58,8 @@
         favoritesOnly,
         audioConfirmedOnly,
         multipleSpeciesOnly = false,
+        groupVisits = true,
+        groupingLocked = false,
         showHidden,
         hiddenCount,
         canSeeHidden,
@@ -197,6 +204,37 @@
             : 'lg:!flex lg:mt-0 lg:min-h-0 lg:flex-1 lg:flex-col lg:gap-3 lg:overflow-y-auto lg:overscroll-contain lg:border-t-0 lg:pt-0'}"
         data-explorer-facets
     >
+            <!-- How results are shown, not what they are: Clear all leaves it as it is. -->
+            <div class="min-w-0 shrink-0" role="group" aria-labelledby="explorer-show-heading" data-explorer-show-facet>
+                <p id="explorer-show-heading" class="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                    {$_('events.filters.show', { default: 'Show' })}
+                </p>
+                <div class="mt-2 space-y-0.5">
+                    {#each [
+                        { grouped: true, label: $_('events.filters.show_visits', { default: 'Visits of one species' }), hint: $_('events.filters.show_visits_hint', { default: "One bird's stay: its captures less than a minute apart." }) },
+                        { grouped: false, label: $_('events.filters.show_captures', { default: 'Individual captures' }), hint: $_('events.filters.show_captures_hint', { default: 'Every capture on its own.' }) }
+                    ] as option (option.grouped)}
+                        {@const chosen = groupVisits === option.grouped && !groupingLocked}
+                        <button
+                            type="button"
+                            class="flex min-h-11 w-full flex-col items-start justify-center rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-slate-800/60 {chosen
+                                ? 'bg-brand-50 dark:bg-brand-950/40'
+                                : ''}"
+                            aria-pressed={chosen}
+                            disabled={groupingLocked}
+                            onclick={() => onchange({ groupVisits: option.grouped })}
+                            data-explorer-show={option.grouped ? 'visits' : 'captures'}
+                        >
+                            <span class="text-xs {chosen ? 'font-semibold text-brand-800 dark:text-brand-200' : 'text-slate-700 dark:text-slate-300'}">{option.label}</span>
+                            <span class="text-[11px] leading-4 text-slate-500 dark:text-slate-400">{option.hint}</span>
+                        </button>
+                    {/each}
+                </div>
+                {#if groupingLocked}
+                    <p class="mt-1 px-2 text-[11px] text-slate-500 dark:text-slate-400">{$_('events.filters.show_locked', { default: 'Selecting works on individual captures.' })}</p>
+                {/if}
+            </div>
+
             <div class="min-w-0 shrink-0" data-explorer-species-facet>
                 <p class="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
                     {$_('events.filters.all_species')}

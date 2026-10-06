@@ -2304,7 +2304,13 @@
       "search_species": "Rechercher une espèce",
       "no_species_match": "Aucune espèce ne correspond.",
       "show_rail": "Afficher les filtres",
-      "hide_rail": "Masquer les filtres"
+      "hide_rail": "Masquer les filtres",
+      "show": "Afficher",
+      "show_visits": "Visites d'une espèce",
+      "show_visits_hint": "Le passage d'un oiseau : ses prises de vue à moins d'une minute d'intervalle.",
+      "show_captures": "Prises de vue individuelles",
+      "show_captures_hint": "Chaque prise de vue séparément.",
+      "show_locked": "La sélection porte sur les prises de vue individuelles."
     },
     "sort": {
       "newest": "Plus récent",

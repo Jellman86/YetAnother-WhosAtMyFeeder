@@ -2314,7 +2314,13 @@
       "search_species": "Cerca specie",
       "no_species_match": "Nessuna specie corrisponde.",
       "show_rail": "Mostra filtri",
-      "hide_rail": "Nascondi filtri"
+      "hide_rail": "Nascondi filtri",
+      "show": "Mostra",
+      "show_visits": "Visite di una specie",
+      "show_visits_hint": "La permanenza di un uccello: le sue acquisizioni a meno di un minuto l'una dall'altra.",
+      "show_captures": "Acquisizioni singole",
+      "show_captures_hint": "Ogni acquisizione da sola.",
+      "show_locked": "La selezione funziona sulle acquisizioni singole."
     },
     "sort": {
       "newest": "Più recenti",

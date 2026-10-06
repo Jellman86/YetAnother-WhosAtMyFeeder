@@ -100,3 +100,27 @@ test('scrolling past the species list reaches the other filter sections', async 
     await page.mouse.wheel(0, 300);
     await expect.poll(() => facets.evaluate(node => node.scrollTop)).toBeGreaterThan(before);
 });
+
+test('how results are shown is chosen in the filters, explained in words, and kept by Clear all', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const requests = await openFilters(page);
+    const show = page.getByRole('group', { name: 'Show' });
+    const visits = show.locator('[data-explorer-show="visits"]');
+    const captures = show.locator('[data-explorer-show="captures"]');
+    await expect(visits).toHaveAttribute('aria-pressed', 'true');
+    await expect(visits).toContainText("Visits of one species");
+    await expect(visits).toContainText("One bird's stay: its captures less than a minute apart.");
+    await expect(captures).toContainText('Every capture on its own.');
+    // The toolbar no longer carries a second switch for the same choice.
+    await expect(page.getByRole('group', { name: 'Group captures' })).toHaveCount(0);
+
+    const before = requests.length;
+    await captures.click();
+    await expect(captures).toHaveAttribute('aria-pressed', 'true');
+    await expect.poll(() => requests.slice(before).some(url => url.pathname === '/api/events')).toBe(true);
+
+    await page.getByRole('button', { name: /^Dunnock.*12$/ }).click();
+    await page.getByRole('button', { name: 'Clear all', exact: true }).click();
+    await expect(captures).toHaveAttribute('aria-pressed', 'true');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});

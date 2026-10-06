@@ -2304,7 +2304,13 @@
       "search_species": "Buscar especie",
       "no_species_match": "Ninguna especie coincide.",
       "show_rail": "Mostrar filtros",
-      "hide_rail": "Ocultar filtros"
+      "hide_rail": "Ocultar filtros",
+      "show": "Mostrar",
+      "show_visits": "Visitas de una especie",
+      "show_visits_hint": "La estancia de un ave: sus capturas con menos de un minuto entre ellas.",
+      "show_captures": "Capturas individuales",
+      "show_captures_hint": "Cada captura por separado.",
+      "show_locked": "La selección funciona con capturas individuales."
     },
     "sort": {
       "newest": "Más reciente",

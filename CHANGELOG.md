@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- The Explorer's **Visits / Captures** switch moves from the toolbar into the filter rail as
+  **Show**, with plain names and a line under each: **Visits of one species** ("one bird's stay: its
+  captures less than a minute apart") and **Individual captures**. **Clear all** leaves the choice
+  as it is, and while selecting it stays on individual captures and says why.
 - An opened visit in the Explorer list and the dashboard's field log reads as one visit. A real
   button beside **Open** shows and hides its captures (on a phone, the "N captures" pill does), in
   place of the small arrow under the time. The visit's score is labelled **best capture**. The

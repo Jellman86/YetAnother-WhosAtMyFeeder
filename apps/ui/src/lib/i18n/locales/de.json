@@ -2304,7 +2304,13 @@
       "search_species": "Art suchen",
       "no_species_match": "Keine Art passt dazu.",
       "show_rail": "Filter anzeigen",
-      "hide_rail": "Filter ausblenden"
+      "hide_rail": "Filter ausblenden",
+      "show": "Anzeigen",
+      "show_visits": "Besuche einer Art",
+      "show_visits_hint": "Der Aufenthalt eines Vogels: seine Aufnahmen weniger als eine Minute auseinander.",
+      "show_captures": "Einzelne Aufnahmen",
+      "show_captures_hint": "Jede Aufnahme für sich.",
+      "show_locked": "Die Auswahl arbeitet mit einzelnen Aufnahmen."
     },
     "sort": {
       "newest": "Neueste",
