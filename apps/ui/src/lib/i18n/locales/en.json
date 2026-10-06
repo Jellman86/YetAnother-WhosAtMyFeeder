@@ -3204,8 +3204,12 @@
     "loaded_of_total": "{shown} of {total} captures shown",
     "captures_empty": "No captures from this visit are visible in this view.",
     "best_capture": "best capture",
-    "captures_caption": "Captures in this visit, oldest first. Same bird unless named.",
-    "capture_at": "Capture at {time}"
+    "captures_caption": "Captures in this visit, oldest first.",
+    "key_visit": "Visit",
+    "key_shown": "Visit photo",
+    "key_capture": "Capture",
+    "show_captures": "Show {count} captures",
+    "hide_captures": "Hide captures"
   },
   "taxonomy": {
     "title": "Family tree of {name}",

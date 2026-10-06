@@ -3204,8 +3204,12 @@
     "loaded_of_total": "{shown} di {total} acquisizioni mostrate",
     "captures_empty": "Nessuna acquisizione di questa visita è visibile in questa vista.",
     "best_capture": "acquisizione migliore",
-    "captures_caption": "Acquisizioni di questa visita, dalla più vecchia. Stesso uccello salvo diversa indicazione.",
-    "capture_at": "Acquisizione delle {time}"
+    "captures_caption": "Acquisizioni di questa visita, dalla più vecchia.",
+    "key_visit": "Visita",
+    "key_shown": "Foto della visita",
+    "key_capture": "Acquisizione",
+    "show_captures": "Mostra {count} acquisizioni",
+    "hide_captures": "Nascondi acquisizioni"
   },
   "taxonomy": {
     "title": "Albero di famiglia di {name}",

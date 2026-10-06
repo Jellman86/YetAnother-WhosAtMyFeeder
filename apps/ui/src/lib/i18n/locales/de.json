@@ -3204,8 +3204,12 @@
     "loaded_of_total": "{shown} von {total} Aufnahmen angezeigt",
     "captures_empty": "In dieser Ansicht sind keine Aufnahmen dieses Besuchs sichtbar.",
     "best_capture": "beste Aufnahme",
-    "captures_caption": "Aufnahmen dieses Besuchs, älteste zuerst. Derselbe Vogel, sofern nicht benannt.",
-    "capture_at": "Aufnahme um {time}"
+    "captures_caption": "Aufnahmen dieses Besuchs, älteste zuerst.",
+    "key_visit": "Besuch",
+    "key_shown": "Besuchsfoto",
+    "key_capture": "Aufnahme",
+    "show_captures": "{count} Aufnahmen zeigen",
+    "hide_captures": "Aufnahmen ausblenden"
   },
   "taxonomy": {
     "title": "Stammbaum: {name}",

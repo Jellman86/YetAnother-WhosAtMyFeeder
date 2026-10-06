@@ -3204,8 +3204,12 @@
     "loaded_of_total": "{shown} de {total} capturas mostradas",
     "captures_empty": "Nenhuma captura desta visita está visível nesta vista.",
     "best_capture": "melhor captura",
-    "captures_caption": "Capturas desta visita, da mais antiga para a mais recente. A mesma ave, salvo indicação.",
-    "capture_at": "Captura às {time}"
+    "captures_caption": "Capturas desta visita, da mais antiga para a mais recente.",
+    "key_visit": "Visita",
+    "key_shown": "Foto da visita",
+    "key_capture": "Captura",
+    "show_captures": "Mostrar {count} capturas",
+    "hide_captures": "Ocultar capturas"
   },
   "taxonomy": {
     "title": "Árvore de família de {name}",

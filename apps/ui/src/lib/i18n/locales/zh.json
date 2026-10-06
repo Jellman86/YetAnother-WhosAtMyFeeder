@@ -3204,8 +3204,12 @@
     "loaded_of_total": "已显示 {shown}/{total} 次拍摄",
     "captures_empty": "此视图中看不到本次到访的拍摄。",
     "best_capture": "最佳抓拍",
-    "captures_caption": "此次访问的抓拍，按时间从早到晚。除非另有名称，均为同一只鸟。",
-    "capture_at": "{time} 的抓拍"
+    "captures_caption": "此次访问的抓拍，按时间从早到晚。",
+    "key_visit": "访问",
+    "key_shown": "访问照片",
+    "key_capture": "抓拍",
+    "show_captures": "显示 {count} 张抓拍",
+    "hide_captures": "隐藏抓拍"
   },
   "taxonomy": {
     "title": "{name} 的系统树",

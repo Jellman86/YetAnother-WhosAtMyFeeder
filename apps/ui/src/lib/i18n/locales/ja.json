@@ -3204,8 +3204,12 @@
     "loaded_of_total": "{total} 件中 {shown} 件の撮影を表示",
     "captures_empty": "この表示では、この訪問の撮影は表示できません。",
     "best_capture": "最良のキャプチャ",
-    "captures_caption": "この訪問のキャプチャ（古い順）。名前がない限り同じ鳥です。",
-    "capture_at": "{time} のキャプチャ"
+    "captures_caption": "この訪問のキャプチャ（古い順）。",
+    "key_visit": "訪問",
+    "key_shown": "訪問の写真",
+    "key_capture": "キャプチャ",
+    "show_captures": "{count} 件のキャプチャを表示",
+    "hide_captures": "キャプチャを隠す"
   },
   "taxonomy": {
     "title": "{name} の系統樹",

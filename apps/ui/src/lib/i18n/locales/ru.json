@@ -3204,8 +3204,12 @@
     "loaded_of_total": "Показано снимков: {shown} из {total}",
     "captures_empty": "В этом представлении нет доступных снимков этого визита.",
     "best_capture": "лучший снимок",
-    "captures_caption": "Снимки этого визита, сначала старые. Та же птица, если не указано иное.",
-    "capture_at": "Снимок в {time}"
+    "captures_caption": "Снимки этого визита, сначала старые.",
+    "key_visit": "Визит",
+    "key_shown": "Фото визита",
+    "key_capture": "Снимок",
+    "show_captures": "Показать снимки: {count}",
+    "hide_captures": "Скрыть снимки"
   },
   "taxonomy": {
     "title": "Родословное древо: {name}",

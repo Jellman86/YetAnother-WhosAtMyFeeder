@@ -69,8 +69,8 @@
      */
     const grid = $derived(
         showCamera
-            ? 'grid grid-cols-[3.25rem_0.6rem_auto_minmax(0,1fr)_auto] gap-x-2 sm:grid-cols-[5rem_0.75rem_auto_minmax(0,1fr)_auto_auto_5rem] sm:gap-x-3'
-            : 'grid grid-cols-[3.25rem_0.6rem_auto_minmax(0,1fr)_auto] gap-x-2 sm:grid-cols-[5rem_0.75rem_auto_minmax(0,1fr)_auto_5rem] sm:gap-x-3'
+            ? 'grid grid-cols-[3.25rem_0.6rem_auto_minmax(0,1fr)_auto] gap-x-2 sm:grid-cols-[5rem_0.75rem_auto_minmax(0,1fr)_auto_auto_8rem] sm:gap-x-3'
+            : 'grid grid-cols-[3.25rem_0.6rem_auto_minmax(0,1fr)_auto] gap-x-2 sm:grid-cols-[5rem_0.75rem_auto_minmax(0,1fr)_auto_8rem] sm:gap-x-3'
     );
 
     function quietScore(score: number | null): string {

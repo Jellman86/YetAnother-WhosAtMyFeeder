@@ -3204,8 +3204,12 @@
     "loaded_of_total": "{shown} captures affichées sur {total}",
     "captures_empty": "Aucune capture de cette visite n’est visible dans cette vue.",
     "best_capture": "meilleure capture",
-    "captures_caption": "Captures de cette visite, de la plus ancienne à la plus récente. Même oiseau sauf mention contraire.",
-    "capture_at": "Capture à {time}"
+    "captures_caption": "Captures de cette visite, de la plus ancienne à la plus récente.",
+    "key_visit": "Visite",
+    "key_shown": "Photo de la visite",
+    "key_capture": "Prise de vue",
+    "show_captures": "Afficher les {count} captures",
+    "hide_captures": "Masquer les captures"
   },
   "taxonomy": {
     "title": "Arbre de famille : {name}",

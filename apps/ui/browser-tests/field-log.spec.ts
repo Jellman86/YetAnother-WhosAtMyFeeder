@@ -289,20 +289,26 @@ for (const phase of ['loading', 'unavailable'] as const) {
     });
 }
 
-test('a visit opens from its captures button, and its captures say only what is their own', async ({ page }) => {
+test('a visit opens from its Show captures button, keys its nodes, and keeps every capture\'s details', async ({ page }) => {
     await open(page, '');
     const visit = row(page, 'blackbird');
     await expect(visit.locator('[data-field-log-best-capture]')).toHaveText('best capture');
     const toggle = visit.locator('[data-field-log-captures-toggle]');
+    await expect(toggle).toHaveAccessibleName('Show 13 captures');
+    await expect(toggle).toHaveText('13');
     await expect(toggle).toHaveAttribute('aria-expanded', 'false');
     await toggle.click();
     await expect(toggle).toHaveAttribute('aria-expanded', 'true');
-    await expect(visit.locator('[data-visit-captures-caption]')).toHaveText('Captures in this visit, oldest first. Same bird unless named.');
-    // The visit's own bird is not named again; a different bird in the visit is.
+    await expect(toggle).toHaveAccessibleName('Hide captures');
+    const key = visit.locator('[data-visit-captures-key]');
+    await expect(key).toContainText('Captures in this visit, oldest first.');
+    for (const name of ['Visit', 'Visit photo', 'Capture']) await expect(key.getByText(name, { exact: true })).toBeVisible();
+    // Every capture keeps its own details: name, and its notes.
     const own = visit.locator('[data-visit-capture="blackbird"]');
-    await expect(own.getByText('Eurasian Blackbird', { exact: true })).toHaveCount(0);
-    await expect(own.locator('[data-visit-capture-open]')).toContainText('Visit photo');
+    await expect(own.getByText('Eurasian Blackbird', { exact: true })).toBeVisible();
+    await expect(own).toContainText('Visit photo');
     await expect(visit.locator('[data-visit-capture="blackbird-1"]').getByText('Great Tit', { exact: true })).toBeVisible();
+    await expect(visit.locator('[data-field-log-capture-dot="shown"]')).toHaveAttribute('title', 'Visit photo');
     await toggle.click();
     await expect(visit.locator('[data-visit-capture]').first()).toBeHidden();
 });
