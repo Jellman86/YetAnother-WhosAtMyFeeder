@@ -6,6 +6,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- With **Identify new detections from: Recording frame**, a detection whose recording frame could
+  not be used was identified from the whole camera view instead of the bird. Frigate's crop was
+  dropped whenever the recording was past retention, still being written, or slow to arrive, so
+  small birds scored a few percent and were discarded: a backfill of older events kept almost
+  none of them, and busy live moments lost birds too. The detection snapshot keeps its crop
+  whenever it is the same full frame Frigate saved; one Frigate cropped itself still gets none.
 - BirdWeather no longer receives the same sighting twice. **Missed Detections** uploaded every
   sighting it fetched from Frigate's history, so a reset followed by a backfill sent the whole
   history again, and a visit that later got a better-scoring frame was uploaded a second time.

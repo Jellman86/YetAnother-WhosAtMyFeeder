@@ -92,10 +92,9 @@ async def test_does_not_guess_recording_timestamp_or_box(recording_mode, change)
     original = image_bytes((1280, 720))
     provenance = frigate_snapshot_input_provenance(event)
     client = recording_client(get_recording_snapshot_with_error=AsyncMock())
-    fallback = (
-        provenance if change == "no_camera" else ClassificationInputProvenance("frigate_snapshot_unaligned", False)
-    )
-    assert await prefer_recording_snapshot("evt", event, original, provenance, client=client) == (original, fallback)
+    # No recording is guessed at; the detection snapshot, checked against the clean full frame,
+    # keeps the provenance that restores Frigate's crop.
+    assert await prefer_recording_snapshot("evt", event, original, provenance, client=client) == (original, provenance)
     client.get_recording_snapshot_with_error.assert_not_awaited()
 
 
@@ -112,10 +111,9 @@ async def test_unavailable_invalid_smaller_or_different_aspect_recording_keeps_s
     original = image_bytes((1280, 720))
     provenance = frigate_snapshot_input_provenance(event)
     client = recording_client(get_recording_snapshot_with_error=AsyncMock(return_value=(recording, "not_retained")))
-    assert await prefer_recording_snapshot("evt", event, original, provenance, client=client) == (
-        original,
-        ClassificationInputProvenance("frigate_snapshot_unaligned", False),
-    )
+    # The detection snapshot is the same full frame as the verified clean copy, so it keeps the
+    # provenance that lets Frigate's crop be restored.
+    assert await prefer_recording_snapshot("evt", event, original, provenance, client=client) == (original, provenance)
 
 
 @pytest.mark.asyncio
@@ -167,7 +165,7 @@ async def test_recording_deadline_and_cancellation_do_not_wait_for_retention(rec
     client = recording_client(get_recording_snapshot_with_error=slow)
     assert await module.prefer_recording_snapshot("evt", event, original, provenance, client=client) == (
         original,
-        ClassificationInputProvenance("frigate_snapshot_unaligned", False),
+        provenance,
     )
     task = asyncio.create_task(module.prefer_recording_snapshot("evt", event, original, provenance, client=client))
     await asyncio.sleep(0)
@@ -262,7 +260,7 @@ async def test_oversized_recording_is_rejected_before_pixel_decode(recording_mod
     provenance = frigate_snapshot_input_provenance(event)
     assert await module.prefer_recording_snapshot("evt", event, original, provenance, client=client) == (
         original,
-        ClassificationInputProvenance("frigate_snapshot_unaligned", False),
+        provenance,
     )
 
 
@@ -652,3 +650,68 @@ async def test_a_slow_read_without_a_deadline_is_reported_as_slow_not_missing(re
         client=recording_client(get_recording_snapshot_with_error=slow),
     )
     assert result.reason == "recording_slow"
+
+
+def _context_after_fallback(event, original, client):
+    from app.services.recording_snapshot_input import prefer_recording_snapshot
+
+    async def run():
+        data, provenance = await prefer_recording_snapshot(
+            "evt", event, original, frigate_snapshot_input_provenance(event), client=client
+        )
+        assert data == original
+        return build_snapshot_classification_input_context(event_id="evt", event_data=event, provenance=provenance)
+
+    return run()
+
+
+_PAST_EVENT = {
+    "camera": "birdcam",
+    "end_time": 110.0,
+    "data": {"snapshot_frame_time": 105.25, "box": [0.25, 0.2, 0.1, 0.15]},
+}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("original_size", [(1280, 720), (640, 360)], ids=["native", "resized"])
+async def test_a_recording_frame_past_retention_still_identifies_from_the_restored_crop(recording_mode, original_size):
+    # Every backfilled event older than Frigate's recording retention lands here. Without the crop
+    # the model sees a small bird in a whole scene and scores it far below the floor.
+    client = recording_client(
+        get_recording_snapshot_with_error=AsyncMock(return_value=(None, "recording_snapshot_http_404"))
+    )
+
+    context = await _context_after_fallback(_PAST_EVENT, image_bytes(original_size), client)
+
+    assert context["restore_frigate_snapshot_crop"] is True
+    assert context["frigate_box"] == [0.25, 0.2, 0.1, 0.15]
+
+
+@pytest.mark.asyncio
+async def test_a_slow_recording_read_still_identifies_from_the_restored_crop(recording_mode, monkeypatch):
+    import asyncio
+
+    import app.services.recording_snapshot_input as module
+
+    monkeypatch.setattr(module, "RECORDING_SNAPSHOT_TIMEOUT_SECONDS", 0.5)
+
+    async def slow(*_args, **_kwargs):
+        await asyncio.sleep(2)
+
+    client = recording_client(get_recording_snapshot_with_error=slow)
+
+    context = await _context_after_fallback(_PAST_EVENT, image_bytes((1280, 720)), client)
+
+    assert context["restore_frigate_snapshot_crop"] is True
+
+
+@pytest.mark.asyncio
+async def test_a_saved_snapshot_cropped_by_frigate_is_never_given_full_frame_hints(recording_mode):
+    client = recording_client(
+        get_recording_snapshot_with_error=AsyncMock(return_value=(None, "recording_snapshot_http_404"))
+    )
+
+    context = await _context_after_fallback(_PAST_EVENT, image_bytes((300, 300)), client)
+
+    assert "frigate_box" not in context
+    assert "restore_frigate_snapshot_crop" not in context
