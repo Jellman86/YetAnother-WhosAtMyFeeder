@@ -336,7 +336,7 @@
                     <ul class="mt-1 text-xs text-amber-800 dark:text-amber-300 space-y-1">
                         {#each selectedRun.skipped_models as s}
                             <li>
-                                <span class="font-mono">{s.model_id}</span> — {s.reason}
+                                <span class="font-mono">{s.model_id}</span>: {s.reason}
                                 {#if s.detail}<span class="text-amber-700 dark:text-amber-400 italic"> ({s.detail})</span>{/if}
                             </li>
                         {/each}

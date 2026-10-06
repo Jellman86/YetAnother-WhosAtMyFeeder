@@ -87,7 +87,7 @@
 
         {#if usingDetected}
             <div class="flex items-center justify-between gap-2 rounded-lg bg-brand-50 px-3 py-2 text-xs text-brand-800 dark:bg-brand-950/30 dark:text-brand-200">
-                <span>{$_('setup.cameras.detected_note', { default: 'No camera list set — YA-WAMF is watching all cameras. These are producing detections:' })}</span>
+                <span>{$_('setup.cameras.detected_note', { default: 'No camera list set, so YA-WAMF is watching all cameras. These are producing detections:' })}</span>
                 <button type="button" class="btn btn-secondary px-3 py-1.5 shrink-0" onclick={useDetected}>{$_('setup.cameras.use_detected', { default: 'Add these' })}</button>
             </div>
         {/if}

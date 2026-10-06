@@ -25,7 +25,8 @@
     "close_language_selector": "Cerrar selector de idioma",
     "events": "Eventos",
     "notifications": "Notificaciones",
-    "species": "Especies"
+    "species": "Especies",
+    "navigation": "Navegación principal"
   },
   "manual_observation": {
     "eyebrow": "Registro de campo",
@@ -158,7 +159,9 @@
       "optional": "Opcional"
     },
     "account": {
-      "title": "Cuenta de administrador y acceso"
+      "title": "Cuenta de administrador y acceso",
+      "already": "La autenticación ya está configurada. Gestiónala en Ajustes → Seguridad.",
+      "description": "Protege el panel con una contraseña de propietario o úsalo sin autenticación en una red de confianza."
     },
     "connection": {
       "title": "Conexión de Frigate y MQTT",
@@ -167,25 +170,67 @@
       "mqtt_auth_hint": "Actívala solo si el broker requiere usuario y contraseña.",
       "mqtt_username": "Usuario",
       "mqtt_password": "Contraseña",
-      "mqtt_password_saved": "La contraseña guardada se conservará salvo que introduzcas otra."
+      "mqtt_password_saved": "La contraseña guardada se conservará salvo que introduzcas otra.",
+      "continue_hint": "Los ajustes se han guardado. Puedes continuar y corregir la conexión más tarde, pero no llegarán detecciones hasta que Frigate sea accesible.",
+      "description": "YA-WAMF lee las detecciones de Frigate por MQTT y obtiene las instantáneas de su API. Indica la dirección de ambos y luego haz la prueba.",
+      "frigate_fail": "No se pudo contactar con Frigate",
+      "frigate_url": "URL de Frigate",
+      "mqtt_fail": "No se pudo contactar con el broker MQTT",
+      "mqtt_port": "Puerto",
+      "mqtt_server": "Broker MQTT",
+      "save_test": "Guardar y probar conexión",
+      "frigate_ok": "Conectado a Frigate {version}"
     },
     "cameras": {
       "title": "Cámaras y detección",
-      "description": "Elige las cámaras de Frigate que vigilará YA-WAMF. Los filtros avanzados de detección y clasificación permanecen en los ajustes de Detección."
+      "description": "Elige las cámaras de Frigate que vigilará YA-WAMF. Los filtros avanzados de detección y clasificación permanecen en los ajustes de Detección.",
+      "detected_note": "No hay una lista de cámaras definida, así que YA-WAMF vigila todas las cámaras. Estas están generando detecciones:",
+      "gates_hint": "¿Faltan detecciones? Los propios filtros min_score / threshold / min_initialized de Frigate deciden si una instantánea llega alguna vez a YA-WAMF.",
+      "gates_link": "Guía de ajuste →",
+      "list": "Cámaras (separadas por comas)",
+      "list_hint": "Usa los nombres exactos de las cámaras de tu configuración de Frigate.",
+      "offline": "Sin vista previa",
+      "use_detected": "Añadir estas"
     },
     "model": {
       "title": "Modelo clasificador y hardware",
       "description": "YA-WAMF incluye una alternativa ligera para CPU. Elige un modelo, descárgalo aquí si hace falta y valida la ruta exacta de imagen y hardware antes de continuar.",
       "download_required": "Descarga y verifica este modelo aquí antes de validarlo en este hardware.",
       "download_timeout": "La descarga está tardando más de lo esperado. Comprueba la conexión e inténtalo de nuevo.",
-      "validation_timeout": "La validación del hardware ha superado los 30 minutos. Puede que siga terminando en Diagnóstico; comprueba allí su estado antes de iniciar otra ejecución."
+      "validation_timeout": "La validación del hardware ha superado los 30 minutos. Puede que siga terminando en Diagnóstico; comprueba allí su estado antes de iniciar otra ejecución.",
+      "choose_model": "Modelo",
+      "detected": "Aceleradores detectados",
+      "no_results": "No se evaluó ningún modelo instalado.",
+      "provider_hint": "Solo se muestran los proveedores disponibles en esta imagen, en este host y para el modelo seleccionado.",
+      "results_hint": "El detalle completo de compilación, latencia y precisión por dispositivo está en Ajustes → Debug → Herramienta de evaluación de modelos.",
+      "revalidate": "Volver a validar",
+      "row_ok": "Funciona",
+      "row_warn": "Revisar",
+      "save_error": "No se pudo guardar la elección de modelos.",
+      "starting": "Iniciando…",
+      "sweep_error": "No se pudo iniciar la validación.",
+      "validate": "Validar en mi hardware",
+      "validation_partial": "Validación de hardware completada: {ok}/{total} modelos listos.",
+      "validation_required": "Valida este modelo con la imagen y el hardware actuales antes de continuar.",
+      "validation_success": "La validación de hardware se completó correctamente.",
+      "verified": "Proveedores validados: {list}"
     },
     "quality": {
-      "title": "Mejores capturas disponibles"
+      "title": "Mejores capturas disponibles",
+      "description": "YA-WAMF puede elegir automáticamente el fotograma grabado más nítido y el mejor recorte fiable del ave tras cada evento."
     },
     "integrations": {
       "title": "Integraciones",
-      "birdnet_test_subtitle": "La prueba por etapas usa esta URL y después verifica el broker MQTT guardado y el almacenamiento local de detecciones."
+      "birdnet_test_subtitle": "La prueba por etapas usa esta URL y después verifica el broker MQTT guardado y el almacenamiento local de detecciones.",
+      "ai": "Análisis con IA",
+      "birdnet_test": "Probar ruta de BirdNET-Go",
+      "description": "Complementos opcionales. Activa lo que quieras ahora; las secciones que aún necesitan credenciales se marcan claramente en la revisión final.",
+      "note_ai": "Notas de comportamiento. Añade una clave de proveedor en Ajustes.",
+      "note_birdnet": "Confirmación por audio de las detecciones visuales.",
+      "note_bw": "Envía informes a estaciones comunitarias. Añade un token de estación en Ajustes.",
+      "note_ebird": "Avistamientos cercanos y mapas. Añade una clave de API en Ajustes.",
+      "note_inat": "Envíos revisados por el propietario. Conecta tu cuenta en Ajustes.",
+      "notifications_note": "Los canales de notificación se configuran en Ajustes → Notificaciones. Home Assistant se instala y configura por separado; consulta la guía de integración."
     },
     "history": {
       "title": "Importar detecciones existentes",
@@ -223,14 +268,37 @@
         "integrations_needs": "Requiere configuración: {integrations}",
         "integrations_configured": "Configurado: {integrations}",
         "integrations_none": "Ninguna activada"
-      }
+      },
+      "description": "Este es el estado de cada sección. Entra en cualquiera para cambiarla; no afecta a nada más.",
+      "done": "Listo",
+      "edit": "Revisar",
+      "finish": "Finalizar",
+      "title": "Revisar configuración"
     },
     "skip": "Omitir configuración",
     "skip_failed": "No se pudo omitir: no se pudo contactar con el servidor.",
     "skip_confirm_title": "¿Omitir la configuración y abrir la aplicación?",
     "skip_confirm_body_no_account": "La aplicación funcionará sin contraseña hasta que definas una en Ajustes → Seguridad. Todo lo que cubre este asistente puede configurarse después, y puedes volver a ejecutarlo desde Ajustes → Asistente de configuración.",
     "skip_confirm_body": "Todo lo que cubre este asistente puede configurarse después, y puedes volver a ejecutarlo desde Ajustes → Asistente de configuración.",
-    "skip_confirm_action": "Omitir y abrir la aplicación"
+    "skip_confirm_action": "Omitir y abrir la aplicación",
+    "back": "Atrás",
+    "continue": "Continuar",
+    "exit": "Salir de la configuración",
+    "step_of": "Paso {n} de {total}",
+    "telemetry": {
+      "note": "No se recopilan datos personales y puedes cambiarlo cuando quieras en Ajustes.",
+      "opt_in": "Sí, compartir estadísticas de uso anónimas para ayudar a orientar el desarrollo."
+    },
+    "welcome": {
+      "cover_cameras": "Elige tus cámaras",
+      "cover_connect": "Conecta Frigate y MQTT",
+      "cover_integrations": "Activa integraciones",
+      "cover_model": "Valida el modelo en tu hardware",
+      "description": "Pongamos en marcha tu comedero. Lleva unos minutos, lo opcional se puede omitir y puedes volver a ejecutar este asistente cuando quieras desde la navegación de Ajustes.",
+      "start": "Empezar",
+      "title": "Te damos la bienvenida a YA-WAMF"
+    },
+    "working": "Trabajando…"
   },
   "theme": {
     "switch_light": "Cambiar a modo claro",
@@ -477,7 +545,9 @@
     "download": "Descargar",
     "skip_to_content": "Saltar al contenido",
     "working": "Trabajando…",
-    "language_load_error": "No se ha podido cargar ese idioma. Comprueba la conexión e inténtalo de nuevo."
+    "language_load_error": "No se ha podido cargar ese idioma. Comprueba la conexión e inténtalo de nuevo.",
+    "undo": "Deshacer",
+    "unknown": "desconocido"
   },
   "route_load": {
     "loading": "Abriendo {page}…",
@@ -699,7 +769,8 @@
       "frigate_error": "No se pudo conectar con Frigate",
       "mqtt_title": "Configuración MQTT (eventos de Frigate)",
       "simulating": "Simulando…",
-      "advanced_title": "Ajuste fino"
+      "advanced_title": "Ajuste fino",
+      "full_visit_advanced_title": "Clips de visita completa (desde grabaciones)"
     },
     "common": {
       "save_error": "No se pudieron guardar los ajustes",
@@ -838,7 +909,9 @@
         "source_discovery_mapping_value": "Valor de mapeo",
         "source_discovery_sample_id": "ID de ejemplo",
         "source_discovery_seen": "Visto",
-        "advanced_title": "Búfer de audio y mapeo de sensores"
+        "advanced_title": "Búfer de audio y mapeo de sensores",
+        "test_subtitle": "Confirma que BirdNET-Go es accesible, que el broker MQTT acepta una publicación y que una detección simulada recorre toda la canalización.",
+        "test_title": "Prueba de conexión de BirdNET-Go"
       },
       "inaturalist": {
         "title": "iNaturalist",
@@ -906,7 +979,10 @@
         "test_button": "Probar conexión",
         "test_loading": "Verificando…",
         "test_success": "¡Conexión con BirdWeather verificada!",
-        "test_error": "Error en la conexión con BirdWeather"
+        "test_error": "Error en la conexión con BirdWeather",
+        "stage_station": "Token de estación de BirdWeather",
+        "test_subtitle": "Comprueba que BirdWeather acepta tu token de estación.",
+        "test_title": "Prueba de conexión de BirdWeather"
       },
       "ha_weather": {
         "title": "Clima de Home Assistant",
@@ -1081,7 +1157,13 @@
       "classification_image_recording": "Fotograma de grabación",
       "classification_image_recording_cost": "Frigate decodifica un fotograma de grabación por cada detección, y YA-WAMF lo descarga y lo procesa.",
       "classification_image_recording_fallback": "Requiere grabaciones conservadas y la copia limpia de la instantánea en Frigate ({setting}). Frigate solo puede servir un fotograma de grabación cuando esa parte de la grabación está escrita, unos 10 a 15 segundos después, así que las detecciones nuevas se identifican con ese retraso. Si el fotograma no llega en 30 segundos, o es más pequeño o tiene otra forma, se usa la instantánea de detección.",
-      "classification_image_recording_scope": "Se aplica a las detecciones nuevas, incluidos los eventos pasados obtenidos como detecciones perdidas. Guardar no obtiene eventos pasados ni cambia las fotos existentes; la reclasificación prefiere las fotos guardadas."
+      "classification_image_recording_scope": "Se aplica a las detecciones nuevas, incluidos los eventos pasados obtenidos como detecciones perdidas. Guardar no obtiene eventos pasados ni cambia las fotos existentes; la reclasificación prefiere las fotos guardadas.",
+      "stage_frigate": "API de Frigate",
+      "stage_frigate_bad": "Frigate devolvió un estado inesperado.",
+      "stage_frigate_ok": "Conectado a Frigate {version}",
+      "stage_mqtt": "Publicación en el broker MQTT",
+      "test_subtitle": "Comprueba que la API de Frigate responde y que el broker MQTT acepta una publicación.",
+      "test_title": "Prueba de conexión de Frigate y MQTT"
     },
     "cameras": {
       "title": "Cámaras Activas",
@@ -1100,10 +1182,10 @@
       "nest_dedupe_label": "Ventana de deduplicación de nido",
       "nest_dedupe_unit": "min",
       "role_feeder": "Comedero",
-      "role_feeder_help": "Cámara de comedero — cada evento de Frigate se trata como una visita nueva (predeterminado).",
+      "role_feeder_help": "Cámara de comedero: cada evento de Frigate se trata como una visita nueva (predeterminado).",
       "role_label": "Rol",
       "role_nest": "Nido",
-      "role_nest_help": "Cámara de caja nido — agrupa las detecciones repetidas de la misma especie en una por ventana de deduplicación para que un ave en plena nidificación no inunde el feed."
+      "role_nest_help": "Cámara de caja nido: agrupa las detecciones repetidas de la misma especie en una por ventana de deduplicación para que un ave en plena nidificación no inunde el feed."
     },
     "telemetry": {
       "title": "Telemetría",
@@ -1298,7 +1380,13 @@
         "channel_telegram": "Telegram",
         "channel_email": "Correo",
         "confidence_chip_audio": "{value}% de certeza y oídas"
-      }
+      },
+      "test_channel": "Canal",
+      "test_failed": "No se pudo enviar el mensaje de prueba.",
+      "test_retry": "Enviar de nuevo",
+      "test_stage_deliver": "Entregar un mensaje de prueba",
+      "test_subtitle": "Envía un mensaje de prueba con los ajustes actuales de este canal.",
+      "test_title": "Prueba de notificación"
     },
     "discord": {
       "title": "Notificaciones de Discord",
@@ -1356,7 +1444,7 @@
       "desc": "Se utiliza para el contexto meteorológico localizado durante las detecciones.",
       "state": "Estado / Región",
       "country": "País",
-      "map_empty": "Aún no hay coordenadas configuradas — establece una latitud y longitud (o activa la detección automática) para ver el mapa.",
+      "map_empty": "Aún no hay coordenadas configuradas. Establece una latitud y longitud (o activa la detección automática) para ver el mapa.",
       "map_help": "Muestra la ubicación configurada actualmente para meteorología, hotspots y observaciones.",
       "map_title": "Vista previa del mapa",
       "mode_auto": "Detección automática",
@@ -1516,7 +1604,7 @@
       "model_manager_install_note": "Cada paso se ejecuta en tu hardware. Nada se activa hasta que la validación se supere.",
       "model_manager_install_stage_download": "Descargar modelo",
       "model_manager_device_sweeping": "Comparando tus dispositivos…",
-      "model_manager_device_set": "Proveedor verificado más rápido: {provider}{ms} — se aplicará al activar este modelo.",
+      "model_manager_device_set": "Proveedor verificado más rápido: {provider}{ms}. Se aplicará al activar este modelo.",
       "model_manager_installing_pct": "Descargando… {pct}%",
       "model_manager_install_downloaded": "Descargado y verificado.",
       "model_manager_install_already_downloaded": "Ya descargado.",
@@ -1641,8 +1729,34 @@
       "band_native_recovering": "Esperando a que los procesos aislados reanuden la clasificación.",
       "band_native_recovered": "La clasificación se ha reanudado en procesos aislados.",
       "band_native_restart": "Reinicia el contenedor para liberar el entorno bloqueado.",
-      "band_worker_fallback": "Los workers fallan — clasificando en el proceso principal",
-      "band_worker_fallback_detail": "Los workers aislados mueren al cargar el modelo; las detecciones continúan en el proceso principal."
+      "band_worker_fallback": "Los workers fallan: clasificando en el proceso principal",
+      "band_worker_fallback_detail": "Los workers aislados mueren al cargar el modelo; las detecciones continúan en el proceso principal.",
+      "classification_engine_desc": "Cómo se clasifican las instantáneas del comedero: confianza, modelo y aceleración por hardware.",
+      "compat_all_hint": "Descarga y prueba todos los modelos del catálogo, no solo los instalados (más lento).",
+      "compat_all_models": "probar todos los modelos",
+      "compat_card_title": "Compatibilidad de dispositivos",
+      "compat_model": "Modelo",
+      "compat_note_baseline": "referencia de CPU",
+      "compat_note_fails": "no compila",
+      "compat_note_match": "{n}/{n} coinciden con la CPU",
+      "compat_note_nan": "salida no finita",
+      "compat_note_partial": "{m}/{n} coinciden con la CPU",
+      "compat_note_runs": "funciona",
+      "compat_result_failed": "Algunos dispositivos no superaron la validación. Consulta el desglose a continuación.",
+      "compat_result_ok": "Todos los dispositivos coinciden con la referencia de CPU.",
+      "compat_result_skipped": "Algunos dispositivos no se pudieron validar. Consulta el desglose a continuación.",
+      "compat_result_warn": "Todos los dispositivos funcionan, pero algunos difieren de la referencia de CPU.",
+      "compat_results_unavailable": "No se pudieron cargar los resultados de compatibilidad. Inténtalo de nuevo.",
+      "compat_run": "Ejecutar comprobación de compatibilidad",
+      "compat_running": "Ejecutando…",
+      "compat_stage_run": "Validando los dispositivos de este host",
+      "compat_stage_run_hint": "Compilando y comparando cada dispositivo con la referencia de CPU…",
+      "compat_test_title": "Comprobación de compatibilidad de dispositivos",
+      "compat_verified": "Verificado en este host:",
+      "intel_npu_status": "NPU Intel",
+      "model_manager_repair_download": "Reparar descarga",
+      "model_manager_repair_needed": "La instalación de este modelo está incompleta. Vuelve a descargarlo para reparar las etiquetas o la configuración que faltan antes de activarlo.",
+      "provider_intel_npu": "NPU Intel (OpenVINO)"
     },
     "llm": {
       "title": "Análisis de IA",
@@ -1981,7 +2095,7 @@
     "snapshot_source_short_full_frame": "Completo",
     "snapshot_source_short_frigate_hint": "Inteligente",
     "snapshot_candidate_frames": "Candidate frames",
-    "snapshot_candidate_frames_hint": "Instantánea final de Frigate y fotogramas de vídeo clasificados por IA — toca para seleccionar",
+    "snapshot_candidate_frames_hint": "Instantánea final de Frigate y fotogramas de vídeo clasificados por IA. Toca uno para seleccionarlo.",
     "snapshot_candidate_final_frame": "Instantánea final de Frigate",
     "snapshot_best": "Mejor",
     "snapshot_apply_success": "Instantánea actualizada",
@@ -1991,8 +2105,8 @@
     "snapshot_candidates_loading": "Cargando fotogramas candidatos…",
     "snapshot_candidates_empty": "Aún no hay fotogramas candidatos guardados.",
     "snapshot_model_candidates_empty": "No se encontraron fotogramas recortados por IA. Los candidatos de fotograma completo y recorte inteligente están disponibles arriba.",
-    "snapshot_model_crop_disabled": "El recorte de IA está desactivado — activa \"Instantáneas de recorte HQ\" en Configuración para obtener recortes más precisos.",
-    "snapshot_model_crop_unavailable": "Modelo de recorte de IA no cargado — visita el Administrador de modelos para descargarlo.",
+    "snapshot_model_crop_disabled": "El recorte de IA está desactivado. Activa \"Instantáneas de recorte HQ\" en Ajustes para obtener recortes más precisos.",
+    "snapshot_model_crop_unavailable": "Modelo de recorte de IA no cargado. Visita el Gestor de modelos para descargarlo.",
     "inat": {
       "title": "iNaturalist",
       "connected": "Conectado: {user}",
@@ -2090,7 +2204,7 @@
       "input_frigate_sublabel": "Etiqueta de especie de Frigate",
       "frigate_fallback_title": "Resultado de Frigate",
       "frigate_fallback_desc": "El análisis local de la imagen no cumplió la política, por lo que YA-WAMF conservó la etiqueta de especie de confianza de Frigate.",
-      "gated_title": "El vídeo encontró una coincidencia — confirma para aplicarla",
+      "gated_title": "El vídeo encontró una coincidencia: confirma para aplicarla",
       "gated_desc": "La promoción automática se retuvo porque la puntuación del vídeo está por debajo de tu umbral mínimo de confianza. Reclasifica para aplicar este resultado o baja el umbral en Ajustes → Detección.",
       "gated_action": "Reclasificar",
       "evidence": {
@@ -2104,7 +2218,7 @@
         "model_crop": "Recorte de IA",
         "frigate_region_crop": "Zona seguida por Frigate"
       },
-      "blocked_label": "Coincide con una especie bloqueada — no aplicado"
+      "blocked_label": "Coincide con una especie bloqueada: no aplicado"
     },
     "card_analysis": {
       "title": "Analizando detección",
@@ -2275,7 +2389,15 @@
     "unfavorite_button": "Quitar de favoritos",
     "confidence_hint": "Confianza de la identificación: {score} %.",
     "captured_at_hint": "Capturado el {date} a las {time}.",
-    "audio_evidence_hint": "Se oyó un canto de ave coincidente cerca de esta captura."
+    "audio_evidence_hint": "Se oyó un canto de ave coincidente cerca de esta captura.",
+    "audio_clip_aria": "Clip de audio de BirdNET-Go de la detección coincidente",
+    "audio_pause": "Pausar clip de audio",
+    "audio_play": "Reproducir clip de audio",
+    "audio_seek_spectrogram_aria": "Haz clic para saltar a ese punto del clip de audio",
+    "audio_spectrogram_unavailable": "Espectrograma no disponible para esta coincidencia",
+    "manual_upload": "Añadido desde un archivo subido",
+    "search_species": "Buscar especie",
+    "species_updated": "Especie actualizada"
   },
   "events": {
     "title": "Eventos",
@@ -2310,7 +2432,8 @@
       "show_visits_hint": "La estancia de un ave: sus capturas con menos de un minuto entre ellas.",
       "show_captures": "Capturas individuales",
       "show_captures_hint": "Cada captura por separado.",
-      "show_locked": "La selección funciona con capturas individuales."
+      "show_locked": "La selección funciona con capturas individuales.",
+      "audio_matches": "Coincidencias de audio"
     },
     "sort": {
       "newest": "Más reciente",
@@ -3167,9 +3290,9 @@
     "cameras_previous": "Cámara anterior",
     "cameras_retry": "Reintentar",
     "cameras_role_feeder": "Comedero",
-    "cameras_role_feeder_help": "Cámara de comedero — cada evento de Frigate es una visita nueva.",
+    "cameras_role_feeder_help": "Cámara de comedero: cada evento de Frigate es una visita nueva.",
     "cameras_role_nest": "Nido",
-    "cameras_role_nest_help": "Cámara de caja nido — las detecciones repetidas se agrupan dentro de la ventana configurada.",
+    "cameras_role_nest_help": "Cámara de caja nido: las detecciones repetidas se agrupan dentro de la ventana configurada.",
     "cameras_some_online": "Algunas cámaras requieren atención",
     "cameras_status_offline": "Sin conexión",
     "cameras_status_online": "En línea",
@@ -3216,7 +3339,8 @@
     "node_visit": "Visita a las {span}",
     "node_visit_many": "Visita, {span}, {count} capturas",
     "node_capture": "Captura a las {time}, parte de esta visita",
-    "node_capture_shown": "Captura a las {time}, parte de esta visita; es la foto de la visita"
+    "node_capture_shown": "Captura a las {time}, parte de esta visita; es la foto de la visita",
+    "open_capture": "Abrir captura de {species}"
   },
   "taxonomy": {
     "title": "Árbol de familia de {name}",

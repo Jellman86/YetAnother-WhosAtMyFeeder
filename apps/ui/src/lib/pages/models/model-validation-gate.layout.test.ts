@@ -38,7 +38,7 @@ describe('Model Manager guided install + selection gate', () => {
         expect(modelManagerSource).toContain('await validateModel(model.id)');
         expect(modelManagerSource).toContain('await activateModel(model.id)');
         expect(modelManagerSource).toContain('result.best_provider');
-        expect(modelManagerSource).toContain('it will be applied when this model is enabled');
+        expect(modelManagerSource).toContain('It will be applied when this model is enabled');
     });
 
     it('cannot be dismissed mid-run', () => {

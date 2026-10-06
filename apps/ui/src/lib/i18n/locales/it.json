@@ -25,7 +25,8 @@
     "close_language_selector": "Chiudi selettore lingua",
     "events": "Eventi",
     "notifications": "Notifiche",
-    "species": "Specie"
+    "species": "Specie",
+    "navigation": "Navigazione principale"
   },
   "manual_observation": {
     "eyebrow": "Osservazione sul campo",
@@ -158,7 +159,9 @@
       "optional": "Facoltativo"
     },
     "account": {
-      "title": "Account amministratore e accesso"
+      "title": "Account amministratore e accesso",
+      "already": "L’autenticazione è già configurata. Gestiscila in Impostazioni → Sicurezza.",
+      "description": "Proteggi la dashboard con una password del proprietario, oppure usala senza autenticazione su una rete fidata."
     },
     "connection": {
       "title": "Connessione Frigate e MQTT",
@@ -167,25 +170,67 @@
       "mqtt_auth_hint": "Attivala solo se il broker richiede nome utente e password.",
       "mqtt_username": "Nome utente",
       "mqtt_password": "Parola d’accesso",
-      "mqtt_password_saved": "La password salvata verrà mantenuta finché non ne inserisci una nuova."
+      "mqtt_password_saved": "La password salvata verrà mantenuta finché non ne inserisci una nuova.",
+      "continue_hint": "Le impostazioni sono salvate. Puoi continuare e correggere la connessione in seguito, ma i rilevamenti non arriveranno finché Frigate non sarà raggiungibile.",
+      "description": "YA-WAMF legge i rilevamenti da Frigate tramite MQTT e scarica le istantanee dalla sua API. Indica gli indirizzi di entrambi, poi esegui il test.",
+      "frigate_fail": "Impossibile raggiungere Frigate",
+      "frigate_url": "URL Frigate",
+      "mqtt_fail": "Impossibile raggiungere il broker MQTT",
+      "mqtt_port": "Porta",
+      "mqtt_server": "Broker MQTT",
+      "save_test": "Salva e testa la connessione",
+      "frigate_ok": "Connesso a Frigate {version}"
     },
     "cameras": {
       "title": "Telecamere e rilevamento",
-      "description": "Scegli le telecamere Frigate che YA-WAMF deve monitorare. Le soglie avanzate di rilevamento e classificazione restano nelle impostazioni Rilevamento."
+      "description": "Scegli le telecamere Frigate che YA-WAMF deve monitorare. Le soglie avanzate di rilevamento e classificazione restano nelle impostazioni Rilevamento.",
+      "detected_note": "Nessun elenco di telecamere impostato, quindi YA-WAMF monitora tutte le telecamere. Queste stanno producendo rilevamenti:",
+      "gates_hint": "Mancano rilevamenti? Sono i filtri min_score / threshold / min_initialized di Frigate a decidere se un’istantanea arriva a YA-WAMF.",
+      "gates_link": "Guida alla regolazione →",
+      "list": "Telecamere (separate da virgole)",
+      "list_hint": "Usa i nomi esatti delle telecamere presenti nella configurazione di Frigate.",
+      "offline": "Nessuna anteprima",
+      "use_detected": "Aggiungi queste"
     },
     "model": {
       "title": "Modello di classificazione e hardware",
       "description": "YA-WAMF include un’alternativa leggera per CPU. Scegli un modello, scaricalo qui se necessario, quindi convalida il percorso esatto dell’immagine e dell’hardware prima di continuare.",
       "download_required": "Scarica e verifica qui questo modello prima di convalidarlo su questo hardware.",
       "download_timeout": "Il download sta richiedendo più tempo del previsto. Controlla la connessione e riprova.",
-      "validation_timeout": "La convalida hardware ha superato 30 minuti. Potrebbe essere ancora in corso in Diagnostica; controllane lo stato prima di avviare un’altra esecuzione."
+      "validation_timeout": "La convalida hardware ha superato 30 minuti. Potrebbe essere ancora in corso in Diagnostica; controllane lo stato prima di avviare un’altra esecuzione.",
+      "choose_model": "Modello",
+      "detected": "Acceleratori rilevati",
+      "no_results": "Nessun modello installato è stato valutato.",
+      "provider_hint": "Vengono mostrati solo i provider disponibili in questa immagine, su questo host e per il modello selezionato.",
+      "results_hint": "I dettagli completi per dispositivo su compilazione, latenza e accuratezza sono in Impostazioni → Debug → Strumento di valutazione dei modelli.",
+      "revalidate": "Ripeti la convalida",
+      "row_ok": "Funziona",
+      "row_warn": "Da verificare",
+      "save_error": "Impossibile salvare le scelte del modello.",
+      "starting": "Avvio…",
+      "sweep_error": "Impossibile avviare la convalida.",
+      "validate": "Convalida sul mio hardware",
+      "validation_partial": "Convalida hardware completata: {ok}/{total} modelli pronti.",
+      "validation_required": "Convalida questo modello sull’immagine e sull’hardware attuali prima di continuare.",
+      "validation_success": "Convalida hardware completata correttamente.",
+      "verified": "Provider convalidati: {list}"
     },
     "quality": {
-      "title": "Migliori istantanee disponibili"
+      "title": "Migliori istantanee disponibili",
+      "description": "YA-WAMF può scegliere automaticamente il fotogramma registrato più nitido e il miglior ritaglio affidabile dell’uccello dopo ogni evento."
     },
     "integrations": {
       "title": "Integrazioni",
-      "birdnet_test_subtitle": "Il test a fasi usa questo URL, poi verifica il broker MQTT salvato e l’archiviazione locale dei rilevamenti."
+      "birdnet_test_subtitle": "Il test a fasi usa questo URL, poi verifica il broker MQTT salvato e l’archiviazione locale dei rilevamenti.",
+      "ai": "Analisi IA",
+      "birdnet_test": "Testa il percorso BirdNET-Go",
+      "description": "Componenti aggiuntivi facoltativi. Attiva ora ciò che ti serve; le sezioni che richiedono ancora credenziali sono indicate chiaramente nel riepilogo finale.",
+      "note_ai": "Note sul comportamento. Aggiungi una chiave del provider in Impostazioni.",
+      "note_birdnet": "Conferma audio dei rilevamenti visivi.",
+      "note_bw": "Segnalazioni alle stazioni della comunità. Aggiungi un token stazione in Impostazioni.",
+      "note_ebird": "Avvistamenti vicini e mappe. Aggiungi una chiave API in Impostazioni.",
+      "note_inat": "Invii verificati dal proprietario. Collega il tuo account in Impostazioni.",
+      "notifications_note": "I canali di notifica si configurano in Impostazioni → Notifiche. Home Assistant si installa e si configura esternamente; consulta la guida all’integrazione."
     },
     "history": {
       "title": "Importa rilevamenti esistenti",
@@ -223,14 +268,37 @@
         "integrations_needs": "Da configurare: {integrations}",
         "integrations_configured": "Configurato: {integrations}",
         "integrations_none": "Nessuna attivata"
-      }
+      },
+      "description": "Ecco lo stato di ogni sezione. Aprine una per modificarla; il resto non viene toccato.",
+      "done": "Fatto",
+      "edit": "Rivedi",
+      "finish": "Fine",
+      "title": "Riepilogo della configurazione"
     },
     "skip": "Salta la configurazione",
     "skip_failed": "Impossibile saltare: il server non è raggiungibile.",
     "skip_confirm_title": "Saltare la configurazione e aprire l'app?",
     "skip_confirm_body_no_account": "L'app funzionerà senza password finché non ne imposti una in Impostazioni → Sicurezza. Tutto ciò che copre questa procedura può essere configurato in seguito, e puoi rieseguirla in qualsiasi momento da Impostazioni → Procedura guidata.",
     "skip_confirm_body": "Tutto ciò che copre questa procedura può essere configurato in seguito, e puoi rieseguirla in qualsiasi momento da Impostazioni → Procedura guidata.",
-    "skip_confirm_action": "Salta e apri l'app"
+    "skip_confirm_action": "Salta e apri l'app",
+    "back": "Indietro",
+    "continue": "Continua",
+    "exit": "Esci dalla configurazione",
+    "step_of": "Passaggio {n} di {total}",
+    "telemetry": {
+      "note": "Non vengono raccolti dati personali e puoi cambiare questa scelta in qualsiasi momento nelle Impostazioni.",
+      "opt_in": "Sì, condividi statistiche d’uso anonime per orientare lo sviluppo."
+    },
+    "welcome": {
+      "cover_cameras": "Scegli le telecamere",
+      "cover_connect": "Collega Frigate e MQTT",
+      "cover_integrations": "Attiva le integrazioni",
+      "cover_model": "Convalida il modello sul tuo hardware",
+      "description": "Mettiamo online la tua mangiatoia. Bastano pochi minuti, le scelte facoltative si possono saltare e puoi rieseguire la procedura in qualsiasi momento dalla navigazione delle Impostazioni.",
+      "start": "Inizia",
+      "title": "Benvenuto in YA-WAMF"
+    },
+    "working": "In corso…"
   },
   "theme": {
     "switch_light": "Passa alla modalità chiara",
@@ -338,7 +406,7 @@
       "retry": "Riprova",
       "empty": "Non sono state trovate segnalazioni rare o insolite entro {distance} negli ultimi {days} giorni.",
       "empty_hint": "È un risultato eBird valido; gli avvistamenti comuni nelle vicinanze possono comunque essere numerosi.",
-      "open_species": "{species} — apri la scheda della specie",
+      "open_species": "{species}: apri la scheda della specie",
       "reports": "{count} segnalazioni",
       "places": "{count} luoghi"
     },
@@ -477,7 +545,9 @@
     "download": "Scarica",
     "skip_to_content": "Vai al contenuto",
     "working": "In corso…",
-    "language_load_error": "Impossibile caricare la lingua. Controlla la connessione e riprova."
+    "language_load_error": "Impossibile caricare la lingua. Controlla la connessione e riprova.",
+    "undo": "Annulla",
+    "unknown": "sconosciuto"
   },
   "error": {
     "boundary_title": "Qualcosa è andato storto",
@@ -709,7 +779,8 @@
       "frigate_error": "Impossibile connettersi a Frigate",
       "mqtt_title": "Impostazioni MQTT (eventi Frigate)",
       "simulating": "Simulazione…",
-      "advanced_title": "Regolazione"
+      "advanced_title": "Regolazione",
+      "full_visit_advanced_title": "Clip visita completa (dalle registrazioni)"
     },
     "common": {
       "save_error": "Impossibile salvare le impostazioni",
@@ -848,7 +919,9 @@
         "source_discovery_mapping_value": "Valore mappatura",
         "source_discovery_sample_id": "ID esempio",
         "source_discovery_seen": "Visto",
-        "advanced_title": "Buffer audio e mappatura sensori"
+        "advanced_title": "Buffer audio e mappatura sensori",
+        "test_subtitle": "Conferma che BirdNET-Go sia raggiungibile, che il broker MQTT accetti una pubblicazione e che un rilevamento simulato attraversi la pipeline.",
+        "test_title": "Test connessione BirdNET-Go"
       },
       "inaturalist": {
         "title": "iNaturalist",
@@ -916,7 +989,10 @@
         "test_button": "Test Connessione",
         "test_loading": "Verifica in corso…",
         "test_success": "Connessione BirdWeather verificata!",
-        "test_error": "Connessione BirdWeather fallita"
+        "test_error": "Connessione BirdWeather fallita",
+        "stage_station": "Token stazione BirdWeather",
+        "test_subtitle": "Verifica che BirdWeather accetti il token della tua stazione.",
+        "test_title": "Test connessione BirdWeather"
       },
       "ha_weather": {
         "title": "Meteo Home Assistant",
@@ -1091,7 +1167,13 @@
       "classification_image_recording": "Fotogramma della registrazione",
       "classification_image_recording_cost": "Frigate decodifica un fotogramma della registrazione per ogni rilevamento e YA-WAMF lo scarica e lo elabora.",
       "classification_image_recording_fallback": "Richiede registrazioni conservate e la copia pulita dello snapshot in Frigate ({setting}). Frigate può fornire un fotogramma della registrazione solo quando quella parte è stata scritta, circa 10-15 secondi dopo, quindi i nuovi rilevamenti vengono identificati con quel ritardo. Se il fotogramma non arriva entro 30 secondi, oppure è più piccolo o ha una forma diversa, si usa lo snapshot del rilevamento.",
-      "classification_image_recording_scope": "Si applica ai nuovi rilevamenti, compresi gli eventi passati recuperati come rilevamenti mancati. Il salvataggio non recupera eventi passati né modifica le foto esistenti; la riclassificazione preferisce le foto salvate."
+      "classification_image_recording_scope": "Si applica ai nuovi rilevamenti, compresi gli eventi passati recuperati come rilevamenti mancati. Il salvataggio non recupera eventi passati né modifica le foto esistenti; la riclassificazione preferisce le foto salvate.",
+      "stage_frigate": "API Frigate",
+      "stage_frigate_bad": "Frigate ha restituito uno stato imprevisto.",
+      "stage_frigate_ok": "Connesso a Frigate {version}",
+      "stage_mqtt": "Pubblicazione sul broker MQTT",
+      "test_subtitle": "Verifica che l’API di Frigate risponda e che il broker MQTT accetti una pubblicazione.",
+      "test_title": "Test connessione Frigate e MQTT"
     },
     "cameras": {
       "title": "Telecamere Attive",
@@ -1110,10 +1192,10 @@
       "nest_dedupe_label": "Finestra di deduplicazione nido",
       "nest_dedupe_unit": "min",
       "role_feeder": "Mangiatoia",
-      "role_feeder_help": "Telecamera mangiatoia — ogni evento Frigate è trattato come una nuova visita (predefinito).",
+      "role_feeder_help": "Telecamera mangiatoia: ogni evento Frigate è trattato come una nuova visita (predefinito).",
       "role_label": "Ruolo",
       "role_nest": "Nido",
-      "role_nest_help": "Telecamera per nido — accorpa i rilevamenti ripetuti della stessa specie in uno per finestra di deduplicazione, così un uccello costantemente presente non sommerge il feed."
+      "role_nest_help": "Telecamera per nido: accorpa i rilevamenti ripetuti della stessa specie in uno per finestra di deduplicazione, così un uccello costantemente presente non sommerge il feed."
     },
     "telemetry": {
       "title": "Telemetria",
@@ -1308,7 +1390,13 @@
         "channel_telegram": "Telegram",
         "channel_email": "E-mail",
         "confidence_chip_audio": "{value}% di certezza e sentite"
-      }
+      },
+      "test_channel": "Canale",
+      "test_failed": "Impossibile inviare il messaggio di prova.",
+      "test_retry": "Invia di nuovo",
+      "test_stage_deliver": "Consegna di un messaggio di prova",
+      "test_subtitle": "Invia un messaggio di prova con le impostazioni attuali di questo canale.",
+      "test_title": "Test notifiche"
     },
     "discord": {
       "title": "Notifiche Discord",
@@ -1366,7 +1454,7 @@
       "desc": "Usato per contesto meteo locale durante rilevamenti.",
       "state": "Stato / Regione",
       "country": "Paese",
-      "map_empty": "Ancora nessuna coordinata configurata — imposta latitudine e longitudine (oppure abilita il rilevamento automatico) per vedere la mappa.",
+      "map_empty": "Ancora nessuna coordinata configurata. Imposta latitudine e longitudine (oppure abilita il rilevamento automatico) per vedere la mappa.",
       "map_help": "Mostra la posizione attualmente configurata per meteo, hotspot e osservazioni.",
       "map_title": "Anteprima mappa",
       "mode_auto": "Rilevamento automatico",
@@ -1526,7 +1614,7 @@
       "model_manager_install_note": "Ogni passaggio viene eseguito sul tuo hardware. Nulla diventa attivo finché la convalida non è superata.",
       "model_manager_install_stage_download": "Scarica modello",
       "model_manager_device_sweeping": "Confronto dei tuoi dispositivi…",
-      "model_manager_device_set": "Provider verificato più veloce: {provider}{ms} — verrà applicato quando questo modello sarà abilitato.",
+      "model_manager_device_set": "Provider verificato più veloce: {provider}{ms}. Verrà applicato quando questo modello sarà abilitato.",
       "model_manager_installing_pct": "Download… {pct}%",
       "model_manager_install_downloaded": "Scaricato e verificato.",
       "model_manager_install_already_downloaded": "Già scaricato.",
@@ -1651,8 +1739,34 @@
       "band_native_recovering": "In attesa che i processi isolati riprendano la classificazione.",
       "band_native_recovered": "La classificazione è ripresa nei processi isolati.",
       "band_native_restart": "Riavvia il contenitore per liberare il motore bloccato.",
-      "band_worker_fallback": "Worker in errore — classificazione nel processo principale",
-      "band_worker_fallback_detail": "I worker isolati muoiono durante il caricamento del modello; i rilevamenti continuano nel processo principale."
+      "band_worker_fallback": "Worker in errore: classificazione nel processo principale",
+      "band_worker_fallback_detail": "I worker isolati muoiono durante il caricamento del modello; i rilevamenti continuano nel processo principale.",
+      "classification_engine_desc": "Come vengono classificate le istantanee della mangiatoia: confidenza, modello e accelerazione hardware.",
+      "compat_all_hint": "Scarica e testa tutti i modelli del registro, non solo quelli installati (più lento).",
+      "compat_all_models": "testa tutti i modelli",
+      "compat_card_title": "Compatibilità dei dispositivi",
+      "compat_model": "Modello",
+      "compat_note_baseline": "riferimento CPU",
+      "compat_note_fails": "compilazione non riuscita",
+      "compat_note_match": "{n}/{n} corrispondono alla CPU",
+      "compat_note_nan": "output non finito",
+      "compat_note_partial": "{m}/{n} corrispondono alla CPU",
+      "compat_note_runs": "funziona",
+      "compat_result_failed": "Alcuni dispositivi non hanno superato la convalida. Vedi il dettaglio qui sotto.",
+      "compat_result_ok": "Tutti i dispositivi corrispondono al riferimento CPU.",
+      "compat_result_skipped": "Non è stato possibile convalidare alcuni dispositivi. Vedi il dettaglio qui sotto.",
+      "compat_result_warn": "Tutti i dispositivi funzionano, ma alcuni differiscono dal riferimento CPU.",
+      "compat_results_unavailable": "Impossibile caricare i risultati di compatibilità. Riprova.",
+      "compat_run": "Avvia controllo compatibilità",
+      "compat_running": "In esecuzione…",
+      "compat_stage_run": "Convalida dei dispositivi di questo host",
+      "compat_stage_run_hint": "Compilazione e confronto di ogni dispositivo con il riferimento CPU…",
+      "compat_test_title": "Controllo compatibilità dei dispositivi",
+      "compat_verified": "Verificati su questo host:",
+      "intel_npu_status": "NPU Intel",
+      "model_manager_repair_download": "Riscarica per riparare",
+      "model_manager_repair_needed": "L’installazione di questo modello è incompleta. Scaricalo di nuovo per ripristinare le etichette o la configurazione mancanti prima dell’attivazione.",
+      "provider_intel_npu": "NPU Intel (OpenVINO)"
     },
     "llm": {
       "title": "Analisi IA",
@@ -1762,7 +1876,7 @@
     "startup_phase_detecting_hardware": "Verifica dell’hardware di inferenza disponibile",
     "startup_phase_loading_model": "Caricamento e verifica del modello di uccelli selezionato",
     "startup_phase_model_ready": "Il modello di uccelli selezionato è pronto",
-    "startup_phase_model_unavailable": "Classificatore non disponibile — la configurazione può continuare dopo l’avvio del backend",
+    "startup_phase_model_unavailable": "Classificatore non disponibile: la configurazione può continuare dopo l’avvio del backend",
     "startup_phase_database": "Preparazione della cronologia dei rilevamenti",
     "startup_phase_starting_services": "Avvio dei servizi per eventi e contenuti multimediali",
     "startup_phase_finalizing": "Completamento dei controlli di avvio",
@@ -1991,7 +2105,7 @@
     "snapshot_source_short_full_frame": "Intero",
     "snapshot_source_short_frigate_hint": "Intelligente",
     "snapshot_candidate_frames": "Candidate frames",
-    "snapshot_candidate_frames_hint": "Istantanea finale di Frigate e frame video classificati dall'IA — tocca per selezionare",
+    "snapshot_candidate_frames_hint": "Istantanea finale di Frigate e frame video classificati dall'IA. Toccane uno per selezionarlo.",
     "snapshot_candidate_final_frame": "Istantanea finale di Frigate",
     "snapshot_best": "Migliore",
     "snapshot_apply_success": "Istantanea aggiornata",
@@ -2001,8 +2115,8 @@
     "snapshot_candidates_loading": "Caricamento dei fotogrammi candidati…",
     "snapshot_candidates_empty": "Nessun fotogramma candidato salvato.",
     "snapshot_model_candidates_empty": "Nessun frame ritagliato dall'IA trovato. I candidati a frame intero e ritaglio smart sono disponibili sopra.",
-    "snapshot_model_crop_disabled": "Il ritaglio IA è disabilitato — attiva \"Snapshot ritaglio HQ\" nelle Impostazioni per ottenere ritagli più precisi.",
-    "snapshot_model_crop_unavailable": "Modello di ritaglio IA non caricato — visita il Gestore modelli per scaricarlo.",
+    "snapshot_model_crop_disabled": "Il ritaglio IA è disabilitato. Attiva \"Snapshot ritaglio HQ\" nelle Impostazioni per ottenere ritagli più precisi.",
+    "snapshot_model_crop_unavailable": "Modello di ritaglio IA non caricato. Visita il Gestore modelli per scaricarlo.",
     "inat": {
       "title": "iNaturalist",
       "connected": "Connesso: {user}",
@@ -2100,7 +2214,7 @@
       "input_frigate_sublabel": "Etichetta specie Frigate",
       "frigate_fallback_title": "Risultato da Frigate",
       "frigate_fallback_desc": "L'analisi locale dell'immagine non ha soddisfatto i criteri, quindi YA-WAMF ha mantenuto l'etichetta di specie attendibile di Frigate.",
-      "gated_title": "Il video ha trovato una corrispondenza — conferma per applicarla",
+      "gated_title": "Il video ha trovato una corrispondenza: conferma per applicarla",
       "gated_desc": "La promozione automatica è stata trattenuta perché il punteggio video è inferiore alla soglia minima di confidenza. Esegui Riclassifica per applicare questo risultato, oppure abbassa la soglia in Impostazioni → Rilevamento.",
       "gated_action": "Riclassifica",
       "evidence": {
@@ -2114,7 +2228,7 @@
         "model_crop": "Ritaglio IA",
         "frigate_region_crop": "Area seguita da Frigate"
       },
-      "blocked_label": "Corrisponde a una specie bloccata — non applicato"
+      "blocked_label": "Corrisponde a una specie bloccata: non applicato"
     },
     "card_analysis": {
       "title": "Analisi del rilevamento",
@@ -2285,7 +2399,15 @@
     "unfavorite_button": "Rimuovi dai preferiti",
     "confidence_hint": "Confidenza dell’identificazione: {score}%.",
     "captured_at_hint": "Acquisito il {date} alle {time}.",
-    "audio_evidence_hint": "Vicino a questa acquisizione è stato sentito un richiamo corrispondente."
+    "audio_evidence_hint": "Vicino a questa acquisizione è stato sentito un richiamo corrispondente.",
+    "audio_clip_aria": "Clip audio BirdNET-Go del rilevamento corrispondente",
+    "audio_pause": "Metti in pausa la clip audio",
+    "audio_play": "Riproduci la clip audio",
+    "audio_seek_spectrogram_aria": "Fai clic per spostarti nella clip audio",
+    "audio_spectrogram_unavailable": "Spettrogramma non disponibile per questa corrispondenza",
+    "manual_upload": "Aggiunto da un caricamento",
+    "search_species": "Cerca specie",
+    "species_updated": "Specie aggiornata"
   },
   "events": {
     "title": "Eventi",
@@ -2320,7 +2442,8 @@
       "show_visits_hint": "La permanenza di un uccello: le sue acquisizioni a meno di un minuto l'una dall'altra.",
       "show_captures": "Acquisizioni singole",
       "show_captures_hint": "Ogni acquisizione da sola.",
-      "show_locked": "La selezione funziona sulle acquisizioni singole."
+      "show_locked": "La selezione funziona sulle acquisizioni singole.",
+      "audio_matches": "Corrispondenze audio"
     },
     "sort": {
       "newest": "Più recenti",
@@ -3167,9 +3290,9 @@
     "cameras_previous": "Telecamera precedente",
     "cameras_retry": "Riprova",
     "cameras_role_feeder": "Mangiatoia",
-    "cameras_role_feeder_help": "Telecamera mangiatoia — ogni evento Frigate è una nuova visita.",
+    "cameras_role_feeder_help": "Telecamera mangiatoia: ogni evento Frigate è una nuova visita.",
     "cameras_role_nest": "Nido",
-    "cameras_role_nest_help": "Telecamera per nido — i rilevamenti ripetuti vengono deduplicati entro la finestra configurata.",
+    "cameras_role_nest_help": "Telecamera per nido: i rilevamenti ripetuti vengono deduplicati entro la finestra configurata.",
     "cameras_some_online": "Alcune telecamere richiedono attenzione",
     "cameras_status_offline": "Offline",
     "cameras_status_online": "Online",
@@ -3216,7 +3339,8 @@
     "node_visit": "Visita alle {span}",
     "node_visit_many": "Visita, {span}, {count} acquisizioni",
     "node_capture": "Acquisizione delle {time}, parte di questa visita",
-    "node_capture_shown": "Acquisizione delle {time}, parte di questa visita e usata come foto della visita"
+    "node_capture_shown": "Acquisizione delle {time}, parte di questa visita e usata come foto della visita",
+    "open_capture": "Apri l’acquisizione di {species}"
   },
   "taxonomy": {
     "title": "Albero genealogico di {name}",

@@ -6,6 +6,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- The first-run setup wizard, the Frigate, MQTT, BirdNET-Go, BirdWeather and notification test
+  dialogs, and the hardware compatibility check are now translated. 120 of their strings were
+  never in any language file, so every language showed them in English; a test now fails if the
+  app uses a text that has no English entry. The hint after the hardware check now names where the
+  details are, **Settings → Debug → Model evaluation harness**. German now addresses you with
+  "Sie" throughout, Portuguese uses Brazilian forms throughout, and no language uses em dashes.
 - The strings new in this release read better in every language. Each term is now said one way
   in each language: a "capture" no longer switches between two words on one page in French,
   Japanese, Chinese and Russian, nor a "visit" in Chinese. Russian counts use their proper forms

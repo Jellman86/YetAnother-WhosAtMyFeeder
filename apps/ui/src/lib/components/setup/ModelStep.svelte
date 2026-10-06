@@ -488,7 +488,7 @@
                         </li>
                     {/each}
                 </ul>
-                <p class="text-xs text-slate-500 dark:text-slate-400">{$_('setup.model.results_hint', { default: 'Full per-device compile, latency, and accuracy detail is in Diagnostics → Model evaluation.' })}</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400">{$_('setup.model.results_hint', { default: 'Full per-device compile, latency, and accuracy detail is in Settings → Debug → Model evaluation harness.' })}</p>
             {/if}
         {/if}
     </WizardLoadState>

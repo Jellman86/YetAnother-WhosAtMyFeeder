@@ -25,7 +25,8 @@
     "close_language_selector": "关闭语言选择器",
     "events": "事件",
     "notifications": "通知",
-    "species": "物种"
+    "species": "物种",
+    "navigation": "主导航"
   },
   "manual_observation": {
     "eyebrow": "野外记录",
@@ -158,7 +159,9 @@
       "optional": "可选"
     },
     "account": {
-      "title": "管理员账户与访问权限"
+      "title": "管理员账户与访问权限",
+      "already": "身份验证已配置。可在“设置 → 安全”中管理。",
+      "description": "使用管理员密码保护仪表盘，或在受信任的网络中不启用身份验证运行。"
     },
     "connection": {
       "title": "Frigate 与 MQTT 连接",
@@ -167,25 +170,67 @@
       "mqtt_auth_hint": "仅当代理要求用户名和密码时启用。",
       "mqtt_username": "用户名",
       "mqtt_password": "密码",
-      "mqtt_password_saved": "除非输入新密码，否则将保留已保存的密码。"
+      "mqtt_password_saved": "除非输入新密码，否则将保留已保存的密码。",
+      "continue_hint": "设置已保存。您可以先继续，稍后再修复连接，但在 Frigate 可访问之前不会收到检测。",
+      "description": "YA-WAMF 通过 MQTT 从 Frigate 读取检测，并通过其 API 获取快照。请填写这两项的地址，然后进行测试。",
+      "frigate_fail": "无法连接 Frigate",
+      "frigate_url": "Frigate 地址",
+      "mqtt_fail": "无法连接 MQTT 代理",
+      "mqtt_port": "端口",
+      "mqtt_server": "MQTT 代理",
+      "save_test": "保存并测试连接",
+      "frigate_ok": "已连接到 Frigate {version}"
     },
     "cameras": {
       "title": "摄像头与检测",
-      "description": "选择 YA-WAMF 要监控的 Frigate 摄像头。高级检测和分类阈值仍在“检测”设置中管理。"
+      "description": "选择 YA-WAMF 要监控的 Frigate 摄像头。高级检测和分类阈值仍在“检测”设置中管理。",
+      "detected_note": "未设置摄像头列表，因此 YA-WAMF 正在监控所有摄像头。以下摄像头正在产生检测：",
+      "gates_hint": "缺少检测？快照能否到达 YA-WAMF，取决于 Frigate 自身的 min_score / threshold / min_initialized 门槛。",
+      "gates_link": "调优指南 →",
+      "list": "摄像头（逗号分隔）",
+      "list_hint": "请使用 Frigate 配置中的确切摄像头名称。",
+      "offline": "无预览",
+      "use_detected": "添加这些"
     },
     "model": {
       "title": "分类模型与硬件",
       "description": "YA-WAMF 内置轻量级 CPU 后备模型。请选择模型，必要时在此下载，然后在继续前验证实际镜像与硬件路径。",
       "download_required": "请先在此下载并校验该模型，再在此硬件上进行验证。",
       "download_timeout": "下载时间超出预期。请检查连接后重试。",
-      "validation_timeout": "硬件验证已超过 30 分钟。任务可能仍在“诊断”中收尾；请先查看其状态，再开始新的验证。"
+      "validation_timeout": "硬件验证已超过 30 分钟。任务可能仍在“诊断”中收尾；请先查看其状态，再开始新的验证。",
+      "choose_model": "模型",
+      "detected": "检测到的加速器",
+      "no_results": "尚未评估任何已安装的模型。",
+      "provider_hint": "仅显示在此镜像、此主机上可用且适用于所选模型的提供程序。",
+      "results_hint": "每个设备的完整编译、延迟和准确度详情位于“设置 → 调试 → 模型评估工具”。",
+      "revalidate": "重新验证",
+      "row_ok": "可运行",
+      "row_warn": "需检查",
+      "save_error": "无法保存模型选择。",
+      "starting": "正在启动…",
+      "sweep_error": "无法开始验证。",
+      "validate": "在我的硬件上验证",
+      "validation_partial": "硬件验证已完成：{ok}/{total} 个模型就绪。",
+      "validation_required": "继续前，请在当前镜像和硬件上验证此模型。",
+      "validation_success": "硬件验证已成功完成。",
+      "verified": "已验证的提供程序：{list}"
     },
     "quality": {
-      "title": "最佳可用快照"
+      "title": "最佳可用快照",
+      "description": "YA-WAMF 可以在每个事件后自动选择最清晰的录像帧和最可靠的鸟类裁剪。"
     },
     "integrations": {
       "title": "集成",
-      "birdnet_test_subtitle": "分阶段测试会使用此 URL，然后验证已保存的 MQTT 代理和本地检测存储。"
+      "birdnet_test_subtitle": "分阶段测试会使用此 URL，然后验证已保存的 MQTT 代理和本地检测存储。",
+      "ai": "AI 分析",
+      "birdnet_test": "测试 BirdNET-Go 路径",
+      "description": "可选附加功能。现在启用需要的项目；仍需凭据的部分会在最终检查中明确标出。",
+      "note_ai": "行为分析说明。请在设置中添加提供商密钥。",
+      "note_birdnet": "用音频确认视觉检测。",
+      "note_bw": "向社区电台报告。请在设置中添加电台令牌。",
+      "note_ebird": "附近观测与地图。请在设置中添加 API 密钥。",
+      "note_inat": "经所有者审核后提交。请在设置中连接您的账号。",
+      "notifications_note": "通知渠道在“设置 → 通知”中配置。Home Assistant 需在外部安装和配置；请参阅集成指南。"
     },
     "history": {
       "title": "导入现有检测",
@@ -223,14 +268,37 @@
         "integrations_needs": "需要设置：{integrations}",
         "integrations_configured": "已配置：{integrations}",
         "integrations_none": "均未启用"
-      }
+      },
+      "description": "以下是各部分的当前状态。可进入任意部分进行修改，不会影响其他部分。",
+      "done": "完成",
+      "edit": "检查",
+      "finish": "完成设置",
+      "title": "检查设置"
     },
     "skip": "跳过设置",
-    "skip_failed": "无法跳过——无法连接服务器。",
+    "skip_failed": "跳过失败：无法连接服务器。",
     "skip_confirm_title": "跳过设置并打开应用?",
     "skip_confirm_body_no_account": "在您于设置 → 安全中设置密码之前,应用将在无密码状态下运行。此向导涵盖的所有内容都可以稍后配置,并且您可以随时从设置 → 设置向导重新运行它。",
     "skip_confirm_body": "此向导涵盖的所有内容都可以稍后配置,并且您可以随时从设置 → 设置向导重新运行它。",
-    "skip_confirm_action": "跳过并打开应用"
+    "skip_confirm_action": "跳过并打开应用",
+    "back": "上一步",
+    "continue": "继续",
+    "exit": "退出设置",
+    "step_of": "第 {n} 步，共 {total} 步",
+    "telemetry": {
+      "note": "不会收集任何个人数据，您可以随时在设置中更改此选项。",
+      "opt_in": "是的，分享匿名使用统计以帮助指导开发。"
+    },
+    "welcome": {
+      "cover_cameras": "选择摄像头",
+      "cover_connect": "连接 Frigate 与 MQTT",
+      "cover_integrations": "启用集成",
+      "cover_model": "在您的硬件上验证模型",
+      "description": "开始让您的喂食器上线。设置只需几分钟，可选项可以跳过，之后也可以随时从设置导航中重新运行。",
+      "start": "开始",
+      "title": "欢迎使用 YA-WAMF"
+    },
+    "working": "处理中…"
   },
   "theme": {
     "switch_light": "切换到浅色模式",
@@ -338,7 +406,7 @@
       "retry": "重试",
       "empty": "过去 {days} 天内，{distance} 范围内没有发现稀有或异常报告。",
       "empty_hint": "这是有效的 eBird 结果；附近仍可能有许多普通观鸟记录。",
-      "open_species": "{species} — 打开物种卡片",
+      "open_species": "{species}：打开物种卡片",
       "reports": "{count}条报告",
       "places": "{count}个地点"
     },
@@ -477,7 +545,9 @@
     "download": "下载",
     "skip_to_content": "跳到主要内容",
     "working": "处理中…",
-    "language_load_error": "无法加载该语言。请检查网络连接后重试。"
+    "language_load_error": "无法加载该语言。请检查网络连接后重试。",
+    "undo": "撤销",
+    "unknown": "未知"
   },
   "route_load": {
     "loading": "正在打开{page}…",
@@ -699,7 +769,8 @@
       "frigate_error": "连接 Frigate 失败",
       "mqtt_title": "MQTT 设置（Frigate 事件）",
       "simulating": "模拟中…",
-      "advanced_title": "调优"
+      "advanced_title": "调优",
+      "full_visit_advanced_title": "完整到访剪辑（来自录像）"
     },
     "common": {
       "save_error": "无法保存设置",
@@ -838,7 +909,9 @@
         "source_discovery_mapping_value": "映射值",
         "source_discovery_sample_id": "示例ID",
         "source_discovery_seen": "已见",
-        "advanced_title": "音频缓冲与传感器映射"
+        "advanced_title": "音频缓冲与传感器映射",
+        "test_subtitle": "确认 BirdNET-Go 可访问、MQTT 代理接受发布，并且模拟检测能走完整个处理流程。",
+        "test_title": "BirdNET-Go 连接测试"
       },
       "inaturalist": {
         "title": "iNaturalist",
@@ -906,7 +979,10 @@
         "test_button": "测试连接",
         "test_loading": "正在验证…",
         "test_success": "BirdWeather 连接已验证！",
-        "test_error": "BirdWeather 连接失败"
+        "test_error": "BirdWeather 连接失败",
+        "stage_station": "BirdWeather 电台令牌",
+        "test_subtitle": "检查 BirdWeather 是否接受您的电台令牌。",
+        "test_title": "BirdWeather 连接测试"
       },
       "ha_weather": {
         "title": "Home Assistant 天气",
@@ -1081,7 +1157,13 @@
       "classification_image_recording": "录像帧",
       "classification_image_recording_cost": "Frigate 会为每次检测解码一帧录像，YA-WAMF 会下载并处理它。",
       "classification_image_recording_fallback": "需要保留录像以及 Frigate 的干净快照副本 ({setting})。Frigate 只能在该段录像写入后提供录像帧，大约晚 10 到 15 秒，因此新检测的识别也会相应延后。如果 30 秒内没有收到该帧，或者该帧更小、宽高比不同，则使用检测快照。",
-      "classification_image_recording_scope": "适用于新检测，包括作为漏检获取的过去事件。保存不会获取过去事件，也不会更改已有照片；重新分类优先使用已保存的照片。"
+      "classification_image_recording_scope": "适用于新检测，包括作为漏检获取的过去事件。保存不会获取过去事件，也不会更改已有照片；重新分类优先使用已保存的照片。",
+      "stage_frigate": "Frigate API",
+      "stage_frigate_bad": "Frigate 返回了意外状态。",
+      "stage_frigate_ok": "已连接到 Frigate {version}",
+      "stage_mqtt": "MQTT 代理发布",
+      "test_subtitle": "检查 Frigate API 是否响应，以及 MQTT 代理是否接受发布。",
+      "test_title": "Frigate 与 MQTT 连接测试"
     },
     "cameras": {
       "title": "活动摄像头",
@@ -1100,10 +1182,10 @@
       "nest_dedupe_label": "巢箱去重窗口",
       "nest_dedupe_unit": "分钟",
       "role_feeder": "喂食器",
-      "role_feeder_help": "喂食器摄像头 — 每个 Frigate 事件视为一次全新访问(默认)。",
+      "role_feeder_help": "喂食器摄像头：每个 Frigate 事件视为一次全新到访（默认）。",
       "role_label": "角色",
       "role_nest": "巢箱",
-      "role_nest_help": "巢箱摄像头 — 将同一物种的重复检测合并为每个去重窗口一次,避免持续在巢的鸟刷屏。"
+      "role_nest_help": "巢箱摄像头：将同一物种的重复检测合并为每个去重窗口一次,避免持续在巢的鸟刷屏。"
     },
     "telemetry": {
       "title": "遥测",
@@ -1298,7 +1380,13 @@
         "channel_telegram": "Telegram",
         "channel_email": "邮件",
         "confidence_chip_audio": "{value}%且有声音确认"
-      }
+      },
+      "test_channel": "渠道",
+      "test_failed": "无法发送测试消息。",
+      "test_retry": "再次发送",
+      "test_stage_deliver": "发送测试消息",
+      "test_subtitle": "使用此渠道的当前设置发送一条测试消息。",
+      "test_title": "通知测试"
     },
     "discord": {
       "title": "Discord 通知",
@@ -1356,7 +1444,7 @@
       "desc": "用于检测期间的本地化天气上下文。",
       "state": "州 / 地区",
       "country": "国家",
-      "map_empty": "尚未配置坐标 — 请设置纬度和经度(或启用自动检测)以查看地图。",
+      "map_empty": "尚未配置坐标。请设置纬度和经度(或启用自动检测)以查看地图。",
       "map_help": "显示当前为天气、热点和观察记录设置的位置。",
       "map_title": "地图预览",
       "mode_auto": "自动检测",
@@ -1516,7 +1604,7 @@
       "model_manager_install_note": "每个步骤都在您的硬件上运行。在验证通过之前不会激活任何模型。",
       "model_manager_install_stage_download": "下载模型",
       "model_manager_device_sweeping": "正在比较您的设备…",
-      "model_manager_device_set": "最快的已验证提供程序：{provider}{ms} — 启用此模型时将应用该提供程序。",
+      "model_manager_device_set": "最快的已验证提供程序：{provider}{ms}。启用此模型时将应用该提供程序。",
       "model_manager_installing_pct": "下载中… {pct}%",
       "model_manager_install_downloaded": "已下载并验证。",
       "model_manager_install_already_downloaded": "已下载。",
@@ -1635,14 +1723,40 @@
       "worker_counts_live": "实时",
       "worker_counts_background": "后台",
       "worker_counts_auto": "1(默认)",
-      "video_concurrency_follows_workers": "同时分析的剪辑数量等于后台工作进程数——模型每个进程一次只分类一张图像,单独的并发设置只会让任务排队或让进程闲置。",
+      "video_concurrency_follows_workers": "同时分析的剪辑数量等于后台工作进程数。模型每个进程一次只分类一张图像,因此单独的并发设置只会让任务排队或让进程闲置。",
       "band_worker_split_video": "{live} 个实时 · {background} 个后台 · {video} 个视频",
       "model_manager_memory_formula_subprocess_video": "每份 {per} × {live} 个实时 + {background} 个后台 + {video} 个视频(隔离模式)",
       "band_native_recovering": "正在等待隔离的工作进程恢复分类。",
       "band_native_recovered": "分类已在隔离的工作进程中恢复。",
       "band_native_restart": "请重启容器以释放卡住的运行环境。",
-      "band_worker_fallback": "工作进程故障 — 正在主进程中分类",
-      "band_worker_fallback_detail": "隔离的工作进程在加载模型时不断崩溃；检测在主进程中继续进行。"
+      "band_worker_fallback": "工作进程故障：正在主进程中分类",
+      "band_worker_fallback_detail": "隔离的工作进程在加载模型时不断崩溃；检测在主进程中继续进行。",
+      "classification_engine_desc": "喂食器快照的分类方式：置信度、模型和硬件加速。",
+      "compat_all_hint": "下载并测试模型列表中的所有模型，不仅限于已安装的模型（较慢）。",
+      "compat_all_models": "测试所有模型",
+      "compat_card_title": "设备兼容性",
+      "compat_model": "模型",
+      "compat_note_baseline": "CPU 基准",
+      "compat_note_fails": "编译失败",
+      "compat_note_match": "{n}/{n} 与 CPU 一致",
+      "compat_note_nan": "非有限输出",
+      "compat_note_partial": "{m}/{n} 与 CPU 一致",
+      "compat_note_runs": "可运行",
+      "compat_result_failed": "部分设备未通过验证。详见下方明细。",
+      "compat_result_ok": "所有设备均与 CPU 基准一致。",
+      "compat_result_skipped": "部分设备无法验证。详见下方明细。",
+      "compat_result_warn": "所有设备均可运行，但部分结果与 CPU 基准不同。",
+      "compat_results_unavailable": "无法加载兼容性结果。请重试。",
+      "compat_run": "运行兼容性检查",
+      "compat_running": "运行中…",
+      "compat_stage_run": "正在验证此主机的设备",
+      "compat_stage_run_hint": "正在编译每个设备并与 CPU 基准进行比较…",
+      "compat_test_title": "设备兼容性检查",
+      "compat_verified": "已在此主机上验证：",
+      "intel_npu_status": "Intel NPU",
+      "model_manager_repair_download": "重新下载修复",
+      "model_manager_repair_needed": "此模型安装不完整。请重新下载以修复缺失的标签或配置，然后再启用。",
+      "provider_intel_npu": "Intel NPU（OpenVINO）"
     },
     "llm": {
       "title": "AI 洞察",
@@ -1752,7 +1866,7 @@
     "startup_phase_detecting_hardware": "正在检查可用的推理硬件",
     "startup_phase_loading_model": "正在加载并检查所选鸟类模型",
     "startup_phase_model_ready": "所选鸟类模型已准备就绪",
-    "startup_phase_model_unavailable": "分类器不可用——后端启动后可继续设置",
+    "startup_phase_model_unavailable": "分类器不可用：后端启动后可继续设置",
     "startup_phase_database": "正在准备检测历史记录",
     "startup_phase_starting_services": "正在启动事件和媒体服务",
     "startup_phase_finalizing": "正在完成启动检查",
@@ -1981,7 +2095,7 @@
     "snapshot_source_short_full_frame": "完整",
     "snapshot_source_short_frigate_hint": "智能",
     "snapshot_candidate_frames": "Candidate frames",
-    "snapshot_candidate_frames_hint": "Frigate 最终快照和 AI 排序的视频帧 — 点击选择",
+    "snapshot_candidate_frames_hint": "Frigate 最终快照和 AI 排序的视频帧。点击其中一张即可选择。",
     "snapshot_candidate_final_frame": "Frigate 最终快照",
     "snapshot_best": "最佳",
     "snapshot_apply_success": "快照已更新",
@@ -1991,8 +2105,8 @@
     "snapshot_candidates_loading": "正在加载候选帧…",
     "snapshot_candidates_empty": "尚无已保存的候选帧。",
     "snapshot_model_candidates_empty": "未找到AI裁剪帧。完整帧和智能裁剪候选项在上方可用。",
-    "snapshot_model_crop_disabled": "AI裁剪已禁用 — 在设置中启用\"HQ鸟类裁剪快照\"以获得更精确的裁剪。",
-    "snapshot_model_crop_unavailable": "AI裁剪模型未加载 — 访问模型管理器下载。",
+    "snapshot_model_crop_disabled": "AI裁剪已禁用。请在设置中启用\"HQ鸟类裁剪快照\"以获得更精确的裁剪。",
+    "snapshot_model_crop_unavailable": "AI裁剪模型未加载。请前往模型管理器下载。",
     "inat": {
       "title": "iNaturalist",
       "connected": "已连接：{user}",
@@ -2090,7 +2204,7 @@
       "input_frigate_sublabel": "Frigate物种标签",
       "frigate_fallback_title": "Frigate结果",
       "frigate_fallback_desc": "本地图像分析未达到策略要求，因此YA-WAMF保留了可信的Frigate物种标签。",
-      "gated_title": "视频已找到匹配 — 请确认以应用",
+      "gated_title": "视频已找到匹配：请确认以应用",
       "gated_desc": "由于视频得分低于您的最低置信度阈值,自动应用已被搁置。运行\"重新分类\"以应用此结果,或在 设置 → 检测 中降低阈值。",
       "gated_action": "重新分类",
       "evidence": {
@@ -2104,7 +2218,7 @@
         "model_crop": "AI 裁剪",
         "frigate_region_crop": "Frigate 跟踪的区域"
       },
-      "blocked_label": "匹配到已屏蔽的物种 — 未应用"
+      "blocked_label": "匹配到已屏蔽的物种：未应用"
     },
     "card_analysis": {
       "title": "正在分析检测",
@@ -2275,7 +2389,15 @@
     "unfavorite_button": "取消收藏",
     "confidence_hint": "识别置信度：{score}%。",
     "captured_at_hint": "拍摄于 {date} {time}。",
-    "audio_evidence_hint": "此次拍摄附近听到了相符的鸟鸣。"
+    "audio_evidence_hint": "此次拍摄附近听到了相符的鸟鸣。",
+    "audio_clip_aria": "匹配检测的 BirdNET-Go 音频片段",
+    "audio_pause": "暂停音频片段",
+    "audio_play": "播放音频片段",
+    "audio_seek_spectrogram_aria": "点击可跳转到音频片段的对应位置",
+    "audio_spectrogram_unavailable": "此匹配没有可用的频谱图",
+    "manual_upload": "通过上传添加",
+    "search_species": "搜索物种",
+    "species_updated": "物种已更新"
   },
   "events": {
     "title": "事件",
@@ -2310,7 +2432,8 @@
       "show_visits_hint": "一只鸟的停留：间隔不到一分钟的拍摄。",
       "show_captures": "单次拍摄",
       "show_captures_hint": "每次拍摄单独显示。",
-      "show_locked": "选择针对单次拍摄。"
+      "show_locked": "选择针对单次拍摄。",
+      "audio_matches": "音频匹配"
     },
     "sort": {
       "newest": "最新",
@@ -3167,9 +3290,9 @@
     "cameras_previous": "上一个摄像头",
     "cameras_retry": "重试",
     "cameras_role_feeder": "喂食器",
-    "cameras_role_feeder_help": "喂食器摄像头 — 每个 Frigate 事件视为一次全新访问。",
+    "cameras_role_feeder_help": "喂食器摄像头：每个 Frigate 事件视为一次全新到访。",
     "cameras_role_nest": "巢箱",
-    "cameras_role_nest_help": "巢箱摄像头 — 在配置的时间窗口内合并重复检测。",
+    "cameras_role_nest_help": "巢箱摄像头：在配置的时间窗口内合并重复检测。",
     "cameras_some_online": "部分摄像头需要检查",
     "cameras_status_offline": "离线",
     "cameras_status_online": "在线",
@@ -3216,7 +3339,8 @@
     "node_visit": "{span} 的到访",
     "node_visit_many": "到访，{span}，{count} 次拍摄",
     "node_capture": "{time} 的拍摄，属于本次到访",
-    "node_capture_shown": "{time} 的拍摄，属于本次到访，也是到访照片"
+    "node_capture_shown": "{time} 的拍摄，属于本次到访，也是到访照片",
+    "open_capture": "打开{species}的拍摄"
   },
   "taxonomy": {
     "title": "{name} 的系统树",

@@ -25,12 +25,13 @@
     "jobs": "Aufträge",
     "events": "Ereignisse",
     "notifications": "Benachrichtigungen",
-    "species": "Arten"
+    "species": "Arten",
+    "navigation": "Hauptnavigation"
   },
   "manual_observation": {
     "eyebrow": "Feldbeobachtung",
     "intro_title": "Foto oder Clip in eine bestätigte Beobachtung verwandeln",
-    "intro_body": "YA-WAMF nutzt dasselbe Modell, dieselbe Ausschnittwahl und denselben Videokonsens wie Live-Erkennungen. Gespeichert wird erst nach deiner Prüfung.",
+    "intro_body": "YA-WAMF nutzt dasselbe Modell, dieselbe Ausschnittwahl und denselben Videokonsens wie Live-Erkennungen. Gespeichert wird erst nach Ihrer Prüfung.",
     "progress_label": "Fortschritt der Beobachtung",
     "steps": {
       "upload": "Hochladen",
@@ -52,15 +53,15 @@
       "file": "Datei",
       "bird": "Vogel",
       "whole_frame": "Ganzes Bild",
-      "your_photo": "Dein Foto",
+      "your_photo": "Ihr Foto",
       "first_frame": "Erstes Bild",
       "species_frame_alt": "Bestes Bild von {species}",
       "species_frame_help": "Das beste Bild von {species}, bei {time} im Video. Es wird das Foto der Beobachtung.",
       "species_frame_help_untimed": "Das beste Bild von {species} im Video. Es wird das Foto der Beobachtung.",
       "no_species_frame_help": "Kein Bild zeigt eindeutig {species}, daher behält die Beobachtung das erste Bild des Videos als Foto.",
       "first_frame_help": "Das erste Bild des Videos.",
-      "photo_help": "Dein Foto, unverändert gespeichert. Der Klassifikator hat das ganze Bild bewertet.",
-      "photo_cropped_help": "Dein Foto, unverändert gespeichert. Der Klassifikator hat einen Ausschnitt um den Vogel bewertet."
+      "photo_help": "Ihr Foto, unverändert gespeichert. Der Klassifikator hat das ganze Bild bewertet.",
+      "photo_cropped_help": "Ihr Foto, unverändert gespeichert. Der Klassifikator hat einen Ausschnitt um den Vogel bewertet."
     },
     "errors": {
       "load": "Der Analysestatus konnte nicht geladen werden.",
@@ -85,10 +86,10 @@
       "video": "Videodatei",
       "image": "Foto",
       "title": "Stärkster Nachweis wird gesucht",
-      "body": "Der Produktiv-Klassifikator vergleicht Einzelbilder und Ausschnitte. Du kannst die Seite verlassen; der Entwurf wird bei deiner Rückkehr wiederhergestellt.",
+      "body": "Der Produktiv-Klassifikator vergleicht Einzelbilder und Ausschnitte. Sie können die Seite verlassen; der Entwurf wird bei Ihrer Rückkehr wiederhergestellt.",
       "progress": "Analysefortschritt",
       "failed_title": "Analyse sicher angehalten",
-      "failed_body": "Dein Originalmedium bleibt gespeichert. Wiederhole den Vorgang, sobald das Modell verfügbar ist.",
+      "failed_body": "Ihr Originalmedium bleibt gespeichert. Wiederholen Sie den Vorgang, sobald das Modell verfügbar ist.",
       "retry": "Analyse wiederholen",
       "failed_reason": "Vom Klassifikator genannter Grund:"
     },
@@ -104,14 +105,14 @@
       "saving": "Beobachtung wird gespeichert…",
       "save": "Beobachtung speichern",
       "save_species": "{species} hinzufügen",
-      "several_species": "Jeder Vorschlag zeigt den Vogel, an dem er bewertet wurde. Wenn das Video mehr als einen Vogel zeigt, wähle den, für den diese Beobachtung gilt, und das Foto folgt deiner Wahl.",
+      "several_species": "Jeder Vorschlag zeigt den Vogel, an dem er bewertet wurde. Wenn das Video mehr als einen Vogel zeigt, wählen Sie den, für den diese Beobachtung gilt, und das Foto folgt Ihrer Wahl.",
       "no_frame": "Kein Bild",
       "when_help": "Leer lassen, um den Zeitpunkt des Speicherns zu verwenden."
     },
     "location": {
       "title": "Sichtungsort",
       "extracted": "Der Ort wurde in den Bildmetadaten gefunden. Prüfe den Pin und passe ihn bei Bedarf an.",
-      "missing": "Es wurde kein eingebetteter Ort gefunden. Setze einen Pin, wenn du den Sichtungsort kennst.",
+      "missing": "Es wurde kein eingebetteter Ort gefunden. Setzen Sie einen Pin, wenn Sie den Sichtungsort kennen.",
       "manual": "Dieser Pin wurde manuell gesetzt oder angepasst. Prüfe ihn vor dem Speichern.",
       "from_image": "Aus Bildmetadaten",
       "map_label": "Karte zum Setzen des Sichtungspins",
@@ -129,7 +130,7 @@
       "toast": "Beobachtung hinzugefügt",
       "eyebrow": "Eintrag abgeschlossen",
       "title": "Beobachtung gespeichert",
-      "body": "Der bestätigte Eintrag gehört nun zu deinem Erkennungsverlauf und den Artensummen.",
+      "body": "Der bestätigte Eintrag gehört nun zu Ihrem Erkennungsverlauf und den Artensummen.",
       "view": "Erkennung anzeigen",
       "another": "Weitere hinzufügen",
       "photo": "Das mit {species} gespeicherte Foto"
@@ -141,7 +142,7 @@
     },
     "discard": {
       "title": "Diesen Upload verwerfen?",
-      "message": "Die hochgeladene Datei und ihre Analyse werden gelöscht. Zu deinen Beobachtungen wurde nichts hinzugefügt.",
+      "message": "Die hochgeladene Datei und ihre Analyse werden gelöscht. Zu Ihren Beobachtungen wurde nichts hinzugefügt.",
       "confirm": "Upload verwerfen"
     }
   },
@@ -158,7 +159,9 @@
       "optional": "Wahlweise"
     },
     "account": {
-      "title": "Administratorkonto & Zugriff"
+      "title": "Administratorkonto & Zugriff",
+      "already": "Die Authentifizierung ist bereits eingerichtet. Verwalten Sie sie unter Einstellungen → Sicherheit.",
+      "description": "Schützen Sie das Dashboard mit einem Besitzer-Passwort oder betreiben Sie es ohne Authentifizierung in einem vertrauenswürdigen Netzwerk."
     },
     "connection": {
       "title": "Frigate- & MQTT-Verbindung",
@@ -167,25 +170,67 @@
       "mqtt_auth_hint": "Nur aktivieren, wenn der Broker Benutzername und Passwort verlangt.",
       "mqtt_username": "Benutzername",
       "mqtt_password": "Passwort",
-      "mqtt_password_saved": "Das gespeicherte Passwort bleibt erhalten, solange kein Ersatz eingegeben wird."
+      "mqtt_password_saved": "Das gespeicherte Passwort bleibt erhalten, solange kein Ersatz eingegeben wird.",
+      "continue_hint": "Die Einstellungen sind gespeichert. Sie können fortfahren und die Verbindung später korrigieren, aber Erkennungen kommen erst an, wenn Frigate erreichbar ist.",
+      "description": "YA-WAMF liest Erkennungen von Frigate über MQTT und ruft Schnappschüsse über die Frigate-API ab. Geben Sie beide Adressen an und testen Sie dann.",
+      "frigate_fail": "Frigate nicht erreichbar",
+      "frigate_url": "Frigate-URL",
+      "mqtt_fail": "MQTT-Broker nicht erreichbar",
+      "mqtt_port": "Port",
+      "mqtt_server": "MQTT-Broker",
+      "save_test": "Speichern & Verbindung testen",
+      "frigate_ok": "Mit Frigate {version} verbunden"
     },
     "cameras": {
       "title": "Kameras & Erkennung",
-      "description": "Wähle die Frigate-Kameras aus, die YA-WAMF überwacht. Erweiterte Erkennungs- und Klassifizierungsgrenzen bleiben in den Erkennungseinstellungen."
+      "description": "Wähle die Frigate-Kameras aus, die YA-WAMF überwacht. Erweiterte Erkennungs- und Klassifizierungsgrenzen bleiben in den Erkennungseinstellungen.",
+      "detected_note": "Keine Kameraliste festgelegt, daher überwacht YA-WAMF alle Kameras. Diese Kameras liefern Erkennungen:",
+      "gates_hint": "Fehlen Erkennungen? Die Frigate-eigenen Grenzen min_score / threshold / min_initialized entscheiden, ob ein Schnappschuss überhaupt bei YA-WAMF ankommt.",
+      "gates_link": "Leitfaden zur Feineinstellung →",
+      "list": "Kameras (kommagetrennt)",
+      "list_hint": "Verwenden Sie die exakten Kameranamen aus Ihrer Frigate-Konfiguration.",
+      "offline": "Keine Vorschau",
+      "use_detected": "Diese hinzufügen"
     },
     "model": {
       "title": "Klassifizierungsmodell & Hardware",
       "description": "YA-WAMF enthält eine schlanke CPU-Rückfalloption. Wähle ein Modell, lade es bei Bedarf hier herunter und prüfe dann den genauen Image- und Hardwarepfad.",
-      "download_required": "Lade dieses Modell hier herunter und verifiziere es, bevor du es auf dieser Hardware prüfst.",
+      "download_required": "Laden Sie dieses Modell hier herunter und verifizieren Sie es, bevor Sie es auf dieser Hardware prüfen.",
       "download_timeout": "Der Download dauert länger als erwartet. Prüfe die Verbindung und versuche es erneut.",
-      "validation_timeout": "Die Hardwareprüfung hat 30 Minuten überschritten. Sie läuft möglicherweise noch unter Diagnose; prüfe dort den Status, bevor du einen neuen Lauf startest."
+      "validation_timeout": "Die Hardwareprüfung hat 30 Minuten überschritten. Sie läuft möglicherweise noch unter Diagnose; prüfen Sie dort den Status, bevor Sie einen neuen Lauf starten.",
+      "choose_model": "Modell",
+      "detected": "Erkannte Beschleuniger",
+      "no_results": "Es wurden keine installierten Modelle geprüft.",
+      "provider_hint": "Es werden nur Anbieter angezeigt, die in diesem Image, auf diesem Host und für das ausgewählte Modell verfügbar sind.",
+      "results_hint": "Alle Details zu Kompilierung, Latenz und Genauigkeit je Gerät finden Sie unter Einstellungen → Debug → Werkzeug zur Modellbewertung.",
+      "revalidate": "Prüfung wiederholen",
+      "row_ok": "Läuft",
+      "row_warn": "Prüfen",
+      "save_error": "Die Modellauswahl konnte nicht gespeichert werden.",
+      "starting": "Wird gestartet…",
+      "sweep_error": "Die Prüfung konnte nicht gestartet werden.",
+      "validate": "Auf meiner Hardware prüfen",
+      "validation_partial": "Hardwareprüfung abgeschlossen: {ok}/{total} Modelle bereit.",
+      "validation_required": "Prüfen Sie dieses Modell mit dem aktuellen Image und der aktuellen Hardware, bevor Sie fortfahren.",
+      "validation_success": "Hardwareprüfung erfolgreich abgeschlossen.",
+      "verified": "Geprüfte Anbieter: {list}"
     },
     "quality": {
-      "title": "Bestmögliche Schnappschüsse"
+      "title": "Bestmögliche Schnappschüsse",
+      "description": "YA-WAMF kann nach jedem Ereignis automatisch das klarste aufgezeichnete Einzelbild und den besten zuverlässigen Vogelausschnitt auswählen."
     },
     "integrations": {
       "title": "Integrationen",
-      "birdnet_test_subtitle": "Der Stufentest verwendet diese URL und prüft danach den gespeicherten MQTT-Broker sowie den lokalen Erkennungsspeicher."
+      "birdnet_test_subtitle": "Der Stufentest verwendet diese URL und prüft danach den gespeicherten MQTT-Broker sowie den lokalen Erkennungsspeicher.",
+      "ai": "KI-Analyse",
+      "birdnet_test": "BirdNET-Go-Anbindung testen",
+      "description": "Optionale Erweiterungen. Aktivieren Sie jetzt, was Sie möchten; Bereiche, die noch Zugangsdaten benötigen, werden in der abschließenden Übersicht deutlich markiert.",
+      "note_ai": "Verhaltensnotizen. Hinterlegen Sie einen Anbieterschlüssel in den Einstellungen.",
+      "note_birdnet": "Audio-Bestätigung visueller Erkennungen.",
+      "note_bw": "Meldungen an Community-Stationen. Hinterlegen Sie ein Stations-Token in den Einstellungen.",
+      "note_ebird": "Sichtungen in der Nähe und Karten. Hinterlegen Sie einen API-Schlüssel in den Einstellungen.",
+      "note_inat": "Vom Besitzer geprüfte Übermittlungen. Verbinden Sie Ihr Konto in den Einstellungen.",
+      "notifications_note": "Benachrichtigungskanäle werden unter Einstellungen → Benachrichtigungen eingerichtet. Home Assistant wird extern installiert und konfiguriert; siehe den Integrationsleitfaden."
     },
     "history": {
       "title": "Vorhandene Erkennungen importieren",
@@ -201,7 +246,7 @@
     },
     "review": {
       "loading": "Gespeicherte Einrichtung wird geprüft…",
-      "load_failed": "Die Einrichtungsübersicht konnte nicht geladen werden. Deine gespeicherten Einstellungen wurden nicht verändert.",
+      "load_failed": "Die Einrichtungsübersicht konnte nicht geladen werden. Ihre gespeicherten Einstellungen wurden nicht verändert.",
       "retry": "Übersicht erneut laden",
       "stale": "Die letzte Einrichtungsübersicht wird angezeigt, weil die Aktualisierung fehlgeschlagen ist.",
       "detail": {
@@ -223,14 +268,37 @@
         "integrations_needs": "Einrichtung nötig: {integrations}",
         "integrations_configured": "Konfiguriert: {integrations}",
         "integrations_none": "Keine aktiviert"
-      }
+      },
+      "description": "Hier sehen Sie den Stand jedes Bereichs. Öffnen Sie einen beliebigen Bereich, um ihn zu ändern; alles andere bleibt unverändert.",
+      "done": "Fertig",
+      "edit": "Prüfen",
+      "finish": "Abschließen",
+      "title": "Einrichtung prüfen"
     },
     "skip": "Einrichtung überspringen",
-    "skip_failed": "Überspringen fehlgeschlagen — der Server war nicht erreichbar.",
+    "skip_failed": "Überspringen fehlgeschlagen: Der Server war nicht erreichbar.",
     "skip_confirm_title": "Einrichtung überspringen und die App öffnen?",
-    "skip_confirm_body_no_account": "Die App läuft ohne Passwort, bis du eines unter Einstellungen → Sicherheit festlegst. Alles aus diesem Assistenten lässt sich später konfigurieren, und du kannst ihn jederzeit über Einstellungen → Einrichtungsassistent erneut starten.",
-    "skip_confirm_body": "Alles aus diesem Assistenten lässt sich später konfigurieren, und du kannst ihn jederzeit über Einstellungen → Einrichtungsassistent erneut starten.",
-    "skip_confirm_action": "Überspringen und App öffnen"
+    "skip_confirm_body_no_account": "Die App läuft ohne Passwort, bis Sie eines unter Einstellungen → Sicherheit festlegen. Alles aus diesem Assistenten lässt sich später konfigurieren, und Sie können ihn jederzeit über Einstellungen → Einrichtungsassistent erneut starten.",
+    "skip_confirm_body": "Alles aus diesem Assistenten lässt sich später konfigurieren, und Sie können ihn jederzeit über Einstellungen → Einrichtungsassistent erneut starten.",
+    "skip_confirm_action": "Überspringen und App öffnen",
+    "back": "Zurück",
+    "continue": "Weiter",
+    "exit": "Einrichtung beenden",
+    "step_of": "Schritt {n} von {total}",
+    "telemetry": {
+      "note": "Es werden keine personenbezogenen Daten erfasst, und Sie können dies jederzeit in den Einstellungen ändern.",
+      "opt_in": "Ja, anonyme Nutzungsstatistiken teilen, um die Weiterentwicklung zu lenken."
+    },
+    "welcome": {
+      "cover_cameras": "Kameras auswählen",
+      "cover_connect": "Frigate & MQTT verbinden",
+      "cover_integrations": "Integrationen aktivieren",
+      "cover_model": "Modell auf Ihrer Hardware prüfen",
+      "description": "Bringen wir Ihre Futterstelle online. Das dauert ein paar Minuten, optionale Schritte lassen sich überspringen, und Sie können den Assistenten jederzeit über die Navigation der Einstellungen erneut starten.",
+      "start": "Loslegen",
+      "title": "Willkommen bei YA-WAMF"
+    },
+    "working": "Wird ausgeführt…"
   },
   "theme": {
     "switch_light": "Zum hellen Modus wechseln",
@@ -338,7 +406,7 @@
       "retry": "Erneut versuchen",
       "empty": "Im Umkreis von {distance} wurden in den letzten {days} Tagen keine seltenen oder ungewöhnlichen Meldungen gefunden.",
       "empty_hint": "Dies ist ein gültiges eBird-Ergebnis; gewöhnliche Beobachtungen in der Nähe können trotzdem zahlreich sein.",
-      "open_species": "{species} — Artenkarte öffnen",
+      "open_species": "{species}: Artenkarte öffnen",
       "reports": "{count} Meldungen",
       "places": "{count} Orte"
     },
@@ -374,7 +442,7 @@
       "remaining": "{count} weitere warten",
       "work_through": "Warteschlange abarbeiten",
       "new_species_tag": "Neue Art · {count} Sichtung(en)",
-      "loading": "Prüfe, ob Besuche auf dich warten…",
+      "loading": "Es wird geprüft, ob Besuche auf Sie warten…",
       "unavailable": "Die Warteschlange konnte nicht geprüft werden, daher ist unbekannt, ob etwas wartet."
     },
     "review_session": {
@@ -477,12 +545,14 @@
     "download": "Herunterladen",
     "skip_to_content": "Zum Inhalt springen",
     "working": "Arbeite…",
-    "language_load_error": "Diese Sprache konnte nicht geladen werden. Prüfe deine Verbindung und versuche es erneut."
+    "language_load_error": "Diese Sprache konnte nicht geladen werden. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
+    "undo": "Rückgängig",
+    "unknown": "unbekannt"
   },
   "route_load": {
     "loading": "{page} wird geöffnet…",
     "error_title": "Diese Seite konnte nicht geöffnet werden",
-    "error_description": "Die Seitendatei ist nicht angekommen. Prüfe deine Verbindung und versuche es erneut.",
+    "error_description": "Die Seitendatei ist nicht angekommen. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
     "retry": "Erneut öffnen"
   },
   "settings": {
@@ -699,7 +769,8 @@
       "frigate_error": "Verbindung zu Frigate fehlgeschlagen",
       "mqtt_title": "MQTT-Einstellungen (Frigate-Ereignisse)",
       "simulating": "Simulation läuft…",
-      "advanced_title": "Feineinstellungen"
+      "advanced_title": "Feineinstellungen",
+      "full_visit_advanced_title": "Vollbesuch-Clips (aus Aufzeichnungen)"
     },
     "common": {
       "save_error": "Einstellungen konnten nicht gespeichert werden",
@@ -824,7 +895,7 @@
         "sensor_id_placeholder": "Sensor-ID",
         "sensor_id_label": "Audio-Sensor-ID für {camera}",
         "sensor_mapping_empty": "Keine Kameras erkannt. Frigate-Verbindung prüfen.",
-        "sensor_mapping_help": "Füge deine Frigate-Kameras hinzu, um sie Audio-Sensoren zuzuordnen. Verwende * für zufällige/dynamische Sensor-IDs.",
+        "sensor_mapping_help": "Fügen Sie Ihre Frigate-Kameras hinzu, um sie Audio-Sensoren zuzuordnen. Verwenden Sie * für zufällige/dynamische Sensor-IDs.",
         "add_detected_source": "Erkannte Quelle hinzufügen…",
         "add_detected_source_label": "Erkannte BirdNET-Quelle für {camera} hinzufügen",
         "source_token_list_label": "Zugeordnete BirdNET-Quellen für {camera}",
@@ -838,7 +909,9 @@
         "source_discovery_mapping_value": "Zuordnungswert",
         "source_discovery_sample_id": "Beispiel-ID",
         "source_discovery_seen": "Gesehen",
-        "advanced_title": "Audiopuffer & Sensor-Zuordnung"
+        "advanced_title": "Audiopuffer & Sensor-Zuordnung",
+        "test_subtitle": "Bestätigt, dass BirdNET-Go erreichbar ist, der MQTT-Broker eine Veröffentlichung annimmt und eine simulierte Erkennung die Pipeline durchläuft.",
+        "test_title": "BirdNET-Go-Verbindungstest"
       },
       "inaturalist": {
         "title": "iNaturalist",
@@ -857,7 +930,7 @@
         "default_place_guess": "Standard-Ort",
         "default_place_guess_label": "Standard-Ortsangabe",
         "default_place_guess_placeholder": "Gartenfütterung",
-        "oauth_desc": "Verbinde dein iNaturalist-Konto, um verifizierte Erkennungen zu übermitteln.",
+        "oauth_desc": "Verbinden Sie Ihr iNaturalist-Konto, um verifizierte Erkennungen zu übermitteln.",
         "app_owner_note": "Erfordert iNaturalist App-Owner-Freigabe (Konto 2+ Monate alt und 10 verbessernde IDs im letzten Monat).",
         "connect": "iNaturalist verbinden",
         "popup_blocked": "Das Anmeldefenster wurde blockiert. Erlaube Pop-ups für diese Website und versuche es erneut.",
@@ -901,12 +974,15 @@
         "toggle_label": "BirdWeather-Integration umschalten",
         "token": "Stations-Token",
         "token_label": "BirdWeather-Stations-Token",
-        "token_placeholder": "Dein BirdWeather-Token",
-        "token_desc": "Verfügbar in deinen Stations-Einstellungen unter \"BirdWeather Token\".",
+        "token_placeholder": "Ihr BirdWeather-Token",
+        "token_desc": "Verfügbar in Ihren Stations-Einstellungen unter \"BirdWeather Token\".",
         "test_button": "Verbindung testen",
         "test_loading": "Verifizierung…",
         "test_success": "BirdWeather-Verbindung verifiziert!",
-        "test_error": "BirdWeather-Verbindung fehlgeschlagen"
+        "test_error": "BirdWeather-Verbindung fehlgeschlagen",
+        "stage_station": "BirdWeather-Stations-Token",
+        "test_subtitle": "Prüft, ob BirdWeather Ihr Stations-Token akzeptiert.",
+        "test_title": "BirdWeather-Verbindungstest"
       },
       "ha_weather": {
         "title": "Home-Assistant-Wetter",
@@ -961,19 +1037,19 @@
       "password_confirm": "Passwort bestätigen",
       "password_confirm_placeholder": "Passwort erneut eingeben",
       "session_expiry": "Sitzungsdauer (Stunden)",
-      "proxy_trust_note": "Proxy-Header werden standardmäßig allen Hosts vertraut. Wenn du einen Reverse Proxy nutzt, lege vertrauenswürdige Proxy-Hosts fest, um gefälschte Client-IPs zu verhindern.",
+      "proxy_trust_note": "Proxy-Header werden standardmäßig allen Hosts vertraut. Wenn Sie einen Reverse Proxy nutzen, legen Sie vertrauenswürdige Proxy-Hosts fest, um gefälschte Client-IPs zu verhindern.",
       "trusted_proxies": "Vertrauenswürdige Proxy-Hosts",
-      "trusted_proxies_desc": "Füge die Containernamen oder IPs deines Reverse Proxys hinzu (z. B. nginx-rp, cloudflare-tunnel, 172.19.0.10). Docker-DNS-Namen funktionieren, wenn die Dienste dasselbe Netzwerk teilen.",
+      "trusted_proxies_desc": "Fügen Sie die Containernamen oder IPs Ihres Reverse Proxys hinzu (z. B. nginx-rp, cloudflare-tunnel, 172.19.0.10). Docker-DNS-Namen funktionieren, wenn die Dienste dasselbe Netzwerk teilen.",
       "trusted_proxies_placeholder": "Proxy-Host oder IP hinzufügen",
       "trusted_proxies_suggested_label": "Vorschlag",
-      "trusted_proxies_suggested_note": "Dies sind nur Vorschläge. Speichern behält den Standard (allen vertrauen), solange du sie nicht akzeptierst oder änderst.",
+      "trusted_proxies_suggested_note": "Dies sind nur Vorschläge. Speichern behält den Standard (allen vertrauen), solange Sie sie nicht akzeptieren oder ändern.",
       "trusted_proxies_use_suggestions": "Vorschläge verwenden",
       "trusted_proxies_add": "Vertrauenswürdigen Proxy-Host hinzufügen",
       "trusted_proxies_remove": "Vertrauenswürdigen Proxy-Host entfernen",
       "trusted_proxies_empty": "Keine vertrauenswürdigen Proxys konfiguriert (alle Proxys sind vertrauenswürdig).",
       "advanced_title": "Sitzung & Reverse-Proxy",
       "avatar": "Profilbild",
-      "avatar_desc": "Wird neben deinem Namen in der Seitenleiste angezeigt. Es wird als kleines quadratisches Bild gespeichert; sonst bleibt nichts aus der Datei erhalten.",
+      "avatar_desc": "Wird neben Ihrem Namen in der Seitenleiste angezeigt. Es wird als kleines quadratisches Bild gespeichert; sonst bleibt nichts aus der Datei erhalten.",
       "avatar_upload": "Bild hochladen",
       "avatar_replace": "Bild ersetzen",
       "avatar_remove": "Bild entfernen",
@@ -1071,7 +1147,7 @@
       "full_visit_supported": "Für alle {count} ausgewählten Kameras ist die durchgehende Abdeckung bereit.",
       "full_visit_unavailable": "Fähigkeitsinformationen sind derzeit nicht verfügbar.",
       "external_url": "Öffentliche Frigate-URL",
-      "external_url_desc": "Die Adresse, über die dein Browser Frigate öffnet, wenn sie von der Serveradresse oben abweicht. Wird für den Link 'In Frigate öffnen' einer Erkennung verwendet.",
+      "external_url_desc": "Die Adresse, über die Ihr Browser Frigate öffnet, wenn sie von der Serveradresse oben abweicht. Wird für den Link 'In Frigate öffnen' einer Erkennung verwendet.",
       "external_url_placeholder": "https://frigate.example.com",
       "ingest_labels": "Frigate-Labels, auf die reagiert wird",
       "ingest_labels_desc": "Kommagetrennt. Fügen Sie die Labels hinzu, die Ihr Frigate-Modell für Vögel verwendet (z. B. bird, duck, goose); alles hier durchläuft die Vogel-Erkennungspipeline.",
@@ -1081,7 +1157,13 @@
       "classification_image_recording": "Aufzeichnungs-Frame",
       "classification_image_recording_cost": "Frigate dekodiert pro Erkennung einen Aufzeichnungs-Frame, und YA-WAMF lädt ihn herunter und verarbeitet ihn.",
       "classification_image_recording_fallback": "Erfordert aufbewahrte Aufzeichnungen und die saubere Snapshot-Kopie in Frigate ({setting}). Frigate kann einen Aufzeichnungs-Frame erst liefern, wenn dieser Teil der Aufzeichnung geschrieben ist, etwa 10 bis 15 Sekunden später, daher werden neue Erkennungen entsprechend später bestimmt. Ist der Frame nach 30 Sekunden nicht da oder ist er kleiner oder anders geformt, wird der Erkennungs-Snapshot verwendet.",
-      "classification_image_recording_scope": "Gilt für neue Erkennungen, auch für vergangene Ereignisse, die als verpasste Erkennungen abgerufen werden. Speichern ruft keine vergangenen Ereignisse ab und ändert keine vorhandenen Fotos; die Reklassifizierung bevorzugt gespeicherte Fotos."
+      "classification_image_recording_scope": "Gilt für neue Erkennungen, auch für vergangene Ereignisse, die als verpasste Erkennungen abgerufen werden. Speichern ruft keine vergangenen Ereignisse ab und ändert keine vorhandenen Fotos; die Reklassifizierung bevorzugt gespeicherte Fotos.",
+      "stage_frigate": "Frigate-API",
+      "stage_frigate_bad": "Frigate hat einen unerwarteten Status zurückgegeben.",
+      "stage_frigate_ok": "Mit Frigate {version} verbunden",
+      "stage_mqtt": "Veröffentlichung am MQTT-Broker",
+      "test_subtitle": "Prüft, ob die Frigate-API antwortet und der MQTT-Broker eine Veröffentlichung annimmt.",
+      "test_title": "Verbindungstest Frigate & MQTT"
     },
     "cameras": {
       "title": "Aktive Kameras",
@@ -1100,10 +1182,10 @@
       "nest_dedupe_label": "Dedupe-Fenster für Nestkameras",
       "nest_dedupe_unit": "Min.",
       "role_feeder": "Futterstelle",
-      "role_feeder_help": "Futterstellen-Kamera — jedes Frigate-Ereignis wird als neuer Besuch behandelt (Standard).",
+      "role_feeder_help": "Futterstellen-Kamera: Jedes Frigate-Ereignis wird als neuer Besuch behandelt (Standard).",
       "role_label": "Rolle",
       "role_nest": "Nest",
-      "role_nest_help": "Nestkasten-Kamera — wiederholte Erkennungen derselben Art werden in eine pro Dedupe-Fenster zusammengefasst, damit ein dauerhaft anwesender brütender Vogel den Feed nicht überschwemmt."
+      "role_nest_help": "Nestkasten-Kamera: Wiederholte Erkennungen derselben Art werden in eine pro Dedupe-Fenster zusammengefasst, damit ein dauerhaft anwesender brütender Vogel den Feed nicht überschwemmt."
     },
     "telemetry": {
       "title": "Telemetrie",
@@ -1298,7 +1380,13 @@
         "channel_telegram": "Telegram",
         "channel_email": "E-Mail",
         "confidence_chip_audio": "{value} % Sicherheit und gehört"
-      }
+      },
+      "test_channel": "Kanal",
+      "test_failed": "Die Testnachricht konnte nicht gesendet werden.",
+      "test_retry": "Erneut senden",
+      "test_stage_deliver": "Testnachricht zustellen",
+      "test_subtitle": "Sendet eine Testnachricht mit den aktuellen Einstellungen dieses Kanals.",
+      "test_title": "Benachrichtigungstest"
     },
     "discord": {
       "title": "Discord-Benachrichtigungen",
@@ -1356,7 +1444,7 @@
       "desc": "Wird für lokalisierte Wetterkontexte während Erkennungen verwendet.",
       "state": "Bundesland / Region",
       "country": "Land",
-      "map_empty": "Noch keine Koordinaten konfiguriert — geben Sie Breiten- und Längengrad ein (oder aktivieren Sie die Auto-Erkennung), um die Karte zu sehen.",
+      "map_empty": "Noch keine Koordinaten konfiguriert. Geben Sie Breiten- und Längengrad ein (oder aktivieren Sie die Auto-Erkennung), um die Karte zu sehen.",
       "map_help": "Zeigt den Standort, der aktuell für Wetter, Hotspots und Beobachtungen verwendet wird.",
       "map_title": "Kartenvorschau",
       "mode_auto": "Automatisch erkennen",
@@ -1455,7 +1543,7 @@
       "personalized_rerank_desc": "Verwende manuelle Tags, um das Ranking pro Kamera und Modell anzupassen. Deaktivieren, um nur die Basismodell-Scores zu verwenden.",
       "video_max_concurrent": "Video-Parallelität",
       "video_max_concurrent_label": "Maximale gleichzeitige Video-Jobs",
-      "video_concurrency_best_practice_in_process": "Der In-Process-Modus teilt sich eine gemeinsame Backend-Laufzeit. Empfohlen ist, die Video-Parallelität bei 1 zu belassen, außer du hast die Stabilität deiner Modell-Laufzeit unter paralleler Last ausdrücklich verifiziert.",
+      "video_concurrency_best_practice_in_process": "Der In-Process-Modus teilt sich eine gemeinsame Backend-Laufzeit. Empfohlen ist, die Video-Parallelität bei 1 zu belassen, außer Sie haben die Stabilität Ihrer Modell-Laufzeit unter paralleler Last ausdrücklich verifiziert.",
       "video_concurrency_best_practice_subprocess": "Der Subprocess-Modus isoliert Klassifizierungs-Worker stärker, aber mehr Video-Parallelität erhöht trotzdem die Last auf CPU, RAM und GPU.",
       "video_frames_label": "Videoframes",
       "cuda_runtime_only": "CUDA-Laufzeit installiert (keine NVIDIA-GPU erkannt)",
@@ -1481,11 +1569,11 @@
       "model_manager_detector_missing": "Download erforderlich",
       "model_manager_download_detector": "Detektor herunterladen",
       "model_manager_lineup_title": "Gestaffelte Modellreihe",
-      "model_manager_lineup_desc": "Empfohlene Modelle werden zuerst angezeigt. Erweiterte Optionen bleiben eingeklappt, bis du sie öffnest.",
+      "model_manager_lineup_desc": "Empfohlene Modelle werden zuerst angezeigt. Erweiterte Optionen bleiben eingeklappt, bis Sie sie öffnen.",
       "model_manager_hide_advanced": "Erweiterte Modelle ausblenden",
       "model_manager_show_advanced": "Erweiterte Modelle anzeigen ({count})",
       "model_manager_count": "{count} sichtbar",
-      "model_manager_advanced_hidden": "Erweiterte Modelle sind standardmäßig ausgeblendet. Blende sie ein, wenn du die größeren ONNX-Optionen brauchst.",
+      "model_manager_advanced_hidden": "Erweiterte Modelle sind standardmäßig ausgeblendet. Blenden Sie sie ein, wenn Sie die größeren ONNX-Optionen brauchen.",
       "model_manager_active": "AKTIV",
       "model_manager_recommended_for": "Empfohlen für",
       "model_manager_notes": "Hinweise",
@@ -1516,7 +1604,7 @@
       "model_manager_install_note": "Jeder Schritt läuft auf Ihrer Hardware. Nichts wird aktiv, bevor die Validierung bestanden ist.",
       "model_manager_install_stage_download": "Modell herunterladen",
       "model_manager_device_sweeping": "Geräte werden verglichen…",
-      "model_manager_device_set": "Schnellster verifizierter Anbieter: {provider}{ms} — wird beim Aktivieren dieses Modells angewendet.",
+      "model_manager_device_set": "Schnellster verifizierter Anbieter: {provider}{ms}. Er wird beim Aktivieren dieses Modells angewendet.",
       "model_manager_installing_pct": "Wird heruntergeladen… {pct}%",
       "model_manager_install_downloaded": "Heruntergeladen und geprüft.",
       "model_manager_install_already_downloaded": "Bereits heruntergeladen.",
@@ -1635,14 +1723,40 @@
       "worker_counts_live": "Live",
       "worker_counts_background": "Hintergrund",
       "worker_counts_auto": "1 (Standard)",
-      "video_concurrency_follows_workers": "Clips werden so viele gleichzeitig analysiert, wie es Hintergrund-Worker gibt — die Modelle klassifizieren ein Bild pro Worker, ein separater Parallelitätsregler könnte also nur Aufträge stauen oder Worker brachliegen lassen.",
+      "video_concurrency_follows_workers": "Clips werden so viele gleichzeitig analysiert, wie es Hintergrund-Worker gibt. Die Modelle klassifizieren ein Bild pro Worker, ein separater Parallelitätsregler könnte also nur Aufträge stauen oder Worker brachliegen lassen.",
       "band_worker_split_video": "{live} live · {background} im Hintergrund · {video} Video",
       "model_manager_memory_formula_subprocess_video": "{per} pro Kopie × {live} live + {background} im Hintergrund + {video} Video (isolierter Modus)",
       "band_native_recovering": "Warte auf die Fortsetzung der Klassifizierung in isolierten Workern.",
       "band_native_recovered": "Die Klassifizierung läuft wieder in isolierten Workern.",
       "band_native_restart": "Starte den Container neu, um die blockierte Laufzeit freizugeben.",
-      "band_worker_fallback": "Worker fallen aus — Klassifizierung im Hauptprozess",
-      "band_worker_fallback_detail": "Isolierte Worker sterben beim Laden des Modells; Erkennungen laufen im Hauptprozess weiter."
+      "band_worker_fallback": "Worker fallen aus: Klassifizierung im Hauptprozess",
+      "band_worker_fallback_detail": "Isolierte Worker sterben beim Laden des Modells; Erkennungen laufen im Hauptprozess weiter.",
+      "classification_engine_desc": "Wie Snapshots der Futterstelle klassifiziert werden: Konfidenz, Modell und Hardwarebeschleunigung.",
+      "compat_all_hint": "Jedes Modell aus dem Modellkatalog herunterladen und testen, nicht nur installierte (langsamer).",
+      "compat_all_models": "Alle Modelle testen",
+      "compat_card_title": "Gerätekompatibilität",
+      "compat_model": "Modell",
+      "compat_note_baseline": "CPU-Referenz",
+      "compat_note_fails": "Kompilierung schlägt fehl",
+      "compat_note_match": "{n}/{n} stimmen mit CPU überein",
+      "compat_note_nan": "nicht-endliche Ausgabe",
+      "compat_note_partial": "{m}/{n} stimmen mit CPU überein",
+      "compat_note_runs": "läuft",
+      "compat_result_failed": "Einige Geräte haben die Validierung nicht bestanden. Details in der Aufschlüsselung unten.",
+      "compat_result_ok": "Alle Geräte stimmen mit der CPU-Referenz überein.",
+      "compat_result_skipped": "Einige Geräte konnten nicht validiert werden. Details in der Aufschlüsselung unten.",
+      "compat_result_warn": "Alle Geräte laufen, aber einige weichen von der CPU-Referenz ab.",
+      "compat_results_unavailable": "Die Kompatibilitätsergebnisse konnten nicht geladen werden. Bitte versuchen Sie es erneut.",
+      "compat_run": "Kompatibilitätsprüfung starten",
+      "compat_running": "Läuft…",
+      "compat_stage_run": "Validierung der Geräte dieses Hosts",
+      "compat_stage_run_hint": "Jedes Gerät wird kompiliert und mit der CPU-Referenz verglichen…",
+      "compat_test_title": "Prüfung der Gerätekompatibilität",
+      "compat_verified": "Auf diesem Host verifiziert:",
+      "intel_npu_status": "Intel-NPU",
+      "model_manager_repair_download": "Download reparieren",
+      "model_manager_repair_needed": "Diese Modellinstallation ist unvollständig. Laden Sie das Modell erneut herunter, um die fehlenden Labels oder die Konfiguration vor der Aktivierung zu ergänzen.",
+      "provider_intel_npu": "Intel-NPU (OpenVINO)"
     },
     "llm": {
       "title": "KI-Einblicke",
@@ -1752,7 +1866,7 @@
     "startup_phase_detecting_hardware": "Verfügbare Inferenzhardware wird geprüft",
     "startup_phase_loading_model": "Ausgewähltes Vogelmodell wird geladen und geprüft",
     "startup_phase_model_ready": "Ausgewähltes Vogelmodell ist bereit",
-    "startup_phase_model_unavailable": "Klassifikator nicht verfügbar — die Einrichtung kann nach dem Start des Backends fortgesetzt werden",
+    "startup_phase_model_unavailable": "Klassifikator nicht verfügbar: Die Einrichtung kann nach dem Start des Backends fortgesetzt werden",
     "startup_phase_database": "Erkennungshistorie wird vorbereitet",
     "startup_phase_starting_services": "Ereignis- und Mediendienste werden gestartet",
     "startup_phase_finalizing": "Startprüfungen werden abgeschlossen",
@@ -1899,7 +2013,7 @@
       "unavailable_geometry": "Das gespeicherte Bild passt nicht zu den Vogelpositionen, daher werden sie nicht markiert.",
       "unknown_bird": "Unbekannter Vogel",
       "position": "{ordinal}. von {total} von links",
-      "corrected": "Deine Korrektur",
+      "corrected": "Ihre Korrektur",
       "too_low_to_name": "Zu unsicher für einen Namen",
       "score_label": "Eigene Artwertung dieses Vogels",
       "best_guess": "Beste Vermutung {label} mit {score}, zu niedrig für einen Namen.",
@@ -1981,7 +2095,7 @@
     "snapshot_source_short_full_frame": "Voll",
     "snapshot_source_short_frigate_hint": "Smart",
     "snapshot_candidate_frames": "Candidate frames",
-    "snapshot_candidate_frames_hint": "Frigates finales Standbild und KI-bewertete Videoframes — zum Auswählen antippen",
+    "snapshot_candidate_frames_hint": "Frigates finales Standbild und KI-bewertete Videoframes. Tippen Sie eines an, um es auszuwählen.",
     "snapshot_candidate_final_frame": "Finales Frigate-Standbild",
     "snapshot_best": "Bester",
     "snapshot_apply_success": "Schnappschuss aktualisiert",
@@ -1991,8 +2105,8 @@
     "snapshot_candidates_loading": "Kandidaten-Frames werden geladen…",
     "snapshot_candidates_empty": "Noch keine gespeicherten Kandidaten-Frames.",
     "snapshot_model_candidates_empty": "Keine KI-zugeschnittenen Frames gefunden. Gesamtbild- und Smart-Crop-Kandidaten sind oben verfügbar.",
-    "snapshot_model_crop_disabled": "KI-Zuschnitt ist deaktiviert — aktivieren Sie „HQ-Vogel-Zuschnitt-Snapshots“ in den Einstellungen für engere Zuschnitte.",
-    "snapshot_model_crop_unavailable": "KI-Zuschneidemodell nicht geladen — besuchen Sie den Modell-Manager, um es herunterzuladen.",
+    "snapshot_model_crop_disabled": "KI-Zuschnitt ist deaktiviert. Aktivieren Sie „HQ-Vogel-Zuschnitt-Snapshots“ in den Einstellungen für engere Zuschnitte.",
+    "snapshot_model_crop_unavailable": "KI-Zuschneidemodell nicht geladen. Besuchen Sie den Modell-Manager, um es herunterzuladen.",
     "inat": {
       "title": "iNaturalist",
       "connected": "Verbunden: {user}",
@@ -2090,7 +2204,7 @@
       "input_frigate_sublabel": "Frigate-Artenlabel",
       "frigate_fallback_title": "Ergebnis von Frigate",
       "frigate_fallback_desc": "Die lokale Bildanalyse erfüllte die Richtlinie nicht. Daher hat YA-WAMF das vertrauenswürdige Frigate-Artenlabel beibehalten.",
-      "gated_title": "Video hat eine Übereinstimmung gefunden — zur Übernahme bestätigen",
+      "gated_title": "Video hat eine Übereinstimmung gefunden: zur Übernahme bestätigen",
       "gated_desc": "Die automatische Übernahme wurde zurückgehalten, weil der Video-Score unter Ihrem Mindest-Konfidenzwert liegt. Reclassify ausführen, um dieses Ergebnis anzuwenden, oder den Schwellenwert in Einstellungen → Erkennung senken.",
       "gated_action": "Neu klassifizieren",
       "evidence": {
@@ -2104,7 +2218,7 @@
         "model_crop": "KI-Ausschnitt",
         "frigate_region_crop": "Von Frigate verfolgter Bereich"
       },
-      "blocked_label": "Mit blockierter Art übereinstimmend — nicht angewendet"
+      "blocked_label": "Mit blockierter Art übereinstimmend: nicht angewendet"
     },
     "card_analysis": {
       "title": "Erkennung analysieren",
@@ -2252,7 +2366,7 @@
     "frame_model_read": "Das Modell liest dieses Bild als",
     "photo_option_model_read": "Das Modell erkennt diesen Ausschnitt als",
     "frame_no_read": "Das Modell hat dieses Bild nicht einzeln gelesen.",
-    "frame_read_note": "Eine Lesung eines einzelnen Bildes. Die Bestimmung bleibt, bis du sie änderst.",
+    "frame_read_note": "Eine Lesung eines einzelnen Bildes. Die Bestimmung bleibt, bis Sie sie ändern.",
     "frame_use": "Dieses Bild verwenden",
     "photo_option_use": "Dieses Foto verwenden",
     "frame_is_photograph": "Aktuell das Foto",
@@ -2275,7 +2389,15 @@
     "unfavorite_button": "Favorit entfernen",
     "confidence_hint": "Sicherheit der Bestimmung: {score} %.",
     "captured_at_hint": "Aufgenommen am {date} um {time}.",
-    "audio_evidence_hint": "Bei dieser Aufnahme wurde ein passender Vogelruf gehört."
+    "audio_evidence_hint": "Bei dieser Aufnahme wurde ein passender Vogelruf gehört.",
+    "audio_clip_aria": "BirdNET-Go-Audioclip der zugehörigen Erkennung",
+    "audio_pause": "Audioclip pausieren",
+    "audio_play": "Audioclip abspielen",
+    "audio_seek_spectrogram_aria": "Klicken, um im Audioclip zu springen",
+    "audio_spectrogram_unavailable": "Spektrogramm für diese Übereinstimmung nicht verfügbar",
+    "manual_upload": "Aus einem Upload hinzugefügt",
+    "search_species": "Art suchen",
+    "species_updated": "Art aktualisiert"
   },
   "events": {
     "title": "Ereignisse",
@@ -2310,7 +2432,8 @@
       "show_visits_hint": "Der Aufenthalt eines Vogels: seine Aufnahmen weniger als eine Minute auseinander.",
       "show_captures": "Einzelne Aufnahmen",
       "show_captures_hint": "Jede Aufnahme für sich.",
-      "show_locked": "Die Auswahl arbeitet mit einzelnen Aufnahmen."
+      "show_locked": "Die Auswahl arbeitet mit einzelnen Aufnahmen.",
+      "audio_matches": "Audio-Übereinstimmungen"
     },
     "sort": {
       "newest": "Neueste",
@@ -2334,7 +2457,7 @@
     "row_select": "{species} auswählen",
     "row_below_threshold": "Unter der Benennungsschwelle",
     "empty_filtered_title": "Keine Besuche passen zu diesen Filtern",
-    "empty_filtered_desc": "Dein Verlauf ist noch da. Erweitere den Zeitraum oder entferne einen Filter, um ihn zu sehen.",
+    "empty_filtered_desc": "Ihr Verlauf ist noch da. Erweitern Sie den Zeitraum oder entfernen Sie einen Filter, um ihn zu sehen.",
     "empty_filtered_clear": "Alle Filter entfernen"
   },
   "audio": {
@@ -2522,7 +2645,7 @@
     "standing_busiest_hour": "Aktivste Stunde",
     "standing_busiest_hour_count": "{count} Erkennungen per Kamera",
     "standing_corroborated": "Gehört oder bestätigt",
-    "standing_confirmed": "Von dir bestätigt",
+    "standing_confirmed": "Von Ihnen bestätigt",
     "standing_corroborated_hint": "Arten, der Rest stammt nur von der Kamera",
     "standing_corroborated_unknown": "Gezählt für Tag, Woche und Monat",
     "rising_all_time": "Kein früherer Zeitraum für Gesamt",
@@ -2532,7 +2655,7 @@
     "showcase_detections_and_calls": "Erkennungen und Rufe",
     "evidence": "Beleg",
     "evidence_hint": "Nur Kamera: BirdNET hat diese Art im selben Zeitraum nicht gehört und keine Erkennung wurde bestätigt. Vor dem Vertrauen einen Blick wert.",
-    "evidence_confirmed": "Von dir bestätigt",
+    "evidence_confirmed": "Von Ihnen bestätigt",
     "evidence_seen_and_heard": "Auch gehört",
     "evidence_heard_only": "Nur gehört",
     "evidence_camera_only": "Nur Kamera",
@@ -3167,9 +3290,9 @@
     "cameras_previous": "Vorherige Kamera",
     "cameras_retry": "Erneut versuchen",
     "cameras_role_feeder": "Futterstelle",
-    "cameras_role_feeder_help": "Futterstellen-Kamera — jedes Frigate-Ereignis ist ein neuer Besuch.",
+    "cameras_role_feeder_help": "Futterstellen-Kamera: Jedes Frigate-Ereignis ist ein neuer Besuch.",
     "cameras_role_nest": "Nest",
-    "cameras_role_nest_help": "Nestkasten-Kamera — wiederholte Erkennungen werden im konfigurierten Zeitfenster zusammengefasst.",
+    "cameras_role_nest_help": "Nestkasten-Kamera: Wiederholte Erkennungen werden im konfigurierten Zeitfenster zusammengefasst.",
     "cameras_some_online": "Einige Kameras benötigen Aufmerksamkeit",
     "cameras_status_offline": "Offline",
     "cameras_status_online": "Online",
@@ -3201,7 +3324,7 @@
     "multiple_species": "Mehrere Vogelarten",
     "multiple_species_hint": "Mindestens zwei benannte Arten in einer analysierten Aufnahme.",
     "remove_photo": "Fotoauswahl entfernen",
-    "choose_first": "Wähle ein anderes Foto, bevor du dieses entfernst.",
+    "choose_first": "Wählen Sie ein anderes Foto, bevor Sie dieses entfernen.",
     "photo_removed": "Foto aus der Auswahl entfernt.",
     "remove_failed": "Diese Fotoauswahl konnte nicht geändert werden. Versuche es erneut.",
     "open_capture_at": "Aufnahme von {species} um {time} öffnen",
@@ -3216,7 +3339,8 @@
     "node_visit": "Besuch um {span}",
     "node_visit_many": "Besuch, {span}, {count} Aufnahmen",
     "node_capture": "Aufnahme um {time}, Teil dieses Besuchs",
-    "node_capture_shown": "Aufnahme um {time}, Teil dieses Besuchs und zugleich sein Besuchsfoto"
+    "node_capture_shown": "Aufnahme um {time}, Teil dieses Besuchs und zugleich sein Besuchsfoto",
+    "open_capture": "Aufnahme von {species} öffnen"
   },
   "taxonomy": {
     "title": "Stammbaum: {name}",

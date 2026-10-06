@@ -58,7 +58,7 @@
         {#if countedCaptures > 0}
             <div class="flex items-baseline gap-1.5" title={$_('dashboard.day_bar.birds_scope', { values: { count: countedCaptures }, default: 'From {count} analyzed captures; birds may be missed' })} data-day-bar-counted-birds>
                 <dd class="font-display text-base font-bold tabular-nums text-slate-900 dark:text-white">{countedBirds}</dd>
-                <dt class="text-slate-500 dark:text-slate-400">{$_('dashboard.day_bar.birds_found', { default: 'birds found' })}<span class="sr-only"> — {$_('dashboard.day_bar.birds_scope', { values: { count: countedCaptures }, default: 'From {count} analyzed captures; birds may be missed' })}</span></dt>
+                <dt class="text-slate-500 dark:text-slate-400">{$_('dashboard.day_bar.birds_found', { default: 'birds found' })}<span class="sr-only">. {$_('dashboard.day_bar.birds_scope', { values: { count: countedCaptures }, default: 'From {count} analyzed captures; birds may be missed' })}</span></dt>
             </div>
         {/if}
         <div class="flex items-baseline gap-1.5">

@@ -229,7 +229,7 @@ export interface ModelCategoryInfo {
 export const MODEL_CATEGORY_INFO: Record<ModelCategory, ModelCategoryInfo> = {
     igpu_recommended: {
         label: 'Fast on Intel GPU',
-        hint: 'Validated on Intel iGPU — sub-second inference with confirmed-good predictions.',
+        hint: 'Validated on Intel iGPU: sub-second inference with confirmed-good predictions.',
         icon: '🚀',
     },
     cpu_high_accuracy: {
