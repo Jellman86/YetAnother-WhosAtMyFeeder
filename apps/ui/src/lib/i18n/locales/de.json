@@ -3192,7 +3192,6 @@
     "capture_actions": "Öffne eine Aufnahme, um die Bestimmung zu prüfen oder den Clip abzuspielen.",
     "load_failed": "Die Aufnahmen konnten nicht geladen werden. Versuche es erneut.",
     "load_more": "Weitere Aufnahmen laden",
-    "open_capture": "Aufnahme von {species} öffnen",
     "multiple_species": "Mehrere Vogelarten",
     "multiple_species_hint": "Mindestens zwei benannte Arten in einer analysierten Aufnahme.",
     "remove_photo": "Fotoauswahl entfernen",
@@ -3203,7 +3202,15 @@
     "shown_photo": "Besuchsfoto",
     "capture_birds": "{count} Vögel",
     "loaded_of_total": "{shown} von {total} Aufnahmen angezeigt",
-    "captures_empty": "In dieser Ansicht sind keine Aufnahmen dieses Besuchs sichtbar."
+    "captures_empty": "In dieser Ansicht sind keine Aufnahmen dieses Besuchs sichtbar.",
+    "best_capture": "beste Aufnahme",
+    "captures_caption": "Aufnahmen dieses Besuchs, älteste zuerst.",
+    "show_captures": "{count} Aufnahmen zeigen",
+    "hide_captures": "Aufnahmen ausblenden",
+    "node_visit": "Besuch um {span}",
+    "node_visit_many": "Besuch, {span}, {count} Aufnahmen",
+    "node_capture": "Aufnahme um {time}, Teil dieses Besuchs",
+    "node_capture_shown": "Aufnahme um {time}, Teil dieses Besuchs und sein Besuchsfoto"
   },
   "taxonomy": {
     "title": "Stammbaum: {name}",

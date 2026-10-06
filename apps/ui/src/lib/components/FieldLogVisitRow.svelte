@@ -69,6 +69,12 @@
         const end = formatTime(visit.endTime);
         return start === end ? end : `${start}–${end}`;
     });
+    // The visit's node says what it stands for on hover.
+    const visitHint = $derived(
+        captureCount > 1
+            ? $_('visits.node_visit_many', { values: { span, count: captureCount }, default: 'Visit, {span}, {count} captures' })
+            : $_('visits.node_visit', { values: { span }, default: 'Visit at {span}' })
+    );
 
     // Captures in one visit are seconds apart, so minutes alone would print the same time twice.
     function captureTime(capture: Detection): string {
@@ -121,14 +127,16 @@
 </script>
 
 <!-- A stretch of the thread. Captures tint it so the visit they belong to is visible at a glance. -->
-{#snippet branch(dot: 'shown' | 'capture' | null)}
+{#snippet branch(dot: 'capture' | null, hint = '')}
+    <!-- Two kinds of node only: the visit's solid one, and this ring for each of its captures. The
+         visit photo is said in words on its row, so the day's one thread runs on unchanged. -->
     <span class="relative flex h-full justify-center" aria-hidden="true">
         <span class="absolute inset-y-[-0.7rem] w-px bg-slate-200 dark:bg-slate-700/70"></span>
-        <span class="absolute inset-y-0 w-px bg-brand-300 dark:bg-brand-700"></span>
-        {#if dot === 'shown'}
-            <span class="relative my-auto h-1.5 w-1.5 rounded-full bg-brand-500" data-field-log-capture-dot="shown"></span>
-        {:else if dot === 'capture'}
-            <span class="relative my-auto h-1.5 w-1.5 rounded-full bg-white ring-[1.5px] ring-brand-400 dark:bg-slate-900 dark:ring-brand-400" data-field-log-capture-dot="capture"></span>
+        {#if dot === 'capture'}
+            <!-- A 20px hover area around the 8px node, so its tooltip is easy to find. -->
+            <span class="relative my-auto grid h-5 w-5 cursor-help place-items-center" title={hint} data-field-log-node-hint>
+                <span class="h-2 w-2 rounded-full bg-white ring-[1.5px] ring-slate-400 dark:bg-slate-900 dark:ring-slate-500" data-field-log-capture-dot="capture"></span>
+            </span>
         {/if}
     </span>
 {/snippet}
@@ -153,14 +161,7 @@
             onclick={() => (open = !open)}
             data-field-log-time-toggle
         >
-            <span class="block">{span}</span><svg
-                class="mt-0.5 block h-3 w-3 text-slate-400 transition-transform duration-200 motion-reduce:transition-none dark:text-slate-500 {expanded ? 'rotate-180' : ''}"
-                viewBox="0 0 20 20"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                aria-hidden="true"
-            ><path stroke-linecap="round" stroke-linejoin="round" d="m5 8 5 5 5-5" /></svg>
+            <span class="block">{span}</span>
         </button>
     {:else}
         <span class="text-xs tabular-nums text-slate-500 dark:text-slate-400">{span}</span>
@@ -169,14 +170,13 @@
     <span class="relative flex h-full justify-center" aria-hidden="true">
         <!-- The spine runs behind the nodes so the day reads as one thread. -->
         <span class="absolute inset-y-[-0.7rem] w-px bg-slate-200 dark:bg-slate-700/70"></span>
-        {#if expanded}
-            <span class="absolute bottom-[-0.7rem] top-1/2 w-px bg-brand-300 dark:bg-brand-700"></span>
-        {/if}
-        <span
-            class="relative my-auto h-2 w-2 shrink-0 rounded-full ring-2 ring-white dark:ring-slate-900 {visit.needsReview
-                ? 'bg-accent-500'
-                : 'bg-brand-500'}"
-        ></span>
+        <span class="relative my-auto grid h-5 w-5 shrink-0 cursor-help place-items-center" title={visitHint} data-field-log-node-hint>
+            <span
+                class="h-2 w-2 rounded-full ring-2 ring-white dark:ring-slate-900 {visit.needsReview
+                    ? 'bg-accent-500'
+                    : 'bg-brand-500'}"
+            ></span>
+        </span>
     </span>
 
     <DetectionPreview
@@ -208,7 +208,24 @@
             {/if}
             {#if captureCount > 1}
                 <!-- Captures, not birds: the busiest capture's bird count is stated on its own. -->
-                <span class="font-medium" data-field-log-captures>{capturesText}</span>
+                <span class="font-medium {expandable ? 'hidden sm:inline' : ''}" data-field-log-captures>{capturesText}</span>
+                {#if expandable}
+                    <!-- A phone has no room beside Open, so the count is the control there: a 44px
+                         target around a small pill, the negative margin keeping the line's height. -->
+                    <button
+                        type="button"
+                        class="group/captures -my-3.5 inline-flex min-h-11 min-w-11 items-center rounded-full focus-visible:outline-none sm:hidden"
+                        aria-expanded={expanded}
+                        aria-controls={listId}
+                        onclick={() => (open = !open)}
+                        data-field-log-captures-phone
+                    >
+                        <span class="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-2 py-0.5 font-medium text-slate-700 group-focus-visible/captures:ring-2 group-focus-visible/captures:ring-brand-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200">
+                            <svg class="h-3 w-3 transition-transform duration-200 motion-reduce:transition-none {expanded ? 'rotate-180' : ''}" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 8 5 5 5-5" /></svg>
+                            {capturesText}
+                        </span>
+                    </button>
+                {/if}
             {/if}
             {#if visit.audioConfirmed}
                 <!-- A second sensor agreed; said in words, so it is never colour alone. -->
@@ -237,9 +254,36 @@
         <span class="h-[3px] w-16 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
             <span class="block h-full rounded-full {barTone(score)}" style="width: {percent(score)}%"></span>
         </span>
+        {#if captureCount > 1}
+            <!-- A visit's score is its best capture's, the one its photo comes from. -->
+            <span class="text-[10px] text-slate-500 dark:text-slate-400" data-field-log-best-capture>{$_('visits.best_capture', { default: 'best capture' })}</span>
+        {/if}
     </span>
 
-    <span class="flex justify-end">
+    <span class="flex items-center justify-end gap-1">
+        {#if expandable}
+            <!-- The visit's open control: a real button in the same place on every row, costing no
+                 height. Its label says what it does; the count says how much it holds. -->
+            <button
+                type="button"
+                class="hidden min-h-11 min-w-11 items-center justify-center gap-1 rounded-xl border px-2 text-xs sm:inline-flex font-semibold tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 {expanded
+                    ? 'border-brand-300 bg-brand-50 text-brand-700 dark:border-brand-700 dark:bg-brand-950/40 dark:text-brand-300'
+                    : 'border-slate-200 bg-white text-slate-600 hover:border-brand-300 hover:text-brand-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:text-brand-300'}"
+                aria-expanded={expanded}
+                aria-controls={listId}
+                aria-label={expanded
+                    ? $_('visits.hide_captures', { default: 'Hide captures' })
+                    : $_('visits.show_captures', { values: { count: captureCount }, default: 'Show {count} captures' })}
+                title={expanded
+                    ? $_('visits.hide_captures', { default: 'Hide captures' })
+                    : $_('visits.show_captures', { values: { count: captureCount }, default: 'Show {count} captures' })}
+                onclick={() => (open = !open)}
+                data-field-log-captures-toggle
+            >
+                <svg class="h-3.5 w-3.5 transition-transform duration-200 motion-reduce:transition-none {expanded ? 'rotate-180' : ''}" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 8 5 5 5-5" /></svg>
+                <span aria-hidden="true">{captureCount}</span>
+            </button>
+        {/if}
         {#if visit.needsReview && canIdentify}
             <button class="btn btn-primary min-h-11 px-2 py-1.5 text-xs sm:px-3" onclick={() => onidentify?.(visit.best)}>
                 {$_('dashboard.field_log.identify', { default: 'Identify' })}
@@ -265,7 +309,6 @@
              carries on beside it, and stays tinted while the captures beneath are open. -->
         <span class="relative col-start-2 flex h-full justify-center" aria-hidden="true">
             <span class="absolute inset-y-[-0.7rem] w-px bg-slate-200 dark:bg-slate-700/70"></span>
-            {#if expanded}<span class="absolute inset-y-[-0.25rem] w-px bg-brand-300 dark:bg-brand-700"></span>{/if}
         </span>
         <div class="col-[3/-1] -mt-1 min-w-0 sm:col-[4/-1]" data-field-log-footer>
             <button
@@ -287,11 +330,17 @@
     {#if list && expandable}
         <ol
             id={listId}
-            class="col-span-full grid-cols-subgrid {expanded ? 'grid' : 'hidden'}"
+            class="col-span-full mt-1 grid-cols-subgrid rounded-xl bg-slate-50 py-1 dark:bg-slate-800/30 {expanded ? 'grid' : 'hidden'}"
             aria-label="{naming.primary}, {capturesText}"
             aria-busy={list.loading}
             data-visit-captures={server?.visit_id}
         >
+            <li class="col-span-full grid grid-cols-subgrid" data-visit-captures-caption>
+                <span></span>{@render branch(null)}
+                <p class="col-[3/-1] py-1 text-[11px] text-slate-500 dark:text-slate-400">
+                    {$_('visits.captures_caption', { default: 'Captures in this visit, oldest first.' })}
+                </p>
+            </li>
             {#each list.captures as capture (capture.frigate_event)}
                 {@const time = captureTime(capture)}
                 {@const notes = captureNotes(capture)}
@@ -299,7 +348,12 @@
                 {@const captureNaming = names(capture)}
                 <li class="col-span-full grid grid-cols-subgrid items-center py-0.5" data-visit-capture={capture.frigate_event}>
                     <time class="block text-[11px] tabular-nums text-slate-500 dark:text-slate-400" datetime={capture.detection_time}>{time}</time>
-                    {@render branch(server && captureFacts(capture, server).shown ? 'shown' : 'capture')}
+                    {@render branch(
+                        'capture',
+                        server && captureFacts(capture, server).shown
+                            ? $_('visits.node_capture_shown', { values: { time }, default: 'Capture at {time}, part of this visit, and its visit photo' })
+                            : $_('visits.node_capture', { values: { time }, default: 'Capture at {time}, part of this visit' })
+                    )}
                     <DetectionPreview
                         detection={capture}
                         primaryName={captureNaming.primary}
@@ -308,9 +362,10 @@
                         onopen={() => onselect?.(capture)}
                     />
                     <div class="min-w-0 py-1">
+                        <!-- Quieter than the visit above it: a capture is a moment of the visit. -->
                         <button type="button" class="block min-h-11 w-full rounded-lg text-left focus-ring" onclick={() => onselect?.(capture)}>
-                            <span class="block break-words text-sm font-semibold leading-5 text-slate-800 dark:text-slate-100">{captureNaming.primary}</span>
-                            {#if captureNaming.secondary}<span class="block break-words text-xs italic text-slate-500 dark:text-slate-400">{captureNaming.secondary}</span>{/if}
+                            <span class="block break-words text-[13px] font-medium leading-5 text-slate-700 dark:text-slate-200">{captureNaming.primary}</span>
+                            {#if captureNaming.secondary}<span class="block break-words text-[11px] italic text-slate-500 dark:text-slate-400">{captureNaming.secondary}</span>{/if}
                         </button>
                         <p class="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-[11px] leading-4 text-slate-500 dark:text-slate-400">
                             <span class="font-bold tabular-nums sm:hidden {scoreTone(captureScore)}" data-visit-capture-score>{percent(captureScore)}%</span>

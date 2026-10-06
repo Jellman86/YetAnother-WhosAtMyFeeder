@@ -3192,7 +3192,6 @@
     "capture_actions": "Apri una acquisizione per verificarne la identificazione o riprodurre il video.",
     "load_failed": "Impossibile caricare le acquisizioni. Riprova.",
     "load_more": "Carica altre acquisizioni",
-    "open_capture": "Apri acquisizione di {species}",
     "multiple_species": "Più specie di uccelli",
     "multiple_species_hint": "Due o più specie identificate in una acquisizione analizzata.",
     "remove_photo": "Rimuovi scelta della foto",
@@ -3203,7 +3202,15 @@
     "shown_photo": "Foto della visita",
     "capture_birds": "{count} uccelli",
     "loaded_of_total": "{shown} di {total} acquisizioni mostrate",
-    "captures_empty": "Nessuna acquisizione di questa visita è visibile in questa vista."
+    "captures_empty": "Nessuna acquisizione di questa visita è visibile in questa vista.",
+    "best_capture": "acquisizione migliore",
+    "captures_caption": "Acquisizioni di questa visita, dalla più vecchia.",
+    "show_captures": "Mostra {count} acquisizioni",
+    "hide_captures": "Nascondi acquisizioni",
+    "node_visit": "Visita alle {span}",
+    "node_visit_many": "Visita, {span}, {count} acquisizioni",
+    "node_capture": "Acquisizione delle {time}, parte di questa visita",
+    "node_capture_shown": "Acquisizione delle {time}, parte di questa visita e sua foto"
   },
   "taxonomy": {
     "title": "Albero di famiglia di {name}",

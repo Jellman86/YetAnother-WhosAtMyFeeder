@@ -60,9 +60,10 @@ describe('visit captures read as part of their visit', () => {
         // One column template: a capture's time, node and score sit under its visit's.
         expect(visitRowSource).toContain('col-span-full grid grid-cols-subgrid');
         expect(fieldLogSource).toContain('{grid}');
-        // Visit nodes are solid; capture nodes are hollow, the visit photo's filled, on a tinted stretch.
+        // Visit nodes are solid and every capture node is the same hollow ring; the visit photo is
+        // said in words, so no third node needs a key.
         expect(visitRowSource).toContain('data-field-log-capture-dot="capture"');
-        expect(visitRowSource).toContain('data-field-log-capture-dot="shown"');
+        expect(visitRowSource).not.toContain('data-field-log-capture-dot="shown"');
         expect(visitRowSource).toContain('new VisitCaptureList(');
         expect(visitRowSource).toContain("second: '2-digit'");
         expect(healthTimelineSource).toContain('layout="inline"');

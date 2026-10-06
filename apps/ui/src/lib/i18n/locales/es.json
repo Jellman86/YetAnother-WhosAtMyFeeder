@@ -3192,7 +3192,6 @@
     "capture_actions": "Abre una captura para revisar su identificación o reproducir su vídeo.",
     "load_failed": "No se pudieron cargar las capturas. Inténtalo de nuevo.",
     "load_more": "Cargar más capturas",
-    "open_capture": "Abrir captura de {species}",
     "multiple_species": "Varias especies de aves",
     "multiple_species_hint": "Dos o más especies identificadas en una captura analizada.",
     "remove_photo": "Quitar opción de foto",
@@ -3203,7 +3202,15 @@
     "shown_photo": "Foto de la visita",
     "capture_birds": "{count} aves",
     "loaded_of_total": "{shown} de {total} capturas mostradas",
-    "captures_empty": "Ninguna captura de esta visita es visible en esta vista."
+    "captures_empty": "Ninguna captura de esta visita es visible en esta vista.",
+    "best_capture": "mejor captura",
+    "captures_caption": "Capturas de esta visita, de la más antigua a la más reciente.",
+    "show_captures": "Mostrar {count} capturas",
+    "hide_captures": "Ocultar capturas",
+    "node_visit": "Visita a las {span}",
+    "node_visit_many": "Visita, {span}, {count} capturas",
+    "node_capture": "Captura a las {time}, parte de esta visita",
+    "node_capture_shown": "Captura a las {time}, parte de esta visita y su foto de la visita"
   },
   "taxonomy": {
     "title": "Árbol de familia de {name}",
