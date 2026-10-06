@@ -202,7 +202,7 @@
       "detected": "Aceleradores detectados",
       "no_results": "Nenhum modelo instalado foi avaliado.",
       "provider_hint": "Só são mostrados os provedores disponíveis nesta imagem, neste host e para o modelo selecionado.",
-      "results_hint": "Os detalhes completos de compilação, latência e precisão por dispositivo estão em Configurações → Debug → Ferramenta de avaliação de modelos.",
+      "results_hint": "Os detalhes completos de compilação, latência e precisão por dispositivo estão em Configurações → Debug → Ferramenta de avaliação de modelos. A aba Debug aparece quando a interface de depuração está ativada (SYSTEM__DEBUG_UI_ENABLED=true).",
       "revalidate": "Validar novamente",
       "row_ok": "Executa",
       "row_warn": "Verificar",

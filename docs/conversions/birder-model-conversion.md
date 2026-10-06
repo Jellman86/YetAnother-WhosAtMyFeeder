@@ -106,7 +106,8 @@ in `tests/test_model_manager_download.py` to include the new id at its
 ## Validation through the harness
 
 After the registry entry lands and CI rebuilds the dev image, kick off a model
-evaluation harness run from `Settings → Debug → Model Evaluation`. The new model
+evaluation harness run from `Settings → Debug → Model evaluation harness` (the Debug tab needs
+`SYSTEM__DEBUG_UI_ENABLED=true`). The new model
 will appear in the results table; check the `runtime.json` file under
 `/config/yawamf-eval/<run_id>/` for the per-model `gpu_diagnostic` block to
 confirm the active provider, observed compile result, and preprocessing match

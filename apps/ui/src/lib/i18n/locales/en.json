@@ -202,7 +202,7 @@
       "detected": "Detected accelerators",
       "no_results": "No installed models were evaluated.",
       "provider_hint": "Only providers available in this image, on this host, and for the selected model are shown.",
-      "results_hint": "Full per-device compile, latency, and accuracy detail is in Settings → Debug → Model evaluation harness.",
+      "results_hint": "Full per-device compile, latency, and accuracy detail is in Settings → Debug → Model evaluation harness. The Debug tab appears when the debug UI is enabled (SYSTEM__DEBUG_UI_ENABLED=true).",
       "revalidate": "Re-run validation",
       "row_ok": "Runs",
       "row_warn": "Check",
