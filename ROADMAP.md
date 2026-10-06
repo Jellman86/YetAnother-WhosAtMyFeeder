@@ -525,12 +525,14 @@ Record such corrections as feedback with their own source and a lower weight tha
 - never against an owner's correction of the same detection, and withdrawn if the owner later
   changes it;
 - weighted below `manual_tag` within the existing caps, half-life and minimum-feedback rules, and
-  reported separately in the personalization status so an owner can see what taught the model.
+  reported separately in the personalization status so an owner can see what taught the model;
+- resettable on its own: clearing what the video taught leaves the owner's corrections, and the
+  reverse, as the #481 reporter suggested.
 
 **Acceptance:** a camera whose initial identification is often overturned by video shifts toward the
 video's answer over time without ever overriding an owner's correction; a model that learns a wrong
 video answer cannot move a score further than the existing caps allow; tests cover the consensus
-threshold, owner precedence, withdrawal and the weight.
+threshold, owner precedence, withdrawal, the weight, and resetting each source on its own.
 
 #### Moments with several species in the Explorer 🐦
 **Priority:** P2 | **Effort:** M | **Status:** ☐ After the next release (feature freeze until then)
