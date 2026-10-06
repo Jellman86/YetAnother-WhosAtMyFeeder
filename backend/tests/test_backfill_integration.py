@@ -395,3 +395,21 @@ async def test_backfill_into_fresh_database_groups_out_of_order_overlapping_even
         assert (await repo.list_visits())[1] == 1
         assert (await db.execute_fetchall("SELECT COUNT(*) FROM detection_event_bounds"))[0][0] == 3
         assert (await db.execute_fetchall("PRAGMA integrity_check"))[0][0] == "ok"
+
+
+@pytest.mark.asyncio
+async def test_backfill_never_reports_to_birdweather(replay, monkeypatch):
+    # A backfill replays sightings that were reported when they happened; after a reset it
+    # replays all of them. BirdWeather accepts each one as a new public sighting.
+    monkeypatch.setattr(
+        detection_module.taxonomy_service,
+        "get_names",
+        AsyncMock(return_value={"scientific_name": "Prunella modularis", "common_name": "Dunnock", "taxa_id": 3}),
+    )
+    report = detection_module.birdweather_service.report_detection
+
+    assert await replay.service.process_historical_event(replay.event) == ("new", None)
+    replay.classifier.classify_async_background.return_value[0]["score"] = 0.95
+    assert await replay.service.process_historical_event(replay.event) == ("updated", None)
+
+    report.assert_not_called()

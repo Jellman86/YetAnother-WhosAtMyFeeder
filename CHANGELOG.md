@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- BirdWeather no longer receives the same sighting twice. **Missed Detections** uploaded every
+  sighting it fetched from Frigate's history, so a reset followed by a backfill sent the whole
+  history again, and a visit that later got a better-scoring frame was uploaded a second time.
+  Each visit is now uploaded once, the first time it is saved with a species, and a backfill
+  uploads nothing.
 - The Explorer's **Visits / Captures** switch moves from the toolbar into the filter rail as
   **Show**, with plain names and a line under each: **Visits of one species** ("one bird's stay: its
   captures less than a minute apart") and **Individual captures**. **Clear all** leaves the choice

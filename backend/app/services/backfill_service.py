@@ -381,6 +381,7 @@ class BackfillService:
                 classification=top,
                 frigate_score=frigate_score,
                 sub_label=sub_label,
+                report_to_birdweather=False,
             )
 
             if snapshot_data:
