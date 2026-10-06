@@ -288,3 +288,21 @@ for (const phase of ['loading', 'unavailable'] as const) {
         expect(errors).toEqual([]);
     });
 }
+
+test('a visit opens from its captures button, and its captures say only what is their own', async ({ page }) => {
+    await open(page, '');
+    const visit = row(page, 'blackbird');
+    await expect(visit.locator('[data-field-log-best-capture]')).toHaveText('best capture');
+    const toggle = visit.locator('[data-field-log-captures-toggle]');
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await expect(visit.locator('[data-visit-captures-caption]')).toHaveText('Captures in this visit, oldest first. Same bird unless named.');
+    // The visit's own bird is not named again; a different bird in the visit is.
+    const own = visit.locator('[data-visit-capture="blackbird"]');
+    await expect(own.getByText('Eurasian Blackbird', { exact: true })).toHaveCount(0);
+    await expect(own.locator('[data-visit-capture-open]')).toContainText('Visit photo');
+    await expect(visit.locator('[data-visit-capture="blackbird-1"]').getByText('Great Tit', { exact: true })).toBeVisible();
+    await toggle.click();
+    await expect(visit.locator('[data-visit-capture]').first()).toBeHidden();
+});

@@ -3192,7 +3192,6 @@
     "capture_actions": "Ouvrez une capture pour vérifier son identification ou lire sa vidéo.",
     "load_failed": "Impossible de charger les captures. Réessayez.",
     "load_more": "Charger plus de captures",
-    "open_capture": "Ouvrir la capture de {species}",
     "multiple_species": "Plusieurs espèces d’oiseaux",
     "multiple_species_hint": "Deux espèces identifiées ou plus dans une capture analysée.",
     "remove_photo": "Retirer ce choix de photo",
@@ -3203,7 +3202,10 @@
     "shown_photo": "Photo de la visite",
     "capture_birds": "{count} oiseaux",
     "loaded_of_total": "{shown} captures affichées sur {total}",
-    "captures_empty": "Aucune capture de cette visite n’est visible dans cette vue."
+    "captures_empty": "Aucune capture de cette visite n’est visible dans cette vue.",
+    "best_capture": "meilleure capture",
+    "captures_caption": "Captures de cette visite, de la plus ancienne à la plus récente. Même oiseau sauf mention contraire.",
+    "capture_at": "Capture à {time}"
   },
   "taxonomy": {
     "title": "Arbre de famille : {name}",

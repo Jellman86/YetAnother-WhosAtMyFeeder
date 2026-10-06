@@ -3192,7 +3192,6 @@
     "capture_actions": "打开拍摄以检查识别结果或播放视频。",
     "load_failed": "无法加载拍摄。请重试。",
     "load_more": "加载更多拍摄",
-    "open_capture": "打开{species}的拍摄",
     "multiple_species": "多种鸟类",
     "multiple_species_hint": "一次已分析的拍摄中有两种或更多已命名的鸟类。",
     "remove_photo": "移除照片选项",
@@ -3203,7 +3202,10 @@
     "shown_photo": "到访照片",
     "capture_birds": "{count} 只鸟",
     "loaded_of_total": "已显示 {shown}/{total} 次拍摄",
-    "captures_empty": "此视图中看不到本次到访的拍摄。"
+    "captures_empty": "此视图中看不到本次到访的拍摄。",
+    "best_capture": "最佳抓拍",
+    "captures_caption": "此次访问的抓拍，按时间从早到晚。除非另有名称，均为同一只鸟。",
+    "capture_at": "{time} 的抓拍"
   },
   "taxonomy": {
     "title": "{name} 的系统树",

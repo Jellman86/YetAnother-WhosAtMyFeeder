@@ -3192,7 +3192,6 @@
     "capture_actions": "Open a capture to review its identification or play its clip.",
     "load_failed": "Could not load the captures. Try again.",
     "load_more": "Load more captures",
-    "open_capture": "Open {species} capture",
     "multiple_species": "Multiple bird species",
     "multiple_species_hint": "Two or more named species in one analyzed capture.",
     "remove_photo": "Remove photo choice",
@@ -3203,7 +3202,10 @@
     "shown_photo": "Visit photo",
     "capture_birds": "{count} birds",
     "loaded_of_total": "{shown} of {total} captures shown",
-    "captures_empty": "No captures from this visit are visible in this view."
+    "captures_empty": "No captures from this visit are visible in this view.",
+    "best_capture": "best capture",
+    "captures_caption": "Captures in this visit, oldest first. Same bird unless named.",
+    "capture_at": "Capture at {time}"
   },
   "taxonomy": {
     "title": "Family tree of {name}",

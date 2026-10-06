@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- An opened visit in the Explorer list reads as one visit. A **N captures** button beside the name
+  opens it, so the small arrow under the time is no longer the only way in. The visit's score is
+  labelled **best capture**. The captures sit in an inset list under a one-line caption and no
+  longer repeat the bird's name: each says only what is its own, such as its score, **Visit
+  photo**, a bird count or a matching call. A capture of a different bird is still named.
 - A tall bird photo, such as a woodpecker on a pole, is shown whole on its card and in the record
   instead of being cut to a band through the middle. Past a quarter of the photo lost, it sits
   over a soft blurred copy of itself; scenes and near-square photos still fill the card. Nothing

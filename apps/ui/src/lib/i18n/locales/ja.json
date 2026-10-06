@@ -3192,7 +3192,6 @@
     "capture_actions": "撮影を開いて識別結果を確認するか、動画を再生します。",
     "load_failed": "撮影を読み込めませんでした。もう一度お試しください。",
     "load_more": "さらに撮影を読み込む",
-    "open_capture": "{species}の撮影を開く",
     "multiple_species": "複数の鳥種",
     "multiple_species_hint": "解析した1件の撮影に、識別済みの鳥種が2種以上。",
     "remove_photo": "写真の選択肢を削除",
@@ -3203,7 +3202,10 @@
     "shown_photo": "訪問の写真",
     "capture_birds": "{count} 羽",
     "loaded_of_total": "{total} 件中 {shown} 件の撮影を表示",
-    "captures_empty": "この表示では、この訪問の撮影は表示できません。"
+    "captures_empty": "この表示では、この訪問の撮影は表示できません。",
+    "best_capture": "最良のキャプチャ",
+    "captures_caption": "この訪問のキャプチャ（古い順）。名前がない限り同じ鳥です。",
+    "capture_at": "{time} のキャプチャ"
   },
   "taxonomy": {
     "title": "{name} の系統樹",

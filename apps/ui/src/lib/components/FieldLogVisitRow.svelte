@@ -206,7 +206,24 @@
             {:else if naming.secondary}
                 <span class="hidden min-w-0 truncate italic sm:inline">{naming.secondary}</span>
             {/if}
-            {#if captureCount > 1}
+            {#if captureCount > 1 && expandable}
+                <!-- The visit's open control, said in words: a chevron under the time alone was missed. -->
+                <!-- A 44px target around a small pill; the negative margin keeps the line its height. -->
+                <button
+                    type="button"
+                    class="group/captures -my-3.5 inline-flex min-h-11 min-w-11 items-center rounded-full focus-visible:outline-none"
+                    aria-expanded={expanded}
+                    aria-controls={listId}
+                    onclick={() => (open = !open)}
+                    data-field-log-captures
+                    data-field-log-captures-toggle
+                >
+                    <span class="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-2.5 py-0.5 font-medium text-slate-700 transition-colors group-hover/captures:border-brand-400 group-hover/captures:text-brand-700 group-focus-visible/captures:ring-2 group-focus-visible/captures:ring-brand-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:group-hover/captures:text-brand-300">
+                        <svg class="h-3 w-3 transition-transform duration-200 motion-reduce:transition-none {expanded ? 'rotate-180' : ''}" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 8 5 5 5-5" /></svg>
+                        {capturesText}
+                    </span>
+                </button>
+            {:else if captureCount > 1}
                 <!-- Captures, not birds: the busiest capture's bird count is stated on its own. -->
                 <span class="font-medium" data-field-log-captures>{capturesText}</span>
             {/if}
@@ -237,6 +254,10 @@
         <span class="h-[3px] w-16 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
             <span class="block h-full rounded-full {barTone(score)}" style="width: {percent(score)}%"></span>
         </span>
+        {#if captureCount > 1}
+            <!-- A visit's score is its best capture's, the one its photo comes from. -->
+            <span class="text-[10px] text-slate-500 dark:text-slate-400" data-field-log-best-capture>{$_('visits.best_capture', { default: 'best capture' })}</span>
+        {/if}
     </span>
 
     <span class="flex justify-end">
@@ -287,16 +308,23 @@
     {#if list && expandable}
         <ol
             id={listId}
-            class="col-span-full grid-cols-subgrid {expanded ? 'grid' : 'hidden'}"
+            class="col-span-full mt-1 grid-cols-subgrid rounded-xl bg-slate-50 py-1 dark:bg-slate-800/30 {expanded ? 'grid' : 'hidden'}"
             aria-label="{naming.primary}, {capturesText}"
             aria-busy={list.loading}
             data-visit-captures={server?.visit_id}
         >
+            <li class="col-span-full grid grid-cols-subgrid" data-visit-captures-caption>
+                <span></span>{@render branch(null)}
+                <p class="col-[3/-1] py-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+                    {$_('visits.captures_caption', { default: 'Captures in this visit, oldest first. Same bird unless named.' })}
+                </p>
+            </li>
             {#each list.captures as capture (capture.frigate_event)}
                 {@const time = captureTime(capture)}
                 {@const notes = captureNotes(capture)}
                 {@const captureScore = capture.score ?? 0}
                 {@const captureNaming = names(capture)}
+                {@const sameBird = captureNaming.primary === naming.primary}
                 <li class="col-span-full grid grid-cols-subgrid items-center py-0.5" data-visit-capture={capture.frigate_event}>
                     <time class="block text-[11px] tabular-nums text-slate-500 dark:text-slate-400" datetime={capture.detection_time}>{time}</time>
                     {@render branch(server && captureFacts(capture, server).shown ? 'shown' : 'capture')}
@@ -307,17 +335,34 @@
                         label={$_('visits.open_capture_at', { values: { species: captureNaming.primary, time }, default: 'Open {species} capture at {time}' })}
                         onopen={() => onselect?.(capture)}
                     />
-                    <div class="min-w-0 py-1">
-                        <button type="button" class="block min-h-11 w-full rounded-lg text-left focus-ring" onclick={() => onselect?.(capture)}>
-                            <span class="block break-words text-sm font-semibold leading-5 text-slate-800 dark:text-slate-100">{captureNaming.primary}</span>
-                            {#if captureNaming.secondary}<span class="block break-words text-xs italic text-slate-500 dark:text-slate-400">{captureNaming.secondary}</span>{/if}
-                        </button>
-                        <p class="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-[11px] leading-4 text-slate-500 dark:text-slate-400">
-                            <span class="font-bold tabular-nums sm:hidden {scoreTone(captureScore)}" data-visit-capture-score>{percent(captureScore)}%</span>
-                            {#each notes as note (note.text)}
-                                <span class={note.emphasis ? 'font-medium text-brand-700 dark:text-brand-300' : ''}>{note.text}</span>
-                            {/each}
-                        </p>
+                    <div class="min-w-0 py-0.5">
+                        {#if sameBird}
+                            <!-- The visit already names the bird; a capture says only what is its own. -->
+                            <button
+                                type="button"
+                                class="flex min-h-11 w-full flex-wrap items-center gap-x-1.5 gap-y-0.5 rounded-lg text-left text-[11px] leading-4 text-slate-500 focus-ring dark:text-slate-400"
+                                onclick={() => onselect?.(capture)}
+                                data-visit-capture-open
+                            >
+                                <span class="font-bold tabular-nums sm:hidden {scoreTone(captureScore)}" data-visit-capture-score>{percent(captureScore)}%</span>
+                                {#each notes as note (note.text)}
+                                    <span class={note.emphasis ? 'font-medium text-brand-700 dark:text-brand-300' : ''}>{note.text}</span>
+                                {/each}
+                                <!-- Named by what it shows and its time; the thumbnail carries the species. -->
+                                <span class="sr-only">{$_('visits.capture_at', { values: { time }, default: 'Capture at {time}' })}</span>
+                            </button>
+                        {:else}
+                            <button type="button" class="block min-h-11 w-full rounded-lg text-left focus-ring" onclick={() => onselect?.(capture)}>
+                                <span class="block break-words text-sm font-semibold leading-5 text-slate-800 dark:text-slate-100">{captureNaming.primary}</span>
+                                {#if captureNaming.secondary}<span class="block break-words text-xs italic text-slate-500 dark:text-slate-400">{captureNaming.secondary}</span>{/if}
+                            </button>
+                            <p class="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-[11px] leading-4 text-slate-500 dark:text-slate-400">
+                                <span class="font-bold tabular-nums sm:hidden {scoreTone(captureScore)}" data-visit-capture-score>{percent(captureScore)}%</span>
+                                {#each notes as note (note.text)}
+                                    <span class={note.emphasis ? 'font-medium text-brand-700 dark:text-brand-300' : ''}>{note.text}</span>
+                                {/each}
+                            </p>
+                        {/if}
                     </div>
                     {#if showCamera}<span class="hidden sm:block"></span>{/if}
                     <BadgeHint text={$_('detection.confidence_hint', { values: { score: percent(captureScore) } })} data-visit-capture-score class="hidden justify-end rounded text-xs font-bold tabular-nums sm:flex {scoreTone(captureScore)}">
