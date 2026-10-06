@@ -76,7 +76,8 @@ Frigate can serve a recording frame only once that stretch of recording is writt
 seconds after the moment (11 to 13 seconds measured on a live install). So a live detection waits:
 YA-WAMF identifies it 12 seconds after Frigate's best snapshot, then retries every three seconds
 until 30 seconds after it, and only then uses the detection snapshot. Each read keeps its
-five-second bound. Updates for the event wait with it, and an end that arrives meanwhile is
+five-second bound, and a read that runs past it is retried the same way: several birds arriving
+together make Frigate decode several 4K frames at once. Updates for the event wait with it, and an end that arrives meanwhile is
 handled once the detection exists. A camera whose recording frames did not arrive by the deadline
 is identified at once for the next ten minutes, so a camera without retained recordings is not
 delayed for nothing. Every fallback is logged at info with its reason. Backfill and missed past

@@ -590,3 +590,65 @@ def test_the_recording_frame_time_comes_from_the_mqtt_snapshot_or_the_rest_paylo
     assert recording_frame_time({"data": {"snapshot_frame_time": 99.5}}) == 99.5
     assert recording_frame_time({"snapshot": {"frame_time": "soon"}}) is None
     assert recording_frame_time({}) is None
+
+
+@pytest.mark.asyncio
+async def test_a_recording_read_that_times_out_under_load_is_retried_within_the_deadline(recording_mode, monkeypatch):
+    # Three birds at once had Frigate decoding three 4K frames; one read ran past its 5 s bound on a
+    # live install and fell straight back, although its recording frame was minutes from expiring.
+    import asyncio
+
+    import app.services.recording_snapshot_input as module
+
+    # A bound a slow runner can meet for a real 4K decode, and a first read well past it.
+    monkeypatch.setattr(module, "RECORDING_SNAPSHOT_TIMEOUT_SECONDS", 0.5)
+    recording = image_bytes((3840, 2160))
+    calls = {"n": 0}
+
+    async def slow_then_ready(*args, **kwargs):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            await asyncio.sleep(2)
+        return recording, None
+
+    event = {"camera": "birdcam", "data": {"snapshot_frame_time": 105.25, "box": [0.25, 0.2, 0.1, 0.15]}}
+    clock = {"now": 1000.0}
+
+    async def sleep(seconds):
+        clock["now"] += seconds
+
+    result = await module.read_recording_snapshot(
+        "evt",
+        event,
+        image_bytes((1280, 720)),
+        frigate_snapshot_input_provenance(event),
+        client=recording_client(get_recording_snapshot_with_error=slow_then_ready),
+        ready_by=1020.0,
+        now=lambda: clock["now"],
+        sleep=sleep,
+    )
+    assert result.reason == "recording_frame"
+    assert result.snapshot == recording
+    assert calls["n"] == 2
+
+
+@pytest.mark.asyncio
+async def test_a_slow_read_without_a_deadline_is_reported_as_slow_not_missing(recording_mode, monkeypatch):
+    import asyncio
+
+    import app.services.recording_snapshot_input as module
+
+    monkeypatch.setattr(module, "RECORDING_SNAPSHOT_TIMEOUT_SECONDS", 0.01)
+
+    async def slow(*args, **kwargs):
+        await asyncio.sleep(1)
+
+    event = {"camera": "birdcam", "data": {"snapshot_frame_time": 105.25, "box": [0.25, 0.2, 0.1, 0.15]}}
+    result = await module.read_recording_snapshot(
+        "evt",
+        event,
+        image_bytes((1280, 720)),
+        frigate_snapshot_input_provenance(event),
+        client=recording_client(get_recording_snapshot_with_error=slow),
+    )
+    assert result.reason == "recording_slow"
