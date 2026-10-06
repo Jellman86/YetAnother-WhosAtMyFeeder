@@ -202,7 +202,7 @@
       "detected": "Erkannte Beschleuniger",
       "no_results": "Es wurden keine installierten Modelle geprüft.",
       "provider_hint": "Es werden nur Anbieter angezeigt, die in diesem Image, auf diesem Host und für das ausgewählte Modell verfügbar sind.",
-      "results_hint": "Alle Details zu Kompilierung, Latenz und Genauigkeit je Gerät finden Sie unter Einstellungen → Debug → Werkzeug zur Modellbewertung.",
+      "results_hint": "Alle Details zu Kompilierung, Latenz und Genauigkeit je Gerät finden Sie unter Einstellungen → Debug → Werkzeug zur Modellbewertung. Der Reiter „Debug“ erscheint, wenn die Debug-Oberfläche aktiviert ist (SYSTEM__DEBUG_UI_ENABLED=true).",
       "revalidate": "Prüfung wiederholen",
       "row_ok": "Läuft",
       "row_warn": "Prüfen",

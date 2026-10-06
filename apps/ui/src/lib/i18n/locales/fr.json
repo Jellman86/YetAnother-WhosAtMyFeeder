@@ -202,7 +202,7 @@
       "detected": "Accélérateurs détectés",
       "no_results": "Aucun modèle installé n’a été évalué.",
       "provider_hint": "Seuls les fournisseurs disponibles dans cette image, sur cet hôte et pour le modèle sélectionné sont affichés.",
-      "results_hint": "Le détail complet par appareil (compilation, latence et précision) se trouve dans Paramètres → Debug → Outil d’évaluation des modèles.",
+      "results_hint": "Le détail complet par appareil (compilation, latence et précision) se trouve dans Paramètres → Debug → Outil d’évaluation des modèles. L’onglet Debug apparaît lorsque l’interface de débogage est activée (SYSTEM__DEBUG_UI_ENABLED=true).",
       "revalidate": "Relancer la validation",
       "row_ok": "Fonctionne",
       "row_warn": "À vérifier",

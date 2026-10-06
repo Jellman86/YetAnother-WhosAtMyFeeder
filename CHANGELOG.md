@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- The setup wizard's hint after the hardware check now says the Debug tab it points to only appears
+  when the debug UI is enabled (`SYSTEM__DEBUG_UI_ENABLED=true`).
 - The first-run setup wizard, the Frigate, MQTT, BirdNET-Go, BirdWeather and notification test
   dialogs, and the hardware compatibility check are now translated. 120 of their strings were
   never in any language file, so every language showed them in English; a test now fails if the

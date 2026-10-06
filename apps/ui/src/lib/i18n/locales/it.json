@@ -202,7 +202,7 @@
       "detected": "Acceleratori rilevati",
       "no_results": "Nessun modello installato è stato valutato.",
       "provider_hint": "Vengono mostrati solo i provider disponibili in questa immagine, su questo host e per il modello selezionato.",
-      "results_hint": "I dettagli completi per dispositivo su compilazione, latenza e accuratezza sono in Impostazioni → Debug → Strumento di valutazione dei modelli.",
+      "results_hint": "I dettagli completi per dispositivo su compilazione, latenza e accuratezza sono in Impostazioni → Debug → Strumento di valutazione dei modelli. La scheda Debug compare quando l’interfaccia di debug è attiva (SYSTEM__DEBUG_UI_ENABLED=true).",
       "revalidate": "Ripeti la convalida",
       "row_ok": "Funziona",
       "row_warn": "Da verificare",

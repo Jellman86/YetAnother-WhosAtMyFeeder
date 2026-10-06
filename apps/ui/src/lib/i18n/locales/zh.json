@@ -202,7 +202,7 @@
       "detected": "检测到的加速器",
       "no_results": "尚未评估任何已安装的模型。",
       "provider_hint": "仅显示在此镜像、此主机上可用且适用于所选模型的提供程序。",
-      "results_hint": "每个设备的完整编译、延迟和准确度详情位于“设置 → 调试 → 模型评估工具”。",
+      "results_hint": "每个设备的完整编译、延迟和准确度详情位于“设置 → 调试 → 模型评估工具”。“调试”选项卡在启用调试界面后显示（SYSTEM__DEBUG_UI_ENABLED=true）。",
       "revalidate": "重新验证",
       "row_ok": "可运行",
       "row_warn": "需检查",
