@@ -480,7 +480,7 @@
             }
             const ms = result.latency_ms ? ` · ${Math.round(result.latency_ms)} ms/frame` : '';
             const msg = result.best_provider
-                ? t('settings.detection.model_manager_device_set', 'Fastest verified provider: {provider}{ms} — it will be applied when this model is enabled.', { provider: result.best_provider, ms })
+                ? t('settings.detection.model_manager_device_set', 'Fastest verified provider: {provider}{ms}. It will be applied when this model is enabled.', { provider: result.best_provider, ms })
                 : t('settings.detection.model_manager_validate_ran_ok', 'Ran on {provider}{ms} and produced valid output.', { provider: result.provider, ms });
             set(1, { state: 'passed', message: msg });
         } catch (e) {

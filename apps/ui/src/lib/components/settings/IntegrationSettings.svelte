@@ -1262,7 +1262,7 @@
                 label={$_('settings.location.map_title', { default: 'Map preview' })}
                 description={mapPoint
                     ? $_('settings.location.map_help', { default: 'Showing the location currently configured for weather, hotspots, and observations.' })
-                    : $_('settings.location.map_empty', { default: 'No coordinates configured yet — set a latitude and longitude (or enable auto-detect) to see the map.' })}
+                    : $_('settings.location.map_empty', { default: 'No coordinates configured yet. Set a latitude and longitude (or enable auto-detect) to see the map.' })}
                 layout="stacked"
             >
                 <div class="h-64 w-full rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700">

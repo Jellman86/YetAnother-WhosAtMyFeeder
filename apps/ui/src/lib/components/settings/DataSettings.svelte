@@ -295,7 +295,7 @@
                 <SettingsRow
                     labelId="setting-maint-concurrency"
                     label={$_('settings.data.maintenance_max_concurrent', { default: 'Maintenance concurrency' })}
-                    description={$_('settings.data.maintenance_max_concurrent_help', { default: 'Per-kind default — each maintenance kind (backfill, weather backfill, video classification, taxonomy repair, timezone repair, analyze-unknowns) gets this many slots. Different kinds already run independently; increase this only if you want multiple jobs of the same kind to overlap.' })}
+                    description={$_('settings.data.maintenance_max_concurrent_help', { default: 'Best practice is 1. Increase this only if you intentionally want backfill, taxonomy repair, timezone repair, or analyze-unknowns to overlap.' })}
                     layout="stacked"
                 >
                     <SettingsInput

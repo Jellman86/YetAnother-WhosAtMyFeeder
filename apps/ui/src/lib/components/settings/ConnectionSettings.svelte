@@ -649,7 +649,7 @@
                                             }}
                                             class="min-h-11 px-3 py-1 rounded-md text-xs font-black uppercase tracking-widest transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 {role === 'feeder' ? 'bg-brand-500 text-white' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-200'}"
                                             aria-pressed={role === 'feeder'}
-                                            title={$_('settings.cameras.role_feeder_help', { default: 'Feeder cam — every Frigate event is treated as a fresh visit (default).' })}
+                                            title={$_('settings.cameras.role_feeder_help', { default: 'Feeder cam: every Frigate event is treated as a fresh visit (default).' })}
                                         >
                                             {$_('settings.cameras.role_feeder', { default: 'Feeder' })}
                                         </button>
@@ -660,7 +660,7 @@
                                             }}
                                             class="min-h-11 px-3 py-1 rounded-md text-xs font-black uppercase tracking-widest transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 {role === 'nest' ? 'bg-brand-500 text-white' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-200'}"
                                             aria-pressed={role === 'nest'}
-                                            title={$_('settings.cameras.role_nest_help', { default: 'Nest box cam — collapses repeat detections of the same species into one per dedupe window so a continuously-present nesting bird does not flood the feed.' })}
+                                            title={$_('settings.cameras.role_nest_help', { default: 'Nest box cam: collapses repeat detections of the same species into one per dedupe window so a continuously-present nesting bird does not flood the feed.' })}
                                         >
                                             {$_('settings.cameras.role_nest', { default: 'Nest' })}
                                         </button>

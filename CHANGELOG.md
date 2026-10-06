@@ -6,6 +6,19 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- The first-run setup wizard, the Frigate, MQTT, BirdNET-Go, BirdWeather and notification test
+  dialogs, and the hardware compatibility check are now translated. 120 of their strings were
+  never in any language file, so every language showed them in English; a test now fails if the
+  app uses a text that has no English entry. The hint after the hardware check now names where the
+  details are, **Settings → Debug → Model evaluation harness**. German now addresses you with
+  "Sie" throughout, Portuguese uses Brazilian forms throughout, and no language uses em dashes.
+- The strings new in this release read better in every language. Each term is now said one way
+  in each language: a "capture" no longer switches between two words on one page in French,
+  Japanese, Chinese and Russian, nor a "visit" in Chinese. Russian counts use their proper forms
+  ("2 визита", "21 визит"). Japanese and Chinese now say the photo and video limit applies per
+  species. French and Portuguese point to the Settings page by its real name. Italian, French and
+  Portuguese call the family tree by its usual name, and new Portuguese strings follow the
+  Brazilian Portuguese of the rest of the app.
 - With **Identify new detections from: Recording frame**, a detection whose recording frame could
   not be used was identified from the whole camera view instead of the bird. Frigate's crop was
   dropped whenever the recording was past retention, still being written, or slow to arrive, so

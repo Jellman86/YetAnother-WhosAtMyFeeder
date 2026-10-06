@@ -25,7 +25,8 @@
     "close_language_selector": "言語セレクターを閉じる",
     "events": "イベント",
     "notifications": "通知",
-    "species": "種"
+    "species": "種",
+    "navigation": "メインナビゲーション"
   },
   "manual_observation": {
     "eyebrow": "フィールド記録",
@@ -158,7 +159,9 @@
       "optional": "任意"
     },
     "account": {
-      "title": "管理者アカウントとアクセス"
+      "title": "管理者アカウントとアクセス",
+      "already": "認証はすでに設定されています。設定 → セキュリティで管理してください。",
+      "description": "所有者パスワードでダッシュボードを保護するか、信頼できるネットワーク上で認証なしで実行します。"
     },
     "connection": {
       "title": "Frigate と MQTT の接続",
@@ -167,25 +170,67 @@
       "mqtt_auth_hint": "ブローカーがユーザー名とパスワードを要求する場合のみ有効にしてください。",
       "mqtt_username": "ユーザー名",
       "mqtt_password": "パスワード",
-      "mqtt_password_saved": "新しい値を入力しない限り、保存済みパスワードが保持されます。"
+      "mqtt_password_saved": "新しい値を入力しない限り、保存済みパスワードが保持されます。",
+      "continue_hint": "設定は保存されました。続行して接続を後で修正することもできますが、Frigate に接続できるまで検出は取り込まれません。",
+      "description": "YA-WAMF は MQTT 経由で Frigate から検出を読み取り、その API からスナップショットを取得します。両方の接続先を指定してからテストしてください。",
+      "frigate_fail": "Frigate に接続できませんでした",
+      "frigate_url": "Frigate の URL",
+      "mqtt_fail": "MQTT ブローカーに接続できませんでした",
+      "mqtt_port": "ポート",
+      "mqtt_server": "MQTT ブローカー",
+      "save_test": "保存して接続をテスト",
+      "frigate_ok": "Frigate {version} に接続しました"
     },
     "cameras": {
       "title": "カメラと検出",
-      "description": "YA-WAMF が監視する Frigate カメラを選択します。高度な検出・分類ゲートは「検出」設定で管理します。"
+      "description": "YA-WAMF が監視する Frigate カメラを選択します。高度な検出・分類ゲートは「検出」設定で管理します。",
+      "detected_note": "カメラ一覧が設定されていないため、YA-WAMF はすべてのカメラを監視しています。次のカメラで検出が発生しています:",
+      "gates_hint": "検出が届かない場合は、Frigate 側の min_score / threshold / min_initialized ゲートを確認してください。スナップショットが YA-WAMF に届くかどうかはこれらで決まります。",
+      "gates_link": "調整ガイド →",
+      "list": "カメラ（カンマ区切り）",
+      "list_hint": "Frigate 設定にあるカメラ名を正確に入力してください。",
+      "offline": "プレビューなし",
+      "use_detected": "これらを追加"
     },
     "model": {
       "title": "分類モデルとハードウェア",
       "description": "YA-WAMF には軽量な CPU フォールバックが含まれています。モデルを選び、必要ならここでダウンロードし、続行前に実際のイメージとハードウェア経路を検証してください。",
       "download_required": "このハードウェアで検証する前に、ここでモデルをダウンロードして確認してください。",
       "download_timeout": "ダウンロードに予想以上の時間がかかっています。接続を確認して再試行してください。",
-      "validation_timeout": "ハードウェア検証が 30 分を超えました。診断画面でまだ完了処理中の可能性があります。別の検証を開始する前に状態を確認してください。"
+      "validation_timeout": "ハードウェア検証が 30 分を超えました。診断画面でまだ完了処理中の可能性があります。別の検証を開始する前に状態を確認してください。",
+      "choose_model": "モデル",
+      "detected": "検出されたアクセラレーター",
+      "no_results": "評価されたインストール済みモデルはありません。",
+      "provider_hint": "このイメージ、このホスト、選択したモデルで利用可能なプロバイダーのみを表示します。",
+      "results_hint": "デバイスごとのコンパイル、遅延、精度の詳細は設定 → デバッグ → モデル評価ツールで確認できます。",
+      "revalidate": "再検証",
+      "row_ok": "動作",
+      "row_warn": "要確認",
+      "save_error": "モデルの選択を保存できませんでした。",
+      "starting": "開始中…",
+      "sweep_error": "検証を開始できませんでした。",
+      "validate": "お使いのハードウェアで検証",
+      "validation_partial": "ハードウェア検証が完了しました: {ok}/{total} 個のモデルが利用可能です。",
+      "validation_required": "続行する前に、現在のイメージとハードウェアでこのモデルを検証してください。",
+      "validation_success": "ハードウェア検証が正常に完了しました。",
+      "verified": "検証済みプロバイダー: {list}"
     },
     "quality": {
-      "title": "利用可能な最良のスナップショット"
+      "title": "利用可能な最良のスナップショット",
+      "description": "YA-WAMF は各イベントの後に、最も鮮明な録画フレームと、信頼できる最適な鳥のクロップを自動的に選択できます。"
     },
     "integrations": {
       "title": "連携",
-      "birdnet_test_subtitle": "段階テストではこの URL を使用し、保存済みの MQTT ブローカーとローカル検出ストレージを確認します。"
+      "birdnet_test_subtitle": "段階テストではこの URL を使用し、保存済みの MQTT ブローカーとローカル検出ストレージを確認します。",
+      "ai": "AI解析",
+      "birdnet_test": "BirdNET-Go の経路をテスト",
+      "description": "任意の追加機能です。今使いたいものを有効にしてください。認証情報がまだ必要な項目は、最終確認で明示されます。",
+      "note_ai": "行動に関するメモ。プロバイダーのキーは設定で追加してください。",
+      "note_birdnet": "視覚検出を音声で確認します。",
+      "note_bw": "コミュニティのステーションに報告します。ステーション・トークンは設定で追加してください。",
+      "note_ebird": "周辺の観察記録と地図。API キーは設定で追加してください。",
+      "note_inat": "所有者が確認してから投稿します。アカウントは設定で接続してください。",
+      "notifications_note": "通知チャンネルは設定 → 通知で構成します。Home Assistant は外部でインストール・設定します。連携ガイドを参照してください。"
     },
     "history": {
       "title": "既存の検出をインポート",
@@ -223,14 +268,37 @@
         "integrations_needs": "設定が必要: {integrations}",
         "integrations_configured": "設定済み: {integrations}",
         "integrations_none": "有効な連携なし"
-      }
+      },
+      "description": "各セクションの状況です。いずれかを開いて変更できます。他のセクションには影響しません。",
+      "done": "完了",
+      "edit": "確認",
+      "finish": "完了する",
+      "title": "セットアップの確認"
     },
     "skip": "セットアップをスキップ",
     "skip_failed": "スキップできませんでした。サーバーに接続できません。",
     "skip_confirm_title": "セットアップをスキップしてアプリを開きますか?",
     "skip_confirm_body_no_account": "設定 → セキュリティでパスワードを設定するまで、アプリはパスワードなしで動作します。このウィザードの内容は後から設定でき、設定 → セットアップウィザードからいつでも再実行できます。",
     "skip_confirm_body": "このウィザードの内容は後から設定でき、設定 → セットアップウィザードからいつでも再実行できます。",
-    "skip_confirm_action": "スキップしてアプリを開く"
+    "skip_confirm_action": "スキップしてアプリを開く",
+    "back": "戻る",
+    "continue": "続行",
+    "exit": "セットアップを終了",
+    "step_of": "ステップ {n}/{total}",
+    "telemetry": {
+      "note": "個人データは収集されません。この設定は設定画面からいつでも変更できます。",
+      "opt_in": "はい、開発の参考にするため匿名の利用統計を共有します。"
+    },
+    "welcome": {
+      "cover_cameras": "カメラを選択",
+      "cover_connect": "Frigate と MQTT を接続",
+      "cover_integrations": "連携を有効化",
+      "cover_model": "お使いのハードウェアでモデルを検証",
+      "description": "給餌台の監視を始めましょう。数分で完了し、任意の項目はスキップできます。設定のナビゲーションからいつでも再実行できます。",
+      "start": "はじめる",
+      "title": "YA-WAMFへようこそ"
+    },
+    "working": "処理中…"
   },
   "theme": {
     "switch_light": "ライトモードに切り替え",
@@ -338,7 +406,7 @@
       "retry": "再試行",
       "empty": "過去 {days} 日間、半径 {distance} 以内に希少または珍しい報告はありませんでした。",
       "empty_hint": "これは有効な eBird の結果です。通常の周辺観察は多数ある場合があります。",
-      "open_species": "{species} — 種のカードを開く",
+      "open_species": "{species}: 種のカードを開く",
       "reports": "{count}件の報告",
       "places": "{count}か所"
     },
@@ -477,7 +545,9 @@
     "download": "ダウンロード",
     "skip_to_content": "コンテンツへスキップ",
     "working": "処理中…",
-    "language_load_error": "この言語を読み込めませんでした。接続を確認して、もう一度お試しください。"
+    "language_load_error": "この言語を読み込めませんでした。接続を確認して、もう一度お試しください。",
+    "undo": "元に戻す",
+    "unknown": "不明"
   },
   "route_load": {
     "loading": "{page} を開いています…",
@@ -648,7 +718,7 @@
       "auto_analyze_unknowns": "自動実行（毎日）",
       "purge_missing_clips_confirm": "Frigate でクリップが欠落している検出をスキャンし、設定されたポリシーを適用しますか？",
       "purge_missing_snapshots_confirm": "Frigate でスナップショットが欠落している検出をスキャンし、設定されたポリシーを適用しますか？",
-      "purge_missing_scan_success": "スキャン完了: 確認 {checked}、欠落 {missing}、削除 {deleted}、欠落マーク {marked}、保持 {kept}、復元 {restored}。 {errors} 件は確認できなかったため、保存済みの状態を保持しました。",
+      "purge_missing_scan_success": "スキャン完了: 確認 {checked}、欠落 {missing}、削除 {deleted}、欠落マーク {marked}、保持 {kept}、復元 {restored}。{errors} 件は確認できなかったため、保存済みの状態を保持しました。",
       "clear_favorites_button": "お気に入りをすべて削除",
       "clear_favorites_desc": "すべてのお気に入りマークと保管済みの写真・クリップを削除します。検出とメディアキャッシュは残ります。",
       "clear_favorites_confirm": "すべてのお気に入りと保管済みの写真・クリップを削除しますか？訪問記録は履歴に残ります。元に戻せません。",
@@ -675,9 +745,9 @@
       "archive_usage_detail": "{count} 件保管、{size}",
       "archive_failed_count": "{count} 件を保管できませんでした。訪問記録を開いて再試行してください。",
       "per_species_minimum": "種ごとに最新の訪問の写真を残す",
-      "per_species_minimum_help": "各種の最新の訪問のうちこの件数は、履歴の期間を過ぎても写真を残します。珍しい鳥の写真が消えません。動画は長く残しません。0 でオフになります。",
+      "per_species_minimum_help": "種ごとに、最新の訪問のうちこの件数分は保持期間を過ぎても写真を残します。珍しい鳥の写真を失わないためです。動画は長く残しません。0 でオフになります。",
       "per_species_maximum": "種ごとに写真と動画を残す訪問の上限",
-      "per_species_maximum_help": "この件数を超えた訪問は、古いものから写真と動画を失います。訪問は履歴に残ります。お気に入りは数えません。0 は無制限です。",
+      "per_species_maximum_help": "種ごとにこの件数を超えた訪問は、古いものから写真と動画が削除されます。訪問は履歴に残ります。お気に入りは数えません。0 は無制限です。",
       "max_size_mb": "保存容量の上限 (MiB)",
       "max_size_mb_help": "写真と動画がこれを超えると、古いものから削除します。お気に入りとそのアーカイブは残ります。この上限と上の上限は、写真の下限より優先されます。0 は無制限です。",
       "bird_scan_mode": "鳥の探索の強度",
@@ -699,7 +769,8 @@
       "frigate_error": "Frigate に接続できませんでした",
       "mqtt_title": "MQTT 設定 (Frigate イベント)",
       "simulating": "シミュレーション中…",
-      "advanced_title": "調整"
+      "advanced_title": "調整",
+      "full_visit_advanced_title": "フル訪問クリップ（録画から）"
     },
     "common": {
       "save_error": "設定を保存できませんでした",
@@ -838,7 +909,9 @@
         "source_discovery_mapping_value": "マッピング値",
         "source_discovery_sample_id": "サンプルID",
         "source_discovery_seen": "検出数",
-        "advanced_title": "音声バッファとセンサーマッピング"
+        "advanced_title": "音声バッファとセンサーマッピング",
+        "test_subtitle": "BirdNET-Go に接続でき、MQTT ブローカーが送信を受け付け、模擬検出がパイプラインを通過することを確認します。",
+        "test_title": "BirdNET-Go 接続テスト"
       },
       "inaturalist": {
         "title": "iNaturalist",
@@ -906,7 +979,10 @@
         "test_button": "接続テスト",
         "test_loading": "確認中…",
         "test_success": "BirdWeather への接続が確認されました！",
-        "test_error": "BirdWeather への接続に失敗しました"
+        "test_error": "BirdWeather への接続に失敗しました",
+        "stage_station": "BirdWeather ステーション・トークン",
+        "test_subtitle": "ステーション・トークンが BirdWeather に受け付けられることを確認します。",
+        "test_title": "BirdWeather 接続テスト"
       },
       "ha_weather": {
         "title": "Home Assistant の天気",
@@ -1081,7 +1157,13 @@
       "classification_image_recording": "録画フレーム",
       "classification_image_recording_cost": "Frigate は検出ごとに録画フレームを 1 枚デコードし、YA-WAMF がそれをダウンロードして処理します。",
       "classification_image_recording_fallback": "録画の保持と、Frigate のクリーンなスナップショットコピー ({setting}) が必要です。Frigate が録画フレームを提供できるのは、その部分の録画が書き込まれた後、約 10〜15 秒後です。そのため新しい検出の識別もその分遅れます。30 秒以内にフレームが届かない場合、またはフレームが小さい、縦横比が異なる場合は、検出スナップショットを使用します。",
-      "classification_image_recording_scope": "新しい検出に適用され、見逃した検出として取得した過去のイベントも含みます。保存しても過去のイベントは取得されず、既存の写真も変更されません。再分類では保存済みの写真が優先されます。"
+      "classification_image_recording_scope": "新しい検出に適用され、見逃した検出として取得した過去のイベントも含みます。保存しても過去のイベントは取得されず、既存の写真も変更されません。再分類では保存済みの写真が優先されます。",
+      "stage_frigate": "Frigate API",
+      "stage_frigate_bad": "Frigate が予期しないステータスを返しました。",
+      "stage_frigate_ok": "Frigate {version} に接続しました",
+      "stage_mqtt": "MQTT ブローカーへの送信",
+      "test_subtitle": "Frigate API が応答し、MQTT ブローカーが送信を受け付けることを確認します。",
+      "test_title": "Frigate と MQTT の接続テスト"
     },
     "cameras": {
       "title": "アクティブなカメラ",
@@ -1100,10 +1182,10 @@
       "nest_dedupe_label": "巣箱の重複排除ウィンドウ",
       "nest_dedupe_unit": "分",
       "role_feeder": "給餌台",
-      "role_feeder_help": "給餌台カメラ — Frigate のイベントごとに新しい訪問として扱われます (既定)。",
+      "role_feeder_help": "給餌台カメラ: Frigate のイベントごとに新しい訪問として扱われます (既定)。",
       "role_label": "役割",
       "role_nest": "巣箱",
-      "role_nest_help": "巣箱カメラ — 同じ種の繰り返し検出を重複排除ウィンドウごとに 1 回にまとめ、巣にとどまる鳥でフィードがあふれないようにします。"
+      "role_nest_help": "巣箱カメラ: 同じ種の繰り返し検出を重複排除ウィンドウごとに 1 回にまとめ、巣にとどまる鳥でフィードがあふれないようにします。"
     },
     "telemetry": {
       "title": "テレメトリ",
@@ -1298,7 +1380,13 @@
         "channel_telegram": "Telegram",
         "channel_email": "メール",
         "confidence_chip_audio": "{value}%以上・音声確認あり"
-      }
+      },
+      "test_channel": "チャンネル",
+      "test_failed": "テストメッセージを送信できませんでした。",
+      "test_retry": "再送信",
+      "test_stage_deliver": "テストメッセージを送信",
+      "test_subtitle": "このチャンネルの現在の設定でテストメッセージを 1 件送信します。",
+      "test_title": "通知テスト"
     },
     "discord": {
       "title": "Discord通知",
@@ -1356,7 +1444,7 @@
       "desc": "検出時のローカライズされた気象コンテキストに使用されます。",
       "state": "州 / 地域",
       "country": "国",
-      "map_empty": "まだ座標が構成されていません — 緯度と経度を設定するか、自動検出を有効にして地図を表示してください。",
+      "map_empty": "まだ座標が構成されていません。緯度と経度を設定するか、自動検出を有効にして地図を表示してください。",
       "map_help": "天気、ホットスポット、観察記録に現在設定されている位置を表示します。",
       "map_title": "地図プレビュー",
       "mode_auto": "自動検出",
@@ -1516,7 +1604,7 @@
       "model_manager_install_note": "各ステップはお使いのハードウェアで実行されます。検証に合格するまで何も有効になりません。",
       "model_manager_install_stage_download": "モデルをダウンロード",
       "model_manager_device_sweeping": "デバイスを比較しています…",
-      "model_manager_device_set": "検証済みの最速プロバイダー: {provider}{ms} — このモデルを有効にすると適用されます。",
+      "model_manager_device_set": "検証済みの最速プロバイダー: {provider}{ms}。このモデルを有効にすると適用されます。",
       "model_manager_installing_pct": "ダウンロード中… {pct}%",
       "model_manager_install_downloaded": "ダウンロードして検証しました。",
       "model_manager_install_already_downloaded": "ダウンロード済み。",
@@ -1641,8 +1729,34 @@
       "band_native_recovering": "分離されたワーカーでの分類再開を待っています。",
       "band_native_recovered": "分離されたワーカーで分類が再開されました。",
       "band_native_restart": "停止した実行環境を解放するには、コンテナを再起動してください。",
-      "band_worker_fallback": "ワーカーが失敗 — メインプロセスで分類中",
-      "band_worker_fallback_detail": "分離ワーカーがモデル読み込み中に停止し続けています。検出はメインプロセスで継続しています。"
+      "band_worker_fallback": "ワーカーが失敗: メインプロセスで分類中",
+      "band_worker_fallback_detail": "分離ワーカーがモデル読み込み中に停止し続けています。検出はメインプロセスで継続しています。",
+      "classification_engine_desc": "給餌台のスナップショットの分類方法: 信頼度、モデル、ハードウェアアクセラレーション。",
+      "compat_all_hint": "インストール済みのモデルだけでなく、レジストリのすべてのモデルをダウンロードしてテストします（時間がかかります）。",
+      "compat_all_models": "すべてのモデルをテスト",
+      "compat_card_title": "デバイス互換性",
+      "compat_model": "モデル",
+      "compat_note_baseline": "CPU ベースライン",
+      "compat_note_fails": "コンパイル失敗",
+      "compat_note_match": "{n}/{n} が CPU と一致",
+      "compat_note_nan": "非有限出力",
+      "compat_note_partial": "{m}/{n} が CPU と一致",
+      "compat_note_runs": "動作",
+      "compat_result_failed": "一部のデバイスが検証に失敗しました。以下の内訳を確認してください。",
+      "compat_result_ok": "すべてのデバイスが CPU ベースラインと一致しています。",
+      "compat_result_skipped": "一部のデバイスを検証できませんでした。以下の内訳を確認してください。",
+      "compat_result_warn": "すべてのデバイスで動作しますが、一部は CPU ベースラインと結果が異なります。",
+      "compat_results_unavailable": "互換性の結果を読み込めませんでした。再試行してください。",
+      "compat_run": "互換性チェックを実行",
+      "compat_running": "実行中…",
+      "compat_stage_run": "このホストのデバイスを検証中",
+      "compat_stage_run_hint": "各デバイスでコンパイルし、CPU ベースラインと比較しています…",
+      "compat_test_title": "デバイス互換性チェック",
+      "compat_verified": "このホストで検証済み:",
+      "intel_npu_status": "Intel NPU",
+      "model_manager_repair_download": "再ダウンロードして修復",
+      "model_manager_repair_needed": "このモデルのインストールは不完全です。有効化する前に再ダウンロードして、不足しているラベルまたは設定を修復してください。",
+      "provider_intel_npu": "Intel NPU (OpenVINO)"
     },
     "llm": {
       "title": "AI インサイト",
@@ -1752,7 +1866,7 @@
     "startup_phase_detecting_hardware": "利用可能な推論ハードウェアを確認しています",
     "startup_phase_loading_model": "選択した鳥類モデルを読み込んで確認しています",
     "startup_phase_model_ready": "選択した鳥類モデルの準備ができました",
-    "startup_phase_model_unavailable": "分類器を利用できません — バックエンドの起動後にセットアップを続行できます",
+    "startup_phase_model_unavailable": "分類器を利用できません: バックエンドの起動後にセットアップを続行できます",
     "startup_phase_database": "検出履歴を準備しています",
     "startup_phase_starting_services": "イベントおよびメディアサービスを起動しています",
     "startup_phase_finalizing": "起動確認を完了しています",
@@ -1900,9 +2014,9 @@
       "unknown_bird": "不明な鳥",
       "position": "左から {total} 羽中 {ordinal} 羽目",
       "corrected": "あなたの修正",
-      "too_low_to_name": "名前を付けるには不確か",
+      "too_low_to_name": "信頼度が低く特定できません",
       "score_label": "この鳥自身の種スコア",
-      "best_guess": "最有力候補は {label}（{score}）ですが、名前を付けるには低すぎます。",
+      "best_guess": "最有力候補は {label}（{score}）ですが、信頼度が低いため特定していません。",
       "model_suggested": "モデルの候補は {label}（{score}）でした。",
       "own_score": "この鳥単独のスコアは {score} で、写真のスコアとは別です。",
       "located_hint": "Frigate の追跡枠から位置を特定しました。",
@@ -1981,7 +2095,7 @@
     "snapshot_source_short_full_frame": "全体",
     "snapshot_source_short_frigate_hint": "スマート",
     "snapshot_candidate_frames": "Candidate frames",
-    "snapshot_candidate_frames_hint": "Frigateの最終スナップショットとAI評価済み動画フレーム — タップして選択",
+    "snapshot_candidate_frames_hint": "Frigateの最終スナップショットとAI評価済み動画フレーム。タップして選択します。",
     "snapshot_candidate_final_frame": "Frigateの最終スナップショット",
     "snapshot_best": "最良",
     "snapshot_apply_success": "スナップショットを更新しました",
@@ -1991,8 +2105,8 @@
     "snapshot_candidates_loading": "候補フレームを読み込み中…",
     "snapshot_candidates_empty": "保存済みの候補フレームはまだありません。",
     "snapshot_model_candidates_empty": "AIトリミングフレームが見つかりません。全フレームとスマートトリミングの候補は上で利用できます。",
-    "snapshot_model_crop_disabled": "AIトリミングが無効です — 設定で「HQ鳥トリミングスナップショット」を有効にしてください。",
-    "snapshot_model_crop_unavailable": "AIトリミングモデルが読み込まれていません — モデルマネージャーからダウンロードしてください。",
+    "snapshot_model_crop_disabled": "AIトリミングが無効です。より正確にトリミングするには、設定で「HQ鳥トリミングスナップショット」を有効にしてください。",
+    "snapshot_model_crop_unavailable": "AIトリミングモデルが読み込まれていません。モデル管理からダウンロードしてください。",
     "inat": {
       "title": "iNaturalist",
       "connected": "接続中: {user}",
@@ -2090,7 +2204,7 @@
       "input_frigate_sublabel": "Frigate種ラベル",
       "frigate_fallback_title": "Frigateからの結果",
       "frigate_fallback_desc": "ローカル画像解析が判定基準を満たさなかったため、YA-WAMFは信頼済みのFrigate種ラベルを保持しました。",
-      "gated_title": "動画で一致を検出 — 適用するには確認してください",
+      "gated_title": "動画で一致を検出: 適用するには確認してください",
       "gated_desc": "動画スコアが最低信頼度を下回っているため、自動適用が保留されました。Reclassify を実行してこの結果を適用するか、設定 → 検出 で下限値を下げてください。",
       "gated_action": "再分類",
       "evidence": {
@@ -2104,7 +2218,7 @@
         "model_crop": "AI切り抜き",
         "frigate_region_crop": "Frigateが追跡した範囲"
       },
-      "blocked_label": "ブロック対象の種に一致 — 適用されません"
+      "blocked_label": "ブロック対象の種に一致: 適用されません"
     },
     "card_analysis": {
       "title": "検出を解析中",
@@ -2275,7 +2389,15 @@
     "unfavorite_button": "お気に入りから削除",
     "confidence_hint": "識別の信頼度：{score}%。",
     "captured_at_hint": "{date} {time}に撮影。",
-    "audio_evidence_hint": "この撮影の近くで一致する鳥の鳴き声が聞こえました。"
+    "audio_evidence_hint": "この撮影の近くで一致する鳥の鳴き声が聞こえました。",
+    "audio_clip_aria": "一致した検出の BirdNET-Go 音声クリップ",
+    "audio_pause": "音声クリップを一時停止",
+    "audio_play": "音声クリップを再生",
+    "audio_seek_spectrogram_aria": "クリックして音声クリップの再生位置を移動",
+    "audio_spectrogram_unavailable": "この一致のスペクトログラムは利用できません",
+    "manual_upload": "アップロードから追加",
+    "search_species": "種を検索",
+    "species_updated": "種を更新しました"
   },
   "events": {
     "title": "イベント",
@@ -2289,7 +2411,7 @@
       "end_date": "終了日",
       "all_species": "すべての種",
       "all_cameras": "すべてのカメラ",
-      "audio_confirmed": "オーディオ一致",
+      "audio_confirmed": "音声一致",
       "audio_confirmed_only": "オーディオ確認済みのみ",
       "favorites": "お気に入り",
       "hidden": "非表示",
@@ -2307,10 +2429,11 @@
       "hide_rail": "フィルターを非表示",
       "show": "表示",
       "show_visits": "1 種の訪問",
-      "show_visits_hint": "1 羽の滞在：1 分未満の間隔で続くキャプチャ。",
-      "show_captures": "個別のキャプチャ",
-      "show_captures_hint": "キャプチャを 1 件ずつ。",
-      "show_locked": "選択は個別のキャプチャに対して行います。"
+      "show_visits_hint": "1 羽の滞在：1 分未満の間隔で続く撮影。",
+      "show_captures": "個別の撮影",
+      "show_captures_hint": "撮影を 1 件ずつ。",
+      "show_locked": "選択は個別の撮影に対して行います。",
+      "audio_matches": "音声一致"
     },
     "sort": {
       "newest": "新しい順",
@@ -3167,9 +3290,9 @@
     "cameras_previous": "前のカメラ",
     "cameras_retry": "再試行",
     "cameras_role_feeder": "給餌台",
-    "cameras_role_feeder_help": "給餌台カメラ — Frigate のイベントごとに新しい訪問として扱われます。",
+    "cameras_role_feeder_help": "給餌台カメラ: Frigate のイベントごとに新しい訪問として扱われます。",
     "cameras_role_nest": "巣箱",
-    "cameras_role_nest_help": "巣箱カメラ — 設定したウィンドウ内では重複した検出をまとめます。",
+    "cameras_role_nest_help": "巣箱カメラ: 設定したウィンドウ内では重複した検出をまとめます。",
     "cameras_some_online": "一部のカメラを確認してください",
     "cameras_status_offline": "オフライン",
     "cameras_status_online": "オンライン",
@@ -3208,15 +3331,16 @@
     "shown_photo": "訪問の写真",
     "capture_birds": "{count} 羽",
     "loaded_of_total": "{total} 件中 {shown} 件の撮影を表示",
-    "captures_empty": "この表示では、この訪問の撮影は表示できません。",
-    "best_capture": "最良のキャプチャ",
-    "captures_caption": "この訪問のキャプチャ（古い順）。",
-    "show_captures": "{count} 件のキャプチャを表示",
-    "hide_captures": "キャプチャを隠す",
+    "captures_empty": "この表示には、この訪問の撮影は含まれていません。",
+    "best_capture": "最良の撮影",
+    "captures_caption": "この訪問の撮影（古い順）。",
+    "show_captures": "{count} 件の撮影を表示",
+    "hide_captures": "撮影を隠す",
     "node_visit": "{span} の訪問",
-    "node_visit_many": "訪問、{span}、キャプチャ {count} 件",
-    "node_capture": "{time} のキャプチャ（この訪問の一部）",
-    "node_capture_shown": "{time} のキャプチャ（この訪問の一部で、訪問の写真）"
+    "node_visit_many": "訪問、{span}、撮影 {count} 件",
+    "node_capture": "{time} の撮影（この訪問の一部）",
+    "node_capture_shown": "{time} の撮影（この訪問の一部で、訪問の写真）",
+    "open_capture": "{species} の撮影を開く"
   },
   "taxonomy": {
     "title": "{name} の系統樹",
@@ -3237,7 +3361,7 @@
     "source_note": "鳥類は IOC World Bird List、それより上位は Catalogue of Life による分類です。種のまとまりを示すもので、分岐の時期は示しません。",
     "more": "ほか {count} 件",
     "seen_here": "ここで {count} 種",
-    "captures_here": "ここで {count} 件の記録",
+    "captures_here": "ここで {count} 件の撮影",
     "this_bird": "この鳥",
     "rank": {
       "kingdom": "界",
@@ -3254,7 +3378,7 @@
     },
     "reference_photo": "参考写真",
     "no_reference_photo": "参考写真なし",
-    "not_seen_here": "この餌台ではまだ見られていません",
+    "not_seen_here": "この給餌台ではまだ確認されていません",
     "group_summary": "世界で{total}種、ここで{seen}種を確認"
   }
 }

@@ -2966,7 +2966,7 @@
                     <div class="flex-1 min-w-0 flex flex-col gap-2">
                         <div class="flex flex-col gap-0.5">
                             <span class="text-[10px] font-semibold">
-                                {$_('detection.video_analysis.gated_title', { default: 'Video found a match — confirm to apply' })}
+                                {$_('detection.video_analysis.gated_title', { default: 'Video found a match: confirm to apply' })}
                             </span>
                             <span class="text-[11px] font-semibold leading-snug">
                                 {$_('detection.video_analysis.gated_desc', {
@@ -3014,7 +3014,7 @@
                     </p>
                     {#if detection.video_result_blocked}
                         <p class="text-[10px] font-bold text-amber-600 dark:text-amber-400 mt-0.5">
-                            {$_('detection.video_analysis.blocked_label', { default: 'Matched a blocked species — not applied' })}
+                            {$_('detection.video_analysis.blocked_label', { default: 'Matched a blocked species: not applied' })}
                         </p>
                     {/if}
                     <div class="flex flex-wrap items-center gap-2 mt-1">

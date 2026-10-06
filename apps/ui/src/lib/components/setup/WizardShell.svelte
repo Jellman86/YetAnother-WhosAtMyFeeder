@@ -43,7 +43,7 @@
             }
             setupWizardStore.close();
         } catch (err) {
-            skipError = err instanceof Error ? err.message : $_('setup.skip_failed', { default: 'Skipping failed — the server could not be reached.' });
+            skipError = err instanceof Error ? err.message : $_('setup.skip_failed', { default: 'Skipping failed: the server could not be reached.' });
         } finally {
             skipBusy = false;
         }

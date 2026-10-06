@@ -322,9 +322,9 @@
         return {
             ok: !failed && !warned && !skipped,
             message: failed
-                ? $_('settings.detection.compat_result_failed', { default: 'Some devices failed validation — see the breakdown below.' })
+                ? $_('settings.detection.compat_result_failed', { default: 'Some devices failed validation. See the breakdown below.' })
                 : skipped
-                    ? $_('settings.detection.compat_result_skipped', { default: 'Some devices could not be validated — see the breakdown below.' })
+                    ? $_('settings.detection.compat_result_skipped', { default: 'Some devices could not be validated. See the breakdown below.' })
                     : warned
                         ? $_('settings.detection.compat_result_warn', { default: 'All devices run, but some differ from the CPU baseline.' })
                         : $_('settings.detection.compat_result_ok', { default: 'All devices match the CPU baseline.' })
@@ -467,7 +467,7 @@
         accent
         iconSnippet={engineIcon}
         title={$_('settings.detection.classification_engine')}
-        description={$_('settings.detection.classification_engine_desc', { default: 'How feeder snapshots are classified — confidence, model, and hardware acceleration.' })}
+        description={$_('settings.detection.classification_engine_desc', { default: 'How feeder snapshots are classified: confidence, model, and hardware acceleration.' })}
     >
         <DetectionStatusBand
             {classifierStatus}
@@ -672,7 +672,7 @@
                         </div>
                         <p class="mt-2 text-xs italic text-slate-500 dark:text-slate-400">{$_('settings.detection.video_retry_note')}</p>
                         <p class="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-                            {$_('settings.detection.video_concurrency_follows_workers', { default: 'Clips are analysed as many at a time as there are background workers — the models classify one image per worker, so a separate concurrency setting could only queue jobs or starve workers.' })}
+                            {$_('settings.detection.video_concurrency_follows_workers', { default: 'Clips are analysed as many at a time as there are background workers. The models classify one image per worker, so a separate concurrency setting could only queue jobs or starve workers.' })}
                         </p>
                     </div>
                 {/if}
@@ -845,7 +845,7 @@
                             {#if verifiedProviders.length}
                                 {$_('settings.detection.compat_verified', { default: 'Verified on this host:' })} <span class="font-bold">{verifiedProviders.join(', ')}</span>{#if classifierStatus.host_device_eligibility?.generated_at} · {formatDateTime(classifierStatus.host_device_eligibility.generated_at)}{/if}
                             {:else}
-                                {$_('settings.detection.compat_unverified', { default: 'Not yet run on this host — run the check to verify the providers available in this image.' })}
+                                {$_('settings.detection.compat_unverified', { default: 'Not yet run on this host. Run the check to verify the providers available in this image.' })}
                             {/if}
                         </p>
                         <div class="flex flex-wrap items-center gap-2">

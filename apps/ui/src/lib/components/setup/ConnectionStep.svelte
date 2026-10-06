@@ -201,7 +201,7 @@
         {/each}
 
         {#if savedOnce && !frigateResult?.ok}
-            <p class="text-xs text-slate-500 dark:text-slate-400">{$_('setup.connection.continue_hint', { default: "Settings are saved. You can continue and fix the connection later — but detections won't flow until Frigate is reachable." })}</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400">{$_('setup.connection.continue_hint', { default: "Settings are saved. You can continue and fix the connection later, but detections won't flow until Frigate is reachable." })}</p>
         {/if}
     </WizardLoadState>
 </WizardStepLayout>

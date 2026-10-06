@@ -25,7 +25,8 @@
     "close_language_selector": "Close language selector",
     "events": "Events",
     "notifications": "Notifications",
-    "species": "Species"
+    "species": "Species",
+    "navigation": "Primary navigation"
   },
   "manual_observation": {
     "eyebrow": "Field record",
@@ -158,7 +159,9 @@
       "optional": "Optional"
     },
     "account": {
-      "title": "Admin account & access"
+      "title": "Admin account & access",
+      "already": "Authentication is already configured. Manage it in Settings → Security.",
+      "description": "Protect the dashboard with an owner password, or run without authentication on a trusted network."
     },
     "connection": {
       "title": "Frigate & MQTT connection",
@@ -167,25 +170,67 @@
       "mqtt_auth_hint": "Enable this only when your broker requires a username and password.",
       "mqtt_username": "Username",
       "mqtt_password": "Password",
-      "mqtt_password_saved": "A saved password will be kept unless you enter a replacement."
+      "mqtt_password_saved": "A saved password will be kept unless you enter a replacement.",
+      "continue_hint": "Settings are saved. You can continue and fix the connection later, but detections won't flow until Frigate is reachable.",
+      "description": "YA-WAMF reads detections from Frigate over MQTT and fetches snapshots from its API. Point it at both, then test.",
+      "frigate_fail": "Could not reach Frigate",
+      "frigate_ok": "Connected to Frigate {version}",
+      "frigate_url": "Frigate URL",
+      "mqtt_fail": "Could not reach the MQTT broker",
+      "mqtt_port": "Port",
+      "mqtt_server": "MQTT broker",
+      "save_test": "Save & test connection"
     },
     "cameras": {
       "title": "Cameras & detection",
-      "description": "Choose which Frigate cameras YA-WAMF watches. Advanced detection and classifier gates stay in Detection settings."
+      "description": "Choose which Frigate cameras YA-WAMF watches. Advanced detection and classifier gates stay in Detection settings.",
+      "detected_note": "No camera list set, so YA-WAMF is watching all cameras. These are producing detections:",
+      "gates_hint": "Missing detections? Frigate's own min_score / threshold / min_initialized gates decide whether a snapshot ever reaches YA-WAMF.",
+      "gates_link": "Tuning guide →",
+      "list": "Cameras (comma-separated)",
+      "list_hint": "Use the exact camera names from your Frigate config.",
+      "offline": "No preview",
+      "use_detected": "Add these"
     },
     "model": {
       "title": "Classifier model & hardware",
       "description": "YA-WAMF includes a lightweight CPU fallback. Choose a model, download it here if needed, then validate the exact image and hardware path before continuing.",
       "download_required": "Download and verify this model here before validating it on this hardware.",
       "download_timeout": "The download is taking longer than expected. Check the connection and try again.",
-      "validation_timeout": "Hardware validation exceeded 30 minutes. It may still be finishing in Diagnostics; check its status before starting another run."
+      "validation_timeout": "Hardware validation exceeded 30 minutes. It may still be finishing in Diagnostics; check its status before starting another run.",
+      "choose_model": "Model",
+      "detected": "Detected accelerators",
+      "no_results": "No installed models were evaluated.",
+      "provider_hint": "Only providers available in this image, on this host, and for the selected model are shown.",
+      "results_hint": "Full per-device compile, latency, and accuracy detail is in Settings → Debug → Model evaluation harness.",
+      "revalidate": "Re-run validation",
+      "row_ok": "Runs",
+      "row_warn": "Check",
+      "save_error": "Could not save model choices.",
+      "starting": "Starting…",
+      "sweep_error": "Could not start validation.",
+      "validate": "Validate on my hardware",
+      "validation_partial": "Hardware validation completed: {ok}/{total} models ready.",
+      "validation_required": "Validate this model on the current image and hardware before continuing.",
+      "validation_success": "Hardware validation completed successfully.",
+      "verified": "Validated providers: {list}"
     },
     "quality": {
-      "title": "Best available snapshots"
+      "title": "Best available snapshots",
+      "description": "YA-WAMF can automatically choose the clearest recorded frame and strongest reliable bird crop after each event."
     },
     "integrations": {
       "title": "Integrations",
-      "birdnet_test_subtitle": "The staged test uses this URL, then verifies the saved MQTT broker and local detection storage."
+      "birdnet_test_subtitle": "The staged test uses this URL, then verifies the saved MQTT broker and local detection storage.",
+      "ai": "AI analysis",
+      "birdnet_test": "Test BirdNET-Go path",
+      "description": "Optional add-ons. Enable what you want now; sections that still need credentials are clearly marked in the final review.",
+      "note_ai": "Behavioural notes. Add a provider key in Settings.",
+      "note_birdnet": "Audio confirmation of visual detections.",
+      "note_bw": "Report to community stations. Add a station token in Settings.",
+      "note_ebird": "Nearby sightings and maps. Add an API key in Settings.",
+      "note_inat": "Owner-reviewed submissions. Connect your account in Settings.",
+      "notifications_note": "Notification channels are configured under Settings → Notifications. Home Assistant is installed and configured externally; see the integration guide."
     },
     "history": {
       "title": "Import existing detections",
@@ -223,14 +268,37 @@
         "integrations_needs": "Needs setup: {integrations}",
         "integrations_configured": "Configured: {integrations}",
         "integrations_none": "None enabled"
-      }
+      },
+      "description": "Here is where each section stands. Jump into any one to change it; nothing else is affected.",
+      "done": "Done",
+      "edit": "Review",
+      "finish": "Finish",
+      "title": "Review setup"
     },
     "skip": "Skip setup",
-    "skip_failed": "Skipping failed — the server could not be reached.",
+    "skip_failed": "Skipping failed: the server could not be reached.",
     "skip_confirm_title": "Skip setup and open the app?",
     "skip_confirm_body_no_account": "The app will run without a password until you set one under Settings → Security. Everything this wizard covers can be configured later, and you can re-run it any time from Settings → Setup wizard.",
     "skip_confirm_body": "Everything this wizard covers can be configured later, and you can re-run it any time from Settings → Setup wizard.",
-    "skip_confirm_action": "Skip and open the app"
+    "skip_confirm_action": "Skip and open the app",
+    "back": "Back",
+    "continue": "Continue",
+    "exit": "Exit setup",
+    "step_of": "Step {n} of {total}",
+    "telemetry": {
+      "note": "No personal data is collected, and you can change this any time in Settings.",
+      "opt_in": "Yes, share anonymous usage stats to help guide development."
+    },
+    "welcome": {
+      "cover_cameras": "Pick your cameras",
+      "cover_connect": "Connect Frigate & MQTT",
+      "cover_integrations": "Turn on integrations",
+      "cover_model": "Validate the model on your hardware",
+      "description": "Let's get your feeder online. This takes a few minutes, optional choices can be skipped, and you can re-run it any time from the Settings navigation.",
+      "start": "Get started",
+      "title": "Welcome to YA-WAMF"
+    },
+    "working": "Working…"
   },
   "theme": {
     "switch_light": "Switch to light mode",
@@ -338,7 +406,7 @@
       "retry": "Try again",
       "empty": "No rare or unusual reports were found within {distance} in the last {days} days.",
       "empty_hint": "That is a valid eBird result; ordinary nearby sightings may still be plentiful.",
-      "open_species": "{species} — open the species card",
+      "open_species": "{species}: open the species card",
       "reports": "{count} reports",
       "places": "{count} places"
     },
@@ -477,7 +545,9 @@
     "download": "Download",
     "skip_to_content": "Skip to content",
     "working": "Working…",
-    "language_load_error": "That language could not be loaded. Check your connection and try again."
+    "language_load_error": "That language could not be loaded. Check your connection and try again.",
+    "undo": "Undo",
+    "unknown": "unknown"
   },
   "error": {
     "boundary_title": "Something went wrong",
@@ -709,7 +779,8 @@
       "frigate_error": "Failed to connect to Frigate",
       "mqtt_title": "MQTT Settings (Frigate Events)",
       "simulating": "Simulating…",
-      "advanced_title": "Tuning"
+      "advanced_title": "Tuning",
+      "full_visit_advanced_title": "Full-visit clips (from recordings)"
     },
     "common": {
       "save_error": "Failed to save settings",
@@ -848,7 +919,9 @@
         "source_discovery_sample_id": "Sample ID",
         "source_discovery_seen": "Seen",
         "mqtt_topic_placeholder": "birdnet/text",
-        "advanced_title": "Audio buffer & sensor mapping"
+        "advanced_title": "Audio buffer & sensor mapping",
+        "test_subtitle": "Confirms BirdNET-Go is reachable, the MQTT broker accepts a publish, and a mock detection flows through the pipeline.",
+        "test_title": "BirdNET-Go connection test"
       },
       "inaturalist": {
         "title": "iNaturalist",
@@ -916,7 +989,10 @@
         "test_button": "Test Connection",
         "test_loading": "Verifying…",
         "test_success": "BirdWeather connection verified!",
-        "test_error": "BirdWeather connection failed"
+        "test_error": "BirdWeather connection failed",
+        "stage_station": "BirdWeather station token",
+        "test_subtitle": "Checks that your station token is accepted by BirdWeather.",
+        "test_title": "BirdWeather connection test"
       },
       "ha_weather": {
         "title": "Home Assistant weather",
@@ -1091,7 +1167,13 @@
       "classification_image_recording": "Recording frame",
       "classification_image_recording_cost": "Frigate decodes one recording frame for each detection, and YA-WAMF downloads and processes it.",
       "classification_image_recording_fallback": "Needs retained recordings and the clean snapshot copy in Frigate ({setting}). Frigate can only serve a recording frame once that part of the recording is written, about 10 to 15 seconds later, so new detections are identified that much later. If the frame has not arrived within 30 seconds, or it is smaller or a different shape, the detection snapshot is used.",
-      "classification_image_recording_scope": "Applies to new detections, including past events fetched as missed detections. Saving does not fetch past events or change existing photos; reclassification prefers saved photos."
+      "classification_image_recording_scope": "Applies to new detections, including past events fetched as missed detections. Saving does not fetch past events or change existing photos; reclassification prefers saved photos.",
+      "stage_frigate": "Frigate API",
+      "stage_frigate_bad": "Frigate returned an unexpected status.",
+      "stage_frigate_ok": "Connected to Frigate {version}",
+      "stage_mqtt": "MQTT broker publish",
+      "test_subtitle": "Checks that the Frigate API answers and that the MQTT broker accepts a publish.",
+      "test_title": "Frigate & MQTT connection test"
     },
     "cameras": {
       "title": "Active Cameras",
@@ -1110,10 +1192,10 @@
       "nest_dedupe_label": "Nest dedupe window",
       "nest_dedupe_unit": "min",
       "role_feeder": "Feeder",
-      "role_feeder_help": "Feeder cam — every Frigate event is treated as a fresh visit (default).",
+      "role_feeder_help": "Feeder cam: every Frigate event is treated as a fresh visit (default).",
       "role_label": "Role",
       "role_nest": "Nest",
-      "role_nest_help": "Nest box cam — collapses repeat detections of the same species into one per dedupe window so a continuously-present nesting bird does not flood the feed."
+      "role_nest_help": "Nest box cam: collapses repeat detections of the same species into one per dedupe window so a continuously-present nesting bird does not flood the feed."
     },
     "telemetry": {
       "title": "Telemetry",
@@ -1308,7 +1390,13 @@
         "channel_telegram": "Telegram",
         "channel_email": "Email",
         "confidence_chip_audio": "{value}% sure and heard"
-      }
+      },
+      "test_channel": "Channel",
+      "test_failed": "The test message could not be sent.",
+      "test_retry": "Send again",
+      "test_stage_deliver": "Deliver a test message",
+      "test_subtitle": "Sends one test message using the current settings for this channel.",
+      "test_title": "Notification test"
     },
     "discord": {
       "title": "Discord Notifications",
@@ -1366,7 +1454,7 @@
       "desc": "Used for localized weather context during detections.",
       "state": "State / Region",
       "country": "Country",
-      "map_empty": "No coordinates configured yet — set a latitude and longitude (or enable auto-detect) to see the map.",
+      "map_empty": "No coordinates configured yet. Set a latitude and longitude (or enable auto-detect) to see the map.",
       "map_help": "Showing the location currently configured for weather, hotspots, and observations.",
       "map_title": "Map preview",
       "mode_auto": "Auto-detect",
@@ -1537,7 +1625,7 @@
       "model_manager_install_note": "Each step runs on your hardware. Nothing becomes active until validation passes.",
       "model_manager_install_stage_download": "Download model",
       "model_manager_device_sweeping": "Comparing your devices…",
-      "model_manager_device_set": "Fastest verified provider: {provider}{ms} — it will be applied when this model is enabled.",
+      "model_manager_device_set": "Fastest verified provider: {provider}{ms}. It will be applied when this model is enabled.",
       "model_manager_installing_pct": "Downloading… {pct}%",
       "model_manager_install_downloaded": "Downloaded and verified.",
       "model_manager_install_already_downloaded": "Already downloaded.",
@@ -1606,7 +1694,7 @@
       "image_flavor_label": "Image",
       "packaged_providers_label": "Packaged",
       "image_flavor_mismatch": "The {provider} runtime is not included in the {flavor} image. Use the full image or a matching provider image, then recreate the container. CPU fallback remains available.",
-      "compat_unverified": "Not yet run on this host — run the check to verify the providers available in this image.",
+      "compat_unverified": "Not yet run on this host. Run the check to verify the providers available in this image.",
       "compat_test_subtitle": "Validates every provider available to this image and model against the CPU baseline.",
       "band_model": "Model",
       "band_runtime": "Runtime",
@@ -1645,14 +1733,40 @@
       "worker_counts_live": "Live",
       "worker_counts_background": "Background",
       "worker_counts_auto": "1 (default)",
-      "video_concurrency_follows_workers": "Clips are analysed as many at a time as there are background workers — the models classify one image per worker, so a separate concurrency setting could only queue jobs or starve workers.",
+      "video_concurrency_follows_workers": "Clips are analysed as many at a time as there are background workers. The models classify one image per worker, so a separate concurrency setting could only queue jobs or starve workers.",
       "band_worker_split_video": "{live} live · {background} background · {video} video",
       "model_manager_memory_formula_subprocess_video": "{per} per copy × {live} live + {background} background + {video} video workers (isolated mode)",
       "band_native_recovering": "Waiting for isolated workers to resume classification.",
       "band_native_recovered": "Classification resumed in isolated workers.",
       "band_native_restart": "Restart the container to release the stalled runtime.",
-      "band_worker_fallback": "Workers failing — classifying in-process",
-      "band_worker_fallback_detail": "Isolated workers keep dying during model load; detections continue in the main process."
+      "band_worker_fallback": "Workers failing: classifying in-process",
+      "band_worker_fallback_detail": "Isolated workers keep dying during model load; detections continue in the main process.",
+      "classification_engine_desc": "How feeder snapshots are classified: confidence, model, and hardware acceleration.",
+      "compat_all_hint": "Download and test every registry model, not just installed ones (slower).",
+      "compat_all_models": "test all models",
+      "compat_card_title": "Device compatibility",
+      "compat_model": "Model",
+      "compat_note_baseline": "CPU baseline",
+      "compat_note_fails": "fails to compile",
+      "compat_note_match": "{n}/{n} match CPU",
+      "compat_note_nan": "non-finite output",
+      "compat_note_partial": "{m}/{n} match CPU",
+      "compat_note_runs": "runs",
+      "compat_result_failed": "Some devices failed validation. See the breakdown below.",
+      "compat_result_ok": "All devices match the CPU baseline.",
+      "compat_result_skipped": "Some devices could not be validated. See the breakdown below.",
+      "compat_result_warn": "All devices run, but some differ from the CPU baseline.",
+      "compat_results_unavailable": "Compatibility results could not be loaded. Please retry.",
+      "compat_run": "Run compatibility check",
+      "compat_running": "Running…",
+      "compat_stage_run": "Validating this host's devices",
+      "compat_stage_run_hint": "Compiling and comparing each device against the CPU baseline…",
+      "compat_test_title": "Device compatibility check",
+      "compat_verified": "Verified on this host:",
+      "intel_npu_status": "Intel NPU",
+      "model_manager_repair_download": "Repair download",
+      "model_manager_repair_needed": "This model install is incomplete. Re-download it to repair the missing labels or configuration before activation.",
+      "provider_intel_npu": "Intel NPU (OpenVINO)"
     },
     "llm": {
       "title": "AI Insights",
@@ -1762,7 +1876,7 @@
     "startup_phase_detecting_hardware": "Checking available inference hardware",
     "startup_phase_loading_model": "Loading and checking the selected bird model",
     "startup_phase_model_ready": "Selected bird model is ready",
-    "startup_phase_model_unavailable": "Classifier unavailable — setup can continue after the backend starts",
+    "startup_phase_model_unavailable": "Classifier unavailable: setup can continue after the backend starts",
     "startup_phase_database": "Preparing detection history",
     "startup_phase_starting_services": "Starting event and media services",
     "startup_phase_finalizing": "Finishing startup checks",
@@ -1991,7 +2105,7 @@
     "snapshot_source_short_full_frame": "Full",
     "snapshot_source_short_frigate_hint": "Smart",
     "snapshot_candidate_frames": "Scored Frames",
-    "snapshot_candidate_frames_hint": "Frigate's final snapshot and AI-ranked video frames — tap to select",
+    "snapshot_candidate_frames_hint": "Frigate's final snapshot and AI-ranked video frames. Tap one to select it.",
     "snapshot_candidate_final_frame": "Frigate final snapshot",
     "snapshot_best": "Best",
     "snapshot_apply_success": "Snapshot updated",
@@ -1999,10 +2113,10 @@
     "snapshot_existing_crop_preserved": "No reliable new crop was found; the existing crop was kept.",
     "snapshot_generated_full_frame": "No reliable crop was found; the best full frame was saved.",
     "snapshot_candidates_loading": "Loading…",
-    "snapshot_candidates_empty": "No scored frames yet — use \"Regenerate HQ\" to analyse this clip.",
+    "snapshot_candidates_empty": "No scored frames yet. Use \"Regenerate HQ\" to analyse this clip.",
     "snapshot_model_candidates_empty": "No AI-cropped frames found. Full-frame and smart-crop candidates are available above.",
-    "snapshot_model_crop_disabled": "AI cropping is disabled — enable \"HQ Bird Crop Snapshots\" in Settings to get tighter crops.",
-    "snapshot_model_crop_unavailable": "AI crop model not loaded — visit Model Manager to download it.",
+    "snapshot_model_crop_disabled": "AI cropping is disabled. Enable \"HQ Bird Crop Snapshots\" in Settings to get tighter crops.",
+    "snapshot_model_crop_unavailable": "AI crop model not loaded. Visit Model Manager to download it.",
     "inat": {
       "title": "iNaturalist",
       "connected": "Connected: {user}",
@@ -2038,7 +2152,7 @@
       "input_frigate_sublabel": "Frigate species label",
       "frigate_fallback_title": "Result from Frigate",
       "frigate_fallback_desc": "Local image analysis did not clear policy, so YA-WAMF retained Frigate's trusted species label.",
-      "gated_title": "Video found a match — confirm to apply",
+      "gated_title": "Video found a match: confirm to apply",
       "gated_desc": "Auto-promotion was held back because the video score is below your minimum-confidence floor. Run reclassify to apply this result, or lower the floor in Settings → Detection.",
       "gated_action": "Reclassify",
       "evidence": {
@@ -2114,7 +2228,7 @@
           "retry_manual": "Retry manual reclassification after service health stabilizes."
         }
       },
-      "blocked_label": "Matched a blocked species — not applied"
+      "blocked_label": "Matched a blocked species: not applied"
     },
     "card_analysis": {
       "title": "Analyzing detection",
@@ -2285,7 +2399,15 @@
     "unfavorite_button": "Remove favourite",
     "confidence_hint": "Identification confidence: {score}%.",
     "captured_at_hint": "Captured on {date} at {time}.",
-    "audio_evidence_hint": "A matching bird call was heard near this capture."
+    "audio_evidence_hint": "A matching bird call was heard near this capture.",
+    "audio_clip_aria": "BirdNET-Go audio clip for the matched detection",
+    "audio_pause": "Pause audio clip",
+    "audio_play": "Play audio clip",
+    "audio_seek_spectrogram_aria": "Click to seek the audio clip",
+    "audio_spectrogram_unavailable": "Spectrogram unavailable for this match",
+    "manual_upload": "Added from an upload",
+    "search_species": "Search species",
+    "species_updated": "Species updated"
   },
   "events": {
     "title": "Events",
@@ -2320,7 +2442,8 @@
       "show_visits_hint": "One bird's stay: its captures less than a minute apart.",
       "show_captures": "Individual captures",
       "show_captures_hint": "Every capture on its own.",
-      "show_locked": "Selecting works on individual captures."
+      "show_locked": "Selecting works on individual captures.",
+      "audio_matches": "Audio matches"
     },
     "sort": {
       "newest": "Newest",
@@ -3167,9 +3290,9 @@
     "cameras_previous": "Previous camera",
     "cameras_retry": "Retry",
     "cameras_role_feeder": "Feeder",
-    "cameras_role_feeder_help": "Feeder cam — every Frigate event is a fresh visit.",
+    "cameras_role_feeder_help": "Feeder cam: every Frigate event is a fresh visit.",
     "cameras_role_nest": "Nest",
-    "cameras_role_nest_help": "Nest box cam — repeat detections deduped within the configured window.",
+    "cameras_role_nest_help": "Nest box cam: repeat detections deduped within the configured window.",
     "cameras_some_online": "Some cameras need attention",
     "cameras_status_offline": "Offline",
     "cameras_status_online": "Online",
@@ -3216,7 +3339,8 @@
     "node_visit": "Visit at {span}",
     "node_visit_many": "Visit, {span}, {count} captures",
     "node_capture": "Capture at {time}, part of this visit",
-    "node_capture_shown": "Capture at {time}, part of this visit, and its visit photo"
+    "node_capture_shown": "Capture at {time}, part of this visit, and its visit photo",
+    "open_capture": "Open {species} capture"
   },
   "taxonomy": {
     "title": "Family tree of {name}",
