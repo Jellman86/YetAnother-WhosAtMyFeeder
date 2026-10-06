@@ -87,6 +87,15 @@ def _snapshot_alignment(
     return alignment
 
 
+def _same_shape(data: bytes, size: tuple[int, int]) -> bool:
+    try:
+        with Image.open(BytesIO(data)) as header:
+            width, height = header.size
+    except Exception:
+        return False
+    return math.isclose(width / height, size[0] / size[1], rel_tol=0.01)
+
+
 def _image_size(data: bytes) -> tuple[int, int]:
     if len(data) > MAX_RECORDING_SNAPSHOT_BYTES:
         raise ValueError("Recording snapshot exceeds the image budget")
@@ -206,7 +215,17 @@ async def _read_recording_snapshot_once(
     selected_client = client if client is not None else frigate_client
     # A failed full-frame verification must not feed native coordinates to a
     # saved JPEG whose crop/resize policy is unknown, even if it is still usable.
-    fallback_provenance = ClassificationInputProvenance("frigate_snapshot_unaligned", False)
+    unaligned = ClassificationInputProvenance("frigate_snapshot_unaligned", False)
+    detection_size: tuple[int, int] | None = None
+
+    async def fallback(reason: str) -> RecordingRead:
+        # Once the clean copy has fixed the full frame's shape, a detection snapshot of the same
+        # shape is that full frame, so Frigate's box still locates the bird in it. Losing it would
+        # identify a small bird from the whole scene, as every backfill past recording retention did.
+        if detection_size is not None and await asyncio.to_thread(_same_shape, snapshot, detection_size):
+            return RecordingRead(snapshot, provenance, reason)
+        return RecordingRead(snapshot, unaligned, reason)
+
     try:
         # Saved event JPEGs can ignore crop/height query parameters after an
         # event ends. Only a clean copy establishes the native pixel space.
@@ -217,11 +236,11 @@ async def _read_recording_snapshot_once(
             )
             if not clean:
                 log.debug("Clean snapshot unavailable; keeping detection snapshot", event_id=event_id, reason=error)
-                return RecordingRead(snapshot, fallback_provenance, "clean_snapshot_unavailable")
+                return RecordingRead(snapshot, unaligned, "clean_snapshot_unavailable")
             detection_size = await asyncio.to_thread(_image_size, clean)
             alignment = _snapshot_alignment(event, detection_size)
             if alignment is None:
-                return RecordingRead(snapshot, fallback_provenance, "snapshot_time_unknown")
+                return await fallback("snapshot_time_unknown")
             frame_time, box = alignment
             recording, error = await selected_client.get_recording_snapshot_with_error(
                 camera, frame_time, timeout=RECORDING_SNAPSHOT_TIMEOUT_SECONDS
@@ -230,16 +249,16 @@ async def _read_recording_snapshot_once(
                 log.debug("Recording snapshot unavailable; keeping detection snapshot", event_id=event_id, reason=error)
                 # Frigate answers 404 until the stretch of recording holding the moment is written.
                 reason = "recording_not_ready" if error == "recording_snapshot_http_404" else "recording_unavailable"
-                return RecordingRead(snapshot, fallback_provenance, reason)
+                return await fallback(reason)
             recording, recording_size = await asyncio.to_thread(_prepare_recording_snapshot, recording)
         dw, dh = detection_size
         rw, rh = recording_size
         # Equal size is accepted: a sub stream scaled up to the detect size is a blurrier copy of the
         # same view, and the recording frame is the native picture.
         if rw < dw or rh < dh:
-            return RecordingRead(snapshot, fallback_provenance, "recording_smaller")
+            return await fallback("recording_smaller")
         if not math.isclose(rw / rh, dw / dh, rel_tol=0.01):
-            return RecordingRead(snapshot, fallback_provenance, "recording_different_shape")
+            return await fallback("recording_different_shape")
         detected_box = restore_frigate_hint_box(box, detection_size)
         crop_box = frigate_snapshot_crop_box(detected_box, detection_size) if detected_box else None
         crop_region = normalize_frigate_hint_box(crop_box, detection_size) if crop_box else None
@@ -258,9 +277,9 @@ async def _read_recording_snapshot_once(
     except TimeoutError:
         # Seen live when several birds arrive together and Frigate decodes several 4K frames at once.
         log.debug("Recording snapshot read ran past its bound", event_id=event_id)
-        return RecordingRead(snapshot, fallback_provenance, "recording_slow")
+        return await fallback("recording_slow")
     except Exception as exc:
         log.debug(
             "Recording snapshot unavailable; keeping detection snapshot", event_id=event_id, error=type(exc).__name__
         )
-        return RecordingRead(snapshot, fallback_provenance, "recording_unavailable")
+        return await fallback("recording_unavailable")
