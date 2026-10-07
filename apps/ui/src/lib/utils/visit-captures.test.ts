@@ -87,3 +87,11 @@ describe('captureFacts', () => {
         ).toBe(false);
     });
 });
+
+describe('captureFacts favourites', () => {
+    it('marks each favourite capture, so several favourites in one visit can be told apart (#481)', () => {
+        expect(captureFacts(capture('a', { is_favorite: true }), visit(3)).favorite).toBe(true);
+        expect(captureFacts(capture('a', { is_favorite: false }), visit(3)).favorite).toBe(false);
+        expect(captureFacts(capture('a'), visit(3)).favorite).toBe(false);
+    });
+});

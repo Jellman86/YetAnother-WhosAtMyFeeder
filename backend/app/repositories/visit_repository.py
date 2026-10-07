@@ -63,6 +63,7 @@ class VisitRepository(DetectionRepository):
             SELECT d.id, d.detection_time, d.score, d.display_name, d.category_name,
                    d.frigate_event, d.camera_name, d.scientific_name, d.common_name,
                    d.species_id, d.taxa_id, d.is_hidden, d.manual_tagged, d.audio_confirmed, d.audio_species, d.audio_score,
+                   EXISTS (SELECT 1 FROM detection_favorites f WHERE f.detection_id = d.id) AS is_favorite,
                    julianday(d.detection_time) AS at,
                    {finish} AS finish, {finish_at} AS finish_at, LOWER(TRIM(COALESCE(d.scientific_name, ''))) AS name_key
             FROM detections d {bounds_join}
@@ -112,9 +113,11 @@ class VisitRepository(DetectionRepository):
             ROW_NUMBER() OVER (
                 PARTITION BY visit_identity, camera_name, visit_number ORDER BY at, id
             ) AS visit_position,
+            -- The owner's favourite leads the visit, so it is the photo the visit
+            -- shows rather than a capture hidden in its stack (#481).
             ROW_NUMBER() OVER (
                 PARTITION BY visit_identity, camera_name, visit_number
-                ORDER BY manual_tagged DESC, score DESC, at DESC, id DESC
+                ORDER BY is_favorite DESC, manual_tagged DESC, score DESC, at DESC, id DESC
             ) AS representative_position,
             ROW_NUMBER() OVER (
                 PARTITION BY visit_identity, camera_name, visit_number ORDER BY at DESC, id DESC
