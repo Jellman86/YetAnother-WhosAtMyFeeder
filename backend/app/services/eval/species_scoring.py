@@ -18,6 +18,7 @@ from typing import Any, Optional
 
 from app.services.model_taxon_map import scientific_name_from_label
 from app.utils.canonical_species import is_unknown_species_label
+from app.utils.classifier_labels import collapse_classifier_label
 
 _BINOMIAL = re.compile(r"^[A-Z][a-z]+ [a-z][a-z-]+$")
 _WORDS = re.compile(r"[a-z]+")
@@ -41,10 +42,11 @@ def _label_identity(label: str) -> tuple[Optional[str], Optional[str]]:
     ambiguous: "Columba livia" and the sentence-case common name "Feral pigeon"
     have the same shape, so it counts both ways.
     """
-    text = label.strip()
-    scientific = scientific_name_from_label(text)
+    scientific = scientific_name_from_label(label.strip())
     if scientific:
         return _genus(scientific), None
+    # Labels can carry a trailing qualifier ("Western Scrub-Jay (ID: 952)").
+    text = collapse_classifier_label(label, strategy="strip_trailing_parenthetical").strip()
     if _BINOMIAL.match(text):
         return _genus(text), _head_noun(text)
     return None, _head_noun(text)

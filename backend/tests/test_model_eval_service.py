@@ -613,7 +613,13 @@ _EU_PREDICTIONS = {
 
 
 async def _run_eu_model_evaluation(
-    tmp_path, monkeypatch, *, catalogue_knows_model: bool, sweep_devices: bool = True, failing_colours=()
+    tmp_path,
+    monkeypatch,
+    *,
+    catalogue_knows_model: bool,
+    sweep_devices: bool = True,
+    failing_colours=(),
+    parent_knows_checksum: bool = True,
 ):
     from PIL import Image
 
@@ -658,7 +664,8 @@ async def _run_eu_model_evaluation(
             return [dict(row) for row in _EU_PREDICTIONS[image.getpixel((0, 0))]]
 
         def active_model_sha256(self):
-            return EU_MODEL_SHA
+            # A subprocess-mode parent never loads the model, so it may not know the checksum.
+            return EU_MODEL_SHA if parent_knows_checksum else None
 
         def get_status(self):
             return {
@@ -693,7 +700,13 @@ async def _run_eu_model_evaluation(
     monkeypatch.setattr(model_manager, "list_installed_models", list_installed_models)
     monkeypatch.setattr(model_manager, "activate_model", activate_model)
     monkeypatch.setattr(model_manager, "active_model_id", "eu_model")
-    monkeypatch.setattr(model_manager, "get_active_model_spec", lambda: {})
+    monkeypatch.setattr(
+        model_manager, "get_active_model_spec", lambda: {"model_id": "eu_model", "resolved_region": None}
+    )
+    monkeypatch.setattr(
+        "app.services.catalogue_labels.published_model_sha256",
+        lambda model_id, region=None: EU_MODEL_SHA if model_id == "eu_model" else None,
+    )
     monkeypatch.setattr(
         species_catalog_resolver,
         "resolve_scientific_name",
@@ -792,3 +805,15 @@ async def test_which_birds_a_model_can_name_does_not_depend_on_inference_succeed
 
     assert all(row["taxa_id"] != 2 for row in rows)
     assert model["species_outside_vocabulary"] == 1
+
+
+@pytest.mark.asyncio
+async def test_a_subprocess_install_still_scores_by_species(tmp_path, monkeypatch):
+    """The default subprocess mode never loads the model in the main process, so the harness takes the
+    evaluated model's checksum from the registry, as the catalogue does."""
+    model, _rows, _events = await _run_eu_model_evaluation(
+        tmp_path, monkeypatch, catalogue_knows_model=True, parent_knows_checksum=False
+    )
+
+    assert model["vocabulary_known"] is True
+    assert model["top1_accuracy_in_vocabulary"] == 1.0

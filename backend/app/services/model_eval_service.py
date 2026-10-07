@@ -1375,15 +1375,35 @@ def _catalogue_species_ids(panel: list[SpeciesEntry]) -> dict[int, int]:
     return resolved
 
 
+def _evaluated_model_sha256(classifier_service: Any) -> Optional[str]:
+    """The checksum the catalogue keys the evaluated model on.
+
+    The registry's published checksum for the active model and region comes first:
+    a subprocess-mode parent (the default) never loads the model itself. A custom
+    model has none, so it falls back to the checksum the classifier recorded.
+    """
+    from app.services.catalogue_labels import published_model_sha256
+    from app.services.model_manager import model_manager
+
+    try:
+        spec = dict(model_manager.get_active_model_spec() or {})
+        published = published_model_sha256(str(spec.get("model_id") or ""), region=spec.get("resolved_region"))
+        if published:
+            return published
+    except Exception as e:
+        log.warning("model_eval_published_checksum_unavailable", error=str(e))
+    try:
+        return classifier_service.active_model_sha256()
+    except Exception as e:
+        log.warning("model_eval_model_checksum_unavailable", error=str(e))
+        return None
+
+
 def _model_vocabulary(classifier_service: Any) -> Optional[ModelVocabulary]:
     """The species the loaded model can name, or None when the catalogue does not know the model."""
     from app.services.species_catalog_resolver import species_catalog_resolver
 
-    try:
-        model_sha256 = classifier_service.active_model_sha256()
-    except Exception as e:
-        log.warning("model_eval_model_checksum_unavailable", error=str(e))
-        return None
+    model_sha256 = _evaluated_model_sha256(classifier_service)
     outputs = species_catalog_resolver.species_outputs(model_sha256)
     if outputs is None:
         return None

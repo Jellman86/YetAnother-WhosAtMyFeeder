@@ -144,3 +144,11 @@ def test_a_hyphenated_name_is_matched_on_its_last_word():
         gaps.can_name(ROCK_PIGEON, scientific_name="Streptopelia decaocto", common_name="Eurasian Collared-Dove")
         is None
     )
+
+
+def test_a_qualified_label_is_read_without_its_qualifier():
+    """The NA small_birds mapping holds unresolved labels like "Western Scrub-Jay (ID: 952)"; reading the
+    last word of that gives "id", which set California Scrub-Jay aside wrongly."""
+    gaps = ModelVocabulary({0: STARLING}, unresolved_labels=("Western Scrub-Jay (ID: 952)",))
+
+    assert gaps.can_name(BLUE_JAY, scientific_name="Aphelocoma californica", common_name="California Scrub-Jay") is None
