@@ -2886,6 +2886,7 @@ class AutoVideoClassifierService:
             video_provider=result.get("inference_provider"),
             video_backend=result.get("inference_backend"),
             video_model_id=result.get("model_id"),
+            video_model_sha256=result.get("model_sha256"),
             video_input_source=result.get("input_source"),
             video_diagnostics=video_diagnostics,
             manual_tagged=manual_tagged,

@@ -1543,6 +1543,8 @@ async def test_hq_consensus_uses_canonical_detection_update_path(monkeypatch):
             "video_provider": "intel_gpu",
             "video_backend": "openvino",
             "video_model_id": "eva02_large_inat21",
+            # The candidates carry no producing checksum, so no provenance is borrowed.
+            "video_model_sha256": None,
             "persist_video_result": False,
         }
     ]

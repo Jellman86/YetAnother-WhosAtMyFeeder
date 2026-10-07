@@ -85,17 +85,21 @@ def test_a_subprocess_parent_knows_the_checksum_from_startup(tmp_path, monkeypat
     assert service.active_model_sha256() == hashlib.sha256(b"startup weights").hexdigest()
 
 
-def test_each_result_carries_the_checksum_of_the_model_that_produced_it(tmp_path, monkeypatch):
+def test_each_result_carries_the_checksum_the_model_instance_was_loaded_with(tmp_path, monkeypatch):
     """Provenance is bound at inference time, in the process that ran the model, so a model switch while
-    the event is still being saved cannot pair one model's output index with another model's identity."""
+    the event is still being saved cannot pair one model's output index with another model's identity.
+    It comes from the loaded instance, not the file: a reinstall can replace the file under a running
+    instance, and hashing it then would credit the old weights' output to the new file."""
     from PIL import Image
 
     from app.services import classifier_service as module
 
-    weights = tmp_path / "rope.onnx"
-    weights.write_bytes(b"rope weights")
+    replaced_file = tmp_path / "rope.onnx"
+    replaced_file.write_bytes(b"weights installed after this instance loaded")
     service = ClassifierService()
-    service._models["bird"] = type("Bird", (), {"model_path": str(weights), "loaded": True})()
+    service._models["bird"] = type(
+        "Bird", (), {"model_path": str(replaced_file), "model_sha256": "c" * 64, "loaded": True}
+    )()
     monkeypatch.setattr(service, "_maybe_restore_gpu_provider", lambda: None)
     monkeypatch.setattr(service, "_resolve_bird_classification_image", lambda image, input_context: (image, {}))
     monkeypatch.setattr(
@@ -106,7 +110,7 @@ def test_each_result_carries_the_checksum_of_the_model_that_produced_it(tmp_path
 
     results = service.classify(Image.new("RGB", (8, 8)))
 
-    assert results[0]["model_sha256"] == hashlib.sha256(b"rope weights").hexdigest()
+    assert results[0]["model_sha256"] == "c" * 64
 
 
 @pytest.mark.asyncio
@@ -116,15 +120,10 @@ async def test_detection_provenance_comes_from_the_result_not_the_currently_load
 
     resolved_with: list[str] = []
 
-    class SwitchedClassifier:
-        def active_model_sha256(self):
-            return "b" * 64  # the model loaded after the switch
-
     def shadow_resolve(sha, index, name, event):
         resolved_with.append(sha)
         return ShadowResolution(verdict="agree", species_id=5, model_artifact_id=3, model_output_index=index)
 
-    monkeypatch.setattr(module, "get_classifier", lambda: SwitchedClassifier())
     monkeypatch.setattr(module.species_catalog_resolver, "shadow_resolve", shadow_resolve)
 
     result = await module._catalog_shadow_resolution(
@@ -139,17 +138,12 @@ async def test_detection_provenance_comes_from_the_result_not_the_currently_load
 async def test_a_result_that_does_not_say_which_model_produced_it_records_no_provenance(monkeypatch):
     from app.services import detection_service as module
 
-    class LoadedClassifier:
-        def active_model_sha256(self):
-            return "b" * 64
-
     attempts: list[tuple] = []
 
     def shadow_resolve(*args):
         attempts.append(args)
         raise AssertionError("an unattributed result must not be resolved against whatever model is loaded now")
 
-    monkeypatch.setattr(module, "get_classifier", lambda: LoadedClassifier())
     monkeypatch.setattr(module.species_catalog_resolver, "shadow_resolve", shadow_resolve)
 
     result = await module._catalog_shadow_resolution({"index": 7, "label": "Dunnock"}, "Prunella modularis", "evt")
@@ -167,3 +161,42 @@ def test_the_unknown_bird_catchall_keeps_the_producing_models_checksum():
     )
 
     assert catchall["model_sha256"] == "a" * 64
+
+
+@pytest.mark.asyncio
+async def test_a_video_refinement_is_attributed_to_the_model_that_produced_it(monkeypatch):
+    """Regional variants share a model id, so after a region switch the loaded model's checksum would
+    pair the old region's output index with the new region's identity."""
+    from app.services import detection_service as module
+    from app.services.species_catalog_resolver import ShadowResolution
+
+    resolved_with: list[str] = []
+
+    def shadow_resolve(sha, index, name, event):
+        resolved_with.append(sha)
+        return ShadowResolution(verdict="agree", species_id=5, model_artifact_id=3, model_output_index=index)
+
+    monkeypatch.setattr(module.species_catalog_resolver, "shadow_resolve", shadow_resolve)
+
+    result = await module._catalog_identity_for_refinement(7, "Cyanistes caeruleus", "evt", model_sha256="a" * 64)
+
+    assert resolved_with == ["a" * 64]
+    assert result.model_output_index == 7
+
+
+@pytest.mark.asyncio
+async def test_a_video_refinement_without_its_producing_checksum_records_no_provenance(monkeypatch):
+    from app.services import detection_service as module
+
+    attempts: list[tuple] = []
+
+    def shadow_resolve(*args):
+        attempts.append(args)
+        raise AssertionError("must not resolve against the loaded model")
+
+    monkeypatch.setattr(module.species_catalog_resolver, "shadow_resolve", shadow_resolve)
+
+    result = await module._catalog_identity_for_refinement(7, "Cyanistes caeruleus", "evt", model_sha256=None)
+
+    assert attempts == []
+    assert result.verdict == "unavailable"

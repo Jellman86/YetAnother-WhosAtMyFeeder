@@ -996,6 +996,12 @@ def _safe_sha256_file(path: str) -> str | None:
     return digest.hexdigest()
 
 
+def _instance_model_sha256(model: Any) -> str | None:
+    """The registry checksum a model instance was constructed with, the key the species catalogue uses."""
+    value = str(getattr(model, "model_sha256", "") or "").strip().lower()
+    return value or None
+
+
 def _extract_model_artifact_metadata(model_path: str) -> dict[str, Any]:
     model_file = Path(str(model_path or ""))
     metadata: dict[str, Any] = {
@@ -5921,10 +5927,11 @@ class ClassifierService:
                 results = _invoke_model_classify(bird, crop_image, input_context=normalized_input_context)
                 if self._inference_backend == "openvino" and self._active_inference_provider == "intel_gpu":
                     self._record_gpu_success()
-                # Bound here, by the model instance that ran: a model switch while the
+                # Bound here, from the model instance that ran: a model switch while the
                 # event is still being saved must not pair this output index with
-                # another model's identity in the catalogue.
-                model_sha256 = artifact_digest(str(getattr(bird, "model_path", "") or ""))
+                # another model's identity, and a reinstall can replace the file under
+                # a running instance, so the checksum it was loaded with is the truth.
+                model_sha256 = _instance_model_sha256(bird)
                 if model_sha256:
                     for result in results:
                         if isinstance(result, dict):
@@ -7246,6 +7253,7 @@ class ClassifierService:
                         "inference_backend": str(self._inference_backend or ""),
                         "model_id": str(active_model_id or ""),
                         "model_name": model_name,
+                        "model_sha256": _instance_model_sha256(bird_model),
                         "input_source": input_source,
                         "input_is_cropped": input_source != "full_frame",
                         "event_target_selected": event_target_selected,

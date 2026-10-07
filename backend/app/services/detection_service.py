@@ -4,7 +4,7 @@ import asyncio
 import math
 from app.config import settings
 from app.repositories.detection_repository import INITIAL_LABEL_SOURCE_FRIGATE_SUBLABEL, Detection, DetectionRepository
-from app.services.classifier_service import ClassifierService, get_classifier
+from app.services.classifier_service import ClassifierService
 from app.services.species_catalog_resolver import ShadowResolution, species_catalog_resolver
 from app.services.broadcaster import broadcaster
 from app.services.taxonomy.taxonomy_service import taxonomy_service
@@ -56,25 +56,24 @@ async def _catalog_shadow_resolution(
 
 
 async def _catalog_identity_for_refinement(
-    refinement_model_id: str | None, output_index: int | None, scientific_name: str | None, frigate_event: str
+    output_index: int | None,
+    scientific_name: str | None,
+    frigate_event: str,
+    *,
+    model_sha256: str | None,
 ) -> ShadowResolution:
-    """Shadow-resolve a queued refinement result, guarding against model swaps.
+    """Shadow-resolve a queued refinement result through the model that produced it.
 
-    A video result can be applied after the owner switches models; attributing
-    it to the currently loaded artifact would record false provenance, so the
-    result resolves only while the refining model is still the active one.
+    A video result can be applied after the owner switches models, or switches a
+    regional model's region, which keeps its model id. Only the checksum carried
+    with the result names the producing weights; without one, no provenance is
+    recorded rather than borrowing the loaded model's.
     """
     if not isinstance(output_index, int) or output_index < 0:
         return ShadowResolution(verdict="unavailable")
+    if not isinstance(model_sha256, str) or not model_sha256:
+        return ShadowResolution(verdict="unavailable")
     try:
-        classifier = get_classifier()
-        status = classifier.get_status()
-        current_model_id = str(status.get("effective_model_id") or status.get("active_model_id") or "").strip()
-        if refinement_model_id and current_model_id and refinement_model_id != current_model_id:
-            return ShadowResolution(verdict="unavailable")
-        model_sha256 = classifier.active_model_sha256()
-        if not model_sha256:
-            return ShadowResolution(verdict="unavailable")
         return await asyncio.to_thread(
             species_catalog_resolver.shadow_resolve,
             model_sha256,
@@ -654,6 +653,7 @@ class DetectionService:
         video_input_source: str | None = None,
         video_diagnostics: dict | None = None,
         persist_video_result: bool = True,
+        video_model_sha256: str | None = None,
     ):
         """
         Process a trustworthy asynchronous classification result.
@@ -873,7 +873,7 @@ class DetectionService:
                     audio_confirmed, audio_species, audio_score = False, None, None
 
                 shadow = await _catalog_identity_for_refinement(
-                    video_model_id, video_index, scientific_name, frigate_event
+                    video_index, scientific_name, frigate_event, model_sha256=video_model_sha256
                 )
 
                 primary_updated = await repo.update_primary_classification(
