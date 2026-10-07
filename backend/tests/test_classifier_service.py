@@ -6907,7 +6907,7 @@ async def test_a_video_result_carries_the_checksum_of_the_model_that_produced_it
     """A video result can be applied after a model switch, and regional variants share a model id, so the
     result must name the producing weights itself."""
     model = types.SimpleNamespace(
-        loaded=True, labels=["Baeolophus bicolor", "Cardinalis cardinalis"], model_sha256="c" * 64
+        loaded=True, labels=["Baeolophus bicolor", "Cardinalis cardinalis"], loaded_artifact_sha256="c" * 64
     )
     with patch.object(ClassifierService, "_init_bird_model", return_value=None):
         service = ClassifierService()

@@ -98,7 +98,7 @@ def test_each_result_carries_the_checksum_the_model_instance_was_loaded_with(tmp
     replaced_file.write_bytes(b"weights installed after this instance loaded")
     service = ClassifierService()
     service._models["bird"] = type(
-        "Bird", (), {"model_path": str(replaced_file), "model_sha256": "c" * 64, "loaded": True}
+        "Bird", (), {"model_path": str(replaced_file), "loaded_artifact_sha256": "c" * 64, "loaded": True}
     )()
     monkeypatch.setattr(service, "_maybe_restore_gpu_provider", lambda: None)
     monkeypatch.setattr(service, "_resolve_bird_classification_image", lambda image, input_context: (image, {}))
@@ -200,3 +200,17 @@ async def test_a_video_refinement_without_its_producing_checksum_records_no_prov
 
     assert attempts == []
     assert result.verdict == "unavailable"
+
+
+@pytest.mark.parametrize("instance_class", ["ModelInstance", "ONNXModelInstance", "OpenVINOModelInstance"])
+def test_every_model_class_records_the_digest_of_the_file_it_loads(tmp_path, instance_class):
+    """Every backend and every fallback builds one of these, so binding the identity here covers them all,
+    including a fallback that loads different weights from the active model."""
+    from app.services import classifier_service as module
+
+    weights = tmp_path / "model.bin"
+    weights.write_bytes(b"weights this instance loads")
+
+    instance = getattr(module, instance_class)("bird", str(weights), str(tmp_path / "labels.txt"))
+
+    assert instance.loaded_artifact_sha256 == hashlib.sha256(b"weights this instance loads").hexdigest()

@@ -1908,6 +1908,7 @@ async def reclassify_event(
             video_provider=top.get("inference_provider"),
             video_backend=top.get("inference_backend"),
             video_model_id=top.get("model_id"),
+            video_model_sha256=top.get("model_sha256"),
             video_input_source=top.get("input_source"),
         )
 

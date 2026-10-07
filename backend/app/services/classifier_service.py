@@ -997,8 +997,8 @@ def _safe_sha256_file(path: str) -> str | None:
 
 
 def _instance_model_sha256(model: Any) -> str | None:
-    """The registry checksum a model instance was constructed with, the key the species catalogue uses."""
-    value = str(getattr(model, "model_sha256", "") or "").strip().lower()
+    """The digest of the weights a model instance loaded, the key the species catalogue uses."""
+    value = str(getattr(model, "loaded_artifact_sha256", "") or "").strip().lower()
     return value or None
 
 
@@ -1880,6 +1880,10 @@ class ModelInstance:
         # None means "read the label file", which is what every caller that has
         # not been given a checksum should keep doing.
         self.model_sha256 = model_sha256
+        # The weights this instance loads, bound now: results carry it as their
+        # provenance, and a reinstall can replace the file under a running instance.
+        # Every backend and fallback is built here, including one loading other weights.
+        self.loaded_artifact_sha256 = artifact_digest(model_path)
         self.interpreter = None
         self.labels: list[str] = []
         self.grouped_labels: list[str] = []
@@ -2179,6 +2183,10 @@ class ONNXModelInstance:
         # None means "read the label file", which is what any caller without a
         # checksum should keep doing.
         self.model_sha256 = model_sha256
+        # The weights this instance loads, bound now: results carry it as their
+        # provenance, and a reinstall can replace the file under a running instance.
+        # Every backend and fallback is built here, including one loading other weights.
+        self.loaded_artifact_sha256 = artifact_digest(model_path)
         self.input_size = input_size
         self.ort_providers = list(ort_providers or ["CPUExecutionProvider"])
         self.session = None
@@ -2434,6 +2442,10 @@ class OpenVINOModelInstance:
         # None means "read the label file", which is what any caller without a
         # checksum should keep doing.
         self.model_sha256 = model_sha256
+        # The weights this instance loads, bound now: results carry it as their
+        # provenance, and a reinstall can replace the file under a running instance.
+        # Every backend and fallback is built here, including one loading other weights.
+        self.loaded_artifact_sha256 = artifact_digest(model_path)
         self.input_size = input_size
         self.device_name = device_name
         self._startup_self_test_enabled = (
@@ -5929,8 +5941,7 @@ class ClassifierService:
                     self._record_gpu_success()
                 # Bound here, from the model instance that ran: a model switch while the
                 # event is still being saved must not pair this output index with
-                # another model's identity, and a reinstall can replace the file under
-                # a running instance, so the checksum it was loaded with is the truth.
+                # another model's identity.
                 model_sha256 = _instance_model_sha256(bird)
                 if model_sha256:
                     for result in results:
