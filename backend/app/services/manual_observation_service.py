@@ -653,6 +653,17 @@ class ManualObservationService:
             path = draft_dir / draft.source_filename
         return path if path.is_file() else None
 
+    async def video_path_for_event(self, event_id: str) -> Path | None:
+        """The uploaded video of a saved observation; None for a photo upload."""
+        if not event_id.startswith("manual_"):
+            return None
+        async with get_db() as db:
+            draft = await ManualObservationRepository(db).get_by_event_id(event_id)
+        if draft is None or draft.media_type != "video":
+            return None
+        path = self.directory(draft.id) / draft.source_filename
+        return path if path.is_file() else None
+
     async def species_photo_path(self, draft_id: str, position: int, *, scene: bool) -> Path | None:
         draft = await self.get(draft_id)
         # The file name comes from the draft's own suggestion list, never from the requested number.
