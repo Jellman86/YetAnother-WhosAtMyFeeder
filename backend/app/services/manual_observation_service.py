@@ -53,6 +53,20 @@ def _name_key(value: object) -> str:
     return " ".join(str(value or "").replace("_", " ").split()).casefold()
 
 
+def _replace_chosen_photo(draft_dir: Path, content: bytes) -> bool:
+    """Atomically make ``content`` a saved upload's photo. Returns whether it changed."""
+    chosen = draft_dir / CHOSEN_PHOTO_FILENAME
+    if chosen.is_file() and chosen.read_bytes() == content:
+        return False
+    staging = draft_dir / f".{CHOSEN_PHOTO_FILENAME}.{uuid.uuid4().hex}.tmp"
+    try:
+        staging.write_bytes(content)
+        os.replace(staging, chosen)
+    finally:
+        staging.unlink(missing_ok=True)
+    return True
+
+
 def _result_for_species(results: list[dict], names: list[str | None]) -> tuple[int, dict] | None:
     """Find the suggestion a confirmed name refers to, whichever of its names the person used."""
     wanted = {_name_key(name) for name in names if _name_key(name)}
@@ -484,7 +498,20 @@ class ManualObservationService:
         normalized_label = " ".join(label.split())[:255]
         if not normalized_label:
             raise HTTPException(status_code=422, detail="Choose or enter a species before saving.")
-        taxonomy = await taxonomy_service.get_names(normalized_label)
+        taxonomy = dict(await taxonomy_service.get_names(normalized_label) or {})
+        if not taxonomy.get("common_name") and taxonomy.get("taxa_id"):
+            # The events list fills a missing common name from the taxon, but a live
+            # update carries the stored one, so an upload saved without it fell back
+            # to its scientific name a while after being saved.
+            taxonomy["common_name"] = await taxonomy_service.get_canonical_english_name(int(taxonomy["taxa_id"]))
+        common_name = taxonomy.get("common_name")
+        scientific_name = taxonomy.get("scientific_name")
+        if settings.classification.display_common_names and common_name:
+            display_name = str(common_name)
+        elif not settings.classification.display_common_names and scientific_name:
+            display_name = str(scientific_name)
+        else:
+            display_name = normalized_label
         top_result = (draft.results or [{}])[0]
         matching = next(
             (
@@ -529,7 +556,7 @@ class ManualObservationService:
             detection_index=0,
             species_id=species_id,
             score=max(0.0, min(1.0, score)),
-            display_name=normalized_label,
+            display_name=display_name,
             category_name=normalized_label,
             frigate_event=event_id,
             camera_name=(" ".join(camera_name.split()) or "Manual upload")[:100],
@@ -598,16 +625,7 @@ class ManualObservationService:
                     return False
                 chosen.unlink()
                 return True
-            content = source.read_bytes()
-            if chosen.is_file() and chosen.read_bytes() == content:
-                return False
-            staging = draft_dir / f".{CHOSEN_PHOTO_FILENAME}.{uuid.uuid4().hex}.tmp"
-            try:
-                staging.write_bytes(content)
-                os.replace(staging, chosen)
-            finally:
-                staging.unlink(missing_ok=True)
-            return True
+            return _replace_chosen_photo(draft_dir, source.read_bytes())
 
         try:
             return await asyncio.to_thread(apply)
@@ -615,6 +633,33 @@ class ManualObservationService:
             # The species change itself has already been saved; a photo that cannot follow keeps the old one.
             log.warning("Manual observation photo could not follow the species", draft_id=draft.id, error=str(exc))
             return False
+
+    async def use_photo(self, event_id: str, content: bytes) -> bool:
+        """Make an owner-chosen frame a saved upload's photo. Returns whether the photo changed.
+
+        An upload's photo is its own file, served ahead of the media cache, so a
+        frame chosen in the record has to land here to be the photo it shows.
+        """
+        if not event_id.startswith("manual_") or not content:
+            return False
+        async with get_db() as db:
+            draft = await ManualObservationRepository(db).get_by_event_id(event_id)
+        if draft is None:
+            return False
+        return await asyncio.to_thread(_replace_chosen_photo, self.directory(draft.id), content)
+
+    async def restore_species_photo(self, event_id: str) -> bool:
+        """Undo a chosen frame: an upload's original photo is its species' best frame, or the upload itself."""
+        if not event_id.startswith("manual_"):
+            return False
+        async with get_db() as db:
+            draft = await ManualObservationRepository(db).get_by_event_id(event_id)
+            detection = await DetectionRepository(db).get_by_frigate_event(event_id)
+        if draft is None or detection is None:
+            return False
+        return await self._use_photo_of(
+            draft, [detection.display_name, detection.scientific_name, detection.common_name]
+        )
 
     async def follow_species(self, event_id: str, names: list[str | None]) -> bool:
         """Keep a saved upload's photo on the bird its species now names. Returns whether the photo changed."""

@@ -1813,6 +1813,24 @@ async def _apply_snapshot_candidate(request_body: SnapshotApplyRequest, event_id
 
     from app.services.media_cache import media_cache
 
+    if request_body.mode == "revert_original" and event_id.startswith("manual_"):
+        # Frigate never had an upload; its original photo is its species' best frame.
+        from app.services.manual_observation_service import manual_observation_service
+
+        await manual_observation_service.restore_species_photo(event_id)
+        async with get_db() as db:
+            await DetectionRepository(db).mark_selected_snapshot_candidate(event_id, None)
+        from app.services.archive_service import archive_service
+
+        await archive_service.refresh_photograph(event_id)
+        after = await _build_snapshot_status(event_id)
+        return SnapshotApplyResponse(
+            **after.model_dump(),
+            status="applied",
+            applied_mode=request_body.mode,
+            applied_candidate_id=None,
+        )
+
     if request_body.mode == "revert_original":
         snapshot_bytes = await frigate_client.get_snapshot(event_id, crop=True, quality=95)
         if not snapshot_bytes:
@@ -1866,6 +1884,11 @@ async def _apply_snapshot_candidate(request_body: SnapshotApplyRequest, event_id
     )
     if not replaced:
         raise HTTPException(status_code=409, detail="Snapshot apply failed")
+    if event_id.startswith("manual_"):
+        # An upload's photo is its own file, served ahead of the media cache.
+        from app.services.manual_observation_service import manual_observation_service
+
+        await manual_observation_service.use_photo(event_id, image_bytes)
     applied_candidate_id = str(candidate.get("candidate_id") or "")
     async with get_db() as db:
         await DetectionRepository(db).mark_selected_snapshot_candidate(event_id, applied_candidate_id)

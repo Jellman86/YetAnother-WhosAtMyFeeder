@@ -303,3 +303,103 @@ async def test_photo_follows_a_correction_without_holding_a_database_connection(
         assert colour[2] > 200, "the bulk correction should also have moved the photo back to the woodpecker"
     finally:
         assert (await client.delete(f"/api/events/{event_id}")).status_code == 200
+
+
+def _jpeg(colour: tuple[int, int, int], size: tuple[int, int] = (20, 20)) -> bytes:
+    buffer = io.BytesIO()
+    Image.new("RGB", size, colour).save(buffer, format="JPEG")
+    return buffer.getvalue()
+
+
+@pytest.mark.asyncio
+async def test_a_frame_chosen_for_an_upload_becomes_its_photo_and_reverting_restores_the_species_photo(
+    client: httpx.AsyncClient, tmp_path
+):
+    """An upload's photo is its own file, served ahead of the media cache, so a frame applied only to the
+    cache never showed; and its "original" is the species photo, not a Frigate snapshot it never had."""
+    from app.repositories.detection_repository import DetectionRepository
+    from app.services.media_cache import media_cache
+
+    draft = await _analysed_video_draft(client, tmp_path)
+    with patch("app.services.manual_observation_service.taxonomy_service.get_names", new=AsyncMock(side_effect=_names)):
+        saved = await client.post(f"/api/manual-observations/{draft['id']}/confirm", json={"label": "Downy Woodpecker"})
+    event_id = saved.json()["event_id"]
+    chosen = _jpeg((220, 30, 30))
+    candidate = {
+        "candidate_id": "frame-1",
+        "frame_index": 3,
+        "frame_offset_seconds": 0.1,
+        "source_mode": "model_crop",
+        "clip_variant": "manual_upload",
+        "crop_box": [4, 4, 16, 16],
+        "selected": False,
+        "image_ref": f"{event_id}__frame-1__image",
+        "snapshot_source": "hq_candidate_model_crop",
+    }
+
+    async def cached(key):
+        return chosen if key == candidate["image_ref"] else None
+
+    async def photo_colour() -> tuple[int, int, int]:
+        response = await client.get(f"/api/frigate/{event_id}/snapshot.jpg")
+        assert response.status_code == 200
+        return _dominant(response.content)[1]
+
+    try:
+        assert (await photo_colour())[2] > 200, "starts on the woodpecker"
+        with (
+            patch.object(DetectionRepository, "list_snapshot_candidates", new=AsyncMock(return_value=[candidate])),
+            patch.object(DetectionRepository, "mark_selected_snapshot_candidate", new=AsyncMock()),
+            patch.object(media_cache, "get_snapshot", new=AsyncMock(side_effect=cached)),
+            patch.object(media_cache, "get_snapshot_metadata", new=AsyncMock(return_value={})),
+            patch.object(media_cache, "replace_snapshot", new=AsyncMock(return_value=True)),
+            patch("app.services.archive_service.archive_service.refresh_photograph", new=AsyncMock()),
+        ):
+            applied = await client.post(
+                f"/api/frigate/{event_id}/snapshot/apply", json={"mode": "candidate", "candidate_id": "frame-1"}
+            )
+            assert applied.status_code == 200, applied.text
+            colour = await photo_colour()
+            assert colour[0] > 200 and colour[2] < 60, "the chosen frame is the photo now"
+
+            reverted = await client.post(f"/api/frigate/{event_id}/snapshot/apply", json={"mode": "revert_original"})
+            assert reverted.status_code == 200, reverted.text
+        assert (await photo_colour())[2] > 200, "back on the species photo"
+    finally:
+        assert (await client.delete(f"/api/events/{event_id}")).status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_an_upload_keeps_its_common_name_when_the_lookup_returns_none(client: httpx.AsyncClient, tmp_path):
+    """The list filled a missing common name from the taxon id, but live updates sent the stored empty one,
+    so an uploaded bird dropped back to its scientific name after a while."""
+    from app.database import get_db
+    from app.repositories.detection_repository import DetectionRepository
+
+    draft = await _analysed_video_draft(client, tmp_path)
+
+    async def names_without_common(label: str, *_args, **_kwargs) -> dict:
+        return {"scientific_name": "Archilochus colubris", "common_name": None, "taxa_id": 6432}
+
+    with (
+        patch(
+            "app.services.manual_observation_service.taxonomy_service.get_names",
+            new=AsyncMock(side_effect=names_without_common),
+        ),
+        patch(
+            "app.services.manual_observation_service.taxonomy_service.get_canonical_english_name",
+            new=AsyncMock(return_value="Ruby-throated Hummingbird"),
+        ),
+    ):
+        saved = await client.post(
+            f"/api/manual-observations/{draft['id']}/confirm", json={"label": "Archilochus colubris"}
+        )
+    assert saved.status_code == 200, saved.text
+    event_id = saved.json()["event_id"]
+    try:
+        async with get_db() as db:
+            detection = await DetectionRepository(db).get_by_frigate_event(event_id)
+        assert detection.common_name == "Ruby-throated Hummingbird"
+        assert detection.display_name == "Ruby-throated Hummingbird"
+    finally:
+        assert (await client.delete(f"/api/events/{event_id}")).status_code == 200
