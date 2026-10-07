@@ -5921,6 +5921,14 @@ class ClassifierService:
                 results = _invoke_model_classify(bird, crop_image, input_context=normalized_input_context)
                 if self._inference_backend == "openvino" and self._active_inference_provider == "intel_gpu":
                     self._record_gpu_success()
+                # Bound here, by the model instance that ran: a model switch while the
+                # event is still being saved must not pair this output index with
+                # another model's identity in the catalogue.
+                model_sha256 = artifact_digest(str(getattr(bird, "model_path", "") or ""))
+                if model_sha256:
+                    for result in results:
+                        if isinstance(result, dict):
+                            result["model_sha256"] = model_sha256
                 return self._attach_classification_input_provenance(
                     results,
                     input_context=normalized_input_context,

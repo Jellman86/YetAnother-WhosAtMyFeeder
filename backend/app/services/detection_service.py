@@ -37,10 +37,12 @@ async def _catalog_shadow_resolution(
     output_index = classification.get("index")
     if not isinstance(output_index, int) or output_index < 0:
         return ShadowResolution(verdict="unavailable")
+    # Only the checksum the producing model stamped on its result: the model loaded
+    # now may have been switched in since this result was computed.
+    model_sha256 = classification.get("model_sha256")
+    if not isinstance(model_sha256, str) or not model_sha256:
+        return ShadowResolution(verdict="unavailable")
     try:
-        model_sha256 = get_classifier().active_model_sha256()
-        if not model_sha256:
-            return ShadowResolution(verdict="unavailable")
         return await asyncio.to_thread(
             species_catalog_resolver.shadow_resolve,
             model_sha256,
@@ -120,6 +122,7 @@ class DetectionService:
                     "inference_backend",
                     "model_id",
                     "model_name",
+                    "model_sha256",
                     "input_source",
                     "input_is_cropped",
                 )
