@@ -6,6 +6,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- A large model on an Intel NPU no longer fails every identification after it is first chosen.
+  Compiling ConvNeXt Large for the NPU takes about 16 seconds the first time, longer than the
+  request that started the classifier worker was allowed to wait. When that request gave up, the
+  half-loaded worker was stopped with it, so the compile was never cached and every later request
+  started it again and gave up too: a model evaluation scored ConvNeXt 0% because all 299 images
+  timed out. The worker now finishes loading on its own and serves the next request; after that
+  the cached compile takes under a second.
 - **Birds found in this capture** points out the bird a visit's name is about. When several birds
   are counted, the one Frigate tracked is labelled **Being named** on the scene and in the list,
   even when the name is too uncertain to lend it. If no single bird matches, it says the name cannot
