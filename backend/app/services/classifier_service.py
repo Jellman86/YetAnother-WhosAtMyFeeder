@@ -2974,6 +2974,23 @@ class ClassifierService:
                 startup_status.mark_failed("loading_model")
                 raise
             startup_status.publish("model_ready" if self.model_loaded else "model_unavailable", 60)
+        else:
+            self._record_worker_model_identity()
+
+    def _record_worker_model_identity(self) -> None:
+        """Record the checksum of the model the workers load, without loading it here.
+
+        A subprocess-mode parent never runs ``_init_bird_model``, which is where the
+        checksum was recorded, so ``active_model_sha256`` stayed None and no detection
+        was ever tied to the model that produced it through the species catalogue.
+        A missing file leaves no checksum rather than a previous model's.
+        """
+        try:
+            model_path = str(self._resolve_active_bird_model_spec().get("model_path") or "")
+            self._bird_model_artifact_metadata = {"model_sha256": artifact_digest(model_path)}
+        except Exception as error:
+            self._bird_model_artifact_metadata = {}
+            log.warning("Could not record the active model checksum for the workers", error=str(error))
 
     def _get_model_paths(self, model_file: str, labels_file: str) -> tuple[str, str]:
         """Get full paths for model and labels files."""
@@ -4458,6 +4475,8 @@ class ClassifierService:
                 # should be using supervisor workers instead.
                 if self._worker_process_mode or self._image_execution_mode != "subprocess":
                     self._init_bird_model()
+                else:
+                    self._record_worker_model_identity()
 
         # Model init loads weights and re-detects hardware, which spawns child
         # processes. A reload is triggered from request handlers' background

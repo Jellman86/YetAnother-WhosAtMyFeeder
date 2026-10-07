@@ -6,6 +6,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- In the default **Subprocess (Isolated)** mode, detections are tied to the model that produced
+  them again. The main process never loads the model, and it only recorded the model's checksum
+  when it did, so no detection got its model and output recorded and the species catalogue's
+  check that the model and the label agree on a bird never ran. The test install had none of its
+  663 detections tied to a model. The checksum is now taken from the model file the workers
+  load, at start-up and on every model switch.
 - The bundled **MobileNet V2 Birds** model sees the photo again. Its pixels were converted twice,
   which turned every image almost white, so it named nearly everything American White Pelican and
   scored 0.3% in a model evaluation. On twenty feeder photos of species it knows it now gets 9
