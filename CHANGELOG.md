@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- The bundled **MobileNet V2 Birds** model sees the photo again. Its pixels were converted twice,
+  which turned every image almost white, so it named nearly everything American White Pelican and
+  scored 0.3% in a model evaluation. On twenty feeder photos of species it knows it now gets 9
+  right, from none before.
 - A large model on an Intel NPU no longer fails every identification after it is first chosen.
   Compiling ConvNeXt Large for the NPU takes about 16 seconds the first time, longer than the
   request that started the classifier worker was allowed to wait. When that request gave up, the
