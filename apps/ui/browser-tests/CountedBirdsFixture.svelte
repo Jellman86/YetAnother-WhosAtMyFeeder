@@ -68,6 +68,8 @@
 
     const setups: Record<string, { birds: BirdObservation[]; candidates: SnapshotCandidate[]; photograph: SnapshotCandidate | null }> = {
         cardinal: { birds: cardinal, candidates: [portrait, scene('fixture__full_frame__f75__ghi', '/api/fixture/f75.svg', { frame_index: 75 }), scene(SCENE, '/api/fixture/scene-3840.svg')], photograph: portrait },
+        // Needs your call (#481): the visit's name is about the bird Frigate tracked, here the uncertain one.
+        tracked: { birds: cardinal.map((item) => ({ ...item, tracked: item.id === 3 })), candidates: [scene(SCENE, '/api/fixture/scene-3840.svg')], photograph: null },
         many: { birds: manyBirds(), candidates: [scene(SCENE, '/api/fixture/scene-3840.svg')], photograph: null },
         resized: { birds: cardinal, candidates: [scene(SCENE, '/api/fixture/scene-960.svg')], photograph: null },
         thumbnail: { birds: cardinal, candidates: [scene(SCENE, null)], photograph: null },

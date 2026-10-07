@@ -2041,7 +2041,10 @@
       "excluded_heading": "Excluídas, não contadas",
       "choose_species": "Pesquise pelo nome comum ou científico e escolha uma espécie.",
       "identified_from_visit": "Identificada a partir desta visita",
-      "visit_evidence": "O nome vem da identificação aceita da visita e da caixa correspondente do Frigate. Este recorte, por si só, obteve {score}."
+      "visit_evidence": "O nome vem da identificação aceita da visita e da caixa correspondente do Frigate. Este recorte, por si só, obteve {score}.",
+      "being_named": "A ave que está sendo nomeada",
+      "being_named_tag": "Sendo nomeada",
+      "name_not_tied": "O nome da visita não pode ser associado a uma destas aves."
     },
     "uploaded": "Carregada",
     "observation_notes": "Notas da observação",

@@ -350,6 +350,7 @@ export interface components {
     manual_species: boolean;
     scientific_name?: string | null;
     species: string;
+    tracked?: boolean;
 };
     BirdObservationUpdateRequest: {
     is_hidden?: boolean | null;

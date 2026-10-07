@@ -2271,6 +2271,12 @@
           "species": {
             "title": "Species",
             "type": "string"
+          },
+          "tracked": {
+            "default": false,
+            "description": "The bird Frigate tracked, which the visit's name is about",
+            "title": "Tracked",
+            "type": "boolean"
           }
         },
         "required": [

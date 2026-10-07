@@ -2031,7 +2031,10 @@
       "excluded_heading": "已排除，不计入",
       "choose_species": "按常用名或学名搜索，然后选择物种。",
       "identified_from_visit": "根据本次到访识别",
-      "visit_evidence": "名称来自本次到访已接受的识别结果和匹配的 Frigate 跟踪框。此裁剪图像单独的得分为 {score}。"
+      "visit_evidence": "名称来自本次到访已接受的识别结果和匹配的 Frigate 跟踪框。此裁剪图像单独的得分为 {score}。",
+      "being_named": "被命名的鸟",
+      "being_named_tag": "命名对象",
+      "name_not_tied": "此次到访的名称无法对应到这些鸟中的任何一只。"
     },
     "uploaded": "已上传",
     "observation_notes": "观察备注",

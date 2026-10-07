@@ -315,3 +315,20 @@ for (const language of ['de', 'fr', 'ru']) {
         await page.screenshot({ path: testInfo.outputPath(`many-${language}-320-200pct.png`), fullPage: true });
     });
 }
+
+test('the bird Frigate tracked is pointed out as the one being named', async ({ page }) => {
+    await open(page, 'case=tracked');
+    await expect(page.locator('[data-counted-bird-outline]')).toHaveCount(2);
+    // Said in words on the scene and in the list, not by outline weight alone.
+    await expect(page.locator('[data-counted-bird-outline="3"] [data-counted-bird-tracked-tag]')).toHaveText('Being named');
+    await expect(page.locator('[data-counted-bird-outline="4"] [data-counted-bird-tracked-tag]')).toHaveCount(0);
+    await expect(page.locator('[data-counted-bird-tracked]')).toHaveCount(1);
+    await expect(page.locator('[data-counted-bird-tracked]')).toHaveText('The bird being named');
+    await expect(page.locator('[data-counted-birds-name-untied]')).toHaveCount(0);
+});
+
+test('several birds with none tracked say the name cannot be tied to one of them', async ({ page }) => {
+    await open(page, 'case=cardinal');
+    await expect(page.locator('[data-counted-birds-name-untied]')).toHaveText('The visit’s name cannot be tied to one of these birds.');
+    await expect(page.locator('[data-counted-bird-tracked-tag]')).toHaveCount(0);
+});

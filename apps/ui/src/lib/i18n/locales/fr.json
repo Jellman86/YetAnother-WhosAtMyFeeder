@@ -2031,7 +2031,10 @@
       "excluded_heading": "Exclus, non comptés",
       "choose_species": "Recherchez un nom commun ou scientifique, puis choisissez une espèce.",
       "identified_from_visit": "Identifié d’après la visite",
-      "visit_evidence": "Le nom vient de l’identification acceptée de la visite et du cadre correspondant de Frigate. Ce recadrage seul a obtenu {score}."
+      "visit_evidence": "Le nom vient de l’identification acceptée de la visite et du cadre correspondant de Frigate. Ce recadrage seul a obtenu {score}.",
+      "being_named": "L’oiseau nommé",
+      "being_named_tag": "Nommé",
+      "name_not_tied": "Le nom de la visite ne peut être rattaché à aucun de ces oiseaux."
     },
     "uploaded": "Importée",
     "observation_notes": "Remarques sur l’observation",

@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Birds found in this capture** points out the bird a visit's name is about. When several birds
+  are counted, the one Frigate tracked is labelled **Being named** on the scene and in the list,
+  even when the name is too uncertain to lend it. If no single bird matches, it says the name cannot
+  be tied to one of them. This mostly helps in **Needs your call**, where every name is uncertain
+  (#481).
 - The model picker lists RoPE ViT-B14 at 87%+ on iNat21, the published figure for the 224 px
   version YA-WAMF ships, instead of 89%+.
 - The setup wizard's hint after the hardware check now says the Debug tab it points to only appears
