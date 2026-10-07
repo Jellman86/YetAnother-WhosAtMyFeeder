@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- The bundled **MobileNet V2 Birds** model sees the photo again. Its pixels were converted twice,
+  which turned every image almost white, so it named nearly everything American White Pelican and
+  scored 0.3% in a model evaluation. On twenty feeder photos of species it knows it now gets 9
+  right, from none before.
 - **Birds found in this capture** points out the bird a visit's name is about. When several birds
   are counted, the one Frigate tracked is labelled **Being named** on the scene and in the list,
   even when the name is too uncertain to lend it. If no single bird matches, it says the name cannot

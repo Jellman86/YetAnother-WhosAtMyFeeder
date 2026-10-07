@@ -581,6 +581,48 @@ def test_model_instance_quantizes_int8_input_and_dequantizes_int8_output():
     assert results[0]["score"] == pytest.approx(1.0)
 
 
+def test_a_uint8_model_gets_its_pixels_unchanged_whatever_its_input_quantization():
+    """The bundled MobileNet (Coral, uint8 in, scale 1/128, zero point 128) consumes raw RGB bytes.
+
+    Quantizing the pixels again with that scale sent 128 * x + 128, so every pixel above 0 saturated
+    at 255 and the model saw a white image: it named almost everything American White Pelican and
+    scored 0.3% top-1 in a model evaluation.
+    """
+    model = ModelInstance("test", "model.tflite", "labels.txt", preprocessing={"normalization": "uint8"})
+    interpreter = MagicMock()
+    interpreter.get_tensor.return_value = np.array([[0, 255]], dtype=np.uint8)
+    model.interpreter = interpreter
+    model.loaded = True
+    model.labels = ["Bird A", "Bird B"]
+    model.input_details = [
+        {
+            "shape": [1, 1, 1, 3],
+            "dtype": np.uint8,
+            "index": 0,
+            "quantization_parameters": {
+                "scales": np.array([0.0078125], dtype=np.float32),
+                "zero_points": np.array([128], dtype=np.int32),
+            },
+        }
+    ]
+    model.output_details = [
+        {
+            "dtype": np.uint8,
+            "index": 0,
+            "quantization_parameters": {
+                "scales": np.array([1.0 / 256.0], dtype=np.float32),
+                "zero_points": np.array([0], dtype=np.int32),
+            },
+        }
+    ]
+
+    model.classify(Image.new("RGB", (1, 1), color=(0, 128, 255)))
+
+    input_payload = interpreter.set_tensor.call_args.args[1]
+    assert input_payload.dtype == np.uint8
+    assert input_payload.tolist() == [[[[0, 128, 255]]]]
+
+
 def test_model_instance_rejects_int8_input_without_quantization_metadata():
     model = ModelInstance("test", "model.tflite", "labels.txt")
     model.interpreter = MagicMock()
