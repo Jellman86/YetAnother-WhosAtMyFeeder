@@ -517,9 +517,13 @@ class HighQualitySnapshotService:
 
     async def _load_recording_clip_bytes(self, event_id: str) -> Optional[bytes]:
         """Fall back to the full-visit recording clip when the event clip is unavailable."""
-        if not settings.frigate.recording_clip_enabled:
-            return None
+        if settings.frigate.recording_clip_enabled and (clip := await self._load_live_recording_clip_bytes(event_id)):
+            return clip
+        from app.services.retained_visit_video import retained_recording_clip
 
+        return await self._read_retained(event_id, await retained_recording_clip(event_id))
+
+    async def _load_live_recording_clip_bytes(self, event_id: str) -> Optional[bytes]:
         cached_path = media_cache.get_recording_clip_path(event_id)
         if cached_path and await asyncio.to_thread(cached_path.exists):
             try:
@@ -2597,13 +2601,39 @@ class HighQualitySnapshotService:
         """
         if prefer_cached and (cached := await self._read_cached_event_clip(event_id)):
             return cached, None
+        if prefer_cached and (kept := await self._read_retained_event_clip(event_id)):
+            return kept, None
+        if event_id.startswith("manual_"):
+            # Frigate never had an uploaded video; it is kept with the observation.
+            if kept := await self._read_retained_event_clip(event_id):
+                return kept, None
+            return None, "clip_unavailable"
         clip_bytes, clip_error = await self._wait_for_clip(event_id)
         if clip_bytes:
             return clip_bytes, None
         if cached := await self._read_cached_event_clip(event_id):
             log.info("Using cached event clip for the photo; Frigate no longer has it", event_id=event_id)
             return cached, None
+        if kept := await self._read_retained_event_clip(event_id):
+            log.info("Using the favourite's archived clip for the photo", event_id=event_id)
+            return kept, None
         return None, clip_error
+
+    async def _read_retained_event_clip(self, event_id: str) -> Optional[bytes]:
+        """A favourite's archived clip, or an uploaded video (#481)."""
+        from app.services.retained_visit_video import retained_event_clip
+
+        return await self._read_retained(event_id, await retained_event_clip(event_id))
+
+    @staticmethod
+    async def _read_retained(event_id: str, path: Optional[Path]) -> Optional[bytes]:
+        if path is None:
+            return None
+        try:
+            return await asyncio.to_thread(path.read_bytes)
+        except OSError as exc:
+            log.warning("Kept visit video unreadable", event_id=event_id, error=str(exc))
+            return None
 
     async def _read_cached_event_clip(self, event_id: str) -> Optional[bytes]:
         cached_path = media_cache.get_clip_path(event_id)
