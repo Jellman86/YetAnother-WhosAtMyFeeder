@@ -1389,6 +1389,15 @@ class AutoVideoClassifierService:
             context["frigate_box"] = list(frigate_box)
         if isinstance(frigate_region, (list, tuple)) and len(frigate_region) == 4:
             context["frigate_region"] = list(frigate_region)
+        # data.box is the box at snapshot_frame_time: the bird the event's photograph shows.
+        snapshot_time = payload.get("snapshot_frame_time")
+        if (
+            not isinstance(snapshot_time, bool)
+            and isinstance(snapshot_time, (int, float))
+            and math.isfinite(snapshot_time)
+            and snapshot_time > 0
+        ):
+            context["frigate_snapshot_frame_time"] = float(snapshot_time)
         raw_path_data = payload.get("path_data")
         if isinstance(raw_path_data, list):
             path_data: list[list[object]] = []

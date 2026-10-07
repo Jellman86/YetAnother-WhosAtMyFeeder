@@ -6,6 +6,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Video analysis keeps a visit tied to the bird in Frigate's photograph (#481). At a busy
+  feeder Frigate's track can move to a neighbouring bird after the photographed one leaves;
+  crops after that jump no longer count as the visit's bird, and the visit's area no longer
+  stretches to cover it. When the tracked bird's own crops cannot agree on a species, a
+  different bird that is easier to see elsewhere in the frame is no longer named instead:
+  the visit keeps its existing identification.
 - **Birds found in this capture** points out the bird a visit's name is about. When several birds
   are counted, the one Frigate tracked is labelled **Being named** on the scene and in the list,
   even when the name is too uncertain to lend it. If no single bird matches, it says the name cannot
