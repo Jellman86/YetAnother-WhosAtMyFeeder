@@ -1494,7 +1494,9 @@ class AutoVideoClassifierService:
                 # clip — _load_preferred_clip prefers the recording clip anyway, so a
                 # playable recording clip is enough to run video classification.
                 # See docs/troubleshooting/frigate-event-not-found.md
-                _has_event_clip = media_cache.has_clip(frigate_event)
+                from app.services.retained_visit_video import has_retained_video
+
+                _has_event_clip = media_cache.has_clip(frigate_event) or await has_retained_video(frigate_event)
                 _has_recording_clip = media_cache.has_recording_clip(frigate_event)
                 if event_error == "event_not_found" and (_has_event_clip or _has_recording_clip):
                     log.info(
@@ -2422,6 +2424,22 @@ class AutoVideoClassifierService:
                     event_id=frigate_event,
                     error=str(exc),
                 )
+
+        # A favourite's archive and an uploaded video outlive Frigate and the cache, and the player plays
+        # them, so a rescore must find them too (#481).
+        from app.services.retained_visit_video import retained_event_clip, retained_recording_clip
+
+        for kept_path, variant in (
+            (await retained_recording_clip(frigate_event), "recording"),
+            (await retained_event_clip(frigate_event), "event"),
+        ):
+            if kept_path is not None and await _copy_and_validate(str(kept_path)):
+                log.info(
+                    "Using the visit's kept video for video classification", event_id=frigate_event, variant=variant
+                )
+                return True, None, variant, None
+        if frigate_event.startswith("manual_"):
+            return False, "clip_unavailable", "event", None
 
         loaded, clip_error = await self._wait_for_clip(frigate_event, dest_path, skip_delay=skip_delay)
         return loaded, clip_error, "event", None

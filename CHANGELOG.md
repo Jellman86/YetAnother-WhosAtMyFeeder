@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- New photo options and **Score again** work for old favourites and uploaded videos. The player
+  plays a favourite's archived clip and an uploaded video after Frigate and the media cache have let
+  them go, but generating photos and video analysis only looked in Frigate and the cache, so for
+  those visits they silently did nothing (#481). Both now use the same kept video, and an upload no
+  longer waits on Frigate, which never had it.
 - The model picker lists RoPE ViT-B14 at 87%+ on iNat21, the published figure for the 224 px
   version YA-WAMF ships, instead of 89%+.
 - The setup wizard's hint after the hardware check now says the Debug tab it points to only appears
