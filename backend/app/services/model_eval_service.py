@@ -520,7 +520,20 @@ class ModelEvalRunner:
                 # Per-model state
                 vocabulary = await asyncio.to_thread(_model_vocabulary, classifier_service)
                 tally = AccuracyTally()
-                species_outside_vocabulary: set[int] = set()
+                # Decided once from the panel, not from the images that happened to
+                # classify: a species whose images all failed still counts.
+                can_name_by_taxa: dict[int, Optional[bool]] = {
+                    entry.taxa_id: (
+                        vocabulary.can_name(
+                            expected_species_ids.get(entry.taxa_id),
+                            scientific_name=entry.scientific_name,
+                            common_name=entry.common_name,
+                        )
+                        if vocabulary is not None
+                        else None
+                    )
+                    for entry in usable_panel
+                }
                 latencies: list[float] = []
                 abstention_count = 0
                 high_conf_unknown_count = 0
@@ -595,9 +608,7 @@ class ModelEvalRunner:
                         # also catches iNat's duplicate taxa for one species.
                         expected_species_id = expected_species_ids.get(entry.taxa_id)
                         match_flags = [_prediction_matches(r, entry, expected_species_id, vocabulary) for r in top5]
-                        can_name = vocabulary.can_name(expected_species_id) if vocabulary is not None else None
-                        if can_name is False:
-                            species_outside_vocabulary.add(entry.taxa_id)
+                        can_name = can_name_by_taxa[entry.taxa_id]
                         tally.add(match_flags, panel=entry.panel, can_name=can_name)
 
                         # Confusion: only when top-1 was wrong and resolved
@@ -674,7 +685,11 @@ class ModelEvalRunner:
                     "images_evaluated": processed,
                     "vocabulary_known": vocabulary is not None,
                     "panel_species": len(usable_panel),
-                    "species_outside_vocabulary": len(species_outside_vocabulary) if vocabulary is not None else None,
+                    "species_outside_vocabulary": (
+                        sum(1 for known in can_name_by_taxa.values() if known is False)
+                        if vocabulary is not None
+                        else None
+                    ),
                     **tally.summary(vocabulary_known=vocabulary is not None),
                     "abstention_rate": _safe_div(abstention_count, processed),
                     "high_confidence_unknown_rate": _safe_div(high_conf_unknown_count, processed),
@@ -1370,7 +1385,11 @@ def _model_vocabulary(classifier_service: Any) -> Optional[ModelVocabulary]:
         log.warning("model_eval_model_checksum_unavailable", error=str(e))
         return None
     outputs = species_catalog_resolver.species_outputs(model_sha256)
-    return ModelVocabulary(outputs) if outputs is not None else None
+    if outputs is None:
+        return None
+    return ModelVocabulary(
+        outputs, unresolved_labels=species_catalog_resolver.unresolved_output_labels(model_sha256) or ()
+    )
 
 
 def _prediction_matches(

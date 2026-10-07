@@ -266,3 +266,29 @@ async def test_a_photo_already_at_feeder_scale_is_stored_unchanged(tmp_path: Pat
             )
 
     assert Path(images[0].local_path).read_bytes() == small
+
+
+@pytest.mark.asyncio
+async def test_a_photo_pillow_refuses_as_too_large_is_skipped_later_not_fatal_now(tmp_path: Path, monkeypatch):
+    """Pillow raises DecompressionBombError (not OSError) past its pixel limit. Before the downscale step
+    that happened at evaluation time, where one bad photo is skipped; it must not abort the whole fetch."""
+    from PIL import Image
+
+    monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", 1000)
+    payload = {"results": [{"photos": [{"url": "https://x/photos/1/square.jpg"}]}]}
+    huge = _jpeg((200, 200))
+    with (
+        patch.object(image_fetcher, "_get_json", AsyncMock(return_value=payload)),
+        patch.object(image_fetcher, "_download_bytes", AsyncMock(return_value=huge)),
+    ):
+        async with __import__("httpx").AsyncClient() as client:
+            images = await fetch_images_for_species(
+                client=client,
+                taxa_id=1,
+                scientific_name="Passer domesticus",
+                common_name="House Sparrow",
+                dest_root=tmp_path,
+                max_count=1,
+            )
+
+    assert Path(images[0].local_path).read_bytes() == huge

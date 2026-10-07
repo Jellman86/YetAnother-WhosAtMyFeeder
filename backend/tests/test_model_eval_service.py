@@ -612,7 +612,9 @@ _EU_PREDICTIONS = {
 }
 
 
-async def _run_eu_model_evaluation(tmp_path, monkeypatch, *, catalogue_knows_model: bool, sweep_devices: bool = True):
+async def _run_eu_model_evaluation(
+    tmp_path, monkeypatch, *, catalogue_knows_model: bool, sweep_devices: bool = True, failing_colours=()
+):
     from PIL import Image
 
     from app.services import classifier_service as classifier_module
@@ -651,6 +653,8 @@ async def _run_eu_model_evaluation(tmp_path, monkeypatch, *, catalogue_knows_mod
 
         async def classify_async(self, image):
             events.append("classify")
+            if image.getpixel((0, 0)) in failing_colours:
+                raise RuntimeError("inference failed")
             return [dict(row) for row in _EU_PREDICTIONS[image.getpixel((0, 0))]]
 
         def active_model_sha256(self):
@@ -699,6 +703,11 @@ async def _run_eu_model_evaluation(tmp_path, monkeypatch, *, catalogue_knows_mod
         species_catalog_resolver,
         "species_outputs",
         lambda sha: {0: STARLING_ID, 1: ROBIN_ID} if catalogue_knows_model and sha == EU_MODEL_SHA else None,
+    )
+    monkeypatch.setattr(
+        species_catalog_resolver,
+        "unresolved_output_labels",
+        lambda sha: ("Unknown",) if catalogue_knows_model and sha == EU_MODEL_SHA else None,
     )
 
     runner = ModelEvalRunner()
@@ -772,3 +781,14 @@ async def test_the_summary_reports_the_evaluated_models_own_health(tmp_path, mon
 
     assert "sweep" not in events
     assert model["inference_health_verdict"] == "healthy"
+
+
+@pytest.mark.asyncio
+async def test_which_birds_a_model_can_name_does_not_depend_on_inference_succeeding(tmp_path, monkeypatch):
+    """Every Blue Jay image failing must not move the Blue Jay into "Can name"."""
+    model, rows, _events = await _run_eu_model_evaluation(
+        tmp_path, monkeypatch, catalogue_knows_model=True, failing_colours={_PHOTO_COLOURS[2]}
+    )
+
+    assert all(row["taxa_id"] != 2 for row in rows)
+    assert model["species_outside_vocabulary"] == 1

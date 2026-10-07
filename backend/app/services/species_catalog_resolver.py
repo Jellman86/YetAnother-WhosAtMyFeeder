@@ -42,6 +42,7 @@ class _OutputEntry:
     artifact_row_id: int
     class_kind: str
     species_id: Optional[int]
+    source_label: Optional[str] = None
 
 
 class SpeciesCatalogResolver:
@@ -99,8 +100,8 @@ class SpeciesCatalogResolver:
                 artifact_sha_by_id[int(row_id)] = str(model_sha256)
 
             outputs: dict[str, dict[int, _OutputEntry]] = {sha: {} for sha in artifact_ids}
-            for artifact_row_id, output_index, class_kind, species_id in connection.execute(
-                "SELECT model_artifact_id, output_index, class_kind, species_id FROM model_output_taxa"
+            for artifact_row_id, output_index, class_kind, species_id, source_label in connection.execute(
+                "SELECT model_artifact_id, output_index, class_kind, species_id, source_label FROM model_output_taxa"
             ):
                 sha = artifact_sha_by_id.get(int(artifact_row_id))
                 if sha is None:
@@ -109,6 +110,7 @@ class SpeciesCatalogResolver:
                     artifact_row_id=int(artifact_row_id),
                     class_kind=str(class_kind),
                     species_id=int(species_id) if species_id is not None else None,
+                    source_label=str(source_label) if source_label is not None else None,
                 )
 
             accepted: dict[int, set[str]] = {}
@@ -234,6 +236,22 @@ class SpeciesCatalogResolver:
             for output_index, entry in self._outputs.get(checksum, {}).items()
             if entry.class_kind == "species" and entry.species_id is not None
         }
+
+    def unresolved_output_labels(self, model_sha256: Optional[str]) -> Optional[tuple[str, ...]]:
+        """The model's own labels for outputs the catalogue cannot identify, or None for an unknown model.
+
+        Such an output may still be a bird the catalogue knows under another name (the European
+        models' "Feral pigeon" is the Rock Pigeon), so ``species_outputs`` alone does not prove a
+        model cannot name a species.
+        """
+        checksum = str(model_sha256 or "").strip().lower()
+        if not checksum or not self._ensure_loaded() or checksum not in self._artifact_ids:
+            return None
+        return tuple(
+            entry.source_label
+            for _index, entry in sorted(self._outputs.get(checksum, {}).items())
+            if entry.class_kind == "unknown" and entry.source_label
+        )
 
     def resolve_scientific_name(self, scientific_name: Optional[str]) -> tuple[Optional[int], str]:
         """Resolve a bare scientific name to one catalogue identity, or say why not.

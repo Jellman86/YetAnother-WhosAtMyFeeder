@@ -262,3 +262,9 @@ def test_an_unregistered_model_or_missing_catalogue_has_no_known_vocabulary(reso
     assert resolver.species_outputs("f" * 64) is None
     assert resolver.species_outputs(None) is None
     assert SpeciesCatalogResolver(tmp_path / "nowhere.db").species_outputs(MODEL_SHA) is None
+
+
+def test_a_models_unresolved_outputs_keep_their_own_labels(resolver):
+    """An output the catalogue cannot identify may still be a bird; its label is all there is to go on."""
+    assert resolver.unresolved_output_labels(MODEL_SHA) == ("Mystery bird",)
+    assert resolver.unresolved_output_labels("f" * 64) is None

@@ -101,3 +101,46 @@ def test_a_panel_the_model_cannot_name_at_all_has_no_in_vocabulary_score():
     assert summary["shared_core_top1"] == 0.0
     assert summary["shared_core_top1_in_vocabulary"] is None
     assert summary["regional_top1_in_vocabulary"] == 1.0
+
+
+ROCK_PIGEON = 404
+BITTERN = 505
+
+# The European FocalNet mapping: 12 outputs carry no catalogue identity, among them "Feral pigeon" and
+# "Great bittern". A missing identity is not proof the model cannot name the bird.
+EU_MODEL_WITH_GAPS = ModelVocabulary(
+    {0: STARLING, 1: ROBIN},
+    unresolved_labels=("Feral pigeon", "Great bittern", "Unknown"),
+)
+
+
+def test_a_bird_an_unresolved_output_may_name_is_not_set_aside():
+    assert EU_MODEL_WITH_GAPS.can_name(ROCK_PIGEON, scientific_name="Columba livia", common_name="Rock Pigeon") is None
+    assert (
+        EU_MODEL_WITH_GAPS.can_name(BITTERN, scientific_name="Botaurus stellaris", common_name="Eurasian Bittern")
+        is None
+    )
+
+
+def test_an_abstention_output_does_not_make_every_bird_possible():
+    assert EU_MODEL_WITH_GAPS.can_name(BLUE_JAY, scientific_name="Cyanocitta cristata", common_name="Blue Jay") is False
+
+
+def test_an_unresolved_scientific_output_counts_for_its_genus():
+    hierarchy = ModelVocabulary(
+        {0: STARLING}, unresolved_labels=("01234_Animalia_Chordata_Aves_Columbiformes_Columbidae_Columba_livia",)
+    )
+    binomial = ModelVocabulary({0: STARLING}, unresolved_labels=("Columba palumbus",))
+
+    assert hierarchy.can_name(ROCK_PIGEON, scientific_name="Columba livia", common_name="Rock Pigeon") is None
+    assert binomial.can_name(ROCK_PIGEON, scientific_name="Columba livia", common_name="Rock Pigeon") is None
+    assert binomial.can_name(BLUE_JAY, scientific_name="Cyanocitta cristata", common_name="Blue Jay") is False
+
+
+def test_a_hyphenated_name_is_matched_on_its_last_word():
+    gaps = ModelVocabulary({0: STARLING}, unresolved_labels=("Eurasian collared dove",))
+
+    assert (
+        gaps.can_name(ROCK_PIGEON, scientific_name="Streptopelia decaocto", common_name="Eurasian Collared-Dove")
+        is None
+    )

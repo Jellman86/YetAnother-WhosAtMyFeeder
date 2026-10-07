@@ -113,7 +113,8 @@ def _downscaled_jpeg(payload: bytes) -> Optional[bytes]:
             if max(image.size) <= MAX_EVAL_IMAGE_SIDE:
                 return None
             rgb = image.convert("RGB")
-    except (UnidentifiedImageError, OSError):
+    except (UnidentifiedImageError, OSError, Image.DecompressionBombError):
+        # Written as downloaded: the harness skips a photo it cannot load, as before.
         return None
     rgb.thumbnail((MAX_EVAL_IMAGE_SIDE, MAX_EVAL_IMAGE_SIDE), Image.Resampling.LANCZOS)
     buffer = io.BytesIO()

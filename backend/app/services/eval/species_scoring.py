@@ -11,9 +11,43 @@ the in-vocabulary one is the fair comparison between models.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Optional
+
+from app.services.model_taxon_map import scientific_name_from_label
+from app.utils.canonical_species import is_unknown_species_label
+
+_BINOMIAL = re.compile(r"^[A-Z][a-z]+ [a-z][a-z-]+$")
+_WORDS = re.compile(r"[a-z]+")
+
+
+def _genus(scientific_name: Optional[str]) -> Optional[str]:
+    words = str(scientific_name or "").split()
+    return words[0].casefold() if words else None
+
+
+def _head_noun(common_name: Optional[str]) -> Optional[str]:
+    """The last word of a common name: "Rock Pigeon" and "Feral pigeon" are both pigeons."""
+    words = _WORDS.findall(str(common_name or "").casefold())
+    return words[-1] if words else None
+
+
+def _label_identity(label: str) -> tuple[Optional[str], Optional[str]]:
+    """(genus, head noun) an unresolved output label could stand for.
+
+    A hierarchy or paired label is certainly scientific. A bare two-word label is
+    ambiguous: "Columba livia" and the sentence-case common name "Feral pigeon"
+    have the same shape, so it counts both ways.
+    """
+    text = label.strip()
+    scientific = scientific_name_from_label(text)
+    if scientific:
+        return _genus(scientific), None
+    if _BINOMIAL.match(text):
+        return _genus(text), _head_noun(text)
+    return None, _head_noun(text)
 
 
 @dataclass(frozen=True)
@@ -21,10 +55,17 @@ class ModelVocabulary:
     """The species a model can name, as `{output_index: species_id}` from the catalogue."""
 
     species_by_output: Mapping[int, int]
+    # The model's own labels for outputs the catalogue cannot identify.
+    unresolved_labels: Sequence[str] = ()
     species_ids: frozenset[int] = field(init=False)
+    _unresolved_genera: frozenset[str] = field(init=False)
+    _unresolved_head_nouns: frozenset[str] = field(init=False)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "species_ids", frozenset(self.species_by_output.values()))
+        identities = [_label_identity(label) for label in self.unresolved_labels if not is_unknown_species_label(label)]
+        object.__setattr__(self, "_unresolved_genera", frozenset(genus for genus, _ in identities if genus))
+        object.__setattr__(self, "_unresolved_head_nouns", frozenset(noun for _, noun in identities if noun))
 
     def species_for(self, prediction: Mapping[str, Any]) -> Optional[int]:
         index = prediction.get("index")
@@ -39,10 +80,26 @@ class ModelVocabulary:
             return None
         return predicted == expected_species_id
 
-    def can_name(self, expected_species_id: Optional[int]) -> Optional[bool]:
+    def can_name(
+        self,
+        expected_species_id: Optional[int],
+        *,
+        scientific_name: Optional[str] = None,
+        common_name: Optional[str] = None,
+    ) -> Optional[bool]:
+        """True or False when known; None when the catalogue cannot settle it.
+
+        A species missing from the resolved outputs is proven unnameable only if no
+        unresolved output could be it: none shares its genus or the last word of its
+        common name. Erring this way can understate a model, never hide its misses.
+        """
         if expected_species_id is None:
             return None
-        return expected_species_id in self.species_ids
+        if expected_species_id in self.species_ids:
+            return True
+        if _genus(scientific_name) in self._unresolved_genera or _head_noun(common_name) in self._unresolved_head_nouns:
+            return None
+        return False
 
 
 def _rate(hits: int, total: int) -> float:
