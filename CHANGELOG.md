@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Birds found in this capture** points out the bird a visit's name is about. When several birds
+  are counted, the one Frigate tracked is labelled **Being named** on the scene and in the list,
+  even when the name is too uncertain to lend it. If no single bird matches, it says the name cannot
+  be tied to one of them. This mostly helps in **Needs your call**, where every name is uncertain
+  (#481).
 - New photo options and **Score again** work for old favourites and uploaded videos. The player
   plays a favourite's archived clip and an uploaded video after Frigate and the media cache have let
   them go, but generating photos and video analysis only looked in Frigate and the cache, so for

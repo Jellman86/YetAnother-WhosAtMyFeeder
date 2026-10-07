@@ -2031,7 +2031,10 @@
       "excluded_heading": "除外（集計外）",
       "choose_species": "一般名または学名で検索し、種を選択してください。",
       "identified_from_visit": "この訪問の識別結果",
-      "visit_evidence": "この訪問で採用された識別結果と、一致するFrigateの追跡枠に基づく名前です。この切り抜き単独のスコアは{score}でした。"
+      "visit_evidence": "この訪問で採用された識別結果と、一致するFrigateの追跡枠に基づく名前です。この切り抜き単独のスコアは{score}でした。",
+      "being_named": "名前の対象の鳥",
+      "being_named_tag": "名前の対象",
+      "name_not_tied": "この訪問の名前は、これらの鳥のどれにも結び付けられません。"
     },
     "uploaded": "アップロード済み",
     "observation_notes": "観察メモ",

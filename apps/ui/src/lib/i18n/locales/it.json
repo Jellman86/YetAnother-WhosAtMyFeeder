@@ -2041,7 +2041,10 @@
       "excluded_heading": "Esclusi, non contati",
       "choose_species": "Cerca per nome comune o scientifico, poi scegli una specie.",
       "identified_from_visit": "Identificato in base a questa visita",
-      "visit_evidence": "Il nome deriva dall’identificazione accettata della visita e dal riquadro corrispondente di Frigate. Questo ritaglio da solo ha ottenuto {score}."
+      "visit_evidence": "Il nome deriva dall’identificazione accettata della visita e dal riquadro corrispondente di Frigate. Questo ritaglio da solo ha ottenuto {score}.",
+      "being_named": "L’uccello a cui si riferisce il nome",
+      "being_named_tag": "Nominato",
+      "name_not_tied": "Il nome della visita non si può attribuire a uno di questi uccelli."
     },
     "uploaded": "Caricata",
     "observation_notes": "Note sull’osservazione",

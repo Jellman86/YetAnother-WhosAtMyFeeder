@@ -128,6 +128,9 @@ def resolve_bird_identities(
                     score = None if detection.get("manual_tagged") else accepted_score
         bird["identity_source"] = source
         bird["identity_score"] = score
+        # Points out the bird Frigate tracked, the one the visit's name is about, whatever that name's
+        # confidence. A pointer only: the name above stays this bird's own (#481).
+        bird["tracked"] = index in associated
         effective_species = aliases.get(_key(bird.get("species")))
         if effective_species:
             bird["species"] = effective_species

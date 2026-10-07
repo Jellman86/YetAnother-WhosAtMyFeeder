@@ -308,3 +308,34 @@ async def test_summary_taxonomy_lookup_is_shared_by_a_page_of_events(history):
         summary["species"] == [{"species": "Haemorhous mexicanus", "count": 1}] for summary in summaries.values()
     )
     assert len([query for query in statements if "FROM taxonomy_cache" in query]) == 1
+
+
+def _resolve(evidence):
+    return resolve_bird_identities(
+        evidence["birds"], evidence["candidates"], evidence["detection"], threshold=evidence["threshold"]
+    )
+
+
+def test_the_tracked_bird_is_pointed_out_even_when_the_name_is_too_uncertain_to_lend(evidence):
+    # Needs your call holds exactly the visits whose name is below the threshold. The reviewer
+    # still needs to see which bird that name is about, without the name being copied onto it (#481).
+    evidence["detection"]["score"] = 0.52
+    evidence["birds"].append({**deepcopy(evidence["birds"][0]), "id": 695, "crop_box": [100, 100, 200, 200]})
+
+    tracked, other = _resolve(evidence)
+
+    assert tracked["tracked"] is True
+    assert tracked["identity_source"] == "crop" and tracked["species"] == "Unknown Bird"
+    assert other["tracked"] is False
+
+
+def test_no_bird_is_pointed_out_when_frigates_box_covers_two(evidence):
+    evidence["birds"].append({**deepcopy(evidence["birds"][0]), "id": 695, "crop_box": [880, 350, 1100, 470]})
+
+    assert [bird["tracked"] for bird in _resolve(evidence)] == [False, False]
+
+
+def test_no_bird_is_pointed_out_without_frigates_box(evidence):
+    evidence["candidates"] = []
+
+    assert [bird["tracked"] for bird in _resolve(evidence)] == [False]

@@ -663,6 +663,7 @@ class BirdObservationResponse(BaseModel):
     scientific_name: str | None = None
     identity_source: Literal["crop", "visit", "manual"] = "crop"
     identity_score: float | None = None
+    tracked: bool = Field(False, description="The bird Frigate tracked, which the visit's name is about")
     classifier_label: str | None = None
     classifier_score: float
     manual_species: bool

@@ -89,6 +89,8 @@
     const hintOnly = $derived(birds.length > 0 && birds.every((bird) => bird.detector_confidence === null));
     const ordered = $derived(birdReadingOrder(birds));
     const rows = $derived([...ordered.filter((bird) => !bird.is_hidden), ...ordered.filter((bird) => bird.is_hidden)]);
+    // Several birds and none of them Frigate's tracked one: the visit's name cannot be pinned to a bird here (#481).
+    const nameUntied = $derived(rows.filter((bird) => !bird.is_hidden).length > 1 && !rows.some((bird) => bird.tracked));
     const shownRows = $derived(expanded ? rows : rows.slice(0, COLLAPSED_ROWS));
     const firstExcludedId = $derived(rows.find((bird) => bird.is_hidden)?.id ?? null);
     const positions = $derived(repeatedSpeciesPositions(birds));
@@ -279,6 +281,11 @@
                     ? $_('detection.counted_birds.hint_only', { default: 'Only Frigate’s tracked bird was located; other birds may be visible.' })
                     : $_('detection.counted_birds.note', { default: 'Counted on one analysed frame. The detector can miss birds or mark other objects, and a bird here is not followed across frames.' })}
             </p>
+            {#if nameUntied}
+                <p class="text-xs leading-5 text-slate-600 dark:text-slate-300" data-counted-birds-name-untied>
+                    {$_('detection.counted_birds.name_not_tied', { default: 'The visit’s name cannot be tied to one of these birds.' })}
+                </p>
+            {/if}
 
             {#if scene.status === 'ready'}
                 <!-- The counted frame keeps its box whatever happens to its image: a frame that fails
@@ -316,7 +323,9 @@
                                             ? bird.is_hidden
                                                 ? 'z-20 border-2 border-dashed border-slate-200 shadow-[0_0_0_9999px_rgba(2,6,23,0.45)]'
                                                 : 'z-20 border-2 border-sky-300 shadow-[0_0_0_9999px_rgba(2,6,23,0.45)]'
-                                            : 'z-10 border border-white/80 shadow-[0_0_0_1px_rgba(15,23,42,0.6)]'}"
+                                            : bird.tracked
+                                              ? 'z-10 border-2 border-white shadow-[0_0_0_1px_rgba(15,23,42,0.6)]'
+                                              : 'z-10 border border-white/80 shadow-[0_0_0_1px_rgba(15,23,42,0.6)]'}"
                                         style={boxStyle(bird)}
                                         aria-hidden="true"
                                         data-counted-bird-outline={bird.id}
@@ -325,6 +334,10 @@
                                         {#if lit}
                                             <span class="absolute bottom-full left-0 mb-1 max-w-48 truncate rounded bg-sky-300 px-1.5 py-0.5 text-xs font-bold leading-tight text-slate-950" data-counted-bird-tag>
                                                 {bird.is_hidden ? $_('detection.counted_birds.excluded_tag', { values: { bird: birdLabel(bird) }, default: '{bird}, excluded' }) : birdLabel(bird)}
+                                            </span>
+                                        {:else if bird.tracked && !bird.is_hidden}
+                                            <span class="absolute bottom-full left-0 mb-1 max-w-48 truncate rounded bg-white px-1.5 py-0.5 text-xs font-bold leading-tight text-slate-950" data-counted-bird-tracked-tag>
+                                                {$_('detection.counted_birds.being_named_tag', { default: 'Being named' })}
                                             </span>
                                         {/if}
                                     </span>
@@ -392,6 +405,9 @@
                             </span>
                             <span class="min-w-0 flex-1">
                                 <span class="block break-words text-sm font-semibold {bird.is_hidden ? 'text-slate-500 dark:text-slate-400' : 'text-slate-900 dark:text-white'}">{speciesName(bird)}</span>
+                                {#if bird.tracked && bird.identity_source !== 'visit'}
+                                    <span class="block text-xs font-semibold text-slate-700 dark:text-slate-200" data-counted-bird-tracked>{$_('detection.counted_birds.being_named', { default: 'The bird being named' })}</span>
+                                {/if}
                                 <span class="flex flex-wrap gap-x-1 text-xs text-slate-500 dark:text-slate-400">
                                     {#if position}<span>{position}</span>{/if}
                                     {#if bird.manual_species}

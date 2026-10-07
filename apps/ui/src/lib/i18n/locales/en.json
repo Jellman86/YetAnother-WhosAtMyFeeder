@@ -2041,7 +2041,10 @@
       "excluded_heading": "Excluded, not counted",
       "choose_species": "Search by common or scientific name, then choose a species.",
       "identified_from_visit": "Identified from this visit",
-      "visit_evidence": "Named from the accepted visit identification and Frigate’s matching tracked box. This crop alone scored {score}."
+      "visit_evidence": "Named from the accepted visit identification and Frigate’s matching tracked box. This crop alone scored {score}.",
+      "being_named": "The bird being named",
+      "being_named_tag": "Being named",
+      "name_not_tied": "The visit’s name cannot be tied to one of these birds."
     },
     "uploaded": "Uploaded",
     "observation_notes": "Observation notes",
