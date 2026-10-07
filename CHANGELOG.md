@@ -6,6 +6,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Model evaluation** compares models fairly. A prediction is scored by species, so a European
+  model's "Common starling" now counts as the European Starling it is. Accuracy is shown on the test
+  birds each model can name, with how many that is under **Can name**: a European model is no
+  longer marked down for American birds it has no output for, and no longer warned about as a
+  likely broken install. Rescoring an earlier run this way moved the European FocalNet model from
+  52.8% to about 83%, level with EVA-02 Large on the European birds it was built for. Providers are now validated before accuracy is measured, so a
+  model is scored on the accelerator it will use rather than on its CPU fallback. Full-size test
+  photos are stored at 1024 px, so latency measures the model instead of a 3840 px upload, and
+  each model's health comes from its own runtime instead of always reading "unknown".
 - The bundled **MobileNet V2 Birds** model sees the photo again. Its pixels were converted twice,
   which turned every image almost white, so it named nearly everything American White Pelican and
   scored 0.3% in a model evaluation. On twenty feeder photos of species it knows it now gets 9

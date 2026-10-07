@@ -246,3 +246,19 @@ def test_stats_track_agreements_and_expose_a_snapshot(resolver):
     stats = resolver.stats()
     assert stats["agreements"] == 2
     assert stats["mismatches"] == 0
+
+
+def test_a_models_species_outputs_are_its_vocabulary(resolver):
+    """The model evaluation scores a model only on birds it can name, so it needs every output that is a
+    species, keyed by output index; background and unresolved outputs name no bird."""
+    blue_tit = resolver.shadow_resolve(MODEL_SHA, 0, "Cyanistes caeruleus").species_id
+    toad = resolver.shadow_resolve(MODEL_SHA, 1, "Bufotes balearicus").species_id
+
+    assert resolver.species_outputs(MODEL_SHA) == {0: blue_tit, 1: toad}
+    assert resolver.species_outputs(MODEL_SHA.upper()) == {0: blue_tit, 1: toad}
+
+
+def test_an_unregistered_model_or_missing_catalogue_has_no_known_vocabulary(resolver, tmp_path):
+    assert resolver.species_outputs("f" * 64) is None
+    assert resolver.species_outputs(None) is None
+    assert SpeciesCatalogResolver(tmp_path / "nowhere.db").species_outputs(MODEL_SHA) is None

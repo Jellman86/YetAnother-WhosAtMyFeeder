@@ -219,6 +219,22 @@ class SpeciesCatalogResolver:
             model_output_index=output_index,
         )
 
+    def species_outputs(self, model_sha256: Optional[str]) -> Optional[dict[int, int]]:
+        """Every output of a registered model that names a species, as `{output_index: species_id}`.
+
+        This is the set of birds the model can name at all. Returns None when the
+        catalogue is missing or the model is not registered, so a caller can tell
+        "names none of these" apart from "not known".
+        """
+        checksum = str(model_sha256 or "").strip().lower()
+        if not checksum or not self._ensure_loaded() or checksum not in self._artifact_ids:
+            return None
+        return {
+            output_index: entry.species_id
+            for output_index, entry in self._outputs.get(checksum, {}).items()
+            if entry.class_kind == "species" and entry.species_id is not None
+        }
+
     def resolve_scientific_name(self, scientific_name: Optional[str]) -> tuple[Optional[int], str]:
         """Resolve a bare scientific name to one catalogue identity, or say why not.
 

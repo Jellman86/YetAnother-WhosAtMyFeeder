@@ -11,12 +11,14 @@ The caller controls concurrency and lifecycle. Files are written under
 from __future__ import annotations
 
 import asyncio
+import io
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Optional
 
 import httpx
 import structlog
+from PIL import Image, UnidentifiedImageError
 
 log = structlog.get_logger()
 
@@ -30,6 +32,13 @@ _INAT_PHOTO_SIZE = "medium"
 
 DEFAULT_MAX_PER_SPECIES = 3
 DEFAULT_TIMEOUT = 15.0
+
+# Longest side a test photo is stored at. Wikipedia's lead image is the full
+# upload, often 3840 px or more; moving and resizing that took 2 to 2.5 s per
+# image for every model, so latency measured the photo rather than the model.
+# Feeder snapshots and crops are well under this, and every model's input is
+# smaller still.
+MAX_EVAL_IMAGE_SIDE = 1024
 
 # Wikimedia REST API requires a descriptive User-Agent or it returns 403
 # Forbidden. iNaturalist also recommends one. The string identifies the
@@ -93,11 +102,31 @@ async def _download_bytes(client: httpx.AsyncClient, url: str) -> Optional[bytes
         return None
 
 
-def _write_bytes(dest_dir: Path, idx: int, url: str, payload: bytes) -> Path:
+def _downscaled_jpeg(payload: bytes) -> Optional[bytes]:
+    """The photo re-encoded at MAX_EVAL_IMAGE_SIDE, or None when it is already that small or unreadable.
+
+    Orientation is left as stored: the harness reads pixels without applying EXIF rotation, so the
+    smaller photo shows the model the same picture.
+    """
+    try:
+        with Image.open(io.BytesIO(payload)) as image:
+            if max(image.size) <= MAX_EVAL_IMAGE_SIDE:
+                return None
+            rgb = image.convert("RGB")
+    except (UnidentifiedImageError, OSError):
+        return None
+    rgb.thumbnail((MAX_EVAL_IMAGE_SIDE, MAX_EVAL_IMAGE_SIDE), Image.Resampling.LANCZOS)
+    buffer = io.BytesIO()
+    rgb.save(buffer, format="JPEG", quality=92)
+    return buffer.getvalue()
+
+
+def _write_image(dest_dir: Path, idx: int, url: str, payload: bytes) -> Path:
     dest_dir.mkdir(parents=True, exist_ok=True)
-    suffix = _ext_from_url(url)
+    downscaled = _downscaled_jpeg(payload)
+    suffix = ".jpg" if downscaled is not None else _ext_from_url(url)
     dest_path = dest_dir / _safe_basename(suffix, idx)
-    dest_path.write_bytes(payload)
+    dest_path.write_bytes(downscaled if downscaled is not None else payload)
     return dest_path
 
 
@@ -146,7 +175,7 @@ async def _fetch_inat(
         data = await _download_bytes(client, url)
         if not data:
             continue
-        local_path = _write_bytes(species_dir, len(results), url, data)
+        local_path = await asyncio.to_thread(_write_image, species_dir, len(results), url, data)
         results.append(
             FetchedImage(
                 taxa_id=taxa_id,
@@ -188,7 +217,7 @@ async def _fetch_wikimedia(
             data = await _download_bytes(client, original)
             if data:
                 seen_urls.add(original)
-                local_path = _write_bytes(species_dir, len(results), original, data)
+                local_path = await asyncio.to_thread(_write_image, species_dir, len(results), original, data)
                 results.append(
                     FetchedImage(
                         taxa_id=taxa_id,
@@ -239,7 +268,7 @@ async def _fetch_wikimedia(
         if not data:
             continue
         seen_urls.add(url)
-        local_path = _write_bytes(species_dir, len(results), url, data)
+        local_path = await asyncio.to_thread(_write_image, species_dir, len(results), url, data)
         results.append(
             FetchedImage(
                 taxa_id=taxa_id,
