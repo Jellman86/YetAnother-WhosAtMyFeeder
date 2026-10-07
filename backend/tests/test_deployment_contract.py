@@ -338,7 +338,11 @@ def test_intel_gpu_runtime_is_pinned_verified_and_newer_than_the_crashing_apt_bu
     # IGC 2.x installs into /usr/local/lib; without ldconfig the driver cannot find it.
     assert "ldconfig" in dockerfile
     # The runtime itself must not come back from the apt channel.
-    apt_lines = [line for line in dockerfile.splitlines() if line.strip().startswith(("intel-opencl-icd \\", "libze-intel-gpu1 \\"))]
+    apt_lines = [
+        line
+        for line in dockerfile.splitlines()
+        if line.strip().startswith(("intel-opencl-icd \\", "libze-intel-gpu1 \\"))
+    ]
     assert apt_lines == []
 
 
