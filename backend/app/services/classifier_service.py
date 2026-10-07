@@ -2001,7 +2001,12 @@ class ModelInstance:
             quant_params = input_details.get("quantization_parameters", {})
             scales = np.asarray(quant_params.get("scales", []), dtype=np.float32)
             zero_points = np.asarray(quant_params.get("zero_points", []), dtype=np.float32)
-            if scales.size > 0 and float(scales[0]) > 0:
+            if normalization in {"uint8", "none"} and input_dtype == np.dtype(np.uint8):
+                # A uint8 model reads the RGB bytes as its quantized input; its scale and zero point
+                # describe what they mean, not a conversion still to apply. Quantizing them again
+                # (scale 1/128, zero point 128 on the bundled MobileNet) saturated the image to white.
+                input_data = np.clip(real_input, 0, 255).astype(np.uint8)
+            elif scales.size > 0 and float(scales[0]) > 0:
                 zero_point = float(zero_points[0]) if zero_points.size > 0 else 0.0
                 quantized = np.rint(real_input / float(scales[0]) + zero_point)
                 limits = np.iinfo(input_dtype)
