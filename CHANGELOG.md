@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Find more birds** sits in one quiet row under the photograph, saying what is known about the
+  frame before offering the action, with a viewfinder icon in place of a glyph that read as a
+  chain link on a phone. The field log's capture count on a phone is a quiet chip with its arrow
+  after the count, rather than a bordered button louder than the bird's name.
 - Health diagnostics now show video queue counts and waiting ages by source, active phases,
   and scheduler-observed pressure and progress counters. These help distinguish live-work
   priority, worker capacity and circuit waits without changing scheduling or worker counts.
