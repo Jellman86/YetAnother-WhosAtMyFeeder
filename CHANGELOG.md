@@ -11,6 +11,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   frame (identifying from the recording frame, and every backfilled event) that took 0.3 to
   1.4 seconds on the test install, during which live updates, MQTT and the web pages waited. It
   now happens beside them.
+- Intel GPU (iGPU) acceleration works with every model again. The image's Intel GPU driver, from
+  Intel's Ubuntu LTS channel, crashed intermittently when compiling a model for the iGPU on the
+  image's Debian base, so most models could not be verified on Intel GPU and stayed on the CPU or
+  NPU. The image now installs Intel's compute runtime 26.35 with graphics compiler 2.41.5, pinned
+  and checksummed; on a Core Ultra 200 every model compiled and gave the CPU's answers.
 - The bundled **MobileNet V2 Birds** model sees the photo again. Its pixels were converted twice,
   which turned every image almost white, so it named nearly everything American White Pelican and
   scored 0.3% in a model evaluation. On twenty feeder photos of species it knows it now gets 9
