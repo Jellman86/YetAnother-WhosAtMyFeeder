@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Audio History uses less memory while summarising large BirdNET histories and gives other
+  requests time to run between batches. Filtering captures with multiple species also avoids
+  repeatedly rebuilding the same unknown-bird label rules; changing those rules still takes
+  effect immediately.
 - Video analysis on native Windows can finish and update the photograph when the platform
   cannot safely open the optional scene cache files. It decodes the selected frame again,
   preserving the same checks on the photograph and avoiding unsafe file access.
