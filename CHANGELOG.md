@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Audio History uses less memory while summarising large BirdNET histories and gives other
+  requests time to run between batches. Filtering captures with multiple species also avoids
+  repeatedly rebuilding the same unknown-bird label rules; changing those rules still takes
+  effect immediately.
 - Additional-bird scanning is now optional and **off by default**, including on upgrade.
   Normal identification and target-photo selection continue. Enable **Automatically find
   additional birds** in **Settings → Data → Snapshot quality** to scan retained scenes
