@@ -99,6 +99,11 @@ the photograph update. The job remains running and says **Updating photograph** 
 stage. Logs separate photo decode/reuse, encoding and media commit times;
 video diagnostics record the retained scene count, pixel budget and artifact creation time.
 
+On platforms without safe no-follow file opening, including native Windows, the optional
+scene artifact is neither written nor loaded. Photo updates decode the selected frame again;
+in-memory scene reuse remains available. This fallback keeps the same photograph checks and
+does not permit following symbolic links to share cached pixels.
+
 
 ## Running an Analysis
 

@@ -824,14 +824,9 @@ def test_clip_candidate_extraction_keeps_separate_birds_from_one_frame(monkeypat
             "frame_offset_seconds": 0.0,
             "score": 0.9,
         }
-        directory = tmp_path / "scenes"
-        directory.mkdir()
-        cache = VideoSceneCache()
+        cache = VideoSceneCache(clip_path=clip, clip_variant="event")
         cache.retain(evidence, Image.fromarray(frame))
-        assert cache.write(directory, clip, "event", evidence)
-        loaded = VideoSceneCache()
-        assert loaded.load(directory, clip, "event")
-        cache_kwargs["scene_cache"] = loaded
+        cache_kwargs["scene_cache"] = cache
     candidates = service._extract_snapshot_candidate_payloads_from_clip_path(
         clip, event_id="evt-two-birds", **cache_kwargs
     )
