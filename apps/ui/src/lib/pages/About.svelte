@@ -187,7 +187,7 @@
 
 <!-- No self-imposed width: the owner PageHeader above uses the shell width, and a
      narrower page below it reads as a mismatched second header. -->
-<div class="space-y-6">
+<div class="mx-auto max-w-screen-xl space-y-6">
     <!-- Colophon: what this is, in plain sentences -->
     <section id="about-project" aria-labelledby="about-project-heading" class="space-y-4 px-1 pt-2">
         <div class="flex items-start gap-4">

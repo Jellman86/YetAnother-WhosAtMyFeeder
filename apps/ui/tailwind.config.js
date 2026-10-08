@@ -3,6 +3,8 @@ export default {
     content: ['./src/**/*.{html,js,svelte,ts}'],
     theme: {
         extend: {
+            // Wide desktop monitors: room for the dashboard's third column without squeezing the field log.
+            screens: { '3xl': '1920px' },
             colors: {
                 // Primary accent — driven by the active colour theme via CSS variables
                 // (default theme = teal, bluetit theme = blue). See app.css.

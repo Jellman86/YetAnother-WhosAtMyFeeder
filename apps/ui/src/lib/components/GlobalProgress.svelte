@@ -101,7 +101,7 @@
     >
         <div class="absolute inset-0 bg-brand-500/5 pointer-events-none"></div>
 
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 relative z-10">
+        <div class="px-4 sm:px-6 lg:px-8 2xl:px-12 py-3 relative z-10">
             <div class="flex flex-col gap-2">
                 <div class="flex items-center justify-between gap-3">
                     <button
