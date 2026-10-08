@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Health diagnostics now show video queue counts and waiting ages by source, active phases,
+  and scheduler-observed pressure and progress counters. These help distinguish live-work
+  priority, worker capacity and circuit waits without changing scheduling or worker counts.
+
 - Additional-bird scanning is now optional and **off by default**, including on upgrade.
   Normal identification and target-photo selection continue. Enable **Automatically find
   additional birds** in **Settings → Data → Snapshot quality** to scan retained scenes
