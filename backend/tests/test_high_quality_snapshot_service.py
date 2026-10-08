@@ -474,7 +474,14 @@ async def test_replace_from_clip_path_persists_and_selects_ranked_snapshot_candi
     await cache_service.cache_snapshot("evt_candidates", b"frigate-bytes")
     monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True, raising=False)
 
-    async def fake_generate(event_id, clip_path, event_data=None, clip_variant="event", clip_start_timestamp=None):
+    async def fake_generate(
+        event_id,
+        clip_path,
+        event_data=None,
+        clip_variant="event",
+        clip_start_timestamp=None,
+        include_additional_birds=None,
+    ):
         assert event_id == "evt_candidates"
         # The clip reaches candidate generation as a file, never as bytes (#341).
         assert Path(clip_path).read_bytes() == b"clip-bytes"
@@ -2343,6 +2350,9 @@ def test_background_crop_work_is_blocked_by_classifier_pressure(monkeypatch):
 @pytest_asyncio.fixture(autouse=True)
 async def reset_high_quality_snapshot_service_state():
     original_media_enabled = media_cache_module.media_cache._available
+    original_multi_bird_scan = settings.media_cache.automatic_multi_bird_scan
+    # These legacy full-scan tests exercise the explicitly enabled pipeline.
+    settings.media_cache.automatic_multi_bird_scan = True
     original_high_quality_snapshots = settings.media_cache.high_quality_event_snapshots
     original_high_quality_bird_crop = settings.media_cache.high_quality_event_snapshot_bird_crop
     original_clips_enabled = settings.frigate.clips_enabled
@@ -2355,6 +2365,7 @@ async def reset_high_quality_snapshot_service_state():
     yield
     await hq_module.high_quality_snapshot_service.reset_state()
     media_cache_module.media_cache._available = original_media_enabled
+    settings.media_cache.automatic_multi_bird_scan = original_multi_bird_scan
     settings.media_cache.high_quality_event_snapshots = original_high_quality_snapshots
     settings.media_cache.high_quality_event_snapshot_bird_crop = original_high_quality_bird_crop
     settings.frigate.clips_enabled = original_clips_enabled
@@ -2514,7 +2525,9 @@ async def test_process_event_uses_persisted_hints_when_frigate_event_is_gone(tmp
 
     captured: dict[str, object] = {}
 
-    async def fake_generate(_event_id, _clip_bytes, *, event_data=None, clip_variant="event"):
+    async def fake_generate(
+        _event_id, _clip_bytes, *, event_data=None, clip_variant="event", include_additional_birds=None
+    ):
         captured["event_data"] = event_data
         captured["clip_variant"] = clip_variant
         return None
@@ -2918,7 +2931,7 @@ async def test_process_event_uses_final_frigate_snapshot_when_all_clip_sources_a
 
     assert result == "replaced"
     load_final.assert_awaited_once()
-    score_and_select.assert_awaited_once_with("evt_final_only", [final_candidate])
+    score_and_select.assert_awaited_once_with("evt_final_only", [final_candidate], include_additional_birds=True)
     persist.assert_awaited_once_with("evt_final_only", [final_candidate])
     assert await cache_service.get_snapshot("evt_final_only") == final_bytes
 
@@ -3374,6 +3387,7 @@ async def test_generate_candidates_uses_stored_top_frames_when_present(tmp_path,
         clip_variant="event",
         override_frame_indices=None,
         clip_start_timestamp=None,
+        include_additional_birds=None,
     ):
         if override_frame_indices is not None:
             used_indices.extend(override_frame_indices)
@@ -3413,6 +3427,7 @@ async def test_generate_candidates_falls_back_when_no_stored_top_frames(tmp_path
         clip_variant="event",
         override_frame_indices=None,
         clip_start_timestamp=None,
+        include_additional_birds=None,
     ):
         used_override.append(override_frame_indices)
         return []

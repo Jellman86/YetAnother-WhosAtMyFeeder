@@ -133,6 +133,37 @@ bird_observations = Table(
 Index("ix_bird_observations_event", bird_observations.c.frigate_event)
 Index("ix_bird_observations_species", bird_observations.c.species)
 
+bird_scan_jobs = Table(
+    "bird_scan_jobs",
+    metadata,
+    Column("frigate_event", String, ForeignKey("detections.frigate_event", ondelete="CASCADE"), primary_key=True),
+    Column("generation", String(32), nullable=False),
+    Column("candidate_id", String, nullable=False),
+    Column("image_ref", String, nullable=False),
+    Column("content_sha256", String(64), nullable=False),
+    Column("media_version", String, nullable=False),
+    Column("clip_variant", String, nullable=False),
+    Column("frame_index", Integer, nullable=False),
+    Column("status", String, nullable=False),
+    Column("revision", Integer, nullable=False, server_default="1"),
+    Column("created_at", DateTime, nullable=False, server_default=func.now()),
+    Column("updated_at", DateTime, nullable=False, server_default=func.now()),
+    Column("started_at", DateTime),
+    Column("completed_at", DateTime),
+    Column("result_count", Integer),
+    Column("retained_previous", Boolean, nullable=False, server_default="0"),
+    Column("error", String),
+    CheckConstraint("status IN ('queued','running','completed','failed')", name="ck_bird_scan_jobs_status"),
+    CheckConstraint("revision >= 1", name="ck_bird_scan_jobs_revision"),
+    CheckConstraint("result_count IS NULL OR result_count >= 0", name="ck_bird_scan_jobs_count"),
+)
+Index(
+    "ix_bird_scan_jobs_status_created",
+    bird_scan_jobs.c.status,
+    bird_scan_jobs.c.created_at,
+    bird_scan_jobs.c.frigate_event,
+)
+
 audio_detections = Table(
     "audio_detections",
     metadata,

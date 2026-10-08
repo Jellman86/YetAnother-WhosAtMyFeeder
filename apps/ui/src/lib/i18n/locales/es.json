@@ -751,13 +751,15 @@
       "max_size_mb": "Límite de almacenamiento (MiB)",
       "max_size_mb_help": "Cuando las fotos y el vídeo ocupan más que esto, se eliminan primero los más antiguos. Los favoritos y su archivo se conservan. Este límite y el anterior tienen prioridad sobre el mínimo de fotos. 0 significa sin límite.",
       "bird_scan_mode": "Esfuerzo de búsqueda de aves",
-      "bird_scan_mode_help": "Estándar usa menos CPU. Intensivo también busca por regiones en imágenes grandes y clasifica más recortes. Ambos cuentan todas las aves encontradas en la escena elegida; ninguno garantiza encontrar todas las aves del clip.",
+      "bird_scan_mode_help": "Se aplica a análisis manuales y automáticos. Estándar usa menos CPU. Intensivo también busca en secciones de fotogramas grandes y clasifica más recortes. Ninguna opción garantiza encontrar todas las aves.",
       "bird_scan_standard": "Estándar",
       "bird_scan_intensive": "Intensivo",
       "cache_clips_help": "Frigate ya los guarda. Las copias sobreviven aunque Frigate los borre, cada una del tamaño aproximado del clip.",
       "cache_always_kept": "Las fotos, los clips de visita completa y las vistas previas se guardan siempre. Los límites de abajo deciden durante cuánto tiempo y cuánto espacio ocupan.",
       "cache_unavailable": "No se puede escribir en la carpeta de medios, así que no se están guardando fotos ni vídeo. Revisa los permisos de la carpeta; las comprobaciones del sistema muestran el error.",
-      "cache_high_quality_storage_note": "Cada visita guarda además fotogramas a resolución completa, a menudo varios MB; fija un límite de almacenamiento si falta espacio."
+      "cache_high_quality_storage_note": "Cada visita guarda además fotogramas a resolución completa, a menudo varios MB; fija un límite de almacenamiento si falta espacio.",
+      "automatic_multi_bird_scan": "Buscar aves adicionales automáticamente",
+      "automatic_multi_bird_scan_help": "Desactivado por defecto para reducir el procesamiento. La identificación normal y el recorte del ave principal continúan, y se conservan los resultados existentes. Usa Buscar más aves en una fotografía cuando necesites analizarla. Al activarse, se analizan los fotogramas completos guardados."
     },
     "security": {
       "title": "Seguridad",
@@ -2400,7 +2402,26 @@
     "audio_spectrogram_unavailable": "Espectrograma no disponible para esta coincidencia",
     "manual_upload": "Añadido desde un archivo subido",
     "search_species": "Buscar especie",
-    "species_updated": "Especie actualizada"
+    "species_updated": "Especie actualizada",
+    "bird_scan": {
+      "action": "Buscar más aves",
+      "again": "Volver a analizar",
+      "detector_unavailable": "Instala un detector de recortes para encontrar más aves.",
+      "reviewed_other_frame": "Se conservan las aves revisadas en otro fotograma. Este fotograma no puede sustituirlas.",
+      "scene_unavailable": "El fotograma completo de esta fotografía no está disponible.",
+      "other_running": "Se está analizando otro fotograma de esta captura. Inténtalo de nuevo cuando termine.",
+      "media_changed": "El fotograma cambió durante el análisis. Inténtalo de nuevo con el actual.",
+      "interrupted": "El análisis se interrumpió. Puedes volver a intentarlo.",
+      "failed": "No se pudo terminar el análisis. Se conservan las aves existentes.",
+      "status_unavailable": "No se pudo cargar el estado del análisis. Se comprobará de nuevo en breve.",
+      "queued": "Este fotograma completo está en cola para analizarse.",
+      "running": "Buscando aves en este fotograma completo.",
+      "completed": "Análisis terminado. Aves encontradas en este fotograma: {count}.",
+      "retained": "Se conservan el recuento anterior y tus correcciones.",
+      "not_scanned": "Todavía no se han buscado aves adicionales en este fotograma completo.",
+      "loading": "Comprobando el estado del análisis de este fotograma…",
+      "start_unconfirmed": "No se pudo confirmar la solicitud de análisis. Se comprobará su estado antes de volver a intentarlo."
+    }
   },
   "events": {
     "title": "Eventos",

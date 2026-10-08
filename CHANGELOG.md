@@ -6,6 +6,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Additional-bird scanning is now optional and **off by default**, including on upgrade.
+  Normal identification and target-photo selection continue. Enable **Automatically find
+  additional birds** in **Settings → Data → Snapshot quality** to scan retained scenes
+  automatically, or use **Find more birds** on one photo. Manual scans keep the chosen photo
+  and primary identification, preserve bird corrections and exclusions, and report queued,
+  running, failed and completed results separately from photos that have never been scanned.
+  A retained whole frame is required; an empty retry keeps earlier counted-bird records.
+
 - In the default **Subprocess (Isolated)** mode, detections are tied to the model that produced
   them again. The main process never loads the model, and it only recorded the model's checksum
   when it did, so no detection got its model and output recorded and the species catalogue's

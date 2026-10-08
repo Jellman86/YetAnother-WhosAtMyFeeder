@@ -1,5 +1,19 @@
 import type { SnapshotCandidate } from '../api';
 
+/** Scanning is an explicit action on the saved photo's scene, never a fallback moment. */
+export function findScanFrameCandidate(
+    candidates: SnapshotCandidate[], currentCandidateId: string | null, currentSource: string | null
+): SnapshotCandidate | null {
+    if (!currentCandidateId || currentSource === 'frigate_snapshot') return null;
+    const current = candidates.find((candidate) => candidate.candidate_id === currentCandidateId);
+    if (!current) return null;
+    const scenes = candidates.filter((candidate) => candidate.source_mode === 'full_frame'
+        && candidate.frame_index === current.frame_index && candidate.clip_variant === current.clip_variant);
+    const scene = current.source_mode === 'full_frame' ? current
+        : scenes.length === 1 ? findMatchingFullFrameCandidate(candidates, currentCandidateId) : null;
+    return scene?.image_url && scene.snapshot_source !== 'hq_candidate_frigate_snapshot_fallback' ? scene : null;
+}
+
 /**
  * Return the uncropped view of the same clip moment as the stored candidate.
  * A full frame from another moment is different evidence, not a safe crop toggle.

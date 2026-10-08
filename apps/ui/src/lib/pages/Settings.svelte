@@ -1800,6 +1800,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'cacheRetentionDays', val: cacheRetentionDays, store: s.media_cache_retention_days ?? 0 },
             { key: 'cachePerSpeciesMaximum', val: cachePerSpeciesMaximum, store: s.media_cache_per_species_maximum ?? 0 },
             { key: 'cacheMaxSizeMb', val: cacheMaxSizeMb, store: s.media_cache_max_size_mb ?? 0 },
+            { key: 'cacheAutomaticMultiBirdScan', val: cacheAutomaticMultiBirdScan, store: s.media_cache_automatic_multi_bird_scan ?? false },
             { key: 'cacheBirdScanMode', val: cacheBirdScanMode, store: s.media_cache_bird_scan_mode ?? 'intensive' },
             { key: 'cachePerSpeciesMinimum', val: cachePerSpeciesMinimum, store: s.media_cache_per_species_minimum ?? 0 },
             { key: 'birdweatherEnabled', val: birdweatherEnabled, store: s.birdweather_enabled ?? false },
@@ -1967,6 +1968,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let cacheRetentionDays = $state(0);
     let cachePerSpeciesMaximum = $state<number>(0);
     let cacheMaxSizeMb = $state<number>(0);
+    let cacheAutomaticMultiBirdScan = $state(false);
     let cacheBirdScanMode = $state<'standard' | 'intensive'>('intensive');
     let cachePerSpeciesMinimum = $state(0);
     let cacheStats = $state<CacheStats | null>(null);
@@ -2880,6 +2882,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             cacheRetentionDays = settings.media_cache_retention_days ?? 0;
             cachePerSpeciesMaximum = settings.media_cache_per_species_maximum ?? 0;
             cacheMaxSizeMb = settings.media_cache_max_size_mb ?? 0;
+            cacheAutomaticMultiBirdScan = settings.media_cache_automatic_multi_bird_scan ?? false;
             cacheBirdScanMode = settings.media_cache_bird_scan_mode ?? 'intensive';
             cachePerSpeciesMinimum = settings.media_cache_per_species_minimum ?? 0;
             // Location settings
@@ -3225,6 +3228,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 media_cache_retention_days: cacheRetentionDays,
                 media_cache_per_species_maximum: cachePerSpeciesMaximum,
                 media_cache_max_size_mb: cacheMaxSizeMb,
+                media_cache_automatic_multi_bird_scan: cacheAutomaticMultiBirdScan,
                 media_cache_bird_scan_mode: cacheBirdScanMode,
                 media_cache_per_species_minimum: cachePerSpeciesMinimum,
                 location_latitude: locationLat,
@@ -3723,6 +3727,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:cacheRetentionDays
                     bind:cachePerSpeciesMaximum
                     bind:cacheMaxSizeMb
+                    bind:cacheAutomaticMultiBirdScan
                     bind:cacheBirdScanMode
                     bind:cachePerSpeciesMinimum
                     bind:backfillDateRange

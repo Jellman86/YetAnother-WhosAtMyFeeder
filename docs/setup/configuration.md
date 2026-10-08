@@ -283,10 +283,21 @@ Retention, caching, imports, and the destructive tools.
   when its species confidence is within five points of the whole scene. A stale cropped photograph
   cannot block a newer confidently matching frame. A photo chosen by the owner stays chosen until
   they explicitly regenerate or choose another one.
-- **Bird scanning effort** — **Standard** uses one detector scan per sampled frame and up to three
+- **Automatically find additional birds** — off by default, including upgrades. Normal target
+  identification and photo selection continue; the optional wider search, additional crop
+  classifications and count rechecks run only when enabled. Existing counts are kept when you
+  turn this off. Enable it under **Settings → Data → Snapshot quality** to scan retained whole
+  frames automatically. This also works with **Best available event snapshots** off when video
+  processing retains a whole frame.
+  To scan one photograph, open it as the owner and choose **Find more birds**. The action scans
+  the retained whole frame from that photo's exact recording moment, without changing the chosen
+  photo or primary species. A cropped Frigate image, thumbnail or expired scene is insufficient;
+  the control explains when a whole frame is unavailable. Scans run one at a time and survive
+  a restart. A completed scan with no birds is distinct from a photo never scanned. An empty
+  retry keeps earlier counted-bird records and says so.
+- **Bird scanning effort** — applies to automatic and requested additional-bird scans. **Standard** uses one detector scan per sampled frame and up to three
   classified crop choices. **Intensive** additionally searches nine overlapping tiles in large
-  high-resolution frames and classifies up to eight crop choices. Intensive is the upgrade default,
-  preserving existing behaviour. Both count all usable detector boxes from the selected scene;
+  high-resolution frames and classifies up to eight crop choices. Intensive remains the effort default; automatic scanning is off unless enabled. Both count all usable detector boxes from the selected scene;
   neither promises to find every bird in the clip, and uncertain species remain Unknown Bird.
   Per-bird corrections and exclusions are retained during background regeneration. Matching
   boxes from the same source frame keep their observation IDs; a different frame cannot replace
@@ -309,7 +320,8 @@ Retention, caching, imports, and the destructive tools.
   or failed post-delete cleanup. Active owner/background writes, still-referenced files
   and favourite archives are retained. Hidden temporary files are outside this sweep.
 
-  Environment equivalents are `MEDIA_CACHE__BIRD_SCAN_MODE=standard|intensive`,
+  Environment equivalents are `MEDIA_CACHE__AUTOMATIC_MULTI_BIRD_SCAN=true|false`,
+  `MEDIA_CACHE__BIRD_SCAN_MODE=standard|intensive`,
   `MEDIA_CACHE__PER_SPECIES_MAXIMUM=0..10000`, and `MEDIA_CACHE__MAX_SIZE_MB=0..1048576`.
   Models, backups, and archived favourites do not count towards the ordinary cache budget.
 - **Missed Detections** — import bird events Frigate still retains, over a day, week, month, or a
