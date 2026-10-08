@@ -290,7 +290,14 @@ async def _build_snapshot_status(event_id: str, *, check_original_frigate_snapsh
         metadata = await media_cache.get_snapshot_metadata(event_id) or {}
         source = str((metadata or {}).get("source") or "").strip() or None
 
-    if check_original_frigate_snapshot:
+    if event_id.startswith("manual_"):
+        # Frigate never had an upload; its original photo is its own species photo.
+        from app.services.manual_observation_service import manual_observation_service
+
+        original_frigate_snapshot_available = bool(
+            await manual_observation_service.path_for_event(event_id, preview=True)
+        )
+    elif check_original_frigate_snapshot:
         original_snapshot, _error = await frigate_client.get_snapshot_with_error(
             event_id,
             crop=True,
@@ -1814,10 +1821,9 @@ async def _apply_snapshot_candidate(request_body: SnapshotApplyRequest, event_id
     from app.services.media_cache import media_cache
 
     if request_body.mode == "revert_original" and event_id.startswith("manual_"):
-        # Frigate never had an upload; its original photo is its species' best frame.
-        from app.services.manual_observation_service import manual_observation_service
-
-        await manual_observation_service.restore_species_photo(event_id)
+        # Frigate never had an upload; its original photo is its own species photo, which shows
+        # again once no chosen photo is held in the cache.
+        await media_cache.delete_snapshot(event_id)
         async with get_db() as db:
             await DetectionRepository(db).mark_selected_snapshot_candidate(event_id, None)
         from app.services.archive_service import archive_service
@@ -1884,11 +1890,6 @@ async def _apply_snapshot_candidate(request_body: SnapshotApplyRequest, event_id
     )
     if not replaced:
         raise HTTPException(status_code=409, detail="Snapshot apply failed")
-    if event_id.startswith("manual_"):
-        # An upload's photo is its own file, served ahead of the media cache.
-        from app.services.manual_observation_service import manual_observation_service
-
-        await manual_observation_service.use_photo(event_id, image_bytes)
     applied_candidate_id = str(candidate.get("candidate_id") or "")
     async with get_db() as db:
         await DetectionRepository(db).mark_selected_snapshot_candidate(event_id, applied_candidate_id)
@@ -1912,6 +1913,13 @@ async def proxy_original_snapshot(
     del auth
     if not validate_event_id(event_id):
         raise HTTPException(status_code=400, detail="Invalid event ID format")
+    if event_id.startswith("manual_"):
+        from app.services.manual_observation_service import manual_observation_service
+
+        own_photo = await manual_observation_service.path_for_event(event_id, preview=True)
+        if not own_photo:
+            raise HTTPException(status_code=404, detail="Original photo unavailable")
+        return FileResponse(own_photo, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
     snapshot_bytes = await frigate_client.get_snapshot(event_id, crop=True, quality=95)
     if not snapshot_bytes:
         raise HTTPException(status_code=404, detail="Original Frigate snapshot unavailable")
@@ -1938,6 +1946,9 @@ async def proxy_snapshot(
     if event_id.startswith("manual_"):
         from app.services.manual_observation_service import manual_observation_service
 
+        # A chosen or generated photo is held in the cache as for any visit.
+        if chosen := await media_cache.get_snapshot(event_id):
+            return Response(content=chosen, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
         manual_snapshot = await manual_observation_service.path_for_event(event_id, preview=True)
         if not manual_snapshot:
             raise HTTPException(status_code=404, detail=i18n_service.translate("errors.proxy.snapshot_not_found", lang))
@@ -2922,6 +2933,8 @@ async def proxy_thumb(
     if event_id.startswith("manual_"):
         from app.services.manual_observation_service import manual_observation_service
 
+        if chosen := await media_cache.get_snapshot(event_id):
+            return Response(content=chosen, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
         manual_thumbnail = await manual_observation_service.path_for_event(event_id, preview=True)
         if not manual_thumbnail:
             raise HTTPException(

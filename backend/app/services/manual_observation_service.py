@@ -634,33 +634,6 @@ class ManualObservationService:
             log.warning("Manual observation photo could not follow the species", draft_id=draft.id, error=str(exc))
             return False
 
-    async def use_photo(self, event_id: str, content: bytes) -> bool:
-        """Make an owner-chosen frame a saved upload's photo. Returns whether the photo changed.
-
-        An upload's photo is its own file, served ahead of the media cache, so a
-        frame chosen in the record has to land here to be the photo it shows.
-        """
-        if not event_id.startswith("manual_") or not content:
-            return False
-        async with get_db() as db:
-            draft = await ManualObservationRepository(db).get_by_event_id(event_id)
-        if draft is None:
-            return False
-        return await asyncio.to_thread(_replace_chosen_photo, self.directory(draft.id), content)
-
-    async def restore_species_photo(self, event_id: str) -> bool:
-        """Undo a chosen frame: an upload's original photo is its species' best frame, or the upload itself."""
-        if not event_id.startswith("manual_"):
-            return False
-        async with get_db() as db:
-            draft = await ManualObservationRepository(db).get_by_event_id(event_id)
-            detection = await DetectionRepository(db).get_by_frigate_event(event_id)
-        if draft is None or detection is None:
-            return False
-        return await self._use_photo_of(
-            draft, [detection.display_name, detection.scientific_name, detection.common_name]
-        )
-
     async def follow_species(self, event_id: str, names: list[str | None]) -> bool:
         """Keep a saved upload's photo on the bird its species now names. Returns whether the photo changed."""
         if not event_id.startswith("manual_"):

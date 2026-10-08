@@ -312,11 +312,13 @@ def _jpeg(colour: tuple[int, int, int], size: tuple[int, int] = (20, 20)) -> byt
 
 
 @pytest.mark.asyncio
-async def test_a_frame_chosen_for_an_upload_becomes_its_photo_and_reverting_restores_the_species_photo(
+async def test_an_uploads_chosen_and_generated_photos_show_and_revert_to_its_species_photo(
     client: httpx.AsyncClient, tmp_path
 ):
-    """An upload's photo is its own file, served ahead of the media cache, so a frame applied only to the
-    cache never showed; and its "original" is the species photo, not a Frigate snapshot it never had."""
+    """An upload's own photo file was served ahead of the media cache, where photo choices and
+    generation commit, so neither showed; and its "original" was looked up in Frigate, which never
+    had it. The cache now holds the chosen photo as for any visit, and the original is the upload's
+    species photo."""
     from app.repositories.detection_repository import DetectionRepository
     from app.services.media_cache import media_cache
 
@@ -324,7 +326,6 @@ async def test_a_frame_chosen_for_an_upload_becomes_its_photo_and_reverting_rest
     with patch("app.services.manual_observation_service.taxonomy_service.get_names", new=AsyncMock(side_effect=_names)):
         saved = await client.post(f"/api/manual-observations/{draft['id']}/confirm", json={"label": "Downy Woodpecker"})
     event_id = saved.json()["event_id"]
-    chosen = _jpeg((220, 30, 30))
     candidate = {
         "candidate_id": "frame-1",
         "frame_index": 3,
@@ -336,35 +337,71 @@ async def test_a_frame_chosen_for_an_upload_becomes_its_photo_and_reverting_rest
         "image_ref": f"{event_id}__frame-1__image",
         "snapshot_source": "hq_candidate_model_crop",
     }
+    await media_cache.cache_snapshot(candidate["image_ref"], _jpeg((220, 30, 30)))
 
-    async def cached(key):
-        return chosen if key == candidate["image_ref"] else None
-
-    async def photo_colour() -> tuple[int, int, int]:
-        response = await client.get(f"/api/frigate/{event_id}/snapshot.jpg")
-        assert response.status_code == 200
-        return _dominant(response.content)[1]
+    async def colours() -> tuple[tuple[int, int, int], tuple[int, int, int]]:
+        snapshot = await client.get(f"/api/frigate/{event_id}/snapshot.jpg")
+        thumbnail = await client.get(f"/api/frigate/{event_id}/thumbnail.jpg")
+        assert snapshot.status_code == 200 and thumbnail.status_code == 200
+        return _dominant(snapshot.content)[1], _dominant(thumbnail.content)[1]
 
     try:
-        assert (await photo_colour())[2] > 200, "starts on the woodpecker"
+        species_photo = (await client.get(f"/api/frigate/{event_id}/snapshot.jpg")).content
+        assert (await colours())[0][2] > 200, "starts on the woodpecker"
+
+        status = await client.get(f"/api/frigate/{event_id}/snapshot/status")
+        assert status.json()["original_frigate_snapshot_available"] is True, "the upload's own photo is its original"
+        original = await client.get(f"/api/frigate/{event_id}/snapshot/original.jpg")
+        assert original.status_code == 200 and original.content == species_photo
+
         with (
             patch.object(DetectionRepository, "list_snapshot_candidates", new=AsyncMock(return_value=[candidate])),
-            patch.object(DetectionRepository, "mark_selected_snapshot_candidate", new=AsyncMock()),
-            patch.object(media_cache, "get_snapshot", new=AsyncMock(side_effect=cached)),
-            patch.object(media_cache, "get_snapshot_metadata", new=AsyncMock(return_value={})),
-            patch.object(media_cache, "replace_snapshot", new=AsyncMock(return_value=True)),
             patch("app.services.archive_service.archive_service.refresh_photograph", new=AsyncMock()),
         ):
             applied = await client.post(
                 f"/api/frigate/{event_id}/snapshot/apply", json={"mode": "candidate", "candidate_id": "frame-1"}
             )
             assert applied.status_code == 200, applied.text
-            colour = await photo_colour()
-            assert colour[0] > 200 and colour[2] < 60, "the chosen frame is the photo now"
+            for colour in await colours():
+                assert colour[0] > 200 and colour[2] < 60, "the chosen frame is the photo and the thumbnail"
 
             reverted = await client.post(f"/api/frigate/{event_id}/snapshot/apply", json={"mode": "revert_original"})
             assert reverted.status_code == 200, reverted.text
-        assert (await photo_colour())[2] > 200, "back on the species photo"
+            assert await media_cache.get_snapshot(event_id) is None, (
+                "no chosen frame is left to be reported or archived"
+            )
+        for colour in await colours():
+            assert colour[2] > 200, "back on the species photo"
+
+        # Photo generation commits to the cache the same way, and the upload shows it.
+        await media_cache.replace_snapshot(
+            event_id, _jpeg((30, 200, 30)), source="high_quality_bird_crop", automatic=True
+        )
+        for colour in await colours():
+            assert colour[1] > 150 and colour[0] < 60
+    finally:
+        assert (await client.delete(f"/api/events/{event_id}")).status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_a_favourite_uploads_archive_follows_a_revert_to_its_own_photo(client: httpx.AsyncClient, tmp_path):
+    """With no chosen frame in the cache, an upload's archive copies the upload's own photo, not the
+    frame it held before, nor a Frigate snapshot that never existed."""
+    from app.services.archive_service import archive_service
+
+    draft = await _analysed_video_draft(client, tmp_path)
+    with patch("app.services.manual_observation_service.taxonomy_service.get_names", new=AsyncMock(side_effect=_names)):
+        saved = await client.post(f"/api/manual-observations/{draft['id']}/confirm", json={"label": "Downy Woodpecker"})
+    event_id = saved.json()["event_id"]
+    event_dir = tmp_path / "archive" / event_id
+    event_dir.mkdir(parents=True)
+    (event_dir / "snapshot.jpg").write_bytes(_jpeg((220, 30, 30)))
+    try:
+        state, error, size = await archive_service._acquire_snapshot(event_id, event_dir)
+        species_photo = (await client.get(f"/api/frigate/{event_id}/snapshot.jpg")).content
+        assert (state, error) == ("durable", None)
+        assert (event_dir / "snapshot.jpg").read_bytes() == species_photo
+        assert size == len(species_photo)
     finally:
         assert (await client.delete(f"/api/events/{event_id}")).status_code == 200
 
