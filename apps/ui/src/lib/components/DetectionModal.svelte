@@ -197,6 +197,9 @@
     // match any current primary identity field, so owner confirmation is needed.
     let videoPromotionGated = $derived(isVideoPromotionGated(detection));
     const isManualObservation = $derived(detection.observation_source === 'manual_upload');
+    // An uploaded video is kept with the observation and serves photo choices and
+    // Score again like any visit's clip; an uploaded photo has neither.
+    const hasFrameSource = $derived(!isManualObservation || Boolean(detection.has_clip));
 
     // State
     let modalElement = $state<HTMLElement | null>(null);
@@ -1018,7 +1021,7 @@
     );
     const showInlineFramePicker = $derived(
         hasOwnerDetectionActions
-        && detection.observation_source !== 'manual_upload'
+        && hasFrameSource
         && !showMediaSlotVideoAnalysis
         && !reclassifyProgress
         && (
@@ -3102,7 +3105,7 @@
                  into the consolidated video-status notice above. -->
 
             <!-- The facts, as rows rather than four separate boxes -->
-            {#if hasOwnerDetectionActions && detection.observation_source !== 'manual_upload'}
+            {#if hasOwnerDetectionActions && hasFrameSource}
                 {#key detection.frigate_event}
                     <CountedBirds
                         eventId={detection.frigate_event}
@@ -3982,7 +3985,7 @@
                         </span>
                     </button>
 
-                    {#if !isManualObservation}
+                    {#if hasFrameSource}
                         <button
                             type="button"
                             onclick={handleReclassifyClick}

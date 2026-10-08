@@ -290,7 +290,14 @@ async def _build_snapshot_status(event_id: str, *, check_original_frigate_snapsh
         metadata = await media_cache.get_snapshot_metadata(event_id) or {}
         source = str((metadata or {}).get("source") or "").strip() or None
 
-    if check_original_frigate_snapshot:
+    if event_id.startswith("manual_"):
+        # Frigate never had an upload; its original photo is its own species photo.
+        from app.services.manual_observation_service import manual_observation_service
+
+        original_frigate_snapshot_available = bool(
+            await manual_observation_service.path_for_event(event_id, preview=True)
+        )
+    elif check_original_frigate_snapshot:
         original_snapshot, _error = await frigate_client.get_snapshot_with_error(
             event_id,
             crop=True,
@@ -1877,6 +1884,32 @@ async def _apply_snapshot_candidate(request_body: SnapshotApplyRequest, event_id
 
     from app.services.media_cache import media_cache
 
+    if request_body.mode == "revert_original" and event_id.startswith("manual_"):
+        # Frigate never had an upload; its original photo is its own species photo. It is held as
+        # the owner's choice, as an ordinary revert holds Frigate's, so Score again keeps it.
+        from app.services.manual_observation_service import manual_observation_service
+
+        own_photo = await manual_observation_service.path_for_event(event_id, preview=True)
+        if own_photo is None:
+            raise HTTPException(status_code=404, detail="Original photo unavailable")
+        replaced = await media_cache.replace_snapshot(
+            event_id, await asyncio.to_thread(own_photo.read_bytes), source="manual_upload", manual_selection=True
+        )
+        if not replaced:
+            raise HTTPException(status_code=409, detail="Snapshot apply failed")
+        async with get_db() as db:
+            await DetectionRepository(db).mark_selected_snapshot_candidate(event_id, None)
+        from app.services.archive_service import archive_service
+
+        await archive_service.refresh_photograph(event_id)
+        after = await _build_snapshot_status(event_id)
+        return SnapshotApplyResponse(
+            **after.model_dump(),
+            status="applied",
+            applied_mode=request_body.mode,
+            applied_candidate_id=None,
+        )
+
     if request_body.mode == "revert_original":
         snapshot_bytes = await frigate_client.get_snapshot(event_id, crop=True, quality=95)
         if not snapshot_bytes:
@@ -1953,6 +1986,13 @@ async def proxy_original_snapshot(
     del auth
     if not validate_event_id(event_id):
         raise HTTPException(status_code=400, detail="Invalid event ID format")
+    if event_id.startswith("manual_"):
+        from app.services.manual_observation_service import manual_observation_service
+
+        own_photo = await manual_observation_service.path_for_event(event_id, preview=True)
+        if not own_photo:
+            raise HTTPException(status_code=404, detail="Original photo unavailable")
+        return FileResponse(own_photo, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
     snapshot_bytes = await frigate_client.get_snapshot(event_id, crop=True, quality=95)
     if not snapshot_bytes:
         raise HTTPException(status_code=404, detail="Original Frigate snapshot unavailable")
@@ -1979,6 +2019,9 @@ async def proxy_snapshot(
     if event_id.startswith("manual_"):
         from app.services.manual_observation_service import manual_observation_service
 
+        # A chosen or generated photo is held in the cache as for any visit.
+        if chosen := await media_cache.get_snapshot(event_id):
+            return Response(content=chosen, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
         manual_snapshot = await manual_observation_service.path_for_event(event_id, preview=True)
         if not manual_snapshot:
             raise HTTPException(status_code=404, detail=i18n_service.translate("errors.proxy.snapshot_not_found", lang))
@@ -2963,6 +3006,8 @@ async def proxy_thumb(
     if event_id.startswith("manual_"):
         from app.services.manual_observation_service import manual_observation_service
 
+        if chosen := await media_cache.get_snapshot(event_id):
+            return Response(content=chosen, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
         manual_thumbnail = await manual_observation_service.path_for_event(event_id, preview=True)
         if not manual_thumbnail:
             raise HTTPException(

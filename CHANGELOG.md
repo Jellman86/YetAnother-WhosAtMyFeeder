@@ -6,6 +6,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- An uploaded video now gets the same photo choices, **Birds found in this capture** and **Score
+  again** as any visit (#481). The server could already read the uploaded video for them, but the
+  record hid all three for every upload. A frame you choose becomes the upload's photo, and going
+  back to the original restores its species photo instead of failing on a Frigate snapshot it never
+  had. An uploaded photo has no frames, so it still has none of these.
+- An uploaded bird keeps its common name. When the name lookup returned none, the upload was saved
+  without it; the list filled it in, but the next live update brought back the stored name, so the
+  record dropped to the scientific name a while after saving. The common name now comes from the
+  taxon, as the list's does, and the shown name follows the common-name setting like any visit's.
 - **Find more birds** sits in one quiet row under the photograph, saying what is known about the
   frame before offering the action, with a viewfinder icon in place of a glyph that read as a
   chain link on a phone. The field log's capture count on a phone is a quiet chip with its arrow

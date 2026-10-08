@@ -202,6 +202,13 @@ class ArchiveService:
         """
         target = event_dir / SNAPSHOT_NAME
         cached = await media_cache.get_snapshot_path(event_id)
+        if cached is None and event_id.startswith("manual_"):
+            # Without a chosen photo an upload shows its own; Frigate never had it.
+            from app.services.manual_observation_service import manual_observation_service
+
+            cached = await manual_observation_service.path_for_event(event_id, preview=True)
+            if cached is None:
+                return "unavailable", None, 0
         if cached is None and await aiofiles.os.path.exists(target):
             return "durable", None, int((await aiofiles.os.stat(target)).st_size)
         if cached is not None:
