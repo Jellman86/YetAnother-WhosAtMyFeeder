@@ -329,12 +329,15 @@ def select_event_temporal_source_consensus(
     *,
     target_consensuses: Iterable[SourceTemporalConsensus],
     minimum_tracked_score: float = 0.6,
+    tracked_observations: TemporalConsensusAssessment | None = None,
 ) -> SourceTemporalConsensus | None:
     """Prioritize tracked-object evidence, then a repeatedly identified event target.
 
     The Frigate crop locates the event's bird; a full-frame winner may identify
     a different visitor. Without either anchor, retain source disagreement
-    abstention rather than claiming which bird triggered the event.
+    abstention rather than claiming which bird triggered the event. When the
+    tracked crops were seen but could not agree, a scene winner they never
+    showed is another visitor, not the event's bird.
     """
     sources = list(source_consensuses)
     tracked = next(
@@ -364,4 +367,14 @@ def select_event_temporal_source_consensus(
         return None
     if targets:
         return max(targets, key=lambda item: (item.consensus.supporting_frame_count, item.consensus.score))
-    return select_temporal_source_consensus(sources)
+    selected = select_temporal_source_consensus(sources)
+    if (
+        selected is not None
+        and tracked_observations is not None
+        and tracked_observations.independent_frame_count >= VIDEO_MIN_SUPPORTING_FRAMES
+        and all(
+            item.class_index != selected.consensus.winner_index for item in tracked_observations.ranked_observations
+        )
+    ):
+        return None
+    return selected

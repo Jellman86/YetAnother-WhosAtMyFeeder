@@ -33,6 +33,7 @@ from app.utils.canonical_species import should_hide_species_label
 from app.utils.frigate_coordinates import (
     frigate_snapshot_crop_box,
     normalized_frigate_video_hint,
+    photographed_track,
     restore_frigate_hint_box,
 )
 from app.utils.runtime_flavor import get_image_flavor, image_flavor_warning, packaged_inference_providers
@@ -5300,6 +5301,50 @@ class ClassifierService:
             }
         return None
 
+    @staticmethod
+    def _frigate_path_points(raw_path_data: list[Any]) -> list[tuple[float, float, float]]:
+        path_points: list[tuple[float, float, float]] = []
+        for item in raw_path_data:
+            if not isinstance(item, (list, tuple)) or len(item) < 2:
+                continue
+            point = item[0]
+            if not isinstance(point, (list, tuple)) or len(point) < 2:
+                continue
+            try:
+                x = float(point[0])
+                y = float(point[1])
+                timestamp = float(item[1])
+            except (TypeError, ValueError):
+                continue
+            if all(math.isfinite(value) for value in (x, y, timestamp)) and 0.0 <= x <= 1.0 and 0.0 <= y <= 1.0:
+                path_points.append((timestamp, x, y))
+        return path_points
+
+    def _frigate_snapshot_time(self, input_context: ClassificationInputContext) -> float | None:
+        value = self._input_context_extra(input_context, "frigate_snapshot_frame_time")
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
+            return None
+        return float(value)
+
+    def _photographed_track_window(
+        self,
+        input_context: ClassificationInputContext,
+        image_size: tuple[int, int] | None,
+    ) -> tuple[float, float]:
+        """Time window in which Frigate's track still follows the photographed bird."""
+        snapshot_time = self._frigate_snapshot_time(input_context)
+        box = normalized_frigate_video_hint(self._input_context_extra(input_context, "frigate_box"))
+        raw_path_data = self._input_context_extra(input_context, "frigate_path_data")
+        if snapshot_time is None or box is None or not isinstance(raw_path_data, list):
+            return -math.inf, math.inf
+        _points, start, end = photographed_track(
+            self._frigate_path_points(raw_path_data),
+            box=box,
+            snapshot_time=snapshot_time,
+            image_size=image_size or (1, 1),
+        )
+        return start, end
+
     def _tracked_frigate_box_for_frame(
         self,
         input_context: ClassificationInputContext,
@@ -5334,25 +5379,18 @@ class ClassifierService:
         if width > 1.0 or height > 1.0:
             return None
 
-        path_points: list[tuple[float, float, float]] = []
-        for item in raw_path_data:
-            if not isinstance(item, (list, tuple)) or len(item) < 2:
-                continue
-            point = item[0]
-            if not isinstance(point, (list, tuple)) or len(point) < 2:
-                continue
-            try:
-                x = float(point[0])
-                y = float(point[1])
-                timestamp = float(item[1])
-            except (TypeError, ValueError):
-                continue
-            if all(math.isfinite(value) for value in (x, y, timestamp)) and 0.0 <= x <= 1.0 and 0.0 <= y <= 1.0:
-                path_points.append((timestamp, x, y))
+        path_points = self._frigate_path_points(raw_path_data)
         if not path_points:
             return None
 
         target_timestamp = clip_start + offset
+        snapshot_time = self._frigate_snapshot_time(input_context)
+        if snapshot_time is not None:
+            path_points, start, end = photographed_track(
+                path_points, box=normalized_box, snapshot_time=snapshot_time, image_size=image_size
+            )
+            if not start <= target_timestamp < end:
+                return None
         point_timestamp, bottom_center_x, bottom_y = min(
             path_points,
             key=lambda item: abs(item[0] - target_timestamp),
@@ -5397,6 +5435,8 @@ class ClassifierService:
             if normalized_region is not None and tracked_size is not None and isinstance(raw_path_data, list):
                 left, top, width, height = normalized_region
                 right, bottom = left + width, top + height
+                # A track that moved on to another bird must not stretch the event's subject to it.
+                track_start, track_end = self._photographed_track_window(input_context, image_size)
                 for item in raw_path_data:
                     if (
                         not isinstance(item, (list, tuple))
@@ -5405,6 +5445,14 @@ class ClassifierService:
                         or len(item[0]) < 2
                     ):
                         continue
+                    if math.isfinite(track_start) or math.isfinite(track_end):
+                        timestamp = item[1] if len(item) > 1 else None
+                        if (
+                            isinstance(timestamp, bool)
+                            or not isinstance(timestamp, (int, float))
+                            or not track_start <= timestamp < track_end
+                        ):
+                            continue
                     x, y = item[0][:2]
                     if (
                         isinstance(x, bool)
@@ -7138,6 +7186,7 @@ class ClassifierService:
                 source_consensuses,
                 target_consensuses=target_consensuses,
                 minimum_tracked_score=max(minimum_frame_score, float(settings.classification.threshold)),
+                tracked_observations=source_assessments.get("frigate_hint_crop"),
             )
             event_target_selected = selected_source_consensus is not None and (
                 selected_source_consensus.input_source == "frigate_hint_crop"

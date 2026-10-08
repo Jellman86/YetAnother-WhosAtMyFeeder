@@ -372,3 +372,45 @@ def test_old_target_cannot_override_a_conflicting_confident_tracked_region():
         )
         is None
     )
+
+
+def _tracked_observations(*frames):
+    return assess_temporal_consensus(
+        [np.asarray(frame) for frame in frames], minimum_frame_score=0.7, frame_offsets_seconds=range(len(frames))
+    )
+
+
+def _scene_finch():
+    finch = build_temporal_consensus([np.array([0.95, 0.03, 0.02])] * 4, minimum_frame_score=0.7)
+    return [SourceTemporalConsensus("model_crop", finch), SourceTemporalConsensus("frigate_region_crop", finch)]
+
+
+def test_scene_bird_never_seen_on_the_tracked_bird_is_not_claimed_for_the_event():
+    # #481: the tracked chickadee crops split between chickadee species, so no tracked
+    # consensus; the busier finch at another feeder must not become the event's bird.
+    tracked = _tracked_observations([0.02, 0.6, 0.38], [0.03, 0.3, 0.67])
+
+    assert (
+        select_event_temporal_source_consensus(_scene_finch(), target_consensuses=[], tracked_observations=tracked)
+        is None
+    )
+
+
+def test_scene_bird_the_tracked_crops_also_showed_is_still_accepted():
+    tracked = _tracked_observations([0.55, 0.4, 0.05], [0.02, 0.6, 0.38])
+
+    selected = select_event_temporal_source_consensus(
+        _scene_finch(), target_consensuses=[], tracked_observations=tracked
+    )
+
+    assert selected is not None and selected.consensus.winner_index == 0
+
+
+def test_one_tracked_frame_is_too_little_to_overrule_the_scene():
+    tracked = _tracked_observations([0.02, 0.6, 0.38])
+
+    selected = select_event_temporal_source_consensus(
+        _scene_finch(), target_consensuses=[], tracked_observations=tracked
+    )
+
+    assert selected is not None and selected.consensus.winner_index == 0
