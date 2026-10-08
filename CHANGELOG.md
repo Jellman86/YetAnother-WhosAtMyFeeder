@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- In **Subprocess (Isolated)** mode, identifying a bird no longer freezes the rest of the app for
+  a moment. Each picture is packed losslessly for the classifier worker, and for a full camera
+  frame (identifying from the recording frame, and every backfilled event) that took 0.3 to
+  1.4 seconds on the test install, during which live updates, MQTT and the web pages waited. It
+  now happens beside them.
 - Intel GPU (iGPU) acceleration works with every model again. The image's Intel GPU driver, from
   Intel's Ubuntu LTS channel, crashed intermittently when compiling a model for the iGPU on the
   image's Debian base, so most models could not be verified on Intel GPU and stayed on the CPU or

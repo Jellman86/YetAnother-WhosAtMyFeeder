@@ -5968,12 +5968,16 @@ class ClassifierService:
         if self._classifier_supervisor is None:
             raise RuntimeError("classifier supervisor is not configured")
         normalized_input_context = _normalize_classification_input_context(input_context)
+        # A lossless full frame (recording-frame identification and backfill send the
+        # native picture) takes 0.3 to 1.4 s to encode; on the loop that stalled SSE,
+        # MQTT and the API once per event.
+        image_b64 = await asyncio.to_thread(self._encode_image_for_worker, image)
         try:
             results = await self._classifier_supervisor.classify(
                 priority=priority,
                 work_id=str(work_id or f"{priority}-{time.monotonic_ns()}"),
                 lease_token=int(lease_token or 1),
-                image_b64=self._encode_image_for_worker(image),
+                image_b64=image_b64,
                 camera_name=camera_name,
                 model_id=model_id,
                 input_context=dict(normalized_input_context.model_dump())
