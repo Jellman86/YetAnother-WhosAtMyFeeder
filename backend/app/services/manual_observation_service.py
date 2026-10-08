@@ -642,14 +642,20 @@ class ManualObservationService:
             draft = await ManualObservationRepository(db).get_by_event_id(event_id)
         if draft is None or draft.media_type != "video":
             return False
-        changed = await self._use_photo_of(draft, names)
-        if changed:
-            # A chosen or generated photo held in the cache would mask the corrected bird.
-            from app.services.media_cache import media_cache
+        from app.services.media_cache import media_cache
+        from app.services.photo_choice_actions import photo_choice_lock
 
-            await media_cache.delete_snapshot(event_id)
-            async with get_db() as db:
-                await DetectionRepository(db).mark_selected_snapshot_candidate(event_id, None)
+        # Under the lock every other photo choice takes, so a frame applied meanwhile cannot be left
+        # half-cleared. A chosen or generated photo held in the cache is what the record shows and would
+        # mask the corrected bird, even when the upload's own photo already shows it.
+        async with photo_choice_lock(event_id):
+            changed = await self._use_photo_of(draft, names)
+            if await media_cache.get_snapshot_path(event_id) is not None:
+                await media_cache.delete_snapshot(event_id)
+                async with get_db() as db:
+                    await DetectionRepository(db).mark_selected_snapshot_candidate(event_id, None)
+                changed = True
+        if changed:
             from app.services.archive_service import archive_service
 
             await archive_service.refresh_photograph(event_id)

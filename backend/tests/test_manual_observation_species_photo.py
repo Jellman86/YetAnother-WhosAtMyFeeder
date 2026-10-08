@@ -472,3 +472,50 @@ async def test_a_species_correction_moves_an_uploads_photo_past_a_generated_one(
         assert await media_cache.get_snapshot(event_id) is None
     finally:
         assert (await client.delete(f"/api/events/{event_id}")).status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_correcting_back_to_the_upload_photos_species_clears_a_cached_photo(client: httpx.AsyncClient, tmp_path):
+    """Score again can change the species and the cached photo while the upload's own photo still shows
+    the confirmed bird; correcting back left the other bird showing, since the own photo did not change."""
+    from app.database import get_db
+    from app.services.media_cache import media_cache
+    from app.services.photo_choice_actions import photo_choice_lock
+
+    draft = await _analysed_video_draft(client, tmp_path)
+    with patch("app.services.manual_observation_service.taxonomy_service.get_names", new=AsyncMock(side_effect=_names)):
+        saved = await client.post(f"/api/manual-observations/{draft['id']}/confirm", json={"label": "Downy Woodpecker"})
+    event_id = saved.json()["event_id"]
+    async with get_db() as db:
+        await db.execute(
+            "UPDATE detections SET display_name = ?, category_name = ?, scientific_name = ?, common_name = ? "
+            "WHERE frigate_event = ?",
+            ("Tufted Titmouse", "Baeolophus bicolor", "Baeolophus bicolor", "Tufted Titmouse", event_id),
+        )
+        await db.commit()
+    await media_cache.replace_snapshot(event_id, _jpeg((30, 200, 30)), source="high_quality_bird_crop", automatic=True)
+    held_while_clearing: list[bool] = []
+    delete_snapshot = media_cache.delete_snapshot
+
+    async def recording_delete(key):
+        held_while_clearing.append(photo_choice_lock(event_id).locked())
+        return await delete_snapshot(key)
+
+    try:
+        with (
+            patch("app.routers.events.taxonomy_service.get_names", new=AsyncMock(side_effect=_names)),
+            patch(
+                "app.routers.events.audio_service.correlate_species", new=AsyncMock(return_value=(False, None, None))
+            ),
+            patch("app.routers.events.broadcaster.broadcast", new=AsyncMock()),
+            patch("app.services.archive_service.archive_service.refresh_photograph", new=AsyncMock()),
+            patch.object(media_cache, "delete_snapshot", new=recording_delete),
+        ):
+            response = await client.patch(f"/api/events/{event_id}", json={"display_name": "Downy Woodpecker"})
+        assert response.status_code == 200, response.text
+        assert response.json()["photo_changed"] is True
+        size, colour = _dominant((await client.get(f"/api/frigate/{event_id}/snapshot.jpg")).content)
+        assert size == (32, 32) and colour[2] > 200, "the woodpecker, not the photo Score again left"
+        assert held_while_clearing == [True], "cleared under the same lock as every other photo choice"
+    finally:
+        assert (await client.delete(f"/api/events/{event_id}")).status_code == 200
