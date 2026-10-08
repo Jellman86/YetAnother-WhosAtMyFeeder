@@ -10,7 +10,11 @@ import notableSource from './NotableNearby.svelte?raw';
  */
 describe('notable nearby', () => {
     it('gives a lone sighting the full width', () => {
-        expect(notableSource).toContain("groups.length > 1 ? 'sm:grid-cols-2' : ''");
+        expect(notableSource).toContain("groups.length > 1 ? 'sm:grid-cols-2 3xl:grid-cols-1' : ''");
+    });
+
+    it('goes back to one column when it sits in the narrow wide-screen side column', () => {
+        expect(notableSource).toContain('3xl:grid-cols-1');
     });
 
     it('still pairs sightings up when there is more than one', () => {

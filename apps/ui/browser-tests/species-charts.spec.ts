@@ -298,3 +298,15 @@ async function rainPixels(canvas: Locator): Promise<number[][] | null> {
         ).data));
     });
 }
+
+test('the trend chart keeps its set height on a wide screen', async ({ page }) => {
+    await page.setViewportSize({ width: 2560, height: 1440 });
+    const trend = page.locator('canvas[aria-label^="Detections over time"]');
+    await expect(trend).toBeVisible();
+    await expect.poll(() => trend.evaluate(node => Boolean((node as HTMLCanvasElement & { __chartjs?: unknown }).__chartjs))).toBe(true);
+    // Chart.js sizes the canvas to its box; a box that grows with the canvas balloons to half the width.
+    await page.waitForTimeout(400);
+    const height = await trend.evaluate(node => node.getBoundingClientRect().height);
+    expect(height).toBeGreaterThan(200);
+    expect(height).toBeLessThanOrEqual(380);
+});

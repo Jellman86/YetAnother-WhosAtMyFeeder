@@ -1992,11 +1992,13 @@
                     </div>
                 </div>
 
-                <div class="mt-6 w-full flex-1 min-h-[140px]" style="height: {isStackedChart() ? 380 : 260}px">
+                <!-- A fixed box, not a flex-grown one: Chart.js sizes the canvas to its parent, so a parent
+                     that grows with its content lets the chart balloon to half the page width. -->
+                <div class="mt-6 w-full shrink-0" style="height: {isStackedChart() ? 380 : 260}px">
                     {#if timeline?.points?.length}
                         {#key `${span}-${timeline.total_count}-${timeline.bucket}-${showPrecip}-${isDark()}-${themeStore.colorTheme}`}
                             <div class="flex h-full min-w-0 flex-col">
-                                <div class="min-h-0 flex-1"><canvas use:chartjs={chartOptions()} bind:this={chartEl} aria-label="{$_('leaderboard.detections_over_time')}: {metricLabel()}" class="w-full"></canvas></div>
+                                <div class="relative min-h-0 flex-1"><canvas use:chartjs={chartOptions()} bind:this={chartEl} aria-label="{$_('leaderboard.detections_over_time')}: {metricLabel()}" class="w-full"></canvas></div>
                             </div>
                         {/key}
                     {:else}
