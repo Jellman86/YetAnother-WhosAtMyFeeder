@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- A favourite capture now leads its visit (#481). With captures grouped into visits, a favourite
+  could sit unseen inside a stack whose card showed another capture, even under the Favorites
+  filter. The visit card now shows the favourite (the best-scoring one when there are several),
+  and the capture lists in the Explorer and the field log mark each favourite as **Favorited**.
 - **Model evaluation** compares models fairly. A prediction is scored by species, so a European
   model's "Common starling" now counts as the European Starling it is. Accuracy is shown on the test
   birds each model can name, with how many that is under **Can name**: a European model is no

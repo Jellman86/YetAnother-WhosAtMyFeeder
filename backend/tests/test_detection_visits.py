@@ -700,6 +700,26 @@ async def test_camera_filter_does_not_change_identity_or_expanded_membership(rep
 
 
 @pytest.mark.asyncio
+async def test_a_favourite_capture_is_the_visits_photo(repo):
+    """With visits grouped, a favourite could sit unseen inside a stack whose card showed another capture
+    (#481). The owner's favourite leads the visit; among several, the best-scoring one."""
+    await capture(repo, 0, 0, favorite=True)
+    await capture(repo, 1, 20)
+    await capture(repo, 2, 40)
+    window = {"start": START, "end": START + timedelta(minutes=5)}
+
+    visits, _total = await repo.list_visits(**window)
+    assert visits[0]["representative_event"] == "visit-test-0"
+
+    favourites_only, _total = await repo.list_visits(**window, favorites=True)
+    assert favourites_only[0]["representative_event"] == "visit-test-0"
+
+    await capture(repo, 3, 60, favorite=True)
+    visits, _total = await repo.list_visits(**window)
+    assert visits[0]["representative_event"] == "visit-test-3"
+
+
+@pytest.mark.asyncio
 async def test_capture_page_computes_group_membership_once_and_keeps_total(repo):
     first = await capture(repo, 0, 0)
     await capture(repo, 1, 10)
