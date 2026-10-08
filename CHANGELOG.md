@@ -6,6 +6,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- In the default **Subprocess (Isolated)** mode, detections are tied to the model that produced
+  them again. The main process never loads the model, and it only recorded the model's checksum
+  when it did, so no detection got its model and output recorded and the species catalogue's
+  check that the model and the label agree on a bird never ran. The test install had none of its
+  663 detections tied to a model. Each result now carries the checksum of the model that produced
+  it, so a model switch while an event is being saved cannot credit one model's answer to another,
+  and the main process also records the workers' model at start-up and on every switch.
 - In **Subprocess (Isolated)** mode, identifying a bird no longer freezes the rest of the app for
   a moment. Each picture is packed losslessly for the classifier worker, and for a full camera
   frame (identifying from the recording frame, and every backfilled event) that took 0.3 to

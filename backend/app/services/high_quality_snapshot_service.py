@@ -1947,6 +1947,7 @@ class HighQualitySnapshotService:
         classifier_score = 0.0
         classifier_label = None
         classifier_index = None
+        classifier_model_sha256 = None
         try:
             classifier_module = sys.modules.get("app.services.classifier_service")
             classifier = (
@@ -1969,6 +1970,7 @@ class HighQualitySnapshotService:
                     classifier_label = top_result.get("label")
                     classifier_score = float(top_result.get("score") or 0.0)
                     classifier_index = int(top_result.get("index") or 0)
+                    classifier_model_sha256 = top_result.get("model_sha256")
         except Exception as e:
             log.debug(
                 "Snapshot candidate classifier scoring failed", candidate_id=candidate.get("candidate_id"), error=str(e)
@@ -1984,6 +1986,7 @@ class HighQualitySnapshotService:
         enriched["classifier_label"] = classifier_label
         enriched["classifier_score"] = classifier_score
         enriched["classifier_index"] = classifier_index
+        enriched["classifier_model_sha256"] = classifier_model_sha256
         enriched["image_quality_score"] = quality_score
         enriched["ranking_score"] = ranking_score
         return enriched
@@ -2041,6 +2044,7 @@ class HighQualitySnapshotService:
                 video_provider=str(getattr(classifier, "_active_inference_provider", "") or "") or None,
                 video_backend=str(getattr(classifier, "_inference_backend", "") or "") or None,
                 video_model_id=str(model_spec.get("model_id") or "") or None,
+                video_model_sha256=decision.model_sha256,
                 persist_video_result=False,
             )
             outcome = "promoted" if applied else "recorded"

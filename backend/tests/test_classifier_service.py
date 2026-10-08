@@ -6896,3 +6896,44 @@ def test_video_does_not_apply_detect_pixel_hints_to_a_different_recording_resolu
     assert "event_subject_region" not in frame.model_dump()
     assert "frigate_box" not in frame.model_dump()
     assert service._video_frame_candidates(Image.new("RGB", (3840, 2160)), input_context=frame)[0][0] == "full_frame"
+
+
+@pytest.mark.asyncio
+async def test_a_video_result_carries_the_checksum_of_the_model_that_produced_it(
+    mock_tflite,
+    mock_os_path_exists,
+    monkeypatch,
+):
+    """A video result can be applied after a model switch, and regional variants share a model id, so the
+    result must name the producing weights itself."""
+    model = types.SimpleNamespace(
+        loaded=True, labels=["Baeolophus bicolor", "Cardinalis cardinalis"], loaded_artifact_sha256="c" * 64
+    )
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+    service._models["bird"] = model
+    bird = Image.new("RGB", (40, 40), "blue")
+    monkeypatch.setattr(
+        service,
+        "_video_frame_candidates",
+        lambda image, **kwargs: [
+            VideoFrameCandidate("full_frame", image, None),
+            VideoFrameCandidate("model_crop", bird, (10, 20, 50, 60), (15, 25, 45, 55), 0.9),
+        ],
+    )
+    monkeypatch.setattr(
+        service,
+        "_classify_raw_with_runtime_recovery",
+        lambda image, **kwargs: (np.array([0.82, 0.18]) if image is bird else np.array([0.99, 0.01]), model),
+    )
+    monkeypatch.setattr(
+        classifier_service_module,
+        "_read_selected_video_frames",
+        lambda cap, indices: iter((int(index), True, np.zeros((100, 100, 3), dtype=np.uint8)) for index in indices),
+    )
+    with patch("app.services.classifier_service.cv2.VideoCapture") as capture:
+        capture.return_value.isOpened.return_value = True
+        capture.return_value.get.side_effect = lambda prop: 30 if prop == 7 else 10
+        result = service.classify_video("/tmp/clip.mp4", max_frames=5)[0]
+
+    assert result["model_sha256"] == "c" * 64

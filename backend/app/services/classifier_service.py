@@ -996,6 +996,12 @@ def _safe_sha256_file(path: str) -> str | None:
     return digest.hexdigest()
 
 
+def _instance_model_sha256(model: Any) -> str | None:
+    """The digest of the weights a model instance loaded, the key the species catalogue uses."""
+    value = str(getattr(model, "loaded_artifact_sha256", "") or "").strip().lower()
+    return value or None
+
+
 def _extract_model_artifact_metadata(model_path: str) -> dict[str, Any]:
     model_file = Path(str(model_path or ""))
     metadata: dict[str, Any] = {
@@ -1874,6 +1880,10 @@ class ModelInstance:
         # None means "read the label file", which is what every caller that has
         # not been given a checksum should keep doing.
         self.model_sha256 = model_sha256
+        # The weights this instance loads, bound now: results carry it as their
+        # provenance, and a reinstall can replace the file under a running instance.
+        # Every backend and fallback is built here, including one loading other weights.
+        self.loaded_artifact_sha256 = artifact_digest(model_path)
         self.interpreter = None
         self.labels: list[str] = []
         self.grouped_labels: list[str] = []
@@ -2173,6 +2183,10 @@ class ONNXModelInstance:
         # None means "read the label file", which is what any caller without a
         # checksum should keep doing.
         self.model_sha256 = model_sha256
+        # The weights this instance loads, bound now: results carry it as their
+        # provenance, and a reinstall can replace the file under a running instance.
+        # Every backend and fallback is built here, including one loading other weights.
+        self.loaded_artifact_sha256 = artifact_digest(model_path)
         self.input_size = input_size
         self.ort_providers = list(ort_providers or ["CPUExecutionProvider"])
         self.session = None
@@ -2428,6 +2442,10 @@ class OpenVINOModelInstance:
         # None means "read the label file", which is what any caller without a
         # checksum should keep doing.
         self.model_sha256 = model_sha256
+        # The weights this instance loads, bound now: results carry it as their
+        # provenance, and a reinstall can replace the file under a running instance.
+        # Every backend and fallback is built here, including one loading other weights.
+        self.loaded_artifact_sha256 = artifact_digest(model_path)
         self.input_size = input_size
         self.device_name = device_name
         self._startup_self_test_enabled = (
@@ -2974,6 +2992,23 @@ class ClassifierService:
                 startup_status.mark_failed("loading_model")
                 raise
             startup_status.publish("model_ready" if self.model_loaded else "model_unavailable", 60)
+        else:
+            self._record_worker_model_identity()
+
+    def _record_worker_model_identity(self) -> None:
+        """Record the checksum of the model the workers load, without loading it here.
+
+        A subprocess-mode parent never runs ``_init_bird_model``, which is where the
+        checksum was recorded, so ``active_model_sha256`` stayed None and no detection
+        was ever tied to the model that produced it through the species catalogue.
+        A missing file leaves no checksum rather than a previous model's.
+        """
+        try:
+            model_path = str(self._resolve_active_bird_model_spec().get("model_path") or "")
+            self._bird_model_artifact_metadata = {"model_sha256": artifact_digest(model_path)}
+        except Exception as error:
+            self._bird_model_artifact_metadata = {}
+            log.warning("Could not record the active model checksum for the workers", error=str(error))
 
     def _get_model_paths(self, model_file: str, labels_file: str) -> tuple[str, str]:
         """Get full paths for model and labels files."""
@@ -4458,6 +4493,8 @@ class ClassifierService:
                 # should be using supervisor workers instead.
                 if self._worker_process_mode or self._image_execution_mode != "subprocess":
                     self._init_bird_model()
+                else:
+                    self._record_worker_model_identity()
 
         # Model init loads weights and re-detects hardware, which spawns child
         # processes. A reload is triggered from request handlers' background
@@ -5902,6 +5939,14 @@ class ClassifierService:
                 results = _invoke_model_classify(bird, crop_image, input_context=normalized_input_context)
                 if self._inference_backend == "openvino" and self._active_inference_provider == "intel_gpu":
                     self._record_gpu_success()
+                # Bound here, from the model instance that ran: a model switch while the
+                # event is still being saved must not pair this output index with
+                # another model's identity.
+                model_sha256 = _instance_model_sha256(bird)
+                if model_sha256:
+                    for result in results:
+                        if isinstance(result, dict):
+                            result["model_sha256"] = model_sha256
                 return self._attach_classification_input_provenance(
                     results,
                     input_context=normalized_input_context,
@@ -7223,6 +7268,7 @@ class ClassifierService:
                         "inference_backend": str(self._inference_backend or ""),
                         "model_id": str(active_model_id or ""),
                         "model_name": model_name,
+                        "model_sha256": _instance_model_sha256(bird_model),
                         "input_source": input_source,
                         "input_is_cropped": input_source != "full_frame",
                         "event_target_selected": event_target_selected,
