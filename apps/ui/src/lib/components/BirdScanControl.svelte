@@ -84,7 +84,7 @@
             <p>{$_('detection.bird_scan.loading', { default: 'Checking this frame’s scan status…' })}</p>
         {/if}
     </div>
-    <button type="button" class="btn btn-secondary min-h-11 min-w-11 shrink-0 gap-2 px-3 text-sm focus-ring"
+    <button type="button" class="btn btn-secondary min-h-11 min-w-11 max-w-full gap-2 px-3 text-sm focus-ring"
         disabled={disabled || view.pending || active || !candidateId || !mediaRevision || !view.response?.available || view.readError}
         onclick={() => { void controller?.start(scanStatus === 'completed' || scanStatus === 'failed'); }}>
         <!-- A viewfinder: look across the whole frame for more. -->

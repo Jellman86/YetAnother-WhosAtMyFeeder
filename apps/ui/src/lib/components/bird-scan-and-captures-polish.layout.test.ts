@@ -14,6 +14,12 @@ describe('the bird scan row', () => {
         expect(scan.indexOf('role="status"')).toBeLessThan(scan.indexOf('class="btn btn-secondary'));
     });
 
+    it('lets a long translated action wrap inside the row instead of widening the record', () => {
+        const action = scan.slice(scan.indexOf('class="btn btn-secondary'), scan.indexOf('class="btn btn-secondary') + 120);
+        expect(action).toContain('max-w-full');
+        expect(action).not.toContain('shrink-0');
+    });
+
     it('uses a viewfinder icon rather than the freehand birds', () => {
         expect(scan).toContain('M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2');
         expect(scan).not.toContain('M3 16c1-4 3-6 6-5');
