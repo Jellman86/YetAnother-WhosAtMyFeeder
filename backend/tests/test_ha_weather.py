@@ -119,7 +119,7 @@ async def test_source_merges_entity_with_overrides_and_degrades_honestly():
         },
     )
 
-    async def fake_fetch(entity_id: str):
+    async def fake_fetch(entity_id: str, *, client):
         return states.get(entity_id)
 
     source._fetch_state = fake_fetch  # type: ignore[method-assign]
@@ -144,7 +144,7 @@ async def test_source_with_everything_unreachable_reports_unknown_not_forecast()
         override_entities={},
     )
 
-    async def fake_fetch(entity_id: str):
+    async def fake_fetch(entity_id: str, *, client):
         return None
 
     source._fetch_state = fake_fetch  # type: ignore[method-assign]

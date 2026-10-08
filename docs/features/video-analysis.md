@@ -7,6 +7,12 @@ YA-WAMF keeps the existing identification.
 
 ## How It Works
 
+For a new live visit, YA-WAMF allows Frigate time to finish its clip before requesting it.
+Time already spent in the video queue counts toward this delay: an older queued visit does
+not start a fresh waiting period when a worker becomes available. A missing clip still uses
+the existing bounded retries and snapshot fallback. Choosing **Detection Snapshot** for the
+initial identification does not disable automatic video analysis or best-available photo work.
+
 1. The backend resolves the best local video first: a complete cached full-visit recording, a
    decodable partial recording, then the cached event clip. It asks Frigate for the event clip only
    when no usable local copy exists. Each candidate is decoded before inference; an invalid cached

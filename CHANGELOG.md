@@ -13,6 +13,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   663 detections tied to a model. Each result now carries the checksum of the model that produced
   it, so a model switch while an event is being saved cannot credit one model's answer to another,
   and the main process also records the workers' model at start-up and on every switch.
+- Video jobs count time already spent in the queue toward Frigate's clip-finalization wait.
+  A busy queue no longer adds a fresh 30-second pause to each old visit. Fresh clips still get
+  their waiting period, and unavailable clips keep the existing retries and snapshot fallback.
+- Opening a visit's captures avoids repeating the history-grouping query. Visit lists count
+  birds only in the matching captures, reducing work on installations with large histories.
+- Bursts of detections share current weather readings for up to 30 seconds. Home Assistant
+  weather sensors are read together, keeping slow sensors from adding their timeouts one after
+  another. Missing fields remain unknown; entirely unavailable readings are retried after five seconds.
+- Asking AI Naturalist about an event clip no longer blocks live updates while its frames are decoded.
 - In **Subprocess (Isolated)** mode, identifying a bird no longer freezes the rest of the app for
   a moment. Each picture is packed losslessly for the classifier worker, and for a full camera
   frame (identifying from the recording frame, and every backfilled event) that took 0.3 to
