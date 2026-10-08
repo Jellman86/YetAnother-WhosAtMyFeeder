@@ -356,6 +356,22 @@ export interface components {
     is_hidden?: boolean | null;
     species?: string | null;
 };
+    BirdScanRequest: {
+    candidate_id: string;
+    expected_media_version: string;
+    force?: boolean;
+};
+    BirdScanResponse: {
+    available: boolean;
+    candidate_id: string;
+    error?: string | null;
+    event_id: string;
+    result_count?: number | null;
+    retained_previous?: boolean;
+    status: "not_scanned" | "queued" | "running" | "completed" | "failed";
+    unavailable_reason?: string | null;
+    updated_at?: string | null;
+};
     BirdSpeciesCount: {
     count: number;
     species: string;
@@ -1561,6 +1577,7 @@ export interface components {
     location_temperature_unit?: string | null;
     location_weather_unit_system?: string | null;
     maintenance_max_concurrent?: number | null;
+    media_cache_automatic_multi_bird_scan?: boolean;
     media_cache_bird_scan_mode?: "standard" | "intensive";
     media_cache_clips?: boolean;
     media_cache_high_quality_event_snapshot_bird_crop?: boolean;
@@ -1763,6 +1780,7 @@ export interface components {
     location_temperature_unit?: string | null;
     location_weather_unit_system?: string | null;
     maintenance_max_concurrent?: number | null;
+    media_cache_automatic_multi_bird_scan?: boolean;
     media_cache_bird_scan_mode?: "standard" | "intensive";
     media_cache_clips?: boolean;
     media_cache_high_quality_event_snapshot_bird_crop?: boolean;
@@ -3317,6 +3335,29 @@ export interface paths {
 };
       requestBody: unknown;
       response: components['schemas']['FrigateTestResponse'];
+    };
+  };
+  "/api/frigate/{event_id}/birds/scan": {
+    get: {
+      operationId: "get_bird_scan_api_frigate__event_id__birds_scan_get";
+      path: {
+    event_id: string;
+};
+      query: {
+    candidate_id: string;
+    expected_media_version?: string | null;
+};
+      requestBody: unknown;
+      response: components['schemas']['BirdScanResponse'];
+    };
+    post: {
+      operationId: "request_bird_scan_api_frigate__event_id__birds_scan_post";
+      path: {
+    event_id: string;
+};
+      query: never;
+      requestBody: components['schemas']['BirdScanRequest'];
+      response: components['schemas']['BirdScanResponse'];
     };
   };
   "/api/frigate/{event_id}/birds/{bird_id}": {

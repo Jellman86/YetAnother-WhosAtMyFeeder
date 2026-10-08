@@ -761,13 +761,15 @@
       "max_size_mb": "Limite de armazenamento (MiB)",
       "max_size_mb_help": "Quando as fotos e o vídeo ocupam mais do que isto, os mais antigos são removidos primeiro. Os favoritos e o seu arquivo são mantidos. Este limite e o de cima prevalecem sobre o mínimo de fotos. 0 significa sem limite.",
       "bird_scan_mode": "Intensidade da procura de aves",
-      "bird_scan_mode_help": "Padrão usa menos CPU. Intensiva também procura em seções de imagens grandes e classifica mais recortes. Ambas contam todas as aves encontradas na cena escolhida, sem garantir que todas as aves do vídeo sejam encontradas.",
+      "bird_scan_mode_help": "Aplica-se a análises manuais e automáticas. Padrão usa menos CPU. Intensivo também procura em partes de quadros grandes e classifica mais recortes. Nenhuma opção garante encontrar todas as aves.",
       "bird_scan_standard": "Padrão",
       "bird_scan_intensive": "Intensiva",
       "cache_clips_help": "O Frigate já os guarda. As cópias sobrevivem se o Frigate os apagar, cada uma com cerca do tamanho do clipe.",
       "cache_always_kept": "As fotos, os clipes de visita completa e as pré-visualizações são sempre mantidos. Os limites abaixo definem por quanto tempo e quanto espaço eles ocupam.",
       "cache_unavailable": "Não é possível gravar na pasta de mídia, então fotos e vídeo não estão sendo mantidos. Verifique as permissões da pasta; as verificações do sistema mostram o erro.",
-      "cache_high_quality_storage_note": "Cada visita também guarda quadros em resolução total, muitas vezes de vários MB; defina um limite de armazenamento se o espaço for pouco."
+      "cache_high_quality_storage_note": "Cada visita também guarda quadros em resolução total, muitas vezes de vários MB; defina um limite de armazenamento se o espaço for pouco.",
+      "automatic_multi_bird_scan": "Encontrar aves adicionais automaticamente",
+      "automatic_multi_bird_scan_help": "Desativado por padrão para reduzir o processamento. A identificação normal e o recorte da ave principal continuam, e os resultados existentes são mantidos. Use Encontrar mais aves em uma fotografia quando precisar de uma análise. Quando ativada, a análise é feita nos fotogramas completos guardados."
     },
     "security": {
       "title": "Segurança",
@@ -2410,7 +2412,26 @@
     "audio_spectrogram_unavailable": "Espectrograma indisponível para esta correspondência",
     "manual_upload": "Adicionado por upload",
     "search_species": "Procurar espécie",
-    "species_updated": "Espécie atualizada"
+    "species_updated": "Espécie atualizada",
+    "bird_scan": {
+      "action": "Encontrar mais aves",
+      "again": "Analisar novamente",
+      "detector_unavailable": "Instale um detector de recortes para encontrar mais aves.",
+      "reviewed_other_frame": "As aves revisadas em outro quadro são mantidas. Este quadro não pode substituí-las.",
+      "scene_unavailable": "O quadro completo desta fotografia não está disponível.",
+      "other_running": "Outro quadro desta captura está sendo analisado. Tente novamente quando terminar.",
+      "media_changed": "O quadro mudou durante a análise. Tente novamente no quadro atual.",
+      "interrupted": "A análise foi interrompida. Você pode tentar novamente.",
+      "failed": "Não foi possível concluir a análise. As aves existentes são mantidas.",
+      "status_unavailable": "Não foi possível carregar o estado da análise. Ele será verificado novamente em breve.",
+      "queued": "Este quadro completo está na fila para análise.",
+      "running": "Procurando aves neste quadro completo.",
+      "completed": "Análise concluída. Aves encontradas neste quadro: {count}.",
+      "retained": "A contagem anterior e suas correções são mantidas.",
+      "not_scanned": "Este quadro completo ainda não foi analisado para encontrar aves adicionais.",
+      "loading": "Verificando o estado da análise deste quadro…",
+      "start_unconfirmed": "Não foi possível confirmar o pedido de análise. O estado será verificado antes de tentar novamente."
+    }
   },
   "events": {
     "title": "Eventos",

@@ -15,6 +15,25 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   model is scored on the accelerator it will use rather than on its CPU fallback. Full-size test
   photos are stored at 1024 px, so latency measures the model instead of a 3840 px upload, and
   each model's health comes from its own runtime instead of always reading "unknown".
+- Health diagnostics now show video queue counts and waiting ages by source, active phases,
+  and scheduler-observed pressure and progress counters. These help distinguish live-work
+  priority, worker capacity and circuit waits without changing scheduling or worker counts.
+
+- Audio History uses less memory while summarising large BirdNET histories and gives other
+  requests time to run between batches. Filtering captures with multiple species also avoids
+  repeatedly rebuilding the same unknown-bird label rules; changing those rules still takes
+  effect immediately.
+- Video analysis on native Windows can finish and update the photograph when the platform
+  cannot safely open the optional scene cache files. It decodes the selected frame again,
+  preserving the same checks on the photograph and avoiding unsafe file access.
+- Additional-bird scanning is now optional and **off by default**, including on upgrade.
+  Normal identification and target-photo selection continue. Enable **Automatically find
+  additional birds** in **Settings → Data → Snapshot quality** to scan retained scenes
+  automatically, or use **Find more birds** on one photo. Manual scans keep the chosen photo
+  and primary identification, preserve bird corrections and exclusions, and report queued,
+  running, failed and completed results separately from photos that have never been scanned.
+  A retained whole frame is required; an empty retry keeps earlier counted-bird records.
+
 - In the default **Subprocess (Isolated)** mode, detections are tied to the model that produced
   them again. The main process never loads the model, and it only recorded the model's checksum
   when it did, so no detection got its model and output recorded and the species catalogue's
@@ -22,6 +41,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   663 detections tied to a model. Each result now carries the checksum of the model that produced
   it, so a model switch while an event is being saved cannot credit one model's answer to another,
   and the main process also records the workers' model at start-up and on every switch.
+- Video jobs count time already spent in the queue toward Frigate's clip-finalization wait.
+  A busy queue no longer adds a fresh 30-second pause to each old visit. Fresh clips still get
+  their waiting period, and unavailable clips keep the existing retries and snapshot fallback.
+- Opening a visit's captures avoids repeating the history-grouping query. Visit lists count
+  birds only in the matching captures, reducing work on installations with large histories.
+- Bursts of detections share current weather readings for up to 30 seconds. Home Assistant
+  weather sensors are read together, keeping slow sensors from adding their timeouts one after
+  another. Missing fields remain unknown; entirely unavailable readings are retried after five seconds.
+- Asking AI Naturalist about an event clip no longer blocks live updates while its frames are decoded.
 - In **Subprocess (Isolated)** mode, identifying a bird no longer freezes the rest of the app for
   a moment. Each picture is packed losslessly for the classifier worker, and for a full camera
   frame (identifying from the recording frame, and every backfilled event) that took 0.3 to

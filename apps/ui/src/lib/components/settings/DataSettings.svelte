@@ -21,6 +21,7 @@
         cacheRetentionDays = $bindable(0),
         cachePerSpeciesMaximum = $bindable<number>(0),
         cacheMaxSizeMb = $bindable<number>(0),
+        cacheAutomaticMultiBirdScan = $bindable(false),
         cacheBirdScanMode = $bindable<'standard' | 'intensive'>('intensive'),
         cachePerSpeciesMinimum = $bindable(0),
         cleaningUp,
@@ -80,6 +81,7 @@
         cacheRetentionDays: number;
         cachePerSpeciesMaximum: number;
         cacheMaxSizeMb: number;
+        cacheAutomaticMultiBirdScan?: boolean;
         cacheBirdScanMode: 'standard' | 'intensive';
         cachePerSpeciesMinimum: number;
         cleaningUp: boolean;
@@ -466,22 +468,33 @@
                     />
                 </SettingsRow>
 
+                <SettingsRow
+                    labelId="setting-automatic-multi-bird-scan"
+                    layout="stacked"
+                    label={$_('settings.data.automatic_multi_bird_scan', { default: 'Automatically find additional birds' })}
+                    description={$_('settings.data.automatic_multi_bird_scan_help', { default: 'Off by default to reduce processing. Normal bird identification and the target bird’s crop continue, and existing findings are kept. Use Find more birds on a photograph whenever you need a scan. When enabled, scans run on retained whole frames.' })}
+                >
+                    <SettingsToggle labelledBy="setting-automatic-multi-bird-scan" checked={cacheAutomaticMultiBirdScan}
+                        srLabel={$_('settings.data.automatic_multi_bird_scan', { default: 'Automatically find additional birds' })}
+                        onchange={(value) => (cacheAutomaticMultiBirdScan = value)} />
+                </SettingsRow>
+
+                <SettingsRow
+                    labelId="setting-bird-scan-mode"
+                    label={$_('settings.data.bird_scan_mode', { default: 'Bird scanning effort' })}
+                    description={$_('settings.data.bird_scan_mode_help', { default: 'Applies to manual and automatic scans. Standard uses less CPU. Intensive also searches tiles in large frames and classifies more crop choices. Neither guarantees every bird is found.' })}
+                    layout="stacked"
+                >
+                    <SettingsSelect id="bird-scan-mode" value={cacheBirdScanMode}
+                        ariaLabel={$_('settings.data.bird_scan_mode', { default: 'Bird scanning effort' })}
+                        options={[
+                            { value: 'standard', label: $_('settings.data.bird_scan_standard', { default: 'Standard' }) },
+                            { value: 'intensive', label: $_('settings.data.bird_scan_intensive', { default: 'Intensive' }) }
+                        ]}
+                        onchange={(v) => (cacheBirdScanMode = v === 'standard' ? 'standard' : 'intensive')}
+                    />
+                </SettingsRow>
                 {#if cacheHighQualityEventSnapshots}
-                    <SettingsRow
-                        labelId="setting-bird-scan-mode"
-                        label={$_('settings.data.bird_scan_mode', { default: 'Bird scanning effort' })}
-                        description={$_('settings.data.bird_scan_mode_help', { default: 'Standard uses less CPU. Intensive also searches tiles in large frames and classifies more crop choices. Both count every bird found in the selected scene; neither guarantees every bird in the clip is found.' })}
-                        layout="stacked"
-                    >
-                        <SettingsSelect id="bird-scan-mode" value={cacheBirdScanMode}
-                            ariaLabel={$_('settings.data.bird_scan_mode', { default: 'Bird scanning effort' })}
-                            options={[
-                                { value: 'standard', label: $_('settings.data.bird_scan_standard', { default: 'Standard' }) },
-                                { value: 'intensive', label: $_('settings.data.bird_scan_intensive', { default: 'Intensive' }) }
-                            ]}
-                            onchange={(v) => (cacheBirdScanMode = v === 'standard' ? 'standard' : 'intensive')}
-                        />
-                    </SettingsRow>
                     <div class="flex items-start gap-3 border-l-2 {cropDetectorReady ? 'border-success-400' : 'border-slate-300 dark:border-slate-600'} py-1 pl-3">
                         <svg class="mt-0.5 h-4 w-4 flex-none {cropDetectorReady ? 'text-success-500' : 'text-slate-400'}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             {#if cropDetectorReady}

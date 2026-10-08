@@ -625,3 +625,16 @@ def test_media_limit_and_scan_environment_settings_override_saved_values(monkeyp
     monkeypatch.setenv(f"MEDIA_CACHE__{field}", value)
     loaded = Settings.load()
     assert getattr(loaded.media_cache, field.lower()) == expected
+
+
+@pytest.mark.parametrize("environment_value,expected", [(None, True), ("false", False), ("true", True)])
+def test_automatic_multi_bird_scan_saved_value_and_environment_precedence(
+    monkeypatch, tmp_path, environment_value, expected
+):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(json.dumps({"media_cache": {"automatic_multi_bird_scan": True}}))
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+    monkeypatch.delenv("MEDIA_CACHE__AUTOMATIC_MULTI_BIRD_SCAN", raising=False)
+    if environment_value is not None:
+        monkeypatch.setenv("MEDIA_CACHE__AUTOMATIC_MULTI_BIRD_SCAN", environment_value)
+    assert Settings.load().media_cache.automatic_multi_bird_scan is expected

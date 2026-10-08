@@ -49,6 +49,7 @@
     import ReclassificationOverlay from './ReclassificationOverlay.svelte';
     import FrameStrip from './FrameStrip.svelte';
     import CountedBirds from './CountedBirds.svelte';
+    import BirdScanControl from './BirdScanControl.svelte';
     import MediaImage from './MediaImage.svelte';
     import { currentMoment, groupCandidatesIntoMoments, preferredCandidate, type FrameMoment } from '../utils/frame-moments';
     import { WholeScenePeek } from '../utils/whole-scene-peek.svelte';
@@ -88,7 +89,7 @@
     import { classifyInferenceProvider } from '../utils/inference-provider';
     import { isVideoPromotionGated } from '../video-promotion-gate';
     import { applyManualTagResult } from '../utils/manual-tag';
-    import { findMatchingFullFrameCandidate, sameFrameCropCandidates } from '../utils/detection-evidence';
+    import { findMatchingFullFrameCandidate, findScanFrameCandidate, sameFrameCropCandidates } from '../utils/detection-evidence';
     import { intersectVisibleViewport } from '../utils/visible-viewport';
 
     const FRIGATE_MISSING_DOCS_URL = 'https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/dev/docs/troubleshooting/frigate-event-not-found.md';
@@ -854,6 +855,7 @@
     const fullFrameSnapshotCandidate = $derived(
         findMatchingFullFrameCandidate(snapshotCandidates, currentSnapshotCandidateId)
     );
+    const scanFrameCandidate = $derived(findScanFrameCandidate(snapshotCandidates, currentSnapshotCandidateId, currentSnapshotSource));
     // One thumbnail per moment of the visit; the framings of a moment fold into it (#256).
     // Candidate media is owner-gated, so the strip simply does not exist for a guest.
     const frameMoments = $derived<FrameMoment[]>(
@@ -1762,6 +1764,25 @@
             toastStore.error(getErrorMessage(e) || $_('common.error', { default: 'Action failed' }));
         } finally {
             snapshotApplyPending = false;
+        }
+    }
+
+    async function refreshBirdsAfterScan(eventId: string, candidateId: string): Promise<void> {
+        if (detection.frigate_event !== eventId || scanFrameCandidate?.candidate_id !== candidateId || !hasOwnerDetectionActions) return;
+        const epoch = snapshotControlsEpoch;
+        countedBirdsLoading = true;
+        untrack(() => { countedBirdsGeneration += 1; });
+        try {
+            const response = await fetchSnapshotCandidates(eventId);
+            if (detection.frigate_event !== eventId || snapshotControlsEpoch !== epoch || scanFrameCandidate?.candidate_id !== candidateId || !hasOwnerDetectionActions) return;
+            countedBirds = response.birds ?? [];
+            countedBirdsError = false;
+            countedBirdsGeneration += 1;
+            onbirdschanged?.();
+        } catch {
+            if (detection.frigate_event === eventId && snapshotControlsEpoch === epoch) countedBirdsError = true;
+        } finally {
+            if (detection.frigate_event === eventId && snapshotControlsEpoch === epoch) countedBirdsLoading = false;
         }
     }
 
@@ -2734,6 +2755,15 @@
                                 {/if}
                             </div>
 
+                            {#if hasOwnerDetectionActions}
+                                <BirdScanControl
+                                    eventId={detection.frigate_event}
+                                    candidateId={scanFrameCandidate?.candidate_id ?? null}
+                                    imageVersion={scanFrameCandidate?.image_url ?? null}
+                                    disabled={snapshotApplyPending || snapshotGeneratePending || countedBirdsLoading}
+                                    oncompleted={(eventId, candidateId) => { void refreshBirdsAfterScan(eventId, candidateId); }}
+                                />
+                            {/if}
                             {#if showInlineFramePicker}
                     <!-- One ordered strip of the visit's moments (#256). Where a frame came from is not
                          shown; choosing one changes the photograph and nothing else. -->

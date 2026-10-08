@@ -60,6 +60,22 @@ export type SnapshotCandidate =
 
 export type SnapshotCandidateListResponse = paths['/api/frigate/{event_id}/snapshot/candidates']['get']['response'];
 export type BirdObservation = NonNullable<SnapshotCandidateListResponse['birds']>[number];
+export type BirdScanResponse = paths['/api/frigate/{event_id}/birds/scan']['get']['response'];
+
+export async function fetchBirdScan(eventId: string, candidateId: string, expectedMediaVersion: string, signal?: AbortSignal): Promise<BirdScanResponse> {
+    const response = await apiFetch(`${API_BASE}/frigate/${encodeURIComponent(eventId)}/birds/scan?candidate_id=${encodeURIComponent(candidateId)}&expected_media_version=${encodeURIComponent(expectedMediaVersion)}`, {
+        signal, cache: 'no-store', timeoutMs: 10_000
+    });
+    return handleResponse<BirdScanResponse>(response);
+}
+
+export async function startBirdScan(eventId: string, candidateId: string, expectedMediaVersion: string, force = false, signal?: AbortSignal): Promise<BirdScanResponse> {
+    const response = await apiFetch(`${API_BASE}/frigate/${encodeURIComponent(eventId)}/birds/scan`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, signal, timeoutMs: 10_000,
+        body: JSON.stringify({ candidate_id: candidateId, expected_media_version: expectedMediaVersion, force })
+    });
+    return handleResponse<BirdScanResponse>(response);
+}
 
 export type SnapshotApplyResponse = paths['/api/frigate/{event_id}/snapshot/apply']['post']['response'];
 

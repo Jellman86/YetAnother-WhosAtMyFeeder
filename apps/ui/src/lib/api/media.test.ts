@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+    fetchBirdScan,
+    startBirdScan,
     checkRecordingClipAvailable,
     fetchSnapshotStatus,
     generateHighQualityBirdCropSnapshot,
@@ -198,5 +200,20 @@ describe('getThumbnailUrl', () => {
         expect(getThumbnailUrl('evt-1')).toMatch(/\/api\/frigate\/evt-1\/thumbnail\.jpg$/);
         expect(getThumbnailUrl('evt-1', 0)).toMatch(/\/api\/frigate\/evt-1\/thumbnail\.jpg$/);
         expect(getThumbnailUrl('evt-1', 2)).toMatch(/\/api\/frigate\/evt-1\/thumbnail\.jpg\?v=2$/);
+    });
+});
+
+describe('manual bird scan API', () => {
+    beforeEach(() => vi.restoreAllMocks());
+    it('reads only the requested scene and starts an explicit scan without applying a photo', async () => {
+        const payload = { event_id: 'event/a', candidate_id: 'scene b', status: 'queued', available: true, unavailable_reason: null, error: null, result_count: null, retained_previous: false, updated_at: null };
+        const fetcher = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+        await fetchBirdScan('event/a', 'scene b', 'old-revision');
+        expect(fetcher.mock.calls[0][0]).toBe('/api/frigate/event%2Fa/birds/scan?candidate_id=scene%20b&expected_media_version=old-revision');
+        await startBirdScan('event/a', 'scene b', 'old-revision', true);
+        expect(fetcher.mock.calls[1][0]).toBe('/api/frigate/event%2Fa/birds/scan');
+        expect(fetcher.mock.calls[1][1]?.method).toBe('POST');
+        expect(JSON.parse(String(fetcher.mock.calls[1][1]?.body))).toEqual({ candidate_id: 'scene b', expected_media_version: 'old-revision', force: true });
+        expect(fetcher).toHaveBeenCalledTimes(2);
     });
 });

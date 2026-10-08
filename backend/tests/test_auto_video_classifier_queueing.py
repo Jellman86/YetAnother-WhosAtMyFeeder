@@ -109,6 +109,184 @@ async def test_queue_classification_records_skip_delay_flag_per_job():
 
 
 @pytest.mark.asyncio
+async def test_queue_dispatch_keeps_original_time_for_clip_finalization(monkeypatch):
+    service = AutoVideoClassifierService()
+    event_id = "evt-queued-live-delay"
+    queued_at = time.monotonic() - 60.0
+    monkeypatch.setattr(
+        service,
+        "_get_mqtt_throttle_state",
+        lambda _configured: {"throttled": False, "effective_max_concurrent": 1},
+    )
+    service._pending_queue.put_nowait((event_id, "cam1", False, False, "live"))
+    service._pending_ids.add(event_id)
+    service._pending_metadata[event_id] = {"queued_at": queued_at}
+    dispatched_metadata = {}
+
+    async def finish_job(*_args, **_kwargs):
+        dispatched_metadata.update(service._active_metadata[event_id])
+        service._running = False
+
+    monkeypatch.setattr(service, "_process_event", AsyncMock(side_effect=finish_job))
+    service._running = True
+    try:
+        await asyncio.wait_for(service._process_queue_loop(), timeout=2.0)
+        assert dispatched_metadata["queued_at"] == queued_at
+    finally:
+        service._running = False
+        await asyncio.gather(*service._active_tasks.values(), return_exceptions=True)
+
+
+@pytest.mark.asyncio
+async def test_existing_maintenance_relief_counts_one_slot_dispatches(monkeypatch):
+    from app.services.mqtt_service import mqtt_service
+
+    service = AutoVideoClassifierService()
+    service._classifier = types.SimpleNamespace(get_admission_status=lambda: {"live": {"running": 1, "queued": 1}})
+    monkeypatch.setattr(settings.classification, "background_worker_count", 4)
+    monkeypatch.setattr(mqtt_service, "get_status", lambda: {"pressure_level": "normal"})
+    monkeypatch.setattr(service, "_update_status", AsyncMock(return_value=True))
+    monkeypatch.setattr(
+        auto_video_classifier_module.maintenance_coordinator, "try_acquire", AsyncMock(return_value=True)
+    )
+    monkeypatch.setattr(auto_video_classifier_module.maintenance_coordinator, "release", AsyncMock())
+    first_started, release_first, second_started = asyncio.Event(), asyncio.Event(), asyncio.Event()
+    order = []
+
+    async def process(event_id, *_args, **_kwargs):
+        order.append(event_id)
+        if len(order) == 1:
+            first_started.set()
+            await release_first.wait()
+        else:
+            second_started.set()
+            service._running = False
+
+    monkeypatch.setattr(service, "_process_event", process)
+    for event_id in ("first", "second"):
+        assert await service.queue_classification(event_id, "cam", source="maintenance") == "queued"
+        service._pending_metadata[event_id]["queued_at"] = time.monotonic() - 60
+    service._running = True
+    processor = asyncio.create_task(service._process_queue_loop())
+    try:
+        await asyncio.wait_for(first_started.wait(), 1)
+        await asyncio.sleep(0.05)
+        assert order == ["first"]
+        assert len(service._active_tasks) == 1
+        assert service._pending_ids == {"second"}
+        release_first.set()
+        await asyncio.wait_for(second_started.wait(), 2)
+        await asyncio.wait_for(processor, 2)
+        await asyncio.gather(*list(service._active_tasks.values()))
+        assert order == ["first", "second"]
+        assert service._queue_metrics()["scheduler_pressure"]["relief_starts"] == 2
+    finally:
+        service._running = False
+        release_first.set()
+        processor.cancel()
+        await asyncio.gather(processor, *list(service._active_tasks.values()), return_exceptions=True)
+
+
+@pytest.mark.asyncio
+async def test_scheduler_metrics_observe_existing_circuit_and_maintenance_waits(monkeypatch):
+    from app.services.mqtt_service import mqtt_service
+
+    service = AutoVideoClassifierService()
+    service._classifier = types.SimpleNamespace(get_admission_status=lambda: {"live": {"running": 1, "queued": 0}})
+    monkeypatch.setattr(mqtt_service, "get_status", lambda: {"pressure_level": "normal"})
+    monkeypatch.setattr(service, "_update_status", AsyncMock(return_value=True))
+    for event_id, source in (("circuit", "live"), ("capacity", "maintenance"), ("ready", "manual")):
+        assert await service.queue_classification(event_id, "cam", source=source) == "queued"
+        service._pending_metadata[event_id]["queued_at"] = time.monotonic() - 60
+    monkeypatch.setattr(service, "_is_circuit_open", lambda source: source == "live")
+    acquire = AsyncMock(return_value=False)
+    monkeypatch.setattr(auto_video_classifier_module.maintenance_coordinator, "try_acquire", acquire)
+    processed = []
+
+    async def process(event_id, *_args, **_kwargs):
+        processed.append(event_id)
+        service._running = False
+
+    monkeypatch.setattr(service, "_process_event", process)
+    service._running = True
+    try:
+        await asyncio.wait_for(service._process_queue_loop(), 4)
+        await asyncio.gather(*list(service._active_tasks.values()))
+        assert processed == ["ready"]
+        assert service._pending_ids == {"circuit", "capacity"}
+        assert service._pending_queue.qsize() == 2
+        acquire.assert_awaited_once_with("maintenance:capacity", kind="video_classification")
+        metrics = service._queue_metrics()["scheduler_pressure"]
+        assert metrics["circuit_wait_seconds"] > 0
+        assert metrics["maintenance_capacity_wait_seconds"] > 0
+    finally:
+        service._running = False
+        await service.reset_state()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("queued_at", "skip_delay", "expected_sleeps"),
+    [(40.0, False, []), (80.0, False, [10.0]), (100.0, False, [30.0]), (None, False, [30.0]), (80.0, True, [])],
+)
+async def test_clip_finalization_wait_credits_elapsed_queue_time(
+    monkeypatch, tmp_path, queued_at, skip_delay, expected_sleeps
+):
+    service = AutoVideoClassifierService()
+    event_id = "evt-elapsed-clip-delay"
+    if queued_at is not None:
+        service._active_metadata[event_id] = {"queued_at": queued_at}
+    monkeypatch.setattr(settings.classification, "video_classification_delay", 30)
+    monkeypatch.setattr(auto_video_classifier_module.time, "monotonic", lambda: 100.0)
+    sleep = AsyncMock()
+    monkeypatch.setattr(auto_video_classifier_module.asyncio, "sleep", sleep)
+    download = AsyncMock(return_value=(True, None))
+    monkeypatch.setattr(auto_video_classifier_module.frigate_client, "download_clip_to_file", download)
+    monkeypatch.setattr(service, "_clip_file_error", AsyncMock(return_value=None))
+
+    loaded, error = await service._wait_for_clip(event_id, str(tmp_path / "clip.mp4"), skip_delay=skip_delay)
+
+    assert (loaded, error) == (True, None)
+    assert [call.args[0] for call in sleep.await_args_list] == expected_sleeps
+    download.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_elapsed_finalization_grace_keeps_unavailable_clip_retry_backoff(monkeypatch, tmp_path):
+    service = AutoVideoClassifierService()
+    service._active_metadata["evt-delay-retry"] = {"queued_at": 80.0}
+    monkeypatch.setattr(settings.classification, "video_classification_delay", 30)
+    monkeypatch.setattr(settings.classification, "video_classification_max_retries", 3)
+    monkeypatch.setattr(settings.classification, "video_classification_retry_interval", 15)
+    monkeypatch.setattr(auto_video_classifier_module.time, "monotonic", lambda: 100.0)
+    sleep = AsyncMock()
+    monkeypatch.setattr(auto_video_classifier_module.asyncio, "sleep", sleep)
+    download = AsyncMock(return_value=(False, "clip_unavailable"))
+    monkeypatch.setattr(auto_video_classifier_module.frigate_client, "download_clip_to_file", download)
+
+    result = await service._wait_for_clip("evt-delay-retry", str(tmp_path / "clip.mp4"))
+
+    assert result == (False, "clip_unavailable")
+    assert [call.args[0] for call in sleep.await_args_list] == [10.0, 15, 30, 60]
+    assert download.await_count == 4
+
+
+@pytest.mark.asyncio
+async def test_clip_finalization_wait_remains_cancellable(monkeypatch, tmp_path):
+    service = AutoVideoClassifierService()
+    service._active_metadata["evt-delay-cancel"] = {"queued_at": time.monotonic()}
+    monkeypatch.setattr(settings.classification, "video_classification_delay", 30)
+    monkeypatch.setattr(auto_video_classifier_module.asyncio, "sleep", AsyncMock(side_effect=asyncio.CancelledError))
+    download = AsyncMock()
+    monkeypatch.setattr(auto_video_classifier_module.frigate_client, "download_clip_to_file", download)
+
+    with pytest.raises(asyncio.CancelledError):
+        await service._wait_for_clip("evt-delay-cancel", str(tmp_path / "clip.mp4"))
+
+    download.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_queue_classification_records_job_source_per_job():
     service = AutoVideoClassifierService()
 

@@ -751,13 +751,15 @@
       "max_size_mb": "Speichergrenze (MiB)",
       "max_size_mb_help": "Wenn Fotos und Videos mehr als das belegen, werden die ältesten zuerst entfernt. Favoriten und ihr Archiv bleiben erhalten. Diese und die obige Grenze haben Vorrang vor der Foto-Untergrenze. 0 bedeutet keine Grenze.",
       "bird_scan_mode": "Aufwand der Vogelsuche",
-      "bird_scan_mode_help": "Standard benötigt weniger CPU. Intensiv durchsucht auch Kacheln großer Bilder und klassifiziert mehr Ausschnitte. Beide zählen alle im ausgewählten Bild gefundenen Vögel, garantieren aber nicht jeden Vogel im Clip.",
+      "bird_scan_mode_help": "Gilt für manuelle und automatische Scans. Standard benötigt weniger CPU. Intensiv durchsucht auch Teilbereiche großer Bilder und klassifiziert mehr Ausschnitte. Keine Option garantiert, jeden Vogel zu finden.",
       "bird_scan_standard": "Standard",
       "bird_scan_intensive": "Intensiv",
       "cache_clips_help": "Frigate speichert diese bereits. Kopien bleiben erhalten, wenn Frigate sie löscht, und belegen jeweils etwa so viel Platz wie der Clip.",
       "cache_always_kept": "Fotos, Clips ganzer Besuche und Vorschauen werden immer behalten. Die Grenzen unten bestimmen, wie lange und wie viel Platz sie belegen.",
       "cache_unavailable": "In den Medienordner kann nicht geschrieben werden, daher werden keine Fotos und Videos behalten. Prüfe die Ordnerrechte; die Systemprüfungen zeigen den Fehler.",
-      "cache_high_quality_storage_note": "Jeder Besuch behält dann zusätzlich Bilder in voller Auflösung, oft mehrere MB. Lege bei knappem Platz eine Speichergrenze fest."
+      "cache_high_quality_storage_note": "Jeder Besuch behält dann zusätzlich Bilder in voller Auflösung, oft mehrere MB. Lege bei knappem Platz eine Speichergrenze fest.",
+      "automatic_multi_bird_scan": "Automatisch weitere Vögel suchen",
+      "automatic_multi_bird_scan_help": "Standardmäßig aus, um die Verarbeitung zu reduzieren. Die normale Vogelbestimmung und der Ausschnitt des Zielvogels bleiben aktiv; vorhandene Ergebnisse bleiben erhalten. Mit „Weitere Vögel suchen“ kannst du ein Foto jederzeit scannen. Wenn aktiviert, werden gespeicherte vollständige Bilder durchsucht."
     },
     "security": {
       "title": "Sicherheit",
@@ -2400,7 +2402,26 @@
     "audio_spectrogram_unavailable": "Spektrogramm für diese Übereinstimmung nicht verfügbar",
     "manual_upload": "Aus einem Upload hinzugefügt",
     "search_species": "Art suchen",
-    "species_updated": "Art aktualisiert"
+    "species_updated": "Art aktualisiert",
+    "bird_scan": {
+      "action": "Weitere Vögel suchen",
+      "again": "Erneut scannen",
+      "detector_unavailable": "Installiere einen Ausschnittdetektor, um weitere Vögel zu finden.",
+      "reviewed_other_frame": "Auf einem anderen Bild überprüfte Vögel bleiben erhalten. Dieses Bild kann sie nicht ersetzen.",
+      "scene_unavailable": "Das vollständige Bild zu diesem Foto ist nicht verfügbar.",
+      "other_running": "Ein anderes Bild dieser Aufnahme wird gescannt. Versuche es danach erneut.",
+      "media_changed": "Das Bild hat sich während des Scans geändert. Versuche es mit dem aktuellen Bild erneut.",
+      "interrupted": "Der Scan wurde unterbrochen. Du kannst es erneut versuchen.",
+      "failed": "Der Scan konnte nicht abgeschlossen werden. Vorhandene Vögel bleiben erhalten.",
+      "status_unavailable": "Der Scanstatus konnte nicht geladen werden. Er wird gleich erneut geprüft.",
+      "queued": "Dieses vollständige Bild wartet auf den Scan.",
+      "running": "Vögel werden in diesem vollständigen Bild gesucht.",
+      "completed": "Scan abgeschlossen. In diesem Bild gefundene Vögel: {count}.",
+      "retained": "Die bisherige Vogelzählung und deine Korrekturen bleiben erhalten.",
+      "not_scanned": "Dieses vollständige Bild wurde noch nicht nach weiteren Vögeln durchsucht.",
+      "loading": "Scanstatus dieses Bildes wird geprüft…",
+      "start_unconfirmed": "Der Scanauftrag konnte nicht bestätigt werden. Vor einem neuen Versuch wird sein Status geprüft."
+    }
   },
   "events": {
     "title": "Ereignisse",

@@ -450,6 +450,9 @@ async def _commit_video_snapshot_unlocked(
             await prune_unreferenced_photo_files(existing, rows)
             await media_cache.delete_thumbnail(event_id)
     await archive_service.refresh_photograph(event_id)
+    from app.services.bird_scan_service import bird_scan_service
+
+    await bird_scan_service.schedule_retained_scene(event_id)
     log.info(
         "Video evidence photograph replaced",
         event_id=event_id,

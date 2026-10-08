@@ -111,6 +111,10 @@ class VideoSceneCache:
         return entry[1] if entry is not None else None
 
     def write(self, directory: Path, clip: Path, variant: str, evidence: dict[str, Any]) -> bool:
+        no_follow = getattr(os, "O_NOFOLLOW", None)
+        if not no_follow:
+            # Sharing scenes is optional; never weaken artifact symlink safety.
+            return False
         scene = self.retained_scene(evidence)
         key = _scene_key(evidence)
         if scene is None or key is None:
@@ -121,13 +125,13 @@ class VideoSceneCache:
             identity = _clip_identity(clip)
             if self._clip_bound and (identity != self._identity or variant != self._variant):
                 return False
-            fd = os.open(directory / "scene.bmp", os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+            fd = os.open(directory / "scene.bmp", os.O_RDWR | os.O_CREAT | os.O_EXCL | no_follow, 0o600)
             with os.fdopen(fd, "w+b") as stream:
                 scene.save(stream, format="BMP")
                 stream.flush()
                 digest = _digest(stream)
             manifest = {"clip": identity, "variant": variant, "key": key, "sha256": digest}
-            fd = os.open(directory / "scene.json", os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+            fd = os.open(directory / "scene.json", os.O_WRONLY | os.O_CREAT | os.O_EXCL | no_follow, 0o600)
             with os.fdopen(fd, "w") as stream:
                 json.dump(manifest, stream)
             return True
@@ -135,8 +139,11 @@ class VideoSceneCache:
             return False
 
     def load(self, directory: Path, clip: Path, variant: str) -> bool:
+        no_follow = getattr(os, "O_NOFOLLOW", None)
+        if not no_follow:
+            return False
         try:
-            fd = os.open(directory / "scene.json", os.O_RDONLY | os.O_NOFOLLOW)
+            fd = os.open(directory / "scene.json", os.O_RDONLY | no_follow)
             with os.fdopen(fd, "rb") as stream:
                 if os.fstat(stream.fileno()).st_size > 4096:
                     return False
@@ -150,7 +157,7 @@ class VideoSceneCache:
             key = _scene_key(evidence)
             if key is None or key[1] * key[2] * 4 > self._max_bytes or not self._max_scenes:
                 return False
-            fd = os.open(directory / "scene.bmp", os.O_RDONLY | os.O_NOFOLLOW)
+            fd = os.open(directory / "scene.bmp", os.O_RDONLY | no_follow)
             with os.fdopen(fd, "rb") as stream:
                 if os.fstat(stream.fileno()).st_size > MAX_SCENE_BYTES + 8192:
                     return False

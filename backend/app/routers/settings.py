@@ -922,6 +922,9 @@ class SettingsUpdate(BaseModel):
     media_cache_max_size_mb: int = Field(
         0, ge=0, le=1048576, description="Ordinary media budget in MiB, excluding archived favourites; 0 is unlimited"
     )
+    media_cache_automatic_multi_bird_scan: bool = Field(
+        False, description="Automatically scan visit photos for additional birds; manual scans remain available"
+    )
     media_cache_bird_scan_mode: Literal["standard", "intensive"] = Field(
         "intensive", description="Bird scan effort; standard is lighter, intensive scans high-resolution tiles"
     )
@@ -1488,6 +1491,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "media_cache_retention_days": settings.media_cache.retention_days,
         "media_cache_per_species_maximum": settings.media_cache.per_species_maximum,
         "media_cache_max_size_mb": settings.media_cache.max_size_mb,
+        "media_cache_automatic_multi_bird_scan": settings.media_cache.automatic_multi_bird_scan,
         "media_cache_bird_scan_mode": settings.media_cache.bird_scan_mode,
         "media_cache_per_species_minimum": settings.media_cache.per_species_minimum,
         # Location settings
@@ -1899,6 +1903,9 @@ async def update_settings(
 
     if "media_cache_max_size_mb" in fields_set:
         settings.media_cache.max_size_mb = update.media_cache_max_size_mb
+
+    if "media_cache_automatic_multi_bird_scan" in fields_set:
+        settings.media_cache.automatic_multi_bird_scan = update.media_cache_automatic_multi_bird_scan
 
     if "media_cache_bird_scan_mode" in fields_set:
         settings.media_cache.bird_scan_mode = update.media_cache_bird_scan_mode

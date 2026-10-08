@@ -1,3 +1,5 @@
+import asyncio
+from time import monotonic
 import httpx
 import structlog
 from typing import Optional, Tuple
@@ -13,6 +15,28 @@ class WeatherService:
     BASE_URL = "https://api.open-meteo.com/v1/forecast"
     ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
     GEO_URL = "http://ip-api.com/json"  # Fallback for auto-location
+
+    CURRENT_WEATHER_TTL_SECONDS = 30.0
+    UNAVAILABLE_WEATHER_TTL_SECONDS = 5.0
+
+    def __init__(self) -> None:
+        self._current_lock = asyncio.Lock()
+        self._current_loop: asyncio.AbstractEventLoop | None = None
+        self._current_key: tuple | None = None
+        self._current_weather: dict = {}
+        self._current_expires_at = 0.0
+
+    @staticmethod
+    def _current_config_key() -> tuple:
+        if settings.ha_weather.is_usable():
+            return (
+                "home_assistant",
+                settings.ha_weather.base_url,
+                settings.ha_weather.access_token,
+                settings.ha_weather.weather_entity,
+                tuple(sorted(settings.ha_weather.override_entities().items())),
+            )
+        return ("forecast", settings.location.latitude, settings.location.longitude, settings.location.automatic)
 
     async def get_location(self) -> Tuple[Optional[float], Optional[float]]:
         """Get configured location or detect via IP."""
@@ -40,6 +64,24 @@ class WeatherService:
         return None, None
 
     async def get_current_weather(self) -> dict:
+        """Share one recent reading across a burst without retaining stale failures."""
+        loop = asyncio.get_running_loop()
+        if self._current_loop is not loop:
+            self._current_loop = loop
+            self._current_lock = asyncio.Lock()
+            self._current_key = None
+        async with self._current_lock:
+            key = self._current_config_key()
+            if key == self._current_key and monotonic() < self._current_expires_at:
+                return dict(self._current_weather)
+            weather = await self._fetch_current_weather()
+            self._current_key = key
+            self._current_weather = dict(weather)
+            ttl = self.CURRENT_WEATHER_TTL_SECONDS if weather else self.UNAVAILABLE_WEATHER_TTL_SECONDS
+            self._current_expires_at = monotonic() + ttl
+            return dict(weather)
+
+    async def _fetch_current_weather(self) -> dict:
         """Fetch current weather for the configured location.
 
         Note: Always fetches temperature in Celsius for consistent database storage.

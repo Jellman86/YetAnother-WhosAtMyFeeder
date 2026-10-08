@@ -103,6 +103,11 @@ source, and confidence filters plus top-species, source, and hourly activity sum
 history stays separate from the visual feeder leaderboard so "heard" detections do not inflate
 "seen" detections.
 
+Source summaries process stored messages in small batches to limit memory use while other
+requests run. Summaries still cover the entire selected window, so a narrower date range reduces
+the work required for a large history. Hiding or restoring an audio row is reflected on the next
+summary request.
+
 An audio-history row shows a visual-match icon only when YA-WAMF finds a completed, non-hidden,
 automatic video classification with the same scientific name, inside the configured correlation
 window, and on the camera associated with that BirdNET source. Manual tags are deliberately

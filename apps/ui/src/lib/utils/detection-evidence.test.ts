@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SnapshotCandidate } from '../api';
-import { findMatchingFullFrameCandidate, sameFrameCropCandidates } from './detection-evidence';
+import { findMatchingFullFrameCandidate, findScanFrameCandidate, sameFrameCropCandidates } from './detection-evidence';
 
 function candidate(
     candidateId: string,
@@ -74,5 +74,22 @@ describe('sameFrameCropCandidates', () => {
         const full = candidate('full', 'full_frame', 12);
         const crop = { ...candidate('crop', 'model_crop', 12), crop_box: [10, 10, 50, 50] };
         expect(sameFrameCropCandidates([full, crop], full)).toEqual([]);
+    });
+});
+
+describe('findScanFrameCandidate', () => {
+    it('targets a saved full frame itself and accepts a crop only with its exact scene', () => {
+        const full = { ...candidate('full', 'full_frame', 8), image_url: '/full.jpg' };
+        const crop = candidate('crop', 'model_crop', 8);
+        expect(findScanFrameCandidate([full, crop], 'full', 'hq_candidate_full_frame')).toBe(full);
+        expect(findScanFrameCandidate([full, crop], 'crop', 'hq_candidate_model_crop')).toBe(full);
+    });
+    it('never falls back from the original photo, a missing current id or ambiguous scenes', () => {
+        const full = { ...candidate('full', 'full_frame', 8), image_url: '/full.jpg' };
+        const crop = candidate('crop', 'model_crop', 8, 'event', true);
+        expect(findScanFrameCandidate([full, crop], null, 'hq_candidate_model_crop')).toBeNull();
+        expect(findScanFrameCandidate([full, crop], 'crop', 'frigate_snapshot')).toBeNull();
+        expect(findScanFrameCandidate([full, crop, { ...full, candidate_id: 'duplicate' }], 'crop', 'hq_candidate_model_crop')).toBeNull();
+        expect(findScanFrameCandidate([{ ...full, image_url: null, thumbnail_url: '/small.jpg' }], 'full', 'hq_candidate_full_frame')).toBeNull();
     });
 });
