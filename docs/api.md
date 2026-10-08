@@ -116,6 +116,14 @@ curl -N "http://localhost:9852/api/sse?ticket=$TICKET"
 ## Health, Readiness, Version, Streaming
 
 - `GET /health`: process + classifier health. The response is not cacheable.
+  `video_classifier` includes `pending_by_source`, `oldest_pending_age_seconds_by_source`,
+  `active_by_source`, and `active_by_phase`. Source maps
+  distinguish `live`, `manual`, and `maintenance`; an empty source has a `null` waiting age.
+  `scheduler_pressure` reports cumulative observed pressure/wait seconds and start, relief-start,
+  and finish counts. Counters reset with the process and update independently of health polling.
+  A finish can include failure or cancellation. These are scheduler observations, not exact
+  accelerator utilization or live-request latency; short bursts between checks can be missed.
+  Existing maintenance-specific fields remain available. See [video queue behaviour](features/video-analysis.md#settings).
 - `GET /ready`: startup readiness (returns `503` until ready). This exact public path is proxied
   through both monolithic and split frontend deployments and is not cacheable.
 - `GET /api/version`: app version metadata.

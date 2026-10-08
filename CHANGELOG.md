@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Health diagnostics now show video queue counts and waiting ages by source, active phases,
+  and scheduler-observed pressure and progress counters. These help distinguish live-work
+  priority, worker capacity and circuit waits without changing scheduling or worker counts.
+
 - Audio History uses less memory while summarising large BirdNET histories and gives other
   requests time to run between batches. Filtering captures with multiple species also avoids
   repeatedly rebuilding the same unknown-bird label rules; changing those rules still takes

@@ -177,6 +177,26 @@ Video-job concurrency follows `CLASSIFICATION__BACKGROUND_WORKER_COUNT` (one wor
 unset), with one clip per worker. The legacy `video_classification_max_concurrent` setting is
 ignored. See [Maintenance concurrency](../setup/configuration.md#maintenance-concurrency).
 
+Live snapshot work takes priority over new video starts. The existing policy allows one
+video slot when maintenance work has waited at least five seconds; automatic or manual jobs
+alone do not activate that relief. The queue remains shared and FIFO, so eligible maintenance
+can allow an earlier automatic or manual job to start. Critical MQTT pressure prevents new
+video starts, and source circuit breakers and maintenance capacity still apply. These
+scheduling priorities are unchanged by the queue metrics.
+
+The public health response includes video queue counts and oldest waiting ages by source
+and active phases. The existing maintenance-specific fields remain available. A manual
+request joining an existing job appears as manual in the source breakdown, matching Jobs;
+its underlying queue owner and circuit protections stay intact. Missing ages are `null`,
+and restored jobs begin a new in-memory waiting interval after restart.
+
+`scheduler_pressure` contains cumulative observed pressure/wait seconds and start, relief-start
+and finish counts. Relief starts count the existing maintenance-triggered slot. These update when the scheduler checks or the queue changes, independently
+of health polling, and reset with the process. They describe scheduler observations, so short
+live bursts between checks can be missed; they are not precise accelerator utilization or an
+end-to-end latency measure. A finish also includes cancelled or failed owners: use the job's
+stored result to determine whether classification succeeded.
+
 ## Requirements
 
 - `record: enabled: True` must be set in your Frigate config, every analyzed camera needs an FFmpeg input with the `record` role, and `continuous.days` must be at least `1` so the recording exists when analysis runs. Alert/detection retention alone only preserves matching event segments and cannot guarantee the complete analysis window.

@@ -138,6 +138,93 @@ async def test_queue_dispatch_keeps_original_time_for_clip_finalization(monkeypa
 
 
 @pytest.mark.asyncio
+async def test_existing_maintenance_relief_counts_one_slot_dispatches(monkeypatch):
+    from app.services.mqtt_service import mqtt_service
+
+    service = AutoVideoClassifierService()
+    service._classifier = types.SimpleNamespace(get_admission_status=lambda: {"live": {"running": 1, "queued": 1}})
+    monkeypatch.setattr(settings.classification, "background_worker_count", 4)
+    monkeypatch.setattr(mqtt_service, "get_status", lambda: {"pressure_level": "normal"})
+    monkeypatch.setattr(service, "_update_status", AsyncMock(return_value=True))
+    monkeypatch.setattr(
+        auto_video_classifier_module.maintenance_coordinator, "try_acquire", AsyncMock(return_value=True)
+    )
+    monkeypatch.setattr(auto_video_classifier_module.maintenance_coordinator, "release", AsyncMock())
+    first_started, release_first, second_started = asyncio.Event(), asyncio.Event(), asyncio.Event()
+    order = []
+
+    async def process(event_id, *_args, **_kwargs):
+        order.append(event_id)
+        if len(order) == 1:
+            first_started.set()
+            await release_first.wait()
+        else:
+            second_started.set()
+            service._running = False
+
+    monkeypatch.setattr(service, "_process_event", process)
+    for event_id in ("first", "second"):
+        assert await service.queue_classification(event_id, "cam", source="maintenance") == "queued"
+        service._pending_metadata[event_id]["queued_at"] = time.monotonic() - 60
+    service._running = True
+    processor = asyncio.create_task(service._process_queue_loop())
+    try:
+        await asyncio.wait_for(first_started.wait(), 1)
+        await asyncio.sleep(0.05)
+        assert order == ["first"]
+        assert len(service._active_tasks) == 1
+        assert service._pending_ids == {"second"}
+        release_first.set()
+        await asyncio.wait_for(second_started.wait(), 2)
+        await asyncio.wait_for(processor, 2)
+        await asyncio.gather(*list(service._active_tasks.values()))
+        assert order == ["first", "second"]
+        assert service._queue_metrics()["scheduler_pressure"]["relief_starts"] == 2
+    finally:
+        service._running = False
+        release_first.set()
+        processor.cancel()
+        await asyncio.gather(processor, *list(service._active_tasks.values()), return_exceptions=True)
+
+
+@pytest.mark.asyncio
+async def test_scheduler_metrics_observe_existing_circuit_and_maintenance_waits(monkeypatch):
+    from app.services.mqtt_service import mqtt_service
+
+    service = AutoVideoClassifierService()
+    service._classifier = types.SimpleNamespace(get_admission_status=lambda: {"live": {"running": 1, "queued": 0}})
+    monkeypatch.setattr(mqtt_service, "get_status", lambda: {"pressure_level": "normal"})
+    monkeypatch.setattr(service, "_update_status", AsyncMock(return_value=True))
+    for event_id, source in (("circuit", "live"), ("capacity", "maintenance"), ("ready", "manual")):
+        assert await service.queue_classification(event_id, "cam", source=source) == "queued"
+        service._pending_metadata[event_id]["queued_at"] = time.monotonic() - 60
+    monkeypatch.setattr(service, "_is_circuit_open", lambda source: source == "live")
+    acquire = AsyncMock(return_value=False)
+    monkeypatch.setattr(auto_video_classifier_module.maintenance_coordinator, "try_acquire", acquire)
+    processed = []
+
+    async def process(event_id, *_args, **_kwargs):
+        processed.append(event_id)
+        service._running = False
+
+    monkeypatch.setattr(service, "_process_event", process)
+    service._running = True
+    try:
+        await asyncio.wait_for(service._process_queue_loop(), 4)
+        await asyncio.gather(*list(service._active_tasks.values()))
+        assert processed == ["ready"]
+        assert service._pending_ids == {"circuit", "capacity"}
+        assert service._pending_queue.qsize() == 2
+        acquire.assert_awaited_once_with("maintenance:capacity", kind="video_classification")
+        metrics = service._queue_metrics()["scheduler_pressure"]
+        assert metrics["circuit_wait_seconds"] > 0
+        assert metrics["maintenance_capacity_wait_seconds"] > 0
+    finally:
+        service._running = False
+        await service.reset_state()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("queued_at", "skip_delay", "expected_sleeps"),
     [(40.0, False, []), (80.0, False, [10.0]), (100.0, False, [30.0]), (None, False, [30.0]), (80.0, True, [])],
