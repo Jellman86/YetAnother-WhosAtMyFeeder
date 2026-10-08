@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- A favourite capture now leads its visit (#481). With captures grouped into visits, a favourite
+  could sit unseen inside a stack whose card showed another capture, even under the Favorites
+  filter. The visit card now shows the favourite (the best-scoring one when there are several),
+  and the capture lists in the Explorer and the field log mark each favourite as **Favorited**.
 - The bundled **MobileNet V2 Birds** model sees the photo again. Its pixels were converted twice,
   which turned every image almost white, so it named nearly everything American White Pelican and
   scored 0.3% in a model evaluation. On twenty feeder photos of species it knows it now gets 9
