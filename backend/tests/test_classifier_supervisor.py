@@ -955,10 +955,12 @@ async def test_classifier_supervisor_replaces_worker_after_send_transport_failur
 async def test_classifier_supervisor_starts_pool_workers_sequentially():
     created: list[_GateReadyWorker] = []
     gate = asyncio.Event()
+    first_created = asyncio.Event()
 
     async def _factory(*, worker_name: str, worker_generation: int, **_kwargs):
         worker = _GateReadyWorker(worker_name, worker_generation, gate=gate)
         created.append(worker)
+        first_created.set()
         return worker
 
     supervisor = ClassifierSupervisor(
@@ -971,14 +973,17 @@ async def test_classifier_supervisor_starts_pool_workers_sequentially():
     )
 
     start_task = asyncio.create_task(supervisor.start("video"))
-    await asyncio.sleep(0.01)
-    assert [worker.worker_name for worker in created] == ["video-0"]
-
-    gate.set()
-    await start_task
-
-    assert [worker.worker_name for worker in created] == ["video-0", "video-1"]
-    await supervisor.shutdown()
+    try:
+        await asyncio.wait_for(first_created.wait(), 2)
+        assert [worker.worker_name for worker in created] == ["video-0"]
+        gate.set()
+        await asyncio.wait_for(start_task, 2)
+        assert [worker.worker_name for worker in created] == ["video-0", "video-1"]
+    finally:
+        gate.set()
+        start_task.cancel()
+        await asyncio.gather(start_task, return_exceptions=True)
+        await supervisor.shutdown()
 
 
 @pytest.mark.asyncio

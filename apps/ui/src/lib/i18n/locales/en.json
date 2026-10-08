@@ -761,13 +761,15 @@
       "max_size_mb": "Storage limit (MiB)",
       "max_size_mb_help": "When photos and video use more than this, the oldest are removed first. Favourites and their archive are kept. This limit and the one above win over the photo floor. 0 means no limit.",
       "bird_scan_mode": "Bird scanning effort",
-      "bird_scan_mode_help": "Standard uses less CPU. Intensive also searches tiles in large frames and classifies more crop choices. Both count every bird found in the selected scene; neither guarantees every bird in the clip is found.",
+      "bird_scan_mode_help": "Applies to manual and automatic scans. Standard uses less CPU. Intensive also searches tiles in large frames and classifies more crop choices. Neither guarantees every bird is found.",
       "bird_scan_standard": "Standard",
       "bird_scan_intensive": "Intensive",
       "cache_clips_help": "Frigate already keeps these. Copies survive Frigate deleting them, at about the size of the clip each.",
       "cache_always_kept": "Photos, full-visit clips and previews are always kept. The limits below decide for how long and how much space they use.",
       "cache_unavailable": "The media folder can't be written, so photos and video are not being kept. Check the folder's permissions; system checks show the error.",
-      "cache_high_quality_storage_note": "Each visit then also keeps full-resolution frames, often several MB, so set a storage limit if space is tight."
+      "cache_high_quality_storage_note": "Each visit then also keeps full-resolution frames, often several MB, so set a storage limit if space is tight.",
+      "automatic_multi_bird_scan": "Automatically find additional birds",
+      "automatic_multi_bird_scan_help": "Off by default to reduce processing. Normal bird identification and the target bird’s crop continue, and existing findings are kept. Use Find more birds on a photograph whenever you need a scan. When enabled, scans run on retained whole frames."
     },
     "security": {
       "title": "Security",
@@ -2410,7 +2412,26 @@
     "audio_spectrogram_unavailable": "Spectrogram unavailable for this match",
     "manual_upload": "Added from an upload",
     "search_species": "Search species",
-    "species_updated": "Species updated"
+    "species_updated": "Species updated",
+    "bird_scan": {
+      "action": "Find more birds",
+      "again": "Scan again",
+      "detector_unavailable": "Install a crop detector to find additional birds.",
+      "reviewed_other_frame": "Birds reviewed on another frame are kept. This frame cannot replace them.",
+      "scene_unavailable": "The whole frame for this photograph is unavailable.",
+      "other_running": "Another frame in this capture is being scanned. Try again when it finishes.",
+      "media_changed": "The frame changed during the scan. Try again on the current frame.",
+      "interrupted": "The scan was interrupted. You can try again.",
+      "failed": "The scan could not finish. Your existing birds are kept.",
+      "status_unavailable": "Scan status could not be loaded. Checking again shortly.",
+      "queued": "Queued to scan this whole frame.",
+      "running": "Finding birds in this whole frame.",
+      "completed": "Scan complete. Birds found in this frame: {count}.",
+      "retained": "The previous bird count and your corrections are kept.",
+      "not_scanned": "This whole frame has not been scanned for additional birds.",
+      "loading": "Checking this frame’s scan status…",
+      "start_unconfirmed": "The scan request could not be confirmed. Checking its status before trying again."
+    }
   },
   "events": {
     "title": "Events",

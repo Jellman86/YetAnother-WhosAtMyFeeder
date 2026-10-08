@@ -1,10 +1,29 @@
+import asyncio
 import json
+import os
 
 import numpy as np
 import pytest
 from PIL import Image
 
 from app.services.video_scene_cache import VideoSceneCache
+
+
+requires_safe_artifact_open = pytest.mark.skipif(
+    not getattr(os, "O_NOFOLLOW", None), reason="Platform has no safe no-follow artifact open"
+)
+
+
+async def wait_for_worker_event(event, worker):
+    waiter = asyncio.create_task(event.wait())
+    try:
+        done, _ = await asyncio.wait({waiter, worker}, timeout=3, return_when=asyncio.FIRST_COMPLETED)
+        if worker in done:
+            await worker
+        assert event.is_set(), "Worker did not reach the expected boundary within three seconds"
+    finally:
+        waiter.cancel()
+        await asyncio.gather(waiter, return_exceptions=True)
 
 
 def evidence(frame=2, size=(80, 60), score=0.9):
@@ -17,6 +36,31 @@ def evidence(frame=2, size=(80, 60), score=0.9):
     }
 
 
+@pytest.mark.parametrize("operation", ["write", "load"])
+def test_artifact_cache_without_safe_no_follow_open_leaves_files_untouched(tmp_path, monkeypatch, operation):
+    import os
+
+    clip = tmp_path / "clip.mp4"
+    clip.write_bytes(b"clip identity")
+    directory = tmp_path / "scenes"
+    directory.mkdir()
+    cache = VideoSceneCache()
+    cache.retain(evidence(), Image.new("RGB", (80, 60)))
+    monkeypatch.delattr(os, "O_NOFOLLOW", raising=False)
+
+    def unexpected_open(*args, **kwargs):
+        pytest.fail("An unsupported safe artifact open must not read or write files")
+
+    monkeypatch.setattr(os, "open", unexpected_open)
+    if operation == "write":
+        assert not cache.write(directory, clip, "event", evidence())
+    else:
+        assert not cache.load(directory, clip, "event")
+    assert list(directory.iterdir()) == []
+    assert cache.retained_scene(evidence()) is not None
+
+
+@requires_safe_artifact_open
 def test_winning_scene_survives_artifact_without_changing_pixels(tmp_path):
     clip = tmp_path / "clip.mp4"
     clip.write_bytes(b"clip identity")
@@ -53,6 +97,7 @@ def test_retention_is_bounded_and_eviction_keeps_evidence_fallback(tmp_path):
     assert cache.retained_bytes == 80 * 60 * 4 * 2
 
 
+@requires_safe_artifact_open
 @pytest.mark.parametrize("change", ["pixels", "manifest", "variant", "symlink", "missing"])
 def test_invalid_or_unavailable_artifact_falls_back_to_decode(tmp_path, change):
     clip = tmp_path / "clip.mp4"
@@ -99,7 +144,8 @@ def test_clip_changed_during_analysis_cannot_claim_retained_pixels(tmp_path):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("cancel", [False, True])
-async def test_async_boundary_owns_artifact_path_and_returns_only_results(tmp_path, cancel):
+@pytest.mark.parametrize("missing_flag", [False, True])
+async def test_async_boundary_owns_artifact_path_and_returns_only_results(tmp_path, monkeypatch, cancel, missing_flag):
     import asyncio
     from pathlib import Path
     from unittest.mock import AsyncMock
@@ -110,6 +156,9 @@ async def test_async_boundary_owns_artifact_path_and_returns_only_results(tmp_pa
     clip.write_bytes(b"clip identity")
     service = ClassifierService.__new__(ClassifierService)
     output = VideoSceneCache()
+    if missing_flag:
+        monkeypatch.delattr(os, "O_NOFOLLOW", raising=False)
+    can_share_artifact = bool(getattr(os, "O_NOFOLLOW", None))
     started = asyncio.Event()
     directories = []
     rows = [{"label": "Robin", "score": 0.9, "_video_snapshot_evidence": evidence()}]
@@ -120,7 +169,7 @@ async def test_async_boundary_owns_artifact_path_and_returns_only_results(tmp_pa
         assert directory.exists() and directory != tmp_path
         worker_cache = VideoSceneCache()
         worker_cache.retain(evidence(), Image.new("RGB", (80, 60), "green"))
-        assert worker_cache.write(directory, clip, "event", evidence())
+        assert worker_cache.write(directory, clip, "event", evidence()) is can_share_artifact
         started.set()
         if cancel:
             await asyncio.Event().wait()
@@ -132,17 +181,21 @@ async def test_async_boundary_owns_artifact_path_and_returns_only_results(tmp_pa
             str(clip), input_context={"_video_scene_directory": str(tmp_path)}, scene_cache=output
         )
     )
-    await started.wait()
-    if cancel:
+    try:
+        await wait_for_worker_event(started, task)
+        if cancel:
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await asyncio.wait_for(task, 3)
+            assert output.retained_count == 0
+        else:
+            assert await asyncio.wait_for(task, 3) == rows
+            assert (output.scene_for(clip, "event", evidence()) is not None) is can_share_artifact
+            assert "_video_scene_directory" not in json.dumps(rows)
+        assert not directories[0].exists()
+    finally:
         task.cancel()
-        with pytest.raises(asyncio.CancelledError):
-            await task
-        assert output.retained_count == 0
-    else:
-        assert await task == rows
-        assert output.scene_for(clip, "event", evidence()) is not None
-        assert "_video_scene_directory" not in json.dumps(rows)
-    assert not directories[0].exists()
+        await asyncio.wait_for(asyncio.gather(task, return_exceptions=True), 3)
 
 
 @pytest.mark.asyncio
@@ -157,6 +210,7 @@ async def test_supplied_context_cannot_choose_artifact_directory_without_cache(t
     assert "_video_scene_directory" not in service._classify_video_async_impl.await_args.kwargs["input_context"]
 
 
+@requires_safe_artifact_open
 @pytest.mark.asyncio
 async def test_cancellation_prevents_late_manifest_creation_during_cleanup(tmp_path, monkeypatch):
     import asyncio
@@ -207,12 +261,25 @@ async def test_cancellation_prevents_late_manifest_creation_during_cleanup(tmp_p
     monkeypatch.setattr(os, "unlink", unlink_then_release)
     service._classify_video_async_impl = AsyncMock(side_effect=classify)
     task = asyncio.create_task(service.classify_video_async(str(clip), scene_cache=VideoSceneCache()))
-    await at_manifest.wait()
-    task.cancel()
     try:
+        await wait_for_worker_event(at_manifest, task)
+        task.cancel()
         with pytest.raises(asyncio.CancelledError):
-            await task
+            await asyncio.wait_for(task, 3)
         assert not directories[0].exists()
         assert not directories[0].with_name(directories[0].name + "-discard").exists()
     finally:
         release.set()
+        task.cancel()
+        await asyncio.wait_for(asyncio.gather(task, return_exceptions=True), 3)
+
+
+@pytest.mark.asyncio
+async def test_worker_boundary_wait_surfaces_failure_before_event():
+    async def broken_worker():
+        raise RuntimeError("worker failed before signaling")
+
+    worker = asyncio.create_task(broken_worker())
+    with pytest.raises(RuntimeError, match="worker failed before signaling"):
+        await wait_for_worker_event(asyncio.Event(), worker)
+    assert worker.done()

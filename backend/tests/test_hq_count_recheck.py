@@ -221,7 +221,7 @@ async def test_count_recheck_does_not_promote_photo_presence_or_change_original_
     monkeypatch.setattr(service, "_load_expected_species_labels", AsyncMock(return_value=set()))
     monkeypatch.setattr(service, "_detect_count_candidates", AsyncMock(return_value=[]))
     monkeypatch.setattr(service, "_recheck_weak_count_candidates", AsyncMock(return_value=[rescued]))
-    result = await service._score_and_select_snapshot_candidates("event", rows)
+    result = await service._score_and_select_snapshot_candidates("event", rows, include_additional_birds=True)
     weak = next(row for row in result["candidates"] if row["candidate_id"] == "cardinal")
     assert weak["crop_confidence"] == 0.032
     assert weak.get("crop_strategy") != "detector_supported"

@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte';
     import { confirmAction } from '../stores/confirm_dialog.svelte';
+    import { modelEvalScores } from '../utils/model-eval-scores';
     import {
         startModelEvalRun,
         listModelEvalRuns,
@@ -287,6 +288,7 @@
                                 <th class="text-right px-2">Top-3</th>
                                 <th class="text-right px-2">Core</th>
                                 <th class="text-right px-2">Region</th>
+                                <th class="text-right px-2">Can name</th>
                                 <th class="text-right px-2">Mean</th>
                                 <th class="text-right px-2">P95</th>
                                 <th class="text-left pl-4">Provider</th>
@@ -294,6 +296,7 @@
                         </thead>
                         <tbody>
                             {#each selectedRun.models as model (model.model_id)}
+                                {@const scores = modelEvalScores(model)}
                                 <tr class="border-b border-slate-100 dark:border-slate-700">
                                     <td class="py-2 pr-4 font-mono text-xs text-slate-900 dark:text-slate-100">
                                         {model.model_id}
@@ -305,17 +308,18 @@
                                             </span>
                                         {/if}
                                     </td>
-                                    <td class="text-right px-2 text-slate-700 dark:text-slate-300">{pct(model.top1_accuracy)}</td>
-                                    <td class="text-right px-2 text-slate-700 dark:text-slate-300">{pct(model.top3_accuracy)}</td>
-                                    <td class="text-right px-2 text-slate-700 dark:text-slate-300">{pct(model.shared_core_top1)}</td>
-                                    <td class="text-right px-2 text-slate-700 dark:text-slate-300">{pct(model.regional_top1)}</td>
+                                    <td class="text-right px-2 text-slate-700 dark:text-slate-300">{pct(scores.top1)}</td>
+                                    <td class="text-right px-2 text-slate-700 dark:text-slate-300">{pct(scores.top3)}</td>
+                                    <td class="text-right px-2 text-slate-700 dark:text-slate-300">{pct(scores.core)}</td>
+                                    <td class="text-right px-2 text-slate-700 dark:text-slate-300">{pct(scores.region)}</td>
+                                    <td class="text-right px-2 text-slate-700 dark:text-slate-300 whitespace-nowrap">{scores.canName ?? '—'}</td>
                                     <td class="text-right px-2 text-slate-700 dark:text-slate-300">{ms(model.mean_latency_ms)}</td>
                                     <td class="text-right px-2 text-slate-700 dark:text-slate-300">{ms(model.p95_latency_ms)}</td>
                                     <td class="pl-4 text-xs text-slate-600 dark:text-slate-400">{model.active_provider ?? '—'}</td>
                                 </tr>
                                 {#if model.warnings && model.warnings.length > 0}
                                     <tr class="border-b border-slate-100 dark:border-slate-700">
-                                        <td colspan="8" class="py-1 pr-4 pl-4 text-xs">
+                                        <td colspan="9" class="py-1 pr-4 pl-4 text-xs">
                                             {#each model.warnings as w}
                                                 <div class={severityColor(w.severity)}>
                                                     <span class="font-mono">{w.code}</span>: {w.message}
@@ -328,6 +332,11 @@
                         </tbody>
                     </table>
                 </div>
+                {#if selectedRun.models.some((model) => model.vocabulary_known)}
+                    <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                        Accuracy counts only the test species each model can name, shown under Can name. A regional model is not marked down for birds outside its region.
+                    </p>
+                {/if}
             {/if}
 
             {#if selectedRun.skipped_models && selectedRun.skipped_models.length > 0}

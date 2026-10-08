@@ -154,24 +154,54 @@ async def test_recording_deadline_and_cancellation_do_not_wait_for_retention(rec
     import asyncio
     import app.services.recording_snapshot_input as module
 
-    monkeypatch.setattr(module, "RECORDING_SNAPSHOT_TIMEOUT_SECONDS", 0.01)
-
-    async def slow(*args, **kwargs):
-        await asyncio.sleep(1)
+    monkeypatch.setattr(module, "RECORDING_SNAPSHOT_TIMEOUT_SECONDS", 5.0)
 
     event = {"camera": "birdcam", "data": {"snapshot_frame_time": 105.25, "box": [0.25, 0.2, 0.1, 0.15]}}
     original = image_bytes((1280, 720))
     provenance = frigate_snapshot_input_provenance(event)
-    client = recording_client(get_recording_snapshot_with_error=slow)
+    recording_read = AsyncMock(side_effect=TimeoutError("recording read deadline"))
+    client = recording_client(get_recording_snapshot_with_error=recording_read)
     assert await module.prefer_recording_snapshot("evt", event, original, provenance, client=client) == (
         original,
         provenance,
     )
+    recording_read.assert_awaited_once()
+    started = asyncio.Event()
+
+    async def slow(*args, **kwargs):
+        started.set()
+        await asyncio.Event().wait()
+
+    client = recording_client(get_recording_snapshot_with_error=slow)
     task = asyncio.create_task(module.prefer_recording_snapshot("evt", event, original, provenance, client=client))
-    await asyncio.sleep(0)
-    task.cancel()
-    with pytest.raises(asyncio.CancelledError):
-        await task
+    try:
+        await asyncio.wait_for(started.wait(), 2)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await asyncio.wait_for(task, 2)
+    finally:
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+
+
+@pytest.mark.asyncio
+async def test_recording_timeout_before_alignment_keeps_pixels_without_unverified_coordinates(recording_mode):
+    from app.services.recording_snapshot_input import prefer_recording_snapshot
+
+    event = {"camera": "birdcam", "data": {"snapshot_frame_time": 105.25, "box": [0.25, 0.2, 0.1, 0.15]}}
+    original = image_bytes((1280, 720))
+    recording_read = AsyncMock()
+    client = recording_client(
+        get_alignment_snapshot_with_error=AsyncMock(side_effect=TimeoutError("alignment read deadline")),
+        get_recording_snapshot_with_error=recording_read,
+    )
+    image, provenance = await prefer_recording_snapshot(
+        "evt", event, original, frigate_snapshot_input_provenance(event), client=client
+    )
+    assert image == original
+    assert provenance.input_source == "frigate_snapshot_unaligned"
+    assert provenance.recording_box is None
+    recording_read.assert_not_awaited()
 
 
 @pytest.mark.asyncio

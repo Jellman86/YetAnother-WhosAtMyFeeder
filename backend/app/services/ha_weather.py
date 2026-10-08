@@ -8,6 +8,7 @@ Everything converts to the same metric units the forecast provider stores
 never as a forecast value presented as measured.
 """
 
+import asyncio
 import httpx
 import structlog
 from typing import Any, Optional
@@ -195,15 +196,14 @@ class HomeAssistantWeatherSource:
         self._override_entities = {k: v.strip() for k, v in (override_entities or {}).items() if v and v.strip()}
         self._timeout_seconds = max(0.5, float(timeout_seconds))
 
-    async def _fetch_state(self, entity_id: str) -> Optional[dict]:
+    async def _fetch_state(self, entity_id: str, *, client: httpx.AsyncClient) -> Optional[dict]:
         url = f"{self._base_url}/api/states/{entity_id}"
         headers = {"Authorization": f"Bearer {self._access_token}"}
         try:
-            async with httpx.AsyncClient(timeout=self._timeout_seconds) as client:
-                resp = await client.get(url, headers=headers)
-                resp.raise_for_status()
-                data = resp.json()
-                return data if isinstance(data, dict) else None
+            resp = await client.get(url, headers=headers)
+            resp.raise_for_status()
+            data = resp.json()
+            return data if isinstance(data, dict) else None
         except httpx.TimeoutException:
             log.info("home_assistant_state_timeout", entity_id=entity_id)
             return None
@@ -217,11 +217,19 @@ class HomeAssistantWeatherSource:
         A failed or unavailable sensor contributes nothing: unknown stays
         unknown rather than borrowing a forecast and calling it measured.
         """
-        weather: dict[str, Any] = {}
-        if self._weather_entity:
-            weather = map_weather_entity(await self._fetch_state(self._weather_entity))
+        entity_ids = list(
+            dict.fromkeys(
+                ([self._weather_entity] if self._weather_entity else []) + list(self._override_entities.values())
+            )
+        )
+        # At most eight configured entities; their independent timeout budgets
+        # must fit within the ingest context deadline, rather than add together.
+        async with httpx.AsyncClient(timeout=self._timeout_seconds) as client:
+            states = await asyncio.gather(*(self._fetch_state(entity_id, client=client) for entity_id in entity_ids))
+        by_entity = dict(zip(entity_ids, states))
+        weather = map_weather_entity(by_entity.get(self._weather_entity))
         for category, entity_id in self._override_entities.items():
-            value = map_sensor_state(await self._fetch_state(entity_id), category)
+            value = map_sensor_state(by_entity.get(entity_id), category)
             if value is not None:
                 weather[category] = value
             else:

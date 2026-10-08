@@ -717,3 +717,67 @@ async def test_a_favourite_capture_is_the_visits_photo(repo):
     await capture(repo, 3, 60, favorite=True)
     visits, _total = await repo.list_visits(**window)
     assert visits[0]["representative_event"] == "visit-test-3"
+
+
+@pytest.mark.asyncio
+async def test_capture_page_computes_group_membership_once_and_keeps_total(repo):
+    first = await capture(repo, 0, 0)
+    await capture(repo, 1, 10)
+    await capture(repo, 2, 20)
+    statements = []
+    await repo.db.set_trace_callback(statements.append)
+    try:
+        page, total = await repo.visit_captures(first, start=START, limit=1, offset=1)
+    finally:
+        await repo.db.set_trace_callback(None)
+    assert total == 3
+    assert [item.frigate_event for item in page] == ["visit-test-1"]
+    grouping_queries = [query for query in statements if "visit_source AS" in query]
+    assert len(grouping_queries) == 1, "A capture page must not scan and group the same history twice"
+    page, total = await repo.visit_captures(first, start=START, limit=1, offset=10)
+    assert page == []
+    assert total == 3
+    assert await repo.visit_captures("missing-visit", start=START) == ([], 0)
+
+
+@pytest.mark.asyncio
+async def test_recent_visit_peak_work_is_bounded_by_matching_history(repo):
+    first = await capture(repo, 0, 0)
+    await birds(repo, first, ["Turdus merula", "Erithacus rubecula"])
+    # Older captures are outside the requested window. Adding counted birds to
+    # them must not make a recent page aggregate the entire observation history.
+    await repo.db.executemany(
+        """INSERT INTO detections(detection_time,detection_index,score,display_name,
+            category_name,frigate_event,camera_name,scientific_name,is_hidden)
+            VALUES ('2030-01-01 00:00:00',0,0.9,'Turdus merula','Turdus merula',?,'birdcam','Turdus merula',0)""",
+        [(f"visit-test-old-{index}",) for index in range(1000)],
+    )
+    await repo.db.commit()
+
+    async def measured_page():
+        steps = 0
+
+        def progress():
+            nonlocal steps
+            steps += 1
+            return 0
+
+        await repo.db.set_progress_handler(progress, 100)
+        try:
+            page, total = await repo.list_visits(start=START, end=START + timedelta(minutes=1))
+        finally:
+            await repo.db.set_progress_handler(None, 0)
+        assert total == 1
+        assert page[0]["peak_event"] == first
+        return steps
+
+    before = await measured_page()
+    await repo.db.executemany(
+        """INSERT INTO bird_observations(frigate_event,bird_index,candidate_id,clip_variant,
+            frame_index,crop_box_json,detector_confidence,species,classifier_label,classifier_score)
+            VALUES (?,?,'old-candidate','full',0,'[0,0,1,1]',0.9,'Turdus merula','Turdus merula',0.9)""",
+        [(f"visit-test-old-{index}", bird_index) for index in range(1000) for bird_index in range(2)],
+    )
+    await repo.db.commit()
+    after = await measured_page()
+    assert after <= before * 1.5 + 10, f"Unrelated observations grew SQL work from {before} to {after} steps"
