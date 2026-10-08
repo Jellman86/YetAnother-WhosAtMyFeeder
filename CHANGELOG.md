@@ -15,6 +15,23 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   model is scored on the accelerator it will use rather than on its CPU fallback. Full-size test
   photos are stored at 1024 px, so latency measures the model instead of a 3840 px upload, and
   each model's health comes from its own runtime instead of always reading "unknown".
+- In the default **Subprocess (Isolated)** mode, detections are tied to the model that produced
+  them again. The main process never loads the model, and it only recorded the model's checksum
+  when it did, so no detection got its model and output recorded and the species catalogue's
+  check that the model and the label agree on a bird never ran. The test install had none of its
+  663 detections tied to a model. Each result now carries the checksum of the model that produced
+  it, so a model switch while an event is being saved cannot credit one model's answer to another,
+  and the main process also records the workers' model at start-up and on every switch.
+- In **Subprocess (Isolated)** mode, identifying a bird no longer freezes the rest of the app for
+  a moment. Each picture is packed losslessly for the classifier worker, and for a full camera
+  frame (identifying from the recording frame, and every backfilled event) that took 0.3 to
+  1.4 seconds on the test install, during which live updates, MQTT and the web pages waited. It
+  now happens beside them.
+- Intel GPU (iGPU) acceleration works with every model again. The image's Intel GPU driver, from
+  Intel's Ubuntu LTS channel, crashed intermittently when compiling a model for the iGPU on the
+  image's Debian base, so most models could not be verified on Intel GPU and stayed on the CPU or
+  NPU. The image now installs Intel's compute runtime 26.35 with graphics compiler 2.41.5, pinned
+  and checksummed; on a Core Ultra 200 every model compiled and gave the CPU's answers.
 - The bundled **MobileNet V2 Birds** model sees the photo again. Its pixels were converted twice,
   which turned every image almost white, so it named nearly everything American White Pelican and
   scored 0.3% in a model evaluation. On twenty feeder photos of species it knows it now gets 9
