@@ -1878,13 +1878,13 @@ class ModelInstance:
         self.labels_path = labels_path
         self.preprocessing = preprocessing or {}
         self.label_grouping = dict(label_grouping or {})
-        # None means "read the label file", which is what every caller that has
-        # not been given a checksum should keep doing.
-        self.model_sha256 = model_sha256
         # The weights this instance loads, bound now: results carry it as their
         # provenance, and a reinstall can replace the file under a running instance.
         # Every backend and fallback is built here, including one loading other weights.
         self.loaded_artifact_sha256 = artifact_digest(model_path)
+        # Fallbacks may load different weights from the selected registry model.
+        # Reuse their bound digest so labels follow those actual output indices.
+        self.model_sha256 = self.loaded_artifact_sha256 or model_sha256
         self.interpreter = None
         self.labels: list[str] = []
         self.grouped_labels: list[str] = []
@@ -2181,13 +2181,13 @@ class ONNXModelInstance:
         self.labels_path = labels_path
         self.preprocessing = preprocessing or {}
         self.label_grouping = dict(label_grouping or {})
-        # None means "read the label file", which is what any caller without a
-        # checksum should keep doing.
-        self.model_sha256 = model_sha256
         # The weights this instance loads, bound now: results carry it as their
         # provenance, and a reinstall can replace the file under a running instance.
         # Every backend and fallback is built here, including one loading other weights.
         self.loaded_artifact_sha256 = artifact_digest(model_path)
+        # Fallbacks may load different weights from the selected registry model.
+        # Reuse their bound digest so labels follow those actual output indices.
+        self.model_sha256 = self.loaded_artifact_sha256 or model_sha256
         self.input_size = input_size
         self.ort_providers = list(ort_providers or ["CPUExecutionProvider"])
         self.session = None
@@ -2440,13 +2440,13 @@ class OpenVINOModelInstance:
         self.labels_path = labels_path
         self.preprocessing = preprocessing or {}
         self.label_grouping = dict(label_grouping or {})
-        # None means "read the label file", which is what any caller without a
-        # checksum should keep doing.
-        self.model_sha256 = model_sha256
         # The weights this instance loads, bound now: results carry it as their
         # provenance, and a reinstall can replace the file under a running instance.
         # Every backend and fallback is built here, including one loading other weights.
         self.loaded_artifact_sha256 = artifact_digest(model_path)
+        # Fallbacks may load different weights from the selected registry model.
+        # Reuse their bound digest so labels follow those actual output indices.
+        self.model_sha256 = self.loaded_artifact_sha256 or model_sha256
         self.input_size = input_size
         self.device_name = device_name
         self._startup_self_test_enabled = (

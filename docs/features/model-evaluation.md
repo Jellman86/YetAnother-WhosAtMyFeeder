@@ -266,3 +266,12 @@ provider-native `providers` fields.
 - End-to-end Frigate challenger: `backend/scripts/eval_crop_strategy_challenger.py`
 - Frontend page: `apps/ui/src/lib/pages/ModelEvaluation.svelte`
 - Design doc: `docs/plans/2026-05-07-model-evaluation-harness-design.md`
+
+### Label sources
+
+Classifier runtimes (TFLite, ONNX Runtime and OpenVINO) look up labels using the
+checksum of the weights they actually load, including fallback models. A complete,
+contiguous catalogue mapping with the declared output width takes precedence over
+the label file. Unknown or incomplete mappings retain the label-file fallback.
+Installer integrity checks still verify the shipped label files; catalogue-first
+inference does not remove those installation assets.
