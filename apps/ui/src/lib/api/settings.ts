@@ -77,6 +77,7 @@ export interface Settings {
     media_cache_retention_days: number;
     media_cache_per_species_maximum: NonNullable<components['schemas']['SettingsResponse']['media_cache_per_species_maximum']>;
     media_cache_max_size_mb: NonNullable<components['schemas']['SettingsResponse']['media_cache_max_size_mb']>;
+    media_cache_automatic_multi_bird_scan?: NonNullable<components['schemas']['SettingsResponse']['media_cache_automatic_multi_bird_scan']>;
     media_cache_bird_scan_mode: NonNullable<components['schemas']['SettingsResponse']['media_cache_bird_scan_mode']>;
     media_cache_per_species_minimum: number;
     location_latitude?: number | null;

@@ -209,13 +209,8 @@ async def test_video_photo_reuses_exact_scene_and_decodes_on_provenance_mismatch
     await _seed(event)
     result = _result()
     portrait, scene = module.extract_video_snapshot(clip, result["_video_snapshot_evidence"])
-    directory = tmp_path / "scenes"
-    directory.mkdir()
-    cache = VideoSceneCache()
-    cache.retain(result["_video_snapshot_evidence"], scene)
-    assert cache.write(directory, clip, "event", result["_video_snapshot_evidence"])
-    loaded = VideoSceneCache()
-    assert loaded.load(directory, clip, "event")
+    loaded = VideoSceneCache(clip_path=clip, clip_variant="event")
+    loaded.retain(result["_video_snapshot_evidence"], scene)
     from unittest.mock import Mock
 
     decode = Mock(return_value=(portrait, scene))
@@ -708,3 +703,46 @@ async def test_retained_photo_keeps_its_byte_bound_film_alignment():
     alignment = {"frame_time": 101, "box": [0.1, 0.2, 0.3, 0.4], "image_sha256": hashlib.sha256(photo).hexdigest()}
     retained = await module.retained_snapshot_candidate("earlier-aligned", photo, {"film_alignment": alignment}, [])
     assert retained["film_alignment"] == alignment
+
+
+@pytest.mark.asyncio
+async def test_missing_safe_artifact_open_keeps_async_classification_and_photo_decode(clip, monkeypatch):
+    import os
+    from pathlib import Path
+    from unittest.mock import Mock
+
+    from app.services.classifier_service import ClassifierService
+    from app.services.video_scene_cache import VideoSceneCache
+
+    event = "video-no-safe-artifact-open"
+    await _seed(event)
+    result = _result()
+    _, scene = module.extract_video_snapshot(clip, result["_video_snapshot_evidence"])
+    output = VideoSceneCache()
+    directories = []
+    monkeypatch.delattr(os, "O_NOFOLLOW", raising=False)
+
+    async def classify(**kwargs):
+        directory = Path(kwargs["input_context"]["_video_scene_directory"])
+        directories.append(directory)
+        worker_cache = VideoSceneCache(clip_path=clip, clip_variant="event")
+        worker_cache.retain(result["_video_snapshot_evidence"], scene)
+        assert not worker_cache.write(directory, clip, "event", result["_video_snapshot_evidence"])
+        assert list(directory.iterdir()) == []
+        return [result]
+
+    service = ClassifierService.__new__(ClassifierService)
+    service._classify_video_async_impl = AsyncMock(side_effect=classify)
+    rows = await asyncio.wait_for(service.classify_video_async(str(clip), scene_cache=output), 3)
+    assert rows == [result]
+    assert output.retained_count == 0
+    assert not directories[0].exists()
+    decode = Mock(wraps=module.extract_video_snapshot)
+    monkeypatch.setattr(module, "extract_video_snapshot", decode)
+    monkeypatch.setattr(module.archive_service, "refresh_photograph", AsyncMock())
+    assert (
+        await module.replace_video_snapshot(event, clip, rows[0], clip_variant="event", scene_cache=output)
+        == "replaced"
+    )
+    decode.assert_called_once_with(clip, result["_video_snapshot_evidence"])
+    assert await module.media_cache.get_snapshot(event)

@@ -34,6 +34,8 @@ class HQClassificationRefinement:
     supporting_frame_count: int
     median_score: float
     reason: str
+    # The model that scored the winning crop, so the refinement is attributed to it.
+    model_sha256: str | None = None
 
 
 @dataclass(frozen=True)
@@ -229,4 +231,5 @@ def choose_hq_classification_refinement(
         supporting_frame_count=winner.supporting_frame_count,
         median_score=winner.median_score,
         reason=reason,
+        model_sha256=str(best.get("classifier_model_sha256") or "") or None,
     )

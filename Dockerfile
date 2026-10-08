@@ -100,10 +100,49 @@ RUN set -eux; \
             > /etc/apt/sources.list.d/intel-gpu.list; \
         apt-get update; \
         apt-get install -y --no-install-recommends \
-            intel-opencl-icd \
-            libze-intel-gpu1 \
             libze1 \
             ocl-icd-libopencl1; \
+        # Intel's apt channel stops at compute-runtime 25.18 with IGC 2.11, built for Ubuntu 24.04. On this
+        # Debian 13 base its kernel compiler crashed intermittently (glibc longjmp check, segfaults) whenever
+        # OpenVINO compiled a model for the iGPU: five of eight models could not be verified on Intel GPU.
+        # Compute-runtime 26.35 with IGC 2.41.5 compiled every model cold and matched the CPU's answers on
+        # Quark. IGC 2.x installs into /usr/local/lib, hence ldconfig. The loader (libze1) and the OpenCL
+        # ICD loader still come from the channel above.
+        COMPUTE_VER=26.35.39758.10; \
+        IGC_VER=2.41.5; \
+        IGC_BUILD=22716; \
+        GMM_VER=22.10.0; \
+        COMPUTE_REL="https://github.com/intel/compute-runtime/releases/download/${COMPUTE_VER}"; \
+        IGC_REL="https://github.com/intel/intel-graphics-compiler/releases/download/v${IGC_VER}"; \
+        ( cd /tmp \
+          && curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 \
+                 -O "${IGC_REL}/intel-igc-core-2_${IGC_VER}+${IGC_BUILD}_amd64.deb" \
+          && curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 \
+                 -O "${IGC_REL}/intel-igc-opencl-2_${IGC_VER}+${IGC_BUILD}_amd64.deb" \
+          && curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 \
+                 -O "${COMPUTE_REL}/intel-opencl-icd_${COMPUTE_VER}-0_amd64.deb" \
+          && curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 \
+                 -O "${COMPUTE_REL}/libze-intel-gpu1_${COMPUTE_VER}-0_amd64.deb" \
+          && curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 \
+                 -O "${COMPUTE_REL}/libigdgmm12_${GMM_VER}_amd64.deb" \
+          && echo "0a6e64a663ae65a0fa02d6912ae3b6b37cf85b90c21cc423fd9fef70aaf4f628  intel-igc-core-2_${IGC_VER}+${IGC_BUILD}_amd64.deb" | sha256sum -c - \
+          && echo "779e1b9e88098eb25711e9a8f67c2752665bad22f134aa40ed5649f6e1b87058  intel-igc-opencl-2_${IGC_VER}+${IGC_BUILD}_amd64.deb" | sha256sum -c - \
+          && echo "61712caaddeba3d38e4f79e2a0fb23fea25596ca2d72c3144c6eea2331ec4301  intel-opencl-icd_${COMPUTE_VER}-0_amd64.deb" | sha256sum -c - \
+          && echo "c19a641b953d55aebbf1d51bec364a84bf629f985e02fbbe6dc70224c0e88470  libze-intel-gpu1_${COMPUTE_VER}-0_amd64.deb" | sha256sum -c - \
+          && echo "6031a63d6e8a12ce61c14efc15f2c8e727061286e3820b8594e6d00615e04d54  libigdgmm12_${GMM_VER}_amd64.deb" | sha256sum -c - \
+          && apt-get install -y --no-install-recommends \
+                 "./intel-igc-core-2_${IGC_VER}+${IGC_BUILD}_amd64.deb" \
+                 "./intel-igc-opencl-2_${IGC_VER}+${IGC_BUILD}_amd64.deb" \
+                 "./libigdgmm12_${GMM_VER}_amd64.deb" \
+                 "./intel-opencl-icd_${COMPUTE_VER}-0_amd64.deb" \
+                 "./libze-intel-gpu1_${COMPUTE_VER}-0_amd64.deb" \
+          && rm -f \
+                 "/tmp/intel-igc-core-2_${IGC_VER}+${IGC_BUILD}_amd64.deb" \
+                 "/tmp/intel-igc-opencl-2_${IGC_VER}+${IGC_BUILD}_amd64.deb" \
+                 "/tmp/libigdgmm12_${GMM_VER}_amd64.deb" \
+                 "/tmp/intel-opencl-icd_${COMPUTE_VER}-0_amd64.deb" \
+                 "/tmp/libze-intel-gpu1_${COMPUTE_VER}-0_amd64.deb" ); \
+        ldconfig; \
         # Intel publishes the last Gen8/Gen9/Gen11 compute runtime as `legacy1`.
         # Install it beside the modern ICD instead of replacing the current stack.
         # The current libigdgmm12 satisfies the legacy package's >=22.5 dependency;

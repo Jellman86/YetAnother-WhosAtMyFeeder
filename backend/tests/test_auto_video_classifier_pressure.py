@@ -3,6 +3,8 @@ import sys
 import types
 from unittest.mock import patch
 
+import pytest
+
 
 def _mqtt_status(level: str, in_flight: int = 0, capacity: int = 200) -> dict:
     return {
@@ -233,6 +235,78 @@ def test_starved_maintenance_queue_stays_paused_when_mqtt_pressure_is_critical(m
 
     assert state["maintenance_starvation_relief_active"] is False
     assert state["effective_max_concurrent"] == 0
+
+
+@pytest.mark.parametrize("source", ["live", "manual", "maintenance"])
+@pytest.mark.parametrize("age", [4.999, 5.0, 60.0])
+def test_queue_observability_preserves_maintenance_only_relief(monkeypatch, source, age):
+    service = _build_service(monkeypatch)
+    service._classifier = types.SimpleNamespace(get_admission_status=lambda: {"live": {"running": 1, "queued": 0}})
+    service._pending_metadata = {"event": {"source": source, "queued_at": 100.0 - age}}
+    with patch("app.services.auto_video_classifier_service.time.monotonic", return_value=100.0):
+        state = service._get_mqtt_throttle_state(4)
+        metrics = service._queue_metrics()
+    expected = source == "maintenance" and age >= 5.0
+    assert state["effective_max_concurrent"] == int(expected)
+    assert state["maintenance_starvation_relief_active"] is expected
+    assert metrics["pending_by_source"][source] == 1
+    assert metrics["oldest_pending_age_seconds_by_source"][source] == age
+
+
+@pytest.mark.parametrize(
+    "queued_at, expected", [(None, None), (101.0, 0.0), (float("nan"), None), (float("inf"), None)]
+)
+def test_queue_metrics_ignore_invalid_ages(monkeypatch, queued_at, expected):
+    service = _build_service(monkeypatch)
+    service._pending_metadata = {"event": {"source": "live", "queued_at": queued_at}}
+    with patch("app.services.auto_video_classifier_service.time.monotonic", return_value=100.0):
+        assert service._queue_metrics()["oldest_pending_age_seconds_by_source"]["live"] == expected
+
+
+def test_queue_source_metrics_match_manual_promotion_without_changing_ownership(monkeypatch):
+    service = _build_service(monkeypatch)
+    service._pending_metadata = {
+        "automatic": {"source": "live", "queued_at": 80.0},
+        "promoted": {"source": "maintenance", "manual_requested": True, "queued_at": 50.0},
+        "missing-time": {"source": "manual"},
+    }
+    service._active_metadata = {"running": {"source": "live", "manual_requested": True, "phase": "updating_photo"}}
+    with patch("app.services.auto_video_classifier_service.time.monotonic", return_value=100.0):
+        metrics = service._queue_metrics()
+    assert metrics["pending_by_source"] == {"live": 1, "manual": 2, "maintenance": 0}
+    assert metrics["oldest_pending_age_seconds_by_source"] == {"live": 20.0, "manual": 50.0, "maintenance": None}
+    assert metrics["active_by_source"] == {"live": 0, "manual": 1, "maintenance": 0}
+    assert metrics["active_by_phase"] == {"updating_photo": 1}
+    assert service._pending_metadata["promoted"]["source"] == "maintenance"
+    assert service._active_metadata["running"]["source"] == "live"
+
+
+def test_scheduler_pressure_counts_elapsed_time_once_and_not_health_polls(monkeypatch):
+    service = _build_service(monkeypatch)
+    clock = [10.0]
+    monkeypatch.setattr(
+        importlib.import_module("app.services.auto_video_classifier_service").time, "monotonic", lambda: clock[0]
+    )
+    service._pending_metadata = {"event": {"source": "live", "queued_at": 10.0}}
+    paused = {"live_pressure_active": True, "mqtt_pressure_level": "normal", "effective_max_concurrent": 0}
+    service._observe_queue_state(paused)
+    clock[0] = 12.0
+    service._observe_queue_state(
+        {"live_pressure_active": True, "mqtt_pressure_level": "normal", "effective_max_concurrent": 1}
+    )
+    metrics = service._queue_metrics()["scheduler_pressure"]
+    assert metrics["observed_seconds"] == 2.0
+    assert metrics["live_pressure_seconds"] == 2.0
+    assert metrics["live_gate_closed_seconds"] == 2.0
+    clock[0] = 100.0
+    for _ in range(20):
+        assert service.get_status()["scheduler_pressure"] == metrics
+    # A lifecycle stop closes the observed interval; stopped time must not count.
+    service._observe_queue_state(None)
+    closed = service._queue_metrics()["scheduler_pressure"]
+    clock[0] = 1000.0
+    service._observe_queue_state(paused)
+    assert service._queue_metrics()["scheduler_pressure"] == closed
 
 
 def test_maintenance_guardrail_status_reports_deprioritized_queue(monkeypatch):

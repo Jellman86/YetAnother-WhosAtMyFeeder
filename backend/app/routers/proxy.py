@@ -681,6 +681,24 @@ class BirdObservationUpdateRequest(BaseModel):
     is_hidden: bool | None = None
 
 
+class BirdScanRequest(BaseModel):
+    candidate_id: str = Field(min_length=1, max_length=256)
+    expected_media_version: str = Field(min_length=1, max_length=128)
+    force: bool = False
+
+
+class BirdScanResponse(BaseModel):
+    event_id: str
+    candidate_id: str
+    status: Literal["not_scanned", "queued", "running", "completed", "failed"]
+    available: bool
+    unavailable_reason: str | None = None
+    error: str | None = None
+    result_count: int | None = None
+    retained_previous: bool = False
+    updated_at: str | None = None
+
+
 class SnapshotCandidateListResponse(BaseModel):
     model_config = {"protected_namespaces": ()}
 
@@ -1678,6 +1696,52 @@ async def get_snapshot_candidates(
     if not validate_event_id(event_id):
         raise HTTPException(status_code=400, detail="Invalid event ID format")
     return await _build_snapshot_candidates_response(request, event_id)
+
+
+@router.get("/frigate/{event_id}/birds/scan", response_model=BirdScanResponse)
+async def get_bird_scan(
+    event_id: str = Path(..., min_length=1, max_length=64),
+    candidate_id: str = Query(..., min_length=1, max_length=256),
+    expected_media_version: str | None = Query(None, min_length=1, max_length=128),
+    auth: AuthContext = Depends(require_owner),
+) -> BirdScanResponse:
+    from app.repositories.bird_scan_repository import BirdScanNotFoundError
+    from app.services.bird_scan_service import bird_scan_service
+
+    del auth
+    if not validate_event_id(event_id):
+        raise HTTPException(status_code=400, detail="Invalid event ID format")
+    try:
+        return BirdScanResponse.model_validate(
+            await bird_scan_service.get_status(event_id, candidate_id, expected_media_version=expected_media_version)
+        )
+    except BirdScanNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Detection not found") from exc
+
+
+@router.post("/frigate/{event_id}/birds/scan", response_model=BirdScanResponse, status_code=202)
+async def request_bird_scan(
+    request: BirdScanRequest,
+    event_id: str = Path(..., min_length=1, max_length=64),
+    auth: AuthContext = Depends(require_owner),
+) -> BirdScanResponse:
+    from app.repositories.bird_scan_repository import BirdScanBusyError, BirdScanNotFoundError
+    from app.services.bird_scan_service import BirdScanUnavailable, bird_scan_service
+
+    del auth
+    if not validate_event_id(event_id):
+        raise HTTPException(status_code=400, detail="Invalid event ID format")
+    try:
+        result = await bird_scan_service.enqueue(
+            event_id, request.candidate_id, force=request.force, expected_media_version=request.expected_media_version
+        )
+        return BirdScanResponse.model_validate(result)
+    except BirdScanNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Detection not found") from exc
+    except BirdScanBusyError as exc:
+        raise HTTPException(status_code=409, detail="scan_in_progress") from exc
+    except BirdScanUnavailable as exc:
+        raise HTTPException(status_code=429 if str(exc) == "queue_full" else 409, detail=str(exc)) from exc
 
 
 @router.patch("/frigate/{event_id}/birds/{bird_id}", response_model=BirdObservationResponse)

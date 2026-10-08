@@ -385,6 +385,8 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
         "per_species_minimum": int(os.environ.get("MEDIA_CACHE__PER_SPECIES_MINIMUM", "0")),
         "per_species_maximum": int(os.environ.get("MEDIA_CACHE__PER_SPECIES_MAXIMUM", "0")),
         "max_size_mb": int(os.environ.get("MEDIA_CACHE__MAX_SIZE_MB", "0")),
+        "automatic_multi_bird_scan": os.environ.get("MEDIA_CACHE__AUTOMATIC_MULTI_BIRD_SCAN", "false").lower()
+        == "true",
         "bird_scan_mode": os.environ.get("MEDIA_CACHE__BIRD_SCAN_MODE", "intensive"),
         "storage_controls_migrated": False,
     }

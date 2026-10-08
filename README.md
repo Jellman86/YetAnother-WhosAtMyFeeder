@@ -52,7 +52,7 @@ A bird classification system that integrates with [Frigate NVR](https://frigate.
 - **Smart Notifications** - Discord, Telegram, Pushover, and Email, with confidence, species, and audio-confirmation filters
 - **Video Analysis** - Automatic scanning of 15+ frames (temporal ensemble) for improved accuracy
 - **Best-Available Event Snapshots** - Optionally replace Frigate's detect-stream image with the clearest recorded main-stream frame and strongest valid crop, falling back safely to the full frame
-- **Counted Birds** - Locate several birds in one frame, correct their species, or exclude a false detection. Regenerating snapshots also recounts birds with bounded regional checks.
+- **Counted Birds** - Use **Find more birds** on a retained whole-frame photo, correct their species, or exclude a false detection. Automatic additional-bird scanning is optional and off by default.
 - **LLM Insights** - AI-powered behavioral analysis (Gemini/OpenAI/Claude/OpenRouter)
 - **Leaderboard AI Insights** - Analyze detection charts for trends and weather correlations
 - **Home Assistant Integration** - Sensors, automation, and dashboard cards

@@ -1,5 +1,6 @@
 import re
 from collections.abc import Iterable
+from functools import lru_cache
 
 from app.config import settings
 
@@ -104,11 +105,26 @@ def hidden_species_substrings() -> tuple[str, ...]:
     return _NONCANONICAL_SUBSTRINGS
 
 
+@lru_cache(maxsize=128)
+def _unknown_species_label_keys(configured_labels: tuple[str, ...], extra_labels: tuple[str, ...]) -> frozenset[str]:
+    values = (
+        UNKNOWN_BIRD_DISPLAY_LABEL,
+        UNKNOWN_RAW_LABEL,
+        *ABSTENTION_SPECIES_LABELS,
+        *configured_labels,
+        *extra_labels,
+    )
+    return frozenset(key for value in values if (key := _normalize_label_key(value)))
+
+
 def is_unknown_species_label(value: str | None, *, extra_labels: Iterable[str] | None = None) -> bool:
     normalized = _normalize_label_key(value)
     if not normalized:
         return False
-    return normalized in {_normalize_label_key(label) for label in unknown_species_labels(extra_labels)}
+    # Snapshot values so replacing or mutating settings takes effect immediately.
+    configured = tuple(str(label or "") for label in (settings.classification.unknown_bird_labels or ()))
+    extras = tuple(str(label) for label in extra_labels if str(label).strip()) if extra_labels else ()
+    return normalized in _unknown_species_label_keys(configured, extras)
 
 
 def is_noncanonical_species_label(value: str | None) -> bool:
