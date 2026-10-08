@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- CPU, CUDA and TFLite classifiers now use complete catalogue labels for the actual
+  model weights, including runtime fallbacks. A missing or altered label file no
+  longer overrides those labels; unknown or incompletely mapped models retain
+  the existing file fallback.
+
 - Video analysis keeps a visit tied to the bird in Frigate's photograph (#481). At a busy
   feeder Frigate's track can move to a neighbouring bird after the photographed one leaves;
   crops after that jump no longer count as the visit's bird, and the visit's area no longer
