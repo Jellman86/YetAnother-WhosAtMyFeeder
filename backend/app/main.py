@@ -49,6 +49,7 @@ from app.services.telemetry_service import telemetry_service
 from app.services.system_telemetry import system_telemetry_history_service
 from app.services.auto_video_classifier_service import auto_video_classifier
 from app.services.high_quality_snapshot_service import high_quality_snapshot_service
+from app.services.bird_scan_service import bird_scan_service
 from app.services.notification_dispatcher import notification_dispatcher
 from app.services.frigate_client import frigate_client
 from app.repositories.detection_repository import DetectionRepository
@@ -577,6 +578,14 @@ async def lifespan(app: FastAPI):
         )
         await _run_lifecycle_phase(
             app,
+            "bird_scan_start",
+            bird_scan_service.start,
+            fatal=False,
+            startup_phase="starting_services",
+            startup_progress=86,
+        )
+        await _run_lifecycle_phase(
+            app,
             "auto_video_classifier_start",
             auto_video_classifier.start,
             fatal=False,
@@ -710,6 +719,7 @@ async def lifespan(app: FastAPI):
         await _run_lifecycle_phase(app, "notification_dispatcher_stop", notification_dispatcher.stop, fatal=False)
         await _run_lifecycle_phase(app, "media_storage_stop", media_storage_service.stop, fatal=False)
         await _run_lifecycle_phase(app, "high_quality_snapshot_stop", high_quality_snapshot_service.stop, fatal=False)
+        await _run_lifecycle_phase(app, "bird_scan_stop", bird_scan_service.stop, fatal=False)
         await _run_lifecycle_phase(app, "auto_video_classifier_stop", auto_video_classifier.stop, fatal=False)
         await _run_lifecycle_phase(app, "full_visit_clip_stop", full_visit_clip_service.stop, fatal=False)
         await _run_lifecycle_phase(app, "favorite_archive_stop", archive_service.stop, fatal=False)

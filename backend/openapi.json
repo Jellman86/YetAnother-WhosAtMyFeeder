@@ -2324,6 +2324,117 @@
         "title": "BirdObservationUpdateRequest",
         "type": "object"
       },
+      "BirdScanRequest": {
+        "properties": {
+          "candidate_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "expected_media_version": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Expected Media Version",
+            "type": "string"
+          },
+          "force": {
+            "default": false,
+            "title": "Force",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "candidate_id",
+          "expected_media_version"
+        ],
+        "title": "BirdScanRequest",
+        "type": "object"
+      },
+      "BirdScanResponse": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "candidate_id": {
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "event_id": {
+            "title": "Event Id",
+            "type": "string"
+          },
+          "result_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result Count"
+          },
+          "retained_previous": {
+            "default": false,
+            "title": "Retained Previous",
+            "type": "boolean"
+          },
+          "status": {
+            "enum": [
+              "not_scanned",
+              "queued",
+              "running",
+              "completed",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "unavailable_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unavailable Reason"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "event_id",
+          "candidate_id",
+          "status",
+          "available"
+        ],
+        "title": "BirdScanResponse",
+        "type": "object"
+      },
       "BirdSpeciesCount": {
         "properties": {
           "count": {
@@ -11131,6 +11242,11 @@
             "default": 1,
             "title": "Maintenance Max Concurrent"
           },
+          "media_cache_automatic_multi_bird_scan": {
+            "default": false,
+            "title": "Media Cache Automatic Multi Bird Scan",
+            "type": "boolean"
+          },
           "media_cache_bird_scan_mode": {
             "default": "intensive",
             "enum": [
@@ -13307,6 +13423,12 @@
             "default": 1,
             "description": "Maximum concurrent maintenance workflows",
             "title": "Maintenance Max Concurrent"
+          },
+          "media_cache_automatic_multi_bird_scan": {
+            "default": false,
+            "description": "Automatically scan visit photos for additional birds; manual scans remain available",
+            "title": "Media Cache Automatic Multi Bird Scan",
+            "type": "boolean"
           },
           "media_cache_bird_scan_mode": {
             "default": "intensive",
@@ -22836,6 +22958,147 @@
           }
         ],
         "summary": "Test Frigate Connection"
+      }
+    },
+    "/api/frigate/{event_id}/birds/scan": {
+      "get": {
+        "operationId": "get_bird_scan_api_frigate__event_id__birds_scan_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "event_id",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Event Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "maxLength": 256,
+              "minLength": 1,
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "expected_media_version",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Expected Media Version"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BirdScanResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Bird Scan"
+      },
+      "post": {
+        "operationId": "request_bird_scan_api_frigate__event_id__birds_scan_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "event_id",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Event Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BirdScanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BirdScanResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Request Bird Scan"
       }
     },
     "/api/frigate/{event_id}/birds/{bird_id}": {

@@ -616,6 +616,10 @@ class MediaCacheSettings(BaseModel):
         le=1048576,
         description="Media cache budget in MiB (0 = unlimited). Oldest non-favourite media is removed; archives are excluded.",
     )
+    automatic_multi_bird_scan: bool = Field(
+        default=False,
+        description="Automatically scan visit photos for additional birds; target-bird identification stays active",
+    )
     bird_scan_mode: Literal["standard", "intensive"] = Field(
         default="intensive",
         description="Standard uses whole frames and up to 3 species crops. Intensive adds large-image tiles and up to 8 crops. Bird counts are not capped by the crop limit.",

@@ -751,13 +751,15 @@
       "max_size_mb": "Limite de stockage (Mio)",
       "max_size_mb_help": "Quand les photos et la vidéo dépassent cette taille, les plus anciennes sont supprimées d’abord. Les favoris et leur archive sont conservés. Cette limite et celle du dessus priment sur le minimum de photos. 0 signifie aucune limite.",
       "bird_scan_mode": "Intensité de recherche des oiseaux",
-      "bird_scan_mode_help": "Standard utilise moins de CPU. Intensif recherche aussi dans les zones des grandes images et classe davantage de recadrages. Les deux comptent tous les oiseaux trouvés dans la scène choisie, sans garantir tous les oiseaux du clip.",
+      "bird_scan_mode_help": "S’applique aux analyses manuelles et automatiques. Standard utilise moins de CPU. Intensif recherche aussi dans les zones des grandes images et classe davantage de recadrages. Aucun mode ne garantit de trouver tous les oiseaux.",
       "bird_scan_standard": "Standard",
       "bird_scan_intensive": "Intensif",
       "cache_clips_help": "Frigate les conserve déjà. Les copies survivent à leur suppression par Frigate, chacune à peu près de la taille du clip.",
       "cache_always_kept": "Les photos, les clips de visite complète et les aperçus sont toujours conservés. Les limites ci-dessous fixent leur durée et l'espace qu'ils occupent.",
       "cache_unavailable": "Le dossier des médias n'est pas accessible en écriture, donc aucune photo ni vidéo n'est conservée. Vérifiez les droits du dossier ; les vérifications système affichent l'erreur.",
-      "cache_high_quality_storage_note": "Chaque visite conserve alors aussi des images en pleine résolution, souvent plusieurs Mo. Fixez une limite de stockage si l’espace manque."
+      "cache_high_quality_storage_note": "Chaque visite conserve alors aussi des images en pleine résolution, souvent plusieurs Mo. Fixez une limite de stockage si l’espace manque.",
+      "automatic_multi_bird_scan": "Chercher automatiquement d’autres oiseaux",
+      "automatic_multi_bird_scan_help": "Désactivé par défaut pour réduire les traitements. L’identification habituelle et le recadrage de l’oiseau ciblé continuent, et les résultats existants sont conservés. Utilisez Chercher d’autres oiseaux sur une photo lorsque vous souhaitez une analyse. Lorsque cette option est activée, les images complètes conservées sont analysées."
     },
     "security": {
       "title": "Sécurité",
@@ -2400,7 +2402,26 @@
     "audio_spectrogram_unavailable": "Spectrogramme indisponible pour cette correspondance",
     "manual_upload": "Ajoutée par import",
     "search_species": "Rechercher une espèce",
-    "species_updated": "Espèce mise à jour"
+    "species_updated": "Espèce mise à jour",
+    "bird_scan": {
+      "action": "Chercher d’autres oiseaux",
+      "again": "Relancer l’analyse",
+      "detector_unavailable": "Installez un détecteur de recadrage pour trouver d’autres oiseaux.",
+      "reviewed_other_frame": "Les oiseaux vérifiés sur une autre image sont conservés. Cette image ne peut pas les remplacer.",
+      "scene_unavailable": "L’image entière correspondant à cette photo n’est pas disponible.",
+      "other_running": "Une autre image de cette capture est en cours d’analyse. Réessayez lorsqu’elle sera terminée.",
+      "media_changed": "L’image a changé pendant l’analyse. Réessayez sur l’image actuelle.",
+      "interrupted": "L’analyse a été interrompue. Vous pouvez réessayer.",
+      "failed": "L’analyse n’a pas pu se terminer. Vos oiseaux existants sont conservés.",
+      "status_unavailable": "Le statut de l’analyse n’a pas pu être chargé. Nouvelle vérification sous peu.",
+      "queued": "Cette image entière est en attente d’analyse.",
+      "running": "Recherche d’oiseaux dans cette image entière.",
+      "completed": "Analyse terminée. Oiseaux trouvés dans cette image : {count}.",
+      "retained": "Le comptage précédent et vos corrections sont conservés.",
+      "not_scanned": "Cette image entière n’a pas encore été analysée pour rechercher d’autres oiseaux.",
+      "loading": "Vérification du statut de l’analyse de cette image…",
+      "start_unconfirmed": "La demande d’analyse n’a pas pu être confirmée. Son statut sera vérifié avant de réessayer."
+    }
   },
   "events": {
     "title": "Événements",

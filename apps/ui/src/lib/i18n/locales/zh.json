@@ -751,13 +751,15 @@
       "max_size_mb": "存储上限 (MiB)",
       "max_size_mb_help": "当照片和视频占用超过此值时，从最旧的开始删除。收藏及其归档会保留。此上限和上面的上限优先于照片下限。0 表示不限制。",
       "bird_scan_mode": "鸟类扫描强度",
-      "bird_scan_mode_help": "标准模式使用较少的 CPU。高强度模式还会分块搜索大图并分类更多裁剪图。两种模式都会统计选定场景中找到的所有鸟，但无法保证找到视频中的每只鸟。",
+      "bird_scan_mode_help": "适用于手动和自动扫描。标准模式使用较少的CPU。密集模式还会搜索大帧的分块区域，并分类更多裁剪图。两种模式均不能保证找到所有鸟类。",
       "bird_scan_standard": "标准",
       "bird_scan_intensive": "高强度",
       "cache_clips_help": "Frigate 已经保存了这些片段。即使 Frigate 删除，副本也会保留，每个约与片段大小相同。",
       "cache_always_kept": "照片、完整到访片段和预览会一直保留。下方的限制决定保留多久以及占用多少空间。",
       "cache_unavailable": "无法写入媒体文件夹，因此没有保留照片和视频。请检查文件夹权限；系统检查会显示错误。",
-      "cache_high_quality_storage_note": "每次到访还会保留全分辨率画面，通常有几 MB；如果空间紧张，请设置存储上限。"
+      "cache_high_quality_storage_note": "每次到访还会保留全分辨率画面，通常有几 MB；如果空间紧张，请设置存储上限。",
+      "automatic_multi_bird_scan": "自动查找其他鸟类",
+      "automatic_multi_bird_scan_help": "默认关闭以减少处理量。正常的鸟类识别和目标鸟类裁剪会继续，已有结果也会保留。需要时可在照片上使用“查找更多鸟类”。启用后，将扫描保留的完整画面。"
     },
     "security": {
       "title": "安全",
@@ -2400,7 +2402,26 @@
     "audio_spectrogram_unavailable": "此匹配没有可用的频谱图",
     "manual_upload": "通过上传添加",
     "search_species": "搜索物种",
-    "species_updated": "物种已更新"
+    "species_updated": "物种已更新",
+    "bird_scan": {
+      "action": "查找更多鸟类",
+      "again": "重新扫描",
+      "detector_unavailable": "安装裁剪检测模型以查找更多鸟类。",
+      "reviewed_other_frame": "在其他帧中审核过的鸟类信息会保留，此帧无法替换它们。",
+      "scene_unavailable": "此照片对应的完整帧不可用。",
+      "other_running": "正在扫描此记录的另一个帧，请在完成后重试。",
+      "media_changed": "扫描期间帧已更改，请在当前帧上重试。",
+      "interrupted": "扫描已中断，你可以重试。",
+      "failed": "无法完成扫描，已有鸟类信息会保留。",
+      "status_unavailable": "无法加载扫描状态，稍后将再次检查。",
+      "queued": "此完整帧已排队等待扫描。",
+      "running": "正在此完整帧中查找鸟类。",
+      "completed": "扫描完成。此帧中找到的鸟类数量：{count}。",
+      "retained": "之前的鸟类计数和你的更正会保留。",
+      "not_scanned": "尚未扫描此完整帧以查找其他鸟类。",
+      "loading": "正在检查此帧的扫描状态…",
+      "start_unconfirmed": "无法确认扫描请求，将先检查其状态再重试。"
+    }
   },
   "events": {
     "title": "事件",
