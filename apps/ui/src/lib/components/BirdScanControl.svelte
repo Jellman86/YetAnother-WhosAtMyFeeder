@@ -60,16 +60,10 @@
     });
 </script>
 
-<div class="space-y-2 rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900" data-bird-scan-control>
-    <button type="button" class="btn btn-secondary min-h-11 min-w-11 gap-2 focus-ring"
-        disabled={disabled || view.pending || active || !candidateId || !mediaRevision || !view.response?.available || view.readError}
-        onclick={() => { void controller?.start(scanStatus === 'completed' || scanStatus === 'failed'); }}>
-        <svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16c1-4 3-6 6-5l2-3 2 2-2 2c1 4-2 7-5 7H3l2-3m9-8c1-3 3-4 5-3l1-2 2 2-2 1c1 3-1 5-4 5h-2l1-3" />
-        </svg>
-        {scanStatus === 'completed' ? $_('detection.bird_scan.again', { default: 'Scan again' }) : $_('detection.bird_scan.action', { default: 'Find more birds' })}
-    </button>
-    <div class="text-xs leading-5 text-slate-600 dark:text-slate-300" role="status" aria-live="polite" data-bird-scan-state={view.readError ? 'status_unavailable' : unavailable ? 'unavailable' : scanStatus ?? 'loading'}>
+<!-- One quiet row under the photograph: what is known about this frame, then the action. On a
+     phone the sentence takes the full width and the action sits beneath it. -->
+<div class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl bg-slate-100 px-3 py-2 dark:bg-slate-800/60" data-bird-scan-control>
+    <div class="min-w-0 flex-1 basis-56 text-xs leading-5 text-slate-600 dark:text-slate-300" role="status" aria-live="polite" data-bird-scan-state={view.readError ? 'status_unavailable' : unavailable ? 'unavailable' : scanStatus ?? 'loading'}>
         {#if view.readError}
             <p>{view.startUnconfirmed ? $_('detection.bird_scan.start_unconfirmed', { default: 'The scan request could not be confirmed. Checking its status before trying again.' }) : $_('detection.bird_scan.status_unavailable', { default: 'Scan status could not be loaded. Checking again shortly.' })}</p>
             <button type="button" class="btn btn-ghost min-h-11 min-w-11 focus-ring" disabled={view.pending} onclick={() => { void controller?.refresh(); }}>{$_('common.retry', { default: 'Retry' })}</button>
@@ -90,4 +84,13 @@
             <p>{$_('detection.bird_scan.loading', { default: 'Checking this frame’s scan status…' })}</p>
         {/if}
     </div>
+    <button type="button" class="btn btn-secondary min-h-11 min-w-11 max-w-full gap-2 px-3 text-sm focus-ring"
+        disabled={disabled || view.pending || active || !candidateId || !mediaRevision || !view.response?.available || view.readError}
+        onclick={() => { void controller?.start(scanStatus === 'completed' || scanStatus === 'failed'); }}>
+        <!-- A viewfinder: look across the whole frame for more. -->
+        <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2M12 9v6M9 12h6" />
+        </svg>
+        {scanStatus === 'completed' ? $_('detection.bird_scan.again', { default: 'Scan again' }) : $_('detection.bird_scan.action', { default: 'Find more birds' })}
+    </button>
 </div>

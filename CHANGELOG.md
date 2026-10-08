@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Find more birds** sits in one quiet row under the photograph, saying what is known about the
+  frame before offering the action, with a viewfinder icon in place of a glyph that read as a
+  chain link on a phone. The field log's capture count on a phone is a quiet chip with its arrow
+  after the count, rather than a bordered button louder than the bird's name.
 - CPU, CUDA and TFLite classifiers now use complete catalogue labels for the actual
   model weights, including runtime fallbacks. A missing or altered label file no
   longer overrides those labels; unknown or incompletely mapped models retain
