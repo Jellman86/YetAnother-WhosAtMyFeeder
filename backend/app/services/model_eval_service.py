@@ -33,6 +33,7 @@ from app.utils.image_io import load_rgb_image
 from app.config import settings
 from app.services.broadcaster import broadcaster
 from app.services.eval import sanity_checks
+from app.services.eval.species_scoring import AccuracyTally, ModelVocabulary
 from app.services.eval.image_fetcher import (
     cleanup_image_dir,
     fetch_panel_images,
@@ -454,7 +455,26 @@ class ModelEvalRunner:
                 if norm and norm not in panel_label_to_taxa:
                     panel_label_to_taxa[norm] = entry.taxa_id
 
+        # The catalogue identity of each test species, so a prediction is scored
+        # by species rather than by how the model happens to spell its name.
+        expected_species_ids = await asyncio.to_thread(_catalogue_species_ids, usable_panel)
+
         try:
+            # Validate providers first. A model loads only on providers validated
+            # on this host, so sweeping after the accuracy pass scored every
+            # not-yet-validated model on its CPU fallback.
+            if sweep_devices:
+                try:
+                    await self._device_sweep(
+                        run_id,
+                        run_dir,
+                        classifiers,
+                        crop_detectors,
+                        discover_providers=discover_providers,
+                    )
+                except Exception as e:
+                    log.exception("model_eval_device_sweep_failed", run_id=run_id, error=str(e))
+
             for model_idx, model in enumerate(classifiers):
                 await self._emit(
                     run_id,
@@ -498,10 +518,23 @@ class ModelEvalRunner:
                     continue
 
                 # Per-model state
+                vocabulary = await asyncio.to_thread(_model_vocabulary, classifier_service)
+                tally = AccuracyTally()
+                # Decided once from the panel, not from the images that happened to
+                # classify: a species whose images all failed still counts.
+                can_name_by_taxa: dict[int, Optional[bool]] = {
+                    entry.taxa_id: (
+                        vocabulary.can_name(
+                            expected_species_ids.get(entry.taxa_id),
+                            scientific_name=entry.scientific_name,
+                            common_name=entry.common_name,
+                        )
+                        if vocabulary is not None
+                        else None
+                    )
+                    for entry in usable_panel
+                }
                 latencies: list[float] = []
-                top1_hits = top3_hits = top5_hits = 0
-                shared_core_top1 = shared_core_total = 0
-                regional_top1 = regional_total = 0
                 abstention_count = 0
                 high_conf_unknown_count = 0
                 processed = 0
@@ -568,27 +601,15 @@ class ModelEvalRunner:
                             if float(top1.get("score") or 0.0) >= 0.90:
                                 high_conf_unknown_count += 1
 
-                        # Match each prediction against the expected entry by
-                        # taxa_id OR by case-folded scientific/common name.
-                        # The name fallback catches iNat's duplicate-taxa
-                        # situation where the same species (e.g. Pica pica)
-                        # gets resolved to different taxa_ids through
-                        # different code paths.
-                        match_flags = [_is_correct_match(r, entry) for r in top5]
-                        if match_flags and match_flags[0]:
-                            top1_hits += 1
-                        if any(match_flags[:3]):
-                            top3_hits += 1
-                        if any(match_flags[:5]):
-                            top5_hits += 1
-                        if entry.panel == "shared_core":
-                            shared_core_total += 1
-                            if match_flags and match_flags[0]:
-                                shared_core_top1 += 1
-                        else:
-                            regional_total += 1
-                            if match_flags and match_flags[0]:
-                                regional_top1 += 1
+                        # Match by catalogue species where both identities are
+                        # known: a regional model's "Common starling" is the
+                        # panel's "European Starling". Otherwise fall back to
+                        # taxa_id or case-folded scientific/common name, which
+                        # also catches iNat's duplicate taxa for one species.
+                        expected_species_id = expected_species_ids.get(entry.taxa_id)
+                        match_flags = [_prediction_matches(r, entry, expected_species_id, vocabulary) for r in top5]
+                        can_name = can_name_by_taxa[entry.taxa_id]
+                        tally.add(match_flags, panel=entry.panel, can_name=can_name)
 
                         # Confusion: only when top-1 was wrong and resolved
                         ids = [r.get("taxa_id") for r in top5]
@@ -623,11 +644,17 @@ class ModelEvalRunner:
                                         "image_path": fetched.local_path,
                                         "image_source": fetched.source,
                                         "image_url": fetched.source_url,
+                                        "expected_species_id": expected_species_id,
+                                        "in_vocabulary": can_name,
                                         "top5": [
                                             {
                                                 "label": r.get("label"),
                                                 "score": float(r.get("score") or 0.0),
                                                 "taxa_id": r.get("taxa_id"),
+                                                "index": r.get("index"),
+                                                "species_id": (
+                                                    vocabulary.species_for(r) if vocabulary is not None else None
+                                                ),
                                             }
                                             for r in top5
                                         ],
@@ -641,7 +668,7 @@ class ModelEvalRunner:
                 # Per-model summary
                 status = _classifier_status_snapshot(classifier_service)
                 provider_info = _provider_summary(status)
-                health_snapshot = _inference_health_for(status)
+                health_snapshot = _inference_health_for(status, model_id=model.id)
                 try:
                     active_spec = dict(model_manager.get_active_model_spec() or {})
                 except Exception:
@@ -656,9 +683,14 @@ class ModelEvalRunner:
                     "labels_file_present": _labels_file_present(model),
                     "model_config_present": _model_config_present(model),
                     "images_evaluated": processed,
-                    "top1_accuracy": _safe_div(top1_hits, processed),
-                    "top3_accuracy": _safe_div(top3_hits, processed),
-                    "top5_accuracy": _safe_div(top5_hits, processed),
+                    "vocabulary_known": vocabulary is not None,
+                    "panel_species": len(usable_panel),
+                    "species_outside_vocabulary": (
+                        sum(1 for known in can_name_by_taxa.values() if known is False)
+                        if vocabulary is not None
+                        else None
+                    ),
+                    **tally.summary(vocabulary_known=vocabulary is not None),
                     "abstention_rate": _safe_div(abstention_count, processed),
                     "high_confidence_unknown_rate": _safe_div(high_conf_unknown_count, processed),
                     "mean_latency_ms": round(statistics.fmean(latencies), 2) if latencies else None,
@@ -666,8 +698,6 @@ class ModelEvalRunner:
                     "p95_latency_ms": round(_percentile(latencies, 95), 2) if latencies else None,
                     "startup_benchmark_ms": provider_info.get("startup_benchmark_ms"),
                     "latency_drift_ratio": _drift_ratio(latencies, provider_info.get("startup_benchmark_ms")),
-                    "shared_core_top1": _safe_div(shared_core_top1, shared_core_total),
-                    "regional_top1": _safe_div(regional_top1, regional_total),
                     "inference_health_verdict": health_snapshot.get("verdict"),
                     "warnings": [],
                 }
@@ -704,20 +734,6 @@ class ModelEvalRunner:
                     ),
                 )
                 await _write_runtime(run_dir, runtime_payload)
-
-            # Optional per-model x per-device capability sweep (compile / finite /
-            # top-5 agreement vs CPU), each compile isolated in a subprocess.
-            if sweep_devices:
-                try:
-                    await self._device_sweep(
-                        run_id,
-                        run_dir,
-                        classifiers,
-                        crop_detectors,
-                        discover_providers=discover_providers,
-                    )
-                except Exception as e:
-                    log.exception("model_eval_device_sweep_failed", run_id=run_id, error=str(e))
         finally:
             if results_fp is not None:
                 await asyncio.to_thread(results_fp.close)
@@ -1347,6 +1363,68 @@ def _append_confusions_csv_sync(
             )
 
 
+def _catalogue_species_ids(panel: list[SpeciesEntry]) -> dict[int, int]:
+    """Each test species' catalogue identity, keyed by its iNat taxa_id; unresolved species are left out."""
+    from app.services.species_catalog_resolver import species_catalog_resolver
+
+    resolved: dict[int, int] = {}
+    for entry in panel:
+        species_id, _reason = species_catalog_resolver.resolve_scientific_name(entry.scientific_name)
+        if species_id is not None:
+            resolved[entry.taxa_id] = species_id
+    return resolved
+
+
+def _evaluated_model_sha256(classifier_service: Any) -> Optional[str]:
+    """The checksum the catalogue keys the evaluated model on.
+
+    The registry's published checksum for the active model and region comes first:
+    a subprocess-mode parent (the default) never loads the model itself. A custom
+    model has none, so it falls back to the checksum the classifier recorded.
+    """
+    from app.services.catalogue_labels import published_model_sha256
+    from app.services.model_manager import model_manager
+
+    try:
+        spec = dict(model_manager.get_active_model_spec() or {})
+        published = published_model_sha256(str(spec.get("model_id") or ""), region=spec.get("resolved_region"))
+        if published:
+            return published
+    except Exception as e:
+        log.warning("model_eval_published_checksum_unavailable", error=str(e))
+    try:
+        return classifier_service.active_model_sha256()
+    except Exception as e:
+        log.warning("model_eval_model_checksum_unavailable", error=str(e))
+        return None
+
+
+def _model_vocabulary(classifier_service: Any) -> Optional[ModelVocabulary]:
+    """The species the loaded model can name, or None when the catalogue does not know the model."""
+    from app.services.species_catalog_resolver import species_catalog_resolver
+
+    model_sha256 = _evaluated_model_sha256(classifier_service)
+    outputs = species_catalog_resolver.species_outputs(model_sha256)
+    if outputs is None:
+        return None
+    return ModelVocabulary(
+        outputs, unresolved_labels=species_catalog_resolver.unresolved_output_labels(model_sha256) or ()
+    )
+
+
+def _prediction_matches(
+    prediction: dict[str, Any],
+    expected: SpeciesEntry,
+    expected_species_id: Optional[int],
+    vocabulary: Optional[ModelVocabulary],
+) -> bool:
+    if vocabulary is not None:
+        same = vocabulary.same_species(prediction, expected_species_id)
+        if same is not None:
+            return same
+    return _is_correct_match(prediction, expected)
+
+
 def _is_correct_match(prediction: dict[str, Any], expected: SpeciesEntry) -> bool:
     """Did the model name the expected species?
 
@@ -1527,13 +1605,25 @@ def _gpu_diagnostic(
     }
 
 
-def _inference_health_for(status: dict[str, Any]) -> dict[str, Any]:
-    """Pull the inference_health snapshot out of get_status() with sane defaults."""
-    snap = status.get("inference_health") or {}
-    return {
-        "verdict": snap.get("verdict") or "unknown",
-        "runtimes": snap.get("runtimes") or {},
-    }
+def _inference_health_for(status: dict[str, Any], *, model_id: str) -> dict[str, Any]:
+    """The evaluated model's own runtime health from get_status().
+
+    The snapshot keeps one entry per ``backend/provider/model`` and no overall
+    verdict, and it still holds the models evaluated earlier in the run, so
+    only the entry for this model on the provider it ran on describes it.
+    """
+    runtimes = (status.get("inference_health") or {}).get("runtimes") or {}
+    key = "/".join(
+        (
+            str(status.get("inference_backend") or "unknown"),
+            str(status.get("active_provider") or "unknown"),
+            str(model_id or "unknown"),
+        )
+    )
+    runtime = runtimes.get(key) if isinstance(runtimes, dict) else None
+    if not isinstance(runtime, dict):
+        return {"verdict": "unknown", "runtime": None}
+    return {"verdict": runtime.get("verdict") or "unknown", "runtime": runtime}
 
 
 def _labels_file_present(model: Any) -> bool:
