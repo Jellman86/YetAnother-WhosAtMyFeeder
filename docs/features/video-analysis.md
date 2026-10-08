@@ -7,6 +7,12 @@ YA-WAMF keeps the existing identification.
 
 ## How It Works
 
+For a new live visit, YA-WAMF allows Frigate time to finish its clip before requesting it.
+Time already spent in the video queue counts toward this delay: an older queued visit does
+not start a fresh waiting period when a worker becomes available. A missing clip still uses
+the existing bounded retries and snapshot fallback. Choosing **Detection Snapshot** for the
+initial identification does not disable automatic video analysis or best-available photo work.
+
 1. The backend resolves the best local video first: a complete cached full-visit recording, a
    decodable partial recording, then the cached event clip. It asks Frigate for the event clip only
    when no usable local copy exists. Each candidate is decoded before inference; an invalid cached
@@ -93,6 +99,11 @@ the photograph update. The job remains running and says **Updating photograph** 
 stage. Logs separate photo decode/reuse, encoding and media commit times;
 video diagnostics record the retained scene count, pixel budget and artifact creation time.
 
+On platforms without safe no-follow file opening, including native Windows, the optional
+scene artifact is neither written nor loaded. Photo updates decode the selected frame again;
+in-memory scene reuse remains available. This fallback keeps the same photograph checks and
+does not permit following symbolic links to share cached pixels.
+
 
 ## Running an Analysis
 
@@ -165,6 +176,26 @@ again if Frigate remains unavailable. Transient precheck errors are not queued a
 Video-job concurrency follows `CLASSIFICATION__BACKGROUND_WORKER_COUNT` (one worker when
 unset), with one clip per worker. The legacy `video_classification_max_concurrent` setting is
 ignored. See [Maintenance concurrency](../setup/configuration.md#maintenance-concurrency).
+
+Live snapshot work takes priority over new video starts. The existing policy allows one
+video slot when maintenance work has waited at least five seconds; automatic or manual jobs
+alone do not activate that relief. The queue remains shared and FIFO, so eligible maintenance
+can allow an earlier automatic or manual job to start. Critical MQTT pressure prevents new
+video starts, and source circuit breakers and maintenance capacity still apply. These
+scheduling priorities are unchanged by the queue metrics.
+
+The public health response includes video queue counts and oldest waiting ages by source
+and active phases. The existing maintenance-specific fields remain available. A manual
+request joining an existing job appears as manual in the source breakdown, matching Jobs;
+its underlying queue owner and circuit protections stay intact. Missing ages are `null`,
+and restored jobs begin a new in-memory waiting interval after restart.
+
+`scheduler_pressure` contains cumulative observed pressure/wait seconds and start, relief-start
+and finish counts. Relief starts count the existing maintenance-triggered slot. These update when the scheduler checks or the queue changes, independently
+of health polling, and reset with the process. They describe scheduler observations, so short
+live bursts between checks can be missed; they are not precise accelerator utilization or an
+end-to-end latency measure. A finish also includes cancelled or failed owners: use the job's
+stored result to determine whether classification succeeded.
 
 ## Requirements
 

@@ -1213,6 +1213,11 @@ async def test_classifier_service_subprocess_status_tracks_live_in_flight_reques
 async def test_classifier_service_subprocess_live_reclaims_stale_capacity_for_next_request(
     mock_tflite, mock_os_path_exists, monkeypatch
 ):
+    import time
+    from app.services import classification_admission as admission_module
+
+    clock = [time.monotonic()]
+    monkeypatch.setattr(admission_module, "time", types.SimpleNamespace(monotonic=lambda: clock[0], time=time.time))
     original_mode = settings.classification.image_execution_mode
     original_toggle = settings.classification.personalized_rerank_enabled
     original_live_workers = settings.classification.live_worker_count
@@ -1222,7 +1227,7 @@ async def test_classifier_service_subprocess_live_reclaims_stale_capacity_for_ne
     monkeypatch.setattr(
         classifier_service_module,
         "CLASSIFIER_LIVE_IMAGE_LEASE_TIMEOUT_SECONDS",
-        0.01,
+        60.0,
         raising=False,
     )
 
@@ -1235,10 +1240,12 @@ async def test_classifier_service_subprocess_live_reclaims_stale_capacity_for_ne
             first_task = asyncio.create_task(service.classify_async_live(img, camera_name="front"))
             await asyncio.wait_for(supervisor.started.wait(), timeout=1.0)
 
+            # Expire the admitted lease after encoding reaches the worker, independent of host speed.
+            clock[0] += 61.0
             with pytest.raises(ClassificationLeaseExpiredError):
-                await asyncio.wait_for(first_task, timeout=0.2)
+                await asyncio.wait_for(first_task, timeout=2.0)
 
-            results = await asyncio.wait_for(service.classify_async_live(img, camera_name="front"), timeout=0.2)
+            results = await asyncio.wait_for(service.classify_async_live(img, camera_name="front"), timeout=2.0)
 
             assert results[0]["label"] == "Blackbird"
             assert supervisor.abort_calls
@@ -4364,9 +4371,16 @@ async def test_classify_video_uses_dynamic_model_crop_when_no_frigate_hint_exist
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("reuse_scene", [False, True])
+@pytest.mark.parametrize("missing_safe_open", [False, True])
 async def test_classify_video_accepts_three_sparse_independent_model_crops_in_a_long_visit(
-    mock_tflite, mock_os_path_exists, monkeypatch, tmp_path, reuse_scene
+    mock_tflite, mock_os_path_exists, monkeypatch, tmp_path, reuse_scene, missing_safe_open
 ):
+    import os
+
+    if missing_safe_open:
+        monkeypatch.delattr(os, "O_NOFOLLOW", raising=False)
+    can_share_scene = bool(getattr(os, "O_NOFOLLOW", None))
+
     class _FrameAwareBirdModel:
         loaded = True
         labels = ["Wood Pigeon", "Sparrowhawk"]
@@ -4464,10 +4478,14 @@ async def test_classify_video_accepts_three_sparse_independent_model_crops_in_a_
             from app.services.video_scene_cache import VideoSceneCache
 
             cache = VideoSceneCache()
-            assert diagnostics["performance"]["winning_scene"]["saved"]
-            assert cache.load(directory, clip, "event")
+            assert diagnostics["performance"]["winning_scene"]["saved"] is can_share_scene
+            assert cache.load(directory, clip, "event") is can_share_scene
             scene = cache.scene_for(clip, "event", results[0]["_video_snapshot_evidence"])
-            assert scene is not None and scene.size == (100, 100)
+            if can_share_scene:
+                assert scene is not None and scene.size == (100, 100)
+            else:
+                assert scene is None
+                assert list(directory.iterdir()) == []
         await service.shutdown()
 
 
@@ -6896,3 +6914,44 @@ def test_video_does_not_apply_detect_pixel_hints_to_a_different_recording_resolu
     assert "event_subject_region" not in frame.model_dump()
     assert "frigate_box" not in frame.model_dump()
     assert service._video_frame_candidates(Image.new("RGB", (3840, 2160)), input_context=frame)[0][0] == "full_frame"
+
+
+@pytest.mark.asyncio
+async def test_a_video_result_carries_the_checksum_of_the_model_that_produced_it(
+    mock_tflite,
+    mock_os_path_exists,
+    monkeypatch,
+):
+    """A video result can be applied after a model switch, and regional variants share a model id, so the
+    result must name the producing weights itself."""
+    model = types.SimpleNamespace(
+        loaded=True, labels=["Baeolophus bicolor", "Cardinalis cardinalis"], loaded_artifact_sha256="c" * 64
+    )
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+    service._models["bird"] = model
+    bird = Image.new("RGB", (40, 40), "blue")
+    monkeypatch.setattr(
+        service,
+        "_video_frame_candidates",
+        lambda image, **kwargs: [
+            VideoFrameCandidate("full_frame", image, None),
+            VideoFrameCandidate("model_crop", bird, (10, 20, 50, 60), (15, 25, 45, 55), 0.9),
+        ],
+    )
+    monkeypatch.setattr(
+        service,
+        "_classify_raw_with_runtime_recovery",
+        lambda image, **kwargs: (np.array([0.82, 0.18]) if image is bird else np.array([0.99, 0.01]), model),
+    )
+    monkeypatch.setattr(
+        classifier_service_module,
+        "_read_selected_video_frames",
+        lambda cap, indices: iter((int(index), True, np.zeros((100, 100, 3), dtype=np.uint8)) for index in indices),
+    )
+    with patch("app.services.classifier_service.cv2.VideoCapture") as capture:
+        capture.return_value.isOpened.return_value = True
+        capture.return_value.get.side_effect = lambda prop: 30 if prop == 7 else 10
+        result = service.classify_video("/tmp/clip.mp4", max_frames=5)[0]
+
+    assert result["model_sha256"] == "c" * 64

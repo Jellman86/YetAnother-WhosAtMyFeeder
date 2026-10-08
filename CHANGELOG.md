@@ -15,6 +15,79 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   without it; the list filled it in, but the next live update brought back the stored name, so the
   record dropped to the scientific name a while after saving. The common name now comes from the
   taxon, as the list's does, and the shown name follows the common-name setting like any visit's.
+- **Find more birds** sits in one quiet row under the photograph, saying what is known about the
+  frame before offering the action, with a viewfinder icon in place of a glyph that read as a
+  chain link on a phone. The field log's capture count on a phone is a quiet chip with its arrow
+  after the count, rather than a bordered button louder than the bird's name.
+- CPU, CUDA and TFLite classifiers now use complete catalogue labels for the actual
+  model weights, including runtime fallbacks. A missing or altered label file no
+  longer overrides those labels; unknown or incompletely mapped models retain
+  the existing file fallback.
+
+- Video analysis keeps a visit tied to the bird in Frigate's photograph (#481). At a busy
+  feeder Frigate's track can move to a neighbouring bird after the photographed one leaves;
+  crops after that jump no longer count as the visit's bird, and the visit's area no longer
+  stretches to cover it. When the tracked bird's own crops cannot agree on a species, a
+  different bird that is easier to see elsewhere in the frame is no longer named instead:
+  the visit keeps its existing identification.
+- A favourite capture now leads its visit (#481). With captures grouped into visits, a favourite
+  could sit unseen inside a stack whose card showed another capture, even under the Favorites
+  filter. The visit card now shows the favourite (the best-scoring one when there are several),
+  and the capture lists in the Explorer and the field log mark each favourite as **Favorited**.
+- **Model evaluation** compares models fairly. A prediction is scored by species, so a European
+  model's "Common starling" now counts as the European Starling it is. Accuracy is shown on the test
+  birds each model can name, with how many that is under **Can name**: a European model is no
+  longer marked down for American birds it has no output for, and no longer warned about as a
+  likely broken install. Rescoring an earlier run this way moved the European FocalNet model from
+  52.8% to about 83%, level with EVA-02 Large on the European birds it was built for. Providers are now validated before accuracy is measured, so a
+  model is scored on the accelerator it will use rather than on its CPU fallback. Full-size test
+  photos are stored at 1024 px, so latency measures the model instead of a 3840 px upload, and
+  each model's health comes from its own runtime instead of always reading "unknown".
+- Health diagnostics now show video queue counts and waiting ages by source, active phases,
+  and scheduler-observed pressure and progress counters. These help distinguish live-work
+  priority, worker capacity and circuit waits without changing scheduling or worker counts.
+
+- Audio History uses less memory while summarising large BirdNET histories and gives other
+  requests time to run between batches. Filtering captures with multiple species also avoids
+  repeatedly rebuilding the same unknown-bird label rules; changing those rules still takes
+  effect immediately.
+- Video analysis on native Windows can finish and update the photograph when the platform
+  cannot safely open the optional scene cache files. It decodes the selected frame again,
+  preserving the same checks on the photograph and avoiding unsafe file access.
+- Additional-bird scanning is now optional and **off by default**, including on upgrade.
+  Normal identification and target-photo selection continue. Enable **Automatically find
+  additional birds** in **Settings → Data → Snapshot quality** to scan retained scenes
+  automatically, or use **Find more birds** on one photo. Manual scans keep the chosen photo
+  and primary identification, preserve bird corrections and exclusions, and report queued,
+  running, failed and completed results separately from photos that have never been scanned.
+  A retained whole frame is required; an empty retry keeps earlier counted-bird records.
+
+- In the default **Subprocess (Isolated)** mode, detections are tied to the model that produced
+  them again. The main process never loads the model, and it only recorded the model's checksum
+  when it did, so no detection got its model and output recorded and the species catalogue's
+  check that the model and the label agree on a bird never ran. The test install had none of its
+  663 detections tied to a model. Each result now carries the checksum of the model that produced
+  it, so a model switch while an event is being saved cannot credit one model's answer to another,
+  and the main process also records the workers' model at start-up and on every switch.
+- Video jobs count time already spent in the queue toward Frigate's clip-finalization wait.
+  A busy queue no longer adds a fresh 30-second pause to each old visit. Fresh clips still get
+  their waiting period, and unavailable clips keep the existing retries and snapshot fallback.
+- Opening a visit's captures avoids repeating the history-grouping query. Visit lists count
+  birds only in the matching captures, reducing work on installations with large histories.
+- Bursts of detections share current weather readings for up to 30 seconds. Home Assistant
+  weather sensors are read together, keeping slow sensors from adding their timeouts one after
+  another. Missing fields remain unknown; entirely unavailable readings are retried after five seconds.
+- Asking AI Naturalist about an event clip no longer blocks live updates while its frames are decoded.
+- In **Subprocess (Isolated)** mode, identifying a bird no longer freezes the rest of the app for
+  a moment. Each picture is packed losslessly for the classifier worker, and for a full camera
+  frame (identifying from the recording frame, and every backfilled event) that took 0.3 to
+  1.4 seconds on the test install, during which live updates, MQTT and the web pages waited. It
+  now happens beside them.
+- Intel GPU (iGPU) acceleration works with every model again. The image's Intel GPU driver, from
+  Intel's Ubuntu LTS channel, crashed intermittently when compiling a model for the iGPU on the
+  image's Debian base, so most models could not be verified on Intel GPU and stayed on the CPU or
+  NPU. The image now installs Intel's compute runtime 26.35 with graphics compiler 2.41.5, pinned
+  and checksummed; on a Core Ultra 200 every model compiled and gave the CPU's answers.
 - The bundled **MobileNet V2 Birds** model sees the photo again. Its pixels were converted twice,
   which turned every image almost white, so it named nearly everything American White Pelican and
   scored 0.3% in a model evaluation. On twenty feeder photos of species it knows it now gets 9

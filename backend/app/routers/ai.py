@@ -111,7 +111,8 @@ async def _load_ai_analysis_frames(
     if settings.frigate.clips_enabled:
         clip_bytes, clip_error = await frigate_client.get_clip_with_error(event_id)
         if clip_bytes:
-            frames = ai_service.extract_frames_from_clip(
+            frames = await asyncio.to_thread(
+                ai_service.extract_frames_from_clip,
                 clip_bytes,
                 frame_count=frame_count,
                 clip_variant="event",

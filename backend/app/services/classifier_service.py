@@ -33,6 +33,7 @@ from app.utils.canonical_species import should_hide_species_label
 from app.utils.frigate_coordinates import (
     frigate_snapshot_crop_box,
     normalized_frigate_video_hint,
+    photographed_track,
     restore_frigate_hint_box,
 )
 from app.utils.runtime_flavor import get_image_flavor, image_flavor_warning, packaged_inference_providers
@@ -996,6 +997,12 @@ def _safe_sha256_file(path: str) -> str | None:
     return digest.hexdigest()
 
 
+def _instance_model_sha256(model: Any) -> str | None:
+    """The digest of the weights a model instance loaded, the key the species catalogue uses."""
+    value = str(getattr(model, "loaded_artifact_sha256", "") or "").strip().lower()
+    return value or None
+
+
 def _extract_model_artifact_metadata(model_path: str) -> dict[str, Any]:
     model_file = Path(str(model_path or ""))
     metadata: dict[str, Any] = {
@@ -1871,9 +1878,13 @@ class ModelInstance:
         self.labels_path = labels_path
         self.preprocessing = preprocessing or {}
         self.label_grouping = dict(label_grouping or {})
-        # None means "read the label file", which is what every caller that has
-        # not been given a checksum should keep doing.
-        self.model_sha256 = model_sha256
+        # The weights this instance loads, bound now: results carry it as their
+        # provenance, and a reinstall can replace the file under a running instance.
+        # Every backend and fallback is built here, including one loading other weights.
+        self.loaded_artifact_sha256 = artifact_digest(model_path)
+        # Fallbacks may load different weights from the selected registry model.
+        # Reuse their bound digest so labels follow those actual output indices.
+        self.model_sha256 = self.loaded_artifact_sha256 or model_sha256
         self.interpreter = None
         self.labels: list[str] = []
         self.grouped_labels: list[str] = []
@@ -2170,9 +2181,13 @@ class ONNXModelInstance:
         self.labels_path = labels_path
         self.preprocessing = preprocessing or {}
         self.label_grouping = dict(label_grouping or {})
-        # None means "read the label file", which is what any caller without a
-        # checksum should keep doing.
-        self.model_sha256 = model_sha256
+        # The weights this instance loads, bound now: results carry it as their
+        # provenance, and a reinstall can replace the file under a running instance.
+        # Every backend and fallback is built here, including one loading other weights.
+        self.loaded_artifact_sha256 = artifact_digest(model_path)
+        # Fallbacks may load different weights from the selected registry model.
+        # Reuse their bound digest so labels follow those actual output indices.
+        self.model_sha256 = self.loaded_artifact_sha256 or model_sha256
         self.input_size = input_size
         self.ort_providers = list(ort_providers or ["CPUExecutionProvider"])
         self.session = None
@@ -2425,9 +2440,13 @@ class OpenVINOModelInstance:
         self.labels_path = labels_path
         self.preprocessing = preprocessing or {}
         self.label_grouping = dict(label_grouping or {})
-        # None means "read the label file", which is what any caller without a
-        # checksum should keep doing.
-        self.model_sha256 = model_sha256
+        # The weights this instance loads, bound now: results carry it as their
+        # provenance, and a reinstall can replace the file under a running instance.
+        # Every backend and fallback is built here, including one loading other weights.
+        self.loaded_artifact_sha256 = artifact_digest(model_path)
+        # Fallbacks may load different weights from the selected registry model.
+        # Reuse their bound digest so labels follow those actual output indices.
+        self.model_sha256 = self.loaded_artifact_sha256 or model_sha256
         self.input_size = input_size
         self.device_name = device_name
         self._startup_self_test_enabled = (
@@ -2974,6 +2993,23 @@ class ClassifierService:
                 startup_status.mark_failed("loading_model")
                 raise
             startup_status.publish("model_ready" if self.model_loaded else "model_unavailable", 60)
+        else:
+            self._record_worker_model_identity()
+
+    def _record_worker_model_identity(self) -> None:
+        """Record the checksum of the model the workers load, without loading it here.
+
+        A subprocess-mode parent never runs ``_init_bird_model``, which is where the
+        checksum was recorded, so ``active_model_sha256`` stayed None and no detection
+        was ever tied to the model that produced it through the species catalogue.
+        A missing file leaves no checksum rather than a previous model's.
+        """
+        try:
+            model_path = str(self._resolve_active_bird_model_spec().get("model_path") or "")
+            self._bird_model_artifact_metadata = {"model_sha256": artifact_digest(model_path)}
+        except Exception as error:
+            self._bird_model_artifact_metadata = {}
+            log.warning("Could not record the active model checksum for the workers", error=str(error))
 
     def _get_model_paths(self, model_file: str, labels_file: str) -> tuple[str, str]:
         """Get full paths for model and labels files."""
@@ -4458,6 +4494,8 @@ class ClassifierService:
                 # should be using supervisor workers instead.
                 if self._worker_process_mode or self._image_execution_mode != "subprocess":
                     self._init_bird_model()
+                else:
+                    self._record_worker_model_identity()
 
         # Model init loads weights and re-detects hardware, which spawns child
         # processes. A reload is triggered from request handlers' background
@@ -5263,6 +5301,50 @@ class ClassifierService:
             }
         return None
 
+    @staticmethod
+    def _frigate_path_points(raw_path_data: list[Any]) -> list[tuple[float, float, float]]:
+        path_points: list[tuple[float, float, float]] = []
+        for item in raw_path_data:
+            if not isinstance(item, (list, tuple)) or len(item) < 2:
+                continue
+            point = item[0]
+            if not isinstance(point, (list, tuple)) or len(point) < 2:
+                continue
+            try:
+                x = float(point[0])
+                y = float(point[1])
+                timestamp = float(item[1])
+            except (TypeError, ValueError):
+                continue
+            if all(math.isfinite(value) for value in (x, y, timestamp)) and 0.0 <= x <= 1.0 and 0.0 <= y <= 1.0:
+                path_points.append((timestamp, x, y))
+        return path_points
+
+    def _frigate_snapshot_time(self, input_context: ClassificationInputContext) -> float | None:
+        value = self._input_context_extra(input_context, "frigate_snapshot_frame_time")
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
+            return None
+        return float(value)
+
+    def _photographed_track_window(
+        self,
+        input_context: ClassificationInputContext,
+        image_size: tuple[int, int] | None,
+    ) -> tuple[float, float]:
+        """Time window in which Frigate's track still follows the photographed bird."""
+        snapshot_time = self._frigate_snapshot_time(input_context)
+        box = normalized_frigate_video_hint(self._input_context_extra(input_context, "frigate_box"))
+        raw_path_data = self._input_context_extra(input_context, "frigate_path_data")
+        if snapshot_time is None or box is None or not isinstance(raw_path_data, list):
+            return -math.inf, math.inf
+        _points, start, end = photographed_track(
+            self._frigate_path_points(raw_path_data),
+            box=box,
+            snapshot_time=snapshot_time,
+            image_size=image_size or (1, 1),
+        )
+        return start, end
+
     def _tracked_frigate_box_for_frame(
         self,
         input_context: ClassificationInputContext,
@@ -5297,25 +5379,18 @@ class ClassifierService:
         if width > 1.0 or height > 1.0:
             return None
 
-        path_points: list[tuple[float, float, float]] = []
-        for item in raw_path_data:
-            if not isinstance(item, (list, tuple)) or len(item) < 2:
-                continue
-            point = item[0]
-            if not isinstance(point, (list, tuple)) or len(point) < 2:
-                continue
-            try:
-                x = float(point[0])
-                y = float(point[1])
-                timestamp = float(item[1])
-            except (TypeError, ValueError):
-                continue
-            if all(math.isfinite(value) for value in (x, y, timestamp)) and 0.0 <= x <= 1.0 and 0.0 <= y <= 1.0:
-                path_points.append((timestamp, x, y))
+        path_points = self._frigate_path_points(raw_path_data)
         if not path_points:
             return None
 
         target_timestamp = clip_start + offset
+        snapshot_time = self._frigate_snapshot_time(input_context)
+        if snapshot_time is not None:
+            path_points, start, end = photographed_track(
+                path_points, box=normalized_box, snapshot_time=snapshot_time, image_size=image_size
+            )
+            if not start <= target_timestamp < end:
+                return None
         point_timestamp, bottom_center_x, bottom_y = min(
             path_points,
             key=lambda item: abs(item[0] - target_timestamp),
@@ -5360,6 +5435,8 @@ class ClassifierService:
             if normalized_region is not None and tracked_size is not None and isinstance(raw_path_data, list):
                 left, top, width, height = normalized_region
                 right, bottom = left + width, top + height
+                # A track that moved on to another bird must not stretch the event's subject to it.
+                track_start, track_end = self._photographed_track_window(input_context, image_size)
                 for item in raw_path_data:
                     if (
                         not isinstance(item, (list, tuple))
@@ -5368,6 +5445,14 @@ class ClassifierService:
                         or len(item[0]) < 2
                     ):
                         continue
+                    if math.isfinite(track_start) or math.isfinite(track_end):
+                        timestamp = item[1] if len(item) > 1 else None
+                        if (
+                            isinstance(timestamp, bool)
+                            or not isinstance(timestamp, (int, float))
+                            or not track_start <= timestamp < track_end
+                        ):
+                            continue
                     x, y = item[0][:2]
                     if (
                         isinstance(x, bool)
@@ -5902,6 +5987,14 @@ class ClassifierService:
                 results = _invoke_model_classify(bird, crop_image, input_context=normalized_input_context)
                 if self._inference_backend == "openvino" and self._active_inference_provider == "intel_gpu":
                     self._record_gpu_success()
+                # Bound here, from the model instance that ran: a model switch while the
+                # event is still being saved must not pair this output index with
+                # another model's identity.
+                model_sha256 = _instance_model_sha256(bird)
+                if model_sha256:
+                    for result in results:
+                        if isinstance(result, dict):
+                            result["model_sha256"] = model_sha256
                 return self._attach_classification_input_provenance(
                     results,
                     input_context=normalized_input_context,
@@ -5968,12 +6061,16 @@ class ClassifierService:
         if self._classifier_supervisor is None:
             raise RuntimeError("classifier supervisor is not configured")
         normalized_input_context = _normalize_classification_input_context(input_context)
+        # A lossless full frame (recording-frame identification and backfill send the
+        # native picture) takes 0.3 to 1.4 s to encode; on the loop that stalled SSE,
+        # MQTT and the API once per event.
+        image_b64 = await asyncio.to_thread(self._encode_image_for_worker, image)
         try:
             results = await self._classifier_supervisor.classify(
                 priority=priority,
                 work_id=str(work_id or f"{priority}-{time.monotonic_ns()}"),
                 lease_token=int(lease_token or 1),
-                image_b64=self._encode_image_for_worker(image),
+                image_b64=image_b64,
                 camera_name=camera_name,
                 model_id=model_id,
                 input_context=dict(normalized_input_context.model_dump())
@@ -7089,6 +7186,7 @@ class ClassifierService:
                 source_consensuses,
                 target_consensuses=target_consensuses,
                 minimum_tracked_score=max(minimum_frame_score, float(settings.classification.threshold)),
+                tracked_observations=source_assessments.get("frigate_hint_crop"),
             )
             event_target_selected = selected_source_consensus is not None and (
                 selected_source_consensus.input_source == "frigate_hint_crop"
@@ -7219,6 +7317,7 @@ class ClassifierService:
                         "inference_backend": str(self._inference_backend or ""),
                         "model_id": str(active_model_id or ""),
                         "model_name": model_name,
+                        "model_sha256": _instance_model_sha256(bird_model),
                         "input_source": input_source,
                         "input_is_cropped": input_source != "full_frame",
                         "event_target_selected": event_target_selected,

@@ -15,6 +15,8 @@ know behaves exactly as it does today.
 """
 
 import sqlite3
+import hashlib
+from unittest.mock import MagicMock, Mock
 
 import pytest
 
@@ -164,3 +166,66 @@ def test_a_catalogue_that_raises_never_stops_a_model_loading(monkeypatch, tmp_pa
     )
     assert source == "label_file"
     assert labels == ["From the file"]
+
+
+@pytest.fixture(params=["ModelInstance", "ONNXModelInstance", "OpenVINOModelInstance"])
+def native_loader(request, monkeypatch, tmp_path):
+    from app.services import classifier_service as module
+
+    monkeypatch.setattr(module, "tflite", MagicMock())
+    monkeypatch.setattr(module, "ONNX_AVAILABLE", True)
+    runtime = MagicMock()
+    runtime.InferenceSession.return_value.get_providers.return_value = ["CPUExecutionProvider"]
+    monkeypatch.setattr(module, "ort", runtime)
+    monkeypatch.setattr(module, "OPENVINO_AVAILABLE", True)
+    monkeypatch.setattr(module, "OpenVINOCore", MagicMock())
+    monkeypatch.setattr(module, "resolve_openvino_cache_dir", lambda: str(tmp_path / "cache"))
+    return getattr(module, request.param)
+
+
+@pytest.mark.parametrize("file_present", [False, True])
+@pytest.mark.parametrize("declared_checksum", [None, "different-selected-model"])
+def test_native_load_uses_its_own_weights_for_catalogue_labels(
+    native_loader, catalogue, monkeypatch, tmp_path, file_present, declared_checksum
+):
+    """Startup and fallback loaders need no caller-supplied checksum or label file."""
+    from app.services import classifier_service as module
+
+    weights = tmp_path / "weights"
+    weights.write_bytes(b"actual fallback weights")
+    digest = hashlib.sha256(weights.read_bytes()).hexdigest()
+    with sqlite3.connect(catalogue) as connection:
+        connection.execute("UPDATE model_artifacts SET model_sha256=? WHERE id=1", (digest,))
+    lookup = Mock(side_effect=lambda sha: catalogue_labels_for_model(sha, catalog_path=catalogue))
+    monkeypatch.setattr("app.services.catalogue_labels.catalogue_labels_for_model", lookup)
+    hash_weights = Mock(wraps=module.artifact_digest)
+    monkeypatch.setattr(module, "artifact_digest", hash_weights)
+    labels = tmp_path / "labels.txt"
+    if file_present:
+        labels.write_text("Altered after installation\n", encoding="utf-8")
+
+    model = native_loader("bird", str(weights), str(labels), model_sha256=declared_checksum)
+    assert model.load() is True
+    assert model.labels == ["Prunella modularis", "Erithacus rubecula", "Nothing resolved this"]
+    lookup.assert_called_once_with(digest)
+    assert model.load() is True
+    hash_weights.assert_called_once_with(str(weights))
+    model.cleanup()
+
+
+def test_native_load_retains_file_fallback_for_incomplete_catalogue(native_loader, catalogue, monkeypatch, tmp_path):
+    weights = tmp_path / "weights"
+    weights.write_bytes(b"incompletely mapped model")
+    digest = hashlib.sha256(weights.read_bytes()).hexdigest()
+    with sqlite3.connect(catalogue) as connection:
+        connection.execute("UPDATE model_artifacts SET model_sha256=? WHERE id=2", (digest,))
+    monkeypatch.setattr(
+        "app.services.catalogue_labels.catalogue_labels_for_model",
+        lambda sha: catalogue_labels_for_model(sha, catalog_path=catalogue),
+    )
+    labels = tmp_path / "labels.txt"
+    labels.write_text("First\nSecond\nThird\nFourth\n", encoding="utf-8")
+    model = native_loader("bird", str(weights), str(labels))
+    assert model.load() is True
+    assert model.labels == ["First", "Second", "Third", "Fourth"]
+    model.cleanup()

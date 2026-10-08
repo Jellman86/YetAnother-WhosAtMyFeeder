@@ -62,6 +62,66 @@ def normalized_frigate_video_hint(raw_hint: Any) -> tuple[float, float, float, f
     return normalize_frigate_hint_box(raw_hint, (1, 1))
 
 
+def frigate_path_sample_distance(image_size: tuple[int, int]) -> float:
+    """Distance Frigate's box must move before it records another path point.
+
+    Frigate uses 5% of the frame diagonal, scaled by the longest side, and
+    measures it on per-axis normalised bottom-centre coordinates.
+    """
+    width, height = image_size
+    if width <= 0 or height <= 0:
+        width = height = 1
+    return 0.05 * math.hypot(width, height) / max(width, height)
+
+
+def photographed_track(
+    path_points: list[tuple[float, float, float]],
+    *,
+    box: tuple[float, float, float, float],
+    snapshot_time: float,
+    image_size: tuple[int, int],
+) -> tuple[list[tuple[float, float, float]], float, float]:
+    """Keep the stretch of a Frigate track that still follows the photographed bird.
+
+    Frigate records a ``(timestamp, x, y)`` path point once the box has moved
+    the sample distance from the previous one, so until the next point the box
+    stays within that distance of the last. Two consecutive points further apart
+    than the sample distance plus the box's own width (or height) mean a single
+    tracker update moved the box clear of where it had just been. At a feeder
+    that is the track passing to a neighbouring bird once the first one leaves.
+    The snapshot shows the event's bird, so only the unbroken stretch around it
+    describes that bird.
+
+    Returns the kept points, including the snapshot position, and the
+    ``[start, end)`` window outside which the track follows something else.
+    """
+    left, top, width, height = box
+    sample = frigate_path_sample_distance(image_size)
+
+    def jumped(first: tuple[float, float, float], second: tuple[float, float, float]) -> bool:
+        return abs(second[1] - first[1]) - sample > width or abs(second[2] - first[2]) - sample > height
+
+    ordered = sorted(path_points)
+    before = [point for point in ordered if point[0] <= snapshot_time]
+    after = [point for point in ordered if point[0] > snapshot_time]
+    snapshot_point = (snapshot_time, left + width / 2.0, top + height)
+    kept = [snapshot_point, *before[-1:]]
+    start, end = -math.inf, math.inf
+    previous = before[-1] if before else snapshot_point
+    for point in after:
+        if jumped(previous, point):
+            end = point[0]
+            break
+        kept.append(point)
+        previous = point
+    for earlier, later in zip(reversed(before[:-1]), reversed(before[1:])):
+        if jumped(earlier, later):
+            start = later[0]
+            break
+        kept.append(earlier)
+    return sorted(kept), start, end
+
+
 def restore_frigate_hint_box(
     raw_hint: Any,
     image_size: tuple[int, int],

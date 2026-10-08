@@ -274,6 +274,19 @@ class AutoVideoClassifierService:
         self._stale_task: Optional[asyncio.Task] = None
         self._running = False
         self._last_mqtt_throttle_log_ts: float = 0.0
+        # Fixed-size, scheduler-observed counters. Health polling must not accrue time.
+        self._queue_observed_at: float | None = None
+        self._queue_observation: dict[str, bool] | None = None
+        self._queue_pressure_seconds = {
+            "observed_seconds": 0.0,
+            "live_pressure_seconds": 0.0,
+            "mqtt_critical_seconds": 0.0,
+            "live_gate_closed_seconds": 0.0,
+            "capacity_wait_seconds": 0.0,
+            "circuit_wait_seconds": 0.0,
+            "maintenance_capacity_wait_seconds": 0.0,
+        }
+        self._queue_transition_counts = {"starts": 0, "relief_starts": 0, "finishes": 0}
         self._maintenance_last_progress_at: float | None = None
         self._last_reported_maintenance_state: str | None = None
         self._last_reported_maintenance_state_at: float | None = None
@@ -324,6 +337,7 @@ class AutoVideoClassifierService:
     async def stop(self):
         """Stop the queue processor."""
         self._running = False
+        self._observe_queue_state(None)
         media_cache.unregister_recording_clip_listener(self._on_recording_clip_cached)
         if self._processor_task:
             self._processor_task.cancel()
@@ -451,6 +465,7 @@ class AutoVideoClassifierService:
 
         # Reset circuit breaker state
         self._reset_all_breakers()
+        self._note_queue_transition()
 
     async def _process_queue_loop(self):
         """Background loop to process queued classification tasks."""
@@ -463,6 +478,7 @@ class AutoVideoClassifierService:
                 )
                 throttle_state = self._get_mqtt_throttle_state(max_concurrent)
                 effective_max = throttle_state["effective_max_concurrent"]
+                self._observe_queue_state(throttle_state)
 
                 if throttle_state["throttled"]:
                     now = time.time()
@@ -509,6 +525,7 @@ class AutoVideoClassifierService:
                         self._pending_queue.put_nowait(
                             (frigate_event, camera, skip_delay, fallback_to_snapshot, source)
                         )
+                        self._observe_queue_state(throttle_state, blocked_reason="circuit")
                         await asyncio.sleep(1)
                         continue
 
@@ -523,6 +540,7 @@ class AutoVideoClassifierService:
                             self._pending_queue.put_nowait(
                                 (frigate_event, camera, skip_delay, fallback_to_snapshot, source)
                             )
+                            self._observe_queue_state(throttle_state, blocked_reason="maintenance_capacity")
                             await asyncio.sleep(1)
                             continue
 
@@ -542,6 +560,7 @@ class AutoVideoClassifierService:
                     started_at_epoch = time.time()
                     self._active_metadata[frigate_event] = {
                         "source": source,
+                        "queued_at": pending_metadata.get("queued_at", time.monotonic()),
                         "started_at": time.monotonic(),
                         # Keep the queue admission time as the job's identity timestamp.
                         # Replacing it with the worker start time made rows jump whenever
@@ -561,6 +580,10 @@ class AutoVideoClassifierService:
                     # Only clear pending dedupe marker after active registration.
                     self._pending_ids.discard(frigate_event)
                     self._pending_metadata.pop(frigate_event, None)
+                    self._queue_transition_counts["starts"] += 1
+                    if throttle_state.get("maintenance_starvation_relief_active"):
+                        self._queue_transition_counts["relief_starts"] += 1
+                    self._note_queue_transition()
 
                     log.debug(
                         "Started queued video classification",
@@ -666,6 +689,83 @@ class AutoVideoClassifierService:
             "live_in_flight": live_in_flight,
             "live_queued": live_queued,
             "oldest_maintenance_pending_age_seconds": oldest_maintenance_pending_age,
+        }
+
+    def _observe_queue_state(self, throttle: dict | None, *, blocked_reason: str | None = None) -> None:
+        """Accrue the previous scheduler observation; never called by status getters."""
+        now = time.monotonic()
+        if self._queue_observation is not None and self._queue_observed_at is not None:
+            elapsed = max(0.0, now - self._queue_observed_at)
+            self._queue_pressure_seconds["observed_seconds"] += elapsed
+            for name, active in self._queue_observation.items():
+                if active:
+                    self._queue_pressure_seconds[name] += elapsed
+        self._queue_observed_at = now
+        if throttle is None:
+            self._queue_observation = None
+            return
+        pending = bool(self._pending_metadata)
+        critical = throttle.get("mqtt_pressure_level") == "critical"
+        live = bool(throttle.get("live_pressure_active"))
+        effective = int(throttle.get("effective_max_concurrent") or 0)
+        self._queue_observation = {
+            "live_pressure_seconds": live,
+            "mqtt_critical_seconds": critical,
+            "live_gate_closed_seconds": pending and live and not critical and effective == 0,
+            "capacity_wait_seconds": pending and effective > 0 and len(self._active_tasks) >= effective,
+            "circuit_wait_seconds": pending and blocked_reason == "circuit",
+            "maintenance_capacity_wait_seconds": pending and blocked_reason == "maintenance_capacity",
+        }
+
+    def _note_queue_transition(self) -> None:
+        if self._running:
+            self._observe_queue_state(
+                self._get_mqtt_throttle_state(
+                    resolve_video_concurrency(configured_background=settings.classification.background_worker_count)
+                )
+            )
+
+    @staticmethod
+    def _reported_job_source(metadata: dict[str, object]) -> JobSource:
+        """Match Jobs' manual-request overlay without changing physical ownership."""
+        source = "manual" if metadata.get("manual_requested") else str(metadata.get("source") or "maintenance")
+        return cast(JobSource, source if source in {"live", "manual", "maintenance"} else "maintenance")
+
+    def _queue_metrics(self) -> dict[str, object]:
+        now = time.monotonic()
+        pending = dict.fromkeys(("live", "manual", "maintenance"), 0)
+        active = dict(pending)
+        oldest: dict[str, float | None] = dict.fromkeys(pending)
+        phases: dict[str, int] = {}
+        for metadata in self._pending_metadata.values():
+            source = self._reported_job_source(metadata)
+            pending[source] += 1
+            queued_at = metadata.get("queued_at")
+            if isinstance(queued_at, (int, float)) and math.isfinite(queued_at):
+                age = max(0.0, now - queued_at)
+                oldest[source] = max(oldest[source] or 0.0, age)
+        for metadata in self._active_metadata.values():
+            active[self._reported_job_source(metadata)] += 1
+            phase = str(metadata.get("phase") or "preparing")
+            if phase not in {"preparing", "analyzing", "updating_photo"}:
+                phase = "other"
+            phases[phase] = phases.get(phase, 0) + 1
+        pressure = {name: round(value, 3) for name, value in self._queue_pressure_seconds.items()}
+        observed = self._queue_pressure_seconds["observed_seconds"]
+        return {
+            "pending_by_source": pending,
+            "oldest_pending_age_seconds_by_source": {
+                source: round(age, 3) if age is not None else None for source, age in oldest.items()
+            },
+            "active_by_source": active,
+            "active_by_phase": phases,
+            "scheduler_pressure": {
+                **pressure,
+                "live_pressure_fraction": self._queue_pressure_seconds["live_pressure_seconds"] / observed
+                if observed > 0
+                else None,
+                **self._queue_transition_counts,
+            },
         }
 
     def _cancel_stuck_tasks(self) -> int:
@@ -928,13 +1028,14 @@ class AutoVideoClassifierService:
             "mqtt_in_flight": throttle_state["mqtt_in_flight"],
             "mqtt_in_flight_capacity": throttle_state["mqtt_capacity"],
             **maintenance_summary,
+            **self._queue_metrics(),
         }
 
     def get_jobs_snapshot(self) -> list[dict[str, object]]:
         """Return current per-event work for the owner Jobs view."""
         jobs: list[dict[str, object]] = []
         for event_id, metadata in self._pending_metadata.items():
-            source = "manual" if metadata.get("manual_requested") else str(metadata.get("source") or "maintenance")
+            source = self._reported_job_source(metadata)
             queued_at = metadata.get("queued_at_epoch")
             updated_at = metadata.get("updated_at_epoch")
             kind = "reclassify" if source == "manual" else "auto_video" if source == "live" else "video_analysis"
@@ -964,7 +1065,7 @@ class AutoVideoClassifierService:
                 }
             )
         for event_id, metadata in self._active_metadata.items():
-            source = "manual" if metadata.get("manual_requested") else str(metadata.get("source") or "maintenance")
+            source = self._reported_job_source(metadata)
             started_at = metadata.get("queued_at_epoch") or metadata.get("started_at_epoch")
             updated_at = metadata.get("updated_at_epoch")
             kind = "reclassify" if source == "manual" else "auto_video" if source == "live" else "video_analysis"
@@ -1028,6 +1129,7 @@ class AutoVideoClassifierService:
                     if isinstance(metadata, dict):
                         metadata["manual_requested"] = True
                         metadata["updated_at_epoch"] = time.time()
+                        self._note_queue_transition()
                 log.debug("Video classification already queued/active; skipping duplicate", event_id=frigate_event)
                 return "duplicate"
             if self._is_circuit_open(source):
@@ -1082,6 +1184,7 @@ class AutoVideoClassifierService:
                 "total": int(settings.classification.video_classification_frames or 0),
                 "manual_requested": source == "manual",
             }
+            self._note_queue_transition()
             log.debug("Queued video classification", event_id=frigate_event, queue_size=self._pending_queue.qsize())
             return "queued"
 
@@ -1118,6 +1221,8 @@ class AutoVideoClassifierService:
                 "recovered": True,
             }
             restored += 1
+        if restored:
+            self._note_queue_transition()
         return restored
 
     def _cleanup_task(self, frigate_event: str, task: asyncio.Task):
@@ -1126,7 +1231,10 @@ class AutoVideoClassifierService:
             self._active_tasks.pop(frigate_event, None)
             self._pending_metadata.pop(frigate_event, None)
             metadata = self._active_metadata.pop(frigate_event, None)
+            if metadata is not None:
+                self._queue_transition_counts["finishes"] += 1
             self._manual_requested_ids.discard(frigate_event)
+            self._note_queue_transition()
             maintenance_holder_id = None
             if isinstance(metadata, dict) and str(metadata.get("source") or "") == "maintenance":
                 self._maintenance_last_progress_at = time.monotonic()
@@ -1389,6 +1497,15 @@ class AutoVideoClassifierService:
             context["frigate_box"] = list(frigate_box)
         if isinstance(frigate_region, (list, tuple)) and len(frigate_region) == 4:
             context["frigate_region"] = list(frigate_region)
+        # data.box is the box at snapshot_frame_time: the bird the event's photograph shows.
+        snapshot_time = payload.get("snapshot_frame_time")
+        if (
+            not isinstance(snapshot_time, bool)
+            and isinstance(snapshot_time, (int, float))
+            and math.isfinite(snapshot_time)
+            and snapshot_time > 0
+        ):
+            context["frigate_snapshot_frame_time"] = float(snapshot_time)
         raw_path_data = payload.get("path_data")
         if isinstance(raw_path_data, list):
             path_data: list[list[object]] = []
@@ -2297,9 +2414,16 @@ class AutoVideoClassifierService:
         self, frigate_event: str, dest_path: str, skip_delay: bool = False
     ) -> tuple[bool, Optional[str]]:
         """Poll Frigate for clip availability with retries, streaming into dest_path."""
-        # Initial delay to allow Frigate to finalize the clip
+        # Frigate's finalization grace starts when the visit is queued, not when
+        # a busy worker finally reaches it. Keep that grace for fresh visits and
+        # direct callers, but do not spend another full delay on an old backlog.
         if not skip_delay:
-            await asyncio.sleep(settings.classification.video_classification_delay)
+            delay = float(settings.classification.video_classification_delay)
+            queued_at = self._active_metadata.get(frigate_event, {}).get("queued_at")
+            if isinstance(queued_at, (int, float)):
+                delay -= max(0.0, time.monotonic() - queued_at)
+            if delay > 0.0:
+                await asyncio.sleep(delay)
 
         max_retries = settings.classification.video_classification_max_retries
         retry_interval = settings.classification.video_classification_retry_interval
@@ -2886,6 +3010,7 @@ class AutoVideoClassifierService:
             video_provider=result.get("inference_provider"),
             video_backend=result.get("inference_backend"),
             video_model_id=result.get("model_id"),
+            video_model_sha256=result.get("model_sha256"),
             video_input_source=result.get("input_source"),
             video_diagnostics=video_diagnostics,
             manual_tagged=manual_tagged,

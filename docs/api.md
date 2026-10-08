@@ -116,6 +116,14 @@ curl -N "http://localhost:9852/api/sse?ticket=$TICKET"
 ## Health, Readiness, Version, Streaming
 
 - `GET /health`: process + classifier health. The response is not cacheable.
+  `video_classifier` includes `pending_by_source`, `oldest_pending_age_seconds_by_source`,
+  `active_by_source`, and `active_by_phase`. Source maps
+  distinguish `live`, `manual`, and `maintenance`; an empty source has a `null` waiting age.
+  `scheduler_pressure` reports cumulative observed pressure/wait seconds and start, relief-start,
+  and finish counts. Counters reset with the process and update independently of health polling.
+  A finish can include failure or cancellation. These are scheduler observations, not exact
+  accelerator utilization or live-request latency; short bursts between checks can be missed.
+  Existing maintenance-specific fields remain available. See [video queue behaviour](features/video-analysis.md#settings).
 - `GET /ready`: startup readiness (returns `503` until ready). This exact public path is proxied
   through both monolithic and split frontend deployments and is not cacheable.
 - `GET /api/version`: app version metadata.
@@ -389,6 +397,24 @@ per-file limits above.
     crop is retained under a separate candidate ID. A timeout or disagreement preserves the
     original crop identity and recovered count. These evidence candidates cannot be applied as
     photograph choices or change the main visit identification; original photo scores stay unchanged.
+- `GET /api/frigate/{event_id}/birds/scan?candidate_id=...` (owner) — scan state for one
+  retained whole-frame candidate. Returns `status` (`not_scanned`, `queued`, `running`,
+  `completed`, `failed`), `available`, `unavailable_reason`, `error`, nullable `result_count`,
+  `retained_previous` and `updated_at`, with `event_id` and `candidate_id`. Reading status does
+  not start inference. `completed` with `result_count: 0` means the scan finished without usable
+  birds; `not_scanned` is not a zero count. Existing observations may remain after an empty retry.
+- `POST /api/frigate/{event_id}/birds/scan` (owner) — body
+  `{"candidate_id": "retained-whole-frame-id", "expected_media_version": "image-revision", "force": false}`. Returns 202 with the same
+  status shape. `expected_media_version` is the `v` query value in that candidate's `image_url`;
+  an outdated displayed image is rejected rather than scanning replacement pixels. Identical active requests are coalesced; completed identical input is reused
+  unless `force` is true. One worker processes the durable queue, capped at 100 pending scans.
+  Requires an available bird detector and the exact retained whole frame, never a thumbnail
+  or cropped Frigate fallback. The photo and primary species are unchanged; owner-corrected and
+  excluded birds keep their existing protection. Returns 404 for a missing capture, 409 for
+  unavailable/changed media, a conflicting active scan or reviewed birds on another frame, and
+  429 when the queue is full. Changed media is rechecked before publication. Interrupted jobs
+  resume after restart. Automatic scans use `media_cache_automatic_multi_bird_scan` (default
+  `false`); manual scans work while it is off. Both use `media_cache_bird_scan_mode` effort.
 - `PATCH /api/frigate/{event_id}/birds/{bird_id}` (owner) — correct one counted bird's `species`
   or set `is_hidden` to exclude or restore it. Send exactly one field per request. A correction
   stays attached to the matched box when HQ candidates are regenerated.
@@ -408,7 +434,8 @@ per-file limits above.
   photo as an owner selection, protected from later automatic snapshot writes.
 - `GET /api/frigate/{event_id}/snapshot/original.jpg` (owner)
 - `POST /api/frigate/{event_id}/snapshot/hq-bird-crop` (owner; legacy route name, generates the best available HQ image)
-  accepts `regenerate=true` to rebuild frame choices and recount localized birds even when an HQ crop already exists. A
+  accepts `regenerate=true` to rebuild frame choices even when an HQ crop already exists. It also recounts localized birds when
+  `media_cache_automatic_multi_bird_scan` is enabled. A
   successful replacement releases the previous protected owner photo choice. A newer choice
   made while regeneration runs stays protected. Empty regeneration preserves saved candidates
   and the chosen photo; unavailable media returns an error rather than claiming success.

@@ -214,6 +214,10 @@ class HighQualitySnapshotService:
             and (settings.frigate.clips_enabled or settings.frigate.recording_clip_enabled)
         )
 
+    @staticmethod
+    def _additional_birds_enabled(requested: bool | None) -> bool:
+        return settings.media_cache.automatic_multi_bird_scan if requested is None else requested
+
     def _automatic_crop_enabled(self) -> bool:
         """HQ snapshots always attempt the best crop; the old crop flag is compatibility-only."""
         return bool(
@@ -390,6 +394,7 @@ class HighQualitySnapshotService:
             self._crop_event_hints.pop(event_id, None)
             return self._record_outcome(event_id, "disabled")
 
+        include_additional_birds = self._additional_birds_enabled(None)
         initial_metadata = (await media_cache.get_snapshot_metadata(event_id) or {}) if manual_override else {}
         event_data = self._pop_crop_event_hints(event_id)
         clip_variant = "event"
@@ -413,14 +418,19 @@ class HighQualitySnapshotService:
                     clip_bytes,
                     event_data=event_data,
                     clip_variant=clip_variant,
+                    include_additional_birds=include_additional_birds,
                 )
             else:
-                final_candidates = await self._load_final_frigate_snapshot_candidates(event_id, event_data)
-                candidate_bundle = await self._score_and_select_snapshot_candidates(event_id, final_candidates)
+                final_candidates = await self._load_final_frigate_snapshot_candidates(
+                    event_id, event_data, include_additional_birds=include_additional_birds
+                )
+                candidate_bundle = await self._score_and_select_snapshot_candidates(
+                    event_id, final_candidates, include_additional_birds=include_additional_birds
+                )
             if candidate_bundle:
                 candidates = candidate_bundle.get("candidates") or []
                 await self._persist_snapshot_candidates(event_id, candidates)
-                await self._persist_bird_observations(event_id, candidate_bundle.get("bird_selection"))
+                await self._persist_scan_bundle(event_id, candidate_bundle)
                 classification_candidates = candidates
                 selected_candidate = candidate_bundle.get("selected_candidate")
                 if selected_candidate and selected_candidate.get("preserve_existing_photo"):
@@ -593,6 +603,7 @@ class HighQualitySnapshotService:
         if not self.enabled():
             return self._record_outcome(event_id, "disabled")
 
+        include_additional_birds = self._additional_birds_enabled(None)
         self._cleanup_completed_workers()
         if event_id in self._active_ids:
             self._crop_event_hints.pop(event_id, None)
@@ -623,12 +634,13 @@ class HighQualitySnapshotService:
                     event_data=crop_event_data,
                     clip_variant=clip_variant,
                     clip_start_timestamp=clip_start_timestamp,
+                    include_additional_birds=include_additional_birds,
                     **({"scene_cache": scene_cache} if scene_cache is not None else {}),
                 )
                 if candidate_bundle:
                     candidates = candidate_bundle.get("candidates") or []
                     await self._persist_snapshot_candidates(event_id, candidates)
-                    await self._persist_bird_observations(event_id, candidate_bundle.get("bird_selection"))
+                    await self._persist_scan_bundle(event_id, candidate_bundle)
                     classification_candidates = candidates
                     selected_candidate = candidate_bundle.get("selected_candidate")
                     if selected_candidate and selected_candidate.get("preserve_existing_photo"):
@@ -790,7 +802,9 @@ class HighQualitySnapshotService:
         event_data: Optional[dict[str, Any]] = None,
         clip_variant: str = "event",
         clip_start_timestamp: float | None = None,
+        include_additional_birds: bool | None = None,
     ) -> dict[str, Any]:
+        include_additional_birds = self._additional_birds_enabled(include_additional_birds)
         tmp_path = await asyncio.to_thread(_write_temp_clip, clip_bytes)
         try:
             return await self.generate_snapshot_candidates_from_clip_path(
@@ -799,6 +813,7 @@ class HighQualitySnapshotService:
                 event_data=event_data,
                 clip_variant=clip_variant,
                 clip_start_timestamp=clip_start_timestamp,
+                include_additional_birds=include_additional_birds,
             )
         finally:
             with contextlib.suppress(Exception):
@@ -813,8 +828,10 @@ class HighQualitySnapshotService:
         clip_variant: str = "event",
         clip_start_timestamp: float | None = None,
         scene_cache: VideoSceneCache | None = None,
+        include_additional_birds: bool | None = None,
     ) -> dict[str, Any]:
         """Candidate generation against a clip already on disk; the caller owns the file (#341)."""
+        include_additional_birds = self._additional_birds_enabled(include_additional_birds)
         preferred_indices = await self._load_preferred_frame_indices(event_id, clip_variant=clip_variant)
 
         raw_candidates: list[dict[str, Any]] = []
@@ -828,6 +845,7 @@ class HighQualitySnapshotService:
                 clip_variant=clip_variant,
                 clip_start_timestamp=clip_start_timestamp,
                 override_frame_indices=preferred_indices,
+                include_additional_birds=include_additional_birds,
                 **({"scene_cache": scene_cache} if scene_cache is not None else {}),
             )
         except BirdDetectionError:
@@ -840,18 +858,32 @@ class HighQualitySnapshotService:
                 error=str(exc),
             )
 
-        raw_candidates.extend(await self._load_final_frigate_snapshot_candidates(event_id, event_data))
+        raw_candidates.extend(
+            await self._load_final_frigate_snapshot_candidates(
+                event_id, event_data, include_additional_birds=include_additional_birds
+            )
+        )
         if not raw_candidates and extraction_error is not None:
             raise extraction_error
 
-        return await self._score_and_select_snapshot_candidates(event_id, raw_candidates)
+        return await self._score_and_select_snapshot_candidates(
+            event_id, raw_candidates, include_additional_birds=include_additional_birds
+        )
 
     async def _score_and_select_snapshot_candidates(
         self,
         event_id: str,
         raw_candidates: list[dict[str, Any]],
+        include_additional_birds: bool | None = None,
     ) -> dict[str, Any]:
         """Score, select, and bound candidates independent of their media source."""
+        include_additional_birds = self._additional_birds_enabled(include_additional_birds)
+        scan_state = None
+        if include_additional_birds:
+            from app.repositories.bird_scan_repository import BirdScanRepository
+
+            async with get_db() as db:
+                scan_state = await BirdScanRepository(db).get(event_id)
         scored: list[dict[str, Any]] = []
         for candidate in raw_candidates:
             enriched = await self._score_snapshot_candidate(candidate)
@@ -859,12 +891,23 @@ class HighQualitySnapshotService:
                 scored.append(enriched)
 
         if not scored:
-            return {"selected_candidate": None, "candidates": []}
+            return {
+                "selected_candidate": None,
+                "candidates": [],
+                "bird_selection": None,
+                "additional_bird_scan_performed": False,
+            }
 
         ranked = self._rank_snapshot_candidates(scored)
         expected_labels = await self._load_expected_species_labels(event_id)
-        observation_candidates = await self._detect_count_candidates(scored)
-        rechecked_observations = await self._recheck_weak_count_candidates(scored, observations=observation_candidates)
+        # Target crop geometry remains photo-presence evidence even when optional
+        # whole-scene enumeration and recovered-bird classification are disabled.
+        observation_candidates = await self._detect_count_candidates(scored) if include_additional_birds else []
+        rechecked_observations = (
+            await self._recheck_weak_count_candidates(scored, observations=observation_candidates)
+            if include_additional_birds
+            else []
+        )
         supported = attach_photo_presence(scored, observation_candidates)
         # Presence is attached to copies; the persisted scenes carry it too, so a moment with a
         # located bird stays reusable as a photo scene even when no species is confident enough.
@@ -882,8 +925,12 @@ class HighQualitySnapshotService:
             supported,
             expected_labels=expected_labels,
         )
-        bird_selection = select_bird_observations(
-            scored + observation_candidates + rechecked_observations, selected_candidate=selected_candidate
+        bird_selection = (
+            select_bird_observations(
+                scored + observation_candidates + rechecked_observations, selected_candidate=selected_candidate
+            )
+            if include_additional_birds
+            else None
         )
         count_evidence = [item for item in rechecked_observations if item.get("image_bytes")]
         # The photograph already shown stays unless a candidate is clearly better: a marginal
@@ -899,8 +946,8 @@ class HighQualitySnapshotService:
         persisted = self._select_persisted_candidates(
             ranked + count_evidence,
             selected_candidate=selected_candidate,
-            count_full_frame_candidate_id=bird_selection.full_frame_candidate_id,
-            count_candidate_ids={bird.candidate_id for bird in bird_selection.birds},
+            count_full_frame_candidate_id=bird_selection.full_frame_candidate_id if bird_selection else None,
+            count_candidate_ids={bird.candidate_id for bird in bird_selection.birds} if bird_selection else set(),
         )
         selected_candidate_id = str((selected_candidate or {}).get("candidate_id") or "")
         for candidate in persisted:
@@ -911,6 +958,18 @@ class HighQualitySnapshotService:
             "selected_candidate": selected_candidate,
             "candidates": persisted,
             "bird_selection": bird_selection,
+            "additional_bird_scan_performed": include_additional_birds,
+            # A retained incumbent may be appended to photo choices without being
+            # scanned this time. Only the original count traversal can prove zero.
+            "automatic_scan_scenes": [
+                item
+                for item in scored
+                if item.get("source_mode") == "full_frame" and item.get("input_is_cropped") is not True
+            ]
+            if include_additional_birds and any(item.get("source_mode") == "model_crop" for item in scored)
+            else [],
+            "automatic_scan_expected_revision": scan_state.revision if scan_state else None,
+            "automatic_scan_expected_generation": scan_state.generation if scan_state else None,
             "photo_outcome": None if selected_candidate is not None else "bird_presence_unconfirmed",
         }
 
@@ -1523,7 +1582,9 @@ class HighQualitySnapshotService:
         override_frame_indices: Optional[list[int]] = None,
         clip_start_timestamp: float | None = None,
         scene_cache: VideoSceneCache | None = None,
+        include_additional_birds: bool | None = None,
     ) -> list[dict[str, Any]]:
+        include_additional_birds = self._additional_birds_enabled(include_additional_birds)
         cap = cv2.VideoCapture(str(clip_path))
         if not cap.isOpened():
             raise ValueError(f"Unable to open clip for snapshot extraction: {clip_path}")
@@ -1596,6 +1657,7 @@ class HighQualitySnapshotService:
                     base_image,
                     event_data=frame_event_data,
                     event_id=event_id,
+                    include_additional_birds=include_additional_birds,
                 ):
                     image_bytes = self._encode_pil_to_jpeg_bytes(candidate_image)
                     crop_index = source_ordinals[source_mode]
@@ -1652,7 +1714,9 @@ class HighQualitySnapshotService:
         *,
         event_data: Optional[dict[str, Any]],
         event_id: str,
+        include_additional_birds: bool | None = None,
     ) -> list[tuple[str, Image.Image, Optional[dict[str, Any]]]]:
+        include_additional_birds = self._additional_birds_enabled(include_additional_birds)
         candidates: list[tuple[str, Image.Image, Optional[dict[str, Any]]]] = [("full_frame", image, None)]
         hint_result = self._crop_from_event_hints(image, event_data)
         hint_image = hint_result.get("crop_image") if isinstance(hint_result, dict) else None
@@ -1665,7 +1729,11 @@ class HighQualitySnapshotService:
                 if isinstance(hint_box, (list, tuple)) and len(hint_box) == 4
                 else None
             )
-            candidates.extend(self._model_crop_images_for_frame(image, event_id=event_id, search_box=search_box))
+            candidates.extend(
+                self._model_crop_images_for_frame(
+                    image, event_id=event_id, search_box=search_box, include_additional_birds=include_additional_birds
+                )
+            )
         return candidates
 
     def _model_crop_images_for_frame(
@@ -1674,10 +1742,12 @@ class HighQualitySnapshotService:
         *,
         event_id: str,
         search_box: tuple[int, int, int, int] | None,
+        include_additional_birds: bool | None = None,
     ) -> list[tuple[str, Image.Image, dict[str, Any]]]:
+        include_additional_birds = self._additional_birds_enabled(include_additional_birds)
         multi_generator = getattr(bird_crop_service, "generate_classification_candidate_crops", None)
         model_results: list[dict[str, Any]] = []
-        if callable(multi_generator):
+        if include_additional_birds and callable(multi_generator):
             try:
                 model_results = multi_generator(
                     image,
@@ -1706,6 +1776,7 @@ class HighQualitySnapshotService:
         self,
         event_id: str,
         event_data: Optional[dict[str, Any]],
+        include_additional_birds: bool | None = None,
     ) -> list[dict[str, Any]]:
         """Build a protected baseline from Frigate's completed-event best snapshot.
 
@@ -1713,6 +1784,7 @@ class HighQualitySnapshotService:
         only use this baseline once the event has a concrete end time, ensuring
         a live intermediate image is never mistaken for the final best frame.
         """
+        include_additional_birds = self._additional_birds_enabled(include_additional_birds)
         if not isinstance(event_data, dict) or event_data.get("end_time") is None:
             return []
 
@@ -1780,7 +1852,11 @@ class HighQualitySnapshotService:
                 else None
             )
             model_crops = await asyncio.to_thread(
-                self._model_crop_images_for_frame, image, event_id=event_id, search_box=search_box
+                self._model_crop_images_for_frame,
+                image,
+                event_id=event_id,
+                search_box=search_box,
+                include_additional_birds=include_additional_birds,
             )
             for crop_index, (_source_mode, model_image, model_result) in enumerate(model_crops):
                 candidates.append(
@@ -1947,6 +2023,7 @@ class HighQualitySnapshotService:
         classifier_score = 0.0
         classifier_label = None
         classifier_index = None
+        classifier_model_sha256 = None
         try:
             classifier_module = sys.modules.get("app.services.classifier_service")
             classifier = (
@@ -1969,6 +2046,7 @@ class HighQualitySnapshotService:
                     classifier_label = top_result.get("label")
                     classifier_score = float(top_result.get("score") or 0.0)
                     classifier_index = int(top_result.get("index") or 0)
+                    classifier_model_sha256 = top_result.get("model_sha256")
         except Exception as e:
             log.debug(
                 "Snapshot candidate classifier scoring failed", candidate_id=candidate.get("candidate_id"), error=str(e)
@@ -1984,6 +2062,7 @@ class HighQualitySnapshotService:
         enriched["classifier_label"] = classifier_label
         enriched["classifier_score"] = classifier_score
         enriched["classifier_index"] = classifier_index
+        enriched["classifier_model_sha256"] = classifier_model_sha256
         enriched["image_quality_score"] = quality_score
         enriched["ranking_score"] = ranking_score
         return enriched
@@ -2041,6 +2120,7 @@ class HighQualitySnapshotService:
                 video_provider=str(getattr(classifier, "_active_inference_provider", "") or "") or None,
                 video_backend=str(getattr(classifier, "_inference_backend", "") or "") or None,
                 video_model_id=str(model_spec.get("model_id") or "") or None,
+                video_model_sha256=decision.model_sha256,
                 persist_video_result=False,
             )
             outcome = "promoted" if applied else "recorded"
@@ -2201,6 +2281,15 @@ class HighQualitySnapshotService:
         from app.services.video_snapshot_service import prune_unreferenced_photo_files
 
         await prune_unreferenced_photo_files(existing, persisted_rows)
+
+    async def _persist_scan_bundle(self, event_id: str, bundle: dict[str, Any]) -> None:
+        from app.services.bird_scan_service import bird_scan_service
+
+        try:
+            await bird_scan_service.record_automatic(event_id, bundle)
+        except Exception:
+            # Counting remains best-effort enrichment, never a failed photo replacement.
+            log.warning("Unable to publish automatic bird scan", event_id=event_id)
 
     async def _persist_bird_observations(self, event_id: str, selection: BirdObservationSelection | None) -> None:
         if not isinstance(selection, BirdObservationSelection) or not selection.birds:

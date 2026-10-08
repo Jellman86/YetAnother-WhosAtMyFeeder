@@ -120,6 +120,7 @@
         const facts = captureFacts(capture, server);
         const notes: { text: string; emphasis: boolean }[] = [];
         if (facts.shown) notes.push({ text: $_('visits.shown_photo', { default: 'Visit photo' }), emphasis: true });
+        if (facts.favorite) notes.push({ text: $_('detection.favorite_label_active', { default: 'Favorited' }), emphasis: true });
         if (facts.birds !== null) notes.push({ text: $_('visits.capture_birds', { values: { count: facts.birds }, default: '{count} birds' }), emphasis: false });
         if (facts.heard) notes.push({ text: $_('detection.fact_heard_yes', { default: 'matching call' }), emphasis: true });
         return notes;
@@ -220,9 +221,13 @@
                         onclick={() => (open = !open)}
                         data-field-log-captures-phone
                     >
-                        <span class="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-2 py-0.5 font-medium text-slate-700 group-focus-visible/captures:ring-2 group-focus-visible/captures:ring-brand-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200">
-                            <svg class="h-3 w-3 transition-transform duration-200 motion-reduce:transition-none {expanded ? 'rotate-180' : ''}" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 8 5 5 5-5" /></svg>
+                        <!-- A quiet chip, not a second button shape: tinted, no border, the chevron
+                             after the count so the line still reads score, then captures. -->
+                        <span class="inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 font-semibold group-focus-visible/captures:ring-2 group-focus-visible/captures:ring-brand-500 {expanded
+                            ? 'bg-brand-50 text-brand-700 dark:bg-brand-950/50 dark:text-brand-300'
+                            : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}">
                             {capturesText}
+                            <svg class="h-3 w-3 transition-transform duration-200 motion-reduce:transition-none {expanded ? 'rotate-180' : ''}" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 8 5 5 5-5" /></svg>
                         </span>
                     </button>
                 {/if}

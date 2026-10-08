@@ -9,6 +9,8 @@ export interface CaptureFacts {
     birds: number | null;
     /** A matching call was heard; a manual observation has no camera moment to match. */
     heard: boolean;
+    /** The owner's favourite, so several in one visit can be told apart. */
+    favorite: boolean;
 }
 
 /**
@@ -36,6 +38,7 @@ export function captureFacts(capture: Detection, visit: DetectionVisit): Capture
     return {
         shown: capture.frigate_event === visit.representative.frigate_event,
         birds: counted >= 2 ? counted : null,
-        heard: capture.observation_source !== 'manual_upload' && Boolean(capture.audio_confirmed)
+        heard: capture.observation_source !== 'manual_upload' && Boolean(capture.audio_confirmed),
+        favorite: Boolean(capture.is_favorite)
     };
 }

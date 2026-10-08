@@ -63,6 +63,7 @@ class VisitRepository(DetectionRepository):
             SELECT d.id, d.detection_time, d.score, d.display_name, d.category_name,
                    d.frigate_event, d.camera_name, d.scientific_name, d.common_name,
                    d.species_id, d.taxa_id, d.is_hidden, d.manual_tagged, d.audio_confirmed, d.audio_species, d.audio_score,
+                   EXISTS (SELECT 1 FROM detection_favorites f WHERE f.detection_id = d.id) AS is_favorite,
                    julianday(d.detection_time) AS at,
                    {finish} AS finish, {finish_at} AS finish_at, LOWER(TRIM(COALESCE(d.scientific_name, ''))) AS name_key
             FROM detections d {bounds_join}
@@ -112,9 +113,11 @@ class VisitRepository(DetectionRepository):
             ROW_NUMBER() OVER (
                 PARTITION BY visit_identity, camera_name, visit_number ORDER BY at, id
             ) AS visit_position,
+            -- The owner's favourite leads the visit, so it is the photo the visit
+            -- shows rather than a capture hidden in its stack (#481).
             ROW_NUMBER() OVER (
                 PARTITION BY visit_identity, camera_name, visit_number
-                ORDER BY manual_tagged DESC, score DESC, at DESC, id DESC
+                ORDER BY is_favorite DESC, manual_tagged DESC, score DESC, at DESC, id DESC
             ) AS representative_position,
             ROW_NUMBER() OVER (
                 PARTITION BY visit_identity, camera_name, visit_number ORDER BY at DESC, id DESC
@@ -222,7 +225,9 @@ class VisitRepository(DetectionRepository):
         if not public_audio and await self._table_exists("bird_observations"):
             cte += """, bird_counts AS (
                 SELECT frigate_event, COUNT(*) AS counted FROM bird_observations
-                WHERE is_hidden = 0 GROUP BY frigate_event
+                WHERE is_hidden = 0
+                    AND frigate_event IN (SELECT frigate_event FROM matched_members)
+                GROUP BY frigate_event
             ), header_members AS (
                 SELECT v.*, b.counted, ROW_NUMBER() OVER (
                     PARTITION BY v.visit_id ORDER BY COALESCE(b.counted, 0) DESC, v.score DESC, v.id DESC
@@ -278,14 +283,18 @@ class VisitRepository(DetectionRepository):
     ) -> tuple[list[Detection], int]:
         cte, params = await self.grouping_cte(start=start, end=end, hidden_only=hidden_only)
         async with self.db.execute(
-            f"WITH {cte} SELECT COUNT(*) FROM visit_members WHERE visit_id = ?", [*params, visit_id]
-        ) as cursor:
-            total = int((await cursor.fetchone())[0])
-        async with self.db.execute(
-            f"WITH {cte} SELECT {DETECTION_SELECT_COLUMNS} FROM visit_members v JOIN detections d ON d.id = v.id "
+            f"WITH {cte} SELECT {DETECTION_SELECT_COLUMNS}, COUNT(*) OVER () AS total "
+            "FROM visit_members v JOIN detections d ON d.id = v.id "
             "LEFT JOIN detection_favorites f ON f.detection_id = d.id "
             "WHERE v.visit_id = ? ORDER BY v.at, v.id LIMIT ? OFFSET ?",
             [*params, visit_id, limit, offset],
         ) as cursor:
             rows = await cursor.fetchall()
-        return [_row_to_detection(row) for row in rows], total
+        if rows:
+            return [_row_to_detection(row[:-1]) for row in rows], int(rows[0][-1])
+        # An offset past the last capture still needs the visit's true total.
+        async with self.db.execute(
+            f"WITH {cte} SELECT COUNT(*) FROM visit_members WHERE visit_id = ?", [*params, visit_id]
+        ) as cursor:
+            total = int((await cursor.fetchone())[0])
+        return [], total

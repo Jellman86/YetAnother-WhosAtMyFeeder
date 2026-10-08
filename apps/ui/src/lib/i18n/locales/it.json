@@ -761,13 +761,15 @@
       "max_size_mb": "Limite di spazio (MiB)",
       "max_size_mb_help": "Quando foto e video occupano più di questo, vengono rimossi prima i più vecchi. I preferiti e il loro archivio vengono conservati. Questo limite e quello sopra prevalgono sul minimo di foto. 0 significa nessun limite.",
       "bird_scan_mode": "Intensità di ricerca degli uccelli",
-      "bird_scan_mode_help": "Standard usa meno CPU. Intensiva cerca anche nelle sezioni delle immagini grandi e classifica più ritagli. Entrambe contano tutti gli uccelli trovati nella scena scelta, ma nessuna garantisce di trovare tutti gli uccelli del video.",
+      "bird_scan_mode_help": "Si applica alle analisi manuali e automatiche. Standard usa meno CPU. Intensivo cerca anche nelle sezioni dei fotogrammi grandi e classifica più ritagli. Nessuna modalità garantisce di trovare tutti gli uccelli.",
       "bird_scan_standard": "Standard",
       "bird_scan_intensive": "Intensiva",
       "cache_clips_help": "Frigate le conserva già. Le copie restano anche se Frigate le elimina, ciascuna grande circa quanto la clip.",
       "cache_always_kept": "Foto, clip delle visite complete e anteprime vengono sempre conservate. I limiti qui sotto decidono per quanto tempo e quanto spazio occupano.",
       "cache_unavailable": "Non è possibile scrivere nella cartella dei media, quindi foto e video non vengono conservati. Controlla i permessi della cartella; i controlli di sistema mostrano l'errore.",
-      "cache_high_quality_storage_note": "Ogni visita conserva anche fotogrammi a piena risoluzione, spesso diversi MB: imposta un limite di spazio se è scarso."
+      "cache_high_quality_storage_note": "Ogni visita conserva anche fotogrammi a piena risoluzione, spesso diversi MB: imposta un limite di spazio se è scarso.",
+      "automatic_multi_bird_scan": "Trova automaticamente altri uccelli",
+      "automatic_multi_bird_scan_help": "Disattivato per impostazione predefinita per ridurre l’elaborazione. L’identificazione normale e il ritaglio dell’uccello principale continuano e i risultati esistenti vengono conservati. Usa Trova altri uccelli su una fotografia quando vuoi analizzarla. Se attivata, vengono analizzati i fotogrammi interi conservati."
     },
     "security": {
       "title": "Sicurezza",
@@ -2410,7 +2412,26 @@
     "audio_spectrogram_unavailable": "Spettrogramma non disponibile per questa corrispondenza",
     "manual_upload": "Aggiunto da un caricamento",
     "search_species": "Cerca specie",
-    "species_updated": "Specie aggiornata"
+    "species_updated": "Specie aggiornata",
+    "bird_scan": {
+      "action": "Trova altri uccelli",
+      "again": "Analizza di nuovo",
+      "detector_unavailable": "Installa un rilevatore per i ritagli per trovare altri uccelli.",
+      "reviewed_other_frame": "Gli uccelli verificati in un altro fotogramma vengono conservati. Questo fotogramma non può sostituirli.",
+      "scene_unavailable": "Il fotogramma intero di questa fotografia non è disponibile.",
+      "other_running": "Un altro fotogramma di questa acquisizione è in analisi. Riprova al termine.",
+      "media_changed": "Il fotogramma è cambiato durante l’analisi. Riprova con quello attuale.",
+      "interrupted": "L’analisi è stata interrotta. Puoi riprovare.",
+      "failed": "Impossibile completare l’analisi. Gli uccelli esistenti vengono conservati.",
+      "status_unavailable": "Impossibile caricare lo stato dell’analisi. Verrà ricontrollato a breve.",
+      "queued": "Questo fotogramma intero è in coda per l’analisi.",
+      "running": "Ricerca di uccelli in questo fotogramma intero.",
+      "completed": "Analisi completata. Uccelli trovati in questo fotogramma: {count}.",
+      "retained": "Il conteggio precedente e le tue correzioni vengono conservati.",
+      "not_scanned": "Questo fotogramma intero non è ancora stato analizzato per trovare altri uccelli.",
+      "loading": "Verifica dello stato dell’analisi di questo fotogramma…",
+      "start_unconfirmed": "Impossibile confermare la richiesta di analisi. Lo stato verrà verificato prima di riprovare."
+    }
   },
   "events": {
     "title": "Eventi",

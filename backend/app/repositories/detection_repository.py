@@ -5842,6 +5842,7 @@ class DetectionRepository:
         ) as cursor:
             hourly_rows = await cursor.fetchall()
 
+        source_totals: dict[str, dict] = {}
         async with self.db.execute(
             f"""SELECT timestamp, sensor_id, raw_data
                 FROM audio_detections
@@ -5849,20 +5850,18 @@ class DetectionRepository:
                 ORDER BY timestamp DESC""",
             params,
         ) as cursor:
-            source_rows = await cursor.fetchall()
-
-        source_totals: dict[str, dict] = {}
-        for row in source_rows:
-            source_name = _extract_birdnet_source_name(row[1], row[2])
-            if not source_name:
-                source_name = "Unknown source"
-            if source_name not in source_totals:
-                source_totals[source_name] = {
-                    "source_name": source_name,
-                    "count": 0,
-                    "last_heard": serialize_api_datetime(_parse_datetime(row[0])),
-                }
-            source_totals[source_name]["count"] += 1
+            while source_rows := await cursor.fetchmany(512):
+                for row in source_rows:
+                    source_name = _extract_birdnet_source_name(row[1], row[2])
+                    if not source_name:
+                        source_name = "Unknown source"
+                    if source_name not in source_totals:
+                        source_totals[source_name] = {
+                            "source_name": source_name,
+                            "count": 0,
+                            "last_heard": serialize_api_datetime(_parse_datetime(row[0])),
+                        }
+                    source_totals[source_name]["count"] += 1
 
         top_species = [
             {

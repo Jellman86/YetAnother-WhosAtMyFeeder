@@ -43,16 +43,37 @@ def high_abstention(model: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def low_shared_core(model: dict[str, Any]) -> dict[str, Any] | None:
-    score = model.get("shared_core_top1")
+    # With a known vocabulary, judge only the core birds the model can name: a
+    # European model has no output for the core panel's American birds.
+    if model.get("vocabulary_known"):
+        score = model.get("shared_core_top1_in_vocabulary")
+        scope = "on the core birds it can name"
+    else:
+        score = model.get("shared_core_top1")
+        scope = "on the core birds"
     if score is None or score >= LOW_SHARED_CORE_TOP1:
         return None
     return {
         "code": "low_shared_core",
         "message": (
-            f"shared-core top-1 {score:.1%} below {LOW_SHARED_CORE_TOP1:.0%} — "
-            "likely vocab mismatch, broken install, or incorrect labels"
+            f"top-1 {score:.1%} {scope}, below {LOW_SHARED_CORE_TOP1:.0%}: "
+            "likely a broken install, wrong labels or a preprocessing mismatch"
         ),
         "severity": "critical",
+    }
+
+
+def partial_vocabulary(model: dict[str, Any]) -> dict[str, Any] | None:
+    outside = model.get("species_outside_vocabulary") or 0
+    if not model.get("vocabulary_known") or outside <= 0:
+        return None
+    return {
+        "code": "partial_vocabulary",
+        "message": (
+            f"cannot name {outside} of the {model.get('panel_species')} test species; "
+            "accuracy is shown on the birds it can name"
+        ),
+        "severity": "info",
     }
 
 
@@ -125,6 +146,7 @@ _RULES = (
     inference_health_unhealthy,
     latency_drift,
     low_shared_core,
+    partial_vocabulary,
     high_abstention,
     provider_fallback,
 )
