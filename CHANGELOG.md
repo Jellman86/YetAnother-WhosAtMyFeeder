@@ -6,6 +6,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Video analysis on native Windows can finish and update the photograph when the platform
+  cannot safely open the optional scene cache files. It decodes the selected frame again,
+  preserving the same checks on the photograph and avoiding unsafe file access.
 - Additional-bird scanning is now optional and **off by default**, including on upgrade.
   Normal identification and target-photo selection continue. Enable **Automatically find
   additional birds** in **Settings → Data → Snapshot quality** to scan retained scenes
