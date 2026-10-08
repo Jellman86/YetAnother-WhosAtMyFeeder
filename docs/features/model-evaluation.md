@@ -5,10 +5,11 @@ Owner-only diagnostic at **`/diagnostics/model-eval`** that benchmarks every ins
 ## What it does
 
 1. Builds a species panel: hand-curated 50-species **shared core** of common feeder birds plus a region-aware extension drawn from iNaturalist `species_counts` near the configured location (lat / lng from settings, falls back to shared core only when location is unset).
-2. Fetches up to 3 taxonomy-verified images per species — **iNaturalist research-grade observations first, Wikimedia Commons fallback** when iNat returns fewer than the requested count.
-3. For each installed classifier (detector models are skipped), activates the model through the live `ModelManager`, runs every fetched image through `ClassifierService.classify_async()` — the same pipeline production uses — and records the result.
-4. Restores the originally-active model after the run finishes (even on failure).
-5. Cleans up the image cache at the end of the run; **persistent artifacts are kept** until you delete the run from the UI.
+2. Fetches up to 3 taxonomy-verified images per species — **iNaturalist research-grade observations first, Wikimedia Commons fallback** when iNat returns fewer than the requested count. A photo larger than 1024 px on its longest side is stored at that size, so latency measures the model rather than a full-size upload (Wikipedia's lead images are often 3840 px).
+3. When provider validation is enabled, validates every model's providers first. A model loads only on providers validated on this host, so validating afterwards would score a model on its CPU fallback.
+4. For each installed classifier (detector models are skipped), activates the model through the live `ModelManager`, runs every fetched image through `ClassifierService.classify_async()` — the same pipeline production uses — and records the result.
+5. Restores the originally-active model after the run finishes (even on failure).
+6. Cleans up the image cache at the end of the run; **persistent artifacts are kept** until you delete the run from the UI.
 
 ## Where the data lives
 
@@ -19,7 +20,7 @@ Each run writes a directory at `/config/yawamf-eval/<run_id>/` containing:
 | `summary.json` | headline metrics + per-model breakdown (top-1/3/5 accuracy, latency, abstention, shared-core vs regional split, sanity-check warnings) |
 | `runtime.json` | per-model provider / device / startup benchmark / drift factor / `InferenceHealth` snapshot |
 | `confusions.csv` | top wrong→right confusions per model, ranked by frequency |
-| `results.jsonl` | per-image top-5 predictions with scores and taxa_id resolution — only when **Include per-image details** is checked |
+| `results.jsonl` | per-image top-5 predictions with scores, output index, catalogue `species_id` and taxa_id resolution, plus the expected species and whether the model can name it — only when **Include per-image details** is checked |
 | `device_matrix.json` | image-aware classifier and crop-detector provider compile, finite-output, CPU-agreement and median inference-latency results when provider validation is enabled |
 
 The container mount means you can pull these straight off the host:
@@ -32,14 +33,19 @@ docker exec yawamf-monalithic cat /config/yawamf-eval/<run_id>/summary.json | jq
 
 ### Headline accuracy
 
-- **`top1_accuracy`** — strictest. Production threshold work usually compares against this.
-- **`shared_core_top1`** — accuracy on the universal feeder species panel. This is the apples-to-apples cross-model number; if a model scores low here, look at warnings before anything else.
-- **`regional_top1`** — accuracy on species observed near the configured location. EU-tuned models will look bad if the location is in North America — the harness flags this with `region_mismatch` rather than a regression.
+A prediction is scored by species, not by label text. Its species comes from the species catalogue through the model's checksum and output index, the same identity live detections use, so a European model's "Common starling" counts as the panel's "European Starling". When the catalogue does not know the model, or a test species, the harness falls back to matching taxa_id, scientific name or common name.
+
+A model can only name the species it has an output for. A European model has none for a Blue Jay, so every figure is reported twice:
+
+- **`top1_accuracy`**, **`shared_core_top1`**, **`regional_top1`** — over every test image. Production threshold work usually compares against top-1.
+- **`top1_accuracy_in_vocabulary`**, **`shared_core_top1_in_vocabulary`**, **`regional_top1_in_vocabulary`** (and top-3/top-5) — over the images of species the model can name. This is the fair cross-model number, and the one the page shows. `images_in_vocabulary` and `species_outside_vocabulary` (out of `panel_species`) say how much of the test set that covers; the page shows it under **Can name**. These are `null` when `vocabulary_known` is false.
+
+Only a species the catalogue proves is outside the model's outputs is set aside. Some outputs have no catalogue identity (the European models' "Feral pigeon" and "Great bittern"); a species stays in the score when any of those could be it, by sharing its genus or the last word of its common name. A species whose membership is unknown still counts, so a miss is never hidden on a guess. Which species a model can name is decided from the test panel, not from the images that classified successfully.
 
 ### Latency
 
 - **`mean_latency_ms`** / **`p95_latency_ms`** — observed inference time per image during the run.
-- **`startup_benchmark_ms`** — what the model was measured at when it was first loaded (CPU baseline or accelerated).
+- **`startup_benchmark_ms`** — what the model was measured at when it was first loaded (CPU baseline or accelerated). The startup self-test does not run in subprocess mode, so it is empty there and no drift ratio is computed.
 - **`latency_drift_ratio`** = mean / startup_benchmark. A value above ~5 is unusual and surfaces as the `latency_drift_high` warning. This is the signature pattern from issue #33 (OpenVINO Intel GPU running at ~12 s/frame instead of ~600 ms).
 
 ### Warnings
@@ -48,10 +54,11 @@ docker exec yawamf-monalithic cat /config/yawamf-eval/<run_id>/summary.json | jq
 |---|---|---|
 | `latency_drift_high` | measured mean > 5× the startup benchmark | suspect the accelerated provider — try toggling to CPU and rerun |
 | `high_abstention` | model returned `Unknown` / `Background` on > 10% of images | check labels.txt; vocab may not include feeder species |
-| `low_shared_core` | shared-core top-1 < 50% | broken install, wrong labels file, or model was trained on a non-overlapping vocabulary |
+| `low_shared_core` | top-1 < 50% on the shared-core species the model can name (on every shared-core species when its vocabulary is unknown) | broken install, wrong labels file, or a preprocessing mismatch |
+| `partial_vocabulary` | the model cannot name some test species, usually because they are outside its region | informational — accuracy is shown on the species it can name |
 | `provider_fallback_active` | requested an accelerated provider but actually running on CPU | first check **Image** and **Packaged** under **Settings → Detection → Runtime diagnostics**, then inspect `runtime.json` for a device or model fallback reason |
 | `incomplete_install` | `labels.txt` or `model_config.json` missing | use the Model Manager's repair download |
-| `inference_health_unhealthy` | `InferenceHealth` verdict at run end is `unhealthy` | the runtime errored or timed out during the run; check classifier logs |
+| `inference_health_unhealthy` | the `InferenceHealth` verdict for this model on the provider it ran on is `unhealthy` at run end | the runtime errored or timed out during the run; check classifier logs |
 | `region_mismatch` | EU model evaluated against NA region (or vice versa) | informational — accuracy will look low but isn't a regression |
 
 ### Confusions CSV
@@ -259,3 +266,12 @@ provider-native `providers` fields.
 - End-to-end Frigate challenger: `backend/scripts/eval_crop_strategy_challenger.py`
 - Frontend page: `apps/ui/src/lib/pages/ModelEvaluation.svelte`
 - Design doc: `docs/plans/2026-05-07-model-evaluation-harness-design.md`
+
+### Label sources
+
+Classifier runtimes (TFLite, ONNX Runtime and OpenVINO) look up labels using the
+checksum of the weights they actually load, including fallback models. A complete,
+contiguous catalogue mapping with the declared output width takes precedence over
+the label file. Unknown or incomplete mappings retain the label-file fallback.
+Installer integrity checks still verify the shipped label files; catalogue-first
+inference does not remove those installation assets.

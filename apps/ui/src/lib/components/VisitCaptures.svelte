@@ -109,6 +109,7 @@
     function notes(facts: CaptureFacts): { text: string; emphasis: boolean }[] {
         const found: { text: string; emphasis: boolean }[] = [];
         if (facts.shown) found.push({ text: $_('visits.shown_photo', { default: 'Visit photo' }), emphasis: true });
+        if (facts.favorite) found.push({ text: $_('detection.favorite_label_active', { default: 'Favorited' }), emphasis: true });
         if (facts.birds !== null) {
             found.push({ text: $_('visits.capture_birds', { values: { count: facts.birds }, default: '{count} birds' }), emphasis: false });
         }

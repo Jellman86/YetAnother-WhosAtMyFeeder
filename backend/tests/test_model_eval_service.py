@@ -110,8 +110,37 @@ def test_provider_summary_safe_when_status_missing():
 
 
 def test_inference_health_for_defaults_to_unknown():
-    assert _inference_health_for({})["verdict"] == "unknown"
-    assert _inference_health_for({"inference_health": {"verdict": "healthy"}})["verdict"] == "healthy"
+    assert _inference_health_for({}, model_id="rope")["verdict"] == "unknown"
+
+
+def test_inference_health_is_the_evaluated_models_own_runtime():
+    """The snapshot holds one entry per backend/provider/model and no overall verdict. The 2026-10-06
+    run reported "unknown" for every model while ConvNeXt's own runtime said unhealthy, 32 of 32
+    requests expired."""
+    status = {
+        "inference_backend": "openvino",
+        "active_provider": "intel_npu",
+        "inference_health": {
+            "status": "unhealthy",
+            "runtimes": {
+                "openvino/intel_npu/convnext_large_inat21": {
+                    "verdict": "unhealthy",
+                    "recent_failures": 32,
+                    "last_outcome": "lease_expired",
+                },
+                "openvino/intel_npu/rope_vit_b14_inat21": {"verdict": "healthy", "recent_failures": 0},
+            },
+        },
+    }
+
+    convnext = _inference_health_for(status, model_id="convnext_large_inat21")
+    rope = _inference_health_for(status, model_id="rope_vit_b14_inat21")
+    unseen = _inference_health_for(status, model_id="eva02_large_inat21")
+
+    assert convnext["verdict"] == "unhealthy"
+    assert convnext["runtime"]["last_outcome"] == "lease_expired"
+    assert rope["verdict"] == "healthy"
+    assert unseen == {"verdict": "unknown", "runtime": None}
 
 
 def test_is_correct_match_taxa_id_strict():
@@ -565,3 +594,226 @@ async def test_start_rejects_when_already_running(tmp_path: Path, monkeypatch):
                 await runner._task
             except asyncio.CancelledError:
                 pass
+
+
+STARLING_ID, BLUE_JAY_ID, ROBIN_ID = 101, 202, 303
+EU_MODEL_SHA = "e" * 64
+_PANEL = [
+    SpeciesEntry(1, "Sturnus vulgaris", "European Starling", "shared_core"),
+    SpeciesEntry(2, "Cyanocitta cristata", "Blue Jay", "shared_core"),
+    SpeciesEntry(3, "Erithacus rubecula", "European Robin", "regional"),
+]
+_PHOTO_COLOURS = {1: (200, 0, 0), 2: (0, 0, 200), 3: (0, 200, 0)}
+# A European model: it calls the starling "Common starling" and has no output for a Blue Jay.
+_EU_PREDICTIONS = {
+    (200, 0, 0): [{"index": 0, "label": "Common starling", "score": 0.9}],
+    (0, 0, 200): [{"index": 1, "label": "European robin", "score": 0.4}],
+    (0, 200, 0): [{"index": 1, "label": "European robin", "score": 0.95}],
+}
+
+
+async def _run_eu_model_evaluation(
+    tmp_path,
+    monkeypatch,
+    *,
+    catalogue_knows_model: bool,
+    sweep_devices: bool = True,
+    failing_colours=(),
+    parent_knows_checksum: bool = True,
+):
+    from PIL import Image
+
+    from app.services import classifier_service as classifier_module
+    from app.services import model_eval_service as service
+    from app.services.eval.image_fetcher import FetchedImage
+    from app.services.model_manager import model_manager
+    from app.services.species_catalog_resolver import species_catalog_resolver
+
+    events: list[str] = []
+
+    async def build_panel(**_kwargs):
+        return list(_PANEL)
+
+    async def fetch_panel_images(*, species, dest_root, **_kwargs):
+        fetched = {}
+        for row in species:
+            folder = Path(dest_root) / str(row["taxa_id"])
+            folder.mkdir(parents=True, exist_ok=True)
+            path = folder / "00.png"
+            Image.new("RGB", (8, 8), _PHOTO_COLOURS[row["taxa_id"]]).save(path)
+            fetched[row["taxa_id"]] = [
+                FetchedImage(
+                    taxa_id=row["taxa_id"],
+                    scientific_name=row["scientific_name"],
+                    common_name=row["common_name"],
+                    source="inat",
+                    source_url=f"https://example.test/{row['taxa_id']}.png",
+                    local_path=str(path),
+                )
+            ]
+        return fetched
+
+    class EuClassifier:
+        async def reload_bird_model(self):
+            events.append("reload")
+
+        async def classify_async(self, image):
+            events.append("classify")
+            if image.getpixel((0, 0)) in failing_colours:
+                raise RuntimeError("inference failed")
+            return [dict(row) for row in _EU_PREDICTIONS[image.getpixel((0, 0))]]
+
+        def active_model_sha256(self):
+            # A subprocess-mode parent never loads the model, so it may not know the checksum.
+            return EU_MODEL_SHA if parent_knows_checksum else None
+
+        def get_status(self):
+            return {
+                "inference_backend": "openvino",
+                "active_provider": "intel_npu",
+                "selected_provider": "intel_npu",
+                "inference_health": {
+                    "status": "ok",
+                    "runtimes": {"openvino/intel_npu/eu_model": {"verdict": "healthy"}},
+                },
+            }
+
+    async def list_installed_models():
+        return [SimpleNamespace(id="eu_model", ready=True, reason="ready", metadata=None, labels_path="", path="")]
+
+    async def activate_model(model_id):
+        model_manager.active_model_id = model_id
+        return True
+
+    async def device_sweep(*_args, **_kwargs):
+        events.append("sweep")
+        return {}
+
+    async def nothing(*_args, **_kwargs):
+        return None
+
+    species_ids = {"sturnus vulgaris": STARLING_ID, "cyanocitta cristata": BLUE_JAY_ID, "erithacus rubecula": ROBIN_ID}
+    monkeypatch.setenv("YAWAMF_EVAL_RUNS_DIR", str(tmp_path))
+    monkeypatch.setattr(service, "build_panel", build_panel)
+    monkeypatch.setattr(service, "fetch_panel_images", fetch_panel_images)
+    monkeypatch.setattr(classifier_module, "get_classifier", lambda: EuClassifier())
+    monkeypatch.setattr(model_manager, "list_installed_models", list_installed_models)
+    monkeypatch.setattr(model_manager, "activate_model", activate_model)
+    monkeypatch.setattr(model_manager, "active_model_id", "eu_model")
+    monkeypatch.setattr(
+        model_manager, "get_active_model_spec", lambda: {"model_id": "eu_model", "resolved_region": None}
+    )
+    monkeypatch.setattr(
+        "app.services.catalogue_labels.published_model_sha256",
+        lambda model_id, region=None: EU_MODEL_SHA if model_id == "eu_model" else None,
+    )
+    monkeypatch.setattr(
+        species_catalog_resolver,
+        "resolve_scientific_name",
+        lambda name: (species_ids.get(str(name).casefold()), "resolved"),
+    )
+    monkeypatch.setattr(
+        species_catalog_resolver,
+        "species_outputs",
+        lambda sha: {0: STARLING_ID, 1: ROBIN_ID} if catalogue_knows_model and sha == EU_MODEL_SHA else None,
+    )
+    monkeypatch.setattr(
+        species_catalog_resolver,
+        "unresolved_output_labels",
+        lambda sha: ("Unknown",) if catalogue_knows_model and sha == EU_MODEL_SHA else None,
+    )
+
+    runner = ModelEvalRunner()
+    monkeypatch.setattr(runner, "_emit", nothing)
+    monkeypatch.setattr(runner, "_device_sweep", device_sweep)
+    monkeypatch.setattr(runner, "_download_all_validation_models", nothing)
+
+    run_dir = tmp_path / "20261007-120000"
+    run_dir.mkdir()
+    await runner._do_run(
+        run_id="20261007-120000",
+        run_dir=run_dir,
+        include_per_image=True,
+        region_override=None,
+        sweep_devices=sweep_devices,
+    )
+    summary = json.loads((run_dir / SUMMARY_FILENAME).read_text())
+    rows = [json.loads(line) for line in (run_dir / "results.jsonl").read_text().splitlines()]
+    return summary["models"][0], rows, events
+
+
+@pytest.mark.asyncio
+async def test_a_regional_model_is_scored_by_species_and_on_the_birds_it_can_name(tmp_path, monkeypatch):
+    """The 2026-10-06 run scored the European FocalNet model 52.8% with a critical "broken install"
+    warning; on the European birds it was built for it scored 83.0%."""
+    model, rows, _events = await _run_eu_model_evaluation(tmp_path, monkeypatch, catalogue_knows_model=True)
+
+    starling = next(row for row in rows if row["taxa_id"] == 1)
+    assert starling["correct_top1"] is True
+    assert starling["top5"][0]["species_id"] == STARLING_ID
+    assert starling["expected_species_id"] == STARLING_ID
+    assert next(row for row in rows if row["taxa_id"] == 2)["in_vocabulary"] is False
+
+    assert model["top1_accuracy"] == pytest.approx(2 / 3, abs=1e-4)
+    assert model["vocabulary_known"] is True
+    assert model["panel_species"] == 3
+    assert model["species_outside_vocabulary"] == 1
+    assert model["images_in_vocabulary"] == 2
+    assert model["top1_accuracy_in_vocabulary"] == 1.0
+    assert model["shared_core_top1"] == 0.5
+    assert model["shared_core_top1_in_vocabulary"] == 1.0
+    codes = [warning["code"] for warning in model["warnings"]]
+    assert "low_shared_core" not in codes
+    assert "partial_vocabulary" in codes
+
+
+@pytest.mark.asyncio
+async def test_a_model_the_catalogue_does_not_know_falls_back_to_name_matching(tmp_path, monkeypatch):
+    model, rows, _events = await _run_eu_model_evaluation(tmp_path, monkeypatch, catalogue_knows_model=False)
+
+    assert next(row for row in rows if row["taxa_id"] == 1)["correct_top1"] is False
+    assert model["vocabulary_known"] is False
+    assert model["top1_accuracy_in_vocabulary"] is None
+    assert model["top1_accuracy"] == pytest.approx(1 / 3, abs=1e-4)
+
+
+@pytest.mark.asyncio
+async def test_providers_are_validated_before_the_accuracy_pass(tmp_path, monkeypatch):
+    """A model loads only on providers validated on this host. Sweeping after the accuracy pass scored
+    a model the sweep then cleared for the NPU (small_birds on 2026-10-06) on its CPU fallback."""
+    _model, _rows, events = await _run_eu_model_evaluation(tmp_path, monkeypatch, catalogue_knows_model=True)
+
+    assert events.index("sweep") < events.index("reload") < events.index("classify")
+
+
+@pytest.mark.asyncio
+async def test_the_summary_reports_the_evaluated_models_own_health(tmp_path, monkeypatch):
+    model, _rows, events = await _run_eu_model_evaluation(
+        tmp_path, monkeypatch, catalogue_knows_model=True, sweep_devices=False
+    )
+
+    assert "sweep" not in events
+    assert model["inference_health_verdict"] == "healthy"
+
+
+@pytest.mark.asyncio
+async def test_which_birds_a_model_can_name_does_not_depend_on_inference_succeeding(tmp_path, monkeypatch):
+    """Every Blue Jay image failing must not move the Blue Jay into "Can name"."""
+    model, rows, _events = await _run_eu_model_evaluation(
+        tmp_path, monkeypatch, catalogue_knows_model=True, failing_colours={_PHOTO_COLOURS[2]}
+    )
+
+    assert all(row["taxa_id"] != 2 for row in rows)
+    assert model["species_outside_vocabulary"] == 1
+
+
+@pytest.mark.asyncio
+async def test_a_subprocess_install_still_scores_by_species(tmp_path, monkeypatch):
+    """The default subprocess mode never loads the model in the main process, so the harness takes the
+    evaluated model's checksum from the registry, as the catalogue does."""
+    model, _rows, _events = await _run_eu_model_evaluation(
+        tmp_path, monkeypatch, catalogue_knows_model=True, parent_knows_checksum=False
+    )
+
+    assert model["vocabulary_known"] is True
+    assert model["top1_accuracy_in_vocabulary"] == 1.0

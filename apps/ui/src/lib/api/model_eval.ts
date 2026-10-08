@@ -51,6 +51,16 @@ export interface ModelEvalModelSummary {
     latency_drift_ratio?: number | null;
     shared_core_top1: number;
     regional_top1: number;
+    /** Runs before 2.22 carry none of the vocabulary fields. */
+    vocabulary_known?: boolean;
+    panel_species?: number;
+    species_outside_vocabulary?: number | null;
+    images_in_vocabulary?: number | null;
+    top1_accuracy_in_vocabulary?: number | null;
+    top3_accuracy_in_vocabulary?: number | null;
+    top5_accuracy_in_vocabulary?: number | null;
+    shared_core_top1_in_vocabulary?: number | null;
+    regional_top1_in_vocabulary?: number | null;
     inference_health_verdict?: string | null;
     warnings: ModelEvalWarning[];
 }

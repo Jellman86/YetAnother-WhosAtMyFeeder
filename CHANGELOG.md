@@ -10,6 +10,30 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   frame before offering the action, with a viewfinder icon in place of a glyph that read as a
   chain link on a phone. The field log's capture count on a phone is a quiet chip with its arrow
   after the count, rather than a bordered button louder than the bird's name.
+- CPU, CUDA and TFLite classifiers now use complete catalogue labels for the actual
+  model weights, including runtime fallbacks. A missing or altered label file no
+  longer overrides those labels; unknown or incompletely mapped models retain
+  the existing file fallback.
+
+- Video analysis keeps a visit tied to the bird in Frigate's photograph (#481). At a busy
+  feeder Frigate's track can move to a neighbouring bird after the photographed one leaves;
+  crops after that jump no longer count as the visit's bird, and the visit's area no longer
+  stretches to cover it. When the tracked bird's own crops cannot agree on a species, a
+  different bird that is easier to see elsewhere in the frame is no longer named instead:
+  the visit keeps its existing identification.
+- A favourite capture now leads its visit (#481). With captures grouped into visits, a favourite
+  could sit unseen inside a stack whose card showed another capture, even under the Favorites
+  filter. The visit card now shows the favourite (the best-scoring one when there are several),
+  and the capture lists in the Explorer and the field log mark each favourite as **Favorited**.
+- **Model evaluation** compares models fairly. A prediction is scored by species, so a European
+  model's "Common starling" now counts as the European Starling it is. Accuracy is shown on the test
+  birds each model can name, with how many that is under **Can name**: a European model is no
+  longer marked down for American birds it has no output for, and no longer warned about as a
+  likely broken install. Rescoring an earlier run this way moved the European FocalNet model from
+  52.8% to about 83%, level with EVA-02 Large on the European birds it was built for. Providers are now validated before accuracy is measured, so a
+  model is scored on the accelerator it will use rather than on its CPU fallback. Full-size test
+  photos are stored at 1024 px, so latency measures the model instead of a 3840 px upload, and
+  each model's health comes from its own runtime instead of always reading "unknown".
 - Health diagnostics now show video queue counts and waiting ages by source, active phases,
   and scheduler-observed pressure and progress counters. These help distinguish live-work
   priority, worker capacity and circuit waits without changing scheduling or worker counts.
