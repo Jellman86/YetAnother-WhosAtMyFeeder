@@ -367,13 +367,14 @@ async def test_an_uploads_chosen_and_generated_photos_show_and_revert_to_its_spe
 
             reverted = await client.post(f"/api/frigate/{event_id}/snapshot/apply", json={"mode": "revert_original"})
             assert reverted.status_code == 200, reverted.text
-            assert await media_cache.get_snapshot(event_id) is None, (
-                "no chosen frame is left to be reported or archived"
-            )
+            # The original is held as the owner's choice, so Score again cannot replace it (as for any visit).
+            assert await media_cache.get_snapshot(event_id) == species_photo
+            assert (await media_cache.get_snapshot_metadata(event_id) or {}).get("manual_selection") is True
         for colour in await colours():
             assert colour[2] > 200, "back on the species photo"
 
         # Photo generation commits to the cache the same way, and the upload shows it.
+        await media_cache.delete_snapshot(event_id)
         await media_cache.replace_snapshot(
             event_id, _jpeg((30, 200, 30)), source="high_quality_bird_crop", automatic=True
         )
@@ -438,5 +439,36 @@ async def test_an_upload_keeps_its_common_name_when_the_lookup_returns_none(clie
             detection = await DetectionRepository(db).get_by_frigate_event(event_id)
         assert detection.common_name == "Ruby-throated Hummingbird"
         assert detection.display_name == "Ruby-throated Hummingbird"
+    finally:
+        assert (await client.delete(f"/api/events/{event_id}")).status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_a_species_correction_moves_an_uploads_photo_past_a_generated_one(client: httpx.AsyncClient, tmp_path):
+    """A generated photo held in the cache would otherwise mask the corrected bird's photo."""
+    from app.services.media_cache import media_cache
+
+    draft = await _analysed_video_draft(client, tmp_path)
+    with patch("app.services.manual_observation_service.taxonomy_service.get_names", new=AsyncMock(side_effect=_names)):
+        saved = await client.post(f"/api/manual-observations/{draft['id']}/confirm", json={"label": "Downy Woodpecker"})
+    event_id = saved.json()["event_id"]
+    await media_cache.replace_snapshot(event_id, _jpeg((30, 200, 30)), source="high_quality_bird_crop", automatic=True)
+    try:
+        with (
+            patch("app.routers.events.taxonomy_service.get_names", new=AsyncMock(side_effect=_names)),
+            patch(
+                "app.routers.events.audio_service.correlate_species", new=AsyncMock(return_value=(False, None, None))
+            ),
+            patch("app.routers.events.broadcaster.broadcast", new=AsyncMock()),
+            patch("app.services.archive_service.archive_service.refresh_photograph", new=AsyncMock()) as refresh,
+        ):
+            response = await client.patch(f"/api/events/{event_id}", json={"display_name": "Tufted Titmouse"})
+        assert response.status_code == 200, response.text
+        assert response.json()["photo_changed"] is True
+        refresh.assert_awaited_once_with(event_id)  # a favourite's archive follows the new photo
+        photo = await client.get(f"/api/frigate/{event_id}/snapshot.jpg")
+        size, colour = _dominant(photo.content)
+        assert size == (32, 32) and colour[0] > 200 and colour[2] < 60, "the titmouse, not the generated photo"
+        assert await media_cache.get_snapshot(event_id) is None
     finally:
         assert (await client.delete(f"/api/events/{event_id}")).status_code == 200

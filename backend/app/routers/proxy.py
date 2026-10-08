@@ -1821,9 +1821,18 @@ async def _apply_snapshot_candidate(request_body: SnapshotApplyRequest, event_id
     from app.services.media_cache import media_cache
 
     if request_body.mode == "revert_original" and event_id.startswith("manual_"):
-        # Frigate never had an upload; its original photo is its own species photo, which shows
-        # again once no chosen photo is held in the cache.
-        await media_cache.delete_snapshot(event_id)
+        # Frigate never had an upload; its original photo is its own species photo. It is held as
+        # the owner's choice, as an ordinary revert holds Frigate's, so Score again keeps it.
+        from app.services.manual_observation_service import manual_observation_service
+
+        own_photo = await manual_observation_service.path_for_event(event_id, preview=True)
+        if own_photo is None:
+            raise HTTPException(status_code=404, detail="Original photo unavailable")
+        replaced = await media_cache.replace_snapshot(
+            event_id, await asyncio.to_thread(own_photo.read_bytes), source="manual_upload", manual_selection=True
+        )
+        if not replaced:
+            raise HTTPException(status_code=409, detail="Snapshot apply failed")
         async with get_db() as db:
             await DetectionRepository(db).mark_selected_snapshot_candidate(event_id, None)
         from app.services.archive_service import archive_service

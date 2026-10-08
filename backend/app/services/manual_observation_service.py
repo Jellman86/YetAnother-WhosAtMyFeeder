@@ -642,7 +642,18 @@ class ManualObservationService:
             draft = await ManualObservationRepository(db).get_by_event_id(event_id)
         if draft is None or draft.media_type != "video":
             return False
-        return await self._use_photo_of(draft, names)
+        changed = await self._use_photo_of(draft, names)
+        if changed:
+            # A chosen or generated photo held in the cache would mask the corrected bird.
+            from app.services.media_cache import media_cache
+
+            await media_cache.delete_snapshot(event_id)
+            async with get_db() as db:
+                await DetectionRepository(db).mark_selected_snapshot_candidate(event_id, None)
+            from app.services.archive_service import archive_service
+
+            await archive_service.refresh_photograph(event_id)
+        return changed
 
     async def delete(self, draft_id: str) -> None:
         draft = await self.get(draft_id)
