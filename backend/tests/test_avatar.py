@@ -51,6 +51,7 @@ def test_a_rotated_phone_photo_is_stored_upright():
         (b"\xff\xd8\xff" + b"0" * 64, "not_an_image"),
         (b"x" * (avatar_service.AVATAR_MAX_UPLOAD_BYTES + 1), "too_large"),
     ],
+    ids=["empty", "svg", "truncated_jpeg", "oversized"],
 )
 def test_anything_that_is_not_a_usable_image_is_refused(data, reason):
     with pytest.raises(avatar_service.AvatarError, match=reason):
