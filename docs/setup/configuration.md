@@ -120,7 +120,11 @@ a saved credential can be re-tested without typing it again.
 - **iNaturalist** — owner-reviewed submissions over OAuth. Needs App Owner approval from
   iNaturalist first.
 - **Home Assistant weather** — take each visit's weather from your own HA instance instead of a
-  regional forecast.
+  regional forecast. Current readings are shared across detections for up to 30 seconds;
+  entirely unavailable readings are retried after five seconds. A missing field in an otherwise
+  usable reading stays unknown until that reading expires. Changing the weather source, location,
+  credentials or selected sensors starts a new reading. Home Assistant sensors are fetched
+  together, and an unavailable selected sensor stays unknown rather than borrowing a forecast.
 - **Location** — your latitude and longitude for weather enrichment, optional `state` and
   `country` values for the eBird export, and **Display Units** (`Metric`, `Imperial`, or
   `British` for °C with mph and mm). Distances elsewhere in the UI follow this choice.

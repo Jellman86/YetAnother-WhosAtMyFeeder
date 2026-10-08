@@ -542,6 +542,7 @@ class AutoVideoClassifierService:
                     started_at_epoch = time.time()
                     self._active_metadata[frigate_event] = {
                         "source": source,
+                        "queued_at": pending_metadata.get("queued_at", time.monotonic()),
                         "started_at": time.monotonic(),
                         # Keep the queue admission time as the job's identity timestamp.
                         # Replacing it with the worker start time made rows jump whenever
@@ -2297,9 +2298,16 @@ class AutoVideoClassifierService:
         self, frigate_event: str, dest_path: str, skip_delay: bool = False
     ) -> tuple[bool, Optional[str]]:
         """Poll Frigate for clip availability with retries, streaming into dest_path."""
-        # Initial delay to allow Frigate to finalize the clip
+        # Frigate's finalization grace starts when the visit is queued, not when
+        # a busy worker finally reaches it. Keep that grace for fresh visits and
+        # direct callers, but do not spend another full delay on an old backlog.
         if not skip_delay:
-            await asyncio.sleep(settings.classification.video_classification_delay)
+            delay = float(settings.classification.video_classification_delay)
+            queued_at = self._active_metadata.get(frigate_event, {}).get("queued_at")
+            if isinstance(queued_at, (int, float)):
+                delay -= max(0.0, time.monotonic() - queued_at)
+            if delay > 0.0:
+                await asyncio.sleep(delay)
 
         max_retries = settings.classification.video_classification_max_retries
         retry_interval = settings.classification.video_classification_retry_interval
