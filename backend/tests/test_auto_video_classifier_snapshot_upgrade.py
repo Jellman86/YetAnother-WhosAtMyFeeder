@@ -1189,7 +1189,8 @@ async def test_process_event_maintenance_timeout_falls_back_to_snapshot_without_
 @pytest.mark.parametrize(
     "failure", [asyncio.TimeoutError(), VideoClassificationWorkerError("video_worker_heartbeat_timeout")]
 )
-async def test_video_failure_still_opens_circuit_when_snapshot_is_filtered(monkeypatch, failure):
+@pytest.mark.parametrize("snapshot_error", ["low_confidence", "snapshot_fetch_failed"])
+async def test_video_failure_still_opens_circuit_when_snapshot_cannot_recover(monkeypatch, failure, snapshot_error):
     monkeypatch.setattr(settings.classification, "video_classification_failure_threshold", 1)
     service = AutoVideoClassifierService()
     event_id = "evt-filtered-snapshot-after-failure"
@@ -1198,7 +1199,7 @@ async def test_video_failure_still_opens_circuit_when_snapshot_is_filtered(monke
     service._classifier.classify_video_async = AsyncMock(side_effect=failure)
     service._update_status = AsyncMock()
     service._wait_for_clip = AsyncMock(return_value=(True, None))
-    service._classify_from_snapshot = AsyncMock(return_value="low_confidence")
+    service._classify_from_snapshot = AsyncMock(return_value=snapshot_error)
     with (
         patch.object(
             auto_video_classifier_module.frigate_client,

@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Missing snapshots no longer open the video inference circuit and pause the rest of a
+  maintenance queue. Unavailable-media jobs still fail visibly; worker failures retain circuit
+  protection (#481).
+
 - Opening Settings no longer repeats old detection and weather backfill completion or failure
   messages. New completions still announce once; saved results remain available.
 

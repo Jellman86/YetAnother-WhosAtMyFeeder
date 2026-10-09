@@ -1,7 +1,9 @@
 import asyncio
+import collections
 import contextlib
 import types
 import time
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -832,6 +834,8 @@ FRIGATE_SIDE_ERROR_CODES = [
     "clip_http_502",
     "clip_invalid",
     "clip_decode_failed",
+    # Snapshot fallback could not load any media before inference
+    "snapshot_fetch_failed",
     # Task lifecycle
     "video_cancelled",
 ]
@@ -847,15 +851,16 @@ SAFE_VIDEO_OUTCOME_CODES = [
 
 
 @pytest.mark.asyncio
-async def test_frigate_connectivity_errors_do_not_increment_failure_count():
+@pytest.mark.parametrize("source", ["live", "manual", "maintenance"])
+async def test_frigate_connectivity_errors_do_not_increment_failure_count(source):
     """Every Frigate-side error code must be silently ignored by the circuit breaker."""
     service = AutoVideoClassifierService()
     for i, code in enumerate(FRIGATE_SIDE_ERROR_CODES):
-        service._record_failure(f"evt-frigate-{i}", code)
+        service._record_failure(f"evt-frigate-{i}", code, source=source)
 
-    status = service.get_status()
+    status = service.get_circuit_status(source)
     assert status["failure_count"] == 0, f"Expected 0 failures after Frigate-side errors, got {status['failure_count']}"
-    assert status["circuit_open"] is False
+    assert status["open"] is False
 
 
 @pytest.mark.asyncio
@@ -1495,3 +1500,140 @@ async def test_load_preferred_clip_classifies_retained_partial_recording(monkeyp
     assert clip_start_timestamp == 100.0
     assert dest.read_bytes() == valid_clip
     wait_for_clip_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("healthy_tail", [False, True])
+async def test_35_missing_snapshots_settle_without_inference_circuit(monkeypatch, healthy_tail):
+    service = auto_video_classifier_module.AutoVideoClassifierService()
+    states = {f"missing-{i}": "pending" for i in range(35)}
+    expected = {event: "failed" for event in states}
+    if healthy_tail:
+        states["healthy-after-missing"] = "pending"
+        expected["healthy-after-missing"] = "completed"
+    attempts = collections.defaultdict(list)
+    active = 0
+    peak = 0
+    real_sleep = asyncio.sleep
+
+    async def accelerated_sleep(seconds):
+        await real_sleep(min(seconds, 0.005))
+
+    async def update(event, status, **kwargs):
+        states[event] = status
+        return True
+
+    class FakeDb:
+        async def __aenter__(self):
+            return object()
+
+        async def __aexit__(self, *args):
+            return False
+
+    repo = MagicMock()
+    repo.get_by_frigate_event = AsyncMock(
+        side_effect=lambda event: types.SimpleNamespace(video_classification_status=states[event])
+    )
+    repo.get_video_classification_recovery_candidates = AsyncMock(
+        side_effect=lambda **kwargs: [
+            {"event_id": event, "camera": "cam1", "status": status}
+            for event, status in states.items()
+            if status in {"pending", "processing"}
+        ]
+    )
+    monkeypatch.setattr(auto_video_classifier_module, "get_db", FakeDb)
+    monkeypatch.setattr(auto_video_classifier_module, "DetectionRepository", lambda db: repo)
+    monkeypatch.setattr(auto_video_classifier_module, "resolve_video_concurrency", lambda **kwargs: 2)
+    monkeypatch.setattr(asyncio, "sleep", accelerated_sleep)
+    monkeypatch.setattr(
+        auto_video_classifier_module.frigate_client,
+        "get_event_with_error",
+        AsyncMock(return_value=(None, "event_not_found")),
+    )
+    monkeypatch.setattr(auto_video_classifier_module.broadcaster, "broadcast", AsyncMock())
+    monkeypatch.setattr(auto_video_classifier_module.media_cache, "has_clip", lambda event: False)
+    monkeypatch.setattr(auto_video_classifier_module.media_cache, "has_recording_clip", lambda event: False)
+    monkeypatch.setattr(auto_video_classifier_module.settings.frigate, "recording_clip_enabled", True)
+    monkeypatch.setattr(
+        auto_video_classifier_module.maintenance_coordinator, "try_acquire", AsyncMock(return_value=True)
+    )
+    monkeypatch.setattr(auto_video_classifier_module.maintenance_coordinator, "release", AsyncMock())
+    monkeypatch.setattr(service, "_update_status", update)
+    monkeypatch.setattr(service, "_auto_delete_if_missing", AsyncMock())
+    monkeypatch.setattr(service, "_record_diagnostic", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        auto_video_classifier_module,
+        "load_snapshot_classification_input",
+        AsyncMock(
+            side_effect=lambda event, **kwargs: (
+                (Path(__file__).parent / "fixtures/crop_detector_images/feeder_real/feeder_robin_01.jpg").read_bytes()
+                if event == "healthy-after-missing"
+                else None,
+                auto_video_classifier_module.ClassificationInputProvenance("frigate_snapshot", False),
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        auto_video_classifier_module, "reconcile_snapshot_identity", AsyncMock(return_value="existing_photo_preserved")
+    )
+    monkeypatch.setattr(service, "_broadcast_reclassification_completed", AsyncMock())
+    monkeypatch.setattr(
+        auto_video_classifier_module.settings.classification, "video_classification_failure_threshold", 5
+    )
+    monkeypatch.setattr(
+        auto_video_classifier_module.settings.classification, "video_classification_failure_cooldown_minutes", 15
+    )
+    service._classifier = MagicMock()
+    service._classifier.get_admission_status.return_value = {}
+    service._classifier.classify_async_background = AsyncMock(
+        return_value=[{"label": "Robin", "score": 0.99, "index": 1}]
+    )
+
+    async def save_result(event, result, **kwargs):
+        states[event] = "completed"
+        return True
+
+    monkeypatch.setattr(service, "_save_results", AsyncMock(side_effect=save_result))
+    monkeypatch.setattr(auto_video_classifier_module, "_active_model_id_or_none", lambda: "test-model")
+    original_process = service._process_event
+
+    async def observed(event, camera, **kwargs):
+        nonlocal active, peak
+        attempts[event].append(kwargs.get("precheck_retry_attempt", 0))
+        active += 1
+        peak = max(peak, active)
+        try:
+            await original_process(event, camera, **kwargs)
+        finally:
+            active -= 1
+
+    monkeypatch.setattr(service, "_process_event", observed)
+    service._running = True
+    assert await service._restore_unfinished_jobs() == len(states)
+    processor = asyncio.create_task(service._process_queue_loop())
+    try:
+        deadline = asyncio.get_running_loop().time() + 5
+        while asyncio.get_running_loop().time() < deadline:
+            # Recovery must not reclaim sleeping retries while the missing-media backlog drains.
+            await service._restore_unfinished_jobs()
+            await real_sleep(0.001)
+            if states == expected and not service.get_jobs_snapshot():
+                break
+        assert states == expected, (
+            collections.Counter(states.values()),
+            service.get_circuit_status("maintenance"),
+        )
+        assert dict(attempts) == {event: [0, 1] for event in states}, dict(attempts)
+        assert peak <= 2, peak
+        assert service.get_circuit_status("maintenance")["failure_count"] == 0
+        assert not service.get_circuit_status("maintenance")["open"]
+        assert service._pending_queue.empty()
+        assert service.get_jobs_snapshot() == []
+        assert not service._precheck_retry_tasks
+        assert service._classifier.classify_async_background.await_count == int(healthy_tail)
+        assert service._save_results.await_count == int(healthy_tail)
+        assert auto_video_classifier_module.reconcile_snapshot_identity.await_count == len(states)
+        service._auto_delete_if_missing.assert_not_awaited()
+    finally:
+        service._processor_task = processor
+        await service.stop()

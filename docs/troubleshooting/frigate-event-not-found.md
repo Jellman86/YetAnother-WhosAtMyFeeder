@@ -143,6 +143,7 @@ You can control this in **Settings → Data → Media integrity**:
 | `event_not_found` | event processor / video | Frigate had no event and no cached copy existed. | ⚠️ classify failed |
 | `drop_classify_snapshot_unavailable` | event processor | No snapshot could be fetched from Frigate and none was cached in time, so the detection was **dropped** before classification. | ❌ **dropped** |
 | `clip_not_found` / `clip_not_retained` | video analysis | The event clip is not (or no longer) available in Frigate. Manual analysis visibly falls back to the best snapshot; automatic work records the unavailable video according to its fallback policy. | ✅ kept |
+| `snapshot_fetch_failed` | video analysis | Neither a retained nor an upstream snapshot could be loaded for fallback classification. The job fails visibly without pausing other jobs through the inference circuit. | ✅ kept |
 | `video_precheck_snapshot_fallback` | video analysis | Frigate could not supply the event/video, so an owner-requested job continued from the best snapshot. | ✅ kept |
 | `frigate_missing_marked` | frigate-missing policy | A stored detection was flagged because Frigate no longer has its event/media (see Media integrity above). | ✅ kept |
 | `frigate_missing_deleted` | frigate-missing policy | A stored detection was **deleted** because Frigate no longer has it and the policy is set to delete. | ❌ **deleted** |
@@ -152,6 +153,9 @@ dropped) and `frigate_missing_deleted` (a stored detection removed) — are the 
 worth acting on. Both are reduced by the same steps: make sure `snapshots` are
 enabled in Frigate for the camera, keep the brief-visit tuning above so more objects
 persist, and set the Media integrity policy to **keep**.
+
+Missing events, clips and snapshots do not count as inference circuit failures. Worker crashes
+and inference timeouts still count, including when a snapshot fallback cannot recover the job.
 
 ## Checking whether this affected a specific detection
 
