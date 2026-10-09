@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Video jobs waiting for a recording clip keep their bounded retry count. Periodic recovery
+  could reclaim the same waiting visit repeatedly, leaving a persistent backlog even at a quiet
+  feeder. Retries now use the normal queue and its concurrency limits (#481).
+
 - The **Health** settings page is tidier. The system graph fills the width of its card instead of
   sitting small in the middle, its scale sits beside the plot rather than over the newest samples,
   and the overall verdict (**System Status**) now opens the **System** card with the subsystem
