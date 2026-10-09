@@ -21,6 +21,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   grow a little with the window instead of flattening into a strip, their bars widen to fit, and
   the species donuts scale with them. Audio charts follow the colour theme instead of always being
   teal.
+- Settings and About use the full width like every other page; they kept the old narrow centred
+  column. About still holds its paragraphs to a comfortable line length. The unsaved-changes bar in
+  Settings starts beside the sidebar instead of running under it.
+- Healthy states are green in every colour theme: **All good**, **Verified**, an available
+  accelerator and an active provider showed in the blue tit theme's amber, which means something
+  needs you.
 - The sidebar runs to the bottom of the page in every case, and its CPU and accelerator readout no
   longer crowds the **System status** label.
 - The app uses the whole width of a wide screen instead of a narrow centred column. On a very wide

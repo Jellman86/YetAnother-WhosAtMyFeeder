@@ -79,7 +79,7 @@
         {:else if runtimePlanned}
             <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('settings.detection.band_runtime_planned', { default: 'loads on first detection' })}</span>
         {:else if providerVerified}
-            <span class="inline-flex items-center gap-1 text-xs font-semibold text-accent-700 dark:text-accent-300">
+            <span class="inline-flex items-center gap-1 text-xs font-semibold text-success-700 dark:text-success-300">
                 {$_('settings.detection.band_verified')}
                 <svg class="h-3 w-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 8.5 3.5 3.5L13 4.5" /></svg>
             </span>
@@ -135,7 +135,7 @@
                 {$_('settings.detection.band_needs_attention', { values: { count: Math.max(issueCount, 1) } })}
             </span>
         {:else}
-            <span class="text-sm font-bold text-accent-700 dark:text-accent-300">{$_('settings.detection.band_all_good')}</span>
+            <span class="text-sm font-bold text-success-700 dark:text-success-300">{$_('settings.detection.band_all_good')}</span>
         {/if}
         <span class="text-xs font-semibold text-brand-700 underline-offset-2 group-hover:underline dark:text-brand-300">
             {$_('settings.detection.band_full_report')}

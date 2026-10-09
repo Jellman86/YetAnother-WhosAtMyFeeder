@@ -88,7 +88,7 @@
     function statusChipClass(status: string | undefined): string {
         switch (status ?? 'stable') {
             case 'stable':
-                return 'bg-accent-500/10 text-accent-700 dark:text-accent-300 border-accent-500/20';
+                return 'bg-success-500/10 text-success-700 dark:text-success-300 border-success-500/20';
             case 'beta':
                 return 'bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/20';
             case 'experimental':
@@ -291,7 +291,7 @@
                 if (isActive) {
                     return {
                         label: `${baseLabel}: ${t('settings.detection.model_manager_provider_active_suffix', 'Active')}`,
-                        className: 'bg-accent-500/10 text-accent-700 dark:text-accent-300 border-accent-500/20',
+                        className: 'bg-success-500/10 text-success-700 dark:text-success-300 border-success-500/20',
                         title: t('settings.detection.active_provider_label', 'Active')
                     };
                 }

@@ -880,7 +880,7 @@
                     </p>
                     <div class="flex flex-wrap items-center gap-2">
                         {#if showCudaDiagnostics}
-                            <span class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-bold {(classifierStatus.cuda_available ?? false) ? 'bg-accent-500/10 text-accent-700 dark:text-accent-300' : ((classifierStatus.cuda_provider_installed ?? false) ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300' : 'bg-slate-500/10 text-slate-600 dark:text-slate-400')}">
+                            <span class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-bold {(classifierStatus.cuda_available ?? false) ? 'bg-success-500/10 text-success-700 dark:text-success-300' : ((classifierStatus.cuda_provider_installed ?? false) ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300' : 'bg-slate-500/10 text-slate-600 dark:text-slate-400')}">
                                 {#if classifierStatus.cuda_available}
                                     {$_('settings.detection.cuda_available')}
                                 {:else if (classifierStatus.cuda_provider_installed ?? false) && !(classifierStatus.cuda_hardware_available ?? false)}
@@ -891,13 +891,13 @@
                             </span>
                         {/if}
                         {#if showIntelDiagnostics}
-                            <span class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-bold {(classifierStatus.openvino_available ?? false) ? 'bg-accent-500/10 text-accent-700 dark:text-accent-300' : 'bg-slate-500/10 text-slate-600 dark:text-slate-400'}">
+                            <span class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-bold {(classifierStatus.openvino_available ?? false) ? 'bg-success-500/10 text-success-700 dark:text-success-300' : 'bg-slate-500/10 text-slate-600 dark:text-slate-400'}">
                                 {$_('settings.detection.openvino_status', { default: 'OpenVINO' })}: {(classifierStatus.openvino_available ?? false) ? $_('common.available', { default: 'Available' }) : $_('common.unavailable', { default: 'Unavailable' })}
                             </span>
-                            <span class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-bold {(classifierStatus.intel_gpu_available ?? false) ? 'bg-accent-500/10 text-accent-700 dark:text-accent-300' : 'bg-slate-500/10 text-slate-600 dark:text-slate-400'}">
+                            <span class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-bold {(classifierStatus.intel_gpu_available ?? false) ? 'bg-success-500/10 text-success-700 dark:text-success-300' : 'bg-slate-500/10 text-slate-600 dark:text-slate-400'}">
                                 {$_('settings.detection.intel_gpu_status', { default: 'Intel GPU' })}: {(classifierStatus.intel_gpu_available ?? false) ? ($_('settings.detection.auto_detected', { default: 'Auto-detected' }) + (providerVerified('intel_gpu') ? ' · verified ✓' : ' · unverified')) : $_('common.not_available', { default: 'Not detected' })}
                             </span>
-                            <span class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-bold {(classifierStatus.intel_npu_available ?? false) ? 'bg-accent-500/10 text-accent-700 dark:text-accent-300' : 'bg-slate-500/10 text-slate-600 dark:text-slate-400'}">
+                            <span class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-bold {(classifierStatus.intel_npu_available ?? false) ? 'bg-success-500/10 text-success-700 dark:text-success-300' : 'bg-slate-500/10 text-slate-600 dark:text-slate-400'}">
                                 {$_('settings.detection.intel_npu_status', { default: 'Intel NPU' })}: {(classifierStatus.intel_npu_available ?? false) ? ($_('settings.detection.auto_detected', { default: 'Auto-detected' }) + (providerVerified('intel_npu') ? ' · verified ✓' : ' · unverified')) : $_('common.not_available', { default: 'Not detected' })}
                             </span>
                         {/if}
