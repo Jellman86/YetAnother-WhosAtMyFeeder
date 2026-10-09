@@ -420,7 +420,10 @@
       "reconnecting": "Riconnessione…",
       "window": "Ultime 24 ore",
       "loading": "ancora in caricamento",
-      "unavailable": "non disponibile"
+      "unavailable": "non disponibile",
+      "birds_scope_short": "da {count} catture analizzate",
+      "nothing_to_review": "niente da rivedere",
+      "seen_and_heard": "visti e sentiti"
     },
     "desk": {
       "cameras_empty": "Nessuna telecamera segnalata. Aggiungile in Impostazioni → Connessione.",
@@ -3161,6 +3164,9 @@
     "errors_samples": "ID eventi di esempio",
     "errors_snapshot_ref": "Snapshot di salute: {status} @ {at}",
     "error_bundles_title": "Pacchetti di errori",
+    "errors_export_failed": "Impossibile recuperare la diagnostica attuale. Riprova.",
+    "phase_waiting_for_clip": "In attesa del filmato registrato",
+    "phase_waiting_for_worker": "In attesa del ripristino del processo",
     "errors_export_title": "Esportazione diagnostica",
     "errors_export_count": "{count} salvati",
     "errors_export_desc": "Un pacchetto raccoglie stato dell’area di lavoro, diagnostica del backend, stato del classificatore, avvisi di avvio e incidenti in un unico file JSON. Allegalo quando segnali un problema.",

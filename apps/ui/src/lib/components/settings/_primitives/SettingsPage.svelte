@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { layoutStore } from '../../../stores/layout.svelte';
     import type { Snippet } from 'svelte';
     import { _ } from 'svelte-i18n';
 
@@ -35,7 +36,8 @@
     }: Props = $props();
 </script>
 
-<div class="max-w-7xl mx-auto space-y-6 pb-20">
+<!-- The shell sets the width; a narrower column here sat inside the full-width header. -->
+<div class="space-y-6 pb-20">
     {#if onRefresh}
         <div class="flex items-center justify-end gap-3 -mt-2">
             <button
@@ -78,7 +80,7 @@
     {#if loading}
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6" aria-busy="true">
             {#each [1, 2, 3, 4] as _}
-                <div class="h-48 bg-slate-100 dark:bg-slate-800/50 rounded-3xl animate-pulse border border-slate-200 dark:border-slate-700/50"></div>
+                <div class="h-48 bg-slate-100 dark:bg-slate-800/50 rounded-2xl animate-pulse border border-slate-200 dark:border-slate-700/50"></div>
             {/each}
         </div>
     {:else}
@@ -92,8 +94,8 @@
 </div>
 
 {#if isDirty && !loading}
-    <div class="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border-t border-slate-200 dark:border-slate-700 shadow-2xl z-50 animate-in slide-in-from-bottom-4">
-        <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
+    <div class="fixed bottom-0 left-0 right-0 z-40 border-t border-line-soft bg-surface/95 shadow-2xl backdrop-blur-lg animate-in slide-in-from-bottom-4 {layoutStore.sidebarCollapsed ? 'md:left-20' : 'md:left-64'}">
+        <div class="px-4 py-4 sm:px-6 lg:px-8 2xl:px-12 flex items-center justify-between gap-4">
             <div class="flex items-center gap-3 text-slate-600 dark:text-slate-400">
                 <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -104,7 +106,7 @@
                 type="button"
                 onclick={() => onSave?.()}
                 disabled={saving}
-                class="px-8 py-3 bg-gradient-to-r from-brand-500 to-accent-500 hover:from-brand-600 hover:to-accent-600 text-white font-black text-sm uppercase tracking-widest rounded-2xl shadow-lg shadow-brand-500/30 transition-all disabled:opacity-50"
+                class="btn btn-primary min-h-11 px-8 py-3"
             >
                 {saving ? $_('common.saving') : $_('common.apply_settings')}
             </button>

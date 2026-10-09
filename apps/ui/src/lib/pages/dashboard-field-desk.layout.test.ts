@@ -175,13 +175,25 @@ describe('dashboard field desk layout', () => {
         expect(visitorsSource).not.toContain('card-base');
     });
 
-    it('separates rail sections by space and one header shape, not rules', () => {
-        // Each section opens with the same small display heading and a muted window line.
+    it('frames every desk section as one panel with one header shape', () => {
+        // Each rail section is a ruled panel that opens with the same display heading and a
+        // muted window line, so the three columns read as one set rather than three styles.
         for (const source of [recentAudioSource, histogramSource, visitorsSource]) {
-            expect(source).toContain('font-display text-sm font-bold text-slate-950 dark:text-white');
+            expect(source).toContain('font-display text-xl font-bold text-slate-950 dark:text-white');
+            expect(source).toMatch(/<section[^>]*class="panel /);
         }
+        expect(fieldLogSource).toContain('<section class="space-y-4 sm:panel" data-dashboard-field-log>');
+        expect(notableNearbySource).toContain('class="panel space-y-4"');
         expect(recentAudioSource).toContain('data-audio-history-action');
-        expect(recentAudioSource).not.toMatch(/data-dashboard-audio[^>]+border-/);
-        expect(histogramSource).not.toMatch(/data-dashboard-activity[^>]+border-/);
+    });
+
+    it('splits the rail into what needs you and the reference on a wide screen', () => {
+        const now = dashboardSource.indexOf('data-dashboard-rail-now');
+        const reference = dashboardSource.indexOf('data-dashboard-rail-reference');
+        expect(now).toBeGreaterThan(dashboardSource.indexOf('<aside'));
+        expect(reference).toBeGreaterThan(now);
+        expect(dashboardSource.indexOf('<ReviewQueueCard')).toBeLessThan(reference);
+        expect(dashboardSource.indexOf('<NotableNearby')).toBeGreaterThan(reference);
+        expect(dashboardSource).toContain('3xl:grid-cols-2');
     });
 });

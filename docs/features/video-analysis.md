@@ -156,11 +156,24 @@ leading species, and how many matches were required. A snapshot downgrade remain
 exhaustion of both media routes is an unchanged result, while an unrecovered media/runtime fault is
 an explicit failure.
 
-The owner **Jobs** view also shows automatic and maintenance video work from the backend. A queued
+The owner **Notifications → Jobs** view also shows automatic and maintenance video work from the
+backend, including delayed retries waiting for a recording clip or worker recovery. The old
+`/jobs` address redirects to Notifications. Use **Health · Diagnostics export** there to open
+**Settings → Health**, then expand **Diagnostics export**. **Capture Bundle** saves a report with
+your notes; **Download without saving** downloads one immediately. Both fetch current server
+evidence, even in a browser with no local errors. Saved bundles keep their original evidence and
+remain downloadable when the server is unavailable. A queued
 item remains labelled **Queued** until a worker starts it, and pending/processing automatic jobs are
 reclaimed from the detections database after a container restart. Frame progress sent by a
 subprocess retains the sampled frame number and exact clip offset, so saved top-frame evidence can
 be traced back to the media position that produced it.
+
+A pending visit waiting for a recording clip keeps its delayed retry owner, so periodic recovery
+cannot restart its retry budget. The retry uses the normal video queue, concurrency limits and live
+work priority. If the clip remains unavailable after the bounded retry, the visit follows the
+existing snapshot fallback or failure policy. A full queue or open circuit at retry time reports
+a failure instead of starting another recovery loop. Restart recovery still reclaims unfinished
+work when there is no in-memory owner.
 
 Scheduled analysis of unknown detections waits for Frigate's API to become available during a
 stack restart. If an entire precheck batch fails transiently, YA-WAMF leaves those detections

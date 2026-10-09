@@ -10,6 +10,18 @@ describe('jobDiagnosticsStore', () => {
         vi.setSystemTime(new Date('2026-03-06T12:00:00.000Z'));
     });
 
+    it('captures server evidence even in a fresh browser with no local errors', () => {
+        const workspacePayload = {
+            health: { status: 'ok', video_classifier: { pending: 31, active: 0 } },
+            backend_diagnostics: { events: [] }
+        } as unknown as NonNullable<Parameters<typeof jobDiagnosticsStore.captureBundle>[2]>['workspacePayload'];
+        const bundle = jobDiagnosticsStore.captureBundle('Queue report', 'Still waiting', { workspacePayload });
+        expect(bundle).not.toBeNull();
+        expect(bundle?.payload.health).toEqual(workspacePayload?.health);
+        expect(bundle?.payload.workspace_snapshot).toEqual(workspacePayload);
+        expect(bundle?.payload.report).toMatchObject({ notes: 'Still waiting' });
+    });
+
     it('names the code holding a database connection, not just the wait it caused', () => {
         // An owner reading a bundle can act on "app.routers.ai:analyze_event held
         // a connection for 12s". They cannot act on "requests waited 17s".
@@ -704,7 +716,7 @@ describe('jobDiagnosticsStore', () => {
         expect(errorsPageSource).toContain('Capture Bundle');
         expect(errorsPageSource).toContain('Download without saving');
         expect(errorsPageSource).toContain('captureBundle');
-        expect(errorsPageSource).toContain('downloadCurrentJson');
+        expect(errorsPageSource).toContain('exportCurrent(false)');
         expect(errorsPageSource).toContain('downloadBundle(bundle)');
         expect(errorsPageSource).toContain('removeBundle(bundle.id)');
         expect(errorsPageSource).toContain('clearBundles()');

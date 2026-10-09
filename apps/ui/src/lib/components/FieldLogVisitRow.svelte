@@ -144,9 +144,8 @@
 
 <li
     class="{grid} items-center gap-y-1 rounded-xl border-b border-slate-200/60 px-2 py-2 last:border-b-0 sm:py-2.5 dark:border-slate-700/40"
-    class:bg-gradient-to-r={visit.needsReview}
-    class:from-accent-50={visit.needsReview}
-    class:dark:from-accent-950={visit.needsReview}
+    class:bg-accent-50={visit.needsReview}
+    class:dark:bg-accent-950={visit.needsReview}
     data-field-log-row
     data-field-log-visit={visit.key}
     data-needs-review={visit.needsReview ? 'true' : 'false'}
@@ -191,14 +190,14 @@
     />
 
     <div class="min-w-0">
-        <p class="line-clamp-2 hyphens-auto break-words text-sm font-semibold leading-5 text-slate-900 sm:line-clamp-1 dark:text-white" data-field-log-name>
+        <p class="hyphens-auto break-words text-sm font-semibold leading-5 text-slate-900 dark:text-white" data-field-log-name>
             {naming.primary}
         </p>
         <!-- Wraps rather than truncates, so a marker is never cut off behind the name. -->
-        <p class="flex flex-wrap items-baseline gap-x-1.5 text-[11px] leading-4 text-slate-500 dark:text-slate-400">
+        <p class="flex flex-wrap items-baseline gap-x-1.5 text-2xs leading-4 text-slate-500 dark:text-slate-400">
             <span class="font-bold tabular-nums sm:hidden {scoreTone(score)}">{percent(score)}%</span>
             {#if showCamera}
-                <span class="sm:hidden">{visit.camera}</span>
+                <span class="break-words" data-field-log-camera>{visit.camera}</span>
             {/if}
             {#if visit.needsReview}
                 <span class="font-medium text-accent-700 dark:text-accent-300">
@@ -244,16 +243,6 @@
         </p>
     </div>
 
-    {#if showCamera}
-        <span class="hidden shrink-0 items-center gap-1.5 rounded-full border border-slate-200 px-2 py-0.5 text-[11px] text-slate-500 sm:inline-flex dark:border-slate-700 dark:text-slate-400" data-field-log-camera>
-            <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M4 8h11v8H4z" />
-                <path stroke-linecap="round" stroke-linejoin="round" d="m15 12 5-3v6l-5-3z" />
-            </svg>
-            {visit.camera}
-        </span>
-    {/if}
-
     <span class="hidden flex-col items-end gap-1 sm:flex">
         <BadgeHint text={$_('detection.confidence_hint', { values: { score: percent(score) } })} class="rounded text-xs font-bold tabular-nums {scoreTone(score)}">{percent(score)}%</BadgeHint>
         <span class="h-[3px] w-16 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
@@ -261,7 +250,7 @@
         </span>
         {#if captureCount > 1}
             <!-- A visit's score is its best capture's, the one its photo comes from. -->
-            <span class="text-[10px] text-slate-500 dark:text-slate-400" data-field-log-best-capture>{$_('visits.best_capture', { default: 'best capture' })}</span>
+            <span class="text-3xs text-slate-500 dark:text-slate-400" data-field-log-best-capture>{$_('visits.best_capture', { default: 'best capture' })}</span>
         {/if}
     </span>
 
@@ -342,7 +331,7 @@
         >
             <li class="col-span-full grid grid-cols-subgrid" data-visit-captures-caption>
                 <span></span>{@render branch(null)}
-                <p class="col-[3/-1] py-1 text-[11px] text-slate-500 dark:text-slate-400">
+                <p class="col-[3/-1] py-1 text-2xs text-slate-500 dark:text-slate-400">
                     {$_('visits.captures_caption', { default: 'Captures in this visit, oldest first.' })}
                 </p>
             </li>
@@ -352,7 +341,7 @@
                 {@const captureScore = capture.score ?? 0}
                 {@const captureNaming = names(capture)}
                 <li class="col-span-full grid grid-cols-subgrid items-center py-0.5" data-visit-capture={capture.frigate_event}>
-                    <time class="block text-[11px] tabular-nums text-slate-500 dark:text-slate-400" datetime={capture.detection_time}>{time}</time>
+                    <time class="block text-2xs tabular-nums text-slate-500 dark:text-slate-400" datetime={capture.detection_time}>{time}</time>
                     {@render branch(
                         'capture',
                         server && captureFacts(capture, server).shown
@@ -369,17 +358,16 @@
                     <div class="min-w-0 py-1">
                         <!-- Quieter than the visit above it: a capture is a moment of the visit. -->
                         <button type="button" class="block min-h-11 w-full rounded-lg text-left focus-ring" onclick={() => onselect?.(capture)}>
-                            <span class="block break-words text-[13px] font-medium leading-5 text-slate-700 dark:text-slate-200">{captureNaming.primary}</span>
-                            {#if captureNaming.secondary}<span class="block break-words text-[11px] italic text-slate-500 dark:text-slate-400">{captureNaming.secondary}</span>{/if}
+                            <span class="block break-words text-[0.8125rem] font-medium leading-5 text-slate-700 dark:text-slate-200">{captureNaming.primary}</span>
+                            {#if captureNaming.secondary}<span class="block break-words text-2xs italic text-slate-500 dark:text-slate-400">{captureNaming.secondary}</span>{/if}
                         </button>
-                        <p class="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-[11px] leading-4 text-slate-500 dark:text-slate-400">
+                        <p class="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-2xs leading-4 text-slate-500 dark:text-slate-400">
                             <span class="font-bold tabular-nums sm:hidden {scoreTone(captureScore)}" data-visit-capture-score>{percent(captureScore)}%</span>
                             {#each notes as note (note.text)}
                                 <span class={note.emphasis ? 'font-medium text-brand-700 dark:text-brand-300' : ''}>{note.text}</span>
                             {/each}
                         </p>
                     </div>
-                    {#if showCamera}<span class="hidden sm:block"></span>{/if}
                     <BadgeHint text={$_('detection.confidence_hint', { values: { score: percent(captureScore) } })} data-visit-capture-score class="hidden justify-end rounded text-xs font-bold tabular-nums sm:flex {scoreTone(captureScore)}">
                         {percent(captureScore)}%
                     </BadgeHint>
@@ -438,7 +426,7 @@
                         <button type="button" class="btn btn-secondary min-h-11 px-3 text-xs" onclick={() => void list.load()}>
                             {$_('visits.load_more', { default: 'Load more captures' })}
                         </button>
-                        <p class="text-[11px] tabular-nums text-slate-500 dark:text-slate-400">
+                        <p class="text-2xs tabular-nums text-slate-500 dark:text-slate-400">
                             {$_('visits.loaded_of_total', { values: { shown: list.captures.length, total: list.total }, default: '{shown} of {total} captures shown' })}
                         </p>
                     </div>

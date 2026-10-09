@@ -133,18 +133,25 @@ same ordering behind the Filters button.
 ### Desk (Dashboard)
 
 ```
-day bar: label, 4 to 6 inline metrics, live indicator
-[ primary log, 1.55fr ]        [ context rail, 0.7fr ]
-                                queue card (the work)
-                                at the feeder now (cameras, conditions), heard
-                                reference (activity pulse, top visitors)
+day bar: eyebrow, the window as the page heading, live indicator
+         then every figure for that window in one ruled band (label above figure, scope beneath)
+[ primary log, 1.55fr ]        [ context rail, 0.75fr ]
+                                what needs you and what is happening:
+                                  queue card (the work), at the feeder now, heard
+                                reference:
+                                  activity pulse, notable nearby, top visitors
+from 1920px the rail splits into those two columns:
+[ primary log, 1.4fr ]  [ needs you / happening, 1fr ]  [ reference, 1fr ]
 ```
 
 The rail is ordered by urgency, not by data source: what needs you, then what is running, then
-what is merely interesting. Every rail section opens the same way, a small display heading with an
-icon and a muted line naming the window (the desk's rolling 24 hours, which the day bar names too),
-and sections are separated by space rather than rules. Counts there are visits, from the day
-summary, never the loaded page of detections, which undercounts on a busy day. The primary column is one list, not a grid of cards.
+what is merely interesting. On a very wide screen the rail becomes two columns so the log keeps a
+readable row; the order inside each holds. Every desk section is a panel (`panel`) that opens the
+same way, a display heading with an icon and a muted line naming the window (the desk's rolling 24
+hours, which the day bar names too). Counts there are visits, from the day summary, never the
+loaded page of detections, which undercounts on a busy day. The primary column is one list, not a
+grid of cards and not a hero photograph over a list: every row already opens its full frame. On a
+phone the log drops its panel frame so the rows keep their width.
 
 ### Evidence (Add observation)
 
@@ -329,7 +336,9 @@ A visit's node is solid; a capture's is hollow on a tinted stretch of the line, 
 used as the visit photo is filled and says "Visit photo", so the two kinds differ by shape,
 position and words as well as colour. A single-capture visit has no list and keeps its Open
 action. Each line names its own species with the shared naming preferences and states its own
-confidence. Camera and day stay at visit level. The camera chip appears on log rows only when the log holds more than one camera.
+confidence. Camera and day stay at visit level. The camera appears beneath the species name only when the log holds more than one camera.
+Primary species names wrap fully, including in narrow desktop dashboard columns; the camera
+shares the metadata line so it cannot squeeze the name into a separate tiny column.
 `VisitCaptureList` reads the first page when a visit first opens and reuses it until the visit,
 window or access changes; Health rows and Explorer cards use the same loader through
 `VisitCaptures`. Explorer grids use a native floating capture panel above the cards, so no grid row moves
@@ -414,15 +423,32 @@ build something better."*
 
 ## 6. Visual details worth copying
 
-- **Type**: Bricolage Grotesque (`font-display`) for headings and figures, Instrument Sans for
-  everything else. `tabular-nums` wherever digits align in a column.
+- **Type**: the display face (`font-display`) for headings and figures, the body face for
+  everything else; the shipped classic pairing is Playfair Display over Source Serif 4, and the
+  font setting swaps both. Figures that stand alone use `.figure` (display face, lining tabular
+  digits). `tabular-nums` wherever digits align in a column. Small print uses `text-3xs` (10px)
+  and `text-2xs` (11px) or `text-xs`: sizes in rem, never `text-[Npx]`, so display scaling and
+  the reader's text size carry through.
+- **Finish**: flat. Panels are a hairline (`line-soft`) and a fill (`surface`), with no shadow, blur
+  or gradient wash; `surface-raised` fills a well inside a panel. These tokens are set per mode and
+  theme in `app.css`, so a component never names a theme. Gradients remain only where they do a
+  job: a scrim that keeps a caption legible over a photo, a scroll fade, a loading shimmer.
+- **Labels and controls**: a small uppercase label with wide tracking (`.eyebrow`) names a group or
+  a window. Controls speak in sentence case; `app.css` holds every button to that.
+- **Selection**: a selected route, tab or option is a recessed key in the brand tint with a lit
+  icon. Never a coloured bar on one edge.
+- **Charts**: a line or bar chart takes `chart-h` or `chart-h-tall`, a height between a floor and
+  a cap that follows the window width, so a wide screen neither flattens it into a strip nor
+  stretches it without bound (keep it under about 4.5:1). Bars take their width from their slot
+  (`barPercentage`, `categoryPercentage`) with a generous cap. A heatmap keeps square cells with a
+  maximum size, so its columns fit a phone and stop growing on a wide screen.
 - **Photographs in a fixed box**: fill the box (`object-cover`) unless that would cut away more
   than a quarter of the photo, as for a tall crop of a woodpecker on a pole. Then show it whole
   over a soft blurred copy of itself. `utils/photo-fit.ts` decides from the loaded image; the
   detection card and the record's photograph use it (#481).
 - **Panels**: `card-base` for standing surfaces. Rows inside a list are separated by hairlines,
   not by nested cards.
-- **Flagged rows**: a left-to-right amber wash plus a state dot plus a worded reason. All three.
+- **Flagged rows**: an amber tint plus a state dot plus a worded reason. All three.
 - **Score**: a percentage in a tone band (under 60 amber, under 85 brand, above 85 green) and a
   3px bar. Never the bar alone. **Exception:** a frame the filter rejected scores under 60 by
   definition and wants nothing from anyone, so it renders in slate with its reason in words. Amber

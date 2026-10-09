@@ -520,7 +520,7 @@
         id={popoutId}
         use:portal
         role="tooltip"
-        class="wall-popout fixed z-[70] rounded-2xl border border-slate-200 bg-white p-2.5 shadow-2xl dark:border-slate-700 dark:bg-slate-900 {place.side}"
+        class="wall-popout fixed z-[70] rounded-2xl border border-slate-200 bg-surface p-2.5 shadow-2xl dark:border-slate-700 {place.side}"
         style:left="{place.left}px"
         style:top="{place.top}px"
         style:width="{POPOUT_WIDTH}px"
@@ -538,12 +538,12 @@
                 >
                     <VisitFilm frigateEvent={open.frigateEvent} poster={getReelImageUrl(open.frigateEvent)} film={open.film} class="h-full w-full" />
                     {#if open.rank !== null}
-                        <span class="absolute left-2 top-2 rounded-full bg-slate-950/70 px-2 py-0.5 text-[11px] font-bold tabular-nums text-white backdrop-blur-sm">
+                        <span class="absolute left-2 top-2 rounded-full bg-slate-950/70 px-2 py-0.5 text-2xs font-bold tabular-nums text-white backdrop-blur-sm">
                             {$_('leaderboard.wall_rank', { values: { rank: open.rank }, default: 'Rank {rank}' })}
                         </span>
                     {/if}
                     {#if open.film || open.hasClip}
-                        <span class="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-full bg-slate-950/70 px-2 py-0.5 text-[11px] font-semibold text-white backdrop-blur-sm">
+                        <span class="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-full bg-slate-950/70 px-2 py-0.5 text-2xs font-semibold text-white backdrop-blur-sm">
                             <svg viewBox="0 0 16 16" class="h-2.5 w-2.5" fill="currentColor" aria-hidden="true"><path d="M4 2.5v11l9-5.5z" /></svg>
                             {$_('leaderboard.wall_clip', { default: 'Clip' })}
                         </span>
@@ -577,7 +577,7 @@
                         </dd>
                     </dl>
                     {#if open.speciesKey}
-                        <p class="mt-2.5 border-t border-slate-200 pt-2 text-[11px] font-semibold text-brand-700 dark:border-slate-700 dark:text-brand-300">
+                        <p class="mt-2.5 border-t border-slate-200 pt-2 text-2xs font-semibold text-brand-700 dark:border-slate-700 dark:text-brand-300">
                             {$_('leaderboard.wall_open', { values: { name: open.name }, default: 'Open {name}' })}
                         </p>
                     {/if}

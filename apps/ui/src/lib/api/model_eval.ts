@@ -199,6 +199,12 @@ export async function cancelModelEvalRun(runId: string): Promise<void> {
     await handleResponse(resp);
 }
 
-export function modelEvalArtifactUrl(runId: string, artifact: string): string {
+export async function fetchModelEvalArtifact(runId: string, artifact: string): Promise<Blob> {
+    const response = await apiFetch(modelEvalArtifactUrl(runId, artifact), { timeoutMs: 30_000 });
+    if (!response.ok) await handleResponse(response);
+    return response.blob();
+}
+
+function modelEvalArtifactUrl(runId: string, artifact: string): string {
     return `${BASE}/runs/${encodeURIComponent(runId)}/${encodeURIComponent(artifact)}`;
 }

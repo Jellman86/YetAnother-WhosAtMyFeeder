@@ -42,6 +42,33 @@ function row(page: Page, visitId: string): Locator {
     return page.locator(`[data-field-log-visit="${visitId}"]`);
 }
 
+for (const width of [1280, 1920]) {
+    for (const names of ['common', 'scientific']) {
+        test(`species names reflow completely in a narrow dashboard column at ${width}px (${names})`, async ({ page }, testInfo) => {
+            await page.setViewportSize({ width, height: 1000 });
+            await open(page, `?column=narrow&cameras=two&names=${names}`);
+            await expect(page.locator('[data-field-log-row]')).toHaveCount(4);
+            for (const name of await page.locator('[data-field-log-name]').all()) {
+                const visible = await name.evaluate(element => {
+                    const rect = element.getBoundingClientRect();
+                    const range = document.createRange();
+                    range.selectNodeContents(element);
+                    return Array.from(range.getClientRects()).every(part =>
+                        part.bottom <= rect.bottom + 1 && part.top >= rect.top - 1 &&
+                        part.right <= rect.right + 1 && part.left >= rect.left - 1
+                    );
+                });
+                expect(visible, `complete name is visible: ${await name.innerText()}`).toBe(true);
+            }
+            await noHorizontalOverflow(page);
+            await row(page, 'blackbird').locator('[data-field-log-captures-toggle]').click();
+            await expect(page.locator('[data-visit-capture]')).toHaveCount(13);
+            await noHorizontalOverflow(page);
+            await page.screenshot({ path: testInfo.outputPath(`names-${width}-${names}.png`), fullPage: true });
+        });
+    }
+}
+
 test('expanded field log captures state their own species and confidence', async ({ page }) => {
     await open(page, '');
     await row(page, 'blackbird').locator('[data-field-log-time-toggle]').click();
@@ -167,9 +194,9 @@ test('the camera is named on rows only when the log holds more than one camera',
     await expect(row(page, 'dunnock')).not.toContainText('birdcam');
     await page.goto('/browser-tests/field-log.html?cameras=two');
     await expect(page.locator('[data-field-log-camera]:visible')).toHaveCount(4);
-    // A phone has no chip column: the camera is named in the row's line instead.
+    // The camera stays in the metadata line when the viewport narrows.
     await page.setViewportSize({ width: 320, height: 900 });
-    await expect(page.locator('[data-field-log-camera]:visible')).toHaveCount(0);
+    await expect(page.locator('[data-field-log-camera]:visible')).toHaveCount(4);
     await expect(row(page, 'cowbird')).toContainText('nestcam');
     await expect(row(page, 'dunnock')).toContainText('birdcam');
     expect(errors).toEqual([]);
@@ -290,6 +317,7 @@ for (const phase of ['loading', 'unavailable'] as const) {
 }
 
 test('a visit opens from its Show captures button, keys its nodes, and keeps every capture\'s details', async ({ page }) => {
+    await page.setViewportSize({ width: 1100, height: 1300 });
     await open(page, '');
     const visit = row(page, 'blackbird');
     await expect(visit.locator('[data-field-log-best-capture]')).toHaveText('best capture');

@@ -104,13 +104,13 @@
 </script>
 
 <section
-    class="space-y-3 border-t border-slate-200/70 pt-5 dark:border-slate-700/50"
+    class="panel space-y-4"
     data-dashboard-notable-nearby
     aria-labelledby="dashboard-notable-nearby-title"
 >
     <header class="flex flex-wrap items-start justify-between gap-2">
         <div>
-            <h2 id="dashboard-notable-nearby-title" class="font-display text-lg font-bold text-slate-950 dark:text-white">
+            <h2 id="dashboard-notable-nearby-title" class="font-display text-xl font-bold text-slate-950 dark:text-white">
                 {$_('dashboard.notable_nearby.title')}
             </h2>
             <p class="text-sm text-slate-500 dark:text-slate-400">
@@ -118,7 +118,7 @@
             </p>
         </div>
         {#if sourceEnabled}
-            <span class="shrink-0 rounded-full border border-amber-200 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:border-amber-800/60 dark:text-amber-300">
+            <span class="shrink-0 rounded-full border border-line px-2.5 py-1 text-xs font-semibold tabular-nums text-slate-600 dark:text-slate-300">
                 {$_('dashboard.notable_nearby.scope', { values: { distance: radiusLabel, days: daysBack } })}
             </span>
         {/if}
@@ -138,7 +138,7 @@
     {:else if loading || !loaded}
         <div class="grid gap-2 sm:grid-cols-2" aria-label={$_('common.loading')}>
             {#each [1, 2] as item (item)}
-                <div class="h-20 animate-pulse rounded-xl bg-amber-50 dark:bg-amber-950/20 motion-reduce:animate-none"></div>
+                <div class="h-20 animate-pulse rounded-xl bg-surface-raised motion-reduce:animate-none"></div>
             {/each}
         </div>
     {:else if error}
@@ -149,7 +149,7 @@
             </button>
         </div>
     {:else if result && result.results.length === 0}
-        <div class="rounded-xl border border-dashed border-amber-200 bg-amber-50/40 px-4 py-5 dark:border-amber-900/50 dark:bg-amber-950/10">
+        <div class="rounded-xl border border-dashed border-line px-4 py-5">
             <p class="text-sm font-medium text-slate-700 dark:text-slate-300">
                 {$_('dashboard.notable_nearby.empty', { values: { distance: radiusLabel, days: daysBack } })}
             </p>
@@ -161,7 +161,7 @@
         <!-- One sighting in a two-column grid leaves half a row empty, which
              reads as something that failed to load rather than as the answer.
              Two or more still pair up. -->
-        <ul class="grid gap-2 {groups.length > 1 ? 'sm:grid-cols-2 3xl:grid-cols-1' : ''}">
+        <ul class="grid gap-2 {groups.length > 1 ? 'sm:grid-cols-2 xl:grid-cols-1' : ''}">
             {#each groups.slice(0, 4) as group (group.key)}
                 {@const observation = group.latest}
                 {@const observationName = observation.common_name || observation.scientific_name || ''}
@@ -173,7 +173,7 @@
                         disabled={!onselectspecies || !observationName}
                         onclick={() => observationName && onselectspecies?.(observationName)}
                         aria-label={$_('dashboard.notable_nearby.open_species', { values: { species: observationName || $_('common.unknown_species') } })}
-                        class="flex w-full min-w-0 cursor-pointer items-center gap-3 rounded-xl border border-amber-100 bg-amber-50/45 p-3 text-left transition-colors hover:border-amber-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:cursor-default disabled:hover:border-amber-100 dark:border-amber-900/40 dark:bg-amber-950/10 dark:hover:border-amber-700/60 dark:focus-visible:ring-offset-slate-950 dark:disabled:hover:border-amber-900/40"
+                        class="flex min-h-11 w-full min-w-0 cursor-pointer items-center gap-3 rounded-xl p-2 text-left transition-colors hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-default disabled:hover:bg-transparent"
                     >
                     {#if group.thumbnail_url}
                         <img
@@ -185,18 +185,18 @@
                             class="h-12 w-12 shrink-0 rounded-lg object-cover"
                         />
                     {:else}
-                        <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" aria-hidden="true">
+                        <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-surface-raised text-slate-500 dark:text-slate-400" aria-hidden="true">
                             <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M5 19c5.5 0 10-4.5 10-10V5l4 4-4 4M5 5v14" />
                             </svg>
                         </span>
                     {/if}
                     <div class="min-w-0">
-                        <p class="flex min-w-0 items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
+                        <p class="flex min-w-0 items-center gap-2 text-base font-semibold text-slate-900 dark:text-white">
                             <span class="truncate">{observation.common_name || observation.scientific_name || $_('common.unknown_species')}</span>
                             {#if group.reports > 1}
                                 <!-- Four people saw it is the news; one card says so instead of four saying nothing. -->
-                                <span class="shrink-0 rounded-full border border-amber-300 bg-amber-100 px-1.5 py-px text-[10px] font-bold tabular-nums text-amber-800 dark:border-amber-700/60 dark:bg-amber-900/40 dark:text-amber-200">
+                                <span class="shrink-0 rounded-full border border-line px-2 py-px text-xs font-semibold tabular-nums text-slate-600 dark:text-slate-300">
                                     {$_('dashboard.notable_nearby.reports', { values: { count: group.reports }, default: '{count} reports' })}
                                 </span>
                             {/if}

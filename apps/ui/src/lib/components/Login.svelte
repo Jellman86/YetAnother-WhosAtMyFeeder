@@ -42,14 +42,14 @@
 <div class="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 px-4 transition-colors duration-300">
     <div class="w-full max-w-sm space-y-8">
         <!-- Card -->
-        <div class="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl p-8 rounded-3xl shadow-2xl border border-white/20 dark:border-slate-800 ring-1 ring-slate-900/5">
+        <div class="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl p-8 rounded-2xl shadow-2xl border border-white/20 dark:border-slate-800 ring-1 ring-slate-900/5">
             
             <!-- Header -->
             <div class="text-center mb-8">
                 <div class="mx-auto w-20 h-20 flex items-center justify-center mb-6">
                     <img src={APP_ICON_192_URL} alt="Logo" class="w-16 h-16 object-contain drop-shadow-md" />
                 </div>
-                <h2 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                <h2 class="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
                     {$_('auth.welcome_back')}
                 </h2>
                 <p class="mt-2 text-sm font-medium text-slate-500 dark:text-slate-400">
@@ -60,7 +60,7 @@
             <form class="space-y-5" onsubmit={handleSubmit} autocomplete="on">
                 <div class="space-y-4">
                     <div>
-                        <label for="username" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1.5 ml-1">{$_('auth.username')}</label>
+                        <label for="username" class="block text-3xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1.5 ml-1">{$_('auth.username')}</label>
                         <input
                             id="username"
                             name="username"
@@ -73,7 +73,7 @@
                         />
                     </div>
                     <div>
-                        <label for="password" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1.5 ml-1">{$_('auth.password')}</label>
+                        <label for="password" class="block text-3xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1.5 ml-1">{$_('auth.password')}</label>
                         <input
                             id="password"
                             name="password"
@@ -96,7 +96,7 @@
                 <button
                     type="submit"
                     disabled={isLoading}
-                    class="w-full flex items-center justify-center py-3.5 px-4 rounded-2xl text-sm font-black text-white bg-gradient-to-r from-brand-500 to-accent-600 hover:from-brand-400 hover:to-accent-500 shadow-lg shadow-brand-500/20 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    class="btn btn-primary w-full min-h-11 px-4 py-3"
                 >
                     {#if isLoading}
                         <div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
@@ -118,7 +118,7 @@
             </form>
         </div>
         
-        <p class="text-center text-[10px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-widest">
+        <p class="text-center text-3xs font-bold text-slate-400 dark:text-slate-600 uppercase tracking-widest">
             {$_('auth.secure_access')}
         </p>
     </div>

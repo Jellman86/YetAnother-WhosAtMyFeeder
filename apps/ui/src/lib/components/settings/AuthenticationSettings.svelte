@@ -323,7 +323,7 @@
                             onclick={addTrustedProxyHost}
                             disabled={!newTrustedProxyHost.trim()}
                             aria-label={$_('settings.auth.trusted_proxies_add', { default: 'Add trusted proxy host' })}
-                            class="px-6 py-3 bg-brand-500 hover:bg-brand-600 text-white text-xs font-black uppercase tracking-widest rounded-2xl transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                            class="px-6 py-3 bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold uppercase tracking-widest rounded-2xl transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {$_('common.add')}
                         </button>
@@ -333,7 +333,7 @@
                             <span class="group flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold {trustedProxyHostsSuggested ? 'border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/40 text-slate-500 dark:text-slate-400' : 'bg-white dark:bg-slate-800 border border-brand-200 dark:border-brand-700/50 text-slate-700 dark:text-slate-300'}">
                                 {host}
                                 {#if trustedProxyHostsSuggested}
-                                    <span class="px-2 py-0.5 rounded-full text-xs font-black uppercase tracking-widest bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                                    <span class="px-2 py-0.5 rounded-full text-xs font-bold uppercase tracking-widest bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                                         {$_('settings.auth.trusted_proxies_suggested_label', { default: 'Suggested' })}
                                     </span>
                                 {:else}
@@ -358,7 +358,7 @@
                             <button
                                 type="button"
                                 onclick={acceptTrustedProxySuggestions}
-                                class="self-start px-3 py-1.5 rounded-xl bg-brand-500 text-white text-xs font-black uppercase tracking-widest"
+                                class="self-start px-3 py-1.5 rounded-xl bg-brand-500 text-white text-xs font-bold uppercase tracking-widest"
                             >
                                 {$_('settings.auth.trusted_proxies_use_suggestions', { default: 'Use suggestions' })}
                             </button>

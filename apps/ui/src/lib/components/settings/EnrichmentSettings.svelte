@@ -56,7 +56,7 @@
                 <p class="text-xs font-bold text-slate-600 dark:text-slate-400">
                     {$_(tile.titleKey)}
                 </p>
-                <p class="text-sm font-black text-slate-900 dark:text-white">{formatProvider(tile.value)}</p>
+                <p class="text-sm font-bold text-slate-900 dark:text-white">{formatProvider(tile.value)}</p>
             </div>
         {/each}
         <div class="flex items-center justify-between gap-4 py-3">

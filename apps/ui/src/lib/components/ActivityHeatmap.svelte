@@ -163,10 +163,12 @@
 
 <svelte:window onpointerdown={onWindowPointerDown} onresize={() => active && place(active)} />
 
-<div class="relative" bind:this={root} data-activity-heatmap>
+<!-- Cells are square up to 3rem: columns shrink to fit a phone (rows keep 1.5rem to tap) and stop
+     growing on a wide screen, so an hour never stretches into a bar. -->
+<div class="relative w-full max-w-fit" bind:this={root} data-activity-heatmap>
     <div
         class="grid gap-1 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-950"
-        style="grid-template-columns: 2.25rem repeat(24, minmax(0, 1fr)) 2.5rem; grid-template-rows: 2.5rem 1.25rem repeat(7, 1.5rem);"
+        style="grid-template-columns: 2.25rem repeat(24, minmax(0, 3rem)) 2.5rem; grid-template-rows: 2.5rem 1.25rem repeat(7, auto);"
         role="grid"
         tabindex="0"
         aria-label={`${$_('leaderboard.heatmap_grid_label', { default: 'Activity by weekday and hour. Use the arrow keys to read a slot.' })}${subject ? ` ${subject}.` : ''}`}
@@ -210,7 +212,7 @@
                 {@const count = counts.get(`${dayOfWeek}-${hour}`) ?? 0}
                 {@const current = active?.row === row && active?.hour === hour}
                 <span
-                    class="rounded-sm {current ? 'ring-2 ring-brand-500 ring-offset-1 ring-offset-white dark:ring-brand-300 dark:ring-offset-slate-950' : isPeak({ row, hour }) ? 'ring-2 ring-slate-900 ring-offset-1 ring-offset-white dark:ring-white dark:ring-offset-slate-950' : ''}"
+                    class="aspect-square min-h-6 w-full rounded-sm {current ? 'ring-2 ring-brand-500 ring-offset-1 ring-offset-white dark:ring-brand-300 dark:ring-offset-slate-950' : isPeak({ row, hour }) ? 'ring-2 ring-slate-900 ring-offset-1 ring-offset-white dark:ring-white dark:ring-offset-slate-950' : ''}"
                     style="background-color: {heatmapFill(count, maxCellCount, dark)}"
                     id={cellId(row, hour)}
                     role="gridcell"

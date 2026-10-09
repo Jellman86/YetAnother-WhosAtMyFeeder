@@ -48,7 +48,9 @@ describe('Sidebar hybrid refresh', () => {
 
     it('layers a lightweight live telemetry graph behind the status content', () => {
         expect(sidebarSource).toContain("import SystemTelemetryGraph from './SystemTelemetryGraph.svelte'");
-        expect(sidebarSource).toContain('<SystemTelemetryGraph />');
+        expect(sidebarSource).toContain('<SystemTelemetryGraph readoutClass=');
+        // The readout has a row of its own, above the System health link when there is one.
+        expect(sidebarSource).toContain('<span class="mt-1 block h-4" aria-hidden="true"></span>');
         expect(sidebarSource).toContain('relative overflow-hidden');
         expect(sidebarSource).toContain('relative z-10');
     });

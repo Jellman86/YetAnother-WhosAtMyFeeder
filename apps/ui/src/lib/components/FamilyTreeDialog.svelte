@@ -248,7 +248,7 @@
 >
     <div
         bind:this={dialog}
-        class="flex h-[100dvh] w-full max-w-6xl flex-col overflow-hidden bg-white shadow-2xl dark:bg-slate-900 sm:h-[90dvh] sm:rounded-3xl sm:border sm:border-white/10"
+        class="flex h-[100dvh] w-full max-w-6xl flex-col overflow-hidden bg-surface shadow-2xl sm:h-[90dvh] sm:rounded-2xl sm:border sm:border-white/10"
         role="dialog"
         aria-modal="true"
         aria-labelledby="family-tree-title"
@@ -284,7 +284,7 @@
             </div>
         </header>
 
-        <div class="flex flex-wrap gap-x-4 gap-y-1 px-4 pt-2 text-[11px] text-slate-500 dark:text-slate-400 sm:px-6">
+        <div class="flex flex-wrap gap-x-4 gap-y-1 px-4 pt-2 text-2xs text-slate-500 dark:text-slate-400 sm:px-6">
             <span><span class="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-amber-400 align-middle"></span>{$_('taxonomy.legend_path', { default: 'Path to this bird' })}</span>
             <span><span class="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-emerald-500 align-middle"></span>{$_('taxonomy.legend_seen', { default: 'Seen at this feeder' })}</span>
             <span>{$_('taxonomy.legend_open', { default: 'Select a group to open or close it' })}</span>
@@ -316,8 +316,8 @@
                                 {:else}
                                     <span class="text-sm font-semibold {item.current ? 'text-amber-600 dark:text-amber-300' : 'text-slate-900 dark:text-white'}">{taxonLabel(item.taxon)}</span>
                                     {#if item.taxon.name}<span class="hidden text-xs italic text-slate-500 sm:inline">{item.taxon.scientific_name}</span>{/if}
-                                    <span class="text-[10px] uppercase tracking-wide text-slate-400">{$_(`taxonomy.rank.${item.taxon.rank}`, { default: item.taxon.rank })}</span>
-                                    {#if seenText(item.taxon)}<span class="ml-auto shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">{seenText(item.taxon)}</span>{/if}
+                                    <span class="text-3xs uppercase tracking-wide text-slate-400">{$_(`taxonomy.rank.${item.taxon.rank}`, { default: item.taxon.rank })}</span>
+                                    {#if seenText(item.taxon)}<span class="ml-auto shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-2xs font-semibold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">{seenText(item.taxon)}</span>{/if}
                                 {/if}
                             </button>
                         </li>
@@ -375,12 +375,12 @@
                                 x={labelAbove ? 0 : left ? -12 : 12}
                                 y={labelAbove ? (named ? -22 : -12) : named && mode === 'tree' ? -2 : 4}
                                 text-anchor={labelAbove ? 'middle' : left ? 'end' : 'start'}
-                                class="tree-label text-[12px] font-semibold {item.kind === 'more' ? 'fill-slate-500' : item.current ? 'fill-amber-600 dark:fill-amber-300' : 'fill-slate-800 dark:fill-slate-100'}"
+                                class="tree-label text-xs font-semibold {item.kind === 'more' ? 'fill-slate-500' : item.current ? 'fill-amber-600 dark:fill-amber-300' : 'fill-slate-800 dark:fill-slate-100'}"
                             >
                                 {nodeLabel(item)}{#if item.kind === 'taxon' && seenText(item.taxon)}<tspan class="fill-emerald-600 dark:fill-emerald-400 font-normal">{`\u00a0· ${seenText(item.taxon)}`}</tspan>{/if}
                             </text>
                             {#if item.kind === 'taxon' && named && mode === 'tree'}
-                                <text x={labelAbove ? 0 : 12} y={labelAbove ? -10 : 12} text-anchor={labelAbove ? 'middle' : 'start'} class="tree-label fill-slate-500 text-[10.5px] italic dark:fill-slate-400">{item.taxon.scientific_name}</text>
+                                <text x={labelAbove ? 0 : 12} y={labelAbove ? -10 : 12} text-anchor={labelAbove ? 'middle' : 'start'} class="tree-label fill-slate-500 text-3xs italic dark:fill-slate-400">{item.taxon.scientific_name}</text>
                             {/if}
                         </g>
                     {/each}
@@ -389,7 +389,7 @@
             {/if}
         </div>
 
-        <footer class="border-t border-slate-200 px-4 py-2 text-[11px] text-slate-500 dark:border-slate-800 dark:text-slate-400 sm:px-6">
+        <footer class="border-t border-slate-200 px-4 py-2 text-2xs text-slate-500 dark:border-slate-800 dark:text-slate-400 sm:px-6">
             {#if failed}
                 <span class="mr-2 font-semibold text-amber-700 dark:text-amber-300">{$_('taxonomy.branch_failed', { default: 'Part of the tree could not load. Open it again to retry.' })}</span>
             {/if}

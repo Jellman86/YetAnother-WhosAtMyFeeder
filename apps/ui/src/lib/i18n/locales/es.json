@@ -420,7 +420,10 @@
       "reconnecting": "Reconectando…",
       "window": "Últimas 24 horas",
       "loading": "aún cargando",
-      "unavailable": "no disponible"
+      "unavailable": "no disponible",
+      "birds_scope_short": "de {count} capturas analizadas",
+      "nothing_to_review": "nada que revisar",
+      "seen_and_heard": "vistos y oídos"
     },
     "desk": {
       "cameras_empty": "Aún no hay cámaras conectadas. Añádelas en Ajustes → Conexión.",
@@ -3161,6 +3164,9 @@
     "errors_samples": "IDs de eventos de muestra",
     "errors_snapshot_ref": "Instantánea de salud: {status} @ {at}",
     "error_bundles_title": "Paquetes de errores",
+    "errors_export_failed": "No se pudieron obtener los diagnósticos actuales. Inténtalo de nuevo.",
+    "phase_waiting_for_clip": "Esperando el clip de grabación",
+    "phase_waiting_for_worker": "Esperando la recuperación del proceso",
     "errors_export_title": "Exportar diagnóstico",
     "errors_export_count": "{count} guardados",
     "errors_export_desc": "Un paquete recoge el estado del espacio de trabajo, el diagnóstico del backend, el estado del clasificador, los avisos de arranque y los incidentes en un único archivo JSON. Adjúntalo al informar de un problema.",

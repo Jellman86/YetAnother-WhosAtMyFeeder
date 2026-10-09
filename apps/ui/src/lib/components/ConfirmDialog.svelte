@@ -40,7 +40,7 @@
             aria-describedby="confirm-dialog-message"
             tabindex="-1"
             onkeydown={handleKeydown}
-            class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900"
+            class="w-full max-w-md rounded-2xl border border-slate-200 bg-surface p-6 shadow-2xl dark:border-slate-700"
         >
             <h2 id="confirm-dialog-title" class="text-base font-semibold text-slate-900 dark:text-white">
                 {pending.title}

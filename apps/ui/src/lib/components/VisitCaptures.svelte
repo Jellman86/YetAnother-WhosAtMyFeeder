@@ -186,7 +186,7 @@
                     <button type="button" class="btn btn-ghost min-h-11 min-w-11 px-2" popovertarget={panelId} popovertargetaction="hide">{$_('common.close', { default: 'Close' })}</button>
                 </div>
             {/if}
-            <p class="py-1 text-[11px] text-slate-500 dark:text-slate-400 {inline ? '' : 'px-4'}">
+            <p class="py-1 text-2xs text-slate-500 dark:text-slate-400 {inline ? '' : 'px-4'}">
                 {$_('visits.capture_actions', { default: 'Open a capture to review its identification or play its clip.' })}
             </p>
 
@@ -242,7 +242,7 @@
                                     {time}
                                 </time>
                                 {#if captureNotes.length > 0}
-                                    <p class="flex flex-wrap items-baseline gap-x-1.5 text-[11px] leading-4 text-slate-500 dark:text-slate-400">
+                                    <p class="flex flex-wrap items-baseline gap-x-1.5 text-2xs leading-4 text-slate-500 dark:text-slate-400">
                                         {#each captureNotes as note, index (note.text)}
                                             {#if index > 0}<span aria-hidden="true">&middot;</span>{/if}
                                             <span class={note.emphasis ? 'font-medium text-brand-700 dark:text-brand-300' : ''}>{note.text}</span>
@@ -298,7 +298,7 @@
                     <button type="button" class="btn btn-secondary min-h-11 px-3 text-xs" onclick={() => void list.load()}>
                         {$_('visits.load_more', { default: 'Load more captures' })}
                     </button>
-                    <p class="text-[11px] tabular-nums text-slate-500 dark:text-slate-400">
+                    <p class="text-2xs tabular-nums text-slate-500 dark:text-slate-400">
                         {$_('visits.loaded_of_total', { values: { shown: captures.length, total }, default: '{shown} of {total} captures shown' })}
                     </p>
                 </div>

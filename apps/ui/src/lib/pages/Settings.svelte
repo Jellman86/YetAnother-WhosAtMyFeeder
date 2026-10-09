@@ -76,7 +76,7 @@
         resolveRunningBackfillMessage,
         updateScopedBackfillProgress
     } from '../backfill/progress';
-    import { formatTerminalBackfillMessage } from '../backfill/terminal-message';
+    import { formatTerminalBackfillMessage, isBackfillTerminalTransition } from '../backfill/terminal-message';
     import { _, locale } from 'svelte-i18n';
     import { setAppLocale } from '../i18n';
     import { get } from 'svelte/store';
@@ -103,7 +103,6 @@
     import AuthenticationSettings from '../components/settings/AuthenticationSettings.svelte';
     import AISettings from '../components/settings/AISettings.svelte';
     import Errors from './Errors.svelte';
-    import SystemHealthPanel from '../components/settings/SystemHealthPanel.svelte';
     import {
         buildBirdModelRegionOverrideSettings,
         resolveBirdModelRegionOverrideFromSettings,
@@ -1707,9 +1706,12 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     function emitTerminalBackfillToast(
         kind: 'detections' | 'weather',
         status: BackfillJobStatus,
+        previous: BackfillJobStatus | null,
         type: 'success' | 'error',
         fallbackText: string
     ): boolean {
+        // The first poll restores history; only a running job becoming terminal is new feedback.
+        if (!isBackfillTerminalTransition(previous, status)) return false;
         const jobId = status.id || 'unknown';
         const terminalState = status.status === 'completed' ? 'completed' : 'failed';
         const key = `settings:backfill-toast:${kind}:${jobId}:${terminalState}`;
@@ -2644,6 +2646,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             ]);
 
             if (detections) {
+                const previousJob = backfillJob;
                 backfillJob = detections;
                 backfillResult = {
                     status: detections.status,
@@ -2661,11 +2664,11 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 backfillTotal = scoped.total;
                 backfilling = detections.status === 'running';
                 if (detections.status === 'completed') {
-                    if (emitTerminalBackfillToast('detections', detections, 'success', 'Backfill complete')) {
+                    if (emitTerminalBackfillToast('detections', detections, previousJob, 'success', 'Backfill complete')) {
                         await loadMaintenanceStats();
                     }
                 } else if (detections.status === 'failed') {
-                    emitTerminalBackfillToast('detections', detections, 'error', 'Backfill failed');
+                    emitTerminalBackfillToast('detections', detections, previousJob, 'error', 'Backfill failed');
                 }
                 reconcileBackfillNotification('detections', detections, scoped.total);
             } else {
@@ -2678,6 +2681,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             }
 
             if (weather) {
+                const previousJob = weatherBackfillJob;
                 weatherBackfillJob = weather;
                 weatherBackfillResult = {
                     status: weather.status,
@@ -2693,9 +2697,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 weatherBackfillTotal = scoped.total;
                 weatherBackfilling = weather.status === 'running';
                 if (weather.status === 'completed') {
-                    emitTerminalBackfillToast('weather', weather, 'success', 'Weather backfill complete');
+                    emitTerminalBackfillToast('weather', weather, previousJob, 'success', 'Weather backfill complete');
                 } else if (weather.status === 'failed') {
-                    emitTerminalBackfillToast('weather', weather, 'error', 'Weather backfill failed');
+                    emitTerminalBackfillToast('weather', weather, previousJob, 'error', 'Weather backfill failed');
                 }
                 reconcileBackfillNotification('weather', weather, scoped.total);
             } else {
@@ -3566,10 +3570,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
 
             <!-- Health Tab -->
             {#if activeTab === 'health'}
-                <div class="space-y-6">
-                    <SystemHealthPanel />
-                    <Errors {onNavigate} />
-                </div>
+                <!-- The health page builds the System card itself, with its verdict inside it. -->
+                <Errors {onNavigate} />
             {/if}
 
             <!-- Integrations Tab -->
@@ -3843,7 +3845,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                             <button
                                 type="button"
                                 onclick={() => onNavigate && onNavigate('/diagnostics/model-eval')}
-                                class="min-h-11 shrink-0 rounded-xl bg-slate-900 px-4 py-2 text-xs font-black text-white transition-colors hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white dark:focus-visible:ring-offset-slate-950"
+                                class="min-h-11 shrink-0 rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white dark:focus-visible:ring-offset-slate-950"
                             >
                                 {$_('settings.debug.model_eval_open')}
                             </button>

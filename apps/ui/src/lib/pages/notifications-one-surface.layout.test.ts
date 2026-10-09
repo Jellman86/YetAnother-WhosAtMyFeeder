@@ -28,7 +28,7 @@ describe('one notifications surface', () => {
         }
     });
 
-    it('keeps the one thing the jobs view could do that the timeline cannot', () => {
+    it('keeps circuit recovery available on the timeline', () => {
         // A paused queue is work stopped waiting for a person, and resuming it was only
         // reachable from the view being removed.
         expect(source).toContain("import JobCircuitBanner from '../components/JobCircuitBanner.svelte'");

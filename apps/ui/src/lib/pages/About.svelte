@@ -185,9 +185,9 @@
     ]);
 </script>
 
-<!-- Capped for reading on a wide screen, but left-aligned: the owner PageHeader above uses the
-     shell width, and a centred page below it would read as a mismatched second header. -->
-<div class="max-w-screen-xl space-y-6">
+<!-- The page uses the shell width like every other view; only running prose is held to a
+     reading measure, so a wide screen gets wider panels rather than longer lines. -->
+<div class="space-y-6">
     <!-- Colophon: what this is, in plain sentences -->
     <section id="about-project" aria-labelledby="about-project-heading" class="space-y-4 px-1 pt-2">
         <div class="flex items-start gap-4">
@@ -219,7 +219,7 @@
             />
         {/if}
 
-        <div class="space-y-3 text-sm leading-6 text-slate-700 dark:text-slate-300">
+        <div class="max-w-prose space-y-3 text-base leading-7 text-slate-700 dark:text-slate-300">
             <p>{$_('about.project_desc_2')}</p>
             <p>
                 {projectDescription.before}<a href="https://github.com/mmcc-xx/WhosAtMyFeeder" target="_blank" rel="noopener noreferrer" class="text-brand-600 hover:underline dark:text-brand-400">WhosAtMyFeeder</a>{projectDescription.after}
@@ -296,7 +296,7 @@
                     <li>{$_('about.credits_list.ai_assistants')}</li>
                     <li>{$_('about.flaticon_credit')}</li>
                 </ul>
-                <p class="mt-3 text-[11px] text-slate-500 dark:text-slate-400">
+                <p class="mt-3 text-2xs text-slate-500 dark:text-slate-400">
                     {$_('about.license_notice', { values: { year: new Date().getFullYear(), license: $_('common.mit_license') } })}
                 </p>
             </section>

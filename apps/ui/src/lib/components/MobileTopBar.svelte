@@ -9,9 +9,9 @@
     export let switchThemeLabel: string = 'Switch theme';
 </script>
 
-<div class="md:hidden sticky top-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-b border-slate-200/80 dark:border-slate-700/50 h-[var(--app-chrome-height,4rem)] flex items-center px-4 justify-between">
+<div class="md:hidden sticky top-0 z-40 bg-surface border-b border-line-soft h-[var(--app-chrome-height,4rem)] flex items-center px-4 justify-between">
     <button
-        class="btn btn-ghost min-h-11 min-w-11 p-2 -ml-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+        class="btn btn-ghost min-h-11 min-w-11 p-2 -ml-2 text-slate-500 hover:bg-surface-raised rounded-lg transition-colors"
         onclick={onToggleMenu}
         aria-label={toggleMenuLabel}
     >
@@ -24,7 +24,7 @@
         <div class="w-7 h-7 flex items-center justify-center overflow-hidden">
             <img src={APP_ICON_192_URL} alt={appTitle} class="w-full h-full object-contain bg-transparent" />
         </div>
-        <span class="text-sm font-bold text-gradient">{appTitle}</span>
+        <span class="font-display text-base font-bold text-slate-900 dark:text-white">{appTitle}</span>
     </div>
     <button
         class="btn btn-ghost min-h-11 min-w-11 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"

@@ -17,7 +17,7 @@
 </script>
 
 {#if visible && status}
-    <div class="border-b border-brand-200/60 bg-gradient-to-r from-brand-50 via-accent-50 to-white dark:border-brand-900/40 dark:from-brand-950/30 dark:via-accent-950/20 dark:to-slate-950/40">
+    <div class="border-b border-brand-200/60 bg-brand-50 dark:border-brand-900/40 dark:bg-brand-950/40">
         <div class="px-4 py-3 sm:px-6 lg:px-8 2xl:px-12">
             <div class="flex items-start gap-3">
                 <div class="mt-0.5 flex-shrink-0">
@@ -32,10 +32,10 @@
                         <span class="font-semibold">{$_('update_banner.title', { values: { version: status.latest_version }, default: `YA-WAMF ${status.latest_version} is available` })}</span>
                     {/if}
                     <span class="ml-1 opacity-90">{$_('update_banner.body', { values: { current: currentDisplay }, default: `You're running ${currentDisplay}. Pull the new image from your container manager to update.` })}</span>
-                    <a href={status.release_url} target="_blank" rel="noopener noreferrer" class="ml-1 font-black underline underline-offset-2 hover:opacity-80">
+                    <a href={status.release_url} target="_blank" rel="noopener noreferrer" class="ml-1 font-bold underline underline-offset-2 hover:opacity-80">
                         {$_('update_banner.release_notes', { default: 'Release notes →' })}
                     </a>
-                    <button type="button" onclick={dismiss} class="ml-2 font-black uppercase tracking-wider underline underline-offset-2 hover:opacity-80">
+                    <button type="button" onclick={dismiss} class="ml-2 font-bold uppercase tracking-wider underline underline-offset-2 hover:opacity-80">
                         {$_('update_banner.dismiss', { default: 'Dismiss' })}
                     </button>
                 </div>

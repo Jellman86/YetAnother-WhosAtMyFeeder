@@ -13,6 +13,7 @@
     } from '../api';
     import { chartjs, toggleChartSlice, type CanvasChartConfig } from '../actions/chartjs';
     import { themeStore } from '../stores/theme.svelte';
+    import { speciesSeriesColor } from '../leaderboard/species-palette';
     import { authStore } from '../stores/auth.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
     import { createAudioHistoryLoader } from './audio-history-loader';
@@ -233,8 +234,13 @@
         return `${birdnetExternalUrl.replace(/\/$/, '')}/ui/detections/${birdnet_id}`;
     }
 
-    // Teal palette for audio-derived charts, matching the RecentAudio widget.
-    const audioPalette = ['#14b8a6', '#0ea5e9', '#6366f1', '#f59e0b', '#ec4899', '#8b5cf6', '#10b981', '#94a3b8'];
+    // Calls over time and by hour take the colour theme's primary, as the Leaderboard trend does;
+    // species take the shared colour-blind-safe species palette, so a species reads the same here.
+    let audioPrimary = $derived(themeStore.colorTheme === 'bluetit' ? '#2563eb' : '#0d9488');
+    let audioPrimaryFill = $derived(themeStore.colorTheme === 'bluetit' ? 'rgba(37,99,235,0.18)' : 'rgba(13,148,136,0.18)');
+    function audioSpeciesColor(index: number): string {
+        return speciesSeriesColor(index, isDark);
+    }
 
     let dailyChartConfig = $derived((): CanvasChartConfig => {
         const points = summary?.daily_counts ?? [];
@@ -246,8 +252,8 @@
                 datasets: [{
                     label: $_('audio.chart.heard', { default: 'Heard' }),
                     data: points.map((point) => point.count),
-                    borderColor: audioPalette[0],
-                    backgroundColor: 'rgba(20,184,166,0.18)',
+                    borderColor: audioPrimary,
+                    backgroundColor: audioPrimaryFill,
                     fill: true,
                     tension: 0.3,
                     pointRadius: points.length > 45 ? 0 : 2,
@@ -285,9 +291,11 @@
                 datasets: [{
                     label: $_('audio.chart.heard', { default: 'Heard' }),
                     data: counts,
-                    backgroundColor: audioPalette[0],
-                    borderRadius: 3,
-                    maxBarThickness: 18,
+                    backgroundColor: audioPrimary,
+                    borderRadius: 4,
+                    barPercentage: 0.8,
+                    categoryPercentage: 0.9,
+                    maxBarThickness: 48,
                 }],
             },
             options: {
@@ -315,7 +323,7 @@
             type: 'doughnut',
             data: {
                 labels: top.map((species) => species.species),
-                datasets: [{ data: values, backgroundColor: audioPalette.slice(0, top.length), borderColor: isDark ? '#1e293b' : '#ffffff', borderWidth: 1.5 }],
+                datasets: [{ data: values, backgroundColor: top.map((_, index) => audioSpeciesColor(index)), borderColor: isDark ? '#1e293b' : '#ffffff', borderWidth: 1.5 }],
             },
             plugins: [centerTotal],
             options: {
@@ -566,7 +574,7 @@
                 <div class="mt-3 h-[240px] animate-pulse bg-slate-100/80 dark:bg-slate-800/60"></div>
             {:else if hasDaily}
                 {#key `${days}-${isDark}-${reduceMotion}`}
-                    <div class="relative mt-3 h-[240px] w-full"><canvas use:chartjs={dailyChartConfig()} aria-label={$_('audio.chart.daily_title', { default: 'Activity over time' })}></canvas></div>
+                    <div class="relative mt-3 chart-h w-full"><canvas use:chartjs={dailyChartConfig()} aria-label={$_('audio.chart.daily_title', { default: 'Activity over time' })}></canvas></div>
                 {/key}
             {:else}
                 <div class="flex h-[240px] items-center justify-center text-sm font-semibold text-slate-400 dark:text-slate-500">{$_('audio.chart.empty', { default: 'No activity in this window.' })}</div>
@@ -592,12 +600,12 @@
                     <div class="mt-3 h-[240px] animate-pulse bg-slate-100/80 dark:bg-slate-800/60"></div>
                 {:else if hasSpecies}
                     {#key `${days}-${isDark}-${reduceMotion}`}
-                        <div class="relative mt-3 h-[210px] w-full"><canvas use:chartjs={speciesDonutConfig()} bind:this={speciesChartEl} aria-label={$_('audio.chart.species_title', { default: 'Species mix' })}></canvas></div>
+                        <div class="relative mt-3 chart-h w-full"><canvas use:chartjs={speciesDonutConfig()} bind:this={speciesChartEl} aria-label={$_('audio.chart.species_title', { default: 'Species mix' })}></canvas></div>
                         <div class="mt-2 flex flex-wrap justify-center gap-2" role="group" aria-label={$_('audio.chart.species_title', { default: 'Species mix' })}>
                             {#each (summary?.top_species ?? []).slice(0, 8) as item, index}
                                 <button type="button" class="btn btn-ghost min-h-9 gap-1.5 px-2 text-xs focus-visible:ring-2 focus-visible:ring-brand-500 {hiddenChartSpecies.includes(index) ? 'opacity-45 line-through' : ''}"
                                     aria-pressed={!hiddenChartSpecies.includes(index)} aria-label="{hiddenChartSpecies.includes(index) ? $_('common.show') : $_('common.hide')} {item.species}" onclick={() => toggleSpeciesSlice(index)}>
-                                    <span class="h-2.5 w-2.5 rounded-sm" style="background-color: {audioPalette[index % audioPalette.length]}"></span>{item.species}
+                                    <span class="h-2.5 w-2.5 rounded-sm" style="background-color: {audioSpeciesColor(index)}"></span>{item.species}
                                 </button>
                             {/each}
                         </div>

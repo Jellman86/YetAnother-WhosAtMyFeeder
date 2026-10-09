@@ -420,7 +420,10 @@
       "reconnecting": "再接続中…",
       "window": "過去24時間",
       "loading": "読み込み中",
-      "unavailable": "利用できません"
+      "unavailable": "利用できません",
+      "birds_scope_short": "解析済み {count} 件のキャプチャから",
+      "nothing_to_review": "確認待ちなし",
+      "seen_and_heard": "見て聞いた"
     },
     "desk": {
       "cameras_empty": "まだカメラが応答していません。設定 → 接続 で追加してください。",
@@ -3161,6 +3164,9 @@
     "errors_samples": "サンプルイベントID",
     "errors_snapshot_ref": "ヘルススナップショット: {status} @ {at}",
     "error_bundles_title": "エラーバンドル",
+    "errors_export_failed": "現在の診断情報を取得できませんでした。もう一度お試しください。",
+    "phase_waiting_for_clip": "録画クリップを待機中",
+    "phase_waiting_for_worker": "ワーカーの復旧を待機中",
     "errors_export_title": "診断のエクスポート",
     "errors_export_count": "{count} 件保存済み",
     "errors_export_desc": "バンドルはワークスペースの状態、バックエンド診断、分類器の状態、起動時の警告、インシデントを 1 つの JSON ファイルにまとめます。問題を報告するときに添付してください。",

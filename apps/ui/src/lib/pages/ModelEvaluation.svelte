@@ -8,7 +8,7 @@
         getModelEvalRun,
         deleteModelEvalRun,
         cancelModelEvalRun,
-        modelEvalArtifactUrl,
+        fetchModelEvalArtifact,
         getModelEvalDeviceMatrix,
         type ModelEvalActiveStatus,
         type ModelEvalRunRow,
@@ -29,6 +29,31 @@
     let deviceMatrix = $state<DeviceMatrix | null>(null);
     let pollHandle: number | null = null;
     let refreshInFlight = false;
+    let downloadingArtifact = $state<string | null>(null);
+
+    async function downloadArtifact(runId: string, artifact: string): Promise<void> {
+        if (downloadingArtifact) return;
+        downloadingArtifact = artifact;
+        error = null;
+        try {
+            const blob = await fetchModelEvalArtifact(runId, artifact);
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = artifact;
+            document.body.appendChild(link);
+            try {
+                link.click();
+            } finally {
+                link.remove();
+                URL.revokeObjectURL(url);
+            }
+        } catch (cause) {
+            error = cause instanceof Error ? cause.message : String(cause);
+        } finally {
+            downloadingArtifact = null;
+        }
+    }
 
     function matrixProviders(matrix: DeviceMatrix): string[] {
         return matrix.providers?.length ? matrix.providers : matrix.devices;
@@ -193,7 +218,7 @@
 
 <div class="space-y-6">
     {#if error}
-        <div class="rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 p-3 text-red-800 dark:text-red-200">
+        <div role="alert" class="rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 p-3 text-red-800 dark:text-red-200">
             {error}
         </div>
     {/if}
@@ -263,12 +288,20 @@
                         {/if}
                     </p>
                 </div>
-                <div class="flex flex-wrap gap-1 text-xs">
-                    <a class="text-brand-600 dark:text-brand-400 hover:underline" href={modelEvalArtifactUrl(selectedRun.run_id, 'summary.json')} target="_blank" rel="noopener">summary.json</a>
-                    <span class="text-slate-400">·</span>
-                    <a class="text-brand-600 dark:text-brand-400 hover:underline" href={modelEvalArtifactUrl(selectedRun.run_id, 'runtime.json')} target="_blank" rel="noopener">runtime.json</a>
-                    <span class="text-slate-400">·</span>
-                    <a class="text-brand-600 dark:text-brand-400 hover:underline" href={modelEvalArtifactUrl(selectedRun.run_id, 'confusions.csv')} target="_blank" rel="noopener">confusions.csv</a>
+                <div class="flex flex-wrap gap-1 text-xs" aria-busy={downloadingArtifact !== null}>
+                    {#each ['summary.json', 'runtime.json', 'confusions.csv'] as artifact (artifact)}
+                        <button
+                            type="button"
+                            class="btn btn-ghost min-h-11 px-2 text-xs"
+                            disabled={downloadingArtifact !== null}
+                            onclick={() => selectedRun && downloadArtifact(selectedRun.run_id, artifact)}
+                        >
+                            {#if downloadingArtifact === artifact}
+                                <span class="h-3 w-3 animate-spin rounded-full border-2 border-current border-r-transparent motion-reduce:animate-none" aria-hidden="true"></span>
+                            {/if}
+                            {artifact}
+                        </button>
+                    {/each}
                 </div>
             </header>
 

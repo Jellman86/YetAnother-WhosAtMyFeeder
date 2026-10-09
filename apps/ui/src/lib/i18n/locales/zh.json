@@ -420,7 +420,10 @@
       "reconnecting": "正在重新连接…",
       "window": "过去24小时",
       "loading": "仍在加载",
-      "unavailable": "不可用"
+      "unavailable": "不可用",
+      "birds_scope_short": "来自 {count} 个已分析的捕获",
+      "nothing_to_review": "无需复核",
+      "seen_and_heard": "既见又闻"
     },
     "desk": {
       "cameras_empty": "还没有摄像头上报。请在“设置 → 连接”中添加。",
@@ -3161,6 +3164,9 @@
     "errors_samples": "示例事件 ID",
     "errors_snapshot_ref": "健康快照：{status} @ {at}",
     "error_bundles_title": "错误包",
+    "errors_export_failed": "无法获取当前诊断信息。请重试。",
+    "phase_waiting_for_clip": "正在等待录像片段",
+    "phase_waiting_for_worker": "正在等待工作进程恢复",
     "errors_export_title": "诊断导出",
     "errors_export_count": "已保存 {count} 个",
     "errors_export_desc": "一个诊断包会把工作区状态、后端诊断、分类器状态、启动警告和事件汇总为一个 JSON 文件。报告问题时请附上它。",

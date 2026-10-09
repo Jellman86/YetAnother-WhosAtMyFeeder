@@ -280,7 +280,7 @@
                 <div
                     use:portal={rootEl?.closest<HTMLElement>('[popover]') ?? document.body}
                     style="left: {anchor.x}px; top: {anchor.y}px;"
-                    class="fixed z-[70] w-60 max-w-[calc(100vw-16px)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/20 animate-in fade-in zoom-in-95 motion-reduce:animate-none dark:border-slate-700 dark:bg-slate-900 {anchor.above
+                    class="fixed z-[70] w-60 max-w-[calc(100vw-16px)] overflow-hidden rounded-2xl border border-slate-200 bg-surface shadow-2xl shadow-slate-950/20 animate-in fade-in zoom-in-95 motion-reduce:animate-none dark:border-slate-700 {anchor.above
                         ? '-translate-x-1/2 -translate-y-full'
                         : '-translate-x-1/2'}"
                     role="tooltip"
@@ -317,11 +317,11 @@
                             </span>
                         </div>
                         {#if secondaryName}
-                            <p class="truncate text-[11px] italic text-slate-500 dark:text-slate-400">
+                            <p class="truncate text-2xs italic text-slate-500 dark:text-slate-400">
                                 {secondaryName}
                             </p>
                         {/if}
-                        <p class="text-[11px] text-slate-500 dark:text-slate-400">
+                        <p class="text-2xs text-slate-500 dark:text-slate-400">
                             {formatTime(frame.detection_time)} &middot; {frame.camera_name}{frame.weather_condition
                                 ? ` · ${frame.weather_condition}`
                                 : ''}{formatTemperature(frame.temperature, temperatureUnit)
@@ -329,7 +329,7 @@
                                 : ''}
                         </p>
                         {#if frameCount > 1}
-                            <p class="text-[11px] text-slate-500 dark:text-slate-400">
+                            <p class="text-2xs text-slate-500 dark:text-slate-400">
                                 {$_('dashboard.field_log.preview_frame_position', {
                                     values: { position: index + 1, count: frameCount },
                                     default: 'Frame {position} of {count} in this visit'
@@ -343,12 +343,12 @@
     {/each}
 
     {#if showCount && frameCount > 1}
-        <span class="ml-1.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400 sm:hidden">
+        <span class="ml-1.5 text-2xs font-semibold text-slate-500 dark:text-slate-400 sm:hidden">
             +{frameCount - 1}
         </span>
     {/if}
     {#if showCount && frameCount > VISIBLE_FRAMES}
-        <span class="ml-1.5 hidden text-[11px] font-semibold text-slate-500 sm:inline dark:text-slate-400">
+        <span class="ml-1.5 hidden text-2xs font-semibold text-slate-500 sm:inline dark:text-slate-400">
             +{frameCount - VISIBLE_FRAMES}
         </span>
     {/if}

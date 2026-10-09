@@ -21,13 +21,13 @@
 </script>
 
 <div
-    class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50
+    class="p-4 rounded-xl bg-surface-raised/70
            {layout === 'inline' ? 'flex items-center justify-between gap-4' : 'flex flex-col gap-3'}"
 >
     <div id={labelId} class="min-w-0">
-        <span class="block text-sm font-bold text-slate-900 dark:text-white">{label}</span>
+        <span class="block text-sm font-semibold text-slate-900 dark:text-white">{label}</span>
         {#if description}
-            <span id={descriptionId} class="block text-[11px] text-slate-500 dark:text-slate-400 font-medium leading-snug mt-0.5">
+            <span id={descriptionId} class="mt-0.5 block text-xs leading-snug text-slate-500 dark:text-slate-400">
                 {description}
             </span>
         {/if}

@@ -63,6 +63,182 @@ async def test_restore_unfinished_jobs_rebuilds_memory_queue_from_durable_status
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("retry_pool", ["_precheck_retry_tasks", "_worker_failure_retry_tasks"])
+async def test_durable_recovery_does_not_steal_sleeping_retry_ownership(monkeypatch, retry_pool):
+    service = AutoVideoClassifierService()
+    repo = MagicMock()
+    repo.get_video_classification_recovery_candidates = AsyncMock(
+        return_value=[{"event_id": "missing-event", "camera": "cam1", "status": "pending"}]
+    )
+    monkeypatch.setattr(auto_video_classifier_module, "get_db", lambda: _FakeDbContext())
+    monkeypatch.setattr(auto_video_classifier_module, "DetectionRepository", lambda _db: repo)
+    sleeping = asyncio.create_task(asyncio.Event().wait())
+    getattr(service, retry_pool)["missing-event"] = sleeping
+    try:
+        assert await service._restore_unfinished_jobs() == 0
+        assert service._pending_queue.empty()
+    finally:
+        sleeping.cancel()
+        await asyncio.gather(sleeping, return_exceptions=True)
+
+
+@pytest.mark.asyncio
+async def test_precheck_retry_enters_normal_queue_with_exhausted_retry_budget(monkeypatch):
+    service = AutoVideoClassifierService()
+    service._running = True
+    _patch_detection_lookup(monkeypatch, types.SimpleNamespace(video_classification_status="pending"))
+    monkeypatch.setattr(asyncio, "sleep", AsyncMock())
+    monkeypatch.setattr(service, "_update_status", AsyncMock(return_value=True))
+    process = AsyncMock()
+    monkeypatch.setattr(service, "_process_event", process)
+    service._schedule_precheck_retry(
+        frigate_event="missing-event", camera="cam1", fallback_to_snapshot=False, source="live", next_attempt=1
+    )
+    await service._precheck_retry_tasks["missing-event"]
+    process.assert_not_awaited()
+    assert service._pending_queue.get_nowait() == ("missing-event", "cam1", True, False, "live")
+    assert service._pending_metadata["missing-event"]["precheck_retry_attempt"] == 1
+    jobs = service.get_jobs_snapshot()
+    assert len(jobs) == 1
+    assert jobs[0]["phase"] == "waiting"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("retry_kind", ["precheck", "worker"])
+async def test_sleeping_retries_stay_visible_until_cancelled(monkeypatch, retry_kind):
+    service = AutoVideoClassifierService()
+    service._running = True
+    if retry_kind == "precheck":
+        service._schedule_precheck_retry(
+            frigate_event="waiting-event",
+            camera="cam1",
+            fallback_to_snapshot=False,
+            source="live",
+            next_attempt=1,
+            manual_requested=True,
+        )
+    else:
+        service._schedule_worker_failure_requeue(
+            frigate_event="waiting-event",
+            camera="cam1",
+            fallback_to_snapshot=False,
+            source="live",
+            reason_code="video_worker_unavailable",
+        )
+    try:
+        jobs = service.get_jobs_snapshot()
+        assert len(jobs) == 1
+        assert jobs[0]["event_id"] == "waiting-event"
+        assert jobs[0]["status"] == "queued"
+        assert jobs[0]["phase"] == ("waiting_for_clip" if retry_kind == "precheck" else "waiting_for_worker")
+        assert jobs[0]["source"] == ("manual" if retry_kind == "precheck" else "live")
+        assert jobs[0]["created_at"] is not None
+        # Displaying a wait must not make it consume a scheduler slot.
+        assert service._pending_queue.empty()
+        assert not service._pending_ids
+        monkeypatch.setattr(service, "_update_status", AsyncMock(return_value=True))
+        assert await service.queue_classification("waiting-event", "cam1", source="manual") == "duplicate"
+        assert service.get_jobs_snapshot()[0]["source"] == "manual"
+    finally:
+        await service.stop()
+    assert service.get_jobs_snapshot() == []
+
+
+@pytest.mark.asyncio
+async def test_manual_request_joins_sleeping_precheck_retry(monkeypatch):
+    service = AutoVideoClassifierService()
+    sleeping = asyncio.create_task(asyncio.Event().wait())
+    service._precheck_retry_tasks["missing-event"] = sleeping
+    monkeypatch.setattr(service, "_update_status", AsyncMock(return_value=True))
+    try:
+        assert await service.queue_classification("missing-event", "cam1", source="manual") == "duplicate"
+        assert "missing-event" in service._manual_requested_ids
+        assert service._pending_queue.empty()
+    finally:
+        sleeping.cancel()
+        await asyncio.gather(sleeping, return_exceptions=True)
+
+
+@pytest.mark.asyncio
+async def test_queued_precheck_retry_keeps_its_budget_when_dispatched(monkeypatch):
+    service = AutoVideoClassifierService()
+    monkeypatch.setattr(service, "_update_status", AsyncMock(return_value=True))
+    started = asyncio.Event()
+    attempts = []
+
+    async def process(_event, _camera, **kwargs):
+        attempts.append(kwargs["precheck_retry_attempt"])
+        service._running = False
+        started.set()
+
+    monkeypatch.setattr(service, "_process_event", process)
+    assert (
+        await service.queue_classification("missing-event", "cam1", source="live", precheck_retry_attempt=1) == "queued"
+    )
+    service._running = True
+    processor = asyncio.create_task(service._process_queue_loop())
+    try:
+        await asyncio.wait_for(started.wait(), 2)
+        assert attempts == [1]
+    finally:
+        service._running = False
+        processor.cancel()
+        await asyncio.gather(processor, *list(service._active_tasks.values()), return_exceptions=True)
+
+
+@pytest.mark.asyncio
+async def test_worker_failure_retry_can_reenter_the_queue_it_owns(monkeypatch):
+    service = AutoVideoClassifierService()
+    service._running = True
+    monkeypatch.setattr(asyncio, "sleep", AsyncMock())
+    monkeypatch.setattr(service, "_update_status", AsyncMock(return_value=True))
+    service._schedule_worker_failure_requeue(
+        frigate_event="worker-retry",
+        camera="cam1",
+        reason_code="video_worker_unavailable",
+        fallback_to_snapshot=False,
+        source="live",
+    )
+    await service._worker_failure_retry_tasks["worker-retry"]
+    assert service._pending_queue.get_nowait() == ("worker-retry", "cam1", True, False, "live")
+
+
+@pytest.mark.asyncio
+async def test_precheck_retry_respects_manual_intent_joined_during_wait(monkeypatch):
+    service = AutoVideoClassifierService()
+    service._running = True
+    _patch_detection_lookup(monkeypatch, types.SimpleNamespace(video_classification_status="pending"))
+    monkeypatch.setattr(asyncio, "sleep", AsyncMock())
+    monkeypatch.setattr(service, "_update_status", AsyncMock(return_value=True))
+    service._manual_requested_ids.add("missing-event")
+    service._schedule_precheck_retry(
+        frigate_event="missing-event", camera="cam1", fallback_to_snapshot=False, source="live", next_attempt=1
+    )
+    await service._precheck_retry_tasks["missing-event"]
+    assert service._pending_queue.get_nowait() == ("missing-event", "cam1", True, False, "live")
+    assert service._pending_metadata["missing-event"]["manual_requested"] is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("queue_result,reason", [("blocked", "video_circuit_open"), ("deferred", "video_queue_full")])
+async def test_precheck_retry_refusal_settles_instead_of_resetting_its_budget(monkeypatch, queue_result, reason):
+    service = AutoVideoClassifierService()
+    service._running = True
+    _patch_detection_lookup(monkeypatch, types.SimpleNamespace(video_classification_status="pending"))
+    monkeypatch.setattr(asyncio, "sleep", AsyncMock())
+    monkeypatch.setattr(service, "queue_classification", AsyncMock(return_value=queue_result))
+    monkeypatch.setattr(service, "_update_status", AsyncMock())
+    monkeypatch.setattr(service, "_broadcast_reclassification_completed", AsyncMock())
+    service._schedule_precheck_retry(
+        frigate_event="missing-event", camera="cam1", fallback_to_snapshot=False, source="live", next_attempt=1
+    )
+    service._manual_requested_ids.add("missing-event")
+    await service._precheck_retry_tasks["missing-event"]
+    service._update_status.assert_awaited_once_with("missing-event", "failed", error=reason, broadcast=True)
+    assert "missing-event" not in service._manual_requested_ids
+
+
+@pytest.mark.asyncio
 async def test_graceful_shutdown_returns_cancelled_active_job_to_pending(monkeypatch):
     service = AutoVideoClassifierService()
     lookup_started = asyncio.Event()

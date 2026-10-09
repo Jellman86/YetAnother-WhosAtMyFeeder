@@ -224,12 +224,12 @@
                             data-explorer-show={option.grouped ? 'visits' : 'captures'}
                         >
                             <span class="text-xs {chosen ? 'font-semibold text-brand-800 dark:text-brand-200' : 'text-slate-700 dark:text-slate-300'}">{option.label}</span>
-                            <span class="text-[11px] leading-4 text-slate-500 dark:text-slate-400">{option.hint}</span>
+                            <span class="text-2xs leading-4 text-slate-500 dark:text-slate-400">{option.hint}</span>
                         </button>
                     {/each}
                 </div>
                 {#if groupingLocked}
-                    <p class="mt-1 px-2 text-[11px] text-slate-500 dark:text-slate-400">{$_('events.filters.show_locked', { default: 'Selecting works on individual captures.' })}</p>
+                    <p class="mt-1 px-2 text-2xs text-slate-500 dark:text-slate-400">{$_('events.filters.show_locked', { default: 'Selecting works on individual captures.' })}</p>
                 {/if}
             </div>
 

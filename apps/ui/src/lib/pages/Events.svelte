@@ -1552,7 +1552,7 @@
                 <p
                     id="events-timeline-scope"
                     data-events-timeline-scope
-                    class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400"
+                    class="mb-2 text-2xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400"
                 >
                     {$_('events.timeline_scope', { default: 'Days on this page' })}
                 </p>
@@ -1572,7 +1572,7 @@
                             <path d="M4.5 10h11"></path>
                         </svg>
                         <span>{$_('common.all', { default: 'All' })}</span>
-                        <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold normal-case tracking-normal
+                        <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-3xs font-bold normal-case tracking-normal
                             {selectedTimelineBucket === 'all'
                                 ? 'bg-brand-200/80 dark:bg-brand-400/25 text-brand-800 dark:text-brand-100'
                                 : 'bg-slate-100 dark:bg-slate-700/60 text-slate-700 dark:text-slate-200'}"
@@ -1599,7 +1599,7 @@
                                 <path d="M3 8h14"></path>
                             </svg>
                             <span>{bucket.label}</span>
-                            <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold normal-case tracking-normal
+                            <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-3xs font-bold normal-case tracking-normal
                                 {selectedTimelineBucket === bucket.key
                                     ? 'bg-brand-200/80 dark:bg-brand-400/25 text-brand-800 dark:text-brand-100'
                                     : 'bg-slate-100 dark:bg-slate-700/60 text-slate-700 dark:text-slate-200'}"
@@ -1613,7 +1613,7 @@
                         </button>
                     {/each}
                 </div>
-                <p class="mt-2 hidden items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 sm:inline-flex">
+                <p class="mt-2 hidden items-center gap-1.5 text-2xs text-slate-500 dark:text-slate-400 sm:inline-flex">
                     <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                         <path d="M6 7h8M6 10h8M6 13h5"></path>
                         <rect x="3" y="4" width="14" height="12" rx="2"></rect>
@@ -1821,7 +1821,7 @@
         role="button"
         tabindex="0"
     >
-        <div class="w-full max-w-md mx-2 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden" aria-busy={bulkTagging}>
+        <div class="w-full max-w-md mx-2 bg-surface rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden" aria-busy={bulkTagging}>
             <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
                 <div>
                     <h4 class="text-sm font-semibold text-slate-800 dark:text-slate-100">
@@ -1862,14 +1862,14 @@
                         <span class="block text-sm leading-tight">
                             {names.primary}
                             {#if isPending}
-                                <span class="ml-2 inline-flex items-center gap-1 text-[10px] font-semibold text-brand-500">
+                                <span class="ml-2 inline-flex items-center gap-1 text-3xs font-semibold text-brand-500">
                                     <span class="inline-block h-2 w-2 rounded-full border border-current border-t-transparent animate-spin"></span>
                                     {$_('common.saving')}
                                 </span>
                             {/if}
                         </span>
                         {#if names.secondary}
-                            <span class="block text-[11px] text-slate-400 dark:text-slate-400 italic">{names.secondary}</span>
+                            <span class="block text-2xs text-slate-400 dark:text-slate-400 italic">{names.secondary}</span>
                         {/if}
                     </button>
                 {/each}

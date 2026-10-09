@@ -10,11 +10,15 @@ import notableSource from './NotableNearby.svelte?raw';
  */
 describe('notable nearby', () => {
     it('gives a lone sighting the full width', () => {
-        expect(notableSource).toContain("groups.length > 1 ? 'sm:grid-cols-2 3xl:grid-cols-1' : ''");
+        expect(notableSource).toContain("groups.length > 1 ? 'sm:grid-cols-2 xl:grid-cols-1' : ''");
     });
 
-    it('goes back to one column when it sits in the narrow wide-screen side column', () => {
-        expect(notableSource).toContain('3xl:grid-cols-1');
+    it('goes back to one column where it sits in the dashboard rail', () => {
+        expect(notableSource).toContain('xl:grid-cols-1');
+    });
+
+    it('keeps amber for work that needs a person, not for a list of reports', () => {
+        expect(notableSource).not.toContain('amber');
     });
 
     it('still pairs sightings up when there is more than one', () => {

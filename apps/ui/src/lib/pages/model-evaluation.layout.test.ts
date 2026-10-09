@@ -29,7 +29,7 @@ describe('model evaluation speaks the same visual language as the rest of the ap
         // Matching to the tag's closing `>` is unreliable here because an inline
         // `onclick={() => ...}` puts a `>` inside the tag, so read each button's
         // own class attribute instead.
-        expect(buttonClasses(source).length).toBe(4);
+        expect(buttonClasses(source).length).toBe(5);
         for (const cls of buttonClasses(source)) {
             expect(cls, `unstyled button: ${cls.slice(0, 60)}`).toMatch(/\bbtn\b/);
         }

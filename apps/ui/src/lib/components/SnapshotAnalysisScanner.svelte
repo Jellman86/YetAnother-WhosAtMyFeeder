@@ -64,16 +64,16 @@
             <div class="absolute inset-0 border-y border-amber-200/25"></div>
         {/if}
 
-        <div class="absolute left-2 top-2 inline-flex items-center gap-1.5 rounded-md border border-amber-200/25 bg-black/55 px-2 py-1 text-[9px] font-black uppercase tracking-widest text-amber-100">
+        <div class="absolute left-2 top-2 inline-flex items-center gap-1.5 rounded-md border border-amber-200/25 bg-black/55 px-2 py-1 text-3xs font-bold uppercase tracking-widest text-amber-100">
             <span class="h-1.5 w-1.5 rounded-full bg-amber-300 {isComplete ? '' : 'motion-safe:animate-pulse'}"></span>
             {$_('detection.reclassification.snapshot_scanning', { default: 'Snapshot scan' })}
         </div>
 
         {#if latestLabel}
             <div class="absolute inset-x-2 bottom-2 rounded-lg border border-white/10 bg-black/55 px-2 py-1.5 text-white">
-                <div class="truncate text-[11px] font-black">{latestLabel}</div>
+                <div class="truncate text-2xs font-bold">{latestLabel}</div>
                 {#if latestScore !== null}
-                    <div class="mt-0.5 text-[9px] font-black uppercase tracking-widest text-amber-200">{latestScore}%</div>
+                    <div class="mt-0.5 text-3xs font-bold uppercase tracking-widest text-amber-200">{latestScore}%</div>
                 {/if}
             </div>
         {/if}
@@ -81,17 +81,17 @@
 
     <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-amber-100/70 dark:bg-white/10">
         <div
-            class="h-full rounded-full bg-gradient-to-r from-amber-300 via-brand-300 to-cyan-300 transition-all duration-300 ease-out motion-reduce:transition-none"
+            class="h-full rounded-full bg-brand-400 transition-all duration-300 ease-out motion-reduce:transition-none"
             style={`width: ${progressPercent}%`}
         ></div>
     </div>
 
     {#if showFooter}
         <div class="mt-2 flex items-center justify-between gap-3 px-1">
-            <span class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+            <span class="text-3xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
                 {$_('detection.reclassification.snapshot_fallback_badge', { default: 'Snapshot fallback' })}
             </span>
-            <span class="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-300">
+            <span class="text-3xs font-bold uppercase tracking-widest text-amber-700 dark:text-amber-300">
                 {$_('detection.reclassification.frame_progress', {
                     values: {
                         current: Math.min(safeCurrentFrame, safeTotalFrames),

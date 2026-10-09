@@ -26,10 +26,14 @@ function titleForJob(job: ServerJob): string {
 
 /** Two jobs of one kind look identical without it, so the event stays visible as detail. */
 function detailForJob(job: ServerJob): string | undefined {
-    const phase = job.phase === 'updating_photo'
-        ? get(locale)
-            ? get(_)('jobs.phase_updating_photo', { default: 'Updating photograph' })
-            : 'Updating photograph'
+    const phaseLabels: Record<string, { key: string; fallback: string }> = {
+        updating_photo: { key: 'jobs.phase_updating_photo', fallback: 'Updating photograph' },
+        waiting_for_clip: { key: 'jobs.phase_waiting_for_clip', fallback: 'Waiting for recording clip' },
+        waiting_for_worker: { key: 'jobs.phase_waiting_for_worker', fallback: 'Waiting for worker recovery' }
+    };
+    const label = phaseLabels[job.phase ?? ''];
+    const phase = label
+        ? get(locale) ? get(_)(label.key, { default: label.fallback }) : label.fallback
         : job.phase;
     const parts = [phase, job.event_id].filter((part): part is string => Boolean(part));
     return parts.length > 0 ? parts.join(' \u00b7 ') : undefined;
