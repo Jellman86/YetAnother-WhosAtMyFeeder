@@ -2519,7 +2519,8 @@
       "blocked_group": "Gehörte Rufe sind ausgeblendet, solange eine Artengruppe gewählt ist. Wählen Sie eine Art, um ihre Rufe zu sehen.",
       "blocked_sort": "Gehörte Rufe erscheinen nur zwischen Besuchen, wenn die Besuche zeitlich sortiert sind.",
       "load_failed": "Die gehörten Rufe konnten nicht geladen werden. Die Besuche sind davon nicht betroffen.",
-      "truncated": "Diese Seite umfasst mehr Rufe, als auf einmal angezeigt werden können, daher fehlen die ältesten. Grenzen Sie den Zeitraum ein, um sie zu sehen."
+      "truncated": "Diese Seite umfasst mehr Rufe, als auf einmal angezeigt werden können, daher fehlen die ältesten. Grenzen Sie den Zeitraum ein, um sie zu sehen.",
+      "none_stored": "Für die Zeit dieser Besuche sind keine BirdNET-Go-Rufe gespeichert. Wenn Rufe zu erwarten waren, prüfen Sie unter Einstellungen, Integrationen, ob BirdNET-Go läuft."
     }
   },
   "audio": {

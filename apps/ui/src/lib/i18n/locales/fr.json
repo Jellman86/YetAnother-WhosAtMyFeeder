@@ -2519,7 +2519,8 @@
       "blocked_group": "Les chants entendus sont masqués tant qu’un groupe d’espèces est choisi. Choisissez une espèce pour voir ses chants.",
       "blocked_sort": "Les chants entendus n’apparaissent entre les visites que lorsque celles-ci sont triées par heure.",
       "load_failed": "Impossible de charger les chants entendus. Les visites ne sont pas affectées.",
-      "truncated": "Cette page couvre plus de chants que l’on peut en afficher à la fois, les plus anciens sont donc omis. Réduisez les dates pour les voir."
+      "truncated": "Cette page couvre plus de chants que l’on peut en afficher à la fois, les plus anciens sont donc omis. Réduisez les dates pour les voir.",
+      "none_stored": "Aucun chant BirdNET-Go n’est enregistré pour la période couverte par ces visites. Si des chants étaient attendus, vérifiez que BirdNET-Go fonctionne dans Paramètres, Intégrations."
     }
   },
   "audio": {

@@ -130,6 +130,18 @@ stay visible as removable tokens. The rail scrolls when expanded sections exceed
 available height, so selecting a species never shrinks its list to zero. Phones use the
 same ordering behind the Filters button.
 
+Explorer can show heard calls between its visits, from a **Heard calls** switch on the page (off
+until a device turns it on, remembered per device like Cards/List, never a setting). Visits stay
+the rows. BirdNET-Go calls fold per species across ten minutes of silence, calls that match a
+visit the pipeline already confirmed fold into that visit ("matching call, 42 calls"), and every
+other call gathers into one band per gap between two visits: its start time, layered spectrograms,
+a heading with its span and counts, a chip per species, and **Show calls**. A band is quieter than
+a visit and is placed and labelled by when it began. A filter that only describes camera visits
+(camera, favourites, hidden, multiple species, matching call, a species group, confidence order)
+hides the calls and says why; an empty span says no calls are stored, never that nothing was
+heard. A capture with several species uses the band's shape: **Multiple species**, layered
+thumbnail, a chip per species with its count and **Show species**, and no single score.
+
 ### Desk (Dashboard)
 
 ```

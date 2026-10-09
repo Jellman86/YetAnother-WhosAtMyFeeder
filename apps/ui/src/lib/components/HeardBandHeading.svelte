@@ -39,12 +39,12 @@
 </p>
 <ul class="mt-1.5 flex flex-wrap gap-1.5" aria-label={$_('events.heard.species_list', { default: 'Species heard' })}>
     {#each shown as entry (entry.name)}
-        <li class="inline-flex min-h-6 items-center gap-1.5 rounded-full border border-slate-200 bg-white/80 px-2 text-[11px] font-semibold text-slate-700 dark:border-slate-700/70 dark:bg-slate-800/70 dark:text-slate-200">
+        <li class="inline-flex min-h-6 items-center gap-1.5 rounded-full border border-line-soft bg-surface px-2 text-2xs font-semibold text-slate-700 dark:text-slate-200">
             {entry.name}<span class="font-bold tabular-nums text-brand-700 dark:text-brand-300">{entry.count}</span>
         </li>
     {/each}
     {#if more > 0}
-        <li class="inline-flex min-h-6 items-center px-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+        <li class="inline-flex min-h-6 items-center px-1 text-2xs font-semibold text-slate-500 dark:text-slate-400">
             {$_('events.heard.more_species', { values: { count: more }, default: '+{count} more' })}
         </li>
     {/if}

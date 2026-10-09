@@ -186,7 +186,7 @@
         {#if mixed && speciesMix}
             <ul class="mt-1.5 flex flex-wrap gap-1.5" aria-label={$_('events.species_in_capture', { default: 'Species in this capture' })}>
                 {#each speciesMix as entry (entry.species)}
-                    <li class="inline-flex min-h-6 items-center gap-1.5 rounded-full border border-slate-200 bg-white/80 px-2 text-[11px] font-semibold text-slate-700 dark:border-slate-700/70 dark:bg-slate-800/70 dark:text-slate-200">
+                    <li class="inline-flex min-h-6 items-center gap-1.5 rounded-full border border-line-soft bg-surface px-2 text-2xs font-semibold text-slate-700 dark:text-slate-200">
                         {entry.species}<span class="font-bold tabular-nums text-brand-700 dark:text-brand-300">{entry.count}</span>
                     </li>
                 {/each}
@@ -256,7 +256,7 @@
         {/if}
     </div>
     {#if mixed && speciesMix}
-        <div id="{uid}-species" hidden={!speciesOpen} class="relative z-10 col-span-full -mx-3 border-t border-slate-200/70 bg-slate-50/70 px-3 py-2 dark:border-slate-800/80 dark:bg-slate-950/30 sm:pl-[7.25rem]" data-detection-row-species>
+        <div id="{uid}-species" hidden={!speciesOpen} class="relative z-10 col-span-full -mx-3 border-t border-line-soft bg-surface-raised/50 px-3 py-2 sm:pl-[7.25rem]" data-detection-row-species>
             <ul class="divide-y divide-slate-200/70 dark:divide-slate-800/80">
                 {#each speciesMix as entry (entry.species)}
                     <li class="flex min-h-10 items-center justify-between gap-3 text-sm">

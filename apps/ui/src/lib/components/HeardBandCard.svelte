@@ -70,7 +70,7 @@
 </script>
 
 <article
-    class="flex h-full flex-col overflow-hidden rounded-3xl border border-dashed border-slate-300 bg-slate-50/80 dark:border-slate-700 dark:bg-slate-900/60"
+    class="flex h-full flex-col overflow-hidden rounded-2xl border border-dashed border-line bg-surface-raised/40"
     data-heard-band-card={band.position}
 >
     <div class="relative aspect-[4/3] overflow-hidden bg-slate-200 dark:bg-slate-950" aria-hidden="true">
@@ -80,7 +80,7 @@
                     <img src={spectrogram(id)} alt="" loading="lazy" class="h-full w-full scale-125 object-cover [transform-origin:50%_64%]" onerror={() => (failed = { ...failed, [id]: true })} />
                 </span>
             {/each}
-            <span class="flex flex-col items-center justify-center bg-white text-slate-700 dark:bg-slate-900 dark:text-slate-200 {pictures.length === 0 ? 'col-span-2 row-span-2' : pictures.length === 1 ? 'row-span-2' : pictures.length === 2 ? 'col-span-2' : ''}">
+            <span class="flex flex-col items-center justify-center bg-surface text-slate-700 dark:text-slate-200 {pictures.length === 0 ? 'col-span-2 row-span-2' : pictures.length === 1 ? 'row-span-2' : pictures.length === 2 ? 'col-span-2' : ''}">
                 <span class="font-display text-lg font-bold tabular-nums">{$_('events.heard.calls', { values: { count: band.callCount }, default: '{count} calls' })}</span>
             </span>
         </div>
@@ -114,9 +114,9 @@
         role="region"
         aria-label={$_('events.heard.calls_panel', { default: 'Heard calls' })}
         style={position}
-        class="fixed inset-auto m-0 overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white pb-2 text-slate-900 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+        class="fixed inset-auto m-0 overflow-y-auto overscroll-contain rounded-2xl border border-line bg-surface pb-2 text-slate-900 shadow-xl dark:text-slate-100"
     >
-        <div class="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-1 dark:border-slate-700 dark:bg-slate-900">
+        <div class="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-line-soft bg-surface px-4 py-1">
             <p class="text-sm font-semibold">{$_('events.heard.calls_panel', { default: 'Heard calls' })}<span class="ml-2 text-xs font-normal tabular-nums text-slate-500 dark:text-slate-400">{span}</span></p>
             <button type="button" class="btn btn-ghost min-h-11 min-w-11 px-2" popovertarget={panelId} popovertargetaction="hide">{$_('common.close', { default: 'Close' })}</button>
         </div>

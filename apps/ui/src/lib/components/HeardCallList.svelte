@@ -60,7 +60,7 @@
                 <span>
                     <time class="block text-xs font-semibold tabular-nums text-slate-600 dark:text-slate-300" datetime={group.first_heard}>{formatTime(group.first_heard)}</time>
                     {#if new Date(group.first_heard).toDateString() !== newestDay}
-                        <span class="block text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">{relativeDayLabel(group.first_heard, $_)}</span>
+                        <span class="block text-3xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">{relativeDayLabel(group.first_heard, $_)}</span>
                     {/if}
                 </span>
                 <span class="block h-9 w-9 overflow-hidden rounded-md bg-slate-100 ring-1 ring-slate-200 dark:bg-slate-800 dark:ring-slate-700" aria-hidden="true">
@@ -78,7 +78,7 @@
                 </span>
                 <span class="min-w-0">
                     <span class="block truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{group.species}</span>
-                    <span class="block truncate text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                    <span class="block truncate text-2xs font-semibold text-slate-500 dark:text-slate-400">
                         {#if heardCallsUntil(group)}{$_('events.heard.calls_until', { values: { count: group.call_count, time: heardCallsUntil(group) }, default: '{count} calls to {time}' })}{:else}{$_('events.heard.calls', { values: { count: group.call_count }, default: '{count} calls' })}{/if}{#if group.source_name}{' · '}{group.source_name}{/if}
                     </span>
                 </span>

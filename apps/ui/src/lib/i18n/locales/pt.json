@@ -2529,7 +2529,8 @@
       "blocked_group": "Os cantos ouvidos ficam ocultos enquanto um grupo de espécies está escolhido. Escolha uma espécie para ver seus cantos.",
       "blocked_sort": "Os cantos ouvidos só aparecem entre visitas quando as visitas estão em ordem de tempo.",
       "load_failed": "Não foi possível carregar os cantos ouvidos. As visitas não foram afetadas.",
-      "truncated": "Esta página abrange mais cantos do que é possível mostrar de uma vez, então os mais antigos ficam de fora. Restrinja as datas para vê-los."
+      "truncated": "Esta página abrange mais cantos do que é possível mostrar de uma vez, então os mais antigos ficam de fora. Restrinja as datas para vê-los.",
+      "none_stored": "Não há cantos do BirdNET-Go salvos para o período destas visitas. Se você esperava cantos, verifique se o BirdNET-Go está em execução em Configurações, Integrações."
     }
   },
   "audio": {

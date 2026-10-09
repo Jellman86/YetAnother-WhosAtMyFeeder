@@ -153,7 +153,7 @@
 <section
     class="pb-4 pt-1 {collapsed
         ? ''
-        : 'lg:flex lg:h-[calc(100dvh-2rem)] lg:max-h-[calc(100dvh-2rem)] lg:flex-col lg:rounded-2xl lg:border lg:border-slate-200 lg:bg-white/80 lg:p-3 lg:dark:border-slate-800 lg:dark:bg-slate-900/50'}"
+        : 'lg:flex lg:h-[calc(100dvh-2rem)] lg:max-h-[calc(100dvh-2rem)] lg:flex-col lg:rounded-2xl lg:border lg:border-line-soft lg:bg-surface lg:p-3'}"
     data-events-filter-bar
 >
     <div class="flex shrink-0 flex-wrap items-center gap-2">
@@ -204,7 +204,7 @@
     >
             <!-- How results are shown, not what they are: Clear all leaves it as it is. -->
             <div class="min-w-0 shrink-0" role="group" aria-labelledby="explorer-show-heading" data-explorer-show-facet>
-                <p id="explorer-show-heading" class="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                <p id="explorer-show-heading" class="eyebrow">
                     {$_('events.filters.show', { default: 'Show' })}
                 </p>
                 <div class="mt-2 space-y-0.5">
@@ -234,7 +234,7 @@
             </div>
 
             <div class="min-w-0 shrink-0" data-explorer-species-facet>
-                <p class="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                <p class="eyebrow">
                     {$_('events.filters.all_species')}
                 </p>
                 <label class="mt-2 block">
@@ -266,8 +266,8 @@
                 </div>
             </div>
 
-            <details class="group shrink-0 border-t border-slate-200/70 pt-1 dark:border-slate-800" data-explorer-date-facet>
-                <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-lg text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-slate-400 dark:hover:bg-slate-800/60 dark:hover:text-slate-200 [&::-webkit-details-marker]:hidden">
+            <details class="group shrink-0 border-t border-line-soft pt-1" data-explorer-date-facet>
+                <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 eyebrow rounded-lg hover:bg-surface-raised hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:text-slate-200 [&::-webkit-details-marker]:hidden">
                     <span>{$_('events.filters.when', { default: 'When' })}</span>
                     <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 7.5 5 5 5-5" /></svg>
                 </summary>
@@ -313,8 +313,8 @@
 
             </details>
 
-            <details class="group shrink-0 border-t border-slate-200/70 pt-1 dark:border-slate-800" data-explorer-only-facet>
-                <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-lg text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-slate-400 dark:hover:bg-slate-800/60 dark:hover:text-slate-200 [&::-webkit-details-marker]:hidden">
+            <details class="group shrink-0 border-t border-line-soft pt-1" data-explorer-only-facet>
+                <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 eyebrow rounded-lg hover:bg-surface-raised hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:text-slate-200 [&::-webkit-details-marker]:hidden">
                     <span>{$_('events.filters.only', { default: 'Only' })}</span>
                     <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 7.5 5 5 5-5" /></svg>
                 </summary>
@@ -377,8 +377,8 @@
                 </div>
             </details>
 
-            <details class="group shrink-0 border-t border-slate-200/70 pt-1 dark:border-slate-800" data-explorer-camera-facet>
-                <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-lg text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-slate-400 dark:hover:bg-slate-800/60 dark:hover:text-slate-200 [&::-webkit-details-marker]:hidden">
+            <details class="group shrink-0 border-t border-line-soft pt-1" data-explorer-camera-facet>
+                <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 eyebrow rounded-lg hover:bg-surface-raised hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:text-slate-200 [&::-webkit-details-marker]:hidden">
                     <span>{$_('events.filters.cameras', { default: 'Cameras' })}</span>
                     <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 7.5 5 5 5-5" /></svg>
                 </summary>

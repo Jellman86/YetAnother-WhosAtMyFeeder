@@ -1624,17 +1624,22 @@
         {/if}
 
         {#if heardBlocker}
-            <p class="mb-4 flex items-start gap-2 rounded-xl border border-slate-200 bg-white/70 px-3 py-2.5 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300" role="status" data-explorer-heard-notice>
+            <p class="mb-4 flex items-start gap-2 rounded-xl border border-line-soft bg-surface px-3 py-2.5 text-sm text-slate-600 dark:text-slate-300" role="status" data-explorer-heard-notice>
                 <svg class="mt-0.5 h-4 w-4 shrink-0 text-brand-600 dark:text-brand-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" /></svg>
                 <span>{heardBlocker}</span>
             </p>
         {:else if heardActive && heardFailed}
-            <p class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-slate-200 bg-white/70 px-3 py-2 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300" role="alert" data-explorer-heard-notice>
+            <p class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-line-soft bg-surface px-3 py-2 text-sm text-slate-600 dark:text-slate-300" role="alert" data-explorer-heard-notice>
                 {$_('events.heard.load_failed', { default: 'Could not load the heard calls. The visits are unaffected.' })}
                 <button type="button" class="btn btn-secondary min-h-11 px-3 text-xs" onclick={() => void loadHeard()}>{$_('common.retry', { default: 'Retry' })}</button>
             </p>
+        {:else if heardActive && heardGroups !== null && heardGroups.length === 0 && pageVisits.length > 0}
+            <!-- Nothing stored is not the same as nothing heard: BirdNET-Go may have been offline. -->
+            <p class="mb-4 rounded-xl border border-line-soft bg-surface px-3 py-2.5 text-sm text-slate-600 dark:text-slate-300" role="status" data-explorer-heard-notice>
+                {$_('events.heard.none_stored', { default: 'No BirdNET-Go calls are stored for the time these visits cover. If calls were expected, check that BirdNET-Go is running in Settings, Integrations.' })}
+            </p>
         {:else if heardActive && heardTruncated}
-            <p class="mb-4 rounded-xl border border-slate-200 bg-white/70 px-3 py-2.5 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300" role="status" data-explorer-heard-notice>
+            <p class="mb-4 rounded-xl border border-line-soft bg-surface px-3 py-2.5 text-sm text-slate-600 dark:text-slate-300" role="status" data-explorer-heard-notice>
                 {$_('events.heard.truncated', { default: 'This page spans more calls than can be shown at once, so the oldest calls are left out. Narrow the dates to see them.' })}
             </p>
         {/if}

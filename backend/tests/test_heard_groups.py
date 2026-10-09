@@ -17,7 +17,9 @@ def call(minutes: float, species: str = "House Sparrow", confidence: float = 0.8
     return HeardCall(
         timestamp=T0 + timedelta(minutes=minutes),
         species=species,
-        scientific_name=extra.get("scientific_name", {"House Sparrow": "Passer domesticus", "Dunnock": "Prunella modularis"}.get(species)),
+        scientific_name=extra.get(
+            "scientific_name", {"House Sparrow": "Passer domesticus", "Dunnock": "Prunella modularis"}.get(species)
+        ),
         confidence=confidence,
         birdnet_id=birdnet_id,
         source_name=extra.get("source_name", "patiocam"),
@@ -50,7 +52,11 @@ def test_the_same_scientific_name_under_two_common_names_is_one_group():
 
 def test_the_picture_is_the_strongest_call_birdnet_can_still_serve():
     groups = fold_heard_calls(
-        [call(0, confidence=0.6, birdnet_id=10), call(1, confidence=0.97, birdnet_id=None), call(2, confidence=0.8, birdnet_id=12)]
+        [
+            call(0, confidence=0.6, birdnet_id=10),
+            call(1, confidence=0.97, birdnet_id=None),
+            call(2, confidence=0.8, birdnet_id=12),
+        ]
     )
     assert groups[0].best_confidence == 0.97
     assert groups[0].best_heard == T0 + timedelta(minutes=1)

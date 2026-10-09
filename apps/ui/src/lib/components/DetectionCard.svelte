@@ -457,14 +457,14 @@
             {#if mixed && speciesMix}
                 <ul class="mt-1.5 flex flex-wrap gap-1.5" aria-label={$_('events.species_in_capture', { default: 'Species in this capture' })}>
                     {#each speciesMix as entry (entry.species)}
-                        <li class="inline-flex min-h-6 items-center gap-1.5 rounded-full border border-slate-200 bg-white/80 px-2 text-[11px] font-semibold text-slate-700 dark:border-slate-700/70 dark:bg-slate-800/70 dark:text-slate-200">
+                        <li class="inline-flex min-h-6 items-center gap-1.5 rounded-full border border-line-soft bg-surface px-2 text-2xs font-semibold text-slate-700 dark:text-slate-200">
                             {entry.species}<span class="font-bold tabular-nums text-brand-700 dark:text-brand-300">{entry.count}</span>
                         </li>
                     {/each}
                 </ul>
             {/if}
             {#if hasAudioConfirmed && matchedCalls > 0}
-                <p class="mt-1 text-[11px] font-semibold text-brand-700 dark:text-brand-300">
+                <p class="mt-1 text-2xs font-semibold text-brand-700 dark:text-brand-300">
                     {$_('events.heard.matching_calls', { values: { count: matchedCalls }, default: 'matching call, {count} calls' })}
                 </p>
             {/if}
