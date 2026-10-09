@@ -470,6 +470,16 @@ html.theme-bluetit.dark .ai-markdown-surface th { color: rgb(191 219 254); }
   color-scheme: dark;
 }
 
+/* Panels, wells and rules come from these tokens, so high contrast reaches every one of them.
+   The class sits on <html> beside the theme classes, so this selector must outrank
+   html.theme-bluetit.dark. */
+html.high-contrast.high-contrast.high-contrast {
+  --surface: 0 0 0;
+  --surface-raised: 0 0 0;
+  --line: 255 255 0;
+  --line-soft: 255 255 0;
+}
+
 .high-contrast body,
 .high-contrast .bg-surface-light,
 .high-contrast .dark\:bg-surface-dark {

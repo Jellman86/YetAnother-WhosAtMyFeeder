@@ -500,7 +500,7 @@
                     </label>
                 </div>
                 {#if frigateUrlMissing}
-                    <div class="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dashed border-brand-400/70 bg-brand-50/60 px-4 py-3 text-sm text-slate-700 dark:bg-brand-900/20 dark:text-slate-200" role="status">
+                    <div class="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dashed border-amber-400/70 bg-amber-50/60 px-4 py-3 text-sm text-slate-700 dark:bg-amber-900/20 dark:text-slate-200" role="status">
                         <span>{$_('settings.notifications.link_frigate_url_missing')}</span>
                         <button type="button" class="btn btn-ghost text-xs" onclick={onOpenIntegrations}>{$_('settings.notifications.link_open_integrations')}</button>
                     </div>
