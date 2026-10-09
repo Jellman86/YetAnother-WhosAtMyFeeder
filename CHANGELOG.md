@@ -25,6 +25,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   dashboard uses three columns: the field log, what needs you and what is happening now, then the
   activity, notable sightings and top visitors. Amber now only ever means something needs you: the
   eBird search radius, notification choices and the **Advanced** sections no longer use it.
+- The dashboard shows full species names in narrow desktop columns. Names wrap, and the camera
+  sits beneath them instead of taking a column that squeezed or cut off the name (#666).
 - Text follows your display scaling and your browser's text size everywhere. Small print was set
   in fixed pixels in many places, so a larger text size left it unchanged.
 - Charts keep sensible proportions at any size. The weekday-by-hour heatmap keeps square cells

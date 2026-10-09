@@ -190,14 +190,14 @@
     />
 
     <div class="min-w-0">
-        <p class="line-clamp-2 hyphens-auto break-words text-sm font-semibold leading-5 text-slate-900 sm:line-clamp-1 dark:text-white" data-field-log-name>
+        <p class="hyphens-auto break-words text-sm font-semibold leading-5 text-slate-900 dark:text-white" data-field-log-name>
             {naming.primary}
         </p>
         <!-- Wraps rather than truncates, so a marker is never cut off behind the name. -->
         <p class="flex flex-wrap items-baseline gap-x-1.5 text-2xs leading-4 text-slate-500 dark:text-slate-400">
             <span class="font-bold tabular-nums sm:hidden {scoreTone(score)}">{percent(score)}%</span>
             {#if showCamera}
-                <span class="sm:hidden">{visit.camera}</span>
+                <span class="break-words" data-field-log-camera>{visit.camera}</span>
             {/if}
             {#if visit.needsReview}
                 <span class="font-medium text-accent-700 dark:text-accent-300">
@@ -242,16 +242,6 @@
             {/if}
         </p>
     </div>
-
-    {#if showCamera}
-        <span class="hidden shrink-0 items-center gap-1.5 rounded-full border border-slate-200 px-2 py-0.5 text-2xs text-slate-500 sm:inline-flex dark:border-slate-700 dark:text-slate-400" data-field-log-camera>
-            <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M4 8h11v8H4z" />
-                <path stroke-linecap="round" stroke-linejoin="round" d="m15 12 5-3v6l-5-3z" />
-            </svg>
-            {visit.camera}
-        </span>
-    {/if}
 
     <span class="hidden flex-col items-end gap-1 sm:flex">
         <BadgeHint text={$_('detection.confidence_hint', { values: { score: percent(score) } })} class="rounded text-xs font-bold tabular-nums {scoreTone(score)}">{percent(score)}%</BadgeHint>
@@ -378,7 +368,6 @@
                             {/each}
                         </p>
                     </div>
-                    {#if showCamera}<span class="hidden sm:block"></span>{/if}
                     <BadgeHint text={$_('detection.confidence_hint', { values: { score: percent(captureScore) } })} data-visit-capture-score class="hidden justify-end rounded text-xs font-bold tabular-nums sm:flex {scoreTone(captureScore)}">
                         {percent(captureScore)}%
                     </BadgeHint>

@@ -61,7 +61,7 @@
     const emptyQueue: ReviewQueue = { items: [], total: 0, remaining: 0, oldest: null, reasons: new Map(), newSpeciesSightings: new Map() };
 </script>
 
-<main class="mx-auto max-w-3xl space-y-6 px-4 pb-8 pt-4">
+<main class="mx-auto max-w-3xl space-y-6 px-4 pb-8 pt-4" style:max-width={params.get('column') === 'narrow' ? '39rem' : null}>
     <output aria-label="Selected record">{selected}</output>
     <output aria-label="Played record">{played}</output>
     <output aria-label="Retries">{retried}</output>

@@ -64,14 +64,10 @@
 
     /**
      * Every row, every capture inside a row and every loading placeholder shares these columns:
-     * time, thread, photo, name, [camera], score, action. One template is what keeps a capture's
+     * time, thread, photo, name (with camera), score, action. One template is what keeps a capture's
      * time, node and score under its visit's.
      */
-    const grid = $derived(
-        showCamera
-            ? 'grid grid-cols-[3.25rem_0.6rem_auto_minmax(0,1fr)_auto] gap-x-2 sm:grid-cols-[5rem_0.75rem_auto_minmax(0,1fr)_auto_auto_8rem] sm:gap-x-3'
-            : 'grid grid-cols-[3.25rem_0.6rem_auto_minmax(0,1fr)_auto] gap-x-2 sm:grid-cols-[5rem_0.75rem_auto_minmax(0,1fr)_auto_8rem] sm:gap-x-3'
-    );
+    const grid = 'grid grid-cols-[3.25rem_0.6rem_auto_minmax(0,1fr)_auto] gap-x-2 sm:grid-cols-[5rem_0.75rem_auto_minmax(0,1fr)_auto_8rem] sm:gap-x-3';
 
     function quietScore(score: number | null): string {
         return score === null ? '' : `${Math.round(score * 100)}%`;
@@ -197,8 +193,6 @@
                                 })}
                             </p>
                         </div>
-
-                        {#if showCamera}<span class="hidden sm:inline-flex"></span>{/if}
 
                         <span class="hidden flex-col items-end gap-1 sm:flex">
                             <span class="text-xs font-bold tabular-nums text-slate-500 dark:text-slate-400">
