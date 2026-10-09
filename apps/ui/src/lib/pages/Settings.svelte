@@ -103,7 +103,6 @@
     import AuthenticationSettings from '../components/settings/AuthenticationSettings.svelte';
     import AISettings from '../components/settings/AISettings.svelte';
     import Errors from './Errors.svelte';
-    import SystemHealthPanel from '../components/settings/SystemHealthPanel.svelte';
     import {
         buildBirdModelRegionOverrideSettings,
         resolveBirdModelRegionOverrideFromSettings,
@@ -3566,10 +3565,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
 
             <!-- Health Tab -->
             {#if activeTab === 'health'}
-                <div class="space-y-6">
-                    <SystemHealthPanel />
-                    <Errors {onNavigate} />
-                </div>
+                <!-- The health page builds the System card itself, with its verdict inside it. -->
+                <Errors {onNavigate} />
             {/if}
 
             <!-- Integrations Tab -->
