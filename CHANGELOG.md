@@ -6,14 +6,17 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
-- Model evaluation files download with the signed-in owner session. The download links previously
-  opened without that session and incorrectly reported that owner access was required (#660).
+- Video jobs waiting for a recording clip keep their bounded retry count. Periodic recovery
+  could reclaim the same waiting visit repeatedly, leaving a persistent backlog even at a quiet
+  feeder. Retries now use the normal queue and its concurrency limits (#481).
 
 - The **Health** settings page is tidier. The system graph fills the width of its card instead of
   sitting small in the middle, its scale sits beside the plot rather than over the newest samples,
   and the overall verdict (**System Status**) now opens the **System** card with the subsystem
   detail at its foot. **What happened** is its own card, and **Current Issues** and **Recent
   Backend Diagnostics** use the same headings as every other panel.
+- Model evaluation files download with the signed-in owner session. The download links previously
+  opened without that session and incorrectly reported that owner access was required (#660).
 - A calmer, more modern look across the whole app. Panels are flat with a fine rule instead of
   shadows, glass blur and colour washes, headings and figures use the display face, buttons speak
   in sentence case, and a selected page or tab is shown by a tinted key and a lit icon. The
