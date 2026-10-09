@@ -3457,13 +3457,13 @@
                     {#if enrichmentSummaryProvider !== 'disabled'}
                         <div class="group relative overflow-hidden rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/50 dark:bg-slate-900/30 p-5 hover:bg-white/80 dark:hover:bg-slate-900/50 transition-all duration-300">
                             <div class="relative flex flex-wrap items-center justify-between gap-3 mb-3">
-                                <div class="flex items-center gap-2">
+                                <div class="flex min-w-0 items-center gap-2">
                                     <div class="p-1.5 rounded-lg bg-brand-500/10 text-brand-600 dark:text-brand-400">
                                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                         </svg>
                                     </div>
-                                    <p class="text-3xs font-semibold text-slate-500">{$_('actions.species_info')}</p>
+                                    <p class="min-w-0 break-words text-3xs font-semibold text-slate-500">{$_('actions.species_info')}</p>
                                 </div>
                                 {#if speciesInfo}
                                     {@const summaryLabel = speciesInfo.summary_source || speciesInfo.source || 'Source'}
@@ -3472,7 +3472,7 @@
                                             href={speciesInfo.summary_source_url}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-3xs font-semibold text-slate-500 hover:text-brand-600 dark:hover:text-brand-400 hover:border-brand-500/30 transition-colors shadow-sm"
+                                            class="flex min-w-0 max-w-full items-center gap-1.5 break-all px-2 py-1 rounded-full bg-surface border border-line text-3xs font-semibold text-slate-500 hover:text-brand-600 dark:hover:text-brand-400 hover:border-brand-500/30 transition-colors"
                                         >
                                             {summaryLabel}
                                             <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
