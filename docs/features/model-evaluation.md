@@ -11,6 +11,10 @@ Owner-only diagnostic at **`/diagnostics/model-eval`** that benchmarks every ins
 5. Restores the originally-active model after the run finishes (even on failure).
 6. Cleans up the image cache at the end of the run; **persistent artifacts are kept** until you delete the run from the UI.
 
+The run detail provides **summary.json**, **runtime.json**, and **confusions.csv** download
+buttons. Downloads use your current owner session and save the file in your browser; a failed or
+expired session shows an error on the page. Sign in again if access has expired.
+
 ## Where the data lives
 
 Each run writes a directory at `/config/yawamf-eval/<run_id>/` containing:
