@@ -98,6 +98,50 @@ async def test_precheck_retry_enters_normal_queue_with_exhausted_retry_budget(mo
     process.assert_not_awaited()
     assert service._pending_queue.get_nowait() == ("missing-event", "cam1", True, False, "live")
     assert service._pending_metadata["missing-event"]["precheck_retry_attempt"] == 1
+    jobs = service.get_jobs_snapshot()
+    assert len(jobs) == 1
+    assert jobs[0]["phase"] == "waiting"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("retry_kind", ["precheck", "worker"])
+async def test_sleeping_retries_stay_visible_until_cancelled(monkeypatch, retry_kind):
+    service = AutoVideoClassifierService()
+    service._running = True
+    if retry_kind == "precheck":
+        service._schedule_precheck_retry(
+            frigate_event="waiting-event",
+            camera="cam1",
+            fallback_to_snapshot=False,
+            source="live",
+            next_attempt=1,
+            manual_requested=True,
+        )
+    else:
+        service._schedule_worker_failure_requeue(
+            frigate_event="waiting-event",
+            camera="cam1",
+            fallback_to_snapshot=False,
+            source="live",
+            reason_code="video_worker_unavailable",
+        )
+    try:
+        jobs = service.get_jobs_snapshot()
+        assert len(jobs) == 1
+        assert jobs[0]["event_id"] == "waiting-event"
+        assert jobs[0]["status"] == "queued"
+        assert jobs[0]["phase"] == ("waiting_for_clip" if retry_kind == "precheck" else "waiting_for_worker")
+        assert jobs[0]["source"] == ("manual" if retry_kind == "precheck" else "live")
+        assert jobs[0]["created_at"] is not None
+        # Displaying a wait must not make it consume a scheduler slot.
+        assert service._pending_queue.empty()
+        assert not service._pending_ids
+        monkeypatch.setattr(service, "_update_status", AsyncMock(return_value=True))
+        assert await service.queue_classification("waiting-event", "cam1", source="manual") == "duplicate"
+        assert service.get_jobs_snapshot()[0]["source"] == "manual"
+    finally:
+        await service.stop()
+    assert service.get_jobs_snapshot() == []
 
 
 @pytest.mark.asyncio

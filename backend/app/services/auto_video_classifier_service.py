@@ -294,6 +294,7 @@ class AutoVideoClassifierService:
         # so stop()/reset_state() can cancel them and so we never schedule a
         # second concurrent retry for the same event_id.
         self._precheck_retry_tasks: Dict[str, asyncio.Task] = {}
+        self._retry_metadata: dict[str, dict[str, object]] = {}
         # How often each visit has gone back on the queue after its worker was
         # lost, and the sleeping tasks that will queue them; both cleared when
         # the visit ends one way or the other.
@@ -362,6 +363,7 @@ class AutoVideoClassifierService:
             retry_task.cancel()
         self._precheck_retry_tasks.clear()
         self._cancel_worker_failure_requeues()
+        self._retry_metadata.clear()
         while not self._pending_queue.empty():
             try:
                 self._pending_queue.get_nowait()
@@ -439,6 +441,7 @@ class AutoVideoClassifierService:
             retry_task.cancel()
         self._precheck_retry_tasks.clear()
         self._cancel_worker_failure_requeues()
+        self._retry_metadata.clear()
         for task in self._active_tasks.values():
             task.cancel()
         for task in list(self._active_tasks.values()):
@@ -1035,7 +1038,17 @@ class AutoVideoClassifierService:
     def get_jobs_snapshot(self) -> list[dict[str, object]]:
         """Return current per-event work for the owner Jobs view."""
         jobs: list[dict[str, object]] = []
-        for event_id, metadata in self._pending_metadata.items():
+        waiting = {
+            event_id: metadata
+            for event_id, metadata in self._retry_metadata.items()
+            if any(
+                task is not None and not task.done()
+                for task in (self._precheck_retry_tasks.get(event_id), self._worker_failure_retry_tasks.get(event_id))
+            )
+        }
+        for event_id, metadata in {**waiting, **self._pending_metadata}.items():
+            if event_id in self._active_metadata:
+                continue
             source = self._reported_job_source(metadata)
             queued_at = metadata.get("queued_at_epoch")
             updated_at = metadata.get("updated_at_epoch")
@@ -1137,7 +1150,11 @@ class AutoVideoClassifierService:
             ):
                 if source == "manual":
                     self._manual_requested_ids.add(frigate_event)
-                    metadata = self._active_metadata.get(frigate_event) or self._pending_metadata.get(frigate_event)
+                    metadata = (
+                        self._active_metadata.get(frigate_event)
+                        or self._pending_metadata.get(frigate_event)
+                        or self._retry_metadata.get(frigate_event)
+                    )
                     if isinstance(metadata, dict):
                         metadata["manual_requested"] = True
                         metadata["updated_at_epoch"] = time.time()
@@ -2699,6 +2716,38 @@ class AutoVideoClassifierService:
         )
         return True
 
+    def _track_retry_task(
+        self,
+        event_id: str,
+        task: asyncio.Task,
+        pool: Dict[str, asyncio.Task],
+        *,
+        source: JobSource,
+        phase: str,
+        manual_requested: bool = False,
+    ) -> None:
+        # Waiting for media or a recovering worker is still unfinished work.
+        # Keep it visible without treating it as an admitted scheduler item.
+        metadata = {
+            **self._active_metadata.get(event_id, {}),
+            "source": source,
+            "manual_requested": manual_requested or event_id in self._manual_requested_ids or source == "manual",
+            "queued_at_epoch": self._active_metadata.get(event_id, {}).get("queued_at_epoch", time.time()),
+            "updated_at_epoch": time.time(),
+            "phase": phase,
+        }
+        pool[event_id] = task
+        self._retry_metadata[event_id] = metadata
+
+        def cleanup(completed: asyncio.Task) -> None:
+            # A cancelled task may finish after a replacement was scheduled.
+            if pool.get(event_id) is completed:
+                pool.pop(event_id, None)
+            if self._retry_metadata.get(event_id) is metadata:
+                self._retry_metadata.pop(event_id, None)
+
+        task.add_done_callback(cleanup)
+
     def _schedule_worker_failure_requeue(
         self,
         *,
@@ -2747,8 +2796,9 @@ class AutoVideoClassifierService:
             await self._broadcast_reclassification_completed(frigate_event, [], outcome="failed", reason=reason_code)
 
         task = create_background_task(_delayed_requeue(), name=f"video_classifier_requeue:{frigate_event}")
-        self._worker_failure_retry_tasks[frigate_event] = task
-        task.add_done_callback(lambda _t, eid=frigate_event: self._worker_failure_retry_tasks.pop(eid, None))
+        self._track_retry_task(
+            frigate_event, task, self._worker_failure_retry_tasks, source=source, phase="waiting_for_worker"
+        )
 
     def _cancel_worker_failure_requeues(self) -> None:
         for retry_task in list(self._worker_failure_retry_tasks.values()):
@@ -2856,8 +2906,14 @@ class AutoVideoClassifierService:
             _delayed_retry(),
             name=f"video_classifier_retry:{frigate_event}",
         )
-        self._precheck_retry_tasks[frigate_event] = task
-        task.add_done_callback(lambda _t, eid=frigate_event: self._precheck_retry_tasks.pop(eid, None))
+        self._track_retry_task(
+            frigate_event,
+            task,
+            self._precheck_retry_tasks,
+            source=source,
+            phase="waiting_for_clip",
+            manual_requested=manual_requested,
+        )
 
     async def _auto_delete_if_missing(self, frigate_event: str, error: str):
         """Apply the configured missing-upstream policy when clip/event is missing."""

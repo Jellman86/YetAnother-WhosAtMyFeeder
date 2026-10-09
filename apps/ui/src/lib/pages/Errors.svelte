@@ -133,6 +133,8 @@
     let startupWarnings = $derived(workspacePayload?.startup_warnings ?? []);
     let captureLabel = $state('');
     let reportNotes = $state('');
+    let exporting = $state(false);
+    let exportError = $state('');
     let refreshing = $state(false);
     let clearing = $state(false);
     let refreshError = $state('');
@@ -234,21 +236,29 @@
         };
     }
 
-    function captureBundle() {
-        const label = captureLabel.trim();
-        const notes = reportNotes.trim();
-        const bundle = jobDiagnosticsStore.captureBundle(
-            label || undefined,
-            notes || undefined,
-            buildExportOptions()
-        );
-        if (bundle) {
-            captureLabel = '';
+    async function exportCurrent(save: boolean) {
+        if (exporting) return;
+        exporting = true;
+        exportError = '';
+        try {
+            // A page may have been open for hours. Capture the server now, rather
+            // than attaching the workspace from the last page visit to a new report.
+            await incidentWorkspaceStore.refresh();
+            if (save) {
+                const bundle = jobDiagnosticsStore.captureBundle(
+                    captureLabel.trim() || undefined,
+                    reportNotes.trim() || undefined,
+                    buildExportOptions()
+                );
+                if (bundle) captureLabel = '';
+            } else {
+                jobDiagnosticsStore.downloadJson(undefined, buildExportOptions());
+            }
+        } catch (error) {
+            exportError = error instanceof Error ? error.message : $_('jobs.errors_export_failed');
+        } finally {
+            exporting = false;
         }
-    }
-
-    function downloadCurrentJson() {
-        jobDiagnosticsStore.downloadJson(undefined, buildExportOptions());
     }
 
     function downloadBundle(bundle: JobDiagnosticBundle) {
@@ -1117,13 +1127,17 @@
                 placeholder={$_('jobs.error_bundles_label_placeholder', { default: 'Optional bundle label' })}
                 aria-label={$_('jobs.error_bundles_label_placeholder', { default: 'Optional bundle label' })}
             />
-            <button type="button" class="btn btn-primary min-h-11 px-4 text-xs" onclick={captureBundle}>
+            <button type="button" class="btn btn-primary min-h-11 px-4 text-xs" onclick={() => exportCurrent(true)} disabled={exporting || refreshing || clearing}>
                 {$_('jobs.error_bundles_capture', { default: 'Capture Bundle' })}
             </button>
-            <button type="button" class="btn btn-secondary min-h-11 px-4 text-xs" onclick={downloadCurrentJson}>
+            <button type="button" class="btn btn-secondary min-h-11 px-4 text-xs" onclick={() => exportCurrent(false)} disabled={exporting || refreshing || clearing}>
                 {$_('jobs.errors_export_download_now', { default: 'Download without saving' })}
             </button>
         </div>
+
+        {#if exportError}
+            <p class="mt-3 text-sm text-rose-700 dark:text-rose-300" role="alert">{exportError}</p>
+        {/if}
 
         {#if bundles.length === 0}
             <p class="mt-4 text-sm text-slate-500 dark:text-slate-400">

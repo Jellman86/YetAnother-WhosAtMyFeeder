@@ -153,6 +153,11 @@
             </p>
         </div>
         <div class="flex flex-wrap gap-2">
+            {#if isOwner}
+                <button type="button" class="btn btn-secondary min-h-11 px-3 py-2 text-xs" onclick={() => navigate('/settings/health')}>
+                    {$_('settings.tabs.health')} · {$_('jobs.errors_export_title')}
+                </button>
+            {/if}
             <button type="button" class="btn btn-secondary min-h-11 px-3 py-2 text-xs" onclick={() => notificationCenter.markAllRead()}>
                 {$_('notifications.center_mark_all')}
             </button>
