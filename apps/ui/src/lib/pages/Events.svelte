@@ -1334,7 +1334,8 @@
                     {$_('events.heard.count_on_page', { values: { count: heardShownCalls }, default: '{count} calls heard on this page' })}
                 {/if}
             </div>
-            {#if audioHistoryAvailable}
+            <!-- With heard calls mixed into the list, the listening history is already here. -->
+            {#if audioHistoryAvailable && !heardWanted}
                 <a
                     data-explorer-audio-history-link
                     href={toAppPath('/audio')}

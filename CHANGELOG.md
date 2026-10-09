@@ -10,7 +10,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   (off until you do; each device remembers its choice) and BirdNET-Go calls appear between the
   visits: one band per gap with its span, a spectrogram, a chip per species with its count, and
   **Show calls** for each species' strongest call with its clip. Calls that confirm a visit are
-  counted on that visit instead. A capture with several species now reads **Multiple species**
+  counted on that visit instead, and the **Audio History** link steps aside while calls are shown
+  in the list. A capture with several species now reads **Multiple species**
   with a chip per species. The filter rail has its own panel, one heading style and **Cameras**
   as its section title, and the list keeps a readable width on wide screens.
 - **Settings, Cameras** no longer scrolls its camera list inside the card, which hid the first

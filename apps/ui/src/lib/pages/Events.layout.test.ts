@@ -132,6 +132,11 @@ describe('Explorer listening history link', () => {
         expect(eventsSource).toContain("href={toAppPath('/audio')}");
         expect(eventsSource).toContain("$_('nav.audio_history')");
         expect(eventsSource).toMatch(/audioHistoryAvailable = \$derived\([\s\S]*?authStore\.canViewAudio/);
-        expect(eventsSource).toContain('{#if audioHistoryAvailable}');
+        expect(eventsSource).toContain('{#if audioHistoryAvailable && !heardWanted}');
+    });
+
+    it('steps aside while heard calls are mixed into the list, which already shows them', () => {
+        expect(eventsSource).toMatch(/heardWanted = \$derived\(audioHistoryAvailable && explorerHeardStore\.enabled/);
+        expect(eventsSource).toContain('data-explorer-heard-toggle');
     });
 });
