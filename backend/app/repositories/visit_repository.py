@@ -271,6 +271,31 @@ class VisitRepository(DetectionRepository):
                 total = int((await cursor.fetchone())[0])
         return headers, total
 
+    async def confirmed_visit_spans(self, *, start: datetime, end: datetime, public_audio: bool = False) -> list[dict]:
+        """Visits in a window that the pipeline confirmed with a matching call.
+
+        Heard calls are attributed only to these, so the Explorer never claims a match the
+        live correlation did not make. Same grouping rule as every visit list.
+        """
+        cte, params = await self.grouping_cte(start=start, end=end)
+        audio_sql, audio_params = ("1 = 1", [])
+        if public_audio:
+            audio_sql, audio_params = await _public_audio_evidence_sql(self.db)
+            audio_sql = audio_sql.replace("d.", "v.")
+        async with self.db.execute(
+            f"""WITH {cte}
+                SELECT v.visit_id, MIN(v.detection_time) AS start_time, MAX(v.finish_at) AS end_time,
+                    MAX(v.camera_name) AS camera_name, MAX(v.name_key) AS name_key,
+                    MAX(CASE WHEN v.representative_position = 1 THEN v.common_name END) AS common_name,
+                    MAX(CASE WHEN v.representative_position = 1 THEN v.display_name END) AS display_name
+                FROM visit_members v GROUP BY v.visit_id
+                HAVING MAX(CASE WHEN v.audio_confirmed = 1 AND {audio_sql} THEN 1 ELSE 0 END) = 1""",
+            [*params, *audio_params],
+        ) as cursor:
+            rows = await cursor.fetchall()
+            names = [column[0] for column in cursor.description]
+        return [dict(zip(names, row, strict=True)) for row in rows]
+
     async def visit_captures(
         self,
         visit_id: str,

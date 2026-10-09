@@ -1003,7 +1003,15 @@ export interface components {
     correlation_window_seconds: number;
     gap_seconds: number;
     groups: Array<components['schemas']['HeardGroupResponse']>;
+    matched_visits?: Array<components['schemas']['HeardVisitCallsResponse']>;
     truncated: boolean;
+};
+    HeardVisitCallsResponse: {
+    call_count: number;
+    end_time: string;
+    scientific_name?: string | null;
+    start_time: string;
+    visit_id: string;
 };
     HiddenCountResponse: {
     hidden_count: number;

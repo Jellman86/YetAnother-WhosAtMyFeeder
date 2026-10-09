@@ -107,6 +107,8 @@ export type HeardGroup = components['schemas']['HeardGroupResponse'];
 
 export type HeardGroupsResponse = components['schemas']['HeardGroupsResponse'];
 
+export type HeardVisitCalls = components['schemas']['HeardVisitCallsResponse'];
+
 export async function fetchHeardGroups(
     startDate: string,
     endDate: string,

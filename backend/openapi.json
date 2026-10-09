@@ -6847,6 +6847,14 @@
             "title": "Groups",
             "type": "array"
           },
+          "matched_visits": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/HeardVisitCallsResponse"
+            },
+            "title": "Matched Visits",
+            "type": "array"
+          },
           "truncated": {
             "title": "Truncated",
             "type": "boolean"
@@ -6860,6 +6868,45 @@
           "correlation_window_seconds"
         ],
         "title": "HeardGroupsResponse",
+        "type": "object"
+      },
+      "HeardVisitCallsResponse": {
+        "properties": {
+          "call_count": {
+            "title": "Call Count",
+            "type": "integer"
+          },
+          "end_time": {
+            "title": "End Time",
+            "type": "string"
+          },
+          "scientific_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scientific Name"
+          },
+          "start_time": {
+            "title": "Start Time",
+            "type": "string"
+          },
+          "visit_id": {
+            "title": "Visit Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "visit_id",
+          "start_time",
+          "end_time",
+          "call_count"
+        ],
+        "title": "HeardVisitCallsResponse",
         "type": "object"
       },
       "HiddenCountResponse": {
@@ -18092,7 +18139,7 @@
     },
     "/api/audio/heard-groups": {
       "get": {
-        "description": "BirdNET-Go calls in a window, folded per species, for the Explorer's heard bands.\n\nThe Explorer asks for the span its page of visits covers. Calls of one species with no more\nthan ``gap_seconds`` of silence between them are one group, so a chattering sparrow is one\nentry rather than forty.",
+        "description": "BirdNET-Go calls in a window, for the Explorer's heard bands.\n\nThe Explorer asks for the span its page of visits covers. Calls that support a visit the\npipeline confirmed are counted on that visit; the rest are folded per species into bouts of\nno more than ``gap_seconds`` of silence, so a chattering sparrow is one entry rather than forty.",
         "operationId": "get_heard_groups_api_audio_heard_groups_get",
         "parameters": [
           {

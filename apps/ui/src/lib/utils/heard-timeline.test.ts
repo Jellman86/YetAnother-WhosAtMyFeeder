@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { HeardGroup } from '../api/audio';
+import type { HeardGroup, HeardVisitCalls } from '../api/audio';
 import type { DetectionVisit } from '../api/visits';
 import type { Detection } from '../api';
 import { buildHeardTimeline, heardWindow } from './heard-timeline';
@@ -46,7 +46,7 @@ function group(species: string, first: string, last: string, calls: number, extr
     };
 }
 
-const base = { sort: 'newest' as const, correlationWindowSeconds: 30, hasPreviousPage: false, hasNextPage: false };
+const base = { sort: 'newest' as const, matched: [] as HeardVisitCalls[], hasPreviousPage: false, hasNextPage: false };
 
 describe('heard timeline', () => {
     it('gathers calls between two visits into one band, newest first', () => {
@@ -76,36 +76,35 @@ describe('heard timeline', () => {
         expect(middle.every((entry) => entry.kind !== 'band' || entry.band.position === 'between')).toBe(true);
     });
 
-    it('folds calls into the confirmed visit of the same species they overlap', () => {
+    it('shows the calls the server counted on the visit it names', () => {
         const entries = buildHeardTimeline({
             ...base,
             visits: [visit('a', '08:14', '08:15', { confirmed: true })],
-            groups: [group('Dunnock', '08:15', '08:46', 42), group('House Sparrow', '08:30', '08:30', 1)]
+            groups: [group('House Sparrow', '08:30', '08:30', 1)],
+            matched: [{ visit_id: 'a', start_time: at('08:14'), end_time: at('08:15'), scientific_name: 'prunella modularis', call_count: 3 }]
         });
-        const [visitEntry] = entries.filter((entry) => entry.kind === 'visit');
-        expect(visitEntry.kind === 'visit' && visitEntry.matchedCalls).toBe(42);
-        const bands = entries.filter((entry) => entry.kind === 'band');
-        expect(bands).toHaveLength(1);
-        expect(bands[0].kind === 'band' && bands[0].band.species).toEqual([{ name: 'House Sparrow', count: 1 }]);
+        expect(entries.find((entry) => entry.kind === 'visit')).toMatchObject({ matchedCalls: 3 });
+        expect(entries.filter((entry) => entry.kind === 'band')).toHaveLength(1);
     });
 
-    it('never claims a match the pipeline did not make', () => {
+    it('finds the visit by species and span when the server named it by a later capture', () => {
         const entries = buildHeardTimeline({
             ...base,
-            visits: [visit('a', '08:14', '08:15', { confirmed: false })],
-            groups: [group('Dunnock', '08:15', '08:46', 42)]
+            visits: [visit('a', '08:14', '08:16', { confirmed: true })],
+            groups: [],
+            matched: [{ visit_id: 'later-capture', start_time: at('08:15'), end_time: at('08:16'), scientific_name: 'prunella modularis', call_count: 2 }]
         });
-        expect(entries.find((entry) => entry.kind === 'visit')).toMatchObject({ matchedCalls: 0 });
-        expect(entries.some((entry) => entry.kind === 'band')).toBe(true);
+        expect(entries.find((entry) => entry.kind === 'visit')).toMatchObject({ matchedCalls: 2 });
     });
 
-    it('does not fold a call of another species into a confirmed visit', () => {
+    it('leaves a visit the server did not name without matched calls', () => {
         const entries = buildHeardTimeline({
             ...base,
-            visits: [visit('a', '08:14', '08:15', { confirmed: true })],
-            groups: [group('European Robin', '08:14', '08:15', 2)]
+            visits: [visit('a', '08:14', '08:15', { confirmed: true }), visit('b', '09:00', '09:01', { confirmed: true, species: 'European Robin', scientific: 'Erithacus rubecula' })],
+            groups: [],
+            matched: [{ visit_id: 'a', start_time: at('08:14'), end_time: at('08:15'), scientific_name: 'prunella modularis', call_count: 5 }]
         });
-        expect(entries.find((entry) => entry.kind === 'visit')).toMatchObject({ matchedCalls: 0 });
+        expect(entries.map((entry) => entry.kind === 'visit' && [entry.visit.visit_id, entry.matchedCalls])).toEqual([['b', 0], ['a', 5]]);
     });
 
     it('reads oldest first when the Explorer does', () => {

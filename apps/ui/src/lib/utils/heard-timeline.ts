@@ -1,12 +1,13 @@
-import type { HeardGroup } from '../api/audio';
+import type { HeardGroup, HeardVisitCalls } from '../api/audio';
 import type { DetectionVisit } from '../api/visits';
 
 /**
  * Where heard calls sit in the Explorer.
  *
- * Visits stay the rows (layout-patterns 1.2). BirdNET-Go calls that match a confirmed visit fold
- * into it, the way the visit already says "matching call". Every other call gathers into one band
- * per gap between two visits, so a morning of sparrow chatter is one line, not forty.
+ * Visits stay the rows (layout-patterns 1.2). The server decides which calls support a confirmed
+ * visit, call by call, and counts them on it; every other call arrives folded into bouts, and the
+ * bouts gather into one band per gap between two visits, so a morning of sparrow chatter is one
+ * line, not forty.
  */
 
 interface HeardSpeciesCount {
@@ -37,8 +38,9 @@ export interface HeardTimelineInput {
     /** The page's visits in display order. */
     visits: DetectionVisit[];
     groups: HeardGroup[];
+    /** Calls the server counted on a confirmed visit. */
+    matched: HeardVisitCalls[];
     sort: 'newest' | 'oldest';
-    correlationWindowSeconds: number;
     /** A visit just before this page in display order exists, so the leading gap is not the end. */
     hasPreviousPage: boolean;
     /** A visit just after this page exists, so the trailing gap is not the end either. */
@@ -51,31 +53,22 @@ function fold(value: string | null | undefined): string {
     return (value ?? '').trim().toLocaleLowerCase();
 }
 
-function sameSpecies(group: HeardGroup, visit: DetectionVisit): boolean {
-    const bird = visit.representative;
-    const scientific = fold(group.scientific_name);
-    if (scientific && scientific === fold(bird.scientific_name)) return true;
-    const heard = fold(group.species);
-    return heard !== '' && [bird.common_name, bird.display_name].some((name) => fold(name) === heard);
-}
-
 /**
- * The visit a group of calls confirms, if any. Only a visit the app already confirmed by a call
- * can claim one, so the Explorer never states a match the pipeline did not make, and the camera
- * to microphone mapping that decided the confirmation still holds.
+ * The server names a visit by the same rule as the visit list, but a window that starts inside a
+ * visit can name it by a later capture. Then the visit is found by its species and its span.
  */
-function matchingVisit(group: HeardGroup, visits: DetectionVisit[], windowMs: number): DetectionVisit | null {
-    const from = time(group.first_heard) - windowMs;
-    const to = time(group.last_heard) + windowMs;
-    return (
-        visits.find(
-            (visit) =>
-                Boolean(visit.audio_confirmed) &&
-                sameSpecies(group, visit) &&
-                time(visit.start_time) <= to &&
-                time(visit.end_time) >= from
-        ) ?? null
+function matchedCallsFor(visit: DetectionVisit, matched: HeardVisitCalls[]): number {
+    const byId = matched.find((entry) => entry.visit_id === visit.visit_id);
+    if (byId) return byId.call_count;
+    const species = fold(visit.representative.scientific_name);
+    const byShape = matched.find(
+        (entry) =>
+            species !== '' &&
+            fold(entry.scientific_name) === species &&
+            time(entry.start_time) <= time(visit.end_time) &&
+            time(entry.end_time) >= time(visit.start_time)
     );
+    return byShape?.call_count ?? 0;
 }
 
 function speciesCounts(groups: HeardGroup[]): HeardSpeciesCount[] {
@@ -121,18 +114,11 @@ function band(groups: HeardGroup[], position: HeardBandPosition): HeardBand {
 
 export function buildHeardTimeline(input: HeardTimelineInput): HeardTimelineEntry[] {
     const { visits, sort, hasPreviousPage, hasNextPage } = input;
-    const windowMs = Math.max(0, input.correlationWindowSeconds) * 1000;
     const chrono = [...visits].sort((a, b) => time(a.start_time) - time(b.start_time));
-    const matched = new Map<string, number>();
     const gaps: HeardGroup[][] = chrono.map(() => []);
     gaps.push([]);
 
     for (const group of input.groups) {
-        const visit = matchingVisit(group, chrono, windowMs);
-        if (visit) {
-            matched.set(visit.visit_id, (matched.get(visit.visit_id) ?? 0) + group.call_count);
-            continue;
-        }
         const heardAt = time(group.first_heard);
         const gap = chrono.filter((candidate) => time(candidate.start_time) <= heardAt).length;
         gaps[gap].push(group);
@@ -152,7 +138,7 @@ export function buildHeardTimeline(input: HeardTimelineInput): HeardTimelineEntr
     gaps.forEach((groups, gap) => {
         if (gap > 0) {
             const visit = chrono[gap - 1];
-            ascending.push({ kind: 'visit', visit, matchedCalls: matched.get(visit.visit_id) ?? 0 });
+            ascending.push({ kind: 'visit', visit, matchedCalls: matchedCallsFor(visit, input.matched) });
         }
         if (groups.length) ascending.push({ kind: 'band', band: band(groups, position(gap)) });
     });

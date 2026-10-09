@@ -132,9 +132,11 @@ same ordering behind the Filters button.
 
 Explorer can show heard calls between its visits, from a **Heard calls** switch on the page (off
 until a device turns it on, remembered per device like Cards/List, never a setting). Visits stay
-the rows. BirdNET-Go calls fold per species across ten minutes of silence, calls that match a
-visit the pipeline already confirmed fold into that visit ("matching call, 42 calls"), and every
-other call gathers into one band per gap between two visits: its start time, layered spectrograms,
+the rows. A call that supports a visit the pipeline already confirmed (same species, a mapped
+microphone, within the visit widened by the correlation window) is counted on that visit, call by
+call ("matching call, 4 calls"), so a bout that runs on past a visit is split at its edge. Every
+other call folds per species into bouts across up to five minutes of silence, the default
+correlation window, and the bouts gather into one band per gap between two visits: its start time, layered spectrograms,
 a heading with its span and counts, a chip per species, and **Show calls**. A band is quieter than
 a visit and is placed and labelled by when it began. A filter that only describes camera visits
 (camera, favourites, hidden, multiple species, matching call, a species group, confidence order)

@@ -3,7 +3,7 @@
     import HeardBandRow from '../components/HeardBandRow.svelte';
     import HeardBandCard from '../components/HeardBandCard.svelte';
     import { hasCaptureFooter, visitSpeciesMix } from '../utils/visit-captures';
-    import { fetchHeardGroups, type HeardGroup } from '../api/audio';
+    import { fetchHeardGroups, type HeardGroup, type HeardVisitCalls } from '../api/audio';
     import { buildHeardTimeline, heardWindow, type HeardBand } from '../utils/heard-timeline';
     import { explorerHeardStore } from '../stores/explorer_heard.svelte';
     import type { DetectionVisit } from '../api/visits';
@@ -103,7 +103,7 @@
     let heardGroups = $state.raw<HeardGroup[] | null>(null);
     let heardCallCount = $state(0);
     let heardTruncated = $state(false);
-    let heardCorrelationSeconds = $state(0);
+    let heardMatched = $state.raw<HeardVisitCalls[]>([]);
     let heardFailed = $state(false);
     let heardLoadGeneration = 0;
     let selectedEventIds = $state<string[]>([]);
@@ -1235,7 +1235,7 @@
             heardGroups = result.groups;
             heardCallCount = result.call_count;
             heardTruncated = result.truncated || start > span.start;
-            heardCorrelationSeconds = result.correlation_window_seconds;
+            heardMatched = result.matched_visits ?? [];
             heardFailed = false;
         } catch (e) {
             if (generation !== heardLoadGeneration) return;
@@ -1269,7 +1269,6 @@
         );
     });
 
-    const heardShownCalls = $derived(visibleHeardGroups.reduce((sum, group) => sum + group.call_count, 0));
 
     type ExplorerEntry =
         | { kind: 'visit'; event: Detection; visit: DetectionVisit | undefined; matchedCalls: number }
@@ -1292,7 +1291,7 @@
             visits: pageVisits,
             groups: visibleHeardGroups,
             sort: sortOrder === 'oldest' ? 'oldest' : 'newest',
-            correlationWindowSeconds: heardCorrelationSeconds,
+            matched: heardMatched,
             hasPreviousPage: previousVisit !== null,
             hasNextPage: currentPage * pageSize < totalCount
         });
@@ -1307,6 +1306,11 @@
         }
         return shown;
     });
+
+    /** Every call the page shows: those in bands and those counted on their visits. */
+    const heardShownCalls = $derived(
+        entries.reduce((sum, entry) => sum + (entry.kind === 'band' ? entry.band.callCount : entry.matchedCalls), 0)
+    );
 
     function entryKey(entry: ExplorerEntry): string {
         return entry.kind === 'band' ? `band:${entry.band.key}` : eventKey(entry.event);
