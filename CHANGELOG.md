@@ -6,6 +6,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Model evaluation files download with the signed-in owner session. The download links previously
+  opened without that session and incorrectly reported that owner access was required (#660).
+
 - The **Health** settings page is tidier. The system graph fills the width of its card instead of
   sitting small in the middle, its scale sits beside the plot rather than over the newest samples,
   and the overall verdict (**System Status**) now opens the **System** card with the subsystem
