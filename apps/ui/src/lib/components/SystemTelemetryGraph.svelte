@@ -110,7 +110,7 @@
     {/if}
 
     {#if current}
-        <div class="absolute right-3 top-2 flex items-center gap-2 text-3xs font-semibold tabular-nums">
+        <div class="absolute bottom-2 left-3 flex items-center gap-2 text-3xs font-semibold tabular-nums">
             {#if currentCpuPercent}
                 <span class="text-brand-700/70 dark:text-brand-300/70">CPU {currentCpuPercent}</span>
             {/if}

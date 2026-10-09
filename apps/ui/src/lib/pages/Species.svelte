@@ -1173,8 +1173,10 @@
                 backgroundColor: isBar ? item.color : (item.type === 'area' ? `${item.color}33` : item.color),
                 borderColor: item.color,
                 borderWidth: isBar ? 0 : 2,
-                borderRadius: isBar ? 3 : 0,
-                maxBarThickness: timeline?.bucket === 'day' ? 24 : 18,
+                borderRadius: isBar ? 4 : 0,
+                barPercentage: 0.8,
+                categoryPercentage: 0.9,
+                maxBarThickness: 72,
                 fill: item.type === 'area',
                 tension: isBar ? 0 : 0.32,
                 pointRadius: 0,
@@ -2263,7 +2265,7 @@
                     <div class="mt-4 min-h-[260px]">
                         {#if donutHasData()}
                             {#key `${span}-${donutSeries().series.join(',')}-${isDark()}-${themeStore.colorTheme}`}
-                                <div class="relative h-[210px] w-full"><canvas use:chartjs={donutChartOptions()} bind:this={donutChartEl} aria-label={$_('leaderboard.detection_breakdown_subtitle', { default: 'Species composition' })}></canvas></div>
+                                <div class="relative chart-h w-full"><canvas use:chartjs={donutChartOptions()} bind:this={donutChartEl} aria-label={$_('leaderboard.detection_breakdown_subtitle', { default: 'Species composition' })}></canvas></div>
                                 <div class="mt-2 flex flex-wrap justify-center gap-x-1" role="group" aria-label={$_('leaderboard.detection_breakdown_subtitle', { default: 'Species composition' })}>
                                     {#each donutSeries().labels as label, index}
                                         <button type="button" class="btn btn-ghost min-h-11 gap-1.5 px-2 text-xs focus-visible:ring-2 focus-visible:ring-brand-500 {hiddenDonutSpecies.includes(index) ? 'opacity-45 line-through' : ''}"

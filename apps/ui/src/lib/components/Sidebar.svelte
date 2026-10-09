@@ -161,8 +161,11 @@
                     </span>
                 </div>
                 {@render status?.()}
+                <!-- The live CPU and accelerator readout sits at this row's left edge; the row is kept
+                     for a guest too so it never lands on the tiles. -->
+                {#if !linked}<span class="mt-1 block h-4" aria-hidden="true"></span>{/if}
                 {#if linked}
-                    <span class="eyebrow mt-1 flex items-center justify-end gap-1 px-2 transition-colors group-hover:text-brand-700 dark:group-hover:text-brand-300">
+                    <span class="eyebrow mt-1 flex min-h-4 items-center justify-end gap-1 px-2 transition-colors group-hover:text-brand-700 dark:group-hover:text-brand-300">
                         {$_('status.open_health', { default: 'System health' })}
                         <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
                     </span>

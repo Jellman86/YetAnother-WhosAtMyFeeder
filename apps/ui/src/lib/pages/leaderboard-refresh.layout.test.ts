@@ -127,8 +127,8 @@ describe('leaderboard field-journal layout', () => {
     });
 
     it('fits the weekday heatmap to its column instead of scrolling it sideways', () => {
-        // Columns shrink to fit, and cap at 2rem so cells stay square rather than stretching wide.
-        expect(heatmapSource).toContain('repeat(24, minmax(0, 2rem))');
+        // Columns shrink to fit, and cap at 3rem so cells stay square rather than stretching wide.
+        expect(heatmapSource).toContain('repeat(24, minmax(0, 3rem))');
         expect(heatmapSource).toContain('aspect-square min-h-6');
         expect(leaderboardSource).not.toMatch(/min-w-\[650px\]/);
         expect(leaderboardSource).not.toContain('h-[260px] overflow-x-auto');

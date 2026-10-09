@@ -292,8 +292,10 @@
                     label: $_('audio.chart.heard', { default: 'Heard' }),
                     data: counts,
                     backgroundColor: audioPrimary,
-                    borderRadius: 3,
-                    maxBarThickness: 18,
+                    borderRadius: 4,
+                    barPercentage: 0.8,
+                    categoryPercentage: 0.9,
+                    maxBarThickness: 48,
                 }],
             },
             options: {
@@ -598,7 +600,7 @@
                     <div class="mt-3 h-[240px] animate-pulse bg-slate-100/80 dark:bg-slate-800/60"></div>
                 {:else if hasSpecies}
                     {#key `${days}-${isDark}-${reduceMotion}`}
-                        <div class="relative mt-3 h-[210px] w-full"><canvas use:chartjs={speciesDonutConfig()} bind:this={speciesChartEl} aria-label={$_('audio.chart.species_title', { default: 'Species mix' })}></canvas></div>
+                        <div class="relative mt-3 chart-h w-full"><canvas use:chartjs={speciesDonutConfig()} bind:this={speciesChartEl} aria-label={$_('audio.chart.species_title', { default: 'Species mix' })}></canvas></div>
                         <div class="mt-2 flex flex-wrap justify-center gap-2" role="group" aria-label={$_('audio.chart.species_title', { default: 'Species mix' })}>
                             {#each (summary?.top_species ?? []).slice(0, 8) as item, index}
                                 <button type="button" class="btn btn-ghost min-h-9 gap-1.5 px-2 text-xs focus-visible:ring-2 focus-visible:ring-brand-500 {hiddenChartSpecies.includes(index) ? 'opacity-45 line-through' : ''}"

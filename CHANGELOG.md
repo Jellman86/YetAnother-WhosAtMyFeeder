@@ -6,6 +6,23 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- A calmer, more modern look across the whole app. Panels are flat with a fine rule instead of
+  shadows, glass blur and colour washes, headings and figures use the display face, buttons speak
+  in sentence case, and a selected page or tab is shown by a tinted key and a lit icon. The
+  dashboard opens with the last 24 hours as its heading and every figure for that window in one
+  band; each figure says its scope (for example **nothing to review**). From 1920px wide the
+  dashboard uses three columns: the field log, what needs you and what is happening now, then the
+  activity, notable sightings and top visitors. Amber now only ever means something needs you: the
+  eBird search radius, notification choices and the **Advanced** sections no longer use it.
+- Text follows your display scaling and your browser's text size everywhere. Small print was set
+  in fixed pixels in many places, so a larger text size left it unchanged.
+- Charts keep sensible proportions at any size. The weekday-by-hour heatmap keeps square cells
+  that fill their column instead of stretching each hour into a bar, the trend and audio charts
+  grow a little with the window instead of flattening into a strip, their bars widen to fit, and
+  the species donuts scale with them. Audio charts follow the colour theme instead of always being
+  teal.
+- The sidebar runs to the bottom of the page in every case, and its CPU and accelerator readout no
+  longer crowds the **System status** label.
 - The app uses the whole width of a wide screen instead of a narrow centred column. On a very wide
   screen the dashboard puts the field log beside the rest of the desk, and the footer is one slim
   band: name and version, a bird fact, then the links.

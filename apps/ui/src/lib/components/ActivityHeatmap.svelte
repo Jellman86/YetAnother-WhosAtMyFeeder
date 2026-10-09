@@ -163,12 +163,12 @@
 
 <svelte:window onpointerdown={onWindowPointerDown} onresize={() => active && place(active)} />
 
-<!-- Cells are square up to 2rem: columns shrink to fit a phone (rows keep 1.5rem to tap) and stop
+<!-- Cells are square up to 3rem: columns shrink to fit a phone (rows keep 1.5rem to tap) and stop
      growing on a wide screen, so an hour never stretches into a bar. -->
 <div class="relative w-full max-w-fit" bind:this={root} data-activity-heatmap>
     <div
         class="grid gap-1 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-950"
-        style="grid-template-columns: 2.25rem repeat(24, minmax(0, 2rem)) 2.5rem; grid-template-rows: 2.5rem 1.25rem repeat(7, auto);"
+        style="grid-template-columns: 2.25rem repeat(24, minmax(0, 3rem)) 2.5rem; grid-template-rows: 2.5rem 1.25rem repeat(7, auto);"
         role="grid"
         tabindex="0"
         aria-label={`${$_('leaderboard.heatmap_grid_label', { default: 'Activity by weekday and hour. Use the arrow keys to read a slot.' })}${subject ? ` ${subject}.` : ''}`}
