@@ -132,16 +132,16 @@
     const mostHeardMax = $derived(Math.max(1, ...mostHeard.map((item) => item.count)));
 </script>
 
-<section data-dashboard-audio class="space-y-3" aria-labelledby="dashboard-heard-title">
+<section data-dashboard-audio class="panel space-y-4" aria-labelledby="dashboard-heard-title">
     <div>
-        <h3 id="dashboard-heard-title" class="flex items-center gap-2 font-display text-sm font-bold text-slate-950 dark:text-white">
-            <svg class="h-4 w-4 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+        <h2 id="dashboard-heard-title" class="flex items-center gap-2 font-display text-xl font-bold text-slate-950 dark:text-white">
+            <svg class="h-5 w-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                 <rect x="9" y="3" width="6" height="11" rx="3" />
                 <path stroke-linecap="round" d="M5 11a7 7 0 0 0 14 0M12 18v3" />
             </svg>
             {$_('dashboard.desk.heard_title', { default: 'Heard' })}
-        </h3>
-        <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{$_('dashboard.day_bar.window', { default: 'Last 24 hours' })}</p>
+        </h2>
+        <p class="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{$_('dashboard.day_bar.window', { default: 'Last 24 hours' })}</p>
     </div>
 
     {#if loading && !summary}

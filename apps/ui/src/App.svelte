@@ -766,9 +766,17 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
 
       <!-- Main Content Wrapper -->
       <div
-          class="flex-1 flex flex-col transition-all duration-300 {isSidebarCollapsed ? 'md:pl-20' : 'md:pl-64'}"
+          class="relative flex-1 flex flex-col transition-all duration-300 {isSidebarCollapsed ? 'md:pl-20' : 'md:pl-64'}"
           style="--app-chrome-height: {isMobile ? '4rem' : '0rem'};"
       >
+          <!-- The sidebar is fixed to the viewport. This column under it carries its ground and rule
+               the full length of the page, so the sidebar runs to the bottom in a full-page capture,
+               when printed, or when the page is zoomed past the window height. -->
+          <div
+              aria-hidden="true"
+              class="pointer-events-none absolute inset-y-0 left-0 hidden border-r border-line-soft bg-surface md:block {isSidebarCollapsed ? 'w-20' : 'w-64'}"
+              data-sidebar-column
+          ></div>
           <!-- Banners live inside the content wrapper so they align to the main column and
                respect the sidebar offset (like the footer), instead of spanning under it. -->
           <UpdateBanner />

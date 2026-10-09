@@ -77,11 +77,11 @@ describe('Detection settings, status first', () => {
         expect(modelManagerSource).toContain('model-ram-meter');
         expect(modelManagerSource).toContain('ramShortLabel(modelOption.estimated_ram_mb)');
         expect(modelManagerSource).toContain('lineupMaxRam(classifierModels)');
-        // The shared aurora (kit class, see app.css) marks the selected card
-        // and the status band, and is stilled for reduced motion.
-        expect(modelManagerSource).toContain('class="card-aurora" aria-hidden="true"');
-        expect(statusBandSource).toContain('class="card-aurora" aria-hidden="true"');
-        expect(appCss).toContain('.card-aurora');
+        // The flat look marks the selected card with its border, a brand tint and
+        // aria-pressed; no decorative animated gradient behind either surface.
+        expect(modelManagerSource).not.toContain('card-aurora');
+        expect(statusBandSource).not.toContain('card-aurora');
+        expect(appCss).not.toContain('.card-aurora');
         expect(appCss).toContain('prefers-reduced-motion');
     });
 

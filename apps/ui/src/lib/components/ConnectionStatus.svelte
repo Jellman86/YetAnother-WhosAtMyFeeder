@@ -69,7 +69,7 @@
                         {#if !tile.on}<path d="M4 4l16 16" />{/if}
                     </svg>
                 </span>
-                <span class="text-[0.625rem] font-semibold {tile.on ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-500'}" aria-hidden="true">{tile.short}</span>
+                <span class="text-xs font-semibold {tile.on ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-500'}" aria-hidden="true">{tile.short}</span>
                 <span class="sr-only">{tile.name}: {tile.state}</span>
             </li>
         {/each}

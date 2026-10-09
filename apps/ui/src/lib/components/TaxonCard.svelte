@@ -137,7 +137,7 @@
                         }}
                         data-taxon-card-picture
                     />
-                    <span class="absolute bottom-1.5 left-1.5 rounded-full bg-slate-950/60 px-2 py-0.5 text-[10px] font-semibold text-white">
+                    <span class="absolute bottom-1.5 left-1.5 rounded-full bg-slate-950/60 px-2 py-0.5 text-3xs font-semibold text-white">
                         {$_('taxonomy.reference_photo', { default: 'Reference photo' })}
                     </span>
                 {:else if picture?.state === 'loading'}
@@ -145,13 +145,13 @@
                 {:else}
                     <div class="flex h-full w-full flex-col items-center justify-center gap-1 text-slate-400" data-taxon-card-no-picture>
                         <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 18 9 13l3 3 2-2 6 6M15 8h.01M5 4h14a1 1 0 0 1 1 1v14H4V5a1 1 0 0 1 1-1Z" stroke-linecap="round" stroke-linejoin="round" /></svg>
-                        <span class="text-[11px]">{$_('taxonomy.no_reference_photo', { default: 'No reference photo' })}</span>
+                        <span class="text-2xs">{$_('taxonomy.no_reference_photo', { default: 'No reference photo' })}</span>
                     </div>
                 {/if}
             </div>
         {/if}
         <div class="space-y-1 p-3">
-            <p class="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">{$_(`taxonomy.rank.${taxon.rank}`, { default: taxon.rank })}</p>
+            <p class="text-3xs font-semibold uppercase tracking-[0.12em] text-slate-400">{$_(`taxonomy.rank.${taxon.rank}`, { default: taxon.rank })}</p>
             <p class="text-sm font-bold leading-snug {anchor.current ? 'text-amber-600 dark:text-amber-300' : 'text-slate-900 dark:text-white'}">{taxonLabel(taxon)}</p>
             {#if taxon.name}<p class="text-xs italic text-slate-500 dark:text-slate-400">{taxon.scientific_name}</p>{/if}
             {#if seenLine()}

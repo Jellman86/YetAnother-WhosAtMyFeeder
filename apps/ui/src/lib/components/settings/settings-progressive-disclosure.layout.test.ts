@@ -68,7 +68,7 @@ describe('Settings progressive disclosure', () => {
     it('uses a calm, readable card hierarchy on every audited tab', () => {
         expect(settingsCardSource).not.toContain('icon?: string');
         expect(settingsCardSource).not.toContain('{icon}');
-        expect(settingsCardSource).toContain('text-sm font-medium leading-relaxed');
+        expect(settingsCardSource).toContain('text-sm leading-relaxed');
         expect(enrichmentSource).toContain('divide-y divide-slate-200/70');
         expect(enrichmentSource).not.toContain('grid grid-cols-1 md:grid-cols-2 gap-4');
 

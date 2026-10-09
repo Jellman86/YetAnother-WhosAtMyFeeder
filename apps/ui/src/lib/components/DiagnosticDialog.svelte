@@ -121,7 +121,7 @@
 
 <div
     use:portal
-    class="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-gradient-to-br from-slate-900/65 to-brand-950/55 p-4 backdrop-blur-sm"
+    class="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-slate-950/60 p-4 backdrop-blur-sm"
     role="presentation"
 >
     <div
@@ -131,13 +131,13 @@
         aria-labelledby="diagnostic-title"
         aria-describedby="diagnostic-description"
         tabindex="-1"
-        class="my-8 w-full max-w-2xl overflow-hidden rounded-3xl border border-white/10 bg-white shadow-2xl ring-1 ring-black/5 dark:bg-slate-900"
+        class="my-8 w-full max-w-2xl overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-2xl ring-1 ring-black/5"
     >
-        <header class="space-y-4 bg-gradient-to-r from-brand-50 via-accent-50 to-white px-6 py-5 dark:from-brand-950/45 dark:via-accent-950/20 dark:to-slate-900">
+        <header class="space-y-4 bg-surface-raised px-6 py-5">
             <div class="flex items-start justify-between gap-4">
                 <div class="space-y-1">
-                    <p class="text-[10px] font-black uppercase tracking-[0.22em] text-brand-700 dark:text-brand-300">{eyebrow}</p>
-                    <h2 id="diagnostic-title" class="text-2xl font-black tracking-tight text-slate-900 dark:text-white">
+                    <p class="text-3xs font-bold uppercase tracking-[0.22em] text-brand-700 dark:text-brand-300">{eyebrow}</p>
+                    <h2 id="diagnostic-title" class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
                         {title}
                     </h2>
                     {#if subtitle}
@@ -167,14 +167,14 @@
             <ol class="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 dark:divide-slate-800 dark:border-slate-700">
                 {#each displayStages as stage, index}
                     <li class="flex items-start gap-3 p-3.5 {stage.state === 'failed' ? 'bg-red-50/70 dark:bg-red-950/20' : stage.state === 'warning' ? 'bg-amber-50/70 dark:bg-amber-950/20' : stage.state === 'running' ? 'bg-brand-50/60 dark:bg-brand-950/15' : ''}">
-                        <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-black {stage.state === 'failed' ? 'bg-red-600 text-white' : stage.state === 'warning' ? 'bg-amber-500 text-white' : stage.state === 'passed' ? 'bg-success-600 text-white' : stage.state === 'running' ? 'animate-pulse bg-brand-500 text-white' : 'bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-300'}">
+                        <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold {stage.state === 'failed' ? 'bg-red-600 text-white' : stage.state === 'warning' ? 'bg-amber-500 text-white' : stage.state === 'passed' ? 'bg-success-600 text-white' : stage.state === 'running' ? 'animate-pulse bg-brand-500 text-white' : 'bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-300'}">
                             {stageIcon(stage.state) || index + 1}
                         </span>
                         <div class="min-w-0 flex-1 space-y-0.5">
                             <div class="flex flex-wrap items-center gap-2">
                                 <h3 class="text-sm font-bold text-slate-900 dark:text-white">{stage.label}</h3>
                                 {#if stage.state === 'running'}
-                                    <span class="text-[10px] font-black uppercase tracking-widest text-brand-700 dark:text-brand-300">{runningLabel ?? $_('common.testing', { default: 'Testing' })}</span>
+                                    <span class="text-3xs font-bold uppercase tracking-widest text-brand-700 dark:text-brand-300">{runningLabel ?? $_('common.testing', { default: 'Testing' })}</span>
                                 {/if}
                             </div>
                             {#if stage.state !== 'pending'}

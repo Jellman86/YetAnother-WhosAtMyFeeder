@@ -22,7 +22,7 @@ describe('the Explorer list row', () => {
 
     it('flags a detection needing a person with all three signals', () => {
         // Never colour alone: a wash, a rule and a worded reason.
-        expect(detectionRowSource).toContain('from-accent-500');
+        expect(detectionRowSource).toContain('bg-accent-500/10');
         expect(detectionRowSource).toContain('bg-accent-500');
         expect(detectionRowSource).toContain('events.row_below_threshold');
     });

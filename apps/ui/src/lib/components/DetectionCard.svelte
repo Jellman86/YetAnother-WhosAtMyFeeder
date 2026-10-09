@@ -205,7 +205,7 @@
     <div
         bind:this={cardElement}
         data-detection-card
-        class="group relative bg-white/90 dark:bg-slate-800/75 rounded-3xl
+        class="group relative bg-white/90 dark:bg-slate-800/75 rounded-2xl
                shadow-sm hover:shadow-md dark:shadow-slate-950/15
                border border-slate-200/80 dark:border-slate-700/60
                hover:border-brand-500/40 dark:hover:border-brand-500/30
@@ -224,12 +224,12 @@
         type="button"
         aria-label="{$_('detection.card_label', { values: { species: primaryName, camera: detection.camera_name } })}"
         onclick={onclick}
-        class="absolute inset-0 z-10 {footer ? 'rounded-t-3xl' : 'rounded-3xl'} focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
+        class="absolute inset-0 z-10 {footer ? 'rounded-t-2xl' : 'rounded-2xl'} focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
     ></button>
 
     <!-- Reclassification Overlay -->
     {#if analysisActive && reclassifyProgress}
-        <div class="absolute inset-0 z-50 pointer-events-none rounded-3xl overflow-hidden">
+        <div class="absolute inset-0 z-50 pointer-events-none rounded-2xl overflow-hidden">
             <DetectionCardAnalysisOverlay progress={reclassifyProgress} />
         </div>
     {/if}
@@ -440,7 +440,7 @@
                 {primaryName}
             </h3>
             {#if subName}
-                <p class="text-[11px] italic text-slate-500 dark:text-slate-400 font-medium mt-0.5 truncate opacity-80">
+                <p class="text-2xs italic text-slate-500 dark:text-slate-400 font-medium mt-0.5 truncate opacity-80">
                     {subName}
                 </p>
             {/if}
@@ -486,7 +486,7 @@
         {/if}
 
         <!-- Compact metadata line: date + camera -->
-        <div class="mt-auto flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">
+        <div class="mt-auto flex items-center gap-1.5 text-2xs text-slate-500 dark:text-slate-400 font-medium truncate">
             <span>{formatDate(detection.detection_time)}</span>
             <span class="text-slate-300 dark:text-slate-600">&middot;</span>
             <span class="truncate">{detection.camera_name}</span>
@@ -497,9 +497,8 @@
         <div class="relative z-20" data-detection-card-footer>{@render footer()}</div>
     {/if}
     {#if selectionMode && selected && !analysisActive}
-        <div class="absolute inset-0 z-40 overflow-hidden rounded-3xl pointer-events-none">
+        <div class="absolute inset-0 z-40 overflow-hidden rounded-2xl pointer-events-none">
             <div class="absolute inset-0 bg-cyan-500/24 backdrop-blur-sm"></div>
-            <div class="absolute inset-0 bg-gradient-to-br from-cyan-300/22 via-sky-400/14 to-blue-500/22"></div>
             <div class="absolute inset-0 bg-slate-950/10 dark:bg-slate-950/22"></div>
             <div class="absolute inset-0 z-50 flex items-center justify-center">
                 <svg class="h-16 w-16 text-white drop-shadow-[0_6px_18px_rgba(8,47,73,0.45)]" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">

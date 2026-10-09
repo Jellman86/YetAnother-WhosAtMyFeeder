@@ -30,13 +30,13 @@
     }
 </script>
 
-<section data-dashboard-activity class="space-y-3" aria-labelledby="dashboard-activity-title">
+<section data-dashboard-activity class="panel space-y-4" aria-labelledby="dashboard-activity-title">
     <div>
-        <h3 id="dashboard-activity-title" class="flex items-center gap-2 font-display text-sm font-bold text-slate-950 dark:text-white">
-            <svg class="h-4 w-4 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 18V9m4 9V5m4 13v-7m4 7V7m4 11V3" /></svg>
+        <h2 id="dashboard-activity-title" class="flex items-center gap-2 font-display text-xl font-bold text-slate-950 dark:text-white">
+            <svg class="h-5 w-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 18V9m4 9V5m4 13v-7m4 7V7m4 11V3" /></svg>
             {title ?? $_('dashboard.histogram.title')}
-        </h3>
-        <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{$_('dashboard.histogram.visits_per_hour', { default: 'Visits per hour, last 24 hours' })}</p>
+        </h2>
+        <p class="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{$_('dashboard.histogram.visits_per_hour', { default: 'Visits per hour, last 24 hours' })}</p>
     </div>
 
     {#if total > 0}

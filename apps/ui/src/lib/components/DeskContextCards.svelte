@@ -94,16 +94,16 @@
     visits, then the weather the visits came in. Status is an owner reading; a guest sees the rows
     without a live dot.
 -->
-<section class="space-y-3" data-desk-feeder-now data-desk-cameras aria-labelledby="desk-feeder-now-title">
+<section class="panel space-y-4" data-desk-feeder-now data-desk-cameras aria-labelledby="desk-feeder-now-title">
     <div>
-        <h3 id="desk-feeder-now-title" class="flex items-center gap-2 font-display text-sm font-bold text-slate-950 dark:text-white">
-            <svg class="h-4 w-4 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+        <h2 id="desk-feeder-now-title" class="flex items-center gap-2 font-display text-xl font-bold text-slate-950 dark:text-white">
+            <svg class="h-5 w-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M4 8h11v8H4z" />
                 <path stroke-linecap="round" stroke-linejoin="round" d="m15 12 5-3v6l-5-3z" />
             </svg>
             {$_('dashboard.desk.feeder_now', { default: 'At the feeder now' })}
-        </h3>
-        <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{$_('dashboard.day_bar.window', { default: 'Last 24 hours' })}</p>
+        </h2>
+        <p class="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{$_('dashboard.day_bar.window', { default: 'Last 24 hours' })}</p>
     </div>
 
     {#if loading}

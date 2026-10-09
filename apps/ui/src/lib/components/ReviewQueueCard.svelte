@@ -30,9 +30,9 @@
 </script>
 
 <section
-    class="rounded-2xl border p-4 {queue.total > 0
+    class="rounded-2xl border p-5 {queue.total > 0
         ? 'border-accent-300 bg-accent-50/70 dark:border-accent-800/70 dark:bg-accent-950/25'
-        : 'border-slate-200 bg-white/70 dark:border-slate-700/60 dark:bg-slate-900/40'}"
+        : 'border-line-soft bg-surface'}"
     data-dashboard-review-queue
     aria-labelledby="review-queue-title"
 >
@@ -49,9 +49,9 @@
         >
             <path stroke-linecap="round" stroke-linejoin="round" d="M5 21V4h9l-1 3h6l-2 4 2 4h-9l-1-3H5" />
         </svg>
-        <h3 id="review-queue-title" class="font-display text-sm font-bold text-slate-950 dark:text-white">
+        <h2 id="review-queue-title" class="font-display text-xl font-bold text-slate-950 dark:text-white">
             {$_('dashboard.review_queue.title', { default: 'Needs your call' })}
-        </h3>
+        </h2>
         {#if queue.total > 0}
             <span
                 class="ml-auto rounded-full bg-accent-500 px-2 py-0.5 text-xs font-bold text-accent-950"
@@ -113,7 +113,7 @@
                             <span class="block truncate text-xs font-semibold text-slate-800 dark:text-slate-100">
                                 {detection.display_name}
                             </span>
-                            <span class="block truncate text-[11px] text-slate-500 dark:text-slate-400">
+                            <span class="block truncate text-2xs text-slate-500 dark:text-slate-400">
                                 {#if queue.reasons.get(detection.frigate_event) === 'new_species'}
                                     <span class="font-semibold text-accent-700 dark:text-accent-300">
                                         {$_('dashboard.review_queue.new_species_tag', {
@@ -126,7 +126,7 @@
                                 {when(detection)} · {detection.camera_name}
                             </span>
                         </span>
-                        <span class="shrink-0 text-[11px] font-bold tabular-nums text-accent-700 dark:text-accent-300">
+                        <span class="shrink-0 text-2xs font-bold tabular-nums text-accent-700 dark:text-accent-300">
                             {Math.round((detection.score ?? 0) * 100)}%
                         </span>
                     </button>
@@ -135,7 +135,7 @@
         </ul>
 
         {#if queue.remaining > 0}
-            <p class="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
+            <p class="mt-2 text-2xs text-slate-500 dark:text-slate-400">
                 {$_('dashboard.review_queue.remaining', {
                     values: { count: queue.remaining },
                     default: '{count} more waiting'

@@ -383,7 +383,7 @@
                     <div class="absolute left-3 top-3 flex max-w-[calc(100%-4.5rem)] items-center gap-2 rounded-full border border-white/15 bg-slate-950/70 px-3 py-2 text-white shadow-lg backdrop-blur-md" aria-live="polite">
                         <span class="h-2 w-2 shrink-0 rounded-full {selectedDotClass}" aria-hidden="true"></span>
                         <span class="truncate text-xs font-bold">{selectedCamera}</span>
-                        <span class="text-[10px] font-semibold text-slate-300">
+                        <span class="text-3xs font-semibold text-slate-300">
                             {selectedHealthState === 'online'
                                 ? $_('header.cameras_status_online', { default: 'Online' })
                                 : selectedHealthState === 'offline'
@@ -431,7 +431,7 @@
                         </button>
                     {/if}
 
-                    <div class="absolute bottom-3 right-3 rounded-full border border-white/10 bg-slate-950/65 px-2.5 py-1 text-[10px] font-bold tabular-nums text-slate-200 backdrop-blur-md">
+                    <div class="absolute bottom-3 right-3 rounded-full border border-white/10 bg-slate-950/65 px-2.5 py-1 text-3xs font-bold tabular-nums text-slate-200 backdrop-blur-md">
                         {selectedIndex + 1} / {cameras.length}
                     </div>
                 </div>

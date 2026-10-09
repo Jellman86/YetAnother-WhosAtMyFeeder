@@ -98,16 +98,16 @@
     id="main-content"
     class="relative flex min-h-screen items-center justify-center overflow-hidden bg-surface-light px-4 py-10 text-slate-900 dark:bg-surface-dark dark:text-white sm:px-6"
 >
-    <div class="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-brand-100/70 to-transparent dark:from-brand-950/30" aria-hidden="true"></div>
+    <div class="pointer-events-none absolute inset-x-0 top-0 h-40 bg-transparent" aria-hidden="true"></div>
     <div class="pointer-events-none absolute -right-24 top-1/3 h-64 w-64 rounded-full bg-accent-100/40 blur-3xl dark:bg-accent-950/20" aria-hidden="true"></div>
 
     <section
-        class="relative w-full max-w-2xl overflow-hidden rounded-3xl border border-slate-200/80 bg-white/95 shadow-xl ring-1 ring-slate-900/5 dark:border-slate-700/70 dark:bg-slate-900/95 dark:ring-white/5"
+        class="relative w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 shadow-xl ring-1 ring-slate-900/5 dark:border-slate-700/70 dark:bg-slate-900/95 dark:ring-white/5"
         role={showingUnavailable || startupFailed ? 'alert' : 'status'}
         aria-live={attentionNeeded ? 'assertive' : 'polite'}
         aria-busy={busy || startupActive || !startupStatusChecked}
     >
-        <header class="flex items-center justify-between gap-4 bg-gradient-to-r from-brand-50 via-accent-50/70 to-white px-6 py-4 dark:from-brand-950/40 dark:via-accent-950/20 dark:to-slate-900 sm:px-8">
+        <header class="flex items-center justify-between gap-4 bg-surface-raised px-6 py-4 sm:px-8">
             <div class="flex min-w-0 items-center gap-3">
                 <img src={APP_ICON_192_URL} alt="" class="h-9 w-9 shrink-0 object-contain" />
                 <div class="min-w-0">

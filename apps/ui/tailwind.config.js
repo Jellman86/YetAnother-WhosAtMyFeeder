@@ -5,6 +5,12 @@ export default {
         extend: {
             // Wide desktop monitors: room for the dashboard's third column without squeezing the field log.
             screens: { '3xl': '1920px' },
+            // Small print in rem, so it follows the reader's text size and display scale
+            // instead of staying fixed in pixels. Below text-xs (12px at the default size).
+            fontSize: {
+                '2xs': '0.6875rem',
+                '3xs': '0.625rem',
+            },
             colors: {
                 // Primary accent — driven by the active colour theme via CSS variables
                 // (default theme = teal, bluetit theme = blue). See app.css.
@@ -51,10 +57,18 @@ export default {
                     900: 'rgb(var(--success-900) / <alpha-value>)',
                     950: 'rgb(var(--success-950) / <alpha-value>)',
                 },
-                // Nature-inspired background colors
+                // Page ground for full-screen states (the setup wizard, the backend status screen).
                 surface: {
-                    light: '#f8fafc', // Warm Stone/Parchment tint
-                    dark: '#030712',  // Deep Midnight
+                    light: '#f8fafc',
+                    dark: '#030712',
+                    // Panels and the fills inside them; set per mode and theme in app.css.
+                    DEFAULT: 'rgb(var(--surface) / <alpha-value>)',
+                    raised: 'rgb(var(--surface-raised) / <alpha-value>)',
+                },
+                // Rules: `line` edges controls, `line-soft` separates rows and panels.
+                line: {
+                    DEFAULT: 'rgb(var(--line) / <alpha-value>)',
+                    soft: 'rgb(var(--line-soft) / <alpha-value>)',
                 },
             },
             animation: {

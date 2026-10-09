@@ -101,9 +101,9 @@
     });
 
     const chipClass =
-        'inline-flex items-baseline gap-1.5 rounded-xl border border-amber-400/70 bg-amber-50/70 px-3 py-1 font-black text-amber-700 transition-colors hover:bg-amber-100/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500 dark:border-amber-500/50 dark:bg-amber-900/20 dark:text-amber-300 dark:hover:bg-amber-900/40';
+        'inline-flex items-baseline gap-1.5 rounded-xl border border-brand-300 bg-brand-50 px-3 py-1 font-bold text-brand-800 transition-colors hover:bg-brand-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-brand-700/70 dark:bg-brand-950/60 dark:text-brand-200 dark:hover:bg-brand-900/60';
     const popoverClass =
-        'absolute left-0 top-full z-20 mt-2 w-72 rounded-2xl border border-slate-200 bg-white p-3 text-left shadow-xl dark:border-slate-700 dark:bg-slate-900';
+        'absolute left-0 top-full z-20 mt-2 w-72 rounded-2xl border border-line-soft bg-surface p-3 text-left shadow-xl';
 </script>
 
 {#snippet chevron()}
@@ -116,9 +116,9 @@
             <button
                 type="button"
                 onclick={() => choosePreset(preset)}
-                class="block w-full rounded-xl px-3 py-2 text-left transition-colors hover:bg-amber-50 dark:hover:bg-slate-800 {mode === preset ? 'bg-amber-100/70 dark:bg-amber-900/30' : ''}"
+                class="block w-full rounded-xl px-3 py-2 text-left transition-colors hover:bg-surface-raised {mode === preset ? 'bg-brand-50 dark:bg-brand-950/60' : ''}"
             >
-                <span class="block text-sm font-black text-slate-900 dark:text-white">{$_(presetSentenceKey(preset))}</span>
+                <span class="block text-sm font-bold text-slate-900 dark:text-white">{$_(presetSentenceKey(preset))}</span>
                 <span class="mt-0.5 block text-xs font-bold text-slate-500">{$_(`settings.notifications.mode_${preset}_desc`)}</span>
             </button>
             {#if preset === 'final' && mode === 'final'}
@@ -203,8 +203,8 @@
                 {#if openSlot === 'confidence'}
                     <div class="{popoverClass} {alignRight ? 'left-auto right-0' : ''}" role="dialog" aria-label={$_('settings.notifications.min_confidence')}>
                         <div class="mb-2 flex items-center justify-between">
-                            <label for="policy-confidence-slider" class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('settings.notifications.min_confidence')}</label>
-                            <output for="policy-confidence-slider" class="rounded-lg bg-amber-500 px-2 py-0.5 text-xs font-black text-white">{confidencePercent}%</output>
+                            <label for="policy-confidence-slider" class="text-xs font-bold uppercase tracking-widest text-slate-500">{$_('settings.notifications.min_confidence')}</label>
+                            <output for="policy-confidence-slider" class="rounded-lg bg-brand-700 px-2 py-0.5 text-xs font-bold text-white">{confidencePercent}%</output>
                         </div>
                         <input
                             id="policy-confidence-slider"
@@ -219,7 +219,7 @@
                             aria-valuenow={confidencePercent}
                             aria-valuetext="{confidencePercent} percent"
                             aria-label={$_('settings.notifications.min_confidence_label', { values: { value: confidencePercent } })}
-                            class="h-2 w-full cursor-pointer appearance-none rounded-lg bg-slate-200 accent-amber-500 dark:bg-slate-700"
+                            class="h-2 w-full cursor-pointer appearance-none rounded-lg bg-slate-200 accent-brand-600 dark:bg-slate-700"
                         />
                         <div class="mt-1.5 flex justify-between">
                             <span class="text-xs font-bold uppercase tracking-tighter text-slate-400">{$_('settings.notifications.notify_all')}</span>
@@ -230,10 +230,10 @@
                                 type="checkbox"
                                 checked={audioOnly}
                                 onchange={(event) => onAudioOnlyChange(event.currentTarget.checked)}
-                                class="mt-0.5 h-4 w-4 rounded border-slate-300 accent-amber-500 dark:border-slate-600"
+                                class="mt-0.5 h-4 w-4 rounded border-slate-300 accent-brand-600 dark:border-slate-600"
                             />
                             <span>
-                                <span class="block text-xs font-black text-slate-900 dark:text-white">{$_('settings.notifications.audio_only')}</span>
+                                <span class="block text-xs font-bold text-slate-900 dark:text-white">{$_('settings.notifications.audio_only')}</span>
                                 <span class="block text-xs font-bold leading-tight text-slate-500">{$_('settings.notifications.audio_only_desc')}</span>
                             </span>
                         </label>
@@ -264,7 +264,7 @@
                 </button>
                 {#if openSlot === 'channels'}
                     <div class="{popoverClass} {alignRight ? 'left-auto right-0' : ''}" role="dialog" aria-label={$_('settings.notifications.sentence.destinations')}>
-                        <p class="mb-1 text-xs font-black uppercase tracking-widest text-slate-500">{$_('settings.notifications.sentence.destinations')}</p>
+                        <p class="mb-1 text-xs font-bold uppercase tracking-widest text-slate-500">{$_('settings.notifications.sentence.destinations')}</p>
                         <p class="mb-2 text-xs font-bold text-slate-400">{$_('settings.notifications.sentence.channels_hint')}</p>
                         {#each channels as channel (channel.id)}
                             <label class="flex cursor-pointer items-center justify-between gap-3 rounded-xl px-2 py-2 hover:bg-slate-50 dark:hover:bg-slate-800">
@@ -273,9 +273,9 @@
                                         type="checkbox"
                                         checked={channel.enabled}
                                         onchange={(event) => onChannelToggle(channel.id, event.currentTarget.checked)}
-                                        class="h-4 w-4 rounded border-slate-300 accent-amber-500 dark:border-slate-600"
+                                        class="h-4 w-4 rounded border-slate-300 accent-brand-600 dark:border-slate-600"
                                     />
-                                    <span class="text-sm font-black text-slate-900 dark:text-white">{channel.label}</span>
+                                    <span class="text-sm font-bold text-slate-900 dark:text-white">{channel.label}</span>
                                 </span>
                                 {#if !channel.configured}
                                     <span class="text-xs font-bold text-slate-400">{$_('settings.notifications.sentence.channel_needs_setup')}</span>

@@ -39,7 +39,7 @@
         <dl class="mt-2 divide-y divide-slate-200/70 text-xs dark:divide-slate-700/50">
             {#each storageTables as row (row.key)}
                 <div class="py-1.5">
-                    <dt class="font-mono text-[11px] font-semibold text-slate-800 dark:text-slate-100">
+                    <dt class="font-mono text-2xs font-semibold text-slate-800 dark:text-slate-100">
                         {row.table}
                     </dt>
                     <dd class="text-slate-500 dark:text-slate-400">
@@ -48,7 +48,7 @@
                 </div>
             {/each}
         </dl>
-        <p class="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
+        <p class="mt-2 text-2xs text-slate-500 dark:text-slate-400">
             {$_('about.storage.note', {
                 default: 'SQLite under /data. Schema changes ship reversible migrations.'
             })}
@@ -71,7 +71,7 @@
                         </dd>
                     </span>
                     <span
-                        class="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider {item.on
+                        class="shrink-0 rounded px-1.5 py-0.5 text-3xs font-bold uppercase tracking-wider {item.on
                             ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300'
                             : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}"
                     >
@@ -83,7 +83,7 @@
             {/each}
         </dl>
         {#if !isOwner}
-            <p class="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
+            <p class="mt-2 text-2xs text-slate-500 dark:text-slate-400">
                 {$_('about.outbound.guest_note', {
                     default: 'Shown for transparency. Only the owner can change these.'
                 })}

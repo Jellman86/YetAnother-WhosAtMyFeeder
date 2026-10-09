@@ -479,7 +479,7 @@
         aria-labelledby="review-session-title"
         tabindex="-1"
         onkeydown={handleKeydown}
-        class="flex h-[100dvh] max-h-[100dvh] w-full max-w-5xl flex-col overflow-hidden rounded-none border border-white/20 bg-white shadow-2xl dark:bg-slate-800 sm:h-auto sm:max-h-[92vh] sm:rounded-3xl"
+        class="flex h-[100dvh] max-h-[100dvh] w-full max-w-5xl flex-col overflow-hidden rounded-none border border-white/20 bg-surface shadow-2xl sm:h-auto sm:max-h-[92vh] sm:rounded-2xl"
     >
         <header class="relative flex items-center gap-3 border-b border-slate-200 py-1.5 pl-5 pr-2 dark:border-slate-700">
             <div class="flex min-w-0 items-baseline gap-x-2.5">
@@ -602,7 +602,7 @@
                                     style="left: {wholeScene.outline.left}px; top: {wholeScene.outline.top}px; width: {wholeScene.outline.width}px; height: {wholeScene.outline.height}px;"
                                     data-review-whole-scene-outline
                                     aria-hidden="true"
-                                ><span class="absolute left-0 top-0 rounded bg-sky-300 px-1.5 py-0.5 text-[10px] font-bold text-slate-950">{$_('detection.frame_chosen_badge', { default: 'Chosen' })}</span></div>
+                                ><span class="absolute left-0 top-0 rounded bg-sky-300 px-1.5 py-0.5 text-3xs font-bold text-slate-950">{$_('detection.frame_chosen_badge', { default: 'Chosen' })}</span></div>
                                 {#each wholeScene.otherOutlines as outline}
                                     <div
                                         class="pointer-events-none absolute z-10 rounded-sm border-2 border-dashed border-white/90"
@@ -613,7 +613,7 @@
                                 {/each}
                             {/if}
                             {#if sceneReady}
-                                <span class="pointer-events-none absolute left-3 top-3 z-30 rounded-full border border-white/15 bg-slate-950/70 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm">
+                                <span class="pointer-events-none absolute left-3 top-3 z-30 rounded-full border border-white/15 bg-slate-950/70 px-2.5 py-1 text-2xs font-semibold text-white backdrop-blur-sm">
                                     {wholeScene.otherOutlines.length > 0
                                         ? $_('detection.whole_scene_multiple_outlined', { values: { count: wholeScene.otherOutlines.length + 1 }, default: 'Whole scene, {count} crop regions outlined' })
                                         : wholeScene.pinned
@@ -631,7 +631,7 @@
                             {#if naming.secondary}
                                 <p class="mt-0.5 break-words text-sm italic text-slate-300">{naming.secondary}</p>
                             {/if}
-                            <p class="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-slate-400">
+                            <p class="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-2xs text-slate-400">
                                 <span>{formatDate(current.detection_time)} {formatTime(current.detection_time)}</span>
                                 <span aria-hidden="true">&middot;</span>
                                 <span>{current.camera_name}</span>
@@ -685,7 +685,7 @@
                 <div class="flex flex-col gap-3 p-4 md:min-h-0 md:overflow-y-auto">
                     <!-- Why this needs a person, in words, with the amber wash flagged rows carry elsewhere.
                          The header already asks for the call, so there is no second heading over it. -->
-                    <p class="-mx-4 -mt-4 flex items-start gap-2 bg-gradient-to-r from-amber-50 to-transparent px-4 py-3 text-sm text-slate-700 dark:from-amber-500/10 dark:text-slate-200" data-review-reason>
+                    <p class="-mx-4 -mt-4 flex items-start gap-2 bg-amber-50 px-4 py-3 text-sm text-slate-700 dark:bg-amber-500/10 dark:text-slate-200" data-review-reason>
                         <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-500" aria-hidden="true"></span>
                         <span>
                             {#if isNewSpecies}
@@ -737,7 +737,7 @@
                         />
                     </label>
 
-                    <p id="review-species-choices" class="-mb-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                    <p id="review-species-choices" class="-mb-1 text-2xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
                         {searching
                             ? $_('dashboard.review_session.all_species', { default: 'All species' })
                             : $_('dashboard.review_session.seen_here', { default: 'Seen at this feeder' })}

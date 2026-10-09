@@ -122,12 +122,14 @@ describe('leaderboard field-journal layout', () => {
         expect(leaderboardSource).toContain('data-leaderboard-unlikely-note');
         expect(leaderboardSource).toContain('data-leaderboard-unlikely-reason');
         // Wash, dot and words together, never a coloured rule on the row's edge.
-        expect(leaderboardSource).toContain("bg-gradient-to-r from-amber-50 to-transparent dark:from-amber-500/10");
+        expect(leaderboardSource).toContain("bg-amber-50/70 dark:bg-amber-500/10");
         expect(leaderboardSource).not.toMatch(/border-l-(2|4)[^"]*amber/);
     });
 
     it('fits the weekday heatmap to its column instead of scrolling it sideways', () => {
-        expect(heatmapSource).toContain('repeat(24, minmax(0, 1fr))');
+        // Columns shrink to fit, and cap at 3rem so cells stay square rather than stretching wide.
+        expect(heatmapSource).toContain('repeat(24, minmax(0, 3rem))');
+        expect(heatmapSource).toContain('aspect-square min-h-6 w-full');
         expect(leaderboardSource).not.toMatch(/min-w-\[650px\]/);
         expect(leaderboardSource).not.toContain('h-[260px] overflow-x-auto');
         // A display:none label leaves the grid and shifts every cell after it by one column.

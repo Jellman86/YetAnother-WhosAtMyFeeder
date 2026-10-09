@@ -51,15 +51,14 @@
      is four calm facts, and only trouble grows words. -->
 <div
     role="status"
-    class="relative grid grid-cols-2 gap-4 overflow-hidden rounded-2xl border border-brand-500/25 bg-white/60 p-4 dark:bg-slate-900/40 lg:grid-cols-4"
+    class="relative grid grid-cols-2 gap-4 overflow-hidden rounded-2xl border border-line-soft bg-surface-raised p-4 lg:grid-cols-4"
 >
-    <span class="card-aurora" aria-hidden="true"></span>
     <button
         type="button"
         onclick={() => jumpTo(modelsAnchorId)}
         class="group relative flex min-h-11 cursor-pointer flex-col gap-0.5 rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
     >
-        <span class="text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('settings.detection.band_model')}</span>
+        <span class="text-xs font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('settings.detection.band_model')}</span>
         <span class="break-all text-sm font-bold text-slate-900 group-hover:text-brand-700 dark:text-white dark:group-hover:text-brand-300">
             {modelValue ?? $_('settings.detection.band_no_model')}
         </span>
@@ -73,14 +72,14 @@
     </button>
 
     <div class="relative flex flex-col gap-0.5">
-        <span class="text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('settings.detection.band_runtime')}</span>
+        <span class="text-xs font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('settings.detection.band_runtime')}</span>
         <span class="text-sm font-bold text-slate-900 dark:text-white">{activeProviderLabel}</span>
         {#if classifierStatus?.fallback_reason}
             <span class="text-xs font-semibold text-amber-700 dark:text-amber-300">{$_('settings.detection.band_fallback_active')}</span>
         {:else if runtimePlanned}
             <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('settings.detection.band_runtime_planned', { default: 'loads on first detection' })}</span>
         {:else if providerVerified}
-            <span class="inline-flex items-center gap-1 text-xs font-semibold text-accent-700 dark:text-accent-300">
+            <span class="inline-flex items-center gap-1 text-xs font-semibold text-success-700 dark:text-success-300">
                 {$_('settings.detection.band_verified')}
                 <svg class="h-3 w-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 8.5 3.5 3.5L13 4.5" /></svg>
             </span>
@@ -90,7 +89,7 @@
     </div>
 
     <div class="relative flex flex-col gap-0.5">
-        <span class="text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('settings.detection.band_workers')}</span>
+        <span class="text-xs font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('settings.detection.band_workers')}</span>
         {#if runtimeState.executionMode === 'in_process'}
             <span class="text-sm font-bold text-slate-900 dark:text-white">{$_('settings.detection.band_in_process')}</span>
             <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('settings.detection.band_shared_runtime')}</span>
@@ -130,13 +129,13 @@
         onclick={() => jumpTo(reportAnchorId)}
         class="group relative flex min-h-11 cursor-pointer flex-col gap-0.5 rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
     >
-        <span class="text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('settings.detection.band_health')}</span>
+        <span class="text-xs font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('settings.detection.band_health')}</span>
         {#if issueCount > 0 || runtimeState.restartRecommended}
             <span class="text-sm font-bold text-amber-700 dark:text-amber-300">
                 {$_('settings.detection.band_needs_attention', { values: { count: Math.max(issueCount, 1) } })}
             </span>
         {:else}
-            <span class="text-sm font-bold text-accent-700 dark:text-accent-300">{$_('settings.detection.band_all_good')}</span>
+            <span class="text-sm font-bold text-success-700 dark:text-success-300">{$_('settings.detection.band_all_good')}</span>
         {/if}
         <span class="text-xs font-semibold text-brand-700 underline-offset-2 group-hover:underline dark:text-brand-300">
             {$_('settings.detection.band_full_report')}

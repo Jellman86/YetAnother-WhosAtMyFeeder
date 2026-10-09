@@ -505,7 +505,7 @@
     onkeydown={handleKeydown}
     role="presentation"
 >
-    <div class="flex min-h-4 items-center justify-between gap-2 px-1 text-[10px] font-semibold text-white/65" aria-live="polite">
+    <div class="flex min-h-4 items-center justify-between gap-2 px-1 text-3xs font-semibold text-white/65" aria-live="polite">
         <span>
             {#if loading}
                 {$_('detection.snapshot_candidates_loading', { default: 'Loading frames...' })}
@@ -578,7 +578,7 @@
                                 iconClass="h-4 w-4"
                             />
                             {#if chosen && marksChoice}
-                                <span class="pointer-events-none absolute bottom-1.5 left-1.5 rounded bg-brand-500 px-1 text-[9px] font-bold leading-4 text-slate-950">
+                                <span class="pointer-events-none absolute bottom-1.5 left-1.5 rounded bg-brand-500 px-1 text-3xs font-bold leading-4 text-slate-950">
                                     {$_('detection.frame_chosen_badge', { default: 'Chosen' })}
                                 </span>
                             {/if}
@@ -638,9 +638,9 @@
                                     placeholderClass="text-slate-600"
                                     iconClass="h-8 w-8"
                                 />
-                                <div class="flex flex-col gap-1.5 p-3 text-[13px]">
+                                <div class="flex flex-col gap-1.5 p-3 text-[0.8125rem]">
                                     <div class="flex items-baseline justify-between gap-2">
-                                        <span class="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                                        <span class="text-3xs font-semibold uppercase tracking-[0.14em] text-slate-400">
                                             {positionLabel(moment)}
                                             &middot; {framingLabel(moment)}
                                         </span>

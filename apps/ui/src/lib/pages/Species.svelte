@@ -1173,8 +1173,10 @@
                 backgroundColor: isBar ? item.color : (item.type === 'area' ? `${item.color}33` : item.color),
                 borderColor: item.color,
                 borderWidth: isBar ? 0 : 2,
-                borderRadius: isBar ? 3 : 0,
-                maxBarThickness: timeline?.bucket === 'day' ? 24 : 18,
+                borderRadius: isBar ? 4 : 0,
+                barPercentage: 0.8,
+                categoryPercentage: 0.9,
+                maxBarThickness: 72,
                 fill: item.type === 'area',
                 tension: isBar ? 0 : 0.32,
                 pointRadius: 0,
@@ -1879,7 +1881,7 @@
                     <button
                         type="button"
                         onclick={() => selectedSpecies = item.species}
-                        class="group flex min-h-20 w-full items-center gap-3 py-3 text-left transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 dark:hover:bg-slate-800/40 {unlikelyHere(item) ? 'bg-gradient-to-r from-amber-50 to-transparent dark:from-amber-500/10' : ''}"
+                        class="group flex min-h-20 w-full items-center gap-3 py-3 text-left transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 dark:hover:bg-slate-800/40 {unlikelyHere(item) ? 'bg-amber-50/70 dark:bg-amber-500/10' : ''}"
                         title={item.species === "Unknown Bird" ? $_('leaderboard.unidentified_desc') : ""}
                         aria-label={$_('leaderboard.view_species', { values: { species: item.displayName } })}
                     >
@@ -1931,7 +1933,7 @@
                             {@const rowCountPct = maxCount > 0 ? Math.round((item.count / maxCount) * 100) : 0}
                             {@const rowHeardPct = maxHeard > 0 ? Math.round((item.heard_count / maxHeard) * 100) : 0}
                             {@const evidence = evidenceOf(item)}
-                            <tr class="transition hover:bg-slate-50/80 dark:hover:bg-slate-800/35 {unlikelyHere(item) ? 'bg-gradient-to-r from-amber-50 to-transparent dark:from-amber-500/10' : ''}" data-leaderboard-unlikely={unlikelyHere(item) ? 'true' : undefined}>
+                            <tr class="transition hover:bg-slate-50/80 dark:hover:bg-slate-800/35 {unlikelyHere(item) ? 'bg-amber-50/70 dark:bg-amber-500/10' : ''}" data-leaderboard-unlikely={unlikelyHere(item) ? 'true' : undefined}>
                                 <td class="px-3 py-3 text-center"><span class="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold tabular-nums {index < 3 ? 'bg-brand-100 text-brand-800 dark:bg-brand-900/50 dark:text-brand-200' : 'text-slate-500 dark:text-slate-400'}" aria-label={`${$_('leaderboard.rank')} ${index + 1}`}>{index + 1}</span></td>
                                 <td class="px-3 py-3">
                                     <button type="button" onclick={() => selectedSpecies = item.species} class="group flex min-h-11 max-w-full items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500" aria-label={$_('leaderboard.view_species', { values: { species: item.displayName } })}>
@@ -1994,7 +1996,7 @@
 
                 <!-- A fixed box, not a flex-grown one: Chart.js sizes the canvas to its parent, so a parent
                      that grows with its content lets the chart balloon to half the page width. -->
-                <div class="mt-6 w-full shrink-0" style="height: {isStackedChart() ? 380 : 260}px">
+                <div class="mt-6 w-full shrink-0 {isStackedChart() ? 'chart-h-tall' : 'chart-h'}">
                     {#if timeline?.points?.length}
                         {#key `${span}-${timeline.total_count}-${timeline.bucket}-${showPrecip}-${isDark()}-${themeStore.colorTheme}`}
                             <div class="flex h-full min-w-0 flex-col">
@@ -2263,7 +2265,7 @@
                     <div class="mt-4 min-h-[260px]">
                         {#if donutHasData()}
                             {#key `${span}-${donutSeries().series.join(',')}-${isDark()}-${themeStore.colorTheme}`}
-                                <div class="relative h-[210px] w-full"><canvas use:chartjs={donutChartOptions()} bind:this={donutChartEl} aria-label={$_('leaderboard.detection_breakdown_subtitle', { default: 'Species composition' })}></canvas></div>
+                                <div class="relative chart-h w-full"><canvas use:chartjs={donutChartOptions()} bind:this={donutChartEl} aria-label={$_('leaderboard.detection_breakdown_subtitle', { default: 'Species composition' })}></canvas></div>
                                 <div class="mt-2 flex flex-wrap justify-center gap-x-1" role="group" aria-label={$_('leaderboard.detection_breakdown_subtitle', { default: 'Species composition' })}>
                                     {#each donutSeries().labels as label, index}
                                         <button type="button" class="btn btn-ghost min-h-11 gap-1.5 px-2 text-xs focus-visible:ring-2 focus-visible:ring-brand-500 {hiddenDonutSpecies.includes(index) ? 'opacity-45 line-through' : ''}"

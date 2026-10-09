@@ -420,7 +420,10 @@
       "reconnecting": "Reconnecting…",
       "window": "Last 24 hours",
       "loading": "still loading",
-      "unavailable": "not available"
+      "unavailable": "not available",
+      "birds_scope_short": "from {count} analyzed captures",
+      "nothing_to_review": "nothing to review",
+      "seen_and_heard": "seen and heard"
     },
     "desk": {
       "cameras_empty": "No cameras reporting yet. Add them in Settings → Connection.",

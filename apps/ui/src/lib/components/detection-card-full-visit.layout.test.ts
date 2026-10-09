@@ -48,7 +48,7 @@ describe('detection card full-visit fetch wiring', () => {
         expect(detectionCardSource).toMatch(/relative[^"\n]*rounded-\[2rem\][^"\n]*transition-all/);
         expect(detectionCardSource).toContain("{selectionMode && selected && !analysisActive ? 'border-2 border-cyan-300 dark:border-cyan-300/90 ring-2 ring-cyan-500/35");
         expect(detectionCardSource).toContain("{#if selectionMode && selected && !analysisActive}");
-        expect(detectionCardSource).toContain("absolute inset-0 z-40 overflow-hidden rounded-3xl pointer-events-none");
+        expect(detectionCardSource).toContain("absolute inset-0 z-40 overflow-hidden rounded-2xl pointer-events-none");
         expect(detectionCardSource).toContain("bg-cyan-500/24 backdrop-blur-sm");
         expect(detectionCardSource).toContain("absolute inset-0 z-50 flex items-center justify-center");
         expect(detectionCardSource).toContain("class=\"h-16 w-16 text-white drop-shadow-[0_6px_18px_rgba(8,47,73,0.45)]\"");
@@ -61,7 +61,7 @@ describe('detection card full-visit fetch wiring', () => {
         expect(detectionCardSource).toContain("let analysisActive = $derived(!!reclassifyProgress);");
         expect(detectionCardSource).toContain("{analysisActive ? 'border-2 border-indigo-400/90 dark:border-indigo-300/90 ring-2 ring-indigo-500/30");
         expect(detectionCardSource).toContain('{#if analysisActive && reclassifyProgress}');
-        expect(detectionCardSource).toContain('absolute inset-0 z-50 pointer-events-none rounded-3xl overflow-hidden');
+        expect(detectionCardSource).toContain('absolute inset-0 z-50 pointer-events-none rounded-2xl overflow-hidden');
         expect(detectionCardSource).toContain("import DetectionCardAnalysisOverlay from './DetectionCardAnalysisOverlay.svelte'");
         expect(detectionCardSource).toContain('<DetectionCardAnalysisOverlay progress={reclassifyProgress} />');
         expect(detectionCardSource).not.toContain("import ReclassificationOverlay from './ReclassificationOverlay.svelte'");

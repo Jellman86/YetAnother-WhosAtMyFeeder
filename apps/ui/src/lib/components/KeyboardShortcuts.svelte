@@ -79,18 +79,18 @@
             aria-modal="true"
             aria-labelledby="shortcuts-title"
             tabindex="-1"
-            class="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700/50 p-8 max-w-2xl w-full shadow-2xl"
+            class="bg-surface rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-8 max-w-2xl w-full shadow-2xl"
             onclick={(e) => e.stopPropagation()}
             onkeydown={(e) => e.key === 'Escape' && (visible = false)}
         >
-            <h2 id="shortcuts-title" class="text-2xl font-black text-slate-900 dark:text-white mb-6">
+            <h2 id="shortcuts-title" class="text-2xl font-bold text-slate-900 dark:text-white mb-6">
                 {$_('shortcuts.title', { default: 'Keyboard Shortcuts' })}
             </h2>
 
             <div class="grid grid-cols-1 gap-4 mb-6">
                 {#each shortcutGroups as group}
                     <section class="rounded-2xl border border-slate-200/80 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-900/45 p-4">
-                        <h3 class="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-300 mb-3">
+                        <h3 class="text-2xs font-bold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-300 mb-3">
                             {group.title}
                         </h3>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -109,7 +109,7 @@
 
             <button
                 onclick={() => visible = false}
-                class="w-full px-4 py-3 bg-brand-500 hover:bg-brand-600 text-white font-black text-xs uppercase tracking-widest rounded-2xl transition-all shadow-lg shadow-brand-500/20"
+                class="w-full px-4 py-3 bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs uppercase tracking-widest rounded-2xl transition-all shadow-lg shadow-brand-500/20"
             >
                 {$_('common.close', { default: 'Close' })}
             </button>

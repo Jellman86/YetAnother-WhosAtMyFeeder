@@ -360,7 +360,7 @@
             {#if selectedModel}
                 <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{modelHardwareNote(selectedModel)}</p>
                 {#if selectedModelSummary}
-                    <p class="mt-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400">{selectedModelSummary.labels.join(' · ')}</p>
+                    <p class="mt-1 text-2xs font-semibold text-slate-500 dark:text-slate-400">{selectedModelSummary.labels.join(' · ')}</p>
                 {/if}
                 {#if needsDownload}
                     <p class="mt-1 text-xs font-semibold text-amber-700 dark:text-amber-300">{$_('setup.model.download_required', { default: 'Download and verify this model here before validating it on this hardware.' })}</p>

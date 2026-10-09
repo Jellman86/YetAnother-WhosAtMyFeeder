@@ -91,7 +91,7 @@
     }
 </script>
 
-<div class="rounded-2xl border border-slate-200/80 bg-gradient-to-r from-brand-50/70 via-accent-50/30 to-white p-3 dark:border-slate-700/80 dark:from-brand-950/30 dark:via-accent-950/10 dark:to-slate-900 md:hidden">
+<div class="rounded-2xl border border-line-soft bg-surface p-3 md:hidden">
     <label for="settings-tab-select" class="mb-1.5 block px-1 text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('settings.title')}</label>
     <select
         id="settings-tab-select"
@@ -123,16 +123,16 @@
 
 <nav
     data-settings-navigation
-    class="hidden w-full overflow-hidden rounded-2xl border border-slate-200/80 bg-white/80 dark:border-slate-700/80 dark:bg-slate-900/70 md:block"
+    class="hidden w-full overflow-hidden rounded-2xl border border-line-soft bg-surface md:block"
     aria-label={$_('settings.title')}
 >
     <div class="grid grid-cols-2 xl:grid-cols-4">
         {#each groups as group}
-            <div class="min-w-0 border-slate-200/80 p-3 dark:border-slate-700/80 xl:p-4
+            <div class="min-w-0 border-line-soft p-3 xl:p-4
                         {group.id === 'intelligence' ? 'border-l' : ''}
                         {group.id === 'operations' ? 'border-t xl:border-l xl:border-t-0' : ''}
                         {group.id === 'interface' ? 'border-l border-t xl:border-t-0' : ''}">
-                <h2 class="px-2 pb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                <h2 class="eyebrow px-2 pb-2">
                     {group.label}
                 </h2>
                 <div class="space-y-0.5">
@@ -143,31 +143,25 @@
                             aria-current={activeTab === tab.id ? 'page' : undefined}
                             class="group flex min-h-11 items-center gap-2.5 rounded-lg px-2 py-2 text-left text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950
                                    {activeTab === tab.id
-                                ? 'bg-brand-50 text-brand-800 dark:bg-brand-950/40 dark:text-brand-200'
-                                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/70 dark:hover:text-white'}"
+                                ? 'bg-brand-50 text-slate-900 dark:bg-brand-950/60 dark:text-white'
+                                : 'text-slate-600 hover:bg-surface-raised hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'}"
                             title={tab.label}
                         >
-                            <span
-                                data-active-indicator
-                                class="h-5 w-1 shrink-0 rounded-full {activeTab === tab.id ? 'bg-brand-500' : 'bg-transparent'}"
-                                aria-hidden="true"
-                            ></span>
-                            <svg class="h-4 w-4 shrink-0 opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <svg data-active-indicator class="h-4 w-4 shrink-0 {activeTab === tab.id ? 'text-brand-600 dark:text-brand-400' : 'opacity-80'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                 <path d={tab.iconPath} />
                             </svg>
                             <span class="min-w-0 flex-1">{tab.label}</span>
                         </a>
                     {/each}
                     {#if group.id === 'operations'}
-                        <div class="mt-1 border-t border-slate-200/80 pt-1 dark:border-slate-700/80">
+                        <div class="mt-1 border-t border-line-soft pt-1">
                             <button
                                 type="button"
                                 data-setup-wizard-action
-                                class="group flex min-h-11 w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:text-slate-400 dark:hover:bg-slate-800/70 dark:hover:text-white dark:focus-visible:ring-offset-slate-950"
+                                class="group flex min-h-11 w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left text-sm font-semibold text-slate-600 transition-colors hover:bg-surface-raised hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:text-slate-400 dark:hover:text-white dark:focus-visible:ring-offset-slate-950"
                                 onclick={openSetupWizard}
                                 aria-haspopup="dialog"
                             >
-                                <span class="h-5 w-1 shrink-0 rounded-full bg-transparent" aria-hidden="true"></span>
                                 <svg class="h-4 w-4 shrink-0 opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                     <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2m-4 0a2 2 0 0 0 2 2 2 2 0 0 0 2-2m-4 7 2 2 4-4" />
                                 </svg>

@@ -450,8 +450,8 @@
         );
     }
 
-    const buttonPrimaryClass = 'px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-brand-500 hover:bg-brand-600 text-white transition-all shadow-lg shadow-brand-500/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed';
-    const buttonSecondaryClass = 'px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed';
+    const buttonPrimaryClass = 'btn btn-primary min-h-11 px-4 py-3';
+    const buttonSecondaryClass = 'btn btn-secondary min-h-11 px-6 py-3';
 </script>
 
 {#snippet birdnetIcon()}
@@ -594,7 +594,7 @@
                     {#each availableCameras as camera}
                         <div class="py-3 first:pt-0 space-y-2">
                             <div class="flex items-center justify-between gap-2">
-                                <span class="inline-flex items-center rounded-md bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-xs font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">{camera}</span>
+                                <span class="inline-flex items-center rounded-md bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-xs font-bold uppercase tracking-widest text-slate-600 dark:text-slate-300">{camera}</span>
                                 {#if mappingTokensFor(camera).length > 0}
                                     <span class="text-xs font-bold text-slate-400">{mappingTokensFor(camera).length} mapped</span>
                                 {/if}
@@ -632,7 +632,7 @@
                                     aria-label={$_('settings.integrations.birdnet.source_token_list_label', { values: { camera } })}
                                 >
                                     {#each mappingTokensFor(camera) as sourceToken, sourceTokenIndex}
-                                        <span class="inline-flex max-w-full items-center gap-1.5 rounded-full border border-brand-200 dark:border-brand-800/80 bg-brand-50 dark:bg-brand-950/40 px-2.5 py-1 text-xs font-mono font-black text-brand-700 dark:text-brand-200">
+                                        <span class="inline-flex max-w-full items-center gap-1.5 rounded-full border border-brand-200 dark:border-brand-800/80 bg-brand-50 dark:bg-brand-950/40 px-2.5 py-1 text-xs font-mono font-bold text-brand-700 dark:text-brand-200">
                                             <span class="break-all">{sourceToken}</span>
                                             <button
                                                 type="button"
@@ -656,7 +656,7 @@
 
                     <div class="pt-3">
                         <div class="flex items-center justify-between mb-1.5">
-                            <div class="text-xs font-black uppercase tracking-widest text-slate-500">
+                            <div class="text-xs font-bold uppercase tracking-widest text-slate-500">
                                 {$_('settings.integrations.birdnet.source_discovery_title')}
                             </div>
                             {#if !loadingBirdnetSources && !birdnetSourcesError && birdnetSourceOptions.length > 0 && availableCameras.length > 0}
@@ -689,8 +689,8 @@
                                                 ? `${sourceValue} · last seen ${source.last_seen} · click to add to ${availableCameras[0]}`
                                                 : sourceValue}
                                         >
-                                            <span class="shrink-0 inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-200/70 dark:bg-slate-800/70 text-slate-400 group-hover:bg-brand-500 group-hover:text-white group-disabled:group-hover:bg-slate-200/70 transition-colors text-xs font-black leading-none" aria-hidden="true">+</span>
-                                            <span class="min-w-0 flex-1 text-xs font-mono font-black text-slate-800 dark:text-slate-100 break-all leading-tight">{sourceValue}</span>
+                                            <span class="shrink-0 inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-200/70 dark:bg-slate-800/70 text-slate-400 group-hover:bg-brand-500 group-hover:text-white group-disabled:group-hover:bg-slate-200/70 transition-colors text-xs font-bold leading-none" aria-hidden="true">+</span>
+                                            <span class="min-w-0 flex-1 text-xs font-mono font-bold text-slate-800 dark:text-slate-100 break-all leading-tight">{sourceValue}</span>
                                             <span class="shrink-0 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap tabular-nums">{formatRelativeTime(source.last_seen)}</span>
                                         </button>
                                     </li>
@@ -1244,13 +1244,13 @@
 
             {#if mapPoint}
                 <div class="rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200/70 dark:border-slate-700/60 px-3 py-2 flex items-center gap-2 text-xs">
-                    <span class="text-xs font-black uppercase tracking-widest text-slate-400 shrink-0">{$_('settings.location.resolved_label', { default: 'Resolved' })}</span>
+                    <span class="text-xs font-bold uppercase tracking-widest text-slate-400 shrink-0">{$_('settings.location.resolved_label', { default: 'Resolved' })}</span>
                     {#if geocodeLoading}
                         <span class="text-slate-400 italic font-bold">{$_('settings.location.resolving', { default: 'Looking up…' })}</span>
                     {:else if geocodeError}
                         <span class="text-rose-500 font-bold">{$_('settings.location.resolve_error', { default: 'Lookup failed' })}</span>
                     {:else if geocodePlace}
-                        <span class="font-black text-slate-700 dark:text-slate-200 truncate">{geocodePlace}</span>
+                        <span class="font-bold text-slate-700 dark:text-slate-200 truncate">{geocodePlace}</span>
                     {:else}
                         <span class="text-slate-400 italic font-bold">{$_('settings.location.resolve_empty', { default: 'No place name available for these coordinates' })}</span>
                     {/if}
