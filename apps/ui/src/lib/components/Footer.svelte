@@ -94,7 +94,7 @@
      It stacks on narrow screens. The fact keeps a reserved height at every width, because facts run
      from four words to two lines and the footer must not jump when the ticker turns over. -->
 <footer class="mt-auto border-t border-line-soft bg-surface">
-    <div class="flex flex-col items-center gap-x-8 gap-y-3 px-4 py-4 text-xs text-slate-600 sm:px-6 lg:flex-row lg:px-8 lg:py-3 2xl:px-12 dark:text-slate-400">
+    <div class="flex flex-col items-center gap-x-8 gap-y-3 px-4 py-4 text-xs text-slate-600 sm:px-6 lg:flex-row lg:flex-wrap lg:px-8 lg:py-3 2xl:px-12 dark:text-slate-400">
         <div class="flex shrink-0 flex-wrap items-center justify-center gap-x-2 gap-y-1">
             <BrandMark class="h-5 w-5 rounded-md" sizes="20px" width={20} height={20} loading="lazy" alt="" />
             <span class="font-display text-sm font-bold text-slate-800 dark:text-slate-200">Yet Another WhosAtMyFeeder</span>
@@ -137,10 +137,10 @@
             <span>{$_('common.mit_license', { default: 'MIT License' })}</span>
             <span aria-hidden="true" class="text-slate-300 dark:text-slate-600">·</span>
             <span>&copy; {year} Jellman86</span>
-            <span aria-hidden="true" class="hidden text-slate-300 3xl:inline dark:text-slate-600">·</span>
-            <span class="basis-full text-center text-slate-500 3xl:basis-auto dark:text-slate-500">
-                {$_('footer.built_with_ai', { default: 'Built with AI assistance, and a lot of trial and error' })}
-            </span>
         </div>
+        <!-- Its own row below 1920px, so it never narrows the fact; in the row from there. -->
+        <span class="text-center text-slate-500 lg:basis-full 3xl:basis-auto dark:text-slate-500">
+                {$_('footer.built_with_ai', { default: 'Built with AI assistance, and a lot of trial and error' })}
+                    </span>
     </div>
 </footer>

@@ -479,7 +479,7 @@
         aria-labelledby="review-session-title"
         tabindex="-1"
         onkeydown={handleKeydown}
-        class="flex h-[100dvh] max-h-[100dvh] w-full max-w-5xl flex-col overflow-hidden rounded-none border border-white/20 bg-white shadow-2xl dark:bg-slate-800 sm:h-auto sm:max-h-[92vh] sm:rounded-2xl"
+        class="flex h-[100dvh] max-h-[100dvh] w-full max-w-5xl flex-col overflow-hidden rounded-none border border-white/20 bg-surface shadow-2xl sm:h-auto sm:max-h-[92vh] sm:rounded-2xl"
     >
         <header class="relative flex items-center gap-3 border-b border-slate-200 py-1.5 pl-5 pr-2 dark:border-slate-700">
             <div class="flex min-w-0 items-baseline gap-x-2.5">

@@ -82,7 +82,7 @@
         aria-modal="true"
         aria-label={$_('nav.setup_wizard', { default: 'Setup wizard' })}
         tabindex="-1"
-        class="my-8 w-full max-w-2xl overflow-hidden rounded-2xl border border-white/10 bg-white shadow-2xl ring-1 ring-black/5 dark:bg-slate-900"
+        class="my-8 w-full max-w-2xl overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-2xl ring-1 ring-black/5"
     >
         <!-- Header -->
         <div class="space-y-3 bg-surface-raised px-6 py-4">

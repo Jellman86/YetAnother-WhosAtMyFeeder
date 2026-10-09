@@ -212,7 +212,7 @@
                 {@const count = counts.get(`${dayOfWeek}-${hour}`) ?? 0}
                 {@const current = active?.row === row && active?.hour === hour}
                 <span
-                    class="aspect-square min-h-6 rounded-sm {current ? 'ring-2 ring-brand-500 ring-offset-1 ring-offset-white dark:ring-brand-300 dark:ring-offset-slate-950' : isPeak({ row, hour }) ? 'ring-2 ring-slate-900 ring-offset-1 ring-offset-white dark:ring-white dark:ring-offset-slate-950' : ''}"
+                    class="aspect-square min-h-6 w-full rounded-sm {current ? 'ring-2 ring-brand-500 ring-offset-1 ring-offset-white dark:ring-brand-300 dark:ring-offset-slate-950' : isPeak({ row, hour }) ? 'ring-2 ring-slate-900 ring-offset-1 ring-offset-white dark:ring-white dark:ring-offset-slate-950' : ''}"
                     style="background-color: {heatmapFill(count, maxCellCount, dark)}"
                     id={cellId(row, hour)}
                     role="gridcell"

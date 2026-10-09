@@ -520,7 +520,7 @@
         id={popoutId}
         use:portal
         role="tooltip"
-        class="wall-popout fixed z-[70] rounded-2xl border border-slate-200 bg-white p-2.5 shadow-2xl dark:border-slate-700 dark:bg-slate-900 {place.side}"
+        class="wall-popout fixed z-[70] rounded-2xl border border-slate-200 bg-surface p-2.5 shadow-2xl dark:border-slate-700 {place.side}"
         style:left="{place.left}px"
         style:top="{place.top}px"
         style:width="{POPOUT_WIDTH}px"

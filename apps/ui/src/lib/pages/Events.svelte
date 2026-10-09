@@ -1605,7 +1605,7 @@
         role="button"
         tabindex="0"
     >
-        <div class="w-full max-w-md mx-2 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden" aria-busy={bulkTagging}>
+        <div class="w-full max-w-md mx-2 bg-surface rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden" aria-busy={bulkTagging}>
             <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
                 <div>
                     <h4 class="text-sm font-semibold text-slate-800 dark:text-slate-100">

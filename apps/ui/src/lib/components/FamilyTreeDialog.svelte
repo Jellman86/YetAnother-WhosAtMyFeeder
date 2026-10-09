@@ -248,7 +248,7 @@
 >
     <div
         bind:this={dialog}
-        class="flex h-[100dvh] w-full max-w-6xl flex-col overflow-hidden bg-white shadow-2xl dark:bg-slate-900 sm:h-[90dvh] sm:rounded-2xl sm:border sm:border-white/10"
+        class="flex h-[100dvh] w-full max-w-6xl flex-col overflow-hidden bg-surface shadow-2xl sm:h-[90dvh] sm:rounded-2xl sm:border sm:border-white/10"
         role="dialog"
         aria-modal="true"
         aria-labelledby="family-tree-title"

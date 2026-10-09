@@ -153,7 +153,7 @@
 
     {#if !collapsed}
         {#snippet statusCard(linked: boolean)}
-            <SystemTelemetryGraph />
+            <SystemTelemetryGraph readoutClass={linked ? 'bottom-8 left-3' : 'bottom-3 left-3'} />
             <div class="relative z-10">
                 <div class="mb-2 flex items-center justify-between gap-2">
                     <span class="eyebrow">
@@ -161,9 +161,9 @@
                     </span>
                 </div>
                 {@render status?.()}
-                <!-- The live CPU and accelerator readout sits at this row's left edge; the row is kept
-                     for a guest too so it never lands on the tiles. -->
-                {#if !linked}<span class="mt-1 block h-4" aria-hidden="true"></span>{/if}
+                <!-- A row of its own for the live CPU and accelerator readout, so it never draws over
+                     the tiles or the System health link below it. -->
+                <span class="mt-1 block h-4" aria-hidden="true"></span>
                 {#if linked}
                     <span class="eyebrow mt-1 flex min-h-4 items-center justify-end gap-1 px-2 transition-colors group-hover:text-brand-700 dark:group-hover:text-brand-300">
                         {$_('status.open_health', { default: 'System health' })}

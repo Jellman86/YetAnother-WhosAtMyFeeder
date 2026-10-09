@@ -1,4 +1,11 @@
 <script lang="ts">
+    interface Props {
+        /** Where the live readout sits; the host card reserves that row so nothing draws over it. */
+        readoutClass?: string;
+    }
+
+    let { readoutClass = 'bottom-3 left-3' }: Props = $props();
+
     import { onMount } from 'svelte';
     import { fetchSystemTelemetry } from '../api/system';
     import {
@@ -110,7 +117,7 @@
     {/if}
 
     {#if current}
-        <div class="absolute bottom-2 left-3 flex items-center gap-2 text-3xs font-semibold tabular-nums">
+        <div class="absolute {readoutClass} flex items-center gap-2 text-3xs font-semibold tabular-nums">
             {#if currentCpuPercent}
                 <span class="text-brand-700/70 dark:text-brand-300/70">CPU {currentCpuPercent}</span>
             {/if}

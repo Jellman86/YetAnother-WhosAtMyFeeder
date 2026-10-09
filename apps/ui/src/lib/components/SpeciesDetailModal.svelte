@@ -454,7 +454,7 @@
     <!-- Modal Container -->
     <div
         bind:this={modalElement}
-        class="animate-fade-in h-[100dvh] w-full max-w-6xl overflow-hidden bg-white shadow-2xl ring-1 ring-black/5 dark:bg-slate-900 sm:h-auto sm:max-h-[92dvh] sm:rounded-2xl sm:border sm:border-white/10"
+        class="animate-fade-in h-[100dvh] w-full max-w-6xl overflow-hidden bg-surface shadow-2xl ring-1 ring-black/5 sm:h-auto sm:max-h-[92dvh] sm:rounded-2xl sm:border sm:border-white/10"
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"

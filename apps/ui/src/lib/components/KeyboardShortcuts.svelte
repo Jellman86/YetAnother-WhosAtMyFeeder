@@ -79,7 +79,7 @@
             aria-modal="true"
             aria-labelledby="shortcuts-title"
             tabindex="-1"
-            class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-8 max-w-2xl w-full shadow-2xl"
+            class="bg-surface rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-8 max-w-2xl w-full shadow-2xl"
             onclick={(e) => e.stopPropagation()}
             onkeydown={(e) => e.key === 'Escape' && (visible = false)}
         >

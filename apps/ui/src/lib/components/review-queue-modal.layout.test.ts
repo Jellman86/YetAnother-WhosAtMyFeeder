@@ -176,7 +176,7 @@ describe('review queue walk-through', () => {
         expect(dialog).toContain('sm:max-h-[92vh]');
         expect(dialog).toContain('sm:rounded-2xl');
         expect(dialog).toContain('max-w-5xl');
-        expect(dialog).toContain('dark:bg-slate-800');
+        expect(dialog).toContain('bg-surface');
         expect(modalSource).toContain('bg-slate-950/70 p-0 backdrop-blur-sm sm:p-4');
     });
 
