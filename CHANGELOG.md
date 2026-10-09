@@ -6,6 +6,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Opening Settings no longer repeats old detection and weather backfill completion or failure
+  messages. New completions still announce once; saved results remain available.
+
 - Notifications links owners to Health and diagnostics export. Support bundles now capture fresh
   server evidence even without local errors, and delayed video retries remain visible while waiting (#481).
 

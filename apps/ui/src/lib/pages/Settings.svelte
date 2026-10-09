@@ -76,7 +76,7 @@
         resolveRunningBackfillMessage,
         updateScopedBackfillProgress
     } from '../backfill/progress';
-    import { formatTerminalBackfillMessage } from '../backfill/terminal-message';
+    import { formatTerminalBackfillMessage, isBackfillTerminalTransition } from '../backfill/terminal-message';
     import { _, locale } from 'svelte-i18n';
     import { setAppLocale } from '../i18n';
     import { get } from 'svelte/store';
@@ -1706,9 +1706,12 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     function emitTerminalBackfillToast(
         kind: 'detections' | 'weather',
         status: BackfillJobStatus,
+        previous: BackfillJobStatus | null,
         type: 'success' | 'error',
         fallbackText: string
     ): boolean {
+        // The first poll restores history; only a running job becoming terminal is new feedback.
+        if (!isBackfillTerminalTransition(previous, status)) return false;
         const jobId = status.id || 'unknown';
         const terminalState = status.status === 'completed' ? 'completed' : 'failed';
         const key = `settings:backfill-toast:${kind}:${jobId}:${terminalState}`;
@@ -2643,6 +2646,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             ]);
 
             if (detections) {
+                const previousJob = backfillJob;
                 backfillJob = detections;
                 backfillResult = {
                     status: detections.status,
@@ -2660,11 +2664,11 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 backfillTotal = scoped.total;
                 backfilling = detections.status === 'running';
                 if (detections.status === 'completed') {
-                    if (emitTerminalBackfillToast('detections', detections, 'success', 'Backfill complete')) {
+                    if (emitTerminalBackfillToast('detections', detections, previousJob, 'success', 'Backfill complete')) {
                         await loadMaintenanceStats();
                     }
                 } else if (detections.status === 'failed') {
-                    emitTerminalBackfillToast('detections', detections, 'error', 'Backfill failed');
+                    emitTerminalBackfillToast('detections', detections, previousJob, 'error', 'Backfill failed');
                 }
                 reconcileBackfillNotification('detections', detections, scoped.total);
             } else {
@@ -2677,6 +2681,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             }
 
             if (weather) {
+                const previousJob = weatherBackfillJob;
                 weatherBackfillJob = weather;
                 weatherBackfillResult = {
                     status: weather.status,
@@ -2692,9 +2697,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 weatherBackfillTotal = scoped.total;
                 weatherBackfilling = weather.status === 'running';
                 if (weather.status === 'completed') {
-                    emitTerminalBackfillToast('weather', weather, 'success', 'Weather backfill complete');
+                    emitTerminalBackfillToast('weather', weather, previousJob, 'success', 'Weather backfill complete');
                 } else if (weather.status === 'failed') {
-                    emitTerminalBackfillToast('weather', weather, 'error', 'Weather backfill failed');
+                    emitTerminalBackfillToast('weather', weather, previousJob, 'error', 'Weather backfill failed');
                 }
                 reconcileBackfillNotification('weather', weather, scoped.total);
             } else {
