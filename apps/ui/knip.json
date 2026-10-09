@@ -21,6 +21,7 @@
     "browser-tests/visits.ts",
     "browser-tests/field-log.ts",
     "browser-tests/model-eval.ts",
+    "browser-tests/support.ts",
     "browser-tests/owner-history.ts",
     "browser-tests/bird-scan.ts"
   ]

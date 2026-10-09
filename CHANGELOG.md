@@ -6,6 +6,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Notifications links owners to Health and diagnostics export. Support bundles now capture fresh
+  server evidence even without local errors, and delayed video retries remain visible while waiting (#481).
+
 - Video jobs waiting for a recording clip keep their bounded retry count. Periodic recovery
   could reclaim the same waiting visit repeatedly, leaving a persistent backlog even at a quiet
   feeder. Retries now use the normal queue and its concurrency limits (#481).

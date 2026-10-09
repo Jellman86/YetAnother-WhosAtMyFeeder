@@ -157,8 +157,12 @@ exhaustion of both media routes is an unchanged result, while an unrecovered med
 an explicit failure.
 
 The owner **Notifications → Jobs** view also shows automatic and maintenance video work from the
-backend. The old `/jobs` address redirects to Notifications. Queue pressure and downloadable
-diagnostics are under **Settings → Health**. A queued
+backend, including delayed retries waiting for a recording clip or worker recovery. The old
+`/jobs` address redirects to Notifications. Use **Health · Diagnostics export** there to open
+**Settings → Health**, then expand **Diagnostics export**. **Capture Bundle** saves a report with
+your notes; **Download without saving** downloads one immediately. Both fetch current server
+evidence, even in a browser with no local errors. Saved bundles keep their original evidence and
+remain downloadable when the server is unavailable. A queued
 item remains labelled **Queued** until a worker starts it, and pending/processing automatic jobs are
 reclaimed from the detections database after a container restart. Frame progress sent by a
 subprocess retains the sampled frame number and exact clip offset, so saved top-frame evidence can
