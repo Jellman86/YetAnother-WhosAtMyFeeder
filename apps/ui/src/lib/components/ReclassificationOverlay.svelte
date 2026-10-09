@@ -358,7 +358,7 @@
                                         </div>
                                         <div class="mt-2 h-1.5 rounded-full bg-white/10 overflow-hidden">
                                             <div
-                                                class="h-full rounded-full bg-gradient-to-r from-accent-300 via-brand-300 to-cyan-300 transition-all duration-500 ease-linear motion-reduce:transition-none"
+                                                class="h-full rounded-full bg-brand-400 transition-all duration-500 ease-linear motion-reduce:transition-none"
                                                 style={`width: ${Math.max(0, Math.min(100, ((autoDismissSecondsRemaining ?? 0) / 30) * 100))}%`}
                                             ></div>
                                         </div>

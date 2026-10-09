@@ -9,10 +9,24 @@
   --font-display: 'Bricolage Grotesque', 'Instrument Sans', sans-serif;
   --app-bg: #f8fafc;
   --app-fg: #334155;
-  --noise-svg: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Surfaces and rules as RGB triplets so Tailwind's surface-* and line-* take opacity.
+     Panels sit on the page ground, raised fills sit inside panels, and the soft line
+     separates rows while the plain line edges controls. */
+  --surface: 255 255 255;
+  --surface-raised: 241 245 249;
+  --line: 214 222 232;
+  --line-soft: 229 234 241;
+}
+
+html.dark,
+html[data-theme='dark'] {
+  --surface: 15 23 42;
+  --surface-raised: 30 41 59;
+  --line: 51 65 85;
+  --line-soft: 34 46 66;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -54,16 +68,10 @@ html.theme-bluetit {
 
 html.dark,
 html[data-theme='dark'] {
-  --app-bg: #030712;
+  --app-bg: #020617;
   --app-fg: #e2e8f0;
-  --noise-svg: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
 }
 
-/* Active icon adopts the primary accent colour in dark mode */
-html.dark .nav-button-active svg,
-html[data-theme='dark'] .nav-button-active svg {
-  color: #2dd4bf; /* teal-400 */
-}
 
 @layer base {
   html,
@@ -76,9 +84,6 @@ html[data-theme='dark'] .nav-button-active svg {
     color: var(--app-fg);
   }
 
-  body {
-    background-image: var(--noise-svg);
-  }
 
   h1,
   h2,
@@ -133,57 +138,70 @@ html[data-theme='dark'] {
 /* Focus ring styling */
 @layer utilities {
   .focus-ring {
-    @apply focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-surface-dark;
-  }
-}
-
-/* Gradient text utility */
-@layer utilities {
-  .text-gradient {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-brand-500 to-teal-400;
+    @apply focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-900;
   }
 }
 
 /* Smooth card transitions */
 @layer components {
+  /* A ruled panel on the page ground: a hairline and a flat fill, no shadow or blur.
+     Hierarchy comes from type and spacing, so every block need not float. */
   .card-base {
-    @apply bg-white/95 dark:bg-slate-800/85 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 shadow-card dark:shadow-card-dark backdrop-blur-sm transition-all duration-300 ring-1 ring-slate-200/40 dark:ring-slate-700/40 ring-inset;
+    @apply rounded-2xl border border-line-soft bg-surface transition-colors duration-200;
+  }
+
+  /* A dashboard or page section: the card chrome with the section's own padding. */
+  .panel {
+    @apply card-base p-5;
+  }
+
+  /* A small uppercase label above a heading or a group: names the window, the camera, the section. */
+  .eyebrow {
+    @apply text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400;
+  }
+
+  /* A figure set in the display face with lining, tabular digits so columns of numbers align. */
+  .figure {
+    font-family: var(--font-display);
+    font-variant-numeric: lining-nums tabular-nums;
+    @apply font-bold leading-none;
   }
 
   /* Tab button styling */
   .tab-button {
     @apply flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium;
-    @apply transition-all duration-200;
+    @apply transition-colors duration-200;
   }
 
   .tab-button-active {
-    @apply bg-white dark:bg-slate-700 text-teal-600 dark:text-teal-400 shadow-sm;
+    @apply bg-surface text-brand-700 shadow-sm ring-1 ring-inset ring-line-soft dark:text-brand-300;
   }
 
   .tab-button-inactive {
-    @apply text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-slate-700/50;
+    @apply text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-surface-raised;
   }
 
   /* Unified buttons */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-all duration-200 focus-ring disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-colors duration-200 focus-ring disabled:opacity-50 disabled:cursor-not-allowed;
   }
 
+  /* A solid fill, dark enough under white text to pass AA in every theme. */
   .btn-primary {
-    @apply bg-gradient-to-r from-teal-500 to-emerald-600 text-white shadow-sm hover:from-teal-400 hover:to-emerald-500;
+    @apply bg-brand-700 text-white hover:bg-brand-800;
   }
 
   .btn-secondary {
-    @apply bg-white/90 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700/60 shadow-sm;
-    @apply hover:border-teal-300/60 hover:text-teal-700 dark:hover:text-teal-300;
+    @apply bg-surface text-slate-700 dark:text-slate-200 border border-line;
+    @apply hover:bg-surface-raised hover:text-slate-900 dark:hover:text-white;
   }
 
   .btn-ghost {
-    @apply text-slate-600 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800/70;
+    @apply text-slate-600 dark:text-slate-300 hover:bg-surface-raised hover:text-slate-900 dark:hover:text-white;
   }
 
   .btn-danger {
-    @apply text-red-600 dark:text-red-400 border border-red-200/70 dark:border-red-900/40 hover:bg-red-50/80 dark:hover:bg-red-900/30;
+    @apply text-red-700 dark:text-red-300 border border-red-200/70 dark:border-red-900/50 hover:bg-red-50/80 dark:hover:bg-red-950/40;
   }
 
   .btn-icon {
@@ -192,9 +210,9 @@ html[data-theme='dark'] {
 
   /* Unified fields */
   .input-base {
-    @apply w-full px-3 py-2.5 rounded-xl bg-white/90 dark:bg-slate-800/70 border border-slate-200/80 dark:border-slate-700/60;
-    @apply text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500;
-    @apply shadow-sm outline-none transition focus:ring-2 focus:ring-teal-400/40 focus:border-teal-400/60;
+    @apply w-full px-3 py-2.5 rounded-xl bg-surface border border-line;
+    @apply text-sm text-slate-900 dark:text-white placeholder:text-slate-500 dark:placeholder:text-slate-400;
+    @apply outline-none transition-colors focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500/70;
   }
 
   .select-base {
@@ -207,29 +225,28 @@ html[data-theme='dark'] {
 
   /* Navigation buttons */
   .nav-button {
-    @apply px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 focus-ring;
+    @apply px-4 py-2 rounded-xl text-sm font-semibold transition-colors duration-200 focus-ring;
   }
 
+  /* The selected route is a recessed key with a lit icon; no bar, no glow. */
   .nav-button-active {
-    @apply bg-brand-100/80 dark:bg-brand-900/50 text-slate-800 dark:text-slate-100 shadow-sm;
+    @apply bg-brand-50 text-slate-900 dark:bg-brand-950/60 dark:text-white;
   }
 
-  /* Active icon takes the primary accent colour — the visual cue, no bars needed */
   .nav-button-active svg {
-    color: #14b8a6; /* teal-500 */
+    @apply text-brand-600 dark:text-brand-400;
   }
 
   .nav-button-inactive {
-    @apply text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white;
+    @apply text-slate-600 dark:text-slate-300 hover:bg-surface-raised hover:text-slate-900 dark:hover:text-white;
   }
 
-  /* Sidebar navigation — denser monitor-style hierarchy with a clear selected route. */
   .sidebar-nav {
-    @apply flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-semibold transition-all duration-200 focus-ring;
+    @apply flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium transition-colors duration-200 focus-ring;
   }
 
   .sidebar-nav-active {
-    @apply bg-brand-100/90 text-slate-900 shadow-sm ring-1 ring-brand-200/70 ring-inset dark:bg-brand-900/40 dark:text-slate-100 dark:ring-brand-700/40;
+    @apply bg-brand-50 font-semibold text-slate-900 dark:bg-brand-950/60 dark:text-white;
   }
 
   .sidebar-nav-active svg {
@@ -237,7 +254,7 @@ html[data-theme='dark'] {
   }
 
   .sidebar-nav-inactive {
-    @apply text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white;
+    @apply text-slate-600 hover:bg-surface-raised hover:text-slate-900 dark:text-slate-300 dark:hover:text-white;
   }
 
   /* Badges */
@@ -282,24 +299,6 @@ html[data-theme='dark'] {
     @apply absolute inset-0 rounded-full;
     animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
   }
-
-  /* Gradient border effect */
-  .border-gradient {
-    position: relative;
-    background-clip: padding-box;
-  }
-
-  .border-gradient::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    padding: 1px;
-    background: linear-gradient(135deg, theme('colors.teal.400/40'), theme('colors.emerald.400/40'));
-    border-radius: inherit;
-    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    mask-composite: exclude;
-    pointer-events: none;
-  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -314,16 +313,26 @@ html[data-theme='dark'] {
      Midnight wing → #0a1225          (dark surface)
    ═══════════════════════════════════════════════════════════════════════ */
 
-/* ── 1. Surfaces ── */
+/* ── 1. Surfaces ──
+   The kit reads --surface, --surface-raised, --line and --line-soft, so the theme
+   only tints those; components need no per-theme overrides. */
 
 html.theme-bluetit:not(.dark) {
-  --app-bg: #eef3fb;
+  --app-bg: #f4f7fc;
   --app-fg: #1e293b;
+  --surface: 255 255 255;
+  --surface-raised: 239 244 251;
+  --line: 208 219 234;
+  --line-soft: 226 233 243;
 }
 
 html.theme-bluetit.dark {
-  --app-bg: #070d1b;
-  --app-fg: #dfe6f0;
+  --app-bg: #050a14;
+  --app-fg: #e8edf5;
+  --surface: 11 19 34;
+  --surface-raised: 17 27 46;
+  --line: 30 44 72;
+  --line-soft: 21 32 54;
 }
 
 /* ── 2. Scrollbar & Selection ── */
@@ -334,152 +343,6 @@ html.theme-bluetit.dark {
 .theme-bluetit:not(.dark) ::-webkit-scrollbar-thumb:hover { background-color: #8a9ec4; }
 .theme-bluetit.dark ::-webkit-scrollbar-thumb { background-color: #293d5e; }
 .theme-bluetit.dark ::-webkit-scrollbar-thumb:hover { background-color: #354d72; }
-
-/* ── 3. Component Class Overrides ── */
-
-/* Sidebar — bluetit uses the same white as default light mode; border-r provides the separation */
-
-/* Card surfaces */
-.theme-bluetit:not(.dark) .card-base {
-  background: rgba(255, 255, 255, 0.97);
-  border-color: rgba(191, 219, 254, 0.80); /* option 2: stronger border */
-  --tw-ring-color: rgba(191, 219, 254, 0.45);
-  /* option 1: blue-tinted shadow with real depth */
-  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.12), 0 4px 12px rgba(37, 99, 235, 0.08);
-}
-.theme-bluetit.dark .card-base {
-  background: rgba(15, 23, 42, 0.88);
-  border-color: rgba(30, 58, 138, 0.50);
-  --tw-ring-color: rgba(30, 58, 138, 0.30);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.40), 0 4px 12px rgba(0, 0, 0, 0.28);
-}
-
-/* Tab buttons */
-.theme-bluetit:not(.dark) .tab-button-active {
-  background-color: white;
-  color: #1d4ed8;
-}
-.theme-bluetit.dark .tab-button-active {
-  background-color: rgba(23, 37, 84, 0.7);
-  color: #60a5fa;
-}
-
-/* Primary button */
-.theme-bluetit .btn-primary {
-  background-image: linear-gradient(to right, #2563eb, #1d4ed8);
-  box-shadow: 0 2px 10px rgba(37, 99, 235, 0.28);
-}
-.theme-bluetit .btn-primary:hover {
-  background-image: linear-gradient(to right, #3b82f6, #2563eb);
-  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.38);
-}
-
-/* Secondary button */
-.theme-bluetit:not(.dark) .btn-secondary:hover {
-  border-color: rgba(147, 197, 253, 0.6);
-  color: #1d4ed8;
-}
-.theme-bluetit.dark .btn-secondary:hover {
-  border-color: rgba(59, 130, 246, 0.45);
-  color: #93c5fd;
-}
-
-/* Ghost button */
-.theme-bluetit:not(.dark) .btn-ghost:hover { background-color: rgba(219, 234, 254, 0.6); }
-.theme-bluetit.dark .btn-ghost:hover { background-color: rgba(30, 58, 138, 0.3); }
-
-/* Input focus */
-.theme-bluetit .input-base:focus,
-.theme-bluetit .select-base:focus {
-  --tw-ring-color: rgba(59, 130, 246, 0.4);
-  border-color: rgba(59, 130, 246, 0.6);
-}
-
-/* Navigation */
-.theme-bluetit:not(.dark) .nav-button-active {
-  background-color: rgba(219, 234, 254, 0.75);
-  color: #1e3a8a;
-  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.12);
-}
-.theme-bluetit:not(.dark) .nav-button-active svg {
-  color: #2563eb; /* blue-600 */
-}
-.theme-bluetit.dark .nav-button-active {
-  background-color: rgba(30, 58, 138, 0.45);
-  color: #e0eaff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-}
-.theme-bluetit.dark .nav-button-active svg {
-  color: #60a5fa; /* blue-400 */
-}
-.theme-bluetit:not(.dark) .nav-button-inactive:hover {
-  background-color: rgba(219, 234, 254, 0.5);
-}
-.theme-bluetit.dark .nav-button-inactive:hover {
-  background-color: rgba(30, 58, 138, 0.25);
-}
-
-
-/* Text gradient */
-.theme-bluetit:not(.dark) .text-gradient {
-  background-image: linear-gradient(to right, #1d4ed8, #d97706);
-}
-.theme-bluetit.dark .text-gradient {
-  background-image: linear-gradient(to right, #60a5fa, #fbbf24);
-}
-
-/* Focus ring */
-.theme-bluetit .focus-ring:focus { --tw-ring-color: rgba(59, 130, 246, 0.5); }
-
-/* Border gradient */
-.theme-bluetit .border-gradient::before {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.3), rgba(251, 191, 36, 0.3));
-}
-
-
-
-/* teal → blue */
-
-/* emerald → amber */
-
-/* brand → blue */
-
-
-
-/* teal → blue */
-
-/* emerald → amber */
-
-/* brand → blue */
-
-
-
-/* teal → blue */
-
-/* emerald → amber */
-
-
-
-
-
-
-/* from-teal → from-blue */
-
-/* to-teal → to-blue */
-
-/* via-teal → via-blue */
-
-/* from-emerald → from-amber */
-
-/* to-emerald → to-amber */
-
-/* via-emerald → via-amber */
-
-/* from-brand / to-brand → blue */
-
-
-
-
 
 /* ── 14. AI Analysis Surface & Markdown ──
  * `.ai-markdown-surface` descendants are globalised in DetectionModal.svelte,
@@ -701,63 +564,4 @@ html.theme-bluetit.dark .ai-markdown-surface th { color: rgb(191 219 254); }
   overflow: visible;
   clip: auto;
   white-space: normal;
-}
-
-/* Decorative aurora shared by highlighted cards (selected model card, the
-   Detection status band). Modeled on animated mesh gradients: soft blobs of
-   brand color at asymmetric positions on two layers that drift at different
-   periods, so the motion never lines up into a pattern. Transform-only, so it
-   stays on the compositor; stilled entirely under prefers-reduced-motion.
-   Hosts set `relative overflow-hidden` and keep content on a stacking layer. */
-.card-aurora {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.card-aurora::before,
-.card-aurora::after {
-  content: '';
-  position: absolute;
-  inset: -25%;
-}
-
-.card-aurora::before {
-  background:
-    radial-gradient(60% 55% at 22% 28%, rgb(59 130 246 / 0.1), transparent 65%),
-    radial-gradient(50% 60% at 78% 20%, rgb(129 140 248 / 0.07), transparent 60%),
-    radial-gradient(55% 65% at 30% 85%, rgb(45 212 191 / 0.09), transparent 60%);
-  animation: card-aurora-drift-a 21s ease-in-out infinite alternate;
-}
-
-.card-aurora::after {
-  background:
-    radial-gradient(45% 50% at 85% 75%, rgb(45 212 191 / 0.08), transparent 60%),
-    radial-gradient(40% 45% at 60% 40%, rgb(59 130 246 / 0.05), transparent 65%);
-  animation: card-aurora-drift-b 17s ease-in-out infinite alternate;
-}
-
-@keyframes card-aurora-drift-a {
-  from {
-    transform: translate(-3%, -2%) scale(1);
-  }
-  to {
-    transform: translate(3%, 2%) scale(1.06);
-  }
-}
-
-@keyframes card-aurora-drift-b {
-  from {
-    transform: translate(2.5%, 2%) scale(1.04);
-  }
-  to {
-    transform: translate(-2.5%, -2%) scale(1);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .card-aurora::before,
-  .card-aurora::after {
-    animation: none;
-  }
 }

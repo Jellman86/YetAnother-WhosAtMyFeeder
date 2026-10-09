@@ -1879,7 +1879,7 @@
                     <button
                         type="button"
                         onclick={() => selectedSpecies = item.species}
-                        class="group flex min-h-20 w-full items-center gap-3 py-3 text-left transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 dark:hover:bg-slate-800/40 {unlikelyHere(item) ? 'bg-gradient-to-r from-amber-50 to-transparent dark:from-amber-500/10' : ''}"
+                        class="group flex min-h-20 w-full items-center gap-3 py-3 text-left transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 dark:hover:bg-slate-800/40 {unlikelyHere(item) ? 'bg-amber-50/70 dark:bg-amber-500/10' : ''}"
                         title={item.species === "Unknown Bird" ? $_('leaderboard.unidentified_desc') : ""}
                         aria-label={$_('leaderboard.view_species', { values: { species: item.displayName } })}
                     >
@@ -1931,7 +1931,7 @@
                             {@const rowCountPct = maxCount > 0 ? Math.round((item.count / maxCount) * 100) : 0}
                             {@const rowHeardPct = maxHeard > 0 ? Math.round((item.heard_count / maxHeard) * 100) : 0}
                             {@const evidence = evidenceOf(item)}
-                            <tr class="transition hover:bg-slate-50/80 dark:hover:bg-slate-800/35 {unlikelyHere(item) ? 'bg-gradient-to-r from-amber-50 to-transparent dark:from-amber-500/10' : ''}" data-leaderboard-unlikely={unlikelyHere(item) ? 'true' : undefined}>
+                            <tr class="transition hover:bg-slate-50/80 dark:hover:bg-slate-800/35 {unlikelyHere(item) ? 'bg-amber-50/70 dark:bg-amber-500/10' : ''}" data-leaderboard-unlikely={unlikelyHere(item) ? 'true' : undefined}>
                                 <td class="px-3 py-3 text-center"><span class="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold tabular-nums {index < 3 ? 'bg-brand-100 text-brand-800 dark:bg-brand-900/50 dark:text-brand-200' : 'text-slate-500 dark:text-slate-400'}" aria-label={`${$_('leaderboard.rank')} ${index + 1}`}>{index + 1}</span></td>
                                 <td class="px-3 py-3">
                                     <button type="button" onclick={() => selectedSpecies = item.species} class="group flex min-h-11 max-w-full items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500" aria-label={$_('leaderboard.view_species', { values: { species: item.displayName } })}>

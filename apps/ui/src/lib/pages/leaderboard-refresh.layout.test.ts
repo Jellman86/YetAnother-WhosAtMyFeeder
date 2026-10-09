@@ -122,7 +122,7 @@ describe('leaderboard field-journal layout', () => {
         expect(leaderboardSource).toContain('data-leaderboard-unlikely-note');
         expect(leaderboardSource).toContain('data-leaderboard-unlikely-reason');
         // Wash, dot and words together, never a coloured rule on the row's edge.
-        expect(leaderboardSource).toContain("bg-gradient-to-r from-amber-50 to-transparent dark:from-amber-500/10");
+        expect(leaderboardSource).toContain("bg-amber-50/70 dark:bg-amber-500/10");
         expect(leaderboardSource).not.toMatch(/border-l-(2|4)[^"]*amber/);
     });
 

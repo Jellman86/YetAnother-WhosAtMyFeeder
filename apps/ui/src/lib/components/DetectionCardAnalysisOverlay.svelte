@@ -53,8 +53,8 @@
     let closeIndicatorLabel = $derived($_('detection.card_analysis.closing_soon'));
 </script>
 
-<div class="detection-card-analysis-overlay absolute inset-0 z-20 flex flex-col justify-between rounded-3xl border border-indigo-300/45 bg-white/88 p-4 text-slate-950 shadow-2xl backdrop-blur-md dark:border-indigo-300/35 dark:bg-slate-950/82 dark:text-white">
-    <div class="absolute inset-0 rounded-3xl bg-gradient-to-br from-cyan-200/30 via-white/15 to-indigo-300/28 dark:from-indigo-500/20 dark:via-slate-950/20 dark:to-cyan-500/20"></div>
+<div class="detection-card-analysis-overlay absolute inset-0 z-20 flex flex-col justify-between rounded-2xl border border-indigo-300/45 bg-white/88 p-4 text-slate-950 shadow-2xl backdrop-blur-md dark:border-indigo-300/35 dark:bg-slate-950/82 dark:text-white">
+    <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-cyan-200/30 via-white/15 to-indigo-300/28 dark:from-indigo-500/20 dark:via-slate-950/20 dark:to-cyan-500/20"></div>
     <div class="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-white/45 to-transparent dark:from-white/10"></div>
 
     <div class="relative flex items-start justify-between gap-3">
@@ -97,7 +97,7 @@
     <div class="relative space-y-3">
         <div class="overflow-hidden rounded-full bg-slate-950/12 dark:bg-white/12">
             <div
-                class="h-2 rounded-full bg-gradient-to-r from-cyan-300 via-indigo-300 to-accent-300 transition-all duration-500"
+                class="h-2 rounded-full bg-brand-400 transition-all duration-500"
                 style={`width: ${progressPercent}%`}
             ></div>
         </div>

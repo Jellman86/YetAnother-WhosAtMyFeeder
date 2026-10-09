@@ -144,9 +144,8 @@
 
 <li
     class="{grid} items-center gap-y-1 rounded-xl border-b border-slate-200/60 px-2 py-2 last:border-b-0 sm:py-2.5 dark:border-slate-700/40"
-    class:bg-gradient-to-r={visit.needsReview}
-    class:from-accent-50={visit.needsReview}
-    class:dark:from-accent-950={visit.needsReview}
+    class:bg-accent-50={visit.needsReview}
+    class:dark:bg-accent-950={visit.needsReview}
     data-field-log-row
     data-field-log-visit={visit.key}
     data-needs-review={visit.needsReview ? 'true' : 'false'}

@@ -420,7 +420,10 @@
       "reconnecting": "正在重新连接…",
       "window": "过去24小时",
       "loading": "仍在加载",
-      "unavailable": "不可用"
+      "unavailable": "不可用",
+      "birds_scope_short": "来自 {count} 个已分析的捕获",
+      "nothing_to_review": "无需复核",
+      "seen_and_heard": "既见又闻"
     },
     "desk": {
       "cameras_empty": "还没有摄像头上报。请在“设置 → 连接”中添加。",

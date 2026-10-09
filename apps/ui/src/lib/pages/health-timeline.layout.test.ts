@@ -56,7 +56,7 @@ describe('health page timeline', () => {
 describe('the health verdict', () => {
     it('colours the whole card, not just a pill on a neutral ground', () => {
         expect(errorsSource).toContain('heroToneClass');
-        expect(errorsSource).toMatch(/<div class="rounded-3xl border p-6 \{heroToneClass\(/);
+        expect(errorsSource).toMatch(/<div class="rounded-2xl border p-6 \{heroToneClass\(/);
     });
 
     it('is green when healthy and amber only when something wants a person', () => {

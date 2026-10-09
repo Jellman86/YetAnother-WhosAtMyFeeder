@@ -300,17 +300,17 @@
     function heroToneClass(value: string): string {
         const normalized = value.trim().toLowerCase();
         if (['ok', 'healthy', 'normal'].includes(normalized)) {
-            return 'border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-white to-emerald-50/40 dark:border-emerald-800/50 dark:from-emerald-950/40 dark:via-slate-900/80 dark:to-emerald-950/20';
+            return 'border-emerald-200/80 bg-emerald-50/70 dark:border-emerald-800/50 dark:bg-emerald-950/30';
         }
         if (['degraded', 'warning', 'recovering', 'high'].includes(normalized)) {
             // Literal amber, not the accent token: accent is emerald in the classic
             // theme, which would paint a degraded instance green.
-            return 'border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-amber-50/40 dark:border-amber-800/50 dark:from-amber-950/40 dark:via-slate-900/80 dark:to-amber-950/20';
+            return 'border-amber-200/80 bg-amber-50/70 dark:border-amber-800/50 dark:bg-amber-950/30';
         }
         if (['critical', 'error', 'failing', 'failed'].includes(normalized)) {
-            return 'border-rose-200/80 bg-gradient-to-br from-rose-50 via-white to-rose-50/40 dark:border-rose-800/50 dark:from-rose-950/40 dark:via-slate-900/80 dark:to-rose-950/20';
+            return 'border-rose-200/80 bg-rose-50/70 dark:border-rose-800/50 dark:bg-rose-950/30';
         }
-        return 'border-slate-200/80 bg-gradient-to-br from-slate-50 via-white to-slate-50/40 dark:border-slate-700/60 dark:from-slate-900/90 dark:via-slate-900/80 dark:to-slate-800/70';
+        return 'border-slate-200/80 bg-slate-50/70 dark:border-slate-700/60 dark:bg-slate-900/60';
     }
 
     function toneClass(value: string): string {
@@ -639,7 +639,7 @@
 
         <!-- ── System Status hero ──────────────────────────────────── -->
         <div class="px-6 py-6">
-            <div class="rounded-3xl border p-6 {heroToneClass(overallStatusLabel())}">
+            <div class="rounded-2xl border p-6 {heroToneClass(overallStatusLabel())}">
                 <div class="flex flex-wrap items-start justify-between gap-4">
                     <div class="min-w-0 flex-1">
                         <div class="flex flex-wrap items-center gap-2">
@@ -732,7 +732,7 @@
                 <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
 
                 <!-- Event Pipeline -->
-                <article class="rounded-3xl border p-5 shadow-sm {toneClass(eventPipelineStatus())}">
+                <article class="rounded-2xl border p-5 shadow-sm {toneClass(eventPipelineStatus())}">
                     <div class="flex items-start gap-3">
                         <div class="mt-0.5 shrink-0 opacity-70">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -756,7 +756,7 @@
                 </article>
 
                 <!-- Filtered detections (expected, configuration-driven drops) -->
-                <article class="rounded-3xl border p-5 shadow-sm {toneClass(filteredStatus())}">
+                <article class="rounded-2xl border p-5 shadow-sm {toneClass(filteredStatus())}">
                     <div class="flex items-start gap-3">
                         <div class="mt-0.5 shrink-0 opacity-70">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -801,7 +801,7 @@
                 </article>
 
                 <!-- MQTT -->
-                <article class="rounded-3xl border p-5 shadow-sm {toneClass(mqttStatus())}">
+                <article class="rounded-2xl border p-5 shadow-sm {toneClass(mqttStatus())}">
                     <div class="flex items-start gap-3">
                         <div class="mt-0.5 shrink-0 opacity-70">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -824,7 +824,7 @@
                 </article>
 
                 <!-- Live Classification -->
-                <article class="rounded-3xl border p-5 shadow-sm {toneClass(liveClassificationStatus())}">
+                <article class="rounded-2xl border p-5 shadow-sm {toneClass(liveClassificationStatus())}">
                     <div class="flex items-start gap-3">
                         <div class="mt-0.5 shrink-0 opacity-70">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -848,7 +848,7 @@
                 </article>
 
                 <!-- Video Classification -->
-                <article class="rounded-3xl border p-5 shadow-sm {toneClass(videoClassifierCard.status)}">
+                <article class="rounded-2xl border p-5 shadow-sm {toneClass(videoClassifierCard.status)}">
                     <div class="flex items-start gap-3">
                         <div class="mt-0.5 shrink-0 opacity-70">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -872,7 +872,7 @@
                 </article>
 
                 <!-- Background Maintenance -->
-                <article class="rounded-3xl border p-5 shadow-sm {toneClass(backgroundStatus())}">
+                <article class="rounded-2xl border p-5 shadow-sm {toneClass(backgroundStatus())}">
                     <div class="flex items-start gap-3">
                         <div class="mt-0.5 shrink-0 opacity-70">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -896,7 +896,7 @@
                 </article>
 
                 <!-- Notifications & DB -->
-                <article class="rounded-3xl border p-5 shadow-sm {toneClass(dispatcherStatus())}">
+                <article class="rounded-2xl border p-5 shadow-sm {toneClass(dispatcherStatus())}">
                     <div class="flex items-start gap-3">
                         <div class="mt-0.5 shrink-0 opacity-70">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -920,7 +920,7 @@
                 </article>
 
                 <!-- Naming sources -->
-                <article class="rounded-3xl border p-5 shadow-sm {toneClass(namingStatus())}">
+                <article class="rounded-2xl border p-5 shadow-sm {toneClass(namingStatus())}">
                     <div class="flex items-start gap-3">
                         <div class="mt-0.5 shrink-0 opacity-70">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -962,7 +962,7 @@
                 </article>
 
                 <!-- Startup Warnings -->
-                <article class="rounded-3xl border p-5 shadow-sm {toneClass(startupStatus())}">
+                <article class="rounded-2xl border p-5 shadow-sm {toneClass(startupStatus())}">
                     <div class="flex items-start gap-3">
                         <div class="mt-0.5 shrink-0 opacity-70">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">

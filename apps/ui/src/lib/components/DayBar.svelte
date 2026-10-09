@@ -38,84 +38,79 @@
     {/if}
 {/snippet}
 
-<div
-    class="flex flex-wrap items-center gap-x-6 gap-y-3 border-b border-slate-200/70 pb-3 dark:border-slate-700/50"
-    data-dashboard-day-bar
->
-    <h1 class="font-display text-lg font-bold text-slate-950 dark:text-white">
-        {$_('dashboard.day_bar.window', { default: 'Last 24 hours' })}
-    </h1>
+<!-- The window, then every figure for it in one ruled band. Labels sit above their figures so a
+     row of six reads across like a ledger; each figure names its scope beneath when it has one. -->
+<div class="space-y-4" data-dashboard-day-bar>
+    <div class="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
+        <div class="space-y-1">
+            <p class="eyebrow">{$_('nav.dashboard')}</p>
+            <h1 class="font-display text-3xl font-bold leading-tight text-slate-950 sm:text-4xl dark:text-white">
+                {$_('dashboard.day_bar.window', { default: 'Last 24 hours' })}
+            </h1>
+        </div>
 
-    <dl class="flex flex-wrap items-baseline gap-x-4 gap-y-1.5 text-xs sm:gap-x-5 sm:gap-y-2">
-        <div class="flex items-baseline gap-1.5">
-            <dd class="font-display text-base font-bold tabular-nums text-slate-900 dark:text-white">
-                {#if visitCount === null}{@render unmeasured()}{:else}{visitCount}{/if}
-            </dd>
-            <dt class="text-slate-500 dark:text-slate-400">
-                {$_('dashboard.day_bar.visits', { default: 'visits' })}
-            </dt>
-        </div>
+        <p class="flex items-center gap-2 text-sm font-semibold">
+            <span
+                class="h-2 w-2 rounded-full {connected
+                    ? 'bg-success-500 ring-4 ring-success-500/20'
+                    : 'bg-slate-400 dark:bg-slate-500'}"
+                aria-hidden="true"
+            ></span>
+            <span class={connected ? 'text-success-700 dark:text-success-300' : 'text-slate-500 dark:text-slate-400'}>
+                {connected
+                    ? $_('dashboard.live_feed')
+                    : $_('dashboard.day_bar.reconnecting', { default: 'Reconnecting…' })}
+            </span>
+        </p>
+    </div>
+
+    <dl class="card-base grid grid-cols-2 gap-px overflow-hidden sm:grid-cols-3 xl:auto-cols-fr xl:grid-flow-col xl:grid-cols-none xl:divide-x xl:divide-line-soft">
+        {#snippet figure(label: string, value: number | null, tone: 'plain' | 'attention' | 'clear' = 'plain', note: string = '', title: string = '', hook: string = '')}
+            <div class="flex min-w-0 flex-col gap-1.5 px-5 py-4" {title} data-day-bar-figure={hook || undefined}>
+                <dt class="text-sm text-slate-600 first-letter:uppercase dark:text-slate-400">{label}</dt>
+                <dd class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                    <span
+                        class="figure text-3xl {tone === 'attention'
+                            ? 'text-accent-700 dark:text-accent-300'
+                            : 'text-slate-950 dark:text-white'}"
+                    >
+                        {#if value === null}{@render unmeasured()}{:else}{value}{/if}
+                    </span>
+                    {#if note && value !== null}
+                        <span class="text-xs {tone === 'clear' ? 'text-success-700 dark:text-success-300' : 'text-slate-500 dark:text-slate-400'}">{note}</span>
+                    {/if}
+                </dd>
+            </div>
+        {/snippet}
+
+        {@render figure($_('dashboard.day_bar.visits', { default: 'visits' }), visitCount)}
         {#if countedCaptures > 0}
-            <div class="flex items-baseline gap-1.5" title={$_('dashboard.day_bar.birds_scope', { values: { count: countedCaptures }, default: 'From {count} analyzed captures; birds may be missed' })} data-day-bar-counted-birds>
-                <dd class="font-display text-base font-bold tabular-nums text-slate-900 dark:text-white">{countedBirds}</dd>
-                <dt class="text-slate-500 dark:text-slate-400">{$_('dashboard.day_bar.birds_found', { default: 'birds found' })}<span class="sr-only">. {$_('dashboard.day_bar.birds_scope', { values: { count: countedCaptures }, default: 'From {count} analyzed captures; birds may be missed' })}</span></dt>
-            </div>
+            {@render figure(
+                $_('dashboard.day_bar.birds_found', { default: 'birds found' }),
+                countedBirds,
+                'plain',
+                $_('dashboard.day_bar.birds_scope_short', { values: { count: countedCaptures }, default: 'from {count} analyzed captures' }),
+                $_('dashboard.day_bar.birds_scope', { values: { count: countedCaptures }, default: 'From {count} analyzed captures; birds may be missed' }),
+                'counted-birds'
+            )}
         {/if}
-        <div class="flex items-baseline gap-1.5">
-            <dd class="font-display text-base font-bold tabular-nums text-slate-900 dark:text-white">
-                {#if speciesCount === null}{@render unmeasured()}{:else}{speciesCount}{/if}
-            </dd>
-            <dt class="text-slate-500 dark:text-slate-400">
-                {$_('dashboard.stats.species')}
-            </dt>
-        </div>
-        <div class="flex items-baseline gap-1.5" data-day-bar-unresolved>
-            <dd
-                class="font-display text-base font-bold tabular-nums {unresolvedCount !== null && unresolvedCount > 0
-                    ? 'text-accent-700 dark:text-accent-300'
-                    : 'text-slate-900 dark:text-white'}"
-            >
-                {#if unresolvedCount === null}{@render unmeasured()}{:else}{unresolvedCount}{/if}
-            </dd>
-            <dt class="text-slate-500 dark:text-slate-400">
-                {$_('dashboard.day_bar.unresolved', { default: 'unresolved' })}
-            </dt>
-        </div>
+        {@render figure($_('dashboard.stats.species'), speciesCount)}
+        {@render figure(
+            $_('dashboard.day_bar.unresolved', { default: 'unresolved' }),
+            unresolvedCount,
+            unresolvedCount !== null && unresolvedCount > 0 ? 'attention' : 'clear',
+            unresolvedCount === 0 ? $_('dashboard.day_bar.nothing_to_review', { default: 'nothing to review' }) : '',
+            '',
+            'unresolved'
+        )}
         {#if audioCalls !== null}
-            <div class="flex items-baseline gap-1.5">
-                <dd class="font-display text-base font-bold tabular-nums text-slate-900 dark:text-white">
-                    {audioCalls}
-                </dd>
-                <dt class="text-slate-500 dark:text-slate-400">
-                    {$_('dashboard.day_bar.calls_heard', { default: 'calls heard' })}
-                </dt>
-            </div>
-            <div class="flex items-baseline gap-1.5">
-                <dd
-                    class="font-display text-base font-bold tabular-nums {audioConfirmations === 0
-                        ? 'text-accent-700 dark:text-accent-300'
-                        : 'text-slate-900 dark:text-white'}"
-                >
-                    {audioConfirmations}
-                </dd>
-                <dt class="text-slate-500 dark:text-slate-400">
-                    {$_('dashboard.day_bar.cross_confirmed', { default: 'cross-confirmed' })}
-                </dt>
-            </div>
+            {@render figure($_('dashboard.day_bar.calls_heard', { default: 'calls heard' }), audioCalls)}
+            {@render figure(
+                $_('dashboard.day_bar.cross_confirmed', { default: 'cross-confirmed' }),
+                audioConfirmations,
+                audioConfirmations === 0 ? 'attention' : 'plain',
+                $_('dashboard.day_bar.seen_and_heard', { default: 'seen and heard' })
+            )}
         {/if}
     </dl>
-
-    <p class="flex items-center gap-1.5 text-xs font-semibold sm:ml-auto">
-        <span
-            class="h-1.5 w-1.5 rounded-full {connected
-                ? 'bg-success-500'
-                : 'bg-slate-400 dark:bg-slate-500'}"
-            aria-hidden="true"
-        ></span>
-        <span class={connected ? 'text-success-700 dark:text-success-300' : 'text-slate-500 dark:text-slate-400'}>
-            {connected
-                ? $_('dashboard.live_feed')
-                : $_('dashboard.day_bar.reconnecting', { default: 'Reconnecting…' })}
-        </span>
-    </p>
 </div>

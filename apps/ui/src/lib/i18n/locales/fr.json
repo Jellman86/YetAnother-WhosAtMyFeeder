@@ -420,7 +420,10 @@
       "reconnecting": "Reconnexion…",
       "window": "Dernières 24 heures",
       "loading": "chargement en cours",
-      "unavailable": "non disponible"
+      "unavailable": "non disponible",
+      "birds_scope_short": "sur {count} captures analysées",
+      "nothing_to_review": "rien à vérifier",
+      "seen_and_heard": "vus et entendus"
     },
     "desk": {
       "cameras_empty": "Aucune caméra ne répond encore. Ajoutez-les dans Paramètres → Connexion.",

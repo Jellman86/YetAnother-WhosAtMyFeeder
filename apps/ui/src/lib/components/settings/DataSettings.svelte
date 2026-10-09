@@ -241,7 +241,7 @@
                 { label: $_('settings.data.retention'), val: retentionDays === 0 ? '∞' : `${retentionDays} ${$_('leaderboard.days')}` },
                 { label: $_('settings.data.pending_gc'), val: fmtCount(maintenanceStats.detections_to_cleanup), highlight: safeCount(maintenanceStats.detections_to_cleanup) > 0 }
             ] as stat}
-                <div class="card-base rounded-3xl p-6 text-center backdrop-blur-md">
+                <div class="card-base rounded-2xl p-6 text-center">
                     <p class="text-2xl font-black tracking-tight {stat.highlight ? 'text-amber-500' : 'text-slate-900 dark:text-white'}">{stat.val}</p>
                     <p class="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mt-1">{stat.label}</p>
                 </div>
@@ -379,13 +379,13 @@
                 />
             </SettingsRow>
 
-            <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
+            <div class="p-4 rounded-xl bg-surface-raised/70 flex items-center justify-between">
                 <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">{$_('settings.data.cache_size')}</span>
                 <span class="text-sm font-black text-slate-900 dark:text-white">{cacheStats?.total_size_mb ?? 0} MB</span>
             </div>
 
             <!-- The archive is not the cache: clearing the cache leaves it alone (#178). -->
-            <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex flex-col gap-1" data-archive-usage>
+            <div class="p-4 rounded-xl bg-surface-raised/70 flex flex-col gap-1" data-archive-usage>
                 <div class="flex items-center justify-between gap-3">
                     <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">{$_('settings.data.archive_usage', { default: 'Archived favourites' })}</span>
                     <span class="text-sm font-black text-slate-900 dark:text-white">
@@ -635,7 +635,7 @@
                     <span class="text-xs font-black">{taxonomyStatus.processed} / {taxonomyStatus.total}</span>
                 </div>
             {:else if taxonomyStatus.current_item || taxonomyStatus.message || taxonomyStatus.error}
-                <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center gap-3">
+                <div class="p-4 rounded-xl bg-surface-raised/70 flex items-center gap-3">
                     {#if taxonomyStatus.error}
                         <div class="w-2 h-2 rounded-full bg-red-500"></div>
                         <p class="text-xs font-bold text-red-500">{taxonomyStatus.error}</p>
@@ -934,7 +934,7 @@
             {@const remaining = analysisStatus.pending + analysisStatus.active}
             {@const processed = analysisTotal > 0 ? Math.max(0, analysisTotal - remaining) : 0}
 
-            <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 space-y-3 animate-in fade-in slide-in-from-top-2">
+            <div class="p-4 rounded-xl bg-surface-raised/70 space-y-3 animate-in fade-in slide-in-from-top-2">
                 <div class="flex justify-between text-xs font-bold uppercase tracking-widest">
                     <span class="text-slate-700 dark:text-slate-200">{$_('settings.data.batch_analysis_processing')}</span>
                     <span class="text-slate-500">{processed} / {analysisTotal}</span>

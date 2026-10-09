@@ -420,7 +420,10 @@
       "reconnecting": "Reconectando…",
       "window": "Últimas 24 horas",
       "loading": "aún cargando",
-      "unavailable": "no disponible"
+      "unavailable": "no disponible",
+      "birds_scope_short": "de {count} capturas analizadas",
+      "nothing_to_review": "nada que revisar",
+      "seen_and_heard": "vistos y oídos"
     },
     "desk": {
       "cameras_empty": "Aún no hay cámaras conectadas. Añádelas en Ajustes → Conexión.",

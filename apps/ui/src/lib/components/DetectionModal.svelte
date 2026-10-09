@@ -2445,7 +2445,7 @@
     <div
         bind:this={modalElement}
         data-theme={isDarkMode ? 'dark' : 'light'}
-        class="relative flex max-h-[100dvh] w-full max-w-5xl flex-col overflow-hidden rounded-none border border-white/20 bg-white shadow-2xl dark:bg-slate-800 sm:max-h-[92vh] sm:rounded-3xl"
+        class="relative flex max-h-[100dvh] w-full max-w-5xl flex-col overflow-hidden rounded-none border border-white/20 bg-white shadow-2xl dark:bg-slate-800 sm:max-h-[92vh] sm:rounded-2xl"
         role="document"
         tabindex="-1"
     >
@@ -2470,7 +2470,7 @@
                 <div class="flex min-h-0 shrink-0 flex-col bg-slate-950 lg:shrink lg:overflow-y-auto lg:border-r lg:border-slate-200/70 dark:lg:border-slate-700/60">
                     <div class="relative min-w-0 aspect-[4/3] min-h-72 shrink-0 overflow-hidden bg-slate-950 sm:aspect-video lg:flex-1" data-detection-photograph>
                     {#if showMediaSlotVideoAnalysis}
-                        <div class="absolute inset-0 bg-gradient-to-br from-indigo-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800"></div>
+                        <div class="absolute inset-0 bg-surface-raised"></div>
                         <div class="relative z-10 h-full flex flex-col justify-between p-4 sm:p-5">
                             <div class="flex items-start justify-between gap-3">
                                 <div class="min-w-0">
@@ -3502,8 +3502,6 @@
                 <div class="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     {#if enrichmentSummaryProvider !== 'disabled'}
                         <div class="group relative overflow-hidden rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/50 dark:bg-slate-900/30 p-5 hover:bg-white/80 dark:hover:bg-slate-900/50 transition-all duration-300">
-                            <div class="absolute inset-0 bg-gradient-to-br from-brand-500/5 via-transparent to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                            
                             <div class="relative flex flex-wrap items-center justify-between gap-3 mb-3">
                                 <div class="flex items-center gap-2">
                                     <div class="p-1.5 rounded-lg bg-brand-500/10 text-brand-600 dark:text-brand-400">

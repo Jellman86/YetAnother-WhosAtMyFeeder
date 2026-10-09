@@ -51,10 +51,18 @@ export default {
                     900: 'rgb(var(--success-900) / <alpha-value>)',
                     950: 'rgb(var(--success-950) / <alpha-value>)',
                 },
-                // Nature-inspired background colors
+                // Page ground for full-screen states (the setup wizard, the backend status screen).
                 surface: {
-                    light: '#f8fafc', // Warm Stone/Parchment tint
-                    dark: '#030712',  // Deep Midnight
+                    light: '#f8fafc',
+                    dark: '#030712',
+                    // Panels and the fills inside them; set per mode and theme in app.css.
+                    DEFAULT: 'rgb(var(--surface) / <alpha-value>)',
+                    raised: 'rgb(var(--surface-raised) / <alpha-value>)',
+                },
+                // Rules: `line` edges controls, `line-soft` separates rows and panels.
+                line: {
+                    DEFAULT: 'rgb(var(--line) / <alpha-value>)',
+                    soft: 'rgb(var(--line-soft) / <alpha-value>)',
                 },
             },
             animation: {

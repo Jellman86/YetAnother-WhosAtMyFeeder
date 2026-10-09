@@ -91,11 +91,11 @@
 {/if}
 
 <aside
-    class="fixed left-0 top-0 z-50 flex h-full flex-col border-r border-slate-200/80 bg-white/95 shadow-xl backdrop-blur-xl transition-all duration-300 dark:border-slate-700/60 dark:bg-slate-900/95 {collapsed ? 'w-20' : 'w-64'} {mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}"
+    class="fixed left-0 top-0 z-50 flex h-full flex-col border-r border-line-soft bg-surface transition-all duration-300 {collapsed ? 'w-20' : 'w-64'} {mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}"
 >
     <div
         data-sidebar-brand
-        class="relative flex w-full flex-col items-center text-center gap-3 border-b border-slate-200/80 px-4 py-5 dark:border-slate-700/60 [@media(max-height:42rem)]:py-3"
+        class="relative flex w-full flex-col items-center text-center gap-3 border-b border-line-soft px-4 py-5 [@media(max-height:42rem)]:py-3"
     >
         <button
             class="focus-ring -m-1 flex flex-col items-center gap-3 rounded-xl p-1"
@@ -104,14 +104,14 @@
             <BrandMark
                 alt={$_('app.title')}
                 sizes={collapsed ? '40px' : '64px'}
-                class="flex-shrink-0 transition-all duration-300 {collapsed ? 'h-10 w-10' : 'h-16 w-16'}"
+                class="flex-shrink-0 rounded-2xl transition-all duration-300 {collapsed ? 'h-10 w-10' : 'h-16 w-16'}"
             />
             {#if !collapsed}
-                <div class="flex flex-col items-center overflow-hidden">
-                    <h1 class="text-gradient truncate text-sm font-bold leading-tight">
+                <div class="flex flex-col items-center gap-0.5 overflow-hidden">
+                    <h1 class="truncate font-display text-lg font-bold leading-tight text-slate-900 dark:text-white">
                         {$_('app.logo_title')}
                     </h1>
-                    <span class="truncate text-xs font-semibold text-slate-600 dark:text-slate-300">
+                    <span class="truncate text-sm text-slate-600 dark:text-slate-400">
                         {$_('app.logo_subtitle')}
                     </span>
                 </div>
@@ -123,7 +123,7 @@
         {#each navSections as section, sectionIndex}
             <div data-sidebar-section={section.id} class={sectionIndex === 0 ? '' : 'mt-5'}>
                 {#if !collapsed}
-                    <div class="px-3 pb-2 text-[0.625rem] font-bold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
+                    <div class="eyebrow px-3 pb-2">
                         {section.label}
                     </div>
                 {/if}
@@ -142,7 +142,7 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" d={item.icon} />
                             </svg>
                             {#if !collapsed}
-                                <span class="truncate text-sm">{item.label}</span>
+                                <span class="truncate text-base">{item.label}</span>
                             {/if}
                         </button>
                     {/each}
@@ -156,25 +156,25 @@
             <SystemTelemetryGraph />
             <div class="relative z-10">
                 <div class="mb-2 flex items-center justify-between gap-2">
-                    <span class="text-[0.625rem] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                    <span class="eyebrow">
                         {$_('status.title')}
                     </span>
                 </div>
                 {@render status?.()}
                 {#if linked}
-                    <span class="mt-1 flex items-center justify-end gap-1 px-2 text-[0.625rem] font-bold uppercase tracking-[0.08em] text-slate-400 transition-colors group-hover:text-brand-600 dark:text-slate-500 dark:group-hover:text-brand-300">
+                    <span class="eyebrow mt-1 flex items-center justify-end gap-1 px-2 transition-colors group-hover:text-brand-700 dark:group-hover:text-brand-300">
                         {$_('status.open_health', { default: 'System health' })}
                         <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
                     </span>
                 {/if}
             </div>
         {/snippet}
-        <div data-sidebar-status class="shrink-0 border-t border-slate-200/80 p-3 dark:border-slate-700/60 [@media(max-height:42rem)]:hidden">
+        <div data-sidebar-status class="shrink-0 border-t border-line-soft p-3 [@media(max-height:42rem)]:hidden">
             <!-- The card opens the owner's System health; a guest cannot reach it, so for a guest the card stays a card. -->
             {#if authStore.showSettings}
                 <a
                     href="/settings/health"
-                    class="group relative block cursor-pointer overflow-hidden rounded-xl border border-slate-200/80 bg-slate-50/90 p-3 shadow-sm transition-colors hover:border-brand-400/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:border-slate-700/70 dark:bg-slate-800/55 dark:hover:border-brand-400/60"
+                    class="group relative block cursor-pointer overflow-hidden rounded-xl border border-line-soft bg-surface-raised p-3 transition-colors hover:border-brand-400/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:border-brand-400/60"
                     aria-label={$_('status.open_health', { default: 'System health' })}
                     data-sidebar-status-link
                     onclick={(event) => {
@@ -185,17 +185,17 @@
                     {@render statusCard(true)}
                 </a>
             {:else}
-                <div class="relative overflow-hidden rounded-xl border border-slate-200/80 bg-slate-50/90 p-3 shadow-sm dark:border-slate-700/70 dark:bg-slate-800/55">
+                <div class="relative overflow-hidden rounded-xl border border-line-soft bg-surface-raised p-3">
                     {@render statusCard(false)}
                 </div>
             {/if}
         </div>
     {/if}
 
-    <div class="shrink-0 border-t border-slate-200/80 p-3 dark:border-slate-700/60">
+    <div class="shrink-0 border-t border-line-soft p-3">
         {#if !collapsed}
             {#if authStore.isAuthenticated}
-                <div data-sidebar-account class="flex min-w-0 items-center gap-2 rounded-xl border border-slate-200/80 bg-slate-50/90 p-2 dark:border-slate-700/70 dark:bg-slate-800/55">
+                <div data-sidebar-account class="flex min-w-0 items-center gap-2 rounded-xl border border-line-soft bg-surface-raised p-2">
                     {#if avatarStore.url}
                         <img src={avatarStore.url} alt="" class="h-8 w-8 flex-shrink-0 rounded-lg object-cover" data-sidebar-avatar />
                     {:else}
@@ -205,7 +205,7 @@
                     {/if}
                     <div class="min-w-0 flex-1">
                         <div class="truncate text-xs font-semibold text-slate-800 dark:text-slate-100">{authStore.username}</div>
-                        <div class="truncate text-[0.625rem] text-slate-500 dark:text-slate-400">{$_('app.title')}</div>
+                        <div class="truncate text-xs text-slate-500 dark:text-slate-400">{$_('app.title')}</div>
                     </div>
                     <button
                         class="btn btn-ghost min-h-11 min-w-11 focus-ring rounded-lg p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-900/30 dark:hover:text-red-400"
@@ -219,7 +219,7 @@
                     </button>
                 </div>
             {:else if authStore.isGuest}
-                <div data-sidebar-account class="flex min-w-0 items-center gap-2 rounded-xl border border-slate-200/80 bg-slate-50/90 p-2 dark:border-slate-700/70 dark:bg-slate-800/55">
+                <div data-sidebar-account class="flex min-w-0 items-center gap-2 rounded-xl border border-line-soft bg-surface-raised p-2">
                     <div class="grid h-8 w-8 flex-shrink-0 place-items-center rounded-lg bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -268,11 +268,11 @@
         {/if}
     </div>
 
-    <div class="shrink-0 border-t border-slate-200/80 p-3 dark:border-slate-700/60">
+    <div class="shrink-0 border-t border-line-soft p-3">
         <div class="flex items-center {collapsed ? 'flex-col gap-1' : 'justify-around gap-1'}">
             <LanguageSelector dropUp compact />
             <button
-                class="btn btn-ghost min-h-11 min-w-11 focus-ring rounded-xl p-2.5 text-slate-500 transition-all duration-200 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                class="btn btn-ghost min-h-11 min-w-11 focus-ring rounded-xl p-2.5 text-slate-500 transition-all duration-200 hover:bg-surface-raised dark:text-slate-400"
                 onclick={() => themeStore.toggle()}
                 title={themeStore.isDark ? $_('theme.switch_light') : $_('theme.switch_dark')}
                 aria-label={themeStore.isDark ? $_('theme.switch_light') : $_('theme.switch_dark')}
@@ -288,7 +288,7 @@
                 {/if}
             </button>
             <button
-                class="btn btn-ghost min-h-11 min-w-11 focus-ring rounded-xl p-2.5 text-slate-500 transition-all duration-200 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                class="btn btn-ghost min-h-11 min-w-11 focus-ring rounded-xl p-2.5 text-slate-500 transition-all duration-200 hover:bg-surface-raised dark:text-slate-400"
                 onclick={() => layoutStore.toggleSidebar()}
                 title={collapsed ? $_('nav.expand_sidebar') : $_('nav.collapse_sidebar')}
                 aria-label={collapsed ? $_('nav.expand_sidebar') : $_('nav.collapse_sidebar')}

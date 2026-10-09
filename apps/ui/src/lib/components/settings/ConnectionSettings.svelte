@@ -763,7 +763,7 @@
             </SettingsRow>
 
             {#if telemetryEnabled || telemetryHealthEnabled}
-                <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 animate-in fade-in slide-in-from-top-2">
+                <div class="p-4 rounded-xl bg-surface-raised/70 animate-in fade-in slide-in-from-top-2">
                     <p class="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">{$_('settings.telemetry.transparency')}</p>
                     <div class="space-y-2 text-xs font-mono text-slate-600 dark:text-slate-400">
                         <div class="flex justify-between"><span>{$_('settings.telemetry.install_id')}:</span><span class="text-slate-900 dark:text-white select-all">{telemetryInstallationId || '...'}</span></div>

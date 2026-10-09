@@ -51,9 +51,8 @@
      is four calm facts, and only trouble grows words. -->
 <div
     role="status"
-    class="relative grid grid-cols-2 gap-4 overflow-hidden rounded-2xl border border-brand-500/25 bg-white/60 p-4 dark:bg-slate-900/40 lg:grid-cols-4"
+    class="relative grid grid-cols-2 gap-4 overflow-hidden rounded-2xl border border-line-soft bg-surface-raised p-4 lg:grid-cols-4"
 >
-    <span class="card-aurora" aria-hidden="true"></span>
     <button
         type="button"
         onclick={() => jumpTo(modelsAnchorId)}

@@ -81,11 +81,11 @@
     const PLACEHOLDER_NAMES = ['w-32', 'w-24', 'w-36', 'w-28'];
 </script>
 
-<section class="space-y-4" data-dashboard-field-log>
+<section class="panel space-y-4" data-dashboard-field-log>
     {#if showHeader}
-    <header class="flex items-end justify-between gap-3 border-b border-slate-200/70 pb-3 dark:border-slate-700/50">
+    <header class="flex items-end justify-between gap-3">
         <div class="min-w-0">
-            <h2 class="font-display text-xl font-bold text-slate-950 dark:text-white">
+            <h2 class="font-display text-2xl font-bold text-slate-950 dark:text-white">
                 {$_('dashboard.field_log.title', { default: 'Field log' })}
             </h2>
             <p class="hidden text-sm text-slate-500 sm:block dark:text-slate-400">

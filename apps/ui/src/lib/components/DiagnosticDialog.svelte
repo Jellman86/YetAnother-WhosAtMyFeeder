@@ -121,7 +121,7 @@
 
 <div
     use:portal
-    class="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-gradient-to-br from-slate-900/65 to-brand-950/55 p-4 backdrop-blur-sm"
+    class="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-slate-950/60 p-4 backdrop-blur-sm"
     role="presentation"
 >
     <div
@@ -131,9 +131,9 @@
         aria-labelledby="diagnostic-title"
         aria-describedby="diagnostic-description"
         tabindex="-1"
-        class="my-8 w-full max-w-2xl overflow-hidden rounded-3xl border border-white/10 bg-white shadow-2xl ring-1 ring-black/5 dark:bg-slate-900"
+        class="my-8 w-full max-w-2xl overflow-hidden rounded-2xl border border-white/10 bg-white shadow-2xl ring-1 ring-black/5 dark:bg-slate-900"
     >
-        <header class="space-y-4 bg-gradient-to-r from-brand-50 via-accent-50 to-white px-6 py-5 dark:from-brand-950/45 dark:via-accent-950/20 dark:to-slate-900">
+        <header class="space-y-4 bg-surface-raised px-6 py-5">
             <div class="flex items-start justify-between gap-4">
                 <div class="space-y-1">
                     <p class="text-[10px] font-black uppercase tracking-[0.22em] text-brand-700 dark:text-brand-300">{eyebrow}</p>

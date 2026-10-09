@@ -42,7 +42,7 @@
 <div class="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 px-4 transition-colors duration-300">
     <div class="w-full max-w-sm space-y-8">
         <!-- Card -->
-        <div class="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl p-8 rounded-3xl shadow-2xl border border-white/20 dark:border-slate-800 ring-1 ring-slate-900/5">
+        <div class="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl p-8 rounded-2xl shadow-2xl border border-white/20 dark:border-slate-800 ring-1 ring-slate-900/5">
             
             <!-- Header -->
             <div class="text-center mb-8">
@@ -96,7 +96,7 @@
                 <button
                     type="submit"
                     disabled={isLoading}
-                    class="w-full flex items-center justify-center py-3.5 px-4 rounded-2xl text-sm font-black text-white bg-gradient-to-r from-brand-500 to-accent-600 hover:from-brand-400 hover:to-accent-500 shadow-lg shadow-brand-500/20 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    class="btn btn-primary w-full min-h-11 px-4 py-3"
                 >
                     {#if isLoading}
                         <div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>

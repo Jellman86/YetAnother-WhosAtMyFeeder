@@ -648,9 +648,6 @@
                                                 onclick={() => (selectedModelId = modelOption.id)}
                                                 class="model-card relative flex h-full min-h-11 cursor-pointer flex-col gap-2.5 overflow-hidden rounded-2xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950 {cardSelected ? 'model-card-selected border-brand-500 shadow-md dark:border-brand-400/70' : 'border-slate-200 bg-white/70 hover:border-brand-300 dark:border-slate-700 dark:bg-slate-900/40 dark:hover:border-brand-500/50'}"
                                             >
-                                                {#if cardSelected}
-                                                    <span class="card-aurora" aria-hidden="true"></span>
-                                                {/if}
                                                 <span class="relative flex items-start justify-between gap-2">
                                                     <span class="text-sm font-bold leading-snug text-slate-900 dark:text-white">{modelOption.name}</span>
                                                     <span class="shrink-0 rounded-full border px-2 py-0.5 text-xs font-semibold {modelCardStateClass(cardState)}">{modelCardStateLabel(cardState)}</span>
@@ -668,7 +665,7 @@
                                                             role="img"
                                                             aria-label={t('settings.detection.model_manager_card_ram_label', 'Estimated memory per worker copy: {ram}', { ram: ramShortLabel(modelOption.estimated_ram_mb) })}
                                                         >
-                                                            <span class="block h-full rounded-full bg-gradient-to-r from-brand-400 to-accent-500" style="width: {cardRamPct}%"></span>
+                                                            <span class="block h-full rounded-full bg-brand-500" style="width: {cardRamPct}%"></span>
                                                         </span>
                                                     {/if}
                                                 </span>
@@ -767,7 +764,7 @@
                                         </span>
                                     </div>
                                     <div class="model-ram-meter mt-2 h-2.5 overflow-hidden rounded-full bg-slate-200/80 dark:bg-slate-700/60">
-                                        <div class="h-full rounded-full bg-gradient-to-r from-brand-400 to-accent-500" style="width: {ramPercent(predictedTotalMb, maxLineupRam * Math.max(1, prediction.copies))}%"></div>
+                                        <div class="h-full rounded-full bg-brand-500" style="width: {ramPercent(predictedTotalMb, maxLineupRam * Math.max(1, prediction.copies))}%"></div>
                                     </div>
                                     <p class="mt-1.5 text-xs font-medium text-slate-500 dark:text-slate-400">
                                         {#if executionMode === 'in_process'}
@@ -1062,12 +1059,12 @@
 {/if}
 
 <style>
-    /* The selected card gets an opaque-enough ground for the shared aurora
-       (see .card-aurora in app.css) to read on both themes. */
+    /* The selected card is a recessed key in the brand tint; its border and
+       aria-pressed carry the selection, the tint only reinforces it. */
     .model-card-selected {
-        background-color: rgb(255 255 255 / 0.85);
+        background-color: rgb(var(--brand-50) / 0.9);
     }
     :global(.dark) .model-card-selected {
-        background-color: rgb(15 23 42 / 0.75);
+        background-color: rgb(var(--brand-950) / 0.55);
     }
 </style>

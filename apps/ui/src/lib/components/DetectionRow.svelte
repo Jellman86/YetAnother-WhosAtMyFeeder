@@ -97,7 +97,7 @@
 
 <div
     class="group relative grid grid-cols-[3.25rem_2.75rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-slate-200 px-3 last:border-b-0 dark:border-slate-800
-           {needsAttention ? 'bg-gradient-to-r from-accent-500/12 to-transparent' : ''}
+           {needsAttention ? 'bg-accent-500/10' : ''}
            {selected ? 'bg-brand-500/10' : ''}"
     data-detection-row
     data-frigate-event={detection.frigate_event}

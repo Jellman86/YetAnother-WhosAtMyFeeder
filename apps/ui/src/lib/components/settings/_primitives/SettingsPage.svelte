@@ -78,7 +78,7 @@
     {#if loading}
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6" aria-busy="true">
             {#each [1, 2, 3, 4] as _}
-                <div class="h-48 bg-slate-100 dark:bg-slate-800/50 rounded-3xl animate-pulse border border-slate-200 dark:border-slate-700/50"></div>
+                <div class="h-48 bg-slate-100 dark:bg-slate-800/50 rounded-2xl animate-pulse border border-slate-200 dark:border-slate-700/50"></div>
             {/each}
         </div>
     {:else}
@@ -104,7 +104,7 @@
                 type="button"
                 onclick={() => onSave?.()}
                 disabled={saving}
-                class="px-8 py-3 bg-gradient-to-r from-brand-500 to-accent-500 hover:from-brand-600 hover:to-accent-600 text-white font-black text-sm uppercase tracking-widest rounded-2xl shadow-lg shadow-brand-500/30 transition-all disabled:opacity-50"
+                class="btn btn-primary min-h-11 px-8 py-3"
             >
                 {saving ? $_('common.saving') : $_('common.apply_settings')}
             </button>

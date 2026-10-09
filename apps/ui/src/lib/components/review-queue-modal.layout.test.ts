@@ -174,7 +174,7 @@ describe('review queue walk-through', () => {
         expect(dialog).toContain('max-h-[100dvh]');
         expect(dialog).toContain('rounded-none');
         expect(dialog).toContain('sm:max-h-[92vh]');
-        expect(dialog).toContain('sm:rounded-3xl');
+        expect(dialog).toContain('sm:rounded-2xl');
         expect(dialog).toContain('max-w-5xl');
         expect(dialog).toContain('dark:bg-slate-800');
         expect(modalSource).toContain('bg-slate-950/70 p-0 backdrop-blur-sm sm:p-4');
@@ -187,10 +187,10 @@ describe('review queue walk-through', () => {
         expect(modalSource).toMatch(/<div class="flex min-w-0 items-baseline[^"]*">\s*<h2 id="review-session-title"/);
     });
 
-    it('flags the reason with the amber wash flagged rows use, not a nested card', () => {
+    it('flags the reason with the amber tint flagged rows use, not a nested card', () => {
         const reason = modalSource.match(/<p[^>]*data-review-reason[^>]*>/)?.[0] ?? '';
-        expect(reason).toContain('bg-gradient-to-r from-amber-50');
-        expect(reason).toContain('dark:from-amber-500/10');
+        expect(reason).toContain('bg-amber-50');
+        expect(reason).toContain('dark:bg-amber-500/10');
         expect(reason).not.toMatch(/\brounded|\bborder\b|\bshadow/);
     });
 

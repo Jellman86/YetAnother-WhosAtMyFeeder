@@ -150,11 +150,11 @@
                 >
                     {#if aggregate.determinate && aggregate.percent !== null}
                         <div
-                            class="h-full w-full origin-left bg-gradient-to-r from-brand-500 via-brand-500 to-sky-500 transition-transform duration-200 ease-out motion-reduce:transition-none"
+                            class="h-full w-full origin-left bg-brand-500 transition-transform duration-200 ease-out motion-reduce:transition-none"
                             style="transform: scaleX({aggregate.percent / 100})"
                         ></div>
                     {:else}
-                        <div class="h-full w-2/5 bg-gradient-to-r from-brand-500/70 via-brand-500/70 to-sky-500/70 motion-safe:animate-pulse"></div>
+                        <div class="h-full w-2/5 bg-brand-500/70 motion-safe:animate-pulse"></div>
                     {/if}
                 </div>
 

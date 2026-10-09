@@ -420,7 +420,10 @@
       "reconnecting": "Verbindung wird wiederhergestellt…",
       "window": "Letzte 24 Stunden",
       "loading": "wird noch geladen",
-      "unavailable": "nicht verfügbar"
+      "unavailable": "nicht verfügbar",
+      "birds_scope_short": "aus {count} analysierten Aufnahmen",
+      "nothing_to_review": "nichts zu prüfen",
+      "seen_and_heard": "gesehen und gehört"
     },
     "desk": {
       "cameras_empty": "Noch keine Kameras gemeldet. Fügen Sie sie unter Einstellungen → Verbindung hinzu.",

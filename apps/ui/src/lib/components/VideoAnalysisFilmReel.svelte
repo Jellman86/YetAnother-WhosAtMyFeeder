@@ -124,7 +124,7 @@
         <div class="px-2 pb-2">
             <div class="h-1.5 rounded-full bg-white/10 overflow-hidden">
                 <div
-                    class="h-full rounded-full bg-gradient-to-r from-brand-300 via-cyan-300 to-indigo-300 transition-all duration-300 ease-out motion-reduce:transition-none"
+                    class="h-full rounded-full bg-brand-400 transition-all duration-300 ease-out motion-reduce:transition-none"
                     style={`width: ${Math.max(2, Math.round((safeCurrentFrame / safeTotalFrames) * 100))}%`}
                 ></div>
             </div>

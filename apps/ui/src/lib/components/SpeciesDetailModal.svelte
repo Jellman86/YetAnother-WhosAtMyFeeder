@@ -454,14 +454,14 @@
     <!-- Modal Container -->
     <div
         bind:this={modalElement}
-        class="animate-fade-in h-[100dvh] w-full max-w-6xl overflow-hidden bg-white shadow-2xl ring-1 ring-black/5 dark:bg-slate-900 sm:h-auto sm:max-h-[92dvh] sm:rounded-3xl sm:border sm:border-white/10"
+        class="animate-fade-in h-[100dvh] w-full max-w-6xl overflow-hidden bg-white shadow-2xl ring-1 ring-black/5 dark:bg-slate-900 sm:h-auto sm:max-h-[92dvh] sm:rounded-2xl sm:border sm:border-white/10"
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
         tabindex="-1"
     >
         <!-- Header -->
-        <header data-species-modal-header class="flex min-h-[76px] items-center justify-between gap-4 border-b border-brand-100 bg-gradient-to-r from-brand-50 via-accent-50/70 to-white px-4 py-3 dark:border-slate-800 dark:from-brand-950/40 dark:via-accent-950/20 dark:to-slate-900 sm:px-6">
+        <header data-species-modal-header class="flex min-h-[76px] items-center justify-between gap-4 border-b border-brand-100 bg-surface-raised px-4 py-3 dark:border-slate-800 sm:px-6">
             <div class="min-w-0">
                 <h2 id="modal-title" class="truncate text-xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-2xl">
                     {primaryName}

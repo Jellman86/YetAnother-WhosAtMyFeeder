@@ -595,14 +595,14 @@
 
     <ProviderWarning {onnavigate} />
 
-    <!-- Field desk: the day reads as one chronological log, with the outstanding work docked beside it. -->
+    <!-- Field desk: the day reads as one chronological log beside a rail. Below 1920px the rail is one
+         column; from there it splits in two, what needs you and what is happening beside the
+         reference, so the log keeps a readable row instead of stretching across a wide screen. -->
     <section
         data-dashboard-field-desk
-        class="grid grid-cols-1 items-start gap-8 xl:grid-cols-[minmax(0,1.55fr)_minmax(18rem,0.7fr)] 3xl:grid-cols-[minmax(0,1fr)_26rem]"
+        class="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(18rem,0.75fr)] 3xl:grid-cols-[minmax(0,1.4fr)_minmax(0,2fr)]"
     >
-        <!-- On a wide monitor the log keeps a readable row and Notable nearby moves up beside it,
-             instead of every row stretching across the screen with the nearby list below. -->
-        <div class="space-y-7 3xl:grid 3xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] 3xl:items-start 3xl:gap-8 3xl:space-y-0" data-dashboard-field-log-column>
+        <div class="min-w-0" data-dashboard-field-log-column>
             <FieldLog
                 visits={visits}
                 hiddenCount={hiddenVisitCount}
@@ -615,54 +615,59 @@
                 onplay={(detection) => { videoEventId = detection.frigate_event; showVideo = true; }}
                 onseeall={() => onnavigate?.('/events')}
             />
-
-            <NotableNearby
-                canConfigure={canReview}
-                refreshKey={notableRefreshKey}
-                onconfigure={() => onnavigate?.('/settings/integrations')}
-                onselectspecies={(species) => (selectedSpecies = species)}
-            />
         </div>
 
-        <aside class="flex flex-col gap-7 xl:border-l xl:border-slate-200 xl:pl-8 dark:xl:border-slate-700">
-            {#if canReview}
-                <ReviewQueueCard
-                    queue={reviewQueue}
-                    status={queueStatus}
-                    onretry={() => void detectionsStore.loadInitial()}
-                    onreview={(detection) => selectedEvent = detection}
-                    onreviewall={() => (reviewSessionOpen = true)}
-                />
-            {/if}
-
-            <!-- The rail runs from what is happening to what is merely interesting. -->
-            <DeskContextCards
-                detections={deskDetections}
-                visits={allVisits}
-                cameraVisits={summary?.camera_visits ?? null}
-                loading={summaryPending}
-                unavailable={summaryUnavailable}
-            />
-
-            {#if birdnetEnabled}
-                <RecentAudio onNavigate={onnavigate} matchedCalls={summary ? audioConfirmations : null} />
-            {/if}
-
-            {#if summary}
-                <DailyHistogram data={summary.hourly_visits ?? []} currentHour={summaryHour} />
-            {:else if summaryLoading}
-                <div class="h-40 animate-pulse rounded-lg bg-slate-100/60 motion-reduce:animate-none dark:bg-slate-800/40"></div>
-            {/if}
-
-            <div data-dashboard-top-visitors>
-                {#if summary}
-                    <TopVisitors
-                        species={summary.top_species}
-                        onSpeciesClick={handleSpeciesSummaryClick}
+        <aside class="grid min-w-0 grid-cols-1 items-start gap-6 3xl:grid-cols-2">
+            <!-- What needs you, then what is happening now. -->
+            <div class="flex min-w-0 flex-col gap-6" data-dashboard-rail-now>
+                {#if canReview}
+                    <ReviewQueueCard
+                        queue={reviewQueue}
+                        status={queueStatus}
+                        onretry={() => void detectionsStore.loadInitial()}
+                        onreview={(detection) => selectedEvent = detection}
+                        onreviewall={() => (reviewSessionOpen = true)}
                     />
-                {:else if summaryLoading}
-                    <div class="h-40 animate-pulse rounded-lg bg-slate-100/60 motion-reduce:animate-none dark:bg-slate-800/40"></div>
                 {/if}
+
+                <DeskContextCards
+                    detections={deskDetections}
+                    visits={allVisits}
+                    cameraVisits={summary?.camera_visits ?? null}
+                    loading={summaryPending}
+                    unavailable={summaryUnavailable}
+                />
+
+                {#if birdnetEnabled}
+                    <RecentAudio onNavigate={onnavigate} matchedCalls={summary ? audioConfirmations : null} />
+                {/if}
+            </div>
+
+            <!-- Reference: the shape of the day, the area around the feeder, who comes most. -->
+            <div class="flex min-w-0 flex-col gap-6" data-dashboard-rail-reference>
+                {#if summary}
+                    <DailyHistogram data={summary.hourly_visits ?? []} currentHour={summaryHour} />
+                {:else if summaryLoading}
+                    <div class="h-40 animate-pulse rounded-2xl bg-surface-raised motion-reduce:animate-none"></div>
+                {/if}
+
+                <NotableNearby
+                    canConfigure={canReview}
+                    refreshKey={notableRefreshKey}
+                    onconfigure={() => onnavigate?.('/settings/integrations')}
+                    onselectspecies={(species) => (selectedSpecies = species)}
+                />
+
+                <div data-dashboard-top-visitors>
+                    {#if summary}
+                        <TopVisitors
+                            species={summary.top_species}
+                            onSpeciesClick={handleSpeciesSummaryClick}
+                        />
+                    {:else if summaryLoading}
+                        <div class="h-40 animate-pulse rounded-2xl bg-surface-raised motion-reduce:animate-none"></div>
+                    {/if}
+                </div>
             </div>
         </aside>
     </section>

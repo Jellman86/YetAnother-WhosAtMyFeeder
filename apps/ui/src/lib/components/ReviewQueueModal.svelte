@@ -479,7 +479,7 @@
         aria-labelledby="review-session-title"
         tabindex="-1"
         onkeydown={handleKeydown}
-        class="flex h-[100dvh] max-h-[100dvh] w-full max-w-5xl flex-col overflow-hidden rounded-none border border-white/20 bg-white shadow-2xl dark:bg-slate-800 sm:h-auto sm:max-h-[92vh] sm:rounded-3xl"
+        class="flex h-[100dvh] max-h-[100dvh] w-full max-w-5xl flex-col overflow-hidden rounded-none border border-white/20 bg-white shadow-2xl dark:bg-slate-800 sm:h-auto sm:max-h-[92vh] sm:rounded-2xl"
     >
         <header class="relative flex items-center gap-3 border-b border-slate-200 py-1.5 pl-5 pr-2 dark:border-slate-700">
             <div class="flex min-w-0 items-baseline gap-x-2.5">
@@ -685,7 +685,7 @@
                 <div class="flex flex-col gap-3 p-4 md:min-h-0 md:overflow-y-auto">
                     <!-- Why this needs a person, in words, with the amber wash flagged rows carry elsewhere.
                          The header already asks for the call, so there is no second heading over it. -->
-                    <p class="-mx-4 -mt-4 flex items-start gap-2 bg-gradient-to-r from-amber-50 to-transparent px-4 py-3 text-sm text-slate-700 dark:from-amber-500/10 dark:text-slate-200" data-review-reason>
+                    <p class="-mx-4 -mt-4 flex items-start gap-2 bg-amber-50 px-4 py-3 text-sm text-slate-700 dark:bg-amber-500/10 dark:text-slate-200" data-review-reason>
                         <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-500" aria-hidden="true"></span>
                         <span>
                             {#if isNewSpecies}

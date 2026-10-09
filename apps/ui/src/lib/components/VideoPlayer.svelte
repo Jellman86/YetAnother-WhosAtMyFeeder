@@ -893,7 +893,7 @@
                 {/if}
             </div>
             {#if videoError}
-                <div class="aspect-video bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col items-center justify-center text-center p-8">
+                <div class="aspect-video bg-slate-900 flex flex-col items-center justify-center text-center p-8">
                     {#if videoForbidden}
                         <h3 class="text-xl font-semibold text-white mb-2">{$_('video_player.clip_fetching_disabled', { default: 'Clip Fetching Disabled' })}</h3>
                         <p class="text-slate-400 max-w-sm">

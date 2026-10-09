@@ -75,17 +75,17 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-<div use:portal role="presentation" class="fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto bg-gradient-to-br from-slate-900/60 to-brand-950/50 p-4 backdrop-blur-sm">
+<div use:portal role="presentation" class="fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto bg-slate-950/60 p-4 backdrop-blur-sm">
     <div
         bind:this={modalElement}
         role="dialog"
         aria-modal="true"
         aria-label={$_('nav.setup_wizard', { default: 'Setup wizard' })}
         tabindex="-1"
-        class="my-8 w-full max-w-2xl overflow-hidden rounded-3xl border border-white/10 bg-white shadow-2xl ring-1 ring-black/5 dark:bg-slate-900"
+        class="my-8 w-full max-w-2xl overflow-hidden rounded-2xl border border-white/10 bg-white shadow-2xl ring-1 ring-black/5 dark:bg-slate-900"
     >
         <!-- Header -->
-        <div class="space-y-3 bg-gradient-to-r from-brand-50 via-accent-50 to-white px-6 py-4 dark:from-brand-950/40 dark:via-accent-950/20 dark:to-slate-900">
+        <div class="space-y-3 bg-surface-raised px-6 py-4">
             <div class="flex items-center justify-between">
                 <span class="flex items-center gap-1.5 text-sm font-black tracking-tight text-brand-700 dark:text-brand-300">
                     <BrandMark alt="" class="h-6 w-6" width={24} height={24} sizes="24px" /> YA-WAMF

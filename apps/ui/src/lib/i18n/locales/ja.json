@@ -420,7 +420,10 @@
       "reconnecting": "再接続中…",
       "window": "過去24時間",
       "loading": "読み込み中",
-      "unavailable": "利用できません"
+      "unavailable": "利用できません",
+      "birds_scope_short": "解析済み {count} 件のキャプチャから",
+      "nothing_to_review": "確認待ちなし",
+      "seen_and_heard": "見て聞いた"
     },
     "desk": {
       "cameras_empty": "まだカメラが応答していません。設定 → 接続 で追加してください。",
