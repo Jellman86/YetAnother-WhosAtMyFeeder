@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Detection } from '../api';
 import type { DetectionVisit } from '../api/visits';
-import { captureFacts, hasCaptureFooter, hasCaptureTimeline } from './visit-captures';
+import { captureFacts, hasCaptureFooter, hasCaptureTimeline, visitSpeciesMix } from './visit-captures';
 
 type Summary = NonNullable<Detection['bird_summary']>;
 
@@ -93,5 +93,29 @@ describe('captureFacts favourites', () => {
         expect(captureFacts(capture('a', { is_favorite: true }), visit(3)).favorite).toBe(true);
         expect(captureFacts(capture('a', { is_favorite: false }), visit(3)).favorite).toBe(false);
         expect(captureFacts(capture('a'), visit(3)).favorite).toBe(false);
+    });
+});
+
+describe('visitSpeciesMix', () => {
+    const withSpecies = (species: Summary['species']) => ({ ...visit(2), peak_capture: capture('busy', { bird_summary: summary(3, { species }) }) });
+
+    it('names every species in the busiest capture, busiest first', () => {
+        expect(visitSpeciesMix(withSpecies([{ species: 'European Robin', count: 1 }, { species: 'Dunnock', count: 2 }]))).toEqual([
+            { species: 'Dunnock', count: 2 },
+            { species: 'European Robin', count: 1 }
+        ]);
+    });
+
+    it('stays a one-species row when the capture holds one species, however many birds', () => {
+        expect(visitSpeciesMix(withSpecies([{ species: 'Dunnock', count: 3 }]))).toBeNull();
+    });
+
+    it('treats a species written two ways as one', () => {
+        expect(visitSpeciesMix(withSpecies([{ species: 'Dunnock', count: 1 }, { species: 'dunnock ', count: 1 }]))).toBeNull();
+    });
+
+    it('says nothing without stored evidence, which a guest never has', () => {
+        expect(visitSpeciesMix(visit(2))).toBeNull();
+        expect(visitSpeciesMix(undefined)).toBeNull();
     });
 });

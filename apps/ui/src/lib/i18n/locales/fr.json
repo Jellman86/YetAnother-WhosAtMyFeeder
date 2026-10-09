@@ -2457,7 +2457,8 @@
       "show_captures": "Captures individuelles",
       "show_captures_hint": "Chaque capture séparément.",
       "show_locked": "La sélection porte sur les captures individuelles.",
-      "audio_matches": "Correspondances audio"
+      "audio_matches": "Correspondances audio",
+      "cameras": "Caméras"
     },
     "sort": {
       "newest": "Plus récent",
@@ -2482,7 +2483,41 @@
     "row_below_threshold": "Sous le seuil de nommage",
     "empty_filtered_title": "Aucune visite ne correspond à ces filtres",
     "empty_filtered_desc": "Votre historique est toujours là. Élargissez la période ou retirez un filtre pour le voir.",
-    "empty_filtered_clear": "Effacer tous les filtres"
+    "empty_filtered_clear": "Effacer tous les filtres",
+    "multiple_species": "Plusieurs espèces",
+    "species_in_capture": "Espèces dans cette capture",
+    "show_species": "Afficher les espèces",
+    "hide_species": "Masquer les espèces",
+    "birds_count": "{count, plural, one {# oiseau} other {# oiseaux}}",
+    "open_capture_birds": "Ouvrir la capture pour voir chaque oiseau",
+    "heard": {
+      "toggle": "Chants entendus",
+      "toggle_hint": "Affiche les chants BirdNET-Go entre les visites de la caméra. Désactivé tant que vous ne l’activez pas ; cet appareil retient le choix.",
+      "count_on_page": "{count, plural, one {# chant entendu sur cette page} other {# chants entendus sur cette page}}",
+      "after_last": "Entendu après la dernière visite",
+      "before_first": "Entendu avant la première visite",
+      "between": "Entendu entre les visites",
+      "summary_span": "{from} à {to}, {calls, plural, one {# chant} other {# chants}}, {species, plural, one {# espèce} other {# espèces}}",
+      "summary_at": "{time}, {calls, plural, one {# chant} other {# chants}}, {species, plural, one {# espèce} other {# espèces}}",
+      "species_list": "Espèces entendues",
+      "more_species": "+{count} de plus",
+      "show_calls": "Afficher les chants",
+      "hide_calls": "Masquer les chants",
+      "time_span": "{from} à {to}",
+      "calls_panel": "Chants entendus",
+      "calls": "{count, plural, one {# chant} other {# chants}}",
+      "calls_until": "{count, plural, one {# chant} other {# chants}} jusqu’à {time}",
+      "matching_calls": "chant correspondant, {count, plural, one {# chant} other {# chants}}",
+      "strongest": "Chant le plus fort {score} % à {time}",
+      "spectrogram_alt": "Spectrogramme du chant le plus fort de {species}, {time}",
+      "no_spectrogram": "BirdNET-Go n’a plus de spectrogramme pour ces chants.",
+      "blocked_camera": "Les chants entendus sont masqués tant qu’une caméra est choisie, car un chant n’est lié à aucune caméra.",
+      "blocked_visit_filter": "Les chants entendus sont masqués tant que Favoris, Masqués, Plusieurs espèces ou Chant correspondant est actif. Ces filtres ne décrivent que les visites de la caméra.",
+      "blocked_group": "Les chants entendus sont masqués tant qu’un groupe d’espèces est choisi. Choisissez une espèce pour voir ses chants.",
+      "blocked_sort": "Les chants entendus n’apparaissent entre les visites que lorsque celles-ci sont triées par heure.",
+      "load_failed": "Impossible de charger les chants entendus. Les visites ne sont pas affectées.",
+      "truncated": "Cette page couvre plus de chants que l’on peut en afficher à la fois, les plus anciens sont donc omis. Réduisez les dates pour les voir."
+    }
   },
   "audio": {
     "chart": {

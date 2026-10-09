@@ -249,6 +249,13 @@ async def test_guest_sse_never_carries_raw_object_or_owner_payload(private_histo
         ("/api/audio/history", "GET"),
         ("/api/audio/recent", "GET"),
         ("/api/audio/summary", "GET"),
+        (
+            "/api/audio/heard-groups?start_date="
+            + datetime.now(timezone.utc).strftime("%Y-%m-%dT00:00:00Z")
+            + "&end_date="
+            + (datetime.now(timezone.utc) + timedelta(days=1)).strftime("%Y-%m-%dT00:00:00Z"),
+            "GET",
+        ),
         ("/api/audio/species", "GET"),
         ("/api/audio/sources", "GET"),
         ("/api/audio/context/event/visible", "GET"),

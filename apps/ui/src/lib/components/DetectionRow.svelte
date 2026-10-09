@@ -22,6 +22,7 @@
     import { settingsStore } from '../stores/settings.svelte';
     import { publicSettingsStore } from '../stores/public_settings.svelte';
     import { authStore } from '../stores/auth.svelte';
+    import type { SpeciesInCapture } from '../utils/visit-captures';
 
     interface Props {
         detection: Detection;
@@ -29,9 +30,18 @@
         onPlay?: (detection: Detection) => void;
         selectionMode?: boolean;
         selected?: boolean;
+        /** Species in the visit's busiest capture, when there is more than one. */
+        speciesMix?: SpeciesInCapture[] | null;
+        /** Heard calls that fold into this visit because they confirm it. */
+        matchedCalls?: number;
+        /** Opens the capture the species were counted in. */
+        onopenCapture?: () => void;
     }
 
-    let { detection, onclick, onPlay, selectionMode = false, selected = false }: Props = $props();
+    let { detection, onclick, onPlay, selectionMode = false, selected = false, speciesMix = null, matchedCalls = 0, onopenCapture }: Props = $props();
+    const uid = $props.id();
+    let speciesOpen = $state(false);
+    const mixed = $derived((speciesMix?.length ?? 0) >= 2);
 
     /** Today and Yesterday by name; anything older by date. Matches the card. */
     const dayLabel = $derived.by(() => {
@@ -54,8 +64,8 @@
         return getBirdNames(detection, showCommon, preferSci);
     });
 
-    const primaryName = $derived(naming.primary);
-    const subName = $derived(naming.secondary);
+    const primaryName = $derived(mixed ? $_('events.multiple_species', { default: 'Multiple species' }) : naming.primary);
+    const subName = $derived(mixed ? null : naming.secondary);
     const isFavorite = $derived(!!detection.is_favorite);
     const isManualObservation = $derived(detection.observation_source === 'manual_upload');
     const hasAudioConfirmed = $derived(!isManualObservation && !!detection.audio_confirmed);
@@ -129,6 +139,10 @@
          "which bird is that" the same way. It reuses the image already fetched,
          opens on focus as well as hover, and closes on Escape. -->
     <div class="relative z-10 flex justify-center">
+        {#if mixed}
+            <!-- Layered like a heard band: one capture, more than one species in it. -->
+            <span class="absolute left-1.5 top-1.5 h-11 w-11 rounded-lg bg-slate-200 ring-1 ring-slate-300 dark:bg-slate-700 dark:ring-slate-600" aria-hidden="true"></span>
+        {/if}
         <DetectionPreview
             interactive={!selectionMode}
             {detection}
@@ -157,7 +171,9 @@
             {/if}
             {#if hasAudioConfirmed}
                 <BadgeHint text={$_('detection.audio_evidence_hint')} class="shrink-0 text-brand-600 dark:text-brand-400">
-                    {$_('detection.fact_heard_yes', { default: 'matching call' })}
+                    {matchedCalls > 0
+                        ? $_('events.heard.matching_calls', { values: { count: matchedCalls }, default: 'matching call, {count} calls' })
+                        : $_('detection.fact_heard_yes', { default: 'matching call' })}
                 </BadgeHint>
             {/if}
             {#if upstreamMissing}
@@ -167,6 +183,15 @@
             {/if}
             <span class="min-w-0 truncate">{detection.camera_name}</span>
         </div>
+        {#if mixed && speciesMix}
+            <ul class="mt-1.5 flex flex-wrap gap-1.5" aria-label={$_('events.species_in_capture', { default: 'Species in this capture' })}>
+                {#each speciesMix as entry (entry.species)}
+                    <li class="inline-flex min-h-6 items-center gap-1.5 rounded-full border border-slate-200 bg-white/80 px-2 text-[11px] font-semibold text-slate-700 dark:border-slate-700/70 dark:bg-slate-800/70 dark:text-slate-200">
+                        {entry.species}<span class="font-bold tabular-nums text-brand-700 dark:text-brand-300">{entry.count}</span>
+                    </li>
+                {/each}
+            </ul>
+        {/if}
     </div>
 
     <div class="relative z-10 flex items-center gap-2 py-2 pl-1">
@@ -186,13 +211,34 @@
                 </svg>
             </button>
         {/if}
-        <div class="pointer-events-none min-w-[2.75rem] text-right">
-            <BadgeHint text={$_('detection.confidence_hint', { values: { score } })}
-                class="font-display text-sm font-bold tabular-nums leading-tight {scoreTone}"
+        {#if mixed && !selectionMode}
+            <!-- One score cannot speak for several species, so the row offers the species instead. -->
+            <button
+                type="button"
+                class="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-300 dark:hover:bg-brand-500/10"
+                aria-expanded={speciesOpen}
+                aria-controls="{uid}-species"
+                onclick={(event) => {
+                    event.stopPropagation();
+                    speciesOpen = !speciesOpen;
+                }}
+                data-detection-row-species-toggle
             >
-                {score}%
-            </BadgeHint>
-        </div>
+                <span class="hidden sm:inline">{speciesOpen ? $_('events.hide_species', { default: 'Hide species' }) : $_('events.show_species', { default: 'Show species' })}</span>
+                <span class="sr-only sm:hidden">{speciesOpen ? $_('events.hide_species', { default: 'Hide species' }) : $_('events.show_species', { default: 'Show species' })}</span>
+                <svg class="h-3.5 w-3.5 transition-transform duration-200 motion-reduce:transition-none {speciesOpen ? 'rotate-180' : ''}" viewBox="0 0 20 20" fill="none" stroke="currentColor" aria-hidden="true">
+                    <path d="m5 7 5 5 5-5" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+            </button>
+        {:else if !mixed}
+            <div class="pointer-events-none min-w-[2.75rem] text-right">
+                <BadgeHint text={$_('detection.confidence_hint', { values: { score } })}
+                    class="font-display text-sm font-bold tabular-nums leading-tight {scoreTone}"
+                >
+                    {score}%
+                </BadgeHint>
+            </div>
+        {/if}
         {#if selectionMode}
             <span
                 class="pointer-events-none inline-flex h-5 w-5 items-center justify-center rounded-md border-2
@@ -209,4 +255,21 @@
             </span>
         {/if}
     </div>
+    {#if mixed && speciesMix}
+        <div id="{uid}-species" hidden={!speciesOpen} class="relative z-10 col-span-full -mx-3 border-t border-slate-200/70 bg-slate-50/70 px-3 py-2 dark:border-slate-800/80 dark:bg-slate-950/30 sm:pl-[7.25rem]" data-detection-row-species>
+            <ul class="divide-y divide-slate-200/70 dark:divide-slate-800/80">
+                {#each speciesMix as entry (entry.species)}
+                    <li class="flex min-h-10 items-center justify-between gap-3 text-sm">
+                        <span class="font-semibold text-slate-800 dark:text-slate-100">{entry.species}</span>
+                        <span class="text-xs font-semibold tabular-nums text-slate-500 dark:text-slate-400">{$_('events.birds_count', { values: { count: entry.count }, default: '{count} birds' })}</span>
+                    </li>
+                {/each}
+            </ul>
+            {#if onopenCapture}
+                <button type="button" class="btn btn-secondary mt-2 min-h-11 px-3 text-xs" onclick={onopenCapture}>
+                    {$_('events.open_capture_birds', { default: 'Open the capture to see each bird' })}
+                </button>
+            {/if}
+        </div>
+    {/if}
 </div>

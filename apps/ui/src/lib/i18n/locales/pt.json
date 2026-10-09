@@ -2467,7 +2467,8 @@
       "show_captures": "Capturas individuais",
       "show_captures_hint": "Cada captura separadamente.",
       "show_locked": "A seleção funciona com capturas individuais.",
-      "audio_matches": "Correspondências de áudio"
+      "audio_matches": "Correspondências de áudio",
+      "cameras": "Câmeras"
     },
     "sort": {
       "newest": "Mais recente",
@@ -2492,7 +2493,41 @@
     "row_below_threshold": "Abaixo do limiar de identificação",
     "empty_filtered_title": "Nenhuma visita corresponde a estes filtros",
     "empty_filtered_desc": "Seu histórico continua aqui. Amplie o período ou remova um filtro para vê-lo.",
-    "empty_filtered_clear": "Limpar todos os filtros"
+    "empty_filtered_clear": "Limpar todos os filtros",
+    "multiple_species": "Várias espécies",
+    "species_in_capture": "Espécies nesta captura",
+    "show_species": "Mostrar espécies",
+    "hide_species": "Ocultar espécies",
+    "birds_count": "{count, plural, one {# ave} other {# aves}}",
+    "open_capture_birds": "Abrir a captura para ver cada ave",
+    "heard": {
+      "toggle": "Cantos ouvidos",
+      "toggle_hint": "Mostra os cantos do BirdNET-Go entre as visitas da câmera. Desligado até você ligar; este dispositivo lembra a escolha.",
+      "count_on_page": "{count, plural, one {# canto ouvido nesta página} other {# cantos ouvidos nesta página}}",
+      "after_last": "Ouvido depois da última visita",
+      "before_first": "Ouvido antes da primeira visita",
+      "between": "Ouvido entre visitas",
+      "summary_span": "{from} a {to}, {calls, plural, one {# canto} other {# cantos}}, {species, plural, one {# espécie} other {# espécies}}",
+      "summary_at": "{time}, {calls, plural, one {# canto} other {# cantos}}, {species, plural, one {# espécie} other {# espécies}}",
+      "species_list": "Espécies ouvidas",
+      "more_species": "+{count} a mais",
+      "show_calls": "Mostrar cantos",
+      "hide_calls": "Ocultar cantos",
+      "time_span": "{from} a {to}",
+      "calls_panel": "Cantos ouvidos",
+      "calls": "{count, plural, one {# canto} other {# cantos}}",
+      "calls_until": "{count, plural, one {# canto} other {# cantos}} até {time}",
+      "matching_calls": "canto correspondente, {count, plural, one {# canto} other {# cantos}}",
+      "strongest": "Canto mais forte {score}% às {time}",
+      "spectrogram_alt": "Espectrograma do canto mais forte de {species}, {time}",
+      "no_spectrogram": "O BirdNET-Go não tem mais espectrograma para estes cantos.",
+      "blocked_camera": "Os cantos ouvidos ficam ocultos enquanto uma câmera está escolhida, porque um canto não está ligado a uma câmera.",
+      "blocked_visit_filter": "Os cantos ouvidos ficam ocultos enquanto Favoritos, Ocultos, Várias espécies ou Canto correspondente está ativo. Esses filtros só descrevem visitas da câmera.",
+      "blocked_group": "Os cantos ouvidos ficam ocultos enquanto um grupo de espécies está escolhido. Escolha uma espécie para ver seus cantos.",
+      "blocked_sort": "Os cantos ouvidos só aparecem entre visitas quando as visitas estão em ordem de tempo.",
+      "load_failed": "Não foi possível carregar os cantos ouvidos. As visitas não foram afetadas.",
+      "truncated": "Esta página abrange mais cantos do que é possível mostrar de uma vez, então os mais antigos ficam de fora. Restrinja as datas para vê-los."
+    }
   },
   "audio": {
     "chart": {

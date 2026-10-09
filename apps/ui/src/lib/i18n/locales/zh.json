@@ -2457,7 +2457,8 @@
       "show_captures": "单次拍摄",
       "show_captures_hint": "每次拍摄单独显示。",
       "show_locked": "选择针对单次拍摄。",
-      "audio_matches": "音频匹配"
+      "audio_matches": "音频匹配",
+      "cameras": "摄像头"
     },
     "sort": {
       "newest": "最新",
@@ -2482,7 +2483,41 @@
     "row_below_threshold": "低于命名阈值",
     "empty_filtered_title": "没有符合这些筛选条件的到访",
     "empty_filtered_desc": "您的历史记录仍在。放宽日期范围或移除一个筛选即可看到。",
-    "empty_filtered_clear": "清除所有筛选"
+    "empty_filtered_clear": "清除所有筛选",
+    "multiple_species": "多个物种",
+    "species_in_capture": "此次拍摄中的物种",
+    "show_species": "显示物种",
+    "hide_species": "隐藏物种",
+    "birds_count": "{count, plural, other {# 只鸟}}",
+    "open_capture_birds": "打开这次拍摄查看每只鸟",
+    "heard": {
+      "toggle": "听到的鸣叫",
+      "toggle_hint": "在摄像头来访之间显示 BirdNET-Go 的鸣叫。在你打开之前保持关闭；此设备会记住你的选择。",
+      "count_on_page": "{count, plural, other {本页听到 # 次鸣叫}}",
+      "after_last": "最后一次来访之后听到",
+      "before_first": "第一次来访之前听到",
+      "between": "两次来访之间听到",
+      "summary_span": "{from} 至 {to}，{calls, plural, other {# 次鸣叫}}，{species, plural, other {# 个物种}}",
+      "summary_at": "{time}，{calls, plural, other {# 次鸣叫}}，{species, plural, other {# 个物种}}",
+      "species_list": "听到的物种",
+      "more_species": "另有 {count} 种",
+      "show_calls": "显示鸣叫",
+      "hide_calls": "隐藏鸣叫",
+      "time_span": "{from} 至 {to}",
+      "calls_panel": "听到的鸣叫",
+      "calls": "{count, plural, other {# 次鸣叫}}",
+      "calls_until": "到 {time} 共 {count, plural, other {# 次鸣叫}}",
+      "matching_calls": "匹配的鸣叫，{count, plural, other {# 次}}",
+      "strongest": "最强鸣叫 {score}%，时间 {time}",
+      "spectrogram_alt": "{species} 最强鸣叫的声谱图，{time}",
+      "no_spectrogram": "BirdNET-Go 已不再保留这些鸣叫的声谱图。",
+      "blocked_camera": "选择了摄像头时会隐藏听到的鸣叫，因为鸣叫不属于任何摄像头。",
+      "blocked_visit_filter": "开启收藏、已隐藏、多个物种或匹配的鸣叫时会隐藏听到的鸣叫。这些筛选只描述摄像头来访。",
+      "blocked_group": "选择了一组物种时会隐藏听到的鸣叫。选择一个物种即可看到它的鸣叫。",
+      "blocked_sort": "只有来访按时间排序时，听到的鸣叫才会出现在来访之间。",
+      "load_failed": "无法加载听到的鸣叫。来访不受影响。",
+      "truncated": "本页包含的鸣叫多于一次能显示的数量，因此省略了最早的鸣叫。缩小日期范围即可看到。"
+    }
   },
   "audio": {
     "chart": {

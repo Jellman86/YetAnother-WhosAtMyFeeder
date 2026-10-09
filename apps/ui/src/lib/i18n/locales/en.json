@@ -2467,7 +2467,8 @@
       "show_captures": "Individual captures",
       "show_captures_hint": "Every capture on its own.",
       "show_locked": "Selecting works on individual captures.",
-      "audio_matches": "Audio matches"
+      "audio_matches": "Audio matches",
+      "cameras": "Cameras"
     },
     "sort": {
       "newest": "Newest",
@@ -2492,7 +2493,41 @@
     "row_below_threshold": "Below the naming threshold",
     "empty_filtered_title": "No visits match these filters",
     "empty_filtered_desc": "Your history is still here. Widen the date range or remove a filter to see it.",
-    "empty_filtered_clear": "Clear all filters"
+    "empty_filtered_clear": "Clear all filters",
+    "multiple_species": "Multiple species",
+    "species_in_capture": "Species in this capture",
+    "show_species": "Show species",
+    "hide_species": "Hide species",
+    "birds_count": "{count, plural, one {# bird} other {# birds}}",
+    "open_capture_birds": "Open the capture to see each bird",
+    "heard": {
+      "toggle": "Heard calls",
+      "toggle_hint": "Show BirdNET-Go calls between the camera visits. Off until you turn it on; this device remembers the choice.",
+      "count_on_page": "{count, plural, one {# call heard on this page} other {# calls heard on this page}}",
+      "after_last": "Heard after the last visit",
+      "before_first": "Heard before the first visit",
+      "between": "Heard between visits",
+      "summary_span": "{from} to {to}, {calls, plural, one {# call} other {# calls}}, {species, plural, one {# species} other {# species}}",
+      "summary_at": "{time}, {calls, plural, one {# call} other {# calls}}, {species, plural, one {# species} other {# species}}",
+      "species_list": "Species heard",
+      "more_species": "+{count} more",
+      "show_calls": "Show calls",
+      "hide_calls": "Hide calls",
+      "time_span": "{from} to {to}",
+      "calls_panel": "Heard calls",
+      "calls": "{count, plural, one {# call} other {# calls}}",
+      "calls_until": "{count, plural, one {# call} other {# calls}} to {time}",
+      "matching_calls": "matching call, {count, plural, one {# call} other {# calls}}",
+      "strongest": "Strongest call {score}% at {time}",
+      "spectrogram_alt": "Spectrogram of the strongest {species} call, {time}",
+      "no_spectrogram": "BirdNET-Go has no spectrogram for these calls any more.",
+      "blocked_camera": "Heard calls are hidden while a camera is chosen, because a call is not tied to a camera.",
+      "blocked_visit_filter": "Heard calls are hidden while Favourites, Hidden, Multiple species or Matching call is on. Those only describe camera visits.",
+      "blocked_group": "Heard calls are hidden while a group of species is chosen. Choose one species to see its calls.",
+      "blocked_sort": "Heard calls show between visits only when visits are in time order.",
+      "load_failed": "Could not load the heard calls. The visits are unaffected.",
+      "truncated": "This page spans more calls than can be shown at once, so the oldest calls are left out. Narrow the dates to see them."
+    }
   },
   "audio": {
     "chart": {

@@ -987,6 +987,24 @@ export interface components {
     readings?: Record<string, unknown>;
     status: "ok" | "error";
 };
+    HeardGroupResponse: {
+    best_birdnet_id?: number | null;
+    best_confidence: number;
+    best_heard: string;
+    call_count: number;
+    first_heard: string;
+    last_heard: string;
+    scientific_name?: string | null;
+    source_name?: string | null;
+    species: string;
+};
+    HeardGroupsResponse: {
+    call_count: number;
+    correlation_window_seconds: number;
+    gap_seconds: number;
+    groups: Array<components['schemas']['HeardGroupResponse']>;
+    truncated: boolean;
+};
     HiddenCountResponse: {
     hidden_count: number;
 };
@@ -2420,6 +2438,18 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: Array<components['schemas']['AudioContextDetectionResponse']>;
+    };
+  };
+  "/api/audio/heard-groups": {
+    get: {
+      operationId: "get_heard_groups_api_audio_heard_groups_get";
+      path: never;
+      query: {
+    end_date: string;
+    start_date: string;
+};
+      requestBody: unknown;
+      response: components['schemas']['HeardGroupsResponse'];
     };
   };
   "/api/audio/history": {

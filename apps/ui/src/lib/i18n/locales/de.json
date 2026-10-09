@@ -2457,7 +2457,8 @@
       "show_captures": "Einzelne Aufnahmen",
       "show_captures_hint": "Jede Aufnahme für sich.",
       "show_locked": "Die Auswahl arbeitet mit einzelnen Aufnahmen.",
-      "audio_matches": "Audio-Übereinstimmungen"
+      "audio_matches": "Audio-Übereinstimmungen",
+      "cameras": "Kameras"
     },
     "sort": {
       "newest": "Neueste",
@@ -2482,7 +2483,41 @@
     "row_below_threshold": "Unter der Benennungsschwelle",
     "empty_filtered_title": "Keine Besuche passen zu diesen Filtern",
     "empty_filtered_desc": "Ihr Verlauf ist noch da. Erweitern Sie den Zeitraum oder entfernen Sie einen Filter, um ihn zu sehen.",
-    "empty_filtered_clear": "Alle Filter entfernen"
+    "empty_filtered_clear": "Alle Filter entfernen",
+    "multiple_species": "Mehrere Arten",
+    "species_in_capture": "Arten in dieser Aufnahme",
+    "show_species": "Arten anzeigen",
+    "hide_species": "Arten ausblenden",
+    "birds_count": "{count, plural, one {# Vogel} other {# Vögel}}",
+    "open_capture_birds": "Aufnahme öffnen, um jeden Vogel zu sehen",
+    "heard": {
+      "toggle": "Gehörte Rufe",
+      "toggle_hint": "Zeigt BirdNET-Go-Rufe zwischen den Kamerabesuchen. Aus, bis Sie es einschalten; dieses Gerät merkt sich die Wahl.",
+      "count_on_page": "{count, plural, one {# Ruf auf dieser Seite gehört} other {# Rufe auf dieser Seite gehört}}",
+      "after_last": "Nach dem letzten Besuch gehört",
+      "before_first": "Vor dem ersten Besuch gehört",
+      "between": "Zwischen Besuchen gehört",
+      "summary_span": "{from} bis {to}, {calls, plural, one {# Ruf} other {# Rufe}}, {species, plural, one {# Art} other {# Arten}}",
+      "summary_at": "{time}, {calls, plural, one {# Ruf} other {# Rufe}}, {species, plural, one {# Art} other {# Arten}}",
+      "species_list": "Gehörte Arten",
+      "more_species": "+{count} weitere",
+      "show_calls": "Rufe anzeigen",
+      "hide_calls": "Rufe ausblenden",
+      "time_span": "{from} bis {to}",
+      "calls_panel": "Gehörte Rufe",
+      "calls": "{count, plural, one {# Ruf} other {# Rufe}}",
+      "calls_until": "{count, plural, one {# Ruf} other {# Rufe}} bis {time}",
+      "matching_calls": "passender Ruf, {count, plural, one {# Ruf} other {# Rufe}}",
+      "strongest": "Stärkster Ruf {score} % um {time}",
+      "spectrogram_alt": "Spektrogramm des stärksten Rufs: {species}, {time}",
+      "no_spectrogram": "BirdNET-Go hat für diese Rufe kein Spektrogramm mehr.",
+      "blocked_camera": "Gehörte Rufe sind ausgeblendet, solange eine Kamera gewählt ist, weil ein Ruf keiner Kamera zugeordnet ist.",
+      "blocked_visit_filter": "Gehörte Rufe sind ausgeblendet, solange Favoriten, Ausgeblendet, Mehrere Arten oder Passender Ruf aktiv ist. Diese beschreiben nur Kamerabesuche.",
+      "blocked_group": "Gehörte Rufe sind ausgeblendet, solange eine Artengruppe gewählt ist. Wählen Sie eine Art, um ihre Rufe zu sehen.",
+      "blocked_sort": "Gehörte Rufe erscheinen nur zwischen Besuchen, wenn die Besuche zeitlich sortiert sind.",
+      "load_failed": "Die gehörten Rufe konnten nicht geladen werden. Die Besuche sind davon nicht betroffen.",
+      "truncated": "Diese Seite umfasst mehr Rufe, als auf einmal angezeigt werden können, daher fehlen die ältesten. Grenzen Sie den Zeitraum ein, um sie zu sehen."
+    }
   },
   "audio": {
     "chart": {

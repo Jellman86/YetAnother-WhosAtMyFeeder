@@ -2457,7 +2457,8 @@
       "show_captures": "個別の撮影",
       "show_captures_hint": "撮影を 1 件ずつ。",
       "show_locked": "選択は個別の撮影に対して行います。",
-      "audio_matches": "音声一致"
+      "audio_matches": "音声一致",
+      "cameras": "カメラ"
     },
     "sort": {
       "newest": "新しい順",
@@ -2482,7 +2483,41 @@
     "row_below_threshold": "命名のしきい値未満",
     "empty_filtered_title": "このフィルターに一致する訪問はありません",
     "empty_filtered_desc": "履歴は残っています。期間を広げるかフィルターを外すと表示されます。",
-    "empty_filtered_clear": "すべてのフィルターを解除"
+    "empty_filtered_clear": "すべてのフィルターを解除",
+    "multiple_species": "複数の種",
+    "species_in_capture": "この撮影に写った種",
+    "show_species": "種を表示",
+    "hide_species": "種を隠す",
+    "birds_count": "{count, plural, other {#羽}}",
+    "open_capture_birds": "撮影を開いて各個体を見る",
+    "heard": {
+      "toggle": "聞こえた鳴き声",
+      "toggle_hint": "カメラの訪問の間に BirdNET-Go の鳴き声を表示します。オンにするまでオフです。この端末が選択を記憶します。",
+      "count_on_page": "{count, plural, other {このページで # 件の鳴き声}}",
+      "after_last": "最後の訪問の後に聞こえた",
+      "before_first": "最初の訪問の前に聞こえた",
+      "between": "訪問の間に聞こえた",
+      "summary_span": "{from}〜{to}、{calls, plural, other {# 件の鳴き声}}、{species, plural, other {# 種}}",
+      "summary_at": "{time}、{calls, plural, other {# 件の鳴き声}}、{species, plural, other {# 種}}",
+      "species_list": "聞こえた種",
+      "more_species": "ほか {count} 種",
+      "show_calls": "鳴き声を表示",
+      "hide_calls": "鳴き声を隠す",
+      "time_span": "{from}〜{to}",
+      "calls_panel": "聞こえた鳴き声",
+      "calls": "{count, plural, other {# 件の鳴き声}}",
+      "calls_until": "{time} まで {count, plural, other {# 件の鳴き声}}",
+      "matching_calls": "一致する鳴き声、{count, plural, other {# 件}}",
+      "strongest": "最も強い鳴き声 {score}%（{time}）",
+      "spectrogram_alt": "{species} の最も強い鳴き声のスペクトログラム、{time}",
+      "no_spectrogram": "BirdNET-Go にはこれらの鳴き声のスペクトログラムがもうありません。",
+      "blocked_camera": "鳴き声はカメラに結び付いていないため、カメラを選んでいる間は聞こえた鳴き声を隠します。",
+      "blocked_visit_filter": "お気に入り、非表示、複数の種、一致する鳴き声のいずれかがオンの間は、聞こえた鳴き声を隠します。これらはカメラの訪問だけを表します。",
+      "blocked_group": "種のグループを選んでいる間は、聞こえた鳴き声を隠します。1 種を選ぶとその鳴き声が表示されます。",
+      "blocked_sort": "聞こえた鳴き声は、訪問が時刻順のときだけ訪問の間に表示されます。",
+      "load_failed": "聞こえた鳴き声を読み込めませんでした。訪問には影響ありません。",
+      "truncated": "このページには一度に表示できるより多くの鳴き声があるため、古いものを省いています。日付を絞ると表示されます。"
+    }
   },
   "audio": {
     "chart": {

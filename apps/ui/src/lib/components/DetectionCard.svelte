@@ -14,6 +14,7 @@
     import { formatDate as formatDateValue, formatTime } from '../utils/datetime';
     import { formatTemperature } from '../utils/temperature';
     import { photoFitFor, type PhotoFit } from '../utils/photo-fit';
+    import type { SpeciesInCapture } from '../utils/visit-captures';
     import {
         getTemperatureUnitForSystem,
         resolveWeatherUnitSystem
@@ -39,6 +40,10 @@
          * the record. Without it the card is the plain, closed shape.
          */
         footer?: Snippet;
+        /** Species in the visit's busiest capture, when there is more than one. */
+        speciesMix?: SpeciesInCapture[] | null;
+        /** Heard calls that fold into this visit because they confirm it. */
+        matchedCalls?: number;
     }
 
     let {
@@ -55,8 +60,11 @@
         fullVisitAvailable: _fullVisitAvailable = false,
         fullVisitFetched = false,
         fullVisitFetchState: _fullVisitFetchState = 'idle',
-        footer
+        footer,
+        speciesMix = null,
+        matchedCalls = 0
     }: Props = $props();
+    const mixed = $derived((speciesMix?.length ?? 0) >= 2);
 
     // Check if this detection is being reclassified
     let reclassifyProgress = $derived(!hideProgress ? detectionsStore.getReclassificationProgress(detection.frigate_event) : null);
@@ -69,8 +77,8 @@
         return getBirdNames(detection, showCommon, preferSci);
     });
 
-    let primaryName = $derived(naming.primary);
-    let subName = $derived(naming.secondary);
+    let primaryName = $derived(mixed ? $_('events.multiple_species', { default: 'Multiple species' }) : naming.primary);
+    let subName = $derived(mixed ? null : naming.secondary);
 
     let isManualObservation = $derived(detection.observation_source === 'manual_upload');
     let isVerified = $derived(!isManualObservation && detection.audio_confirmed && detection.score > 0.7);
@@ -345,10 +353,12 @@
                     </svg>
                     {formatTime(detection.detection_time)}
                 </BadgeHint>
+                {#if !mixed}
                 <BadgeHint text={$_('detection.confidence_hint', { values: { score: (detection.score * 100).toFixed(0) } })} class="flex min-h-11 items-center gap-1.5 rounded-full border border-white/10 bg-black/60 px-3 py-2 text-xs font-bold text-white backdrop-blur-md">
                     <span class="h-2 w-2 rounded-full {detection.score >= 0.9 ? 'bg-accent-500' : detection.score >= 0.7 ? 'bg-amber-500' : 'bg-red-500'}"></span>
                     {(detection.score * 100).toFixed(0)}%
                 </BadgeHint>
+                {/if}
                 {#if canPlayVideo}
                     <span class="relative inline-flex">
                     <button
@@ -442,6 +452,20 @@
             {#if subName}
                 <p class="text-[11px] italic text-slate-500 dark:text-slate-400 font-medium mt-0.5 truncate opacity-80">
                     {subName}
+                </p>
+            {/if}
+            {#if mixed && speciesMix}
+                <ul class="mt-1.5 flex flex-wrap gap-1.5" aria-label={$_('events.species_in_capture', { default: 'Species in this capture' })}>
+                    {#each speciesMix as entry (entry.species)}
+                        <li class="inline-flex min-h-6 items-center gap-1.5 rounded-full border border-slate-200 bg-white/80 px-2 text-[11px] font-semibold text-slate-700 dark:border-slate-700/70 dark:bg-slate-800/70 dark:text-slate-200">
+                            {entry.species}<span class="font-bold tabular-nums text-brand-700 dark:text-brand-300">{entry.count}</span>
+                        </li>
+                    {/each}
+                </ul>
+            {/if}
+            {#if hasAudioConfirmed && matchedCalls > 0}
+                <p class="mt-1 text-[11px] font-semibold text-brand-700 dark:text-brand-300">
+                    {$_('events.heard.matching_calls', { values: { count: matchedCalls }, default: 'matching call, {count} calls' })}
                 </p>
             {/if}
         </div>

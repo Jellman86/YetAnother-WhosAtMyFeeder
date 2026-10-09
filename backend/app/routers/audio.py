@@ -7,6 +7,7 @@ import structlog
 from pydantic import BaseModel
 from typing import Literal
 from app.services.audio.audio_service import audio_service
+from app.services.audio.heard_groups import HEARD_GROUP_GAP_SECONDS, HeardCall, fold_heard_calls
 from app.services.broadcaster import broadcaster
 from app.services.leaderboard_window import previous_window_is_complete
 from app.config import settings
@@ -380,6 +381,102 @@ async def get_audio_summary(
         result["source_count"] = 0
 
     return result
+
+
+class HeardGroupResponse(BaseModel):
+    species: str
+    scientific_name: str | None = None
+    first_heard: str
+    last_heard: str
+    call_count: int
+    best_confidence: float
+    best_heard: str
+    best_birdnet_id: int | None = None
+    source_name: str | None = None
+
+
+class HeardGroupsResponse(BaseModel):
+    groups: list[HeardGroupResponse]
+    call_count: int
+    truncated: bool
+    gap_seconds: int
+    correlation_window_seconds: int
+
+
+HEARD_GROUP_MAX_CALLS = 20_000
+HEARD_GROUP_MAX_SPAN = timedelta(days=93)
+
+
+@router.get("/heard-groups", response_model=HeardGroupsResponse)
+@guest_rate_limit()
+async def get_heard_groups(
+    request: Request,
+    start_date: datetime = Query(...),
+    end_date: datetime = Query(...),
+    auth: AuthContext = Depends(require_public_audio),
+):
+    """BirdNET-Go calls in a window, folded per species, for the Explorer's heard bands.
+
+    The Explorer asks for the span its page of visits covers. Calls of one species with no more
+    than ``gap_seconds`` of silence between them are one group, so a chattering sparrow is one
+    entry rather than forty.
+    """
+    window = _history_window(1, start_date, end_date, auth)
+    if window.end_date <= window.start_date:
+        return HeardGroupsResponse(
+            groups=[],
+            call_count=0,
+            truncated=False,
+            gap_seconds=HEARD_GROUP_GAP_SECONDS,
+            correlation_window_seconds=max(0, int(settings.frigate.audio_correlation_window_seconds)),
+        )
+    if window.end_date - window.start_date > HEARD_GROUP_MAX_SPAN:
+        raise HTTPException(status_code=422, detail="Ask for at most 93 days of heard calls at a time.")
+    lang = get_user_language(request) or "en"
+    hide_sensor = not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
+
+    async with privacy_checked_db(get_db) as db:
+        result = await DetectionRepository(db).get_audio_history(
+            start_date=window.start_date,
+            end_date=window.end_date,
+            maximum_end=window.public_end,
+            limit=HEARD_GROUP_MAX_CALLS,
+            offset=0,
+        )
+
+    calls = [
+        HeardCall(
+            timestamp=datetime.fromisoformat(item["timestamp"]),
+            species=item["species"],
+            scientific_name=item.get("scientific_name"),
+            confidence=float(item["confidence"] or 0.0),
+            birdnet_id=item.get("birdnet_id"),
+            source_name=None if hide_sensor else item.get("source_name"),
+        )
+        for item in result["items"]
+    ]
+    groups = [
+        {
+            "species": group.species,
+            "scientific_name": group.scientific_name,
+            "first_heard": serialize_api_datetime(group.first_heard),
+            "last_heard": serialize_api_datetime(group.last_heard),
+            "call_count": group.call_count,
+            "best_confidence": group.best_confidence,
+            "best_heard": serialize_api_datetime(group.best_heard),
+            "best_birdnet_id": group.best_birdnet_id,
+            "source_name": group.source_name,
+        }
+        for group in fold_heard_calls(calls)
+    ]
+    await localize_audio_detections(groups, lang)
+    return HeardGroupsResponse(
+        groups=[HeardGroupResponse(**group) for group in groups],
+        call_count=len(calls),
+        truncated=result["total"] > len(calls),
+        gap_seconds=HEARD_GROUP_GAP_SECONDS,
+        correlation_window_seconds=max(0, int(settings.frigate.audio_correlation_window_seconds)),
+    )
 
 
 def _leaderboard_window(span: str) -> tuple[datetime, datetime, datetime, datetime]:
