@@ -16,6 +16,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   as its section title, and the list keeps a readable width on wide screens.
 - **Settings, Cameras** no longer scrolls its camera list inside the card, which hid the first
   camera under the card header and cut off the nest window below the list.
+- Missing snapshots no longer open the video inference circuit and pause the rest of a
+  maintenance queue. Unavailable-media jobs still fail visibly; worker failures retain circuit
+  protection (#481).
 
 - Opening Settings no longer repeats old detection and weather backfill completion or failure
   messages. New completions still announce once; saved results remain available.

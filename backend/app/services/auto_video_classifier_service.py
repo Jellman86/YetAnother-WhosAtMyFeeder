@@ -104,6 +104,8 @@ _FRIGATE_CONNECTIVITY_ERRORS: frozenset[str] = frozenset(
         "clip_unknown_error",  # Unexpected error during clip fetch
         "clip_invalid",  # Frigate returned a stub or non-MP4 body
         "clip_decode_failed",  # Frigate returned bytes that could not be decoded as video
+        # --- Snapshot fallback media fetch (no inference was attempted) ---
+        "snapshot_fetch_failed",  # No retained or upstream snapshot was available
         # --- Task lifecycle (not an inference failure) ---
         "video_cancelled",  # Task was cancelled during reset_state() or service shutdown
     }
