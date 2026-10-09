@@ -6,6 +6,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- The app uses the whole width of a wide screen instead of a narrow centred column. On a very wide
+  screen the dashboard puts the field log beside the rest of the desk, and the footer is one slim
+  band: name and version, a bird fact, then the links.
+- The Leaderboard's **Detections over time** chart keeps its set height. Its box grew with the chart,
+  so the chart stretched to half the page width in height: about 600 pixels on a 2560 screen
+  instead of 380.
 - An uploaded video now gets the same photo choices, **Birds found in this capture** and **Score
   again** as any visit (#481). The server could already read the uploaded video for them, but the
   record hid all three for every upload. A frame you choose becomes the upload's photo, and going

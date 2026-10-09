@@ -598,9 +598,11 @@
     <!-- Field desk: the day reads as one chronological log, with the outstanding work docked beside it. -->
     <section
         data-dashboard-field-desk
-        class="grid grid-cols-1 items-start gap-8 xl:grid-cols-[minmax(0,1.55fr)_minmax(18rem,0.7fr)]"
+        class="grid grid-cols-1 items-start gap-8 xl:grid-cols-[minmax(0,1.55fr)_minmax(18rem,0.7fr)] 3xl:grid-cols-[minmax(0,1fr)_26rem]"
     >
-        <div class="space-y-7" data-dashboard-field-log-column>
+        <!-- On a wide monitor the log keeps a readable row and Notable nearby moves up beside it,
+             instead of every row stretching across the screen with the nearby list below. -->
+        <div class="space-y-7 3xl:grid 3xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] 3xl:items-start 3xl:gap-8 3xl:space-y-0" data-dashboard-field-log-column>
             <FieldLog
                 visits={visits}
                 hiddenCount={hiddenVisitCount}

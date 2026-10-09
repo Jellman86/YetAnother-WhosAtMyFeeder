@@ -18,7 +18,7 @@
 
 {#if visible && status}
     <div class="border-b border-brand-200/60 bg-gradient-to-r from-brand-50 via-accent-50 to-white dark:border-brand-900/40 dark:from-brand-950/30 dark:via-accent-950/20 dark:to-slate-950/40">
-        <div class="mx-auto max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
+        <div class="px-4 py-3 sm:px-6 lg:px-8 2xl:px-12">
             <div class="flex items-start gap-3">
                 <div class="mt-0.5 flex-shrink-0">
                     <svg class="h-5 w-5 text-brand-600 dark:text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

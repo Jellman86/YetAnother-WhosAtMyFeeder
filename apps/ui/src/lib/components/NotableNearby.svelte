@@ -161,7 +161,7 @@
         <!-- One sighting in a two-column grid leaves half a row empty, which
              reads as something that failed to load rather than as the answer.
              Two or more still pair up. -->
-        <ul class="grid gap-2 {groups.length > 1 ? 'sm:grid-cols-2' : ''}">
+        <ul class="grid gap-2 {groups.length > 1 ? 'sm:grid-cols-2 3xl:grid-cols-1' : ''}">
             {#each groups.slice(0, 4) as group (group.key)}
                 {@const observation = group.latest}
                 {@const observationName = observation.common_name || observation.scientific_name || ''}
