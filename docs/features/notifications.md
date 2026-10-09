@@ -25,6 +25,10 @@ If live job status cannot be read, the page keeps the last known progress, shows
 and retries automatically. **Try again** on a paused video-analysis lane reopens the circuit
 breaker; it does not discard queued detections.
 
+Opening Settings restores the last detection and weather backfill results without announcing
+them again. A backfill observed running on that page announces its completion or failure once;
+returning to Settings or reloading it does not replay the result.
+
 ## Supported Platforms
 
 ### Discord
