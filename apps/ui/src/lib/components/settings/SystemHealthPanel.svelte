@@ -216,7 +216,7 @@
                                     />
                                 </svg>
                                 <span>{line.label}</span>
-                                <span class="text-[10px] text-slate-400 dark:text-slate-500">{scopeNote(line.scope)}</span>
+                                <span class="text-3xs text-slate-400 dark:text-slate-500">{scopeNote(line.scope)}</span>
                             </li>
                         {/each}
                     </ul>
@@ -283,8 +283,8 @@
                                     {/each}
                                 {/if}
                             </svg>
-                            <span class="pointer-events-none absolute -top-2 right-0 text-[10px] tabular-nums text-slate-400">100%</span>
-                            <span class="pointer-events-none absolute right-0 top-1/2 -translate-y-3 text-[10px] tabular-nums text-slate-400">50%</span>
+                            <span class="pointer-events-none absolute -top-2 right-0 text-3xs tabular-nums text-slate-400">100%</span>
+                            <span class="pointer-events-none absolute right-0 top-1/2 -translate-y-3 text-3xs tabular-nums text-slate-400">50%</span>
                             {#if inspected}
                                 <div
                                     class="pointer-events-none absolute top-2 rounded-lg border border-slate-200 bg-white/95 px-2.5 py-1.5 text-xs shadow-md dark:border-slate-700 dark:bg-slate-900/95"
@@ -319,7 +319,7 @@
                             aria-valuetext={inspectedSpoken}
                             data-system-health-scrub
                         />
-                        <div class="flex justify-between text-[10px] tabular-nums text-slate-400">
+                        <div class="flex justify-between text-3xs tabular-nums text-slate-400">
                             {#each ticks as tick (tick.at)}
                                 <span>{timeOf(tick.at)}</span>
                             {/each}
@@ -354,18 +354,18 @@
 
                 <dl class="grid grid-cols-3 gap-4 md:grid-cols-1 md:gap-5" data-system-health-now>
                     <div>
-                        <dt class="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('settings.system_health.cpu_now', { default: 'CPU now' })}</dt>
+                        <dt class="text-2xs font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('settings.system_health.cpu_now', { default: 'CPU now' })}</dt>
                         <dd class="font-display text-3xl font-bold tabular-nums text-blue-700 dark:text-blue-300">{formatPercent(latest?.cpu_percent) ?? '—'}</dd>
                     </div>
                     {#each acceleratorSeries as line (line.id)}
                         <div>
-                            <dt class="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('settings.system_health.accelerator_now', { values: { label: line.label }, default: '{label} now' })}</dt>
+                            <dt class="text-2xs font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('settings.system_health.accelerator_now', { values: { label: line.label }, default: '{label} now' })}</dt>
                             <dd class="font-display text-3xl font-bold tabular-nums {line.text}">{formatPercent(line.latest) ?? '—'}</dd>
-                            <p class="text-[10px] text-slate-400 dark:text-slate-500">{scopeNote(line.scope)}</p>
+                            <p class="text-3xs text-slate-400 dark:text-slate-500">{scopeNote(line.scope)}</p>
                         </div>
                     {/each}
                     <div>
-                        <dt class="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('settings.system_health.memory_now', { default: 'This app in memory' })}</dt>
+                        <dt class="text-2xs font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('settings.system_health.memory_now', { default: 'This app in memory' })}</dt>
                         <dd class="font-display text-2xl font-bold tabular-nums text-slate-900 dark:text-white">
                             {formatBytes(history.app_rss_bytes) ?? '—'}
                             {#if history.host.memory_total_bytes}
@@ -412,7 +412,7 @@
                         </div>
                     {/if}
                     <table class="mt-3 w-full text-xs sm:text-sm" data-system-health-table>
-                        <thead class="text-[11px] font-bold uppercase tracking-normal text-slate-500 sm:tracking-[0.14em] dark:text-slate-400">
+                        <thead class="text-2xs font-bold uppercase tracking-normal text-slate-500 sm:tracking-[0.14em] dark:text-slate-400">
                             <tr>
                                 <th scope="col" class="pb-2 text-left font-bold">{$_('settings.system_health.col_process', { default: 'Process' })}</th>
                                 <th scope="col" class="pb-2 pl-2 text-right font-bold">{$_('settings.system_health.col_cpu', { default: 'CPU' })}</th>
@@ -442,7 +442,7 @@
                                         <td class="py-2 pl-2 text-right text-slate-500 dark:text-slate-400">
                                             {#if row.acceleratorLabels.length > 0}
                                                 <span class="block font-semibold text-slate-800 dark:text-slate-100">{row.acceleratorLabels.join(', ')}</span>
-                                                <span class="block text-[10px] uppercase tracking-wide">{$_('settings.system_health.accelerator_loaded', { default: 'loaded' })}</span>
+                                                <span class="block text-3xs uppercase tracking-wide">{$_('settings.system_health.accelerator_loaded', { default: 'loaded' })}</span>
                                             {:else}
                                                 —
                                             {/if}

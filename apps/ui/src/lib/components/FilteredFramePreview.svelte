@@ -196,7 +196,7 @@
             onmouseleave={() => hide()}
         >
             {#if failed}
-                <div class="grid aspect-video place-items-center rounded-xl bg-slate-100 px-3 text-center text-[11px] font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                <div class="grid aspect-video place-items-center rounded-xl bg-slate-100 px-3 text-center text-2xs font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
                     {$_('jobs.errors_filtered_frame_gone', { default: 'Frigate no longer has this frame' })}
                 </div>
             {:else}
@@ -208,8 +208,8 @@
                     onerror={() => (failed = true)}
                 />
             {/if}
-            <p class="mt-1.5 px-0.5 text-[11px] font-semibold italic text-slate-600 dark:text-slate-300">{name}</p>
-            <p class="break-all px-0.5 font-mono text-[10px] text-slate-400 dark:text-slate-500">{eventId}</p>
+            <p class="mt-1.5 px-0.5 text-2xs font-semibold italic text-slate-600 dark:text-slate-300">{name}</p>
+            <p class="break-all px-0.5 font-mono text-3xs text-slate-400 dark:text-slate-500">{eventId}</p>
         </div>
     {/if}
 </div>

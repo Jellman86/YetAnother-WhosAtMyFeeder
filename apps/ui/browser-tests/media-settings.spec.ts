@@ -21,8 +21,9 @@ test('cache limits and scanning use the existing settings controls without overf
     await card.screenshot({ path: testInfo.outputPath('media-settings.png') });
     await page.evaluate(() => document.documentElement.classList.add('theme-bluetit', 'dark'));
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-    await expect(card).toHaveCSS('background-color', 'rgba(15, 23, 42, 0.88)');
-    await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(7, 13, 27)');
+    // The blue tit dark panel and ground tokens from app.css.
+    await expect(card).toHaveCSS('background-color', 'rgb(11, 19, 34)');
+    await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(5, 10, 20)');
     await card.screenshot({ path: testInfo.outputPath('media-settings-dark.png'), animations: 'disabled' });
 });
 

@@ -58,7 +58,7 @@
         onclick={() => jumpTo(modelsAnchorId)}
         class="group relative flex min-h-11 cursor-pointer flex-col gap-0.5 rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
     >
-        <span class="text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('settings.detection.band_model')}</span>
+        <span class="text-xs font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('settings.detection.band_model')}</span>
         <span class="break-all text-sm font-bold text-slate-900 group-hover:text-brand-700 dark:text-white dark:group-hover:text-brand-300">
             {modelValue ?? $_('settings.detection.band_no_model')}
         </span>
@@ -72,7 +72,7 @@
     </button>
 
     <div class="relative flex flex-col gap-0.5">
-        <span class="text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('settings.detection.band_runtime')}</span>
+        <span class="text-xs font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('settings.detection.band_runtime')}</span>
         <span class="text-sm font-bold text-slate-900 dark:text-white">{activeProviderLabel}</span>
         {#if classifierStatus?.fallback_reason}
             <span class="text-xs font-semibold text-amber-700 dark:text-amber-300">{$_('settings.detection.band_fallback_active')}</span>
@@ -89,7 +89,7 @@
     </div>
 
     <div class="relative flex flex-col gap-0.5">
-        <span class="text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('settings.detection.band_workers')}</span>
+        <span class="text-xs font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('settings.detection.band_workers')}</span>
         {#if runtimeState.executionMode === 'in_process'}
             <span class="text-sm font-bold text-slate-900 dark:text-white">{$_('settings.detection.band_in_process')}</span>
             <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('settings.detection.band_shared_runtime')}</span>
@@ -129,7 +129,7 @@
         onclick={() => jumpTo(reportAnchorId)}
         class="group relative flex min-h-11 cursor-pointer flex-col gap-0.5 rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
     >
-        <span class="text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('settings.detection.band_health')}</span>
+        <span class="text-xs font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('settings.detection.band_health')}</span>
         {#if issueCount > 0 || runtimeState.restartRecommended}
             <span class="text-sm font-bold text-amber-700 dark:text-amber-300">
                 {$_('settings.detection.band_needs_attention', { values: { count: Math.max(issueCount, 1) } })}

@@ -306,7 +306,9 @@ test('the trend chart keeps its set height on a wide screen', async ({ page }) =
     await expect.poll(() => trend.evaluate(node => Boolean((node as HTMLCanvasElement & { __chartjs?: unknown }).__chartjs))).toBe(true);
     // Chart.js sizes the canvas to its box; a box that grows with the canvas balloons to half the width.
     await page.waitForTimeout(400);
-    const height = await trend.evaluate(node => node.getBoundingClientRect().height);
+    const { width, height } = await trend.evaluate(node => node.getBoundingClientRect());
+    // Bounded by its rem cap (38rem when stacked), and never flattened past about 4.5:1.
     expect(height).toBeGreaterThan(200);
-    expect(height).toBeLessThanOrEqual(380);
+    expect(height).toBeLessThanOrEqual(38 * 16);
+    expect(width / height).toBeLessThanOrEqual(4.5);
 });

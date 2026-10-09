@@ -105,7 +105,7 @@
                             {:else}
                                 <div class="absolute inset-0 bg-gradient-to-br from-white/10 to-white/0"></div>
                             {/if}
-                            <div class="absolute left-1 top-1 text-[9px] font-black uppercase tracking-wider px-1 py-0.5 rounded bg-black/60 text-white/90 border border-white/10">
+                            <div class="absolute left-1 top-1 text-3xs font-bold uppercase tracking-wider px-1 py-0.5 rounded bg-black/60 text-white/90 border border-white/10">
                                 {frameIdx + 1}
                             </div>
                             {#if isCurrent}
@@ -113,7 +113,7 @@
                             {/if}
                         </div>
                         {#if showFrameScores}
-                            <div class="mt-1 text-center text-[10px] font-black uppercase tracking-widest {frameScoreTone(frame)}">
+                            <div class="mt-1 text-center text-3xs font-bold uppercase tracking-widest {frameScoreTone(frame)}">
                                 {frame ? `${Math.round(frame.score * 100)}%` : '--'}
                             </div>
                         {/if}
@@ -133,10 +133,10 @@
 
     {#if showFooter}
         <div class="mt-2 flex items-center justify-between gap-3 px-1">
-            <span class="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+            <span class="text-3xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
                 {$_('detection.reclassification.frame_grid')}
             </span>
-            <span class="text-[10px] font-black text-brand-600 dark:text-brand-300 uppercase tracking-widest">
+            <span class="text-3xs font-bold text-brand-600 dark:text-brand-300 uppercase tracking-widest">
                 {$_('detection.reclassification.frame_progress', { values: { current: displayFrameIndex, total: displayClipTotal } })}
             </span>
         </div>

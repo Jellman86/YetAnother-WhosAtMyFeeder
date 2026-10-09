@@ -440,7 +440,7 @@
                 {primaryName}
             </h3>
             {#if subName}
-                <p class="text-[11px] italic text-slate-500 dark:text-slate-400 font-medium mt-0.5 truncate opacity-80">
+                <p class="text-2xs italic text-slate-500 dark:text-slate-400 font-medium mt-0.5 truncate opacity-80">
                     {subName}
                 </p>
             {/if}
@@ -486,7 +486,7 @@
         {/if}
 
         <!-- Compact metadata line: date + camera -->
-        <div class="mt-auto flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">
+        <div class="mt-auto flex items-center gap-1.5 text-2xs text-slate-500 dark:text-slate-400 font-medium truncate">
             <span>{formatDate(detection.detection_time)}</span>
             <span class="text-slate-300 dark:text-slate-600">&middot;</span>
             <span class="truncate">{detection.camera_name}</span>

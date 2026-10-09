@@ -860,13 +860,13 @@
         <div class="rounded-2xl overflow-hidden ring-1 ring-white/10 bg-black shadow-2xl">
             <div class="flex items-center justify-between gap-2 px-3 py-2 bg-slate-900/75 border-b border-slate-700/60">
                 <div class="flex items-center gap-2 min-w-0">
-                    <span class="inline-flex items-center rounded-full border border-slate-600 bg-slate-800/80 px-2 py-0.5 text-[10px] uppercase tracking-wider text-slate-200 font-semibold">
+                    <span class="inline-flex items-center rounded-full border border-slate-600 bg-slate-800/80 px-2 py-0.5 text-3xs uppercase tracking-wider text-slate-200 font-semibold">
                         {clipVariantLabel}
                     </span>
                     <span class="text-xs text-slate-300 truncate font-mono">{shortEventId}</span>
                 </div>
                 <div class="flex items-center gap-1.5 shrink-0">
-                    <span class="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold border
+                    <span class="inline-flex items-center rounded-full px-2.5 py-1 text-3xs font-semibold border
                         {playbackState === 'playing' ? 'bg-accent-400/15 text-accent-200 border-accent-400/35' :
                          playbackState === 'buffering' ? 'bg-amber-400/15 text-amber-200 border-amber-400/35' :
                          playbackState === 'ended' ? 'bg-slate-400/15 text-slate-200 border-slate-400/35' :
@@ -887,7 +887,7 @@
                     </button>
                 </div>
                 {#if shareToken && shareExpiresAt}
-                    <div class="mt-1 text-[11px] text-slate-300/90 px-1">
+                    <div class="mt-1 text-2xs text-slate-300/90 px-1">
                         {$_('video_player.share_expires', { values: { expiresAt: new Date(shareExpiresAt).toLocaleString() }, default: `Share expires: ${new Date(shareExpiresAt).toLocaleString()}` })}
                     </div>
                 {/if}
@@ -934,7 +934,7 @@
                     {/if}
 
                     {#if shareToken}
-                        <div class="pointer-events-none absolute left-3 bottom-3 rounded-md border border-white/25 bg-black/45 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white/85">
+                        <div class="pointer-events-none absolute left-3 bottom-3 rounded-md border border-white/25 bg-black/45 px-2 py-1 text-3xs font-semibold uppercase tracking-wide text-white/85">
                             {shareWatermarkLabel ?? $_('video_player.shared_watermark', { default: 'Shared clip' })}
                         </div>
                     {/if}
@@ -943,12 +943,12 @@
         </div>
 
         {#if !videoError}
-            <div class="mt-2 px-1 flex flex-col gap-2 text-[11px] sm:flex-row sm:items-center sm:justify-between">
+            <div class="mt-2 px-1 flex flex-col gap-2 text-2xs sm:flex-row sm:items-center sm:justify-between">
                 <p class="order-2 text-slate-300 sm:order-1">
                         <span class="hidden sm:inline">
-                            <span class="inline-flex items-center rounded-md border border-slate-600/80 bg-slate-800/70 px-1.5 py-0.5 text-[10px] font-semibold text-slate-100">Space / K</span>
+                            <span class="inline-flex items-center rounded-md border border-slate-600/80 bg-slate-800/70 px-1.5 py-0.5 text-3xs font-semibold text-slate-100">Space / K</span>
                         <span class="mx-1 text-slate-400">{$_('video_player.shortcut_play_pause', { default: 'play/pause' })}</span>
-                        <span class="inline-flex items-center rounded-md border border-slate-600/80 bg-slate-800/70 px-1.5 py-0.5 text-[10px] font-semibold text-slate-100">Left / Right</span>
+                        <span class="inline-flex items-center rounded-md border border-slate-600/80 bg-slate-800/70 px-1.5 py-0.5 text-3xs font-semibold text-slate-100">Left / Right</span>
                         <span class="mx-1 text-slate-400">{$_('video_player.shortcut_seek', { default: 'seek +/-5s' })}</span>
                     </span>
                     <span class="sm:hidden">{$_('video_player.shortcuts_mobile_hint', { default: 'Keyboard shortcuts are available when using a hardware keyboard.' })}</span>
@@ -999,7 +999,7 @@
                 </div>
             </div>
             {#if playbackState === 'buffering'}
-                <div class="mt-1 text-[11px] text-amber-200/90 px-1">
+                <div class="mt-1 text-2xs text-amber-200/90 px-1">
                     {$_('video_player.buffering_hint', { default: 'Buffering video stream...' })}
                 </div>
             {/if}
@@ -1007,13 +1007,13 @@
             {#if canManageShareLinks && shareManagerOpen}
                 <div class="mt-2 rounded-xl border border-slate-700/70 bg-slate-900/55 p-3 text-xs text-slate-200">
                     <div class="flex items-center justify-between gap-2 mb-2">
-                        <p class="font-semibold tracking-wide uppercase text-[11px] text-slate-300">{$_('video_player.share_manage_title', { default: 'Active share links' })}</p>
-                        <span class="text-[11px] text-slate-400">{activeShareLinks.length}</span>
+                        <p class="font-semibold tracking-wide uppercase text-2xs text-slate-300">{$_('video_player.share_manage_title', { default: 'Active share links' })}</p>
+                        <span class="text-2xs text-slate-400">{activeShareLinks.length}</span>
                     </div>
 
                     <div class="grid gap-2 sm:grid-cols-2">
                         <label class="flex flex-col gap-1">
-                            <span class="text-[11px] text-slate-400">{$_('video_player.share_manage_watermark', { default: 'Watermark label' })}</span>
+                            <span class="text-2xs text-slate-400">{$_('video_player.share_manage_watermark', { default: 'Watermark label' })}</span>
                             <input
                                 type="text"
                                 maxlength="64"
@@ -1022,7 +1022,7 @@
                             />
                         </label>
                         <label class="flex flex-col gap-1">
-                            <span class="text-[11px] text-slate-400">{$_('video_player.share_manage_expiry', { default: 'Expires in' })}</span>
+                            <span class="text-2xs text-slate-400">{$_('video_player.share_manage_expiry', { default: 'Expires in' })}</span>
                             <select
                                 bind:value={managerExpiresMinutes}
                                 class="h-9 rounded-lg border border-slate-600/70 bg-slate-800/80 px-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-400/50"
@@ -1046,18 +1046,18 @@
                     </div>
 
                     {#if shareManagerError}
-                        <p class="mt-2 text-[11px] text-rose-300">{shareManagerError}</p>
+                        <p class="mt-2 text-2xs text-rose-300">{shareManagerError}</p>
                     {/if}
 
                     {#if shareManagerLoading}
-                        <p class="mt-2 text-[11px] text-slate-400">{$_('video_player.share_manage_loading', { default: 'Loading active links...' })}</p>
+                        <p class="mt-2 text-2xs text-slate-400">{$_('video_player.share_manage_loading', { default: 'Loading active links...' })}</p>
                     {:else if activeShareLinks.length === 0}
-                        <p class="mt-2 text-[11px] text-slate-400">{$_('video_player.share_manage_empty', { default: 'No active links for this clip yet.' })}</p>
+                        <p class="mt-2 text-2xs text-slate-400">{$_('video_player.share_manage_empty', { default: 'No active links for this clip yet.' })}</p>
                     {:else}
                         <div class="mt-2 space-y-2 max-h-72 overflow-y-auto overscroll-contain pr-1">
                             {#each activeShareLinks as link (link.id)}
                                 <div class="rounded-lg border border-slate-700/70 bg-slate-900/70 p-2">
-                                    <div class="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-300">
+                                    <div class="flex flex-wrap items-center justify-between gap-2 text-2xs text-slate-300">
                                         <span class="font-mono">#{link.id}</span>
                                         <span>{$_('video_player.share_expires', { values: { expiresAt: new Date(link.expires_at).toLocaleString() }, default: `Share expires: ${new Date(link.expires_at).toLocaleString()}` })}</span>
                                         <span>{$_('video_player.share_manage_remaining', { values: { remaining: formatRemaining(link.remaining_seconds) }, default: `Remaining: ${formatRemaining(link.remaining_seconds)}` })}</span>

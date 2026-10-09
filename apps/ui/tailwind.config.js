@@ -5,6 +5,12 @@ export default {
         extend: {
             // Wide desktop monitors: room for the dashboard's third column without squeezing the field log.
             screens: { '3xl': '1920px' },
+            // Small print in rem, so it follows the reader's text size and display scale
+            // instead of staying fixed in pixels. Below text-xs (12px at the default size).
+            fontSize: {
+                '2xs': '0.6875rem',
+                '3xs': '0.625rem',
+            },
             colors: {
                 // Primary accent — driven by the active colour theme via CSS variables
                 // (default theme = teal, bluetit theme = blue). See app.css.

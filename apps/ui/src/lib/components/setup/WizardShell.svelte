@@ -87,7 +87,7 @@
         <!-- Header -->
         <div class="space-y-3 bg-surface-raised px-6 py-4">
             <div class="flex items-center justify-between">
-                <span class="flex items-center gap-1.5 text-sm font-black tracking-tight text-brand-700 dark:text-brand-300">
+                <span class="flex items-center gap-1.5 text-sm font-bold tracking-tight text-brand-700 dark:text-brand-300">
                     <BrandMark alt="" class="h-6 w-6" width={24} height={24} sizes="24px" /> YA-WAMF
                 </span>
                 <div class="flex items-center gap-3">

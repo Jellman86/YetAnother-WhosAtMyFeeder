@@ -174,7 +174,7 @@
                 onclick={() => selectFilter(name)}
             >
                 {$_(`notifications.filter_${name}`)}
-                <span class="tabular-nums text-[10px] text-slate-400 dark:text-slate-500">{counts[name]}</span>
+                <span class="tabular-nums text-3xs text-slate-400 dark:text-slate-500">{counts[name]}</span>
                 {#if isOwnerOnlyFilter(name)}
                     <svg class="h-2.5 w-2.5 text-slate-400 dark:text-slate-500" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                         <rect x="3.5" y="7" width="9" height="6" rx="1.5" />
@@ -209,7 +209,7 @@
     {:else}
         <div class="card-base p-4 sm:p-5">
             {#each groups as group (group.key)}
-                <h3 class="mb-1 mt-5 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 first:mt-0 dark:text-slate-500">
+                <h3 class="mb-1 mt-5 text-3xs font-bold uppercase tracking-[0.14em] text-slate-400 first:mt-0 dark:text-slate-500">
                     {$_(`notifications.group_${group.key}`)}
                 </h3>
                 <ol class="ml-1">
@@ -311,12 +311,12 @@
                                             <!-- Brand, not the amber gradient this used to run: a job in flight needs nobody. -->
                                             <div class="h-full w-full origin-left rounded-full {isStoppedJob(item) ? 'bg-slate-400 dark:bg-slate-500' : 'bg-brand-500 transition-transform duration-200 ease-out motion-reduce:transition-none'}" style={`transform: scaleX(${progress.percent / 100})`}></div>
                                         </div>
-                                        <p class="mt-1 flex justify-between font-mono text-[10px] text-slate-400 dark:text-slate-500">
+                                        <p class="mt-1 flex justify-between font-mono text-3xs text-slate-400 dark:text-slate-500">
                                             <span>{progress.current.toLocaleString()} / {progress.total.toLocaleString()}</span>
                                             <span>{isStoppedJob(item) ? $_('notifications.job_stopped_label') : `${progress.percent}%`}</span>
                                         </p>
                                     {/if}
-                                    <p class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[10px] text-slate-400 dark:text-slate-500">
+                                    <p class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-3xs text-slate-400 dark:text-slate-500">
                                         <!-- The group heading already carries the day, so repeating
                                              the full date on every row is noise. -->
                                         <span>{group.key === 'older' || group.key === 'yesterday'

@@ -164,19 +164,19 @@
                             {@const presentation = item.presentation}
                             <div class="rounded-xl border border-slate-200/80 dark:border-slate-700/60 px-3 py-2 bg-white/80 dark:bg-slate-900/60">
                                 <div class="flex items-center justify-between gap-2">
-                                    <p class="text-[10px] font-black uppercase tracking-wide text-slate-800 dark:text-slate-100 truncate">{presentation.title}</p>
-                                    <span class="text-[9px] font-bold uppercase tracking-widest {item.row.running > 0 ? 'text-brand-600 dark:text-brand-300' : 'text-slate-500 dark:text-slate-400'}">
+                                    <p class="text-3xs font-bold uppercase tracking-wide text-slate-800 dark:text-slate-100 truncate">{presentation.title}</p>
+                                    <span class="text-3xs font-bold uppercase tracking-widest {item.row.running > 0 ? 'text-brand-600 dark:text-brand-300' : 'text-slate-500 dark:text-slate-400'}">
                                         {presentation.stateLabel}
                                     </span>
                                 </div>
-                                <p class="mt-1 text-[10px] font-semibold text-slate-700 dark:text-slate-200 truncate">
+                                <p class="mt-1 text-3xs font-semibold text-slate-700 dark:text-slate-200 truncate">
                                     {presentation.runningLabel} · {presentation.queuedLabel}
                                     {#if presentation.capacityLabel}
                                         · {presentation.capacityLabel}
                                     {/if}
                                 </p>
                                 {#if presentation.batchLabel || presentation.blockerLabel || presentation.candidateLabel}
-                                    <p class="mt-1 text-[9px] font-semibold {presentation.blockerLabel ? 'text-amber-600 dark:text-amber-300' : 'text-slate-400 dark:text-slate-400'} truncate">
+                                    <p class="mt-1 text-3xs font-semibold {presentation.blockerLabel ? 'text-amber-600 dark:text-amber-300' : 'text-slate-400 dark:text-slate-400'} truncate">
                                         {presentation.blockerLabel ?? presentation.batchLabel}
                                         {#if presentation.candidateLabel && !presentation.blockerLabel}
                                             · {presentation.candidateLabel}
@@ -188,7 +188,7 @@
                         {#if pipeline.kinds.length > detailLimit}
                             <button
                                 type="button"
-                                class="text-left text-[10px] font-black uppercase tracking-wider text-brand-600 dark:text-brand-300 hover:underline"
+                                class="text-left text-3xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-300 hover:underline"
                                 onclick={openJobsPage}
                             >
                                 {$_('jobs.more_lanes', { values: { count: pipeline.kinds.length - detailLimit }, default: '+{count} more work lanes' })}

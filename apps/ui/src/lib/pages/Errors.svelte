@@ -613,7 +613,7 @@
         <div class="border-b border-slate-200/70 dark:border-slate-800/70 px-6 py-5">
             <div class="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <h3 class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('jobs.errors_title', { default: 'Errors' })}</h3>
+                    <h3 class="text-xs font-bold uppercase tracking-widest text-slate-500">{$_('jobs.errors_title', { default: 'Errors' })}</h3>
                     <p class="mt-1 text-xs text-slate-500">{$_('jobs.errors_health_subtitle', { default: 'Live system health for your bird detection setup.' })}</p>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
@@ -643,11 +643,11 @@
                 <div class="flex flex-wrap items-start justify-between gap-4">
                     <div class="min-w-0 flex-1">
                         <div class="flex flex-wrap items-center gap-2">
-                            <span class={`inline-flex rounded-full border px-3 py-1 text-xs font-black uppercase tracking-[0.2em] ${toneClass(overallStatusLabel())}`}>
+                            <span class={`inline-flex rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] ${toneClass(overallStatusLabel())}`}>
                                 {overallStatusLabel()}
                             </span>
                         </div>
-                        <h4 class="mt-4 text-2xl font-black tracking-tight text-slate-900 dark:text-white">{$_('jobs.errors_system_status', { default: 'System Status' })}</h4>
+                        <h4 class="mt-4 text-2xl font-bold tracking-tight text-slate-900 dark:text-white">{$_('jobs.errors_system_status', { default: 'System Status' })}</h4>
                         <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-200">
                             {overallSummary()}
                         </p>
@@ -666,9 +666,9 @@
                             </svg>
                         </div>
                         <div class="min-w-0 flex-1">
-                            <h4 class="text-sm font-black uppercase tracking-[0.18em]">{$_('jobs.frigate_media_advisory_title', { default: 'Frigate often has no snapshot for a detection' })}</h4>
+                            <h4 class="text-sm font-bold uppercase tracking-[0.18em]">{$_('jobs.frigate_media_advisory_title', { default: 'Frigate often has no snapshot for a detection' })}</h4>
                             <p class="mt-1 text-sm font-semibold">{$_('jobs.frigate_media_advisory_body', { values: { percent: frigateMediaDropPercent, dropped: frigateMediaAdvisory.dropped.toLocaleString(), started: frigateMediaAdvisory.started.toLocaleString() }, default: `${frigateMediaDropPercent}% of recent detections (${frigateMediaAdvisory.dropped.toLocaleString()} of ${frigateMediaAdvisory.started.toLocaleString()}) were dropped because Frigate had no snapshot, thumbnail, or recording for them. This usually means briefly-tracked birds that never persist as Frigate events, or short recording retention.` })}</p>
-                            <a href={FRIGATE_MISSING_DOCS_URL} target="_blank" rel="noopener noreferrer" class="mt-2 inline-block text-xs font-black uppercase tracking-widest underline underline-offset-2 hover:opacity-80">
+                            <a href={FRIGATE_MISSING_DOCS_URL} target="_blank" rel="noopener noreferrer" class="mt-2 inline-block text-xs font-bold uppercase tracking-widest underline underline-offset-2 hover:opacity-80">
                                 {$_('jobs.frigate_media_advisory_link', { default: 'How to reduce this →' })}
                             </a>
                         </div>
@@ -725,7 +725,7 @@
 
             <!-- ── Subsystem detail ────────────────────────────────── -->
             <details class="mt-8 border-t border-slate-200/70 pt-4 dark:border-slate-700/50" data-subsystem-detail>
-                <summary class="group flex min-h-11 cursor-pointer items-center justify-between gap-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-slate-500 focus-ring dark:text-slate-400">
+                <summary class="group flex min-h-11 cursor-pointer items-center justify-between gap-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-500 focus-ring dark:text-slate-400">
                     <span>{$_('jobs.errors_subsystems_title', { default: 'Subsystem detail' })}</span>
                     <svg class="h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
                 </summary>
@@ -741,8 +741,8 @@
                         </div>
                         <div class="min-w-0 flex-1">
                             <div class="flex items-center justify-between gap-2">
-                                <h4 class="text-sm font-black uppercase tracking-[0.18em]">{$_('jobs.pipeline_title', { default: 'Event Pipeline' })}</h4>
-                                <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-black uppercase tracking-wider">{eventPipelineStatus()}</span>
+                                <h4 class="text-sm font-bold uppercase tracking-[0.18em]">{$_('jobs.pipeline_title', { default: 'Event Pipeline' })}</h4>
+                                <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold uppercase tracking-wider">{eventPipelineStatus()}</span>
                             </div>
                             <p class="mt-2 text-sm font-semibold">{eventPipelineSummary()}</p>
                             <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
@@ -765,8 +765,8 @@
                         </div>
                         <div class="min-w-0 flex-1">
                             <div class="flex items-center justify-between gap-2">
-                                <h4 class="text-sm font-black uppercase tracking-[0.18em]">{$_('jobs.errors_filtered_title', { default: 'Filtered Detections' })}</h4>
-                                <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-black uppercase tracking-wider">{expectedDropCount(health?.event_pipeline).toLocaleString()}</span>
+                                <h4 class="text-sm font-bold uppercase tracking-[0.18em]">{$_('jobs.errors_filtered_title', { default: 'Filtered Detections' })}</h4>
+                                <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold uppercase tracking-wider">{expectedDropCount(health?.event_pipeline).toLocaleString()}</span>
                             </div>
                             <p class="mt-2 text-sm font-semibold">{filteredSummary()}</p>
                             {#if expectedDropReasons(health?.event_pipeline).length > 0}
@@ -780,7 +780,7 @@
                                 </dl>
                                 {#if recentFilteredDetections(health?.event_pipeline).length > 0}
                                     <div class="mt-4 border-t border-current/15 pt-3">
-                                        <p class="text-xs font-black uppercase tracking-wider opacity-70">{$_('jobs.errors_filtered_recent', { default: 'Most recent' })}</p>
+                                        <p class="text-xs font-bold uppercase tracking-wider opacity-70">{$_('jobs.errors_filtered_recent', { default: 'Most recent' })}</p>
                                         <ul class="mt-2 space-y-1.5 text-xs font-semibold">
                                             {#each keyedPipelineDetections(recentFilteredDetections(health?.event_pipeline)) as { key, entry } (key)}
                                                 <li
@@ -810,8 +810,8 @@
                         </div>
                         <div class="min-w-0 flex-1">
                             <div class="flex items-center justify-between gap-2">
-                                <h4 class="text-sm font-black uppercase tracking-[0.18em]">MQTT</h4>
-                                <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-black uppercase tracking-wider">{mqttStatus()}</span>
+                                <h4 class="text-sm font-bold uppercase tracking-[0.18em]">MQTT</h4>
+                                <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold uppercase tracking-wider">{mqttStatus()}</span>
                             </div>
                             <p class="mt-2 text-sm font-semibold">{mqttSummary()}</p>
                             <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
@@ -833,8 +833,8 @@
                         </div>
                         <div class="min-w-0 flex-1">
                             <div class="flex items-center justify-between gap-2">
-                                <h4 class="text-sm font-black uppercase tracking-[0.18em]">{$_('jobs.errors_card_live_classification', { default: 'Live Classification' })}</h4>
-                                <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-black uppercase tracking-wider">{liveClassificationStatus()}</span>
+                                <h4 class="text-sm font-bold uppercase tracking-[0.18em]">{$_('jobs.errors_card_live_classification', { default: 'Live Classification' })}</h4>
+                                <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold uppercase tracking-wider">{liveClassificationStatus()}</span>
                             </div>
                             <p class="mt-2 text-sm font-semibold">{liveClassificationSummary()}</p>
                             <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
@@ -857,8 +857,8 @@
                         </div>
                         <div class="min-w-0 flex-1">
                             <div class="flex items-center justify-between gap-2">
-                                <h4 class="text-sm font-black uppercase tracking-[0.18em]">{$_('jobs.errors_card_video_classification', { default: 'Video Classification' })}</h4>
-                                <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-black uppercase tracking-wider">{videoClassifierCard.status}</span>
+                                <h4 class="text-sm font-bold uppercase tracking-[0.18em]">{$_('jobs.errors_card_video_classification', { default: 'Video Classification' })}</h4>
+                                <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold uppercase tracking-wider">{videoClassifierCard.status}</span>
                             </div>
                             <p class="mt-2 text-sm font-semibold">{videoClassifierCard.summary}</p>
                             <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
@@ -881,8 +881,8 @@
                         </div>
                         <div class="min-w-0 flex-1">
                             <div class="flex items-center justify-between gap-2">
-                                <h4 class="text-sm font-black uppercase tracking-[0.18em]">{$_('jobs.errors_card_background_maintenance', { default: 'Background Maintenance' })}</h4>
-                                <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-black uppercase tracking-wider">{backgroundStatus()}</span>
+                                <h4 class="text-sm font-bold uppercase tracking-[0.18em]">{$_('jobs.errors_card_background_maintenance', { default: 'Background Maintenance' })}</h4>
+                                <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold uppercase tracking-wider">{backgroundStatus()}</span>
                             </div>
                             <p class="mt-2 text-sm font-semibold">{backgroundSummary()}</p>
                             <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
@@ -905,8 +905,8 @@
                         </div>
                         <div class="min-w-0 flex-1">
                             <div class="flex items-center justify-between gap-2">
-                                <h4 class="text-sm font-black uppercase tracking-[0.18em]">{$_('jobs.errors_card_notifications_db', { default: 'Notifications & DB' })}</h4>
-                                <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-black uppercase tracking-wider">{dispatcherStatus()}</span>
+                                <h4 class="text-sm font-bold uppercase tracking-[0.18em]">{$_('jobs.errors_card_notifications_db', { default: 'Notifications & DB' })}</h4>
+                                <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold uppercase tracking-wider">{dispatcherStatus()}</span>
                             </div>
                             <p class="mt-2 text-sm font-semibold">{dispatcherSummary()}</p>
                             <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
@@ -929,8 +929,8 @@
                         </div>
                         <div class="min-w-0 flex-1">
                             <div class="flex items-center justify-between gap-2">
-                                <h4 class="text-sm font-black uppercase tracking-[0.18em]">{$_('jobs.errors_card_naming', { default: 'Naming Sources' })}</h4>
-                                <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-black uppercase tracking-wider">{namingStatus()}</span>
+                                <h4 class="text-sm font-bold uppercase tracking-[0.18em]">{$_('jobs.errors_card_naming', { default: 'Naming Sources' })}</h4>
+                                <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold uppercase tracking-wider">{namingStatus()}</span>
                             </div>
                             <p class="mt-2 text-sm font-semibold">{namingSummary()}</p>
                             <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
@@ -971,8 +971,8 @@
                         </div>
                         <div class="min-w-0 flex-1">
                             <div class="flex items-center justify-between gap-2">
-                                <h4 class="text-sm font-black uppercase tracking-[0.18em]">{$_('jobs.errors_card_startup_warnings', { default: 'Startup Warnings' })}</h4>
-                                <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-black uppercase tracking-wider">{startupStatus()}</span>
+                                <h4 class="text-sm font-bold uppercase tracking-[0.18em]">{$_('jobs.errors_card_startup_warnings', { default: 'Startup Warnings' })}</h4>
+                                <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold uppercase tracking-wider">{startupStatus()}</span>
                             </div>
                             <p class="mt-2 text-sm font-semibold">{startupSummary()}</p>
                             <div class="mt-4 space-y-2 text-xs font-semibold">
@@ -1001,10 +1001,10 @@
         <section class="card-base p-6">
             <div class="mb-4 flex items-center justify-between gap-3">
                 <div>
-                    <h3 class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('jobs.current_issues_title', { default: 'Current Issues' })}</h3>
+                    <h3 class="text-xs font-bold uppercase tracking-widest text-slate-500">{$_('jobs.current_issues_title', { default: 'Current Issues' })}</h3>
                     <p class="mt-1 text-xs text-slate-500">{$_('jobs.errors_active_incidents_desc', { default: 'Active incidents that need attention.' })}</p>
                 </div>
-                <span class="text-xs font-black uppercase tracking-[0.2em] text-slate-400">{currentIssues.length.toLocaleString()} open</span>
+                <span class="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">{currentIssues.length.toLocaleString()} open</span>
             </div>
             <div class="space-y-3">
                 {#if currentIssues.length === 0}
@@ -1013,7 +1013,7 @@
                     {#each currentIssues as incident (incident.id)}
                         <article class="rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-3 dark:border-slate-700/60 dark:bg-slate-950/40">
                             <div class="flex flex-wrap items-center justify-between gap-2">
-                                <span class={`inline-flex rounded-full border px-2.5 py-1 text-xs font-black uppercase tracking-[0.2em] ${severityToneClass(incident.severity)}`}>
+                                <span class={`inline-flex rounded-full border px-2.5 py-1 text-xs font-bold uppercase tracking-[0.2em] ${severityToneClass(incident.severity)}`}>
                                     {incident.status}
                                 </span>
                                 <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">{formatDateTime(incident.lastSeenAt)}</span>
@@ -1026,12 +1026,12 @@
 
                 {#if recentIncidents.length > 0}
                     <div class="pt-3">
-                        <h4 class="text-xs font-black uppercase tracking-wider text-slate-400">{$_('jobs.recent_incidents_title', { default: 'Recent Incidents' })}</h4>
+                        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">{$_('jobs.recent_incidents_title', { default: 'Recent Incidents' })}</h4>
                         <div class="mt-3 space-y-2">
                             {#each recentIncidents.slice(0, 4) as incident (incident.id)}
                                 <article class="rounded-2xl border border-slate-200/70 bg-slate-50/70 px-4 py-3 dark:border-slate-700/50 dark:bg-slate-900/40">
                                     <div class="flex items-center justify-between gap-2">
-                                        <span class={`inline-flex rounded-full border px-2 py-0.5 text-xs font-black uppercase tracking-[0.2em] ${severityToneClass(incident.severity)}`}>
+                                        <span class={`inline-flex rounded-full border px-2 py-0.5 text-xs font-bold uppercase tracking-[0.2em] ${severityToneClass(incident.severity)}`}>
                                             {incident.status}
                                         </span>
                                         <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">{formatDateTime(incident.lastSeenAt)}</span>
@@ -1048,10 +1048,10 @@
         <section class="card-base p-6">
             <div class="mb-4 flex items-center justify-between gap-3">
                 <div>
-                    <h3 class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('jobs.errors_backend_diagnostics_title', { default: 'Recent Backend Diagnostics' })}</h3>
+                    <h3 class="text-xs font-bold uppercase tracking-widest text-slate-500">{$_('jobs.errors_backend_diagnostics_title', { default: 'Recent Backend Diagnostics' })}</h3>
                     <p class="mt-1 text-xs text-slate-500">{$_('jobs.errors_backend_diagnostics_desc', { default: 'Newest warnings and errors from the backend workspace snapshot.' })}</p>
                 </div>
-                <span class="text-xs font-black uppercase tracking-[0.2em] text-slate-400">{backendEvents.length.toLocaleString()} events</span>
+                <span class="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">{backendEvents.length.toLocaleString()} events</span>
             </div>
             {#if backendEvents.length === 0}
                 <p class="text-xs text-slate-500">{$_('jobs.errors_empty', { default: 'No grouped errors recorded yet.' })}</p>
@@ -1061,10 +1061,10 @@
                         <article class={`rounded-2xl border px-4 py-3 ${severityToneClass(event.severity ?? 'warning')}`}>
                             <div class="flex flex-wrap items-center justify-between gap-2">
                                 <div class="flex flex-wrap items-center gap-2">
-                                    <span class="inline-flex rounded-full border border-current/20 px-2 py-0.5 text-xs font-black uppercase tracking-[0.2em]">
+                                    <span class="inline-flex rounded-full border border-current/20 px-2 py-0.5 text-xs font-bold uppercase tracking-[0.2em]">
                                         {event.severity}
                                     </span>
-                                    <span class="text-xs font-black uppercase tracking-[0.2em] opacity-80">
+                                    <span class="text-xs font-bold uppercase tracking-[0.2em] opacity-80">
                                         {event.component} · {event.reason_code}
                                     </span>
                                 </div>
@@ -1090,7 +1090,7 @@
          page whose job is to say whether the feeder is working. It sits behind
          the same disclosure the subsystem detail uses. -->
     <details class="card-base p-6" data-diagnostics-export>
-        <summary class="group flex min-h-11 cursor-pointer flex-wrap items-center justify-between gap-3 text-xs font-black uppercase tracking-widest text-slate-500 focus-ring dark:text-slate-400">
+        <summary class="group flex min-h-11 cursor-pointer flex-wrap items-center justify-between gap-3 text-xs font-bold uppercase tracking-widest text-slate-500 focus-ring dark:text-slate-400">
             <span class="flex items-center gap-2">
                 <svg class="h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
                 {$_('jobs.errors_export_title', { default: 'Diagnostics export' })}

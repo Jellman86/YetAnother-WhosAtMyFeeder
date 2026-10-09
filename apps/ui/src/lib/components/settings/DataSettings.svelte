@@ -219,10 +219,10 @@
         autoPurgeMissingSnapshots = enabled;
     };
 
-    const buttonPrimaryClass = 'px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-brand-500 hover:bg-brand-600 text-white transition-all shadow-lg shadow-brand-500/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3';
-    const buttonNeutralClass = 'px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3';
-    const buttonAmberClass = 'px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-amber-500 hover:bg-amber-600 text-white transition-all shadow-lg shadow-amber-500/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3';
-    const buttonDangerClass = 'px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-red-500 hover:bg-red-600 text-white transition-all shadow-lg shadow-red-500/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3';
+    const buttonPrimaryClass = 'btn btn-primary min-h-11 px-4 py-3';
+    const buttonNeutralClass = 'btn btn-secondary min-h-11 px-4 py-3';
+    const buttonAmberClass = 'btn btn-danger min-h-11 px-4 py-3';
+    const buttonDangerClass = 'btn min-h-11 px-4 py-3 bg-red-700 text-white hover:bg-red-800';
 </script>
 
 {#snippet spinner()}
@@ -242,8 +242,8 @@
                 { label: $_('settings.data.pending_gc'), val: fmtCount(maintenanceStats.detections_to_cleanup), highlight: safeCount(maintenanceStats.detections_to_cleanup) > 0 }
             ] as stat}
                 <div class="card-base rounded-2xl p-6 text-center">
-                    <p class="text-2xl font-black tracking-tight {stat.highlight ? 'text-amber-500' : 'text-slate-900 dark:text-white'}">{stat.val}</p>
-                    <p class="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mt-1">{stat.label}</p>
+                    <p class="text-2xl font-bold tracking-tight {stat.highlight ? 'text-amber-500' : 'text-slate-900 dark:text-white'}">{stat.val}</p>
+                    <p class="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mt-1">{stat.label}</p>
                 </div>
             {/each}
         </div>
@@ -381,14 +381,14 @@
 
             <div class="p-4 rounded-xl bg-surface-raised/70 flex items-center justify-between">
                 <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">{$_('settings.data.cache_size')}</span>
-                <span class="text-sm font-black text-slate-900 dark:text-white">{cacheStats?.total_size_mb ?? 0} MB</span>
+                <span class="text-sm font-bold text-slate-900 dark:text-white">{cacheStats?.total_size_mb ?? 0} MB</span>
             </div>
 
             <!-- The archive is not the cache: clearing the cache leaves it alone (#178). -->
             <div class="p-4 rounded-xl bg-surface-raised/70 flex flex-col gap-1" data-archive-usage>
                 <div class="flex items-center justify-between gap-3">
                     <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">{$_('settings.data.archive_usage', { default: 'Archived favourites' })}</span>
-                    <span class="text-sm font-black text-slate-900 dark:text-white">
+                    <span class="text-sm font-bold text-slate-900 dark:text-white">
                         {$_('settings.data.archive_usage_detail', {
                             values: { count: cacheStats?.archive_durable ?? 0, size: `${cacheStats?.archive_size_mb ?? 0} MB` },
                             default: '{count} kept, {size}'
@@ -525,7 +525,7 @@
                     >
                         <div class="space-y-2">
                             <div class="flex justify-end">
-                                <span class="text-sm font-black text-slate-900 dark:text-white">{cacheHighQualityEventSnapshotJpegQuality}</span>
+                                <span class="text-sm font-bold text-slate-900 dark:text-white">{cacheHighQualityEventSnapshotJpegQuality}</span>
                             </div>
                             <input
                                 type="range"
@@ -536,7 +536,7 @@
                                 aria-label={$_('settings.data.cache_high_quality_event_snapshot_jpeg_quality', { default: 'HQ Snapshot JPEG Quality' })}
                                 class="w-full accent-brand-500"
                             />
-                            <div class="flex items-center justify-between text-xs font-black uppercase tracking-widest text-slate-400">
+                            <div class="flex items-center justify-between text-xs font-bold uppercase tracking-widest text-slate-400">
                                 <span>70</span>
                                 <span>100</span>
                             </div>
@@ -631,8 +631,8 @@
         {#if taxonomyStatus}
             {#if taxonomyStatus.is_running}
                 <div class="flex items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-brand-500/10 border border-brand-500/20 text-brand-700 dark:text-brand-300">
-                    <span class="text-xs font-black uppercase tracking-widest">{taxonomyStatus.message || taxonomyStatus.current_item || $_('settings.data.taxonomy_repairing')}</span>
-                    <span class="text-xs font-black">{taxonomyStatus.processed} / {taxonomyStatus.total}</span>
+                    <span class="text-xs font-bold uppercase tracking-widest">{taxonomyStatus.message || taxonomyStatus.current_item || $_('settings.data.taxonomy_repairing')}</span>
+                    <span class="text-xs font-bold">{taxonomyStatus.processed} / {taxonomyStatus.total}</span>
                 </div>
             {:else if taxonomyStatus.current_item || taxonomyStatus.message || taxonomyStatus.error}
                 <div class="p-4 rounded-xl bg-surface-raised/70 flex items-center gap-3">
@@ -670,38 +670,38 @@
         {#if timezoneRepairPreview}
             <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
                 <div class="rounded-2xl border border-slate-200 dark:border-slate-700 px-4 py-3">
-                    <p class="text-lg font-black text-slate-900 dark:text-white">{fmtCount(timezoneRepairPreview.summary.scanned_count)}</p>
-                    <p class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_scanned', { default: 'Scanned' })}</p>
+                    <p class="text-lg font-bold text-slate-900 dark:text-white">{fmtCount(timezoneRepairPreview.summary.scanned_count)}</p>
+                    <p class="text-xs font-bold uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_scanned', { default: 'Scanned' })}</p>
                 </div>
                 <div class="rounded-2xl border border-amber-200 dark:border-amber-700/60 px-4 py-3">
-                    <p class="text-lg font-black text-amber-600 dark:text-amber-400">{fmtCount(timezoneRepairPreview.summary.repair_candidate_count)}</p>
-                    <p class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_candidates', { default: 'Repair candidates' })}</p>
+                    <p class="text-lg font-bold text-amber-600 dark:text-amber-400">{fmtCount(timezoneRepairPreview.summary.repair_candidate_count)}</p>
+                    <p class="text-xs font-bold uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_candidates', { default: 'Repair candidates' })}</p>
                 </div>
                 <div class="rounded-2xl border border-slate-200 dark:border-slate-700 px-4 py-3">
-                    <p class="text-lg font-black text-slate-900 dark:text-white">{fmtCount(timezoneRepairPreview.summary.missing_frigate_event_count)}</p>
-                    <p class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_missing', { default: 'Missing in Frigate' })}</p>
+                    <p class="text-lg font-bold text-slate-900 dark:text-white">{fmtCount(timezoneRepairPreview.summary.missing_frigate_event_count)}</p>
+                    <p class="text-xs font-bold uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_missing', { default: 'Missing in Frigate' })}</p>
                 </div>
                 <div class="rounded-2xl border border-red-200 dark:border-red-700/60 px-4 py-3">
-                    <p class="text-lg font-black text-red-600 dark:text-red-400">{fmtCount(timezoneRepairPreview.summary.lookup_error_count)}</p>
-                    <p class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_lookup_errors', { default: 'Lookup errors' })}</p>
+                    <p class="text-lg font-bold text-red-600 dark:text-red-400">{fmtCount(timezoneRepairPreview.summary.lookup_error_count)}</p>
+                    <p class="text-xs font-bold uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_lookup_errors', { default: 'Lookup errors' })}</p>
                 </div>
                 <div class="rounded-2xl border border-slate-200 dark:border-slate-700 px-4 py-3">
-                    <p class="text-lg font-black text-slate-900 dark:text-white">{fmtCount(timezoneRepairPreview.summary.unsupported_delta_count)}</p>
-                    <p class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_unsupported', { default: 'Unsupported delta' })}</p>
+                    <p class="text-lg font-bold text-slate-900 dark:text-white">{fmtCount(timezoneRepairPreview.summary.unsupported_delta_count)}</p>
+                    <p class="text-xs font-bold uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_unsupported', { default: 'Unsupported delta' })}</p>
                 </div>
             </div>
 
             {#if timezoneRepairPreview.candidates.length > 0}
                 <div class="rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
                     <div class="px-5 py-3 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700">
-                        <p class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_preview_list', { default: 'Preview' })}</p>
+                        <p class="text-xs font-bold uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_preview_list', { default: 'Preview' })}</p>
                     </div>
                     <div class="divide-y divide-slate-200 dark:divide-slate-700">
                         {#each timezoneRepairPreview.candidates.slice(0, 5) as candidate}
                             <div class="px-5 py-4 space-y-1">
                                 <div class="flex items-center justify-between gap-3">
-                                    <p class="text-sm font-black text-slate-900 dark:text-white truncate">{candidate.display_name || candidate.frigate_event}</p>
-                                    <span class="text-xs font-black uppercase tracking-widest {candidate.status === 'repair_candidate' ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500'}">{candidate.status.replace(/_/g, ' ')}</span>
+                                    <p class="text-sm font-bold text-slate-900 dark:text-white truncate">{candidate.display_name || candidate.frigate_event}</p>
+                                    <span class="text-xs font-bold uppercase tracking-widest {candidate.status === 'repair_candidate' ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500'}">{candidate.status.replace(/_/g, ' ')}</span>
                                 </div>
                                 <p class="text-xs text-slate-500 dark:text-slate-400 truncate">{candidate.frigate_event}</p>
                                 <div class="text-xs text-slate-600 dark:text-slate-300">
@@ -769,7 +769,7 @@
             <div class="space-y-3 animate-in fade-in slide-in-from-top-2">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                        <label for="backfill-from-date" class="block text-xs font-black uppercase tracking-widest text-slate-500 mb-2">
+                        <label for="backfill-from-date" class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">
                             {$_('settings.data.backfill_from', { default: 'From' })}
                         </label>
                         <input
@@ -782,7 +782,7 @@
                         />
                     </div>
                     <div>
-                        <label for="backfill-to-date" class="block text-xs font-black uppercase tracking-widest text-slate-500 mb-2">
+                        <label for="backfill-to-date" class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">
                             {$_('settings.data.backfill_to', { default: 'To' })}
                         </label>
                         <input

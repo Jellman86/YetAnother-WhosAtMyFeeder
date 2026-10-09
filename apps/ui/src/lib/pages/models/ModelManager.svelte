@@ -636,7 +636,7 @@
                         <div class="mt-3 space-y-4" aria-labelledby="classifier-model-lineup-label">
                             {#each modelGroups as group (group.category)}
                                 <div>
-                                    <p class="mb-2 text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">{group.info.label}</p>
+                                    <p class="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">{group.info.label}</p>
                                     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                                         {#each group.models as modelOption (modelOption.id)}
                                             {@const cardState = modelCardState(modelOption.id)}
@@ -739,7 +739,7 @@
 
                             {#if active && classifierStatus?.active_provider}
                                 <p class="mt-3 text-sm text-slate-800 dark:text-slate-100" aria-live="polite">
-                                    <span class="mr-2 text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_current_runtime', { default: 'Current runtime' })}</span>
+                                    <span class="mr-2 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_current_runtime', { default: 'Current runtime' })}</span>
                                     <span class="inline-flex items-center gap-2 font-semibold">
                                         <span class="h-2 w-2 rounded-full bg-accent-500" aria-hidden="true"></span>
                                         {providerLabel(classifierStatus.active_provider)}

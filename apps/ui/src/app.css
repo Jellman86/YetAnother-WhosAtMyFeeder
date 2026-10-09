@@ -271,6 +271,27 @@ html[data-theme='dark'] {
   }
 }
 
+/* Controls speak in sentence case. Small capitals with wide tracking are for labels that name a
+   group (the eyebrow); on a button they shout, and the serif faces set them poorly. Element plus
+   class outranks the utilities, so every control follows without editing each one. */
+button.uppercase,
+a.btn.uppercase,
+label.uppercase.cursor-pointer {
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+/* Chart heights. A chart on a wide screen should not flatten into a strip that hides its slopes,
+   nor grow without bound; it takes a height between a floor and a cap that follows the window
+   width, in rem so display scaling and the reader's text size carry through. */
+.chart-h {
+  height: clamp(16.25rem, 18vw, 28rem);
+}
+
+.chart-h-tall {
+  height: clamp(23.75rem, 24vw, 38rem);
+}
+
 /* Entrance Animations */
 @keyframes slideUpFade {
   from {

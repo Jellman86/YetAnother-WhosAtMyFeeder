@@ -119,7 +119,7 @@
             {formatTime(detection.detection_time)}
         </div>
         {#if dayLabel}
-            <div class="text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+            <div class="text-3xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
                 {dayLabel}
             </div>
         {/if}
@@ -147,7 +147,7 @@
             {/if}
             <span class="truncate text-sm font-bold text-slate-900 dark:text-white">{primaryName}</span>
         </div>
-        <div class="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+        <div class="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap text-2xs font-semibold text-slate-500 dark:text-slate-400">
             {#if needsAttention}
                 <BadgeHint text={$_('dashboard.review_session.threshold_note')} class="shrink-0 text-accent-700 dark:text-accent-300">
                     {$_('events.row_below_threshold', { default: 'Below the naming threshold' })}

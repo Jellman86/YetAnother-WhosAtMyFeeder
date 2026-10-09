@@ -235,21 +235,21 @@
                     </span>
                 {/if}
                 {#if step.state}
-                    <span class="relative block text-[10px] font-bold uppercase tracking-[0.12em] {toneClass(step.tone)}">
+                    <span class="relative block text-3xs font-bold uppercase tracking-[0.12em] {toneClass(step.tone)}">
                         {step.state}
                     </span>
                 {/if}
                 <span class="relative mt-0.5 block text-sm font-semibold text-slate-900 dark:text-white">
                     {$_(`about.pipeline.${step.key}`)}
                 </span>
-                <span class="relative mt-0.5 block text-[11px] leading-snug text-slate-500 dark:text-slate-400">
+                <span class="relative mt-0.5 block text-2xs leading-snug text-slate-500 dark:text-slate-400">
                     {step.detail}
                 </span>
             </li>
         {/each}
     </ol>
 
-    <div class="flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px] text-slate-500 dark:text-slate-400">
+    <div class="flex flex-wrap items-center gap-x-5 gap-y-2 text-2xs text-slate-500 dark:text-slate-400">
         <span class="flex items-center gap-1.5">
             <i class="h-2.5 w-2.5 rounded-sm border border-brand-300 bg-brand-50 dark:border-brand-800 dark:bg-brand-950/40" aria-hidden="true"></i>
             {$_('about.pipeline.legend_local', { default: 'runs on your hardware' })}

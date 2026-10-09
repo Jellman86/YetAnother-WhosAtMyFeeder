@@ -32,10 +32,10 @@
                         <span class="font-semibold">{$_('update_banner.title', { values: { version: status.latest_version }, default: `YA-WAMF ${status.latest_version} is available` })}</span>
                     {/if}
                     <span class="ml-1 opacity-90">{$_('update_banner.body', { values: { current: currentDisplay }, default: `You're running ${currentDisplay}. Pull the new image from your container manager to update.` })}</span>
-                    <a href={status.release_url} target="_blank" rel="noopener noreferrer" class="ml-1 font-black underline underline-offset-2 hover:opacity-80">
+                    <a href={status.release_url} target="_blank" rel="noopener noreferrer" class="ml-1 font-bold underline underline-offset-2 hover:opacity-80">
                         {$_('update_banner.release_notes', { default: 'Release notes →' })}
                     </a>
-                    <button type="button" onclick={dismiss} class="ml-2 font-black uppercase tracking-wider underline underline-offset-2 hover:opacity-80">
+                    <button type="button" onclick={dismiss} class="ml-2 font-bold uppercase tracking-wider underline underline-offset-2 hover:opacity-80">
                         {$_('update_banner.dismiss', { default: 'Dismiss' })}
                     </button>
                 </div>

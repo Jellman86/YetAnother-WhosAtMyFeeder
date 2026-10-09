@@ -63,7 +63,7 @@
                 {@const first = index === 0}
                 {@const last = index === steps.length - 1}
                 <li class="flex items-stretch gap-3" aria-current={last ? 'true' : undefined}>
-                    <span class="w-16 shrink-0 self-center text-right text-[10px] uppercase tracking-wide text-slate-400">
+                    <span class="w-16 shrink-0 self-center text-right text-3xs uppercase tracking-wide text-slate-400">
                         {$_(`taxonomy.rank.${taxon.rank}`, { default: taxon.rank })}
                     </span>
                     <span class="relative flex w-4 shrink-0 items-center justify-center" aria-hidden="true">

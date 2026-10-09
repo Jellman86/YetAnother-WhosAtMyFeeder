@@ -81,7 +81,7 @@
     const PLACEHOLDER_NAMES = ['w-32', 'w-24', 'w-36', 'w-28'];
 </script>
 
-<section class="panel space-y-4" data-dashboard-field-log>
+<section class="space-y-4 sm:panel" data-dashboard-field-log>
     {#if showHeader}
     <header class="flex items-end justify-between gap-3">
         <div class="min-w-0">
@@ -189,7 +189,7 @@
                             <p class="truncate text-sm font-semibold italic text-slate-700 dark:text-slate-200">
                                 {drop.label ?? $_('common.unknown_species', { default: 'Unknown species' })}
                             </p>
-                            <p class="truncate text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                            <p class="truncate text-2xs font-medium text-slate-500 dark:text-slate-400">
                                 {$_(`jobs.errors_drop_reason_row.${drop.reason}`, {
                                     default: $_('jobs.errors_drop_reason_row.filter_low_confidence', {
                                         default: 'Not recorded, below your naming threshold'

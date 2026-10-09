@@ -49,7 +49,7 @@
                 <div class="mx-auto w-20 h-20 flex items-center justify-center mb-6">
                     <img src={APP_ICON_192_URL} alt="Logo" class="w-16 h-16 object-contain drop-shadow-md" />
                 </div>
-                <h2 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                <h2 class="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
                     {$_('auth.welcome_back')}
                 </h2>
                 <p class="mt-2 text-sm font-medium text-slate-500 dark:text-slate-400">
@@ -60,7 +60,7 @@
             <form class="space-y-5" onsubmit={handleSubmit} autocomplete="on">
                 <div class="space-y-4">
                     <div>
-                        <label for="username" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1.5 ml-1">{$_('auth.username')}</label>
+                        <label for="username" class="block text-3xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1.5 ml-1">{$_('auth.username')}</label>
                         <input
                             id="username"
                             name="username"
@@ -73,7 +73,7 @@
                         />
                     </div>
                     <div>
-                        <label for="password" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1.5 ml-1">{$_('auth.password')}</label>
+                        <label for="password" class="block text-3xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1.5 ml-1">{$_('auth.password')}</label>
                         <input
                             id="password"
                             name="password"
@@ -118,7 +118,7 @@
             </form>
         </div>
         
-        <p class="text-center text-[10px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-widest">
+        <p class="text-center text-3xs font-bold text-slate-400 dark:text-slate-600 uppercase tracking-widest">
             {$_('auth.secure_access')}
         </p>
     </div>

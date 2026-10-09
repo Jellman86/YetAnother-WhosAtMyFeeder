@@ -61,11 +61,11 @@
         <div class="min-w-0">
             <div class="flex flex-wrap items-center gap-1.5">
                 <span class="inline-flex h-2 w-2 rounded-full bg-cyan-300 {isComplete ? '' : 'animate-pulse'}"></span>
-                <span class="text-[10px] font-black uppercase tracking-widest text-cyan-700 dark:text-cyan-200">
+                <span class="text-3xs font-bold uppercase tracking-widest text-cyan-700 dark:text-cyan-200">
                     {statusLabel}
                 </span>
             </div>
-            <p class="mt-1 text-[11px] font-semibold text-slate-700 dark:text-slate-200">
+            <p class="mt-1 text-2xs font-semibold text-slate-700 dark:text-slate-200">
                 {statusSubtitle}
             </p>
         </div>
@@ -86,8 +86,8 @@
                 </div>
             {/if}
             <div class="rounded-xl border border-slate-950/10 bg-white/45 px-2 py-1.5 text-right shadow-sm dark:border-white/15 dark:bg-white/10">
-                <p class="text-base font-black leading-none text-slate-950 dark:text-white">{progressPercent}%</p>
-                <p class="mt-0.5 text-[8px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">
+                <p class="text-base font-bold leading-none text-slate-950 dark:text-white">{progressPercent}%</p>
+                <p class="mt-0.5 text-3xs font-bold uppercase tracking-widest text-slate-600 dark:text-slate-300">
                     {$_('detection.reclassification.analysis', { default: 'Analysis' })}
                 </p>
             </div>
@@ -103,7 +103,7 @@
         </div>
 
         <div class="rounded-xl border border-white/10 bg-black/18 p-2.5 dark:border-white/10 dark:bg-black/18">
-            <div class="flex items-center justify-between gap-3 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">
+            <div class="flex items-center justify-between gap-3 text-3xs font-bold uppercase tracking-widest text-slate-600 dark:text-slate-300">
                 <span>{$_('detection.reclassification.frame_progress', { values: { current: displayFrameIndex, total: displayClipTotal } })}</span>
                 {#if isAutoVideoReclassification}
                     <span class="rounded-md border border-cyan-500/25 bg-cyan-500/10 px-1.5 py-0.5 text-cyan-700 dark:border-cyan-300/30 dark:bg-cyan-300/10 dark:text-cyan-200">
@@ -113,9 +113,9 @@
             </div>
             {#if displayLabel}
                 <div class="mt-2 flex items-center justify-between gap-3">
-                    <p class="min-w-0 truncate text-sm font-black text-slate-950 dark:text-white">{displayLabel}</p>
+                    <p class="min-w-0 truncate text-sm font-bold text-slate-950 dark:text-white">{displayLabel}</p>
                     {#if displayScorePercent !== null}
-                        <span class="shrink-0 text-xs font-black text-cyan-700 dark:text-cyan-200">{displayScorePercent}%</span>
+                        <span class="shrink-0 text-xs font-bold text-cyan-700 dark:text-cyan-200">{displayScorePercent}%</span>
                     {/if}
                 </div>
             {/if}

@@ -3843,7 +3843,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                             <button
                                 type="button"
                                 onclick={() => onNavigate && onNavigate('/diagnostics/model-eval')}
-                                class="min-h-11 shrink-0 rounded-xl bg-slate-900 px-4 py-2 text-xs font-black text-white transition-colors hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white dark:focus-visible:ring-offset-slate-950"
+                                class="min-h-11 shrink-0 rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white dark:focus-visible:ring-offset-slate-950"
                             >
                                 {$_('settings.debug.model_eval_open')}
                             </button>

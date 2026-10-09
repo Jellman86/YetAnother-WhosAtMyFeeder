@@ -602,7 +602,7 @@
                                     style="left: {wholeScene.outline.left}px; top: {wholeScene.outline.top}px; width: {wholeScene.outline.width}px; height: {wholeScene.outline.height}px;"
                                     data-review-whole-scene-outline
                                     aria-hidden="true"
-                                ><span class="absolute left-0 top-0 rounded bg-sky-300 px-1.5 py-0.5 text-[10px] font-bold text-slate-950">{$_('detection.frame_chosen_badge', { default: 'Chosen' })}</span></div>
+                                ><span class="absolute left-0 top-0 rounded bg-sky-300 px-1.5 py-0.5 text-3xs font-bold text-slate-950">{$_('detection.frame_chosen_badge', { default: 'Chosen' })}</span></div>
                                 {#each wholeScene.otherOutlines as outline}
                                     <div
                                         class="pointer-events-none absolute z-10 rounded-sm border-2 border-dashed border-white/90"
@@ -613,7 +613,7 @@
                                 {/each}
                             {/if}
                             {#if sceneReady}
-                                <span class="pointer-events-none absolute left-3 top-3 z-30 rounded-full border border-white/15 bg-slate-950/70 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm">
+                                <span class="pointer-events-none absolute left-3 top-3 z-30 rounded-full border border-white/15 bg-slate-950/70 px-2.5 py-1 text-2xs font-semibold text-white backdrop-blur-sm">
                                     {wholeScene.otherOutlines.length > 0
                                         ? $_('detection.whole_scene_multiple_outlined', { values: { count: wholeScene.otherOutlines.length + 1 }, default: 'Whole scene, {count} crop regions outlined' })
                                         : wholeScene.pinned
@@ -631,7 +631,7 @@
                             {#if naming.secondary}
                                 <p class="mt-0.5 break-words text-sm italic text-slate-300">{naming.secondary}</p>
                             {/if}
-                            <p class="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-slate-400">
+                            <p class="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-2xs text-slate-400">
                                 <span>{formatDate(current.detection_time)} {formatTime(current.detection_time)}</span>
                                 <span aria-hidden="true">&middot;</span>
                                 <span>{current.camera_name}</span>
@@ -737,7 +737,7 @@
                         />
                     </label>
 
-                    <p id="review-species-choices" class="-mb-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                    <p id="review-species-choices" class="-mb-1 text-2xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
                         {searching
                             ? $_('dashboard.review_session.all_species', { default: 'All species' })
                             : $_('dashboard.review_session.seen_here', { default: 'Seen at this feeder' })}

@@ -113,7 +113,7 @@
                             <span class="block truncate text-xs font-semibold text-slate-800 dark:text-slate-100">
                                 {detection.display_name}
                             </span>
-                            <span class="block truncate text-[11px] text-slate-500 dark:text-slate-400">
+                            <span class="block truncate text-2xs text-slate-500 dark:text-slate-400">
                                 {#if queue.reasons.get(detection.frigate_event) === 'new_species'}
                                     <span class="font-semibold text-accent-700 dark:text-accent-300">
                                         {$_('dashboard.review_queue.new_species_tag', {
@@ -126,7 +126,7 @@
                                 {when(detection)} · {detection.camera_name}
                             </span>
                         </span>
-                        <span class="shrink-0 text-[11px] font-bold tabular-nums text-accent-700 dark:text-accent-300">
+                        <span class="shrink-0 text-2xs font-bold tabular-nums text-accent-700 dark:text-accent-300">
                             {Math.round((detection.score ?? 0) * 100)}%
                         </span>
                     </button>
@@ -135,7 +135,7 @@
         </ul>
 
         {#if queue.remaining > 0}
-            <p class="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
+            <p class="mt-2 text-2xs text-slate-500 dark:text-slate-400">
                 {$_('dashboard.review_queue.remaining', {
                     values: { count: queue.remaining },
                     default: '{count} more waiting'

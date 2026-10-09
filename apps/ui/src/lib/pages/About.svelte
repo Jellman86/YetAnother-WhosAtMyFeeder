@@ -296,7 +296,7 @@
                     <li>{$_('about.credits_list.ai_assistants')}</li>
                     <li>{$_('about.flaticon_credit')}</li>
                 </ul>
-                <p class="mt-3 text-[11px] text-slate-500 dark:text-slate-400">
+                <p class="mt-3 text-2xs text-slate-500 dark:text-slate-400">
                     {$_('about.license_notice', { values: { year: new Date().getFullYear(), license: $_('common.mit_license') } })}
                 </p>
             </section>

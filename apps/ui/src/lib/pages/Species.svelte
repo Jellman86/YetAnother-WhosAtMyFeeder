@@ -1994,7 +1994,7 @@
 
                 <!-- A fixed box, not a flex-grown one: Chart.js sizes the canvas to its parent, so a parent
                      that grows with its content lets the chart balloon to half the page width. -->
-                <div class="mt-6 w-full shrink-0" style="height: {isStackedChart() ? 380 : 260}px">
+                <div class="mt-6 w-full shrink-0 {isStackedChart() ? 'chart-h-tall' : 'chart-h'}">
                     {#if timeline?.points?.length}
                         {#key `${span}-${timeline.total_count}-${timeline.bucket}-${showPrecip}-${isDark()}-${themeStore.colorTheme}`}
                             <div class="flex h-full min-w-0 flex-col">

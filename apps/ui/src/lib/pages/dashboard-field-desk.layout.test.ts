@@ -182,7 +182,7 @@ describe('dashboard field desk layout', () => {
             expect(source).toContain('font-display text-xl font-bold text-slate-950 dark:text-white');
             expect(source).toMatch(/<section[^>]*class="panel /);
         }
-        expect(fieldLogSource).toContain('<section class="panel space-y-4" data-dashboard-field-log>');
+        expect(fieldLogSource).toContain('<section class="space-y-4 sm:panel" data-dashboard-field-log>');
         expect(notableNearbySource).toContain('class="panel space-y-4"');
         expect(recentAudioSource).toContain('data-audio-history-action');
     });
