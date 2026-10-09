@@ -336,7 +336,9 @@ A visit's node is solid; a capture's is hollow on a tinted stretch of the line, 
 used as the visit photo is filled and says "Visit photo", so the two kinds differ by shape,
 position and words as well as colour. A single-capture visit has no list and keeps its Open
 action. Each line names its own species with the shared naming preferences and states its own
-confidence. Camera and day stay at visit level. The camera chip appears on log rows only when the log holds more than one camera.
+confidence. Camera and day stay at visit level. The camera appears beneath the species name only when the log holds more than one camera.
+Primary species names wrap fully, including in narrow desktop dashboard columns; the camera
+shares the metadata line so it cannot squeeze the name into a separate tiny column.
 `VisitCaptureList` reads the first page when a visit first opens and reuses it until the visit,
 window or access changes; Health rows and Explorer cards use the same loader through
 `VisitCaptures`. Explorer grids use a native floating capture panel above the cards, so no grid row moves

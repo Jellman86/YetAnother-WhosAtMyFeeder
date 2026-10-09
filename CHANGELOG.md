@@ -6,6 +6,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- The dashboard shows full species names in narrow desktop columns. Names wrap, and the camera
+  sits beneath them instead of taking a column that squeezed or cut off the name (#666).
+
 - The **Health** settings page is tidier. The system graph fills the width of its card instead of
   sitting small in the middle, its scale sits beside the plot rather than over the newest samples,
   and the overall verdict (**System Status**) now opens the **System** card with the subsystem
