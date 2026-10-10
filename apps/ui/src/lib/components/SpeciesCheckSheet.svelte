@@ -172,6 +172,9 @@
         return () => clearTimeout(timer);
     });
 
+    /** The captures route's largest page. */
+    const CAPTURE_PAGE = 50;
+
     async function eventIds(entries: CheckVisit[]): Promise<string[]> {
         const ids: string[] = [];
         for (const { visit } of entries) {
@@ -179,9 +182,13 @@
                 ids.push(visit.representative.frigate_event);
                 continue;
             }
-            // Every capture of the visit moves with it, or the visit would split in two.
-            const { captures } = await fetchVisitCaptures(visit.visit_id, { startTime: span?.start, endTime: span?.end, limit: 100 });
-            ids.push(...captures.map((capture) => capture.frigate_event));
+            // Every capture of the visit moves with it, or the visit would split in two. The route
+            // serves at most CAPTURE_PAGE at a time, so a long visit is read page by page.
+            for (let offset = 0; ; offset += CAPTURE_PAGE) {
+                const page = await fetchVisitCaptures(visit.visit_id, { startTime: span?.start, endTime: span?.end, limit: CAPTURE_PAGE, offset, requestKey: `species-check-captures:${visit.visit_id}` });
+                ids.push(...page.captures.map((capture) => capture.frigate_event));
+                if (page.captures.length < CAPTURE_PAGE || offset + CAPTURE_PAGE >= page.total) break;
+            }
         }
         return [...new Set(ids)];
     }
