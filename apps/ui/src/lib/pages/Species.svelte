@@ -1,6 +1,7 @@
 <script lang="ts">
     import CaptureWall from '../components/CaptureWall.svelte';
     import SpeciesChecks from '../components/SpeciesChecks.svelte';
+    import SpeciesCheckSheet from '../components/SpeciesCheckSheet.svelte';
     import { buildShowcaseRows, SPOTLIGHT_PORTRAITS } from '../leaderboard/showcase';
     import { wallTiles } from '../leaderboard/wall';
     import { onDestroy, tick, untrack } from 'svelte';
@@ -129,6 +130,8 @@
     let hiddenTimelineSeries = $state<string[]>([]);
     let includeUnknownBird = $state(false);
     let selectedSpecies = $state<string | null>(null);
+    /** The flagged species the owner opened the check sheet on, or null when it is closed. */
+    let checkStart = $state<string | null>(null);
     let timeline = $state<DetectionsTimelineSpanResponse | null>(null);
     let activityHeatmap = $state<DetectionsActivityHeatmapResponse | null>(null);
     let speciesInfoCache = $state<Record<string, SpeciesInfo>>({});
@@ -1782,6 +1785,7 @@
                 countLabel={showcaseCountLabel}
                 nearbyRadiusKm={nearbyCheck?.radiusKm ?? null}
                 onopen={(key) => (selectedSpecies = key)}
+                oncheck={authStore.hasOwnerAccess ? (key) => (checkStart = key) : undefined}
             />
         {/if}
 
@@ -2295,5 +2299,16 @@
     <SpeciesDetailModal
         speciesName={selectedSpecies}
         onclose={() => selectedSpecies = null}
+    />
+{/if}
+
+{#if checkStart !== null}
+    <SpeciesCheckSheet
+        checks={showcaseRows.filter((row) => row.flagged).map((row) => ({ key: row.key, displayName: row.displayName, scientificName: row.scientificName }))}
+        startKey={checkStart}
+        window={leaderboardWindow}
+        nearbyRadiusKm={nearbyCheck?.radiusKm ?? null}
+        onclose={() => (checkStart = null)}
+        onchanged={() => void loadLeaderboard()}
     />
 {/if}

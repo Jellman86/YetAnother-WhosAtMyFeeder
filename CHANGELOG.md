@@ -6,6 +6,16 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Needs a check** on the leaderboard opens a check sheet instead of the species page. Each
+  flagged species shows its visits as the crops the camera actually took, all selected, with the
+  likeliest answer first: a bird this feeder already knows that the same crops were also read as,
+  or the feeder's most common bird. One tap renames every capture of the selected visits; any other
+  species, picked from the feeder's regulars or a search, takes a second tap. A species the
+  catalogue places outside the birds, such as a squirrel, is offered as "It really is…" when the
+  camera is sure and "Not a bird" (hides the visits) when it is not. Answers go species after
+  species and end on a summary. A rename also teaches personalised identification, so the sheet
+  offers no undo.
+
 - **Find more birds** and **Scan again** now show progress. A waiting scan says how many scans are
   ahead of it; a running scan shows its four real steps (find, name, count, save), names the step
   in words ("Naming each bird found: 2 of 5") and counts the seconds. The button reads

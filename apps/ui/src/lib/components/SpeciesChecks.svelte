@@ -6,7 +6,8 @@
     /**
      * Species the rankings flag as probably misidentified: only the camera backs them and nobody has
      * reported them nearby. They are counted in the wall's share bar but never shown on the wall,
-     * and are named here so they can be checked, each opening its record.
+     * and are named here with this feeder's own crop of each. An owner checks them in the check
+     * sheet, starting from the one they pick; a visitor opens the species, as before.
      */
     interface Props {
         /** Only the flagged rows. */
@@ -14,9 +15,11 @@
         countLabel: (count: number) => string;
         nearbyRadiusKm?: number | null;
         onopen: (key: string) => void;
+        /** Present for an owner: opens the check sheet at this species. */
+        oncheck?: (key: string) => void;
     }
 
-    let { checks, countLabel, nearbyRadiusKm = null, onopen }: Props = $props();
+    let { checks, countLabel, nearbyRadiusKm = null, onopen, oncheck }: Props = $props();
 
     // A photograph that fails to load falls back to the next honest source, never to a hole.
     let failed = $state<Set<string>>(new Set());
@@ -32,34 +35,48 @@
 </script>
 
 {#if checks.length > 0}
-    <div class="flex flex-wrap items-center gap-3 border-t border-slate-200 pt-4 dark:border-slate-700" data-spotlight-checks>
-        <div class="flex w-full flex-col gap-1 sm:w-52">
-            <span class="inline-flex items-center gap-1.5 self-start rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-900 dark:bg-amber-950/70 dark:text-amber-300">
-                <span class="h-1.5 w-1.5 rounded-full bg-amber-500" aria-hidden="true"></span>{$_('leaderboard.spotlight_needs_check', { default: 'Needs a check' })}
-            </span>
-            {#if nearbyRadiusKm}
-                <span class="text-xs text-slate-500 dark:text-slate-400">{$_('leaderboard.unlikely_reason', { values: { radius: nearbyRadiusKm }, default: 'Not reported within {radius} km' })}</span>
-            {/if}
+    <section class="panel flex flex-col gap-5 lg:flex-row lg:items-center" aria-labelledby="spotlight-checks-title" data-spotlight-checks>
+        <div class="min-w-0 lg:w-96 lg:shrink-0">
+            <p class="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-amber-700 dark:text-amber-300">
+                <span class="h-2 w-2 rounded-full bg-amber-500" aria-hidden="true"></span>{$_('leaderboard.spotlight_needs_check', { default: 'Needs a check' })}
+            </p>
+            <h3 id="spotlight-checks-title" class="mt-1 font-display text-2xl font-bold text-slate-900 dark:text-white">
+                {$_('leaderboard.check.entry_title', { values: { count: checks.length }, default: '{count} species may be misnamed' })}
+            </h3>
+            <p class="mt-1 text-base text-slate-600 dark:text-slate-300">
+                {nearbyRadiusKm
+                    ? $_('leaderboard.check.entry_body', { values: { radius: nearbyRadiusKm }, default: 'Each rests on the camera alone, and no birder has reported it within {radius} km.' })
+                    : $_('leaderboard.check.entry_body_plain', { default: 'Each rests on the camera alone.' })}
+                {#if oncheck}{' '}{$_('leaderboard.check.entry_action', { default: 'See what was photographed and say what it was.' })}{/if}
+            </p>
         </div>
-        {#each checks as row (row.key)}
-            {@const thumb = pictureFor(row)}
-            <button
-                type="button"
-                class="flex min-h-11 items-center gap-3 rounded-xl border border-slate-200 bg-white py-1.5 pl-1.5 pr-3 text-left transition-colors hover:border-amber-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-amber-600"
-                aria-label={`${$_('leaderboard.spotlight_review', { default: 'Review' })} ${row.displayName}`}
-                onclick={() => onopen(row.key)}
-            >
-                {#if thumb}
-                    <img src={thumb.url} alt="" loading="lazy" decoding="async" class="h-9 w-9 rounded-lg object-cover" onerror={() => markFailed(thumb.raw)} />
-                {:else}
-                    <span class="h-9 w-9 rounded-lg bg-slate-200 dark:bg-slate-800" aria-hidden="true"></span>
-                {/if}
-                <span class="flex flex-col">
-                    <span class="text-sm font-semibold text-slate-900 dark:text-white">{row.displayName}</span>
-                    <span class="text-xs tabular-nums text-slate-500 dark:text-slate-400">{row.count.toLocaleString()} {countLabel(row.count)}</span>
-                </span>
-                <span class="ml-1 text-xs font-semibold text-amber-700 dark:text-amber-300">{$_('leaderboard.spotlight_review', { default: 'Review' })}</span>
+        <ul class="flex min-w-0 flex-1 gap-3 overflow-x-auto pb-1 [scrollbar-width:thin]">
+            {#each checks as row (row.key)}
+                {@const thumb = pictureFor(row)}
+                <li class="shrink-0">
+                    <button
+                        type="button"
+                        class="group block w-28 text-left focus-visible:outline-none"
+                        aria-label={oncheck
+                            ? $_('leaderboard.check.open_one', { values: { species: row.displayName }, default: 'Check {species}' })
+                            : `${$_('leaderboard.spotlight_review', { default: 'Review' })} ${row.displayName}`}
+                        onclick={() => (oncheck ? oncheck(row.key) : onopen(row.key))}
+                    >
+                        {#if thumb}
+                            <img src={thumb.url} alt="" loading="lazy" decoding="async" class="h-28 w-28 rounded-2xl object-cover ring-1 ring-line transition group-hover:ring-2 group-hover:ring-amber-400 group-focus-visible:ring-4 group-focus-visible:ring-brand-400" onerror={() => markFailed(thumb.raw)} />
+                        {:else}
+                            <span class="block h-28 w-28 rounded-2xl bg-surface-raised ring-1 ring-line" aria-hidden="true"></span>
+                        {/if}
+                        <span class="mt-2 block text-sm font-semibold leading-snug text-slate-900 dark:text-white">{row.displayName}</span>
+                        <span class="block text-sm tabular-nums text-slate-500 dark:text-slate-400">{row.count.toLocaleString()} {countLabel(row.count)}</span>
+                    </button>
+                </li>
+            {/each}
+        </ul>
+        {#if oncheck}
+            <button type="button" class="btn btn-primary min-h-12 shrink-0 px-5 text-base" onclick={() => oncheck(checks[0].key)} data-spotlight-checks-start>
+                {$_('leaderboard.check.start', { values: { count: checks.length }, default: 'Check {count} species' })}
             </button>
-        {/each}
-    </div>
+        {/if}
+    </section>
 {/if}

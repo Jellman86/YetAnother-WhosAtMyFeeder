@@ -246,7 +246,12 @@ The timeline and the composition chart share one colour per species
 The wall (`CaptureWall`) opens the page. Its header names the leading species, and under it the
 share bar is the wall's navigation: one segment per species in its chart colour, sized by its share,
 then the species beyond the list summed as "other species" and the flagged ones as "Needs a check"
-(`SpeciesChecks`, which lists them for a person to review). Hovering or focusing a segment opens it
+(`SpeciesChecks`, which lists them for a person to review). For an owner it opens the check sheet
+(`SpeciesCheckSheet`, decisions in `utils/species-check.ts`): one flagged species at a time, its
+visits as their best crops (never the whole scene), all selected, and the likeliest answer first
+with its effect on the button. Only the suggestion commits in one tap; any other species takes a
+second, because a rename also teaches personalised identification and is not undone by renaming
+back. On a phone the crops are a sideways strip so the answer stays within reach. Hovering or focusing a segment opens it
 out to say its share and count and lights that species' visits while the rest step back; a click
 pins the highlight (a second click lets go, Escape too) and offers "Open" for the species, which is
 all touch has. A highlight always points at something: a segment no longer in the bar, or a species
