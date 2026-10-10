@@ -242,8 +242,9 @@ the rest of the app. It was the only page on Tailwind's `gray` ramp while every 
 classes rather than the kit in `app.css`, and had no control meeting the touch-target floor. Add
 observation was checked against the Evidence page shape and already follows it: slim bar, the
 1.35fr media and 0.85fr decision rail, and a confirm that names the bird it will add. Remaining on
-this surface: Model Evaluation carries no translations at all, which is its own piece of work
-rather than part of the visual pass.
+this surface: most of Model Evaluation is still untranslated, which is its own piece of work
+rather than part of the visual pass. Only the compatibility-only run view goes through
+`svelte-i18n` so far.
 
 ✅ **Background work pass:** the separate jobs view is gone. It showed the same work three times
 over, as four counters, a "Work Lanes" list and an "Active Work" list, with two lanes sharing the

@@ -1752,6 +1752,9 @@
       "compat_result_skipped": "一部のデバイスを検証できませんでした。以下の内訳を確認してください。",
       "compat_result_warn": "すべてのデバイスで動作しますが、一部は CPU ベースラインと結果が異なります。",
       "compat_results_unavailable": "互換性の結果を読み込めませんでした。再試行してください。",
+      "runtime_refresh_failed": "チェックは完了しましたが、YA-WAMF は現在使用中の実行環境を読み取れませんでした。ページを再読み込みして現在のプロバイダーを確認してください。",
+      "planned_provider_label": "予定",
+      "model_manager_planned_runtime": "予定の実行環境",
       "compat_run": "互換性チェックを実行",
       "compat_running": "実行中…",
       "compat_stage_run": "このホストのデバイスを検証中",
@@ -3481,6 +3484,14 @@
     "node_capture": "{time} の撮影（この訪問の一部）",
     "node_capture_shown": "{time} の撮影（この訪問の一部で、訪問の写真）",
     "open_capture": "{species} の撮影を開く"
+  },
+  "model_eval": {
+    "col_best_provider": "検証済みの最適なプロバイダー",
+    "col_median_inference": "推論時間の中央値",
+    "col_model": "モデル",
+    "col_validated_providers": "検証済みプロバイダー",
+    "compat_only_body": "この実行では、各プロバイダーが読み込まれ、有限の出力を返し、CPU 基準と一致するかを確認しました。精度は測定していないため、精度の数値は表示されません。精度を測定するには評価を実行してください。",
+    "compat_only_title": "互換性チェックのみ"
   },
   "taxonomy": {
     "title": "{name} の系統樹",

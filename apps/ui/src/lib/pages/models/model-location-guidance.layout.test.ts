@@ -35,7 +35,7 @@ describe('Model Manager location guidance', () => {
         // modified clicks fall through to the browser (new tab, etc.).
         expect(modelManagerSource).toContain('event.metaKey');
         expect(modelManagerSource).toContain('onopenlocationsettings();');
-        expect(detectionSettingsSource).toContain('<ModelManager executionMode={imageExecutionMode} autoVideoEnabled={autoVideoClassification} {onopenlocationsettings} />');
+        expect(detectionSettingsSource).toMatch(/<ModelManager[^>]*\{onopenlocationsettings\}\s*\/>/);
         expect(settingsSource).toContain("onopenlocationsettings={() => handleTabChange('integrations')}");
     });
 });

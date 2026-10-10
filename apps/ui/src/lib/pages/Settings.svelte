@@ -2095,7 +2095,27 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
 
     $effect(() => {
         if (isDirty) return;
-        return pageRefreshAction.register(() => loadSettings());
+        return pageRefreshAction.register(async () => {
+            await Promise.all([loadSettings(), loadClassifierStatus()]);
+        });
+    });
+
+    // A harness can finish in another tab, and isolated workers can start after
+    // the completion response. Keep the visible runtime current without touching
+    // the settings form or accumulating overlapping background reads.
+    $effect(() => {
+        if (activeTab !== 'detection' || !authStore.showSettings) return;
+        const refreshRuntime = (): void => {
+            if (!document.hidden && classifierStatusReads === 0) void loadClassifierStatus();
+        };
+        refreshRuntime();
+        const interval = window.setInterval(refreshRuntime, 5000);
+        document.addEventListener('visibilitychange', refreshRuntime);
+        return () => {
+            window.clearInterval(interval);
+            document.removeEventListener('visibilitychange', refreshRuntime);
+            classifierStatusRequest += 1;
+        };
     });
 
     $effect(() => {
@@ -2764,11 +2784,24 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         }
     }
 
-    async function loadClassifierStatus() {
+    // Reads only the live runtime, never the settings form, so a refresh after a
+    // compatibility check or a model switch keeps the owner's unsaved edits. The
+    // newest request wins, so a slow earlier reply cannot restore a stale provider.
+    let classifierStatusRequest = 0;
+    let classifierStatusReads = 0;
+
+    async function loadClassifierStatus(): Promise<boolean> {
+        const request = ++classifierStatusRequest;
+        classifierStatusReads += 1;
         try {
-            classifierStatus = await fetchClassifierStatus();
+            const status = await fetchClassifierStatus();
+            if (request === classifierStatusRequest) classifierStatus = status;
+            return true;
         } catch (e) {
             console.error('Failed to load classifier status', e);
+            return false;
+        } finally {
+            classifierStatusReads -= 1;
         }
     }
 
@@ -3369,7 +3402,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             // Sync local state to handle server-side normalization (e.g. stripped slashes)
             await loadSettings(true);
             message = { type: 'success', text: $_('notifications.settings_saved') };
-            await Promise.all([loadMaintenanceStats(), loadCacheStats()]);
+            // A saved provider or worker change re-plans the runtime.
+            await Promise.all([loadMaintenanceStats(), loadCacheStats(), loadClassifierStatus()]);
         } catch (e) {
             message = {
                 type: 'error',
@@ -3497,6 +3531,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:imageExecutionMode
                     bind:inferenceProvider
                     {classifierStatus}
+                    onrefreshclassifierstatus={loadClassifierStatus}
                     bind:blockedLabels
                     bind:blockedSpecies
                     {videoCircuitOpen}

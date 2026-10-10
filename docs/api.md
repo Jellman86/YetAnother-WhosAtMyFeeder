@@ -610,6 +610,10 @@ opt into downloading the full registry. Compatibility runs publish their normal
 summary plus `GET /api/diagnostics/model-eval/runs/{run_id}/{artifact}` with
 `artifact=device_matrix.json`. Its provider matrix records image flavor, baseline,
 compile/finite-output status, real-image agreement, eligibility, and inference latency.
+Each compatibility summary row has `requested_provider: "validation_sweep"`. Its accuracy fields
+are zero placeholders, not measurements, and its `mean_latency_ms`, `p50_latency_ms` and
+`p95_latency_ms` all hold the best provider's median inference latency. Clients should use the
+marker, not a zero score, to tell such a row from a measured one.
 Compatibility summaries also expose `validated_providers` and `failed_providers` per model; the
 measured passing order becomes the current-install activation and `Auto` recommendation.
 `discover_providers=true` additionally probes packaged, host-visible providers omitted by current

@@ -1762,6 +1762,9 @@
       "compat_result_skipped": "Some devices could not be validated. See the breakdown below.",
       "compat_result_warn": "All devices run, but some differ from the CPU baseline.",
       "compat_results_unavailable": "Compatibility results could not be loaded. Please retry.",
+      "runtime_refresh_failed": "The check finished, but YA-WAMF could not read the runtime it is now using. Reload the page to see the current provider.",
+      "planned_provider_label": "Planned",
+      "model_manager_planned_runtime": "Planned runtime",
       "compat_run": "Run compatibility check",
       "compat_running": "Running…",
       "compat_stage_run": "Validating this host's devices",
@@ -3481,6 +3484,14 @@
     "node_capture": "Capture at {time}, part of this visit",
     "node_capture_shown": "Capture at {time}, part of this visit, and its visit photo",
     "open_capture": "Open {species} capture"
+  },
+  "model_eval": {
+    "col_best_provider": "Best validated provider",
+    "col_median_inference": "Median inference",
+    "col_model": "Model",
+    "col_validated_providers": "Validated providers",
+    "compat_only_body": "This run checked that each provider loads, gives finite output and agrees with the CPU baseline. It did not measure accuracy, so no accuracy figures are shown. Run Evaluation to measure accuracy.",
+    "compat_only_title": "Compatibility check only"
   },
   "taxonomy": {
     "title": "Family tree of {name}",

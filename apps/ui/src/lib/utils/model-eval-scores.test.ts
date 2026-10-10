@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ModelEvalModelSummary } from '../api/model_eval';
-import { modelEvalScores } from './model-eval-scores';
+import { isCompatibilityOnlyRun, modelEvalScores } from './model-eval-scores';
 
 const base: ModelEvalModelSummary = {
     model_id: 'eu_medium_focalnet_b',
@@ -48,5 +48,41 @@ describe('model evaluation scores', () => {
     it('keeps the figures over every bird for runs that do not know the vocabulary', () => {
         expect(modelEvalScores(base)).toEqual({ top1: 0.528, top3: 0.6, core: 0.386, region: 0.678, canName: null });
         expect(modelEvalScores({ ...base, vocabulary_known: false, top1_accuracy_in_vocabulary: null }).top1).toBe(0.528);
+    });
+
+    it('reports no accuracy for a compatibility-only row, whose zeros are placeholders', () => {
+        const compatibility: ModelEvalModelSummary = {
+            ...base,
+            requested_provider: 'validation_sweep',
+            active_provider: 'intel_npu',
+            top1_accuracy: 0,
+            top3_accuracy: 0,
+            top5_accuracy: 0,
+            shared_core_top1: 0,
+            regional_top1: 0,
+        };
+        expect(modelEvalScores(compatibility)).toEqual({ top1: null, top3: null, core: null, region: null, canName: null });
+    });
+
+    it('keeps a genuinely measured zero as zero', () => {
+        const measuredZero = modelEvalScores({
+            ...base,
+            requested_provider: 'intel_npu',
+            top1_accuracy: 0,
+            top3_accuracy: 0,
+            shared_core_top1: 0,
+            regional_top1: 0,
+        });
+        expect(measuredZero).toEqual({ top1: 0, top3: 0, core: 0, region: 0, canName: null });
+    });
+});
+
+describe('compatibility-only runs', () => {
+    it('are recognised from the validation sweep marker, not from zero scores', () => {
+        const compatibility = { ...base, requested_provider: 'validation_sweep', top1_accuracy: 0 };
+        expect(isCompatibilityOnlyRun([compatibility, { ...compatibility, model_id: 'dino' }])).toBe(true);
+        expect(isCompatibilityOnlyRun([{ ...base, top1_accuracy: 0, top3_accuracy: 0 }])).toBe(false);
+        expect(isCompatibilityOnlyRun([])).toBe(false);
+        expect(isCompatibilityOnlyRun(undefined)).toBe(false);
     });
 });

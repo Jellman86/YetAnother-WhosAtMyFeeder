@@ -1752,6 +1752,9 @@
       "compat_result_skipped": "Einige Geräte konnten nicht validiert werden. Details in der Aufschlüsselung unten.",
       "compat_result_warn": "Alle Geräte laufen, aber einige weichen von der CPU-Referenz ab.",
       "compat_results_unavailable": "Die Kompatibilitätsergebnisse konnten nicht geladen werden. Bitte versuchen Sie es erneut.",
+      "runtime_refresh_failed": "Die Prüfung ist abgeschlossen, aber YA-WAMF konnte die jetzt verwendete Laufzeit nicht abrufen. Laden Sie die Seite neu, um den aktuellen Anbieter zu sehen.",
+      "planned_provider_label": "Geplant",
+      "model_manager_planned_runtime": "Geplante Laufzeit",
       "compat_run": "Kompatibilitätsprüfung starten",
       "compat_running": "Läuft…",
       "compat_stage_run": "Validierung der Geräte dieses Hosts",
@@ -3481,6 +3484,14 @@
     "node_capture": "Aufnahme um {time}, Teil dieses Besuchs",
     "node_capture_shown": "Aufnahme um {time}, Teil dieses Besuchs und zugleich sein Besuchsfoto",
     "open_capture": "Aufnahme von {species} öffnen"
+  },
+  "model_eval": {
+    "col_best_provider": "Bester validierter Anbieter",
+    "col_median_inference": "Median-Inferenzzeit",
+    "col_model": "Modell",
+    "col_validated_providers": "Validierte Anbieter",
+    "compat_only_body": "Dieser Lauf hat geprüft, ob jeder Anbieter lädt, endliche Ausgaben liefert und mit der CPU-Referenz übereinstimmt. Die Genauigkeit wurde nicht gemessen, daher werden keine Genauigkeitswerte angezeigt. Starten Sie eine Evaluierung, um die Genauigkeit zu messen.",
+    "compat_only_title": "Nur Kompatibilitätsprüfung"
   },
   "taxonomy": {
     "title": "Stammbaum: {name}",

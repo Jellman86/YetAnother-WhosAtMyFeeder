@@ -2,7 +2,7 @@
     import { get } from 'svelte/store';
     import { _ } from 'svelte-i18n';
     import { onMount, onDestroy } from 'svelte';
-    import { fetchAvailableModels, fetchInstalledModels, downloadModel, fetchDownloadStatus, activateModel, deleteModel, validateModel, checkHealth, fetchClassifierStatus, getVisibleTieredModelLineup, groupTieredModelLineup, categorizeModel, MODEL_CATEGORY_INFO, type ModelMetadata, type InstalledModel, type DownloadProgress, type ClassifierStatus, type HealthStatus } from '../../api';
+    import { fetchAvailableModels, fetchInstalledModels, downloadModel, fetchDownloadStatus, activateModel, deleteModel, validateModel, checkHealth, getVisibleTieredModelLineup, groupTieredModelLineup, categorizeModel, MODEL_CATEGORY_INFO, type ModelMetadata, type InstalledModel, type DownloadProgress, type ClassifierStatus, type HealthStatus } from '../../api';
     import { jobProgressStore } from '../../stores/job_progress.svelte';
     import { confirmAction } from '../../stores/confirm_dialog.svelte';
     import { toastStore } from '../../stores/toast.svelte';
@@ -12,9 +12,13 @@
     import { toAppPath } from '../../app/url-base';
     import DiagnosticDialog from '../../components/DiagnosticDialog.svelte';
     import type { DiagnosticStage, DiagnosticResult } from '../../utils/diagnostic-runner';
-    let { executionMode = 'subprocess', autoVideoEnabled = false, onopenlocationsettings }: {
+    // The live runtime is owned by the Settings page, so the band, the runtime
+    // report and this card always show the same, freshest provider.
+    let { executionMode = 'subprocess', autoVideoEnabled = false, classifierStatus, onruntimechange, onopenlocationsettings }: {
         executionMode?: string;
         autoVideoEnabled?: boolean;
+        classifierStatus: ClassifierStatus | null;
+        onruntimechange?: () => Promise<unknown>;
         onopenlocationsettings?: () => void;
     } = $props();
 
@@ -38,7 +42,6 @@
     let availableModels = $state<ModelMetadata[]>([]);
     let installedModels = $state<InstalledModel[]>([]);
     let health = $state<HealthStatus | null>(null);
-    let classifierStatus = $state<ClassifierStatus | null>(null);
     let loading = $state(true);
     let error = $state<string | null>(null);
     let downloadStatuses = $state<Record<string, DownloadProgress>>({});
@@ -54,7 +57,9 @@
     let wizardRunId = $state(0);
     let wizardDownload = $state(false);
     let showAdvancedModels = $state(false);
-    let cropDetectorStatus = $state<ClassifierStatus['crop_detector'] | null>(null);
+    const cropDetectorStatus = $derived(classifierStatus?.crop_detector ?? null);
+    // Until a worker reports what it loaded, the provider is the plan, not a fact.
+    const runtimePlanned = $derived(classifierStatus?.runtime_source === 'planned');
 
     function t(key: string, fallback: string, values?: Record<string, string | number>): string {
         return get(_)(key, values ? { values, default: fallback } : { default: fallback });
@@ -145,21 +150,15 @@
         loading = true;
         error = null;
         try {
-            const [available, installed, healthData, classifierData] = await Promise.all([
+            const [available, installed, healthData] = await Promise.all([
                 fetchAvailableModels(),
                 fetchInstalledModels(),
-                checkHealth(),
-                fetchClassifierStatus().catch((e) => {
-                    console.warn("Failed to load classifier status in model manager", e);
-                    return null;
-                })
+                checkHealth()
             ]);
             availableModels = available;
             installedModels = installed;
             health = healthData;
-            classifierStatus = classifierData;
-            cropDetectorStatus = classifierData?.crop_detector ?? null;
-            
+
             if (!selectedModelId && installed.length > 0) {
                 const activeModel = installed.find(m => m.is_active);
                 if (activeModel) selectedModelId = activeModel.id;
@@ -174,6 +173,10 @@
         } finally {
             loading = false;
         }
+    }
+
+    async function refreshModels(): Promise<void> {
+        await Promise.all([loadData(), onruntimechange?.()]);
     }
 
     async function pollDownloads() {
@@ -408,6 +411,7 @@
         try {
             await activateModel(modelId);
             installedModels = await fetchInstalledModels();
+            await onruntimechange?.();
         } catch (e) {
             console.error(e);
             toastStore.error(t('settings.detection.model_manager_activate_error', 'Failed to activate model'));
@@ -520,6 +524,7 @@
         }
         wizardBusy = false;
         installedModels = await fetchInstalledModels();
+        await onruntimechange?.();
     }
 
     function handleInstall(model: ModelMetadata) {
@@ -642,7 +647,7 @@
                             </p>
                             <button
                                 type="button"
-                                onclick={loadData}
+                                onclick={refreshModels}
                                 class="btn btn-ghost inline-flex min-h-11 items-center gap-1.5 px-3 text-xs font-bold"
                                 aria-label={$_('settings.detection.model_manager_refresh', { default: 'Refresh' })}
                                 title={$_('settings.detection.model_manager_refresh', { default: 'Refresh' })}
@@ -759,11 +764,18 @@
 
                             {#if active && classifierStatus?.active_provider}
                                 <p class="mt-3 text-sm text-slate-800 dark:text-slate-100" aria-live="polite">
-                                    <span class="mr-2 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_current_runtime', { default: 'Current runtime' })}</span>
+                                    <span class="mr-2 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                                        {runtimePlanned
+                                            ? $_('settings.detection.model_manager_planned_runtime', { default: 'Planned runtime' })
+                                            : $_('settings.detection.model_manager_current_runtime', { default: 'Current runtime' })}
+                                    </span>
                                     <span class="inline-flex items-center gap-2 font-semibold">
-                                        <span class="h-2 w-2 rounded-full bg-accent-500" aria-hidden="true"></span>
+                                        <span class="h-2 w-2 rounded-full {runtimePlanned ? 'bg-slate-400' : 'bg-accent-500'}" aria-hidden="true"></span>
                                         {providerLabel(classifierStatus.active_provider)}
                                     </span>
+                                    {#if runtimePlanned}
+                                        <span class="ml-1 text-xs font-medium text-slate-500 dark:text-slate-400">{$_('settings.detection.band_runtime_planned', { default: 'loads on first detection' })}</span>
+                                    {/if}
                                     {#if runtimeProviderOrder.length > 1}
                                         <span class="mt-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
                                             {$_('settings.detection.model_manager_runtime_order', { default: 'Automatic order' })}:
