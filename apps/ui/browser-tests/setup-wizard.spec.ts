@@ -401,6 +401,7 @@ test(`first run walks every step to Finish with history import ${importHistory} 
     await expect(modelSelect(page)).toBeDisabled();
     await expect(wizard(page).getByText('Leaving this step does not stop the check.', { exact: false })).toBeVisible();
 
+    await expect.poll(() => fake.evalState).toBe('running');
     // The coordinates are saved before the check starts, so the check uses them.
     const locationWrite = fake.requestIndex((r) => r.path === '/api/settings' && r.method === 'POST' && r.body?.location_latitude !== undefined);
     const runStart = fake.requestIndex((r) => r.path === '/api/diagnostics/model-eval/runs' && r.method === 'POST');
