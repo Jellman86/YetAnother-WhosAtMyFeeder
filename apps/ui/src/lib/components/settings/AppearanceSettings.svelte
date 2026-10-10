@@ -6,6 +6,7 @@
     import SettingsSelect from './_primitives/SettingsSelect.svelte';
     import SettingsSegmented from './_primitives/SettingsSegmented.svelte';
     import AdvancedSection from './_primitives/AdvancedSection.svelte';
+    import { themeStore, type TextSize } from '../../stores/theme.svelte';
 
     let {
         currentTheme,
@@ -40,6 +41,17 @@
         scientificNamePrimary: boolean;
         explorerView: 'cards' | 'list';
     } = $props();
+
+    // Each choice previews itself: the "Aa" grows step by step, on the constrained type scale.
+    const TEXT_SIZES: { value: TextSize; sample: string }[] = [
+        { value: 'smallest', sample: 'text-sm' },
+        { value: 'smaller', sample: 'text-base' },
+        { value: 'standard', sample: 'text-lg' },
+        { value: 'large', sample: 'text-xl' },
+        { value: 'larger', sample: 'text-2xl' },
+        { value: 'extra_large', sample: 'text-3xl' },
+        { value: 'largest', sample: 'text-4xl' }
+    ];
 
     type NamingMode = 'standard' | 'hobbyist' | 'scientific';
 
@@ -78,6 +90,33 @@
                 { value: 'system', label: $_('theme.system') }
             ]}
         />
+    </SettingsRow>
+
+    <SettingsRow
+        labelId="setting-text-size"
+        label={$_('settings.text_size.label', { default: 'Text size' })}
+        description={$_('settings.text_size.desc', { default: 'Makes every page larger or smaller on this device only. Large displays still grow a little on top of it.' })}
+        layout="stacked"
+    >
+        <!-- Wraps by its own size, so the largest text still leaves each choice room on a phone. -->
+        <div class="grid grid-cols-[repeat(auto-fit,minmax(4rem,1fr))] gap-2" role="group" aria-labelledby="setting-text-size" data-text-size-options>
+            {#each TEXT_SIZES as size (size.value)}
+                {@const active = themeStore.textSize === size.value}
+                {@const name = $_(`settings.text_size.${size.value}`)}
+                <button
+                    type="button"
+                    aria-pressed={active}
+                    onclick={() => themeStore.setTextSize(size.value)}
+                    class="flex min-h-16 min-w-0 flex-col items-center justify-end gap-1.5 rounded-2xl border-2 px-1 pb-2.5 pt-2 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-400 {active
+                        ? 'border-brand-500 bg-brand-500 text-white shadow-lg shadow-brand-500/20'
+                        : 'border-slate-100 bg-white text-slate-700 hover:border-brand-500/30 dark:border-slate-700/50 dark:bg-slate-900/50 dark:text-slate-200'}"
+                    data-text-size={size.value}
+                >
+                    <span class="font-display font-bold leading-none {size.sample}" aria-hidden="true">Aa</span>
+                    <span class="max-w-full break-words text-center text-xs font-semibold leading-tight">{name}</span>
+                </button>
+            {/each}
+        </div>
     </SettingsRow>
 
     <SettingsRow

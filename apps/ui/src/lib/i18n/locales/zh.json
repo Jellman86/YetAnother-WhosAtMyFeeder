@@ -1844,6 +1844,17 @@
       "app_scope_note": "GPU 时间按进程公布，因此该线条表示 YA-WAMF 发送给 GPU 的工作。共用同一块 GPU 的其他容器在这里看不到。",
       "unreadable_nvidia": "检测到 {label}，但其驱动不公布容器可读取的利用率计数器。",
       "unreadable_accelerator": "检测到 {label}，但无法从容器内部读取其计数器。"
+    },
+    "text_size": {
+      "label": "文字大小",
+      "desc": "仅在此设备上放大或缩小所有页面。大屏幕上还会再略微放大。",
+      "smallest": "最小",
+      "smaller": "较小",
+      "standard": "标准",
+      "large": "大",
+      "larger": "较大",
+      "extra_large": "特大",
+      "largest": "最大"
     }
   },
   "auth": {

@@ -88,6 +88,7 @@
     "settings.system_health.title",
     "settings.tabs.debug",
     "settings.telegram.bot_token_placeholder",
+    "settings.text_size.standard",
     "setup.connection.mqtt_port",
     "shortcuts.navigation",
     "status.tile_audio",
@@ -284,6 +285,7 @@
     "settings.tabs.groups.interface",
     "settings.tabs.notifications",
     "settings.telegram.bot_token_placeholder",
+    "settings.text_size.standard",
     "setup.connection.mqtt_port",
     "shortcuts.actions",
     "shortcuts.navigation",
@@ -384,6 +386,7 @@
     "settings.system_health.role_main",
     "settings.tabs.debug",
     "settings.telegram.bot_token_placeholder",
+    "settings.text_size.standard",
     "status.tile_audio",
     "theme.font_studio",
     "video_player.clip_badge"

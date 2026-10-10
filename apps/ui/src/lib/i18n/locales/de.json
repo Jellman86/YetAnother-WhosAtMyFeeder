@@ -1844,6 +1844,17 @@
       "app_scope_note": "GPU-Zeit wird pro Prozess veröffentlicht, diese Linie zeigt also die Arbeit, die YA-WAMF an die GPU geschickt hat. Ein anderer Container an derselben GPU ist hier nicht sichtbar.",
       "unreadable_nvidia": "{label} ist vorhanden, aber ihr Treiber veröffentlicht keinen Auslastungszähler, den ein Container lesen kann.",
       "unreadable_accelerator": "{label} ist vorhanden, aber der Zähler ist aus dem Container heraus nicht lesbar."
+    },
+    "text_size": {
+      "label": "Textgröße",
+      "desc": "Macht jede Seite nur auf diesem Gerät größer oder kleiner. Große Bildschirme vergrößern zusätzlich ein wenig.",
+      "smallest": "Am kleinsten",
+      "smaller": "Kleiner",
+      "standard": "Standard",
+      "large": "Groß",
+      "larger": "Größer",
+      "extra_large": "Sehr groß",
+      "largest": "Am größten"
     }
   },
   "auth": {
