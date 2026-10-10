@@ -1762,6 +1762,9 @@
       "compat_result_skipped": "Não foi possível validar alguns dispositivos. Veja os detalhes abaixo.",
       "compat_result_warn": "Todos os dispositivos executam, mas alguns diferem da referência da CPU.",
       "compat_results_unavailable": "Não foi possível carregar os resultados de compatibilidade. Tente novamente.",
+      "runtime_refresh_failed": "A verificação terminou, mas o YA-WAMF não conseguiu ler o runtime em uso agora. Recarregue a página para ver o provedor atual.",
+      "planned_provider_label": "Previsto",
+      "model_manager_planned_runtime": "Runtime previsto",
       "compat_run": "Executar verificação de compatibilidade",
       "compat_running": "Executando…",
       "compat_stage_run": "Validando os dispositivos deste host",
@@ -3481,6 +3484,14 @@
     "node_capture": "Captura às {time}, parte desta visita",
     "node_capture_shown": "Captura às {time}, parte desta visita e a sua foto",
     "open_capture": "Abrir captura de {species}"
+  },
+  "model_eval": {
+    "col_best_provider": "Melhor provedor validado",
+    "col_median_inference": "Inferência mediana",
+    "col_model": "Modelo",
+    "col_validated_providers": "Provedores validados",
+    "compat_only_body": "Esta execução verificou se cada provedor carrega, produz saída finita e concorda com a referência de CPU. Não mediu a precisão, por isso nenhum valor de precisão é mostrado. Execute uma avaliação para medir a precisão.",
+    "compat_only_title": "Apenas verificação de compatibilidade"
   },
   "taxonomy": {
     "title": "Árvore genealógica de {name}",

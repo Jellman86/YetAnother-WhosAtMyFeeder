@@ -6,6 +6,20 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Model Evaluation no longer shows 0% accuracy for a compatibility check, which never measures
+  accuracy. Such runs are labelled **Compatibility check only** and show each model's best
+  validated provider, its median inference time and the providers that passed, instead of
+  accuracy, mean and p95 columns. Only the files the run wrote (`summary.json`,
+  `device_matrix.json`) are offered for download. A genuinely measured 0% is still shown, and
+  picking a run while another is loading no longer shows the earlier run.
+- After a compatibility check, **Settings → Detection** reads the live classifier status again,
+  so it shows the provider the workers actually moved to (for example Intel NPU) instead of the
+  CPU it showed before the check. Unsaved edits on the page are kept. The Models card now shows
+  the same status, model activation and saving settings refresh it too, and a provider that no
+  worker has loaded yet is shown as planned rather than active.
+  The visible Detection tab also refreshes status periodically and on returning to the browser,
+  so a check finishing elsewhere or a delayed worker start cannot leave the old provider shown.
+
 - Model Manager adds eight experimental classifiers: location-aware DINOv2, RoPE Wildlife
   336, RoPE EU 336, Arabian Peninsula RoPE DeiT3, NaFlex EU and Israel Birds, Parallel ViT EU,
   and BioCLIP 2.5 with a fixed 9,025-species head. Defaults are preserved; accelerators remain

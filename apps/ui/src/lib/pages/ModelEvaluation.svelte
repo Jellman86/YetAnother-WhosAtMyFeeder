@@ -1,7 +1,8 @@
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte';
+    import { _ } from 'svelte-i18n';
     import { confirmAction } from '../stores/confirm_dialog.svelte';
-    import { modelEvalScores } from '../utils/model-eval-scores';
+    import { isCompatibilityOnlyRun, modelEvalScores } from '../utils/model-eval-scores';
     import {
         startModelEvalRun,
         listModelEvalRuns,
@@ -91,6 +92,25 @@
         return { label: '✓ runs', cls: 'text-accent-600 dark:text-accent-400' };
     }
 
+    function providerName(provider: string | null | undefined): string {
+        if (!provider) return '—';
+        const labels: Record<string, string> = {
+            cpu: $_('settings.detection.provider_cpu', { default: 'CPU (ONNX Runtime)' }),
+            cuda: $_('settings.detection.provider_cuda', { default: 'NVIDIA CUDA' }),
+            intel_gpu: $_('settings.detection.provider_intel_gpu', { default: 'Intel GPU (OpenVINO)' }),
+            intel_cpu: $_('settings.detection.provider_intel_cpu', { default: 'Intel CPU (OpenVINO)' }),
+            intel_npu: $_('settings.detection.provider_intel_npu', { default: 'Intel NPU (OpenVINO)' }),
+        };
+        return labels[provider] ?? provider;
+    }
+
+    // A compatibility-only run writes summary.json and device_matrix.json; the
+    // accuracy artifacts exist only for a full evaluation.
+    function runArtifacts(compatibilityOnly: boolean, matrix: DeviceMatrix | null): string[] {
+        if (!compatibilityOnly) return ['summary.json', 'runtime.json', 'confusions.csv'];
+        return matrix ? ['summary.json', 'device_matrix.json'] : ['summary.json'];
+    }
+
     function pct(value: number | null | undefined): string {
         if (value === null || value === undefined || Number.isNaN(value)) return '—';
         return `${(value * 100).toFixed(1)}%`;
@@ -109,6 +129,31 @@
         return 'text-brand-600 dark:text-brand-400';
     }
 
+    // Only the newest selection may land: a slow reply for a run the owner has
+    // since moved away from must not replace the run they are looking at.
+    let selectionRequest = 0;
+
+    async function loadSelectedRun(runId: string): Promise<void> {
+        const request = ++selectionRequest;
+        const [summary, matrix] = await Promise.all([
+            getModelEvalRun(runId).catch(() => null),
+            getModelEvalDeviceMatrix(runId).catch(() => null),
+        ]);
+        if (request !== selectionRequest || runId !== selectedRunId) return;
+        selectedRun = summary;
+        deviceMatrix = matrix;
+    }
+
+    function selectRun(runId: string): void {
+        if (runId !== selectedRunId) {
+            selectedRun = null;
+            deviceMatrix = null;
+            error = null;
+        }
+        selectedRunId = runId;
+        void loadSelectedRun(runId);
+    }
+
     async function refresh() {
         if (refreshInFlight) return;
         refreshInFlight = true;
@@ -120,16 +165,7 @@
                 selectedRunId = runs[0].run_id;
             }
             if (selectedRunId) {
-                try {
-                    selectedRun = await getModelEvalRun(selectedRunId);
-                } catch {
-                    selectedRun = null;
-                }
-                try {
-                    deviceMatrix = await getModelEvalDeviceMatrix(selectedRunId);
-                } catch {
-                    deviceMatrix = null;
-                }
+                await loadSelectedRun(selectedRunId);
             }
         } catch (e) {
             error = (e as Error).message;
@@ -210,6 +246,9 @@
     onMount(refresh);
     onDestroy(stopPolling);
 
+    let compatibilityOnly = $derived(isCompatibilityOnlyRun(selectedRun?.models));
+    let artifacts = $derived(runArtifacts(compatibilityOnly, deviceMatrix));
+
     let progressPct = $derived.by(() => {
         if (!active?.progress?.total) return 0;
         return Math.min(100, Math.round((active.progress.done / active.progress.total) * 100));
@@ -289,7 +328,7 @@
                     </p>
                 </div>
                 <div class="flex flex-wrap gap-1 text-xs" aria-busy={downloadingArtifact !== null}>
-                    {#each ['summary.json', 'runtime.json', 'confusions.csv'] as artifact (artifact)}
+                    {#each artifacts as artifact (artifact)}
                         <button
                             type="button"
                             class="btn btn-ghost min-h-11 px-2 text-xs"
@@ -311,7 +350,52 @@
                 </div>
             {/if}
 
-            {#if selectedRun.models && selectedRun.models.length > 0}
+            {#if compatibilityOnly && selectedRun.models}
+                <div class="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/40">
+                    <h4 class="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                        {$_('model_eval.compat_only_title', { default: 'Compatibility check only' })}
+                    </h4>
+                    <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">
+                        {$_('model_eval.compat_only_body', { default: 'This run checked that each provider loads, gives finite output and agrees with the CPU baseline. It did not measure accuracy, so no accuracy figures are shown. Run Evaluation to measure accuracy.' })}
+                    </p>
+                </div>
+                <div class="mt-4 overflow-x-auto">
+                    <table class="min-w-full text-sm">
+                        <thead class="text-xs uppercase text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
+                            <tr>
+                                <th class="text-left py-2 pr-4">{$_('model_eval.col_model', { default: 'Model' })}</th>
+                                <th class="text-left px-2">{$_('model_eval.col_best_provider', { default: 'Best validated provider' })}</th>
+                                <th class="text-right px-2">{$_('model_eval.col_median_inference', { default: 'Median inference' })}</th>
+                                <th class="text-left pl-4">{$_('model_eval.col_validated_providers', { default: 'Validated providers' })}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {#each selectedRun.models as model (model.model_id)}
+                                <tr class="border-b border-slate-100 dark:border-slate-700">
+                                    <td class="py-2 pr-4 font-mono text-xs text-slate-900 dark:text-slate-100">{model.model_id}</td>
+                                    <td class="px-2 text-slate-700 dark:text-slate-300">{model.ready ? providerName(model.active_provider) : '—'}</td>
+                                    <!-- Every latency field of a compatibility row holds the best provider's median. -->
+                                    <td class="text-right px-2 text-slate-700 dark:text-slate-300">{ms(model.p50_latency_ms ?? model.mean_latency_ms)}</td>
+                                    <td class="pl-4 text-xs text-slate-600 dark:text-slate-400">
+                                        {model.validated_providers?.length ? model.validated_providers.map(providerName).join(', ') : '—'}
+                                    </td>
+                                </tr>
+                                {#if model.warnings && model.warnings.length > 0}
+                                    <tr class="border-b border-slate-100 dark:border-slate-700">
+                                        <td colspan="4" class="py-1 pr-4 pl-4 text-xs">
+                                            {#each model.warnings as w}
+                                                <div class={severityColor(w.severity)}>
+                                                    <span class="font-mono">{w.code}</span>: {w.message}
+                                                </div>
+                                            {/each}
+                                        </td>
+                                    </tr>
+                                {/if}
+                            {/each}
+                        </tbody>
+                    </table>
+                </div>
+            {:else if selectedRun.models && selectedRun.models.length > 0}
                 <div class="mt-4 overflow-x-auto">
                     <table class="min-w-full text-sm">
                         <thead class="text-xs uppercase text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
@@ -436,7 +520,7 @@
                     <li class="py-2 flex items-center justify-between text-sm">
                         <button
                             type="button"
-                            onclick={() => { selectedRunId = row.run_id; refresh(); }}
+                            onclick={() => selectRun(row.run_id)}
                             class="btn btn-ghost min-h-11 flex-1 justify-start px-2 py-1 text-left hover:text-brand-600 dark:hover:text-brand-400"
                         >
                             <span class="font-mono">{row.run_id}</span>

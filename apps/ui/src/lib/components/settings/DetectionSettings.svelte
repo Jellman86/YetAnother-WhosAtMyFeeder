@@ -46,6 +46,7 @@
         imageExecutionMode = $bindable<'in_process' | 'subprocess' | string>('subprocess'),
         inferenceProvider = $bindable<'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu' | 'intel_npu'>('auto'),
         classifierStatus = null,
+        onrefreshclassifierstatus,
         videoCircuitOpen = false,
         videoCircuitUntil = null,
         videoCircuitFailures = 0,
@@ -68,6 +69,8 @@
         imageExecutionMode: 'in_process' | 'subprocess' | string;
         inferenceProvider: 'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu' | 'intel_npu';
         classifierStatus: ClassifierStatus | null;
+        /** Re-reads the live runtime only; resolves false when it could not be read. */
+        onrefreshclassifierstatus?: () => Promise<boolean>;
         videoCircuitOpen: boolean;
         videoCircuitUntil: string | null;
         videoCircuitFailures: number;
@@ -146,15 +149,30 @@
     let compatError = $state<string | null>(null);
     let compatPoll: ReturnType<typeof setInterval> | null = null;
     let compatPollInFlight = false;
+    // Identifies the newest check so a superseded poll's late reply is ignored.
+    let compatCheck = 0;
+    let runtimeRefreshFailed = $state(false);
+
+    // A check can move classification onto a newly validated provider, so the
+    // runtime shown afterwards must be read back from the workers rather than
+    // assumed from the matrix's recommendation.
+    async function refreshRuntimeAfterCheck(): Promise<void> {
+        if (!onrefreshclassifierstatus) return;
+        runtimeRefreshFailed = !(await onrefreshclassifierstatus());
+    }
 
     async function runCompatCheck() {
+        if (compatPoll) clearInterval(compatPoll);
+        compatPoll = null;
         cdOpen = true;
         cdRunId += 1;
+        runtimeRefreshFailed = false;
         compatError = null;
         compatMatrix = null;
         compatRunning = true;
         compatPhase = 'starting';
         compatProgress = null;
+        const check = ++compatCheck;
         let seenActive = false;
         try {
             const { run_id } = await startModelEvalRun({
@@ -162,11 +180,13 @@
                 compat_only: true,
                 sweep_all_models: compatAllModels,
             });
+            if (check !== compatCheck) return;
             compatPoll = window.setInterval(async () => {
                 if (compatPollInFlight || document.hidden) return;
                 compatPollInFlight = true;
                 try {
                     const list = await listModelEvalRuns();
+                    if (check !== compatCheck) return;
                     if (list.active && list.active.run_id === run_id) {
                         seenActive = true;
                         compatPhase = list.active.phase ?? null;
@@ -174,6 +194,7 @@
                     } else {
                         if (!seenActive) {
                             const summary = await getModelEvalRun(run_id).catch(() => null);
+                            if (check !== compatCheck) return;
                             if (!summary?.finished_at && !summary?.error) return;
                             if (summary?.error) {
                                 clearInterval(compatPoll ?? undefined);
@@ -182,6 +203,7 @@
                                 compatPhase = 'error';
                                 compatError = summary.error;
                                 cdRunId += 1;
+                                await refreshRuntimeAfterCheck();
                                 return;
                             }
                         }
@@ -191,6 +213,7 @@
                         compatPhase = 'complete';
                         try {
                             const matrix = await getModelEvalDeviceMatrix(run_id);
+                            if (check !== compatCheck) return;
                             if (!matrix) {
                                 throw new Error(
                                     $_('settings.detection.compat_results_unavailable', {
@@ -201,6 +224,7 @@
                             compatMatrix = matrix;
                             cdRunId += 1;
                         } catch (error) {
+                            if (check !== compatCheck) return;
                             compatMatrix = null;
                             compatError = error instanceof Error && error.message.trim()
                                 ? error.message
@@ -209,6 +233,7 @@
                                 });
                             cdRunId += 1;
                         }
+                        if (check === compatCheck) await refreshRuntimeAfterCheck();
                     }
                 } catch {
                     /* transient — keep polling */
@@ -217,6 +242,7 @@
                 }
             }, 2000);
         } catch (e) {
+            if (check !== compatCheck) return;
             compatRunning = false;
             compatError = (e as Error).message;
         }
@@ -334,6 +360,7 @@
     });
 
     onDestroy(() => {
+        compatCheck += 1;
         if (compatPoll) clearInterval(compatPoll);
     });
 
@@ -861,6 +888,11 @@
                             </button>
                         </div>
                         {#if compatError}<p role="alert" class="text-xs font-bold text-red-600 dark:text-red-400">{compatError}</p>{/if}
+                        {#if runtimeRefreshFailed}
+                            <p role="alert" class="text-xs font-bold text-amber-700 dark:text-amber-300">
+                                {$_('settings.detection.runtime_refresh_failed', { default: 'The check finished, but YA-WAMF could not read the runtime it is now using. Reload the page to see the current provider.' })}
+                            </p>
+                        {/if}
                         {#if compatRunning && compatProgress}
                             <p role="status" class="text-xs text-slate-600 dark:text-slate-400">{compatPhase}: {compatProgress.done}/{compatProgress.total} {compatProgress.label}</p>
                         {/if}
@@ -913,7 +945,11 @@
                             <span>{$_('settings.detection.packaged_providers_label', { default: 'Packaged' })}: {classifierStatus.packaged_inference_providers.join(', ')}</span>
                         {/if}
                         <span>{$_('settings.detection.selected_provider_label', { default: 'Selected' })}: {classifierStatus.selected_provider ?? inferenceProvider}</span>
-                        <span>{$_('settings.detection.active_provider_label', { default: 'Active' })}: {classifierStatus.active_provider ?? 'unknown'}</span>
+                        {#if classifierStatus.runtime_source === 'planned'}
+                            <span>{$_('settings.detection.planned_provider_label', { default: 'Planned' })}: {classifierStatus.active_provider ?? 'unknown'}</span>
+                        {:else}
+                            <span>{$_('settings.detection.active_provider_label', { default: 'Active' })}: {classifierStatus.active_provider ?? 'unknown'}</span>
+                        {/if}
                         {#if classifierStatus.inference_backend}
                             <span>{$_('settings.detection.inference_backend_label', { default: 'Backend' })}: {classifierStatus.inference_backend}</span>
                         {/if}
@@ -1043,7 +1079,13 @@
         title={$_('settings.detection.models_card_title', { default: 'Models' })}
     >
         <div id={MODELS_CARD_ID} class="scroll-mt-24">
-            <ModelManager executionMode={imageExecutionMode} autoVideoEnabled={autoVideoClassification} {onopenlocationsettings} />
+            <ModelManager
+                executionMode={imageExecutionMode}
+                autoVideoEnabled={autoVideoClassification}
+                {classifierStatus}
+                onruntimechange={onrefreshclassifierstatus}
+                {onopenlocationsettings}
+            />
         </div>
     </SettingsCard>
 

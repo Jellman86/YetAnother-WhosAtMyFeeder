@@ -1752,6 +1752,9 @@
       "compat_result_skipped": "部分设备无法验证。详见下方明细。",
       "compat_result_warn": "所有设备均可运行，但部分结果与 CPU 基准不同。",
       "compat_results_unavailable": "无法加载兼容性结果。请重试。",
+      "runtime_refresh_failed": "检查已完成，但 YA-WAMF 无法读取当前使用的运行环境。请重新加载页面查看当前提供程序。",
+      "planned_provider_label": "计划使用",
+      "model_manager_planned_runtime": "计划运行环境",
       "compat_run": "运行兼容性检查",
       "compat_running": "运行中…",
       "compat_stage_run": "正在验证此主机的设备",
@@ -3481,6 +3484,14 @@
     "node_capture": "{time} 的拍摄，属于本次到访",
     "node_capture_shown": "{time} 的拍摄，属于本次到访，也是到访照片",
     "open_capture": "打开{species}的拍摄"
+  },
+  "model_eval": {
+    "col_best_provider": "最佳已验证提供程序",
+    "col_median_inference": "推理中位耗时",
+    "col_model": "模型",
+    "col_validated_providers": "已验证的提供程序",
+    "compat_only_body": "此次运行检查了每个提供程序能否加载、输出有限值并与 CPU 基准一致。未测量准确率，因此不显示准确率数据。运行评估以测量准确率。",
+    "compat_only_title": "仅兼容性检查"
   },
   "taxonomy": {
     "title": "{name} 的系统树",

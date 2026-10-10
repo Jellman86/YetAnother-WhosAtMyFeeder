@@ -51,10 +51,28 @@ describe('model evaluation speaks the same visual language as the rest of the ap
         expect(source).toContain('disabled={row.run_id === active?.run_id}');
     });
 
-    it('is still the page that has no translations, and says so where it is tracked', () => {
-        // Deliberately not fixed here: this page is entirely hardcoded English, which
-        // is its own piece of work and not the visual pass. Recorded on the roadmap
-        // rather than left for the next reader to rediscover.
-        expect(source).not.toContain("from 'svelte-i18n'");
+    it('translates the compatibility-only view rather than adding more hardcoded English', () => {
+        // The rest of the page is still hardcoded English, tracked on the roadmap.
+        // New copy goes through svelte-i18n so that work only shrinks.
+        expect(source).toContain("import { _ } from 'svelte-i18n';");
+        for (const key of [
+            'model_eval.compat_only_title',
+            'model_eval.compat_only_body',
+            'model_eval.col_model',
+            'model_eval.col_best_provider',
+            'model_eval.col_median_inference',
+            'model_eval.col_validated_providers',
+        ]) {
+            expect(source).toContain(`$_('${key}'`);
+        }
+    });
+
+    it('never shows placeholder accuracy or a latency spread for a compatibility-only run', () => {
+        // Compatibility rows carry zero accuracy placeholders and copy one median
+        // latency into the mean and p95 fields. The marker decides, not a zero.
+        expect(source).toContain('isCompatibilityOnlyRun(selectedRun?.models)');
+        expect(source).toContain('{#if compatibilityOnly && selectedRun.models}');
+        // Only artifacts the run wrote are offered.
+        expect(source).toContain("matrix ? ['summary.json', 'device_matrix.json'] : ['summary.json']");
     });
 });

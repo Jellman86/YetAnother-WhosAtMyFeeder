@@ -15,6 +15,13 @@ The run detail provides **summary.json**, **runtime.json**, and **confusions.csv
 buttons. Downloads use your current owner session and save the file in your browser; a failed or
 expired session shows an error on the page. Sign in again if access has expired.
 
+A compatibility check started from **Settings → Detection** or the setup wizard also appears in
+the run history. It checks providers but does not score accuracy, so the page labels it
+**Compatibility check only** and shows each model's best validated provider, that provider's
+median inference time, and the providers that passed. It shows no accuracy columns and no mean or
+p95 latency, because the run measured neither. Such a run writes only `summary.json` and
+`device_matrix.json`, so those are the only downloads offered.
+
 ## Where the data lives
 
 Each run writes a directory at `/config/yawamf-eval/<run_id>/` containing:

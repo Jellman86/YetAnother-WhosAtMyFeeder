@@ -171,6 +171,15 @@ accelerator's top prediction with the CPU baseline, and records median inference
 latency. The measured passing order is persisted without treating a merely installed runtime as
 working hardware.
 
+When the check finishes, **Settings → Detection** reads the classifier status back from the
+backend, so the **Runtime** cell, the runtime report and the Models card show the provider the
+workers actually report, not the check's recommendation. Unsaved edits on the page are kept. Until a
+worker has loaded the model, the provider is shown as planned (**loads on first detection**)
+rather than active. If the status cannot be read, the page says so and asks you to reload.
+The visible Detection tab also refreshes runtime status every five seconds and when the browser
+becomes visible again. This catches a check finishing elsewhere or a worker starting later;
+it does not reload your settings. **Models → Refresh** reads the runtime too.
+
 The resulting matrix is image-aware: `cpu`/`rpi` test CPU, `cuda` tests ONNX CPU and
 CUDA, `intel` tests ONNX CPU plus the detected OpenVINO targets, and `full` tests all
 applicable targets. In particular, OpenVINO CPU in the full image does not suppress

@@ -1752,6 +1752,9 @@
       "compat_result_skipped": "Certains appareils n’ont pas pu être validés. Voir le détail ci-dessous.",
       "compat_result_warn": "Tous les appareils fonctionnent, mais certains diffèrent de la référence CPU.",
       "compat_results_unavailable": "Les résultats de compatibilité n’ont pas pu être chargés. Veuillez réessayer.",
+      "runtime_refresh_failed": "La vérification est terminée, mais YA-WAMF n’a pas pu lire le moteur d’inférence utilisé désormais. Rechargez la page pour voir le fournisseur actuel.",
+      "planned_provider_label": "Prévu",
+      "model_manager_planned_runtime": "Moteur d’inférence prévu",
       "compat_run": "Lancer le contrôle de compatibilité",
       "compat_running": "En cours…",
       "compat_stage_run": "Validation des appareils de cet hôte",
@@ -3481,6 +3484,14 @@
     "node_capture": "Capture à {time}, dans cette visite",
     "node_capture_shown": "Capture à {time}, dans cette visite, et sa photo de visite",
     "open_capture": "Ouvrir la capture de {species}"
+  },
+  "model_eval": {
+    "col_best_provider": "Meilleur fournisseur validé",
+    "col_median_inference": "Inférence médiane",
+    "col_model": "Modèle",
+    "col_validated_providers": "Fournisseurs validés",
+    "compat_only_body": "Cette exécution a vérifié que chaque fournisseur se charge, produit une sortie finie et concorde avec la référence CPU. La précision n’a pas été mesurée, aucun chiffre de précision n’est donc affiché. Lancez une évaluation pour mesurer la précision.",
+    "compat_only_title": "Vérification de compatibilité uniquement"
   },
   "taxonomy": {
     "title": "Arbre généalogique de {name}",
