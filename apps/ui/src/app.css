@@ -101,6 +101,11 @@ html[data-theme='dark'] {
 
 /* Smooth theme transitions */
 html {
+  /* Type and spacing are all rem, so the root size scales the whole app. It holds the reader's own
+     size up to a 1280px window, then grows a pixel for every 256px of width, to at most 20px from
+     2304px, so a large display is not read at laptop size. A percentage keeps the browser's
+     text-size setting in charge; media queries stay in px and are unaffected. */
+  font-size: clamp(100%, calc(100% + (100vw - 1280px) / 256), 125%);
   transition: background-color 0.3s ease, color 0.3s ease;
   background-color: var(--app-bg);
   color: var(--app-fg);

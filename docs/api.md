@@ -802,6 +802,14 @@ snapshot, not a destructive queue-control API.
   - `GET /api/audio/history` — persisted BirdNET detections; `matched_visual_event_id` identifies a
     completed automatic video classification that agrees by species, time window, and source mapping
   - `GET /api/audio/summary`
+  - `GET /api/audio/heard-groups?start_date=&end_date=` — BirdNET-Go calls in a window of at most
+    93 days. A call that supports a visit the pipeline confirmed (same species, a microphone mapped
+    to that camera, within the visit widened by the correlation window) is counted on that visit in
+    `matched_visits`, call by call. The rest fold per species into bouts across silences of up to
+    `gap_seconds` (300): first and last call, call count, strongest confidence and the BirdNET-Go id
+    of the strongest servable call for the spectrogram. Guests get the public window, no visit older
+    than it, and no source names when camera names are private; `truncated` says the window held
+    more than 20,000 calls
   - `GET /api/audio/species`
   - `GET /api/audio/context`
   - `GET /api/audio/context/event/{event_id}` — nearby BirdNET detections for one persisted visual

@@ -42,7 +42,9 @@ async def test_manual_scan_keeps_unclassified_boxes_beyond_crop_limit(monkeypatc
     )
     detector = Mock(side_effect=AssertionError("cached detector boxes must be reused"))
     monkeypatch.setattr(scans.bird_crop_service, "detect_observation_boxes", detector)
-    job = SimpleNamespace(candidate_id="exact-scene", clip_variant="recording", frame_index=41)
+    job = SimpleNamespace(
+        event_id="exact-event", revision=1, candidate_id="exact-scene", clip_variant="recording", frame_index=41
+    )
 
     result = await scans.BirdScanService()._analyze_scene(job, output.getvalue())
 

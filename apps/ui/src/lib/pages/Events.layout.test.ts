@@ -132,6 +132,18 @@ describe('Explorer listening history link', () => {
         expect(eventsSource).toContain("href={toAppPath('/audio')}");
         expect(eventsSource).toContain("$_('nav.audio_history')");
         expect(eventsSource).toMatch(/audioHistoryAvailable = \$derived\([\s\S]*?authStore\.canViewAudio/);
-        expect(eventsSource).toContain('{#if audioHistoryAvailable}');
+        expect(eventsSource).toContain('{#if audioHistoryAvailable && !heardWanted}');
+    });
+
+    it('steps aside while heard calls are mixed into the list, which already shows them', () => {
+        expect(eventsSource).toMatch(/heardWanted = \$derived\(audioHistoryAvailable && explorerHeardStore\.enabled/);
+        expect(eventsSource).toContain('data-explorer-heard-toggle');
+    });
+});
+
+describe('the Explorer list on a large display', () => {
+    it('fills the page width like the rest of the app instead of a capped column', () => {
+        const list = eventsSource.match(/<div class="([^"]*)" data-explorer-list>/)?.[1] ?? '';
+        expect(list).not.toMatch(/max-w-/);
     });
 });

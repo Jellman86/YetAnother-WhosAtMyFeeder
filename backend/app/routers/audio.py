@@ -7,6 +7,14 @@ import structlog
 from pydantic import BaseModel
 from typing import Literal
 from app.services.audio.audio_service import audio_service
+from app.services.audio.heard_groups import (
+    HEARD_GROUP_GAP_SECONDS,
+    ConfirmedVisit,
+    HeardCall,
+    attribute_calls,
+    fold_heard_calls,
+)
+from app.repositories.visit_repository import VisitRepository
 from app.services.broadcaster import broadcaster
 from app.services.leaderboard_window import previous_window_is_complete
 from app.config import settings
@@ -380,6 +388,155 @@ async def get_audio_summary(
         result["source_count"] = 0
 
     return result
+
+
+class HeardGroupResponse(BaseModel):
+    species: str
+    scientific_name: str | None = None
+    first_heard: str
+    last_heard: str
+    call_count: int
+    best_confidence: float
+    best_heard: str
+    best_birdnet_id: int | None = None
+    source_name: str | None = None
+
+
+class HeardVisitCallsResponse(BaseModel):
+    visit_id: str
+    start_time: str
+    end_time: str
+    scientific_name: str | None = None
+    call_count: int
+
+
+class HeardGroupsResponse(BaseModel):
+    groups: list[HeardGroupResponse]
+    matched_visits: list[HeardVisitCallsResponse] = []
+    call_count: int
+    truncated: bool
+    gap_seconds: int
+    correlation_window_seconds: int
+
+
+HEARD_GROUP_MAX_CALLS = 20_000
+HEARD_GROUP_MAX_SPAN = timedelta(days=93)
+
+
+@router.get("/heard-groups", response_model=HeardGroupsResponse)
+@guest_rate_limit()
+async def get_heard_groups(
+    request: Request,
+    start_date: datetime = Query(...),
+    end_date: datetime = Query(...),
+    auth: AuthContext = Depends(require_public_audio),
+):
+    """BirdNET-Go calls in a window, for the Explorer's heard bands.
+
+    The Explorer asks for the span its page of visits covers. Calls that support a visit the
+    pipeline confirmed are counted on that visit; the rest are folded per species into bouts of
+    no more than ``gap_seconds`` of silence, so a chattering sparrow is one entry rather than forty.
+    """
+    window = _history_window(1, start_date, end_date, auth)
+    if window.end_date <= window.start_date:
+        return HeardGroupsResponse(
+            groups=[],
+            matched_visits=[],
+            call_count=0,
+            truncated=False,
+            gap_seconds=HEARD_GROUP_GAP_SECONDS,
+            correlation_window_seconds=max(0, int(settings.frigate.audio_correlation_window_seconds)),
+        )
+    if window.end_date - window.start_date > HEARD_GROUP_MAX_SPAN:
+        raise HTTPException(status_code=422, detail="Ask for at most 93 days of heard calls at a time.")
+    lang = get_user_language(request) or "en"
+    hide_sensor = not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
+
+    correlation_window = max(0, int(settings.frigate.audio_correlation_window_seconds))
+    async with privacy_checked_db(get_db) as db:
+        result = await DetectionRepository(db).get_audio_history(
+            start_date=window.start_date,
+            end_date=window.end_date,
+            maximum_end=window.public_end,
+            limit=HEARD_GROUP_MAX_CALLS,
+            offset=0,
+        )
+        # A visit that began before the window can still own calls inside it, so the visit window
+        # reaches back further; an hour covers any visit the 60 s grouping rule produces in practice.
+        visit_rows = await VisitRepository(db).confirmed_visit_spans(
+            start=(window.start_date - timedelta(seconds=correlation_window) - timedelta(hours=1)).replace(tzinfo=None),
+            end=(window.end_date + timedelta(seconds=correlation_window)).replace(tzinfo=None),
+            public_audio=not auth.is_owner,
+        )
+
+    calls = [
+        HeardCall(
+            timestamp=datetime.fromisoformat(item["timestamp"]),
+            species=item["species"],
+            scientific_name=item.get("scientific_name"),
+            confidence=float(item["confidence"] or 0.0),
+            birdnet_id=item.get("birdnet_id"),
+            source_name=None if hide_sensor else item.get("source_name"),
+            mapping_keys=frozenset(item.get("_mapping_keys") or ()),
+        )
+        for item in result["items"]
+    ]
+    visits = [
+        ConfirmedVisit(
+            visit_id=str(row["visit_id"]),
+            start=datetime.fromisoformat(str(row["start_time"])),
+            end=datetime.fromisoformat(str(row["end_time"])),
+            camera_name=str(row["camera_name"] or ""),
+            scientific_key=str(row["name_key"] or ""),
+            names=frozenset(
+                name.strip().casefold() for name in (row["common_name"], row["display_name"]) if isinstance(name, str)
+            ),
+        )
+        for row in visit_rows
+    ]
+    if window.public_start is not None:
+        # A guest is told about no visit older than their window, not even its id.
+        public_start = window.public_start.replace(tzinfo=None)
+        visits = [visit for visit in visits if visit.start.replace(tzinfo=None) >= public_start]
+    matched, unmatched = attribute_calls(
+        calls,
+        visits,
+        window_seconds=correlation_window,
+        camera_audio_mapping=settings.frigate.camera_audio_mapping,
+    )
+    by_visit = {visit.visit_id: visit for visit in visits}
+    groups = [
+        {
+            "species": group.species,
+            "scientific_name": group.scientific_name,
+            "first_heard": serialize_api_datetime(group.first_heard),
+            "last_heard": serialize_api_datetime(group.last_heard),
+            "call_count": group.call_count,
+            "best_confidence": group.best_confidence,
+            "best_heard": serialize_api_datetime(group.best_heard),
+            "best_birdnet_id": group.best_birdnet_id,
+            "source_name": group.source_name,
+        }
+        for group in fold_heard_calls(unmatched)
+    ]
+    await localize_audio_detections(groups, lang)
+    return HeardGroupsResponse(
+        groups=[HeardGroupResponse(**group) for group in groups],
+        matched_visits=[
+            HeardVisitCallsResponse(
+                visit_id=visit_id,
+                start_time=serialize_api_datetime(by_visit[visit_id].start),
+                end_time=serialize_api_datetime(by_visit[visit_id].end),
+                scientific_name=by_visit[visit_id].scientific_key or None,
+                call_count=count,
+            )
+            for visit_id, count in matched.items()
+        ],
+        call_count=len(calls),
+        truncated=result["total"] > len(calls),
+        gap_seconds=HEARD_GROUP_GAP_SECONDS,
+        correlation_window_seconds=max(0, int(settings.frigate.audio_correlation_window_seconds)),
+    )
 
 
 def _leaderboard_window(span: str) -> tuple[datetime, datetime, datetime, datetime]:

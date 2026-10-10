@@ -42,3 +42,27 @@ export function captureFacts(capture: Detection, visit: DetectionVisit): Capture
         favorite: Boolean(capture.is_favorite)
     };
 }
+
+export interface SpeciesInCapture {
+    species: string;
+    count: number;
+}
+
+/**
+ * The species in a visit's busiest capture, when there is more than one. That capture is a single
+ * moment, so its species and counts are a statement about one frame, never a sum across repeats.
+ * Owner-only evidence: a guest's visit carries no bird summary and stays a one-species row.
+ */
+export function visitSpeciesMix(visit: DetectionVisit | undefined): SpeciesInCapture[] | null {
+    const species = visit?.peak_capture?.bird_summary?.species ?? [];
+    const merged = new Map<string, SpeciesInCapture>();
+    for (const entry of species) {
+        const key = entry.species.trim().toLocaleLowerCase();
+        if (!key || entry.count <= 0) continue;
+        const known = merged.get(key);
+        if (known) known.count += entry.count;
+        else merged.set(key, { species: entry.species, count: entry.count });
+    }
+    if (merged.size < 2) return null;
+    return [...merged.values()].sort((a, b) => b.count - a.count || a.species.localeCompare(b.species));
+}

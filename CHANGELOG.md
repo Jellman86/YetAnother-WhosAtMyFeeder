@@ -6,6 +6,40 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Needs a check** on the leaderboard opens a check sheet instead of the species page. Each
+  flagged species shows its visits as the crops the camera actually took, all selected, with the
+  likeliest answer first: a bird this feeder already knows that the same crops were also read as,
+  or the feeder's most common bird. One tap renames every capture of the selected visits; any other
+  species, picked from the feeder's regulars or a search, takes a second tap. A species the
+  catalogue places outside the birds, such as a squirrel, is offered as "It really is…" when the
+  camera is sure and "Not a bird" (hides the visits) when it is not. Answers go species after
+  species and end on a summary. A rename also teaches personalised identification, so the sheet
+  offers no undo.
+
+- **Find more birds** and **Scan again** now show progress. A waiting scan says how many scans are
+  ahead of it; a running scan shows its four real steps (find, name, count, save), names the step
+  in words ("Naming each bird found: 2 of 5") and counts the seconds. The button reads
+  **Scanning…** while it works.
+- A heard call opens in a proper player: its spectrogram across the full width with a playhead,
+  click or arrow keys to move through the call, one play button and the call's details beside it,
+  instead of the browser's own audio control.
+- The **Family tree** on a detection is a stepped ladder: each rank sits one step in from the rank
+  above, so the path from class to species reads at a glance.
+
+- Text is easier to read. The smallest print is now 11px instead of 10px, and text and spacing
+  grow on larger screens: from a 1280px window the whole app scales up smoothly to a quarter larger
+  by 2304px. Your browser's own text size still applies. The Explorer list now fills a large display like every other page.
+
+- The **Explorer** can show what was heard as well as seen. Turn on **Heard calls** above the list
+  (off until you do; each device remembers its choice) and BirdNET-Go calls appear between the
+  visits: one band per gap with its span, a spectrogram, a chip per species with its count, and
+  **Show calls** for each species' strongest call with its clip. Calls that confirm a visit are
+  counted on that visit instead, and the **Audio History** link steps aside while calls are shown
+  in the list. A capture with several species now reads **Multiple species**
+  with a chip per species. The filter rail has its own panel, one heading style and **Cameras**
+  as its section title.
+- **Settings, Cameras** no longer scrolls its camera list inside the card, which hid the first
+  camera under the card header and cut off the nest window below the list.
 - Missing snapshots no longer open the video inference circuit and pause the rest of a
   maintenance queue. Unavailable-media jobs still fail visibly; worker failures retain circuit
   protection (#481).

@@ -15,7 +15,8 @@ describe('the Explorer list row', () => {
     it('leads with the time, in a column whose digits line up', () => {
         // The alignment is the whole point: it is what makes scrolling for a
         // time work. A proportional font would defeat it.
-        expect(detectionRowSource).toMatch(/grid-cols-\[3\.25rem_/);
+        // Wide enough for the day beneath the time ("Yesterday", a date) at the larger text sizes.
+        expect(detectionRowSource).toMatch(/grid-cols-\[4rem_/);
         const timeBlock = detectionRowSource.match(/font-display[^"]*tabular-nums[^"]*"[\s\S]{0,140}formatTime/);
         expect(timeBlock, 'the first column should be the time, tabular').not.toBeNull();
     });
