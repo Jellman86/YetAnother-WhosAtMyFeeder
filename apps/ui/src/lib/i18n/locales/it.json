@@ -213,7 +213,19 @@
       "validation_partial": "Convalida hardware completata: {ok}/{total} modelli pronti.",
       "validation_required": "Convalida questo modello sull’immagine e sull’hardware attuali prima di continuare.",
       "validation_success": "Convalida hardware completata correttamente.",
-      "verified": "Provider convalidati: {list}"
+      "verified": "Provider convalidati: {list}",
+      "location_title": "Posizione della mangiatoia",
+      "location_hint": "La verifica o il proseguimento salva prima queste coordinate, le stesse di Impostazioni → Integrazioni → Posizione. Questo modello non usa la data né un raggio di precisione.",
+      "location_incomplete": "Inserisci latitudine e longitudine, oppure lascia vuoti entrambi i campi.",
+      "location_empty": "La posizione non verrà usata: questo modello identifica gli uccelli anche senza.",
+      "incomplete_install": "L’installazione di questo modello è incompleta. Scaricalo e verificalo di nuovo prima di continuare.",
+      "check_running": "Potrai continuare al termine della verifica. Uscire da questo passaggio non la interrompe. Torna più tardi per leggere i risultati salvati.",
+      "provider_replaced": "{previous} non ha superato la verifica per questo modello, quindi è stato selezionato {provider}.",
+      "no_passing_provider": "Questo modello non ha superato la verifica hardware. Controlla i risultati e riprova prima di continuare.",
+      "readiness_retry": "La verifica è terminata, ma non è stato possibile aggiornare lo stato del modello. Nuovo tentativo in corso; puoi uscire e tornare più tardi.",
+      "best_provider": "Miglior provider verificato: {provider}, {ms} ms per immagine",
+      "best_provider_without_timing": "Miglior provider verificato: {provider}",
+      "failed_providers": "Non riusciti: {providers}"
     },
     "quality": {
       "title": "Migliori istantanee disponibili",
@@ -298,7 +310,8 @@
       "start": "Inizia",
       "title": "Benvenuto in YA-WAMF"
     },
-    "working": "In corso…"
+    "working": "In corso…",
+    "skip_step": "Salta passaggio"
   },
   "theme": {
     "switch_light": "Passa alla modalità chiara",

@@ -213,7 +213,19 @@
       "validation_partial": "硬件验证已完成：{ok}/{total} 个模型就绪。",
       "validation_required": "继续前，请在当前镜像和硬件上验证此模型。",
       "validation_success": "硬件验证已成功完成。",
-      "verified": "已验证的提供程序：{list}"
+      "verified": "已验证的提供程序：{list}",
+      "location_title": "喂食器位置",
+      "location_hint": "验证或继续时会先保存这些坐标，与设置 → 集成 → 位置中的喂食器位置相同。此模型不使用日期或位置精度半径。",
+      "location_incomplete": "请输入纬度和经度，或将两项都留空。",
+      "location_empty": "不使用位置信息：此模型也能在没有位置的情况下识别鸟类。",
+      "incomplete_install": "此模型尚未完整安装。请重新下载并验证后再继续。",
+      "check_running": "检查完成后即可继续。离开此步骤不会停止检查。稍后可返回查看已保存的结果。",
+      "provider_replaced": "{previous} 未通过此模型的检查，已改为选择 {provider}。",
+      "no_passing_provider": "此模型未通过硬件验证。请检查结果并重试后再继续。",
+      "readiness_retry": "检查已完成，但无法刷新模型就绪状态。正在重试；您可以离开此步骤并稍后返回。",
+      "best_provider": "最佳已验证提供程序：{provider}，每张图像 {ms} 毫秒",
+      "best_provider_without_timing": "最佳已验证提供程序：{provider}",
+      "failed_providers": "失败：{providers}"
     },
     "quality": {
       "title": "最佳可用快照",
@@ -298,7 +310,8 @@
       "start": "开始",
       "title": "欢迎使用 YA-WAMF"
     },
-    "working": "处理中…"
+    "working": "处理中…",
+    "skip_step": "跳过此步骤"
   },
   "theme": {
     "switch_light": "切换到浅色模式",

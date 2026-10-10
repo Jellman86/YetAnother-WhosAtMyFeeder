@@ -77,8 +77,8 @@ describe('setup wizard wiring', () => {
         expect(modelStepSource).toContain('selectedInstalledModel?.provider_preference_order');
         expect(modelStepSource).toContain('providerTouched');
         expect(modelStepSource).toContain('providerPreferenceLabel');
-        expect(modelStepSource).toContain('model_ids: [selectedModelId]');
-        expect(modelStepSource).toContain("canContinue={loadState === 'ready' && selectedModelReady}");
+        expect(modelStepSource).toContain('model_ids: [runModelId]');
+        expect(modelStepSource).toContain('canContinue={canSave}');
         expect(modelStepSource).toContain('selectSetupModelId');
         expect(modelStepSource).toContain('downloadModel');
         expect(modelStepSource).toContain('fetchDownloadStatus');

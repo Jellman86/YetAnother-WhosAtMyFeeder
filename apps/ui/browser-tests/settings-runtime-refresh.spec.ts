@@ -9,7 +9,8 @@ const cpuStatus = {
     active_model_id: 'dinov2_location', image_execution_mode: 'subprocess',
     runtime_source: 'worker', selected_provider: 'auto',
     active_provider: 'cpu', inference_backend: 'onnxruntime',
-    host_available_providers: ['cpu', 'intel_npu'], intel_npu_available: true,
+    host_available_providers: ['cpu', 'intel_npu'], available_providers: ['cpu', 'intel_npu'],
+    intel_npu_available: true,
     host_device_eligibility: { verified_providers: ['cpu'] }
 };
 const npuStatus = {
@@ -31,26 +32,42 @@ const matrix = {
     }
 };
 
-async function openDetectionWithCompatibilityRun(page: Page, statusAfterRun: () => { status: number; json: unknown }) {
-    const counters = { settingsReads: 0, statusReadsAfterRun: 0, runFinished: false };
+async function openDetectionWithCompatibilityRun(
+    page: Page,
+    statusAfterRun: () => { status: number; json: unknown },
+    savedProvider = 'auto'
+) {
+    const counters = {
+        settingsReads: 0, statusReadsAfterRun: 0, runFinished: false,
+        savedProvider, saves: [] as Record<string, unknown>[]
+    };
     let runListReads = 0;
     await page.route('https://fonts.googleapis.com/**', route => route.fulfill({ body: '' }));
     await page.route('https://fonts.gstatic.com/**', route => route.abort());
     await page.route(url => url.pathname === '/health' || url.pathname.startsWith('/api/'), route => {
         const request = route.request();
         const path = new URL(request.url()).pathname;
+        if (path === '/api/settings' && request.method() === 'POST') {
+            const body = request.postDataJSON() as Record<string, unknown>;
+            counters.saves.push(body);
+            if (typeof body.inference_provider === 'string') counters.savedProvider = body.inference_provider;
+            return route.fulfill({ json: { status: 'updated' } });
+        }
         if (path === '/api/settings') {
             counters.settingsReads++;
             return route.fulfill({ json: {
                 frigate_url: 'http://frigate:5000', mqtt_server: 'mqtt', mqtt_port: 1883,
-                mqtt_auth: false, classification_threshold: 0.6, inference_provider: 'auto'
+                mqtt_auth: false, classification_threshold: 0.6, inference_provider: counters.savedProvider
             } });
         }
         if (path === '/api/classifier/status') {
-            if (!counters.runFinished) return route.fulfill({ json: cpuStatus });
+            // Like the backend, the status reports the saved preference as selected_provider.
+            const selected = { selected_provider: counters.savedProvider };
+            if (!counters.runFinished) return route.fulfill({ json: { ...cpuStatus, ...selected } });
             counters.statusReadsAfterRun++;
             const reply = statusAfterRun();
-            return route.fulfill({ status: reply.status, json: reply.json });
+            if (reply.status !== 200) return route.fulfill({ status: reply.status, json: reply.json });
+            return route.fulfill({ json: { ...(reply.json as object), ...selected } });
         }
         if (path === '/api/diagnostics/model-eval/runs' && request.method() === 'POST') {
             return route.fulfill({ json: { run_id: 'compat-1' } });
@@ -150,4 +167,87 @@ test('a runtime change after returning to Detection refreshes without another ch
     await expect(runtimeCell(page)).toContainText('Intel NPU (OpenVINO)', { timeout: 9_000 });
     await expect(slider).toHaveValue('0.75');
     expect(counters.settingsReads).toBe(settingsReads);
+});
+
+// Activating a model saves that model's recommended provider on the server.
+// The open form must adopt it unless the owner has already picked another one,
+// or the next unrelated save writes the old provider back.
+async function refreshRuntimeFromModels(
+    page: Page,
+    counters: { runFinished: boolean; savedProvider: string },
+    serverProvider: string
+) {
+    counters.savedProvider = serverProvider;
+    counters.runFinished = true;
+    await page.getByRole('button', { name: 'Refresh', exact: true }).last().click();
+    await expect(runtimeCell(page)).toContainText('Intel NPU (OpenVINO)', { timeout: 3_000 });
+}
+
+async function applySettings(page: Page, counters: { saves: Record<string, unknown>[] }) {
+    await page.getByRole('button', { name: 'Apply Settings', exact: true }).click();
+    await expect.poll(() => counters.saves.length).toBe(1);
+    return counters.saves[0];
+}
+
+test('a provider saved on the server replaces the loaded one in the form and in the next save', async ({ page }) => {
+    const counters = await openDetectionWithCompatibilityRun(page, () => ({ status: 200, json: npuStatus }), 'cpu');
+    const provider = page.locator('#inference-provider');
+    const slider = page.locator('#confidence-threshold-slider');
+    await expect(provider).toHaveValue('cpu');
+    await slider.fill('0.75');
+    const settingsReads = counters.settingsReads;
+
+    await refreshRuntimeFromModels(page, counters, 'intel_npu');
+    await expect(provider).toHaveValue('intel_npu');
+    await expect(slider).toHaveValue('0.75');
+    expect(counters.settingsReads).toBe(settingsReads);
+
+    const saved = await applySettings(page, counters);
+    expect(saved.inference_provider).toBe('intel_npu');
+    expect(saved.classification_threshold).toBe(0.75);
+});
+
+for (const { loaded, chosen } of [{ loaded: 'cpu', chosen: 'auto' }, { loaded: 'auto', chosen: 'cpu' }]) {
+    test(`an unsaved ${chosen} choice survives a server provider change from ${loaded}`, async ({ page }) => {
+        const counters = await openDetectionWithCompatibilityRun(page, () => ({ status: 200, json: npuStatus }), loaded);
+        const provider = page.locator('#inference-provider');
+        await expect(provider).toHaveValue(loaded);
+        await provider.selectOption(chosen);
+
+        await refreshRuntimeFromModels(page, counters, 'intel_npu');
+        await expect(provider).toHaveValue(chosen);
+
+        const saved = await applySettings(page, counters);
+        expect(saved.inference_provider).toBe(chosen);
+    });
+}
+
+// A legacy stored value is left out of saves while the form shows its Auto
+// fallback. Once the server reports a real provider, that becomes the saved
+// baseline, so choosing Auto afterwards is an explicit change that is sent.
+test('Auto chosen after a legacy provider was replaced on the server is saved', async ({ page }) => {
+    const counters = await openDetectionWithCompatibilityRun(page, () => ({ status: 200, json: npuStatus }), 'rocm');
+    const provider = page.locator('#inference-provider');
+    await expect(provider).toHaveValue('auto');
+
+    await refreshRuntimeFromModels(page, counters, 'intel_npu');
+    await expect(provider).toHaveValue('intel_npu');
+    await provider.selectOption('auto');
+
+    const saved = await applySettings(page, counters);
+    expect(saved.inference_provider).toBe('auto');
+});
+
+test('an Auto preference stays Auto while the worker runs on the NPU', async ({ page }) => {
+    const counters = await openDetectionWithCompatibilityRun(page, () => ({ status: 200, json: npuStatus }), 'auto');
+    const provider = page.locator('#inference-provider');
+    const slider = page.locator('#confidence-threshold-slider');
+    await slider.fill('0.75');
+
+    await refreshRuntimeFromModels(page, counters, 'auto');
+    await expect(provider).toHaveValue('auto');
+
+    const saved = await applySettings(page, counters);
+    expect(saved.inference_provider).toBe('auto');
+    expect(saved.classification_threshold).toBe(0.75);
 });

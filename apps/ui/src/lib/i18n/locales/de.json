@@ -213,7 +213,19 @@
       "validation_partial": "Hardwareprüfung abgeschlossen: {ok}/{total} Modelle bereit.",
       "validation_required": "Prüfen Sie dieses Modell mit dem aktuellen Image und der aktuellen Hardware, bevor Sie fortfahren.",
       "validation_success": "Hardwareprüfung erfolgreich abgeschlossen.",
-      "verified": "Geprüfte Anbieter: {list}"
+      "verified": "Geprüfte Anbieter: {list}",
+      "location_title": "Standort der Futterstelle",
+      "location_hint": "Beim Prüfen oder Fortfahren werden zuerst diese Koordinaten gespeichert. Es ist derselbe Standort wie unter Einstellungen → Integrationen → Standort. Das Modell verwendet weder Datum noch Genauigkeitsradius.",
+      "location_incomplete": "Geben Sie Breiten- und Längengrad ein oder lassen Sie beide Felder leer.",
+      "location_empty": "Es wird kein Standort verwendet: Dieses Modell erkennt Vögel auch ohne ihn.",
+      "incomplete_install": "Dieses Modell ist unvollständig installiert. Laden Sie es erneut herunter und prüfen Sie es, bevor Sie fortfahren.",
+      "check_running": "Nach Abschluss der Prüfung können Sie fortfahren. Das Verlassen dieses Schritts beendet die Prüfung nicht. Sie können die gespeicherten Ergebnisse später ansehen.",
+      "provider_replaced": "{previous} hat die Prüfung für dieses Modell nicht bestanden. Stattdessen ist {provider} ausgewählt.",
+      "no_passing_provider": "Dieses Modell hat die Hardwareprüfung nicht bestanden. Prüfen Sie die Ergebnisse und versuchen Sie es erneut, bevor Sie fortfahren.",
+      "readiness_retry": "Die Prüfung ist abgeschlossen, aber der Modellstatus konnte nicht aktualisiert werden. Ein neuer Versuch läuft; Sie können diesen Schritt verlassen und später zurückkehren.",
+      "best_provider": "Bester geprüfter Anbieter: {provider}, {ms} ms pro Bild",
+      "best_provider_without_timing": "Bester geprüfter Anbieter: {provider}",
+      "failed_providers": "Fehlgeschlagen: {providers}"
     },
     "quality": {
       "title": "Bestmögliche Schnappschüsse",
@@ -298,7 +310,8 @@
       "start": "Loslegen",
       "title": "Willkommen bei YA-WAMF"
     },
-    "working": "Wird ausgeführt…"
+    "working": "Wird ausgeführt…",
+    "skip_step": "Schritt überspringen"
   },
   "theme": {
     "switch_light": "Zum hellen Modus wechseln",

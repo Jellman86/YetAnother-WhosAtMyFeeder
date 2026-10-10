@@ -213,7 +213,19 @@
       "validation_partial": "Validation du matériel terminée : {ok}/{total} modèles prêts.",
       "validation_required": "Validez ce modèle sur l’image et le matériel actuels avant de continuer.",
       "validation_success": "Validation du matériel terminée avec succès.",
-      "verified": "Fournisseurs validés : {list}"
+      "verified": "Fournisseurs validés : {list}",
+      "location_title": "Emplacement de la mangeoire",
+      "location_hint": "La validation ou la poursuite enregistre d’abord ces coordonnées, identiques à celles de Paramètres → Intégrations → Localisation. Ce modèle n’utilise ni la date ni un rayon de précision.",
+      "location_incomplete": "Saisissez la latitude et la longitude, ou laissez les deux champs vides.",
+      "location_empty": "Aucune localisation ne sera utilisée : ce modèle identifie les oiseaux sans elle.",
+      "incomplete_install": "L’installation de ce modèle est incomplète. Téléchargez-le et vérifiez-le à nouveau avant de continuer.",
+      "check_running": "Vous pourrez continuer à la fin du test. Quitter cette étape n’arrête pas le test. Revenez plus tard consulter les résultats enregistrés.",
+      "provider_replaced": "{previous} n’a pas réussi le test pour ce modèle ; {provider} est sélectionné à la place.",
+      "no_passing_provider": "Ce modèle n’a pas réussi la validation matérielle. Consultez les résultats et réessayez avant de continuer.",
+      "readiness_retry": "Le test est terminé, mais l’état du modèle n’a pas pu être actualisé. Nouvelle tentative en cours ; vous pouvez quitter cette étape et revenir plus tard.",
+      "best_provider": "Meilleur moteur validé : {provider}, {ms} ms par image",
+      "best_provider_without_timing": "Meilleur moteur validé : {provider}",
+      "failed_providers": "Échecs : {providers}"
     },
     "quality": {
       "title": "Meilleurs instantanés disponibles",
@@ -298,7 +310,8 @@
       "start": "Commencer",
       "title": "Bienvenue sur YA-WAMF"
     },
-    "working": "En cours…"
+    "working": "En cours…",
+    "skip_step": "Passer cette étape"
   },
   "theme": {
     "switch_light": "Passer au mode clair",

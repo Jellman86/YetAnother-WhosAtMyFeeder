@@ -128,6 +128,14 @@ CPU top-1 on all 24 panel inputs, with NPU fastest at 120.4 ms median probe infe
 compatibility run, not a new accuracy measurement on all 294 downloaded panel images. It used
 the saved feeder location, unlike the missing-location public accuracy comparison above.
 
+That browser run, `20261010-163945`, completed in 563.93 seconds. Medium Birds produced
+nonfinite output on Intel GPU, so that path failed validation and was excluded; its Intel CPU
+path passed and was fastest at 45.9 ms median. All other tested classifier paths passed.
+This demonstrates the host gate rejecting an unsafe path, not a universal accelerator guarantee.
+The run produced only `summary.json` and `device_matrix.json`. Compatibility reporting must
+show its measured median and passing providers, without interpreting placeholder accuracy
+values as a measured 0% or offering accuracy-only artifacts that were never produced.
+
 An additional comparison in the published container used 24 retained feeder inputs with saved
 location present as float32 `[1, 8]` metadata. All four providers returned finite output; every
 Intel provider matched CPU top-1 on 24/24 inputs. Median probe inference was 253.3 ms on ONNX

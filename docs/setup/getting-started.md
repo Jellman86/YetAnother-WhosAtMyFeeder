@@ -163,6 +163,24 @@ currently online. The wizard can be reopened later from **Settings → Setup wiz
 in the Settings navigation. In re-run mode, completing, skipping, or backing out
 of a section returns to that review map instead of advancing through unrelated steps.
 
+In **Classifier model & hardware**, download incomplete or missing models before
+validating them. **Continue** stays disabled during download and validation. The
+check reports compatible providers and their measured median inference time; it
+does not measure species accuracy. A manual provider choice is retained if it
+passes; a failed choice is replaced with an explanation. The provider shown is
+the preference saved when you continue, rather than a claim that workers have
+already switched to it.
+
+Location-aware models such as DINOv2 also offer **Feeder location** here. Enter
+both coordinates or leave both empty; zero is a valid coordinate. Validation and
+**Continue** save changed coordinates first through the normal Location settings,
+so they also apply elsewhere in the app. Both empty means DINOv2 uses neutral
+metadata, without a location. Date and location accuracy are not supplied.
+**Skip step** leaves the current step without saving its remaining choices;
+**Skip setup** exits the first-run flow. Leaving a hardware check does not cancel
+it: return later to read its saved validation state. A location already saved
+before starting that check remains saved.
+
 **You should see:** the **Dashboard**, with today's counts across the top and the
 field log beneath. Until Frigate sends its first bird event the field log is empty
 and says so.
@@ -204,6 +222,10 @@ If you want friends to see your feeder without giving them the controls:
    reaches.
 
 See [Authentication & Access](../features/authentication.md) for the full guest mode checklist and proxy guidance.
+
+Wizard changes are saved as you continue each step. If Settings is open underneath a
+re-run, its untouched fields follow those saved changes; your other unsaved edits stay
+in the form.
 
 ## 🌍 The Importance of Timezone (`TZ`)
 Setting your correct local timezone is **critical** for YA-WAMF to function correctly. Ensure `TZ` is set in your `.env` (e.g., `TZ=Europe/London` — the correct choice, obviously).

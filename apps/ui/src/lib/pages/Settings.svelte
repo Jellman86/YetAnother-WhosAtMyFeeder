@@ -8,6 +8,7 @@
     import {
         fetchSettings,
         updateSettings,
+        subscribeSettingsUpdates,
         fetchFrigateConfig,
         fetchClassifierStatus,
         downloadDefaultModel,
@@ -57,7 +58,7 @@
         type PurgeMissingMediaResult,
         type RecordingClipCapability
     } from '../api';
-    import type { BlockedSpeciesEntry, ClassificationImageSource, NotificationSpeciesFilterMode, Settings as SettingsPayload } from '../api/settings';
+    import type { BlockedSpeciesEntry, ClassificationImageSource, NotificationSpeciesFilterMode, Settings as SettingsPayload, SettingsUpdate } from '../api/settings';
     import { themeStore, type ColorTheme, type FontTheme, type Theme } from '../stores/theme.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { analysisQueueStatusStore } from '../stores/analysis_queue_status.svelte';
@@ -87,7 +88,12 @@
     import SettingsRow from '../components/settings/_primitives/SettingsRow.svelte';
     import SettingsToggle from '../components/settings/_primitives/SettingsToggle.svelte';
     import { locationSettingsDirty } from '../settings/location-dirty';
-    import { inferenceProviderForSave, parseInferenceProvider, type InferenceProvider } from '../settings/inference-providers';
+    import {
+        inferenceProviderForSave,
+        parseInferenceProvider,
+        reconcileSavedInferenceProvider,
+        type InferenceProvider
+    } from '../settings/inference-providers';
     import { normalizeDateFormat, normalizeTimeFormat } from '../utils/datetime';
     import { getErrorMessage } from '../utils/error-handling';
 
@@ -2061,6 +2067,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         currentColorTheme = themeStore.colorTheme;
     });
 
+    onMount(() => subscribeSettingsUpdates(reconcileLocalSettingsUpdate));
+
     onMount(async () => {
         // Guests should never load the Settings view or call /api/settings.
         if (!authStore.showSettings) {
@@ -2789,13 +2797,25 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     // newest request wins, so a slow earlier reply cannot restore a stale provider.
     let classifierStatusRequest = 0;
     let classifierStatusReads = 0;
+    // The provider as loadSettings last put it in the form. The shared settings
+    // store can be refreshed independently, so it cannot tell whether the form
+    // still shows the loaded provider or one the owner has picked since.
+    let loadedInferenceProvider: unknown = undefined;
+    let loadedSetupSettings: SettingsPayload | null = null;
+    let settingsFormLoads = 0;
 
     async function loadClassifierStatus(): Promise<boolean> {
         const request = ++classifierStatusRequest;
+        const formLoad = settingsFormLoads;
         classifierStatusReads += 1;
         try {
             const status = await fetchClassifierStatus();
-            if (request === classifierStatusRequest) classifierStatus = status;
+            if (request === classifierStatusRequest) {
+                classifierStatus = status;
+                // A status read that started before the form was last loaded, or
+                // that lands mid-save, may report a preference older than the form's.
+                if (formLoad === settingsFormLoads && !saving) adoptSavedInferenceProvider(status.selected_provider);
+            }
             return true;
         } catch (e) {
             console.error('Failed to load classifier status', e);
@@ -2803,6 +2823,64 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         } finally {
             classifierStatusReads -= 1;
         }
+    }
+
+    // Activating a model saves that model's provider on the server. Without this,
+    // the form and its saved baseline keep the old provider, and the next save of
+    // an unrelated edit writes it back over the new one.
+    function adoptSavedInferenceProvider(reportedProvider: unknown): void {
+        const update = reconcileSavedInferenceProvider(reportedProvider, loadedInferenceProvider, inferenceProvider);
+        if (!update) return;
+        loadedInferenceProvider = update.saved;
+        inferenceProvider = update.form;
+        if (settingsStore.settings) {
+            settingsStore.update({ ...settingsStore.settings, inference_provider: update.saved });
+        }
+    }
+
+    // A re-run overlays this form. Adopt confirmed wizard writes only for fields
+    // the owner has not edited here, so an unrelated later save cannot undo setup.
+    function reconcileLocalSettingsUpdate(patch: SettingsUpdate): void {
+        if (saving || !loadedSetupSettings) return;
+        const baseline = loadedSetupSettings;
+        const confirmed: Partial<SettingsPayload> = {};
+        function adopt<K extends keyof SettingsPayload>(key: K, current: SettingsPayload[K], previous: SettingsPayload[K], write: (value: SettingsPayload[K]) => void) {
+            const saved = patch[key as keyof SettingsUpdate];
+            if (saved === undefined || saved === null) return;
+            const value = saved as SettingsPayload[K];
+            if (JSON.stringify(current) === JSON.stringify(previous)) write(value);
+            confirmed[key] = value;
+        }
+        adopt('frigate_url', frigateUrl, baseline.frigate_url, value => frigateUrl = value);
+        adopt('mqtt_server', mqttServer, baseline.mqtt_server, value => mqttServer = value);
+        adopt('mqtt_port', mqttPort, baseline.mqtt_port, value => mqttPort = value);
+        adopt('mqtt_auth', mqttAuth, baseline.mqtt_auth, value => mqttAuth = value);
+        adopt('mqtt_username', mqttUsername, baseline.mqtt_username || '', value => mqttUsername = value || '');
+        adopt('cameras', selectedCameras, baseline.cameras || [], value => selectedCameras = value);
+        adopt('media_cache_high_quality_event_snapshots', cacheHighQualityEventSnapshots, baseline.media_cache_high_quality_event_snapshots ?? false, value => cacheHighQualityEventSnapshots = value);
+        adopt('birdnet_enabled', birdnetEnabled, baseline.birdnet_enabled ?? true, value => birdnetEnabled = value);
+        adopt('birdnet_url', birdnetUrl, baseline.birdnet_url || '', value => birdnetUrl = value);
+        adopt('ebird_enabled', ebirdEnabled, baseline.ebird_enabled ?? false, value => ebirdEnabled = value ?? false);
+        adopt('inaturalist_enabled', inaturalistEnabled, baseline.inaturalist_enabled ?? false, value => inaturalistEnabled = value ?? false);
+        adopt('birdweather_enabled', birdweatherEnabled, baseline.birdweather_enabled ?? false, value => birdweatherEnabled = value);
+        adopt('llm_enabled', llmEnabled, baseline.llm_enabled ?? false, value => llmEnabled = value);
+        adopt('telemetry_enabled', telemetryEnabled, baseline.telemetry_enabled ?? true, value => telemetryEnabled = value);
+        // Coordinates form one input: never combine half an unsaved pair with setup.
+        if (patch.location_latitude !== undefined && patch.location_longitude !== undefined) {
+            if (locationLat === (baseline.location_latitude ?? null) && locationLon === (baseline.location_longitude ?? null)) {
+                locationLat = patch.location_latitude;
+                locationLon = patch.location_longitude;
+            }
+            confirmed.location_latitude = patch.location_latitude;
+            confirmed.location_longitude = patch.location_longitude;
+        }
+        if (patch.inference_provider !== undefined) adoptSavedInferenceProvider(patch.inference_provider);
+        if (patch.mqtt_password && patch.mqtt_password !== '***REDACTED***') {
+            mqttPasswordSaved = !mqttPassword;
+            confirmed.mqtt_password = '***REDACTED***';
+        }
+        loadedSetupSettings = { ...baseline, ...confirmed };
+        if (settingsStore.settings) settingsStore.update({ ...settingsStore.settings, ...confirmed });
     }
 
     async function loadRecordingClipCapability() {
@@ -2824,6 +2902,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         birdnetSourcesError = null;
         try {
             const settings = await fetchSettings();
+            loadedSetupSettings = settings;
             settingsStore.update(settings);
             frigateUrl = settings.frigate_url;
             frigateIngestLabels = (settings.frigate_ingest_labels ?? ['bird']).join(', ');
@@ -2888,6 +2967,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             imageExecutionMode = settings.image_execution_mode ?? 'subprocess';
             strictNonFiniteOutput = settings.strict_non_finite_output ?? true;
             inferenceProvider = parseInferenceProvider(settings.inference_provider) ?? 'auto';
+            loadedInferenceProvider = settings.inference_provider;
+            settingsFormLoads += 1;
             videoCircuitOpen = settings.video_classification_circuit_open ?? false;
             videoCircuitUntil = settings.video_classification_circuit_until ?? null;
             videoCircuitFailures = settings.video_classification_circuit_failures ?? 0;

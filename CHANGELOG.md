@@ -6,6 +6,17 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- The setup wizard offers feeder coordinates for location-aware classifiers, saves them before
+  hardware validation, and handles missing coordinates and valid zero coordinates explicitly.
+  Incomplete installs, invalid coordinate pairs and running checks cannot be continued with.
+  The provider shown is the one saved on Continue; a passing manual choice is kept and a failed
+  choice is replaced with an explanation. Results show the measured best provider and median,
+  without claiming accuracy. Leaving a check stops page polling without cancelling the job or
+  letting late replies alter another step. **Skip step** and **Skip setup** now name their
+  different effects. First-run, re-run, optional history import, retry and credential-preservation
+  paths have browser regression coverage. Confirmed wizard saves also update untouched fields
+  in an open Settings form, preserving other unsaved edits and preventing a later save from
+  undoing setup.
 - Model Evaluation no longer shows 0% accuracy for a compatibility check, which never measures
   accuracy. Such runs are labelled **Compatibility check only** and show each model's best
   validated provider, its median inference time and the providers that passed, instead of
@@ -19,6 +30,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   worker has loaded yet is shown as planned rather than active.
   The visible Detection tab also refreshes status periodically and on returning to the browser,
   so a check finishing elsewhere or a delayed worker start cannot leave the old provider shown.
+  The **Inference Provider** field also follows the provider saved on the server, such as the
+  one model activation picks, unless you have already chosen a different provider on the page.
+  Before, it kept showing the old choice (for example CPU), and saving an unrelated edit such as
+  a threshold wrote that old provider back over the new one.
 
 - Model Manager adds eight experimental classifiers: location-aware DINOv2, RoPE Wildlife
   336, RoPE EU 336, Arabian Peninsula RoPE DeiT3, NaFlex EU and Israel Birds, Parallel ViT EU,

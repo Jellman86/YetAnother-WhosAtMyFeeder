@@ -213,7 +213,19 @@
       "validation_partial": "Hardware validation completed: {ok}/{total} models ready.",
       "validation_required": "Validate this model on the current image and hardware before continuing.",
       "validation_success": "Hardware validation completed successfully.",
-      "verified": "Validated providers: {list}"
+      "verified": "Validated providers: {list}",
+      "location_title": "Feeder location",
+      "location_hint": "Validating or continuing saves these coordinates first, using the same feeder location as Settings → Integrations → Location. This model does not use the date or a location accuracy radius.",
+      "location_incomplete": "Enter both latitude and longitude, or leave both empty.",
+      "location_empty": "No location will be used: this model identifies birds without it.",
+      "incomplete_install": "This model install is incomplete. Download and verify it again before continuing.",
+      "check_running": "Continue is available when the check finishes. Leaving this step does not stop the check. Return later to read the saved results.",
+      "provider_replaced": "{previous} did not pass the check for this model, so {provider} is selected instead.",
+      "no_passing_provider": "This model did not pass hardware validation. Review the results and try again before continuing.",
+      "readiness_retry": "The check finished, but model readiness could not be refreshed. Retrying; you can leave this step and return later.",
+      "best_provider": "Best validated provider: {provider}, {ms} ms per image",
+      "best_provider_without_timing": "Best validated provider: {provider}",
+      "failed_providers": "Failed: {providers}"
     },
     "quality": {
       "title": "Best available snapshots",
@@ -298,7 +310,8 @@
       "start": "Get started",
       "title": "Welcome to YA-WAMF"
     },
-    "working": "Working…"
+    "working": "Working…",
+    "skip_step": "Skip step"
   },
   "theme": {
     "switch_light": "Switch to light mode",
