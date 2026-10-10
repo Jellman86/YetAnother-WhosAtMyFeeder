@@ -341,7 +341,8 @@
                 {@const captureScore = capture.score ?? 0}
                 {@const captureNaming = names(capture)}
                 <li class="col-span-full grid grid-cols-subgrid items-center py-0.5" data-visit-capture={capture.frigate_event}>
-                    <time class="block text-2xs tabular-nums text-slate-500 dark:text-slate-400" datetime={capture.detection_time}>{time}</time>
+                    <!-- A step smaller on phones, where the time column is narrowest and seconds must still fit. -->
+                    <time class="block text-3xs tabular-nums text-slate-500 sm:text-2xs dark:text-slate-400" datetime={capture.detection_time}>{time}</time>
                     {@render branch(
                         'capture',
                         server && captureFacts(capture, server).shown
