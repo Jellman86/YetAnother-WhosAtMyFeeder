@@ -6,6 +6,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Classifier centre-crop metadata can request torchvision-style truncation for models that
+  require it. Existing model defaults, resize policies and crop detector behaviour are preserved.
+
 - Missing snapshots no longer open the video inference circuit and pause the rest of a
   maintenance queue. Unavailable-media jobs still fail visibly; worker failures retain circuit
   protection (#481).

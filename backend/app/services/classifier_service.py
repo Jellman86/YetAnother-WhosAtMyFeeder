@@ -877,16 +877,27 @@ def _resize_preserving_aspect_shortest_edge(
     shortest_edge: int,
     *,
     interpolation: Image.Resampling,
+    rounding: str = "round",
 ) -> Image.Image:
     width, height = image.size
     if width <= 0 or height <= 0:
         return image
     if width <= height:
         new_width = shortest_edge
-        new_height = max(1, int(round(height * (shortest_edge / width))))
+        new_height = max(
+            1,
+            int(shortest_edge * height / width)
+            if rounding == "floor"
+            else int(round(height * (shortest_edge / width))),
+        )
     else:
         new_height = shortest_edge
-        new_width = max(1, int(round(width * (shortest_edge / height))))
+        new_width = max(
+            1,
+            int(shortest_edge * width / height)
+            if rounding == "floor"
+            else int(round(width * (shortest_edge / height))),
+        )
     return image.resize((new_width, new_height), interpolation)
 
 
@@ -923,6 +934,7 @@ def _resize_with_preprocessing(
             image,
             scale_size,
             interpolation=interpolation,
+            rounding=str((preprocessing or {}).get("resize_rounding") or "round").strip().lower(),
         )
         return _center_crop_to_size(resized, target_size)
 

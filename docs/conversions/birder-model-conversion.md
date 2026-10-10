@@ -49,6 +49,40 @@ The script writes `model.onnx`, `model.onnx.data` (external weights),
 
 ## Quick iGPU compatibility check
 
+### Verify the input contract first
+
+Read the exact checkpoint's inference transform before choosing sidecar metadata. Record RGB or
+BGR channel order, tensor layout and dtype, pixel scaling, mean/std, interpolation, resize policy,
+input dimensions, and any patch or token constraints. A transform using `Resize((height, width))`
+performs a direct resize; `Resize(shortest_edge)` preserves aspect ratio before a centre crop.
+These policies can produce different predictions with identical weights.
+
+Centre-crop sidecars can declare `resize_rounding: "floor"` when their reference transform truncates
+the resized long edge, as torchvision does. Omitting this field preserves YA-WAMF's existing
+round-to-nearest behaviour. Do not change installed models' resize policies merely because another
+policy matches an upstream example: compare both policies on the same public and feeder images.
+
+Compare actual application-prepared tensors against the native transform on varied landscape,
+portrait and feeder images, including a channel-colour sentinel. Then compare finite logits and
+top-1/top-5 predictions between native PyTorch and ONNX. Dynamic-aspect models need rectangular
+input checks at multiple patch-aligned sizes; a successful square-only export proves too little.
+
+Replay cached feeder images with their validated snapshot provenance and retained aligned event
+hints through `build_snapshot_classification_input_context`. Frigate snapshot crop restoration
+is independent of optional model cropping: a full snapshot may need its event region restored
+even when model cropping is disabled, while an already-cropped snapshot must retain that flag.
+Verify the selected RGB pixel hashes and dimensions across candidates. A raw-image replay with
+synthetic context measures a different input path and cannot establish original-event behaviour.
+
+The published YOLOX reference uses its own contract: BGR, contiguous float32 NCHW, unscaled 0–255
+pixels, OpenCV linear resize with truncated dimensions, and top-left padding of 114. Classifier
+normalization must not be reused for that detector. Its box restoration uses the same letterbox
+scale and offsets. YA-WAMF currently uses Pillow resizing and rounded dimensions; changing that
+implementation also changes crop selections. Compare downstream classification and rejection
+behaviour before changing an installed detector. See the [upstream preprocessing](https://github.com/Megvii-BaseDetection/YOLOX/blob/main/yolox/data/data_augment.py).
+
+### Probe the provider
+
 Before adding the model to the registry with `intel_gpu` enabled, probe it
 directly through OpenVINO inside a full or `-intel` live container. A CPU,
 CUDA, or Raspberry Pi image does not package OpenVINO and is not evidence that
