@@ -22,6 +22,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Location-aware models explain their saved-location input in Model Manager and link to Location
   settings without discarding unsaved settings edits. Install repair guidance also covers species
   names held in the catalogue.
+- The October validation report records the published Intel image's DINOv2 provider, upload,
+  concurrency and history-preservation checks. Model diagnostic guidance explains temporary
+  selection changes and distinguishes saved-location runs from missing-location benchmarks.
 
 - Classifier centre-crop metadata can request torchvision-style truncation for models that
   require it. Existing model defaults, resize policies and crop detector behaviour are preserved.

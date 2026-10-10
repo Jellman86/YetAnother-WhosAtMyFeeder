@@ -69,8 +69,9 @@ Changing or importing the location reloads classifier workers so they use the sa
 Model Manager explains this for location-aware models and links to **Settings → Integrations →
 Location**. Switching there within Settings preserves unsaved edits; save the coordinates before
 expecting them to change inference. Model-specific image preparation is automatic.
-Public benchmark images are evaluated with location absent rather than borrowing the feeder's
-location. Published upstream full-metadata scores are not a score for this location-only policy.
+The October public accuracy comparison used location absent rather than borrowing the feeder's
+location. Normal in-app diagnostics use the saved location; record that distinction when comparing
+results. Published upstream full-metadata scores are not a score for this location-only policy.
 
 BioCLIP's external weights exceed GitHub's per-file size limit. Model Manager downloads two
 ordered parts, verifies each part, joins them into `model.onnx.data`, then verifies the complete

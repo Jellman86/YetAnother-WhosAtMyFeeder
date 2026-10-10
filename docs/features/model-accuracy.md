@@ -330,7 +330,12 @@ python3 backend/scripts/pipeline_api_test.py --base_url http://localhost:9852
 
 ### Run against all installed models
 
-This cycles through every installed model in turn, activates it, tests it, then restores the original:
+This cycles through every installed model in turn, activates it, tests it, then restores the original.
+
+Let the run finish before choosing a different operating model. The diagnostic temporarily
+changes the active model and restores the selection it started with, so a model selected during
+the run may be replaced. Location-aware models use the saved location during normal in-app
+diagnostics; record whether location was present when comparing separate benchmark results.
 
 ```bash
 python3 backend/scripts/pipeline_api_test.py \
