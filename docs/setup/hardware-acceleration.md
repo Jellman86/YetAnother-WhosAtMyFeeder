@@ -180,6 +180,12 @@ The visible Detection tab also refreshes runtime status every five seconds and w
 becomes visible again. This catches a check finishing elsewhere or a worker starting later;
 it does not reload your settings. **Models → Refresh** reads the runtime too.
 
+Activating a model saves that model's recommended provider. When the status shows the saved
+provider has changed, the **Inference Provider** field follows it, so saving an unrelated edit
+later keeps the new provider. If you have already picked a different provider on the page and
+not saved it, your choice is kept. The field shows your saved preference, not the provider the
+workers run on: with **Auto** saved it stays **Auto** while the runtime reports, say, Intel NPU.
+
 The resulting matrix is image-aware: `cpu`/`rpi` test CPU, `cuda` tests ONNX CPU and
 CUDA, `intel` tests ONNX CPU plus the detected OpenVINO targets, and `full` tests all
 applicable targets. In particular, OpenVINO CPU in the full image does not suppress

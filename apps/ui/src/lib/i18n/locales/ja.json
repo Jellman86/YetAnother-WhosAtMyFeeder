@@ -213,7 +213,19 @@
       "validation_partial": "ハードウェア検証が完了しました: {ok}/{total} 個のモデルが利用可能です。",
       "validation_required": "続行する前に、現在のイメージとハードウェアでこのモデルを検証してください。",
       "validation_success": "ハードウェア検証が正常に完了しました。",
-      "verified": "検証済みプロバイダー: {list}"
+      "verified": "検証済みプロバイダー: {list}",
+      "location_title": "給餌台の位置",
+      "location_hint": "検証または続行すると、まずこの座標を保存します。設定 → 連携 → 位置情報と同じ給餌台の位置です。このモデルは日付や位置の精度半径を使用しません。",
+      "location_incomplete": "緯度と経度の両方を入力するか、両方を空欄にしてください。",
+      "location_empty": "位置情報は使用しません。このモデルは位置情報なしでも鳥を識別します。",
+      "incomplete_install": "このモデルのインストールは不完全です。続行する前に再ダウンロードして検証してください。",
+      "check_running": "検証が完了すると続行できます。このステップを離れても検証は停止しません。保存された結果は後で確認できます。",
+      "provider_replaced": "{previous} はこのモデルの検証に合格しなかったため、代わりに {provider} を選択しました。",
+      "no_passing_provider": "このモデルはハードウェア検証に合格しませんでした。続行する前に結果を確認して再試行してください。",
+      "readiness_retry": "検証は完了しましたが、モデルの準備状態を更新できませんでした。再試行中です。このステップを離れて後で戻ることもできます。",
+      "best_provider": "検証済みの最適なプロバイダー: {provider}、画像あたり {ms} ms",
+      "best_provider_without_timing": "検証済みの最適なプロバイダー: {provider}",
+      "failed_providers": "失敗: {providers}"
     },
     "quality": {
       "title": "利用可能な最良のスナップショット",
@@ -298,7 +310,8 @@
       "start": "はじめる",
       "title": "YA-WAMFへようこそ"
     },
-    "working": "処理中…"
+    "working": "処理中…",
+    "skip_step": "このステップをスキップ"
   },
   "theme": {
     "switch_light": "ライトモードに切り替え",

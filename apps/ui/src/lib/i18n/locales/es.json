@@ -213,7 +213,19 @@
       "validation_partial": "Validación de hardware completada: {ok}/{total} modelos listos.",
       "validation_required": "Valida este modelo con la imagen y el hardware actuales antes de continuar.",
       "validation_success": "La validación de hardware se completó correctamente.",
-      "verified": "Proveedores validados: {list}"
+      "verified": "Proveedores validados: {list}",
+      "location_title": "Ubicación del comedero",
+      "location_hint": "Al validar o continuar se guardan primero estas coordenadas, las mismas de Ajustes → Integraciones → Ubicación. Este modelo no utiliza la fecha ni un radio de precisión.",
+      "location_incomplete": "Introduce la latitud y la longitud, o deja ambos campos vacíos.",
+      "location_empty": "No se utilizará la ubicación: este modelo identifica aves sin ella.",
+      "incomplete_install": "La instalación de este modelo está incompleta. Descárgalo y verifícalo de nuevo antes de continuar.",
+      "check_running": "Podrás continuar cuando termine la prueba. Salir de este paso no la detiene. Vuelve más tarde para consultar los resultados guardados.",
+      "provider_replaced": "{previous} no superó la prueba de este modelo, por lo que se ha seleccionado {provider}.",
+      "no_passing_provider": "Este modelo no superó la validación del hardware. Revisa los resultados y vuelve a intentarlo antes de continuar.",
+      "readiness_retry": "La prueba terminó, pero no se pudo actualizar el estado del modelo. Se está reintentando; puedes salir de este paso y volver más tarde.",
+      "best_provider": "Mejor proveedor validado: {provider}, {ms} ms por imagen",
+      "best_provider_without_timing": "Mejor proveedor validado: {provider}",
+      "failed_providers": "Fallidos: {providers}"
     },
     "quality": {
       "title": "Mejores capturas disponibles",
@@ -298,7 +310,8 @@
       "start": "Empezar",
       "title": "Te damos la bienvenida a YA-WAMF"
     },
-    "working": "Trabajando…"
+    "working": "Trabajando…",
+    "skip_step": "Omitir paso"
   },
   "theme": {
     "switch_light": "Cambiar a modo claro",

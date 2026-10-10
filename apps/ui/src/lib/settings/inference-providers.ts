@@ -43,6 +43,30 @@ export function inferenceProviderForSave(
     return storedIsUnrecognised && formValue === 'auto' ? undefined : formValue;
 }
 
+export interface SavedInferenceProviderUpdate {
+    saved: InferenceProvider;
+    form: InferenceProvider;
+}
+
+/**
+ * Reconciles the open form with the provider preference the classifier status
+ * reports as saved, which model activation can change on the server. The form
+ * follows only while it still shows the provider last loaded, so an unsaved
+ * choice is kept. Returns null when there is nothing to change. The backend
+ * reports an unrecognised stored value as Auto, so that is not a change.
+ */
+export function reconcileSavedInferenceProvider(
+    reportedProvider: unknown,
+    loadedProvider: unknown,
+    formValue: InferenceProvider,
+): SavedInferenceProviderUpdate | null {
+    const saved = parseInferenceProvider(reportedProvider);
+    const loaded = parseInferenceProvider(loadedProvider);
+    if (saved === null || saved === loaded) return null;
+    if (loaded === null && saved === 'auto') return null;
+    return { saved, form: formValue === (loaded ?? 'auto') ? saved : formValue };
+}
+
 function uniqueSelectableProviders(values: string[] | null | undefined): InferenceProvider[] {
     const providers: InferenceProvider[] = [];
     for (const value of values ?? []) {

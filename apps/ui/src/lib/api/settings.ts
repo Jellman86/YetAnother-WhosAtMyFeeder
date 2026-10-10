@@ -225,13 +225,27 @@ export async function fetchSettings(): Promise<Settings> {
     return handleResponse<Settings>(response);
 }
 
+type SettingsUpdateListener = (settings: SettingsUpdate) => void;
+const settingsUpdateListeners = new Set<SettingsUpdateListener>();
+
+/** Confirmed writes from another local view, such as the setup wizard. */
+export function subscribeSettingsUpdates(listener: SettingsUpdateListener): () => void {
+    settingsUpdateListeners.add(listener);
+    return () => { settingsUpdateListeners.delete(listener); };
+}
+
 export async function updateSettings(settings: SettingsUpdate): Promise<{ status: string }> {
     const response = await apiFetch(`${API_BASE}/settings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings),
     });
-    return handleResponse<{ status: string }>(response);
+    const result = await handleResponse<{ status: string }>(response);
+    for (const listener of settingsUpdateListeners) {
+        try { listener(settings); }
+        catch { console.error('Failed to reconcile saved settings'); }
+    }
+    return result;
 }
 
 export interface ConfigBackupImportResult {

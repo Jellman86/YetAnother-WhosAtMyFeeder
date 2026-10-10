@@ -6,6 +6,7 @@ import {
     getRuntimeProviderOrder,
     inferenceProviderForSave,
     parseInferenceProvider,
+    reconcileSavedInferenceProvider,
 } from './inference-providers';
 
 const baseStatus: ClassifierStatus = {
@@ -210,5 +211,49 @@ describe('saved inference provider preservation', () => {
         expect(inferenceProviderForSave('auto', 'Intel_NPU')).toBeUndefined();
         expect(inferenceProviderForSave('auto', 'rocm')).toBeUndefined();
         expect(inferenceProviderForSave('intel_cpu', 'rocm')).toBe('intel_cpu');
+    });
+});
+
+describe('saved inference provider reconciliation', () => {
+    it('follows a server-side change when the form still shows the loaded provider', () => {
+        expect(reconcileSavedInferenceProvider('intel_npu', 'cpu', 'cpu')).toEqual({
+            saved: 'intel_npu',
+            form: 'intel_npu',
+        });
+    });
+
+    it('records the new saved provider but keeps an unsaved choice in the form', () => {
+        expect(reconcileSavedInferenceProvider('intel_npu', 'intel_cpu', 'cpu')).toEqual({
+            saved: 'intel_npu',
+            form: 'cpu',
+        });
+        expect(reconcileSavedInferenceProvider('intel_npu', 'cpu', 'auto')).toEqual({
+            saved: 'intel_npu',
+            form: 'auto',
+        });
+    });
+
+    it('does nothing when the saved provider has not changed', () => {
+        expect(reconcileSavedInferenceProvider('auto', 'auto', 'auto')).toBeNull();
+        expect(reconcileSavedInferenceProvider('intel_npu', 'intel_npu', 'cpu')).toBeNull();
+    });
+
+    it('ignores a missing or unrecognised reported provider', () => {
+        for (const reported of [undefined, null, '', 'rocm', 'Intel_NPU', 42]) {
+            expect(reconcileSavedInferenceProvider(reported, 'cpu', 'cpu')).toBeNull();
+        }
+    });
+
+    it('does not coerce a legacy stored value that the backend reports as Auto', () => {
+        expect(reconcileSavedInferenceProvider('auto', 'rocm', 'auto')).toBeNull();
+        expect(reconcileSavedInferenceProvider('auto', undefined, 'auto')).toBeNull();
+        expect(reconcileSavedInferenceProvider('auto', null, 'auto')).toBeNull();
+    });
+
+    it('adopts a real provider change over a legacy stored value', () => {
+        expect(reconcileSavedInferenceProvider('intel_npu', 'rocm', 'auto')).toEqual({
+            saved: 'intel_npu',
+            form: 'intel_npu',
+        });
     });
 });
