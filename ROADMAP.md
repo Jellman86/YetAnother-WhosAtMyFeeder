@@ -549,7 +549,7 @@ capture, stays as it is.
 counts, paging and guest windows match the other two views; the choice sits in the filter rail.
 
 #### Seen and heard in one Explorer timeline 🎧
-**Priority:** P2 | **Effort:** M | **Status:** ☐ After the next release (feature freeze until then)
+**Priority:** P2 | **Effort:** M | **Status:** 🔄 Built, being reviewed on the reference install
 
 Bring BirdNET-Go detections into the Explorer instead of a separate Audio History page: a Seen /
 Heard / Both switch, heard-only detections as audio rows in the day timeline with their spectrogram

@@ -2376,6 +2376,17 @@
             "title": "Event Id",
             "type": "string"
           },
+          "queue_ahead": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Queue Ahead"
+          },
           "result_count": {
             "anyOf": [
               {
@@ -2391,6 +2402,56 @@
             "default": false,
             "title": "Retained Previous",
             "type": "boolean"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "enum": [
+                  "detecting",
+                  "naming",
+                  "counting",
+                  "saving"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
+          },
+          "stage_done": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage Done"
+          },
+          "stage_total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage Total"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
           },
           "status": {
             "enum": [
@@ -6753,6 +6814,160 @@
           "message"
         ],
         "title": "HaWeatherTestResponse",
+        "type": "object"
+      },
+      "HeardGroupResponse": {
+        "properties": {
+          "best_birdnet_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best Birdnet Id"
+          },
+          "best_confidence": {
+            "title": "Best Confidence",
+            "type": "number"
+          },
+          "best_heard": {
+            "title": "Best Heard",
+            "type": "string"
+          },
+          "call_count": {
+            "title": "Call Count",
+            "type": "integer"
+          },
+          "first_heard": {
+            "title": "First Heard",
+            "type": "string"
+          },
+          "last_heard": {
+            "title": "Last Heard",
+            "type": "string"
+          },
+          "scientific_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scientific Name"
+          },
+          "source_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Name"
+          },
+          "species": {
+            "title": "Species",
+            "type": "string"
+          }
+        },
+        "required": [
+          "species",
+          "first_heard",
+          "last_heard",
+          "call_count",
+          "best_confidence",
+          "best_heard"
+        ],
+        "title": "HeardGroupResponse",
+        "type": "object"
+      },
+      "HeardGroupsResponse": {
+        "properties": {
+          "call_count": {
+            "title": "Call Count",
+            "type": "integer"
+          },
+          "correlation_window_seconds": {
+            "title": "Correlation Window Seconds",
+            "type": "integer"
+          },
+          "gap_seconds": {
+            "title": "Gap Seconds",
+            "type": "integer"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/HeardGroupResponse"
+            },
+            "title": "Groups",
+            "type": "array"
+          },
+          "matched_visits": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/HeardVisitCallsResponse"
+            },
+            "title": "Matched Visits",
+            "type": "array"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "groups",
+          "call_count",
+          "truncated",
+          "gap_seconds",
+          "correlation_window_seconds"
+        ],
+        "title": "HeardGroupsResponse",
+        "type": "object"
+      },
+      "HeardVisitCallsResponse": {
+        "properties": {
+          "call_count": {
+            "title": "Call Count",
+            "type": "integer"
+          },
+          "end_time": {
+            "title": "End Time",
+            "type": "string"
+          },
+          "scientific_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scientific Name"
+          },
+          "start_time": {
+            "title": "Start Time",
+            "type": "string"
+          },
+          "visit_id": {
+            "title": "Visit Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "visit_id",
+          "start_time",
+          "end_time",
+          "call_count"
+        ],
+        "title": "HeardVisitCallsResponse",
         "type": "object"
       },
       "HiddenCountResponse": {
@@ -17977,6 +18192,72 @@
           }
         ],
         "summary": "Get Event Audio Context",
+        "tags": [
+          "audio",
+          "audio"
+        ]
+      }
+    },
+    "/api/audio/heard-groups": {
+      "get": {
+        "description": "BirdNET-Go calls in a window, for the Explorer's heard bands.\n\nThe Explorer asks for the span its page of visits covers. Calls that support a visit the\npipeline confirmed are counted on that visit; the rest are folded per species into bouts of\nno more than ``gap_seconds`` of silence, so a chattering sparrow is one entry rather than forty.",
+        "operationId": "get_heard_groups_api_audio_heard_groups_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "start_date",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "title": "Start Date",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "end_date",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "title": "End Date",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HeardGroupsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Heard Groups",
         "tags": [
           "audio",
           "audio"

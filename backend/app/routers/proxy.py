@@ -704,6 +704,12 @@ class BirdScanResponse(BaseModel):
     result_count: int | None = None
     retained_previous: bool = False
     updated_at: str | None = None
+    # Progress, only while the scan is live: how many scans run first, then which step is running.
+    queue_ahead: int | None = None
+    started_at: str | None = None
+    stage: Literal["detecting", "naming", "counting", "saving"] | None = None
+    stage_done: int | None = None
+    stage_total: int | None = None
 
 
 class SnapshotCandidateListResponse(BaseModel):

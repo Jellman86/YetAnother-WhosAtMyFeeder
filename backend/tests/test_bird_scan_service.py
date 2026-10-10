@@ -493,3 +493,51 @@ async def test_retained_unscanned_incumbent_cannot_be_reported_as_successful_zer
     async with database() as db:
         assert await BirdScanRepository(db).get("scan-event") is None
         assert await BirdObservationRepository(db).list_for_event("scan-event") == []
+
+
+@pytest.mark.asyncio
+async def test_a_running_scan_reports_its_step_and_start_and_then_forgets_it(scene, monkeypatch):
+    import asyncio
+
+    service, _, _ = scene
+    entered, release = asyncio.Event(), asyncio.Event()
+    finished = service._analyze_scene.return_value
+
+    async def analyze(job, content):
+        service._report(job, "naming", done=2, total=5)
+        entered.set()
+        await release.wait()
+        return finished
+
+    monkeypatch.setattr(service, "_analyze_scene", analyze)
+    await service.enqueue("scan-event", "scan-scene")
+    worker = asyncio.create_task(service.run_next())
+    await entered.wait()
+
+    live = await service.get_status("scan-event", "scan-scene")
+    assert live["status"] == "running"
+    assert (live["stage"], live["stage_done"], live["stage_total"]) == ("naming", 2, 5)
+    assert live["started_at"].endswith("Z") and "T" in live["started_at"]
+
+    release.set()
+    await worker
+    done = await service.get_status("scan-event", "scan-scene")
+    assert done["status"] == "completed"
+    assert "stage" not in done and "started_at" not in done
+    assert service._progress == {}
+
+
+@pytest.mark.asyncio
+async def test_a_queued_scan_says_how_many_scans_run_first(scene):
+    service, database, _ = scene
+    async with database() as db:
+        await db.execute(
+            "INSERT INTO detections(frigate_event,detection_time,detection_index,score,display_name,category_name,camera_name) "
+            "VALUES ('scan-event-2','2026-10-08 10:01:00',1,0.99,'Owner bird','Owner bird','test-camera')"
+        )
+        await db.commit()
+    await service.enqueue("scan-event", "scan-scene")
+    await service.enqueue("scan-event-2", "scan-scene")
+
+    assert (await service.get_status("scan-event", "scan-scene"))["queue_ahead"] == 0
+    assert (await service.get_status("scan-event-2", "scan-scene"))["queue_ahead"] == 1

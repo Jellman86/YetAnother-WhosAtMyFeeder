@@ -307,8 +307,10 @@ test('the trend chart keeps its set height on a wide screen', async ({ page }) =
     // Chart.js sizes the canvas to its box; a box that grows with the canvas balloons to half the width.
     await page.waitForTimeout(400);
     const { width, height } = await trend.evaluate(node => node.getBoundingClientRect());
+    // The root size grows on a large display, so the rem cap is measured, not assumed to be 16px.
+    const rem = await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).fontSize));
     // Bounded by its rem cap (38rem when stacked), and never flattened past about 4.5:1.
     expect(height).toBeGreaterThan(200);
-    expect(height).toBeLessThanOrEqual(38 * 16);
+    expect(height).toBeLessThanOrEqual(38 * rem);
     expect(width / height).toBeLessThanOrEqual(4.5);
 });

@@ -61,7 +61,7 @@ describe('the leaderboard share bar, now the wall\'s navigation', () => {
             for (const match of source.matchAll(/\$_\('leaderboard\.(wall_[a-z_]+)'/g)) keys.add(match[1]);
         }
         expect(keys.size).toBeGreaterThan(10);
-        const strings = en.leaderboard as Record<string, string>;
+        const strings: Record<string, unknown> = en.leaderboard;
         for (const key of keys) expect(strings[key], key).toBeTypeOf('string');
     });
 });

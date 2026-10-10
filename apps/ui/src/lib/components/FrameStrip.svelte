@@ -506,7 +506,9 @@
     role="presentation"
 >
     <div class="flex min-h-4 items-center justify-between gap-2 px-1 text-3xs font-semibold text-white/65" aria-live="polite">
-        <span>
+        <!-- The count keeps its one line beside the hint, which truncates instead, so the strip never
+             grows when its frames arrive. Phones hide the hint, so there the count may wrap. -->
+        <span class="sm:shrink-0 sm:whitespace-nowrap">
             {#if loading}
                 {$_('detection.snapshot_candidates_loading', { default: 'Loading frames...' })}
             {:else if moments.length === 0}

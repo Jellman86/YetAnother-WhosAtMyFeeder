@@ -130,6 +130,20 @@ stay visible as removable tokens. The rail scrolls when expanded sections exceed
 available height, so selecting a species never shrinks its list to zero. Phones use the
 same ordering behind the Filters button.
 
+Explorer can show heard calls between its visits, from a **Heard calls** switch on the page (off
+until a device turns it on, remembered per device like Cards/List, never a setting). Visits stay
+the rows. A call that supports a visit the pipeline already confirmed (same species, a mapped
+microphone, within the visit widened by the correlation window) is counted on that visit, call by
+call ("matching call, 4 calls"), so a bout that runs on past a visit is split at its edge. Every
+other call folds per species into bouts across up to five minutes of silence, the default
+correlation window, and the bouts gather into one band per gap between two visits: its start time, layered spectrograms,
+a heading with its span and counts, a chip per species, and **Show calls**. A band is quieter than
+a visit and is placed and labelled by when it began. A filter that only describes camera visits
+(camera, favourites, hidden, multiple species, matching call, a species group, confidence order)
+hides the calls and says why; an empty span says no calls are stored, never that nothing was
+heard. A capture with several species uses the band's shape: **Multiple species**, layered
+thumbnail, a chip per species with its count and **Show species**, and no single score.
+
 ### Desk (Dashboard)
 
 ```
@@ -232,7 +246,12 @@ The timeline and the composition chart share one colour per species
 The wall (`CaptureWall`) opens the page. Its header names the leading species, and under it the
 share bar is the wall's navigation: one segment per species in its chart colour, sized by its share,
 then the species beyond the list summed as "other species" and the flagged ones as "Needs a check"
-(`SpeciesChecks`, which lists them for a person to review). Hovering or focusing a segment opens it
+(`SpeciesChecks`, which lists them for a person to review). For an owner it opens the check sheet
+(`SpeciesCheckSheet`, decisions in `utils/species-check.ts`): one flagged species at a time, its
+visits as their best crops (never the whole scene), all selected, and the likeliest answer first
+with its effect on the button. Only the suggestion commits in one tap; any other species takes a
+second, because a rename also teaches personalised identification and is not undone by renaming
+back. On a phone the crops are a sideways strip so the answer stays within reach. Hovering or focusing a segment opens it
 out to say its share and count and lights that species' visits while the rest step back; a click
 pins the highlight (a second click lets go, Escape too) and offers "Open" for the species, which is
 all touch has. A highlight always points at something: a segment no longer in the bar, or a species
@@ -426,9 +445,11 @@ build something better."*
 - **Type**: the display face (`font-display`) for headings and figures, the body face for
   everything else; the shipped classic pairing is Playfair Display over Source Serif 4, and the
   font setting swaps both. Figures that stand alone use `.figure` (display face, lining tabular
-  digits). `tabular-nums` wherever digits align in a column. Small print uses `text-3xs` (10px)
-  and `text-2xs` (11px) or `text-xs`: sizes in rem, never `text-[Npx]`, so display scaling and
+  digits). `tabular-nums` wherever digits align in a column. Small print uses `text-3xs` (11px)
+  and `text-2xs` (12px) or `text-xs`: sizes in rem, never `text-[Npx]`, so display scaling and
   the reader's text size carry through.
+  The root size grows on a large display (`clamp(100%, 100% + (100vw - 1280px) / 256, 125%)` in
+  `app.css`), so a rem layout scales as a whole; never set a px font size on the root.
 - **Finish**: flat. Panels are a hairline (`line-soft`) and a fill (`surface`), with no shadow, blur
   or gradient wash; `surface-raised` fills a well inside a panel. These tokens are set per mode and
   theme in `app.css`, so a component never names a theme. Gradients remain only where they do a

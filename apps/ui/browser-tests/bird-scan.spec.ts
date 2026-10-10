@@ -1,5 +1,8 @@
 import { test, expect } from '@playwright/test';
 
+// Set UI_SHOTS to a directory to keep review screenshots of the scan progress.
+const environment = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
+
 function response(candidate: string, status: string, extras: Record<string, unknown> = {}) {
     return { event_id: 'fixture-event', candidate_id: candidate, status, available: true, unavailable_reason: null, error: null, result_count: status === 'completed' ? 0 : null, retained_previous: false, updated_at: null, ...extras };
 }
@@ -116,4 +119,48 @@ test('status reads carry the displayed revision and stale pixels stay unavailabl
     await expect(page.getByText('The frame changed during the scan. Try again on the current frame.')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Find more birds' })).toBeDisabled();
     await expect(page.getByText('Scan complete. Birds found in this frame: 0.')).toHaveCount(0);
+});
+
+test('a scan shows its place in the queue, each real step and the time it has taken', async ({ page }) => {
+    const shots = environment.UI_SHOTS;
+    const steps = [
+        response('scene-1', 'queued', { queue_ahead: 2 }),
+        response('scene-1', 'running', { started_at: new Date(Date.now() - 4000).toISOString(), stage: 'detecting' }),
+        response('scene-1', 'running', { started_at: new Date(Date.now() - 6000).toISOString(), stage: 'naming', stage_done: 2, stage_total: 5 }),
+        response('scene-1', 'running', { started_at: new Date(Date.now() - 8000).toISOString(), stage: 'counting' }),
+        response('scene-1', 'completed', { result_count: 3 })
+    ];
+    let started = false;
+    let position = 0;
+    let hold = true;
+    await page.route('**/api/frigate/fixture-event/birds/scan**', async route => {
+        if (route.request().method() === 'POST') {
+            started = true;
+            return route.fulfill({ status: 202, json: steps[0] });
+        }
+        if (!started) return route.fulfill({ json: response('scene-1', 'not_scanned') });
+        const current = steps[Math.min(position, steps.length - 1)];
+        if (!hold) position += 1;
+        return route.fulfill({ json: current });
+    });
+    await page.goto('/browser-tests/bird-scan.html');
+    await page.getByRole('button', { name: 'Find more birds' }).click();
+
+    await expect(page.getByText('Waiting to scan this whole frame. 2 scans ahead.')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Waiting…' })).toBeDisabled();
+    if (shots) await page.locator('[data-bird-scan-control]').screenshot({ path: `${shots}/scan-queued.png` });
+
+    hold = false;
+    position = 1;
+    await expect(page.getByText('Looking for birds across the whole frame.')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Scanning…' })).toBeDisabled();
+    await expect(page.getByText('Naming each bird found: 2 of 5.')).toBeVisible();
+    const bar = page.getByRole('progressbar', { name: 'Scan progress' });
+    await expect(bar).toHaveAttribute('aria-valuenow', '1.4');
+    await expect(page.locator('[data-bird-scan-progress]')).toContainText(/\ds/);
+    if (shots) await page.locator('[data-bird-scan-control]').screenshot({ path: `${shots}/scan-naming.png` });
+    await expect(page.getByText('Counting the birds and rechecking faint ones.')).toBeVisible();
+    await expect(page.getByText('Scan complete. Birds found in this frame: 3.')).toBeVisible();
+    await expect(page.locator('[data-bird-scan-progress]')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Scan again' })).toBeEnabled();
 });

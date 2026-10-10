@@ -6,10 +6,11 @@ export default {
             // Wide desktop monitors: room for the dashboard's third column without squeezing the field log.
             screens: { '3xl': '1920px' },
             // Small print in rem, so it follows the reader's text size and display scale
-            // instead of staying fixed in pixels. Below text-xs (12px at the default size).
+            // instead of staying fixed in pixels. Never below 11px at the default size: 10px
+            // labels read as noise rather than words, above all on a large, distant display.
             fontSize: {
-                '2xs': '0.6875rem',
-                '3xs': '0.625rem',
+                '2xs': '0.75rem',
+                '3xs': '0.6875rem',
             },
             colors: {
                 // Primary accent — driven by the active colour theme via CSS variables
