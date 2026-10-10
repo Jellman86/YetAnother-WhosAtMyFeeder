@@ -108,6 +108,16 @@ reporting code verified the correct label counts and no incomplete-install warni
 fresh downloads. The audit also verified DINOv2 receives float32 `[1, 8]` metadata with the location
 presence flag set and date/uncertainty absent. This audit did not repeat the accuracy inferences.
 
+## Other screened candidates
+
+The earlier candidate screening also covered HieraDet Small and ViT-M I-JEPA from the model
+issue. Those exploratory runs preceded this final integration and are not substituted for the
+integrated measurements above. HieraDet Small produced nonfinite Intel GPU output again and
+failed on NPU; its CPU paths were finite, but no final feeder replay justified adding it.
+ViT-M I-JEPA had finite Intel paths and matched CPU top-1 on the 24-image provider probe, but
+its public diagnostic did not displace the shortlisted candidates. Neither was published as a
+new supported application model. CUDA remains untested for the entire new shortlist.
+
 ## Evidence identifiers
 
 Private raw evidence is retained outside the repository. The hashes below allow the published
