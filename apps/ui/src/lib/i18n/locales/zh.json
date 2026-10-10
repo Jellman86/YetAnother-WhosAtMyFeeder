@@ -1760,7 +1760,10 @@
       "compat_verified": "已在此主机上验证：",
       "intel_npu_status": "Intel NPU",
       "model_manager_repair_download": "重新下载修复",
-      "model_manager_repair_needed": "此模型安装不完整。请重新下载以修复缺失的标签或配置，然后再启用。",
+      "model_manager_repair_needed": "此模型安装不完整。请重新下载以恢复缺失的物种名称或模型配置，然后再启用。",
+      "model_manager_location_title": "使用喂食器位置",
+      "model_manager_location_desc": "此模型还会使用保存在 设置 → 集成 → 位置 中的喂食器坐标。如果未保存有效坐标，它会在不使用位置的情况下识别鸟类。它不使用日期或位置精度半径。",
+      "model_manager_location_link": "打开位置设置",
       "provider_intel_npu": "Intel NPU（OpenVINO）"
     },
     "llm": {

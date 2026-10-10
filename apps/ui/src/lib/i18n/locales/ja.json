@@ -1760,7 +1760,10 @@
       "compat_verified": "このホストで検証済み:",
       "intel_npu_status": "Intel NPU",
       "model_manager_repair_download": "再ダウンロードして修復",
-      "model_manager_repair_needed": "このモデルのインストールは不完全です。有効化する前に再ダウンロードして、不足しているラベルまたは設定を修復してください。",
+      "model_manager_repair_needed": "このモデルのインストールは不完全です。有効化する前に再ダウンロードして、不足している種名またはモデル設定を復元してください。",
+      "model_manager_location_title": "給餌台の位置情報を使用します",
+      "model_manager_location_desc": "このモデルは、設定 → 統合 → 位置情報 に保存されている給餌台の座標も使用します。有効な座標が保存されていない場合は、位置情報なしで鳥を識別します。日付や位置の精度半径は使用しません。",
+      "model_manager_location_link": "位置情報の設定を開く",
       "provider_intel_npu": "Intel NPU (OpenVINO)"
     },
     "llm": {

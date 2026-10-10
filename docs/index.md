@@ -67,6 +67,7 @@ Connect YA-WAMF to the rest of your smart home and community projects.
 - [🧠 AI Models & Performance](features/ai-models.md) - Understanding the model tiers, plus CPU/CUDA/OpenVINO provider behavior
 - [📊 Model Accuracy & Benchmarks](features/model-accuracy.md) - Benchmark results, GPU support matrix, and how to run accuracy tests
 - [October 2026 model additions](features/model-catalogue-2026-10.md) - Coverage, download sizes, hardware gates and catalogue labels
+- [October model integration validation](reviews/2026-10-10-model-integration-validation.md) - Public accuracy, feeder replay, release downloads and worker contention evidence
 - [🧪 Model Evaluation](features/model-evaluation.md) - Compare installed models against labelled feeder images
 - [🎞 Deep Video Analysis](features/video-analysis.md) - Multi-frame clip analysis, sampling behavior, and UI feedback
 - [📤 Manual Observations](features/manual-observations.md) - Classify an uploaded photo or video, review the evidence, and add it to history

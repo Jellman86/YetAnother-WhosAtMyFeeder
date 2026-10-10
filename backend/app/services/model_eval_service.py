@@ -681,6 +681,7 @@ class ModelEvalRunner:
                     "ready": model.ready,
                     "ready_reason": model.reason,
                     "labels_file_present": _labels_file_present(model),
+                    "catalogue_labels_present": _catalogue_labels_present(active_spec),
                     "model_config_present": _model_config_present(model),
                     "images_evaluated": processed,
                     "vocabulary_known": vocabulary is not None,
@@ -1635,6 +1636,12 @@ def _labels_file_present(model: Any) -> bool:
         return Path(getattr(model, "labels_path", "") or "").is_file()
     except Exception:
         return False
+
+
+def _catalogue_labels_present(active_spec: dict[str, Any]) -> bool:
+    from app.services.catalogue_labels import catalogue_labels_for_model
+
+    return bool(catalogue_labels_for_model(active_spec.get("artifact_sha256")))
 
 
 def _model_config_present(model: Any) -> bool:

@@ -96,6 +96,29 @@ def test_incomplete_install_silent_when_ready():
     )
 
 
+def test_complete_catalogue_labels_do_not_require_a_label_file():
+    assert (
+        sanity_checks.incomplete_install(
+            {
+                "ready": True,
+                "labels_file_present": False,
+                "catalogue_labels_present": True,
+                "model_config_present": True,
+            }
+        )
+        is None
+    )
+
+
+def test_missing_file_and_missing_catalogue_labels_still_warn():
+    assert (
+        sanity_checks.incomplete_install(
+            {"ready": True, "labels_file_present": False, "catalogue_labels_present": False}
+        )["severity"]
+        == "critical"
+    )
+
+
 def test_inference_health_unhealthy_triggers():
     assert (
         sanity_checks.inference_health_unhealthy({"inference_health_verdict": "unhealthy"})["code"]

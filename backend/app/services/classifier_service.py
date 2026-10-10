@@ -5034,7 +5034,7 @@ class ClassifierService:
             try:
                 spec = self._resolve_active_bird_model_spec()
                 labels_path = str(spec.get("labels_path") or "")
-                labels, _, _ = _resolve_model_labels(labels_path, {}, model_sha256=spec.get("artifact_sha256"))
+                labels, _, _ = _resolve_model_labels(labels_path, {}, model_sha256=spec.get("model_sha256"))
                 return labels
             except Exception:
                 return []
@@ -5132,7 +5132,7 @@ class ClassifierService:
             raw_ram = active_model_spec.get("estimated_ram_mb")
             active_model_estimated_ram_mb = int(raw_ram) if raw_ram else None
             active_model_labels_path = str(active_model_spec.get("labels_path") or "") or None
-            active_model_artifact_sha256 = active_model_spec.get("artifact_sha256")
+            active_model_artifact_sha256 = active_model_spec.get("model_sha256")
         except Exception:
             supported_providers = []
             validated_providers = []

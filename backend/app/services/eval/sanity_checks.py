@@ -99,7 +99,7 @@ def incomplete_install(model: dict[str, Any]) -> dict[str, Any] | None:
             "message": f"model not ready: {reason}",
             "severity": "critical",
         }
-    if not model.get("labels_file_present", True):
+    if not model.get("labels_file_present", True) and not model.get("catalogue_labels_present", False):
         return {"code": "incomplete_install", "message": "labels.txt missing", "severity": "critical"}
     if not model.get("model_config_present", True):
         return {"code": "incomplete_install", "message": "model_config.json missing", "severity": "warning"}

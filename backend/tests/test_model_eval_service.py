@@ -24,6 +24,7 @@ from app.services.model_eval_service import (
     SUMMARY_FILENAME,
     _build_summary_envelope,
     _compatibility_model_summaries,
+    _catalogue_labels_present,
     _drift_ratio,
     _gpu_diagnostic,
     _inference_health_for,
@@ -44,6 +45,19 @@ def _set_runs_dir(monkeypatch, path: Path) -> None:
 
 def test_safe_div_zero_denominator():
     assert _safe_div(5, 0) == 0.0
+
+
+@pytest.mark.parametrize("labels,expected", [(["One", "Two"], True), (None, False), ([], False)])
+def test_catalogue_presence_uses_the_active_artifact_checksum(monkeypatch, labels, expected):
+    checked = []
+
+    def resolve(sha):
+        checked.append(sha)
+        return labels
+
+    monkeypatch.setattr("app.services.catalogue_labels.catalogue_labels_for_model", resolve)
+    assert _catalogue_labels_present({"artifact_sha256": "actual-graph"}) is expected
+    assert checked == ["actual-graph"]
 
 
 def test_safe_div_rounds():

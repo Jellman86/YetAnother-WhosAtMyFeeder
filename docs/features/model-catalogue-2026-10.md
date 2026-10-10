@@ -53,12 +53,22 @@ contain 43,092 rows: 40,579 mapped species outputs, four declared non-species cl
 are preserved, so adding a checkpoint does not silently reinterpret historical detections.
 See the [complete mapping evidence](../reviews/2026-10-10-model-output-mapping-coverage.md).
 
+The [integration validation](../reviews/2026-10-10-model-integration-validation.md) records the
+311-image public comparison, 48 retained feeder inputs per model, fresh release downloads and
+180 concurrent/recovery requests on Quark. DINOv2 with saved location accepted 38 correct bird
+identifications and no wrong bird species on this selected feeder panel at the existing 0.6
+thresholds. BioCLIP led the public panel but accepted seven wrong feeder bird species at the same
+threshold. These results do not establish a universal replacement or calibrated confidence.
+
 ## Location and downloads
 
 DINOv2 receives the configured feeder latitude/longitude at inference time; coordinates are
 not baked into the downloadable graph. Date and uncertainty remain absent. Missing or invalid
 coordinates produce an all-zero metadata vector, while a real `(0, 0)` has a presence flag.
 Changing or importing the location reloads classifier workers so they use the saved setting.
+Model Manager explains this for location-aware models and links to **Settings → Integrations →
+Location**. Switching there within Settings preserves unsaved edits; save the coordinates before
+expecting them to change inference. Model-specific image preparation is automatic.
 Public benchmark images are evaluated with location absent rather than borrowing the feeder's
 location. Published upstream full-metadata scores are not a score for this location-only policy.
 

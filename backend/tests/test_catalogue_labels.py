@@ -107,6 +107,25 @@ def test_subprocess_status_counts_catalogue_outputs_without_a_label_file(monkeyp
     assert service._labels_count_for_status(str(tmp_path / "absent.txt"), "known") == 2
 
 
+def test_subprocess_labels_and_public_status_use_the_resolved_model_checksum(monkeypatch, tmp_path):
+    from app.services.classifier_service import ClassifierService
+
+    monkeypatch.setattr(
+        "app.services.catalogue_labels.catalogue_labels_for_model",
+        lambda sha: ["One", "Two"] if sha == "known" else None,
+    )
+    service = ClassifierService()
+    service._image_execution_mode = "subprocess"
+    service._worker_process_mode = False
+    monkeypatch.setattr(
+        service,
+        "_resolve_active_bird_model_spec",
+        lambda: {"model_sha256": "known", "labels_path": str(tmp_path / "absent.txt")},
+    )
+    assert service.labels == ["One", "Two"]
+    assert service.get_status()["labels_count"] == 2
+
+
 def test_a_missing_catalogue_never_raises(tmp_path):
     assert catalogue_labels_for_model("sha-complete", catalog_path=tmp_path / "absent.db") is None
 

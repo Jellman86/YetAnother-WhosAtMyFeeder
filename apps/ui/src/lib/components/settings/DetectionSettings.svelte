@@ -50,7 +50,8 @@
         videoCircuitUntil = null,
         videoCircuitFailures = 0,
         blockedLabels = $bindable<string[]>([]),
-        blockedSpecies = $bindable<BlockedSpeciesEntry[]>([])
+        blockedSpecies = $bindable<BlockedSpeciesEntry[]>([]),
+        onopenlocationsettings
     }: {
         threshold: number;
         minConfidence: number;
@@ -72,6 +73,7 @@
         videoCircuitFailures: number;
         blockedLabels: string[];
         blockedSpecies: BlockedSpeciesEntry[];
+        onopenlocationsettings?: () => void;
     } = $props();
 
     const circuitUntil = $derived(videoCircuitUntil ? formatDateTime(videoCircuitUntil) : null);
@@ -1041,7 +1043,7 @@
         title={$_('settings.detection.models_card_title', { default: 'Models' })}
     >
         <div id={MODELS_CARD_ID} class="scroll-mt-24">
-            <ModelManager executionMode={imageExecutionMode} autoVideoEnabled={autoVideoClassification} />
+            <ModelManager executionMode={imageExecutionMode} autoVideoEnabled={autoVideoClassification} {onopenlocationsettings} />
         </div>
     </SettingsCard>
 

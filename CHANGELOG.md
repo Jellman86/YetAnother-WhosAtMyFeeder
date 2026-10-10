@@ -17,6 +17,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   fail closed. BioCLIP's split external weights are verified per part and after assembly.
 - FlexiViT's description correctly identifies its Israel-checklist coverage rather than claiming
   a global species list. Its existing weights and predictions are unchanged.
+- Catalogue-backed classifiers report their label count correctly from subprocess workers and
+  no longer receive a false missing-label-file warning in model evaluation.
+- Location-aware models explain their saved-location input in Model Manager and link to Location
+  settings without discarding unsaved settings edits. Install repair guidance also covers species
+  names held in the catalogue.
 
 - Classifier centre-crop metadata can request torchvision-style truncation for models that
   require it. Existing model defaults, resize policies and crop detector behaviour are preserved.

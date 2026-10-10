@@ -1770,7 +1770,10 @@
       "compat_verified": "Verificati su questo host:",
       "intel_npu_status": "NPU Intel",
       "model_manager_repair_download": "Riscarica per riparare",
-      "model_manager_repair_needed": "L’installazione di questo modello è incompleta. Scaricalo di nuovo per ripristinare le etichette o la configurazione mancanti prima dell’attivazione.",
+      "model_manager_repair_needed": "L’installazione di questo modello è incompleta. Scaricalo di nuovo per ripristinare i nomi delle specie o la configurazione del modello mancanti prima dell’attivazione.",
+      "model_manager_location_title": "Usa la posizione della tua mangiatoia",
+      "model_manager_location_desc": "Questo modello usa anche le coordinate della mangiatoia salvate in Impostazioni → Integrazioni → Posizione. Se non sono salvate coordinate valide, identifica gli uccelli senza posizione. Non usa la data né un raggio di precisione della posizione.",
+      "model_manager_location_link": "Apri le impostazioni della posizione",
       "provider_intel_npu": "NPU Intel (OpenVINO)"
     },
     "llm": {

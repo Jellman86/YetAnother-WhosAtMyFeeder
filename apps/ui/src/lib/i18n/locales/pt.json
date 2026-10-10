@@ -1770,7 +1770,10 @@
       "compat_verified": "Verificado neste host:",
       "intel_npu_status": "NPU Intel",
       "model_manager_repair_download": "Reparar download",
-      "model_manager_repair_needed": "A instalação deste modelo está incompleta. Baixe-o novamente para reparar os rótulos ou a configuração ausentes antes da ativação.",
+      "model_manager_repair_needed": "A instalação deste modelo está incompleta. Baixe-o novamente para restaurar os nomes das espécies ou a configuração do modelo ausentes antes da ativação.",
+      "model_manager_location_title": "Usa a localização do seu comedouro",
+      "model_manager_location_desc": "Este modelo também usa as coordenadas do comedouro salvas em Configurações → Integrações → Localização. Se não houver coordenadas válidas salvas, ele identifica as aves sem localização. Não usa a data nem um raio de precisão da localização.",
+      "model_manager_location_link": "Abrir configurações de localização",
       "provider_intel_npu": "NPU Intel (OpenVINO)"
     },
     "llm": {
