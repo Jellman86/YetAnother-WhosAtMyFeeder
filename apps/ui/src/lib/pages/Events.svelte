@@ -1688,9 +1688,9 @@
             </div>
         {:else if explorerView === 'list'}
             <!-- Visits are divided from each other; inside one, only its captures footer is. -->
-            <!-- A list is for scanning down the times, so on a wide screen it keeps a readable row
-                 instead of stretching the score a screen-width away from the name. -->
-            <div class="max-w-6xl divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white/80 dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900/50" data-explorer-list>
+            <!-- The list takes the page's width like every other surface (#663); a capped column left
+                 half of a large display empty beside it. -->
+            <div class="divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white/80 dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900/50" data-explorer-list>
                 {#each entries as entry (entryKey(entry))}
                     {#if entry.kind === 'band'}
                         <HeardBandRow band={entry.band} />

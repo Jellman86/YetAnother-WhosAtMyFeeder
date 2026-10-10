@@ -140,3 +140,10 @@ describe('Explorer listening history link', () => {
         expect(eventsSource).toContain('data-explorer-heard-toggle');
     });
 });
+
+describe('the Explorer list on a large display', () => {
+    it('fills the page width like the rest of the app instead of a capped column', () => {
+        const list = eventsSource.match(/<div class="([^"]*)" data-explorer-list>/)?.[1] ?? '';
+        expect(list).not.toMatch(/max-w-/);
+    });
+});
