@@ -1851,6 +1851,16 @@
       "app_scope_note": "GPU time is published per process, so that line is the work YA-WAMF sent to the GPU. Another container sharing the same GPU is not visible here.",
       "unreadable_nvidia": "{label} is present, but its driver publishes no utilisation counter a container can read.",
       "unreadable_accelerator": "{label} is present, but its counter cannot be read from inside the container."
+    },
+    "text_size": {
+      "label": "Text size",
+      "desc": "Makes every page larger or smaller on this device only. Large displays still grow a little on top of it.",
+      "option": "{size}, {percent}%",
+      "smaller": "Smaller",
+      "standard": "Standard",
+      "large": "Large",
+      "larger": "Larger",
+      "largest": "Largest"
     }
   },
   "auth": {

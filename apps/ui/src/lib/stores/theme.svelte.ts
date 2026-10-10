@@ -1,6 +1,20 @@
 export type Theme = 'light' | 'dark' | 'system';
 export type FontTheme = 'default' | 'clean' | 'studio' | 'classic' | 'compact';
 export type ColorTheme = 'default' | 'bluetit';
+export type TextSize = 'smaller' | 'standard' | 'large' | 'larger' | 'largest';
+
+/** How much each text size multiplies the automatic root size, which already grows on large displays. */
+export const TEXT_SIZE_SCALE: Record<TextSize, number> = {
+    smaller: 0.875,
+    standard: 1,
+    large: 1.125,
+    larger: 1.25,
+    largest: 1.5
+};
+
+export function normalizeTextSize(value: unknown): TextSize {
+    return typeof value === 'string' && Object.hasOwn(TEXT_SIZE_SCALE, value) ? (value as TextSize) : 'standard';
+}
 
 function getIsDark(theme: Theme): boolean {
     if (typeof window === 'undefined') return false;
@@ -33,6 +47,11 @@ function applyColorTheme(colorTheme: ColorTheme) {
     requestAnimationFrame(syncThemeColorMeta);
 }
 
+function applyTextSize(textSize: TextSize) {
+    if (typeof document === 'undefined') return;
+    document.documentElement.style.setProperty('--text-scale', String(TEXT_SIZE_SCALE[textSize]));
+}
+
 function applyFontTheme(fontTheme: FontTheme) {
     if (typeof document === 'undefined') return;
     switch (fontTheme) {
@@ -63,6 +82,8 @@ class ThemeStore {
     currentTheme = $state<Theme>('dark');
     currentFontTheme = $state<FontTheme>('classic');
     currentColorTheme = $state<ColorTheme>('bluetit');
+    /** Kept on this device only: a wall display and a phone want different sizes. */
+    currentTextSize = $state<TextSize>('standard');
     private mediaQueryList: MediaQueryList | null = null;
 
     constructor() {
@@ -80,12 +101,14 @@ class ThemeStore {
             if (storedColor) {
                 this.currentColorTheme = storedColor;
             }
+            this.currentTextSize = normalizeTextSize(localStorage.getItem('text_size'));
         }
 
         // Apply theme immediately
         applyTheme(this.currentTheme);
         applyFontTheme(this.currentFontTheme);
         applyColorTheme(this.currentColorTheme);
+        applyTextSize(this.currentTextSize);
 
         // Use $effect.root() to create effect context outside components
         $effect.root(() => {
@@ -102,6 +125,10 @@ class ThemeStore {
                 $effect(() => {
                     localStorage.setItem('color_theme', this.currentColorTheme);
                     applyColorTheme(this.currentColorTheme);
+                });
+                $effect(() => {
+                    localStorage.setItem('text_size', this.currentTextSize);
+                    applyTextSize(this.currentTextSize);
                 });
             }
 
@@ -155,6 +182,14 @@ class ThemeStore {
 
     setColorTheme(value: ColorTheme) {
         this.currentColorTheme = value;
+    }
+
+    get textSize(): TextSize {
+        return this.currentTextSize;
+    }
+
+    setTextSize(value: TextSize) {
+        this.currentTextSize = value;
     }
 
     toggle() {

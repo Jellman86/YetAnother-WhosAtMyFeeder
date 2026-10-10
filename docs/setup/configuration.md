@@ -378,6 +378,7 @@ How the interface reads.
 | **Bird Naming Style** | **Standard** (common name primary, scientific subtitle), **Hobbyist** (scientific primary, common subtitle), or **Strictly Scientific** (scientific only). |
 | **Explorer view** | **Cards** shows a snapshot per detection; **List** shows one compact row each, with times aligned for scanning. |
 | **Theme** | Light or dark, plus the colour and font themes. |
+| **Text size** | Smaller (87.5%), Standard, Large (112.5%), Larger (125%) or Largest (150%). Kept on each device on its own, so a wall display and a phone can differ. It multiplies the automatic growth on large displays rather than replacing it. |
 | **Language** | The interface language. Notifications have their own language setting. |
 | **Date format** | Follow browser language (default), United Kingdom (DD/MM/YYYY), United States (MM/DD/YYYY), or Japan/China (YYYY-MM-DD). Date and time choices are saved independently. |
 | **Time format** | 12 hour, 24 hour, or **Follow browser language**. |

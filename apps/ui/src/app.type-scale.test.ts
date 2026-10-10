@@ -13,7 +13,7 @@ describe('the type scale on large displays', () => {
     const root = appCss.match(/\nhtml \{([^}]*)\}/)?.[1] ?? '';
 
     it('grows the root size with the window, from the reader’s own size to a cap', () => {
-        expect(root.replace(/\s+/g, '')).toContain('font-size:clamp(100%,calc(100%+(100vw-1280px)/256),125%)');
+        expect(root.replace(/\s+/g, '')).toContain('font-size:calc(clamp(100%,calc(100%+(100vw-1280px)/256),125%)*var(--text-scale,1))');
     });
 
     it('starts from a percentage, so the browser text-size setting still applies', () => {
