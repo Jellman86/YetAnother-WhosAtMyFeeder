@@ -21,6 +21,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Classifier centre-crop metadata can request torchvision-style truncation for models that
   require it. Existing model defaults, resize policies and crop detector behaviour are preserved.
 
+- The Needs a check sheet failed to rename, confirm or hide a visit with more than one capture
+  ("Input should be less than or equal to 50"). It now reads a visit's captures page by page.
 - **Needs a check** on the leaderboard opens a check sheet instead of the species page. Each
   flagged species shows its visits as the crops the camera actually took, all selected, with the
   likeliest answer first: a bird this feeder already knows that the same crops were also read as,
