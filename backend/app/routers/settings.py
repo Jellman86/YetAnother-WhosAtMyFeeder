@@ -1339,6 +1339,8 @@ async def import_settings(
         settings.classification.model,
         settings.classification.inference_provider,
         settings.classification.image_execution_mode,
+        settings.location.latitude,
+        settings.location.longitude,
     )
     previous_ebird_naming = (settings.ebird.api_key, settings.ebird.locale, settings.ebird.enabled)
     telemetry_was_enabled = settings.telemetry.enabled or settings.telemetry.health_enabled
@@ -1370,6 +1372,8 @@ async def import_settings(
         settings.classification.model,
         settings.classification.inference_provider,
         settings.classification.image_execution_mode,
+        settings.location.latitude,
+        settings.location.longitude,
     )
     if current_classifier != previous_classifier:
         from app.services.classifier_service import reload_classifier_out_of_band
@@ -1652,6 +1656,7 @@ async def update_settings(
 ) -> SettingsUpdateResponse:
     """Update application settings. Owner only."""
     inference_provider_changed = False
+    previous_classifier_location = (settings.location.latitude, settings.location.longitude)
     telemetry_was_enabled = settings.telemetry.enabled or settings.telemetry.health_enabled
     telemetry_installation_id = settings.telemetry.installation_id
 
@@ -2285,7 +2290,11 @@ async def update_settings(
 
         background_tasks.add_task(start_background_refresh)
 
-    if inference_provider_changed or execution_mode_changed:
+    if (
+        inference_provider_changed
+        or execution_mode_changed
+        or previous_classifier_location != (settings.location.latitude, settings.location.longitude)
+    ):
         from app.services.classifier_service import reload_classifier_out_of_band
 
         async def full_reload():

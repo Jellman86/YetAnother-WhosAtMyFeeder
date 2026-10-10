@@ -7,13 +7,33 @@
     import { confirmAction } from '../../stores/confirm_dialog.svelte';
     import { toastStore } from '../../stores/toast.svelte';
     import { startModelDownloadProgress, syncModelDownloadProgress } from './model_download_progress';
+    import { usesSavedFeederLocation } from './model_location_input';
     import { getRuntimeProviderOrder } from '../../settings/inference-providers';
+    import { toAppPath } from '../../app/url-base';
     import DiagnosticDialog from '../../components/DiagnosticDialog.svelte';
     import type { DiagnosticStage, DiagnosticResult } from '../../utils/diagnostic-runner';
-    let { executionMode = 'subprocess', autoVideoEnabled = false }: {
+    let { executionMode = 'subprocess', autoVideoEnabled = false, onopenlocationsettings }: {
         executionMode?: string;
         autoVideoEnabled?: boolean;
+        onopenlocationsettings?: () => void;
     } = $props();
+
+    // Switching tabs in place keeps unsaved settings edits; a full page load
+    // would discard them. Modified clicks still open a new tab as usual.
+    function handleLocationSettingsClick(event: MouseEvent): void {
+        if (
+            !onopenlocationsettings
+            || event.button !== 0
+            || event.metaKey
+            || event.ctrlKey
+            || event.shiftKey
+            || event.altKey
+        ) {
+            return;
+        }
+        event.preventDefault();
+        onopenlocationsettings();
+    }
 
     let availableModels = $state<ModelMetadata[]>([]);
     let installedModels = $state<InstalledModel[]>([]);
@@ -808,9 +828,27 @@
                                 </div>
                             {/if}
 
+                            {#if usesSavedFeederLocation(model)}
+                                <div class="mt-4 border-l-2 border-sky-400 pl-3 text-sm text-slate-600 dark:text-slate-300">
+                                    <p class="font-semibold text-slate-900 dark:text-white">
+                                        {$_('settings.detection.model_manager_location_title', { default: 'Uses your feeder location' })}
+                                    </p>
+                                    <p class="mt-1 max-w-3xl leading-relaxed">
+                                        {$_('settings.detection.model_manager_location_desc', { default: 'This model also uses the feeder coordinates saved in Settings → Integrations → Location. If no valid coordinates are saved, it identifies birds without location. It does not use the date or a location accuracy radius.' })}
+                                    </p>
+                                    <a
+                                        href={toAppPath('/settings/integrations')}
+                                        onclick={handleLocationSettingsClick}
+                                        class="inline-flex min-h-11 items-center rounded font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-300 dark:hover:text-brand-200"
+                                    >
+                                        {$_('settings.detection.model_manager_location_link', { default: 'Open Location settings' })}
+                                    </a>
+                                </div>
+                            {/if}
+
                             {#if installed && !ready}
                                 <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800 dark:border-amber-800/60 dark:bg-amber-900/20 dark:text-amber-200" role="alert">
-                                    {$_('settings.detection.model_manager_repair_needed', { default: 'This model install is incomplete. Re-download it to repair the missing labels or configuration before activation.' })}
+                                    {$_('settings.detection.model_manager_repair_needed', { default: 'This model install is incomplete. Re-download it to restore the missing species names or model configuration before activation.' })}
                                 </div>
                             {:else if installed && !active && !validated}
                                 <div class="mt-4 rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-800 dark:border-sky-800/60 dark:bg-sky-900/20 dark:text-sky-200">

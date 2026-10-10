@@ -49,6 +49,40 @@ The script writes `model.onnx`, `model.onnx.data` (external weights),
 
 ## Quick iGPU compatibility check
 
+### Verify the input contract first
+
+Read the exact checkpoint's inference transform before choosing sidecar metadata. Record RGB or
+BGR channel order, tensor layout and dtype, pixel scaling, mean/std, interpolation, resize policy,
+input dimensions, and any patch or token constraints. A transform using `Resize((height, width))`
+performs a direct resize; `Resize(shortest_edge)` preserves aspect ratio before a centre crop.
+These policies can produce different predictions with identical weights.
+
+Centre-crop sidecars can declare `resize_rounding: "floor"` when their reference transform truncates
+the resized long edge, as torchvision does. Omitting this field preserves YA-WAMF's existing
+round-to-nearest behaviour. Do not change installed models' resize policies merely because another
+policy matches an upstream example: compare both policies on the same public and feeder images.
+
+Compare actual application-prepared tensors against the native transform on varied landscape,
+portrait and feeder images, including a channel-colour sentinel. Then compare finite logits and
+top-1/top-5 predictions between native PyTorch and ONNX. Dynamic-aspect models need rectangular
+input checks at multiple patch-aligned sizes; a successful square-only export proves too little.
+
+Replay cached feeder images with their validated snapshot provenance and retained aligned event
+hints through `build_snapshot_classification_input_context`. Frigate snapshot crop restoration
+is independent of optional model cropping: a full snapshot may need its event region restored
+even when model cropping is disabled, while an already-cropped snapshot must retain that flag.
+Verify the selected RGB pixel hashes and dimensions across candidates. A raw-image replay with
+synthetic context measures a different input path and cannot establish original-event behaviour.
+
+The published YOLOX reference uses its own contract: BGR, contiguous float32 NCHW, unscaled 0–255
+pixels, OpenCV linear resize with truncated dimensions, and top-left padding of 114. Classifier
+normalization must not be reused for that detector. Its box restoration uses the same letterbox
+scale and offsets. YA-WAMF currently uses Pillow resizing and rounded dimensions; changing that
+implementation also changes crop selections. Compare downstream classification and rejection
+behaviour before changing an installed detector. See the [upstream preprocessing](https://github.com/Megvii-BaseDetection/YOLOX/blob/main/yolox/data/data_augment.py).
+
+### Probe the provider
+
 Before adding the model to the registry with `intel_gpu` enabled, probe it
 directly through OpenVINO inside a full or `-intel` live container. A CPU,
 CUDA, or Raspberry Pi image does not package OpenVINO and is not evidence that
@@ -125,3 +159,50 @@ globally safe and host-gated candidate provider policy, and classifier crop poli
 metadata remains a separate artifact contract and does not acquire the classifier
 `crop_generator` block. Upload only after the model asset digests and a real-image provider sweep
 agree with the registry.
+
+## Catalogue-only classifiers and October 2026 artifacts
+
+The older conversion recipe above creates label files for legacy/custom models. New registered
+classifiers use ordered output mappings compiled into the species catalogue. Their build input
+can be a JSON object keyed by the SHA-256 of canonical UTF-8 names (each followed by a newline),
+with an array of source names in the exact checkpoint output order. Keep that source immutable;
+never alphabetize it or substitute a translated name list.
+
+Extend the released mapping rather than recompiling old identities:
+
+```bash
+cd backend
+python scripts/build_model_output_mappings.py \
+  --output-sources /scratch/ordered-output-sources.json \
+  --base-mappings /scratch/released-model-output-mappings.json
+python scripts/build_species_catalog_seed.py
+python scripts/generate_model_release_configs.py /scratch/release-configs
+```
+
+The extension verifies source digests, preserves existing vocabulary rows and adds the new
+checksum-bound artifacts. The normal catalogue release importer adds those mappings to existing
+installations without replacing their history or overrides. A complete ordered mapping is
+required before a new label-free artifact can be downloaded. Publish canonical generated
+sidecars and unique model asset names; keep old release assets available for older applications.
+
+For portable DINOv2, use `backend/scripts/export_dinov2_model.py` with the pinned upstream checkout,
+reviewed E4a checkpoint and official iNat2021 validation annotations. The exporter checks the
+checkpoint digest and its class-mapping fingerprint before creating two inputs: float32 NCHW RGB
+`input` of shape `[1,3,336,336]`, and float32 `metadata` of shape `[1,8]`. It compares ONNX against
+native PyTorch with missing and present synthetic locations. Site coordinates must never be
+constants in a redistributed export. Date and uncertainty remain absent in the application.
+
+NaFlex exports must accept rectangular patch-aligned inputs and preserve the reference 576-token
+budget. Set `resize_mode: native_aspect_ratio`, `patch_size: 14` and `max_seq_len: 576`; do not
+pad or stretch to 336 square. Test square, landscape and portrait tensors against the upstream
+transform and native network. External tensor locations must be `model.onnx.data`, matching
+Model Manager's local filename. Intel NPU is excluded for these variable-aspect exports.
+
+BioCLIP 2.5 is an application-specific image encoder plus a fixed head of 9,025 normalized
+species text prototypes in their recorded order. Its graph is not a substitute for the full
+upstream vocabulary or an arbitrary prompt interface. Weights are shipped as two ordered parts
+with separate digests and a complete-file digest; the downloader reconstructs the original
+external-data file before committing the installation.
+
+The [model additions reference](../features/model-catalogue-2026-10.md) links source revisions,
+checkpoint hashes, output-source hashes, preprocessing, provider policy and mapping coverage.

@@ -1760,7 +1760,10 @@
       "compat_verified": "Auf diesem Host verifiziert:",
       "intel_npu_status": "Intel-NPU",
       "model_manager_repair_download": "Download reparieren",
-      "model_manager_repair_needed": "Diese Modellinstallation ist unvollständig. Laden Sie das Modell erneut herunter, um die fehlenden Labels oder die Konfiguration vor der Aktivierung zu ergänzen.",
+      "model_manager_repair_needed": "Diese Modellinstallation ist unvollständig. Laden Sie das Modell erneut herunter, um die fehlenden Artnamen oder die Modellkonfiguration vor der Aktivierung wiederherzustellen.",
+      "model_manager_location_title": "Nutzt den Standort Ihres Futterplatzes",
+      "model_manager_location_desc": "Dieses Modell nutzt zusätzlich die Koordinaten des Futterplatzes, die unter Einstellungen → Integrationen → Standort gespeichert sind. Sind keine gültigen Koordinaten gespeichert, bestimmt es Vögel ohne Standort. Datum und Genauigkeitsradius des Standorts werden nicht verwendet.",
+      "model_manager_location_link": "Standort-Einstellungen öffnen",
       "provider_intel_npu": "Intel-NPU (OpenVINO)"
     },
     "llm": {

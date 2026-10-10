@@ -681,6 +681,7 @@ class ModelEvalRunner:
                     "ready": model.ready,
                     "ready_reason": model.reason,
                     "labels_file_present": _labels_file_present(model),
+                    "catalogue_labels_present": _catalogue_labels_present(active_spec),
                     "model_config_present": _model_config_present(model),
                     "images_evaluated": processed,
                     "vocabulary_known": vocabulary is not None,
@@ -1583,6 +1584,10 @@ def _gpu_diagnostic(
             "input_size": spec.get("input_size") or runtime_model.get("input_size"),
             "color_space": preprocessing.get("color_space") or "RGB",
             "resize_mode": preprocessing.get("resize_mode"),
+            "resize_rounding": preprocessing.get("resize_rounding"),
+            "metadata_input": preprocessing.get("metadata_input"),
+            "patch_size": preprocessing.get("patch_size"),
+            "max_seq_len": preprocessing.get("max_seq_len"),
             "crop_pct": preprocessing.get("crop_pct"),
             "interpolation": preprocessing.get("interpolation"),
             "mean": preprocessing.get("mean"),
@@ -1631,6 +1636,12 @@ def _labels_file_present(model: Any) -> bool:
         return Path(getattr(model, "labels_path", "") or "").is_file()
     except Exception:
         return False
+
+
+def _catalogue_labels_present(active_spec: dict[str, Any]) -> bool:
+    from app.services.catalogue_labels import catalogue_labels_for_model
+
+    return bool(catalogue_labels_for_model(active_spec.get("artifact_sha256")))
 
 
 def _model_config_present(model: Any) -> bool:

@@ -3502,6 +3502,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     {videoCircuitOpen}
                     {videoCircuitUntil}
                     {videoCircuitFailures}
+                    onopenlocationsettings={() => handleTabChange('integrations')}
                 />
             {/if}
 

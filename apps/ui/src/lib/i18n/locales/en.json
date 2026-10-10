@@ -1770,7 +1770,10 @@
       "compat_verified": "Verified on this host:",
       "intel_npu_status": "Intel NPU",
       "model_manager_repair_download": "Repair download",
-      "model_manager_repair_needed": "This model install is incomplete. Re-download it to repair the missing labels or configuration before activation.",
+      "model_manager_repair_needed": "This model install is incomplete. Re-download it to restore the missing species names or model configuration before activation.",
+      "model_manager_location_title": "Uses your feeder location",
+      "model_manager_location_desc": "This model also uses the feeder coordinates saved in Settings → Integrations → Location. If no valid coordinates are saved, it identifies birds without location. It does not use the date or a location accuracy radius.",
+      "model_manager_location_link": "Open Location settings",
       "provider_intel_npu": "Intel NPU (OpenVINO)"
     },
     "llm": {

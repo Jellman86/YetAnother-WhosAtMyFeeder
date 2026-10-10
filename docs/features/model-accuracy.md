@@ -1,5 +1,9 @@
 # Model Accuracy & Benchmark Results
 
+See [October 2026 classifier additions](model-catalogue-2026-10.md) for the new experimental
+models, their input contracts, sizes and catalogue integration. The historical tables below
+retain their original benchmark scope.
+
 This document describes how to run the model accuracy benchmark, explains the methodology, and documents the current results for all installed models on this hardware.
 
 ---
@@ -10,7 +14,7 @@ Results are measured against 60 labeled bird images drawn from iNaturalist (15 s
 
 Each run tests two preprocessing modes — **raw** (image sent as-is) and **letterbox** (padded to a square with gray borders) — to identify whether padding helps or hurts each model.
 
-> **Note on scope mismatch:** The birds-only models are not directly comparable to the wildlife-wide models on this mixed fixture set. `Small Birds` and `Medium Birds` resolve to regional variants, the published benchmark rows here use the EU variants, `EU FocalNet-B` is European-only, and `FlexiViT Global` covers a smaller 550-species global bird label space. Lower scores here often reflect out-of-scope input in the fixture set, not a real-world failure on their intended deployment.
+> **Note on scope mismatch:** The birds-only models are not directly comparable to the wildlife-wide models on this mixed fixture set. `Small Birds` and `Medium Birds` resolve to regional variants, the published benchmark rows here use the EU variants, `EU FocalNet-B` is European-only, and `FlexiViT Israel Birds` covers a smaller 550-class Israel-checklist bird label space. Lower scores here often reflect out-of-scope input in the fixture set, not a real-world failure on their intended deployment.
 
 ### Accuracy Table (22 March 2026)
 
@@ -23,11 +27,11 @@ Each run tests two preprocessing modes — **raw** (image sent as-is) and **lett
 | **Small Birds** (EU variant) | small | birds_only (EU) | 41.7% | 38.3% | 48.3% | 50.0% | 55ms | intel_cpu |
 | **EU FocalNet-B** | medium | birds_only (EU) | 41.7% | 36.7% | 53.3% | 48.3% | 266ms | intel_gpu |
 | **Medium Birds** (EU variant) | medium | birds_only (EU) | 40.0% | 33.3% | 50.0% | 48.3% | 62ms | intel_cpu |
-| **FlexiViT Global** | small | birds_only (global) | 33.3% | 31.7% | 40.0% | 38.3% | 199ms | intel_cpu |
+| **FlexiViT Israel Birds** | small | birds_only (Israel checklist) | 33.3% | 31.7% | 40.0% | 38.3% | 199ms | intel_cpu |
 | **Bird Crop Detector (Fast)** | fast | system | n/a | n/a | n/a | n/a | 5ms | cpu |
 | **Bird Crop Detector Accurate (YOLOX-Tiny)** | accurate | system | n/a | n/a | n/a | n/a | 11–30ms provider sweep | host-validated |
 
-> **Birds-only model note:** `Small Birds` and `Medium Birds` are region-resolved family entries, `EU FocalNet-B` is Europe-specific, and `FlexiViT Global` trades coverage and size for speed. The shared fixture set is still weighted toward North American species, so these rows should be read as scope-mismatch diagnostics rather than direct leaderboard entries against the wildlife-wide models.
+> **Birds-only model note:** `Small Birds` and `Medium Birds` are region-resolved family entries, `EU FocalNet-B` is Europe-specific, and `FlexiViT Israel Birds` trades coverage and size for speed. The shared fixture set is still weighted toward North American species, so these rows should be read as scope-mismatch diagnostics rather than direct leaderboard entries against the wildlife-wide models.
 
 > **Intel GPU support:** Support depends on the Intel generation and OpenVINO runtime. RoPE ViT-B14
 > is validated on Arrow Lake-S with OpenVINO 2026.2.1, while older Intel GPU / OpenVINO 2025.4
@@ -89,7 +93,7 @@ applications.
 | MobileNet V2 | 54.86 / 66.67 | 50.00 / 60.42 | **Crop on** |
 | Small Birds NA | 27.78 / 34.72 | 23.61 / 34.03 | **Crop on** |
 | Medium Birds NA | 33.33 / 45.14 | 31.25 / 39.58 | **Crop on** |
-| FlexiViT Global | 19.44 / 21.53 | 17.36 / 20.14 | **Crop on** |
+| FlexiViT Israel Birds | 19.44 / 21.53 | 17.36 / 20.14 | **Crop on** |
 | Small Birds EU | 25.69 / 28.47 | 25.69 / 29.86 | Full frame |
 | Medium Birds EU | 27.08 / 31.25 | 27.78 / 33.33 | Full frame |
 | ConvNeXt Large | 63.19 / 71.53 | 68.75 / 76.39 | Full frame |
@@ -260,7 +264,7 @@ schema-4 sweep against 24 real images per classifier:
 | Small Birds EU (MobileNetV4-L) | ✅ Host-gated candidate | Two explicit EU runs matched CPU top-1 on 24/24 images with 5/5 mean top-5 overlap; the latest measured 25.3 ms. An older shared-context run failed, so the isolated exact-installation gate remains required. |
 | Medium Birds EU (ConvNeXt-V2-Tiny) | ✅ Validated | The explicit EU run matched CPU top-1 on 24/24 images with 5/5 mean top-5 overlap at 36.1 ms. |
 | MogaNet-S EU (retired) | Historical pass | 24/24 top-1 matched CPU, 5/5 mean top-5 overlap, 72.2 ms. Retained as retirement evidence, not a current option. |
-| FlexiViT Global | ✅ Host-gated candidate | 24/24 top-1 matched CPU, 5/5 mean top-5 overlap, 71.1 ms. Older OpenVINO runs produced non-finite output. |
+| FlexiViT Israel Birds | ✅ Host-gated candidate | 24/24 top-1 matched CPU, 5/5 mean top-5 overlap, 71.1 ms. Older OpenVINO runs produced non-finite output. |
 | ConvNeXt Large | ✅ Host-gated candidate | 24/24 GPU top-1 results matched CPU, mean top-5 overlap was 5/5, and median inference was 355.8 ms. OpenVINO 2025.4.1 produced systematically wrong rankings, so Intel GPU is a candidate rather than globally safe. |
 | RoPE ViT-B14 | ✅ Host-gated candidate | 24/24 top-1 matched CPU, 5/5 mean top-5 overlap, 310.8 ms. Older Intel GPU / OpenVINO 2025.4 combinations produced NaNs, so per-host validation remains required. |
 | ConvNeXt-V1 Tiny EU (retired) | Historical pass | 24/24 top-1 matched CPU, 5/5 mean top-5 overlap, 57.8 ms. Retained as retirement evidence, not a current option. |

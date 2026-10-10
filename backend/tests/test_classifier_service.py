@@ -862,6 +862,28 @@ def test_model_preprocess_center_crop_removes_outer_edge_bands(factory):
     assert float(arr[:, -1, 2].mean()) < 0.2
 
 
+@pytest.mark.parametrize("rounding", [None, "round", "floor"])
+@pytest.mark.parametrize("size", [(137, 301), (301, 137)])
+def test_center_crop_resize_rounding_is_explicit_and_preserves_existing_default(rounding, size):
+    from app.services.classifier_service import _resize_with_preprocessing
+
+    width, height = size
+    pixels = np.random.default_rng(13).integers(0, 256, (height, width, 3), dtype=np.uint8)
+    image = Image.fromarray(pixels)
+    preprocessing = {"resize_mode": "center_crop", "interpolation": "bicubic", "crop_pct": 0.875}
+    if rounding is not None:
+        preprocessing["resize_rounding"] = rounding
+    resize_long_edge = int(301 * 384 / 137) if rounding == "floor" else round(301 * 384 / 137)
+    resized_size = (384, resize_long_edge) if width < height else (resize_long_edge, 384)
+    expected = image.resize(resized_size, Image.Resampling.BICUBIC)
+    left, top = (round((edge - 336) / 2) for edge in resized_size)
+    expected = expected.crop((left, top, left + 336, top + 336))
+
+    actual = _resize_with_preprocessing(image, 336, preprocessing=preprocessing)
+
+    np.testing.assert_array_equal(np.asarray(actual), np.asarray(expected))
+
+
 @pytest.mark.parametrize(
     "factory",
     [

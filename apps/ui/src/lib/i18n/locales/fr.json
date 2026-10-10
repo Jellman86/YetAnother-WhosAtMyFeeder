@@ -1760,7 +1760,10 @@
       "compat_verified": "Vérifié sur cet hôte :",
       "intel_npu_status": "NPU Intel",
       "model_manager_repair_download": "Réparer le téléchargement",
-      "model_manager_repair_needed": "L’installation de ce modèle est incomplète. Téléchargez-le à nouveau pour réparer les étiquettes ou la configuration manquantes avant l’activation.",
+      "model_manager_repair_needed": "L’installation de ce modèle est incomplète. Téléchargez-le à nouveau pour restaurer les noms d’espèces ou la configuration du modèle manquants avant l’activation.",
+      "model_manager_location_title": "Utilise l’emplacement de votre mangeoire",
+      "model_manager_location_desc": "Ce modèle utilise aussi les coordonnées de la mangeoire enregistrées dans Paramètres → Intégrations → Emplacement. Si aucune coordonnée valide n’est enregistrée, il identifie les oiseaux sans emplacement. Il n’utilise ni la date ni un rayon de précision de l’emplacement.",
+      "model_manager_location_link": "Ouvrir les paramètres d’emplacement",
       "provider_intel_npu": "NPU Intel (OpenVINO)"
     },
     "llm": {

@@ -109,3 +109,12 @@ def test_artifact_rows_carry_the_fields_the_catalogue_schema_will_key_on():
     assert artifact.taxonomy_scope == "wildlife_wide"
     assert len(artifact.sha256) == 64
     assert artifact.labels_sha256 and len(artifact.labels_sha256) == 64
+
+
+def test_israel_checklist_models_do_not_claim_global_species_coverage():
+    from app.services.model_manager import REMOTE_REGISTRY
+
+    models = {row["id"]: row for row in REMOTE_REGISTRY}
+    for model_id in ("flexivit_il_all", "naflex_so150m_il_all"):
+        assert "Israel" in models[model_id]["name"]
+        assert "Israel" in models[model_id]["description"]

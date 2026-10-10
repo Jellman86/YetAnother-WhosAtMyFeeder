@@ -24,6 +24,7 @@ from app.services.model_eval_service import (
     SUMMARY_FILENAME,
     _build_summary_envelope,
     _compatibility_model_summaries,
+    _catalogue_labels_present,
     _drift_ratio,
     _gpu_diagnostic,
     _inference_health_for,
@@ -44,6 +45,19 @@ def _set_runs_dir(monkeypatch, path: Path) -> None:
 
 def test_safe_div_zero_denominator():
     assert _safe_div(5, 0) == 0.0
+
+
+@pytest.mark.parametrize("labels,expected", [(["One", "Two"], True), (None, False), ([], False)])
+def test_catalogue_presence_uses_the_active_artifact_checksum(monkeypatch, labels, expected):
+    checked = []
+
+    def resolve(sha):
+        checked.append(sha)
+        return labels
+
+    monkeypatch.setattr("app.services.catalogue_labels.catalogue_labels_for_model", resolve)
+    assert _catalogue_labels_present({"artifact_sha256": "actual-graph"}) is expected
+    assert checked == ["actual-graph"]
 
 
 def test_safe_div_rounds():
@@ -244,6 +258,10 @@ def test_gpu_diagnostic_surfaces_preprocessing_and_artifact_metadata():
         "preprocessing": {
             "color_space": "RGB",
             "resize_mode": "center_crop",
+            "resize_rounding": "floor",
+            "metadata_input": "inat2021_location_v1",
+            "patch_size": 14,
+            "max_seq_len": 576,
             "crop_pct": 0.95,
             "interpolation": "bicubic",
             "mean": [0.481, 0.458, 0.408],
@@ -257,6 +275,10 @@ def test_gpu_diagnostic_surfaces_preprocessing_and_artifact_metadata():
     assert pre["input_size"] == 384
     assert pre["color_space"] == "RGB"
     assert pre["resize_mode"] == "center_crop"
+    assert pre["resize_rounding"] == "floor"
+    assert pre["metadata_input"] == "inat2021_location_v1"
+    assert pre["patch_size"] == 14
+    assert pre["max_seq_len"] == 576
     assert pre["crop_pct"] == 0.95
     assert pre["mean"] == [0.481, 0.458, 0.408]
     artifact = diag["model_artifact"]
