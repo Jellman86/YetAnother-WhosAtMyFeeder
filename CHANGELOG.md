@@ -6,6 +6,18 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Model Manager adds eight experimental classifiers: location-aware DINOv2, RoPE Wildlife
+  336, RoPE EU 336, Arabian Peninsula RoPE DeiT3, NaFlex EU and Israel Birds, Parallel ViT EU,
+  and BioCLIP 2.5 with a fixed 9,025-species head. Defaults are preserved; accelerators remain
+  subject to the exact installation's CPU comparison. NaFlex preserves native aspect ratio;
+  DINOv2 receives configured location at runtime and workers reload when location changes.
+- All registered classifier outputs are held in the species catalogue. Complete published
+  mappings remove the runtime label-file requirement, while custom/legacy file fallback stays
+  available. New artifacts install without `labels.txt`; checksum and output-width mismatches
+  fail closed. BioCLIP's split external weights are verified per part and after assembly.
+- FlexiViT's description correctly identifies its Israel-checklist coverage rather than claiming
+  a global species list. Its existing weights and predictions are unchanged.
+
 - Classifier centre-crop metadata can request torchvision-style truncation for models that
   require it. Existing model defaults, resize policies and crop detector behaviour are preserved.
 

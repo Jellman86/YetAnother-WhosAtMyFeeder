@@ -159,3 +159,50 @@ globally safe and host-gated candidate provider policy, and classifier crop poli
 metadata remains a separate artifact contract and does not acquire the classifier
 `crop_generator` block. Upload only after the model asset digests and a real-image provider sweep
 agree with the registry.
+
+## Catalogue-only classifiers and October 2026 artifacts
+
+The older conversion recipe above creates label files for legacy/custom models. New registered
+classifiers use ordered output mappings compiled into the species catalogue. Their build input
+can be a JSON object keyed by the SHA-256 of canonical UTF-8 names (each followed by a newline),
+with an array of source names in the exact checkpoint output order. Keep that source immutable;
+never alphabetize it or substitute a translated name list.
+
+Extend the released mapping rather than recompiling old identities:
+
+```bash
+cd backend
+python scripts/build_model_output_mappings.py \
+  --output-sources /scratch/ordered-output-sources.json \
+  --base-mappings /scratch/released-model-output-mappings.json
+python scripts/build_species_catalog_seed.py
+python scripts/generate_model_release_configs.py /scratch/release-configs
+```
+
+The extension verifies source digests, preserves existing vocabulary rows and adds the new
+checksum-bound artifacts. The normal catalogue release importer adds those mappings to existing
+installations without replacing their history or overrides. A complete ordered mapping is
+required before a new label-free artifact can be downloaded. Publish canonical generated
+sidecars and unique model asset names; keep old release assets available for older applications.
+
+For portable DINOv2, use `backend/scripts/export_dinov2_model.py` with the pinned upstream checkout,
+reviewed E4a checkpoint and official iNat2021 validation annotations. The exporter checks the
+checkpoint digest and its class-mapping fingerprint before creating two inputs: float32 NCHW RGB
+`input` of shape `[1,3,336,336]`, and float32 `metadata` of shape `[1,8]`. It compares ONNX against
+native PyTorch with missing and present synthetic locations. Site coordinates must never be
+constants in a redistributed export. Date and uncertainty remain absent in the application.
+
+NaFlex exports must accept rectangular patch-aligned inputs and preserve the reference 576-token
+budget. Set `resize_mode: native_aspect_ratio`, `patch_size: 14` and `max_seq_len: 576`; do not
+pad or stretch to 336 square. Test square, landscape and portrait tensors against the upstream
+transform and native network. External tensor locations must be `model.onnx.data`, matching
+Model Manager's local filename. Intel NPU is excluded for these variable-aspect exports.
+
+BioCLIP 2.5 is an application-specific image encoder plus a fixed head of 9,025 normalized
+species text prototypes in their recorded order. Its graph is not a substitute for the full
+upstream vocabulary or an arbitrary prompt interface. Weights are shipped as two ordered parts
+with separate digests and a complete-file digest; the downloader reconstructs the original
+external-data file before committing the installation.
+
+The [model additions reference](../features/model-catalogue-2026-10.md) links source revisions,
+checkpoint hashes, output-source hashes, preprocessing, provider policy and mapping coverage.

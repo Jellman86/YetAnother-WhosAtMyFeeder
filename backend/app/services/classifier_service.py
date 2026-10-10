@@ -485,6 +485,13 @@ def _label_integrity_for(model: object) -> dict[str, object]:
 
     from app.services.label_integrity import LabelVerdict, verify_model_labels
 
+    from app.services.catalogue_labels import catalogue_labels_for_model
+
+    checksum = getattr(model, "model_sha256", None)
+    catalogue = catalogue_labels_for_model(checksum)
+    if catalogue:
+        return {"verdict": LabelVerdict.VERIFIED.value, "label_count": len(catalogue), "source": "catalogue"}
+
     labels_path = getattr(model, "labels_path", None)
     if not labels_path:
         return {"verdict": LabelVerdict.MISSING.value, "label_count": 0}
@@ -753,6 +760,11 @@ def _build_classification_results(
     ]
 
 
+def _check_catalogue_output_width(labels: list[str], output_width: int, source: str) -> None:
+    if source == "catalogue" and len(labels) != output_width:
+        raise ValueError(f"Catalogue output width {len(labels)} differs from model output width {output_width}")
+
+
 def _resolve_model_labels(
     labels_path: str,
     label_grouping: dict,
@@ -846,7 +858,7 @@ def _resolve_color_space(preprocessing: Optional[dict[str, Any]]) -> str:
 
 def _resolve_resize_mode(preprocessing: Optional[dict[str, Any]], *, default: str = "letterbox") -> str:
     mode = str((preprocessing or {}).get("resize_mode") or default).strip().lower()
-    if mode not in {"letterbox", "center_crop", "direct_resize"}:
+    if mode not in {"letterbox", "center_crop", "direct_resize", "native_aspect_ratio"}:
         return default
     return mode
 
@@ -910,6 +922,59 @@ def _center_crop_to_size(image: Image.Image, target_size: int) -> Image.Image:
     return image.crop((left, top, right, bottom))
 
 
+def _native_aspect_resize(
+    image: Image.Image, *, patch_size: int, max_seq_len: int, interpolation: Image.Resampling
+) -> Image.Image:
+    """Birder's native patch-grid contract (64-step search with ceiling).
+
+    Keeping the token budget, rather than a square edge, preserves the aspect
+    ratio the NaFlex encoder was trained to consume.
+    """
+    if patch_size <= 0 or max_seq_len <= 0:
+        raise ValueError("Positive patch size and token budget required")
+    width, height = image.size
+    low, high = 0.0, max_seq_len / min(height, width)
+    for _ in range(64):
+        scale = (low + high) / 2.0
+        grid_h, grid_w = max(1, math.ceil(height * scale)), max(1, math.ceil(width * scale))
+        if grid_h * grid_w <= max_seq_len:
+            low = scale
+        else:
+            high = scale
+    grid_h, grid_w = max(1, math.ceil(height * low)), max(1, math.ceil(width * low))
+    return image.resize((grid_w * patch_size, grid_h * patch_size), interpolation)
+
+
+def _inat_location_metadata(latitude: Any, longitude: Any) -> np.ndarray:
+    """Official iNat DINOv2 eight-feature contract, with date/uncertainty absent.
+
+    A real (0,0) location is distinct from missing coordinates. Never substitute
+    today's date for the capture date, or invent a location uncertainty.
+    """
+    result = np.zeros((1, 8), dtype=np.float32)
+    if isinstance(latitude, bool) or isinstance(longitude, bool):
+        return result
+    try:
+        lat, lon = float(latitude), float(longitude)
+    except (TypeError, ValueError):
+        return result
+    if not math.isfinite(lat) or not math.isfinite(lon) or not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        return result
+    lat, lon = math.radians(lat), math.radians(lon)
+    result[0, :3] = (math.cos(lat) * math.cos(lon), math.cos(lat) * math.sin(lon), math.sin(lat))
+    result[0, 6] = 1
+    return result
+
+
+def _classifier_auxiliary_inputs(preprocessing: dict[str, Any]) -> dict[str, np.ndarray]:
+    contract = preprocessing.get("metadata_input")
+    if contract is None:
+        return {}
+    if contract != "inat2021_location_v1":
+        raise ValueError(f"Unsupported classifier metadata contract: {contract}")
+    return {"metadata": _inat_location_metadata(settings.location.latitude, settings.location.longitude)}
+
+
 def _resize_with_preprocessing(
     image: Image.Image,
     target_size: int,
@@ -921,6 +986,14 @@ def _resize_with_preprocessing(
     image = image.convert(_resolve_color_space(preprocessing))
     interpolation = _resolve_interpolation(preprocessing)
     resize_mode = _resolve_resize_mode(preprocessing, default=default_resize_mode)
+
+    if resize_mode == "native_aspect_ratio":
+        return _native_aspect_resize(
+            image,
+            patch_size=int((preprocessing or {})["patch_size"]),
+            max_seq_len=int((preprocessing or {})["max_seq_len"]),
+            interpolation=interpolation,
+        )
 
     if resize_mode == "direct_resize":
         return image.resize((target_size, target_size), interpolation)
@@ -1918,6 +1991,7 @@ class ModelInstance:
                 model_sha256=self.model_sha256,
                 context=self.name,
             )
+            self._label_source = label_source
             if self.labels:
                 log.info(f"Loaded {len(self.labels)} labels for {self.name}", label_source=label_source)
 
@@ -2087,6 +2161,7 @@ class ModelInstance:
                     detail=f"{self.name} int8 output is missing valid quantization metadata",
                 )
 
+        _check_catalogue_output_width(self.labels, results.size, getattr(self, "_label_source", "none"))
         # Softmax if needed (logits vs probabilities)
         finite_results = results[np.isfinite(results)]
         if finite_results.size == 0:
@@ -2230,6 +2305,7 @@ class ONNXModelInstance:
             model_sha256=self.model_sha256,
             context=self.name,
         )
+        self._label_source = label_source
         if self.labels:
             log.info(f"Loaded {len(self.labels)} labels for ONNX model {self.name}", label_source=label_source)
 
@@ -2284,6 +2360,7 @@ class ONNXModelInstance:
 
     def _softmax(self, x: np.ndarray) -> np.ndarray:
         """Apply softmax to convert logits to probabilities."""
+        _check_catalogue_output_width(self.labels, np.asarray(x).size, getattr(self, "_label_source", "none"))
         return _safe_softmax(x, context=f"{self.name}:onnx")
 
     def _active_primary_provider(self) -> str | None:
@@ -2302,7 +2379,9 @@ class ONNXModelInstance:
                     from app.utils.cuda_runtime import verify_cuda_session_provider
 
                     verify_cuda_session_provider(self.session)
-                outputs = self.session.run(None, {input_name: input_tensor})
+                outputs = self.session.run(
+                    None, {input_name: input_tensor, **_classifier_auxiliary_inputs(self.preprocessing)}
+                )
                 if enforce_cuda:
                     verify_cuda_session_provider(self.session)
                 return outputs
@@ -2572,6 +2651,7 @@ class OpenVINOModelInstance:
             model_sha256=self.model_sha256,
             context=self.name,
         )
+        self._label_source = label_source
         if self.labels:
             log.info(f"Loaded {len(self.labels)} labels for OpenVINO model {self.name}", label_source=label_source)
 
@@ -2700,6 +2780,7 @@ class OpenVINOModelInstance:
         return arr[np.newaxis, ...].astype(np.float32)
 
     def _softmax(self, x: np.ndarray) -> np.ndarray:
+        _check_catalogue_output_width(self.labels, np.asarray(x).size, getattr(self, "_label_source", "none"))
         return _safe_softmax(x, context=f"{self.name}:openvino")
 
     def _infer_output_tensor(
@@ -2729,7 +2810,9 @@ class OpenVINOModelInstance:
             # runtime allocations on every classification (#314).
             if self._infer_request is None:
                 self._infer_request = self.compiled_model.create_infer_request()
-            outputs = self._infer_request.infer({self.input_name: input_tensor})
+            outputs = self._infer_request.infer(
+                {self.input_name: input_tensor, **_classifier_auxiliary_inputs(self.preprocessing)}
+            )
             try:
                 raw = outputs[self.compiled_model.outputs[0]]
             except Exception:
@@ -4951,9 +5034,8 @@ class ClassifierService:
             try:
                 spec = self._resolve_active_bird_model_spec()
                 labels_path = str(spec.get("labels_path") or "")
-                if labels_path and os.path.exists(labels_path):
-                    with open(labels_path, "r", encoding="utf-8", errors="replace") as handle:
-                        return normalize_classifier_labels(line.strip() for line in handle.readlines() if line.strip())
+                labels, _, _ = _resolve_model_labels(labels_path, {}, model_sha256=spec.get("artifact_sha256"))
+                return labels
             except Exception:
                 return []
         return []
@@ -4968,13 +5050,17 @@ class ClassifierService:
         bird = self._models.get("bird")
         return getattr(bird, "error", None)
 
-    def _labels_count_for_status(self, labels_path: Optional[str]) -> Optional[int]:
-        """Non-empty lines in the active model's label file, cached by mtime.
+    def _labels_count_for_status(self, labels_path: Optional[str], model_sha256: Optional[str] = None) -> Optional[int]:
+        """Count complete catalogue outputs, or legacy file lines cached by mtime.
 
-        In subprocess mode the API process holds no model, so the count comes
-        from the file the workers will load. None means it could not be read,
-        never zero-by-absence.
+        The subprocess API holds no resident model. Use the same label source
+        as its workers; None means neither source could be read.
         """
+        from app.services.catalogue_labels import catalogue_labels_for_model
+
+        catalogue = catalogue_labels_for_model(model_sha256)
+        if catalogue:
+            return len(catalogue)
         if not labels_path:
             return None
         try:
@@ -5035,6 +5121,7 @@ class ClassifierService:
         packaged_providers = packaged_inference_providers(image_flavor)
         active_model_estimated_ram_mb: Optional[int] = None
         active_model_labels_path: Optional[str] = None
+        active_model_artifact_sha256: Optional[str] = None
         try:
             active_model_spec = self._resolve_active_bird_model_spec()
             supported_providers = list(active_model_spec.get("supported_inference_providers") or [])
@@ -5045,6 +5132,7 @@ class ClassifierService:
             raw_ram = active_model_spec.get("estimated_ram_mb")
             active_model_estimated_ram_mb = int(raw_ram) if raw_ram else None
             active_model_labels_path = str(active_model_spec.get("labels_path") or "") or None
+            active_model_artifact_sha256 = active_model_spec.get("artifact_sha256")
         except Exception:
             supported_providers = []
             validated_providers = []
@@ -5079,7 +5167,7 @@ class ClassifierService:
             # process holds the weights: in subprocess mode no model is
             # resident here, and a resident model's own count overwrites this
             # when its status is merged below.
-            "labels_count": self._labels_count_for_status(active_model_labels_path),
+            "labels_count": self._labels_count_for_status(active_model_labels_path, active_model_artifact_sha256),
             "accel_caps_age_seconds": accel_caps_age,
             "accel_caps_stale": self.accel_caps_are_stale(),
             "image_flavor": image_flavor,
@@ -5254,14 +5342,7 @@ class ClassifierService:
             settings.classification.wildlife_model, settings.classification.wildlife_labels
         )
         model_exists = os.path.exists(model_path)
-        labels_exist = os.path.exists(labels_path)
-        labels_count = 0
-        if labels_exist:
-            try:
-                with open(labels_path, "r") as f:
-                    labels_count = sum(1 for line in f if line.strip())
-            except Exception:
-                pass
+        labels_count = self._labels_count_for_status(labels_path, artifact_digest(model_path)) or 0
 
         return {
             "loaded": False,

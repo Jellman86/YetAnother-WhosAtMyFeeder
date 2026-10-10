@@ -2,11 +2,12 @@
 
 `labels.txt` is verified when a model is downloaded and never again, and every
 inference since has trusted whatever is on disk. The catalogue holds a row per
-output index carrying the model's own label, compiled from a file that was
-proven at install time, so the labels can come from there instead.
+output index carrying the model's own label, compiled from checksum-verified ordered
+build sources, so the labels can come from there instead.
 
 Deliberately conservative. Labels are taken from the catalogue only when it
-holds a complete, contiguous set matching the model's declared output width.
+holds a complete, contiguous set matching the model's declared output width
+and, for registered artifacts, the ordered-name source digest.
 Anything short of that returns nothing and the caller keeps reading the file, so
 a model the catalogue does not know behaves exactly as it does today.
 
@@ -17,6 +18,7 @@ every label after it onto the wrong class.
 
 from __future__ import annotations
 
+import hashlib
 import sqlite3
 from pathlib import Path
 from typing import Optional
@@ -123,4 +125,20 @@ def catalogue_labels_for_model(
         if not text:
             return None
         labels.append(text)
+
+    # Completeness alone cannot detect an edited name or a permutation. The
+    # registry's original ordered-name digest also binds catalogue text to the
+    # checkpoint, without trusting a downloaded sidecar or a separate label file.
+    from app.services.model_manager import REMOTE_REGISTRY
+
+    for model in REMOTE_REGISTRY:
+        entries = [model, *(model.get("region_variants") or {}).values(), *(model.get("variants") or [])]
+        for entry in entries:
+            if str(entry.get("sha256") or "").lower() != checksum:
+                continue
+            expected = str(entry.get("labels_sha256") or "").lower()
+            actual = hashlib.sha256(("\n".join(labels) + "\n").encode("utf-8")).hexdigest()
+            if expected and actual != expected:
+                log.warning("Species catalogue output names failed checksum verification", model_sha256=checksum)
+                return None
     return labels

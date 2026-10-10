@@ -38,6 +38,8 @@ pytestmark = pytest.mark.skipif(not ORT_AVAILABLE, reason="onnxruntime not insta
 
 
 def _models_dir() -> Path:
+    if os.environ.get("MODEL_DIR"):
+        return Path(os.environ["MODEL_DIR"])
     if os.path.exists("/data/models"):
         return Path("/data/models")
     return Path(__file__).resolve().parent.parent / "data" / "models"
@@ -70,10 +72,12 @@ def _labels_path(model_id: str) -> Path:
 
 
 def _load_labels(model_id: str) -> list[str]:
-    labels_path = _labels_path(model_id)
-    if not labels_path.exists():
-        return []
-    return [label.strip() for label in labels_path.read_text().splitlines() if label.strip()]
+    from app.services.classifier_service import _resolve_model_labels, artifact_digest
+
+    labels, _, _ = _resolve_model_labels(
+        str(_labels_path(model_id)), {}, model_sha256=artifact_digest(str(_model_dir(model_id) / "model.onnx"))
+    )
+    return labels
 
 
 def _default_config(model_id: str) -> dict:
@@ -224,16 +228,14 @@ def test_model_config_is_valid(model_id: str) -> None:
 
 
 @pytest.mark.parametrize("model_id", _MODEL_IDS)
-def test_labels_file_is_valid(model_id: str) -> None:
-    """labels.txt must exist and have at least 10 entries."""
+def test_classifier_output_names_are_available(model_id: str) -> None:
+    """Catalogue or legacy output names must contain at least ten entries."""
     labels_path = _labels_path(model_id)
     if not labels_path.exists() and not _has_sidecar(model_id):
         pytest.xfail(
             f"{model_id}: labels.txt missing alongside absent model_config.json — "
             "legacy incomplete install, run export_and_config_birder_model.py or redownload the model"
         )
-    assert labels_path.exists(), f"{model_id}: labels.txt missing"
-
     labels = _load_labels(model_id)
     assert len(labels) >= 10, f"{model_id}: expected at least 10 labels, got {len(labels)}"
 
@@ -277,7 +279,9 @@ def test_model_inference_on_white_image(model_id: str, ort_session_cache: dict) 
     white = white.transpose(2, 0, 1)[np.newaxis]  # (1, 3, H, W)
 
     input_name = session.get_inputs()[0].name
-    outputs = session.run(None, {input_name: white})
+    from app.services.classifier_service import _classifier_auxiliary_inputs
+
+    outputs = session.run(None, {input_name: white, **_classifier_auxiliary_inputs(pre)})
     logits = outputs[0][0]
 
     assert logits.ndim == 1, f"{model_id}: output should be 1-D per sample"
@@ -303,7 +307,9 @@ def test_model_inference_on_noise_image(model_id: str, ort_session_cache: dict) 
     noise = rng.standard_normal((1, 3, input_size, input_size)).astype(np.float32)
 
     input_name = session.get_inputs()[0].name
-    outputs = session.run(None, {input_name: noise})
+    from app.services.classifier_service import _classifier_auxiliary_inputs
+
+    outputs = session.run(None, {input_name: noise, **_classifier_auxiliary_inputs(config.get("preprocessing", {}))})
     assert outputs[0] is not None, f"{model_id}: got None output"
 
 
@@ -324,7 +330,9 @@ def test_model_softmax_sums_to_one(model_id: str, ort_session_cache: dict) -> No
     img = img.transpose(2, 0, 1)[np.newaxis]
 
     input_name = session.get_inputs()[0].name
-    logits = session.run(None, {input_name: img})[0][0]
+    from app.services.classifier_service import _classifier_auxiliary_inputs
+
+    logits = session.run(None, {input_name: img, **_classifier_auxiliary_inputs(pre)})[0][0]
 
     exp = np.exp(logits - logits.max())
     probs = exp / exp.sum()
@@ -333,7 +341,7 @@ def test_model_softmax_sums_to_one(model_id: str, ort_session_cache: dict) -> No
 
 @pytest.mark.parametrize("model_id", _MODEL_IDS)
 def test_model_config_num_classes_matches_labels(model_id: str) -> None:
-    """num_classes in model_config.json must match the actual labels.txt line count."""
+    """num_classes in the sidecar must match the resolved output-name count."""
     if not _has_sidecar(model_id):
         pytest.skip(f"{model_id}: no model_config.json — skipping num_classes check")
     model_dir = _model_dir(model_id)
@@ -342,7 +350,7 @@ def test_model_config_num_classes_matches_labels(model_id: str) -> None:
 
     if "num_classes" in config:
         assert config["num_classes"] == len(labels), (
-            f"{model_id}: num_classes={config['num_classes']} but labels.txt has {len(labels)} entries"
+            f"{model_id}: num_classes={config['num_classes']} but the output mapping has {len(labels)} entries"
         )
 
 
@@ -368,7 +376,9 @@ def test_model_inference_top_prediction_is_reasonable(model_id: str, ort_session
     tensor = ((base - mean) / std).transpose(2, 0, 1)[np.newaxis]
 
     input_name = session.get_inputs()[0].name
-    logits = session.run(None, {input_name: tensor})[0][0]
+    from app.services.classifier_service import _classifier_auxiliary_inputs
+
+    logits = session.run(None, {input_name: tensor, **_classifier_auxiliary_inputs(pre)})[0][0]
     exp = np.exp(logits - logits.max())
     probs = exp / exp.sum()
 

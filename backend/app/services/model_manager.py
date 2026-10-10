@@ -36,6 +36,15 @@ log = structlog.get_logger()
 _PERSISTENT_MODELS_DIR = "/data/models"
 _PACKAGED_DEFAULT_MODEL_DIR = "/app/data/models"
 
+
+def _catalogue_labels_available(model_meta: dict[str, Any]) -> bool:
+    if str(model_meta.get("artifact_kind") or "classifier") != "classifier":
+        return False
+    from app.services.catalogue_labels import catalogue_labels_for_model
+
+    return bool(catalogue_labels_for_model(model_meta.get("sha256")))
+
+
 # These classifier assets remain published for pre-3.0 applications, but current
 # releases must not advertise, validate, download, or reactivate them. Installed
 # files are deliberately left untouched so an operator can still roll back.
@@ -347,8 +356,8 @@ REMOTE_REGISTRY = [
     },
     {
         "id": "flexivit_il_all",
-        "name": "FlexiViT Global Birds (Birds Only)",
-        "description": "Global birds-only FlexiViT model pretrained with DINOv2 on iNaturalist. 550 worldwide species at 240px — compact and fast, good for global/unspecified regions.",
+        "name": "FlexiViT Israel Birds (Birds Only)",
+        "description": "Regional birds-only FlexiViT model with a 550-class Israel checklist, including rarities, at 240px. Compact and fast; check species coverage before using elsewhere.",
         "architecture": "FlexiViT-Reg1-S16-RMS + DINOv2",
         "file_size_mb": 84,
         "accuracy_tier": "High",
@@ -378,7 +387,7 @@ REMOTE_REGISTRY = [
         "tier": "small",
         "taxonomy_scope": "birds_only",
         "recommended_threshold": 0.60,
-        "recommended_for": "Global feeder setups or regions without a dedicated regional model (Asia, South America, Africa). Compact and fast.",
+        "recommended_for": "Feeders in Israel or comparison where the 550-species checklist covers the local birds. Compact and fast.",
         "estimated_ram_mb": 512,
         "advanced_only": True,
         "sort_order": 13,
@@ -386,7 +395,7 @@ REMOTE_REGISTRY = [
         "crop_generator": {
             "enabled": True,
         },
-        "notes": "CPU, Intel CPU, and Intel NPU are globally supported. Intel GPU is host-gated: older OpenVINO runs produced non-finite output, while Quark / OpenVINO 2026.2.1 matched CPU top-1 on 24/24 real images with 5/5 top-5 overlap. The exact installation must pass the isolated sweep before selection. CUDA unverified. 550 global bird species, uses ONNX external data file.",
+        "notes": "CPU, Intel CPU, and Intel NPU are globally supported. Intel GPU is host-gated: older OpenVINO runs produced non-finite output, while Quark / OpenVINO 2026.2.1 matched CPU top-1 on 24/24 real images with 5/5 top-5 overlap. The exact installation must pass the isolated sweep before selection. CUDA unverified. 550 Israel-checklist bird classes, uses ONNX external data file.",
     },
     {
         "id": "medium_birds",
@@ -582,6 +591,12 @@ REMOTE_REGISTRY = [
         "notes": "Elite accuracy model. CPU, Intel CPU, and Intel NPU are globally supported. Intel GPU is host-gated: OpenVINO 2024.6.0 through 2025.4.1 could abort with CL_OUT_OF_RESOURCES, while Quark / OpenVINO 2026.2.1 completed 24/24 real images with exact CPU top-1 agreement and 5/5 top-5 overlap. The exact installation must pass the isolated sweep before selection. CUDA unverified. Uses a 10,000-class label space; recommended threshold is 0.45.",
     },
 ]
+
+# Reviewed, checksum-bound model additions share the same registry and catalogue
+# gates as the established entries. Keeping their manifest in assets also lets
+# the release tooling publish the exact install contract without re-creating it.
+with (Path(__file__).resolve().parent.parent / "assets" / "model_registry_20261010.json").open() as _manifest:
+    REMOTE_REGISTRY.extend(json.load(_manifest))
 
 
 def registry_artifact_kind(model_id: str) -> str:
@@ -795,7 +810,12 @@ class ModelManager:
                 return bool(
                     resolved
                     and os.path.exists(str(resolved.get("model_path") or ""))
-                    and os.path.exists(str(resolved.get("labels_path") or ""))
+                    and (
+                        _catalogue_labels_available(
+                            self._resolve_family_variant_meta(model_meta, override=resolved.get("resolved_region"))
+                        )
+                        or os.path.exists(str(resolved.get("labels_path") or ""))
+                    )
                 )
             complete, _reason = self._model_install_status(model_meta, target_dir)
             if complete:
@@ -809,7 +829,7 @@ class ModelManager:
             return False
         return any(
             os.path.exists(os.path.join(base_dir, "model.tflite"))
-            and os.path.exists(os.path.join(base_dir, "labels.txt"))
+            and (_catalogue_labels_available(model_meta) or os.path.exists(os.path.join(base_dir, "labels.txt")))
             for base_dir in (MODELS_DIR, BUNDLED_MODELS_DIR)
         )
 
@@ -902,7 +922,7 @@ class ModelManager:
         model_path = os.path.join(model_dir, self._model_filename_for_runtime(runtime))
         if not os.path.exists(model_path):
             return False, "model_missing"
-        if not os.path.exists(os.path.join(model_dir, "labels.txt")):
+        if not _catalogue_labels_available(model_meta) and not os.path.exists(os.path.join(model_dir, "labels.txt")):
             return False, "labels_missing"
         if model_meta.get("model_config_url") and not os.path.exists(os.path.join(model_dir, "model_config.json")):
             return False, "config_missing"
@@ -1751,7 +1771,10 @@ class ModelManager:
             )
 
     def _validate_download_payload(self, model_meta: dict, staged_dir: str, model_filename: str) -> None:
-        required_files = [model_filename, "labels.txt"]
+        catalogue_backed = _catalogue_labels_available(model_meta)
+        required_files = [model_filename]
+        if not catalogue_backed:
+            required_files.append("labels.txt")
         if model_meta.get("runtime") == "onnx" and model_meta.get("weights_url"):
             required_files.append(f"{model_filename}.data")
         if model_meta.get("model_config_url"):
@@ -1776,7 +1799,7 @@ class ModelManager:
                 with open(config_path) as f:
                     config_data = json.load(f)
                 for key in ("sha256", "labels_sha256", "weights_sha256"):
-                    if config_data.get(key):
+                    if config_data.get(key) and not catalogue_backed:
                         checksums[key] = config_data[key]
             except Exception as exc:
                 log.warning("Could not read checksums from model_config.json", error=str(exc))
@@ -1859,6 +1882,11 @@ class ModelManager:
         runtime = str(model_meta.get("runtime", "tflite") or "tflite")
         model_filename = self._model_filename_for_runtime(runtime)
         has_weights = runtime == "onnx" and bool(model_meta.get("weights_url"))
+        catalogue_backed = await asyncio.to_thread(_catalogue_labels_available, model_meta)
+        if not catalogue_backed and not model_meta.get("labels_url"):
+            raise RuntimeError(
+                "Model output mapping is unavailable in the species catalogue; update the application first"
+            )
 
         # 1. Download model file
         log.info("Downloading model", url=model_meta["download_url"], runtime=runtime, staged_dir=staged_dir)
@@ -1885,7 +1913,29 @@ class ModelManager:
         self._update_download_status(progress_model_id, progress)
 
         # 2. Download weights (optional)
-        if has_weights:
+        weight_parts = model_meta.get("weights_parts")
+        if has_weights and weight_parts:
+            if not isinstance(weight_parts, list):
+                raise RuntimeError("Invalid external weight parts")
+            async with aiofiles.open(os.path.join(staged_dir, f"{model_filename}.data"), "wb") as handle:
+                for index, part in enumerate(weight_parts):
+                    if not isinstance(part, dict) or not part.get("url") or not part.get("sha256"):
+                        raise RuntimeError("Every external weight part requires a URL and checksum")
+                    digest = hashlib.sha256()
+                    async with client.stream("GET", part["url"], follow_redirects=True) as response:
+                        response.raise_for_status()
+                        async for chunk in response.aiter_bytes():
+                            digest.update(chunk)
+                            await handle.write(chunk)
+                    if digest.hexdigest() != str(part["sha256"]).lower():
+                        raise RuntimeError(f"Checksum mismatch for external weight part {index + 1}")
+                    progress.progress = self._scale_progress(
+                        self._build_download_progress("weights", index + 1, len(weight_parts)),
+                        start=progress_start,
+                        end=progress_end,
+                    )
+                    self._update_download_status(progress_model_id, progress)
+        elif has_weights:
             weights_filename = f"{model_filename}.data"
             log.info("Downloading model weights", url=model_meta["weights_url"], staged_dir=staged_dir)
             async with client.stream("GET", model_meta["weights_url"], follow_redirects=True) as response:
@@ -1911,11 +1961,12 @@ class ModelManager:
             self._update_download_status(progress_model_id, progress)
 
         # 3. Download labels
-        log.info("Downloading labels", url=model_meta["labels_url"], staged_dir=staged_dir)
-        resp = await client.get(model_meta["labels_url"], follow_redirects=True)
-        resp.raise_for_status()
-        async with aiofiles.open(os.path.join(staged_dir, "labels.txt"), "wb") as f:
-            await f.write(resp.content)
+        if not catalogue_backed:
+            log.info("Downloading labels", url=model_meta["labels_url"], staged_dir=staged_dir)
+            resp = await client.get(model_meta["labels_url"], follow_redirects=True)
+            resp.raise_for_status()
+            async with aiofiles.open(os.path.join(staged_dir, "labels.txt"), "wb") as f:
+                await f.write(resp.content)
         progress.progress = self._scale_progress(
             self._build_download_progress("labels", 1, 1, has_weights=has_weights),
             start=progress_start,
@@ -1943,7 +1994,7 @@ class ModelManager:
                 )
                 self._write_model_config_payload(staged_dir, self._build_model_config_payload(model_meta))
 
-        self._validate_download_payload(model_meta, staged_dir, model_filename)
+        await asyncio.to_thread(self._validate_download_payload, model_meta, staged_dir, model_filename)
 
     async def download_model(self, model_id: str) -> bool:
         """Download a model from the registry (supports TFLite and ONNX)."""

@@ -58,6 +58,19 @@ def test_labels_come_back_in_output_order(catalogue):
     ]
 
 
+def test_registered_output_names_are_verified_even_when_catalogue_indices_are_complete(catalogue, monkeypatch):
+    from app.services import model_manager
+
+    expected = hashlib.sha256(b"Prunella modularis\nErithacus rubecula\nNothing resolved this\n").hexdigest()
+    monkeypatch.setattr(model_manager, "REMOTE_REGISTRY", [{"sha256": "sha-complete", "labels_sha256": expected}])
+    assert catalogue_labels_for_model("sha-complete", catalog_path=catalogue)
+    with sqlite3.connect(catalogue) as connection:
+        connection.execute(
+            "UPDATE model_output_taxa SET source_label = 'Wrong species' WHERE model_artifact_id = 1 AND output_index = 0"
+        )
+    assert catalogue_labels_for_model("sha-complete", catalog_path=catalogue) is None
+
+
 def test_an_output_with_no_identity_still_contributes_its_label(catalogue):
     """The label is what inference needs; the identity is a separate question."""
     labels = catalogue_labels_for_model("sha-complete", catalog_path=catalogue)
@@ -83,8 +96,35 @@ def test_no_checksum_is_refused(catalogue, value):
     assert catalogue_labels_for_model(value, catalog_path=catalogue) is None
 
 
+def test_subprocess_status_counts_catalogue_outputs_without_a_label_file(monkeypatch, tmp_path):
+    from app.services.classifier_service import ClassifierService
+
+    monkeypatch.setattr(
+        "app.services.catalogue_labels.catalogue_labels_for_model",
+        lambda sha: ["One", "Two"] if sha == "known" else None,
+    )
+    service = ClassifierService()
+    assert service._labels_count_for_status(str(tmp_path / "absent.txt"), "known") == 2
+
+
 def test_a_missing_catalogue_never_raises(tmp_path):
     assert catalogue_labels_for_model("sha-complete", catalog_path=tmp_path / "absent.db") is None
+
+
+def test_unloaded_wildlife_status_counts_catalogue_outputs_without_label_file(monkeypatch, tmp_path):
+    from app.services import classifier_service as module
+
+    service = module.ClassifierService()
+    model = tmp_path / "model.tflite"
+    model.write_bytes(b"model")
+    monkeypatch.setattr(service, "_get_model_paths", lambda *args: (str(model), str(tmp_path / "absent.txt")))
+    monkeypatch.setattr(module, "artifact_digest", lambda path: "known")
+    monkeypatch.setattr(
+        "app.services.catalogue_labels.catalogue_labels_for_model",
+        lambda sha: ["One", "Two"] if sha == "known" else None,
+    )
+
+    assert service.get_wildlife_status()["labels_count"] == 2
 
 
 def test_the_registry_checksum_is_resolved_for_a_plain_model():

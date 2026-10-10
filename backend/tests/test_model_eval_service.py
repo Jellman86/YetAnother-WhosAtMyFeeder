@@ -244,6 +244,10 @@ def test_gpu_diagnostic_surfaces_preprocessing_and_artifact_metadata():
         "preprocessing": {
             "color_space": "RGB",
             "resize_mode": "center_crop",
+            "resize_rounding": "floor",
+            "metadata_input": "inat2021_location_v1",
+            "patch_size": 14,
+            "max_seq_len": 576,
             "crop_pct": 0.95,
             "interpolation": "bicubic",
             "mean": [0.481, 0.458, 0.408],
@@ -257,6 +261,10 @@ def test_gpu_diagnostic_surfaces_preprocessing_and_artifact_metadata():
     assert pre["input_size"] == 384
     assert pre["color_space"] == "RGB"
     assert pre["resize_mode"] == "center_crop"
+    assert pre["resize_rounding"] == "floor"
+    assert pre["metadata_input"] == "inat2021_location_v1"
+    assert pre["patch_size"] == 14
+    assert pre["max_seq_len"] == 576
     assert pre["crop_pct"] == 0.95
     assert pre["mean"] == [0.481, 0.458, 0.408]
     artifact = diag["model_artifact"]

@@ -1032,6 +1032,14 @@ async def test_list_available_models_returns_models_sorted_by_sort_order(monkeyp
         "eu_medium_focalnet_b",
         "convnext_large_inat21",
         "eva02_large_inat21",
+        "dinov2_b14_inat21_metadata_336",
+        "rope_vit_b14_inat21_336",
+        "rope_vit_b14_eu_common_336",
+        "rope_deit3_m14_arabian_peninsula",
+        "naflex_so150m_eu_common",
+        "naflex_so150m_il_all",
+        "vit_parallel_s16_eu_common",
+        "bioclip25_inat9025",
     ]
     assert [model.sort_order for model in models] == [
         5,
@@ -1044,6 +1052,7 @@ async def test_list_available_models_returns_models_sorted_by_sort_order(monkeyp
         19,
         20,
         30,
+        *range(45, 53),
     ]
 
 
