@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Settings → Appearance → Text size** makes every page smaller or larger, in seven steps from
+  Smallest (75%) to Largest (150%). **Standard**, the default, is 87.5% of the browser's size, a
+  step smaller than before; Large gives the old size back. The choice is kept on each device on its
+  own, so a wall display can read larger than a phone, and it multiplies the automatic growth on
+  large displays rather than replacing it. Touch targets stay at least 44px at every size.
 - The Needs a check sheet failed to rename, confirm or hide a visit with more than one capture
   ("Input should be less than or equal to 50"). It now reads a visit's captures page by page.
 - **Needs a check** on the leaderboard opens a check sheet instead of the species page. Each

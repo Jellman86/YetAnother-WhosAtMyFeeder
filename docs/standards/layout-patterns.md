@@ -449,7 +449,11 @@ build something better."*
   and `text-2xs` (12px) or `text-xs`: sizes in rem, never `text-[Npx]`, so display scaling and
   the reader's text size carry through.
   The root size grows on a large display (`clamp(100%, 100% + (100vw - 1280px) / 256, 125%)` in
-  `app.css`), so a rem layout scales as a whole; never set a px font size on the root.
+  `app.css`), so a rem layout scales as a whole; never set a px font size on the root. The reader's
+  **Text size** in Appearance multiplies it through `--text-scale` (per device, 75% to 150%, with
+  Standard at 87.5%), so a layout must hold at the largest size on a 320px phone, not only at the
+  default. Touch targets use the `11` spacing step, which is `max(2.75rem, 44px)`: never write a
+  target size that a smaller text size could take below 44px.
 - **Finish**: flat. Panels are a hairline (`line-soft`) and a fill (`surface`), with no shadow, blur
   or gradient wash; `surface-raised` fills a well inside a panel. These tokens are set per mode and
   theme in `app.css`, so a component never names a theme. Gradients remain only where they do a

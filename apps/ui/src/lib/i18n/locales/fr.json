@@ -1841,6 +1841,17 @@
       "app_scope_note": "Le temps GPU est publié par processus : cette courbe montre donc le travail que YA-WAMF a envoyé au GPU. Un autre conteneur partageant le même GPU n’est pas visible ici.",
       "unreadable_nvidia": "{label} est présent, mais son pilote ne publie aucun compteur d’utilisation lisible depuis un conteneur.",
       "unreadable_accelerator": "{label} est présent, mais son compteur n’est pas lisible depuis le conteneur."
+    },
+    "text_size": {
+      "label": "Taille du texte",
+      "desc": "Agrandit ou réduit toutes les pages sur cet appareil uniquement. Les grands écrans l’agrandissent encore un peu.",
+      "smallest": "Le plus petit",
+      "smaller": "Plus petit",
+      "standard": "Standard",
+      "large": "Grand",
+      "larger": "Plus grand",
+      "extra_large": "Très grand",
+      "largest": "Le plus grand"
     }
   },
   "auth": {

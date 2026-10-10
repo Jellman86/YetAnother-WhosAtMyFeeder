@@ -24,6 +24,7 @@
     "browser-tests/support.ts",
     "browser-tests/owner-history.ts",
     "browser-tests/bird-scan.ts",
+    "browser-tests/text-size.ts",
     "browser-tests/species-check.ts",
     "browser-tests/settings-backfill.ts"
   ]

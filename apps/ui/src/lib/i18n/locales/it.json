@@ -1851,6 +1851,17 @@
       "app_scope_note": "Il tempo GPU è pubblicato per processo, quindi quella linea è il lavoro che YA-WAMF ha inviato alla GPU. Un altro contenitore che usa la stessa GPU non è visibile qui.",
       "unreadable_nvidia": "{label} è presente, ma il suo driver non pubblica alcun contatore di utilizzo leggibile da un contenitore.",
       "unreadable_accelerator": "{label} è presente, ma il suo contatore non è leggibile dall’interno del contenitore."
+    },
+    "text_size": {
+      "label": "Dimensione del testo",
+      "desc": "Ingrandisce o riduce tutte le pagine solo su questo dispositivo. Gli schermi grandi lo ingrandiscono ancora un po’.",
+      "smallest": "Minimo",
+      "smaller": "Più piccolo",
+      "standard": "Standard",
+      "large": "Grande",
+      "larger": "Più grande",
+      "extra_large": "Molto grande",
+      "largest": "Massimo"
     }
   },
   "auth": {

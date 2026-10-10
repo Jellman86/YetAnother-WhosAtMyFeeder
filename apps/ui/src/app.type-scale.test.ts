@@ -13,11 +13,16 @@ describe('the type scale on large displays', () => {
     const root = appCss.match(/\nhtml \{([^}]*)\}/)?.[1] ?? '';
 
     it('grows the root size with the window, from the reader’s own size to a cap', () => {
-        expect(root.replace(/\s+/g, '')).toContain('font-size:clamp(100%,calc(100%+(100vw-1280px)/256),125%)');
+        expect(root.replace(/\s+/g, '')).toContain('font-size:calc(clamp(100%,calc(100%+(100vw-1280px)/256),125%)*var(--text-scale,1))');
     });
 
     it('starts from a percentage, so the browser text-size setting still applies', () => {
         expect(root).not.toMatch(/font-size:\s*\d+px/);
+    });
+
+    it('keeps a 44px touch target at the smaller text sizes', () => {
+        const config = readFileSync(new URL('../tailwind.config.js', import.meta.url), 'utf8');
+        expect(config).toContain("spacing: { 11: 'max(2.75rem, 44px)' }");
     });
 
     it('keeps the smallest print at 11px or more at the default size', () => {

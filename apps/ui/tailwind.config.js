@@ -5,6 +5,9 @@ export default {
         extend: {
             // Wide desktop monitors: room for the dashboard's third column without squeezing the field log.
             screens: { '3xl': '1920px' },
+            // The 44px touch target (h-11, min-h-11, w-11, min-w-11) grows with a larger text size
+            // but never shrinks below 44px when a reader picks a smaller one.
+            spacing: { 11: 'max(2.75rem, 44px)' },
             // Small print in rem, so it follows the reader's text size and display scale
             // instead of staying fixed in pixels. Never below 11px at the default size: 10px
             // labels read as noise rather than words, above all on a large, distant display.
