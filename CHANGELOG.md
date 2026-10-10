@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Text and spacing grow on large displays. Up to a 1536px window nothing changes; beyond it the
+  whole app scales up smoothly to about a fifth larger by 2300px, and your browser's own text size
+  still applies. The Explorer list now fills a large display like every other page.
+
 - The **Explorer** can show what was heard as well as seen. Turn on **Heard calls** above the list
   (off until you do; each device remembers its choice) and BirdNET-Go calls appear between the
   visits: one band per gap with its span, a spectrogram, a chip per species with its count, and
