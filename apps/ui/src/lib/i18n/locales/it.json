@@ -2433,7 +2433,22 @@
       "retained": "Il conteggio precedente e le tue correzioni vengono conservati.",
       "not_scanned": "Questo fotogramma intero non è ancora stato analizzato per trovare altri uccelli.",
       "loading": "Verifica dello stato dell’analisi di questo fotogramma…",
-      "start_unconfirmed": "Impossibile confermare la richiesta di analisi. Lo stato verrà verificato prima di riprovare."
+      "start_unconfirmed": "Impossibile confermare la richiesta di analisi. Lo stato verrà verificato prima di riprovare.",
+      "step_find": "Trova",
+      "step_name": "Nomina",
+      "step_count": "Conta",
+      "step_save": "Salva",
+      "stage_detecting": "Ricerca di uccelli in tutto il fotogramma.",
+      "stage_naming": "Nome a ogni uccello trovato: {done} di {total}.",
+      "stage_naming_none": "Nessun uccello chiaro da nominare. Controllo di quelli deboli.",
+      "stage_counting": "Conteggio degli uccelli e nuovo controllo di quelli deboli.",
+      "stage_saving": "Salvataggio dei risultati.",
+      "queued_behind": "In attesa di esaminare tutto il fotogramma. {count, plural, one {# ricerca prima.} other {# ricerche prima.}}",
+      "progress_label": "Avanzamento della ricerca",
+      "progress_waiting": "In attesa di iniziare",
+      "elapsed": "{seconds} s",
+      "action_waiting": "In attesa…",
+      "action_scanning": "Ricerca…"
     }
   },
   "events": {
@@ -2521,7 +2536,6 @@
       "calls": "{count, plural, one {# canto} other {# canti}}",
       "calls_until": "{count, plural, one {# canto} other {# canti}} fino alle {time}",
       "matching_calls": "canto corrispondente, {count, plural, one {# canto} other {# canti}}",
-      "strongest": "Canto più forte {score}% alle {time}",
       "spectrogram_alt": "Spettrogramma del canto più forte di {species}, {time}",
       "no_spectrogram": "BirdNET-Go non ha più uno spettrogramma per questi canti.",
       "blocked_camera": "I canti uditi sono nascosti mentre è scelta una telecamera, perché un canto non è legato a una telecamera.",
@@ -2530,7 +2544,12 @@
       "blocked_sort": "I canti uditi compaiono tra le visite solo quando le visite sono in ordine di tempo.",
       "load_failed": "Impossibile caricare i canti uditi. Le visite non sono interessate.",
       "truncated": "Questa pagina comprende più canti di quanti se ne possano mostrare insieme, quindi i più vecchi sono esclusi. Restringi le date per vederli.",
-      "none_stored": "Non ci sono canti di BirdNET-Go salvati per il periodo di queste visite. Se te ne aspettavi, controlla che BirdNET-Go sia attivo in Impostazioni, Integrazioni."
+      "none_stored": "Non ci sono canti di BirdNET-Go salvati per il periodo di queste visite. Se te ne aspettavi, controlla che BirdNET-Go sia attivo in Impostazioni, Integrazioni.",
+      "seek": "Riproduci da un punto del canto. Le frecce spostano di un secondo.",
+      "play_call": "Riproduci il canto di {species}",
+      "pause_call": "Metti in pausa il canto di {species}",
+      "clip_unavailable": "BirdNET-Go non è riuscito a riprodurre questa clip.",
+      "strongest_call": "Canto più forte"
     }
   },
   "audio": {

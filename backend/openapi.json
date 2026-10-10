@@ -2376,6 +2376,17 @@
             "title": "Event Id",
             "type": "string"
           },
+          "queue_ahead": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Queue Ahead"
+          },
           "result_count": {
             "anyOf": [
               {
@@ -2391,6 +2402,56 @@
             "default": false,
             "title": "Retained Previous",
             "type": "boolean"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "enum": [
+                  "detecting",
+                  "naming",
+                  "counting",
+                  "saving"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
+          },
+          "stage_done": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage Done"
+          },
+          "stage_total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage Total"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
           },
           "status": {
             "enum": [

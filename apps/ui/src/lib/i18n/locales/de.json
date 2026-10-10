@@ -2423,7 +2423,22 @@
       "retained": "Die bisherige Vogelzählung und deine Korrekturen bleiben erhalten.",
       "not_scanned": "Dieses vollständige Bild wurde noch nicht nach weiteren Vögeln durchsucht.",
       "loading": "Scanstatus dieses Bildes wird geprüft…",
-      "start_unconfirmed": "Der Scanauftrag konnte nicht bestätigt werden. Vor einem neuen Versuch wird sein Status geprüft."
+      "start_unconfirmed": "Der Scanauftrag konnte nicht bestätigt werden. Vor einem neuen Versuch wird sein Status geprüft.",
+      "step_find": "Suchen",
+      "step_name": "Benennen",
+      "step_count": "Zählen",
+      "step_save": "Speichern",
+      "stage_detecting": "Vögel im ganzen Bild werden gesucht.",
+      "stage_naming": "Jeder gefundene Vogel wird benannt: {done} von {total}.",
+      "stage_naming_none": "Keine eindeutigen Vögel zu benennen. Schwache Funde werden geprüft.",
+      "stage_counting": "Die Vögel werden gezählt und schwache Funde erneut geprüft.",
+      "stage_saving": "Die Ergebnisse werden gespeichert.",
+      "queued_behind": "Wartet auf die Suche im ganzen Bild. {count, plural, one {# Suche davor.} other {# Suchen davor.}}",
+      "progress_label": "Fortschritt der Suche",
+      "progress_waiting": "Wartet auf den Start",
+      "elapsed": "{seconds} s",
+      "action_waiting": "Wartet…",
+      "action_scanning": "Sucht…"
     }
   },
   "events": {
@@ -2511,7 +2526,6 @@
       "calls": "{count, plural, one {# Ruf} other {# Rufe}}",
       "calls_until": "{count, plural, one {# Ruf} other {# Rufe}} bis {time}",
       "matching_calls": "passender Ruf, {count, plural, one {# Ruf} other {# Rufe}}",
-      "strongest": "Stärkster Ruf {score} % um {time}",
       "spectrogram_alt": "Spektrogramm des stärksten Rufs: {species}, {time}",
       "no_spectrogram": "BirdNET-Go hat für diese Rufe kein Spektrogramm mehr.",
       "blocked_camera": "Gehörte Rufe sind ausgeblendet, solange eine Kamera gewählt ist, weil ein Ruf keiner Kamera zugeordnet ist.",
@@ -2520,7 +2534,12 @@
       "blocked_sort": "Gehörte Rufe erscheinen nur zwischen Besuchen, wenn die Besuche zeitlich sortiert sind.",
       "load_failed": "Die gehörten Rufe konnten nicht geladen werden. Die Besuche sind davon nicht betroffen.",
       "truncated": "Diese Seite umfasst mehr Rufe, als auf einmal angezeigt werden können, daher fehlen die ältesten. Grenzen Sie den Zeitraum ein, um sie zu sehen.",
-      "none_stored": "Für die Zeit dieser Besuche sind keine BirdNET-Go-Rufe gespeichert. Wenn Rufe zu erwarten waren, prüfen Sie unter Einstellungen, Integrationen, ob BirdNET-Go läuft."
+      "none_stored": "Für die Zeit dieser Besuche sind keine BirdNET-Go-Rufe gespeichert. Wenn Rufe zu erwarten waren, prüfen Sie unter Einstellungen, Integrationen, ob BirdNET-Go läuft.",
+      "seek": "Ab einer Stelle des Rufs abspielen. Pfeiltasten springen um eine Sekunde.",
+      "play_call": "Ruf abspielen: {species}",
+      "pause_call": "Ruf anhalten: {species}",
+      "clip_unavailable": "BirdNET-Go konnte diesen Clip nicht abspielen.",
+      "strongest_call": "Stärkster Ruf"
     }
   },
   "audio": {

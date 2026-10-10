@@ -440,10 +440,10 @@ build something better."*
 - **Type**: the display face (`font-display`) for headings and figures, the body face for
   everything else; the shipped classic pairing is Playfair Display over Source Serif 4, and the
   font setting swaps both. Figures that stand alone use `.figure` (display face, lining tabular
-  digits). `tabular-nums` wherever digits align in a column. Small print uses `text-3xs` (10px)
-  and `text-2xs` (11px) or `text-xs`: sizes in rem, never `text-[Npx]`, so display scaling and
+  digits). `tabular-nums` wherever digits align in a column. Small print uses `text-3xs` (11px)
+  and `text-2xs` (12px) or `text-xs`: sizes in rem, never `text-[Npx]`, so display scaling and
   the reader's text size carry through.
-  The root size grows on a large display (`clamp(100%, 100% + (100vw - 1536px) / 256, 118.75%)` in
+  The root size grows on a large display (`clamp(100%, 100% + (100vw - 1280px) / 256, 125%)` in
   `app.css`), so a rem layout scales as a whole; never set a px font size on the root.
 - **Finish**: flat. Panels are a hairline (`line-soft`) and a fill (`surface`), with no shadow, blur
   or gradient wash; `surface-raised` fills a well inside a panel. These tokens are set per mode and

@@ -2423,7 +2423,22 @@
       "retained": "之前的鸟类计数和你的更正会保留。",
       "not_scanned": "尚未扫描此完整帧以查找其他鸟类。",
       "loading": "正在检查此帧的扫描状态…",
-      "start_unconfirmed": "无法确认扫描请求，将先检查其状态再重试。"
+      "start_unconfirmed": "无法确认扫描请求，将先检查其状态再重试。",
+      "step_find": "查找",
+      "step_name": "识别",
+      "step_count": "计数",
+      "step_save": "保存",
+      "stage_detecting": "正在整幅画面中查找鸟类。",
+      "stage_naming": "正在识别找到的每只鸟：{done} / {total}。",
+      "stage_naming_none": "没有清晰的鸟可识别，正在检查较模糊的目标。",
+      "stage_counting": "正在计数并复查较模糊的目标。",
+      "stage_saving": "正在保存结果。",
+      "queued_behind": "正在等待扫描整幅画面。{count, plural, other {前面还有 # 项}}。",
+      "progress_label": "扫描进度",
+      "progress_waiting": "等待开始",
+      "elapsed": "{seconds} 秒",
+      "action_waiting": "等待中…",
+      "action_scanning": "扫描中…"
     }
   },
   "events": {
@@ -2511,7 +2526,6 @@
       "calls": "{count, plural, other {# 次鸣叫}}",
       "calls_until": "到 {time} 共 {count, plural, other {# 次鸣叫}}",
       "matching_calls": "匹配的鸣叫，{count, plural, other {# 次}}",
-      "strongest": "最强鸣叫 {score}%，时间 {time}",
       "spectrogram_alt": "{species} 最强鸣叫的声谱图，{time}",
       "no_spectrogram": "BirdNET-Go 已不再保留这些鸣叫的声谱图。",
       "blocked_camera": "选择了摄像头时会隐藏听到的鸣叫，因为鸣叫不属于任何摄像头。",
@@ -2520,7 +2534,12 @@
       "blocked_sort": "只有来访按时间排序时，听到的鸣叫才会出现在来访之间。",
       "load_failed": "无法加载听到的鸣叫。来访不受影响。",
       "truncated": "本页包含的鸣叫多于一次能显示的数量，因此省略了最早的鸣叫。缩小日期范围即可看到。",
-      "none_stored": "这些来访覆盖的时间内没有保存任何 BirdNET-Go 鸣叫。如果本应有鸣叫，请在设置的集成中确认 BirdNET-Go 正在运行。"
+      "none_stored": "这些来访覆盖的时间内没有保存任何 BirdNET-Go 鸣叫。如果本应有鸣叫，请在设置的集成中确认 BirdNET-Go 正在运行。",
+      "seek": "从鸣叫的某一点开始播放。方向键移动一秒。",
+      "play_call": "播放 {species} 的鸣叫",
+      "pause_call": "暂停 {species} 的鸣叫",
+      "clip_unavailable": "BirdNET-Go 无法播放此片段。",
+      "strongest_call": "最强鸣叫"
     }
   },
   "audio": {

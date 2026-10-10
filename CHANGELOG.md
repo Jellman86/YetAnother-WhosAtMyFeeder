@@ -6,9 +6,19 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
-- Text and spacing grow on large displays. Up to a 1536px window nothing changes; beyond it the
-  whole app scales up smoothly to about a fifth larger by 2300px, and your browser's own text size
-  still applies. The Explorer list now fills a large display like every other page.
+- **Find more birds** and **Scan again** now show progress. A waiting scan says how many scans are
+  ahead of it; a running scan shows its four real steps (find, name, count, save), names the step
+  in words ("Naming each bird found: 2 of 5") and counts the seconds. The button reads
+  **Scanning…** while it works.
+- A heard call opens in a proper player: its spectrogram across the full width with a playhead,
+  click or arrow keys to move through the call, one play button and the call's details beside it,
+  instead of the browser's own audio control.
+- The **Family tree** on a detection is a stepped ladder: each rank sits one step in from the rank
+  above, so the path from class to species reads at a glance.
+
+- Text is easier to read. The smallest print is now 11px instead of 10px, and text and spacing
+  grow on larger screens: from a 1280px window the whole app scales up smoothly to a quarter larger
+  by 2304px. Your browser's own text size still applies. The Explorer list now fills a large display like every other page.
 
 - The **Explorer** can show what was heard as well as seen. Turn on **Heard calls** above the list
   (off until you do; each device remembers its choice) and BirdNET-Go calls appear between the

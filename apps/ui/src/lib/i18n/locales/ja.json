@@ -2423,7 +2423,22 @@
       "retained": "以前の鳥のカウントと修正内容は保持されます。",
       "not_scanned": "このフレーム全体では、ほかの鳥を探すスキャンをまだ行っていません。",
       "loading": "このフレームのスキャン状態を確認中…",
-      "start_unconfirmed": "スキャン要求を確認できませんでした。再試行の前に状態を確認します。"
+      "start_unconfirmed": "スキャン要求を確認できませんでした。再試行の前に状態を確認します。",
+      "step_find": "検出",
+      "step_name": "識別",
+      "step_count": "数える",
+      "step_save": "保存",
+      "stage_detecting": "フレーム全体で鳥を探しています。",
+      "stage_naming": "見つかった鳥を識別しています: {done} / {total}。",
+      "stage_naming_none": "はっきりした鳥はいません。かすかなものを確認しています。",
+      "stage_counting": "鳥を数え、かすかなものを再確認しています。",
+      "stage_saving": "見つかった結果を保存しています。",
+      "queued_behind": "フレーム全体の検索を待っています。{count, plural, other {前に # 件}}。",
+      "progress_label": "検索の進み具合",
+      "progress_waiting": "開始を待っています",
+      "elapsed": "{seconds} 秒",
+      "action_waiting": "待機中…",
+      "action_scanning": "検索中…"
     }
   },
   "events": {
@@ -2511,7 +2526,6 @@
       "calls": "{count, plural, other {# 件の鳴き声}}",
       "calls_until": "{time} まで {count, plural, other {# 件の鳴き声}}",
       "matching_calls": "一致する鳴き声、{count, plural, other {# 件}}",
-      "strongest": "最も強い鳴き声 {score}%（{time}）",
       "spectrogram_alt": "{species} の最も強い鳴き声のスペクトログラム、{time}",
       "no_spectrogram": "BirdNET-Go にはこれらの鳴き声のスペクトログラムがもうありません。",
       "blocked_camera": "鳴き声はカメラに結び付いていないため、カメラを選んでいる間は聞こえた鳴き声を隠します。",
@@ -2520,7 +2534,12 @@
       "blocked_sort": "聞こえた鳴き声は、訪問が時刻順のときだけ訪問の間に表示されます。",
       "load_failed": "聞こえた鳴き声を読み込めませんでした。訪問には影響ありません。",
       "truncated": "このページには一度に表示できるより多くの鳴き声があるため、古いものを省いています。日付を絞ると表示されます。",
-      "none_stored": "これらの訪問の時間帯に保存された BirdNET-Go の鳴き声はありません。鳴き声があるはずなら、設定の連携で BirdNET-Go が動いているか確認してください。"
+      "none_stored": "これらの訪問の時間帯に保存された BirdNET-Go の鳴き声はありません。鳴き声があるはずなら、設定の連携で BirdNET-Go が動いているか確認してください。",
+      "seek": "鳴き声の任意の位置から再生します。矢印キーで 1 秒移動します。",
+      "play_call": "{species} の鳴き声を再生",
+      "pause_call": "{species} の鳴き声を一時停止",
+      "clip_unavailable": "BirdNET-Go はこのクリップを再生できませんでした。",
+      "strongest_call": "最も強い鳴き声"
     }
   },
   "audio": {

@@ -26,6 +26,13 @@ MAX_PENDING_SCANS = 100
 SCAN_TIMEOUT_SECONDS = 180
 
 
+def _utc_iso(value: str | None) -> str | None:
+    """SQLite CURRENT_TIMESTAMP is UTC without a zone; say so, or a browser reads it as local time."""
+    if not value:
+        return None
+    return value.replace(" ", "T") + ("" if value.endswith("Z") or "+" in value else "Z")
+
+
 class BirdScanUnavailable(ValueError):
     """A public reason code; never include provider exceptions or private paths."""
 
@@ -57,6 +64,12 @@ class BirdScanService:
         self._task: asyncio.Task | None = None
         self._wake = asyncio.Event()
         self._admission = asyncio.Lock()
+        # What the running scan is doing, keyed by event and claim revision, so a status read can
+        # say "naming 2 of 5" instead of only "running". In memory: it describes live work only.
+        self._progress: dict[str, tuple[int, dict[str, Any]]] = {}
+
+    def _report(self, job: BirdScanJob, stage: str, *, done: int | None = None, total: int | None = None) -> None:
+        self._progress[job.event_id] = (job.revision, {"stage": stage, "stage_done": done, "stage_total": total})
 
     async def start(self) -> None:
         if self._task is not None and not self._task.done():
@@ -133,7 +146,15 @@ class BirdScanService:
             reason = "scan_in_progress"
         if expected_media_version is not None and version != expected_media_version:
             reason, matches = "media_changed", False
+        progress: dict[str, Any] = {}
+        if job and matches and job.status == "running":
+            revision, live = self._progress.get(event_id, (None, {}))
+            progress = {**(live if revision == job.revision else {}), "started_at": _utc_iso(job.started_at)}
+        elif job and matches and job.status == "queued":
+            async with get_db() as db:
+                progress = {"queue_ahead": await BirdScanRepository(db).ahead_of(event_id)}
         return {
+            **progress,
             "event_id": event_id,
             "candidate_id": candidate_id,
             "status": job.status if job and matches else "not_scanned",
@@ -209,8 +230,10 @@ class BirdScanService:
             return False
         try:
             async with asyncio.timeout(SCAN_TIMEOUT_SECONDS):
+                self._report(job, "detecting")
                 content = await self._read_job_scene(job)
                 selection = await self._analyze_scene(job, content)
+                self._report(job, "saving")
                 async with photo_choice_lock(job.event_id):
                     await self._read_job_scene(job)
                     await self._persist(job, selection)
@@ -226,6 +249,9 @@ class BirdScanService:
                     job.event_id, job.revision, expected_generation=job.generation, error=error
                 )
             log.warning("Additional bird scan failed", event_id=job.event_id, reason=error)
+        finally:
+            if self._progress.get(job.event_id, (None,))[0] == job.revision:
+                self._progress.pop(job.event_id, None)
         return True
 
     async def _read_job_scene(self, job: BirdScanJob) -> bytes:
@@ -288,6 +314,7 @@ class BirdScanService:
                 "input_is_cropped": False,
             }
             scored = [full]
+            self._report(job, "naming", done=0, total=len(results))
             for index, result in enumerate(results):
                 crop = result.get("crop_image")
                 if crop is None:
@@ -307,6 +334,8 @@ class BirdScanService:
                 enriched = await high_quality_snapshot_service._score_snapshot_candidate(candidate)
                 if enriched is not None:
                     scored.append(enriched)
+                self._report(job, "naming", done=index + 1, total=len(results))
+            self._report(job, "counting")
             if len(scored) == 1:
                 # No species crop is not evidence of an empty scene. Count lower-confidence
                 # detector boxes too, using the same threshold as the automatic path.

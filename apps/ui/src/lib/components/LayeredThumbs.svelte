@@ -13,10 +13,12 @@
     let { sources, spectrogram = false, size = 'row' }: Props = $props();
     let failed = $state<Record<string, true>>({});
     const shown = $derived(sources.filter((source) => !failed[source]).slice(0, 2));
-    const tile = $derived(size === 'card' ? 'h-14 w-14' : 'h-9 w-9');
+    const tile = $derived(size === 'card' ? 'h-14 w-14' : 'h-8 w-8');
 </script>
 
-<span class="relative block shrink-0 {size === 'card' ? 'h-16 w-16' : 'h-11 w-11'}" aria-hidden="true" data-layered-thumbs={shown.length}>
+<!-- A row's picture column is 2.75rem; the stack keeps to 2.5rem and centres, like a visit's thumbnail,
+     so a long day label in the column beside it never runs under the picture. -->
+<span class="relative mx-auto block shrink-0 {size === 'card' ? 'h-16 w-16' : 'h-10 w-10'}" aria-hidden="true" data-layered-thumbs={shown.length}>
     {#if shown.length === 0}
         <span class="flex h-full w-full items-center justify-center rounded-lg bg-slate-100 text-slate-400 ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-500 dark:ring-slate-700">
             <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 12v2m4-5v8m4-13v16m4-13v10m4-7v4" /></svg>

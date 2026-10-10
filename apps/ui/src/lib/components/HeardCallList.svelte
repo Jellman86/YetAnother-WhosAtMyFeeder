@@ -2,14 +2,15 @@
     /**
      * The calls inside one heard band, one line per species group, newest first.
      *
-     * A line opens to the strongest call at a size worth reading: its spectrogram, the clip and,
-     * for the owner, a link to the detection in BirdNET-Go. Small spectrograms are zoomed onto the
-     * band where birdsong sits, because the top quarter of every BirdNET-Go spectrogram is silence.
+     * Lines use the band's own columns (time, picture, subject), so they read as its contents. A line
+     * opens to the strongest call in a player. Small spectrograms are zoomed onto the band where
+     * birdsong sits, because the top quarter of every BirdNET-Go spectrogram is silence.
      */
     import { _ } from 'svelte-i18n';
     import type { HeardGroup } from '../api/audio';
     import { withAuthParams } from '../api/core';
     import { appApiPath } from '../app/url-base';
+    import CallPlayer from './CallPlayer.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { formatTime } from '../utils/datetime';
     import { relativeDayLabel } from '../utils/day-label';
@@ -37,13 +38,9 @@
     function spectrogram(id: number, width: number): string {
         return withAuthParams(`${appApiPath(`/audio/spectrogram/${id}`)}?width=${width}`);
     }
-
-    function clip(id: number): string {
-        return withAuthParams(appApiPath(`/audio/clip/${id}`));
-    }
 </script>
 
-<ol class="divide-y divide-slate-200/70 dark:divide-slate-800/80" data-heard-call-list>
+<ol class="divide-y divide-line-soft bg-surface-raised/40" data-heard-call-list>
     {#each groups as group (keyOf(group))}
         {@const key = keyOf(group)}
         {@const open = openKey === key}
@@ -52,18 +49,18 @@
         <li data-heard-call={key}>
             <button
                 type="button"
-                class="grid min-h-12 w-full grid-cols-[3.25rem_2.25rem_minmax(0,1fr)_auto] items-center gap-3 py-1 text-left transition-colors hover:bg-slate-100/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 dark:hover:bg-slate-800/50 {inline ? 'pl-3 pr-3 sm:pl-16' : 'px-3'}"
+                class="grid min-h-12 w-full grid-cols-[3.25rem_2.75rem_minmax(0,1fr)_auto] items-center gap-3 px-3 py-1.5 text-left transition-colors hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 {open ? 'bg-surface-raised' : ''}"
                 aria-expanded={open}
                 aria-controls="{uid}-{key}"
                 onclick={() => (openKey = open ? null : key)}
             >
                 <span>
-                    <time class="block text-xs font-semibold tabular-nums text-slate-600 dark:text-slate-300" datetime={group.first_heard}>{formatTime(group.first_heard)}</time>
+                    <time class="block font-display text-xs font-bold tabular-nums text-slate-600 dark:text-slate-300" datetime={group.first_heard}>{formatTime(group.first_heard)}</time>
                     {#if new Date(group.first_heard).toDateString() !== newestDay}
                         <span class="block text-3xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">{relativeDayLabel(group.first_heard, $_)}</span>
                     {/if}
                 </span>
-                <span class="block h-9 w-9 overflow-hidden rounded-md bg-slate-100 ring-1 ring-slate-200 dark:bg-slate-800 dark:ring-slate-700" aria-hidden="true">
+                <span class="mx-auto block h-9 w-9 overflow-hidden rounded-lg bg-slate-100 ring-1 ring-line-soft dark:bg-slate-800" aria-hidden="true">
                     {#if picture}
                         <img
                             src={spectrogram(picture, 200)}
@@ -83,48 +80,31 @@
                     </span>
                 </span>
                 <span class="flex items-center gap-2">
-                    <span class="min-w-10 text-right text-xs font-bold tabular-nums {heardConfidenceTone(group.best_confidence)}">{score}%</span>
-                    <svg class="h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform duration-200 motion-reduce:transition-none {open ? 'rotate-180' : ''}" viewBox="0 0 20 20" fill="none" stroke="currentColor" aria-hidden="true">
+                    <span class="min-w-10 text-right font-display text-sm font-bold tabular-nums {heardConfidenceTone(group.best_confidence)}">{score}%</span>
+                    <svg class="h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 motion-reduce:transition-none {open ? 'rotate-180' : ''}" viewBox="0 0 20 20" fill="none" stroke="currentColor" aria-hidden="true">
                         <path d="m5 7 5 5 5-5" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
                 </span>
             </button>
-            <div id="{uid}-{key}" hidden={!open} class="pb-3 {inline ? 'px-3 sm:pl-16' : 'px-3'}">
+            <!-- The player lines up under the picture and subject columns, not under the time. -->
+            <div id="{uid}-{key}" hidden={!open} class="bg-surface-raised px-3 pb-3 {inline ? 'sm:pl-[4.75rem]' : ''}">
                 {#if open}
-                    <div class="grid gap-3 sm:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] sm:items-start">
-                        <div class="aspect-[4/3] w-full overflow-hidden rounded-xl bg-slate-100 ring-1 ring-slate-200 dark:bg-slate-800 dark:ring-slate-700">
-                            {#if picture}
-                                <img
-                                    src={spectrogram(picture, 600)}
-                                    alt={$_('events.heard.spectrogram_alt', { values: { species: group.species, time: formatTime(group.best_heard) }, default: 'Spectrogram of the strongest {species} call, {time}' })}
-                                    class="h-full w-full object-cover"
-                                    onerror={() => (failed = { ...failed, [picture]: true })}
-                                />
-                            {:else}
-                                <p class="flex h-full items-center justify-center px-4 text-center text-xs text-slate-500 dark:text-slate-400">
-                                    {$_('events.heard.no_spectrogram', { default: 'BirdNET-Go has no spectrogram for these calls any more.' })}
-                                </p>
-                            {/if}
+                    {#if group.best_birdnet_id}
+                        <div class="max-w-3xl">
+                            <CallPlayer
+                                birdnetId={group.best_birdnet_id}
+                                species={group.species}
+                                heardAt={group.best_heard}
+                                confidence={group.best_confidence}
+                                sourceName={group.source_name}
+                                birdnetUrl={birdnetBase ? `${birdnetBase}/ui/detections/${group.best_birdnet_id}` : null}
+                            />
                         </div>
-                        <div class="space-y-2 text-xs text-slate-600 dark:text-slate-300">
-                            <p>
-                                {$_('events.heard.strongest', { values: { score, time: formatTime(group.best_heard, { hour: '2-digit', minute: '2-digit', second: '2-digit' }) }, default: 'Strongest call {score}% at {time}' })}
-                            </p>
-                            {#if group.best_birdnet_id}
-                                <audio class="w-full max-w-sm" controls preload="none" src={clip(group.best_birdnet_id)}>
-                                    <track kind="captions" />
-                                </audio>
-                                {#if birdnetBase}
-                                    <a
-                                        href="{birdnetBase}/ui/detections/{group.best_birdnet_id}"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        class="btn btn-secondary inline-flex min-h-11 items-center px-3 text-xs"
-                                    >{$_('audio.table.open_birdnet', { default: 'Open in BirdNET-Go' })}</a>
-                                {/if}
-                            {/if}
-                        </div>
-                    </div>
+                    {:else}
+                        <p class="rounded-xl border border-line-soft bg-surface px-3 py-3 text-xs text-slate-500 dark:text-slate-400">
+                            {$_('events.heard.no_spectrogram', { default: 'BirdNET-Go has no spectrogram for these calls any more.' })}
+                        </p>
+                    {/if}
                 {/if}
             </div>
         </li>

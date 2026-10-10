@@ -366,8 +366,13 @@ export interface components {
     candidate_id: string;
     error?: string | null;
     event_id: string;
+    queue_ahead?: number | null;
     result_count?: number | null;
     retained_previous?: boolean;
+    stage?: "detecting" | "naming" | "counting" | "saving" | null;
+    stage_done?: number | null;
+    stage_total?: number | null;
+    started_at?: string | null;
     status: "not_scanned" | "queued" | "running" | "completed" | "failed";
     unavailable_reason?: string | null;
     updated_at?: string | null;

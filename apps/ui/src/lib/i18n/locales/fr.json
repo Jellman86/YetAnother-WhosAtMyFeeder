@@ -2423,7 +2423,22 @@
       "retained": "Le comptage précédent et vos corrections sont conservés.",
       "not_scanned": "Cette image entière n’a pas encore été analysée pour rechercher d’autres oiseaux.",
       "loading": "Vérification du statut de l’analyse de cette image…",
-      "start_unconfirmed": "La demande d’analyse n’a pas pu être confirmée. Son statut sera vérifié avant de réessayer."
+      "start_unconfirmed": "La demande d’analyse n’a pas pu être confirmée. Son statut sera vérifié avant de réessayer.",
+      "step_find": "Repérer",
+      "step_name": "Nommer",
+      "step_count": "Compter",
+      "step_save": "Enregistrer",
+      "stage_detecting": "Recherche d’oiseaux dans toute l’image.",
+      "stage_naming": "Identification de chaque oiseau trouvé : {done} sur {total}.",
+      "stage_naming_none": "Aucun oiseau net à nommer. Vérification des plus discrets.",
+      "stage_counting": "Comptage des oiseaux et nouvelle vérification des plus discrets.",
+      "stage_saving": "Enregistrement des résultats.",
+      "queued_behind": "En attente pour examiner toute l’image. {count, plural, one {# recherche avant.} other {# recherches avant.}}",
+      "progress_label": "Progression de la recherche",
+      "progress_waiting": "En attente de démarrage",
+      "elapsed": "{seconds} s",
+      "action_waiting": "En attente…",
+      "action_scanning": "Recherche…"
     }
   },
   "events": {
@@ -2511,7 +2526,6 @@
       "calls": "{count, plural, one {# chant} other {# chants}}",
       "calls_until": "{count, plural, one {# chant} other {# chants}} jusqu’à {time}",
       "matching_calls": "chant correspondant, {count, plural, one {# chant} other {# chants}}",
-      "strongest": "Chant le plus fort {score} % à {time}",
       "spectrogram_alt": "Spectrogramme du chant le plus fort de {species}, {time}",
       "no_spectrogram": "BirdNET-Go n’a plus de spectrogramme pour ces chants.",
       "blocked_camera": "Les chants entendus sont masqués tant qu’une caméra est choisie, car un chant n’est lié à aucune caméra.",
@@ -2520,7 +2534,12 @@
       "blocked_sort": "Les chants entendus n’apparaissent entre les visites que lorsque celles-ci sont triées par heure.",
       "load_failed": "Impossible de charger les chants entendus. Les visites ne sont pas affectées.",
       "truncated": "Cette page couvre plus de chants que l’on peut en afficher à la fois, les plus anciens sont donc omis. Réduisez les dates pour les voir.",
-      "none_stored": "Aucun chant BirdNET-Go n’est enregistré pour la période couverte par ces visites. Si des chants étaient attendus, vérifiez que BirdNET-Go fonctionne dans Paramètres, Intégrations."
+      "none_stored": "Aucun chant BirdNET-Go n’est enregistré pour la période couverte par ces visites. Si des chants étaient attendus, vérifiez que BirdNET-Go fonctionne dans Paramètres, Intégrations.",
+      "seek": "Lire à partir d’un point du chant. Les flèches avancent d’une seconde.",
+      "play_call": "Lire le chant de {species}",
+      "pause_call": "Mettre en pause le chant de {species}",
+      "clip_unavailable": "BirdNET-Go n’a pas pu lire cet extrait.",
+      "strongest_call": "Chant le plus fort"
     }
   },
   "audio": {

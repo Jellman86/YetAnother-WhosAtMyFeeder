@@ -205,6 +205,19 @@ class BirdScanRepository:
         ) as cursor:
             return int((await cursor.fetchone())[0])
 
+    async def ahead_of(self, event_id: str) -> int:
+        """Scans the worker will take before this queued one: the running scan and earlier queued ones."""
+        async with self.db.execute(
+            """SELECT COUNT(*) FROM bird_scan_jobs b, (
+                    SELECT created_at AS queued_at, frigate_event AS event FROM bird_scan_jobs WHERE frigate_event=?
+                ) me
+                WHERE b.frigate_event != me.event AND (b.status='running' OR (b.status='queued' AND
+                    (b.created_at < me.queued_at OR (b.created_at = me.queued_at AND b.frigate_event < me.event))))""",
+            (event_id,),
+        ) as cursor:
+            row = await cursor.fetchone()
+        return int(row[0]) if row else 0
+
     async def list_pending(self, *, limit: int = 100) -> list[BirdScanJob]:
         async with self.db.execute(
             """SELECT * FROM bird_scan_jobs WHERE status IN ('queued','running')

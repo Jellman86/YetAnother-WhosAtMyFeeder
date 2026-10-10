@@ -51,7 +51,8 @@ export function createBirdScanController(options: Options): BirdScanController {
     function schedule(): void {
         clearTimer();
         if (disposed || !options.isVisible() || (!active() && !view.readError && view.response?.unavailable_reason !== 'scan_in_progress')) return;
-        timer = setTimeout(() => { void refresh(); }, view.readError ? 10_000 : 2_000);
+        // A running scan is read every second so each step shows; waiting needs less.
+        timer = setTimeout(() => { void refresh(); }, view.readError ? 10_000 : view.response?.status === 'running' ? 1_000 : 2_000);
     }
     async function run(force?: boolean): Promise<void> {
         if (disposed || request || (force === undefined && !options.isVisible())) return;

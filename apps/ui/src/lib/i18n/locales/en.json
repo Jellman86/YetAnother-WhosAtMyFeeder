@@ -2433,7 +2433,22 @@
       "retained": "The previous bird count and your corrections are kept.",
       "not_scanned": "This whole frame has not been scanned for additional birds.",
       "loading": "Checking this frame’s scan status…",
-      "start_unconfirmed": "The scan request could not be confirmed. Checking its status before trying again."
+      "start_unconfirmed": "The scan request could not be confirmed. Checking its status before trying again.",
+      "step_find": "Find",
+      "step_name": "Name",
+      "step_count": "Count",
+      "step_save": "Save",
+      "stage_detecting": "Looking for birds across the whole frame.",
+      "stage_naming": "Naming each bird found: {done} of {total}.",
+      "stage_naming_none": "No clear birds to name. Checking for faint ones.",
+      "stage_counting": "Counting the birds and rechecking faint ones.",
+      "stage_saving": "Saving what was found.",
+      "queued_behind": "Waiting to scan this whole frame. {count, plural, one {# scan ahead.} other {# scans ahead.}}",
+      "progress_label": "Scan progress",
+      "progress_waiting": "Waiting to start",
+      "elapsed": "{seconds}s",
+      "action_waiting": "Waiting…",
+      "action_scanning": "Scanning…"
     }
   },
   "events": {
@@ -2521,7 +2536,6 @@
       "calls": "{count, plural, one {# call} other {# calls}}",
       "calls_until": "{count, plural, one {# call} other {# calls}} to {time}",
       "matching_calls": "matching call, {count, plural, one {# call} other {# calls}}",
-      "strongest": "Strongest call {score}% at {time}",
       "spectrogram_alt": "Spectrogram of the strongest {species} call, {time}",
       "no_spectrogram": "BirdNET-Go has no spectrogram for these calls any more.",
       "blocked_camera": "Heard calls are hidden while a camera is chosen, because a call is not tied to a camera.",
@@ -2530,7 +2544,12 @@
       "blocked_sort": "Heard calls show between visits only when visits are in time order.",
       "load_failed": "Could not load the heard calls. The visits are unaffected.",
       "truncated": "This page spans more calls than can be shown at once, so the oldest calls are left out. Narrow the dates to see them.",
-      "none_stored": "No BirdNET-Go calls are stored for the time these visits cover. If calls were expected, check that BirdNET-Go is running in Settings, Integrations."
+      "none_stored": "No BirdNET-Go calls are stored for the time these visits cover. If calls were expected, check that BirdNET-Go is running in Settings, Integrations.",
+      "seek": "Play from a point in the call. Arrow keys move one second.",
+      "play_call": "Play the {species} call",
+      "pause_call": "Pause the {species} call",
+      "clip_unavailable": "BirdNET-Go could not play this clip.",
+      "strongest_call": "Strongest call"
     }
   },
   "audio": {
