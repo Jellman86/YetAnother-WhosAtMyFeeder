@@ -431,7 +431,7 @@ test(`first run walks every step to Finish with history import ${importHistory} 
     await expectStep(page, 'Import existing detections');
     if (importHistory) {
         await wizard(page).getByRole('checkbox', { name: 'Import retained Frigate bird events' }).check();
-        await wizard(page).getByText('Last 7 days', { exact: true }).click();
+        await wizard(page).getByRole('radio', { name: 'Last Week', exact: true }).check();
         await wizard(page).getByRole('button', { name: 'Import & continue' }).click();
     } else {
         await wizard(page).getByRole('button', { name: 'Continue without importing' }).click();
