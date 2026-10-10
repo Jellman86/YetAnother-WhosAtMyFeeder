@@ -25,7 +25,8 @@ const VISITS: Record<string, ReturnType<typeof visit>[]> = {
         visit('cowbird-3', 'Brown-headed Cowbird', 'Molothrus ater', '2026-09-12T16:02:00Z', 0.61)
     ],
     'Eastern Gray Squirrel': [
-        visit('squirrel-1', 'Eastern Gray Squirrel', 'Sciurus carolinensis', '2026-10-01T09:00:00Z', 0.93),
+        // More captures than one page of the captures route holds.
+        visit('squirrel-1', 'Eastern Gray Squirrel', 'Sciurus carolinensis', '2026-10-01T09:00:00Z', 0.93, 55),
         visit('squirrel-2', 'Eastern Gray Squirrel', 'Sciurus carolinensis', '2026-09-28T09:30:00Z', 0.88)
     ],
     'Plateau Striped Whiptail': [visit('whiptail-1', 'Plateau Striped Whiptail', 'Aspidoscelis velox', '2026-09-19T12:18:00Z', 0.66)]
@@ -46,9 +47,20 @@ async function serve(page: Page): Promise<Calls> {
         await route.fulfill({ json: { visits, total: visits.length, gap_seconds: 60 } });
     });
     await page.route('**/api/visits/*/captures**', async (route) => {
-        const id = decodeURIComponent(new URL(route.request().url()).pathname.split('/')[3]);
-        const captures = [detection(id, 'Brown-headed Cowbird', 'Molothrus ater', '2026-09-21T12:44:20Z', 0.73), detection(`${id}-b`, 'Brown-headed Cowbird', 'Molothrus ater', '2026-09-21T12:44:40Z', 0.7)];
-        await route.fulfill({ json: { captures, total: captures.length } });
+        const url = new URL(route.request().url());
+        const id = decodeURIComponent(url.pathname.split('/')[3]);
+        const limit = Number(url.searchParams.get('limit') ?? 20);
+        const offset = Number(url.searchParams.get('offset') ?? 0);
+        // The route's own bounds: a larger page is refused, as the server refuses it.
+        if (limit > 50) {
+            await route.fulfill({ status: 422, json: { detail: [{ msg: 'Input should be less than or equal to 50' }] } });
+            return;
+        }
+        const owner = Object.values(VISITS).flat().find((entry) => entry.visit_id === id);
+        const all = Array.from({ length: owner?.capture_count ?? 1 }, (_, index) =>
+            detection(index === 0 ? id : `${id}-${index}`, owner?.representative.display_name ?? '', owner?.representative.scientific_name ?? '', '2026-09-21T12:44:20Z', 0.7)
+        );
+        await route.fulfill({ json: { captures: all.slice(offset, offset + limit), total: all.length } });
     });
     await page.route('**/api/frigate/*/snapshot/candidates', async (route) => {
         const event = new URL(route.request().url()).pathname.split('/')[3];
@@ -124,7 +136,7 @@ test('the suggestion renames every capture of the selected visits in one tap', a
     await sheet.locator('[data-species-check-visit]').nth(2).click();
     await expect(primary).toContainText('Rename 2 visits');
     await primary.click();
-    await expect.poll(() => calls.renamed).toEqual([{ event_ids: ['cowbird-1', 'cowbird-1-b', 'cowbird-2'], display_name: 'Prunella modularis' }]);
+    await expect.poll(() => calls.renamed).toEqual([{ event_ids: ['cowbird-1', 'cowbird-1-1', 'cowbird-2'], display_name: 'Prunella modularis' }]);
     await expect(page.getByText('2 visits are now Dunnock.')).toBeVisible();
     await expect(page.locator('[data-check-changes]')).toHaveText('1');
     await expect(page.getByRole('dialog', { name: 'Eastern Gray Squirrel' })).toBeVisible();
@@ -139,7 +151,12 @@ test('a confident camera on a mammal is confirmed, an unsure one on a lizard is 
     await expect(squirrel.getByText('Birders report birds, so the nearby check cannot speak for this one.')).toBeVisible();
     await expect(squirrel.locator('[data-species-check-primary]')).toContainText('It really is a Eastern Gray Squirrel');
     await page.keyboard.press('1');
-    await expect.poll(() => calls.renamed).toEqual([{ event_ids: ['squirrel-1', 'squirrel-2'], display_name: 'Eastern Gray Squirrel' }]);
+    // Every one of the 55 captures moves with its visit, read a page at a time.
+    await expect.poll(() => calls.renamed.length).toBe(1);
+    expect(calls.renamed[0].display_name).toBe('Eastern Gray Squirrel');
+    expect(calls.renamed[0].event_ids).toHaveLength(56);
+    expect(calls.renamed[0].event_ids).toContain('squirrel-1-54');
+    expect(page.getByText('Input should be less than or equal to 50')).toHaveCount(0);
 
     const whiptail = page.getByRole('dialog', { name: 'Plateau Striped Whiptail' });
     await expect(whiptail.locator('[data-species-check-visit]').first()).toBeInViewport();
