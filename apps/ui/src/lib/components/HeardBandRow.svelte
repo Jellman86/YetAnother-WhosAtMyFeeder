@@ -28,11 +28,11 @@
 </script>
 
 <div class="border-t border-slate-200 bg-surface-raised/50 first:border-t-0 dark:border-slate-800" data-heard-band={band.position}>
-    <div class="grid grid-cols-[3.25rem_2.75rem_minmax(0,1fr)] items-start gap-3 px-3 py-2">
+    <div class="grid grid-cols-[4rem_2.75rem_minmax(0,1fr)] items-start gap-3 px-3 py-2">
         <div class="pt-0.5">
             <!-- Like a visit row, a band is placed and labelled by when it began. -->
             <time class="block font-display text-sm font-bold tabular-nums leading-tight text-slate-600 dark:text-slate-300" datetime={band.firstHeard}>{formatTime(band.firstHeard)}</time>
-            {#if day}<span class="block text-3xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">{day}</span>{/if}
+            {#if day}<span class="block text-3xs font-semibold text-slate-500 dark:text-slate-400">{day}</span>{/if}
         </div>
         <LayeredThumbs sources={pictures} spectrogram />
         <div class="min-w-0">

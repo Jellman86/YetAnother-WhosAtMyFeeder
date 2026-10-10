@@ -106,7 +106,7 @@
 </script>
 
 <div
-    class="group relative grid grid-cols-[3.25rem_2.75rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-slate-200 px-3 last:border-b-0 dark:border-slate-800
+    class="group relative grid grid-cols-[4rem_2.75rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-slate-200 px-3 last:border-b-0 dark:border-slate-800
            {needsAttention ? 'bg-accent-500/10' : ''}
            {selected ? 'bg-brand-500/10' : ''}"
     data-detection-row
@@ -129,7 +129,7 @@
             {formatTime(detection.detection_time)}
         </div>
         {#if dayLabel}
-            <div class="text-3xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+            <div class="text-3xs font-semibold text-slate-500 dark:text-slate-400">
                 {dayLabel}
             </div>
         {/if}

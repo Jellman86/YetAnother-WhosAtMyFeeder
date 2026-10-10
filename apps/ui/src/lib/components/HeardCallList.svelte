@@ -49,7 +49,7 @@
         <li data-heard-call={key}>
             <button
                 type="button"
-                class="grid min-h-12 w-full grid-cols-[3.25rem_2.75rem_minmax(0,1fr)_auto] items-center gap-3 px-3 py-1.5 text-left transition-colors hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 {open ? 'bg-surface-raised' : ''}"
+                class="grid min-h-12 w-full grid-cols-[4rem_2.75rem_minmax(0,1fr)_auto] items-center gap-3 px-3 py-1.5 text-left transition-colors hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 {open ? 'bg-surface-raised' : ''}"
                 aria-expanded={open}
                 aria-controls="{uid}-{key}"
                 onclick={() => (openKey = open ? null : key)}
@@ -57,7 +57,7 @@
                 <span>
                     <time class="block font-display text-xs font-bold tabular-nums text-slate-600 dark:text-slate-300" datetime={group.first_heard}>{formatTime(group.first_heard)}</time>
                     {#if new Date(group.first_heard).toDateString() !== newestDay}
-                        <span class="block text-3xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">{relativeDayLabel(group.first_heard, $_)}</span>
+                        <span class="block text-3xs font-semibold text-slate-500 dark:text-slate-400">{relativeDayLabel(group.first_heard, $_)}</span>
                     {/if}
                 </span>
                 <span class="mx-auto block h-9 w-9 overflow-hidden rounded-lg bg-slate-100 ring-1 ring-line-soft dark:bg-slate-800" aria-hidden="true">
@@ -86,11 +86,11 @@
                     </svg>
                 </span>
             </button>
-            <!-- The player lines up under the picture and subject columns, not under the time. -->
-            <div id="{uid}-{key}" hidden={!open} class="bg-surface-raised px-3 pb-3 {inline ? 'sm:pl-[4.75rem]' : ''}">
+            <!-- The player is centred in the row, at a width where the call reads as one picture. -->
+            <div id="{uid}-{key}" hidden={!open} class="bg-surface-raised px-3 pb-3">
                 {#if open}
                     {#if group.best_birdnet_id}
-                        <div class="max-w-3xl">
+                        <div class="mx-auto max-w-3xl">
                             <CallPlayer
                                 birdnetId={group.best_birdnet_id}
                                 species={group.species}

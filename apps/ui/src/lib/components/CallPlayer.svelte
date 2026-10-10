@@ -33,7 +33,22 @@
 
     const picture = $derived(withAuthParams(`${appApiPath(`/audio/spectrogram/${birdnetId}`)}?width=800`));
     const clip = $derived(withAuthParams(appApiPath(`/audio/clip/${birdnetId}`)));
-    const played = $derived(duration > 0 ? Math.min(1, currentTime / duration) : 0);
+    // The playhead and the lit part are drawn from one position, read every frame while playing:
+    // timeupdate arrives only a few times a second, so following it made the light trail the line.
+    let position = $state(0);
+    $effect(() => {
+        if (paused || !audio) {
+            position = currentTime;
+            return;
+        }
+        const element = audio;
+        let frame = requestAnimationFrame(function follow() {
+            position = element.currentTime;
+            frame = requestAnimationFrame(follow);
+        });
+        return () => cancelAnimationFrame(frame);
+    });
+    const played = $derived(duration > 0 ? Math.min(1, position / duration) : 0);
     const score = $derived(Math.round(confidence * 100));
     const clock = (seconds: number): string => {
         const whole = Math.max(0, Math.floor(Number.isFinite(seconds) ? seconds : 0));
@@ -98,11 +113,9 @@
             />
             <!-- Once playing, what is still to come is dimmed and what has been heard stays bright.
                  Before that the whole call is shown at full strength. -->
-            {#if currentTime > 0}
-            <span class="pointer-events-none absolute inset-y-0 right-0 bg-slate-950/45 transition-[width] duration-150 motion-reduce:transition-none" style="width: {Math.round((1 - played) * 1000) / 10}%" aria-hidden="true"></span>
-            {/if}
-            {#if duration > 0 && currentTime > 0}
-                <span class="pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2 bg-white shadow-[0_0_0_1px_rgb(0_0_0/0.35)]" style="left: {Math.round(played * 1000) / 10}%" aria-hidden="true"></span>
+            {#if duration > 0 && position > 0}
+                <span class="pointer-events-none absolute inset-y-0 right-0 bg-slate-950/45" style="left: {played * 100}%" aria-hidden="true"></span>
+                <span class="pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2 bg-white shadow-[0_0_0_1px_rgb(0_0_0/0.35)]" style="left: {played * 100}%" aria-hidden="true"></span>
             {/if}
             <button
                 type="button"
@@ -132,7 +145,7 @@
             {/if}
         </button>
         <span class="figure text-sm tabular-nums text-slate-800 dark:text-slate-100" aria-live="off">
-            {clock(currentTime)}<span class="text-slate-400 dark:text-slate-500"> / {duration ? clock(duration) : '–:––'}</span>
+            {clock(currentTime)}<span class="text-slate-400 dark:text-slate-500">{' / '}{duration ? clock(duration) : '–:––'}</span>
         </span>
         <span class="min-w-0 flex-1 text-xs text-slate-500 dark:text-slate-400">
             {#if clipFailed}
@@ -140,9 +153,9 @@
             {:else}
                 {$_('events.heard.strongest_call', { default: 'Strongest call' })}
                 <span class="font-semibold {heardConfidenceTone(confidence)}">{score}%</span>
-                <span aria-hidden="true"> · </span>
+                <span aria-hidden="true">{' · '}</span>
                 <time datetime={heardAt} class="tabular-nums">{formatTime(heardAt, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</time>
-                {#if sourceName}<span aria-hidden="true"> · </span>{sourceName}{/if}
+                {#if sourceName}<span aria-hidden="true">{' · '}</span>{sourceName}{/if}
             {/if}
         </span>
         {#if birdnetUrl}
