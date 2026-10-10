@@ -1845,11 +1845,12 @@
     "text_size": {
       "label": "文字大小",
       "desc": "仅在此设备上放大或缩小所有页面。大屏幕上还会再略微放大。",
-      "option": "{size}，{percent}%",
+      "smallest": "最小",
       "smaller": "较小",
       "standard": "标准",
       "large": "大",
       "larger": "较大",
+      "extra_large": "特大",
       "largest": "最大"
     }
   },

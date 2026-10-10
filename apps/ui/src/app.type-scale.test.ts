@@ -20,6 +20,11 @@ describe('the type scale on large displays', () => {
         expect(root).not.toMatch(/font-size:\s*\d+px/);
     });
 
+    it('keeps a 44px touch target at the smaller text sizes', () => {
+        const config = readFileSync(new URL('../tailwind.config.js', import.meta.url), 'utf8');
+        expect(config).toContain("spacing: { 11: 'max(2.75rem, 44px)' }");
+    });
+
     it('keeps the smallest print at 11px or more at the default size', () => {
         const config = readFileSync(new URL('../tailwind.config.js', import.meta.url), 'utf8');
         expect(config).toContain("'2xs': '0.75rem'");

@@ -1,14 +1,20 @@
 export type Theme = 'light' | 'dark' | 'system';
 export type FontTheme = 'default' | 'clean' | 'studio' | 'classic' | 'compact';
 export type ColorTheme = 'default' | 'bluetit';
-export type TextSize = 'smaller' | 'standard' | 'large' | 'larger' | 'largest';
+export type TextSize = 'smallest' | 'smaller' | 'standard' | 'large' | 'larger' | 'extra_large' | 'largest';
 
-/** How much each text size multiplies the automatic root size, which already grows on large displays. */
+/**
+ * How much each text size multiplies the automatic root size, which already grows on large displays.
+ * Standard reads a step under the browser's own size: the app is dense, and at 100% a page of
+ * small print fills a laptop screen. Large gives the browser's size back.
+ */
 export const TEXT_SIZE_SCALE: Record<TextSize, number> = {
-    smaller: 0.875,
-    standard: 1,
-    large: 1.125,
-    larger: 1.25,
+    smallest: 0.75,
+    smaller: 0.8125,
+    standard: 0.875,
+    large: 1,
+    larger: 1.125,
+    extra_large: 1.25,
     largest: 1.5
 };
 

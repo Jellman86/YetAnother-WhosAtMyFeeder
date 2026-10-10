@@ -6,10 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
-- **Settings → Appearance → Text size** makes every page smaller or larger: Smaller, Standard,
-  Large, Larger or Largest (87.5% to 150%). It is kept on each device on its own, so a wall display
-  can read larger than a phone, and it multiplies the automatic growth on large displays rather
-  than replacing it.
+- **Settings → Appearance → Text size** makes every page smaller or larger, in seven steps from
+  Smallest (75%) to Largest (150%). **Standard**, the default, is 87.5% of the browser's size, a
+  step smaller than before; Large gives the old size back. The choice is kept on each device on its
+  own, so a wall display can read larger than a phone, and it multiplies the automatic growth on
+  large displays rather than replacing it. Touch targets stay at least 44px at every size.
 - **Needs a check** on the leaderboard opens a check sheet instead of the species page. Each
   flagged species shows its visits as the crops the camera actually took, all selected, with the
   likeliest answer first: a bird this feeder already knows that the same crops were also read as,

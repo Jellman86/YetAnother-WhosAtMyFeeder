@@ -20,7 +20,10 @@ async function targetSizes(controls: Locator): Promise<void> {
     }
 }
 
-test('navigation targets fit narrow phones and keep distinct hit regions', async ({ page }, testInfo) => {
+for (const textSize of ['standard', 'smallest']) {
+test(`navigation targets fit narrow phones and keep distinct hit regions (${textSize} text)`, async ({ page }, testInfo) => {
+    // A smaller text size shrinks the type, never the 44px targets.
+    await page.addInitScript((size) => localStorage.setItem('text_size', size), textSize);
     await page.setViewportSize({ width: 320, height: 800 });
     await page.route(url => url.pathname.startsWith('/api/'), async route => {
         if (new URL(route.request().url()).pathname === '/api/update-status') {
@@ -42,7 +45,8 @@ test('navigation targets fit narrow phones and keep distinct hit regions', async
     await page.keyboard.press('Escape');
     await expect(sidebar.getByRole('menu')).toHaveCount(0);
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await page.screenshot({ path: testInfo.outputPath('navigation-targets-320.png'), fullPage: true });
+    await page.screenshot({ path: testInfo.outputPath(`navigation-targets-320-${textSize}.png`), fullPage: true });
     await sidebar.getByRole('button', { name: 'Collapse sidebar', exact: true }).click();
     await targetSizes(sidebar.locator('button:visible'));
 });
+}

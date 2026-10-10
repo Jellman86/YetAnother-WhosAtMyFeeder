@@ -386,7 +386,6 @@
     "settings.system_health.role_main",
     "settings.tabs.debug",
     "settings.telegram.bot_token_placeholder",
-    "settings.text_size.option",
     "settings.text_size.standard",
     "status.tile_audio",
     "theme.font_studio",
@@ -539,7 +538,6 @@
     "settings.tabs.debug",
     "settings.tabs.groups.interface",
     "settings.telegram.bot_token_placeholder",
-    "settings.text_size.option",
     "theme.font_studio",
     "theme.horizontal",
     "theme.vertical"

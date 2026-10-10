@@ -1855,11 +1855,12 @@
     "text_size": {
       "label": "Tamanho do texto",
       "desc": "Aumenta ou diminui todas as páginas só neste dispositivo. Telas grandes ainda aumentam um pouco mais.",
-      "option": "{size}, {percent}%",
+      "smallest": "Mínimo",
       "smaller": "Menor",
       "standard": "Padrão",
       "large": "Grande",
       "larger": "Maior",
+      "extra_large": "Muito grande",
       "largest": "Máximo"
     }
   },

@@ -1855,11 +1855,12 @@
     "text_size": {
       "label": "Text size",
       "desc": "Makes every page larger or smaller on this device only. Large displays still grow a little on top of it.",
-      "option": "{size}, {percent}%",
+      "smallest": "Smallest",
       "smaller": "Smaller",
       "standard": "Standard",
       "large": "Large",
       "larger": "Larger",
+      "extra_large": "Extra large",
       "largest": "Largest"
     }
   },

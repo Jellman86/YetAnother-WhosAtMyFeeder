@@ -1845,12 +1845,13 @@
     "text_size": {
       "label": "Taille du texte",
       "desc": "Agrandit ou réduit toutes les pages sur cet appareil uniquement. Les grands écrans l’agrandissent encore un peu.",
-      "option": "{size}, {percent} %",
+      "smallest": "Le plus petit",
       "smaller": "Plus petit",
       "standard": "Standard",
       "large": "Grand",
       "larger": "Plus grand",
-      "largest": "Très grand"
+      "extra_large": "Très grand",
+      "largest": "Le plus grand"
     }
   },
   "auth": {

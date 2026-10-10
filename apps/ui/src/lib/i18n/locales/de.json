@@ -1845,11 +1845,12 @@
     "text_size": {
       "label": "Textgröße",
       "desc": "Macht jede Seite nur auf diesem Gerät größer oder kleiner. Große Bildschirme vergrößern zusätzlich ein wenig.",
-      "option": "{size}, {percent} %",
+      "smallest": "Am kleinsten",
       "smaller": "Kleiner",
       "standard": "Standard",
       "large": "Groß",
       "larger": "Größer",
+      "extra_large": "Sehr groß",
       "largest": "Am größten"
     }
   },

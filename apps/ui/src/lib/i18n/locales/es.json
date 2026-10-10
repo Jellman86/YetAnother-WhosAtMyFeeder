@@ -1845,11 +1845,12 @@
     "text_size": {
       "label": "Tamaño del texto",
       "desc": "Agranda o reduce todas las páginas solo en este dispositivo. Las pantallas grandes aún lo amplían un poco más.",
-      "option": "{size}, {percent} %",
+      "smallest": "Mínimo",
       "smaller": "Menor",
       "standard": "Estándar",
       "large": "Grande",
       "larger": "Mayor",
+      "extra_large": "Muy grande",
       "largest": "Máximo"
     }
   },

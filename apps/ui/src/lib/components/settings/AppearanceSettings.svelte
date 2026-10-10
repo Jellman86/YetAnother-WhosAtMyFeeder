@@ -6,7 +6,7 @@
     import SettingsSelect from './_primitives/SettingsSelect.svelte';
     import SettingsSegmented from './_primitives/SettingsSegmented.svelte';
     import AdvancedSection from './_primitives/AdvancedSection.svelte';
-    import { themeStore, TEXT_SIZE_SCALE, type TextSize } from '../../stores/theme.svelte';
+    import { themeStore, type TextSize } from '../../stores/theme.svelte';
 
     let {
         currentTheme,
@@ -44,11 +44,13 @@
 
     // Each choice previews itself: the "Aa" grows step by step, on the constrained type scale.
     const TEXT_SIZES: { value: TextSize; sample: string }[] = [
+        { value: 'smallest', sample: 'text-sm' },
         { value: 'smaller', sample: 'text-base' },
         { value: 'standard', sample: 'text-lg' },
         { value: 'large', sample: 'text-xl' },
         { value: 'larger', sample: 'text-2xl' },
-        { value: 'largest', sample: 'text-3xl' }
+        { value: 'extra_large', sample: 'text-3xl' },
+        { value: 'largest', sample: 'text-4xl' }
     ];
 
     type NamingMode = 'standard' | 'hobbyist' | 'scientific';
@@ -104,7 +106,6 @@
                 <button
                     type="button"
                     aria-pressed={active}
-                    aria-label={$_('settings.text_size.option', { values: { size: name, percent: Math.round(TEXT_SIZE_SCALE[size.value] * 100) }, default: '{size}, {percent}%' })}
                     onclick={() => themeStore.setTextSize(size.value)}
                     class="flex min-h-16 min-w-0 flex-col items-center justify-end gap-1.5 rounded-2xl border-2 px-1 pb-2.5 pt-2 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-400 {active
                         ? 'border-brand-500 bg-brand-500 text-white shadow-lg shadow-brand-500/20'

@@ -1845,11 +1845,12 @@
     "text_size": {
       "label": "文字サイズ",
       "desc": "この端末でのみ、すべてのページを大きくまたは小さくします。大きな画面ではさらに少し大きくなります。",
-      "option": "{size}、{percent}%",
+      "smallest": "最小",
       "smaller": "小さめ",
       "standard": "標準",
       "large": "大",
       "larger": "より大",
+      "extra_large": "特大",
       "largest": "最大"
     }
   },

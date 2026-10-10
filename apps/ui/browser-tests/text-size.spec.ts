@@ -9,36 +9,40 @@ test('a chosen text size resizes the whole page and is kept on this device', asy
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto('/browser-tests/text-size.html');
     const options = page.locator('[data-text-size-options]');
-    await expect(options.getByRole('button', { name: 'Standard, 100%' })).toHaveAttribute('aria-pressed', 'true');
-    expect(await rootSize(page)).toBe(16);
+    await expect(options.getByRole('button')).toHaveCount(7);
+    // Standard is the default, a step under the browser's own 16px.
+    await expect(options.getByRole('button', { name: 'Standard', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    expect(await rootSize(page)).toBe(14);
 
-    await options.getByRole('button', { name: 'Larger, 125%' }).click();
-    await expect(options.getByRole('button', { name: 'Larger, 125%' })).toHaveAttribute('aria-pressed', 'true');
+    await options.getByRole('button', { name: 'Extra large', exact: true }).click();
+    await expect(options.getByRole('button', { name: 'Extra large', exact: true })).toHaveAttribute('aria-pressed', 'true');
     expect(await rootSize(page)).toBe(20);
     await page.waitForTimeout(300);
-    if (environment.UI_SHOTS) await page.screenshot({ path: `${environment.UI_SHOTS}/text-size-larger-1280.png` });
+    if (environment.UI_SHOTS) await page.screenshot({ path: `${environment.UI_SHOTS}/text-size-extra-large-1280.png` });
 
     await page.reload();
-    await expect(page.locator('[data-text-size="larger"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('[data-text-size="extra_large"]')).toHaveAttribute('aria-pressed', 'true');
     expect(await rootSize(page)).toBe(20);
 
-    await page.locator('[data-text-size="smaller"]').click();
-    expect(await rootSize(page)).toBe(14);
+    await page.locator('[data-text-size="smallest"]').click();
+    expect(await rootSize(page)).toBe(12);
+    await page.locator('[data-text-size="large"]').click();
+    expect(await rootSize(page)).toBe(16);
 });
 
 test('the size multiplies the growth on a large display rather than replacing it', async ({ page }) => {
     await page.setViewportSize({ width: 2304, height: 1200 });
     await page.goto('/browser-tests/text-size.html');
-    expect(await rootSize(page)).toBe(20);
+    expect(await rootSize(page)).toBe(17.5);
     await page.locator('[data-text-size="large"]').click();
-    expect(await rootSize(page)).toBe(22.5);
+    expect(await rootSize(page)).toBe(20);
 });
 
 test('a stored value the app does not know reads as standard', async ({ page }) => {
     await page.addInitScript(() => localStorage.setItem('text_size', 'enormous'));
     await page.goto('/browser-tests/text-size.html');
     await expect(page.locator('[data-text-size="standard"]')).toHaveAttribute('aria-pressed', 'true');
-    expect(await rootSize(page)).toBe(16);
+    expect(await rootSize(page)).toBe(14);
 });
 
 for (const width of [320, 390]) {

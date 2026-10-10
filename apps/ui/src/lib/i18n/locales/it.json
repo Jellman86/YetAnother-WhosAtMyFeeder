@@ -1855,11 +1855,12 @@
     "text_size": {
       "label": "Dimensione del testo",
       "desc": "Ingrandisce o riduce tutte le pagine solo su questo dispositivo. Gli schermi grandi lo ingrandiscono ancora un po’.",
-      "option": "{size}, {percent}%",
+      "smallest": "Minimo",
       "smaller": "Più piccolo",
       "standard": "Standard",
       "large": "Grande",
       "larger": "Più grande",
+      "extra_large": "Molto grande",
       "largest": "Massimo"
     }
   },
