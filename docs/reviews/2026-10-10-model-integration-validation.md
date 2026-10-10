@@ -108,6 +108,50 @@ reporting code verified the correct label counts and no incomplete-install warni
 fresh downloads. The audit also verified DINOv2 receives float32 `[1, 8]` metadata with the location
 presence flag set and date/uncertainty absent. This audit did not repeat the accuracy inferences.
 
+## Published-image deployment checks
+
+The merged application at `c8689d859882516688cb5acd3359e71240b6a311` passed the complete
+[image workflow](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/actions/runs/38066788452),
+including startup checks and full/CPU persistent-state switching. Its published rolling
+`dev-intel` tag was verified against the registry revision and deployed to Quark through Dockhand.
+The replacement container reported that exact revision and Intel flavor and became healthy.
+
+The running application's normal APIs downloaded, validated and activated DINOv2. Its actual
+background worker reported OpenVINO on `intel_npu`, the expected graph and external-weight
+checksums, and 10,000 catalogue labels. There was no classifier `labels.txt`, configuration warning,
+worker restart or in-process fallback. The operating settings remain 0.6 threshold, 0.6 minimum
+confidence, subprocess execution and the saved feeder location, with unchanged crop policy.
+
+A separate compatibility run started through the browser completed before final activation.
+It checked nine installed classifiers and two crop detectors. DINOv2's Intel providers matched
+CPU top-1 on all 24 panel inputs, with NPU fastest at 120.4 ms median probe inference. This was a
+compatibility run, not a new accuracy measurement on all 294 downloaded panel images. It used
+the saved feeder location, unlike the missing-location public accuracy comparison above.
+
+An additional comparison in the published container used 24 retained feeder inputs with saved
+location present as float32 `[1, 8]` metadata. All four providers returned finite output; every
+Intel provider matched CPU top-1 on 24/24 inputs. Median probe inference was 253.3 ms on ONNX
+CPU, 191.6 ms on Intel CPU, 233.4 ms on GPU and 120.7 ms on NPU. Intel CPU/GPU top-5 sets matched
+CPU; NPU mean top-5 overlap was 4.96, so the outputs are not claimed to be identical.
+
+The running application's upload API completed eight representative feeder-image smoke requests.
+Seven top predictions matched the retained labels. The difficult wood-pigeon input's top prediction
+was wrong at 0.189, below the retained 0.6 admission thresholds. This is an expected abstention
+under the operating policy, not a correct identification. The first worker request took 9.2 seconds;
+later requests included crop/pipeline work and should not be equated with pure probe timing.
+
+Five three-request simultaneous API bursts and five following recoveries all returned valid
+predictions matching their baseline. Including the burst baseline and smoke requests, the worker
+recorded 29 successful samples with zero failures. Final live admission was empty and healthy.
+These requests exercise the running background image pipeline; they do not prove end-to-end
+Frigate MQTT ingestion or notifications, and do not remove the selected-image limits above.
+
+Both databases passed SQLite integrity checks. All 682 original detections retained their
+identifiers, recorded species, scores and manual-tag state, with no added or modified detections.
+All 18 registered classifier artifacts had complete ordered catalogue rows. Configuration
+comparison found only the model selection and an existing BirdNET URL environment value being
+persisted; coordinates, thresholds, crop policy and other saved settings were preserved.
+
 ## Other screened candidates
 
 The earlier candidate screening also covered HieraDet Small and ViT-M I-JEPA from the model
