@@ -45,6 +45,12 @@ written the clip, which it does after the event ends; the worker checks again on
 pass. Under the missing-event policy's *delete* setting a favourite is marked missing instead of
 deleted, so a Frigate rotation never removes a favourite or its archive.
 
+## Finding a favourite in a grouped visit
+
+A visit card leads with its favourite capture, using the best-scoring favourite when there are
+several. The capture lists in Explorer and the field log mark each one **Favorited**. The
+**Favourites** filter therefore does not hide the starred capture behind another visit photo.
+
 ## What removes an archive
 
 Only these:
@@ -58,18 +64,36 @@ missing-event policy never touch the archive.
 
 ## Backup and restore
 
-Back up the database file and `/config/archive` together. The archive is plain files named by
-event id, so a restore is a copy: put the directory back beside the database and the favourites
-are served again. A directory without `manifest.json` is treated as unfinished and re-acquired if
-the visit is still a favourite.
+Back up `/data` and `/config` together, including `/config/archive` (or your configured
+`ARCHIVE_DIR`). This keeps detection history, the separate species catalogue, configuration and
+favourite media in one consistent backup. Restore the archive to its configured path, not beside
+the database merely because both are backed up. A directory without `manifest.json` is treated as
+unfinished and re-acquired if the visit is still a favourite.
 
 ## The per-species floor
 
-**Settings → Data → Keep the newest per species** keeps the newest N visits of each species, and
-their cached photographs, through age-based cleanup, however old they are. It is off (0) by
-default. The floor is counted per canonical species, so a bird under two names has one floor, and
+**Settings → Data → Keep photos of the newest visits per species** protects the newest N stored
+detections of each species, and their cached photographs, from age-based cleanup, however old
+they are. This is applied to stored captures, not the Explorer's grouping of captures into visits.
+It is off (0) by default. The floor is counted per canonical species, so a bird under two names has one floor, and
 hidden visits neither count towards it nor are held by it. Clips are not held by the floor; they
 follow the age window as before. The same setting is `MEDIA_CACHE__PER_SPECIES_MINIMUM`.
+
+## Retention boundaries
+
+With **Keep Everything** (`maintenance.retention_days: 0`), age cleanup does not purge detections.
+A positive retention period permanently deletes older visual and BirdNET-Go audio history;
+favourites and the per-species floor protect the qualifying visual records described above.
+Purged history cannot be recovered without a backup. Neither hiding a visit nor clearing ordinary
+cached clips is the same as permanently deleting its database record or removing an archive.
+Review the [data settings](../setup/configuration.md) before changing retention.
+
+The per-species floor is age protection, not reserved disk space. **Most visits per species with
+photos and video** and **Storage limit (MiB)** can still evict ordinary cached media. Such eviction
+keeps detection history and leaves archived favourites alone. Removed bytes cannot be restored
+from YA-WAMF itself; do not assume Frigate still has them.
+
+![Photos and video settings showing a newest-capture photo floor, a per-species media maximum and a storage limit](../images/settings-media-retention.png)
 
 ## Storage
 

@@ -32,8 +32,9 @@ includes a `media_sample` section describing a recent clip:
 }
 ```
 
-`safari_compatible: false` means the clip is tagged `hev1`, and that is the cause.
-`codec: "h264"` means the packaging is not involved and the problem is elsewhere.
+`safari_compatible: false` identifies the known `hev1` packaging incompatibility in that sampled
+clip. `codec: "h264"` rules out this HEVC-tag issue for the sample, not every possible decoding or
+proxy fault. An unavailable sample does not prove that all camera recordings are compatible.
 
 ## Fix
 
@@ -59,5 +60,6 @@ Two things are easy to miss:
 
 Capture a bundle after recording a new event and include it in your report, along with
 the macOS and Safari versions and the approximate event time. If `safari_compatible` is
-`true` and playback still fails, the packaging is ruled out and the next thing to look
-at is the media proxy rather than the recording.
+`true` and playback still fails, compare the sample with the exact failing clip, then check the
+media proxy's response and byte-range handling. One compatible sample does not rule out a
+corrupt or differently encoded recording elsewhere.

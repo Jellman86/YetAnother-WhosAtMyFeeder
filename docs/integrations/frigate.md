@@ -1,6 +1,6 @@
 # Frigate NVR Integration
 
-YA-WAMF is designed to be the perfect companion to [Frigate NVR](https://frigate.video/).
+YA-WAMF is a companion to [Frigate NVR](https://frigate.video/).
 
 ## Prerequisites
 
@@ -8,7 +8,7 @@ Before connecting YA-WAMF to Frigate you need:
 
 - A running Frigate instance accessible from the YA-WAMF container
 - An MQTT broker (Mosquitto) that both Frigate and YA-WAMF can reach — see the [MQTT Broker Setup](../setup/mqtt-broker.md) guide if you don't have one yet
-- All three containers (Frigate, Mosquitto, YA-WAMF) on the same Docker network
+- Network routes from YA-WAMF to the Frigate HTTP API and MQTT broker. A shared Docker network is needed for Docker service names such as `frigate` and `mosquitto`; reachable LAN addresses can also be used.
 
 ## MQTT Configuration
 
@@ -25,7 +25,7 @@ mqtt:
   password: YOUR_PASSWORD
 ```
 
-> The `topic_prefix` must be `frigate` (the default). YA-WAMF subscribes to `{topic_prefix}/events`.
+> Keep Frigate's `topic_prefix` and YA-WAMF's `frigate.main_topic` aligned. Both default to `frigate`; YA-WAMF subscribes to `{main_topic}/events`.
 
 See the full [Recommended Frigate Config](../setup/frigate-config.md) for optimized snapshot, recording, and detection settings.
 
@@ -178,8 +178,8 @@ the viewer stops frame requests, and hidden browser tabs suspend both status and
 
 | Symptom | Likely cause | Fix |
 |---------|-------------|-----|
-| No detections appearing | MQTT not connected | Check `docker compose logs yawamf \| grep -i mqtt` — you should see `Connected to MQTT topic=frigate/events` |
+| No detections appearing | MQTT not connected | Check `docker compose -f docker-compose.monolith.yml logs yawamf` for `Connected to MQTT` and the subscribed topics. |
 | Events received but no clips | Frigate recording or stream role not enabled | Add `record` to the camera's FFmpeg input roles, enable `record`, and set `record.continuous.days: 1` in Frigate config |
 | Full-visit clips are unavailable or truncated | Only alert/detection event segments are retained | Set `record.continuous.days` to at least `1` for every YA-WAMF camera; the inline Settings status names any camera without full coverage |
-| Detections missing for brief visits | `detect.fps` too low | Set `detect.fps` to match your sub-stream's native frame rate (10–15 FPS) so brief events are confirmed across multiple frames |
-| `404` when fetching clips | Frigate URL wrong or not on same network | Confirm `FRIGATE_URL` and that all containers share a Docker network |
+| Detections missing for brief visits | Frigate did not create a bird event, or YA-WAMF filtered it | Check Frigate's object/event history first, then YA-WAMF Health outcomes and selected cameras. Tune Frigate detection settings against actual recordings before increasing frame rate. |
+| `404` when fetching clips | The event has no clip, its recording expired, or the URL is incorrect | Check Frigate's `has_clip` and recording configuration. A snapshot-only event can still classify successfully. A disabled `record` role cannot supply video. |

@@ -28,7 +28,24 @@ services:
       - TZ=Europe/London      # match your other containers
 ```
 
-All three containers — Frigate, Mosquitto, and YA-WAMF — **must be on the same Docker network**. Check which network Frigate uses with `docker network ls` and set `DOCKER_NETWORK` in your `.env` to match.
+For service names such as `mosquitto` to resolve, put the containers on the same
+user-defined Docker network. Check Frigate's network with `docker network ls` and set
+`DOCKER_NETWORK` in `.env` to match. Different hosts/networks can also use reachable
+LAN addresses and permitted MQTT ports; sharing one Docker network is not required
+when you use those addresses. Do not expose an anonymous broker to the internet.
+
+When merging the service above into the supplied Compose file, declare its shared
+network too:
+
+```yaml
+networks:
+  bird_network:
+    external: true
+    name: ${DOCKER_NETWORK:-yawamf_default}
+```
+
+The external network must already exist. If only containers use this broker,
+you can omit the host `ports:` mapping.
 
 ---
 
@@ -68,7 +85,7 @@ log_dest file /mosquitto/log/mosquitto.log
 Then create the password file. Run this from your stack directory — it starts a temporary Mosquitto container to generate the file safely:
 
 ```bash
-docker run --rm \
+docker run --rm -it \
   -v "$(pwd)/mosquitto/config:/mosquitto/config" \
   eclipse-mosquitto:latest \
   mosquitto_passwd -c /mosquitto/config/passwd YOUR_USERNAME
@@ -96,7 +113,9 @@ mqtt:
   password: YOUR_PASSWORD
 ```
 
-> If you set `FRIGATE_MQTT_PASSWORD` as an environment variable, Frigate will read it from there instead.
+> To use Frigate's environment substitution, explicitly set
+> `password: "{FRIGATE_MQTT_PASSWORD}"` in its configuration and pass that environment
+> variable to the Frigate container. Merely defining it does not replace a literal password.
 
 ---
 
@@ -158,7 +177,11 @@ You should see `Opening ipv4 listen socket on port 1883` and no error lines.
 
 ### Quick connection test from the UI
 
-In YA-WAMF, go to **Settings → Connection** and use the **Test MQTT** button. A green tick means the broker handshake succeeded.
+In **Settings → Connection**, select **Test Connection**. The staged dialog checks
+**Frigate API**, then **MQTT broker publish**, using the values currently visible in
+the form. A passed MQTT stage proves the isolated client connected and published;
+it does not prove Frigate is publishing real bird events or that a camera is selected.
+Save changes with **Apply settings**, then verify a real event arrives.
 
 ---
 
@@ -169,7 +192,7 @@ In YA-WAMF, go to **Settings → Connection** and use the **Test MQTT** button. 
 | `Connection refused` in YA-WAMF logs | Wrong hostname or port | Confirm `MQTT_SERVER` matches the Mosquitto container name and that both are on the same Docker network |
 | `Not authorised` in logs | Auth mismatch | Check `MQTT_USERNAME`/`MQTT_PASSWORD` in `.env` match the credentials in the passwd file; confirm `MQTT_AUTH=true` is set |
 | YA-WAMF connects but receives no events | Frigate not publishing | Check `docker logs frigate` for MQTT errors; confirm `topic_prefix: frigate` in Frigate's config |
-| `Connection refused` from Frigate | Frigate on a different network | All three containers must be on the same Docker network — check `docker network ls` and the `networks:` section in your compose file |
+| `Connection refused` from Frigate | Frigate on a different network | Use a shared user-defined network for service names, or a reachable LAN broker address and port |
 | Password file errors at Mosquitto startup | Wrong ownership or permissions | Run `sudo chown 1883:1883 mosquitto/config/passwd && sudo chmod 0600 mosquitto/config/passwd` — 1883 is the mosquitto UID inside the container |
 
 ### Checking which network containers are on

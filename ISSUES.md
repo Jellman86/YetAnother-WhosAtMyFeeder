@@ -5,7 +5,7 @@ This document tracks known issues and testing gaps that have not been verified e
 If you find a bug, please open a GitHub issue with the steps to reproduce and any redacted logs.
 
 Last reviewed against the GitHub issue tracker and the reference install on
-**October 4, 2026**.
+**October 11, 2026**.
 
 ## P0: Active Regressions
 
@@ -43,9 +43,10 @@ exact-image hardware checks pass. Tracked in the
 PR #498 separates protocol closure from process reaping, adds bounded termination
 escalation and preserves cleanup ownership through cancellation. A failed cleanup
 blocks replacement. Real-process regressions passed locally and on the Intel host,
-including an ignored TERM and NPU recovery replay in disposable state. Verify the
-built dev image after deployment; this is not a claim that #490's native GPU fault
-is resolved. Tracked in the
+including an ignored TERM and NPU recovery replay in disposable state. The reference
+install now runs the built `438ed1af` dev image, with DINO/NPU classification and
+concurrent uploaded classifications verified on October 11. This does not reproduce
+or resolve #490's native GPU fault. Tracked in the
 [inference isolation roadmap](ROADMAP.md#keep-the-web-service-and-ingest-off-the-inference-path-).
 
 ### REG-2026-09-23-01 — Native classifier stalls exhaust live and backfill work (#490)
@@ -79,8 +80,10 @@ the [inference isolation roadmap](ROADMAP.md#keep-the-web-service-and-ingest-off
 - **Backfill/classifier coverage is broader but not exhaustive.** The
   [September backfill review](docs/reviews/2026-09-23-backfill-test-hardening.md) adds
   real-database detection/weather tests and real worker-process failures. Full retained-video
-  replay, published CUDA-image validation, labelled accuracy regressions and sustained mixed-load
-  checks remain on the [inference isolation roadmap](ROADMAP.md#keep-the-web-service-and-ingest-off-the-inference-path-).
+  replay and sustained mixed-load checks remain. Published CUDA-image validation covered
+  RoPE ViT-B/14 and the accurate crop detector on an RTX 4070 on October 4. The October
+  [model validation review](docs/reviews/2026-10-10-model-integration-validation.md) adds a
+  labelled public corpus and owner-feeder replay; a pinned previous-release accuracy gate remains on the [inference isolation roadmap](ROADMAP.md#keep-the-web-service-and-ingest-off-the-inference-path-).
 
 - **Low-level classifier diagnostics have separate native execution paths.** Ordinary uploaded
   classifications now share admission and isolation, but owner-only native debug/probe endpoints
@@ -108,9 +111,6 @@ the [inference isolation roadmap](ROADMAP.md#keep-the-web-service-and-ingest-off
 
 ## Open on the Tracker
 
-- **#481** Thumbnail and species mismatch with several birds in frame: #605 repairs automatically
-  chosen photos when a manual Reclassify keeps the species; waiting for the reporter to retest the
-  original event on the latest dev build.
 - **#490** Backfill and live-feed failures: safeguards are in `dev` and #606 stops a cancelled CPU
   recovery request from switching CPU recovery off. The reporter's original EVA-02 Intel GPU fault is
   not shown to be fixed; waiting for fresh diagnostics.
@@ -120,7 +120,15 @@ the [inference isolation roadmap](ROADMAP.md#keep-the-web-service-and-ingest-off
   each video job saves about 0.7 s net. Forty CUDA jobs in a row completed with no restart or
   fallback. What remains is production backfill under real ingest load.
 
+- **#622** Always-retained photos and visit media: implemented by #625 in `dev`.
+  Documentation and acceptance housekeeping remain; the old optional cache switches are gone.
+- **#641** SpeciesNet garden visitors: deferred feature, not an active regression or a shipped capability.
+- **#643** Identification provenance: deferred feature; do not claim every initial input source is persisted yet.
+
 ## Recently Closed (Context)
+
+- **#481** Thumbnail/species mismatch with multiple birds: closed October 9 after the photo-repair work and follow-up review.
+- **#640** New model investigation: closed after the catalogue integration, release artifacts and hardware/feeder evaluation were completed. New model/provider claims remain scoped to the published [validation evidence](docs/reviews/2026-10-10-model-integration-validation.md).
 
 ### REG-2026-09-15-03 — Final-mode detection notifications
 
@@ -236,7 +244,7 @@ For a step-by-step checklist, see `INTEGRATION_TESTING.md`.
 - Scope: Real bot token + chat ID, snapshot/no-snapshot paths, HTML escaping, error handling.
 - Code: `backend/app/services/notification_service.py`, Settings test endpoint `backend/app/routers/settings.py`
 - Needs testing:
-  - Settings "Send Test Notification" succeeds against the real Telegram Bot API
+  - Real final-mode notifications were verified on the reference install on October 4; the Settings test action and the remaining cases below still need explicit coverage
   - Snapshot attachment path works reliably
   - Special characters in species/camera names render correctly (no formatting injection)
 

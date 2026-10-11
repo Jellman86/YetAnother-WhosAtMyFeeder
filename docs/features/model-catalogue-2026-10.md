@@ -68,7 +68,12 @@ coordinates produce an all-zero metadata vector, while a real `(0, 0)` has a pre
 Changing or importing the location reloads classifier workers so they use the saved setting.
 Model Manager explains this for location-aware models and links to **Settings → Integrations →
 Location**. Switching there within Settings preserves unsaved edits; save the coordinates before
-expecting them to change inference. Model-specific image preparation is automatic.
+expecting them to change inference. The setup wizard's model step can also collect the coordinate
+pair and saves it before hardware validation. It blocks partial or invalid pairs while accepting
+zero coordinates, and **Continue** saves the displayed provider. Wizard saves update untouched
+fields in an open Settings form while keeping other unsaved edits. Model-specific image preparation
+is automatic.
+
 The October public accuracy comparison used location absent rather than borrowing the feeder's
 location. Normal in-app diagnostics use the saved location; record that distinction when comparing
 results. Published upstream full-metadata scores are not a score for this location-only policy.

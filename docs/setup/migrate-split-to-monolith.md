@@ -5,7 +5,8 @@ This guide is for existing YA-WAMF installs that currently run the legacy two-co
 - `wamf-backend`
 - `wamf-frontend`
 
-YA-WAMF is moving toward a single-container deployment model for `v3.0`. During the `v2.x` transition window, the split deployment still works, but new migration/testing effort is focused on the monolithic container path.
+The monolithic container is the recommended deployment. This procedure replaces
+the two YA-WAMF services while preserving their persistent data and integrations.
 
 ## What Changes
 
@@ -26,7 +27,8 @@ What stays the same:
 
 ## Before You Start
 
-1. Back up your current compose file.
+1. Back up your current Compose file and both persistent volumes consistently with
+   YA-WAMF stopped or via a storage snapshot. A Compose backup alone does not contain history.
 2. Keep your existing `/config` and `/data` volumes unchanged.
 3. Start with the unsuffixed full compatibility image (`latest`, `dev`, or your
    pinned release). This keeps every inference runtime available while you prove
@@ -53,6 +55,8 @@ services:
     container_name: yawamf-monalithic
     restart: unless-stopped
     user: "${PUID:-1000}:${PGID:-1000}"
+    networks:
+      - bird_network
     ports:
       - "9852:8080"
     volumes:
@@ -63,9 +67,20 @@ services:
       - FRIGATE__FRIGATE_URL=http://frigate:5000
       - FRIGATE__MQTT_SERVER=mosquitto
       - FRIGATE__MQTT_PORT=1883
-    devices:
-      - /dev/dri:/dev/dri
+    # Optional Intel GPU: enable only if this host has the device.
+    # devices:
+    #   - /dev/dri:/dev/dri
+    # group_add:
+    #   - "<host-render-gid>"
+
+networks:
+  bird_network:
+    name: bird_network
+    external: true
 ```
+
+Replace `bird_network` with your existing Frigate/broker network. If those services
+are on another host, use their reachable LAN addresses instead of Docker names.
 
 ## Reverse Proxy Update
 
@@ -95,29 +110,30 @@ See [Reverse Proxy Guide](reverse-proxy.md) for the full proxy examples and SSE/
 
 After that verification, you may opt into `latest-cpu`, `latest-intel` or
 `latest-cuda` without changing the service or volumes. Provider-suffixed release
-tags such as `v2.17.0-intel` are also available. See
+tags such as `v2.21.1-intel` are also available. See
 [Hardware Acceleration](hardware-acceleration.md) for the exact image/provider
 matrix. If acceleration disappears after changing flavor, restore the unsuffixed
 tag first; no data rollback is needed.
 
 ## Rollback
 
-Rollback should be straightforward because the monolith keeps the same persistent volumes.
+Keep the application version constant while changing deployment layout. The same-version
+monolith uses the same persistent data. If the image update also applied newer schema or
+configuration changes, read the release rollback guidance; an older image may need the
+matching pre-upgrade backup rather than the migrated volumes.
 
 To roll back:
 
 1. Stop the monolith container.
 2. Restore the old split compose file.
 3. Point your reverse proxy back to the split frontend/backend upstreams.
-4. Start the old stack again.
+4. Start the old stack again. If a version downgrade needs a restore, use a consistent
+   matching backup of both volumes and keep the current volumes intact until verified.
 
 ## Current Status
 
-For the current `v2.x` transition:
-
 - The monolithic container (`yawamf-monalithic`) is the **recommended deployment** for new installs and migrations.
-- The split deployment (`wamf-backend` + `wamf-frontend`) remains functional on `v2.x` but **will receive no further updates starting with v3.0** — no bug fixes, no new features, and no compatibility guarantee.
-- Migrate before upgrading to v3.0.
+- The split deployment (`wamf-backend` + `wamf-frontend`) is a legacy layout retained for existing installations.
 - Use `:latest` or a pinned `:vX.Y.Z` tag for the stable full image. The `:dev`
   tag tracks the full development image and may be unstable; optional `-cpu`,
   `-intel` and `-cuda` suffixes select the smaller provider-family builds.

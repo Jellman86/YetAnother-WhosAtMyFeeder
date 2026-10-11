@@ -5,10 +5,8 @@ YA-WAMF allows you to contribute your bird sightings to the [BirdWeather](https:
 ## How it works
 Every time a bird is identified with a specific species (i.e., not "Unknown Bird"), YA-WAMF will automatically upload the detection to your BirdWeather station if configured.
 
-Each visit is uploaded once, the first time it is saved with a species. A better frame of the
-same visit later on does not upload it again. **Missed Detections** (Settings → Data) never uploads: the sightings it
-fetches from Frigate's history were uploaded when they happened, and BirdWeather would keep a
-second copy of each, for example after **Reset Database & Cache**.
+Each camera event is reported when it is first saved with a reportable species. A better frame of the
+same event later on does not report it again. Several events grouped into one Explorer visit can still be separate reports. **Missed Detections** (Settings → Data) never uploads: re-importing history must not create duplicate external sightings, including after a database reset. An import therefore does not fill historical gaps in your BirdWeather station.
 
 ## Setup
 1. Log in to your BirdWeather account.

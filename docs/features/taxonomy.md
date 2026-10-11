@@ -50,8 +50,11 @@ The **Total** window has no confirmation counts, so its evidence column only rep
 When eBird is set up under **Settings → Integrations**, the rankings also check each species against
 what birders have reported within 50 km of the feeder in the last 30 days. A species that only the
 camera backs and that nobody has reported nearby is marked **Not reported within 50 km** in the
-rankings and **Check** on its photograph, and a note above the table counts them: they are usually misidentifications, which a wildlife-wide model makes
-more often than a regional one. Opening one lets you confirm or correct it. The check sends eBird
+rankings and **Check** on its photograph. **Needs a check** opens the review sheet: inspect its
+photographed visits, keep the ones you want selected, then confirm, rename or hide them. A missing
+nearby report is a reason to check, not proof that the classifier was wrong. Renaming applies to
+every capture of the selected visits and teaches personalised identification, so it has no undo
+in this sheet. See [Explorer and reviewing visits](explorer.md#check-a-doubtful-identification). The check sends eBird
 your approximate location (about 11 km) rather than the exact one, runs at most every six hours, and
 is simply absent when eBird is off or does not answer.
 
@@ -72,6 +75,9 @@ day. Point at a slot, tap it on a phone, or focus the grid and use the arrow key
 hour and count; Escape puts the reading away. The buttons above the grid show one species' week
 instead of everyone's, which answers "when does the Robin come?" rather than "when is the feeder
 busy?". The grid fits its column at every width rather than scrolling sideways.
+
+Heard calls can also appear between camera visits in **Explorer** when you turn on **Heard calls**.
+That is a timeline view rather than a combined ranking; see [Explore and review visits](explorer.md).
 
 ## Taxonomy Repair
 If your history contains old detections with inconsistent naming, run **Taxonomy repair** from

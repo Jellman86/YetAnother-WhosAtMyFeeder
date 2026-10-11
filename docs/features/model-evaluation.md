@@ -1,6 +1,9 @@
 # Model Evaluation Harness
 
-Owner-only diagnostic at **`/diagnostics/model-eval`** that benchmarks every installed classifier against auto-fetched, taxonomy-verified bird images and surfaces actionable accuracy / latency / config warnings.
+Use the owner-only **Model Evaluation** page at `/diagnostics/model-eval` to compare installed
+classifiers on taxonomy-verified images or check which providers run correctly on your hardware.
+Accuracy evaluation and compatibility checks answer different questions; a passing device check
+does not establish correct species identification at your feeder.
 
 ## What it does
 
@@ -21,6 +24,13 @@ the run history. It checks providers but does not score accuracy, so the page la
 median inference time, and the providers that passed. It shows no accuracy columns and no mean or
 p95 latency, because the run measured neither. Such a run writes only `summary.json` and
 `device_matrix.json`, so those are the only downloads offered.
+
+![A compatibility-only run showing best validated CPU and NPU providers, median inference time and passing providers, with summary and device-matrix downloads and no accuracy figures](../images/model-evaluation-compatibility.png)
+
+For a location-aware classifier such as DINOv2, normal in-app runs use the saved feeder location.
+Record whether coordinates were present when comparing runs; the October public benchmark used
+location absent. Coordinates are not a source of ground-truth species labels, and location-only
+results cannot be compared directly with upstream scores measured with full metadata.
 
 ## Where the data lives
 
@@ -64,11 +74,11 @@ Only a species the catalogue proves is outside the model's outputs is set aside.
 | Code | What it means | What to do |
 |---|---|---|
 | `latency_drift_high` | measured mean > 5× the startup benchmark | suspect the accelerated provider — try toggling to CPU and rerun |
-| `high_abstention` | model returned `Unknown` / `Background` on > 10% of images | check labels.txt; vocab may not include feeder species |
-| `low_shared_core` | top-1 < 50% on the shared-core species the model can name (on every shared-core species when its vocabulary is unknown) | broken install, wrong labels file, or a preprocessing mismatch |
+| `high_abstention` | model returned `Unknown` / `Background` on > 10% of images | check vocabulary coverage, catalogue readiness and preprocessing; a model may not include the feeder species |
+| `low_shared_core` | top-1 < 50% on the shared-core species the model can name (on every shared-core species when its vocabulary is unknown) | inspect install readiness, catalogue or custom label mapping, and preprocessing |
 | `partial_vocabulary` | the model cannot name some test species, usually because they are outside its region | informational — accuracy is shown on the species it can name |
 | `provider_fallback_active` | requested an accelerated provider but actually running on CPU | first check **Image** and **Packaged** under **Settings → Detection → Runtime diagnostics**, then inspect `runtime.json` for a device or model fallback reason |
-| `incomplete_install` | `labels.txt` or `model_config.json` missing | use the Model Manager's repair download |
+| `incomplete_install` | model is not ready, required config is missing, or neither a complete catalogue mapping nor required legacy labels is available | use Model Manager's repair download; catalogue-backed installs do not require `labels.txt` |
 | `inference_health_unhealthy` | the `InferenceHealth` verdict for this model on the provider it ran on is `unhealthy` at run end | the runtime errored or timed out during the run; check classifier logs |
 | `region_mismatch` | EU model evaluated against NA region (or vice versa) | informational — accuracy will look low but isn't a regression |
 
@@ -78,7 +88,11 @@ Each row is `(expected_taxa, expected_common, predicted_taxa, predicted_common, 
 
 ## Scope and trade-offs
 
-- Runs flat-out without yielding to live classification. A run can compete with real-time bird detections; the user-stated escape hatch is "wipe and backfill" if anything goes weird.
+- A run temporarily changes the active model and provider and can compete with live detections.
+  Schedule it for a quiet period, let it finish or cancel it through the UI, then check the restored
+  model and actual worker provider in **Settings → Detection**. Do not reset your database to
+  recover from a diagnostic run. Backfill can revisit available Frigate events without duplicating
+  event IDs, but cannot recreate footage Frigate has already removed.
 - Only one run at a time. Starting a second run while one is in progress returns 409 Conflict.
 - Run history shows the most recent 20 runs; older runs persist on disk until manually deleted.
 - Image fetch concurrency is capped at 5; iNat rate limits are the practical floor on overall wall-clock time.
@@ -108,181 +122,33 @@ documented in [`../plans/2026-07-16-model-crop-policy.md`](../plans/2026-07-16-m
 
 ## Provider compatibility and the post-install gate
 
-The `compat_only` provider sweep writes schema-4 `device_eligibility.json` evidence containing
-every provider that compiled, produced finite output, and agreed with its CPU baseline. The
-registry has two layers: `supported_inference_providers` is the globally safe baseline, while
-`candidate_inference_providers` is a reviewed wider set that an isolated install may probe.
-Candidates are still limited to the running image/host/model intersection, covering ONNX CPU/CUDA
-and OpenVINO CPU/GPU/NPU when applicable. An undeclared discovery row remains informational.
+A compatibility sweep tests the intersection of the selected model's reviewed providers, the
+running image and visible hardware. Each provider runs in an isolated process and must produce
+finite output agreeing with CPU on up to 24 representative images. Crop detectors additionally use
+hard negatives and compare detection presence, box geometry and confidence. Failed rows remain in
+`device_matrix.json`; they do not become recommendations.
 
-Each model result is bound to the exact registry artifact checksum and a cached runtime signature
-covering image flavour, inference package versions, kernel, architecture, and visible accelerator
-identity. A model replacement, runtime or kernel upgrade, image switch, or config-volume move to
-different hardware therefore invalidates the accelerator proof and restores the global safe
-baseline until the model is revalidated. Old schema evidence is not silently promoted.
+Passing evidence is bound to the exact model artifact, runtime packages, kernel, hardware and image
+flavour. Changing those requires revalidation. `Auto`, Model Manager and the setup wizard use the
+same measured passing order. A failed repeat invalidates older proof for that model. See
+[Validate before you select](ai-models.md#validate-before-you-select-post-install-gate) for the setup
+steps, and [runtime diagnostics](../troubleshooting/diagnostics.md#-inference-acceleration-diagnostics)
+when the actual worker provider differs from the saved preference.
 
-Each compile and inference run is isolated in a child process; one model/provider failure is
-retained in the matrix without aborting the rest of the run. Classifiers use up to 24 images
-selected round-robin across species and compare their output ranking. Installed
-crop detectors use the same real panel plus three deterministic hard negatives and compare
-detection presence, top-box IoU, and confidence with CPU. Detector rows live under the separate
-schema-3 `crop_detectors` key, so they cannot affect classifier scoring or setup recommendations.
-Panel labels include their stable selection index because upstream downloads often reuse a generic
-basename such as `image.jpg`; duplicate, missing, or unexpected comparison rows now fail closed.
-Detector comparison applies the most permissive crop threshold production can admit (`0.02` for an
-accurate evidence candidate), rather than comparing arbitrary near-zero raw proposals.
+## Maintainer workflows
 
-This record clears the **post-install selection gate** — a model cannot become active until this
-host has proven at least one valid route. The Model Manager's **Validate & enable** endpoint
-(`POST /api/models/{id}/validate`) uses the same provider engine for one model and restores the
-previously active model after the trial. The setup wizard also requests a single-model
-compatibility run; Detection Diagnostics tests installed models by default and can optionally
-download and test every registry classifier and crop detector. See
-[AI Models — Validate before you select](ai-models.md#validate-before-you-select-post-install-gate).
-Every sweep stores the passing providers and their measured latency. `Auto` uses that per-model
-order; Setup, Model Manager, and Settings display the same order and remove providers that failed
-for the selected model. Activation applies the first still-eligible recommendation only after the
-model switch succeeds and never carries an explicit provider from the previous model. The settings
-and activation APIs enforce the same gate, so a stale client cannot select a hidden provider.
-Re-running a failed sweep invalidates old evidence for that model instead of silently retaining a
-previously passing result.
+These are separate from the normal in-app comparison. Use an isolated environment and preserve
+failed runs and original image provenance:
 
-Maintainers auditing registry metadata can send `discover_providers: true` with an owner-only run.
-Discovery tests every provider packaged by the image and exposed by the host, including providers
-the model does not currently declare. The matrix marks those rows `declared: false` and reports
-passing candidates under `discovered_providers`. Discovery evidence is deliberately informational:
-it does not widen `device_eligibility.json`, change the activation recommendation, or let historical
-host evidence override the reviewed registry contract. This makes known-risk probes such as a model
-that crashes an Intel GPU safe to contain in the existing child process.
+- [Installed-model/provider gate](../development/testing.md#mandatory-local-modelprovider-gate): strict hardware checks and native-crash investigation.
+- [Model conversion](../conversions/birder-model-conversion.md): preprocessing parity, output mapping, checksums and release packaging.
+- `backend/scripts/eval_feeder_model_harness.py`: repeatable crop-on/off comparisons on reviewed feeder images.
+- `backend/scripts/build_crop_field_manifest.py` and `eval_crop_detector_accuracy.py`: same-frame Frigate hints and real feeder negatives. Automatically inferred species are context, not ground truth.
+- `backend/scripts/eval_crop_strategy_challenger.py`: downstream species results against the unchanged full frame and Frigate crop. Promotion evidence requires manual labels.
+- `backend/scripts/probe_crop_candidate.py`: isolated screening of exported detector candidates before registry admission. A passing provider probe does not establish detector quality or redistribution rights.
 
-For a complete metadata audit on the Intel image, use:
+## Label sources
 
-```json
-{
-  "sweep_devices": true,
-  "compat_only": true,
-  "sweep_all_models": true,
-  "discover_providers": true
-}
-```
-
-The post-deploy Quark reference run `20260728-210739` used the `dev-intel` image with OpenVINO
-2026.2.1 and completed all 12 classifier entries plus both crop detectors. Classifiers used 24 real
-images. Because Quark's then-running build did not recognise the stored country name `United
-Kingdom`, that full run resolved regional families to NA. Scoped EU runs `20260728-212610` and
-`20260728-212955` then tested the distinct EU artifacts explicitly, and the country resolver was
-fixed. The fast SSD crop detector remained CPU-only; accurate YOLOX-Tiny matched CPU detection
-presence and geometry on Intel CPU/GPU/NPU, with Intel GPU fastest on that host. Discovery found
-additional CPU-equivalent routes, but only repeatable, artifact-attributed results were added to
-reviewed candidate lists; another installation must still reproduce a candidate pass before its UI
-or runtime can select it.
-
-The hardware sweep validates runtime compatibility, not classifier image-selection accuracy. Crop
-policy is evaluated separately with the feeder harness. Distant-bird validation must retain each
-full frame and compare it with timestamp-distinct Frigate-hint and detector crops; multiple crops of
-one frame are one vote, and a confident crop consensus is not ground truth without an owner-labelled
-field set. This preserves the fail-soft full-frame path while still measuring whether localization
-helps small, distant subjects.
-
-For a private, repeatable detector-quality panel, build same-frame references from persisted HQ
-candidates rather than applying an event's final box to a different video frame:
-
-```bash
-python backend/scripts/build_crop_field_manifest.py \
-  --database /data/speciesid.db \
-  --snapshot-dir /config/media_cache/snapshots \
-  --output-dir /config/yawamf-eval/crop-detector-field
-
-python backend/scripts/eval_crop_detector_accuracy.py \
-  --manifest /config/yawamf-eval/crop-detector-field/manifest.json \
-  --output-json /config/yawamf-eval/crop-detector-field/results.json
-```
-
-The builder selects one independent event per visit, round-robins apparent distance and recorded
-species, and uses only a Frigate hint persisted for the exact same frame. It also creates real
-feeder/foliage regions that do not intersect the known hint box. Those are useful hard negatives,
-but are explicitly not claims that the entire source frame contained no other bird. The evaluator
-reports positive recall separately from negative false-positive/specificity rates and groups results
-by manifest tag. Camera images and generated negatives stay in the private config volume.
-
-The schema-3 manifest also records the exact frame index, Frigate crop/classifier baseline, and
-label provenance. Only manual owner identities populate `expected_labels`; automatically inferred
-labels remain useful panel context but cannot become promotion evidence. Run the end-to-end
-challenger after changing crop geometry or selection policy:
-
-```bash
-python backend/scripts/eval_crop_strategy_challenger.py \
-  --manifest /config/yawamf-eval/crop-detector-field/manifest.json \
-  --output /config/yawamf-eval/crop-detector-field/challenger-results.json
-```
-
-This classifies the unchanged full frame, same-frame Frigate crop, and optimized model crop through
-the active classifier with further crop resolution disabled. YOLOX first receives a square
-Frigate-guided HQ region; without a hint it uses native full-frame inference and only then a bounded
-2×2, 20%-overlapping slice fallback on large images. Results retain `native`, `frigate_guided`,
-`sliced_2x2`, or `fast_native` provenance. A model win requires it alone to be correct, or both
-representations to be correct with at least a two-point classifier-score gain. Unlabelled cases and
-hard negatives are reported separately rather than inflating win/tie/loss counts. The evaluator
-fails closed on stale schemas, duplicate cases or positive visits, ambiguous multi-box rows, and
-promotion labels without owner-manual provenance; its summary also records detector p50/p95/max
-latency so an accuracy win cannot hide an impractical runtime cost. A second guarded summary mirrors
-production selection: the model crop replaces Frigate only for the same classifier identity with
-the required score gain. It records model promotions, Frigate retentions, blocked reasons, and
-owner-labelled guarded outcomes. Hard negatives report both raw detector candidates and candidates
-whose classifier score reaches the active minimum. The result captures the image flavour plus
-classifier and crop-detector model/provider provenance, making CPU/GPU/NPU runs directly auditable.
-
-### External candidate screening
-
-Maintainers can screen an exported candidate without adding it to the model registry or making it
-downloadable. The probe implements the official D-FINE-N and DEIMv2-N deployment contract and runs
-one provider per process so a compiler failure cannot be mistaken for a passing fallback:
-
-```bash
-python backend/scripts/probe_crop_candidate.py \
-  --candidate deimv2_n_coco \
-  --model /config/yawamf-eval/candidates/deimv2_n_coco.onnx \
-  --manifest /config/yawamf-eval/crop-detector-field/manifest.json \
-  --provider intel_gpu \
-  --output-json /config/yawamf-eval/candidates/deimv2-intel-gpu.json
-```
-
-Run CPU first, then each packaged/provider-visible accelerator in a disposable subprocess and retain
-non-zero exits as failures. The JSON records the artifact checksum and input contract, compile time,
-median/p95 preprocessing and inference time, per-case boxes/scores, threshold curves, IoU recall,
-and real-negative false-positive rate. Recall scores the highest-confidence bird box that runtime
-selection would use; any-candidate IoU is retained separately for selection-policy diagnosis. A
-passing provider comparison proves only that the artifact
-executes consistently; promotion still requires manually labelled visit-level downstream species
-results against Frigate. Candidate weights and private camera results must not be committed or
-uploaded to a release while provenance or redistribution terms remain unconfirmed.
-
-Both `summary.json` and `device_matrix.json` contain compatibility-only results. The latter is
-available through `GET /api/diagnostics/model-eval/runs/{run_id}/{artifact}` with `artifact` set to
-`device_matrix.json`; older runs that used `devices` remain readable while new matrices also expose
-provider-native `providers` fields.
-
-## Related files
-
-- Backend service: `backend/app/services/model_eval_service.py`
-- Selection gate + validate probe: `backend/app/services/model_validation.py`
-- Image fetch + species panel: `backend/app/services/eval/`
-- Sanity checks: `backend/app/services/eval/sanity_checks.py`
-- HTTP router: `backend/app/routers/model_eval.py`
-- Release-sidecar generator: `backend/scripts/generate_model_release_configs.py`
-- Crop provider probe: `backend/scripts/probe_crop_model_provider.py`
-- Private crop field-panel builder: `backend/scripts/build_crop_field_manifest.py`
-- Crop detector quality evaluator: `backend/scripts/eval_crop_detector_accuracy.py`
-- External crop-candidate probe: `backend/scripts/probe_crop_candidate.py`
-- End-to-end Frigate challenger: `backend/scripts/eval_crop_strategy_challenger.py`
-- Frontend page: `apps/ui/src/lib/pages/ModelEvaluation.svelte`
-- Design doc: `docs/plans/2026-05-07-model-evaluation-harness-design.md`
-
-### Label sources
-
-Classifier runtimes (TFLite, ONNX Runtime and OpenVINO) look up labels using the
-checksum of the weights they actually load, including fallback models. A complete,
-contiguous catalogue mapping with the declared output width takes precedence over
-the label file. Unknown or incomplete mappings retain the label-file fallback.
-Installer integrity checks still verify the shipped label files; catalogue-first
-inference does not remove those installation assets.
+Registered classifiers resolve ordered output identities through the species catalogue. See
+[AI Models](ai-models.md#october-experimental-options) for checksum binding and custom-model fallback;
+a missing `labels.txt` alone is not an incomplete catalogue-backed installation.

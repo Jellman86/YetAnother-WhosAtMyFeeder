@@ -43,6 +43,12 @@ Health diagnostics may include:
 
 Health diagnostics are stored separately from aggregate telemetry so recurring failures can be grouped without mixing them into feature-adoption metrics.
 
+A support bundle is separate from both opt-in reports. **Settings → Health → Diagnostics export**
+creates an owner-requested file with current server evidence and any notes you entered. It does
+not automatically upload that file to the project. Read the file before attaching it publicly;
+its operational context and your own notes have a different scope from anonymous aggregate
+telemetry. See [Diagnostics](../troubleshooting/diagnostics.md#capture-current-evidence-for-a-report).
+
 ## The About page's install count
 
 The About page quotes how many installs reported to the telemetry service in the last week.
@@ -52,7 +58,11 @@ once an hour with no payload, the same host the update check reads. It follows t
 worker for this either, and the count is simply absent. It is listed under "What leaves your
 network" on the About page.
 
-## What is NEVER Collected?
+## What the anonymous reports never collect
+
+These limits describe usage telemetry and anonymous health reports. Separately enabled image AI,
+notification attachments and observation submissions can send media to their configured external
+services; those are deliberate integrations, not telemetry.
 - ❌ **Your Images or Videos:** Bird images and camera feeds are never transmitted.
 - ❌ **Detection Data:** No species names, times, or locations.
 - ❌ **Credentials:** No passwords, tokens, or API keys.

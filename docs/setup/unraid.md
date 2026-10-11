@@ -50,11 +50,11 @@ are retained.
 2. In **Template**, select **YA-WAMF** under **User templates**.
 3. Review these fields:
    - **WebUI Port**: host port for the UI (default `9852`; the container listens on `8080`).
-   - **Config**: `/config` mapped to `/mnt/user/appdata/ya-wamf/config`.
-   - **Data**: `/data` mapped to `/mnt/user/appdata/ya-wamf/data` (SQLite history, models and cached media). Keep it on fast storage.
+   - **Config**: `/config` mapped to `/mnt/user/appdata/ya-wamf/config` (settings, credentials and the default media-cache directory).
+   - **Data**: `/data` mapped to `/mnt/user/appdata/ya-wamf/data` (SQLite history, species catalogue, models, manual uploads and migration backups). Keep both mounts on fast storage.
 4. Click **Apply**.
 
-The template runs as uid `99` / gid `100` (`nobody:users`) via `--user 99:100`.
+The template runs as user ID (UID) `99` / group ID (GID) `100` (`nobody:users`) via `--user 99:100`.
 Unraid creates missing mapped directories with this ownership. Existing
 directories must already permit this user to write; importing a template does
 not repair their permissions. If needed, stop YA-WAMF and correct ownership on
@@ -134,8 +134,8 @@ Port, Variable, Label or Device**, and add:
 - Config Type **Device**, Value `/dev/dri` — Intel integrated GPU (`intel_gpu`), or
 - Config Type **Device**, Value `/dev/accel/accel0` — Intel Core Ultra "AI Boost" NPU (`intel_npu`).
 
-Add only the device you actually have. Then pick the provider under
-**Settings → Detection → Inference Provider**. GPU/NPU access can also require
+Add only the device you actually have. Run the model compatibility check, then pick a validated provider under
+**Settings → Detection → Inference Provider**, or keep **Auto**. GPU/NPU access can also require
 supplementary host groups. Look up the numeric group owning the render or
 accelerator device, then append `--group-add <gid>`
 to **Extra Parameters**, preserving `--user 99:100`. See
@@ -168,6 +168,16 @@ The NVIDIA runtime variables expose hardware; they do not select YA-WAMF's
 inference provider. If CUDA cannot initialize or the active model does not
 support it, YA-WAMF retains the provider preference and falls back to CPU with a
 diagnostic reason.
+
+## Update and verify
+
+Back up the mapped **Config** and **Data** directories consistently before updating,
+then update the existing container through Unraid so its mappings and device access
+are retained. Wait for the container to become healthy, confirm recent photographs
+and history, then check **Settings → Detection → Runtime diagnostics**. New model
+assets need an application build with their integration; a rolling model-catalogue
+release does not update an older application. See the [upgrade guide](../../MIGRATION.md)
+for retention-switch migration and rollback precautions.
 
 ## If it fails
 
