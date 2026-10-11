@@ -1,5 +1,5 @@
 // Run from the repository root after starting the current UI on port 4189:
-// npm --prefix apps/ui run dev -- --host 127.0.0.1 --port 4189 --strictPort
+// APP_BRANCH=stable npm --prefix apps/ui run dev -- --host 127.0.0.1 --port 4189 --strictPort
 // node scripts/capture_docs_screenshots.mjs
 // Every API response is local and read-only. This never connects to a live server.
 import { createRequire } from 'node:module';
@@ -14,6 +14,7 @@ if (!['127.0.0.1', 'localhost'].includes(baseUrl.hostname) || !['http:', 'https:
     throw new Error('Documentation capture requires a local UI origin without credentials, a path, query or fragment');
 }
 const images = resolve('docs/images');
+const version = (await readFile('VERSION', 'utf8')).trim();
 const catalog = JSON.parse(await readFile('scripts/fixtures/documentation-models.json', 'utf8'));
 const DINO = 'dinov2_b14_inat21_metadata_336';
 const runId = 'example-compatibility';
@@ -83,7 +84,7 @@ await context.route('https://fonts.googleapis.com/**', route => route.fulfill({ 
 await context.route('https://fonts.gstatic.com/**', route => route.abort());
 let firstRun = false;
 const now = '2026-10-11T09:00:00Z';
-const health = { startup_started_at: '2026-10-10T09:00:00Z', status: 'ok', version: '2.21.1-dev', timestamp: now, uptime_seconds: 86400,
+const health = { startup_started_at: '2026-10-10T09:00:00Z', status: 'ok', version, timestamp: now, uptime_seconds: 86400,
     mqtt_connected: true, frigate_available: true, classifier_loaded: true,
     classifier: status, video_classifier: { pending: 0, active: 0 }, services: {} };
 const workspace = { workspace_schema_version: '1', health, backend_diagnostics: { events: [], captured_at: now },
@@ -91,9 +92,12 @@ const workspace = { workspace_schema_version: '1', health, backend_diagnostics: 
 await context.route(url => url.origin === baseUrl.origin && (url.pathname === '/health' || url.pathname.startsWith('/api/')), async route => {
     const request = route.request(); const path = new URL(request.url()).pathname;
     if (path === '/api/auth/session-cookie') return route.fulfill({ json: { status: 'ok' } });
+    if (path === '/api/auth/stream-ticket' && request.method() === 'POST') return route.fulfill({ json: { ticket: 'documentation-fixture-stream', expires_in_seconds: 60 } });
     if (request.method() !== 'GET') throw new Error(`Read-only screenshot fixture rejected ${request.method()} ${path}`);
     const json = payload => route.fulfill({ json: payload });
+    if (path === '/api/sse') return route.fulfill({ contentType: 'text/event-stream', body: 'retry: 600000\n\n' });
     if (path === '/health') return json(health);
+    if (path === '/api/version') return json({ version, base_version: version, branch: 'stable', git_hash: 'unknown' });
     if (path === '/api/auth/status') return json({ auth_required: true, public_access_enabled: false, is_authenticated: true, needs_initial_setup: firstRun, username: 'admin', show_camera_names: true, share_audio: true, share_photos: true });
     if (path === '/api/settings') return json(settings);
     if (path === '/api/classifier/status') return json(status);
@@ -227,8 +231,21 @@ try {
     await page.goto(`${base}/browser-tests/documentation.html`);
     await page.locator('[data-field-log-visit="doc-dunnock"]').waitFor();
     await shot('dashboard-field-log', page.locator('[data-field-log-visit="doc-dunnock"]'));
-    await shot('dashboard', page.locator('#app'));
+    // Overview figures include the real app shell, not only the Dashboard page.
+    await page.goto(base);
+    await page.locator('[data-field-log-visit="doc-dunnock"]').waitFor();
+    const sidebar = page.locator('aside').filter({ has: page.locator('nav') });
+    await sidebar.getByRole('button', { name: 'Explorer', exact: true }).waitFor();
+    await sidebar.locator('[data-sidebar-account]').waitFor();
+    const sidebarBox = await sidebar.boundingBox();
+    if (!sidebarBox || sidebarBox.x < 0 || sidebarBox.y < 0
+        || sidebarBox.width < 200 || sidebarBox.x + sidebarBox.width > 1920
+        || sidebarBox.y + sidebarBox.height > 1080) {
+        throw new Error('Dashboard overview must include the complete expanded sidebar');
+    }
+    await shot('dashboard', page.locator('body'));
     await page.setViewportSize({ width: 390, height: 1000 });
+    await page.getByRole('button', { name: 'Toggle menu', exact: true }).waitFor();
     await page.screenshot({ path: `${images}/dashboard-mobile.png`, animations: 'disabled' });
     captured.push('dashboard-mobile');
     await page.setViewportSize({ width: 1280, height: 960 });
