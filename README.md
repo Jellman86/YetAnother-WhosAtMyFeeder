@@ -19,7 +19,7 @@ see the [latest stable release](https://github.com/Jellman86/YetAnother-WhosAtMy
 New development features require a matching `dev` image.
 
 <p align="center">
-  <img src="docs/images/dashboard.png" alt="Dashboard with visit and heard-call counts, a field log, review queue, camera activity and recent visitors" width="100%">
+  <img src="docs/images/dashboard.png" alt="Full dashboard with sidebar navigation, visit and heard-call counts, a field log, review queue, camera activity and recent visitors" width="100%">
 </p>
 
 ## What you can do
