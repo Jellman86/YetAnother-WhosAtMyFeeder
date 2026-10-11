@@ -66,9 +66,8 @@ from someone else's report. Include relevant open-issue contributors even when t
 fault still needs investigation, and state that limitation alongside any fix claim. Update
 [`CONTRIBUTORS.md`](../../CONTRIBUTORS.md) in the same release preparation. Preserve existing credits.
 
-The [next-release draft](../releases/next.md) follows current `dev` behavior. It is not a published
-release: choose the final version and replace development links with exact tag links only after
-the release scope and tag evidence are known.
+Use the [v2.22.0 notes](../releases/v2.22.0.md) as an example. Keep future drafts explicitly
+unpublished until their version, scope and tag evidence are known, and use exact tag links.
 
 ## Publish checklist
 

@@ -54,5 +54,5 @@ for behavior shipped in a tagged image.
 - [API reference](api.md) · [Regression testing](development/testing.md) · [Model conversion](conversions/birder-model-conversion.md).
 - [Engineering contract](../CLAUDE.md) · [Code quality](standards/code-quality.md) · [UI/UX](standards/ui-ux.md).
 - [Documentation standard](documentation-standard.md) · [Screenshot capture](images/README.md).
-- [Writing a release](development/releasing.md) · [Next-release draft](releases/next.md) · [Contributors](../CONTRIBUTORS.md).
+- [Writing a release](development/releasing.md) · [v2.22.0 notes](releases/v2.22.0.md) · [Contributors](../CONTRIBUTORS.md).
 - [Release archive](releases/) · [Dated reviews](reviews/) · [Roadmap](../ROADMAP.md).

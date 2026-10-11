@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.22.0] - 2026-10-11
+
 - Documentation is shorter and aligned with the current setup, model, Explorer, retention and
   support workflows. Updated screenshots use reproducible, sanitised fixtures. Release preparation
   now includes acknowledgements for issue reporters and follow-up testers, with contributor credits
