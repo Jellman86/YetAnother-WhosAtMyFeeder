@@ -138,7 +138,10 @@ def frames(path: Path, count: int) -> Iterator[tuple[int, Image.Image]]:
                 raise ValueError("Could not decode a requested recording frame")
             if pixels.shape[0] * pixels.shape[1] > 16_000_000:
                 raise ValueError("Recording exceeds prototype pixel limit")
-            yield round(position * fps), Image.fromarray(cv2.cvtColor(pixels, cv2.COLOR_BGR2RGB))
+            decoded_position = capture.get(cv2.CAP_PROP_POS_FRAMES)
+            if not math.isfinite(decoded_position) or decoded_position < 1:
+                raise ValueError("Decoder did not identify the returned frame")
+            yield int(decoded_position) - 1, Image.fromarray(cv2.cvtColor(pixels, cv2.COLOR_BGR2RGB))
     finally:
         capture.release()
 
@@ -253,6 +256,7 @@ def replay(
             continue
         path = media_path(inputs, record["path"])
         local = []
+        media_hash = None
         human = False
         for frame_index, image in frames(path, video_frames):
             processed += 1
@@ -291,14 +295,22 @@ def replay(
                     break
                 counts[decision.reason] += 1
                 if decision.taxon:
+                    media_hash = media_hash or digest(path)
+                    cropped = variant == "4.0.3a" and box is not None
                     local.append(
                         {
                             "input_id": record["id"],
                             "camera": record["camera"],
                             "frame_index": frame_index,
                             "source": "offline_scan" if mode == "scan" else "retained_event",
-                            "media_sha256": digest(path),
-                            "box_xywh": box,
+                            "media_sha256": media_hash,
+                            "frame_sha256": hashlib.sha256(np.asarray(image).tobytes()).hexdigest(),
+                            "detector_box_xywh": box,
+                            "classification_input": {
+                                "kind": "tracked_crop" if cropped else "whole_image",
+                                "box_xywh": box if cropped else None,
+                                "frame_size": [image.width, image.height],
+                            },
                             **asdict(decision),
                         }
                     )
@@ -316,6 +328,8 @@ def replay(
                 item["needs_review"] = True
                 item["supporting_frames"] = counts_by_taxon[item["taxon"]["id"]]
                 item["review_reasons"] = ["prototype_accuracy_not_validated"]
+                if variant == "4.0.3a" and item["classification_input"]["kind"] == "whole_image":
+                    item["review_reasons"].append("whole_image_fallback")
                 if item["supporting_frames"] < 2:
                     item["review_reasons"].append("single_frame_only")
             observations.extend(local)

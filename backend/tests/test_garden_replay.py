@@ -106,7 +106,7 @@ def bundle():
     return {"outputs": [fox, human], "taxonomy": [fox, human], "geofence": {}}
 
 
-def run(records, tmp_path, classifier):
+def run(records, tmp_path, classifier, *, variant="4.0.3a"):
     policy = GardenPolicy(enabled=True, cameras=frozenset({"patio"}), labels=frozenset({"animal"}))
     return replay.replay(
         records,
@@ -116,7 +116,7 @@ def run(records, tmp_path, classifier):
         bundle(),
         classifier,
         None,
-        variant="4.0.3a",
+        variant=variant,
         detector_size=640,
         video_frames=3,
     )
@@ -161,4 +161,34 @@ def test_duplicate_event_is_classified_once_and_saved_only_to_prototype_report(t
     assert report["observations"][0]["needs_review"]
     assert report["observations"][0]["supporting_frames"] == 1
     assert "single_frame_only" in report["observations"][0]["review_reasons"]
+    assert "whole_image_fallback" in report["observations"][0]["review_reasons"]
     assert report["production_writes"] == 0
+
+
+def test_whole_image_variant_does_not_claim_the_detector_box_was_classified(tmp_path):
+    Image.new("RGB", (10, 10)).save(tmp_path / "fox.png")
+    box = [0.2, 0.2, 0.5, 0.5]
+    event = {"id": "fox", "camera": "patio", "label": "animal", "path": "fox.png", "box": box}
+    result = run([event], tmp_path, FakeClassifier([[10, -10]]), variant="4.0.3b")["observations"][0]
+    assert result["detector_box_xywh"] == tuple(box)
+    assert result["classification_input"] == {"kind": "whole_image", "box_xywh": None, "frame_size": [10, 10]}
+
+
+def test_video_reports_decoded_frame_position_instead_of_estimated_seek_position(tmp_path, monkeypatch):
+    import cv2
+
+    class Capture:
+        def get(self, key):
+            return {cv2.CAP_PROP_FPS: 30, cv2.CAP_PROP_FRAME_COUNT: 300, cv2.CAP_PROP_POS_FRAMES: 151}[key]
+
+        def set(self, key, value):
+            return True
+
+        def read(self):
+            return True, np.zeros((2, 2, 3), dtype=np.uint8)
+
+        def release(self):
+            pass
+
+    monkeypatch.setattr(cv2, "VideoCapture", lambda _: Capture())
+    assert next(replay.frames(tmp_path / "clip.mp4", 1))[0] == 150

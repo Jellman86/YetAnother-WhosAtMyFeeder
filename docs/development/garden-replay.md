@@ -77,6 +77,11 @@ remain marked for review, with single-frame support stated explicitly. Confidenc
 is a model score, not measured accuracy: a real Patio toy car produced a confident
 cattle classification during development.
 
+Each candidate separates its detection box from the actual classifier input, and
+records source/frame hashes and the decoder's returned frame index. A whole-image
+prediction never claims to have scored the animal box. The crop model's fallback
+without a box carries an additional review reason.
+
 Frigate `person`/`human` inputs bypass classification. In scans, any detected
 person rejects the entire input. A significant human classifier result also
 rejects it, including earlier animal candidates from that clip. Rejected people
