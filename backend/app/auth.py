@@ -166,6 +166,7 @@ _COOKIE_ROUTES = (
     re.compile(r"^/api/audio/(spectrogram|clip)/[^/]+$"),
     re.compile(r"^/api/manual-observations/[a-f0-9]{32}/(preview|media)$"),
     re.compile(r"^/api/manual-observations/[a-f0-9]{32}/species/[0-9]/(photo|scene)$"),
+    re.compile(r"^/api/garden/[a-f0-9]{32}/snapshot$"),
     re.compile(r"^/api/sse$"),
 )
 

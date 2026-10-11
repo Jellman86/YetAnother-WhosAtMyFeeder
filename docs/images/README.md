@@ -30,6 +30,8 @@ In another terminal, from the repository root:
 
 ```bash
 node scripts/capture_docs_screenshots.mjs
+# Capture only the garden prototype controls and empty review view:
+node scripts/capture_docs_screenshots.mjs --garden-only
 ```
 
 Port 4189 keeps this capture separate from the browser regression suite. For
@@ -91,6 +93,8 @@ example counts or runtime values into product guarantees.
 | `detection-detail.png` | Dunnock photograph, identification and record controls |
 | `detection-photo-review.png` | Review sheet with photograph choices and feeder species |
 | `add-observation.png` | Upload, Analyse, Review and Save flow before anything is added |
+| `settings-garden-cameras.png` | Independent animal capture opt-in alongside the bird role |
+| `garden-review.png` | Owner review prototype, separate views and first-capture guidance |
 | `settings-map.png` | Grouped Settings navigation and setup-wizard entry point |
 | `settings-connection.png` | Frigate, MQTT and selected camera controls |
 | `settings-detection.png` | Saved Intel NPU preference and actual worker runtime status |

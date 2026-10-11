@@ -336,6 +336,26 @@ can change their framing. Full-frame Frigate coordinates must not be reapplied t
   the rows and their cached media are gone. Use `POST /api/events/{event_id}/hide` when you want a
   recoverable soft delete instead.
 
+### Garden animal review
+
+All garden routes require owner access. Review confirmation records animal presence,
+not a species identification; `frigate_label` remains an upstream suggestion.
+
+- `GET /api/garden` — `status=pending|confirmed|dismissed`, `limit=1..100` (default 20),
+  `offset>=0`; returns `items`, `total`, `limit`, `offset`.
+- `POST /api/garden/{capture_id}/confirm` — move to confirmed history; no body.
+- `POST /api/garden/{capture_id}/dismiss` — dismiss a false detection; no body.
+- `POST /api/garden/{capture_id}/restore` — return to pending review; no body.
+- `GET /api/garden/{capture_id}/snapshot` — owner-only Frigate photograph, `404` when
+  missing or rejected. The exact read-only route accepts the owner session cookie
+  and uses `private, no-store`; review writes still require an authorization header.
+
+Settings use `garden_cameras` (default `[]`) and `garden_labels` (default
+`["cat", "dog"]`), persisted under `frigate` in the configuration. These are
+independent of `cameras`, `camera_roles` and bird `frigate_ingest_labels`.
+Garden captures have no bird detection ID and cannot be submitted by bird export APIs.
+See [Garden animals](features/garden-animals.md) for retention and prototype limits.
+
 ### Manual observations
 
 - `POST /api/manual-observations` (owner; multipart `media`; images up to 25 MiB, videos up to

@@ -1,6 +1,7 @@
 import { test, expect, type Locator } from '@playwright/test';
 
 async function targetSizes(controls: Locator): Promise<void> {
+    await expect(controls.first()).toBeVisible();
     const bounds = await controls.evaluateAll(nodes => nodes.map(node => {
         const { width, height, x, y } = node.getBoundingClientRect();
         return { label: node.getAttribute('aria-label') || node.textContent, width, height, x, y };

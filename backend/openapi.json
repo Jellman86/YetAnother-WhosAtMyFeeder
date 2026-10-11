@@ -6903,6 +6903,99 @@
         "title": "FrigateTestResponse",
         "type": "object"
       },
+      "GardenCapturePage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/GardenCaptureResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "GardenCapturePage",
+        "type": "object"
+      },
+      "GardenCaptureResponse": {
+        "properties": {
+          "camera": {
+            "title": "Camera",
+            "type": "string"
+          },
+          "frigate_label": {
+            "title": "Frigate Label",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "observed_at": {
+            "title": "Observed At",
+            "type": "string"
+          },
+          "reviewed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed At"
+          },
+          "snapshot_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snapshot Url"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "confirmed",
+              "dismissed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "camera",
+          "frigate_label",
+          "observed_at",
+          "status",
+          "reviewed_at",
+          "snapshot_url"
+        ],
+        "title": "GardenCaptureResponse",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -11212,6 +11305,20 @@
             ],
             "title": "Frigate Url"
           },
+          "garden_cameras": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Garden Cameras",
+            "type": "array"
+          },
+          "garden_labels": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Garden Labels",
+            "type": "array"
+          },
           "ha_weather_access_token": {
             "anyOf": [
               {
@@ -12659,6 +12766,8 @@
         "required": [
           "camera_audio_mapping",
           "camera_roles",
+          "garden_cameras",
+          "garden_labels",
           "cameras",
           "blocked_labels",
           "blocked_species",
@@ -13370,6 +13479,22 @@
             ],
             "description": "Frigate instance URL",
             "title": "Frigate Url"
+          },
+          "garden_cameras": {
+            "description": "Cameras opted in to owner-reviewed garden captures",
+            "items": {
+              "type": "string"
+            },
+            "title": "Garden Cameras",
+            "type": "array"
+          },
+          "garden_labels": {
+            "description": "Animal labels for garden review",
+            "items": {
+              "type": "string"
+            },
+            "title": "Garden Labels",
+            "type": "array"
           },
           "ha_weather_access_token": {
             "anyOf": [
@@ -24616,6 +24741,293 @@
           }
         ],
         "summary": "Proxy Thumb"
+      }
+    },
+    "/api/garden": {
+      "get": {
+        "operationId": "list_captures_api_garden_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "default": "pending",
+              "enum": [
+                "pending",
+                "confirmed",
+                "dismissed"
+              ],
+              "title": "Status",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GardenCapturePage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "List Captures",
+        "tags": [
+          "garden"
+        ]
+      }
+    },
+    "/api/garden/{capture_id}/confirm": {
+      "post": {
+        "operationId": "confirm_capture_api_garden__capture_id__confirm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "capture_id",
+            "required": true,
+            "schema": {
+              "title": "Capture Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GardenCaptureResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Confirm Capture",
+        "tags": [
+          "garden"
+        ]
+      }
+    },
+    "/api/garden/{capture_id}/dismiss": {
+      "post": {
+        "operationId": "dismiss_capture_api_garden__capture_id__dismiss_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "capture_id",
+            "required": true,
+            "schema": {
+              "title": "Capture Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GardenCaptureResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Dismiss Capture",
+        "tags": [
+          "garden"
+        ]
+      }
+    },
+    "/api/garden/{capture_id}/restore": {
+      "post": {
+        "operationId": "restore_capture_api_garden__capture_id__restore_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "capture_id",
+            "required": true,
+            "schema": {
+              "title": "Capture Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GardenCaptureResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Restore Capture",
+        "tags": [
+          "garden"
+        ]
+      }
+    },
+    "/api/garden/{capture_id}/snapshot": {
+      "get": {
+        "operationId": "capture_snapshot_api_garden__capture_id__snapshot_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "capture_id",
+            "required": true,
+            "schema": {
+              "title": "Capture Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Capture Snapshot",
+        "tags": [
+          "garden"
+        ]
       }
     },
     "/api/inaturalist/draft": {

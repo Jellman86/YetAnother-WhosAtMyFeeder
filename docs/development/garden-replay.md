@@ -2,8 +2,8 @@
 
 This developer tool evaluates local captures without connecting to MQTT, Frigate,
 the application database, notifications or external reporting. It produces a
-private report of **candidates that all need review**. It does not enable garden
-history or add a button to the running application. Follow progress in
+private report of **candidates that all need review**. It does not write to the separate [garden review history](../features/garden-animals.md)
+or enable automatic species identification. Follow progress in
 [#641](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/641).
 
 ## Prepare the inputs
@@ -96,5 +96,6 @@ personalization, BirdWeather, eBird or notifications.
 
 The intended camera control is **Garden animals** alongside the existing
 **Feeder** and **Nest** choices, with independent garden opt-in so a mixed camera
-can still record birds. Wiring that control, durable garden visits, retention and
-the owner review view requires a separate application change and accuracy gates.
+can still record birds. The application now collects completed Frigate animal events for explicit owner
+review, independently of this tool. Automatic model identification, local garden
+media archiving and accuracy qualification remain separate work.

@@ -258,6 +258,27 @@ class FrigateSettings(BaseModel):
         default_factory=dict,
         description="Per-camera role. 'feeder' (default) treats every Frigate event as a fresh visit; 'nest' deduplicates repeat detections of the same species within nest_dedupe_minutes to prevent inflation from a continuously-present nesting bird.",
     )
+    garden_cameras: list[str] = Field(
+        default_factory=list, description="Independent opt-in cameras for owner-reviewed animal captures"
+    )
+    garden_labels: list[str] = Field(
+        default_factory=lambda: ["cat", "dog"], description="Supported animal labels to collect for garden review"
+    )
+
+    @field_validator("garden_cameras", mode="before")
+    @classmethod
+    def _normalize_garden_cameras(cls, value: object) -> list[str]:
+        from app.services.garden_capture_policy import normalize_garden_cameras
+
+        return normalize_garden_cameras(value)
+
+    @field_validator("garden_labels", mode="before")
+    @classmethod
+    def _normalize_garden_labels(cls, value: object) -> list[str]:
+        from app.services.garden_capture_policy import normalize_garden_labels
+
+        return normalize_garden_labels(value)
+
     nest_dedupe_minutes: int = Field(
         default=30,
         ge=1,

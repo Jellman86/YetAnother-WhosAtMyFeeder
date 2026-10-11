@@ -994,6 +994,21 @@ export interface components {
     status: string;
     version: string;
 };
+    GardenCapturePage: {
+    items: Array<components['schemas']['GardenCaptureResponse']>;
+    limit: number;
+    offset: number;
+    total: number;
+};
+    GardenCaptureResponse: {
+    camera: string;
+    frigate_label: string;
+    id: string;
+    observed_at: string;
+    reviewed_at: string | null;
+    snapshot_url: string | null;
+    status: "pending" | "confirmed" | "dismissed";
+};
     HTTPValidationError: {
     detail?: Array<components['schemas']['ValidationError']>;
 };
@@ -1586,6 +1601,8 @@ export interface components {
     frigate_ingest_labels?: Array<string> | null;
     frigate_missing_behavior?: "mark_missing" | "keep" | "delete";
     frigate_url?: string | null;
+    garden_cameras: Array<string>;
+    garden_labels: Array<string>;
     ha_weather_access_token?: string | null;
     ha_weather_base_url?: string | null;
     ha_weather_cloud_cover_entity?: string | null;
@@ -1791,6 +1808,8 @@ export interface components {
     frigate_ingest_labels?: Array<string> | null;
     frigate_missing_behavior?: "mark_missing" | "keep" | "delete";
     frigate_url?: string | null;
+    garden_cameras?: Array<string>;
+    garden_labels?: Array<string>;
     ha_weather_access_token?: string | null;
     ha_weather_base_url?: string | null;
     ha_weather_cloud_cover_entity?: string | null;
@@ -3618,6 +3637,63 @@ export interface paths {
       operationId: "proxy_thumb_api_frigate__event_id__thumbnail_jpg_get";
       path: {
     event_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: unknown;
+    };
+  };
+  "/api/garden": {
+    get: {
+      operationId: "list_captures_api_garden_get";
+      path: never;
+      query: {
+    limit?: number;
+    offset?: number;
+    status?: "pending" | "confirmed" | "dismissed";
+};
+      requestBody: unknown;
+      response: components['schemas']['GardenCapturePage'];
+    };
+  };
+  "/api/garden/{capture_id}/confirm": {
+    post: {
+      operationId: "confirm_capture_api_garden__capture_id__confirm_post";
+      path: {
+    capture_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['GardenCaptureResponse'];
+    };
+  };
+  "/api/garden/{capture_id}/dismiss": {
+    post: {
+      operationId: "dismiss_capture_api_garden__capture_id__dismiss_post";
+      path: {
+    capture_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['GardenCaptureResponse'];
+    };
+  };
+  "/api/garden/{capture_id}/restore": {
+    post: {
+      operationId: "restore_capture_api_garden__capture_id__restore_post";
+      path: {
+    capture_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['GardenCaptureResponse'];
+    };
+  };
+  "/api/garden/{capture_id}/snapshot": {
+    get: {
+      operationId: "capture_snapshot_api_garden__capture_id__snapshot_get";
+      path: {
+    capture_id: string;
 };
       query: never;
       requestBody: unknown;
