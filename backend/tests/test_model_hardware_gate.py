@@ -14,7 +14,22 @@ from scripts.run_model_hardware_gate import (
     compare_reports,
     gate_passed,
     validate_images,
+    prepare_catalogue,
 )
+
+
+def test_hardware_probe_uses_a_private_catalogue_with_bundled_model_labels(tmp_path, monkeypatch):
+    from app.services.catalogue_labels import catalogue_labels_for_model
+    from app.services.species_catalog_store import DEFAULT_SEED_PATH
+    from app.services.model_manager import REMOTE_REGISTRY
+
+    private = tmp_path / "catalogue.db"
+    monkeypatch.setenv("SPECIES_CATALOG_PATH", str(private))
+    prepare_catalogue()
+    assert private.is_file() and private.resolve() != DEFAULT_SEED_PATH.resolve()
+    model = next(row for row in REMOTE_REGISTRY if row["id"] == "dinov2_b14_inat21_metadata_336")
+    labels = catalogue_labels_for_model(model["sha256"], catalog_path=private)
+    assert labels is not None and len(labels) == 10000
 
 
 def test_registry_discovery_includes_nested_variants_and_excludes_retired_artifacts(tmp_path):
@@ -144,3 +159,24 @@ def test_model_cases_are_grouped_without_moving_other_tests():
     items = [beta, other, alpha, alpha_second]
     group_model_cases(items)
     assert items == [alpha, other, alpha_second, beta]
+
+
+def test_private_settings_exist_before_catalogue_bootstrap(tmp_path, monkeypatch):
+    from scripts import run_model_hardware_gate as gate
+
+    models = tmp_path / "weights"
+    (models / "catalogue_model").mkdir(parents=True)
+    monkeypatch.setenv("MODEL_DIR", str(tmp_path / "private-models"))
+
+    class BootstrapReached(Exception):
+        pass
+
+    def inspect_settings():
+        config = json.loads((tmp_path / "config.json").read_text())
+        assert config["classification"]["model"] == "catalogue_model"
+        assert config["classification"]["inference_provider"] == "intel_gpu"
+        raise BootstrapReached
+
+    monkeypatch.setattr(gate, "prepare_catalogue", inspect_settings)
+    with pytest.raises(BootstrapReached):
+        gate.probe_exact_artifact(tmp_path, models, "catalogue_model", "intel_gpu", [])
