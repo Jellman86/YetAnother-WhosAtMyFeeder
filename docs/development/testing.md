@@ -98,6 +98,10 @@ figures illustrate controls and do not add hardware-validation evidence.
 
 ## Joined backend paths and recovery
 
+For the isolated Garden animals experiment, use the
+[retained-footage replay](garden-replay.md). It produces review candidates without
+changing the bird pipeline; hardware execution is separate from wildlife accuracy.
+
 `test_issue490_worker_processes.py` injects hangs and exits into real disposable
 child processes. It checks that live requests can finish while a background worker
 fails, that failed workers are reaped, and that failed CPU recovery is not retried
