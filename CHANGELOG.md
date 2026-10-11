@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- An isolated Garden animals developer replay evaluates retained footage with SpeciesNet and a
+  separate detector. It produces private review candidates, excludes birds and recognized people,
+  and never writes to bird history or enables automatic garden ingest.
+
 - Owner detection details and review queues show which image or crop supplied an identification.
   Original input evidence survives later corrections; whole-view results stay in review and do not
   train personalization, and counted birds use a uniquely matched input frame and crop. Older
