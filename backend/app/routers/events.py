@@ -24,6 +24,7 @@ from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.audio.audio_service import audio_service
 from app.services.i18n_service import i18n_service
 from app.services.classification_input_provenance import (
+    classification_evidence,
     build_snapshot_classification_input_context,
     load_snapshot_classification_input,
 )
@@ -391,6 +392,10 @@ def _detection_updated_payload(detection, overrides: dict | None = None) -> dict
         "video_classification_timestamp": serialize_api_datetime(detection.video_classification_timestamp),
         "video_result_blocked": bool(detection.video_result_blocked),
     }
+    for field in ("classification_input", "initial_classification_input"):
+        evidence = getattr(detection, field, None)
+        if evidence is not None:
+            payload[field] = evidence.model_dump(mode="json")
     if overrides:
         payload.update(overrides)
     return payload
@@ -611,9 +616,11 @@ _LIST_FIELDS = {
     "audio_confirmed",
     "audio_context_species",
     "bird_summary",
+    "classification_input",
+    "manual_tagged",
 }
 # Localized birds are owner evidence from the private candidate scan, never a guest field.
-_OWNER_ONLY_FIELDS = {"bird_summary"}
+_OWNER_ONLY_FIELDS = {"bird_summary", "classification_input", "initial_classification_input"}
 _DETAIL_FIELDS = set()  # Empty = all fields
 
 
@@ -897,6 +904,8 @@ async def present_events(
 
             response_event = DetectionResponse(
                 id=event.id,
+                classification_input=event.classification_input if auth.is_owner else None,
+                initial_classification_input=event.initial_classification_input if auth.is_owner else None,
                 detection_time=event.detection_time,
                 detection_index=event.detection_index,
                 score=event.score,
@@ -1637,7 +1646,12 @@ async def _apply_manual_tag_update(
     model_id = _get_active_model_id_for_feedback()
     predicted_label = (old_category_name or old_species or "").strip()
     corrected_label = (stored_category_name or stored_display_name or "").strip()
-    if predicted_label and corrected_label and predicted_label != corrected_label:
+    if (
+        predicted_label
+        and corrected_label
+        and predicted_label != corrected_label
+        and not (detection.classification_input and detection.classification_input.needs_review)
+    ):
         await repo.insert_classification_feedback(
             frigate_event=event_id,
             camera_name=detection.camera_name,
@@ -1842,6 +1856,7 @@ async def reclassify_event(
                     event_id=event_id,
                     event_data=event_data,
                     provenance=snapshot_provenance,
+                    snapshot_data=snapshot_data,
                 ),
             )
             for result in results:
@@ -1910,6 +1925,7 @@ async def reclassify_event(
             video_model_id=top.get("model_id"),
             video_model_sha256=top.get("model_sha256"),
             video_input_source=top.get("input_source"),
+            input_evidence=classification_evidence(top),
         )
 
         # Re-fetch updated detection for the response

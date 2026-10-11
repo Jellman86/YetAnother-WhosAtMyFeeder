@@ -392,6 +392,20 @@ python3 backend/scripts/pipeline_api_test.py \
 
 ---
 
+## Where an identification came from
+
+Owner records and **Needs your call** show **Named from…** for new identifications: a bird crop,
+Frigate’s sub-label, video frames, an owner choice, or the whole camera view. Whole-view names
+remain in review even at high confidence and never train or use personalization. Confirming the
+species records **Named by you**; the original input stays available on the record.
+
+Changing the photograph does not change this evidence. The input records its crop coordinates,
+source frame dimensions and recording time when available. A counted bird can borrow a new
+visit identification only when the stored input box matches uniquely in the exact retained frame;
+missing or changed frame evidence leaves that association unresolved. Older records keep their
+unknown source rather than acquiring an inferred one. This owner evidence is excluded from guest
+responses.
+
 ## Validate installed hardware safely
 
 Use the in-app compatibility check for normal setup. For a maintainer's independent check, use

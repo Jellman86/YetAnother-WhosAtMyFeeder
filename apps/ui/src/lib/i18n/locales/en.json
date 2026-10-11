@@ -2076,7 +2076,7 @@
       "excluded_heading": "Excluded, not counted",
       "choose_species": "Search by common or scientific name, then choose a species.",
       "identified_from_visit": "Identified from this visit",
-      "visit_evidence": "Named from the accepted visit identification and Frigate’s matching tracked box. This crop alone scored {score}.",
+      "visit_evidence": "Named from the accepted visit identification and its matching input box. This crop alone scored {score}.",
       "being_named": "The bird being named",
       "being_named_tag": "Being named",
       "name_not_tied": "The visit’s name cannot be tied to one of these birds."
@@ -2479,6 +2479,17 @@
       "elapsed": "{seconds}s",
       "action_waiting": "Waiting…",
       "action_scanning": "Scanning…"
+    },
+    "named_from": {
+      "owner": "Named by you",
+      "frigate": "Named from Frigate’s sub-label",
+      "whole_view": "Named from the whole camera view, so it may not refer to one bird",
+      "video": "Named from video analysis, {frames} frames",
+      "recording": "Named from Frigate’s tracked bird in the recording frame",
+      "snapshot": "Named from Frigate’s tracked bird in the snapshot",
+      "crop": "Named from a bird crop",
+      "unknown": "The identification source was not recorded",
+      "original": "Original identification"
     }
   },
   "events": {

@@ -1,4 +1,5 @@
 <script lang="ts">
+    import ClassificationSource from './ClassificationSource.svelte';
     import { onDestroy, untrack } from 'svelte';
     import { dismissSnapshotCandidate, applySnapshotCandidate, fetchFeederSpecies, fetchSnapshotCandidates, getSnapshotUrl, getThumbnailUrl, searchSpecies } from '../api';
     import type { BirdObservation, Detection, SearchResult, SnapshotCandidate } from '../api';
@@ -628,6 +629,7 @@
                     <div class="flex items-start gap-3 px-4 pt-3 {authStore.hasOwnerAccess ? '' : 'pb-4'}" data-review-species-heading>
                         <div class="min-w-0 flex-1">
                             <h3 class="break-words font-display text-xl font-bold leading-tight text-white">{naming.primary}</h3>
+                            {#if authStore.hasOwnerAccess}<ClassificationSource evidence={current.classification_input} />{/if}
                             {#if naming.secondary}
                                 <p class="mt-0.5 break-words text-sm italic text-slate-300">{naming.secondary}</p>
                             {/if}

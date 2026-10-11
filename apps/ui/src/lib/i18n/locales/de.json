@@ -2066,7 +2066,7 @@
       "excluded_heading": "Ausgeschlossen, nicht gezählt",
       "choose_species": "Nach gebräuchlichem oder wissenschaftlichem Namen suchen und eine Art auswählen.",
       "identified_from_visit": "Anhand dieses Besuchs bestimmt",
-      "visit_evidence": "Die Art stammt aus der akzeptierten Bestimmung dieses Besuchs und dem passenden Frigate-Rahmen. Dieser Bildausschnitt allein erreichte {score}.",
+      "visit_evidence": "Benannt anhand der bestätigten Besuchsbestimmung und des passenden Bildausschnitts. Dieser Ausschnitt allein erreichte {score}.",
       "being_named": "Der benannte Vogel",
       "being_named_tag": "Wird benannt",
       "name_not_tied": "Der Name des Besuchs lässt sich keinem dieser Vögel zuordnen."
@@ -2469,6 +2469,17 @@
       "elapsed": "{seconds} s",
       "action_waiting": "Wartet…",
       "action_scanning": "Sucht…"
+    },
+    "named_from": {
+      "owner": "Von dir bestimmt",
+      "frigate": "Aus Frigates Unterlabel bestimmt",
+      "whole_view": "Aus der gesamten Kameraansicht bestimmt, daher möglicherweise keinem einzelnen Vogel zuzuordnen",
+      "video": "Aus der Videoanalyse bestimmt, {frames} Bilder",
+      "recording": "Aus Frigates verfolgtem Vogel im Aufnahmebild bestimmt",
+      "snapshot": "Aus Frigates verfolgtem Vogel im Schnappschuss bestimmt",
+      "crop": "Aus einem Vogelausschnitt bestimmt",
+      "unknown": "Die Quelle der Bestimmung wurde nicht gespeichert",
+      "original": "Ursprüngliche Bestimmung"
     }
   },
   "events": {

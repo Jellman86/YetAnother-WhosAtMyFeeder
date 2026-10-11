@@ -232,6 +232,8 @@ export function toDetection(data: SseData): Detection {
         frigate_score: data.frigate_score,
         sub_label: data.sub_label,
         manual_tagged: data.manual_tagged,
+        classification_input: data.classification_input,
+        initial_classification_input: data.initial_classification_input,
         audio_confirmed: data.audio_confirmed,
         audio_species: data.audio_species,
         audio_score: data.audio_score,

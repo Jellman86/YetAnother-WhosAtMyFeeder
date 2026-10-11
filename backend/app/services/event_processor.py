@@ -1418,6 +1418,7 @@ class EventProcessor:
                     event_id=event.frigate_event,
                     event_data=event_snapshot_state,
                     provenance=snapshot_provenance,
+                    snapshot_data=snapshot_data,
                 ),
                 queue_timeout_seconds=self._live_classification_queue_timeout_seconds(event),
             )

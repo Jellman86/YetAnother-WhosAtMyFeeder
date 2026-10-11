@@ -2066,7 +2066,7 @@
       "excluded_heading": "Exclus, non comptés",
       "choose_species": "Recherchez un nom commun ou scientifique, puis choisissez une espèce.",
       "identified_from_visit": "Identifié d’après la visite",
-      "visit_evidence": "Le nom vient de l’identification acceptée de la visite et du cadre correspondant de Frigate. Ce recadrage seul a obtenu {score}.",
+      "visit_evidence": "Nommé à partir de l’identification acceptée de la visite et du cadre d’entrée correspondant. Ce recadrage seul a obtenu {score}.",
       "being_named": "L’oiseau nommé",
       "being_named_tag": "Nommé",
       "name_not_tied": "Le nom de la visite ne peut être rattaché à aucun de ces oiseaux."
@@ -2469,6 +2469,17 @@
       "elapsed": "{seconds} s",
       "action_waiting": "En attente…",
       "action_scanning": "Recherche…"
+    },
+    "named_from": {
+      "owner": "Identifié par vous",
+      "frigate": "Identifié à partir de la sous-étiquette de Frigate",
+      "whole_view": "Identifié à partir de toute la vue de la caméra, ce qui peut ne pas correspondre à un seul oiseau",
+      "video": "Identifié par analyse vidéo, {frames} images",
+      "recording": "Identifié à partir de l’oiseau suivi par Frigate dans l’image de l’enregistrement",
+      "snapshot": "Identifié à partir de l’oiseau suivi par Frigate dans la capture",
+      "crop": "Identifié à partir d’un recadrage de l’oiseau",
+      "unknown": "La source de l’identification n’a pas été enregistrée",
+      "original": "Identification initiale"
     }
   },
   "events": {

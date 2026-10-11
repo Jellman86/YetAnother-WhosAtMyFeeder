@@ -18,6 +18,7 @@ from typing import Any, Optional
 
 import cv2
 import structlog
+from app.models.classification_evidence import ClassificationEvidence
 from PIL import Image
 
 from app.config import settings
@@ -2122,6 +2123,11 @@ class HighQualitySnapshotService:
                 video_model_id=str(model_spec.get("model_id") or "") or None,
                 video_model_sha256=decision.model_sha256,
                 persist_video_result=False,
+                input_evidence=ClassificationEvidence(
+                    source="hq_candidate_" + decision.source_mode,
+                    is_cropped=decision.source_mode != "full_frame",
+                    supporting_frames=decision.supporting_frame_count,
+                ),
             )
             outcome = "promoted" if applied else "recorded"
             self._classification_refinements[outcome] += 1

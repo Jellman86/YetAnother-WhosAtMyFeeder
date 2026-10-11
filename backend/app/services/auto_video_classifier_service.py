@@ -29,6 +29,7 @@ from app.services.error_diagnostics import error_diagnostics_history
 from app.services.frigate_missing_policy import apply_missing_policy
 from app.services.maintenance_coordinator import maintenance_coordinator
 from app.services.classification_input_provenance import (
+    classification_evidence,
     ClassificationInputProvenance,
     build_snapshot_classification_input_context,
     load_snapshot_classification_input,
@@ -3103,6 +3104,7 @@ class AutoVideoClassifierService:
             video_model_id=result.get("model_id"),
             video_model_sha256=result.get("model_sha256"),
             video_input_source=result.get("input_source"),
+            input_evidence=classification_evidence(result),
             video_diagnostics=video_diagnostics,
             manual_tagged=manual_tagged,
         )
@@ -3167,6 +3169,7 @@ class AutoVideoClassifierService:
             event_id=frigate_event,
             event_data=event_data,
             provenance=provenance,
+            snapshot_data=snapshot_data,
         )
         last_unavailable_error: str | None = None
         for attempt in range(1, SNAPSHOT_FALLBACK_MAX_ATTEMPTS + 1):

@@ -1,3 +1,4 @@
+import hashlib
 import asyncio
 from io import BytesIO
 from unittest.mock import AsyncMock, MagicMock
@@ -135,6 +136,7 @@ async def test_process_historical_event_passes_frigate_score_into_filtering(monk
     assert classifier.classify_async_background.await_args.kwargs["input_context"] == {
         "is_cropped": False,
         "event_id": "evt-frigate-score",
+        "source_image_sha256": hashlib.sha256(buffer.getvalue()).hexdigest(),
         "input_source": "frigate_snapshot",
         "frigate_box": [0.2, 0.3, 0.4, 0.5],
         "frigate_region": [0.1, 0.2, 0.8, 0.9],

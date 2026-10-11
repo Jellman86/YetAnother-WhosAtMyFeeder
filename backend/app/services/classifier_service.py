@@ -5902,6 +5902,9 @@ class ClassifierService:
                 diagnostics["crop_applied"] = True
                 diagnostics["crop_reason"] = str(crop_result.get("reason") or "frigate_box")
                 diagnostics["source_reason"] = "frigate_snapshot_crop_restored"
+                diagnostics["input_box"] = list(crop_result["box"])
+                diagnostics["input_frame_size"] = list(image.size)
+                diagnostics["source_same_frame"] = True
                 log.debug(
                     "Frigate snapshot crop restored",
                     crop_attempted=True,
@@ -5987,6 +5990,10 @@ class ClassifierService:
         if isinstance(crop_image, Image.Image):
             diagnostics["crop_applied"] = True
             diagnostics["crop_reason"] = crop_reason
+            if isinstance(crop_result.get("box"), (list, tuple)):
+                diagnostics["input_box"] = list(crop_result["box"])
+                diagnostics["input_frame_size"] = list(crop_source_image.size)
+                diagnostics["source_same_frame"] = crop_source_image is image
             log.debug(
                 "Bird crop applied",
                 crop_attempted=True,
@@ -6035,13 +6042,6 @@ class ClassifierService:
         input_context: ClassificationInputContext,
         crop_diagnostics: dict[str, Any],
     ) -> list[dict]:
-        has_explicit_source = bool(str(self._input_context_extra(input_context, "input_source") or "").strip())
-        if (
-            not has_explicit_source
-            and not bool(input_context.is_cropped)
-            and not bool(crop_diagnostics.get("crop_applied"))
-        ):
-            return results
         input_source, input_is_cropped = self._resolved_classification_input_provenance(
             input_context=input_context,
             crop_diagnostics=crop_diagnostics,
@@ -6051,6 +6051,16 @@ class ClassifierService:
                 continue
             result["input_source"] = input_source
             result["input_is_cropped"] = input_is_cropped
+            for key in ("input_box", "input_frame_size"):
+                if key in crop_diagnostics:
+                    result[key] = crop_diagnostics[key]
+            if not crop_diagnostics.get("crop_applied") or crop_diagnostics.get("source_same_frame"):
+                frame_time = self._input_context_extra(input_context, "recording_frame_time")
+                if frame_time is not None:
+                    result["input_frame_time"] = frame_time
+                frame_hash = self._input_context_extra(input_context, "source_image_sha256")
+                if frame_hash:
+                    result["input_frame_sha256"] = frame_hash
         return results
 
     def classify(

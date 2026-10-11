@@ -8,6 +8,8 @@ import re
 import time
 import unicodedata
 import structlog
+from pydantic import ValidationError
+from app.models.classification_evidence import ClassificationEvidence
 from app.utils.frigate import normalize_sub_label
 from app.utils.canonical_species import (
     hidden_species_exact_labels,
@@ -237,7 +239,8 @@ DETECTION_SELECT_COLUMNS = """d.id, d.detection_time, d.detection_index, d.score
                       d.frigate_status, d.frigate_missing_since, d.frigate_last_checked_at, d.frigate_last_error,
                       d.video_classification_input_source, d.video_classification_diagnostics,
                       d.species_id, d.model_artifact_id, d.model_output_index,
-                      f.archive_snapshot_state, f.archive_clip_state"""
+                      f.archive_snapshot_state, f.archive_clip_state, d.classification_input_json,
+                      (SELECT i.classification_input_json FROM detection_initial_classifications i WHERE i.detection_id = d.id)"""
 
 
 @dataclass
@@ -253,6 +256,8 @@ class Detection:
     is_hidden: bool = False
     is_favorite: bool = False
     archive_state: Optional[str] = None
+    classification_input: ClassificationEvidence | None = None
+    initial_classification_input: ClassificationEvidence | None = None
     frigate_score: Optional[float] = None
     sub_label: Optional[str] = None
     manual_tagged: bool = False
@@ -566,7 +571,24 @@ def _row_to_detection(row: aiosqlite.Row) -> Detection:
     if len(row) > 50 and d.is_favorite:
         d.archive_state = derive_archive_state(row[49], row[50])
 
+    if len(row) > 52:
+        d.classification_input = _parse_classification_input(row[51])
+        d.initial_classification_input = _parse_classification_input(row[52])
+
     return d
+
+
+def _parse_classification_input(value: object) -> ClassificationEvidence | None:
+    if not isinstance(value, (str, bytes)):
+        return None
+    try:
+        return ClassificationEvidence.model_validate_json(value)
+    except ValidationError:
+        return None
+
+
+def _classification_input_json(evidence: ClassificationEvidence | None) -> str | None:
+    return evidence.model_dump_json() if evidence else None
 
 
 ARCHIVE_STATES = ("pending", "durable", "unavailable", "failed")
@@ -1418,6 +1440,7 @@ class DetectionRepository:
         species_id: int | None = None,
         model_artifact_id: int | None = None,
         model_output_index: int | None = None,
+        classification_input: ClassificationEvidence | None = None,
     ) -> bool:
         """Update the canonical identity without racing a manual correction.
 
@@ -1439,6 +1462,7 @@ class DetectionRepository:
                 species_id = ?,
                 model_artifact_id = ?,
                 model_output_index = ?,
+                classification_input_json = ?,
                 audio_confirmed = ?,
                 audio_species = ?,
                 audio_score = ?,
@@ -1457,6 +1481,7 @@ class DetectionRepository:
                 species_id,
                 model_artifact_id,
                 model_output_index,
+                _classification_input_json(classification_input),
                 1 if audio_confirmed else 0,
                 audio_species,
                 audio_score,
@@ -1565,6 +1590,17 @@ class DetectionRepository:
         """
         if not await self._table_exists("classification_feedback"):
             return False
+
+        if frigate_event and await self._table_exists("detection_initial_classifications"):
+            async with self.db.execute(
+                """SELECT i.classification_input_json FROM detection_initial_classifications i
+                   JOIN detections d ON d.id = i.detection_id WHERE d.frigate_event = ?""",
+                (frigate_event,),
+            ) as cursor:
+                row = await cursor.fetchone()
+            evidence = _parse_classification_input(row[0]) if row else None
+            if evidence is not None and evidence.needs_review:
+                return False
 
         if not camera_name or not model_id or not predicted_label or not corrected_label:
             log.warning(
@@ -1950,8 +1986,8 @@ class DetectionRepository:
         try:
             await self.db.execute(
                 """
-                INSERT INTO detections (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, species_id, model_artifact_id, model_output_index, manual_tagged, frigate_status, frigate_missing_since, frigate_last_checked_at, frigate_last_error)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO detections (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, species_id, model_artifact_id, model_output_index, manual_tagged, frigate_status, frigate_missing_since, frigate_last_checked_at, frigate_last_error, classification_input_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     detection.detection_time,
@@ -1986,6 +2022,7 @@ class DetectionRepository:
                     None,
                     checked_at,
                     None,
+                    _classification_input_json(detection.classification_input),
                 ),
             )
             await self.db.commit()
@@ -2004,7 +2041,7 @@ class DetectionRepository:
         await self.db.execute(
             """
             UPDATE detections
-            SET detection_time = ?, detection_index = ?, score = ?, display_name = ?, category_name = ?, frigate_score = ?, sub_label = ?, audio_confirmed = ?, audio_species = ?, audio_score = ?, temperature = ?, weather_condition = ?, weather_cloud_cover = ?, weather_wind_speed = ?, weather_wind_direction = ?, weather_precipitation = ?, weather_rain = ?, weather_snowfall = ?, scientific_name = ?, common_name = ?, taxa_id = ?, manual_tagged = ?, frigate_status = 'present', frigate_missing_since = NULL, frigate_last_checked_at = ?, frigate_last_error = NULL
+            SET detection_time = ?, detection_index = ?, score = ?, display_name = ?, category_name = ?, frigate_score = ?, sub_label = ?, audio_confirmed = ?, audio_species = ?, audio_score = ?, temperature = ?, weather_condition = ?, weather_cloud_cover = ?, weather_wind_speed = ?, weather_wind_direction = ?, weather_precipitation = ?, weather_rain = ?, weather_snowfall = ?, scientific_name = ?, common_name = ?, taxa_id = ?, manual_tagged = ?, frigate_status = 'present', frigate_missing_since = NULL, frigate_last_checked_at = ?, frigate_last_error = NULL, classification_input_json = ?
             WHERE frigate_event = ?
         """,
             (
@@ -2031,6 +2068,7 @@ class DetectionRepository:
                 detection.taxa_id,
                 1 if detection.manual_tagged else 0,
                 checked_at,
+                _classification_input_json(detection.classification_input),
                 detection.frigate_event,
             ),
         )
@@ -2162,14 +2200,15 @@ class DetectionRepository:
             None,
             checked_at,
             None,
+            _classification_input_json(detection.classification_input),
         )
 
         # Attempt insert first.
         await self.db.execute(
             """
             INSERT OR IGNORE INTO detections
-            (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, species_id, model_artifact_id, model_output_index, manual_tagged, frigate_status, frigate_missing_since, frigate_last_checked_at, frigate_last_error)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, species_id, model_artifact_id, model_output_index, manual_tagged, frigate_status, frigate_missing_since, frigate_last_checked_at, frigate_last_error, classification_input_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
             insert_params,
         )
@@ -2242,6 +2281,7 @@ class DetectionRepository:
                 END,
                 model_artifact_id = :model_artifact_id,
                 model_output_index = :model_output_index,
+                classification_input_json = :classification_input_json,
                 manual_tagged = manual_tagged,
                 frigate_status = 'present',
                 frigate_missing_since = NULL,
@@ -2285,6 +2325,7 @@ class DetectionRepository:
                 "species_id": detection.species_id,
                 "model_artifact_id": detection.model_artifact_id,
                 "model_output_index": detection.model_output_index,
+                "classification_input_json": _classification_input_json(detection.classification_input),
                 "checked_at": checked_at,
                 "frigate_event": detection.frigate_event,
             },
@@ -2362,8 +2403,8 @@ class DetectionRepository:
         await self.db.execute(
             """
             INSERT OR IGNORE INTO detections
-            (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, species_id, model_artifact_id, model_output_index, manual_tagged, frigate_status, frigate_missing_since, frigate_last_checked_at, frigate_last_error)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, species_id, model_artifact_id, model_output_index, manual_tagged, frigate_status, frigate_missing_since, frigate_last_checked_at, frigate_last_error, classification_input_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
             (
                 detection.detection_time,
@@ -2398,6 +2439,7 @@ class DetectionRepository:
                 None,
                 checked_at,
                 None,
+                _classification_input_json(detection.classification_input),
             ),
         )
         changes = await self._last_statement_changes()
@@ -3063,7 +3105,7 @@ class DetectionRepository:
                     ELSE ?
                 END,
                 audio_confirmed = ?, audio_species = ?, audio_score = ?,
-                manual_tagged = 1
+                manual_tagged = 1, classification_input_json = '{"source":"owner_species_choice"}'
             WHERE frigate_event = ?
             """,
             (
@@ -3085,7 +3127,8 @@ class DetectionRepository:
     async def confirm_manual_species_tag(self, *, frigate_event: str) -> None:
         """Record a human confirmation without rewriting the stored species identity."""
         await self.db.execute(
-            "UPDATE detections SET manual_tagged = 1 WHERE frigate_event = ?",
+            """UPDATE detections SET manual_tagged = 1,
+               classification_input_json = '{"source":"owner_species_choice"}' WHERE frigate_event = ?""",
             (frigate_event,),
         )
         await self._record_owner_species_choice(frigate_event)

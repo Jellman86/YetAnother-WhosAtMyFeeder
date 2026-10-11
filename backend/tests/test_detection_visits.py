@@ -167,6 +167,38 @@ async def test_visit_api_and_expansion_return_complete_visible_membership(repo, 
 
 
 @pytest.mark.asyncio
+async def test_confident_whole_view_visit_still_needs_review(repo, monkeypatch):
+    import httpx
+    from unittest.mock import AsyncMock
+    from app.config import settings
+    from app.main import app
+    from app.routers import events
+
+    monkeypatch.setattr(settings.auth, "enabled", False)
+    monkeypatch.setattr(settings.public_access, "enabled", False)
+    monkeypatch.setattr(events, "batch_check_clips", AsyncMock(return_value={}))
+    event = await capture(repo, 0, 0)
+    await repo.db.execute(
+        """UPDATE detections SET score=0.99,
+        classification_input_json='{"source":"full_frame","is_cropped":false}' WHERE frigate_event=?""",
+        (event,),
+    )
+    await repo.db.commit()
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/api/visits?start_date=2033-10-03&end_date=2033-10-03")
+        assert response.status_code == 200, response.text
+        assert response.json()["visits"][0]["needs_review"] is True
+        await repo.db.execute(
+            """UPDATE detections SET manual_tagged=1,
+            classification_input_json='{"source":"owner_species_choice"}' WHERE frigate_event=?""",
+            (event,),
+        )
+        await repo.db.commit()
+        response = await client.get("/api/visits?start_date=2033-10-03&end_date=2033-10-03")
+        assert response.json()["visits"][0]["needs_review"] is False
+
+
+@pytest.mark.asyncio
 async def test_terminal_bounds_survive_null_and_invalid_updates(repo):
     event = await capture(repo, 0, 0)
     start = START.replace(tzinfo=timezone.utc).timestamp()

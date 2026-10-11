@@ -258,13 +258,22 @@ class BirdObservationRepository:
         """Resolve stored crop evidence against current parent identity in bounded batches."""
         resolved: dict[str, list[dict]] = {}
         unique_events = list(dict.fromkeys(frigate_events))
-        parent_fields = ("category_name", "scientific_name", "common_name", "display_name", "score", "manual_tagged")
+        parent_fields = (
+            "category_name",
+            "scientific_name",
+            "common_name",
+            "display_name",
+            "score",
+            "manual_tagged",
+            "classification_input_json",
+        )
         for start in range(0, len(unique_events), SUMMARY_EVENT_PAGE_SIZE):
             page = unique_events[start : start + SUMMARY_EVENT_PAGE_SIZE]
             placeholders = ",".join("?" for _ in page)
             parent_columns = ",".join(f"d.{field} AS parent_{field}" for field in parent_fields)
             async with self.db.execute(
-                f"""SELECT b.*, {parent_columns} FROM bird_observations b
+                f"""SELECT b.*, {parent_columns},
+                    (SELECT i.classification_input_json FROM detection_initial_classifications i WHERE i.detection_id=d.id) AS initial_input_json FROM bird_observations b
                     JOIN detections d ON d.frigate_event=b.frigate_event
                     WHERE b.frigate_event IN ({placeholders}) ORDER BY b.bird_index""",
                 page,
@@ -276,6 +285,18 @@ class BirdObservationRepository:
             for bird in rows:
                 event = bird["frigate_event"]
                 parents[event] = {field: bird.pop(f"parent_{field}") for field in parent_fields}
+                initial_input = bird.pop("initial_input_json")
+                if initial_input:
+                    try:
+                        parents[event]["initial_classification_input"] = json.loads(initial_input)
+                    except ValueError:
+                        pass
+                raw_input = parents[event].pop("classification_input_json")
+                if raw_input:
+                    try:
+                        parents[event]["classification_input"] = json.loads(raw_input)
+                    except ValueError:
+                        parents[event]["classification_input"] = {}
                 bird["crop_box"] = json.loads(bird.pop("crop_box_json"))
                 birds_by_event.setdefault(event, []).append(bird)
             labels = {
@@ -293,14 +314,15 @@ class BirdObservationRepository:
             aliases = await self._cached_species_aliases(sorted(labels))
             hints: dict[str, list[dict]] = {}
             async with self.db.execute(
-                f"""SELECT frigate_event, clip_variant, frame_index, crop_box_json FROM snapshot_candidates
-                    WHERE frigate_event IN ({placeholders}) AND source_mode='frigate_hint_crop'""",
+                f"""SELECT frigate_event, clip_variant, frame_index, crop_box_json, source_mode, content_sha256 FROM snapshot_candidates
+                    WHERE frigate_event IN ({placeholders}) AND source_mode IN ('frigate_hint_crop','full_frame')""",
                 page,
             ) as cursor:
-                for event, variant, frame, box in await cursor.fetchall():
+                for event, variant, frame, box, mode, content_hash in await cursor.fetchall():
                     hints.setdefault(event, []).append(
                         {
-                            "source_mode": "frigate_hint_crop",
+                            "source_mode": mode,
+                            "content_sha256": content_hash,
                             "clip_variant": variant,
                             "frame_index": frame,
                             "crop_box": json.loads(box) if box else None,

@@ -55,6 +55,7 @@ detections = Table(
     Column("model_artifact_id", Integer),
     Column("model_output_index", Integer),
     Column("notified_at", TIMESTAMP),
+    Column("classification_input_json", String),
     # Video classification columns
     Column("video_classification_score", Float),
     Column("video_classification_label", String),

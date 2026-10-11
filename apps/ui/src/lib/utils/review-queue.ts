@@ -36,7 +36,7 @@ export interface ReviewQueueOptions {
 function isOpen(detection: Detection, reviewThreshold: number | null): boolean {
     if (detection.is_hidden) return false;
     // A manual tag is the human decision this queue is asking for.
-    if (detection.manual_tagged) return false;
+    if (detection.manual_tagged && detection.classification_input?.is_cropped !== false) return false;
     return needsReview(detection, reviewThreshold);
 }
 

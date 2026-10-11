@@ -1,3 +1,4 @@
+import hashlib
 import asyncio
 import contextlib
 import os
@@ -440,6 +441,7 @@ async def test_process_event_falls_back_to_snapshot_when_clip_not_retained_for_b
     assert service._classifier.classify_async_background.await_args.kwargs["input_context"] == {
         "is_cropped": False,
         "event_id": "evt-batch-fallback",
+        "source_image_sha256": hashlib.sha256(b"snapshot-bytes").hexdigest(),
         "input_source": "frigate_snapshot",
         "frigate_box": [0.2, 0.3, 0.4, 0.5],
         "frigate_region": [0.1, 0.2, 0.8, 0.9],

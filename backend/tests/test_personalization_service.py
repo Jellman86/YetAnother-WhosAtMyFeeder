@@ -22,6 +22,16 @@ def _score_for(results: list[dict], label: str) -> float:
     raise AssertionError(f"Label {label!r} not found in reranked results")
 
 
+def test_whole_camera_view_scores_are_never_personalized():
+    now = datetime(2026, 10, 11, tzinfo=timezone.utc)
+    results = [
+        dict(_result("A", 0.6), input_source="full_frame", input_is_cropped=False),
+        dict(_result("B", 0.4), input_source="full_frame", input_is_cropped=False),
+    ]
+    feedback = [_feedback("A", "B", now) for _ in range(30)]
+    assert PersonalizationService().rerank_with_feedback(results=results, feedback_rows=feedback, now=now) == results
+
+
 def test_rerank_inactive_below_min_tags():
     now = datetime(2026, 2, 27, tzinfo=timezone.utc)
     service = PersonalizationService(min_feedback_tags=20)

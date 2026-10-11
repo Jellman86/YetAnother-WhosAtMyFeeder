@@ -437,7 +437,7 @@
                             <div id="counted-bird-{bird.id}" class="space-y-2 pb-3 pl-2 pr-1 pt-1 text-xs sm:pl-14 text-slate-600 dark:text-slate-300" data-counted-bird-details>
                                 <p>
                                     {#if bird.identity_source === 'visit'}
-                                        {$_('detection.counted_birds.visit_evidence', { values: { score: percent(bird.classifier_score) }, default: 'Named from the accepted visit identification and Frigate’s matching tracked box. This crop alone scored {score}.' })}
+                                        {$_('detection.counted_birds.visit_evidence', { values: { score: percent(bird.classifier_score) }, default: 'Named from the accepted visit identification and its matching input box. This crop alone scored {score}.' })}
                                     {:else if unknown && bird.classifier_label && !bird.manual_species}
                                         {$_('detection.counted_birds.best_guess', { values: { label: bird.classifier_label, score: percent(bird.classifier_score) }, default: 'Best guess {label} at {score}, too low to name.' })}
                                     {:else if bird.manual_species && bird.classifier_label && bird.classifier_label !== bird.species}

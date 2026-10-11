@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Owner detection details and review queues show which image or crop supplied an identification.
+  Original input evidence survives later corrections; whole-view results stay in review and do not
+  train personalization, and counted birds use a uniquely matched input frame and crop. Older
+  records remain explicitly unknown.
+
 - The isolated hardware gate prepares its own checksum-verified species catalogue, so catalogue-only
   models such as DINOv2 can be tested without labels.txt or access to the running application’s database.
 
