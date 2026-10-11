@@ -774,3 +774,11 @@ describe('LiveUpdateCoordinator reclassify fallback', () => {
         expect(calls.upsertRunning[0].message).toBe('Scanning historical events');
     });
 });
+
+it('keeps current and initial classification input in owner live updates', () => {
+    const current = { source: 'owner_species_choice' };
+    const original = { source: 'full_frame', is_cropped: false };
+    const result = toDetection({ frigate_event: 'source-change', classification_input: current, initial_classification_input: original });
+    expect(result.classification_input).toEqual(current);
+    expect(result.initial_classification_input).toEqual(original);
+});

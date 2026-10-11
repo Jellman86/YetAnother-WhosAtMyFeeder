@@ -2,6 +2,8 @@
 
 import math
 from typing import Any
+from pydantic import ValidationError
+from app.models.classification_evidence import ClassificationEvidence
 
 from app.utils.canonical_species import should_hide_species_label
 from app.utils.species_aliases import looks_like_scientific_name
@@ -67,8 +69,8 @@ def resolve_bird_identities(
 ) -> list[dict[str, Any]]:
     """Only the uniquely localized tracked bird may borrow the accepted visit identity.
 
-    A selected photograph does not identify a bird. Only Frigate's retained tracked
-    box anchors the association, and even an excluded bird makes overlap ambiguous.
+    A selected photograph does not identify a bird. The retained classifier input
+    anchors new associations, and even an excluded bird makes overlap ambiguous.
     """
     names = {_key(detection.get(k)) for k in ("category_name", "scientific_name", "common_name", "display_name")}
     names.discard("")
@@ -86,9 +88,30 @@ def resolve_bird_identities(
                 aliases[name] = parent_scientific
     parent_identity = aliases.get(_key(accepted), accepted)
     associated: set[int] = set()
-    for hint in candidates:
-        if hint.get("source_mode") != "frigate_hint_crop":
-            continue
+    raw_input = detection.get("classification_input")
+    if isinstance(raw_input, dict) and raw_input.get("source") == "owner_species_choice":
+        raw_input = detection.get("initial_classification_input") or {}
+    hints = [candidate for candidate in candidates if candidate.get("source_mode") == "frigate_hint_crop"]
+    if raw_input is not None:
+        # A later photograph or tracking hint cannot recreate what the classifier saw.
+        hints = []
+        try:
+            evidence = ClassificationEvidence.model_validate(raw_input)
+        except ValidationError:
+            evidence = None
+        if evidence is not None and evidence.needs_review:
+            parent_usable = False
+        if evidence is not None and evidence.box and evidence.frame_sha256:
+            frames = {
+                (candidate.get("clip_variant"), candidate.get("frame_index"))
+                for candidate in candidates
+                if candidate.get("source_mode") == "full_frame"
+                and candidate.get("content_sha256") == evidence.frame_sha256
+            }
+            if len(frames) == 1:
+                variant, index = next(iter(frames))
+                hints = [{"clip_variant": variant, "frame_index": index, "crop_box": evidence.box}]
+    for hint in hints:
         matches = [index for index, bird in enumerate(birds) if _overlap(bird, hint) >= 0.2]
         if len(matches) == 1 and _overlap(birds[matches[0]], hint) >= 0.8:
             associated.add(matches[0])
@@ -128,8 +151,8 @@ def resolve_bird_identities(
                     score = None if detection.get("manual_tagged") else accepted_score
         bird["identity_source"] = source
         bird["identity_score"] = score
-        # Points out the bird Frigate tracked, the one the visit's name is about, whatever that name's
-        # confidence. A pointer only: the name above stays this bird's own (#481).
+        # Points to the bird matched to the identification input. A pointer only:
+        # the name above stays this bird's own (#481).
         bird["tracked"] = index in associated
         effective_species = aliases.get(_key(bird.get("species")))
         if effective_species:

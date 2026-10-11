@@ -2066,7 +2066,7 @@
       "excluded_heading": "除外（集計外）",
       "choose_species": "一般名または学名で検索し、種を選択してください。",
       "identified_from_visit": "この訪問の識別結果",
-      "visit_evidence": "この訪問で採用された識別結果と、一致するFrigateの追跡枠に基づく名前です。この切り抜き単独のスコアは{score}でした。",
+      "visit_evidence": "確定した訪問の識別と、一致する入力範囲から命名。この切り抜き単体のスコアは {score}。",
       "being_named": "名前の対象の鳥",
       "being_named_tag": "名前の対象",
       "name_not_tied": "この訪問の名前は、これらの鳥のどれにも結び付けられません。"
@@ -2469,6 +2469,17 @@
       "elapsed": "{seconds} 秒",
       "action_waiting": "待機中…",
       "action_scanning": "検索中…"
+    },
+    "named_from": {
+      "owner": "あなたが識別",
+      "frigate": "Frigateのサブラベルから識別",
+      "whole_view": "カメラの全景から識別したため、特定の1羽を示していない可能性があります",
+      "video": "動画解析で識別、{frames}フレーム",
+      "recording": "録画フレーム内でFrigateが追跡した鳥から識別",
+      "snapshot": "スナップショット内でFrigateが追跡した鳥から識別",
+      "crop": "鳥の切り抜き画像から識別",
+      "unknown": "識別元は記録されていません",
+      "original": "最初の識別"
     }
   },
   "events": {

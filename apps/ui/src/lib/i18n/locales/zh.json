@@ -2066,7 +2066,7 @@
       "excluded_heading": "已排除，不计入",
       "choose_species": "按常用名或学名搜索，然后选择物种。",
       "identified_from_visit": "根据本次到访识别",
-      "visit_evidence": "名称来自本次到访已接受的识别结果和匹配的 Frigate 跟踪框。此裁剪图像单独的得分为 {score}。",
+      "visit_evidence": "名称来自已接受的来访识别及其匹配的输入区域。此裁剪图单独得分为 {score}。",
       "being_named": "被命名的鸟",
       "being_named_tag": "命名对象",
       "name_not_tied": "此次到访的名称无法对应到这些鸟中的任何一只。"
@@ -2469,6 +2469,17 @@
       "elapsed": "{seconds} 秒",
       "action_waiting": "等待中…",
       "action_scanning": "扫描中…"
+    },
+    "named_from": {
+      "owner": "由你识别",
+      "frigate": "根据 Frigate 的子标签识别",
+      "whole_view": "根据整个摄像机画面识别，因此可能不对应某一只鸟",
+      "video": "通过视频分析识别，共 {frames} 帧",
+      "recording": "根据录像帧中 Frigate 跟踪的鸟识别",
+      "snapshot": "根据快照中 Frigate 跟踪的鸟识别",
+      "crop": "根据鸟类裁剪图像识别",
+      "unknown": "未记录识别来源",
+      "original": "最初识别"
     }
   },
   "events": {

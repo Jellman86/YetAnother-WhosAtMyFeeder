@@ -1,3 +1,4 @@
+import hashlib
 from datetime import datetime, timezone
 import io
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -217,6 +218,7 @@ async def test_reclassify_completed_snapshot_does_not_assume_crop_query_was_appl
             "is_cropped": False,
             "event_id": event_id,
             "input_source": "frigate_snapshot",
+            "source_image_sha256": hashlib.sha256(_image_bytes()).hexdigest(),
             "frigate_box": [0.2, 0.3, 0.4, 0.5],
             "frigate_region": [0.1, 0.2, 0.8, 0.9],
             "restore_frigate_snapshot_crop": True,

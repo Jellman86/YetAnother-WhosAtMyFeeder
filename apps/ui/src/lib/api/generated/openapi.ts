@@ -475,6 +475,15 @@ export interface components {
     count: number;
     percentage: number;
 };
+    ClassificationEvidence: {
+    box?: Array<unknown> | null;
+    frame_sha256?: string | null;
+    frame_size?: Array<unknown> | null;
+    frame_time?: number | null;
+    is_cropped?: boolean | null;
+    source: string;
+    supporting_frames?: number | null;
+};
     ClassificationInputContext: {
     is_cropped?: boolean;
 };
@@ -644,6 +653,7 @@ export interface components {
     audio_species?: string | null;
     camera_name: string;
     category_name: string;
+    classification_input?: components['schemas']['ClassificationEvidence'] | null;
     common_name?: string | null;
     detection_index: number;
     detection_time: string | null;
@@ -655,6 +665,7 @@ export interface components {
     frigate_score?: number | null;
     frigate_status?: string;
     id?: number | null;
+    initial_classification_input?: components['schemas']['ClassificationEvidence'] | null;
     is_favorite?: boolean;
     is_hidden?: boolean;
     manual_tagged?: boolean;
@@ -699,6 +710,7 @@ export interface components {
     bird_summary?: components['schemas']['DetectionBirdSummary'] | null;
     camera_name: string;
     category_name: string;
+    classification_input?: components['schemas']['ClassificationEvidence'] | null;
     detection_index: number;
     detection_time: string | null;
     display_name: string;
@@ -709,6 +721,7 @@ export interface components {
     id?: number | null;
     is_favorite?: boolean;
     is_hidden?: boolean;
+    manual_tagged?: boolean;
     observation_latitude?: number | null;
     observation_location_source?: string | null;
     observation_longitude?: number | null;
@@ -727,6 +740,7 @@ export interface components {
     bird_summary?: components['schemas']['DetectionBirdSummary'] | null;
     camera_name: string;
     category_name: string;
+    classification_input?: components['schemas']['ClassificationEvidence'] | null;
     common_name?: string | null;
     detection_index: number;
     detection_time: string | null;
@@ -741,6 +755,7 @@ export interface components {
     has_frigate_event?: boolean;
     has_snapshot?: boolean;
     id?: number | null;
+    initial_classification_input?: components['schemas']['ClassificationEvidence'] | null;
     is_favorite?: boolean;
     is_hidden?: boolean;
     manual_tagged?: boolean;

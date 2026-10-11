@@ -1,3 +1,4 @@
+from app.models.classification_evidence import ClassificationEvidence
 from pydantic import BaseModel, field_serializer, field_validator
 from datetime import datetime
 from app.utils.api_datetime import serialize_api_datetime
@@ -53,6 +54,8 @@ class Detection(APIModel):
     frigate_score: float | None = None
     sub_label: str | None = None
     manual_tagged: bool = False
+    classification_input: ClassificationEvidence | None = None
+    initial_classification_input: ClassificationEvidence | None = None
     # Audio correlation fields
     audio_confirmed: bool = False
     audio_species: str | None = None
@@ -122,6 +125,8 @@ class DetectionResponse(Detection):
 
 
 class DetectionListItemResponse(APIModel):
+    classification_input: ClassificationEvidence | None = None
+    manual_tagged: bool = False
     id: int | None = None
     detection_time: datetime
     detection_index: int

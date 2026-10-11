@@ -1,4 +1,5 @@
 <script lang="ts">
+    import ClassificationSource from './ClassificationSource.svelte';
     import TaxonomyLineage from './TaxonomyLineage.svelte';
     import Map from './Map.svelte';
     import {
@@ -2889,6 +2890,15 @@
                         {/if}
                         </p>
                         <h3 class="font-display text-2xl font-bold text-slate-900 dark:text-white">{primaryName}</h3>
+                        {#if hasOwnerDetectionActions}
+                            <ClassificationSource evidence={detection.classification_input} />
+                            {#if detection.initial_classification_input && JSON.stringify(detection.initial_classification_input) !== JSON.stringify(detection.classification_input)}
+                                <details class="group/original mt-1 text-xs text-slate-500 dark:text-slate-400" data-initial-classification-source>
+                                    <summary class="cursor-pointer min-h-11 flex items-center gap-2 rounded focus-visible:ring-2 focus-visible:ring-brand-500"><svg class="h-3 w-3 group-open/original:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>{$_('detection.named_from.original', { default: 'Original identification' })}</summary>
+                                    <ClassificationSource evidence={detection.initial_classification_input} />
+                                </details>
+                            {/if}
+                        {/if}
                         {#if subName && subName !== primaryName}
                             <p class="text-xs italic text-slate-500 dark:text-slate-400">{subName}</p>
                         {/if}

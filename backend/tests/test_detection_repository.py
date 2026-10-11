@@ -55,7 +55,8 @@ async def _create_detections_table(db: aiosqlite.Connection) -> None:
             frigate_status TEXT DEFAULT 'present',
             frigate_missing_since TIMESTAMP,
             frigate_last_checked_at TIMESTAMP,
-            frigate_last_error TEXT
+            frigate_last_error TEXT,
+            classification_input_json TEXT
         )
     """)
     await db.execute("""
@@ -74,6 +75,10 @@ async def _create_detections_table(db: aiosqlite.Connection) -> None:
             FOREIGN KEY (detection_id) REFERENCES detections(id) ON DELETE CASCADE
         )
     """)
+
+    await db.execute(
+        "CREATE TABLE detection_initial_classifications (detection_id INTEGER PRIMARY KEY, classification_input_json TEXT)"
+    )
 
 
 async def _create_taxonomy_tables(db: aiosqlite.Connection) -> None:

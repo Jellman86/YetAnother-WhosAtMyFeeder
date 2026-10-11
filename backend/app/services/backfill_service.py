@@ -318,6 +318,7 @@ class BackfillService:
                     event_id=frigate_event,
                     event_data=event,
                     provenance=snapshot_provenance,
+                    snapshot_data=snapshot_data,
                 ),
                 queue_timeout_seconds=BACKFILL_BACKGROUND_IMAGE_ADMISSION_TIMEOUT_SECONDS,
             )

@@ -1,8 +1,10 @@
 import structlog
+from app.services.classification_input_provenance import classification_evidence
 import os
 import asyncio
 import math
 from app.config import settings
+from app.models.classification_evidence import ClassificationEvidence
 from app.repositories.detection_repository import INITIAL_LABEL_SOURCE_FRIGATE_SUBLABEL, Detection, DetectionRepository
 from app.services.classifier_service import ClassifierService
 from app.services.species_catalog_resolver import ShadowResolution, species_catalog_resolver
@@ -514,6 +516,7 @@ class DetectionService:
 
             detection = Detection(
                 detection_time=timestamp,
+                classification_input=classification_evidence(classification),
                 detection_index=classification["index"],
                 species_id=shadow.species_id,
                 model_artifact_id=shadow.model_artifact_id,
@@ -598,6 +601,14 @@ class DetectionService:
                             "frigate_score": frigate_score,
                             "sub_label": sub_label,
                             "manual_tagged": persisted.manual_tagged if persisted else detection.manual_tagged,
+                            **{
+                                field: value.model_dump(mode="json")
+                                if isinstance(
+                                    value := getattr(persisted or detection, field, None), ClassificationEvidence
+                                )
+                                else None
+                                for field in ("classification_input", "initial_classification_input")
+                            },
                             "audio_confirmed": audio_confirmed,
                             "audio_species": audio_species,
                             "audio_score": audio_score,
@@ -654,6 +665,7 @@ class DetectionService:
         video_diagnostics: dict | None = None,
         persist_video_result: bool = True,
         video_model_sha256: str | None = None,
+        input_evidence: ClassificationEvidence | None = None,
     ):
         """
         Process a trustworthy asynchronous classification result.
@@ -889,6 +901,12 @@ class DetectionService:
                     audio_species=audio_species,
                     audio_score=audio_score,
                     manual_override=manual_tagged,
+                    classification_input=input_evidence
+                    or classification_evidence(
+                        {
+                            "input_source": video_input_source,
+                        }
+                    ),
                     species_id=shadow.species_id,
                     model_artifact_id=shadow.model_artifact_id,
                     model_output_index=shadow.model_output_index,
@@ -925,6 +943,12 @@ class DetectionService:
                                 "is_hidden": updated.is_hidden,
                                 "is_favorite": updated.is_favorite,
                                 "manual_tagged": updated.manual_tagged,
+                                **{
+                                    field: value.model_dump(mode="json")
+                                    if isinstance(value := getattr(updated, field, None), ClassificationEvidence)
+                                    else None
+                                    for field in ("classification_input", "initial_classification_input")
+                                },
                                 "audio_confirmed": updated.audio_confirmed,
                                 "audio_species": updated.audio_species,
                                 "audio_score": updated.audio_score,

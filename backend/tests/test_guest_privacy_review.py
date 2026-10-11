@@ -453,3 +453,26 @@ async def test_public_auth_status_advertises_refresh_budget(private_history, mon
     assert response.status_code == 200, response.text
     assert response.json()["public_access_rate_limit_per_minute"] == limit
     assert "password_hash" not in response.text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("fields", ["list", "detail", "classification_input,initial_classification_input"])
+async def test_classifier_input_coordinates_are_owner_only(private_history, fields):
+    _, history_db = private_history
+    async with history_db() as db:
+        await db.execute(
+            "UPDATE detections SET classification_input_json=? WHERE frigate_event='visible'",
+            ('{"source":"snapshot_model_crop","is_cropped":true,"box":[10,20,30,40],"frame_size":[100,100]}',),
+        )
+        await db.commit()
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://fixture") as client:
+        guest = await client.get("/api/events", params={"fields": fields})
+        owner = await client.get(
+            "/api/events",
+            params={"fields": fields},
+            headers={"Authorization": f"Bearer {create_access_token('owner')}"},
+        )
+    assert guest.status_code == owner.status_code == 200
+    assert not any(row.get("classification_input") or row.get("initial_classification_input") for row in guest.json())
+    visible = next(row for row in owner.json() if row["frigate_event"] == "visible")
+    assert visible["classification_input"]["box"] == [10, 20, 30, 40]

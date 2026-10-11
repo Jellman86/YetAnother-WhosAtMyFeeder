@@ -374,6 +374,14 @@ Reverse proxies must permit a 256 MiB request envelope on the exact upload route
 multipart overhead and should stream the request body. The backend remains authoritative for the
 per-file limits above.
 
+Owner event responses expose nullable `classification_input` and `initial_classification_input`.
+Each records `source`, optional `is_cropped`, pixel LTRB `box`, `frame_size` (width, height),
+`frame_time` (recording timestamp), `frame_sha256` and `supporting_frames` when known. The current
+input follows an accepted replacement; the initial input is immutable. A photograph choice never
+rewrites either. Old records remain null. `fields=list` includes current input and `manual_tagged`;
+guest projections exclude input evidence. Whole-view names remain reviewable irrespective of score
+and are excluded from personalization feedback and reranking.
+
 ### Media Proxy and Share Links
 
 - `GET /api/frigate/{event_id}/snapshot.jpg`
@@ -397,8 +405,9 @@ per-file limits above.
     A successful contextual retry references its own candidate with `source_mode: model_observation`;
     its `crop_box` describes the classified image, while the bird's box remains the localized detector box.
     An uncertain bird can use the accepted visit identification
-    only when its own species guess agrees and the retained Frigate tracked box uniquely matches
-    it in the same frame. Known common/scientific aliases share one effective species count;
+    only when its own species guess agrees and the persisted classifier box uniquely matches
+    it in the exact retained source frame. Known whole-view input cannot supply this association.
+    Legacy records without input evidence retain their existing Frigate-hint association. Known common/scientific aliases share one effective species count;
     ambiguous names remain unresolved. Reads do not rewrite stored crop evidence.
     The eight classified photo crops per frame do not limit the number of counted
     detector boxes. In Intensive scan mode, large high-resolution frames are also scanned in overlapping tiles so distant

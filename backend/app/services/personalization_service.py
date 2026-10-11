@@ -7,6 +7,7 @@ from typing import Optional
 import structlog
 
 from app.database import get_db
+from app.services.classification_input_provenance import classification_evidence
 
 log = structlog.get_logger()
 
@@ -37,6 +38,9 @@ class PersonalizationService:
         now: Optional[datetime] = None,
     ) -> list[dict]:
         if not camera_name or not model_id or not results:
+            return [dict(row) for row in results]
+
+        if any((evidence := classification_evidence(row)) is not None and evidence.needs_review for row in results):
             return [dict(row) for row in results]
 
         labels = [str(row.get("label", "")).strip() for row in results if isinstance(row, dict)]
@@ -75,6 +79,8 @@ class PersonalizationService:
         now: Optional[datetime] = None,
     ) -> list[dict]:
         reranked = [dict(row) for row in results if isinstance(row, dict)]
+        if any((evidence := classification_evidence(row)) is not None and evidence.needs_review for row in reranked):
+            return reranked
         if len(reranked) < 2:
             return reranked
 

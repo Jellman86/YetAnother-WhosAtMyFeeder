@@ -1,3 +1,4 @@
+import hashlib
 import pytest
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -61,6 +62,7 @@ async def test_process_mqtt_message_valid_bird():
         assert classifier.classify_async_live.await_args.kwargs["input_context"] == {
             "is_cropped": True,
             "event_id": "123",
+            "source_image_sha256": hashlib.sha256(b"fakeimage").hexdigest(),
             "input_source": "frigate_snapshot_cropped",
         }
         assert classifier.classify_async_live.await_args.kwargs["queue_timeout_seconds"] == pytest.approx(6.0)
@@ -1747,6 +1749,7 @@ async def test_classify_snapshot_falls_back_to_cached_snapshot_before_drop():
     assert classifier.classify_async_live.await_args.kwargs["input_context"] == {
         "is_cropped": True,
         "event_id": "evt-fallback-cache",
+        "source_image_sha256": hashlib.sha256(b"cached-bytes").hexdigest(),
         "input_source": "high_quality_bird_crop",
     }
     mock_cache.get_snapshot.assert_awaited_once_with("evt-fallback-cache")
@@ -1788,6 +1791,7 @@ async def test_classify_snapshot_does_not_claim_crop_for_ended_frigate_event():
     assert classifier.classify_async_live.await_args.kwargs["input_context"] == {
         "is_cropped": False,
         "event_id": "evt-ended",
+        "source_image_sha256": hashlib.sha256(b"saved-snapshot").hexdigest(),
         "input_source": "frigate_snapshot",
         "frigate_box": [0.2, 0.3, 0.4, 0.5],
         "frigate_region": [0.1, 0.2, 0.8, 0.9],

@@ -2371,7 +2371,15 @@ async def test_classifier_service_recovers_from_invalid_openvino_gpu_output(mock
         ):
             results = service.classify(Image.new("RGB", (32, 32), color="white"))
 
-        assert results == [{"label": "Unknown Bird", "score": 0.12, "index": 0}]
+        assert results == [
+            {
+                "label": "Unknown Bird",
+                "score": 0.12,
+                "index": 0,
+                "input_source": "full_frame",
+                "input_is_cropped": False,
+            }
+        ]
         assert service._models["bird"] is recovered
         assert service._inference_backend == "openvino"
         assert service._active_inference_provider == "intel_cpu"
@@ -2449,7 +2457,9 @@ async def test_classifier_service_retries_gpu_once_before_cpu_fallback(mock_tfli
         ):
             results = service.classify(Image.new("RGB", (32, 32), color="white"))
 
-        assert results == [{"label": "Robin", "score": 0.77, "index": 0}]
+        assert results == [
+            {"label": "Robin", "score": 0.77, "index": 0, "input_source": "full_frame", "input_is_cropped": False}
+        ]
         assert service._models["bird"] is recovered_gpu
         assert service._inference_backend == "openvino"
         assert service._active_inference_provider == "intel_gpu"
@@ -2502,7 +2512,9 @@ async def test_classifier_service_auto_restores_gpu_after_cpu_fallback_cooldown(
         finally:
             settings.classification.inference_provider = original_provider
 
-        assert results == [{"label": "GPU Bird", "score": 0.9, "index": 0}]
+        assert results == [
+            {"label": "GPU Bird", "score": 0.9, "index": 0, "input_source": "full_frame", "input_is_cropped": False}
+        ]
         assert service._models["bird"] is gpu_model
         assert service._inference_backend == "openvino"
         assert service._active_inference_provider == "intel_gpu"
@@ -2555,7 +2567,9 @@ async def test_classifier_service_auto_restore_gpu_skips_artifacts_that_disallow
         finally:
             settings.classification.inference_provider = original_provider
 
-        assert results == [{"label": "CPU Bird", "score": 0.2, "index": 0}]
+        assert results == [
+            {"label": "CPU Bird", "score": 0.2, "index": 0, "input_source": "full_frame", "input_is_cropped": False}
+        ]
         assert service._models["bird"] is cpu_model
         assert service._active_inference_provider == "intel_cpu"
         assert service._runtime_gpu_restore_attempts == 0
@@ -3812,7 +3826,9 @@ async def test_classifier_service_restores_gpu_after_live_lease_fallback_from_on
     finally:
         settings.classification.inference_provider = original_provider
 
-    assert results == [{"label": "GPU Bird", "score": 0.9, "index": 0}]
+    assert results == [
+        {"label": "GPU Bird", "score": 0.9, "index": 0, "input_source": "full_frame", "input_is_cropped": False}
+    ]
     assert service._models["bird"] is gpu_model
     assert service._inference_backend == "openvino"
     assert service._active_inference_provider == "intel_gpu"
@@ -5227,6 +5243,8 @@ async def test_classifier_service_restores_completed_frigate_crop_when_model_cro
         assert results[0]["label"] == "Robin"
         assert results[0]["input_source"] == "snapshot_frigate_hint_crop"
         assert results[0]["input_is_cropped"] is True
+        assert results[0]["input_frame_size"] == [800, 600]
+        assert results[0]["input_box"] == [150, 75, 450, 375]
         assert bird_model.seen_images[0].size == (300, 300)
         spec_resolver.assert_not_called()
         await service.shutdown()

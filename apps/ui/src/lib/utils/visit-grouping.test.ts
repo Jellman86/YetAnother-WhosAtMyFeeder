@@ -194,3 +194,11 @@ describe('groupDetectionsIntoVisits', () => {
         expect(input.map((item) => item.frigate_event)).toEqual(snapshot);
     });
 });
+
+
+it('keeps a confident whole-view identification in Needs your call until an owner names it', () => {
+    const frame = detection({ frigate_event: 'whole-view', score: 0.99,
+        classification_input: { source: 'full_frame', is_cropped: false } });
+    expect(needsReview(frame, 0.6)).toBe(true);
+    expect(needsReview({ ...frame, classification_input: { source: 'owner_species_choice' } }, 0.6)).toBe(false);
+});

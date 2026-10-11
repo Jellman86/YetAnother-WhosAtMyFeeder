@@ -1,3 +1,4 @@
+from app.models.classification_evidence import ClassificationEvidence
 import asyncio
 import hashlib
 from contextlib import asynccontextmanager
@@ -1548,6 +1549,9 @@ async def test_hq_consensus_uses_canonical_detection_update_path(monkeypatch):
             # The candidates carry no producing checksum, so no provenance is borrowed.
             "video_model_sha256": None,
             "persist_video_result": False,
+            "input_evidence": ClassificationEvidence(
+                source="hq_candidate_frigate_hint_crop", is_cropped=True, supporting_frames=2
+            ),
         }
     ]
     assert service.get_status()["classification_refinements"] == {"promoted": 1}

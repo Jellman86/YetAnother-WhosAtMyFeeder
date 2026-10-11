@@ -3046,6 +3046,117 @@
         "title": "CameraStats",
         "type": "object"
       },
+      "ClassificationEvidence": {
+        "additionalProperties": false,
+        "properties": {
+          "box": {
+            "anyOf": [
+              {
+                "maxItems": 4,
+                "minItems": 4,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Box"
+          },
+          "frame_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Frame Sha256"
+          },
+          "frame_size": {
+            "anyOf": [
+              {
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "integer"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Frame Size"
+          },
+          "frame_time": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Frame Time"
+          },
+          "is_cropped": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Cropped"
+          },
+          "source": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Source",
+            "type": "string"
+          },
+          "supporting_frames": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supporting Frames"
+          }
+        },
+        "required": [
+          "source"
+        ],
+        "title": "ClassificationEvidence",
+        "type": "object"
+      },
       "ClassificationInputContext": {
         "additionalProperties": true,
         "properties": {
@@ -4283,6 +4394,16 @@
             "title": "Category Name",
             "type": "string"
           },
+          "classification_input": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClassificationEvidence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "common_name": {
             "anyOf": [
               {
@@ -4376,6 +4497,16 @@
               }
             ],
             "title": "Id"
+          },
+          "initial_classification_input": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClassificationEvidence"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "is_favorite": {
             "default": false,
@@ -4766,6 +4897,16 @@
             "title": "Category Name",
             "type": "string"
           },
+          "classification_input": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClassificationEvidence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "detection_index": {
             "title": "Detection Index",
             "type": "integer"
@@ -4823,6 +4964,11 @@
           "is_hidden": {
             "default": false,
             "title": "Is Hidden",
+            "type": "boolean"
+          },
+          "manual_tagged": {
+            "default": false,
+            "title": "Manual Tagged",
             "type": "boolean"
           },
           "observation_latitude": {
@@ -4985,6 +5131,16 @@
             "title": "Category Name",
             "type": "string"
           },
+          "classification_input": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClassificationEvidence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "common_name": {
             "anyOf": [
               {
@@ -5093,6 +5249,16 @@
               }
             ],
             "title": "Id"
+          },
+          "initial_classification_input": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClassificationEvidence"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "is_favorite": {
             "default": false,

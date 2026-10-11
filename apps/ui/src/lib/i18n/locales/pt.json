@@ -2076,7 +2076,7 @@
       "excluded_heading": "Excluídas, não contadas",
       "choose_species": "Pesquise pelo nome comum ou científico e escolha uma espécie.",
       "identified_from_visit": "Identificada a partir desta visita",
-      "visit_evidence": "O nome vem da identificação aceita da visita e da caixa correspondente do Frigate. Este recorte, por si só, obteve {score}.",
+      "visit_evidence": "Nome baseado na identificação aceite da visita e na área de entrada correspondente. Este recorte sozinho obteve {score}.",
       "being_named": "A ave que está sendo nomeada",
       "being_named_tag": "Sendo nomeada",
       "name_not_tied": "O nome da visita não pode ser associado a uma destas aves."
@@ -2479,6 +2479,17 @@
       "elapsed": "{seconds} s",
       "action_waiting": "Aguardando…",
       "action_scanning": "Buscando…"
+    },
+    "named_from": {
+      "owner": "Identificado por si",
+      "frigate": "Identificado pela subetiqueta do Frigate",
+      "whole_view": "Identificado a partir de toda a imagem da câmara, pelo que pode não corresponder a uma só ave",
+      "video": "Identificado por análise de vídeo, {frames} fotogramas",
+      "recording": "Identificado a partir da ave seguida pelo Frigate no fotograma da gravação",
+      "snapshot": "Identificado a partir da ave seguida pelo Frigate na captura",
+      "crop": "Identificado a partir de um recorte da ave",
+      "unknown": "A origem da identificação não foi registada",
+      "original": "Identificação original"
     }
   },
   "events": {

@@ -4,6 +4,7 @@ import pytest
 
 from app.database import get_db
 from app.repositories.detection_repository import Detection, DetectionRepository
+from app.models.classification_evidence import ClassificationEvidence
 
 
 def detection(event: str, label: str, score: float = 0.8) -> Detection:
@@ -17,6 +18,47 @@ def detection(event: str, label: str, score: float = 0.8) -> Detection:
         frigate_event=event,
         camera_name="birdcam",
     )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("insert_method", ["create", "upsert_if_higher_score", "insert_if_not_exists"])
+async def test_initial_input_evidence_is_atomic_and_immutable(insert_method):
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        event = f"input-evidence-{insert_method}"
+        first = detection(event, "Dryobates pubescens")
+        first.classification_input = ClassificationEvidence(source="frigate_snapshot_cropped", is_cropped=True)
+        await getattr(repo, insert_method)(first)
+        later = detection(event, "Baeolophus bicolor", 0.99)
+        later.classification_input = ClassificationEvidence(source="full_frame", is_cropped=False)
+        await repo.upsert_if_higher_score(later)
+        current = await repo.get_by_frigate_event(event)
+        assert current.classification_input == later.classification_input
+        assert current.initial_classification_input == first.classification_input
+        await repo.delete_by_frigate_event(event)
+        await repo.create(detection(event, "Cardinalis cardinalis"))
+        assert (await repo.get_by_frigate_event(event)).initial_classification_input is None
+
+
+@pytest.mark.asyncio
+async def test_whole_view_evidence_never_becomes_personalization_feedback_after_an_owner_choice():
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        first = detection("whole-view-feedback", "Dryobates pubescens")
+        first.classification_input = ClassificationEvidence(source="full_frame", is_cropped=False)
+        await repo.create(first)
+        await repo.confirm_manual_species_tag(frigate_event=first.frigate_event)
+        current = await repo.get_by_frigate_event(first.frigate_event)
+        assert current.classification_input.source == "owner_species_choice"
+        assert current.initial_classification_input.needs_review
+        assert not await repo.insert_classification_feedback(
+            frigate_event=first.frigate_event,
+            camera_name="birdcam",
+            model_id="test-model",
+            predicted_label="Dryobates pubescens",
+            corrected_label="Baeolophus bicolor",
+            predicted_score=0.8,
+        )
 
 
 @pytest.mark.asyncio

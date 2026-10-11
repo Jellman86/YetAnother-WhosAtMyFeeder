@@ -113,6 +113,7 @@ def _assert_db_path_writable(db_path: str) -> None:
 
 REQUIRED_COLUMNS = {
     "detections": {
+        "classification_input_json",
         "video_classification_error",
         "video_classification_provider",
         "video_classification_backend",
@@ -138,6 +139,7 @@ REQUIRED_COLUMNS = {
         "thumbnail_url",
     },
     "detection_initial_classifications": {
+        "classification_input_json",
         "detection_id",
         "category_name",
         "display_name",
