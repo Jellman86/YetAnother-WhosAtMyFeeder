@@ -100,7 +100,7 @@ def decide_prediction(
         raise ValueError("Predictions must be ordered by decreasing probability")
     if sum(score for _, score in predictions) > 1.00001:
         raise ValueError("Prediction probabilities exceed one")
-    if any(taxon.human and score >= policy.human_threshold for taxon, score in predictions):
+    if predictions[0][0].human or any(taxon.human and score >= policy.human_threshold for taxon, score in predictions):
         return GardenDecision("human_rejected")
     taxon, score = predictions[0]
     if taxon.bird:

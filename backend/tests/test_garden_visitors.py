@@ -51,6 +51,13 @@ def test_human_winner_or_significant_runner_up_rejects_without_animal_substituti
         assert result.taxon is None
 
 
+def test_human_winner_is_rejected_even_when_below_the_runner_up_threshold():
+    policy = GardenPolicy(min_confidence=0.01, human_threshold=0.1)
+    result = decide_prediction([(HUMAN, 0.05), (FOX, 0.04)], policy, country="GBR", taxonomy=[], geofence={})
+    assert result.reason == "human_rejected"
+    assert result.taxon is None
+
+
 def test_bird_blank_and_low_confidence_are_not_garden_visits():
     assert decide([(BIRD, 0.95)]).reason == "bird_excluded"
     assert decide([(BLANK, 0.95)]).reason == "non_animal"

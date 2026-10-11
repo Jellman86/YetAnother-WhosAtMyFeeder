@@ -83,7 +83,7 @@ prediction never claims to have scored the animal box. The crop model's fallback
 without a box carries an additional review reason.
 
 Frigate `person`/`human` inputs bypass classification. In scans, any detected
-person rejects the entire input. A significant human classifier result also
+person rejects the entire input. A human top result or significant human runner-up also
 rejects it, including earlier animal candidates from that clip. Rejected people
 leave only aggregate counters, without identity, frame, box or media in the
 report. These checks depend on model recognition and do not guarantee that a
