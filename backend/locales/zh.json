@@ -31,7 +31,8 @@
       "preview_not_found": "Clip timeline previews are not available",
       "preview_generation_failed": "Failed to generate clip timeline previews",
       "preview_disabled": "Clip timeline previews are disabled because media cache is disabled",
-      "download_forbidden": "公共用户不允许下载视频片段"
+      "download_forbidden": "公共用户不允许下载视频片段",
+      "access_check_unavailable": "无法检查媒体访问权限。请重试。"
     },
     "events": {
       "snapshot_fetch_failed": "从 Frigate 获取快照失败",
@@ -50,6 +51,7 @@
     "ai": {
       "provider_not_configured": "AI 提供商未配置",
       "api_key_missing": "{provider} 的 API 密钥未配置",
+      "context_changed": "分析或对话已更改。请刷新后重试。",
       "analysis_failed": "图像分析失败",
       "image_fetch_failed": "从 Frigate 获取图像失败",
       "gemini_not_configured": "Gemini API 密钥未配置",

@@ -8,11 +8,18 @@ import sys
 
 
 BACKEND = Path(__file__).resolve().parents[1]
+if str(BACKEND) not in sys.path:
+    sys.path.insert(0, str(BACKEND))
+from app.utils.python_subprocess import python_subprocess_launch  # noqa: E402
+
 TEST_TIMEOUT_SECONDS = 480
 
 
 def run(command: list[str], timeout: int) -> int:
-    process = subprocess.Popen(command, cwd=BACKEND, start_new_session=os.name == "posix")
+    executable, environment = python_subprocess_launch()
+    if command[0] == sys.executable:
+        command = [executable, *command[1:]]
+    process = subprocess.Popen(command, cwd=BACKEND, env=environment, start_new_session=os.name == "posix")
     try:
         return process.wait(timeout=timeout)
     except subprocess.TimeoutExpired:

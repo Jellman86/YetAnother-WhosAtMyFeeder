@@ -48,15 +48,39 @@ export class DetectionsStore {
     detections = $state<Detection[]>([]);
     totalToday = $state(0);
     isLoading = $state(false);
+    /**
+     * Whether the recent history has been read for this access: until it has, an empty list
+     * means "not known yet", not "nothing there", and screens must not claim a quiet day.
+     */
+    historyStatus = $state<'pending' | 'ready' | 'failed'>('pending');
     connected = $state(false);
     progressMap = $state<Map<string, ReclassificationProgress>>(new Map());
+    /**
+     * The media version each event was given when its latest run settled, kept apart from
+     * progressMap so an open record can reread its saved photograph once the run settles, without
+     * reacting to every progress tick, and even after its overlay was dismissed or pruned.
+     */
+    settledReclassifications = $state<Map<string, number>>(new Map());
     mutationVersion = $state(0);
+    publicHistoryVersion = $state(0);
     patchMap = $state<Map<string, Partial<Detection>>>(new Map());
 
     private MAX_ITEMS = 50;
     private MAX_RECLASSIFICATION_FRAMES = 240;
     private MAX_PATCH_ITEMS = 2000;
-    private loadPromise: Promise<void> | null = null;
+    private MAX_SETTLED_ITEMS = 2000;
+    /**
+     * Versions are drawn from one sequence for the life of the document and never reset, so an
+     * access change that forgets which events settled cannot hand out a URL this page has already
+     * cached with an older photograph.
+     */
+    private lastMediaVersion = 0;
+    private loadPromise: Promise<boolean> | null = null;
+    private accessGeneration = 0;
+    /** Advanced by each accepted owner bird edit; a list read before it is not applied. */
+    private ownerEvidenceEpoch = 0;
+    private queuedOwnerRefresh: Promise<void> | null = null;
+    private queuedOwnerRefreshToken: symbol | null = null;
 
     private readonly staleTracker = new StaleTracker(30_000); // 30 seconds
 
@@ -72,7 +96,9 @@ export class DetectionsStore {
         const eventId = typeof updated?.frigate_event === 'string' ? updated.frigate_event.trim() : '';
         if (!eventId) return;
 
-        const definedEntries = Object.entries(updated).filter(([, value]) => value !== undefined);
+        // Bird evidence is authoritative only on event reads. A parent edit can
+        // carry an older full Detection; other projections may carry unset null.
+        const definedEntries = Object.entries(updated).filter(([key, value]) => key !== 'bird_summary' && value !== undefined);
         if (definedEntries.length === 0) return;
 
         const patch = Object.fromEntries(definedEntries) as Partial<Detection>;
@@ -96,16 +122,75 @@ export class DetectionsStore {
         await this.loadInitial();
     }
 
-    async loadInitial(): Promise<void> {
+    /** Drop session-specific data before fetching a different access projection. */
+    resetForAccessChange(): void {
+        this.accessGeneration += 1;
+        this.loadPromise = null;
+        this.queuedOwnerRefresh = null;
+        this.isLoading = false;
+        this.historyStatus = 'pending';
+        this.clearHistory();
+        this.progressMap = new Map();
+        this.settledReclassifications = new Map();
+        this.publicHistoryVersion = 0;
+        this.staleTracker.reset();
+    }
+
+    private clearHistory(): void {
+        this.detections = [];
+        this.totalToday = 0;
+        this.patchMap = new Map();
+        this.markMutated();
+    }
+
+    async refreshPublicHistory(): Promise<void> {
+        const generation = this.accessGeneration;
+        // A notification during an existing fetch must cause a new fetch after it,
+        // rather than joining a response that predates an owner visibility change.
+        if (this.loadPromise) await this.loadPromise;
+        if (generation !== this.accessGeneration) return;
+        const loaded = await this.loadInitial();
+        if (generation !== this.accessGeneration) return;
+        if (!loaded) {
+            this.clearHistory();
+            this.historyStatus = 'failed';
+        }
+        // Revalidate open guest modals and Explorer even if recent history failed.
+        this.publicHistoryVersion += 1;
+        if (!loaded) throw new Error('Public history refresh failed');
+    }
+
+    /**
+     * Bird summaries come from the server after an owner correction or exclusion, never from a
+     * client patch. Edits arriving together share one load after any read already in flight.
+     */
+    refreshAfterOwnerEdit(): Promise<void> {
+        this.ownerEvidenceEpoch += 1;
+        if (this.queuedOwnerRefresh) return this.queuedOwnerRefresh;
+        const generation = this.accessGeneration;
+        const pending = this.loadPromise;
+        const token = Symbol('owner-refresh');
+        this.queuedOwnerRefreshToken = token;
+        this.queuedOwnerRefresh = (async () => {
+            await pending;
+            // Once started, a later edit queues behind this load rather than joining it.
+            if (this.queuedOwnerRefreshToken === token) this.queuedOwnerRefresh = null;
+            if (generation !== this.accessGeneration) return;
+            await this.loadInitial();
+        })();
+        return this.queuedOwnerRefresh;
+    }
+
+    async loadInitial(): Promise<boolean> {
         if (this.loadPromise) return this.loadPromise;
+        const generation = this.accessGeneration;
+        const evidenceEpoch = this.ownerEvidenceEpoch;
         this.loadPromise = (async () => {
             this.isLoading = true;
             try {
-                // Filter to last 3 days
                 const d = new Date();
                 d.setDate(d.getDate() - 3);
                 const startDate = toLocalYMD(d);
-
                 const [recent, countResult] = await Promise.all([
                     fetchEvents({
                         limit: this.MAX_ITEMS,
@@ -118,10 +203,15 @@ export class DetectionsStore {
                         requestKey: 'detections-store:count'
                     })
                 ]);
+                if (generation !== this.accessGeneration) return false;
+                // Read before an owner bird edit: the queued refresh supplies the current rows.
+                if (evidenceEpoch !== this.ownerEvidenceEpoch) return true;
                 this.detections = recent;
                 this.totalToday = countResult.count;
+                this.historyStatus = 'ready';
                 this.markMutated();
                 this.staleTracker.touch();
+                return true;
             } catch (e) {
                 if (isTransientRequestError(e)) {
                     logger.warn('Initial detections fetch failed (transient)', {
@@ -130,9 +220,15 @@ export class DetectionsStore {
                 } else {
                     logger.error('Failed to load initial detections', e);
                 }
+                // History already shown stays shown; only a first read that failed is unknown.
+                if (generation === this.accessGeneration && this.historyStatus !== 'ready') this.historyStatus = 'failed';
+                return false;
             } finally {
-                this.isLoading = false;
-                this.loadPromise = null;
+                // A superseded owner request must not unlock/clear a guest load.
+                if (generation === this.accessGeneration) {
+                    this.isLoading = false;
+                    this.loadPromise = null;
+                }
             }
         })();
         return this.loadPromise;
@@ -159,7 +255,7 @@ export class DetectionsStore {
         }
 
         const index = this.detections.findIndex(d => d.frigate_event === updated.frigate_event);
-        const definedEntries = Object.entries(updated).filter(([, value]) => value !== undefined);
+        const definedEntries = Object.entries(updated).filter(([key, value]) => key !== 'bird_summary' && value !== undefined);
         if (definedEntries.length === 0) return;
         const definedPatch = Object.fromEntries(definedEntries) as Partial<Detection>;
         if (index !== -1) {
@@ -340,6 +436,8 @@ export class DetectionsStore {
         const now = Date.now();
         const newMap = new Map(this.progressMap);
         const existing = newMap.get(eventId);
+        // A repeated completion for a run already shown as finished has no new work to read.
+        if (existing?.status !== 'completed') this.noteReclassificationSettled(eventId);
         if (existing) {
             newMap.set(eventId, {
                 ...existing,
@@ -406,6 +504,36 @@ export class DetectionsStore {
             lastUpdateAt: Date.now()
         });
         this.progressMap = newMap;
+    }
+
+    /** A hard failure can follow partly saved work, so the record is reread as well as closed. */
+    failReclassification(eventId: string) {
+        this.noteReclassificationSettled(eventId);
+        this.dismissReclassification(eventId);
+    }
+
+    private noteReclassificationSettled(eventId: string) {
+        if (!eventId || typeof eventId !== 'string') return;
+        const next = new Map(this.settledReclassifications);
+        this.lastMediaVersion += 1;
+        next.delete(eventId);
+        next.set(eventId, this.lastMediaVersion);
+        while (next.size > this.MAX_SETTLED_ITEMS) {
+            const oldestKey = next.keys().next().value;
+            if (!oldestKey) break;
+            next.delete(oldestKey);
+        }
+        this.settledReclassifications = next;
+    }
+
+    /** A species correction moved the photo behind the same address (an uploaded video's, #481). */
+    notePhotoChanged(eventId: string) {
+        this.noteReclassificationSettled(eventId);
+    }
+
+    /** 0 until a run for the event settles; afterwards a version no earlier settle has used. */
+    settledMediaVersion(eventId: string): number {
+        return this.settledReclassifications.get(eventId) ?? 0;
     }
 
     dismissReclassification(eventId: string) {

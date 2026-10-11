@@ -26,6 +26,8 @@ export function initKeyboardShortcuts(handlers: Record<string, ShortcutHandler>)
 
         // Handle Escape key
         if (key === 'Escape') {
+            // Leave native popover dismissal and focus return to the browser.
+            if (document.querySelector('[popover]:popover-open')) return;
             e.preventDefault();
             shortcuts.get('Escape')?.();
             return;

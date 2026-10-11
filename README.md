@@ -9,168 +9,44 @@
   <a href="#quick-start">Quick Start</a> •
   <a href="https://yetanotherwhosatmyfeeder.pownet.uk">Live Demo</a>
 </p>
-<p align="center">
-  <a href="https://github.com/Jellman86/YetAnother-WhosAtMyFeeder" target="_blank" rel="noopener noreferrer">
-    <img src="https://img.shields.io/badge/%E2%AD%90%20Enjoying%20YA--WAMF%3F-Star%20the%20project-F4C430?style=for-the-badge&labelColor=F4C430&color=D4A017&logo=github&logoColor=000000" alt="Star YA-WAMF on GitHub">
-  </a>
-</p>
-<p align="center"><sub>If YA-WAMF is useful to you, starring the repo helps more people discover it.</sub></p>
 
-A bird classification system that integrates with [Frigate NVR](https://frigate.video/) to automatically identify birds visiting your feeder using advanced AI models.
+YA-WAMF identifies birds in [Frigate NVR](https://frigate.video/) events using local models.
+It keeps photographs and visit history, can match BirdNET-Go calls, and offers a read-only
+view you can share.
 
-<p align="center">
-  <img src="docs/images/dashboard.png" alt="YA-WAMF dashboard: today's visit and species counts, a field log of the day's visits with confidence and camera, rare eBird reports nearby, and a side rail with camera activity, audio-versus-camera totals, weather, and an activity histogram" width="100%">
-</p>
+This branch documents the current development build. For published behavior and upgrade notes,
+see the [latest stable release](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/latest).
+New development features require a matching `dev` image.
 
 <p align="center">
-  <sub>If you share your guest dashboard publicly, I would love to see it. Please open an issue or discussion and drop a link so I can take a look.</sub>
+  <img src="docs/images/dashboard.png" alt="Dashboard with visit and heard-call counts, a field log, review queue, camera activity and recent visitors" width="100%">
 </p>
 
-<table>
-  <tr>
-    <td width="50%"><a href="docs/setup/getting-started.md"><img src="docs/images/explorer.png" alt="The Explorer listing every classified visit as cards, with a filter rail for time window, favourites, audio matches, and species, and a row of day chips across the top"></a></td>
-    <td width="50%"><a href="docs/features/video-analysis.md"><img src="docs/images/detection-detail.png" alt="A detection opened in detail: the best crop beside the identified species and confidence, a Deep Video Analysis panel naming the model and match, weather and camera facts, and the nearby audio spectrogram"></a></td>
-  </tr>
-  <tr>
-    <td align="center"><sub><b>Explorer</b> — every classified visit, filtered your way</sub></td>
-    <td align="center"><sub><b>A detection in detail</b> — the evidence behind the identification</sub></td>
-  </tr>
-</table>
+## What you can do
 
-> [!WARNING]
-> **Legacy Split Deployment — End of Updates in v3.0**
-> YA-WAMF now recommends the **monolithic container** (`yawamf-monalithic`) as the primary deployment.
-> The older split `wamf-frontend + wamf-backend` layout still functions on `v2.x`, but **starting with v3.0 it will receive no further updates** — no bug fixes, no new features, and no guarantee of compatibility.
-> Migrate before upgrading to v3.0. See [Split-to-Monolith Migration](docs/setup/migrate-split-to-monolith.md).
-
-## Features at a Glance
-
-- **Advanced AI Classification** - RoPE ViT-B14, ConvNeXt, EVA-02, birds-only ONNX models, or legacy MobileNetV2
-- **Hardware Acceleration Selector** - Choose Auto/CPU/NVIDIA CUDA/Intel OpenVINO, with a full compatibility image or smaller provider-family images and safe CPU fallback
-- **Multi-Sensor Verification** - Correlates visual detections with BirdNET-Go audio
-- **Personalized Re-ranking (Optional)** - Learns from manual corrections per camera/model to improve ranking over time
-- **Smart Notifications** - Discord, Telegram, Pushover, and Email, with confidence, species, and audio-confirmation filters
-- **Video Analysis** - Automatic scanning of 15+ frames (temporal ensemble) for improved accuracy
-- **Best-Available Event Snapshots** - Optionally replace Frigate's detect-stream image with the clearest recorded main-stream frame and strongest valid crop, falling back safely to the full frame
-- **LLM Insights** - AI-powered behavioral analysis (Gemini/OpenAI/Claude/OpenRouter)
-- **Leaderboard AI Insights** - Analyze detection charts for trends and weather correlations
-- **Home Assistant Integration** - Sensors, automation, and dashboard cards
-- **BirdWeather Reporting** - Contribute to community science
-- **Real-time Dashboard** - A chronological field log of the day with repeat frames folded into visits, a review queue for anything the classifier could not name, live updates, video playback, and species statistics
-- **Explorer** - Every classified visit as cards or a compact list, filtered by day, species, camera, favourites, and audio matches
-- **Add observation** - Classify a photo or clip you took yourself and file it in the same history
-- **Notifications & Jobs** - One surface for alerts and background work, with pinned progress for long-running jobs
-- **Public View (Guest Mode)** - Share a read-only, rate-limited dashboard, choosing separately whether visitors see camera names, photographs, video, and audio
-
-## About This Project
-
-A personal project built with AI-assisted coding, inspired by the original [WhosAtMyFeeder](https://github.com/mmcc-xx/WhosAtMyFeeder). When I noticed the original project wasn't being maintained, I saw an opportunity to learn and build something better.
-
-Built with help from AI coding assistants as an experiment in what's possible with modern development tools. Feedback and contributions are welcome!
-
-## Security
-
-Please see the [Security Policy](SECURITY.md) for supported versions, reporting guidelines, and a summary of security features.
-
-## Live Instance
-
-A public instance of YA-WAMF is available here (*always on dev branch, may be broken!*):
-
-- **https://yetanotherwhosatmyfeeder.pownet.uk**
-
-## What It Does
-
-When Frigate detects a bird at your feeder, YA-WAMF:
-1. Captures the snapshot and classifies it with local AI (or trusted Frigate sublabels).
-2. Optionally correlates with BirdNET-Go audio detections.
-3. Stores the detection, pushes notifications, and updates the live UI.
-4. Optionally upgrades the cached event image from Frigate's final clean best frame, promoting a
-   recorded-frame crop only when it provides stronger compatible classification evidence.
-5. Optionally performs deeper clip analysis (15+ frames) for better accuracy, preferring retained
-   local recordings and event clips before asking Frigate for media again.
-6. Adds optional enrichments like weather, BirdWeather reporting, and AI naturalist insights.
-
-Detailed feature behavior, edge cases, and integration notes are documented in the links below.
-
-## Documentation
-
-Use the full docs hub for setup, integrations, and troubleshooting:
-- [📚 Full Documentation Suite](docs/index.md)
-- [🚀 Getting Started](docs/setup/getting-started.md)
-- [🍓 Raspberry Pi Setup](docs/setup/raspberry-pi.md)
-- [📦 Full Docker Stack Example](docs/setup/docker-stack.md)
-- [🔄 Split-to-Monolith Migration](docs/setup/migrate-split-to-monolith.md)
-- [📷 Recommended Frigate Config](docs/setup/frigate-config.md)
-- [⚡ Hardware Acceleration & Image Flavors](docs/setup/hardware-acceleration.md)
-- [🔌 MQTT Broker Setup](docs/setup/mqtt-broker.md)
-- [🌐 Reverse Proxy Guide](docs/setup/reverse-proxy.md)
-- [🔌 API Reference](docs/api.md)
-- [🔗 BirdNET-Go Integration](docs/integrations/birdnet-go.md)
-- [🏠 Home Assistant Setup](docs/integrations/home-assistant.md)
-- [🧠 AI Models & Performance](docs/features/ai-models.md)
-- [📤 Manual Observations](docs/features/manual-observations.md)
-- [🛠 Troubleshooting Guide](docs/troubleshooting/diagnostics.md)
-- [🧪 Known Issues / Testing Gaps](ISSUES.md)
-- [✅ Integration Testing Requests](INTEGRATION_TESTING.md)
-
-> [!IMPORTANT]
-> **Raspberry Pi support is currently best-effort.**
-> The dedicated ARM64 monolith image exists for Raspberry Pi 4/5 users, but it is **not hardware-validated by the maintainer yet** because I do not currently have Raspberry Pi hardware available to test on.
-> The current Pi image should be treated as **CPU-only for now**. Intel OpenVINO and NVIDIA CUDA acceleration are not part of the Raspberry Pi path today.
-> If you try it, please treat the setup as experimental and report results, logs, and performance notes so support can be tightened up over time.
-
-## How It Works
-
-Here's the flow from bird to identification:
-
-```
-┌─────────────┐     MQTT Event      ┌─────────────┐
-│   Frigate   │ ─────────────────>  │  YA-WAMF    │
-│   (NVR)     │   "bird detected"   │  Backend    │
-└─────────────┘                     └──────┬──────┘
-                                           │
-                                           v
-                                    ┌──────────────┐
-                                    │ Fast Path:   │
-                                    │ Use Frigate  │
-                                    │ Sublabels?   │
-                                    └──────┬───────┘
-                                           │
-                                     (No)  v  (Yes)
-                                    ┌──────────────┐
-                                    │  AI Engine   │
-                                    │ (TFLite/ONNX)│
-                                    └──────┬───────┘
-                                           │
-                                           v
-                                    ┌──────────────┐
-                                    │ Save to DB & │
-                                    │ Notify User  │
-                                    └──────┬───────┘
-                                           │
-                                           v
-                                    ┌──────────────┐
-                                    │ Auto Video   │
-                                    │ Analysis     │
-                                    │ (Background) │
-                                    └──────────────┘
-```
-
-For the full event lifecycle and architecture details, see the documentation links above.
+- **Identify locally:** choose a model and validate it on your CPU, Intel GPU/NPU or NVIDIA GPU.
+  RoPE ViT-B14 remains the default; [coverage and hardware support vary by model](docs/features/ai-models.md).
+- **Review the evidence:** explore seen visits and heard calls, inspect individual captures,
+  correct species and count birds in a photograph. See [Explorer](docs/features/explorer.md).
+- **Keep important visits:** star a favourite to archive available media; manage ordinary
+  photographs and clips with [retention controls](docs/features/favourites.md).
+- **Use more frames:** optional [video analysis](docs/features/video-analysis.md) compares sampled
+  frames when Frigate retained a usable clip.
+- **Add your own sightings:** classify and save a photograph or clip through
+  [Add observation](docs/features/manual-observations.md).
+- **Connect other services:** [BirdNET-Go](docs/integrations/birdnet-go.md),
+  [Home Assistant](docs/integrations/home-assistant.md), notifications and optional community-science exports.
+- **Share deliberately:** choose which history, camera names and media guests can see in
+  [Security settings](docs/features/authentication.md).
 
 ## Quick Start
 
-### Prerequisites
+For automatic camera ingestion, you need Docker Compose, Frigate with bird detection/MQTT enabled,
+and a broker reachable from YA-WAMF. New installs should use the monolithic container.
+For Raspberry Pi, use the separate [best-effort ARM64 guide](docs/setup/raspberry-pi.md);
+physical Pi hardware has not yet been validated by the maintainer.
 
-- Docker and Docker Compose installed
-- Frigate NVR running with MQTT enabled
-- MQTT broker accessible (typically Mosquitto running alongside Frigate)
-- Basic knowledge of Docker networking
-- For Intel iGPU acceleration (OpenVINO): pass `/dev/dri` into the container and grant the host's actual `/dev/dri` device GIDs (often `video`/`render`, but numeric IDs vary)
-
-### Installation
-
-**1. Download configuration files:**
+**1. Download the stack files.**
 
 ```bash
 mkdir ya-wamf && cd ya-wamf
@@ -179,228 +55,71 @@ curl -O https://raw.githubusercontent.com/Jellman86/YetAnother-WhosAtMyFeeder/ma
 cp .env.example .env
 ```
 
-The example environment pins `YAWAMF_MONALITHIC_TAG=latest`, the stable release
-channel and full compatibility image. Existing installs do not need to change.
-CPU-only, Intel and NVIDIA hosts can optionally use the smaller `latest-cpu`,
-`latest-intel` or `latest-cuda` variants described in the
-[hardware-acceleration guide](docs/setup/hardware-acceleration.md). Development
-builds use `dev` or the matching `dev-*` suffix and may be unstable.
-
-> This quick start uses the monolithic deployment. The older split deployment (`docker-compose.yml`, `docker-compose.dev.yml`, `docker-compose.prod.yml`) is still available as a legacy two-container layout.
->
-> Installing on Raspberry Pi 4/5? Use the dedicated ARM64 image notes in [docs/setup/raspberry-pi.md](docs/setup/raspberry-pi.md) and start from [.env.rpi.example](.env.rpi.example).
-
-**2. Configure your environment:**
-
-Edit `.env` with your settings:
+**2. Edit `.env` for your network and host user.**
 
 ```env
-# Docker network (check with: docker network ls)
+YAWAMF_MONALITHIC_TAG=latest
 DOCKER_NETWORK=frigate
-
-# Frigate instance
 FRIGATE_URL=http://frigate:5000
-
-# MQTT broker (usually 'mosquitto' if running in Docker)
 MQTT_SERVER=mosquitto
 MQTT_PORT=1883
-
-# MQTT authentication (if required)
-MQTT_AUTH=true
-MQTT_USERNAME=mqtt_user
-MQTT_PASSWORD=secret_password
-
-# Timezone
 TZ=Europe/London
+PUID=1000
+PGID=1000
 ```
 
-**3. Verify Docker network:**
+Replace `PUID` and `PGID` with the numbers from `id -u` and `id -g`. The named Docker network
+must already exist. Service names such as `frigate` and `mosquitto` require that shared network;
+reachable LAN addresses also work. Set `MQTT_AUTH`, `MQTT_USERNAME` and `MQTT_PASSWORD` if required.
 
-Ensure the network specified in `.env` exists and matches your Frigate setup:
+Unsuffixed tags use the full compatibility image. Smaller CPU, Intel and CUDA images and device
+passthrough are covered in [Hardware Acceleration](docs/setup/hardware-acceleration.md).
 
-```bash
-docker network ls
-```
-
-**Intel iGPU (OpenVINO) note (optional):**
-
-- Use the default full image or set `YAWAMF_MONALITHIC_TAG=latest-intel`
-- Add `/dev/dri:/dev/dri` to the `yawamf` service
-- Add `group_add` entries matching your host's `/dev/dri` numeric group IDs (`ls -ln /dev/dri`)
-- **Settings → Detection → Runtime diagnostics** shows **Image**, **Packaged**,
-  and OpenVINO device/probe state if the GPU cannot initialize
-
-**4. Set permissions, create directories, and start:**
+**3. Prepare writable storage and start.**
 
 ```bash
-PUID=$(id -u)
-PGID=$(id -g)
-echo "PUID=$PUID" >> .env
-echo "PGID=$PGID" >> .env
 mkdir -p config data/models
-sudo chown -R "$PUID:$PGID" config data
+sudo chown -R "$(id -u):$(id -g)" config data
 sudo chmod -R u+rwX,g+rwX config data
 docker compose -f docker-compose.monolith.yml up -d
 ```
 
-If you use Portainer stacks, set the same `PUID`/`PGID` values in stack environment variables.
+**4. Open `http://YOUR_SERVER_IP:9852`.**
 
-> If you deploy via Portainer: create a Stack from `docker-compose.monolith.yml` and use "Pull and redeploy" for updates. Use `:latest` for the stable full image or a pinned `:vX.Y.Z` tag. Optional provider suffixes (`-cpu`, `-intel`, `-cuda`) select a smaller runtime image. The `:dev` line tracks the development branch and may be unstable.
+Complete setup, create an owner password and test the Frigate/MQTT connection. Download and
+validate a model in **Settings → Detection → Model Manager**. A compatibility pass proves that
+it runs and agrees with the CPU baseline; it does not measure species accuracy. Check your first
+saved visit in Explorer and **Settings → Health**.
 
-**5. Access the dashboard:**
+If setup fails, follow [Getting Started](docs/setup/getting-started.md) or
+[Diagnostics & Logs](docs/troubleshooting/diagnostics.md). Keep authentication enabled before
+exposing the app outside your trusted network. Public Access is a separate, read-only choice.
 
-Open `http://localhost:9852` (or `http://YOUR_SERVER_IP:9852`)
+## Documentation
 
-**6. Download (or re-download) AI models:**
+The [documentation hub](docs/index.md) routes you to the task you need:
 
-In the web UI, go to **Settings → Detection → Model Manager** and download a model. Setting one up runs a single guided dialog: download, validate on your hardware, then enable. A model that has never been validated on this host shows **Validate to enable** rather than **Use this model** — validation proves the model actually runs on your CPU, GPU, or NPU before YA-WAMF depends on it. Re-download is supported too, with progress tracking and a staged replace that rolls back on failure. Models are saved to `data/models/` and persist across updates.
+- [Setup and configuration](docs/setup/configuration.md), [environment overrides](docs/setup/environment-variables.md)
+  and [split-to-monolith migration](docs/setup/migrate-split-to-monolith.md).
+- [Model choices](docs/features/ai-models.md), [accuracy evidence](docs/features/model-accuracy.md)
+  and [hardware compatibility checks](docs/features/model-evaluation.md).
+- [Integrations](docs/index.md#-integrations), [notifications](docs/features/notifications.md)
+  and [privacy boundaries](PRIVACY.md).
+- [Upgrading and rollback](MIGRATION.md), [support](SUPPORT.md) and [known gaps](ISSUES.md).
+- [API reference](docs/api.md), [contributing](CONTRIBUTING.md) and [development workflow](DEVELOPMENT.md).
 
-### Public Access (guest view) at a Glance
+To update a Compose-managed installation, back up `/config` and `/data`, read the release's
+upgrade notes, then pull and recreate the service with the same volumes. Do not delete history
+or reset settings to try a different model. Existing split installations should follow the
+migration guide before changing deployment layout.
 
-The public view is read-only and rate-limited. Guests can browse detections and any AI Naturalist analysis you have already run, but cannot change settings, delete anything, or start new AI analysis. **Settings → Security** decides whether guests see camera names, snapshots, clips, and audio, and how far back the public history reaches.
+## Live instance and project
 
-### Verification
+The [public demo](https://yetanotherwhosatmyfeeder.pownet.uk) runs development builds and may be
+unavailable during testing. If you share your own guest dashboard, feel free to link it in an issue
+or discussion.
 
-Check logs to confirm everything is working:
-
-```bash
-docker compose -f docker-compose.monolith.yml ps
-docker compose -f docker-compose.monolith.yml logs yawamf -f
-
-# You should see:
-# MQTT config: auth=True port=1883 server=mosquitto
-# Connected to MQTT topic=frigate/events
-```
-
-### Troubleshooting
-
-| Issue | Solution |
-|-------|----------|
-| **MQTT connection failed** | Verify `DOCKER_NETWORK` matches Frigate's network<br>Check MQTT hostname and credentials |
-| **Frontend not loading** | Run `docker compose -f docker-compose.monolith.yml ps` to check health<br>View logs: `docker compose -f docker-compose.monolith.yml logs yawamf` |
-| **No detections** | Confirm Frigate is detecting birds<br>Check backend logs for events<br>Verify model was downloaded in Settings |
-
-For detailed troubleshooting, see the [**Troubleshooting Guide**](docs/troubleshooting/diagnostics.md).
-
-## Frequently Asked Questions
-
-**Q: What model should I use?**
-For most users, **RoPE ViT-B14** (the default) is the best balance of accuracy and speed for wildlife-wide classification. If you prefer a larger alternative on standard CPU, try **ConvNeXt Large**. If you have GPU acceleration available and need maximum accuracy on rare or difficult species, try **EVA-02 Large**. For constrained hardware, **MobileNet V2** (legacy) is the fastest option. See [AI Models & Performance](docs/features/ai-models.md) for a full comparison.
-
-**Q: My birds are classified as "Unknown Bird" — how do I fix this?**
-Lower the `Min Confidence Floor` (e.g., from 0.4 to 0.2), or lower the `Confidence Threshold` (e.g., from 0.7 to 0.5). Note that wildlife-wide models (ConvNeXt, EVA-02) naturally produce lower per-class scores than birds-only models due to competing against ~8,500 non-bird classes — the recommended threshold shown in the Model Manager card already accounts for this. Enabling Deep Video Analysis also helps for difficult identifications.
-
-**Q: What is "Trust Frigate Sublabels" and should I enable it?**
-When enabled, if Frigate has already identified a bird species (via its own classifier or Frigate+), YA-WAMF will trust that label instantly and skip local AI inference. This saves CPU and is useful if you've already tuned Frigate's detection. Disable it to always run YA-WAMF's own AI independently.
-
-**Q: How do I share my dashboard publicly?**
-Enable **Public Access** in **Settings → Security**. Guests get a read-only view with rate limiting. You can optionally hide camera names and restrict how far back the public history goes. See [Authentication & Access](docs/features/authentication.md).
-
-**Q: What Frigate version is required?**
-YA-WAMF works best with **Frigate 0.17+**. The recommended Frigate config in this project uses Frigate 0.17's tiered recording retention format. See the [Frigate Configuration Guide](docs/setup/frigate-config.md).
-
-**Q: Can I run YA-WAMF without Frigate?**
-YA-WAMF is designed specifically as a Frigate companion and requires Frigate as its event source. It listens for `frigate/events` MQTT messages and fetches media from the Frigate HTTP API.
-
-**Q: How do I run the model accuracy tests?**
-See [Model Accuracy & Benchmarks](docs/features/model-accuracy.md) for full instructions — it covers CPU accuracy benchmarks, Intel GPU validation, and NVIDIA GPU diagnostic probes.
-
-**Q: Why are my clips very short?**
-This is expected behaviour for birds. If a bird is only at the feeder for 2 seconds, the Frigate event is 2 seconds. Configure `record.alerts.pre_capture` and `record.detections.pre_capture` in your Frigate config to add context around each detection (e.g., `pre_capture: 5, post_capture: 25`). See the [Frigate Configuration Guide](docs/setup/frigate-config.md).
-
-YA-WAMF also supports optional `Full visit` clips for longer playback from Frigate recordings. When enabled in **Settings → Connection → Frigate**, YA-WAMF requests a configurable camera-level window around the detection timestamp, persists that file locally, and automatically prefers it on the normal clip route. It waits for Frigate to finalize the requested window, measures the downloaded duration, and retries a short result before retaining it as a playable **Partial visit** fallback. The default window is `30` seconds before plus `90` seconds after the detection. Every selected camera needs an enabled FFmpeg `record` role and positive `record.continuous.days` retention; alert/detection retention alone can leave the start or end of that window missing. Settings validates this coverage and names any camera that needs attention.
-
-**Q: How do I update YA-WAMF?**
-Run `docker compose -f docker-compose.monolith.yml pull && docker compose -f docker-compose.monolith.yml up -d` from your stack directory. Settings and history are preserved because they live in the persistent `/config` and `/data` volumes.
-
-## Configuration
-
-All settings are managed through the web UI under **Settings**. Configuration is persisted to `config/config.json`.
-
-### Key Settings
-
-| Setting | Description | Default |
-|---------|-------------|---------|
-| **Frigate URL** | Frigate instance for fetching media | `http://frigate:5000` |
-| **MQTT Server** | MQTT broker hostname | `mqtt` |
-| **Classification Threshold** | Minimum confidence for detections (0-1) | `0.7` |
-| **Min Confidence Floor** | Reject detections below this score | `0.4` |
-| **Trust Frigate Sublabels** | Use Frigate's labels instead of local AI | `Enabled` |
-| **Auto Video Analysis** | Analyze full video clips for accuracy | `Disabled` |
-| **AI Model** | RoPE ViT-B14 (default), ConvNeXt, EVA-02, and birds-only model options in Model Manager | `RoPE ViT-B14` |
-| **BirdWeather Token** | Upload detections to BirdWeather | _(none)_ |
-| **BirdNET-Go Topic** | MQTT topic for audio detections | `birdnet/text` |
-
-## Security & Authentication
-
-### 🔐 Built-in Authentication
-- **Authentication:** Disabled by default for backward compatibility. Enable it in **Settings → Security** and set an admin password before exposing YA-WAMF outside your trusted network.
-- **Initial Setup Wizard:** A fresh installation opens the guided setup automatically. The account step lets you set an owner password (and signs that browser in immediately) or explicitly continue without authentication on a trusted network. Later steps validate the selected model on the running hardware and can optionally import bird events Frigate still retains. You can reopen the non-destructive section map later from **Settings → Setup wizard** in the Settings navigation.
-- **Public Access:** Optionally share your bird detections with friends read-only, while keeping settings and admin tools behind the login. Snapshots, clips, audio, and camera names are each individually shareable.
-- **Security:** Includes login rate limiting, session management, and security headers.
-
-👉 **[Read the Full Authentication & Access Control Guide](docs/features/authentication.md)**
-
-### 🔑 Legacy API Key (Deprecated)
-If you are upgrading from an older version using `YA_WAMF_API_KEY`, your setup will continue to work, but this method is deprecated and will be removed in a future release.
-
-For detailed upgrade instructions, see the [Migration Guide](MIGRATION.md).
-
-## Tech Stack
-
-- **Backend:** Python 3.12, FastAPI, SQLite
-- **Frontend:** Svelte 5, Tailwind CSS
-- **ML Engine:** ONNX Runtime & TensorFlow Lite
-- **Messaging:** MQTT for Frigate events, SSE for live UI updates
-
-## Video Playback & Bandwidth
-
-YA-WAMF includes a robust video proxy that streams clips directly from Frigate. This supports:
-- **Instant Playback:** Starts playing immediately without waiting for the whole file.
-- **Seeking:** You can jump to any part of the video (scrubbing) thanks to HTTP Range support.
-- **Bandwidth Control:** If you are on a metered connection or want to reduce load, you can disable "Fetch Video Clips" in the Settings. This stops YA-WAMF from caching the short Frigate event clips, but automatic full-visit persistence still applies when **Full-visit clips** and the media cache are enabled.
-
-## Home Assistant Integration
-
-YA-WAMF includes a custom component for Home Assistant to bring your bird sightings into your smart home.
-
-**Features:**
-- **Last Bird Detected:** Name of the most recent visitor with score, camera, and weather attributes. Only updates on a new detection event.
-- **Last Detection Event:** The raw YA-WAMF/Frigate event ID. Use this as your automation trigger — it fires on every new detection regardless of species.
-- **Last Detection Time:** A proper Home Assistant timestamp entity for the most recent detection.
-- **Daily Count:** Rolling 24-hour detection count.
-- **Latest Snapshot:** (Optional) Camera entity showing the last detected bird.
-
-**Setup:**
-1. Copy the `custom_components/yawamf` folder to your Home Assistant `custom_components` directory.
-2. Restart Home Assistant.
-3. If the integration icon doesn't appear right away, hard-refresh Home Assistant or clear the browser cache (icons are cached).
-4. Add the integration via **Settings > Devices & Services > Add Integration**.
-5. Enter your YA-WAMF backend URL (e.g., `http://192.168.1.50:9852`).
-
-## Help Improve YA-WAMF
-
-This project is actively developed and your feedback is valuable!
-
-**How to contribute:**
-- **Report bugs** - [Open an issue](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues) for bugs or feature requests
-- **Share feedback** - Let me know what works and what doesn't
-- **Enable telemetry** - Turn on anonymous usage stats in **Settings → Connection** (see [Telemetry Spec](docs/TELEMETRY_SPEC.md))
-- **Test features** - Try video analysis, notifications, and integrations in your environment
-
-## Contributing
-
-Feel free to open PRs if you have improvements to share. Just keep in mind this is a hobby project maintained in spare time.
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Thanks To
-
-- Everyone helping improve the project by reporting bugs, testing fixes, and sharing feedback (see [CONTRIBUTORS.md](CONTRIBUTORS.md))
-- The original [WhosAtMyFeeder](https://github.com/mmcc-xx/WhosAtMyFeeder) project for the idea
-- [Frigate](https://frigate.video/) for being such a great NVR
-- [BirdNET-Go](https://github.com/tphakala/birdnet-go) for the excellent audio classification integration
-- **Ben Jordan** on YouTube for his inspiring [bird detection video](https://youtu.be/hCQCP-5g5bo?si=r__2KjXi6KPGM5FF)
-- The AI assistants that helped build this thing
+This is a personal project built with help from AI coding assistants, inspired by
+[WhosAtMyFeeder](https://github.com/mmcc-xx/WhosAtMyFeeder). Reports, recordings and retests help
+improve it; thank you to the [contributors](CONTRIBUTORS.md) and the Frigate and BirdNET-Go projects.
+See [Security](SECURITY.md) for vulnerability reporting. Licensed under [MIT](LICENSE).

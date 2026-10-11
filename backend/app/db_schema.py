@@ -3,6 +3,7 @@ from sqlalchemy import (
     Column,
     Integer,
     String,
+    Text,
     Float,
     Boolean,
     TIMESTAMP,
@@ -12,6 +13,8 @@ from sqlalchemy import (
     UniqueConstraint,
     Date,
     PrimaryKeyConstraint,
+    CheckConstraint,
+    DateTime,
 )
 from sqlalchemy.sql import func
 
@@ -88,6 +91,78 @@ Index("idx_detections_frigate_event", detections.c.frigate_event)
 Index("idx_detections_video_status", detections.c.video_classification_status)
 Index("idx_detections_notified_at", detections.c.notified_at)
 Index("idx_detections_frigate_status", detections.c.frigate_status)
+
+detection_event_bounds = Table(
+    "detection_event_bounds",
+    metadata,
+    Column("frigate_event", String, ForeignKey("detections.frigate_event", ondelete="CASCADE"), primary_key=True),
+    Column("start_time", DateTime, nullable=False),
+    Column("end_time", DateTime, nullable=False),
+    CheckConstraint("end_time >= start_time", name="ck_detection_event_bounds_order"),
+)
+
+snapshot_candidate_dismissals = Table(
+    "snapshot_candidate_dismissals",
+    metadata,
+    Column("frigate_event", String, ForeignKey("detections.frigate_event", ondelete="CASCADE"), primary_key=True),
+    Column("candidate_id", String, primary_key=True),
+    Column("content_identity", String, nullable=False),
+)
+
+bird_observations = Table(
+    "bird_observations",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("frigate_event", String, ForeignKey("detections.frigate_event", ondelete="CASCADE"), nullable=False),
+    Column("bird_index", Integer, nullable=False),
+    Column("candidate_id", String, nullable=False),
+    Column("clip_variant", String, nullable=False),
+    Column("frame_index", Integer, nullable=False),
+    Column("crop_box_json", Text, nullable=False),
+    Column("detector_confidence", Float),
+    Column("species", String, nullable=False),
+    Column("classifier_label", String),
+    Column("classifier_score", Float, nullable=False),
+    Column("manual_species", Boolean, nullable=False, server_default="0"),
+    Column("is_hidden", Boolean, nullable=False, server_default="0"),
+    Column("created_at", TIMESTAMP, server_default=func.now(), nullable=False),
+    Column("updated_at", TIMESTAMP, server_default=func.now(), nullable=False),
+    UniqueConstraint("frigate_event", "bird_index", name="uq_bird_observations_event_index"),
+)
+
+Index("ix_bird_observations_event", bird_observations.c.frigate_event)
+Index("ix_bird_observations_species", bird_observations.c.species)
+
+bird_scan_jobs = Table(
+    "bird_scan_jobs",
+    metadata,
+    Column("frigate_event", String, ForeignKey("detections.frigate_event", ondelete="CASCADE"), primary_key=True),
+    Column("generation", String(32), nullable=False),
+    Column("candidate_id", String, nullable=False),
+    Column("image_ref", String, nullable=False),
+    Column("content_sha256", String(64), nullable=False),
+    Column("media_version", String, nullable=False),
+    Column("clip_variant", String, nullable=False),
+    Column("frame_index", Integer, nullable=False),
+    Column("status", String, nullable=False),
+    Column("revision", Integer, nullable=False, server_default="1"),
+    Column("created_at", DateTime, nullable=False, server_default=func.now()),
+    Column("updated_at", DateTime, nullable=False, server_default=func.now()),
+    Column("started_at", DateTime),
+    Column("completed_at", DateTime),
+    Column("result_count", Integer),
+    Column("retained_previous", Boolean, nullable=False, server_default="0"),
+    Column("error", String),
+    CheckConstraint("status IN ('queued','running','completed','failed')", name="ck_bird_scan_jobs_status"),
+    CheckConstraint("revision >= 1", name="ck_bird_scan_jobs_revision"),
+    CheckConstraint("result_count IS NULL OR result_count >= 0", name="ck_bird_scan_jobs_count"),
+)
+Index(
+    "ix_bird_scan_jobs_status_created",
+    bird_scan_jobs.c.status,
+    bird_scan_jobs.c.created_at,
+    bird_scan_jobs.c.frigate_event,
+)
 
 audio_detections = Table(
     "audio_detections",

@@ -43,7 +43,7 @@
             <span class="text-sm font-medium">{label || $_('notifications.center_title')}</span>
         {/if}
         {#if unreadCount > 0}
-            <span class="absolute -top-1 -right-1 min-w-[18px] h-5 px-1 rounded-full bg-rose-500 text-white text-[10px] font-black flex items-center justify-center shadow">
+            <span class="absolute -top-1 -right-1 min-w-[18px] h-5 px-1 rounded-full bg-rose-500 text-white text-3xs font-bold flex items-center justify-center shadow">
                 {unreadCount > 9 ? '9+' : unreadCount}
             </span>
         {/if}

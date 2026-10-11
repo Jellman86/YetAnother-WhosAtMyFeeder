@@ -15,6 +15,8 @@
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
     import SettingsInput from './_primitives/SettingsInput.svelte';
     import AdvancedSection from './_primitives/AdvancedSection.svelte';
+    import ClassificationImageSourceSetting from './ClassificationImageSourceSetting.svelte';
+    import type { ClassificationImageSource } from '../../api/settings';
 
     let {
         frigateUrl = $bindable(''),
@@ -26,6 +28,7 @@
         mqttUsername = $bindable(''),
         mqttPassword = $bindable(''),
         mqttPasswordSaved = $bindable(false),
+        classificationImageSource = $bindable<ClassificationImageSource>('frigate_snapshot'),
         clipsEnabled = $bindable(true),
         recordingClipEnabled = $bindable(false),
         recordingClipBeforeSeconds = $bindable(30),
@@ -55,6 +58,7 @@
         mqttUsername: string;
         mqttPassword: string;
         mqttPasswordSaved: boolean;
+        classificationImageSource: ClassificationImageSource;
         clipsEnabled: boolean;
         recordingClipEnabled: boolean;
         recordingClipBeforeSeconds: number;
@@ -363,7 +367,7 @@
                 onclick={runConnectionDiagnostic}
                 disabled={fcRunning}
                 aria-label={$_('settings.frigate.test_connection')}
-                class="px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-brand-500 hover:bg-brand-600 text-white transition-all shadow-lg shadow-brand-500/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-400 dark:focus:ring-offset-slate-900 disabled:opacity-50"
+                class="btn btn-primary min-h-11 px-4 py-3"
             >
                 {fcRunning ? $_('common.testing') : $_('settings.frigate.test_connection')}
             </button>
@@ -372,7 +376,7 @@
                 onclick={loadCameras}
                 disabled={camerasLoading}
                 aria-label={$_('settings.frigate.sync_cameras')}
-                class="px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-400 dark:focus:ring-offset-slate-900 disabled:opacity-50"
+                class="btn btn-secondary min-h-11 px-4 py-3"
             >
                 {camerasLoading ? $_('settings.cameras.syncing') : $_('settings.frigate.sync_cameras')}
             </button>
@@ -451,6 +455,8 @@
                 </SettingsRow>
             </div>
         {/if}
+
+        <ClassificationImageSourceSetting bind:value={classificationImageSource} />
 
         <SettingsRow
             labelId="setting-clips-enabled"
@@ -588,7 +594,9 @@
     </SettingsCard>
 
     <SettingsCard accent iconSnippet={camerasIcon} title={$_('settings.cameras.title')}>
-        <div class="space-y-3 max-h-[36rem] overflow-y-auto pr-2 custom-scrollbar">
+        <!-- The page scrolls; a second scroller inside the card hid the first camera under the
+             card header and cut off the nest window below the list. -->
+        <div class="space-y-3" data-camera-list>
             {#if availableCameras.length === 0}
                 <div class="p-8 text-center bg-slate-50 dark:bg-slate-900/30 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700">
                     <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">{$_('settings.cameras.none_found')}</p>
@@ -599,10 +607,10 @@
                         {@const selected = selectedCameras.includes(camera)}
                         {@const role = cameraRoles[camera] === 'nest' ? 'nest' : 'feeder'}
                         <div
-                            class="relative flex flex-col gap-3 p-4 rounded-2xl border-2 transition-all group
+                            class="relative flex flex-col gap-2 rounded-xl border px-2 py-1.5 transition-colors group
                                    {selected
-                                       ? 'border-brand-500 bg-brand-500/5 text-brand-700 dark:text-brand-400'
-                                       : 'border-slate-100 dark:border-slate-700/50 bg-slate-50/50 dark:bg-slate-900/30 text-slate-500 hover:border-brand-500/30'}"
+                                       ? 'border-brand-500/70 bg-brand-500/5 text-brand-700 dark:text-brand-300'
+                                       : 'border-line-soft bg-surface-raised/40 text-slate-600 hover:border-brand-500/40 dark:text-slate-300'}"
                         >
                             <div class="flex items-center gap-2">
                                 <button
@@ -631,9 +639,9 @@
                                 </button>
                             </div>
                             {#if selected}
-                                <div class="flex items-center justify-between gap-2 px-1">
-                                    <span class="text-xs font-black uppercase tracking-widest text-slate-400">{$_('settings.cameras.role_label', { default: 'Role' })}</span>
-                                    <div class="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-0.5">
+                                <div class="flex items-center justify-between gap-2 border-t border-line-soft px-2 pb-1 pt-2">
+                                    <span class="eyebrow">{$_('settings.cameras.role_label', { default: 'Role' })}</span>
+                                    <div class="inline-flex rounded-lg border border-line bg-surface p-0.5" role="group" aria-label={$_('settings.cameras.role_label', { default: 'Role' })}>
                                         <button
                                             type="button"
                                             onclick={() => {
@@ -641,9 +649,9 @@
                                                 delete next[camera];
                                                 cameraRoles = next;
                                             }}
-                                            class="min-h-11 px-3 py-1 rounded-md text-xs font-black uppercase tracking-widest transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 {role === 'feeder' ? 'bg-brand-500 text-white' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-200'}"
+                                            class="min-h-11 px-3 py-1 rounded-md text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 {role === 'feeder' ? 'bg-brand-500 text-white' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-200'}"
                                             aria-pressed={role === 'feeder'}
-                                            title={$_('settings.cameras.role_feeder_help', { default: 'Feeder cam — every Frigate event is treated as a fresh visit (default).' })}
+                                            title={$_('settings.cameras.role_feeder_help', { default: 'Feeder cam: every Frigate event is treated as a fresh visit (default).' })}
                                         >
                                             {$_('settings.cameras.role_feeder', { default: 'Feeder' })}
                                         </button>
@@ -652,9 +660,9 @@
                                             onclick={() => {
                                                 cameraRoles = { ...cameraRoles, [camera]: 'nest' };
                                             }}
-                                            class="min-h-11 px-3 py-1 rounded-md text-xs font-black uppercase tracking-widest transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 {role === 'nest' ? 'bg-brand-500 text-white' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-200'}"
+                                            class="min-h-11 px-3 py-1 rounded-md text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 {role === 'nest' ? 'bg-brand-500 text-white' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-200'}"
                                             aria-pressed={role === 'nest'}
-                                            title={$_('settings.cameras.role_nest_help', { default: 'Nest box cam — collapses repeat detections of the same species into one per dedupe window so a continuously-present nesting bird does not flood the feed.' })}
+                                            title={$_('settings.cameras.role_nest_help', { default: 'Nest box cam: collapses repeat detections of the same species into one per dedupe window so a continuously-present nesting bird does not flood the feed.' })}
                                         >
                                             {$_('settings.cameras.role_nest', { default: 'Nest' })}
                                         </button>
@@ -664,7 +672,7 @@
                             {#if previewVisible && previewCamera === camera}
                                 <div class="rounded-2xl border border-slate-200/80 dark:border-slate-700/60 bg-white/95 dark:bg-slate-900/95 overflow-hidden shadow-lg shadow-slate-900/10 dark:shadow-black/30">
                                     <div class="px-4 py-2 flex items-center justify-between gap-2">
-                                        <span class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('settings.cameras.preview_label', { default: 'Camera preview for {camera}', values: { camera } })}</span>
+                                        <span class="text-xs font-bold uppercase tracking-widest text-slate-500">{$_('settings.cameras.preview_label', { default: 'Camera preview for {camera}', values: { camera } })}</span>
                                         <div class="flex items-center gap-2">
                                             <span class="text-xs font-semibold text-accent-500">{$_('settings.cameras.preview_live', { default: 'LIVE' })}</span>
                                             <button
@@ -703,10 +711,10 @@
                 </div>
             {/if}
             {#if Object.values(cameraRoles).includes('nest')}
-                <div class="rounded-xl border border-slate-200/70 dark:border-slate-700/60 bg-slate-50 dark:bg-slate-900/40 p-3 flex items-center justify-between gap-3">
-                    <div class="min-w-0">
-                        <p class="text-xs font-black text-slate-700 dark:text-slate-200">{$_('settings.cameras.nest_dedupe_label', { default: 'Nest dedupe window' })}</p>
-                        <p class="text-xs text-slate-500 font-bold mt-0.5">{$_('settings.cameras.nest_dedupe_help', { default: 'Collapses repeat detections of the same species on a nest cam to one per N minutes.' })}</p>
+                <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line-soft bg-surface-raised/60 p-3" data-nest-dedupe>
+                    <div class="min-w-0 flex-1">
+                        <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">{$_('settings.cameras.nest_dedupe_label', { default: 'Nest dedupe window' })}</p>
+                        <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{$_('settings.cameras.nest_dedupe_help', { default: 'Collapses repeat detections of the same species on a nest cam to one per N minutes.' })}</p>
                     </div>
                     <div class="flex items-center gap-1 shrink-0">
                         <input
@@ -714,10 +722,10 @@
                             min={1}
                             max={720}
                             bind:value={nestDedupeMinutes}
-                            class="w-20 h-11 px-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-mono font-bold text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 outline-none text-right"
+                            class="w-20 h-11 px-2 rounded-lg border border-line bg-surface text-sm font-mono font-bold text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 outline-none text-right"
                             aria-label={$_('settings.cameras.nest_dedupe_label', { default: 'Nest dedupe window' })}
                         />
-                        <span class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('settings.cameras.nest_dedupe_unit', { default: 'min' })}</span>
+                        <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('settings.cameras.nest_dedupe_unit', { default: 'min' })}</span>
                     </div>
                 </div>
             {/if}
@@ -757,8 +765,8 @@
             </SettingsRow>
 
             {#if telemetryEnabled || telemetryHealthEnabled}
-                <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 animate-in fade-in slide-in-from-top-2">
-                    <p class="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">{$_('settings.telemetry.transparency')}</p>
+                <div class="p-4 rounded-xl bg-surface-raised/70 animate-in fade-in slide-in-from-top-2">
+                    <p class="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">{$_('settings.telemetry.transparency')}</p>
                     <div class="space-y-2 text-xs font-mono text-slate-600 dark:text-slate-400">
                         <div class="flex justify-between"><span>{$_('settings.telemetry.install_id')}:</span><span class="text-slate-900 dark:text-white select-all">{telemetryInstallationId || '...'}</span></div>
                         <div class="flex justify-between"><span>{$_('settings.telemetry.version')}:</span><span>{versionInfo.version}</span></div>
@@ -774,7 +782,7 @@
                     </div>
                     {#if telemetryEnabled}
                         <div class="mt-4 pt-4 border-t border-slate-200/70 dark:border-slate-700/70">
-                            <p class="text-xs font-black uppercase tracking-widest text-slate-400 mb-2">{$_('settings.telemetry.runtime_snapshot')}</p>
+                            <p class="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">{$_('settings.telemetry.runtime_snapshot')}</p>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-xs font-mono text-slate-600 dark:text-slate-400">
                                 {#each telemetryRuntimeRows as [labelKey, valuePath]}
                                     <div class="flex justify-between gap-3 min-w-0">

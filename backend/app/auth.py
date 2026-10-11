@@ -162,8 +162,10 @@ _COOKIE_ROUTES = (
     re.compile(r"^/api/frigate/[^/]+/(hls|recording-hls)/[^/]+$"),
     re.compile(r"^/api/frigate/[^/]+/snapshot/(original\.jpg|candidates/[^/]+/(image|thumbnail)\.jpg)$"),
     re.compile(r"^/api/frigate/camera/[^/]+/latest\.jpg$"),
-    re.compile(r"^/api/about/showcase/[^/]+\.jpg$"),
+    re.compile(r"^/api/about/showcase/[^/]+\.(jpg|webm)$"),
     re.compile(r"^/api/audio/(spectrogram|clip)/[^/]+$"),
+    re.compile(r"^/api/manual-observations/[a-f0-9]{32}/(preview|media)$"),
+    re.compile(r"^/api/manual-observations/[a-f0-9]{32}/species/[0-9]/(photo|scene)$"),
     re.compile(r"^/api/sse$"),
 )
 
@@ -320,6 +322,21 @@ async def get_auth_context_with_legacy(
         if await verify_api_key_legacy(header_key, query_key):
             return AuthContext(auth_level=AuthLevel.OWNER, username="legacy_api_key")
         raise exc
+
+
+async def get_oauth_router_auth_context(
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    header_key: str = Security(api_key_header),
+    query_key: str = Security(api_key_query),
+) -> Optional[AuthContext]:
+    from app.services.oauth_state import OAUTH_CALLBACK_PATHS
+
+    if request.method == "GET" and request.url.path in OAUTH_CALLBACK_PATHS:
+        # The callback itself must consume an owner-issued provider-bound state
+        # before exchanging or storing credentials. This grants no owner role.
+        return None
+    return await get_auth_context_with_legacy(request, credentials, header_key, query_key)
 
 
 @dataclass(frozen=True)

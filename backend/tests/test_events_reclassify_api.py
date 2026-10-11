@@ -446,3 +446,39 @@ async def test_events_classify_wildlife_passes_cropped_input_context(client: htt
     finally:
         await _delete_detection(event_id)
         app.dependency_overrides.pop(require_owner, None)
+
+
+@pytest.mark.asyncio
+async def test_reclassify_snapshot_forwards_the_producing_models_checksum(client: httpx.AsyncClient):
+    """Without it the refinement resolves no identity and overwrites the detection's species_id and model
+    provenance with nulls."""
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    event_id = "evt-reclassify-snapshot-provenance"
+    await _insert_detection(event_id, "Unknown Bird", "cam1")
+    app.dependency_overrides[require_owner] = lambda: AuthContext(auth_level=AuthLevel.OWNER, username="owner")
+
+    classifier = MagicMock()
+    classifier.classify_async = AsyncMock(
+        return_value=[{"label": "Robin", "score": 0.91, "index": 1, "model_sha256": "c" * 64}]
+    )
+
+    try:
+        with (
+            patch("app.routers.events.get_classifier", return_value=classifier),
+            patch("app.routers.events.frigate_client") as mock_frigate,
+            patch("app.services.detection_service.DetectionService") as mock_detection_service,
+            patch("app.routers.events.broadcaster.broadcast", new_callable=AsyncMock),
+        ):
+            mock_frigate.get_event_with_error = AsyncMock(return_value=({"has_clip": False, "data": {}}, None))
+            mock_frigate.get_snapshot = AsyncMock(return_value=_image_bytes())
+            mock_detection_service.return_value.apply_video_result = AsyncMock()
+
+            response = await client.post(f"/api/events/{event_id}/reclassify", params={"strategy": "snapshot"})
+
+        assert response.status_code == 200, response.text
+        applied = mock_detection_service.return_value.apply_video_result.await_args.kwargs
+        assert applied["video_model_sha256"] == "c" * 64
+    finally:
+        await _delete_detection(event_id)
+        app.dependency_overrides.pop(require_owner, None)

@@ -15,6 +15,8 @@ know behaves exactly as it does today.
 """
 
 import sqlite3
+import hashlib
+from unittest.mock import MagicMock, Mock
 
 import pytest
 
@@ -56,6 +58,19 @@ def test_labels_come_back_in_output_order(catalogue):
     ]
 
 
+def test_registered_output_names_are_verified_even_when_catalogue_indices_are_complete(catalogue, monkeypatch):
+    from app.services import model_manager
+
+    expected = hashlib.sha256(b"Prunella modularis\nErithacus rubecula\nNothing resolved this\n").hexdigest()
+    monkeypatch.setattr(model_manager, "REMOTE_REGISTRY", [{"sha256": "sha-complete", "labels_sha256": expected}])
+    assert catalogue_labels_for_model("sha-complete", catalog_path=catalogue)
+    with sqlite3.connect(catalogue) as connection:
+        connection.execute(
+            "UPDATE model_output_taxa SET source_label = 'Wrong species' WHERE model_artifact_id = 1 AND output_index = 0"
+        )
+    assert catalogue_labels_for_model("sha-complete", catalog_path=catalogue) is None
+
+
 def test_an_output_with_no_identity_still_contributes_its_label(catalogue):
     """The label is what inference needs; the identity is a separate question."""
     labels = catalogue_labels_for_model("sha-complete", catalog_path=catalogue)
@@ -81,8 +96,54 @@ def test_no_checksum_is_refused(catalogue, value):
     assert catalogue_labels_for_model(value, catalog_path=catalogue) is None
 
 
+def test_subprocess_status_counts_catalogue_outputs_without_a_label_file(monkeypatch, tmp_path):
+    from app.services.classifier_service import ClassifierService
+
+    monkeypatch.setattr(
+        "app.services.catalogue_labels.catalogue_labels_for_model",
+        lambda sha: ["One", "Two"] if sha == "known" else None,
+    )
+    service = ClassifierService()
+    assert service._labels_count_for_status(str(tmp_path / "absent.txt"), "known") == 2
+
+
+def test_subprocess_labels_and_public_status_use_the_resolved_model_checksum(monkeypatch, tmp_path):
+    from app.services.classifier_service import ClassifierService
+
+    monkeypatch.setattr(
+        "app.services.catalogue_labels.catalogue_labels_for_model",
+        lambda sha: ["One", "Two"] if sha == "known" else None,
+    )
+    service = ClassifierService()
+    service._image_execution_mode = "subprocess"
+    service._worker_process_mode = False
+    monkeypatch.setattr(
+        service,
+        "_resolve_active_bird_model_spec",
+        lambda: {"model_sha256": "known", "labels_path": str(tmp_path / "absent.txt")},
+    )
+    assert service.labels == ["One", "Two"]
+    assert service.get_status()["labels_count"] == 2
+
+
 def test_a_missing_catalogue_never_raises(tmp_path):
     assert catalogue_labels_for_model("sha-complete", catalog_path=tmp_path / "absent.db") is None
+
+
+def test_unloaded_wildlife_status_counts_catalogue_outputs_without_label_file(monkeypatch, tmp_path):
+    from app.services import classifier_service as module
+
+    service = module.ClassifierService()
+    model = tmp_path / "model.tflite"
+    model.write_bytes(b"model")
+    monkeypatch.setattr(service, "_get_model_paths", lambda *args: (str(model), str(tmp_path / "absent.txt")))
+    monkeypatch.setattr(module, "artifact_digest", lambda path: "known")
+    monkeypatch.setattr(
+        "app.services.catalogue_labels.catalogue_labels_for_model",
+        lambda sha: ["One", "Two"] if sha == "known" else None,
+    )
+
+    assert service.get_wildlife_status()["labels_count"] == 2
 
 
 def test_the_registry_checksum_is_resolved_for_a_plain_model():
@@ -164,3 +225,66 @@ def test_a_catalogue_that_raises_never_stops_a_model_loading(monkeypatch, tmp_pa
     )
     assert source == "label_file"
     assert labels == ["From the file"]
+
+
+@pytest.fixture(params=["ModelInstance", "ONNXModelInstance", "OpenVINOModelInstance"])
+def native_loader(request, monkeypatch, tmp_path):
+    from app.services import classifier_service as module
+
+    monkeypatch.setattr(module, "tflite", MagicMock())
+    monkeypatch.setattr(module, "ONNX_AVAILABLE", True)
+    runtime = MagicMock()
+    runtime.InferenceSession.return_value.get_providers.return_value = ["CPUExecutionProvider"]
+    monkeypatch.setattr(module, "ort", runtime)
+    monkeypatch.setattr(module, "OPENVINO_AVAILABLE", True)
+    monkeypatch.setattr(module, "OpenVINOCore", MagicMock())
+    monkeypatch.setattr(module, "resolve_openvino_cache_dir", lambda: str(tmp_path / "cache"))
+    return getattr(module, request.param)
+
+
+@pytest.mark.parametrize("file_present", [False, True])
+@pytest.mark.parametrize("declared_checksum", [None, "different-selected-model"])
+def test_native_load_uses_its_own_weights_for_catalogue_labels(
+    native_loader, catalogue, monkeypatch, tmp_path, file_present, declared_checksum
+):
+    """Startup and fallback loaders need no caller-supplied checksum or label file."""
+    from app.services import classifier_service as module
+
+    weights = tmp_path / "weights"
+    weights.write_bytes(b"actual fallback weights")
+    digest = hashlib.sha256(weights.read_bytes()).hexdigest()
+    with sqlite3.connect(catalogue) as connection:
+        connection.execute("UPDATE model_artifacts SET model_sha256=? WHERE id=1", (digest,))
+    lookup = Mock(side_effect=lambda sha: catalogue_labels_for_model(sha, catalog_path=catalogue))
+    monkeypatch.setattr("app.services.catalogue_labels.catalogue_labels_for_model", lookup)
+    hash_weights = Mock(wraps=module.artifact_digest)
+    monkeypatch.setattr(module, "artifact_digest", hash_weights)
+    labels = tmp_path / "labels.txt"
+    if file_present:
+        labels.write_text("Altered after installation\n", encoding="utf-8")
+
+    model = native_loader("bird", str(weights), str(labels), model_sha256=declared_checksum)
+    assert model.load() is True
+    assert model.labels == ["Prunella modularis", "Erithacus rubecula", "Nothing resolved this"]
+    lookup.assert_called_once_with(digest)
+    assert model.load() is True
+    hash_weights.assert_called_once_with(str(weights))
+    model.cleanup()
+
+
+def test_native_load_retains_file_fallback_for_incomplete_catalogue(native_loader, catalogue, monkeypatch, tmp_path):
+    weights = tmp_path / "weights"
+    weights.write_bytes(b"incompletely mapped model")
+    digest = hashlib.sha256(weights.read_bytes()).hexdigest()
+    with sqlite3.connect(catalogue) as connection:
+        connection.execute("UPDATE model_artifacts SET model_sha256=? WHERE id=2", (digest,))
+    monkeypatch.setattr(
+        "app.services.catalogue_labels.catalogue_labels_for_model",
+        lambda sha: catalogue_labels_for_model(sha, catalog_path=catalogue),
+    )
+    labels = tmp_path / "labels.txt"
+    labels.write_text("First\nSecond\nThird\nFourth\n", encoding="utf-8")
+    model = native_loader("bird", str(weights), str(labels))
+    assert model.load() is True
+    assert model.labels == ["First", "Second", "Third", "Fourth"]
+    model.cleanup()

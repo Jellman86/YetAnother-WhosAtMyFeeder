@@ -52,11 +52,13 @@
     }
 
     function leave(): void {
+        if (busy) return;
         actionError = '';
         setupWizardStore.leaveStep();
     }
 
     function skip(): void {
+        if (busy) return;
         actionError = '';
         setupWizardStore.skipStep();
     }
@@ -83,15 +85,15 @@
     <div class="flex items-center justify-between border-t border-slate-200 pt-4 dark:border-slate-700">
         <div>
             {#if showBack && !setupWizardStore.isFirst}
-                <button type="button" class="btn btn-ghost min-h-11 px-4 py-2.5" onclick={leave}>
+                <button type="button" class="btn btn-ghost min-h-11 px-4 py-2.5" disabled={busy} onclick={leave}>
                     {$_('setup.back', { default: 'Back' })}
                 </button>
             {/if}
         </div>
         <div class="flex items-center gap-2">
             {#if showSkip}
-                <button type="button" class="btn btn-ghost min-h-11 px-4 py-2.5" onclick={skip}>
-                    {$_('setup.skip', { default: 'Skip' })}
+                <button type="button" class="btn btn-ghost min-h-11 px-4 py-2.5" disabled={busy} onclick={skip}>
+                    {$_('setup.skip_step', { default: 'Skip step' })}
                 </button>
             {/if}
             <button

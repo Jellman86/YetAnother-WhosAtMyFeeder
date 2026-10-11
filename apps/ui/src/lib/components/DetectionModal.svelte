@@ -1,10 +1,14 @@
 <script lang="ts">
+    import TaxonomyLineage from './TaxonomyLineage.svelte';
     import Map from './Map.svelte';
     import {
         getSnapshotUrl,
+        getThumbnailUrl,
+        fetchEvents,
         getOriginalFrigateSnapshotUrl,
         fetchSnapshotStatus,
         fetchSnapshotCandidates,
+        dismissSnapshotCandidate,
         applySnapshotCandidate,
         generateHighQualityBirdCropSnapshot,
         analyzeDetection,
@@ -36,15 +40,20 @@
         type EbirdNearbyResult,
         type ConversationTurn,
         type SnapshotStatusResponse,
-        type SnapshotCandidate
+        type SnapshotCandidate,
+        type BirdObservation
     } from '../api';
     import type { Detection } from '../api';
     import { withAuthParams } from '../api/core';
     import { appApiPath } from '../app/url-base';
     import ReclassificationOverlay from './ReclassificationOverlay.svelte';
     import FrameStrip from './FrameStrip.svelte';
+    import CountedBirds from './CountedBirds.svelte';
+    import BirdScanControl from './BirdScanControl.svelte';
+    import MediaImage from './MediaImage.svelte';
     import { currentMoment, groupCandidatesIntoMoments, preferredCandidate, type FrameMoment } from '../utils/frame-moments';
     import { WholeScenePeek } from '../utils/whole-scene-peek.svelte';
+    import { photoFitFor, type PhotoFit } from '../utils/photo-fit';
     import { speciesPickerNames } from '../utils/species-picker';
     import VideoAnalysisFilmReel from './VideoAnalysisFilmReel.svelte';
     import { detectionsStore, type ReclassificationProgress } from '../stores/detections.svelte';
@@ -80,7 +89,7 @@
     import { classifyInferenceProvider } from '../utils/inference-provider';
     import { isVideoPromotionGated } from '../video-promotion-gate';
     import { applyManualTagResult } from '../utils/manual-tag';
-    import { findMatchingFullFrameCandidate } from '../utils/detection-evidence';
+    import { findMatchingFullFrameCandidate, findScanFrameCandidate, sameFrameCropCandidates } from '../utils/detection-evidence';
     import { intersectVisibleViewport } from '../utils/visible-viewport';
 
     const FRIGATE_MISSING_DOCS_URL = 'https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/dev/docs/troubleshooting/frigate-event-not-found.md';
@@ -97,6 +106,7 @@
         onDeleteSuccess?: (frigateEvent: string, detectionTime?: string) => void | Promise<void>;
         onHideSuccess?: (frigateEvent: string, detectionTime: string | undefined, isHidden: boolean) => void | Promise<void>;
         onViewSpecies: (speciesName: string) => void;
+        onbirdschanged?: () => void;
         readOnly?: boolean;
         fullVisitAvailable?: boolean;
         fullVisitFetched?: boolean;
@@ -115,11 +125,30 @@
         onDeleteSuccess,
         onHideSuccess,
         onViewSpecies,
+        onbirdschanged,
         readOnly = false,
         fullVisitAvailable = false,
         fullVisitFetched = false,
         fullVisitFetchState = 'idle'
     }: Props = $props();
+    const publicEventId = $derived(detection.frigate_event);
+    $effect(() => {
+        const version = detectionsStore.publicHistoryVersion;
+        const eventId = publicEventId;
+        if (!version || !authStore.isGuest || readOnly) return;
+        const controller = new AbortController();
+        untrack(() => {
+            void fetchEvents({ eventId, limit: 1, fields: 'detail', signal: controller.signal,
+                requestKey: 'public-open-detection' }).then(([allowed]) => {
+                if (controller.signal.aborted) return;
+                if (!allowed) onClose();
+                else detection = allowed;
+            }).catch(() => {
+                if (!controller.signal.aborted) onClose();
+            });
+        });
+        return () => controller.abort();
+    });
     let currentClassificationSource = $derived(getDetectionClassificationSource(detection));
     let classificationInputKind = $derived(getClassificationInputKind(detection.video_classification_input_source));
     let classificationInputLabel = $derived.by(() => {
@@ -168,6 +197,9 @@
     // match any current primary identity field, so owner confirmation is needed.
     let videoPromotionGated = $derived(isVideoPromotionGated(detection));
     const isManualObservation = $derived(detection.observation_source === 'manual_upload');
+    // An uploaded video is kept with the observation and serves photo choices and
+    // Score again like any visit's clip; an uploaded photo has neither.
+    const hasFrameSource = $derived(!isManualObservation || Boolean(detection.has_clip));
 
     // State
     let modalElement = $state<HTMLElement | null>(null);
@@ -277,31 +309,52 @@
         });
     }
 
-    function withCacheBust(url: string, token: number): string {
+    function withCacheBust(url: string, token: string): string {
         const separator = url.includes('?') ? '&' : '?';
         return `${url}${separator}v=${token}`;
     }
 
+    let snapshotControlsEpoch = 0;
+    let snapshotControlsSubject: string | null = null;
+
     async function refreshSnapshotControls(eventId: string) {
+        const requestEpoch = ++snapshotControlsEpoch;
+        const parentIdentity = untrack(() => countedParentIdentity);
+        const isCurrent = () => requestEpoch === snapshotControlsEpoch
+            && detection?.frigate_event === eventId && hasOwnerDetectionActions;
+        if (!isCurrent()) return;
         snapshotCandidatesLoading = true;
+        snapshotCandidatesError = false;
         try {
             const [status, candidateList] = await Promise.all([
                 fetchSnapshotStatus(eventId),
                 fetchSnapshotCandidates(eventId)
             ]);
-            if (detection.frigate_event !== eventId) return;
+            if (!isCurrent()) return;
             snapshotStatus = status;
             snapshotCandidates = candidateList.candidates ?? [];
+            if (parentIdentity === countedParentIdentity) {
+                countedBirds = candidateList.birds ?? [];
+                countedBirdsGeneration += 1;
+                countedBirdsError = false;
+                countedBirdsLoading = false;
+            }
             currentSnapshotCandidateId = candidateList.current_candidate_id ?? null;
             currentSnapshotSource = candidateList.current_source ?? status.source ?? null;
         } catch {
-            if (detection.frigate_event !== eventId) return;
+            if (!isCurrent()) return;
             snapshotStatus = null;
             snapshotCandidates = [];
+            if (parentIdentity === countedParentIdentity) {
+                countedBirds = [];
+                countedBirdsGeneration += 1;
+                countedBirdsLoading = false;
+            }
+            snapshotCandidatesError = true;
             currentSnapshotCandidateId = null;
             currentSnapshotSource = null;
         } finally {
-            if (detection.frigate_event === eventId) {
+            if (isCurrent()) {
                 snapshotCandidatesLoading = false;
             }
         }
@@ -358,15 +411,30 @@
 
     $effect(() => {
         const eventId = detection?.frigate_event;
+        // A changed authoritative count also retires an open record's older scan.
+        void detection?.bird_summary;
+        // detection_updated precedes the run's photo work; only the settled run has saved it.
+        void settledMediaVersion;
+        snapshotControlsEpoch += 1;
         if (!eventId || !hasOwnerDetectionActions) {
+            snapshotControlsSubject = null;
             snapshotStatus = null;
             snapshotCandidates = [];
+            countedBirds = [];
             snapshotCandidatesLoading = false;
             currentSnapshotCandidateId = null;
             currentSnapshotSource = null;
             return;
         }
 
+        if (snapshotControlsSubject !== eventId) {
+            snapshotControlsSubject = eventId;
+            snapshotCandidates = [];
+            countedBirds = [];
+            // Keep keyed rows and focus while rereading this same capture.
+            untrack(() => { countedBirdsGeneration += 1; });
+        }
+        snapshotCandidatesError = false;
         snapshotCandidatesLoading = true;
 
         void (async () => {
@@ -376,7 +444,7 @@
                 // refreshSnapshotControls already set conservative state
             }
         })();
-
+        return () => { snapshotControlsEpoch += 1; };
     });
 
     let aiAnalysis = $state<string | null>(null);
@@ -476,7 +544,53 @@
     }
     let snapshotStatus = $state<SnapshotStatusResponse | null>(null);
     let snapshotCandidates = $state<SnapshotCandidate[]>([]);
+    let countedBirds = $state<BirdObservation[]>([]);
+    /** Advanced on every reread of the birds, so an edit answered after it is not applied. */
+    let countedBirdsGeneration = $state(0);
+    let countedBirdsLoading = $state(false);
+    let countedBirdsError = $state(false);
+    const countedParentIdentity = $derived(JSON.stringify([
+        detection.category_name, detection.scientific_name, detection.common_name,
+        detection.display_name, detection.score, detection.manual_tagged
+    ]));
+    let countedIdentitySubject: { eventId: string; identity: string } | null = null;
+
+    $effect(() => {
+        const eventId = detection.frigate_event;
+        const identity = countedParentIdentity;
+        const previous = countedIdentitySubject;
+        countedIdentitySubject = hasOwnerDetectionActions ? { eventId, identity } : null;
+        // The media read owns a new capture. Parent changes reread only bird names:
+        // detection_updated can arrive before the run has finished saving its photos.
+        if (!hasOwnerDetectionActions || previous?.eventId !== eventId) {
+            countedBirdsLoading = false;
+            countedBirdsError = false;
+            return;
+        }
+        if (previous.identity === identity) return;
+        const mediaEpoch = snapshotControlsEpoch;
+        let cancelled = false;
+        const isCurrent = () => !cancelled && snapshotControlsEpoch === mediaEpoch
+            && detection.frigate_event === eventId && countedParentIdentity === identity && hasOwnerDetectionActions;
+        countedBirdsLoading = true;
+        countedBirdsError = false;
+        untrack(() => { countedBirdsGeneration += 1; });
+        void (async () => {
+            try {
+                const response = await fetchSnapshotCandidates(eventId);
+                if (!isCurrent()) return;
+                countedBirds = response.birds ?? [];
+                countedBirdsGeneration += 1;
+            } catch {
+                if (isCurrent()) countedBirdsError = true;
+            } finally {
+                if (isCurrent()) countedBirdsLoading = false;
+            }
+        })();
+        return () => { cancelled = true; };
+    });
     let snapshotCandidatesLoading = $state(false);
+    let snapshotCandidatesError = $state(false);
     let snapshotApplyPending = $state(false);
     let snapshotGeneratePending = $state(false);
     let currentSnapshotCandidateId = $state<string | null>(null);
@@ -484,6 +598,10 @@
     /** The strip moment being saved as the photograph, while the request is in flight. */
     let applyingMomentKey = $state<string | null>(null);
     let snapshotRefreshToken = $state(Date.now());
+    const settledMediaVersion = $derived(
+        detectionsStore.settledMediaVersion(detection.frigate_event)
+    );
+    const snapshotCacheToken = $derived(`${snapshotRefreshToken}.${settledMediaVersion}`);
     let tagSearchQuery = $state('');
     let searchResults = $state<SearchResult[]>([]);
     let isSearching = $state(false);
@@ -728,8 +846,8 @@
     const birdnetEnabled = $derived(
         (settingsStore.settings?.birdnet_enabled ?? authStore.birdnetEnabled ?? false) && authStore.canViewAudio
     );
-    const snapshotImageUrl = $derived.by(() => withCacheBust(getSnapshotUrl(detection.frigate_event), snapshotRefreshToken));
-    const originalFrigateSnapshotUrl = $derived.by(() => withCacheBust(getOriginalFrigateSnapshotUrl(detection.frigate_event), snapshotRefreshToken));
+    const snapshotImageUrl = $derived.by(() => withCacheBust(getSnapshotUrl(detection.frigate_event), snapshotCacheToken));
+    const originalFrigateSnapshotUrl = $derived.by(() => withCacheBust(getOriginalFrigateSnapshotUrl(detection.frigate_event), String(snapshotRefreshToken)));
     let canShowFavoriteAction = $derived(
         authStore.canModify
         && !readOnly
@@ -740,12 +858,15 @@
     const fullFrameSnapshotCandidate = $derived(
         findMatchingFullFrameCandidate(snapshotCandidates, currentSnapshotCandidateId)
     );
+    const scanFrameCandidate = $derived(findScanFrameCandidate(snapshotCandidates, currentSnapshotCandidateId, currentSnapshotSource));
     // One thumbnail per moment of the visit; the framings of a moment fold into it (#256).
     // Candidate media is owner-gated, so the strip simply does not exist for a guest.
     const frameMoments = $derived<FrameMoment[]>(
         authStore.hasOwnerAccess
             ? groupCandidatesIntoMoments(
-                snapshotCandidates.filter((item) => item.thumbnail_url || item.image_url),
+                snapshotCandidates.filter((item) =>
+                    item.thumbnail_url || item.image_url || item.candidate_id === currentSnapshotCandidateId
+                ),
                 { asRecordedAvailable: originalFrigateSnapshotAvailable }
             )
             : []
@@ -804,13 +925,20 @@
     // The photograph is always the crop. The whole scene is a look, not a mode (#256): the shared
     // controller peeks on hover or focus with the crop outlined and pins on click, so the one
     // rescue that needs the whole scene can be offered. Persisting anything stays a named action.
-    let heroImageEl = $state<HTMLImageElement | null>(null);
     // Frigate's own snapshot has no candidate record, so the "matching" whole frame would be
     // another moment's: different evidence, not a safe peek.
+    // A whole scene that failed to load is not offered again; the photograph stays where it was.
+    let failedSceneUrls = $state<ReadonlySet<string>>(new Set());
+    const wholeSceneSources = $derived(
+        // Full resolution only: a scene thumbnail is too small to judge by and cannot carry the outlines.
+        [fullFrameSnapshotCandidate?.image_url].filter(
+            (url): url is string => !!url && !failedSceneUrls.has(url)
+        )
+    );
     const canPeekWholeScene = $derived(
         authStore.hasOwnerAccess
         && currentSnapshotSource !== 'frigate_snapshot'
-        && !!(fullFrameSnapshotCandidate?.image_url ?? fullFrameSnapshotCandidate?.thumbnail_url)
+        && wholeSceneSources.length > 0
     );
     const wholeScene = new WholeScenePeek(() => canPeekWholeScene);
     const currentCropCandidate = $derived(
@@ -818,28 +946,67 @@
             ?? snapshotCandidates.find((candidate) => candidate.selected)
             ?? null
     );
-    const mediaImageUrl = $derived.by(() => {
-        if (wholeScene.showing && fullFrameSnapshotCandidate?.image_url) {
-            return fullFrameSnapshotCandidate.image_url;
-        }
-        if (wholeScene.showing && fullFrameSnapshotCandidate?.thumbnail_url) {
-            return fullFrameSnapshotCandidate.thumbnail_url;
-        }
-        return snapshotImageUrl;
-    });
+    const wholeSceneCrops = $derived(sameFrameCropCandidates(snapshotCandidates, currentCropCandidate));
+    // The saved photograph, then the camera's thumbnail of the same capture, then a placeholder:
+    // a working picture is never given up for a missing one. The ambient wash follows whichever
+    // one is actually drawn.
+    const photographSources = $derived([
+        snapshotImageUrl,
+        getThumbnailUrl(detection.frigate_event, settledMediaVersion)
+    ]);
+    /** A crop fills the frame; a whole scene is shown whole. Its scene failing does not change that. */
+    const photographIsCrop = $derived(
+        authStore.hasOwnerAccess && currentSnapshotSource !== 'frigate_snapshot' && !!fullFrameSnapshotCandidate
+    );
+    let photographDrawnUrl = $state<string | null>(null);
+    let photographFit = $state<PhotoFit>('cover');
+    let sceneImageEl = $state<HTMLImageElement | null>(null);
+    /** The scene URL that has finished drawing; until then the photograph stays visible beneath. */
+    let sceneLoadedUrl = $state<string | null>(null);
+    const wholeSceneReady = $derived(
+        wholeScene.showing && sceneLoadedUrl !== null && sceneLoadedUrl === wholeSceneSources[0]
+    );
+
+    function wholeSceneLoaded(image: HTMLImageElement): void {
+        sceneLoadedUrl = image.getAttribute('src');
+        measureWholeScene();
+    }
+
+    function wholeSceneFailed(url: string): void {
+        failedSceneUrls = new Set([...failedSceneUrls, url]);
+        if (wholeSceneSources.length === 0) wholeScene.reset();
+    }
+
     $effect(() => {
         // A new detection starts on its own stored frame.
         void detection.frigate_event;
         wholeScene.reset();
+        untrack(() => {
+            failedSceneUrls = new Set();
+            photographDrawnUrl = null;
+            photographFit = 'cover';
+        });
     });
-    // The outline is a DOM measurement, taken once the whole scene has loaded and again when
+    // The outlines are DOM measurements, taken once the whole scene has loaded and again when
     // the window changes size.
     function measureWholeScene() {
-        wholeScene.measure(heroImageEl, currentCropCandidate?.crop_box);
+        // Crop boxes are frame pixels; only the full-resolution scene shares them, never its thumbnail.
+        const sceneUrl = fullFrameSnapshotCandidate?.image_url;
+        if (!sceneUrl || !sceneImageEl || sceneImageEl.getAttribute('src') !== sceneUrl) {
+            wholeScene.outline = null;
+            wholeScene.otherOutlines = [];
+            return;
+        }
+        const otherCropBoxes = wholeSceneCrops.slice(1).flatMap((candidate) =>
+            candidate.crop_box ? [candidate.crop_box] : []
+        );
+        wholeScene.measure(sceneImageEl, wholeSceneCrops[0]?.crop_box, otherCropBoxes);
     }
     $effect(() => {
         if (!wholeScene.showing) {
             wholeScene.outline = null;
+            wholeScene.otherOutlines = [];
+            sceneLoadedUrl = null;
             return;
         }
         measureWholeScene();
@@ -854,7 +1021,7 @@
     );
     const showInlineFramePicker = $derived(
         hasOwnerDetectionActions
-        && detection.observation_source !== 'manual_upload'
+        && hasFrameSource
         && !showMediaSlotVideoAnalysis
         && !reclassifyProgress
         && (
@@ -1017,6 +1184,9 @@
         }
         if (source === 'frigate_hint_crop') {
             return $_('detection.video_analysis.evidence.frigate_hint_crop', { default: 'Frigate-guided crop' });
+        }
+        if (source === 'frigate_region_crop') {
+            return $_('detection.video_analysis.evidence.frigate_region_crop', { default: 'Frigate-tracked area' });
         }
         if (source === 'model_crop') {
             return $_('detection.video_analysis.evidence.model_crop', { default: 'AI crop' });
@@ -1431,6 +1601,7 @@
             const nextDetection = applyManualTagResult(detection, result);
             Object.assign(detection, nextDetection);
             detectionsStore.updateDetection(nextDetection);
+            if (result.photo_changed) detectionsStore.notePhotoChanged(detection.frigate_event);
             showTagDropdown = false;
             tagSearchQuery = '';
             aiAnalysis = nextDetection.ai_analysis ?? null;
@@ -1542,6 +1713,21 @@
     }
 
     /** "Use this frame" from the strip: the photograph changes, the identification does not. */
+    async function removePhotoChoice(candidateId: string, dismissed: boolean): Promise<void> {
+        if (!hasOwnerDetectionActions || snapshotApplyPending) return;
+        const eventId = detection.frigate_event;
+        snapshotApplyPending = true;
+        try {
+            const response = await dismissSnapshotCandidate(eventId, candidateId, dismissed);
+            if (detection.frigate_event === eventId && hasOwnerDetectionActions) snapshotCandidates = response.candidates;
+        } catch (error) {
+            toastStore.error(getErrorMessage(error));
+            throw error;
+        } finally {
+            if (detection.frigate_event === eventId) snapshotApplyPending = false;
+        }
+    }
+
     async function handleUseMoment(moment: FrameMoment) {
         if (!hasOwnerDetectionActions || snapshotApplyPending) return;
         applyingMomentKey = moment.key;
@@ -1584,6 +1770,25 @@
         }
     }
 
+    async function refreshBirdsAfterScan(eventId: string, candidateId: string): Promise<void> {
+        if (detection.frigate_event !== eventId || scanFrameCandidate?.candidate_id !== candidateId || !hasOwnerDetectionActions) return;
+        const epoch = snapshotControlsEpoch;
+        countedBirdsLoading = true;
+        untrack(() => { countedBirdsGeneration += 1; });
+        try {
+            const response = await fetchSnapshotCandidates(eventId);
+            if (detection.frigate_event !== eventId || snapshotControlsEpoch !== epoch || scanFrameCandidate?.candidate_id !== candidateId || !hasOwnerDetectionActions) return;
+            countedBirds = response.birds ?? [];
+            countedBirdsError = false;
+            countedBirdsGeneration += 1;
+            onbirdschanged?.();
+        } catch {
+            if (detection.frigate_event === eventId && snapshotControlsEpoch === epoch) countedBirdsError = true;
+        } finally {
+            if (detection.frigate_event === eventId && snapshotControlsEpoch === epoch) countedBirdsLoading = false;
+        }
+    }
+
     async function handleGenerateSnapshotCandidates() {
         if (!authStore.hasOwnerAccess || readOnly || !detection || snapshotGeneratePending) return;
         const eventId = detection.frigate_event;
@@ -1595,11 +1800,18 @@
             snapshotRefreshToken = Date.now();
             await refreshSnapshotControls(eventId);
             if (!detection || detection.frigate_event !== eventId) return;
+            // Regeneration can recount the birds, so the log's summary is reread too.
+            onbirdschanged?.();
             resetMediaView();
             if (result.status === 'existing_crop_preserved') {
                 toastStore.warning($_('detection.snapshot_existing_crop_preserved', { default: 'No reliable new crop was found; the existing crop was kept.' }));
             } else if (result.status === 'generated_hq_snapshot') {
                 toastStore.warning($_('detection.snapshot_generated_full_frame', { default: 'No reliable crop was found; the best full frame was saved.' }));
+            } else if (snapshotCandidates.length > 0 && countedBirds.length > 0 && !snapshotCandidatesError) {
+                toastStore.success($_('detection.snapshot_scan_count', {
+                    values: { count: countedBirds.filter(bird => !bird.is_hidden).length },
+                    default: 'Snapshot scan finished. Current bird count: {count}.'
+                }));
             } else if (snapshotCandidates.length > 0) {
                 toastStore.success($_('detection.snapshot_generate_success', { default: 'Snapshots regenerated' }));
             } else {
@@ -1705,10 +1917,10 @@
         overflow: hidden;
         padding: 1.25rem;
         border-radius: 1.25rem;
-        background: linear-gradient(145deg, rgba(20, 184, 166, 0.08), rgba(14, 116, 144, 0.06));
-        border: 1px solid rgba(20, 184, 166, 0.22);
+        background: rgb(var(--brand-500) / 0.08);
+        border: 1px solid rgb(var(--brand-500) / 0.22);
         color: rgb(30 41 59);
-        box-shadow: 0 12px 28px rgba(15, 118, 110, 0.15);
+        box-shadow: none;
     }
 
     .ai-surface::before {
@@ -1717,10 +1929,7 @@
         inset: 0;
         pointer-events: none;
         border-radius: inherit;
-        opacity: 0.85;
-        background:
-            radial-gradient(900px 420px at 18% 0%, rgba(20, 184, 166, 0.12), transparent 60%),
-            radial-gradient(680px 420px at 92% 95%, rgba(14, 116, 144, 0.10), transparent 55%);
+        background: none;
     }
 
     .ai-surface > * {
@@ -1731,45 +1940,12 @@
     :global(.dark) .ai-surface,
     :global([data-theme='dark']) .ai-surface {
         /* Softer dark surface: keep the teal identity, reduce the "hard slab" look. */
-        background: linear-gradient(145deg, rgba(15, 118, 110, 0.20), rgba(30, 41, 59, 0.78));
-        border-color: rgba(45, 212, 191, 0.35);
+        background: rgb(var(--brand-700) / 0.20);
+        border-color: rgb(var(--brand-400) / 0.35);
         color: rgb(241 245 249);
-        box-shadow: 0 14px 30px rgba(2, 6, 23, 0.42);
+        box-shadow: none;
     }
 
-    :global(.dark) .ai-surface::before,
-    :global([data-theme='dark']) .ai-surface::before {
-        opacity: 0.95;
-        background:
-            radial-gradient(980px 440px at 16% 0%, rgba(94, 234, 212, 0.14), transparent 62%),
-            radial-gradient(760px 520px at 88% 90%, rgba(56, 189, 248, 0.10), transparent 58%),
-            radial-gradient(520px 420px at 50% 50%, rgba(2, 6, 23, 0.22), transparent 60%);
-    }
-
-    /* Blue Tit theme — light */
-    :global(.theme-bluetit:not(.dark)) .ai-surface {
-        background: linear-gradient(145deg, rgba(37, 99, 235, 0.08), rgba(29, 78, 216, 0.05));
-        border-color: rgba(37, 99, 235, 0.22);
-        box-shadow: 0 12px 28px rgba(37, 99, 235, 0.14);
-    }
-    :global(.theme-bluetit:not(.dark)) .ai-surface::before {
-        background:
-            radial-gradient(900px 420px at 18% 0%, rgba(37, 99, 235, 0.12), transparent 60%),
-            radial-gradient(680px 420px at 92% 95%, rgba(29, 78, 216, 0.10), transparent 55%);
-    }
-
-    /* Blue Tit theme — dark */
-    :global(.theme-bluetit.dark) .ai-surface {
-        background: linear-gradient(145deg, rgba(29, 78, 216, 0.22), rgba(15, 23, 42, 0.80));
-        border-color: rgba(96, 165, 250, 0.35);
-        box-shadow: 0 14px 30px rgba(2, 6, 23, 0.44);
-    }
-    :global(.theme-bluetit.dark) .ai-surface::before {
-        background:
-            radial-gradient(980px 440px at 16% 0%, rgba(96, 165, 250, 0.14), transparent 62%),
-            radial-gradient(760px 520px at 88% 90%, rgba(251, 191, 36, 0.10), transparent 58%),
-            radial-gradient(520px 420px at 50% 50%, rgba(2, 6, 23, 0.22), transparent 60%);
-    }
 
     .ai-panel {
         position: relative;
@@ -1780,7 +1956,7 @@
         letter-spacing: 0.25em;
         text-transform: uppercase;
         font-weight: 800;
-        color: rgb(13 148 136);
+        color: rgb(var(--brand-600));
         margin-bottom: 0.75rem;
     }
 
@@ -1816,7 +1992,7 @@
         letter-spacing: 0.02em;
         text-transform: none;
         font-weight: 900;
-        color: rgb(13 148 136);
+        color: rgb(var(--brand-600));
     }
 
     :global(.dark .ai-markdown-surface h1),
@@ -1830,7 +2006,7 @@
         letter-spacing: 0.015em;
         text-transform: none;
         font-weight: 850;
-        color: rgb(13 148 136);
+        color: rgb(var(--brand-600));
     }
 
     :global(.dark .ai-markdown-surface h2),
@@ -1844,7 +2020,7 @@
         letter-spacing: 0.01em;
         text-transform: none;
         font-weight: 800;
-        color: rgb(13 148 136);
+        color: rgb(var(--brand-600));
     }
 
     :global(.dark .ai-markdown-surface h3),
@@ -1858,7 +2034,7 @@
         letter-spacing: 0.01em;
         text-transform: none;
         font-weight: 800;
-        color: rgb(13 148 136);
+        color: rgb(var(--brand-600));
     }
 
     :global(.dark .ai-markdown-surface h4),
@@ -1873,7 +2049,7 @@
         letter-spacing: 0.01em;
         text-transform: none;
         font-weight: 750;
-        color: rgb(13 148 136);
+        color: rgb(var(--brand-600));
     }
 
     :global(.dark .ai-markdown-surface h5),
@@ -1928,7 +2104,7 @@
 
     :global(.dark .ai-markdown-surface li::marker),
     :global([data-theme='dark'] .ai-markdown-surface li::marker) {
-        color: rgba(94, 234, 212, 0.55);
+        color: rgb(var(--brand-300) / 0.55);
     }
 
     :global(.dark .ai-markdown-surface li),
@@ -1938,12 +2114,12 @@
 
     :global(.ai-markdown-surface strong) {
         font-weight: 700;
-        color: rgb(15 118 110);
+        color: rgb(var(--brand-700));
     }
 
     :global(.dark .ai-markdown-surface strong),
     :global([data-theme='dark'] .ai-markdown-surface strong) {
-        color: rgb(153 246 228);
+        color: rgb(var(--brand-200));
     }
 
     :global(.ai-markdown-surface em) {
@@ -1960,29 +2136,29 @@
         font-size: 0.75rem;
         padding: 0.1rem 0.3rem;
         border-radius: 0.4rem;
-        background: rgba(15, 118, 110, 0.1);
-        color: rgb(15 118 110);
+        background: rgb(var(--brand-700) / 0.1);
+        color: rgb(var(--brand-700));
     }
 
     :global(.dark .ai-markdown-surface code),
     :global([data-theme='dark'] .ai-markdown-surface code) {
-        background: rgba(45, 212, 191, 0.25);
-        color: rgb(153 246 228);
+        background: rgb(var(--brand-400) / 0.25);
+        color: rgb(var(--brand-200));
     }
 
     :global(.ai-markdown-surface pre) {
         margin: 0.5rem 0 0.75rem;
         padding: 0.75rem 0.9rem;
         border-radius: 0.75rem;
-        background: rgba(15, 118, 110, 0.08);
-        border: 1px solid rgba(15, 118, 110, 0.12);
+        background: rgb(var(--brand-700) / 0.08);
+        border: 1px solid rgb(var(--brand-700) / 0.12);
         overflow-x: auto;
     }
 
     :global(.dark .ai-markdown-surface pre),
     :global([data-theme='dark'] .ai-markdown-surface pre) {
         background: rgba(15, 23, 42, 0.6);
-        border-color: rgba(45, 212, 191, 0.2);
+        border-color: rgb(var(--brand-400) / 0.2);
     }
 
     :global(.ai-markdown-surface pre code) {
@@ -1997,21 +2173,21 @@
     :global(.ai-markdown-surface blockquote) {
         margin: 0.5rem 0 0.75rem;
         padding: 0.5rem 0.9rem;
-        border-left: 3px solid rgba(20, 184, 166, 0.5);
-        background: rgba(20, 184, 166, 0.08);
+        border: 1px solid rgb(var(--brand-500) / 0.25);
+        background: rgb(var(--brand-500) / 0.08);
         border-radius: 0.6rem;
         color: inherit;
     }
 
     :global(.dark .ai-markdown-surface blockquote),
     :global([data-theme='dark'] .ai-markdown-surface blockquote) {
-        background: rgba(20, 184, 166, 0.18);
+        background: rgb(var(--brand-500) / 0.18);
         color: inherit;
-        border-left-color: rgba(94, 234, 212, 0.7);
+        border-color: rgb(var(--brand-300) / 0.35);
     }
 
     :global(.ai-markdown-surface a) {
-        color: rgb(13 148 136);
+        color: rgb(var(--brand-600));
         text-decoration: underline;
         text-decoration-thickness: 1px;
         text-underline-offset: 2px;
@@ -2057,7 +2233,7 @@
 
     :global(.ai-markdown-surface th) {
         font-weight: 700;
-        color: rgb(15 118 110);
+        color: rgb(var(--brand-700));
         text-transform: uppercase;
         letter-spacing: 0.14em;
         font-size: 0.7rem;
@@ -2065,7 +2241,7 @@
 
     :global(.dark .ai-markdown-surface th),
     :global([data-theme='dark'] .ai-markdown-surface th) {
-        color: rgb(153 246 228);
+        color: rgb(var(--brand-200));
     }
 
     :global(.ai-markdown-surface > :first-child) {
@@ -2094,34 +2270,24 @@
 
     .ai-bubble.ai-surface {
         padding: 1.1rem 1.2rem;
-        border-color: rgba(20, 184, 166, 0.22);
-        background: linear-gradient(145deg, rgba(20, 184, 166, 0.08), rgba(14, 116, 144, 0.06));
-        box-shadow: 0 12px 28px rgba(15, 118, 110, 0.15);
+        border-color: rgb(var(--brand-500) / 0.22);
+        background: rgb(var(--brand-500) / 0.08);
+        box-shadow: none;
     }
 
     :global(.dark) .ai-bubble.ai-surface,
     :global([data-theme='dark']) .ai-bubble.ai-surface {
-        background: linear-gradient(145deg, rgba(15, 118, 110, 0.18), rgba(30, 41, 59, 0.78));
-        border-color: rgba(45, 212, 191, 0.35);
+        background: rgb(var(--brand-700) / 0.18);
+        border-color: rgb(var(--brand-400) / 0.35);
         /* Match the main .ai-surface dark-mode foreground for consistent contrast. */
         color: rgb(241 245 249);
-        box-shadow: 0 14px 30px rgba(2, 6, 23, 0.42);
+        box-shadow: none;
     }
 
     .ai-bubble--assistant {
-        border-color: rgba(20, 184, 166, 0.35);
+        border-color: rgb(var(--brand-500) / 0.35);
     }
 
-    /* Blue Tit theme — ai-bubble */
-    :global(.theme-bluetit:not(.dark)) .ai-bubble.ai-surface {
-        border-color: rgba(37, 99, 235, 0.22);
-        background: linear-gradient(145deg, rgba(37, 99, 235, 0.08), rgba(29, 78, 216, 0.05));
-        box-shadow: 0 12px 28px rgba(37, 99, 235, 0.14);
-    }
-    :global(.theme-bluetit.dark) .ai-bubble.ai-surface {
-        background: linear-gradient(145deg, rgba(29, 78, 216, 0.20), rgba(15, 23, 42, 0.80));
-        border-color: rgba(96, 165, 250, 0.35);
-    }
     :global(.theme-bluetit:not(.dark)) .ai-bubble--assistant {
         border-color: rgba(37, 99, 235, 0.35);
     }
@@ -2198,7 +2364,7 @@
 
     :global(.dark) .ai-thread,
     :global([data-theme='dark']) .ai-thread {
-        border-color: rgba(45, 212, 191, 0.18);
+        border-color: rgb(var(--brand-400) / 0.18);
         background: rgba(2, 6, 23, 0.22);
         box-shadow: 0 10px 22px rgba(2, 6, 23, 0.28);
     }
@@ -2233,7 +2399,7 @@
     <div
         bind:this={modalElement}
         data-theme={isDarkMode ? 'dark' : 'light'}
-        class="relative flex max-h-[100dvh] w-full max-w-5xl flex-col overflow-hidden rounded-none border border-white/20 bg-white shadow-2xl dark:bg-slate-800 sm:max-h-[92vh] sm:rounded-3xl"
+        class="relative flex max-h-[100dvh] w-full max-w-5xl flex-col overflow-hidden rounded-none border border-white/20 bg-surface shadow-2xl sm:max-h-[92vh] sm:rounded-2xl"
         role="document"
         tabindex="-1"
     >
@@ -2256,25 +2422,25 @@
 
         <div class="flex-1 overflow-y-auto flex flex-col lg:overflow-hidden lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
                 <div class="flex min-h-0 shrink-0 flex-col bg-slate-950 lg:shrink lg:overflow-y-auto lg:border-r lg:border-slate-200/70 dark:lg:border-slate-700/60">
-                    <div class="relative aspect-[4/3] min-h-72 shrink-0 overflow-hidden bg-slate-950 sm:aspect-video lg:flex-1" data-detection-photograph>
+                    <div class="relative min-w-0 aspect-[4/3] min-h-72 shrink-0 overflow-hidden bg-slate-950 sm:aspect-video lg:flex-1" data-detection-photograph>
                     {#if showMediaSlotVideoAnalysis}
-                        <div class="absolute inset-0 bg-gradient-to-br from-indigo-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800"></div>
+                        <div class="absolute inset-0 bg-surface-raised"></div>
                         <div class="relative z-10 h-full flex flex-col justify-between p-4 sm:p-5">
                             <div class="flex items-start justify-between gap-3">
                                 <div class="min-w-0">
-                                    <p class="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400">
+                                    <p class="text-3xs font-semibold text-indigo-600 dark:text-indigo-400">
                                         {$_('detection.video_analysis.title')}
                                     </p>
                                     <p id="detection-modal-title" class="truncate text-sm font-bold text-slate-900 dark:text-white sm:text-base">
                                         {primaryName}
                                     </p>
                                     {#if subName && subName !== primaryName}
-                                        <p class="text-[11px] italic text-slate-500 dark:text-slate-400 truncate">{subName}</p>
+                                        <p class="text-2xs italic text-slate-500 dark:text-slate-400 truncate">{subName}</p>
                                     {/if}
                                 </div>
                                 <div class="shrink-0 flex items-center gap-2 rounded-full px-2.5 py-1 bg-white/85 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-700/70">
                                     <span class="inline-block h-2 w-2 rounded-full bg-indigo-500 motion-safe:animate-pulse"></span>
-                                    <span class="text-[10px] font-semibold text-slate-600 dark:text-slate-300">
+                                    <span class="text-3xs font-semibold text-slate-600 dark:text-slate-300">
                                         {$_('detection.video_analysis.in_progress')}
                                     </span>
                                 </div>
@@ -2292,7 +2458,7 @@
                                                 </svg>
                                             {/if}
                                         </span>
-                                        <span class="text-[10px] font-semibold text-slate-700 dark:text-slate-200">
+                                        <span class="text-3xs font-semibold text-slate-700 dark:text-slate-200">
                                             {videoInferenceBadge.label}
                                         </span>
                                     </div>
@@ -2303,26 +2469,45 @@
                                 <VideoAnalysisFilmReel progress={modalVideoAnalysisProgress} variant="detail" />
                             </div>
 
-                            <div class="flex items-center justify-between gap-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                            <div class="flex items-center justify-between gap-3 text-3xs font-semibold text-slate-500 dark:text-slate-400">
                                 <span>{formatDateTime(detection.detection_time)}</span>
                                 <span>{detection.camera_name}</span>
                             </div>
                         </div>
                     {:else}
-                        <img data-detection-media-ambient src={snapshotImageUrl} alt="" aria-hidden="true" class="absolute inset-0 h-full w-full scale-110 object-cover opacity-25 blur-2xl" />
+                        {#if photographDrawnUrl}
+                            <img data-detection-media-ambient src={photographDrawnUrl} alt="" aria-hidden="true" class="absolute inset-0 h-full w-full scale-110 object-cover opacity-25 blur-2xl" />
+                        {/if}
                         <div class="absolute inset-0 bg-slate-950/55" aria-hidden="true"></div>
-                        <img
-                            bind:this={heroImageEl}
-                            src={mediaImageUrl}
+                        <!-- The photograph stays drawn under a peek, and only steps aside once the whole
+                             scene has actually loaded over it. -->
+                        <MediaImage
+                            sources={photographSources}
                             alt={detection.display_name}
-                            onload={measureWholeScene}
-                            class="relative h-full w-full {wholeScene.showing
-                                ? 'object-contain'
-                                : canPeekWholeScene ? 'object-cover' : 'object-contain'}"
+                            class="relative h-full w-full {photographIsCrop && photographFit === 'cover' ? 'object-cover' : 'object-contain'} {wholeSceneReady ? 'opacity-0' : ''}"
+                            placeholderClass="text-slate-600"
+                            iconClass="h-10 w-10"
+                            onload={(image) => {
+                                photographDrawnUrl = image.getAttribute('src');
+                                // A tall crop would be cut to a band: it is shown whole over the ambient fill (#481).
+                                photographFit = photoFitFor(image);
+                            }}
                         />
+                        {#if canPeekWholeScene && wholeScene.showing}
+                            <MediaImage
+                                bind:element={sceneImageEl}
+                                sources={wholeSceneSources}
+                                alt=""
+                                class="absolute inset-0 h-full w-full object-contain {wholeSceneReady ? 'opacity-100' : 'opacity-0'}"
+                                placeholderClass="hidden"
+                                onload={wholeSceneLoaded}
+                                onfail={wholeSceneFailed}
+                                data-detection-whole-scene-image
+                            />
+                        {/if}
                         {#if canPeekWholeScene}
                             <!-- The whole scene is a look, not a mode (#256). Hover or focus peeks at it with
-                                 the crop outlined; a click pins it and offers the one rescue that needs it. -->
+                                 same-frame crops outlined; a click pins it and offers the one rescue that needs it. -->
                             <button
                                 type="button"
                                 class="absolute inset-0 z-10 {wholeScene.pinned ? 'cursor-zoom-out' : 'cursor-zoom-in'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/70"
@@ -2337,22 +2522,32 @@
                                 onblur={wholeScene.leave}
                                 onclick={(event) => { event.stopPropagation(); wholeScene.toggle(); }}
                             ></button>
-                            {#if wholeScene.showing && wholeScene.outline}
+                            {#if wholeSceneReady && wholeScene.outline}
                                 <div
-                                    class="pointer-events-none absolute z-10 rounded-sm border-2 border-dashed border-white/85 shadow-[0_0_0_9999px_rgba(2,6,23,0.35)]"
+                                    class="pointer-events-none absolute z-20 rounded-sm border-2 border-solid border-sky-300 {wholeScene.otherOutlines.length === 0 ? 'shadow-[0_0_0_9999px_rgba(2,6,23,0.35)]' : ''}"
                                     style="left: {wholeScene.outline.left}px; top: {wholeScene.outline.top}px; width: {wholeScene.outline.width}px; height: {wholeScene.outline.height}px;"
                                     data-detection-whole-scene-outline
                                     aria-hidden="true"
-                                ></div>
+                                ><span class="absolute left-0 top-0 rounded bg-sky-300 px-1.5 py-0.5 text-3xs font-bold text-slate-950">{$_('detection.frame_chosen_badge', { default: 'Chosen' })}</span></div>
+                                {#each wholeScene.otherOutlines as outline}
+                                    <div
+                                        class="pointer-events-none absolute z-10 rounded-sm border-2 border-dashed border-white/90"
+                                        style="left: {outline.left}px; top: {outline.top}px; width: {outline.width}px; height: {outline.height}px;"
+                                        data-detection-other-bird-outline
+                                        aria-hidden="true"
+                                    ></div>
+                                {/each}
                             {/if}
-                            {#if wholeScene.showing}
+                            {#if wholeSceneReady}
                                 <span
-                                    class="pointer-events-none absolute left-3 top-3 z-30 rounded-full border border-white/15 bg-slate-950/70 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm"
+                                    class="pointer-events-none absolute left-3 top-3 z-30 rounded-full border border-white/15 bg-slate-950/70 px-2.5 py-1 text-2xs font-semibold text-white backdrop-blur-sm"
                                     data-detection-whole-scene-chip
                                 >
-                                    {wholeScene.pinned
-                                        ? $_('detection.whole_scene_chip_pinned', { default: 'Whole scene, the crop is outlined' })
-                                        : $_('detection.whole_scene_chip', { default: 'Whole scene' })}
+                                    {wholeScene.otherOutlines.length > 0
+                                        ? $_('detection.whole_scene_multiple_outlined', { values: { count: wholeScene.otherOutlines.length + 1 }, default: 'Whole scene, {count} crop regions outlined' })
+                                        : wholeScene.pinned
+                                            ? $_('detection.whole_scene_chip_pinned', { default: 'Whole scene, the crop is outlined' })
+                                            : $_('detection.whole_scene_chip', { default: 'Whole scene' })}
                                 </span>
                             {/if}
                         {/if}
@@ -2371,16 +2566,16 @@
                                     {#if subName && subName !== primaryName}
                                         <p class="-mt-0.5 mb-0.5 truncate text-sm italic text-white/70 drop-shadow">{subName}</p>
                                     {/if}
-                                    <p class="mt-2 text-[10px] font-semibold text-white/50">
+                                    <p class="mt-2 text-3xs font-semibold text-white/50">
                                         {formatDateTime(detection.detection_time)}
                                     </p>
                                 </div>
 
-                                {#if wholeScene.pinned && wholeScene.showing}
+                                {#if wholeScene.pinned && wholeSceneReady}
                                     <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center" data-detection-whole-scene-actions>
                                         <button
                                             type="button"
-                                            class="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-white/25 bg-black/55 px-4 text-[11px] font-semibold text-white shadow-xl backdrop-blur-sm transition-colors hover:bg-black/70 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                                            class="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-white/25 bg-black/55 px-4 text-2xs font-semibold text-white shadow-xl backdrop-blur-sm transition-colors hover:bg-black/70 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
                                             disabled={snapshotApplyPending || snapshotGeneratePending}
                                             onclick={(event) => { event.stopPropagation(); void useWholeSceneAsPhotograph(); }}
                                         >
@@ -2391,7 +2586,7 @@
                                         </button>
                                         <button
                                             type="button"
-                                            class="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-black/40 px-4 text-[11px] font-semibold text-white/85 shadow-xl backdrop-blur-sm transition-colors hover:bg-black/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                                            class="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-black/40 px-4 text-2xs font-semibold text-white/85 shadow-xl backdrop-blur-sm transition-colors hover:bg-black/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
                                             onclick={(event) => { event.stopPropagation(); resetMediaView(); }}
                                         >
                                             {$_('detection.whole_scene_back', { default: 'Back to the crop' })}
@@ -2420,7 +2615,7 @@
                                             </button>
                                             {#if detection.is_favorite && archiveLabel}
                                                 <span
-                                                    class="inline-flex min-h-8 items-center gap-2 rounded-full border border-white/20 bg-black/45 px-3 text-[11px] font-semibold text-white/90 backdrop-blur-sm"
+                                                    class="inline-flex min-h-8 items-center gap-2 rounded-full border border-white/20 bg-black/45 px-3 text-2xs font-semibold text-white/90 backdrop-blur-sm"
                                                     data-detection-archive-state={archiveState}
                                                     aria-live="polite"
                                                 >
@@ -2431,7 +2626,7 @@
                                                     {#if archiveState === 'failed' && hasOwnerDetectionActions}
                                                         <button
                                                             type="button"
-                                                            class="rounded-full border border-white/30 px-2 py-0.5 text-[11px] font-bold text-white hover:bg-white/15 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                                                            class="rounded-full border border-white/30 px-2 py-0.5 text-2xs font-bold text-white hover:bg-white/15 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
                                                             disabled={archiveRetrying}
                                                             onclick={(e) => { e.stopPropagation(); void handleArchiveRetry(); }}
                                                         >
@@ -2465,7 +2660,7 @@
                                                     <path d="M8 5v14l11-7z"/>
                                                 </svg>
                                                 {#if fullVisitFetched}
-                                                    <span class="text-[11px] font-semibold">{$_('video_player.full_visit_action', { default: 'Full visit' })}</span>
+                                                    <span class="text-2xs font-semibold">{$_('video_player.full_visit_action', { default: 'Full visit' })}</span>
                                                 {/if}
                                             </button>
                                         {/if}
@@ -2489,7 +2684,7 @@
                                                 }}
                                                 disabled={fullVisitFetchState === 'fetching'}
                                                 aria-label={fullVisitFetchLabel}
-                                                class="pointer-events-auto inline-flex min-h-11 items-center gap-2 rounded-full border border-white/25 bg-black/55 px-4 py-2 text-[11px] font-semibold text-white shadow-xl backdrop-blur-sm transition-colors duration-150 hover:bg-brand-500/90 disabled:cursor-wait disabled:opacity-75 focus:outline-none focus:ring-2 focus:ring-brand-400/70"
+                                                class="pointer-events-auto inline-flex min-h-11 items-center gap-2 rounded-full border border-white/25 bg-black/55 px-4 py-2 text-2xs font-semibold text-white shadow-xl backdrop-blur-sm transition-colors duration-150 hover:bg-brand-500/90 disabled:cursor-wait disabled:opacity-75 focus:outline-none focus:ring-2 focus:ring-brand-400/70"
                                             >
                                                 {#if fullVisitFetchState === 'fetching'}
                                                     <span class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
@@ -2517,6 +2712,15 @@
                                 {/if}
                             </div>
 
+                            {#if hasOwnerDetectionActions}
+                                <BirdScanControl
+                                    eventId={detection.frigate_event}
+                                    candidateId={scanFrameCandidate?.candidate_id ?? null}
+                                    imageVersion={scanFrameCandidate?.image_url ?? null}
+                                    disabled={snapshotApplyPending || snapshotGeneratePending || countedBirdsLoading}
+                                    oncompleted={(eventId, candidateId) => { void refreshBirdsAfterScan(eventId, candidateId); }}
+                                />
+                            {/if}
                             {#if showInlineFramePicker}
                     <!-- One ordered strip of the visit's moments (#256). Where a frame came from is not
                          shown; choosing one changes the photograph and nothing else. -->
@@ -2529,8 +2733,11 @@
                             applyingKey={applyingMomentKey}
                             busy={snapshotApplyPending || snapshotGeneratePending}
                             asRecordedUrl={originalFrigateSnapshotAvailable ? originalFrigateSnapshotUrl : null}
+                            photographUrl={snapshotImageUrl}
                             canRegenerate={Boolean(snapshotStatus?.high_quality_bird_crop_enabled)}
                             regeneratePending={snapshotGeneratePending}
+                            eventId={detection.frigate_event}
+                            onremove={hasOwnerDetectionActions ? removePhotoChoice : undefined}
                             onuse={(moment) => { void handleUseMoment(moment); }}
                             onregenerate={() => { void handleGenerateSnapshotCandidates(); }}
                         />
@@ -2540,7 +2747,7 @@
                     {/if}
                 </div>
 
-            <div class="flex flex-1 flex-col gap-5 lg:overflow-y-auto p-5 sm:p-6 {showTagDropdown ? 'blur-sm pointer-events-none select-none' : ''}">
+            <div class="flex min-w-0 flex-1 flex-col gap-5 break-words lg:overflow-y-auto p-5 sm:p-6 {showTagDropdown ? 'blur-sm pointer-events-none select-none' : ''}">
             <!-- Detection ID -->
             <!-- The disclosure is the window chrome: clicking the title bar opens the terminal.
                  Dark in both themes on purpose, because that is what a terminal is. -->
@@ -2549,7 +2756,7 @@
                 class="group order-last rounded-lg border border-slate-300 dark:border-slate-700/70 {terminalTheme.shell}"
             >
                 <summary
-                    class="flex min-h-11 cursor-pointer list-none items-center gap-1.5 rounded-[7px] px-3 py-1.5 marker:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-400 group-open:rounded-b-none group-open:border-b group-open:border-slate-800 {windowChrome ===
+                    class="flex min-h-11 flex-wrap cursor-pointer list-none items-center gap-1.5 rounded-[7px] px-3 py-1.5 marker:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-400 group-open:rounded-b-none group-open:border-b group-open:border-slate-800 {windowChrome ===
                     'windows'
                         ? 'bg-[#000080]'
                         : 'bg-slate-900/80'}"
@@ -2622,7 +2829,7 @@
             </details>
             {#if isManualObservation && detection.observation_notes}
                 <div class="border-l-2 border-brand-300 pl-3 dark:border-brand-700">
-                    <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{$_('detection.observation_notes', { default: 'Observation notes' })}</div>
+                    <div class="text-3xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{$_('detection.observation_notes', { default: 'Observation notes' })}</div>
                     <p class="mt-1 whitespace-pre-wrap text-sm leading-6 text-slate-700 dark:text-slate-300">{detection.observation_notes}</p>
                 </div>
             {/if}
@@ -2630,11 +2837,11 @@
                 <div data-manual-observation-location class="border-l-2 border-accent-300 pl-3 dark:border-accent-700">
                     <div class="flex items-center justify-between gap-3">
                         <div>
-                            <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{$_('manual_observation.location.title', { default: 'Sighting location' })}</div>
+                            <div class="text-3xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{$_('manual_observation.location.title', { default: 'Sighting location' })}</div>
                             <p class="mt-1 text-xs tabular-nums text-slate-600 dark:text-slate-300">{detection.observation_latitude.toFixed(5)}, {detection.observation_longitude.toFixed(5)}</p>
                         </div>
                         {#if detection.observation_location_source === 'image_metadata'}
-                            <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">{$_('manual_observation.location.from_image', { default: 'From image metadata' })}</span>
+                            <span class="rounded-full bg-slate-100 px-2.5 py-1 text-3xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">{$_('manual_observation.location.from_image', { default: 'From image metadata' })}</span>
                         {/if}
                     </div>
                     <div class="mt-3 h-44 overflow-hidden rounded-xl">
@@ -2671,7 +2878,7 @@
                         {/if}
                     {/if}
                     <div class="min-w-0">
-                        <p class="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                        <p class="flex items-center gap-1.5 text-3xs font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
                         {#if currentClassificationSource === 'manual'}
                             <svg class="h-3.5 w-3.5 text-accent-600 dark:text-accent-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="m5 13 4 4L19 7" />
@@ -2689,7 +2896,7 @@
                 </div>
 
                 {#if currentClassificationSource !== 'manual'}
-                    <div class="mt-2 flex items-center gap-2.5">
+                    <div class="mt-2 flex flex-wrap items-center gap-2.5">
                         <span class="text-sm font-bold tabular-nums text-slate-900 dark:text-white">
                             {Math.round((detection.score || 0) * 100)}%
                         </span>
@@ -2745,10 +2952,10 @@
                     </svg>
                     <div class="flex-1 min-w-0 flex flex-col gap-2">
                         <div class="flex flex-col gap-0.5">
-                            <span class="text-[10px] font-semibold">
-                                {$_('detection.video_analysis.gated_title', { default: 'Video found a match — confirm to apply' })}
+                            <span class="text-3xs font-semibold">
+                                {$_('detection.video_analysis.gated_title', { default: 'Video found a match: confirm to apply' })}
                             </span>
-                            <span class="text-[11px] font-semibold leading-snug">
+                            <span class="text-2xs font-semibold leading-snug">
                                 {$_('detection.video_analysis.gated_desc', {
                                     default: 'Auto-promotion was held back because the video score is below your minimum-confidence floor. Run reclassify to apply this result, or lower the floor in Settings → Detection.',
                                 })}
@@ -2758,7 +2965,7 @@
                             <button
                                 type="button"
                                 onclick={handleReclassifyClick}
-                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white text-[10px] font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white text-3xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
                                 disabled={!!reclassifyProgress || awaitingReclassifyOverlay}
                             >
                                 <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -2778,11 +2985,11 @@
             {#if detection.video_classification_status === 'completed' || (detection.video_classification_label && detection.video_classification_label !== detection.display_name)}
                 <div class="p-4 rounded-2xl bg-indigo-50/80 dark:bg-indigo-500/10 border border-indigo-200/80 dark:border-indigo-500/20 animate-in fade-in slide-in-from-top-2">
                     <div class="flex items-center justify-between mb-2">
-                        <p class="text-[10px] font-bold text-indigo-600 dark:text-indigo-400">
+                        <p class="text-3xs font-bold text-indigo-600 dark:text-indigo-400">
                             {completedClassificationTitle}
                         </p>
                         {#if detection.video_classification_score}
-                            <span class="px-2 py-0.5 bg-indigo-500 text-white text-[9px] font-bold rounded uppercase">
+                            <span class="px-2 py-0.5 bg-indigo-500 text-white text-3xs font-bold rounded uppercase">
                                 {$_('detection.video_analysis.match', { values: { score: (detection.video_classification_score * 100).toFixed(0) } })}
                             </span>
                         {/if}
@@ -2793,16 +3000,16 @@
                             : detection.video_classification_label}
                     </p>
                     {#if detection.video_result_blocked}
-                        <p class="text-[10px] font-bold text-amber-600 dark:text-amber-400 mt-0.5">
-                            {$_('detection.video_analysis.blocked_label', { default: 'Matched a blocked species — not applied' })}
+                        <p class="text-3xs font-bold text-amber-600 dark:text-amber-400 mt-0.5">
+                            {$_('detection.video_analysis.blocked_label', { default: 'Matched a blocked species: not applied' })}
                         </p>
                     {/if}
                     <div class="flex flex-wrap items-center gap-2 mt-1">
-                        <p class="text-[10px] text-slate-500 italic leading-tight">
+                        <p class="text-3xs text-slate-500 italic leading-tight">
                             {completedClassificationDescription}
                         </p>
                         {#if classificationInputLabel}
-                            <span class="rounded border border-slate-200/70 bg-white/60 px-1.5 py-0.5 text-[9px] font-semibold text-slate-600 dark:border-slate-600/60 dark:bg-slate-900/40 dark:text-slate-300">
+                            <span class="rounded border border-slate-200/70 bg-white/60 px-1.5 py-0.5 text-3xs font-semibold text-slate-600 dark:border-slate-600/60 dark:bg-slate-900/40 dark:text-slate-300">
                                 {classificationInputLabel}
                             </span>
                         {/if}
@@ -2812,7 +3019,7 @@
                                     <svg class="h-3 w-3 text-indigo-500" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                                         <path d="M10 2.5 16.5 9 10 15.5 3.5 9 10 2.5Zm0 2.12L5.62 9 10 13.38 14.38 9 10 4.62Z" />
                                     </svg>
-                                    <span class="text-[9px] font-bold text-indigo-700 dark:text-indigo-300" title={detection.video_classification_provider ?? undefined}>
+                                    <span class="text-3xs font-bold text-indigo-700 dark:text-indigo-300" title={detection.video_classification_provider ?? undefined}>
                                         {completedVideoInferenceBadge.label}
                                     </span>
                                 {:else}
@@ -2820,7 +3027,7 @@
                                         <rect x="4.5" y="5.5" width="11" height="9" rx="1.5" />
                                         <path d="M8 2.75v2M12 2.75v2M8 15.25v2M12 15.25v2M2.75 8h2M2.75 12h2M15.25 8h2M15.25 12h2" stroke-linecap="round" />
                                     </svg>
-                                    <span class="text-[9px] font-bold text-slate-600 dark:text-slate-300" title={detection.video_classification_provider ?? detection.video_classification_backend ?? undefined}>
+                                    <span class="text-3xs font-bold text-slate-600 dark:text-slate-300" title={detection.video_classification_provider ?? detection.video_classification_backend ?? undefined}>
                                         {completedVideoInferenceBadge.label}
                                     </span>
                                 {/if}
@@ -2833,7 +3040,7 @@
                                     <path d="M10 2.75v14.5M4.5 5.75 10 9l5.5-3.25" stroke-linecap="round" stroke-linejoin="round" />
                                 </svg>
                                 <span
-                                    class="text-[9px] font-bold text-slate-600 dark:text-slate-200 tracking-wide"
+                                    class="text-3xs font-bold text-slate-600 dark:text-slate-200 tracking-wide"
                                     title={detection.video_classification_model_id ?? detection.video_classification_model_name}
                                 >
                                     {detection.video_classification_model_name}
@@ -2852,29 +3059,47 @@
                  into the consolidated video-status notice above. -->
 
             <!-- The facts, as rows rather than four separate boxes -->
+            {#if hasOwnerDetectionActions && hasFrameSource}
+                {#key detection.frigate_event}
+                    <CountedBirds
+                        eventId={detection.frigate_event}
+                        birds={countedBirds}
+                        candidates={snapshotCandidates}
+                        photograph={currentSnapshotSource === 'frigate_snapshot' ? null : currentCropCandidate}
+                        generation={countedBirdsGeneration}
+                        loading={snapshotCandidatesLoading || countedBirdsLoading}
+                        error={snapshotCandidatesError || countedBirdsError}
+                        regenerating={snapshotGeneratePending}
+                        countingAvailable={Boolean(snapshotStatus?.high_quality_bird_crop_enabled)}
+                        onretry={() => { void refreshSnapshotControls(detection.frigate_event); }}
+                        onchanged={(updated) => { countedBirds = countedBirds.map((bird) => bird.id === updated.id ? updated : bird); onbirdschanged?.(); }}
+                        onstale={() => { void refreshSnapshotControls(detection.frigate_event); onbirdschanged?.(); }}
+                    />
+                {/key}
+            {/if}
             <dl class="divide-y divide-slate-200/70 border-y border-slate-200/70 text-xs dark:divide-slate-700/50 dark:border-slate-700/50" data-detection-facts>
-                <div class="flex items-baseline justify-between gap-3 py-2">
+                <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2">
                     <dt class="flex items-center gap-2 text-slate-500 dark:text-slate-400">
                         <svg class="h-3.5 w-3.5 shrink-0 text-slate-400 dark:text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8h11v8H4z" /><path stroke-linecap="round" stroke-linejoin="round" d="m15 12 5-3v6l-5-3z" /></svg>
                         {$_('detection.fact_seen', { default: 'Seen' })}
                     </dt>
-                    <dd class="text-right font-medium text-slate-800 dark:text-slate-100">
+                    <dd class="min-w-0 max-w-full text-right font-medium text-slate-800 dark:text-slate-100">
                         {formatDateTime(detection.detection_time)} &middot; {detection.camera_name}
                     </dd>
                 </div>
                 {#if weatherSummary}
-                    <div class="flex items-baseline justify-between gap-3 py-2" data-detection-weather-row>
+                    <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2" data-detection-weather-row>
                         <dt class="flex items-center gap-2 text-slate-500 dark:text-slate-400">
                             <svg class="h-3.5 w-3.5 shrink-0 text-sky-500/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 15a4 4 0 004 4h9a4 4 0 100-8h-1a5 5 0 10-9 4H7a4 4 0 00-4 4z" /></svg>
                             {$_('detection.fact_conditions', { default: 'Conditions' })}
                         </dt>
-                        <dd class="text-right font-medium text-slate-800 dark:text-slate-100">
+                        <dd class="min-w-0 max-w-full text-right font-medium text-slate-800 dark:text-slate-100">
                             {weatherSummary}
                         </dd>
                     </div>
                 {/if}
                 {#if detection.frigate_score != null}
-                    <div class="flex items-baseline justify-between gap-3 py-2">
+                    <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2">
                         <dt
                             class="flex items-center gap-2 text-slate-500 dark:text-slate-400"
                             title={$_('detection.fact_frigate_hint', {
@@ -2885,18 +3110,18 @@
                             <svg class="h-3.5 w-3.5 shrink-0 text-indigo-500/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2" /></svg>
                             {$_('detection.fact_frigate', { default: 'Spotted as a bird' })}
                         </dt>
-                        <dd class="text-right font-medium text-slate-800 dark:text-slate-100">
+                        <dd class="min-w-0 max-w-full text-right font-medium text-slate-800 dark:text-slate-100">
                             {Math.round((detection.frigate_score || 0) * 100)}%
                         </dd>
                     </div>
                 {/if}
                 {#if birdnetEnabled && !isManualObservation}
-                <div class="flex items-baseline justify-between gap-3 py-2">
+                <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2">
                     <dt class="flex items-center gap-2 text-slate-500 dark:text-slate-400">
                         <svg class="h-3.5 w-3.5 shrink-0 text-emerald-500/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3h6v11a3 3 0 01-6 0zM5 11a7 7 0 0014 0M12 18v3" /></svg>
                         {$_('detection.fact_heard', { default: 'Heard nearby' })}
                     </dt>
-                    <dd class="text-right font-medium {effectiveAudioConfirmed ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-500 dark:text-slate-400'}">
+                    <dd class="min-w-0 max-w-full text-right font-medium {effectiveAudioConfirmed ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-500 dark:text-slate-400'}">
                         {audioFactValue}
                     </dd>
                 </div>
@@ -2924,14 +3149,14 @@
                         {/if}
                     </svg>
                     <div class="flex flex-col gap-1 min-w-0 flex-1">
-                        <span class="text-[10px] font-semibold">
+                        <span class="text-3xs font-semibold">
                             {videoStatusNoticeTitle}
                         </span>
-                        <span class="text-[11px] font-semibold leading-snug">
+                        <span class="text-2xs font-semibold leading-snug">
                             {videoStatusNoticeDescription}
                         </span>
                         {#if upstreamMissing && detection.frigate_last_checked_at}
-                            <span class="text-[10px] text-slate-500 dark:text-slate-400">
+                            <span class="text-3xs text-slate-500 dark:text-slate-400">
                                 {$_('detection.upstream_missing.last_checked', { default: 'Last checked' })}:
                                 {formatDateTime(detection.frigate_last_checked_at)}
                                 ·
@@ -2947,14 +3172,14 @@
                         {/if}
                         {#if videoStatusShowTechnicalDetails}
                             <details class="mt-2 border-t pt-2 {videoStatusNoticeTone.detailsContainer}" bind:open={videoErrorDetailsOpen}>
-                                <summary class="flex min-h-11 cursor-pointer select-none items-center text-[11px] font-bold focus-ring {videoStatusNoticeTone.detailsSummary}">
+                                <summary class="flex min-h-11 cursor-pointer select-none items-center text-2xs font-bold focus-ring {videoStatusNoticeTone.detailsSummary}">
                                     {videoErrorDetailsOpen
                                         ? $_('detection.video_analysis.error_details.hide', { default: 'Hide technical details' })
                                         : $_('detection.video_analysis.error_details.show', { default: 'Show technical details' })}
                                 </summary>
-                                <div class="mt-2 space-y-2 text-[11px] text-slate-700 dark:text-slate-300">
+                                <div class="mt-2 space-y-2 text-2xs text-slate-700 dark:text-slate-300">
                                     {#if videoFailureInsight.errorCode}
-                                        <p class="font-mono text-[10px] text-slate-600 dark:text-slate-400">
+                                        <p class="font-mono text-3xs text-slate-600 dark:text-slate-400">
                                             {$_('detection.video_analysis.error_details.error_code', { default: 'Error code: {code}', values: { code: videoFailureInsight.errorCode } })}
                                         </p>
                                     {/if}
@@ -2992,7 +3217,7 @@
                                                             })}
                                                         </p>
                                                         {#if evidence.top_candidates.length > 0}
-                                                            <ul class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-600 dark:text-slate-400" aria-label={$_('detection.video_analysis.evidence.top_candidates', { default: 'Top recurring candidates' })}>
+                                                            <ul class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-3xs text-slate-600 dark:text-slate-400" aria-label={$_('detection.video_analysis.evidence.top_candidates', { default: 'Top recurring candidates' })}>
                                                                 {#each evidence.top_candidates as candidate}
                                                                     <li>
                                                                         <span class="font-semibold text-slate-700 dark:text-slate-300">{candidate.label}</span>
@@ -3046,7 +3271,7 @@
                             </svg>
                         </div>
                         <div class="min-w-0">
-                            <p class="text-[10px] font-semibold text-brand-600/70 dark:text-brand-400/70">
+                            <p class="text-3xs font-semibold text-brand-600/70 dark:text-brand-400/70">
                                 {effectiveAudioConfirmed
                                     ? $_('detection.audio_match')
                                     : $_('detection.audio_context')}
@@ -3124,7 +3349,7 @@
                                         {/if}
                                     </button>
                                     {#if audioDuration > 0}
-                                        <div class="absolute bottom-1.5 right-2 px-1.5 py-0.5 rounded-md bg-slate-900/75 backdrop-blur-sm text-[10px] font-bold text-white/90 tabular-nums pointer-events-none">
+                                        <div class="absolute bottom-1.5 right-2 px-1.5 py-0.5 rounded-md bg-slate-900/75 backdrop-blur-sm text-3xs font-bold text-white/90 tabular-nums pointer-events-none">
                                             {formatAudioClipTime(audioCurrentTime)} / {formatAudioClipTime(audioDuration)}
                                         </div>
                                     {/if}
@@ -3147,7 +3372,7 @@
                                 ></audio>
                             {/if}
                             {#if matchedAudioEntry}
-                                <figcaption class="px-3 py-1.5 flex items-center justify-between gap-3 text-[10px] font-bold text-slate-200 bg-slate-900/60 backdrop-blur-sm">
+                                <figcaption class="px-3 py-1.5 flex items-center justify-between gap-3 text-3xs font-bold text-slate-200 bg-slate-900/60 backdrop-blur-sm">
                                     <span class="truncate">{matchedAudioEntry.species}</span>
                                     <span class="flex items-center gap-2 flex-shrink-0">
                                         <span class="opacity-70">{(matchedAudioEntry.confidence * 100).toFixed(0)}%</span>
@@ -3157,14 +3382,14 @@
                             {/if}
                         </figure>
                     {:else if effectiveAudioConfirmed && audioContextLoaded && audioContext.length > 0}
-                        <p class="px-3 py-2 rounded-xl bg-slate-100/60 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60 text-[10px] font-semibold text-slate-500">
+                        <p class="px-3 py-2 rounded-xl bg-slate-100/60 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60 text-3xs font-semibold text-slate-500">
                             {$_('detection.audio_spectrogram_unavailable', { default: 'Spectrogram unavailable for this match' })}
                         </p>
                     {/if}
                     <button
                         type="button"
                         onclick={toggleAudioContext}
-                        class="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-slate-100/70 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 text-[11px] font-semibold text-slate-600 dark:text-slate-300"
+                        class="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-slate-100/70 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 text-2xs font-semibold text-slate-600 dark:text-slate-300"
                         aria-label={$_('detection.audio_context')}
                     >
                         <span class="flex items-center gap-2">
@@ -3173,16 +3398,16 @@
                             </svg>
                             {$_('detection.audio_context')}
                         </span>
-                        <span class="text-[9px] font-bold text-slate-400">{audioContextOpen ? $_('common.hide') : $_('common.show')}</span>
+                        <span class="text-3xs font-bold text-slate-400">{audioContextOpen ? $_('common.hide') : $_('common.show')}</span>
                     </button>
                     {#if audioContextOpen}
                         <div class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/70 dark:bg-slate-900/40 p-3 space-y-2">
                             {#if audioContextLoading}
-                                <p class="text-[10px] font-semibold text-slate-400">{$_('detection.audio_context_loading')}</p>
+                                <p class="text-3xs font-semibold text-slate-400">{$_('detection.audio_context_loading')}</p>
                             {:else if audioContextError}
-                                <p class="text-[10px] font-semibold text-rose-500">{audioContextError}</p>
+                                <p class="text-3xs font-semibold text-rose-500">{audioContextError}</p>
                             {:else if audioContext.length === 0 && audioContextSuppressed > 0}
-                                <p class="text-[10px] font-semibold text-slate-400">
+                                <p class="text-3xs font-semibold text-slate-400">
                                     {$_('detection.audio_context_suppressed', {
                                         values: { count: audioContextSuppressed },
                                         default:
@@ -3190,20 +3415,20 @@
                                     })}
                                 </p>
                             {:else if audioContext.length === 0}
-                                <p class="text-[10px] font-semibold text-slate-400">{$_('detection.audio_context_empty')}</p>
+                                <p class="text-3xs font-semibold text-slate-400">{$_('detection.audio_context_empty')}</p>
                             {:else}
                                 {#each audioContext as audio}
                                     <div class="flex items-center justify-between gap-3 text-xs text-slate-600 dark:text-slate-300">
                                         <div class="min-w-0">
                                             <p class="font-semibold truncate">{audio.species}</p>
-                                            <p class="text-[10px] text-slate-400">
+                                            <p class="text-3xs text-slate-400">
                                                 {(audio.confidence * 100).toFixed(0)}%
                                                 {#if audio.sensor_id}
                                                     <span class="ml-1 opacity-70">{audio.sensor_id}</span>
                                                 {/if}
                                             </p>
                                         </div>
-                                        <div class="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                                        <div class="text-3xs font-bold text-slate-500 dark:text-slate-400">
                                             {formatAudioOffset(audio.offset_seconds)}
                                         </div>
                                     </div>
@@ -3214,6 +3439,10 @@
                 </section>
             {/if}
 
+
+            {#if !isUnknownSpecies && detection.scientific_name}
+                <TaxonomyLineage scientificName={detection.scientific_name} />
+            {/if}
 
             {#if !isUnknownSpecies && (speciesInfoLoading || speciesInfo || speciesInfoError || showEbirdNearby)}
                 <section data-detection-reference class="space-y-3">
@@ -3227,16 +3456,14 @@
                 <div class="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     {#if enrichmentSummaryProvider !== 'disabled'}
                         <div class="group relative overflow-hidden rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/50 dark:bg-slate-900/30 p-5 hover:bg-white/80 dark:hover:bg-slate-900/50 transition-all duration-300">
-                            <div class="absolute inset-0 bg-gradient-to-br from-brand-500/5 via-transparent to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                            
-                            <div class="relative flex items-center justify-between gap-3 mb-3">
-                                <div class="flex items-center gap-2">
+                            <div class="relative flex flex-wrap items-center justify-between gap-3 mb-3">
+                                <div class="flex min-w-0 items-center gap-2">
                                     <div class="p-1.5 rounded-lg bg-brand-500/10 text-brand-600 dark:text-brand-400">
                                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                         </svg>
                                     </div>
-                                    <p class="text-[10px] font-semibold text-slate-500">{$_('actions.species_info')}</p>
+                                    <p class="min-w-0 break-words text-3xs font-semibold text-slate-500">{$_('actions.species_info')}</p>
                                 </div>
                                 {#if speciesInfo}
                                     {@const summaryLabel = speciesInfo.summary_source || speciesInfo.source || 'Source'}
@@ -3245,7 +3472,7 @@
                                             href={speciesInfo.summary_source_url}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[9px] font-semibold text-slate-500 hover:text-brand-600 dark:hover:text-brand-400 hover:border-brand-500/30 transition-colors shadow-sm"
+                                            class="flex min-w-0 max-w-full items-center gap-1.5 break-all px-2 py-1 rounded-full bg-surface border border-line text-3xs font-semibold text-slate-500 hover:text-brand-600 dark:hover:text-brand-400 hover:border-brand-500/30 transition-colors"
                                         >
                                             {summaryLabel}
                                             <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3253,7 +3480,7 @@
                                             </svg>
                                         </a>
                                     {:else}
-                                        <span class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[9px] font-semibold text-slate-500">
+                                        <span class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-3xs font-semibold text-slate-500">
                                             {summaryLabel}
                                         </span>
                                     {/if}
@@ -3286,7 +3513,7 @@
                                     {#if speciesInfo.scientific_name || speciesInfo.conservation_status}
                                         <div class="flex flex-wrap gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-700/50">
                                             {#if speciesInfo.scientific_name}
-                                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-400 italic">
+                                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-3xs font-bold text-slate-600 dark:text-slate-400 italic">
                                                     <svg class="w-3 h-3 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
                                                     </svg>
@@ -3294,7 +3521,7 @@
                                                 </span>
                                             {/if}
                                             {#if speciesInfo.conservation_status}
-                                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-accent-50 dark:bg-accent-900/20 text-[10px] font-bold text-accent-700 dark:text-accent-400">
+                                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-accent-50 dark:bg-accent-900/20 text-3xs font-bold text-accent-700 dark:text-accent-400">
                                                     <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                                     </svg>
@@ -3319,11 +3546,11 @@
                                         </svg>
                                     </div>
                                     <div class="flex flex-col">
-                                        <p class="text-[10px] font-semibold text-sky-700 dark:text-sky-400">{$_('species_detail.recent_sightings')}</p>
+                                        <p class="text-3xs font-semibold text-sky-700 dark:text-sky-400">{$_('species_detail.recent_sightings')}</p>
                                         <div class="flex items-center gap-1.5 mt-0.5">
-                                            <span class="text-[9px] font-bold text-sky-600/60 dark:text-sky-500/60">eBird</span>
+                                            <span class="text-3xs font-bold text-sky-600/60 dark:text-sky-500/60">eBird</span>
                                             <span class="w-0.5 h-0.5 rounded-full bg-sky-300"></span>
-                                            <span class="text-[9px] font-medium text-slate-400">{ebirdRadiusLabel} · {ebirdDaysBack}d</span>
+                                            <span class="text-3xs font-medium text-slate-400">{ebirdRadiusLabel} · {ebirdDaysBack}d</span>
                                         </div>
                                     </div>
                                 </div>
@@ -3332,7 +3559,7 @@
                             {#if !ebirdEnabled}
                                 <div class="text-center py-4 rounded-xl bg-white/50 dark:bg-slate-900/30 border border-dashed border-sky-200 dark:border-sky-800/30">
                                     <p class="text-xs font-medium text-slate-500">{$_('detection.ebird_enable_sightings')}</p>
-                                    <a href="/settings/integrations" class="inline-block mt-2 text-[10px] font-bold text-sky-600 hover:text-sky-700 hover:underline">{$_('detection.ebird_configure_settings')}</a>
+                                    <a href="/settings/integrations" class="inline-block mt-2 text-3xs font-bold text-sky-600 hover:text-sky-700 hover:underline">{$_('detection.ebird_configure_settings')}</a>
                                 </div>
                             {:else if ebirdNearbyLoading}
                                 <div class="space-y-3">
@@ -3351,7 +3578,7 @@
                             {:else if (ebirdNearby?.results?.length || 0) === 0}
                                 <div class="text-center py-6">
                                     <p class="text-sm text-slate-400 font-medium">{$_('detection.ebird_none_nearby')}</p>
-                                    <p class="text-[10px] text-slate-400/60 mt-1">{$_('detection.ebird_try_radius')}</p>
+                                    <p class="text-3xs text-slate-400/60 mt-1">{$_('detection.ebird_try_radius')}</p>
                                 </div>
                             {:else if ebirdNearby}
                                 {#if ebirdNearby.results.some(r => r.lat && r.lng)}
@@ -3381,7 +3608,7 @@
                                             <div class="min-w-0">
                                                 <p class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">{obs.location_name || $_('common.unknown_location')}</p>
                                                 <div class="flex items-center gap-2 mt-0.5">
-                                                    <p class="text-[10px] font-medium text-slate-400">{formatEbirdDate(obs.observed_at)}</p>
+                                                    <p class="text-3xs font-medium text-slate-400">{formatEbirdDate(obs.observed_at)}</p>
                                                     {#if obs.obs_valid}
                                                         <span
                                                             class="w-1 h-1 rounded-full bg-accent-400"
@@ -3391,7 +3618,7 @@
                                                 </div>
                                             </div>
                                             {#if obs.how_many}
-                                                <span class="flex-shrink-0 px-2 py-1 rounded-lg bg-sky-100 dark:bg-sky-900/40 text-[10px] font-bold text-sky-700 dark:text-sky-300">
+                                                <span class="flex-shrink-0 px-2 py-1 rounded-lg bg-sky-100 dark:bg-sky-900/40 text-3xs font-bold text-sky-700 dark:text-sky-300">
                                                     x{obs.how_many}
                                                 </span>
                                             {/if}
@@ -3416,7 +3643,7 @@
                                 </svg>
                             </div>
                             <div>
-                                <p class="text-[10px] font-semibold text-accent-600/80 dark:text-accent-300/80">{$_('detection.inat.title')}</p>
+                                <p class="text-3xs font-semibold text-accent-600/80 dark:text-accent-300/80">{$_('detection.inat.title')}</p>
                                 {#if inatConnectedUser}
                                     <p class="text-xs font-semibold text-slate-700 dark:text-slate-200">{$_('detection.inat.connected', { values: { user: inatConnectedUser } })}</p>
                                 {/if}
@@ -3425,7 +3652,7 @@
                         <button
                             type="button"
                             onclick={openInatPanel}
-                            class="px-3 py-2 text-[10px] font-semibold rounded-xl bg-accent-500 hover:bg-accent-600 text-white transition-all"
+                            class="px-3 py-2 text-3xs font-semibold rounded-xl bg-accent-500 hover:bg-accent-600 text-white transition-all"
                             aria-label={$_('detection.inat.open_label')}
                         >
                             {inatPanelOpen ? $_('detection.inat.close') : $_('detection.inat.open')}
@@ -3441,19 +3668,19 @@
                                     <div class="text-xs font-semibold text-rose-600">{inatError}</div>
                                 {/if}
                                 {#if inatDraft}
-                                    <div class="grid grid-cols-2 gap-3 text-[11px] text-slate-600 dark:text-slate-300">
+                                    <div class="grid grid-cols-2 gap-3 text-2xs text-slate-600 dark:text-slate-300">
                                         <div class="rounded-xl bg-white/80 dark:bg-slate-900/40 border border-slate-200/60 dark:border-slate-700/60 p-2">
-                                            <p class="text-[9px] font-semibold text-slate-400">{$_('detection.inat.species')}</p>
+                                            <p class="text-3xs font-semibold text-slate-400">{$_('detection.inat.species')}</p>
                                             <p class="font-semibold text-slate-700 dark:text-slate-200">{inatDraft.species_guess}</p>
                                         </div>
                                         <div class="rounded-xl bg-white/80 dark:bg-slate-900/40 border border-slate-200/60 dark:border-slate-700/60 p-2">
-                                            <p class="text-[9px] font-semibold text-slate-400">{$_('detection.inat.observed')}</p>
+                                            <p class="text-3xs font-semibold text-slate-400">{$_('detection.inat.observed')}</p>
                                             <p class="font-semibold text-slate-700 dark:text-slate-200">{formatDateTime(inatDraft.observed_on_string)}</p>
                                         </div>
                                     </div>
                                     <div class="grid grid-cols-2 gap-3">
                                         <div>
-                                            <label for="inat-lat" class="block text-[9px] font-semibold text-slate-400 mb-1">{$_('detection.inat.latitude')}</label>
+                                            <label for="inat-lat" class="block text-3xs font-semibold text-slate-400 mb-1">{$_('detection.inat.latitude')}</label>
                                             <input
                                                 id="inat-lat"
                                                 type="number"
@@ -3463,7 +3690,7 @@
                                             />
                                         </div>
                                         <div>
-                                            <label for="inat-lon" class="block text-[9px] font-semibold text-slate-400 mb-1">{$_('detection.inat.longitude')}</label>
+                                            <label for="inat-lon" class="block text-3xs font-semibold text-slate-400 mb-1">{$_('detection.inat.longitude')}</label>
                                             <input
                                                 id="inat-lon"
                                                 type="number"
@@ -3474,7 +3701,7 @@
                                         </div>
                                     </div>
                                     <div>
-                                        <label for="inat-place" class="block text-[9px] font-semibold text-slate-400 mb-1">{$_('detection.inat.place')}</label>
+                                        <label for="inat-place" class="block text-3xs font-semibold text-slate-400 mb-1">{$_('detection.inat.place')}</label>
                                         <input
                                             id="inat-place"
                                             type="text"
@@ -3483,7 +3710,7 @@
                                         />
                                     </div>
                                     <div>
-                                        <label for="inat-notes" class="block text-[9px] font-semibold text-slate-400 mb-1">{$_('detection.inat.notes')}</label>
+                                        <label for="inat-notes" class="block text-3xs font-semibold text-slate-400 mb-1">{$_('detection.inat.notes')}</label>
                                         <textarea
                                             id="inat-notes"
                                             rows="3"
@@ -3528,7 +3755,7 @@
                             {analyzingAI ? $_('detection.ai.regenerating') : $_('detection.ai.regenerate')}
                         </button>
                         {#if conversationTurns.length > 0}
-                            <p class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                            <p class="text-3xs font-semibold text-slate-500 dark:text-slate-400">
                                 {$_('detection.ai.regenerate_clears_chat_note', { default: 'Note: Regenerating clears the AI conversation history for this detection.' })}
                             </p>
                         {/if}
@@ -3553,7 +3780,7 @@
 
             {#if llmReady && aiAnalysis && authStore.canViewAiConversation}
                 <div class="space-y-3">
-                    <p class="text-[10px] font-bold text-slate-500">
+                    <p class="text-3xs font-bold text-slate-500">
                         {$_('detection.ai.conversation_title')}
                     </p>
                     <div class="ai-thread">
@@ -3618,7 +3845,7 @@
                 <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/50 p-3">
                     <div class="flex items-center justify-between gap-3">
                         <div class="min-w-0">
-                            <p class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                            <p class="text-3xs font-semibold text-slate-500 dark:text-slate-400">
                                 {$_('detection.common_name_override', { default: 'Common name' })}
                             </p>
                             <p class="truncate text-sm font-bold text-slate-800 dark:text-slate-100">
@@ -3683,15 +3910,17 @@
                                 common_name: detection.common_name ?? null
                             } as SearchResult)}
                             disabled={updatingTag}
-                            class="btn btn-primary min-h-11 w-full px-4 text-sm sm:w-auto sm:flex-1"
+                            class="btn btn-primary min-h-11 min-w-0 w-full px-4 text-sm sm:w-auto sm:flex-1"
                             data-detection-confirm
                         >
-                            {updatingTag
-                                ? $_('common.saving')
-                                : $_('actions.confirm_species', {
-                                    values: { species: primaryName },
-                                    default: 'Confirm {species}'
-                                })}
+                            <span class="min-w-0 [overflow-wrap:anywhere]">
+                                {updatingTag
+                                    ? $_('common.saving')
+                                    : $_('actions.confirm_species', {
+                                        values: { species: primaryName },
+                                        default: 'Confirm {species}'
+                                    })}
+                            </span>
                         </button>
                     {/if}
 
@@ -3699,28 +3928,30 @@
                         type="button"
                         onclick={() => showTagDropdown = !showTagDropdown}
                         disabled={updatingTag}
-                        class="btn btn-secondary min-h-11 w-full px-4 text-sm sm:w-auto sm:flex-1"
+                        class="btn btn-secondary min-h-11 min-w-0 w-full px-4 text-sm sm:w-auto sm:flex-1"
                     >
-                        {updatingTag
-                            ? $_('common.saving')
-                            : $_('actions.pick_species', { default: 'Pick a different species' })}
+                        <span class="min-w-0 [overflow-wrap:anywhere]">
+                            {updatingTag
+                                ? $_('common.saving')
+                                : $_('actions.pick_species', { default: 'Pick a different species' })}
+                        </span>
                     </button>
 
-                    {#if !isManualObservation}
+                    {#if hasFrameSource}
                         <button
                             type="button"
                             onclick={handleReclassifyClick}
-                            class="btn btn-ghost min-h-11 w-full px-4 text-sm sm:w-auto"
+                            class="btn btn-ghost min-h-11 min-w-0 w-full px-4 text-sm sm:w-auto"
                             title={$_('actions.reclassify')}
                         >
-                            {$_('detection.score_again', { default: 'Score again' })}
+                            <span class="min-w-0 [overflow-wrap:anywhere]">{$_('detection.score_again', { default: 'Score again' })}</span>
                         </button>
                     {/if}
                 </div>
             {/if}
 
 	            <!-- Bottom Actions -->
-            <div class="flex gap-2 pt-2">
+            <div class="flex flex-wrap gap-2 pt-2">
 	                {#if hasOwnerDetectionActions}
 	                    <button
 	                        onclick={handleDelete}
@@ -3753,7 +3984,7 @@
                 {/if}
                 <button
                     onclick={handleSpeciesInfo}
-                    class="btn btn-primary flex-1 px-3 py-2.5 text-xs shadow-lg shadow-brand-500/20"
+                    class="btn btn-primary flex-1 px-3 py-2.5 text-xs shadow-lg shadow-brand-500/20 min-h-11 min-w-11 break-words"
                 >
                     {$_('actions.species_info')}
                 </button>
@@ -3784,7 +4015,7 @@
                 tabindex="-1"
             >
                 <div
-                    class="mx-2 flex max-h-full w-full max-w-md flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl animate-in fade-in zoom-in-95 touch-pan-y dark:border-slate-700 dark:bg-slate-800"
+                    class="mx-2 flex max-h-full w-full max-w-md flex-col overflow-hidden rounded-2xl border border-slate-200 bg-surface shadow-2xl animate-in fade-in zoom-in-95 touch-pan-y dark:border-slate-700"
                     aria-busy={updatingTag}
                 >
                     <div class="flex shrink-0 items-center justify-between border-b border-slate-100 px-5 py-2 dark:border-slate-700">
@@ -3828,14 +4059,14 @@
                                 <span class="block text-sm leading-tight">
                                     {names.primary}
                                     {#if isPending}
-                                        <span class="ml-2 inline-flex items-center gap-1 text-[10px] text-brand-500">
+                                        <span class="ml-2 inline-flex items-center gap-1 text-3xs text-brand-500">
                                             <span class="inline-block h-2 w-2 rounded-full border border-current border-t-transparent animate-spin"></span>
                                             {$_('common.saving')}
                                         </span>
                                     {/if}
                                 </span>
                                 {#if names.secondary}
-                                    <span class="block text-[11px] text-slate-400 dark:text-slate-400 italic">{names.secondary}</span>
+                                    <span class="block text-2xs text-slate-400 dark:text-slate-400 italic">{names.secondary}</span>
                                 {/if}
                             </button>
                         {/each}

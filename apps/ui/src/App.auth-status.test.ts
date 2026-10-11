@@ -45,6 +45,8 @@ describe('App auth status failure handling', () => {
         expect(appSource).toContain('if (!appInitialized || activeAccessIdentity !== accessIdentity)');
         expect(appSource).toContain('closeLiveConnection();');
         expect(appSource).toContain('settingsStore.clear();');
+        expect(appSource).toContain('untrack(() => detectionsStore.resetForAccessChange());');
+        expect(appSource).toContain("{#key `${authStore.isAuthenticated ? 'owner' : 'guest'}:${authStore.token ?? 'anonymous'}`}");
     });
 
     it('uses one adaptive analysis polling path and pauses network work in hidden tabs', () => {

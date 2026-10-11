@@ -43,8 +43,8 @@
     <button
         onclick={() => showDropdown = !showDropdown}
         class={compact
-            ? 'p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-all duration-200 focus-ring'
-            : 'flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-all duration-200 focus-ring'}
+            ? 'btn btn-ghost min-h-11 min-w-11 p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-all duration-200 focus-ring'
+            : 'btn btn-ghost min-h-11 min-w-11 flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-all duration-200 focus-ring'}
         aria-label={languageNames[currentLocaleValue || 'en'] || 'English'}
         title={compact ? (languageNames[currentLocaleValue || 'en'] || 'English') : undefined}
         aria-haspopup="menu"
@@ -61,7 +61,7 @@
 
     {#if showDropdown}
         <div 
-            class="absolute {compact ? 'left-0' : 'right-0'} w-48 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 z-[60] overflow-hidden animate-in fade-in zoom-in-95 {dropUp ? 'bottom-full mb-2' : 'mt-2'}"
+            class="absolute {compact ? 'left-0' : 'right-0'} w-48 bg-surface rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 z-[60] overflow-hidden animate-in fade-in zoom-in-95 {dropUp ? 'bottom-full mb-2' : 'mt-2'}"
             onclick={(e) => e.stopPropagation()}
             onkeydown={(e) => {
                 if (e.key === 'Escape') showDropdown = false;
@@ -77,7 +77,7 @@
                         onclick={() => setLanguage(code)}
                         disabled={languageChanging}
                         role="menuitem"
-                        class="w-full px-4 py-2.5 text-left text-sm font-bold rounded-xl transition-all
+                        class="btn min-h-11 min-w-11 w-full justify-start px-4 py-2.5 text-left text-sm font-bold rounded-xl transition-all
                                {currentLocaleValue === code 
                                    ? 'bg-brand-500 text-white' 
                                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'}"

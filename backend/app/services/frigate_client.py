@@ -272,6 +272,58 @@ class FrigateClient:
             log.error("Unexpected error fetching recording clip", camera=camera, error=str(e))
             return None, "clip_unknown_error"
 
+    async def get_alignment_snapshot_with_error(
+        self, event_id: str, timeout: float = 5.0
+    ) -> tuple[Optional[bytes], Optional[str]]:
+        """Read an uncropped native detection frame, including older PNG clean copies."""
+        from urllib.parse import quote
+
+        if not isinstance(event_id, str) or not event_id.strip() or event_id in {".", ".."}:
+            return None, "alignment_snapshot_invalid_input"
+        try:
+            for extension in ("webp", "png"):
+                response = await self.get(
+                    f"api/events/{quote(event_id, safe='')}/snapshot-clean.{extension}", timeout=timeout
+                )
+                if response.status_code == 404 and extension == "webp":
+                    continue
+                if response.status_code == 200 and response.headers.get("content-type", "").startswith("image/"):
+                    return response.content, None
+                return None, f"alignment_snapshot_http_{response.status_code}"
+        except httpx.TimeoutException:
+            return None, "alignment_snapshot_timeout"
+        except httpx.RequestError:
+            return None, "alignment_snapshot_request_error"
+        return None, "alignment_snapshot_unavailable"
+
+    async def get_recording_snapshot_with_error(
+        self, camera: str, frame_time: float, timeout: float = 5.0
+    ) -> tuple[Optional[bytes], Optional[str]]:
+        """Fetch one native-resolution frame without downloading a recording clip."""
+        from urllib.parse import quote
+
+        if (
+            not isinstance(camera, str)
+            or not camera.strip()
+            or camera in {".", ".."}
+            or isinstance(frame_time, bool)
+            or not isinstance(frame_time, (int, float))
+            or not math.isfinite(frame_time)
+            or frame_time <= 0
+        ):
+            return None, "recording_snapshot_invalid_input"
+        try:
+            response = await self.get(
+                f"api/{quote(camera, safe='')}/recordings/{frame_time}/snapshot.png", timeout=timeout
+            )
+            if response.status_code == 200 and response.headers.get("content-type", "").startswith("image/"):
+                return response.content, None
+            return None, f"recording_snapshot_http_{response.status_code}"
+        except httpx.TimeoutException:
+            return None, "recording_snapshot_timeout"
+        except httpx.RequestError:
+            return None, "recording_snapshot_request_error"
+
     async def get_thumbnail(self, event_id: str) -> Optional[bytes]:
         """Fetch thumbnail image for an event."""
         try:

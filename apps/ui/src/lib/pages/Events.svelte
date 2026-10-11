@@ -1,7 +1,16 @@
 <script lang="ts">
-    import { onDestroy, onMount } from 'svelte';
+    import VisitCaptures from '../components/VisitCaptures.svelte';
+    import HeardBandRow from '../components/HeardBandRow.svelte';
+    import HeardBandCard from '../components/HeardBandCard.svelte';
+    import { hasCaptureFooter, visitSpeciesMix } from '../utils/visit-captures';
+    import { fetchHeardGroups, type HeardGroup, type HeardVisitCalls } from '../api/audio';
+    import { buildHeardTimeline, heardWindow, type HeardBand } from '../utils/heard-timeline';
+    import { explorerHeardStore } from '../stores/explorer_heard.svelte';
+    import type { DetectionVisit } from '../api/visits';
+    import { onDestroy, onMount, untrack } from 'svelte';
     import {
         fetchEvents,
+        fetchVisits,
         fetchEventFilters,
         getThumbnailUrl,
         hideDetection,
@@ -30,6 +39,7 @@
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { fullVisitStore } from '../stores/full-visit.svelte';
     import { authStore } from '../stores/auth.svelte';
+    import { toAppPath } from '../app/url-base';
     import { toastStore } from '../stores/toast.svelte';
     import { confirmAction } from '../stores/confirm_dialog.svelte';
     import { _ } from 'svelte-i18n';
@@ -44,8 +54,10 @@
     import { getErrorMessage } from '../utils/error-handling';
     import { selectReclassificationStrategy } from '../utils/reclassification';
     import { speciesPickerNames } from '../utils/species-picker';
+    import { explanation } from '../utils/explanation';
 
     import { getBirdNames } from '../naming';
+    import { createEventMetadataRefresh } from './event-metadata-refresh';
 
     let events = $state<Detection[]>([]);
     let loading = $state(true);
@@ -71,6 +83,7 @@
     let cameraFilter = $state('');
     let favoritesOnly = $state(false);
     let audioConfirmedOnly = $state(false);
+    let multipleSpeciesOnly = $state(false);
     let sortOrder = $state<'newest' | 'oldest' | 'confidence'>('newest');
 
     let selectedEvent = $state<Detection | null>(null);
@@ -83,6 +96,16 @@
     let updatingTag = $state(false);
     const explorerView = $derived(explorerViewStore.resolve(settingsStore.settings?.appearance_explorer_view ?? authStore.explorerView));
     let selectionMode = $state(false);
+    let groupVisits = $state(true);
+    let pageVisits = $state<DetectionVisit[]>([]);
+    /** The visit just before this page, which bounds the calls this page owns. */
+    let previousVisit = $state<DetectionVisit | null>(null);
+    let heardGroups = $state.raw<HeardGroup[] | null>(null);
+    let heardCallCount = $state(0);
+    let heardTruncated = $state(false);
+    let heardMatched = $state.raw<HeardVisitCalls[]>([]);
+    let heardFailed = $state(false);
+    let heardLoadGeneration = 0;
     let selectedEventIds = $state<string[]>([]);
     let showBulkTagModal = $state(false);
     let bulkTagSearchQuery = $state('');
@@ -194,7 +217,28 @@
         error = null;
         try {
             const range = dateRange;
-            const [newEvents, countRes] = await Promise.all([
+            let newEvents: Detection[];
+            let nextTotal: number;
+            let nextVisits: DetectionVisit[] = [];
+            let nextPrevious: DetectionVisit | null = null;
+            if (groupVisits && !selectionMode) {
+                // Heard calls between this page and the one before it belong to this page, so the
+                // visit just before it is read too, to know where those calls start.
+                const offset = (currentPage - 1) * pageSize;
+                const padded = heardWanted && offset > 0 ? 1 : 0;
+                const result = await fetchVisits({
+                    limit: pageSize + padded, offset: offset - padded,
+                    startDate: range.start, endDate: range.end,
+                    species: speciesFilter || undefined, camera: cameraFilter || undefined,
+                    sort: sortOrder, onlyHidden: showHidden, favoritesOnly, audioConfirmedOnly, multipleSpeciesOnly,
+                    requestKey: 'events-page:visits'
+                });
+                nextPrevious = padded ? (result.visits[0] ?? null) : null;
+                nextVisits = result.visits.slice(padded);
+                newEvents = nextVisits.map((visit) => visit.representative);
+                nextTotal = result.total;
+            } else {
+                const [captures, countRes] = await Promise.all([
                 fetchEvents({
                     limit: pageSize,
                     offset: (currentPage - 1) * pageSize,
@@ -206,6 +250,7 @@
                     onlyHidden: showHidden,
                     favoritesOnly,
                     audioConfirmedOnly,
+                    multipleSpeciesOnly,
                     fields: 'list',
                     requestKey: 'events-page:list'
                 }),
@@ -217,12 +262,19 @@
                     onlyHidden: showHidden,
                     favoritesOnly,
                     audioConfirmedOnly,
+                    multipleSpeciesOnly,
                     requestKey: 'events-page:count'
                 })
-            ]);
+                ]);
+                newEvents = captures;
+                nextTotal = countRes.count;
+            }
             if (loadGeneration !== eventsLoadGeneration) return;
             events = newEvents;
-            totalCount = countRes.count;
+            pageVisits = nextVisits;
+            previousVisit = nextPrevious;
+            totalCount = nextTotal;
+            void loadHeard();
             if (pendingEventId) {
                 const target = newEvents.find((event) => event.frigate_event === pendingEventId);
                 if (target) {
@@ -240,6 +292,10 @@
                 return;
             }
             // Events can look "empty" when the API is unreachable; surface a visible error instead.
+            if (authStore.isGuest) {
+                events = [];
+                totalCount = 0;
+            }
             error = $_('events.load_failed');
             console.error('Failed to load events', e);
         } finally {
@@ -266,13 +322,28 @@
         }
     }
 
+    function clearEventMetadata() {
+        availableSpecies = [];
+        availableCameras = [];
+        eventFilters = null;
+    }
+
+    const eventMetadataRefresh = createEventMetadataRefresh({
+        fetch: fetchEventFilters,
+        apply: (filters) => {
+            availableSpecies = filters.species;
+            availableCameras = filters.cameras;
+            eventFilters = filters;
+        },
+        clear: clearEventMetadata,
+        isGuest: () => authStore.isGuest
+    });
+
     async function loadEventMetadata(forceRefresh = false, includeAuxiliary = true): Promise<boolean> {
         let shouldReloadEvents = false;
         try {
-            const filters = await fetchEventFilters({ forceRefresh });
-            availableSpecies = (filters as EventFilters).species;
-            availableCameras = (filters as EventFilters).cameras;
-            eventFilters = filters as EventFilters;
+            const filters = await eventMetadataRefresh.load(forceRefresh);
+            if (!filters) return false;
             if (includeAuxiliary) {
                 // The hidden count is only ever shown behind owner access, and the
                 // endpoint refuses a guest, so asking as a guest just logs a 403.
@@ -317,8 +388,9 @@
         }
     }
 
-    async function refreshCurrentEventsPage() {
-        await refreshEventMetadata(true, false);
+    async function refreshCurrentEventsPage(publicVersion?: number) {
+        await loadEventMetadata(true, false);
+        if (publicVersion !== undefined && publicVersion !== detectionsStore.publicHistoryVersion) return;
         await loadEvents();
     }
 
@@ -528,9 +600,40 @@
         if (reclassifyCompletionRefreshTimeout !== null) return;
         reclassifyCompletionRefreshTimeout = window.setTimeout(() => {
             reclassifyCompletionRefreshTimeout = null;
+            if (loading) {
+                scheduleReclassifyCompletionRefresh();
+                return;
+            }
             void loadEvents();
         }, 700);
     }
+
+    let handledVisitMutationVersion = detectionsStore.mutationVersion;
+    $effect(() => {
+        const version = detectionsStore.mutationVersion;
+        if (version === handledVisitMutationVersion) return;
+        handledVisitMutationVersion = version;
+        untrack(() => {
+            if (groupVisits && !selectionMode) scheduleReclassifyCompletionRefresh();
+        });
+    });
+
+    let handledPublicHistoryVersion = detectionsStore.publicHistoryVersion;
+    $effect(() => {
+        const version = detectionsStore.publicHistoryVersion;
+        if (version <= handledPublicHistoryVersion || !authStore.isGuest) return;
+        handledPublicHistoryVersion = version;
+        if (version > 0 && authStore.isGuest) untrack(() => {
+            eventsLoadGeneration += 1;
+            events = [];
+            pageVisits = [];
+            totalCount = 0;
+            loading = true;
+            error = null;
+            clearEventMetadata();
+            void refreshCurrentEventsPage(version);
+        });
+    });
 
     $effect(() => {
         if (loading) return;
@@ -766,15 +869,25 @@
                 cameraFilter ||
                 favoritesOnly ||
                 audioConfirmedOnly ||
+                multipleSpeciesOnly ||
                 showHidden ||
                 datePreset !== 'all' ||
                 selectedTimelineBucket !== 'all'
         )
     );
 
+    const visitsByEvent = $derived(new Map(pageVisits.map((visit) => [visit.representative.frigate_event, visit])));
+    const captureWindow = $derived({ startDate: dateRange.start, endDate: dateRange.end, onlyHidden: showHidden });
+
     let visibleEvents = $derived.by(() => {
         if (selectedTimelineBucket === 'all') return events;
-        return events.filter((event) => detectionDayKey(event) === selectedTimelineBucket);
+        return events.filter((event) => {
+            const visit = visitsByEvent.get(event.frigate_event);
+            if (!visit) return detectionDayKey(event) === selectedTimelineBucket;
+            const start = detectionDayKey({ ...event, detection_time: visit.start_time });
+            const end = detectionDayKey({ ...event, detection_time: visit.end_time });
+            return start <= selectedTimelineBucket && end >= selectedTimelineBucket;
+        });
     });
 
     $effect(() => {
@@ -874,6 +987,8 @@
     function toggleSelectionMode() {
         if (!authStore.hasOwnerAccess) return;
         selectionMode = !selectionMode;
+        currentPage = 1;
+        void loadEvents();
         selectedEventIds = [];
         showBulkTagModal = false;
     }
@@ -893,6 +1008,14 @@
             return;
         }
         selectedEvent = event;
+    }
+
+    function playClip(detection: Detection) {
+        videoEventId = detection.frigate_event;
+        videoShareToken = null;
+        videoPlayIntent = 'user';
+        showVideo = true;
+        selectedEvent = null;
     }
 
     async function handleFetchFullVisit(event: Detection) {
@@ -933,6 +1056,8 @@
             ));
 
             for (const eventId of result.updated_event_ids) {
+                // An uploaded video's photo follows its species, so it may now be a different bird.
+                if (eventId.startsWith('manual_')) detectionsStore.notePhotoChanged(eventId);
                 const existing = events.find((event) => event.frigate_event === eventId);
                 if (existing) {
                     detectionsStore.updateDetection({
@@ -1049,15 +1174,200 @@
             bulkReclassifying = false;
         }
     }
+
+    // The listening history is a list of detections, so it is opened from the Explorer.
+    const audioHistoryAvailable = $derived(
+        (settingsStore.settings?.birdnet_enabled ?? authStore.birdnetEnabled ?? false) && authStore.canViewAudio
+    );
+
+    // Heard calls between visits (off until this device turns them on).
+    const heardWanted = $derived(audioHistoryAvailable && explorerHeardStore.enabled && groupVisits && !selectionMode);
+    /**
+     * Calls have no camera, no favourite and no review state, so a filter about those cannot be
+     * applied to them. Rather than mix filtered visits with unfiltered calls, the calls step aside
+     * and the page says why.
+     */
+    const heardBlocker = $derived.by((): string | null => {
+        if (!heardWanted) return null;
+        if (cameraFilter) return $_('events.heard.blocked_camera', { default: 'Heard calls are hidden while a camera is chosen, because a call is not tied to a camera.' });
+        if (favoritesOnly || showHidden || multipleSpeciesOnly || audioConfirmedOnly) {
+            return $_('events.heard.blocked_visit_filter', { default: 'Heard calls are hidden while Favourites, Hidden, Multiple species or Matching call is on. Those only describe camera visits.' });
+        }
+        if (speciesFilter.startsWith('taxa:')) return $_('events.heard.blocked_group', { default: 'Heard calls are hidden while a group of species is chosen. Choose one species to see its calls.' });
+        if (sortOrder === 'confidence') return $_('events.heard.blocked_sort', { default: 'Heard calls show between visits only when visits are in time order.' });
+        return null;
+    });
+    const heardActive = $derived(heardWanted && heardBlocker === null);
+
+    function localDayBound(day: string | undefined, end: boolean): Date | null {
+        if (!day) return null;
+        const bound = new Date(`${day}T${end ? '23:59:59.999' : '00:00:00'}`);
+        return Number.isNaN(bound.getTime()) ? null : bound;
+    }
+
+    const HEARD_MAX_SPAN_MS = 93 * 24 * 60 * 60 * 1000;
+
+    async function loadHeard(): Promise<void> {
+        const generation = ++heardLoadGeneration;
+        if (!heardActive) {
+            heardGroups = null;
+            heardFailed = false;
+            return;
+        }
+        const span = heardWindow({
+            visits: pageVisits,
+            sort: sortOrder === 'oldest' ? 'oldest' : 'newest',
+            previous: previousVisit,
+            hasNextPage: currentPage * pageSize < totalCount,
+            rangeStart: localDayBound(dateRange.start, false),
+            rangeEnd: localDayBound(dateRange.end, true),
+            now: new Date()
+        });
+        if (!span) {
+            heardGroups = [];
+            heardCallCount = 0;
+            return;
+        }
+        const start = span.end.getTime() - span.start.getTime() > HEARD_MAX_SPAN_MS ? new Date(span.end.getTime() - HEARD_MAX_SPAN_MS) : span.start;
+        try {
+            const result = await fetchHeardGroups(start.toISOString(), span.end.toISOString());
+            if (generation !== heardLoadGeneration) return;
+            heardGroups = result.groups;
+            heardCallCount = result.call_count;
+            heardTruncated = result.truncated || start > span.start;
+            heardMatched = result.matched_visits ?? [];
+            heardFailed = false;
+        } catch (e) {
+            if (generation !== heardLoadGeneration) return;
+            if (e instanceof Error && e.name === 'AbortError') return;
+            heardGroups = null;
+            heardFailed = true;
+            console.error('Failed to load heard calls', e);
+        }
+    }
+
+    function setHeard(next: boolean): void {
+        explorerHeardStore.set(next);
+        // The page is read again, because calls back to the previous page need its last visit.
+        void loadEvents();
+    }
+
+    /** One species chosen in the rail narrows the calls to it, by any of its names. */
+    const speciesNames = $derived.by((): Set<string> | null => {
+        if (!speciesFilter) return null;
+        const chosen = availableSpecies.find((item) => item.value === speciesFilter);
+        const names = [speciesFilter, chosen?.scientific_name, chosen?.common_name, chosen?.display_name];
+        return new Set(names.filter((name): name is string => !!name).map((name) => name.trim().toLocaleLowerCase()));
+    });
+
+    const visibleHeardGroups = $derived.by((): HeardGroup[] => {
+        if (!heardActive || !heardGroups) return [];
+        const names = speciesNames;
+        if (!names) return heardGroups;
+        return heardGroups.filter((group) =>
+            [group.scientific_name, group.species].some((name) => !!name && names.has(name.trim().toLocaleLowerCase()))
+        );
+    });
+
+
+    type ExplorerEntry =
+        | { kind: 'visit'; event: Detection; visit: DetectionVisit | undefined; matchedCalls: number }
+        | { kind: 'band'; band: HeardBand };
+
+    const eventsByKey = $derived(new Map(events.map((event) => [event.frigate_event, event])));
+
+    function bandOnDay(band: HeardBand, day: string): boolean {
+        const first = detectionDayKey({ detection_time: band.firstHeard } as Detection);
+        const last = detectionDayKey({ detection_time: band.lastHeard } as Detection);
+        return first <= day && last >= day;
+    }
+
+    const entries = $derived.by((): ExplorerEntry[] => {
+        if (!heardActive || heardGroups === null || pageVisits.length === 0) {
+            return visibleEvents.map((event) => ({ kind: 'visit', event, visit: visitsByEvent.get(event.frigate_event), matchedCalls: 0 }));
+        }
+        const visible = new Set(visibleEvents.map((event) => event.frigate_event));
+        const timeline = buildHeardTimeline({
+            visits: pageVisits,
+            groups: visibleHeardGroups,
+            sort: sortOrder === 'oldest' ? 'oldest' : 'newest',
+            matched: heardMatched,
+            hasPreviousPage: previousVisit !== null,
+            hasNextPage: currentPage * pageSize < totalCount
+        });
+        const shown: ExplorerEntry[] = [];
+        for (const entry of timeline) {
+            if (entry.kind === 'band') {
+                if (selectedTimelineBucket === 'all' || bandOnDay(entry.band, selectedTimelineBucket)) shown.push(entry);
+                continue;
+            }
+            const event = eventsByKey.get(entry.visit.representative.frigate_event);
+            if (event && visible.has(event.frigate_event)) shown.push({ kind: 'visit', event, visit: entry.visit, matchedCalls: entry.matchedCalls });
+        }
+        return shown;
+    });
+
+    /** Every call the page shows: those in bands and those counted on their visits. */
+    const heardShownCalls = $derived(
+        entries.reduce((sum, entry) => sum + (entry.kind === 'band' ? entry.band.callCount : entry.matchedCalls), 0)
+    );
+
+    function entryKey(entry: ExplorerEntry): string {
+        return entry.kind === 'band' ? `band:${entry.band.key}` : eventKey(entry.event);
+    }
+
+    function openPeakCapture(visit: DetectionVisit | undefined): (() => void) | undefined {
+        const capture = visit?.peak_capture;
+        return capture ? () => handleEventCardClick(capture) : undefined;
+    }
 </script>
 
 <svelte:window onkeydown={handleTimelineKeydown} />
 
 <div class="space-y-6">
     <div class="flex flex-wrap items-center justify-between gap-3">
-        <p class="text-xs text-slate-500 -mt-2">{$_('events.classification_legend')}</p>
+        <!-- A key for the source badges on cards; a phone's narrow toolbar needs the room more. -->
+        <p class="hidden text-xs text-slate-500 sm:block dark:text-slate-400">{$_('events.classification_legend')}</p>
         <div class="flex flex-wrap items-center gap-2">
-            <div class="mr-1 text-sm text-slate-500">{$_('events.total_count', { values: { count: totalCount } })}</div>
+            <div class="mr-1 basis-full text-sm text-slate-500 sm:basis-auto dark:text-slate-400" data-explorer-count>
+                <span class="font-semibold text-slate-700 dark:text-slate-200">{groupVisits && !selectionMode
+                    ? $_('visits.total', { values: { count: totalCount }, default: '{count} visits' })
+                    : $_('visits.total_captures', { values: { count: totalCount }, default: '{count} captures' })}</span>
+                {#if heardActive && heardGroups !== null}
+                    <span aria-hidden="true">&middot;</span>
+                    {$_('events.heard.count_on_page', { values: { count: heardShownCalls }, default: '{count} calls heard on this page' })}
+                {/if}
+            </div>
+            <!-- With heard calls mixed into the list, the listening history is already here. -->
+            {#if audioHistoryAvailable && !heardWanted}
+                <a
+                    data-explorer-audio-history-link
+                    href={toAppPath('/audio')}
+                    class="btn btn-secondary inline-flex min-h-11 items-center gap-2 px-3 text-xs focus-visible:ring-2 focus-visible:ring-brand-500"
+                >
+                    <svg aria-hidden="true" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 12v2m4-5v8m4-13v16m4-13v10m4-7v4" />
+                    </svg>
+                    {$_('nav.audio_history')}
+                </a>
+            {/if}
+            {#if audioHistoryAvailable && groupVisits && !selectionMode}
+                <button
+                    type="button"
+                    class="btn min-h-11 px-3 text-xs focus-visible:ring-2 focus-visible:ring-brand-500 {explorerHeardStore.enabled
+                        ? 'border border-brand-300 bg-brand-100 text-brand-700 dark:border-brand-400/60 dark:bg-brand-500/20 dark:text-brand-100'
+                        : 'btn-secondary'}"
+                    aria-pressed={explorerHeardStore.enabled}
+                    use:explanation={$_('events.heard.toggle_hint', { default: 'Show BirdNET-Go calls between the camera visits. Off until you turn it on; this device remembers the choice.' })}
+                    onclick={() => setHeard(!explorerHeardStore.enabled)}
+                    data-explorer-heard-toggle
+                >
+                    <svg aria-hidden="true" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 12v2m4-5v8m4-13v16m4-13v10m4-7v4" />
+                    </svg>
+                    {$_('events.heard.toggle', { default: 'Heard calls' })}
+                </button>
+            {/if}
             <button
                 class="btn btn-secondary hidden min-h-11 px-3 py-2 text-xs lg:inline-flex"
                 aria-expanded={!explorerFiltersStore.collapsed}
@@ -1168,7 +1478,7 @@
     {/if}
 
     <div
-        class="grid gap-6 lg:items-start {explorerFiltersStore.collapsed
+        class="grid gap-4 lg:items-start lg:gap-6 {explorerFiltersStore.collapsed
             ? ''
             : 'lg:grid-cols-[14rem_minmax(0,1fr)]'}"
         data-explorer-layout
@@ -1185,19 +1495,23 @@
             {cameraFilter}
             {favoritesOnly}
             {audioConfirmedOnly}
+            {multipleSpeciesOnly}
+            {groupVisits}
+            groupingLocked={selectionMode}
             {showHidden}
             {hiddenCount}
             {customStartDate}
             {customEndDate}
             canSeeHidden={authStore.hasOwnerAccess}
             refreshing={refreshingFilterOptions}
-            resultCount={totalCount}
             onchange={(next) => {
                 if (next.datePreset !== undefined) datePreset = next.datePreset;
                 if (next.speciesFilter !== undefined) speciesFilter = next.speciesFilter;
                 if (next.cameraFilter !== undefined) cameraFilter = next.cameraFilter;
                 if (next.favoritesOnly !== undefined) favoritesOnly = next.favoritesOnly;
                 if (next.audioConfirmedOnly !== undefined) audioConfirmedOnly = next.audioConfirmedOnly;
+                if (next.multipleSpeciesOnly !== undefined) multipleSpeciesOnly = next.multipleSpeciesOnly;
+                if (next.groupVisits !== undefined) groupVisits = next.groupVisits;
                 if (next.showHidden !== undefined) showHidden = next.showHidden;
                 if (next.customStartDate !== undefined) customStartDate = next.customStartDate;
                 if (next.customEndDate !== undefined) customEndDate = next.customEndDate;
@@ -1210,6 +1524,7 @@
                 cameraFilter = '';
                 favoritesOnly = false;
                 audioConfirmedOnly = false;
+                multipleSpeciesOnly = false;
                 showHidden = false;
                 customStartDate = '';
                 customEndDate = '';
@@ -1242,14 +1557,15 @@
                 <p
                     id="events-timeline-scope"
                     data-events-timeline-scope
-                    class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400"
+                    class="mb-2 text-2xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400"
                 >
                     {$_('events.timeline_scope', { default: 'Days on this page' })}
                 </p>
-                <div class="flex flex-wrap items-center gap-2" role="group" aria-labelledby="events-timeline-scope">
+                <!-- One scrolling row on a phone, so a long page of days does not push the visits down. -->
+                <div class="flex items-center gap-2 overflow-x-auto overscroll-x-contain [scrollbar-width:none] sm:flex-wrap sm:overflow-visible [&::-webkit-scrollbar]:hidden" role="group" aria-labelledby="events-timeline-scope">
                     <button
                         type="button"
-                        class="inline-flex min-h-11 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors
+                        class="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors
                             {selectedTimelineBucket === 'all'
                                 ? 'bg-brand-100/90 dark:bg-brand-500/20 border-brand-300/80 dark:border-brand-400/60 text-brand-700 dark:text-brand-100 shadow-sm'
                                 : 'bg-white/80 dark:bg-slate-800/60 border-slate-300/80 dark:border-slate-600/70 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/70'}"
@@ -1261,7 +1577,7 @@
                             <path d="M4.5 10h11"></path>
                         </svg>
                         <span>{$_('common.all', { default: 'All' })}</span>
-                        <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold normal-case tracking-normal
+                        <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-3xs font-bold normal-case tracking-normal
                             {selectedTimelineBucket === 'all'
                                 ? 'bg-brand-200/80 dark:bg-brand-400/25 text-brand-800 dark:text-brand-100'
                                 : 'bg-slate-100 dark:bg-slate-700/60 text-slate-700 dark:text-slate-200'}"
@@ -1276,7 +1592,7 @@
                     {#each timelineBuckets as bucket}
                         <button
                             type="button"
-                            class="inline-flex min-h-11 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors
+                            class="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors
                                 {selectedTimelineBucket === bucket.key
                                     ? 'bg-brand-100/90 dark:bg-brand-500/20 border-brand-300/80 dark:border-brand-400/60 text-brand-700 dark:text-brand-100 shadow-sm'
                                     : 'bg-white/80 dark:bg-slate-800/60 border-slate-300/80 dark:border-slate-600/70 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/70'}"
@@ -1288,7 +1604,7 @@
                                 <path d="M3 8h14"></path>
                             </svg>
                             <span>{bucket.label}</span>
-                            <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold normal-case tracking-normal
+                            <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-3xs font-bold normal-case tracking-normal
                                 {selectedTimelineBucket === bucket.key
                                     ? 'bg-brand-200/80 dark:bg-brand-400/25 text-brand-800 dark:text-brand-100'
                                     : 'bg-slate-100 dark:bg-slate-700/60 text-slate-700 dark:text-slate-200'}"
@@ -1302,7 +1618,7 @@
                         </button>
                     {/each}
                 </div>
-                <p class="mt-2 hidden items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 sm:inline-flex">
+                <p class="mt-2 hidden items-center gap-1.5 text-2xs text-slate-500 dark:text-slate-400 sm:inline-flex">
                     <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                         <path d="M6 7h8M6 10h8M6 13h5"></path>
                         <rect x="3" y="4" width="14" height="12" rx="2"></rect>
@@ -1310,6 +1626,27 @@
                     {$_('events.timeline_keyboard_hint', { default: 'Timeline keyboard: [ previous day, ] next day, 0 reset' })}
                 </p>
             </section>
+        {/if}
+
+        {#if heardBlocker}
+            <p class="mb-4 flex items-start gap-2 rounded-xl border border-line-soft bg-surface px-3 py-2.5 text-sm text-slate-600 dark:text-slate-300" role="status" data-explorer-heard-notice>
+                <svg class="mt-0.5 h-4 w-4 shrink-0 text-brand-600 dark:text-brand-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" /></svg>
+                <span>{heardBlocker}</span>
+            </p>
+        {:else if heardActive && heardFailed}
+            <p class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-line-soft bg-surface px-3 py-2 text-sm text-slate-600 dark:text-slate-300" role="alert" data-explorer-heard-notice>
+                {$_('events.heard.load_failed', { default: 'Could not load the heard calls. The visits are unaffected.' })}
+                <button type="button" class="btn btn-secondary min-h-11 px-3 text-xs" onclick={() => void loadHeard()}>{$_('common.retry', { default: 'Retry' })}</button>
+            </p>
+        {:else if heardActive && heardGroups !== null && heardGroups.length === 0 && pageVisits.length > 0}
+            <!-- Nothing stored is not the same as nothing heard: BirdNET-Go may have been offline. -->
+            <p class="mb-4 rounded-xl border border-line-soft bg-surface px-3 py-2.5 text-sm text-slate-600 dark:text-slate-300" role="status" data-explorer-heard-notice>
+                {$_('events.heard.none_stored', { default: 'No BirdNET-Go calls are stored for the time these visits cover. If calls were expected, check that BirdNET-Go is running in Settings, Integrations.' })}
+            </p>
+        {:else if heardActive && heardTruncated}
+            <p class="mb-4 rounded-xl border border-line-soft bg-surface px-3 py-2.5 text-sm text-slate-600 dark:text-slate-300" role="status" data-explorer-heard-notice>
+                {$_('events.heard.truncated', { default: 'This page spans more calls than can be shown at once, so the oldest calls are left out. Narrow the dates to see them.' })}
+            </p>
         {/if}
 
         {#if !loading && visibleEvents.length === 0}
@@ -1333,6 +1670,7 @@
                             cameraFilter = '';
                             favoritesOnly = false;
                             audioConfirmedOnly = false;
+                multipleSpeciesOnly = false;
                             showHidden = false;
                             customStartDate = '';
                             customEndDate = '';
@@ -1349,40 +1687,54 @@
                 {/if}
             </div>
         {:else if explorerView === 'list'}
-            <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white/80 dark:border-slate-800 dark:bg-slate-900/50" data-explorer-list>
-                {#each visibleEvents as event (eventKey(event))}
-                    <DetectionRow
-                        detection={event}
-                        onclick={() => handleEventCardClick(event)}
-                        onPlay={() => {
-                            videoEventId = event.frigate_event;
-                            videoShareToken = null;
-                            videoPlayIntent = 'user';
-                            showVideo = true;
-                            selectedEvent = null;
-                        }}
-                        selectionMode={selectionMode}
-                        selected={selectedEventIds.includes(event.frigate_event)}
-                    />
+            <!-- Visits are divided from each other; inside one, only its captures footer is. -->
+            <!-- The list takes the page's width like every other surface (#663); a capped column left
+                 half of a large display empty beside it. -->
+            <div class="divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white/80 dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900/50" data-explorer-list>
+                {#each entries as entry (entryKey(entry))}
+                    {#if entry.kind === 'band'}
+                        <HeardBandRow band={entry.band} />
+                    {:else}
+                        {@const event = entry.event}
+                        {@const visit = entry.visit}
+                        <div class="[&>[data-detection-row]]:border-b-0" data-explorer-visit={visit?.visit_id}>
+                        <DetectionRow
+                            detection={event}
+                            onclick={() => handleEventCardClick(event)}
+                            onPlay={() => playClip(event)}
+                            selectionMode={selectionMode}
+                            selected={selectedEventIds.includes(event.frigate_event)}
+                            speciesMix={visitSpeciesMix(visit)}
+                            matchedCalls={entry.matchedCalls}
+                            onopenCapture={openPeakCapture(visit)}
+                        />
+                        {#if visit}<VisitCaptures {visit} window={captureWindow} onselect={handleEventCardClick} onplay={playClip} />{/if}
+                        </div>
+                    {/if}
                 {/each}
             </div>
         {:else}
             <!-- A minimum card width keeps the overlay row's one-line guarantee
                  structural: fixed column counts measured 141-227px cards beside
                  the open sidebar and filter rail, clipping the play button. -->
+            <!-- Capture panels float above the grid; every card keeps its place. -->
             <div class="grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-4">
-                {#each visibleEvents as event, index (eventKey(event))}
-                    <DetectionCard 
-                        detection={event} 
+                {#each entries as entry, index (entryKey(entry))}
+                    {#if entry.kind === 'band'}
+                        <div class="min-w-0"><HeardBandCard band={entry.band} /></div>
+                    {:else}
+                    {@const event = entry.event}
+                    {@const visit = entry.visit}
+                    <!-- The card is the one outline; a visit's captures sit inside it, not in a second box. -->
+                    <div class="min-w-0" data-explorer-visit={visit?.visit_id}>
+                    {#snippet captures()}
+                        {#if visit}<VisitCaptures floating {visit} window={captureWindow} onselect={handleEventCardClick} onplay={playClip} />{/if}
+                    {/snippet}
+                    <DetectionCard
+                        detection={event}
                         {index}
                         onclick={() => handleEventCardClick(event)}
-                        onPlay={() => {
-                            videoEventId = event.frigate_event;
-                            videoShareToken = null;
-                            videoPlayIntent = 'user';
-                            showVideo = true;
-                            selectedEvent = null;
-                        }}
+                        onPlay={() => playClip(event)}
                         onFetchFullVisit={recordingClipFetchEnabled ? () => handleFetchFullVisit(event) : undefined}
                         fullVisitAvailable={fullVisitAvailability[event.frigate_event] === 'available'}
                         fullVisitFetched={fullVisitFetchState[event.frigate_event] === 'ready'}
@@ -1390,7 +1742,12 @@
                         hideProgress={selectedEvent?.frigate_event === event.frigate_event}
                         selectionMode={selectionMode}
                         selected={selectedEventIds.includes(event.frigate_event)}
+                        footer={visit && hasCaptureFooter(visit) ? captures : undefined}
+                        speciesMix={visitSpeciesMix(visit)}
+                        matchedCalls={entry.matchedCalls}
                     />
+                    </div>
+                    {/if}
                 {/each}
             </div>
         {/if}
@@ -1424,6 +1781,7 @@
             detectionsStore.removeDetection(deletedEventId, detectionTime);
             selectedEvent = null;
             await refreshEventMetadata(true, false);
+            await loadEvents();
         }}
         onHideSuccess={async (hiddenEventId: string, detectionTime: string | undefined, isHidden: boolean) => {
             if (isHidden) {
@@ -1443,6 +1801,7 @@
             }
             selectedEvent = null;
             await refreshEventMetadata(true, false);
+            await loadEvents();
         }}
         onPlayVideo={(frigateEvent: string, playIntent: 'auto' | 'user' = 'auto') => {
             videoEventId = frigateEvent;
@@ -1472,7 +1831,7 @@
         role="button"
         tabindex="0"
     >
-        <div class="w-full max-w-md mx-2 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden" aria-busy={bulkTagging}>
+        <div class="w-full max-w-md mx-2 bg-surface rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden" aria-busy={bulkTagging}>
             <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
                 <div>
                     <h4 class="text-sm font-semibold text-slate-800 dark:text-slate-100">
@@ -1513,14 +1872,14 @@
                         <span class="block text-sm leading-tight">
                             {names.primary}
                             {#if isPending}
-                                <span class="ml-2 inline-flex items-center gap-1 text-[10px] font-semibold text-brand-500">
+                                <span class="ml-2 inline-flex items-center gap-1 text-3xs font-semibold text-brand-500">
                                     <span class="inline-block h-2 w-2 rounded-full border border-current border-t-transparent animate-spin"></span>
                                     {$_('common.saving')}
                                 </span>
                             {/if}
                         </span>
                         {#if names.secondary}
-                            <span class="block text-[11px] text-slate-400 dark:text-slate-400 italic">{names.secondary}</span>
+                            <span class="block text-2xs text-slate-400 dark:text-slate-400 italic">{names.secondary}</span>
                         {/if}
                     </button>
                 {/each}

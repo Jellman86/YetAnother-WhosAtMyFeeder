@@ -5,6 +5,7 @@ import html
 from datetime import datetime, timezone
 from typing import Optional
 import json
+from collections.abc import Coroutine
 
 from app.config import settings
 from app.services.i18n_service import i18n_service
@@ -33,6 +34,7 @@ class NotificationService:
     def __init__(self):
         self.client = httpx.AsyncClient(timeout=10.0)
         self.last_notification_time = datetime.min.replace(tzinfo=timezone.utc)
+        self._cooldown_dispatch_active = False
 
     async def _should_notify(
         self,
@@ -144,7 +146,7 @@ class NotificationService:
         lang = settings.notifications.notification_language
         display_name = common_name or species
         detection_url = notification_link(settings.notifications, settings.frigate.frigate_external_url, frigate_event)
-        tasks: list[tuple[str, asyncio.Future]] = []
+        tasks: list[tuple[str, Coroutine[None, None, bool]]] = []
         channel_filter = set(channels) if channels else None
 
         def allow_channel(name: str) -> bool:
@@ -236,13 +238,39 @@ class NotificationService:
             )
 
         if tasks:
+            cooldown = settings.notifications.notification_cooldown_minutes
+            reserved = cooldown > 0
+            # This check and reservation have no await: all workers share this service
+            # on the event loop, but channel I/O must never hold a global lock.
+            if reserved:
+                elapsed = (datetime.now(timezone.utc) - self.last_notification_time).total_seconds() / 60
+                if self._cooldown_dispatch_active or elapsed < cooldown:
+                    for _, task in tasks:
+                        task.close()
+                    return False
+                self._cooldown_dispatch_active = True
+
             channel_names = [name for name, _ in tasks]
             log.info("Sending notifications", species=species, channels=channel_names, lang=lang)
-            results = await asyncio.gather(*(task for _, task in tasks), return_exceptions=True)
+            delivery_tasks = [asyncio.create_task(task) for _, task in tasks]
+            try:
+                results = await asyncio.gather(*delivery_tasks, return_exceptions=True)
+            finally:
+                # A completed channel still counts when another channel is cancelled.
+                success = any(
+                    task.done()
+                    and not task.cancelled()
+                    and task.exception() is None
+                    and (task.result() is True or task.result() is None)
+                    for task in delivery_tasks
+                )
+                if success:
+                    self.last_notification_time = datetime.now(timezone.utc)
+                if reserved:
+                    self._cooldown_dispatch_active = False
             channel_results = {}
-            success = False
             for (name, _), result in zip(tasks, results):
-                if isinstance(result, Exception):
+                if isinstance(result, BaseException):
                     channel_results[name] = "error"
                     continue
                 # Backward-compat: treat legacy None returns from mocks as a sent signal.
@@ -250,8 +278,6 @@ class NotificationService:
                 channel_results[name] = "sent" if sent else "skipped_or_failed"
                 success = success or sent
 
-            if success:
-                self.last_notification_time = datetime.now(timezone.utc)
             log.info(
                 "Notification dispatch complete", species=species, success=success, channel_results=channel_results
             )

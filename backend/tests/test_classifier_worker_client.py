@@ -327,7 +327,7 @@ async def test_classifier_worker_client_tracks_heartbeat_state():
 
 
 @pytest.mark.asyncio
-async def test_classifier_worker_client_treats_progress_as_worker_liveness():
+async def test_classifier_worker_client_treats_progress_as_worker_liveness(monkeypatch):
     process = _FakeProcess()
 
     async def _factory(**_kwargs):
@@ -343,8 +343,11 @@ async def test_classifier_worker_client_treats_progress_as_worker_liveness():
     process.feed(build_ready_event(worker_generation=12))
     await asyncio.wait_for(client.wait_until_ready(), timeout=0.2)
     ready_activity = client.get_status()["last_activity_monotonic"]
+    from app.services import classifier_worker_client
 
-    await asyncio.sleep(0.01)
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(classifier_worker_client, "time", SimpleNamespace(monotonic=lambda: ready_activity + 1))
     process.feed(
         build_progress_event(
             worker_generation=12,
@@ -625,3 +628,46 @@ async def test_classifier_worker_client_reports_no_runtime_for_a_bare_ready_mess
     assert client.get_status()["runtime"] is None
     process.finish()
     await client.wait_closed()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("provider", [None, "cpu"])
+async def test_windows_venv_worker_is_directly_owned_and_keeps_venv_dependencies(monkeypatch, provider):
+    from unittest.mock import AsyncMock
+
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setattr(sys, "executable", r"C:\venv\Scripts\python.exe")
+    monkeypatch.setattr(sys, "_base_executable", r"C:\Python312\python.exe")
+    spawn = AsyncMock()
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", spawn)
+    client = ClassifierWorkerClient(
+        worker_name="owned", worker_generation=1, heartbeat_timeout_seconds=5, inference_provider_override=provider
+    )
+    await client._spawn_process(worker_name="owned", worker_generation=1)
+    assert spawn.call_args.args[0] == sys._base_executable
+    assert spawn.call_args.kwargs["env"]["__PYVENV_LAUNCHER__"] == sys.executable
+    if provider is not None:
+        assert spawn.call_args.kwargs["env"]["CLASSIFICATION__INFERENCE_PROVIDER"] == provider
+        assert spawn.call_args.kwargs["env"]["YA_WAMF_NATIVE_CPU_RECOVERY"] == "1"
+    assert "__PYVENV_LAUNCHER__" not in os.environ
+
+
+@pytest.mark.asyncio
+async def test_real_worker_keeps_idle_heartbeat_and_exits_on_parent_pipe_eof(monkeypatch):
+    monkeypatch.setenv("YA_WAMF_CLASSIFIER_WORKER_TEST_MODE", "1")
+    monkeypatch.setenv("CLASSIFIER_WORKER_HEARTBEAT_INTERVAL_SECONDS", "0.05")
+    client = ClassifierWorkerClient(worker_name="eof-real", worker_generation=1, heartbeat_timeout_seconds=5)
+    try:
+        await client.start()
+        await client.wait_until_ready()
+
+        async def heartbeat():
+            while client.get_status()["last_heartbeat_monotonic"] is None:
+                await asyncio.sleep(0.01)
+
+        await asyncio.wait_for(heartbeat(), 2)
+        client._process.stdin.close()
+        await asyncio.wait_for(client.wait_closed(), 5)
+        assert client.get_status()["exit_code"] == 0
+    finally:
+        await client.kill()

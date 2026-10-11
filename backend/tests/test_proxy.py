@@ -13,6 +13,7 @@ import httpx
 import time
 from PIL import Image
 from app.auth import AuthLevel, create_access_token
+from app.services import media_cache as media_cache_module
 
 
 @pytest_asyncio.fixture
@@ -112,7 +113,7 @@ async def test_proxy_clip_enabled(client: httpx.AsyncClient, mock_frigate_respon
     """Test that clips are proxied when clips_enabled is True."""
     original_setting = settings.frigate.clips_enabled
     settings.frigate.clips_enabled = True
-    settings.media_cache.enabled = False  # Disable cache for this test
+    media_cache_module.media_cache._available = False  # Disable cache for this test
 
     with (
         patch("app.routers.proxy.httpx.AsyncClient") as MockClient,
@@ -141,7 +142,7 @@ async def test_proxy_clip_range_header_forwarded(client: httpx.AsyncClient, mock
     """Test that Range headers are forwarded to Frigate and 206 responses are returned."""
     original_setting = settings.frigate.clips_enabled
     settings.frigate.clips_enabled = True
-    settings.media_cache.enabled = False  # Disable cache for this test
+    media_cache_module.media_cache._available = False  # Disable cache for this test
 
     with (
         patch("app.routers.proxy.httpx.AsyncClient") as MockClient,
@@ -187,7 +188,7 @@ async def test_proxy_recording_clip_enabled(client: httpx.AsyncClient, mock_frig
     original_recording = settings.frigate.recording_clip_enabled
     settings.frigate.clips_enabled = True
     settings.frigate.recording_clip_enabled = True
-    settings.media_cache.enabled = False
+    media_cache_module.media_cache._available = False
 
     with (
         patch("app.routers.proxy._get_recording_clip_context", new_callable=AsyncMock) as mock_context,
@@ -222,7 +223,7 @@ async def test_proxy_recording_clip_returns_404_when_no_recordings_found(client:
     original_recording = settings.frigate.recording_clip_enabled
     settings.frigate.clips_enabled = True
     settings.frigate.recording_clip_enabled = True
-    settings.media_cache.enabled = False
+    media_cache_module.media_cache._available = False
 
     mock_response = MagicMock()
     mock_response.status_code = 400
@@ -396,13 +397,13 @@ async def test_proxy_recording_clip_allows_valid_share_token_without_auth(
 ):
     original_clips = settings.frigate.clips_enabled
     original_recording = settings.frigate.recording_clip_enabled
-    original_cache = settings.media_cache.enabled
+    original_cache = media_cache_module.media_cache._available
     original_auth = settings.auth.enabled
     original_public = settings.public_access.enabled
 
     settings.frigate.clips_enabled = True
     settings.frigate.recording_clip_enabled = True
-    settings.media_cache.enabled = False
+    media_cache_module.media_cache._available = False
     settings.auth.enabled = True
     settings.public_access.enabled = False
 
@@ -436,7 +437,7 @@ async def test_proxy_recording_clip_allows_valid_share_token_without_auth(
         finally:
             settings.frigate.clips_enabled = original_clips
             settings.frigate.recording_clip_enabled = original_recording
-            settings.media_cache.enabled = original_cache
+            media_cache_module.media_cache._available = original_cache
             settings.auth.enabled = original_auth
             settings.public_access.enabled = original_public
 
@@ -545,11 +546,11 @@ async def test_check_recording_clip_exists_returns_404_for_streamed_no_recording
 async def test_check_recording_clip_exists_uses_cached_recording_clip_when_present(client: httpx.AsyncClient):
     original_clips = settings.frigate.clips_enabled
     original_recording = settings.frigate.recording_clip_enabled
-    original_cache_enabled = settings.media_cache.enabled
+    original_cache_enabled = media_cache_module.media_cache._available
     original_cache_clips = settings.media_cache.cache_clips
     settings.frigate.clips_enabled = True
     settings.frigate.recording_clip_enabled = True
-    settings.media_cache.enabled = True
+    media_cache_module.media_cache._available = True
     settings.media_cache.cache_clips = True
 
     with (
@@ -569,7 +570,7 @@ async def test_check_recording_clip_exists_uses_cached_recording_clip_when_prese
         finally:
             settings.frigate.clips_enabled = original_clips
             settings.frigate.recording_clip_enabled = original_recording
-            settings.media_cache.enabled = original_cache_enabled
+            media_cache_module.media_cache._available = original_cache_enabled
             settings.media_cache.cache_clips = original_cache_clips
 
 
@@ -577,10 +578,10 @@ async def test_check_recording_clip_exists_uses_cached_recording_clip_when_prese
 async def test_check_recording_clip_exists_reports_partial_cached_recording(client: httpx.AsyncClient):
     original_clips = settings.frigate.clips_enabled
     original_recording = settings.frigate.recording_clip_enabled
-    original_cache_enabled = settings.media_cache.enabled
+    original_cache_enabled = media_cache_module.media_cache._available
     settings.frigate.clips_enabled = True
     settings.frigate.recording_clip_enabled = True
-    settings.media_cache.enabled = True
+    media_cache_module.media_cache._available = True
 
     partial_path = Path("/tmp/test_partial_recording.mp4")
 
@@ -607,7 +608,7 @@ async def test_check_recording_clip_exists_reports_partial_cached_recording(clie
         finally:
             settings.frigate.clips_enabled = original_clips
             settings.frigate.recording_clip_enabled = original_recording
-            settings.media_cache.enabled = original_cache_enabled
+            media_cache_module.media_cache._available = original_cache_enabled
 
 
 @pytest.mark.asyncio
@@ -704,6 +705,7 @@ async def test_get_recording_clip_context_prefers_aware_detection_time_without_f
 
 
 @pytest.mark.asyncio
+@pytest.mark.skipif(not hasattr(time, "tzset"), reason="POSIX local timezone switching via TZ/tzset")
 async def test_get_recording_clip_context_falls_back_to_local_timezone_for_naive_detection(monkeypatch):
     previous_tz = __import__("os").environ.get("TZ")
     monkeypatch.setenv("TZ", "Europe/Helsinki")
@@ -758,11 +760,11 @@ async def test_recording_clip_fetch_reports_cached_duration_state(
 ):
     original_clips = settings.frigate.clips_enabled
     original_recording = settings.frigate.recording_clip_enabled
-    original_cache_enabled = settings.media_cache.enabled
+    original_cache_enabled = media_cache_module.media_cache._available
     original_cache_clips = settings.media_cache.cache_clips
     settings.frigate.clips_enabled = True
     settings.frigate.recording_clip_enabled = True
-    settings.media_cache.enabled = True
+    media_cache_module.media_cache._available = True
     settings.media_cache.cache_clips = True
 
     cached = {"ready": False}
@@ -815,7 +817,7 @@ async def test_recording_clip_fetch_reports_cached_duration_state(
         finally:
             settings.frigate.clips_enabled = original_clips
             settings.frigate.recording_clip_enabled = original_recording
-            settings.media_cache.enabled = original_cache_enabled
+            media_cache_module.media_cache._available = original_cache_enabled
             settings.media_cache.cache_clips = original_cache_clips
 
 
@@ -823,11 +825,11 @@ async def test_recording_clip_fetch_reports_cached_duration_state(
 async def test_recording_clip_fetch_returns_404_when_timespan_missing(client: httpx.AsyncClient):
     original_clips = settings.frigate.clips_enabled
     original_recording = settings.frigate.recording_clip_enabled
-    original_cache_enabled = settings.media_cache.enabled
+    original_cache_enabled = media_cache_module.media_cache._available
     original_cache_clips = settings.media_cache.cache_clips
     settings.frigate.clips_enabled = True
     settings.frigate.recording_clip_enabled = True
-    settings.media_cache.enabled = True
+    media_cache_module.media_cache._available = True
     settings.media_cache.cache_clips = True
 
     mock_response = MagicMock()
@@ -864,17 +866,17 @@ async def test_recording_clip_fetch_returns_404_when_timespan_missing(client: ht
         finally:
             settings.frigate.clips_enabled = original_clips
             settings.frigate.recording_clip_enabled = original_recording
-            settings.media_cache.enabled = original_cache_enabled
+            media_cache_module.media_cache._available = original_cache_enabled
             settings.media_cache.cache_clips = original_cache_clips
 
 
 @pytest.mark.asyncio
 async def test_proxy_clip_prefers_persisted_recording_clip_when_present(client: httpx.AsyncClient):
     original_clips = settings.frigate.clips_enabled
-    original_cache_enabled = settings.media_cache.enabled
+    original_cache_enabled = media_cache_module.media_cache._available
     original_cache_clips = settings.media_cache.cache_clips
     settings.frigate.clips_enabled = True
-    settings.media_cache.enabled = True
+    media_cache_module.media_cache._available = True
     settings.media_cache.cache_clips = True
 
     with NamedTemporaryFile(delete=False, suffix="_recording.mp4") as tmp:
@@ -900,7 +902,7 @@ async def test_proxy_clip_prefers_persisted_recording_clip_when_present(client: 
             mock_frigate.get_event.assert_not_awaited()
         finally:
             settings.frigate.clips_enabled = original_clips
-            settings.media_cache.enabled = original_cache_enabled
+            media_cache_module.media_cache._available = original_cache_enabled
             settings.media_cache.cache_clips = original_cache_clips
             recording_path.unlink(missing_ok=True)
 
@@ -908,10 +910,10 @@ async def test_proxy_clip_prefers_persisted_recording_clip_when_present(client: 
 @pytest.mark.asyncio
 async def test_proxy_clip_falls_back_to_cached_event_clip_when_recording_clip_missing(client: httpx.AsyncClient):
     original_clips = settings.frigate.clips_enabled
-    original_cache_enabled = settings.media_cache.enabled
+    original_cache_enabled = media_cache_module.media_cache._available
     original_cache_clips = settings.media_cache.cache_clips
     settings.frigate.clips_enabled = True
-    settings.media_cache.enabled = True
+    media_cache_module.media_cache._available = True
     settings.media_cache.cache_clips = True
 
     with NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
@@ -933,7 +935,7 @@ async def test_proxy_clip_falls_back_to_cached_event_clip_when_recording_clip_mi
             mock_frigate.get_event.assert_not_awaited()
         finally:
             settings.frigate.clips_enabled = original_clips
-            settings.media_cache.enabled = original_cache_enabled
+            media_cache_module.media_cache._available = original_cache_enabled
             settings.media_cache.cache_clips = original_cache_clips
             clip_path.unlink(missing_ok=True)
 
@@ -941,10 +943,10 @@ async def test_proxy_clip_falls_back_to_cached_event_clip_when_recording_clip_mi
 @pytest.mark.asyncio
 async def test_proxy_clip_prefers_playable_partial_recording_over_short_event_clip(client: httpx.AsyncClient):
     original_clips = settings.frigate.clips_enabled
-    original_cache_enabled = settings.media_cache.enabled
+    original_cache_enabled = media_cache_module.media_cache._available
     original_cache_clips = settings.media_cache.cache_clips
     settings.frigate.clips_enabled = True
-    settings.media_cache.enabled = True
+    media_cache_module.media_cache._available = True
     settings.media_cache.cache_clips = True
 
     with NamedTemporaryFile(delete=False, suffix="_recording.mp4") as recording_tmp:
@@ -978,7 +980,7 @@ async def test_proxy_clip_prefers_playable_partial_recording_over_short_event_cl
             mock_event_path.assert_not_called()
         finally:
             settings.frigate.clips_enabled = original_clips
-            settings.media_cache.enabled = original_cache_enabled
+            media_cache_module.media_cache._available = original_cache_enabled
             settings.media_cache.cache_clips = original_cache_clips
             recording_path.unlink(missing_ok=True)
             event_path.unlink(missing_ok=True)
@@ -989,10 +991,10 @@ async def test_proxy_clip_prefers_persisted_recording_clip_even_when_regular_cli
     client: httpx.AsyncClient,
 ):
     original_clips = settings.frigate.clips_enabled
-    original_cache_enabled = settings.media_cache.enabled
+    original_cache_enabled = media_cache_module.media_cache._available
     original_cache_clips = settings.media_cache.cache_clips
     settings.frigate.clips_enabled = True
-    settings.media_cache.enabled = True
+    media_cache_module.media_cache._available = True
     settings.media_cache.cache_clips = False
 
     with NamedTemporaryFile(delete=False, suffix="_recording.mp4") as tmp:
@@ -1015,7 +1017,7 @@ async def test_proxy_clip_prefers_persisted_recording_clip_even_when_regular_cli
             mock_frigate.get_event.assert_not_awaited()
         finally:
             settings.frigate.clips_enabled = original_clips
-            settings.media_cache.enabled = original_cache_enabled
+            media_cache_module.media_cache._available = original_cache_enabled
             settings.media_cache.cache_clips = original_cache_clips
             recording_path.unlink(missing_ok=True)
 
@@ -1023,10 +1025,10 @@ async def test_proxy_clip_prefers_persisted_recording_clip_even_when_regular_cli
 @pytest.mark.asyncio
 async def test_proxy_clip_head_reports_ready_when_persisted_recording_clip_exists(client: httpx.AsyncClient):
     original_clips = settings.frigate.clips_enabled
-    original_cache_enabled = settings.media_cache.enabled
+    original_cache_enabled = media_cache_module.media_cache._available
     original_cache_clips = settings.media_cache.cache_clips
     settings.frigate.clips_enabled = True
-    settings.media_cache.enabled = True
+    media_cache_module.media_cache._available = True
     settings.media_cache.cache_clips = True
 
     with NamedTemporaryFile(delete=False, suffix="_recording.mp4") as tmp:
@@ -1049,7 +1051,7 @@ async def test_proxy_clip_head_reports_ready_when_persisted_recording_clip_exist
             mock_frigate.get_event.assert_not_awaited()
         finally:
             settings.frigate.clips_enabled = original_clips
-            settings.media_cache.enabled = original_cache_enabled
+            media_cache_module.media_cache._available = original_cache_enabled
             settings.media_cache.cache_clips = original_cache_clips
             recording_path.unlink(missing_ok=True)
 
@@ -1059,10 +1061,10 @@ async def test_proxy_clip_head_reports_ready_when_persisted_recording_clip_exist
     client: httpx.AsyncClient,
 ):
     original_clips = settings.frigate.clips_enabled
-    original_cache_enabled = settings.media_cache.enabled
+    original_cache_enabled = media_cache_module.media_cache._available
     original_cache_clips = settings.media_cache.cache_clips
     settings.frigate.clips_enabled = True
-    settings.media_cache.enabled = True
+    media_cache_module.media_cache._available = True
     settings.media_cache.cache_clips = False
 
     with NamedTemporaryFile(delete=False, suffix="_recording.mp4") as tmp:
@@ -1085,7 +1087,7 @@ async def test_proxy_clip_head_reports_ready_when_persisted_recording_clip_exist
             mock_frigate.get_event.assert_not_awaited()
         finally:
             settings.frigate.clips_enabled = original_clips
-            settings.media_cache.enabled = original_cache_enabled
+            media_cache_module.media_cache._available = original_cache_enabled
             settings.media_cache.cache_clips = original_cache_clips
             recording_path.unlink(missing_ok=True)
 
@@ -1127,11 +1129,9 @@ async def test_proxy_clip_thumbnails_vtt_success(client: httpx.AsyncClient):
 
 @pytest.mark.asyncio
 async def test_proxy_snapshot_cache_hit_sets_no_store_headers(client: httpx.AsyncClient):
-    original_cache_enabled = settings.media_cache.enabled
-    original_cache_snapshots = settings.media_cache.cache_snapshots
+    original_cache_enabled = media_cache_module.media_cache._available
     original_hq_snapshots = settings.media_cache.high_quality_event_snapshots
-    settings.media_cache.enabled = True
-    settings.media_cache.cache_snapshots = True
+    media_cache_module.media_cache._available = True
     settings.media_cache.high_quality_event_snapshots = True
 
     with patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_snapshot:
@@ -1144,18 +1144,15 @@ async def test_proxy_snapshot_cache_hit_sets_no_store_headers(client: httpx.Asyn
             assert response.headers["cache-control"] == "no-store, max-age=0"
             assert response.headers["pragma"] == "no-cache"
         finally:
-            settings.media_cache.enabled = original_cache_enabled
-            settings.media_cache.cache_snapshots = original_cache_snapshots
+            media_cache_module.media_cache._available = original_cache_enabled
             settings.media_cache.high_quality_event_snapshots = original_hq_snapshots
 
 
 @pytest.mark.asyncio
-async def test_proxy_snapshot_refetches_hq_cached_snapshot_when_hq_disabled(client: httpx.AsyncClient):
-    original_cache_enabled = settings.media_cache.enabled
-    original_cache_snapshots = settings.media_cache.cache_snapshots
+async def test_proxy_keeps_retained_hq_photo_when_future_hq_scanning_is_disabled(client: httpx.AsyncClient):
+    original_cache_enabled = media_cache_module.media_cache._available
     original_hq_snapshots = settings.media_cache.high_quality_event_snapshots
-    settings.media_cache.enabled = True
-    settings.media_cache.cache_snapshots = True
+    media_cache_module.media_cache._available = True
     settings.media_cache.high_quality_event_snapshots = False
 
     hq_snapshot = b"old-hq-snapshot"
@@ -1187,27 +1184,20 @@ async def test_proxy_snapshot_refetches_hq_cached_snapshot_when_hq_disabled(clie
             response = await client.get("/api/frigate/test_event_id/snapshot.jpg")
 
             assert response.status_code == 200
-            assert response.content == cropped_snapshot
-            mock_delete_snapshot.assert_awaited_once_with("test_event_id")
-            mock_delete_thumbnail.assert_awaited_once_with("test_event_id")
-            mock_client.get.assert_awaited_once_with(
-                f"{settings.frigate.frigate_url}/api/events/test_event_id/snapshot.jpg",
-                headers={},
-                params={"crop": 1, "quality": 95},
-            )
-            mock_cache_snapshot.assert_awaited_once_with("test_event_id", cropped_snapshot)
+            assert response.content == hq_snapshot
+            mock_delete_snapshot.assert_not_awaited()
+            mock_delete_thumbnail.assert_not_awaited()
+            mock_client.get.assert_not_awaited()
+            mock_cache_snapshot.assert_not_awaited()
         finally:
-            settings.media_cache.enabled = original_cache_enabled
-            settings.media_cache.cache_snapshots = original_cache_snapshots
+            media_cache_module.media_cache._available = original_cache_enabled
             settings.media_cache.high_quality_event_snapshots = original_hq_snapshots
 
 
 @pytest.mark.asyncio
 async def test_proxy_thumbnail_cache_hit_sets_no_store_headers(client: httpx.AsyncClient):
-    original_cache_enabled = settings.media_cache.enabled
-    original_cache_snapshots = settings.media_cache.cache_snapshots
-    settings.media_cache.enabled = True
-    settings.media_cache.cache_snapshots = True
+    original_cache_enabled = media_cache_module.media_cache._available
+    media_cache_module.media_cache._available = True
 
     with patch("app.services.media_cache.media_cache.get_thumbnail", new_callable=AsyncMock) as mock_thumbnail:
         mock_thumbnail.return_value = b"fake-jpeg"
@@ -1219,17 +1209,14 @@ async def test_proxy_thumbnail_cache_hit_sets_no_store_headers(client: httpx.Asy
             assert response.headers["cache-control"] == "no-store, max-age=0"
             assert response.headers["pragma"] == "no-cache"
         finally:
-            settings.media_cache.enabled = original_cache_enabled
-            settings.media_cache.cache_snapshots = original_cache_snapshots
+            media_cache_module.media_cache._available = original_cache_enabled
 
 
 @pytest.mark.asyncio
 async def test_proxy_thumbnail_ignores_legacy_cached_thumbnail_when_snapshot_exists(client: httpx.AsyncClient):
-    original_cache_enabled = settings.media_cache.enabled
-    original_cache_snapshots = settings.media_cache.cache_snapshots
+    original_cache_enabled = media_cache_module.media_cache._available
     original_hq_snapshots = settings.media_cache.high_quality_event_snapshots
-    settings.media_cache.enabled = True
-    settings.media_cache.cache_snapshots = True
+    media_cache_module.media_cache._available = True
     settings.media_cache.high_quality_event_snapshots = True
 
     high_res = Image.new("RGB", (2560, 1920), color=(200, 120, 40))
@@ -1263,17 +1250,14 @@ async def test_proxy_thumbnail_ignores_legacy_cached_thumbnail_when_snapshot_exi
                 assert img.size[0] > 256
                 assert img.size[1] > 256
         finally:
-            settings.media_cache.enabled = original_cache_enabled
-            settings.media_cache.cache_snapshots = original_cache_snapshots
+            media_cache_module.media_cache._available = original_cache_enabled
             settings.media_cache.high_quality_event_snapshots = original_hq_snapshots
 
 
 @pytest.mark.asyncio
 async def test_proxy_thumbnail_keeps_known_frigate_thumbnail_without_snapshot(client: httpx.AsyncClient):
-    original_cache_enabled = settings.media_cache.enabled
-    original_cache_snapshots = settings.media_cache.cache_snapshots
-    settings.media_cache.enabled = True
-    settings.media_cache.cache_snapshots = True
+    original_cache_enabled = media_cache_module.media_cache._available
+    media_cache_module.media_cache._available = True
 
     cached_frigate_thumbnail = b"frigate-thumbnail"
 
@@ -1291,16 +1275,85 @@ async def test_proxy_thumbnail_keeps_known_frigate_thumbnail_without_snapshot(cl
             assert response.content == cached_frigate_thumbnail
             mock_http_client.assert_not_called()
         finally:
-            settings.media_cache.enabled = original_cache_enabled
-            settings.media_cache.cache_snapshots = original_cache_snapshots
+            media_cache_module.media_cache._available = original_cache_enabled
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("source", ["video_evidence_crop", "hq_candidate_model_crop", "frigate_snapshot_cropped"])
+async def test_proxy_keeps_small_photographs_with_known_snapshot_provenance(client, monkeypatch, source):
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True)
+    image = Image.new("RGB", (175, 175), (12, 34, 56))
+    buffer = io.BytesIO()
+    image.save(buffer, format="JPEG", quality=95)
+    photograph = buffer.getvalue()
+    with (
+        patch("app.services.media_cache.media_cache.get_snapshot", AsyncMock(return_value=photograph)),
+        patch("app.services.media_cache.media_cache.get_snapshot_metadata", AsyncMock(return_value={"source": source})),
+        patch("app.services.media_cache.media_cache.delete_snapshot", AsyncMock()) as delete,
+        patch("app.routers.proxy.get_http_client") as upstream,
+    ):
+        response = await client.get("/api/frigate/test_event_id/snapshot.jpg")
+    assert response.status_code == 200
+    assert response.content == photograph
+    delete.assert_not_awaited()
+    upstream.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("hq_enabled", [False, True])
+async def test_owner_selected_small_photo_survives_hq_setting_changes(client, monkeypatch, hq_enabled):
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", hq_enabled)
+    buffer = io.BytesIO()
+    Image.new("RGB", (175, 175), (12, 34, 56)).save(buffer, format="JPEG", quality=95)
+    photograph = buffer.getvalue()
+    with (
+        patch("app.services.media_cache.media_cache.get_snapshot", AsyncMock(return_value=photograph)),
+        patch(
+            "app.services.media_cache.media_cache.get_snapshot_metadata",
+            AsyncMock(return_value={"source": "high_quality_bird_crop", "manual_selection": True}),
+        ),
+        patch("app.services.media_cache.media_cache.delete_snapshot", AsyncMock()) as delete,
+        patch("app.routers.proxy.get_http_client") as upstream,
+    ):
+        response = await client.get("/api/frigate/test_event_id/snapshot.jpg")
+    assert response.status_code == 200
+    assert response.content == photograph
+    delete.assert_not_awaited()
+    upstream.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("hq_enabled", [False, True])
+@pytest.mark.parametrize("failure", [404, 503, "timeout", "connection"])
+async def test_legacy_small_photo_survives_unavailable_frigate_refresh(client, monkeypatch, failure, hq_enabled):
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", hq_enabled)
+    buffer = io.BytesIO()
+    Image.new("RGB", (175, 175), (12, 34, 56)).save(buffer, format="JPEG", quality=95)
+    photograph = buffer.getvalue()
+    upstream = MagicMock()
+    if isinstance(failure, int):
+        upstream.get = AsyncMock(return_value=httpx.Response(failure, request=httpx.Request("GET", "http://frigate")))
+    else:
+        error = httpx.ReadTimeout("Unavailable") if failure == "timeout" else httpx.ConnectError("Unavailable")
+        upstream.get = AsyncMock(side_effect=error)
+    with (
+        patch("app.services.media_cache.media_cache.get_snapshot", AsyncMock(return_value=photograph)),
+        patch("app.services.media_cache.media_cache.get_snapshot_metadata", AsyncMock(return_value={})),
+        patch("app.services.media_cache.media_cache.delete_snapshot", AsyncMock()) as delete,
+        patch("app.services.archive_service.archive_service.snapshot_path", AsyncMock(return_value=None)),
+        patch("app.routers.proxy.get_http_client", return_value=upstream),
+    ):
+        response = await client.get("/api/frigate/test_event_id/snapshot.jpg")
+    assert response.status_code == 200
+    assert response.content == photograph
+    assert response.headers["cache-control"] == "no-store, max-age=0"
+    delete.assert_not_awaited()
 
 
 @pytest.mark.asyncio
 async def test_proxy_snapshot_refetches_when_cached_snapshot_is_thumbnail_sized(client: httpx.AsyncClient):
-    original_cache_enabled = settings.media_cache.enabled
-    original_cache_snapshots = settings.media_cache.cache_snapshots
-    settings.media_cache.enabled = True
-    settings.media_cache.cache_snapshots = True
+    original_cache_enabled = media_cache_module.media_cache._available
+    media_cache_module.media_cache._available = True
 
     tiny_image = Image.new("RGB", (175, 175), color=(12, 34, 56))
     tiny_buffer = io.BytesIO()
@@ -1335,18 +1388,17 @@ async def test_proxy_snapshot_refetches_when_cached_snapshot_is_thumbnail_sized(
                 headers={},
                 params={"crop": 1, "quality": 95},
             )
-            mock_cache_snapshot.assert_awaited_once_with("test_event_id", refreshed_snapshot)
+            mock_cache_snapshot.assert_awaited_once_with(
+                "test_event_id", refreshed_snapshot, source="frigate_snapshot_unverified"
+            )
         finally:
-            settings.media_cache.enabled = original_cache_enabled
-            settings.media_cache.cache_snapshots = original_cache_snapshots
+            media_cache_module.media_cache._available = original_cache_enabled
 
 
 @pytest.mark.asyncio
 async def test_proxy_snapshot_cache_miss_fetches_cropped_frigate_snapshot(client: httpx.AsyncClient):
-    original_cache_enabled = settings.media_cache.enabled
-    original_cache_snapshots = settings.media_cache.cache_snapshots
-    settings.media_cache.enabled = True
-    settings.media_cache.cache_snapshots = True
+    original_cache_enabled = media_cache_module.media_cache._available
+    media_cache_module.media_cache._available = True
 
     cropped_snapshot = b"cropped-snapshot"
 
@@ -1377,20 +1429,19 @@ async def test_proxy_snapshot_cache_miss_fetches_cropped_frigate_snapshot(client
                 headers={"Authorization": "Bearer token"},
                 params={"crop": 1, "quality": 95},
             )
-            mock_cache_snapshot.assert_awaited_once_with("test_event_id", cropped_snapshot)
+            mock_cache_snapshot.assert_awaited_once_with(
+                "test_event_id", cropped_snapshot, source="frigate_snapshot_unverified"
+            )
         finally:
-            settings.media_cache.enabled = original_cache_enabled
-            settings.media_cache.cache_snapshots = original_cache_snapshots
+            media_cache_module.media_cache._available = original_cache_enabled
 
 
 @pytest.mark.asyncio
 async def test_proxy_snapshot_status_exposes_hq_crop_action_state(client: httpx.AsyncClient):
-    original_cache_enabled = settings.media_cache.enabled
-    original_cache_snapshots = settings.media_cache.cache_snapshots
+    original_cache_enabled = media_cache_module.media_cache._available
     original_hq_snapshots = settings.media_cache.high_quality_event_snapshots
     original_hq_crop = settings.media_cache.high_quality_event_snapshot_bird_crop
-    settings.media_cache.enabled = True
-    settings.media_cache.cache_snapshots = True
+    media_cache_module.media_cache._available = True
     settings.media_cache.high_quality_event_snapshots = True
     settings.media_cache.high_quality_event_snapshot_bird_crop = False
 
@@ -1419,8 +1470,7 @@ async def test_proxy_snapshot_status_exposes_hq_crop_action_state(client: httpx.
             assert body["high_quality_bird_crop_enabled"] is True
             assert body["original_frigate_snapshot_available"] is True
         finally:
-            settings.media_cache.enabled = original_cache_enabled
-            settings.media_cache.cache_snapshots = original_cache_snapshots
+            media_cache_module.media_cache._available = original_cache_enabled
             settings.media_cache.high_quality_event_snapshots = original_hq_snapshots
             settings.media_cache.high_quality_event_snapshot_bird_crop = original_hq_crop
 
@@ -1430,10 +1480,8 @@ async def test_proxy_snapshot_status_marks_missing_original_frigate_snapshot(cli
     # _build_snapshot_status only consults media_cache when both the cache and
     # snapshot caching are enabled — without these flags `cached` always returns
     # False regardless of what the mock yields.
-    original_cache_enabled = settings.media_cache.enabled
-    original_cache_snapshots = settings.media_cache.cache_snapshots
-    settings.media_cache.enabled = True
-    settings.media_cache.cache_snapshots = True
+    original_cache_enabled = media_cache_module.media_cache._available
+    media_cache_module.media_cache._available = True
     try:
         with (
             patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot,
@@ -1458,16 +1506,13 @@ async def test_proxy_snapshot_status_marks_missing_original_frigate_snapshot(cli
         assert body["original_frigate_snapshot_available"] is False
         assert body["frigate_event_state"] == "unavailable"
     finally:
-        settings.media_cache.enabled = original_cache_enabled
-        settings.media_cache.cache_snapshots = original_cache_snapshots
+        media_cache_module.media_cache._available = original_cache_enabled
 
 
 @pytest.mark.asyncio
 async def test_proxy_snapshot_status_distinguishes_event_frigate_did_not_retain(client: httpx.AsyncClient):
-    original_cache_enabled = settings.media_cache.enabled
-    original_cache_snapshots = settings.media_cache.cache_snapshots
-    settings.media_cache.enabled = True
-    settings.media_cache.cache_snapshots = True
+    original_cache_enabled = media_cache_module.media_cache._available
+    media_cache_module.media_cache._available = True
     try:
         with (
             patch("app.services.media_cache.media_cache.get_snapshot", new=AsyncMock(return_value=b"crop")),
@@ -1498,17 +1543,14 @@ async def test_proxy_snapshot_status_distinguishes_event_frigate_did_not_retain(
         assert body["frigate_event_state"] == "not_retained"
         assert body["localization_hint_available"] is True
     finally:
-        settings.media_cache.enabled = original_cache_enabled
-        settings.media_cache.cache_snapshots = original_cache_snapshots
+        media_cache_module.media_cache._available = original_cache_enabled
 
 
 @pytest.mark.asyncio
 async def test_proxy_snapshot_status_recognizes_generated_candidate_crop(client: httpx.AsyncClient):
-    original_cache_enabled = settings.media_cache.enabled
-    original_cache_snapshots = settings.media_cache.cache_snapshots
+    original_cache_enabled = media_cache_module.media_cache._available
     original_hq_snapshots = settings.media_cache.high_quality_event_snapshots
-    settings.media_cache.enabled = True
-    settings.media_cache.cache_snapshots = True
+    media_cache_module.media_cache._available = True
     settings.media_cache.high_quality_event_snapshots = True
     try:
         with (
@@ -1529,19 +1571,16 @@ async def test_proxy_snapshot_status_recognizes_generated_candidate_crop(client:
         assert body["already_hq_bird_crop"] is True
         assert body["can_generate_hq_bird_crop"] is False
     finally:
-        settings.media_cache.enabled = original_cache_enabled
-        settings.media_cache.cache_snapshots = original_cache_snapshots
+        media_cache_module.media_cache._available = original_cache_enabled
         settings.media_cache.high_quality_event_snapshots = original_hq_snapshots
 
 
 @pytest.mark.asyncio
 async def test_generate_hq_bird_crop_snapshot_reuses_hq_service(client: httpx.AsyncClient):
-    original_cache_enabled = settings.media_cache.enabled
-    original_cache_snapshots = settings.media_cache.cache_snapshots
+    original_cache_enabled = media_cache_module.media_cache._available
     original_hq_snapshots = settings.media_cache.high_quality_event_snapshots
     original_hq_crop = settings.media_cache.high_quality_event_snapshot_bird_crop
-    settings.media_cache.enabled = True
-    settings.media_cache.cache_snapshots = True
+    media_cache_module.media_cache._available = True
     settings.media_cache.high_quality_event_snapshots = True
     settings.media_cache.high_quality_event_snapshot_bird_crop = True
 
@@ -1571,22 +1610,19 @@ async def test_generate_hq_bird_crop_snapshot_reuses_hq_service(client: httpx.As
             assert body["status"] == "generated_hq_bird_crop"
             assert body["source"] == "high_quality_bird_crop"
             assert body["already_hq_bird_crop"] is True
-            mock_process.assert_awaited_once_with("test_event_id")
+            mock_process.assert_awaited_once_with("test_event_id", manual_override=False)
         finally:
-            settings.media_cache.enabled = original_cache_enabled
-            settings.media_cache.cache_snapshots = original_cache_snapshots
+            media_cache_module.media_cache._available = original_cache_enabled
             settings.media_cache.high_quality_event_snapshots = original_hq_snapshots
             settings.media_cache.high_quality_event_snapshot_bird_crop = original_hq_crop
 
 
 @pytest.mark.asyncio
 async def test_generate_hq_bird_crop_snapshot_reports_preserved_existing_crop(client: httpx.AsyncClient):
-    original_cache_enabled = settings.media_cache.enabled
-    original_cache_snapshots = settings.media_cache.cache_snapshots
+    original_cache_enabled = media_cache_module.media_cache._available
     original_hq_snapshots = settings.media_cache.high_quality_event_snapshots
     original_hq_crop = settings.media_cache.high_quality_event_snapshot_bird_crop
-    settings.media_cache.enabled = True
-    settings.media_cache.cache_snapshots = True
+    media_cache_module.media_cache._available = True
     settings.media_cache.high_quality_event_snapshots = True
     settings.media_cache.high_quality_event_snapshot_bird_crop = True
 
@@ -1611,21 +1647,24 @@ async def test_generate_hq_bird_crop_snapshot_reports_preserved_existing_crop(cl
             assert response.json()["status"] == "existing_crop_preserved"
             assert response.json()["result"] == "existing_crop_preserved"
         finally:
-            settings.media_cache.enabled = original_cache_enabled
-            settings.media_cache.cache_snapshots = original_cache_snapshots
+            media_cache_module.media_cache._available = original_cache_enabled
             settings.media_cache.high_quality_event_snapshots = original_hq_snapshots
             settings.media_cache.high_quality_event_snapshot_bird_crop = original_hq_crop
 
 
 @pytest.mark.asyncio
 async def test_proxy_snapshot_candidates_lists_persisted_candidates(client: httpx.AsyncClient):
-    original_cache_enabled = settings.media_cache.enabled
-    original_cache_snapshots = settings.media_cache.cache_snapshots
-    settings.media_cache.enabled = True
-    settings.media_cache.cache_snapshots = True
+    original_cache_enabled = media_cache_module.media_cache._available
+    media_cache_module.media_cache._available = True
     with (
+        patch(
+            "app.services.media_cache.media_cache.get_cached_image_version",
+            new_callable=AsyncMock,
+            return_value="retained-revision",
+        ),
         patch("app.routers.proxy.get_db") as mock_get_db,
         patch("app.routers.proxy.DetectionRepository") as mock_repo_cls,
+        patch("app.routers.proxy.BirdObservationRepository") as mock_bird_repo_cls,
         patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot,
         patch(
             "app.services.media_cache.media_cache.get_snapshot_metadata", new_callable=AsyncMock
@@ -1636,6 +1675,25 @@ async def test_proxy_snapshot_candidates_lists_persisted_candidates(client: http
         mock_get_snapshot.return_value = b"snapshot"
         mock_get_metadata.return_value = {"source": "hq_candidate_model_crop"}
         mock_repo = mock_repo_cls.return_value
+        mock_bird_repo_cls.return_value.named_for_event = AsyncMock(
+            return_value=[
+                {
+                    "id": 1,
+                    "frigate_event": "test_event_id",
+                    "bird_index": 0,
+                    "candidate_id": "cand-1",
+                    "clip_variant": "recording",
+                    "frame_index": 8,
+                    "crop_box": [4, 4, 32, 32],
+                    "detector_confidence": 0.93,
+                    "species": "Robin",
+                    "classifier_label": "Robin",
+                    "classifier_score": 0.91,
+                    "manual_species": False,
+                    "is_hidden": False,
+                }
+            ]
+        )
         mock_repo.list_snapshot_candidates = AsyncMock(
             return_value=[
                 {
@@ -1661,8 +1719,7 @@ async def test_proxy_snapshot_candidates_lists_persisted_candidates(client: http
         try:
             response = await client.get("/api/frigate/test_event_id/snapshot/candidates")
         finally:
-            settings.media_cache.enabled = original_cache_enabled
-            settings.media_cache.cache_snapshots = original_cache_snapshots
+            media_cache_module.media_cache._available = original_cache_enabled
 
     assert response.status_code == 200
     body = response.json()
@@ -1671,6 +1728,7 @@ async def test_proxy_snapshot_candidates_lists_persisted_candidates(client: http
     assert "original_frigate_snapshot_available" not in body
     assert body["candidates"][0]["candidate_id"] == "cand-1"
     assert body["candidates"][0]["crop_strategy"] == "frigate_guided"
+    assert body["birds"][0]["species"] == "Robin"
     thumbnail_url = body["candidates"][0]["thumbnail_url"]
     image_url = body["candidates"][0]["image_url"]
     # A cache-busting `?v=<mtime>` query is appended so promoted candidates refresh in the browser.
@@ -1680,6 +1738,46 @@ async def test_proxy_snapshot_candidates_lists_persisted_candidates(client: http
     assert "?v=" in thumbnail_url
     assert image_url.split("?", 1)[0].endswith("/api/frigate/test_event_id/snapshot/candidates/cand-1/image.jpg")
     assert "?v=" in image_url
+
+
+@pytest.mark.asyncio
+async def test_counted_bird_update_changes_one_bird_and_rejects_ambiguous_payload(client: httpx.AsyncClient):
+    from app.repositories.species_repository import SpeciesRepository
+
+    bird = {
+        "id": 7,
+        "bird_index": 1,
+        "candidate_id": "crop-2",
+        "clip_variant": "event",
+        "frame_index": 4,
+        "crop_box": [90, 10, 140, 60],
+        "detector_confidence": 0.21,
+        "species": "Northern Cardinal",
+        "classifier_label": "House Finch",
+        "classifier_score": 0.79,
+        "manual_species": True,
+        "is_hidden": False,
+    }
+    with (
+        patch.object(SpeciesRepository, "resolve_exact_species", new=AsyncMock(return_value="Northern Cardinal")),
+        patch("app.routers.proxy.get_db") as mock_get_db,
+        patch("app.routers.proxy.BirdObservationRepository") as mock_repo_cls,
+    ):
+        mock_get_db.return_value.__aenter__.return_value = AsyncMock()
+        repo = mock_repo_cls.return_value
+        repo.set_species = AsyncMock(return_value=True)
+        repo.named_for_event = AsyncMock(return_value=[bird])
+        response = await client.patch("/api/frigate/test_event_id/birds/7", json={"species": "Northern Cardinal"})
+        assert response.status_code == 200
+        assert response.json()["species"] == "Northern Cardinal"
+        repo.set_species.assert_awaited_once_with("test_event_id", 7, "Northern Cardinal")
+
+        invalid = await client.patch("/api/frigate/test_event_id/birds/7", json={"species": "Robin", "is_hidden": True})
+        assert invalid.status_code == 400
+
+        repo.set_hidden = AsyncMock(return_value=False)
+        missing = await client.patch("/api/frigate/test_event_id/birds/99", json={"is_hidden": True})
+        assert missing.status_code == 404
 
 
 @pytest.mark.asyncio
@@ -1739,7 +1837,10 @@ async def test_proxy_snapshot_candidate_image_returns_404_when_retained_image_is
 
 
 @pytest.mark.asyncio
-async def test_proxy_snapshot_apply_candidate_promotes_cached_candidate_image(client: httpx.AsyncClient):
+@pytest.mark.parametrize("alignment_case", ["absent", "valid", "wrong_bytes"])
+async def test_proxy_snapshot_apply_candidate_promotes_cached_candidate_image(
+    client: httpx.AsyncClient, alignment_case
+):
     with (
         patch("app.routers.proxy.get_db") as mock_get_db,
         patch("app.routers.proxy.DetectionRepository") as mock_repo_cls,
@@ -1760,28 +1861,52 @@ async def test_proxy_snapshot_apply_candidate_promotes_cached_candidate_image(cl
             return b"candidate-image" if key == "evt__cand-1__image" else b"existing-snapshot"
 
         mock_get_snapshot.side_effect = fake_get_snapshot
-        mock_get_metadata.return_value = {"source": "high_quality_snapshot"}
+        import hashlib
+
+        alignment = {
+            "frame_time": 101.0,
+            "box": [0.1, 0.2, 0.3, 0.4],
+            "image_sha256": hashlib.sha256(b"candidate-image").hexdigest(),
+        }
+        if alignment_case == "wrong_bytes":
+            alignment["image_sha256"] = "another-photo"
+        mock_get_metadata.return_value = {
+            "source": "high_quality_snapshot",
+            "film_alignment": alignment if alignment_case != "absent" else None,
+        }
         mock_replace_snapshot.return_value = Path("/tmp/test_event_id.jpg")
         mock_repo = mock_repo_cls.return_value
         mock_repo.mark_selected_snapshot_candidate = AsyncMock()
         mock_repo.list_snapshot_candidates = AsyncMock(
             return_value=[
                 {
-                    "candidate_id": "cand-1",
-                    "frame_index": 8,
-                    "frame_offset_seconds": 0.32,
+                    "candidate_id": "first-bird",
+                    "frame_index": 0,
+                    "frame_offset_seconds": None,
                     "source_mode": "model_crop",
-                    "clip_variant": "recording",
+                    "clip_variant": "frigate_snapshot",
+                    "crop_box": [700, 200, 900, 400],
+                    "selected": True,
+                    "image_ref": "evt__first-bird__image",
+                    "ranking_score": 1.0,
+                    "snapshot_source": "hq_candidate_model_crop",
+                },
+                {
+                    "candidate_id": "cand-1",
+                    "frame_index": 0,
+                    "frame_offset_seconds": None,
+                    "source_mode": "model_crop",
+                    "clip_variant": "frigate_snapshot",
                     "crop_box": [4, 4, 32, 32],
                     "crop_confidence": 0.93,
                     "classifier_label": "Robin",
                     "classifier_score": 0.91,
                     "ranking_score": 0.97,
-                    "selected": True,
+                    "selected": False,
                     "thumbnail_ref": "evt__cand-1__thumb",
                     "image_ref": "evt__cand-1__image",
                     "snapshot_source": "hq_candidate_model_crop",
-                }
+                },
             ]
         )
 
@@ -1799,6 +1924,9 @@ async def test_proxy_snapshot_apply_candidate_promotes_cached_candidate_image(cl
         "test_event_id",
         b"candidate-image",
         source="hq_candidate_model_crop",
+        manual_selection=True,
+        manual_candidate_id="cand-1",
+        **({"film_alignment": alignment} if alignment_case == "valid" else {}),
     )
     mock_repo.mark_selected_snapshot_candidate.assert_awaited_once_with("test_event_id", "cand-1")
 
@@ -1843,9 +1971,9 @@ async def test_proxy_clip_thumbnails_sprite_success(client: httpx.AsyncClient):
 async def test_proxy_clip_thumbnails_vtt_disabled_when_media_cache_off(client: httpx.AsyncClient):
     """Preview generation should be disabled when media cache is disabled."""
     original_clips = settings.frigate.clips_enabled
-    original_cache = settings.media_cache.enabled
+    original_cache = media_cache_module.media_cache._available
     settings.frigate.clips_enabled = True
-    settings.media_cache.enabled = False
+    media_cache_module.media_cache._available = False
 
     with patch("app.routers.proxy.frigate_client") as mock_frigate:
         mock_frigate.get_event = AsyncMock(return_value={"has_clip": True})
@@ -1854,7 +1982,7 @@ async def test_proxy_clip_thumbnails_vtt_disabled_when_media_cache_off(client: h
             assert response.status_code == 503
         finally:
             settings.frigate.clips_enabled = original_clips
-            settings.media_cache.enabled = original_cache
+            media_cache_module.media_cache._available = original_cache
 
 
 @pytest.mark.asyncio
@@ -1886,12 +2014,12 @@ async def test_proxy_clip_download_forbidden_for_guest_when_disabled(client: htt
 async def test_proxy_clip_allows_valid_share_token_without_auth(client: httpx.AsyncClient, mock_frigate_response):
     """A valid share token should allow clip playback even when auth is otherwise required."""
     original_clips = settings.frigate.clips_enabled
-    original_cache = settings.media_cache.enabled
+    original_cache = media_cache_module.media_cache._available
     original_auth = settings.auth.enabled
     original_public = settings.public_access.enabled
 
     settings.frigate.clips_enabled = True
-    settings.media_cache.enabled = False
+    media_cache_module.media_cache._available = False
     settings.auth.enabled = True
     settings.public_access.enabled = False
 
@@ -1920,7 +2048,7 @@ async def test_proxy_clip_allows_valid_share_token_without_auth(client: httpx.As
             assert response.headers.get("content-type") == "video/mp4"
         finally:
             settings.frigate.clips_enabled = original_clips
-            settings.media_cache.enabled = original_cache
+            media_cache_module.media_cache._available = original_cache
             settings.auth.enabled = original_auth
             settings.public_access.enabled = original_public
 
@@ -2276,6 +2404,7 @@ async def test_snapshot_candidates_response_includes_model_crop_miss_reason_when
     with (
         patch("app.routers.proxy.get_db") as mock_get_db,
         patch("app.routers.proxy.DetectionRepository") as mock_repo_cls,
+        patch("app.routers.proxy.BirdObservationRepository") as mock_bird_repo_cls,
         patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot,
         patch(
             "app.services.media_cache.media_cache.get_snapshot_metadata", new_callable=AsyncMock
@@ -2286,6 +2415,7 @@ async def test_snapshot_candidates_response_includes_model_crop_miss_reason_when
         mock_get_snapshot.return_value = b"snapshot"
         mock_get_metadata.return_value = {"source": "high_quality_snapshot"}
         mock_repo = mock_repo_cls.return_value
+        mock_bird_repo_cls.return_value.named_for_event = AsyncMock(return_value=[])
         mock_repo.list_snapshot_candidates = AsyncMock(
             return_value=[
                 {
@@ -2320,13 +2450,17 @@ async def test_snapshot_candidates_response_includes_model_crop_miss_reason_when
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("source", ["hq_candidate_model_crop", "video_evidence_crop"])
 async def test_snapshot_candidates_response_no_model_crop_miss_reason_when_model_crop_present(
     client: httpx.AsyncClient,
+    source: str,
+    monkeypatch,
 ):
     """When model_crop candidates exist, model_crop_miss_reason is None."""
     with (
         patch("app.routers.proxy.get_db") as mock_get_db,
         patch("app.routers.proxy.DetectionRepository") as mock_repo_cls,
+        patch("app.routers.proxy.BirdObservationRepository") as mock_bird_repo_cls,
         patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot,
         patch(
             "app.services.media_cache.media_cache.get_snapshot_metadata", new_callable=AsyncMock
@@ -2335,8 +2469,9 @@ async def test_snapshot_candidates_response_no_model_crop_miss_reason_when_model
         mock_db = AsyncMock()
         mock_get_db.return_value.__aenter__.return_value = mock_db
         mock_get_snapshot.return_value = b"snapshot"
-        mock_get_metadata.return_value = {"source": "hq_candidate_model_crop"}
+        mock_get_metadata.return_value = {"source": source}
         mock_repo = mock_repo_cls.return_value
+        mock_bird_repo_cls.return_value.named_for_event = AsyncMock(return_value=[])
         mock_repo.list_snapshot_candidates = AsyncMock(
             return_value=[
                 {
@@ -2353,7 +2488,7 @@ async def test_snapshot_candidates_response_no_model_crop_miss_reason_when_model
                     "selected": True,
                     "thumbnail_ref": "evt__cand-mc__thumb",
                     "image_ref": "evt__cand-mc__image",
-                    "snapshot_source": "hq_candidate_model_crop",
+                    "snapshot_source": source,
                 }
             ]
         )
@@ -2362,6 +2497,7 @@ async def test_snapshot_candidates_response_no_model_crop_miss_reason_when_model
     assert response.status_code == 200
     body = response.json()
     assert body.get("model_crop_miss_reason") is None
+    assert body["current_candidate_id"] == "cand-mc"
 
 
 @pytest.mark.asyncio
@@ -2385,4 +2521,29 @@ async def test_regenerate_frames_runs_even_for_an_existing_hq_crop(client, monke
         response = await client.post("/api/frigate/test_event_id/snapshot/hq-bird-crop?regenerate=true")
     assert response.status_code == 200
     assert response.json()["result"] == "existing_crop_preserved"
-    process.assert_awaited_once_with("test_event_id")
+    process.assert_awaited_once_with("test_event_id", manual_override=True)
+
+
+@pytest.mark.asyncio
+async def test_small_derived_thumbnail_is_served_without_reencoding_on_repeated_reads(client, monkeypatch):
+    buffer = io.BytesIO()
+    Image.new("RGB", (96, 96), "green").save(buffer, "JPEG")
+    thumbnail = buffer.getvalue()
+    with (
+        patch("app.services.media_cache.media_cache.get_snapshot", new=AsyncMock(return_value=b"retained-photo")),
+        patch("app.services.media_cache.media_cache.get_thumbnail", new=AsyncMock(return_value=thumbnail)),
+        patch(
+            "app.services.media_cache.media_cache.get_thumbnail_metadata",
+            new=AsyncMock(return_value={"source": "snapshot_derived"}),
+        ),
+        patch("app.services.media_cache.media_cache.cache_thumbnail", new_callable=AsyncMock) as write,
+        patch("app.routers.proxy._build_display_thumbnail_from_snapshot") as encode,
+        patch("app.routers.proxy.get_http_client") as network,
+    ):
+        for _ in range(2):
+            response = await client.get("/api/frigate/test_event_id/thumbnail.jpg")
+            assert response.status_code == 200
+            assert response.content == thumbnail
+        encode.assert_not_called()
+        write.assert_not_awaited()
+        network.assert_not_called()

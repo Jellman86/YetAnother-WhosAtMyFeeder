@@ -202,6 +202,12 @@ class ClassifierSupervisor:
             "video": asyncio.Lock(),
         }
         self._pool_started: dict[WorkPriority, bool] = {"live": False, "background": False, "video": False}
+        # Starting or restoring a pool outlives the request that asked for it (see _run_pool_task).
+        self._pool_tasks: dict[WorkPriority, asyncio.Task[None] | None] = {
+            "live": None,
+            "background": None,
+            "video": None,
+        }
         self._watchdog_task: asyncio.Task[None] | None = None
         self._started = False
         self._pending_requests: dict[tuple[WorkPriority, str, int], asyncio.Future[None]] = {}
@@ -229,6 +235,11 @@ class ClassifierSupervisor:
         self._started = any(self._pool_started.values())
 
     async def shutdown(self) -> None:
+        pool_tasks = [task for task in self._pool_tasks.values() if task is not None and not task.done()]
+        for task in pool_tasks:
+            task.cancel()
+        if pool_tasks:
+            await asyncio.gather(*pool_tasks, return_exceptions=True)
         if self._watchdog_task is not None:
             self._watchdog_task.cancel()
             try:
@@ -473,7 +484,26 @@ class ClassifierSupervisor:
     async def _ensure_pool_started(self, priority: WorkPriority) -> None:
         if self._pool_started[priority]:
             return
+        await self._run_pool_task(priority, self._start_pool)
 
+    async def _run_pool_task(self, priority: WorkPriority, work: Callable[[WorkPriority], Awaitable[None]]) -> None:
+        """Run pool start-up or slot restore as the supervisor's own task, and wait on it shielded.
+
+        A worker loads its model before it reports ready, and a cold accelerator compile of a large
+        model (ConvNeXt Large on an Intel NPU: about 16 s) can outlast the lease of the request that
+        triggered it. Cancelling that request used to terminate the half-loaded worker, so the compile
+        never reached the cache and every later request began the same cold load and expired too.
+        Now the request gives up alone; the worker finishes loading and serves the next one.
+        """
+        task = self._pool_tasks[priority]
+        if task is None or task.done():
+            task = asyncio.create_task(work(priority))
+            # Read the outcome even when every waiting request was cancelled.
+            task.add_done_callback(lambda done: done.cancelled() or done.exception())
+            self._pool_tasks[priority] = task
+        await asyncio.shield(task)
+
+    async def _start_pool(self, priority: WorkPriority) -> None:
         async with self._start_locks[priority]:
             if self._pool_started[priority]:
                 return
@@ -540,7 +570,11 @@ class ClassifierSupervisor:
     async def _restore_unavailable_slots(self, priority: WorkPriority) -> None:
         if not self._pool_started[priority]:
             return
+        if all(slot.worker is not None for slot in self._slots[priority]):
+            return
+        await self._run_pool_task(priority, self._restore_slots)
 
+    async def _restore_slots(self, priority: WorkPriority) -> None:
         async with self._start_locks[priority]:
             for index, slot in enumerate(list(self._slots[priority])):
                 if slot.worker is not None:

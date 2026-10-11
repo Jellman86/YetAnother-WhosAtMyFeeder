@@ -254,8 +254,8 @@ def test_resolve_models_dir_prefers_data_models_over_packaged_legacy_default(tmp
 
     resolved = model_manager_module._resolve_models_dir()
 
-    assert resolved == "/data/models"
-    assert makedirs_calls and makedirs_calls[0] == "/data/models"
+    assert resolved == os.path.abspath("/data/models")
+    assert makedirs_calls and makedirs_calls[0] == os.path.abspath("/data/models")
 
 
 def test_resolve_models_dir_falls_back_when_data_models_unwritable(tmp_path, monkeypatch):
@@ -275,7 +275,7 @@ def test_resolve_models_dir_falls_back_when_data_models_unwritable(tmp_path, mon
         return real_join(*parts)
 
     def fake_makedirs(path, exist_ok=False):
-        if path == "/data/models":
+        if path == os.path.abspath("/data/models"):
             raise PermissionError("no write access")
         if path == fallback_dir_abs:
             return None
@@ -308,8 +308,8 @@ def test_resolve_models_dir_uses_data_models_when_no_env_and_data_mounted(tmp_pa
 
     resolved = model_manager_module._resolve_models_dir()
 
-    assert resolved == "/data/models", f"Expected /data/models, got {resolved!r}"
-    assert makedirs_calls and makedirs_calls[0] == "/data/models"
+    assert resolved == os.path.abspath("/data/models"), f"Expected /data/models, got {resolved!r}"
+    assert makedirs_calls and makedirs_calls[0] == os.path.abspath("/data/models")
 
 
 def test_maybe_migrate_legacy_models_dir_moves_packaged_default_into_persistent_dir(tmp_path, monkeypatch):
@@ -1032,6 +1032,14 @@ async def test_list_available_models_returns_models_sorted_by_sort_order(monkeyp
         "eu_medium_focalnet_b",
         "convnext_large_inat21",
         "eva02_large_inat21",
+        "dinov2_b14_inat21_metadata_336",
+        "rope_vit_b14_inat21_336",
+        "rope_vit_b14_eu_common_336",
+        "rope_deit3_m14_arabian_peninsula",
+        "naflex_so150m_eu_common",
+        "naflex_so150m_il_all",
+        "vit_parallel_s16_eu_common",
+        "bioclip25_inat9025",
     ]
     assert [model.sort_order for model in models] == [
         5,
@@ -1044,6 +1052,7 @@ async def test_list_available_models_returns_models_sorted_by_sort_order(monkeyp
         19,
         20,
         30,
+        *range(45, 53),
     ]
 
 

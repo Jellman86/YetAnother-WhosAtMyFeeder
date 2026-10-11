@@ -15,7 +15,7 @@ Swagger UI (`/docs`) is served directly by the FastAPI process. How you access i
 To inspect the schema from a monolith install without modifying docker-compose:
 
 ```bash
-docker exec yawamf-monalithic curl -s http://127.0.0.1:8000/openapi.json | python3 -m json.tool | head -40
+docker exec yawamf-monalithic curl -fsS http://127.0.0.1:8000/openapi.json | python3 -m json.tool | head -40
 ```
 
 ## Base URLs
@@ -31,6 +31,9 @@ All application endpoints are under `/api` except:
 - `GET /metrics`
 
 ## Authentication
+
+Guest media requests return `503` with `Retry-After: 5` when a database error prevents checking
+the owner's visibility rules. No cached or upstream media is served before that check succeeds.
 
 YA-WAMF supports:
 
@@ -55,10 +58,26 @@ Content-Type: application/json
 
 ```bash
 # Monolithic deployment (host port 9852):
-curl -H "Authorization: Bearer <token>" http://localhost:9852/api/events
+curl -fsS -H "Authorization: Bearer <token>" http://localhost:9852/api/events
 # Legacy split deployment (backend exposed on 8946):
-# curl -H "Authorization: Bearer <token>" http://localhost:8946/api/events
+# curl -fsS -H "Authorization: Bearer <token>" http://localhost:8946/api/events
 ```
+
+### Common responses
+
+| Status | Meaning |
+|---|---|
+| `401` | Authentication is missing, invalid or expired. |
+| `403` | The authenticated role cannot perform this action. |
+| `404` | The accessible resource or retained artifact does not exist. |
+| `409` | The action conflicts with current state, for example an active model, an incomplete install or an already running evaluation. |
+| `422` | The request does not match its schema or allowed values. |
+| `429` | A rate limit or upstream AI quota was reached; respect `Retry-After` when present. |
+| `503` | Startup, database admission or a required upstream/runtime is temporarily unavailable. |
+
+See each endpoint for additional statuses. A `200` response can still carry a documented
+`no_result` or test failure state; automation must inspect the body rather than infer
+that an identification was accepted.
 
 ### Session cookie for media
 
@@ -103,10 +122,24 @@ curl -N "http://localhost:9852/api/sse?ticket=$TICKET"
 ### Auth status
 
 - `GET /api/auth/status`: returns auth/public-access capability flags used by the frontend.
+  For the owner it also carries `avatar_version` (null without a profile picture).
+- `GET /api/auth/avatar` (owner): the profile picture, a 256 px square JPEG; 404 without one.
+- `PUT /api/auth/avatar` (owner, multipart `image`): replaces it. The upload is decoded, turned
+  upright, centre-cropped and re-encoded, so no metadata (location included) is kept; 400 for a
+  file that is not an image, 413 above 8 MB or 40 megapixels. Returns `avatar_version`.
+- `DELETE /api/auth/avatar` (owner): removes it; the account shows its initial again.
 
 ## Health, Readiness, Version, Streaming
 
 - `GET /health`: process + classifier health. The response is not cacheable.
+  `video_classifier` includes `pending_by_source`, `oldest_pending_age_seconds_by_source`,
+  `active_by_source`, and `active_by_phase`. Source maps
+  distinguish `live`, `manual`, and `maintenance`; an empty source has a `null` waiting age.
+  `scheduler_pressure` reports cumulative observed pressure/wait seconds and start, relief-start,
+  and finish counts. Counters reset with the process and update independently of health polling.
+  A finish can include failure or cancellation. These are scheduler observations, not exact
+  accelerator utilization or live-request latency; short bursts between checks can be missed.
+  Existing maintenance-specific fields remain available. See [video queue behaviour](features/video-analysis.md#settings).
 - `GET /ready`: startup readiness (returns `503` until ready). This exact public path is proxied
   through both monolithic and split frontend deployments and is not cacheable.
 - `GET /api/version`: app version metadata.
@@ -156,8 +189,45 @@ This is the current route map (grouped). Use OpenAPI for full schemas.
 
 ### Events
 
+Public event-history and media windows use UTC calendar days. Custom `0` starts at
+00:00 UTC and excludes the next midnight; custom `N` starts at midnight UTC `N` days
+ago. Public audio, AI access, filter counts, About photographs and leaderboard portraits
+use the corresponding shared history/media bounds. Owner date filters are unchanged.
+One UTC calendar day is captured per HTTP response, so nested queries, totals and audio
+projection cannot switch to another day's evidence midway through a request. The calendar
+is released when the response body completes; later requests and background work use a
+fresh day. This does not cache sharing preferences.
+
 - `GET /api/events`
 - `GET /api/events/count`
+- `GET /api/visits` Groups the accessible history before pagination. Accepts `limit`, `offset`,
+  `start_date`/`end_date` or UTC `start_time`/`end_time`, `species`, `camera`, `favorites`,
+  `audio_confirmed_only`, `only_hidden`, `multiple_species_only` and `sort` (`newest`, `oldest`,
+  `confidence`). Returns `visits`, `total` and `gap_seconds`. Each visit includes
+  `visit_id` (its first accessible capture ID), start/end, full `capture_count`, best score, review/audio
+  state, representative/latest records and owner-only busiest counted capture. Grouping uses
+  canonical species, actual camera and a 60-second inactivity gap after the running latest
+  verified event end; historical captures without bounds use capture time. Unknown and manual
+  records remain separate. It does not identify individual birds. Access/date/hidden scope is
+  applied before grouping; species, favourite, audio and multiple-species matching selects the
+  whole accessible visit. A sharing window or correction can change membership and the first id.
+- `GET /api/visits/{visit_id}/captures` Rechecks access and history window on every read. Accepts
+  the same date/time and hidden scope, plus `limit` (20 by default, maximum 50) and `offset`.
+  Returns chronological `captures` and `total`; unavailable visits return 404.
+
+Fresh databases return an empty visit list until captures are saved. Live ingest and backfill
+retain valid Frigate event bounds. Backfill can arrive out of order: visit membership and totals
+are calculated from saved captures, so earlier captures or longer verified ends can join groups
+as an import progresses. Repeated imports preserve original capture IDs and valid stored bounds.
+Visit IDs can change when an earlier capture arrives or groups join during backfill.
+Grouping and filtering add no model inference. Upgrading existing history does not rescan media;
+captures without verified bounds continue to use their stored capture time.
+
+`GET /api/events`, `GET /api/events/count` and `GET /api/visits` accept the owner-only
+`multiple_species_only=true` filter. It matches at least two distinct resolved, named species
+among visible counted birds in a capture. Aliases of one species and unknown/excluded birds do
+not satisfy it. A visit matches if one of its captures qualifies. Guest requests ignore the flag.
+
 - `GET /api/events/filters` Species and camera options, each with a detection count, plus totals
   for the favourites, audio-matched and video-analysed facets. Counts exclude hidden detections;
   for public guests, they also use the configured public-history window so filter metadata cannot
@@ -178,6 +248,17 @@ This is the current route map (grouped). Use OpenAPI for full schemas.
 - `POST /api/events/{event_id}/archive/retry` (owner). Retries a failed archive now.
 - `POST /api/events/{event_id}/reclassify` (owner)
 - `POST /api/events/{event_id}/classify-wildlife` (owner)
+
+For owners, each event row from `GET /api/events` (default, `fields=detail`, `fields=list`, or a
+custom field list naming it) carries `bird_summary`: the localized birds stored for that capture,
+read in one batched query per page. `counted` excludes birds the owner excluded, `unknown` counts
+counted birds classified as unknown under the configured label policy (including noncanonical taxa),
+`excluded` counts exclusions, `species` groups
+the counted named birds by their stored (owner-corrected) species, and `hint_only` is true when
+every bird came from Frigate's tracked box. Repeated species stay separate observations; they are
+birds located in one analysed frame, not unique animals. `null` means no observations are stored,
+which is not a measured zero. Guests never receive the field. Other routes that return detections
+leave it unset.
 
 `PATCH /api/events/{event_id}` accepts `{"display_name": "Blue Tit"}`. A successful response
 always includes `manual_tagged: true` and the retained taxonomy fields. If the requested name is
@@ -226,6 +307,29 @@ the final evidence route when video is unavailable, temporal sources abstain, or
 candidate does not clear the configured promotion threshold. The SSE stream emits
 `reclassification_strategy_changed` before that fallback.
 
+Video `reclassification_completed` events are emitted after photograph work settles. A successful
+run can include `photo_outcome`, such as `replaced`, `matching_photo_preserved`,
+`manual_selection_preserved`, `owner_identification_preserved`, `primary_identity_preserved`,
+`storage_evicted`, `blocked_species`, `media_cache_disabled`, `snapshot_caching_disabled`,
+`media_cache_unavailable`, `bird_presence_unconfirmed`, `detector_error`, `classifier_error`,
+`inference_deferred`, `frame_extract_failed`, or
+`snapshot_replace_failed`. Owner, identity, storage and failure outcomes also enter processing
+diagnostics; routine replacements and matching photographs do not. Species success does not imply
+a photograph was replaced; existing owner choices remain protected. `bird_presence_unconfirmed`
+means no suitable photo had sufficiently confident detector localization inside its bounds.
+The current photo remains available, including when the crop detector is absent or disabled.
+Species confidence alone is not bird-presence evidence. Photographs are always kept, so
+`media_cache_unavailable`, a media folder that cannot be written, is the one storage outcome. Builds
+before #622 also reported `media_cache_disabled` and `snapshot_caching_disabled` for the retired
+switches, and older builds the combined `disabled_or_no_evidence`, which alone cannot identify the
+cause.
+
+A prior photograph retained during replacement can appear among snapshot candidates with
+`source_mode: "retained_photo"`, `clip_variant: "retained_snapshot"`, and no frame offset or
+classifier prediction. Its `frame_index: 0` is a storage placeholder, not evidence of clip timing.
+Regular proxy-fetched JPEGs use `frigate_snapshot_unverified` provenance because camera settings
+can change their framing. Full-frame Frigate coordinates must not be reapplied to those bytes.
+
 - `POST /api/events/bulk/delete` (owner) — **irreversibly** deletes several detections by Frigate
   event ID in one request. Duplicate and empty IDs are dropped, and an empty list is a `400`. The
   response separates the IDs actually deleted from those that did not exist. This is a hard delete:
@@ -240,16 +344,28 @@ candidate does not clear the configured promotion threshold. The SSE stream emit
 - `POST /api/manual-observations/{draft_id}/retry` (owner; returns `202`)
 - `POST /api/manual-observations/{draft_id}/confirm` (owner)
 - `DELETE /api/manual-observations/{draft_id}` (owner; unsaved drafts only)
-- `GET /api/manual-observations/{draft_id}/preview` (owner)
-- `GET /api/manual-observations/{draft_id}/media` (owner)
+- `GET /api/manual-observations/{draft_id}/preview` (owner; also supports `HEAD`)
+- `GET /api/manual-observations/{draft_id}/media` (owner; also supports `HEAD` and byte ranges)
+- `GET /api/manual-observations/{draft_id}/species/{position}/{view}` (owner; `view` is `photo` or
+  `scene`; also supports `HEAD`; `404` when no frame localised that suggestion)
+
+These exact read routes accept the owner HttpOnly session cookie so browser image and
+video elements can load the draft without tokens in their URLs. Draft identifiers must be
+32 lowercase hexadecimal characters. Cookie authentication does not authorize draft status,
+upload, retry, confirmation or deletion. Guests cannot read draft media. Preview responses
+are private; original media sends `Cache-Control: private, no-store`.
 
 Upload and retry responses expose durable status, progress, model alternatives, inference
 provider/model/input provenance, common/scientific taxonomy names, optional extracted GPS
-coordinates, and local preview/media URLs. The confirmation body accepts optional `latitude` and
+coordinates, and local preview/media URLs. For a video, each suggestion the analysis localised in
+a frame also carries `photo_url` (that species' best frame, cropped to the bird), `scene_url` (the
+whole frame) and `frame_offset_seconds`; they are null otherwise. The confirmation body accepts optional `latitude` and
 `longitude` together plus `location_source` (`image_metadata`, `manual_pin`, or `none` to clear an
 extracted location). Confirmation creates a normal
 detection with `observation_source: "manual_upload"`; its owner-confirmed species stays distinct
-from the retained top classifier result. Detection responses expose confirmed location as
+from the retained top classifier result. A saved video's photo is the confirmed species' best frame
+when the analysis localised one, and the video's first frame otherwise. A later species correction
+through `PATCH /api/events/{event_id}` moves the photo the same way and reports `photo_changed`. Detection responses expose confirmed location as
 `observation_latitude`, `observation_longitude`, and `observation_location_source`. Manual media is
 served through the canonical snapshot, thumbnail, and clip routes but is excluded from Frigate
 reconciliation and BirdNET-Go context lookup.
@@ -263,18 +379,82 @@ per-file limits above.
 - `GET /api/frigate/{event_id}/snapshot.jpg`
 - `GET /api/frigate/{event_id}/snapshot/status` (owner; reports the effective best-available policy)
 - `GET /api/frigate/{event_id}/snapshot/candidates` (owner)
+  - `image_url` and `thumbnail_url` are nullable independently when the corresponding cached
+    file is missing or empty. Candidate choices and counted bird records remain available.
+    Retained media URLs use stable file revisions: reading an unchanged image does not
+    change its URL, while replacing it changes its revision. A file can still expire between
+    listing and loading; clients must keep a working saved photo and handle media failures.
   - Candidate rows include optional `crop_strategy` provenance (`native`, `frigate_guided`,
     `sliced_2x2`, or `fast_native`) for model-generated crops, and `frigate_final_box` for the
     completed-track clean-snapshot baseline.
+  - `birds` lists the individual observations counted from one analyzed full frame. Each row
+    includes its box, suggested or corrected species, detector confidence when available, and
+    `is_hidden`, and server-derived `is_unknown`. The unknown decision uses the same configured
+    label and noncanonical-taxon policy as `bird_summary`, including after an owner correction.
+    Names include optional `common_name` and `scientific_name`. `identity_source` is `crop`,
+    `visit`, or `manual`; `identity_score` describes that identification and is null for an
+    owner-named identity. `classifier_score` describes the retained candidate crop used for that bird.
+    A successful contextual retry references its own candidate with `source_mode: model_observation`;
+    its `crop_box` describes the classified image, while the bird's box remains the localized detector box.
+    An uncertain bird can use the accepted visit identification
+    only when its own species guess agrees and the retained Frigate tracked box uniquely matches
+    it in the same frame. Known common/scientific aliases share one effective species count;
+    ambiguous names remain unresolved. Reads do not rewrite stored crop evidence.
+    The eight classified photo crops per frame do not limit the number of counted
+    detector boxes. In Intensive scan mode, large high-resolution frames are also scanned in overlapping tiles so distant
+    birds occupy more detector pixels. Frigate supplies one tracked-object hint per event; a
+    hint-only count can miss other birds, and local detector results can include false positives.
+    A fresh snapshot scan can make up to four serial regional detector rechecks for weak crops
+    supported by a matching, confidently identified crop within ten seconds in the same clip.
+    Rechecks reuse existing frames. Only new same-frame detector evidence changes the count.
+    Each confirmed uncertain bird can receive one serial contextual classification attempt, with
+    an 80% margin on each side and no overlapping distinct localized bird. The result must agree
+    with the original canonical bird species and meet the 65% naming threshold. Its exact scored
+    crop is retained under a separate candidate ID. A timeout or disagreement preserves the
+    original crop identity and recovered count. These evidence candidates cannot be applied as
+    photograph choices or change the main visit identification; original photo scores stay unchanged.
+- `GET /api/frigate/{event_id}/birds/scan?candidate_id=...` (owner) — scan state for one
+  retained whole-frame candidate. Returns `status` (`not_scanned`, `queued`, `running`,
+  `completed`, `failed`), `available`, `unavailable_reason`, `error`, nullable `result_count`,
+  `retained_previous` and `updated_at`, with `event_id` and `candidate_id`. Reading status does
+  not start inference. `completed` with `result_count: 0` means the scan finished without usable
+  birds; `not_scanned` is not a zero count. Existing observations may remain after an empty retry.
+- `POST /api/frigate/{event_id}/birds/scan` (owner) — body
+  `{"candidate_id": "retained-whole-frame-id", "expected_media_version": "image-revision", "force": false}`. Returns 202 with the same
+  status shape. `expected_media_version` is the `v` query value in that candidate's `image_url`;
+  an outdated displayed image is rejected rather than scanning replacement pixels. Identical active requests are coalesced; completed identical input is reused
+  unless `force` is true. One worker processes the durable queue, capped at 100 pending scans.
+  Requires an available bird detector and the exact retained whole frame, never a thumbnail
+  or cropped Frigate fallback. The photo and primary species are unchanged; owner-corrected and
+  excluded birds keep their existing protection. Returns 404 for a missing capture, 409 for
+  unavailable/changed media, a conflicting active scan or reviewed birds on another frame, and
+  429 when the queue is full. Changed media is rechecked before publication. Interrupted jobs
+  resume after restart. Automatic scans use `media_cache_automatic_multi_bird_scan` (default
+  `false`); manual scans work while it is off. Both use `media_cache_bird_scan_mode` effort.
+- `PATCH /api/frigate/{event_id}/birds/{bird_id}` (owner) — correct one counted bird's `species`
+  or set `is_hidden` to exclude or restore it. Send exactly one field per request. A correction
+  stays attached to the matched box when HQ candidates are regenerated.
+  A species must be a complete known common or scientific name. Partial or ambiguous names return
+  HTTP 400. Send the selected `id` from `/api/species/search` to preserve canonical identity.
+- `PATCH /api/frigate/{event_id}/snapshot/candidates/{candidate_id}` (owner). Body:
+  `{"dismissed": true}` removes a photo choice; `false` restores it. Returns the updated candidate
+  list with `photo_hidden` flags. Source images and bird evidence remain intact. The current chosen
+  photo returns 409 until another is chosen; missing choices return 404. Applying a removed choice
+  returns 409 until restored. Dismissals are tied to image content, so regeneration keeps an
+  unchanged removed image excluded while a genuinely changed image can become a new choice.
 - `GET /api/frigate/{event_id}/snapshot/candidates/{candidate_id}/thumbnail.jpg` (owner) — the
   small chooser thumbnail for one candidate.
 - `GET /api/frigate/{event_id}/snapshot/candidates/{candidate_id}/image.jpg` (owner) — the retained
   full-resolution candidate, for the large preview.
-- `POST /api/frigate/{event_id}/snapshot/apply` (owner)
+- `POST /api/frigate/{event_id}/snapshot/apply` (owner) — marks the chosen candidate or original
+  photo as an owner selection, protected from later automatic snapshot writes.
 - `GET /api/frigate/{event_id}/snapshot/original.jpg` (owner)
 - `POST /api/frigate/{event_id}/snapshot/hq-bird-crop` (owner; legacy route name, generates the best available HQ image)
-  accepts `regenerate=true` to rebuild frame choices even when an HQ crop already exists. Empty
-  regeneration preserves saved candidates; unavailable media returns an error rather than claiming success.
+  accepts `regenerate=true` to rebuild frame choices even when an HQ crop already exists. It also recounts localized birds when
+  `media_cache_automatic_multi_bird_scan` is enabled. A
+  successful replacement releases the previous protected owner photo choice. A newer choice
+  made while regeneration runs stays protected. Empty regeneration preserves saved candidates
+  and the chosen photo; unavailable media returns an error rather than claiming success.
 - `GET /api/frigate/{event_id}/clip.mp4`
 - `GET /api/frigate/{event_id}/recording-clip.mp4`
 - `GET /api/frigate/{event_id}/hls/{asset}`
@@ -299,7 +479,11 @@ per-file limits above.
 The HQ snapshot worker also publishes `crop_policy`, queued final-refresh count, selected-source
 counts, outcomes, and recovered job totals under `GET /health` → `high_quality_snapshots`. Its retry state is persisted independently
 from species identity, with bounded 5/15/45-minute backoff and a terminal fourth failure; successful
-explicit or automatic generation clears the failure state.
+explicit or automatic generation clears the failure state. Queue intent is saved before admission;
+overflow is recovered from disk, and a final-event revision cannot be consumed by an older live
+pass finishing later. `durable_pending` reports saved pending/retry work, and the owner Jobs view
+includes disk overflow. Missing historical selected/count-scene files can be recovered in bounded
+pages. Media deliberately evicted by retention or limits stays evicted until explicit regeneration.
 
 Snapshot-candidate `frame_offset_seconds` values are temporal evidence, not presentation metadata.
 Automatic crop selection/refinement requires supporting offsets to be at least 250 ms apart;
@@ -316,14 +500,17 @@ Notes:
   and the player falls back to the canonical MP4 route.
 - `GET /api/frigate/{event_id}/clip.mp4` is the canonical YA-WAMF clip route. When a persisted recording exists for the event, this route serves it before falling back to the shorter Frigate event clip. Recording responses expose `X-YAWAMF-Clip-Variant: recording`, `X-YAWAMF-Recording-Clip-State: complete|partial`, and the measured `X-YAWAMF-Recording-Clip-Duration` when available.
 - `GET` and `HEAD /api/frigate/{event_id}/recording-clip.mp4` remain available as explicit full-visit routes and use the same persisted `{event_id}_recording.mp4` cache file. `X-YAWAMF-Recording-Clip-Ready` is `cached` for a complete file and `partial` for a usable shorter file.
-- `POST /api/frigate/{event_id}/recording-clip/fetch` remains available as a manual recovery/warm endpoint. Its response reports `status: ready|partial` and `recording_state: complete|partial`; with recording clips and the media cache enabled YA-WAMF also generates and upgrades full-visit clips automatically for eligible completed detections.
+- `POST /api/frigate/{event_id}/recording-clip/fetch` remains available as a manual recovery/warm endpoint. Its response reports `status: ready|partial` and `recording_state: complete|partial`; with recording clips enabled and writable local media storage, YA-WAMF also generates and upgrades full-visit clips automatically for eligible completed detections.
 
 ### Species and Leaderboard
 
 - `GET /api/species`
 - `GET /api/species/search`
 - `GET /api/species/{species_name}/stats`
-- `GET /api/species/{species_name}/info`
+- `GET /api/species/{species_name}/info` returns cached reference metadata. Known Wikimedia
+  JPEG/PNG originals and oversized reference thumbnails use a supported 960-pixel rendition;
+  smaller renditions and other providers retain their URLs. This also applies to older cache
+  rows without a catalogue refresh or database write.
 - `GET /api/species/{species_name}/range`
 - `GET /api/species/common-name-override?scientific_name=...` (owner)
 - `PUT /api/species/common-name-override` (owner; preserves the provider name separately)
@@ -333,12 +520,40 @@ Notes:
   call-matched detections in the window; `history_start` and `previous_window_complete` say whether
   the previous window was fully recorded; with eBird configured, `reported_nearby` per species and
   the `nearby_radius_km` / `nearby_days_back` of that check; `window_visit_count` and
-  `window_prev_visit_count` fold frames of one species on one camera within ten minutes, as the
+  `window_prev_visit_count` fold captures of one canonical species on one camera with a 60-second inactivity gap, as the
   dashboard does, while `window_count` stays frames)
+
+### Taxonomy
+
+Catalogue data only, the same for every reader. Birds take order, family and genus from the pinned
+IOC World Bird List release and the ranks above Aves from Catalogue of Life; each taxon says which
+in `source`. Intermediate ranks a source records (subphylum, infraphylum, parvphylum, megaclass) are
+returned with `principal: false` so a view may collapse them. A taxon id is the catalogue identity:
+for a species it is the same `species_id` detections carry.
+
+- `GET /api/taxonomy/{taxon_id}/lineage` — the taxon and every taxon above it, root first, each with
+  rank, scientific name, common name in the reader's language where one exists, source and
+  `species_count`, the species beneath it. 404 when the catalogue does not hold the taxon.
+- `GET /api/taxonomy/lineage?scientific_name=` — the same lineage for a species named by its
+  scientific name, as a detection carries it. Only species resolve; 404 for a name the catalogue
+  does not hold.
+- `GET /api/taxonomy/{taxon_id}/children` — the taxa directly beneath one in the source's order
+  (IOC sequence for birds), each with `species_count`. Query: `limit` (1 to 5000, default 500).
+
+Every taxon in these responses also carries what this feeder has seen beneath it: `seen_species`
+(distinct species) and `seen_count` (visible detections). The owner sees the whole history; a
+guest sees the window public access allows, as everywhere else.
 
 ### Statistics
 
-- `GET /api/stats/daily-summary`
+- `GET /api/stats/daily-summary` — includes `counted_birds` (visible child observations) and
+  `counted_captures` (captures with at least one stored bird observation) for the same daily
+  window. These counts cover analyzed captures and may count the same bird in later captures.
+  Visits for the same last-24-hours window use the leaderboard's rule (a frame opens a visit unless the
+  same canonical species was on the same camera within 60 seconds of the running latest verified event end, or capture time when the end is unavailable): `visit_count`, `hourly_visits`
+  (24 local-hour buckets by when each visit began), `camera_visits` (visits and last sighting per
+  camera; `null` for a guest who may not see camera names) and `visit_count` on each `top_species`
+  entry, which is now ordered by visits. `total_count` and `hourly_distribution` still count frames.
 - `GET /api/stats/detections/daily`
 - `GET /api/stats/detections/timeline`
 - `GET /api/stats/detections/activity-heatmap` (optional `species` limits the grid to one species)
@@ -394,7 +609,9 @@ active model session. Important deployment fields are:
 | `active_model_validated_providers` | Providers that passed current artifact/runtime/install validation for the active model. |
 | `validated_provider_preference_order` | Passing providers ordered by this installation's measured latency. |
 | `selected_provider` | Saved preference from configuration. An image mismatch does not rewrite it. |
-| `active_provider` / `inference_backend` | Provider and backend used by the loaded model session. |
+| `active_provider` / `inference_backend` | Provider and backend resolved for the runtime; inspect `runtime_source` before claiming a loaded worker. |
+| `runtime_source` | `worker` is a worker-reported loaded session; `in_process` or `in_process_fallback` describes a loaded parent session. `planned` and `default` do not prove inference has run. |
+| `labels_count` | Number of ordered catalogue outputs for this artifact, or legacy label-file entries if no complete catalogue mapping is available. It is independent of whether the parent process holds the model. |
 | `fallback_reason` | Why the active session differs from the selected provider, when known. |
 
 Use these fields together. For example, an Intel image can legitimately report
@@ -411,6 +628,12 @@ opt into downloading the full registry. Compatibility runs publish their normal
 summary plus `GET /api/diagnostics/model-eval/runs/{run_id}/{artifact}` with
 `artifact=device_matrix.json`. Its provider matrix records image flavor, baseline,
 compile/finite-output status, real-image agreement, eligibility, and inference latency.
+Each compatibility summary row has `requested_provider: "validation_sweep"`. Its accuracy fields
+are zero placeholders, not measurements, and its `mean_latency_ms`, `p50_latency_ms` and
+`p95_latency_ms` all hold the best provider's median inference latency. Clients should use the
+marker, not a zero score, to tell such a row from a measured one.
+Compatibility-only clients should label the run **Compatibility check only**, omit accuracy/mean/p95
+claims, and read measured provider medians from `device_matrix.json`.
 Compatibility summaries also expose `validated_providers` and `failed_providers` per model; the
 measured passing order becomes the current-install activation and `Auto` recommendation.
 `discover_providers=true` additionally probes packaged, host-visible providers omitted by current
@@ -425,6 +648,22 @@ model metadata. Passing undeclared rows are reported as `declared: false` and un
 - `GET /api/leaderboard/analysis` (owner)
 - `POST /api/leaderboard/analyze` (owner)
 
+All supported providers use the same failure contract for analysis, charts and chat.
+Provider rate limits and temporary unavailability preserve `429`/`503` and a numeric
+`Retry-After` header when supplied. Timeouts, malformed replies and empty answers return
+an error rather than successful analysis text. Failed replies are not cached or added as
+assistant conversation turns, and do not replace an existing successful analysis. A failed
+chat request retains the owner's question. Retrying requires a new explicit request.
+
+Forced analysis regeneration clears the conversation only when the new analysis is
+successfully saved, in the same database transaction. A changed analysis or new
+conversation turn during provider work returns `409` and preserves the newer state.
+A late chat reply also returns `409` if its question was cleared or its analysis
+changed. The prompt and its revision are read together; a concurrent change to the
+stored capture identity, displayed species, time, temperature or weather also
+returns `409`. Unrelated favourite changes do not reject completion. Refresh before
+retrying; the server does not repeat a paid provider call.
+
 ### Settings and Maintenance
 
 - `GET /api/settings` (owner)
@@ -433,6 +672,31 @@ model metadata. Passing undeclared rows are reported as `declared: false` and un
   copy: a setting is public because it is named in `backend/app/models/public_settings.py`, so a
   new one is public or owner-only by decision rather than by whether anyone remembered.
 - `POST /api/settings` (owner)
+
+Settings writes are partial and use the flat API field names, rather than the nested
+`config.json` layout. Omitted fields stay unchanged. Empty or redacted secrets retain
+the saved value; they do not clear it. A provider or execution-mode change reloads
+the classifier, as does a saved-coordinate change. For example:
+
+```http
+POST /api/settings
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "classification_threshold": 0.7,
+  "inference_provider": "auto",
+  "location_latitude": null,
+  "location_longitude": null
+}
+```
+
+Here both explicit `null` coordinates clear the saved feeder location; omitting them
+keeps it. Location-aware DINOv2 receives either a complete valid coordinate pair or
+neutral metadata, including in subprocess workers. It receives no date or uncertainty.
+Use `/api/classifier/status` after reload to distinguish saved preference from the
+worker-reported runtime.
+
 - `POST /api/settings/birdnet/test` (owner) — synchronously proves a mock detection can
   enter the audio-correlation buffer and complete a database insert/delete; returns `502`
   rather than a false success when persistence or cleanup fails. The synthetic row and buffer
@@ -459,8 +723,8 @@ model metadata. Passing undeclared rows are reported as `declared: false` and un
   hash is refused. A successful import replaces the current configuration and broadcasts the
   changed fields. It keeps this installation's `auth.session_secret` and `auth.oauth_token_secret`,
   which sign current logins and decrypt OAuth tokens stored in this database, and it applies the
-  same follow-up as a settings save: a classifier reload when the model, provider or execution
-  mode changes, and forgetting the telemetry installation when telemetry is turned off.
+  same follow-up as a settings save: a classifier reload when the model, provider, execution
+  mode or saved feeder coordinates change, and forgetting the telemetry installation when telemetry is turned off.
 - `GET /api/maintenance/taxonomy/status` (owner)
 - `POST /api/maintenance/taxonomy/sync` (owner)
 - `GET /api/maintenance/stats` (owner)
@@ -471,6 +735,9 @@ model metadata. Passing undeclared rows are reported as `declared: false` and un
 - `POST /api/maintenance/purge-missing-media` (owner) — applies your configured missing-media
   policy to every detection whose Frigate event or media has gone. With the policy set to `delete`
   this **permanently removes** those detections; `mark_missing` and `keep` do not.
+  All three missing-media scan endpoints return an `errors` count for unsuccessful event checks.
+  Timeouts, authentication/server errors and unusable responses leave the existing detection
+  and its media state unchanged. Only confirmed absence applies the missing-media policy.
 - `GET /api/maintenance/timezone-repair/preview` (owner) — reports which legacy detections have a
   timestamp shift, validated against Frigate, and changes nothing.
 - `POST /api/maintenance/timezone-repair/apply` (owner) — applies those repairs. Requires
@@ -482,17 +749,56 @@ model metadata. Passing undeclared rows are reported as `declared: false` and un
 - `POST /api/maintenance/analyze-unknowns` (owner)
 - `GET /api/maintenance/analysis/status` (owner)
 - `DELETE /api/maintenance/feedback/clear` (owner)
-- `GET /api/cache/stats` (owner). Includes `archive_count`, `archive_size_bytes` and the favourite
-  counts by archive state.
+- `GET /api/cache/stats` (owner). Includes `storage_available` (false when the media folder cannot
+  be written, so nothing is being kept), `archive_count`, `archive_size_bytes` and the favourite
+  counts by archive state. `cache_enabled` and `cache_snapshots` were removed with their settings.
 - `GET /api/leaderboard/portraits?span=&limit=` (guest-rate-limited). This feeder's newest stored
-  crop of each leading species, for the leaderboard's showcase; a species without one is absent.
-- `GET /api/about/showcase?limit=` (guest-rate-limited). One recent crop per species for the About
-  page's reel; guests see the public media window, and nothing when snapshots are not shared.
+  crop of each leading species, for the leaderboard's reel and spotlight; a species without one is
+  absent. `film_url` is set once a film of that visit is made; for the six leading species a film
+  not made yet is asked for in the background. Guests get films only when clips are shared.
+- `GET /api/about/showcase?limit=` (guest-rate-limited). One recent crop per species, newest first;
+  guests see the public media window, and nothing when snapshots are not shared.
 - `GET /api/about/showcase/{event_id}.jpg` (guest-rate-limited). The stored photograph at card
   size, under the same access rules as `snapshot.jpg`.
+- `GET /api/about/showcase/{event_id}.webm` (guest-rate-limited). A visit film: four silent seconds
+  of 640x360 VP8 WebM cut from Frigate's recording around the visit's best snapshot and framed on
+  the bird, under the same access rules as the clip. Answers byte ranges and is never cached. A film
+  not made yet is asked for and answered 404 with `X-Film-Status: pending`; a full work queue also
+  returns `pending` so a later request can try again. `unavailable` means the film cannot be made
+  now, including an unwritable media folder, expired recording, non-Frigate visit or a retry delay.
+  Generation admits at most eight jobs and renders one at a time. Missing recordings for active
+  or very recent visits can be retried after 30 seconds; other temporary failures wait six hours.
+  Failure records are bounded to 256 entries. The newest 40 films are kept under the media cache
+  directory in `films/`. Each photo revision has an immutable film filename, so a delayed
+  response cannot read a different revision published after its access check.
+  A film requires image-bound recording timing and crop coordinates. New crops from Frigate's
+  final snapshot retain this alignment, including a manually selected crop of another bird in
+  that snapshot. Historical photos and video-derived choices without a proven recording moment
+  keep their photograph. Each film is bound to its photo revision; changing the photograph
+  invalidates it, including when that change happens during rendering. Legacy films without
+  matching provenance are not served.
+- `GET /api/about/portrait?utc_offset_minutes=` (guest-rate-limited). This feeder in a few facts:
+  `started_at`, `visits` (the shared 60-second visit rule), `detections`, `species`,
+  `busiest_day` (the viewer's calendar day, from the offset), `newest_arrival` (seen at least three
+  times or confirmed) and `latest_visit` (with `film_url` once made). `scope` is `shared` for a
+  guest, whose facts cover only the shared window of `shared_days`.
 - `GET /api/about/community` (guest-rate-limited). The telemetry service's active install count,
   cached for an hour; `enabled` is false when update checks are off.
-- `POST /api/cache/cleanup` (owner)
+- `POST /api/cache/cleanup` (owner) — applies age retention, removes orphaned media and enforces
+  optional `media_cache_per_species_maximum` and `media_cache_max_size_mb` limits. Limits preserve
+  detection history and favourites. `media_cache_bird_scan_mode` accepts `standard` or `intensive`.
+
+Published ordinary cache files left after a capture deletion are retried every five
+minutes independently of optional limits. Photographs and generated visit media no
+longer have an enable/disable cache switch. Active media
+writers and current parent records protect their files; failed local cleanup is retried
+on the next pass. Favourite archives and hidden temporary files are outside this sweep.
+Local atomic publication/deletion finishes before cancellation releases its coordination;
+a stalled filesystem can therefore delay shutdown.
+
+Archived favourite media is resolved before Frigate availability/context checks for MP4 and HEAD
+requests. Byte ranges and the existing access/download permissions apply. HLS requests for
+archived videos return 404 so the player uses the retained MP4; no archive transcoding is required.
 
 ### Backfill
 
@@ -500,7 +806,7 @@ model metadata. Passing undeclared rows are reported as `declared: false` and un
 - `POST /api/backfill/async` (owner) — starts the same import as a background job.
 - `GET /api/backfill/status` (owner) — returns the latest detection or weather job; `kind` can be
   `detections` or `weather`.
-- `GET /api/backfill/status/{job_id}` (owner) — returns one retained in-process job status.
+- `GET /api/backfill/status/{job_id}` (owner) — returns one retained job status, including persisted summaries after restart.
 - `POST /api/backfill/weather` (owner) — synchronously fills historical weather fields.
 - `POST /api/backfill/weather/async` (owner) — starts weather enrichment as a background job.
 - `DELETE /api/backfill/reset` (owner) — irreversibly deletes all detections and cached media after
@@ -546,6 +852,14 @@ snapshot, not a destructive queue-control API.
   - `GET /api/audio/history` — persisted BirdNET detections; `matched_visual_event_id` identifies a
     completed automatic video classification that agrees by species, time window, and source mapping
   - `GET /api/audio/summary`
+  - `GET /api/audio/heard-groups?start_date=&end_date=` — BirdNET-Go calls in a window of at most
+    93 days. A call that supports a visit the pipeline confirmed (same species, a microphone mapped
+    to that camera, within the visit widened by the correlation window) is counted on that visit in
+    `matched_visits`, call by call. The rest fold per species into bouts across silences of up to
+    `gap_seconds` (300): first and last call, call count, strongest confidence and the BirdNET-Go id
+    of the strongest servable call for the spectrogram. Guests get the public window, no visit older
+    than it, and no source names when camera names are private; `truncated` says the window held
+    more than 20,000 calls
   - `GET /api/audio/species`
   - `GET /api/audio/context`
   - `GET /api/audio/context/event/{event_id}` — nearby BirdNET detections for one persisted visual
@@ -590,6 +904,13 @@ history, hidden-event, and camera-privacy restrictions as the paginated event li
   - `DELETE /api/email/oauth/{provider}/disconnect`
   - `POST /api/email/test`
 
+OAuth authorization, disconnection and submission require owner authentication. Only the three
+exact GET callback routes accept a provider redirect without a login header. They require a
+provider-bound, single-use state issued by the owner authorization route, expiring after ten
+minutes. Invalid, expired or replayed state returns `400` before contacting the provider.
+Pending flows are held in memory (at most 256); after a restart, start the connection again.
+The callback exception grants no owner role and does not expand cookie authentication.
+
 ### Debug (owner)
 
 - `GET /api/debug/config`
@@ -601,20 +922,50 @@ history, hidden-event, and camera-privacy restrictions as the paginated event li
 - `GET /api/diagnostics/workspace`
 - `GET /api/diagnostics/bundle` — the whole owner diagnostics bundle as one exportable JSON
   payload; this is what **Settings → Health → Diagnostics export** downloads. `limit` is `1`–`1000`
-  (default `200`).
+  (default `200`). Each request gathers fresh server health, classifier, queues and
+  bounded recent diagnostics even when no local UI error exists. The response includes
+  `generated_at`, `schema_version` and `server.startup_instance_id` to identify its capture.
+  It is a support snapshot, not a restorable configuration/history backup.
 - `POST /api/diagnostics/clear`
 
 ### Model evaluation (owner)
 
-Benchmarks every installed classifier against labelled feeder images. See
-[Model evaluation](features/model-evaluation.md).
+Runs labelled-image accuracy evaluation or a compatibility-only device sweep.
+Installed classifiers are the default scope; `model_ids` narrows it and
+`sweep_all_models=true` can download the registry. Evaluation temporarily switches the
+active model and attempts to restore it afterwards. Avoid competing model changes
+during a run and verify the selected model/provider when it finishes.
+See [Model evaluation](features/model-evaluation.md).
 
 - `POST /api/diagnostics/model-eval/runs` — start a run.
 - `GET /api/diagnostics/model-eval/runs` — list runs.
 - `GET /api/diagnostics/model-eval/runs/{run_id}` — one run's status and results.
-- `GET /api/diagnostics/model-eval/runs/{run_id}/{artifact}` — download a run artifact.
+- `GET /api/diagnostics/model-eval/runs/{run_id}/{artifact}` — download an existing run
+  artifact with owner authorization. Compatibility-only runs normally write `summary.json`
+  and `device_matrix.json`; accuracy/per-image files are not implied. An allowed filename
+  that this run did not write returns `404`. The media-only session cookie does not authorize
+  these downloads; browser clients use the owner API client, then download the fetched blob.
 - `POST /api/diagnostics/model-eval/runs/{run_id}/cancel` — stop a run in progress.
 - `DELETE /api/diagnostics/model-eval/runs/{run_id}` — delete a run and its artifacts.
+
+A minimal compatibility-only request for one installed classifier is:
+
+```http
+POST /api/diagnostics/model-eval/runs
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "sweep_devices": true,
+  "compat_only": true,
+  "model_ids": ["dinov2_b14_inat21_metadata_336"]
+}
+```
+
+The response is `{"run_id": "<run-id>"}`. Poll that run's status, then fetch the
+artifacts appropriate to its mode. A successful sweep proves compatible execution on the tested
+inputs, not accuracy at a new feeder. Deleting a run permanently removes its evidence
+and files; download evidence you need before deleting it.
 
 ### AI Usage Stats (owner)
 
@@ -627,13 +978,21 @@ Benchmarks every installed classifier against labelled feeder images. See
 - Guest/public endpoints are rate-limited by public-access settings.
 - Video share-link creation is rate-limited.
 
+The public `/api/auth/status` response advertises `public_access_rate_limit_per_minute`
+so clients can pace history refreshes. Limits apply per endpoint and client address;
+the field is pacing metadata and grants no extra access.
+
 ## Best Practices
 
 1. Prefer JWT auth over legacy API key.
 2. Use HTTPS in production.
 3. Put YA-WAMF behind a reverse proxy with explicit trusted proxy hosts.
 4. Treat Swagger/OpenAPI as canonical for integration code generation.
-5. Use SSE (`/api/sse`) for realtime UI updates instead of short polling.
+
+5. Use SSE (`/api/sse`) for realtime UI updates instead of short polling. Owner streams
+   carry detailed messages. Guest streams carry only `public_history_changed` and
+   `public_access_changed` invalidations, in addition to connection/heartbeat frames;
+   fetch allowed data through the public HTTP API and refresh sharing preferences.
 
 ## See Also
 

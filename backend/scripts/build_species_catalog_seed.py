@@ -39,7 +39,22 @@ from app.services.species_provenance import (  # noqa: E402
 )
 
 SOURCE_NAME = "ioc-world-bird-list"
+MASTER_SOURCE_NAME = "ioc-world-bird-list-master"
 COL_SOURCE_NAME = "catalogue-of-life"
+
+#: Catalogue of Life COL26.7's classification from Animalia down to Aves, as the
+#: pinned release records it (ChecklistBank dataset 315777). Kept whole, including
+#: the intermediate ranks, so nothing is invented or dropped; a view may collapse
+#: the ranks it does not show.
+COL_BIRD_LINEAGE: tuple[tuple[str, str, str], ...] = (
+    ("N", "Animalia", "kingdom"),
+    ("CH2", "Chordata", "phylum"),
+    ("8V4V3", "Vertebrata", "subphylum"),
+    ("8V4V5", "Gnathostomata", "infraphylum"),
+    ("8VVWB", "Osteichthyes", "parvphylum"),
+    ("9CK8W", "Tetrapoda", "megaclass"),
+    ("V2", "Aves", "class"),
+)
 DEFAULT_REFERENCE = _BACKEND_DIR / "app" / "assets" / "species_reference.db"
 DEFAULT_COL_CONCEPTS = _BACKEND_DIR / "app" / "assets" / "col_nonbird_concepts.json"
 DEFAULT_BIRD_SYNONYMS = _BACKEND_DIR / "app" / "assets" / "col_bird_synonyms.json"
@@ -48,8 +63,10 @@ DEFAULT_OUTPUT = _BACKEND_DIR / "app" / "assets" / "species_catalog_seed.db"
 _ENGLISH_TAG = "en"
 
 
-def _reference_rows(reference_path: Path) -> tuple[dict[str, str], list[tuple[int, str, str | None]], dict[int, list]]:
-    """The reference's provenance metadata, taxa, and localized names, in stable order."""
+def _reference_rows(
+    reference_path: Path,
+) -> tuple[dict[str, str], list[tuple[int, str, str | None]], dict[int, list], list[tuple], dict[str, str]]:
+    """The reference's provenance metadata, taxa, localized names, classification and family names."""
     connection = sqlite3.connect(f"file:{reference_path}?mode=ro", uri=True)
     try:
         meta = dict(connection.execute("SELECT key, value FROM reference_meta").fetchall())
@@ -59,9 +76,17 @@ def _reference_rows(reference_path: Path) -> tuple[dict[str, str], list[tuple[in
             "SELECT taxon_id, locale, common_name FROM taxon_name ORDER BY taxon_id, locale"
         ):
             names.setdefault(taxon_id, []).append((locale, name))
+        columns = {row[1] for row in connection.execute("PRAGMA table_info(taxon)")}
+        classification: list[tuple] = []
+        families: dict[str, str] = {}
+        if {"order_name", "family_name", "sequence"} <= columns:
+            classification = connection.execute(
+                "SELECT id, scientific_name, order_name, family_name, sequence FROM taxon ORDER BY id"
+            ).fetchall()
+            families = dict(connection.execute("SELECT name, common_name FROM family ORDER BY name").fetchall())
     finally:
         connection.close()
-    return meta, taxa, names
+    return meta, taxa, names, classification, families
 
 
 def _frozen_on(manifest_path: Path | None) -> str:
@@ -93,7 +118,7 @@ def build(
     bird_synonyms_path: Path | None = None,
     model_mappings_path: Path | None = None,
 ) -> str:
-    meta, taxa, names = _reference_rows(reference_path)
+    meta, taxa, names, classification, family_names = _reference_rows(reference_path)
     if not taxa:
         raise SystemExit(f"No taxa found in {reference_path}")
 
@@ -102,6 +127,15 @@ def build(
         source = require_build_source(manifest, SOURCE_NAME, content_sha256=str(meta.get("source_sha256") or ""))
     except SourceProvenanceError as error:
         raise SystemExit(f"Provenance gate refused the build: {error}") from error
+
+    master_source = None
+    if classification:
+        try:
+            master_source = require_build_source(
+                manifest, MASTER_SOURCE_NAME, content_sha256=str(meta.get("master_source_sha256") or "")
+            )
+        except SourceProvenanceError as error:
+            raise SystemExit(f"Provenance gate refused the build: {error}") from error
 
     col_source = None
     col_concepts: dict[str, object] = {}
@@ -114,7 +148,11 @@ def build(
             raise SystemExit(f"Provenance gate refused the build: {error}") from error
 
     generated_at = _frozen_on(manifest_path)
-    sources = [_source_record(source)] + ([_source_record(col_source)] if col_source else [])
+    sources = (
+        [_source_record(source)]
+        + ([_source_record(master_source)] if master_source else [])
+        + ([_source_record(col_source)] if col_source else [])
+    )
     source_manifest = json.dumps({"sources": sources}, sort_keys=True)
 
     if output_path.exists():
@@ -226,6 +264,17 @@ def build(
                     (entry["scientific_name"], col_source.id),
                 )
 
+        if classification:
+            _insert_bird_classification(
+                connection,
+                classification=classification,
+                family_names=family_names,
+                ioc=source,
+                master=master_source,
+                col=col_source,
+                first_free_id=connection.execute("SELECT COALESCE(MAX(species_id), 0) + 1 FROM species").fetchone()[0],
+            )
+
         if model_mappings_path is not None:
             mappings = json.loads(Path(model_mappings_path).read_text(encoding="utf-8"))
             label_files = mappings.get("label_files") or {}
@@ -310,6 +359,93 @@ def build(
     sidecar = output_path.with_suffix(output_path.suffix + ".sha256")
     sidecar.write_text(f"{digest}  {output_path.name}\n", encoding="utf-8")
     return digest
+
+
+def _insert_bird_classification(
+    connection: sqlite3.Connection,
+    *,
+    classification: list[tuple],
+    family_names: dict[str, str],
+    ioc,
+    master,
+    col,
+    first_free_id: int,
+) -> None:
+    """Give every bird its genus, family, order and class as catalogue taxa, and link each to its parent.
+
+    Higher taxa are numbered after every species so the species keep the ids they always had.
+    Birds take their order, family and genus from IOC, the same release that names them, and
+    the ranks above from Catalogue of Life. Each rank sorts by IOC's sequence: its first species'.
+    """
+    next_id = first_free_id
+
+    def add_taxon(rank: str, provider, provider_taxon_id: str, scientific: str, parent: int | None, sequence: int):
+        nonlocal next_id
+        taxon_id = next_id
+        next_id += 1
+        connection.execute(
+            "INSERT INTO species (species_id, rank, status, parent_species_id, sequence)"
+            " VALUES (?, ?, 'accepted', ?, ?)",
+            (taxon_id, rank, parent, sequence),
+        )
+        connection.execute(
+            "INSERT INTO species_concepts"
+            " (species_id, provider, provider_taxon_id, source_release, scientific_name, status)"
+            " VALUES (?, ?, ?, ?, ?, 'accepted')",
+            (taxon_id, provider.id, provider_taxon_id, provider.version, scientific),
+        )
+        return taxon_id
+
+    parent: int | None = None
+    if col is not None:
+        for position, (col_id, scientific, rank) in enumerate(COL_BIRD_LINEAGE):
+            parent = add_taxon(rank, col, col_id, scientific, parent, position)
+    birds = parent
+
+    by_name = {
+        str(scientific): species_id
+        for species_id, scientific in connection.execute(
+            "SELECT species_id, scientific_name FROM species_concepts WHERE provider = ?", (ioc.id,)
+        )
+    }
+    first_sequence: dict[tuple[str, str], int] = {}
+    for _, scientific, order, family, sequence in classification:
+        genus = str(scientific).split(" ", 1)[0]
+        for key in (("order", order), ("family", family), ("genus", genus)):
+            first_sequence[key] = min(first_sequence.get(key, sequence), sequence)
+
+    orders: dict[str, int] = {}
+    families: dict[str, int] = {}
+    genera: dict[str, int] = {}
+    for _, scientific, order, family, sequence in sorted(classification, key=lambda row: row[4]):
+        genus = str(scientific).split(" ", 1)[0]
+        if order not in orders:
+            orders[order] = add_taxon("order", ioc, order, order, birds, first_sequence[("order", order)])
+        if family not in families:
+            families[family] = add_taxon(
+                "family", ioc, family, family, orders[order], first_sequence[("family", family)]
+            )
+            english = family_names.get(family)
+            if english and master is not None:
+                connection.execute(
+                    "INSERT INTO species_names"
+                    " (species_id, language_tag, name, name_kind, preferred, provider, source_release)"
+                    " VALUES (?, ?, ?, 'vernacular', 1, ?, ?)",
+                    (families[family], _ENGLISH_TAG, english, master.id, master.version),
+                )
+        if genus not in genera:
+            genera[genus] = add_taxon("genus", ioc, genus, genus, families[family], first_sequence[("genus", genus)])
+        species_id = by_name.get(str(scientific))
+        if species_id is None:
+            raise SystemExit(f"The classification names {scientific}, which the catalogue does not hold")
+        connection.execute(
+            "UPDATE species SET parent_species_id = ?, sequence = ? WHERE species_id = ?",
+            (genera[genus], sequence, species_id),
+        )
+    print(
+        f"  classification: {len(orders)} orders, {len(families)} families, {len(genera)} genera",
+        file=sys.stderr,
+    )
 
 
 def main() -> int:

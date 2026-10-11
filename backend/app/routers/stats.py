@@ -1,11 +1,13 @@
 from fastapi import APIRouter, Request, Response, Depends, Query
 from pydantic import Field
 import os
+import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Literal
 from collections import Counter
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
+from app.repositories.bird_observation_repository import BirdObservationRepository
 from app.repositories.health_repository import HealthRepository
 from app.services.uptime import HEARTBEAT_INTERVAL_MINUTES, build_uptime_window
 from app.models import APIModel, DetectionResponse
@@ -20,6 +22,13 @@ from app.ratelimit import guest_rate_limit
 from app.utils.language import get_user_language
 from app.utils.canonical_species import should_hide_species_label, user_facing_species_fields
 from app.utils.audio_localization import localize_audio_species_name
+from app.utils.public_access import (
+    hide_public_audio_fields,
+    refresh_public_audio_fields,
+    public_events_cutoff,
+    public_event_query_bounds,
+    effective_public_events_days,
+)
 from app.utils.api_datetime import serialize_api_datetime, utc_naive_now
 from app.utils.timezone import get_user_timezone
 
@@ -42,7 +51,7 @@ class SystemTelemetryResponse(APIModel):
 @guest_rate_limit()
 async def get_system_telemetry(request: Request, response: Response) -> SystemTelemetryResponse:
     """Return one live host-utilization sample for the sidebar's rolling graph."""
-    sample = system_telemetry_sampler.sample()
+    sample = await asyncio.to_thread(system_telemetry_sampler.sample)
     response.headers["Cache-Control"] = "no-store"
     primary = sample.primary_accelerator
     accelerator = None
@@ -269,10 +278,19 @@ async def get_update_status(response: Response) -> UpdateStatusResponse:
 class DailySpeciesSummary(APIModel):
     species: str
     count: int
+    # Visits, the dashboard's unit: frames of one species on one camera within the visit gap fold
+    # into one. `count` stays the detection (frame) count.
+    visit_count: int = 0
     latest_event: str  # Used for thumbnail
     scientific_name: str | None = None
     common_name: str | None = None
     taxa_id: int | None = None
+
+
+class DailyCameraVisits(APIModel):
+    camera: str
+    visits: int
+    last_seen: Optional[datetime] = None
 
 
 class DailySummaryResponse(APIModel):
@@ -281,6 +299,13 @@ class DailySummaryResponse(APIModel):
     latest_detection: Optional[DetectionResponse]
     total_count: int
     audio_confirmations: int
+    counted_birds: int = 0
+    counted_captures: int = 0
+    # Visits in the same window: in total, by local hour each visit began, and by camera. A guest
+    # who may not see camera names gets no camera breakdown.
+    visit_count: int = 0
+    hourly_visits: List[int] = Field(default_factory=lambda: [0] * 24)
+    camera_visits: Optional[List[DailyCameraVisits]] = None
 
 
 class DailyCount(APIModel):
@@ -463,6 +488,8 @@ async def get_daily_summary(request: Request, auth: AuthContext = Depends(get_au
     user_tz = get_user_timezone(request)
     end_dt = utc_naive_now()
     start_dt = end_dt - timedelta(hours=24)
+    if not auth.is_owner:
+        start_dt = max(start_dt, public_events_cutoff(end_dt.replace(tzinfo=timezone.utc)).replace(tzinfo=None))
 
     async with get_db() as db:
         repo = DetectionRepository(db)
@@ -480,6 +507,7 @@ async def get_daily_summary(request: Request, auth: AuthContext = Depends(get_au
         # Transform unknowns
         unknown_labels = settings.classification.unknown_bird_labels
         unknown_count = 0
+        unknown_visits = 0
         latest_unknown_event = None
         latest_unknown_time = None
 
@@ -487,6 +515,7 @@ async def get_daily_summary(request: Request, auth: AuthContext = Depends(get_au
         for s in species_raw:
             if should_hide_species_label(s["species"], extra_unknown_labels=unknown_labels):
                 unknown_count += s["count"]
+                unknown_visits += int(s.get("visit_count") or 0)
                 # Keep the absolute latest event ID among unknowns
                 candidate_time = s.get("latest_detection_time")
                 if latest_unknown_time is None or (candidate_time is not None and candidate_time > latest_unknown_time):
@@ -509,6 +538,7 @@ async def get_daily_summary(request: Request, auth: AuthContext = Depends(get_au
                     DailySpeciesSummary(
                         species=s["species"],
                         count=s["count"],
+                        visit_count=int(s.get("visit_count") or 0),
                         latest_event=s["latest_event"],
                         scientific_name=s.get("scientific_name"),
                         common_name=common_name,
@@ -518,16 +548,23 @@ async def get_daily_summary(request: Request, auth: AuthContext = Depends(get_au
 
         if unknown_count > 0:
             summary_species.append(
-                DailySpeciesSummary(species="Unknown Bird", count=unknown_count, latest_event=latest_unknown_event)
+                DailySpeciesSummary(
+                    species="Unknown Bird",
+                    count=unknown_count,
+                    visit_count=unknown_visits,
+                    latest_event=latest_unknown_event,
+                )
             )
-            # Sort again after aggregation
-            summary_species.sort(key=lambda x: x.count, reverse=True)
+        # Visits first, as the dashboard counts them; frames break ties.
+        summary_species.sort(key=lambda x: (x.visit_count, x.count), reverse=True)
 
         # 3. Latest detection
         latest_raw = await repo.get_all(limit=1, start_date=start_dt, end_date=end_dt)
         latest_detection = None
         if latest_raw:
             d = latest_raw[0]
+            if not auth.is_owner:
+                await refresh_public_audio_fields(d, repo)
             common_name = d.common_name
             if d.taxa_id:
                 if lang != "en":
@@ -589,8 +626,32 @@ async def get_daily_summary(request: Request, auth: AuthContext = Depends(get_au
                 taxa_id=public_species["taxa_id"],
             )
 
+        if latest_detection is not None and not auth.is_owner and not settings.public_access.show_audio:
+            hide_public_audio_fields(latest_detection)
         total_today = sum(hourly)
-        audio_confirmations = await repo.get_audio_confirmations_count(start_dt, end_dt)
+        audio_confirmations = await repo.get_audio_confirmations_count(
+            start_dt, end_dt, public_evidence=not auth.is_owner
+        )
+        if not auth.is_owner and not settings.public_access.show_audio:
+            audio_confirmations = 0
+        bird_counts = await BirdObservationRepository(db).count_visible_between(start_dt, end_dt)
+
+        openings = await repo.get_window_visit_openings(start_dt, end_dt)
+        hourly_visits = [0] * 24
+        visits_by_camera: dict[str, int] = {}
+        for opening in openings:
+            local_hour = opening["opened_at"].replace(tzinfo=timezone.utc).astimezone(user_tz).hour
+            hourly_visits[local_hour] += 1
+            camera = str(opening["camera"] or "")
+            visits_by_camera[camera] = visits_by_camera.get(camera, 0) + 1
+        camera_visits = None
+        if not hide_camera_names:
+            last_seen = await repo.get_camera_last_seen(start_dt, end_dt)
+            camera_visits = [
+                DailyCameraVisits(camera=camera, visits=visits, last_seen=last_seen.get(camera))
+                for camera, visits in sorted(visits_by_camera.items(), key=lambda item: (-item[1], item[0]))
+                if camera
+            ]
 
         return DailySummaryResponse(
             hourly_distribution=hourly,
@@ -598,15 +659,25 @@ async def get_daily_summary(request: Request, auth: AuthContext = Depends(get_au
             latest_detection=latest_detection,
             total_count=total_today,
             audio_confirmations=audio_confirmations,
+            counted_birds=bird_counts["birds"],
+            counted_captures=bird_counts["captures"],
+            visit_count=len(openings),
+            hourly_visits=hourly_visits,
+            camera_visits=camera_visits,
         )
 
 
 @router.get("/stats/detections/daily", response_model=DetectionsTimelineResponse)
 @guest_rate_limit()
-async def get_detection_timeline(request: Request, days: int = 30):
+async def get_detection_timeline(
+    request: Request, days: int = 30, auth: AuthContext = Depends(get_auth_context_with_legacy)
+):
     """Get total detections per day for the last N days (inclusive)."""
     if days < 1 or days > 365:
         days = 30
+
+    if not auth.is_owner:
+        days = min(days, effective_public_events_days() + 1)
 
     # Counts come from the database; the weather that annotates them comes
     # from an external API. Holding a connection across that call put a
@@ -740,6 +811,7 @@ async def get_detection_timeline(request: Request, days: int = 30):
 @guest_rate_limit()
 async def get_detection_timeline_span(
     request: Request,
+    auth: AuthContext = Depends(get_auth_context_with_legacy),
     span: Literal["all", "day", "week", "month"] = Query("week", description="Time span for the timeline"),
     include_weather: bool = Query(False, description="Include weather overlays (best-effort)"),
     compare_species: Optional[List[str]] = Query(
@@ -763,9 +835,12 @@ async def get_detection_timeline_span(
     # slow or unreachable weather host cannot hold pool capacity.
     async with get_db() as db:
         repo = DetectionRepository(db)
+        bounds = {} if auth.is_owner else public_event_query_bounds(now.replace(tzinfo=timezone.utc))
 
         if span == "day":
             window_start = now - timedelta(hours=24)
+            if not auth.is_owner:
+                window_start = max(window_start, bounds["start_date"].replace(tzinfo=None))
             window_end = now
             bucket = "hour"
             points = _build_local_timeline_points(
@@ -779,6 +854,8 @@ async def get_detection_timeline_span(
         elif span in ("week", "month"):
             days = 7 if span == "week" else 30
             window_start = now - timedelta(days=days)
+            if not auth.is_owner:
+                window_start = max(window_start, bounds["start_date"].replace(tzinfo=None))
             window_end = now
             bucket = "day"
             points = _build_local_timeline_points(
@@ -789,7 +866,7 @@ async def get_detection_timeline_span(
             )
 
         else:
-            oldest, newest = await repo.get_detection_time_bounds()
+            oldest, newest = await repo.get_detection_time_bounds(**bounds)
             if not oldest:
                 return DetectionsTimelineSpanResponse(
                     span="all",
@@ -1116,6 +1193,7 @@ async def get_uptime(
 @guest_rate_limit()
 async def get_detection_activity_heatmap(
     request: Request,
+    auth: AuthContext = Depends(get_auth_context_with_legacy),
     span: Literal["all", "day", "week", "month"] = Query("week", description="Time span for the heatmap"),
     species: Optional[str] = Query(None, max_length=200, description="Limit the grid to one species"),
 ):
@@ -1125,18 +1203,25 @@ async def get_detection_activity_heatmap(
 
     async with get_db() as db:
         repo = DetectionRepository(db)
+        bounds = {} if auth.is_owner else public_event_query_bounds(now.replace(tzinfo=timezone.utc))
 
         if span == "day":
             window_start = now - timedelta(hours=24)
+            if not auth.is_owner:
+                window_start = max(window_start, bounds["start_date"].replace(tzinfo=None))
             window_end = now
         elif span == "week":
             window_start = now - timedelta(days=7)
+            if not auth.is_owner:
+                window_start = max(window_start, bounds["start_date"].replace(tzinfo=None))
             window_end = now
         elif span == "month":
             window_start = now - timedelta(days=30)
+            if not auth.is_owner:
+                window_start = max(window_start, bounds["start_date"].replace(tzinfo=None))
             window_end = now
         else:
-            oldest, _newest = await repo.get_detection_time_bounds()
+            oldest, _newest = await repo.get_detection_time_bounds(**bounds)
             if oldest:
                 window_start = oldest.replace(tzinfo=None)
             else:

@@ -135,6 +135,10 @@ class ArchiveService:
     async def recording_path(self, event_id: str) -> Optional[Path]:
         return await self._file_if_archived(event_id, RECORDING_NAME)
 
+    async def video_path(self, event_id: str) -> Optional[Path]:
+        """Prefer the saved full visit, falling back to the saved event clip."""
+        return await self.recording_path(event_id) or await self.clip_path(event_id)
+
     async def snapshot_metadata(self, event_id: str) -> Optional[dict]:
         return await self._read_json(event_id, SNAPSHOT_META_NAME)
 
@@ -198,6 +202,13 @@ class ArchiveService:
         """
         target = event_dir / SNAPSHOT_NAME
         cached = await media_cache.get_snapshot_path(event_id)
+        if cached is None and event_id.startswith("manual_"):
+            # Without a chosen photo an upload shows its own; Frigate never had it.
+            from app.services.manual_observation_service import manual_observation_service
+
+            cached = await manual_observation_service.path_for_event(event_id, preview=True)
+            if cached is None:
+                return "unavailable", None, 0
         if cached is None and await aiofiles.os.path.exists(target):
             return "durable", None, int((await aiofiles.os.stat(target)).st_size)
         if cached is not None:

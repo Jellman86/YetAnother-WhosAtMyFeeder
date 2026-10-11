@@ -137,6 +137,19 @@ def test_parse_event_accepts_update_events_for_bounded_recovery():
     assert event.type == "update"
 
 
+def test_update_recovery_cooldown_is_per_event_and_expires_without_blocking_later_frames():
+    processor = EventProcessor(MagicMock())
+    with patch("app.services.event_processor.time.monotonic", return_value=100):
+        assert processor._admit_update_recovery("first")
+        assert not processor._admit_update_recovery("first")
+        assert processor._admit_update_recovery("second")
+    with patch("app.services.event_processor.time.monotonic", return_value=105):
+        assert processor._admit_update_recovery("first")
+    with patch("app.services.event_processor.time.monotonic", return_value=1000):
+        assert processor._admit_update_recovery("third")
+    assert processor._update_recovery_attempts == {"third": 1000}
+
+
 def test_event_data_snapshot_context_preserves_localization_and_retention_signals():
     event = EventData(
         {
@@ -278,7 +291,6 @@ async def test_process_mqtt_message_skips_end_event_classification():
     with (
         patch("app.services.event_processor.settings.frigate.clips_enabled", True, create=True),
         patch("app.services.event_processor.settings.frigate.recording_clip_enabled", True, create=True),
-        patch("app.services.event_processor.settings.media_cache.enabled", True, create=True),
         patch("app.services.event_processor.settings.media_cache.cache_clips", True, create=True),
         patch(
             "app.services.event_processor.notification_dispatcher.enqueue",
@@ -322,12 +334,13 @@ async def test_end_event_schedules_final_hq_snapshot_refresh_for_cached_detectio
         patch("app.services.event_processor.high_quality_snapshot_service") as mock_hq,
     ):
         mock_cache.has_snapshot.return_value = True
-        mock_hq.schedule_final_replacement = MagicMock(return_value=True)
+        mock_hq.schedule_replacement_durable = AsyncMock(return_value=True)
         await processor.process_mqtt_message(payload)
 
     processor._classify_snapshot.assert_not_called()
-    mock_hq.schedule_final_replacement.assert_called_once_with(
+    mock_hq.schedule_replacement_durable.assert_awaited_once_with(
         "evt-final-hq",
+        final=True,
         event_data={
             "start_time": 1700000000,
             "end_time": 1700000005,
@@ -705,7 +718,7 @@ async def test_post_commit_side_effect_failure_does_not_turn_saved_detection_int
         ),
         patch("app.services.event_processor.settings.classification.write_frigate_sublabel", True, create=True),
         patch("app.services.event_processor.settings.classification.auto_video_classification", False, create=True),
-        patch("app.services.event_processor.settings.media_cache.enabled", False, create=True),
+        patch("app.services.event_processor.media_cache._available", False),
     ):
         result = await processor._save_detection(
             event=event,
@@ -757,8 +770,6 @@ async def test_detection_post_commit_schedules_high_quality_snapshot_replacement
         patch("app.services.event_processor.high_quality_snapshot_service") as mock_hq,
         patch("app.services.event_processor.settings.classification.write_frigate_sublabel", False, create=True),
         patch("app.services.event_processor.settings.classification.auto_video_classification", False, create=True),
-        patch("app.services.event_processor.settings.media_cache.enabled", True, create=True),
-        patch("app.services.event_processor.settings.media_cache.cache_snapshots", True, create=True),
         patch("app.services.event_processor.settings.media_cache.high_quality_event_snapshots", True, create=True),
     ):
         mock_cache.cache_snapshot = AsyncMock()
@@ -766,7 +777,7 @@ async def test_detection_post_commit_schedules_high_quality_snapshot_replacement
             "start_time": 1700000000,
             "data": {"box": [0.2, 0.3, 0.4, 0.5]},
         }
-        mock_hq.schedule_replacement = MagicMock(return_value=True)
+        mock_hq.schedule_replacement_durable = AsyncMock(return_value=True)
 
         await processor._handle_detection_post_commit(
             event=event,
@@ -785,7 +796,7 @@ async def test_detection_post_commit_schedules_high_quality_snapshot_replacement
                 "data": {"box": [0.2, 0.3, 0.4, 0.5]},
             },
         )
-    mock_hq.schedule_replacement.assert_called_once_with(
+    mock_hq.schedule_replacement_durable.assert_awaited_once_with(
         "evt-hq-1",
         event_data={
             "start_time": 1700000000,
@@ -820,12 +831,10 @@ async def test_detection_post_commit_skips_high_quality_snapshot_replacement_whe
         patch("app.services.event_processor.high_quality_snapshot_service") as mock_hq,
         patch("app.services.event_processor.settings.classification.write_frigate_sublabel", False, create=True),
         patch("app.services.event_processor.settings.classification.auto_video_classification", False, create=True),
-        patch("app.services.event_processor.settings.media_cache.enabled", True, create=True),
-        patch("app.services.event_processor.settings.media_cache.cache_snapshots", True, create=True),
         patch("app.services.event_processor.settings.media_cache.high_quality_event_snapshots", True, create=True),
     ):
         mock_cache.cache_snapshot = AsyncMock()
-        mock_hq.schedule_replacement = MagicMock(return_value=True)
+        mock_hq.schedule_replacement_durable = AsyncMock(return_value=True)
 
         await processor._handle_detection_post_commit(
             event=event,
@@ -835,7 +844,7 @@ async def test_detection_post_commit_skips_high_quality_snapshot_replacement_whe
         )
 
     mock_cache.cache_snapshot.assert_not_awaited()
-    mock_hq.schedule_replacement.assert_not_called()
+    mock_hq.schedule_replacement_durable.assert_not_awaited()
 
 
 @pytest.mark.asyncio

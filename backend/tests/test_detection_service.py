@@ -24,6 +24,7 @@ def mock_deps():
         mock_repo = MockRepo.return_value
         mock_repo.update_video_classification = AsyncMock()
         mock_repo.update_primary_classification = AsyncMock(return_value=True)
+        mock_repo.has_unchanged_initial_label_from = AsyncMock(return_value=False)
         mock_taxonomy.get_names = AsyncMock(
             return_value={"scientific_name": "New Sci", "common_name": "New Common", "taxa_id": 123}
         )
@@ -1068,23 +1069,14 @@ async def test_apply_video_result_records_blocked_flag_and_skips_promotion(mock_
 
 
 class TestCatalogRefinementResolution:
-    """The refinement path resolves through the catalogue only while the
-    refining model is still the loaded one; a queued result applied after a
-    model switch must not record false provenance."""
+    """A refinement is attributed only to the model that produced it, carried with the result; the
+    loaded model may have been switched (or its region changed, which keeps the model id) since."""
 
     @pytest.mark.asyncio
-    async def test_a_result_from_the_still_active_model_resolves(self, monkeypatch):
+    async def test_a_result_resolves_through_its_producing_checksum(self, monkeypatch):
         from app.services import detection_service as module
         from app.services.species_catalog_resolver import ShadowResolution
 
-        class FakeClassifier:
-            def get_status(self):
-                return {"effective_model_id": "rope_vit_b14_inat21"}
-
-            def active_model_sha256(self):
-                return "a" * 64
-
-        monkeypatch.setattr(module, "get_classifier", lambda: FakeClassifier())
         monkeypatch.setattr(
             module.species_catalog_resolver,
             "shadow_resolve",
@@ -1093,35 +1085,186 @@ class TestCatalogRefinementResolution:
             ),
         )
 
-        result = await module._catalog_identity_for_refinement("rope_vit_b14_inat21", 7, "Cyanistes caeruleus", "evt")
+        result = await module._catalog_identity_for_refinement(7, "Cyanistes caeruleus", "evt", model_sha256="a" * 64)
 
         assert result.verdict == "agree"
         assert result.species_id == 5
         assert result.model_output_index == 7
 
     @pytest.mark.asyncio
-    async def test_a_result_from_a_since_swapped_model_is_not_attributed(self, monkeypatch):
-        from app.services import detection_service as module
-
-        class FakeClassifier:
-            def get_status(self):
-                return {"effective_model_id": "convnext_large_inat21"}
-
-            def active_model_sha256(self):
-                return "a" * 64
-
-        monkeypatch.setattr(module, "get_classifier", lambda: FakeClassifier())
-
-        result = await module._catalog_identity_for_refinement("rope_vit_b14_inat21", 7, "Cyanistes caeruleus", "evt")
-
-        assert result.verdict == "unavailable"
-        assert result.species_id is None
-        assert result.model_artifact_id is None
-
-    @pytest.mark.asyncio
     async def test_a_negative_index_never_resolves(self):
         from app.services import detection_service as module
 
-        result = await module._catalog_identity_for_refinement("rope_vit_b14_inat21", -1, "Cyanistes caeruleus", "evt")
+        result = await module._catalog_identity_for_refinement(-1, "Cyanistes caeruleus", "evt", model_sha256="a" * 64)
 
         assert result.verdict == "unavailable"
+
+
+def _borrowed_cardinal() -> MagicMock:
+    existing = MagicMock(spec=Detection)
+    # Frigate's sub-label score, kept because YA-WAMF's own classifier stayed below threshold.
+    existing.score = 0.7667
+    existing.display_name = "Northern Cardinal"
+    existing.category_name = "Cardinalis cardinalis"
+    existing.scientific_name = "Cardinalis cardinalis"
+    existing.common_name = "Northern Cardinal"
+    existing.sub_label = "Cardinalis cardinalis"
+    existing.frigate_score = 0.91
+    existing.detection_time = datetime.now()
+    existing.camera_name = "cam1"
+    existing.is_hidden = False
+    existing.is_favorite = False
+    existing.manual_tagged = False
+    existing.audio_species = None
+    existing.audio_score = None
+    existing.audio_confirmed = False
+    existing.video_classification_label = None
+    existing.video_classification_score = None
+    existing.video_classification_status = "pending"
+    return existing
+
+
+@pytest.fixture
+def default_thresholds(monkeypatch):
+    from app.services.detection_service import settings
+
+    monkeypatch.setattr(settings.classification, "threshold", 0.7)
+    monkeypatch.setattr(settings.classification, "min_confidence", 0.4)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("borrowed", "video_score", "replaced"),
+    [
+        # Before: a 0.80 titmouse had to beat max(0.77, threshold + 0.20) against its own sub-label.
+        (True, 0.80, True),
+        (True, 0.65, False),
+        # YA-WAMF's own agreeing label keeps the second-opinion guard.
+        (False, 0.80, False),
+    ],
+)
+async def test_video_result_replaces_a_borrowed_frigate_label_at_the_normal_threshold(
+    mock_deps, default_thresholds, borrowed, video_score, replaced
+):
+    service = DetectionService(MagicMock())
+    existing = _borrowed_cardinal()
+    mock_deps["repo"].get_by_frigate_event = AsyncMock(side_effect=[existing, existing])
+    mock_deps["repo"].has_unchanged_initial_label_from = AsyncMock(return_value=borrowed)
+
+    applied = await service.apply_video_result("event1", "Baeolophus bicolor", video_score, 4)
+
+    assert bool(applied) is replaced
+    assert mock_deps["repo"].update_primary_classification.await_count == (1 if replaced else 0)
+    mock_deps["repo"].has_unchanged_initial_label_from.assert_awaited_once_with("event1", "frigate_sublabel")
+
+
+@pytest.mark.asyncio
+async def test_borrowed_frigate_label_check_is_skipped_for_owner_requested_reclassification(
+    mock_deps, default_thresholds
+):
+    service = DetectionService(MagicMock())
+    existing = _borrowed_cardinal()
+    mock_deps["repo"].get_by_frigate_event = AsyncMock(side_effect=[existing, existing])
+
+    applied = await service.apply_video_result("event1", "Baeolophus bicolor", 0.5, 4, manual_tagged=True)
+
+    assert applied is True
+    mock_deps["repo"].has_unchanged_initial_label_from.assert_not_awaited()
+
+
+def test_frigate_fallback_does_not_carry_the_classifiers_output_index(default_thresholds, monkeypatch):
+    from app.services.detection_service import settings
+
+    monkeypatch.setattr(settings.classification, "trust_frigate_sublabel", True)
+    service = DetectionService(MagicMock())
+
+    top, reason = service.filter_and_label(
+        {"label": "Baeolophus bicolor", "score": 0.5, "index": 42},
+        "event1",
+        "Cardinalis cardinalis",
+        0.91,
+        0.7667,
+    )
+
+    assert reason == "frigate_fallback"
+    assert top["label"] == "Cardinalis cardinalis"
+    assert top["index"] == -1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("classification", "expected_source"),
+    [
+        (
+            {"label": "Cardinalis cardinalis", "score": 0.7667, "index": -1, "source": "frigate_fallback"},
+            "frigate_sublabel",
+        ),
+        ({"label": "Baeolophus bicolor", "score": 0.91, "index": 3}, None),
+    ],
+)
+async def test_save_records_whether_the_first_label_was_borrowed_from_frigate(
+    mock_deps, classification, expected_source
+):
+    service = DetectionService(MagicMock())
+    mock_deps["repo"].upsert_if_higher_score = AsyncMock(return_value=(True, False))
+    mock_deps["repo"].get_by_frigate_event = AsyncMock(return_value=None)
+
+    with patch(
+        "app.services.detection_service.create_background_task", side_effect=lambda coro, name=None: coro.close()
+    ):
+        await service.save_detection(
+            frigate_event="evt-source",
+            camera="cam1",
+            start_time=1700000000,
+            classification=classification,
+            frigate_score=0.91,
+            sub_label="Cardinalis cardinalis",
+        )
+
+    assert mock_deps["repo"].upsert_if_higher_score.await_args.kwargs == {"initial_label_source": expected_source}
+
+
+async def _save_live(service, score):
+    with patch(
+        "app.services.detection_service.create_background_task", side_effect=lambda coro, name=None: coro.close()
+    ):
+        return await service.save_detection(
+            frigate_event="evt-birdweather",
+            camera="cam1",
+            start_time=1700000000,
+            classification={"label": "Prunella modularis", "score": score, "index": 1},
+            frigate_score=0.9,
+        )
+
+
+@pytest.mark.asyncio
+async def test_a_live_sighting_is_reported_to_birdweather_once(mock_deps):
+    service = DetectionService(MagicMock())
+    mock_deps["taxonomy"].get_names = AsyncMock(
+        return_value={"scientific_name": "Prunella modularis", "common_name": "Dunnock", "taxa_id": 3}
+    )
+    mock_deps["repo"].get_by_frigate_event = AsyncMock(return_value=None)
+    mock_deps["repo"].upsert_if_higher_score = AsyncMock(return_value=(True, False))
+    await _save_live(service, 0.7)
+
+    # A later frame of the same visit scoring higher updates the row; it is still one sighting.
+    mock_deps["repo"].get_by_frigate_event = AsyncMock(return_value=MagicMock(scientific_name="Prunella modularis"))
+    mock_deps["repo"].upsert_if_higher_score = AsyncMock(return_value=(False, True))
+    await _save_live(service, 0.9)
+
+    mock_deps["birdweather"].report_detection.assert_called_once()
+    assert mock_deps["birdweather"].report_detection.call_args.kwargs["confidence"] == 0.7
+
+
+@pytest.mark.asyncio
+async def test_a_visit_first_saved_as_unknown_is_reported_when_a_better_frame_names_it(mock_deps):
+    service = DetectionService(MagicMock())
+    mock_deps["taxonomy"].get_names = AsyncMock(
+        return_value={"scientific_name": "Prunella modularis", "common_name": "Dunnock", "taxa_id": 3}
+    )
+    mock_deps["repo"].get_by_frigate_event = AsyncMock(return_value=MagicMock(scientific_name=None))
+    mock_deps["repo"].upsert_if_higher_score = AsyncMock(return_value=(False, True))
+
+    await _save_live(service, 0.9)
+
+    mock_deps["birdweather"].report_detection.assert_called_once()

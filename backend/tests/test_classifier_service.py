@@ -23,6 +23,7 @@ sys.modules["app.services.model_manager"] = mock_mm
 from app.services.classifier_service import (  # noqa: E402
     BackgroundImageClassificationUnavailableError,
     ClassifierService,
+    VideoFrameCandidate,
     InvalidInferenceOutputError,
     LiveImageClassificationOverloadedError,
     ModelInstance,
@@ -55,6 +56,217 @@ from app.services.classifier_supervisor import (  # noqa: E402
 from app.config import settings  # noqa: E402
 from app.config_models import ClassificationSettings  # noqa: E402
 from app.services.native_crash_quarantine import NativeCrashQuarantinedError  # noqa: E402
+
+
+@pytest.mark.asyncio
+async def test_video_preserves_repeated_event_target_when_another_bird_dominates_full_frames(
+    mock_tflite,
+    mock_os_path_exists,
+    monkeypatch,
+):
+    model = types.SimpleNamespace(loaded=True, labels=["Cardinalis cardinalis", "Baeolophus bicolor"])
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+    service._models["bird"] = model
+    full = Image.new("RGB", (100, 100), "red")
+    crop = Image.new("RGB", (40, 40), "blue")
+    monkeypatch.setattr(
+        service,
+        "_video_frame_candidates",
+        lambda image, **kwargs: [
+            VideoFrameCandidate("full_frame", full, None),
+            VideoFrameCandidate("model_crop", crop, (10, 20, 50, 60), (15, 25, 45, 55), 0.9),
+        ],
+    )
+    monkeypatch.setattr(
+        service,
+        "_classify_raw_with_runtime_recovery",
+        lambda image, **kwargs: (
+            np.array([0.04, 0.96]) if image is crop else np.array([0.92, 0.08]),
+            model,
+        ),
+    )
+    monkeypatch.setattr(
+        classifier_service_module,
+        "_read_selected_video_frames",
+        lambda cap, indices: iter((int(index), True, np.zeros((100, 100, 3), dtype=np.uint8)) for index in indices),
+    )
+    with patch("app.services.classifier_service.cv2.VideoCapture") as capture:
+        capture.return_value.isOpened.return_value = True
+        capture.return_value.get.side_effect = lambda prop: 30 if prop == 7 else 10
+        results = service.classify_video(
+            "/tmp/clip.mp4",
+            max_frames=5,
+            input_context={
+                "event_target_labels": ["Baeolophus bicolor"],
+                "include_video_diagnostics": True,
+            },
+        )
+    assert results[0]["label"] == "Baeolophus bicolor"
+    assert results[0]["input_source"] == "model_crop"
+    assert results[0]["temporal_supporting_frames"] == 5
+    evidence = results[0]["_video_snapshot_evidence"]
+    assert evidence["crop_box"] == [10, 20, 50, 60]
+    assert evidence["frame_width"] == evidence["frame_height"] == 100
+    assert evidence["score"] == pytest.approx(0.96)
+    assert evidence["frame_index"] == 0
+    await service.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_personalization_cannot_replace_a_verified_event_target(mock_tflite, mock_os_path_exists, monkeypatch):
+    result = {"label": "Baeolophus bicolor", "score": 0.96, "index": 1, "event_target_selected": True}
+    supervisor = types.SimpleNamespace(classify_video=AsyncMock(return_value=[result]))
+    monkeypatch.setattr(settings.classification, "personalized_rerank_enabled", True)
+    monkeypatch.setattr(settings.classification, "image_execution_mode", "subprocess")
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService(supervisor=supervisor)
+    with patch.object(classifier_service_module.personalization_service, "rerank", new=AsyncMock()) as rerank:
+        assert await service.classify_video_async("/tmp/clip.mp4", camera_name="cam") == [result]
+        rerank.assert_not_awaited()
+    await service.shutdown()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("localized_bird", [True, False])
+async def test_video_photo_does_not_select_high_species_confidence_without_a_localized_bird(
+    mock_tflite,
+    mock_os_path_exists,
+    monkeypatch,
+    localized_bird,
+):
+    model = types.SimpleNamespace(loaded=True, labels=["Baeolophus bicolor", "Cardinalis cardinalis"])
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+    service._models["bird"] = model
+    empty_hint = Image.new("RGB", (40, 40), "gray")
+    bird = Image.new("RGB", (40, 40), "blue")
+    monkeypatch.setattr(
+        service,
+        "_video_frame_candidates",
+        lambda image, **kwargs: [
+            VideoFrameCandidate("full_frame", image, None),
+            VideoFrameCandidate("frigate_hint_crop", empty_hint, (60, 0, 100, 40)),
+            *(
+                [VideoFrameCandidate("model_crop", bird, (10, 20, 50, 60), (15, 25, 45, 55), 0.9)]
+                if localized_bird
+                else []
+            ),
+        ],
+    )
+    monkeypatch.setattr(
+        service,
+        "_classify_raw_with_runtime_recovery",
+        lambda image, **kwargs: (
+            np.array([0.82, 0.18]) if image is bird else np.array([0.99, 0.01]),
+            model,
+        ),
+    )
+    monkeypatch.setattr(
+        classifier_service_module,
+        "_read_selected_video_frames",
+        lambda cap, indices: iter((int(index), True, np.zeros((100, 100, 3), dtype=np.uint8)) for index in indices),
+    )
+    with patch("app.services.classifier_service.cv2.VideoCapture") as capture:
+        capture.return_value.isOpened.return_value = True
+        capture.return_value.get.side_effect = lambda prop: 30 if prop == 7 else 10
+        result = service.classify_video("/tmp/clip.mp4", max_frames=5)[0]
+    assert result["label"] == "Baeolophus bicolor"
+    evidence = result["_video_snapshot_evidence"]
+    if localized_bird:
+        assert evidence["input_source"] == "model_crop"
+        assert evidence["crop_box"] == [10, 20, 50, 60]
+        assert evidence["score"] == pytest.approx(0.82)
+        assert evidence["presence_source"] == "bird_crop_detector"
+    else:
+        assert evidence is None
+    await service.shutdown()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("detector_confidence", [0.03, 0.9])
+async def test_video_photo_keeps_actual_detector_evidence_and_rejects_exploratory_proposals(
+    mock_tflite,
+    mock_os_path_exists,
+    monkeypatch,
+    detector_confidence,
+):
+    from app.services.bird_crop_service import BirdCropService
+
+    model = types.SimpleNamespace(loaded=True, labels=["Baeolophus bicolor", "Cardinalis cardinalis"])
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+    service._models["bird"] = model
+    cropper = BirdCropService()
+    service._bird_crop_service = cropper
+    monkeypatch.setattr(cropper, "get_status", lambda: {"installed": True, "enabled_for_runtime": True})
+    monkeypatch.setattr(cropper, "_ensure_model_for_tier", lambda tier: object())
+    monkeypatch.setattr(
+        cropper,
+        "_infer_candidates",
+        lambda model, image: [
+            {"box": (200, 200, 240, 240), "confidence": detector_confidence},
+        ],
+    )
+    monkeypatch.setattr(
+        service,
+        "_classify_raw_with_runtime_recovery",
+        lambda image, **kwargs: (
+            np.array([0.99, 0.01]),
+            model,
+        ),
+    )
+    monkeypatch.setattr(
+        classifier_service_module,
+        "_read_selected_video_frames",
+        lambda cap, indices: iter((int(index), True, np.zeros((600, 600, 3), dtype=np.uint8)) for index in indices),
+    )
+    with patch("app.services.classifier_service.cv2.VideoCapture") as capture:
+        capture.return_value.isOpened.return_value = True
+        capture.return_value.get.side_effect = lambda prop: 30 if prop == 7 else 10
+        result = service.classify_video("/tmp/clip.mp4", max_frames=5)[0]
+    assert result["label"] == "Baeolophus bicolor"
+    evidence = result["_video_snapshot_evidence"]
+    if detector_confidence < 0.08:
+        assert evidence is None
+    else:
+        assert evidence["bird_box"] == [200, 200, 240, 240]
+        assert evidence["crop_box"] != evidence["bird_box"]
+        assert evidence["detector_confidence"] == pytest.approx(detector_confidence)
+    await service.shutdown()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("targets", [["Baeolophus bicolor"], []])
+async def test_empty_frigate_hint_search_does_not_depend_on_species_provenance(
+    targets,
+    mock_tflite,
+    mock_os_path_exists,
+    monkeypatch,
+):
+    class Detector:
+        def generate_video_classification_candidate_crops(self, image, *, max_crops):
+            return [{"crop_image": image.crop((60, 60, 90, 90)), "box": (60, 60, 90, 90)}]
+
+        def get_status(self):
+            return {"installed": True, "enabled_for_runtime": True}
+
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+    service._bird_crop_service = Detector()
+    monkeypatch.setattr(service, "_resolve_model_candidate_crop", lambda image, **kwargs: None)
+    candidates = service._video_frame_candidates(
+        Image.new("RGB", (100, 100)),
+        input_context=classifier_service_module._normalize_classification_input_context(
+            {
+                "frigate_box": [0.1, 0.1, 0.78, 0.78],
+                "event_target_labels": targets,
+            }
+        ),
+    )
+    assert [candidate.source for candidate in candidates] == ["full_frame", "frigate_hint_crop", "model_crop"]
+    assert candidates[-1][2] == (60, 60, 90, 90)
+    await service.shutdown()
 
 
 @pytest.mark.asyncio
@@ -168,7 +380,11 @@ def mock_os_path_exists():
 
 
 @pytest.fixture(autouse=True)
-def force_in_process_mode():
+def force_in_process_mode(monkeypatch, tmp_path):
+    # Unit tests own provider capabilities. Installed-model gates exercise the
+    # real accelerator; constructor tests must not probe the host repeatedly.
+    monkeypatch.setattr(classifier_service_module, "_detect_cuda_hardware_available", lambda: False)
+    monkeypatch.setenv("OPENVINO_CACHE_DIR", str(tmp_path / "openvino-cache"))
     original_mode = settings.classification.image_execution_mode
     settings.classification.image_execution_mode = "in_process"
     try:
@@ -184,7 +400,7 @@ def test_runtime_benchmark_is_opt_in_by_default(monkeypatch):
 
 
 def _stub_init_bird_model(self):
-    self._models["bird"] = MagicMock(loaded=True, error=None, labels=[])
+    self._models["bird"] = MagicMock(loaded=True, error=None, labels=[], model_path="", labels_path="")
 
 
 class _FallbackReadyModel:
@@ -365,6 +581,48 @@ def test_model_instance_quantizes_int8_input_and_dequantizes_int8_output():
     assert results[0]["score"] == pytest.approx(1.0)
 
 
+def test_a_uint8_model_gets_its_pixels_unchanged_whatever_its_input_quantization():
+    """The bundled MobileNet (Coral, uint8 in, scale 1/128, zero point 128) consumes raw RGB bytes.
+
+    Quantizing the pixels again with that scale sent 128 * x + 128, so every pixel above 0 saturated
+    at 255 and the model saw a white image: it named almost everything American White Pelican and
+    scored 0.3% top-1 in a model evaluation.
+    """
+    model = ModelInstance("test", "model.tflite", "labels.txt", preprocessing={"normalization": "uint8"})
+    interpreter = MagicMock()
+    interpreter.get_tensor.return_value = np.array([[0, 255]], dtype=np.uint8)
+    model.interpreter = interpreter
+    model.loaded = True
+    model.labels = ["Bird A", "Bird B"]
+    model.input_details = [
+        {
+            "shape": [1, 1, 1, 3],
+            "dtype": np.uint8,
+            "index": 0,
+            "quantization_parameters": {
+                "scales": np.array([0.0078125], dtype=np.float32),
+                "zero_points": np.array([128], dtype=np.int32),
+            },
+        }
+    ]
+    model.output_details = [
+        {
+            "dtype": np.uint8,
+            "index": 0,
+            "quantization_parameters": {
+                "scales": np.array([1.0 / 256.0], dtype=np.float32),
+                "zero_points": np.array([0], dtype=np.int32),
+            },
+        }
+    ]
+
+    model.classify(Image.new("RGB", (1, 1), color=(0, 128, 255)))
+
+    input_payload = interpreter.set_tensor.call_args.args[1]
+    assert input_payload.dtype == np.uint8
+    assert input_payload.tolist() == [[[[0, 128, 255]]]]
+
+
 def test_model_instance_rejects_int8_input_without_quantization_metadata():
     model = ModelInstance("test", "model.tflite", "labels.txt")
     model.interpreter = MagicMock()
@@ -430,7 +688,8 @@ def test_onnx_model_instance_surfaces_runtime_failure_for_provider_recovery(meth
     assert "CUDA execution provider failed" in exc.value.detail
 
 
-def test_onnx_model_instance_preloads_cuda_runtime_before_cuda_session_creation():
+@pytest.mark.parametrize("active_provider", ["CUDAExecutionProvider", "CPUExecutionProvider"])
+def test_onnx_model_instance_preloads_cuda_and_guards_only_sessions_created_on_cuda(active_provider):
     model = ONNXModelInstance(
         "test",
         "model.onnx",
@@ -441,6 +700,7 @@ def test_onnx_model_instance_preloads_cuda_runtime_before_cuda_session_creation(
 
     mock_session_options = MagicMock()
     mock_session = MagicMock()
+    mock_session.get_providers.return_value = [active_provider]
 
     with (
         patch("app.services.classifier_service.ONNX_AVAILABLE", True),
@@ -458,6 +718,13 @@ def test_onnx_model_instance_preloads_cuda_runtime_before_cuda_session_creation(
     assert success is True
     mock_preload.assert_called_once_with()
     mock_ort.InferenceSession.assert_called_once()
+    assert model._session_primary_provider == active_provider
+    if active_provider == "CUDAExecutionProvider":
+        mock_session.disable_fallback.assert_called_once_with()
+    else:
+        mock_session.disable_fallback.assert_not_called()
+    model.cleanup()
+    assert model._session_primary_provider is None
 
 
 def test_onnx_model_probe_reports_active_provider_and_output_summary():
@@ -593,6 +860,28 @@ def test_model_preprocess_center_crop_removes_outer_edge_bands(factory):
     assert float(arr[:, -1, 0].mean()) > 0.8
     assert float(arr[:, -1, 1].mean()) < 0.2
     assert float(arr[:, -1, 2].mean()) < 0.2
+
+
+@pytest.mark.parametrize("rounding", [None, "round", "floor"])
+@pytest.mark.parametrize("size", [(137, 301), (301, 137)])
+def test_center_crop_resize_rounding_is_explicit_and_preserves_existing_default(rounding, size):
+    from app.services.classifier_service import _resize_with_preprocessing
+
+    width, height = size
+    pixels = np.random.default_rng(13).integers(0, 256, (height, width, 3), dtype=np.uint8)
+    image = Image.fromarray(pixels)
+    preprocessing = {"resize_mode": "center_crop", "interpolation": "bicubic", "crop_pct": 0.875}
+    if rounding is not None:
+        preprocessing["resize_rounding"] = rounding
+    resize_long_edge = int(301 * 384 / 137) if rounding == "floor" else round(301 * 384 / 137)
+    resized_size = (384, resize_long_edge) if width < height else (resize_long_edge, 384)
+    expected = image.resize(resized_size, Image.Resampling.BICUBIC)
+    left, top = (round((edge - 336) / 2) for edge in resized_size)
+    expected = expected.crop((left, top, left + 336, top + 336))
+
+    actual = _resize_with_preprocessing(image, 336, preprocessing=preprocessing)
+
+    np.testing.assert_array_equal(np.asarray(actual), np.asarray(expected))
 
 
 @pytest.mark.parametrize(
@@ -946,6 +1235,11 @@ async def test_classifier_service_subprocess_status_tracks_live_in_flight_reques
 async def test_classifier_service_subprocess_live_reclaims_stale_capacity_for_next_request(
     mock_tflite, mock_os_path_exists, monkeypatch
 ):
+    import time
+    from app.services import classification_admission as admission_module
+
+    clock = [time.monotonic()]
+    monkeypatch.setattr(admission_module, "time", types.SimpleNamespace(monotonic=lambda: clock[0], time=time.time))
     original_mode = settings.classification.image_execution_mode
     original_toggle = settings.classification.personalized_rerank_enabled
     original_live_workers = settings.classification.live_worker_count
@@ -955,7 +1249,7 @@ async def test_classifier_service_subprocess_live_reclaims_stale_capacity_for_ne
     monkeypatch.setattr(
         classifier_service_module,
         "CLASSIFIER_LIVE_IMAGE_LEASE_TIMEOUT_SECONDS",
-        0.01,
+        60.0,
         raising=False,
     )
 
@@ -968,10 +1262,12 @@ async def test_classifier_service_subprocess_live_reclaims_stale_capacity_for_ne
             first_task = asyncio.create_task(service.classify_async_live(img, camera_name="front"))
             await asyncio.wait_for(supervisor.started.wait(), timeout=1.0)
 
+            # Expire the admitted lease after encoding reaches the worker, independent of host speed.
+            clock[0] += 61.0
             with pytest.raises(ClassificationLeaseExpiredError):
-                await asyncio.wait_for(first_task, timeout=0.2)
+                await asyncio.wait_for(first_task, timeout=2.0)
 
-            results = await asyncio.wait_for(service.classify_async_live(img, camera_name="front"), timeout=0.2)
+            results = await asyncio.wait_for(service.classify_async_live(img, camera_name="front"), timeout=2.0)
 
             assert results[0]["label"] == "Blackbird"
             assert supervisor.abort_calls
@@ -1367,15 +1663,15 @@ async def test_init_bird_model_falls_through_when_runtime_fallback_load_fails(mo
         "supported_inference_providers": ["intel_gpu", "intel_cpu", "cpu"],
     }
 
-    openvino_model = MagicMock()
+    openvino_model = MagicMock(model_path="", labels_path="")
     openvino_model.load.return_value = False
     openvino_model.error = "openvino compile failed"
 
-    onnx_fallback_model = MagicMock()
+    onnx_fallback_model = MagicMock(model_path="", labels_path="")
     onnx_fallback_model.load.return_value = False
     onnx_fallback_model.error = "onnx fallback failed"
 
-    tflite_fallback_model = MagicMock()
+    tflite_fallback_model = MagicMock(model_path="", labels_path="")
     tflite_fallback_model.loaded = True
     tflite_fallback_model.error = None
     tflite_fallback_model.labels = []
@@ -1439,7 +1735,7 @@ async def test_init_bird_model_surfaces_model_config_provider_warning_in_status(
         ],
     }
 
-    bird_model = MagicMock()
+    bird_model = MagicMock(model_path="", labels_path="")
     bird_model.loaded = True
     bird_model.error = None
     bird_model.labels = []
@@ -1515,13 +1811,13 @@ async def test_init_bird_model_refuses_slow_openvino_gpu_runtime_and_exposes_ben
         "supported_inference_providers": ["intel_gpu", "intel_cpu", "cpu"],
     }
 
-    gpu_model = MagicMock()
+    gpu_model = MagicMock(model_path="", labels_path="")
     gpu_model.load.return_value = True
     gpu_model.error = None
     gpu_model.labels = []
     gpu_model.get_status.return_value = {"loaded": True, "runtime": "openvino", "device": "GPU"}
 
-    cpu_fallback = MagicMock()
+    cpu_fallback = MagicMock(model_path="", labels_path="")
     cpu_fallback.load.return_value = True
     cpu_fallback.error = None
     cpu_fallback.labels = []
@@ -1600,7 +1896,7 @@ async def test_init_bird_model_mounts_openvino_gpu_when_runtime_benchmark_passes
         "supported_inference_providers": ["intel_gpu", "intel_cpu", "cpu"],
     }
 
-    gpu_model = MagicMock()
+    gpu_model = MagicMock(model_path="", labels_path="")
     gpu_model.load.return_value = True
     gpu_model.error = None
     gpu_model.labels = []
@@ -1667,14 +1963,14 @@ async def test_init_bird_model_refuses_slow_onnxruntime_cuda_and_exposes_benchma
         "supported_inference_providers": ["cuda", "cpu"],
     }
 
-    cuda_model = MagicMock()
+    cuda_model = MagicMock(model_path="", labels_path="")
     cuda_model.load.return_value = True
     cuda_model.error = None
     cuda_model.labels = []
     cuda_model.session.get_providers.return_value = ["CUDAExecutionProvider", "CPUExecutionProvider"]
     cuda_model.get_status.return_value = {"loaded": True, "runtime": "onnx"}
 
-    cpu_fallback = MagicMock()
+    cpu_fallback = MagicMock(model_path="", labels_path="")
     cpu_fallback.load.return_value = True
     cpu_fallback.error = None
     cpu_fallback.labels = []
@@ -1750,7 +2046,7 @@ async def test_init_bird_model_mounts_onnxruntime_cuda_when_runtime_benchmark_pa
         "supported_inference_providers": ["cuda", "cpu"],
     }
 
-    cuda_model = MagicMock()
+    cuda_model = MagicMock(model_path="", labels_path="")
     cuda_model.load.return_value = True
     cuda_model.error = None
     cuda_model.labels = []
@@ -1960,7 +2256,9 @@ async def test_classify_video_ignores_unknown_frames_when_known_evidence_exists(
 
     with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
         service = ClassifierService()
-        service._models["bird"] = MagicMock(loaded=True, labels=["Unknown", "Robin", "Blue Jay"])
+        service._models["bird"] = MagicMock(
+            model_path="", labels_path="", loaded=True, labels=["Unknown", "Robin", "Blue Jay"]
+        )
         monkeypatch.setattr("cv2.VideoCapture", _FakeCapture)
         monkeypatch.setattr(service, "_classify_raw_with_runtime_recovery", _fake_classify_raw)
 
@@ -3173,7 +3471,7 @@ async def test_register_gpu_unhealthy_signal_triggers_fallback_from_maintenance_
     """Maintenance video timeouts should trigger the same GPU fallback as live
     lease expiries. Exercises the issue-33 path where overnight batch runs see
     no live traffic to surface an unhealthy Intel GPU on their own."""
-    fallback_model = MagicMock(loaded=True, error=None)
+    fallback_model = MagicMock(model_path="", labels_path="", loaded=True, error=None)
     with patch.object(ClassifierService, "_init_bird_model", return_value=None):
         monkeypatch.setattr(
             classifier_service_module,
@@ -3188,7 +3486,9 @@ async def test_register_gpu_unhealthy_signal_triggers_fallback_from_maintenance_
         service._accel_caps["intel_gpu_available"] = True
         service._accel_caps["intel_cpu_available"] = True
         service._load_runtime_fallback_bird_model = MagicMock(
-            return_value=(fallback_model, "openvino", "intel_cpu", "maintenance fallback")
+            model_path="",
+            labels_path="",
+            return_value=(fallback_model, "openvino", "intel_cpu", "maintenance fallback"),
         )
 
         service.register_gpu_unhealthy_signal("maintenance_video_timeout", event_id="evt-1")
@@ -3211,7 +3511,7 @@ async def test_register_gpu_unhealthy_signal_triggers_fallback_from_maintenance_
 async def test_register_gpu_unhealthy_signal_uses_inference_health_verdict_for_fallback(
     mock_tflite, mock_os_path_exists, monkeypatch
 ):
-    fallback_model = MagicMock(loaded=True, error=None)
+    fallback_model = MagicMock(model_path="", labels_path="", loaded=True, error=None)
     with patch.object(ClassifierService, "_init_bird_model", return_value=None):
         monkeypatch.setattr(
             classifier_service_module,
@@ -3226,7 +3526,9 @@ async def test_register_gpu_unhealthy_signal_uses_inference_health_verdict_for_f
         service._accel_caps["intel_gpu_available"] = True
         service._accel_caps["intel_cpu_available"] = True
         service._load_runtime_fallback_bird_model = MagicMock(
-            return_value=(fallback_model, "openvino", "intel_cpu", "inference health fallback")
+            model_path="",
+            labels_path="",
+            return_value=(fallback_model, "openvino", "intel_cpu", "inference health fallback"),
         )
         runtime_key = classifier_service_module.RuntimeKey.from_values(
             "openvino",
@@ -3252,7 +3554,7 @@ async def test_register_gpu_unhealthy_signal_uses_inference_health_verdict_for_f
 async def test_register_gpu_unhealthy_signal_does_not_depend_on_legacy_signal_deque(
     mock_tflite, mock_os_path_exists, monkeypatch
 ):
-    fallback_model = MagicMock(loaded=True, error=None)
+    fallback_model = MagicMock(model_path="", labels_path="", loaded=True, error=None)
     with patch.object(ClassifierService, "_init_bird_model", return_value=None):
         monkeypatch.setattr(
             classifier_service_module,
@@ -3267,7 +3569,9 @@ async def test_register_gpu_unhealthy_signal_does_not_depend_on_legacy_signal_de
         service._accel_caps["intel_gpu_available"] = True
         service._accel_caps["intel_cpu_available"] = True
         service._load_runtime_fallback_bird_model = MagicMock(
-            return_value=(fallback_model, "openvino", "intel_cpu", "inference health fallback")
+            model_path="",
+            labels_path="",
+            return_value=(fallback_model, "openvino", "intel_cpu", "inference health fallback"),
         )
         runtime_key = classifier_service_module.RuntimeKey.from_values(
             "openvino",
@@ -3301,7 +3605,7 @@ async def test_register_gpu_unhealthy_signal_does_not_double_count_live_lease_ex
         service._inference_backend = "openvino"
         service._active_inference_provider = "intel_gpu"
         service._image_execution_mode = "in_process"
-        service._load_runtime_fallback_bird_model = MagicMock()
+        service._load_runtime_fallback_bird_model = MagicMock(model_path="", labels_path="")
         runtime_key = classifier_service_module.RuntimeKey.from_values(
             "openvino",
             "intel_gpu",
@@ -3331,7 +3635,7 @@ async def test_register_gpu_unhealthy_signal_noop_off_openvino_intel_gpu(mock_tf
         service._inference_backend = "onnxruntime"
         service._active_inference_provider = "cpu"
         service._image_execution_mode = "in_process"
-        service._load_runtime_fallback_bird_model = MagicMock()
+        service._load_runtime_fallback_bird_model = MagicMock(model_path="", labels_path="")
 
         service.register_gpu_unhealthy_signal("maintenance_video_timeout")
         service._load_runtime_fallback_bird_model.assert_not_called()
@@ -3873,7 +4177,7 @@ async def test_classifier_service_classify_video_forwards_input_context_to_frame
 
     with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
         service = ClassifierService()
-        service._models["bird"] = MagicMock(labels=["Robin", "Sparrow"])
+        service._models["bird"] = MagicMock(model_path="", labels_path="", labels=["Robin", "Sparrow"])
         monkeypatch.setattr("cv2.VideoCapture", _FakeCapture)
         monkeypatch.setattr(service, "_classify_raw_with_runtime_recovery", _fake_classify_raw)
 
@@ -3954,6 +4258,7 @@ async def test_classify_video_compares_frigate_crop_when_model_crop_policy_is_di
             max_frames=3,
             input_context={
                 "is_cropped": False,
+                "clip_start_timestamp": 100.0,
                 "event_id": "evt-distant-bird",
                 "frigate_box": [0.1, 0.1, 0.78, 0.78],
             },
@@ -3962,13 +4267,14 @@ async def test_classify_video_compares_frigate_crop_when_model_crop_policy_is_di
         assert results[0]["label"] == "Wood Pigeon"
         assert results[0]["input_source"] == "frigate_hint_crop"
         assert results[0]["input_is_cropped"] is True
-        assert model.seen_sizes.count((100, 100)) == 3
-        assert len([size for size in model.seen_sizes if size != (100, 100)]) == 3
+        assert model.seen_sizes.count((100, 100)) == 0
+        assert model.seen_sizes.count((78, 78)) == 3
+        assert model.seen_sizes.count((96, 96)) == 3
         await service.shutdown()
 
 
 @pytest.mark.asyncio
-async def test_classify_video_abstains_when_full_frame_and_frigate_crop_disagree(
+async def test_classify_video_prioritizes_tracked_bird_when_full_frame_shows_another_species(
     mock_tflite, mock_os_path_exists, monkeypatch
 ):
     class _DisagreeingBirdModel:
@@ -3991,10 +4297,11 @@ async def test_classify_video_abstains_when_full_frame_and_frigate_crop_disagree
         results = service.classify_video(
             "/tmp/demo.mp4",
             max_frames=3,
-            input_context={"is_cropped": False, "frigate_box": [0.1, 0.1, 0.78, 0.78]},
+            input_context={"is_cropped": False, "clip_start_timestamp": 100.0, "frigate_box": [0.1, 0.1, 0.78, 0.78]},
         )
 
-        assert results == []
+        assert results[0]["label"] == "Sparrowhawk"
+        assert results[0]["input_source"] == "frigate_hint_crop"
         await service.shutdown()
 
 
@@ -4085,9 +4392,17 @@ async def test_classify_video_uses_dynamic_model_crop_when_no_frigate_hint_exist
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("reuse_scene", [False, True])
+@pytest.mark.parametrize("missing_safe_open", [False, True])
 async def test_classify_video_accepts_three_sparse_independent_model_crops_in_a_long_visit(
-    mock_tflite, mock_os_path_exists, monkeypatch
+    mock_tflite, mock_os_path_exists, monkeypatch, tmp_path, reuse_scene, missing_safe_open
 ):
+    import os
+
+    if missing_safe_open:
+        monkeypatch.delattr(os, "O_NOFOLLOW", raising=False)
+    can_share_scene = bool(getattr(os, "O_NOFOLLOW", None))
+
     class _FrameAwareBirdModel:
         loaded = True
         labels = ["Wood Pigeon", "Sparrowhawk"]
@@ -4111,6 +4426,7 @@ async def test_classify_video_accepts_three_sparse_independent_model_crops_in_a_
             return {
                 "crop_image": image.crop((20, 20, 80, 80)),
                 "box": (20, 20, 80, 80),
+                "detector_box": (20, 20, 80, 80),
                 "confidence": 0.82,
                 "reason": "selected",
             }
@@ -4149,10 +4465,17 @@ async def test_classify_video_accepts_three_sparse_independent_model_crops_in_a_
         monkeypatch.setattr(classifier_service_module.cv2, "cvtColor", lambda frame, _code: frame)
         monkeypatch.setattr(settings.classification, "min_confidence", 0.45)
 
+        clip = tmp_path / "sparse-visit.mp4"
+        clip.write_bytes(b"test decoder owns pixels")
+        directory = tmp_path / "scenes"
+        directory.mkdir()
+        context = {"is_cropped": False, "include_video_diagnostics": True}
+        if reuse_scene:
+            context["_video_scene_directory"] = str(directory)
         results = service.classify_video(
-            "/tmp/sparse-visit.mp4",
+            str(clip),
             max_frames=30,
-            input_context={"is_cropped": False, "include_video_diagnostics": True},
+            input_context=context,
         )
 
         assert results[0]["label"] == "Wood Pigeon"
@@ -4173,6 +4496,18 @@ async def test_classify_video_accepts_three_sparse_independent_model_crops_in_a_
             "bird_inference",
             "total",
         }
+        if reuse_scene:
+            from app.services.video_scene_cache import VideoSceneCache
+
+            cache = VideoSceneCache()
+            assert diagnostics["performance"]["winning_scene"]["saved"] is can_share_scene
+            assert cache.load(directory, clip, "event") is can_share_scene
+            scene = cache.scene_for(clip, "event", results[0]["_video_snapshot_evidence"])
+            if can_share_scene:
+                assert scene is not None and scene.size == (100, 100)
+            else:
+                assert scene is None
+                assert list(directory.iterdir()) == []
         await service.shutdown()
 
 
@@ -4213,7 +4548,7 @@ async def test_video_model_crop_uses_frigate_hint_as_guided_search_region(
             input_context=input_context,
         )
 
-        assert [source for source, _image in candidates] == ["full_frame", "frigate_hint_crop", "model_crop"]
+        assert [candidate.source for candidate in candidates] == ["full_frame", "frigate_hint_crop", "model_crop"]
         assert crop_service.guided_calls == [((100, 100), (1, 1, 97, 97))]
         await service.shutdown()
 
@@ -4245,7 +4580,7 @@ async def test_video_frigate_hint_follows_time_aligned_tracking_path(mock_tflite
 
 
 @pytest.mark.asyncio
-async def test_video_frigate_hint_tracks_mqtt_pixel_box_using_decoded_frame_size(mock_tflite, mock_os_path_exists):
+async def test_video_withholds_pixel_tracking_size_when_detect_resolution_is_unknown(mock_tflite, mock_os_path_exists):
     with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
         service = ClassifierService()
         context = classifier_service_module._normalize_classification_input_context(
@@ -4263,7 +4598,7 @@ async def test_video_frigate_hint_tracks_mqtt_pixel_box_using_decoded_frame_size
             image_size=(100, 100),
         )
 
-        assert tracked == pytest.approx([0.4, 0.4, 0.2, 0.2])
+        assert tracked is None
         await service.shutdown()
 
 
@@ -5936,7 +6271,7 @@ async def test_classifier_status_exposes_openvino_runtime_diagnostics_block():
             },
         }
     )
-    service._models["bird"] = MagicMock()
+    service._models["bird"] = MagicMock(model_path="", labels_path="")
     service._models["bird"].get_status.return_value = {
         "loaded": True,
         "runtime": "openvino",
@@ -6535,3 +6870,110 @@ async def test_classifier_service_shutdown_closes_all_executors():
     assert service._live_image_executor._shutdown is True
     assert service._background_image_executor._shutdown is True
     assert service._video_executor._shutdown is True
+
+
+@pytest.mark.parametrize("targets", [["Haemorhous mexicanus"], []])
+def test_unknown_clip_timeline_cannot_search_for_the_event_species_in_unrelated_birds(monkeypatch, targets):
+    service = ClassifierService.__new__(ClassifierService)
+
+    class Detector:
+        def generate_video_classification_candidate_crops(self, image, *, max_crops):
+            return [
+                {"crop_image": image.crop((75, 60, 85, 80)), "box": (75, 60, 85, 80)},
+                {"crop_image": image.crop((24, 35, 29, 49)), "box": (24, 35, 29, 49)},
+            ]
+
+    service._bird_crop_service = Detector()
+    monkeypatch.setattr(service, "_resolve_frigate_hint_crop", lambda image, **kwargs: None)
+    context = classifier_service_module._normalize_classification_input_context(
+        {
+            "clip_variant": "event",
+            "frigate_region": [0.17, 0.31, 0.17, 0.30],
+            "frigate_box": [0.25, 0.35, 0.04, 0.14],
+            "frigate_path_data": [[[0.27, 0.49], 100]],
+            "event_target_labels": targets,
+        }
+    )
+    frame_context = service._video_frame_input_context(context, frame_offset_seconds=14, image_size=(100, 100))
+    candidates = service._video_frame_candidates(Image.new("RGB", (100, 100)), input_context=frame_context)
+    assert "frigate_box" not in frame_context.model_dump()
+    assert all(candidate.crop_box is not None for candidate in candidates)
+    assert not any(candidate.crop_box == (75, 60, 85, 80) for candidate in candidates)
+    assert any(candidate.crop_box == (24, 35, 29, 49) for candidate in candidates)
+    assert candidates[0][0] == "frigate_region_crop"
+
+
+@pytest.mark.parametrize("variant", ["event", "recording"])
+def test_unknown_timeline_subject_region_includes_moving_path_without_precise_hints(variant):
+    service = ClassifierService.__new__(ClassifierService)
+    context = classifier_service_module._normalize_classification_input_context(
+        {
+            "clip_variant": variant,
+            "frigate_box": [0.2, 0.3, 0.1, 0.2],
+            "frigate_region": [0.1, 0.2, 0.3, 0.4],
+            "frigate_path_data": [[[0.8, 0.9], 100], [[float("nan"), 0.5], 101], [[True, 0.5], 102]],
+        }
+    )
+    frame = service._video_frame_input_context(context, frame_offset_seconds=1, image_size=(1000, 1000)).model_dump()
+    assert frame["event_subject_region"] == pytest.approx([0.1, 0.2, 0.75, 0.7])
+    assert "frigate_box" not in frame
+    assert "frigate_region" not in frame
+
+
+def test_video_does_not_apply_detect_pixel_hints_to_a_different_recording_resolution(monkeypatch):
+    service = ClassifierService.__new__(ClassifierService)
+    service._bird_crop_service = None
+    monkeypatch.setattr(service, "_resolve_frigate_hint_crop", lambda image, **kwargs: None)
+    context = classifier_service_module._normalize_classification_input_context(
+        {
+            "frigate_box": [326, 255, 378, 353],
+            "frigate_region": [220, 230, 434, 444],
+            "frigate_path_data": [[[0.27, 0.49], 100]],
+            "clip_start_timestamp": 100,
+        }
+    )
+    frame = service._video_frame_input_context(context, frame_offset_seconds=0, image_size=(3840, 2160))
+    assert "event_subject_region" not in frame.model_dump()
+    assert "frigate_box" not in frame.model_dump()
+    assert service._video_frame_candidates(Image.new("RGB", (3840, 2160)), input_context=frame)[0][0] == "full_frame"
+
+
+@pytest.mark.asyncio
+async def test_a_video_result_carries_the_checksum_of_the_model_that_produced_it(
+    mock_tflite,
+    mock_os_path_exists,
+    monkeypatch,
+):
+    """A video result can be applied after a model switch, and regional variants share a model id, so the
+    result must name the producing weights itself."""
+    model = types.SimpleNamespace(
+        loaded=True, labels=["Baeolophus bicolor", "Cardinalis cardinalis"], loaded_artifact_sha256="c" * 64
+    )
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+    service._models["bird"] = model
+    bird = Image.new("RGB", (40, 40), "blue")
+    monkeypatch.setattr(
+        service,
+        "_video_frame_candidates",
+        lambda image, **kwargs: [
+            VideoFrameCandidate("full_frame", image, None),
+            VideoFrameCandidate("model_crop", bird, (10, 20, 50, 60), (15, 25, 45, 55), 0.9),
+        ],
+    )
+    monkeypatch.setattr(
+        service,
+        "_classify_raw_with_runtime_recovery",
+        lambda image, **kwargs: (np.array([0.82, 0.18]) if image is bird else np.array([0.99, 0.01]), model),
+    )
+    monkeypatch.setattr(
+        classifier_service_module,
+        "_read_selected_video_frames",
+        lambda cap, indices: iter((int(index), True, np.zeros((100, 100, 3), dtype=np.uint8)) for index in indices),
+    )
+    with patch("app.services.classifier_service.cv2.VideoCapture") as capture:
+        capture.return_value.isOpened.return_value = True
+        capture.return_value.get.side_effect = lambda prop: 30 if prop == 7 else 10
+        result = service.classify_video("/tmp/clip.mp4", max_frames=5)[0]
+
+    assert result["model_sha256"] == "c" * 64

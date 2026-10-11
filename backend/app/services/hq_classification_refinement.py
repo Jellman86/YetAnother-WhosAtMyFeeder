@@ -34,6 +34,8 @@ class HQClassificationRefinement:
     supporting_frame_count: int
     median_score: float
     reason: str
+    # The model that scored the winning crop, so the refinement is attributed to it.
+    model_sha256: str | None = None
 
 
 @dataclass(frozen=True)
@@ -60,7 +62,7 @@ def _valid_crop_candidates(candidates: Iterable[dict[str, Any]]) -> list[dict[st
         if not isinstance(candidate, dict):
             continue
         source_mode = str(candidate.get("source_mode") or "full_frame").strip()
-        if source_mode == "full_frame":
+        if source_mode in {"full_frame", "model_observation"}:
             continue
         label = _canonical_label(candidate.get("classifier_label"))
         if not label or should_hide_species_label(label, extra_unknown_labels=unknown_species_labels()):
@@ -229,4 +231,5 @@ def choose_hq_classification_refinement(
         supporting_frame_count=winner.supporting_frame_count,
         median_score=winner.median_score,
         reason=reason,
+        model_sha256=str(best.get("classifier_model_sha256") or "") or None,
     )

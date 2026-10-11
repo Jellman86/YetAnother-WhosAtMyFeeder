@@ -19,12 +19,14 @@
         autoPurgeMissingSnapshots = $bindable(false),
         autoAnalyzeUnknowns = $bindable(false),
         cacheRetentionDays = $bindable(0),
+        cachePerSpeciesMaximum = $bindable<number>(0),
+        cacheMaxSizeMb = $bindable<number>(0),
+        cacheAutomaticMultiBirdScan = $bindable(false),
+        cacheBirdScanMode = $bindable<'standard' | 'intensive'>('intensive'),
         cachePerSpeciesMinimum = $bindable(0),
         cleaningUp,
         clearingFavorites,
         purgingMissingMedia,
-        cacheEnabled = $bindable(true),
-        cacheSnapshots = $bindable(true),
         cacheClips = $bindable(false),
         cacheHighQualityEventSnapshots = $bindable(false),
         cacheHighQualityEventSnapshotJpegQuality = $bindable(95),
@@ -77,12 +79,14 @@
         autoPurgeMissingSnapshots: boolean;
         autoAnalyzeUnknowns: boolean;
         cacheRetentionDays: number;
+        cachePerSpeciesMaximum: number;
+        cacheMaxSizeMb: number;
+        cacheAutomaticMultiBirdScan?: boolean;
+        cacheBirdScanMode: 'standard' | 'intensive';
         cachePerSpeciesMinimum: number;
         cleaningUp: boolean;
         clearingFavorites: boolean;
         purgingMissingMedia: boolean;
-        cacheEnabled: boolean;
-        cacheSnapshots: boolean;
         cacheClips: boolean;
         cacheHighQualityEventSnapshots: boolean;
         cacheHighQualityEventSnapshotJpegQuality: number;
@@ -215,10 +219,10 @@
         autoPurgeMissingSnapshots = enabled;
     };
 
-    const buttonPrimaryClass = 'px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-brand-500 hover:bg-brand-600 text-white transition-all shadow-lg shadow-brand-500/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3';
-    const buttonNeutralClass = 'px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3';
-    const buttonAmberClass = 'px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-amber-500 hover:bg-amber-600 text-white transition-all shadow-lg shadow-amber-500/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3';
-    const buttonDangerClass = 'px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-red-500 hover:bg-red-600 text-white transition-all shadow-lg shadow-red-500/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3';
+    const buttonPrimaryClass = 'btn btn-primary min-h-11 px-4 py-3';
+    const buttonNeutralClass = 'btn btn-secondary min-h-11 px-4 py-3';
+    const buttonAmberClass = 'btn btn-danger min-h-11 px-4 py-3';
+    const buttonDangerClass = 'btn min-h-11 px-4 py-3 bg-red-700 text-white hover:bg-red-800';
 </script>
 
 {#snippet spinner()}
@@ -237,9 +241,9 @@
                 { label: $_('settings.data.retention'), val: retentionDays === 0 ? '∞' : `${retentionDays} ${$_('leaderboard.days')}` },
                 { label: $_('settings.data.pending_gc'), val: fmtCount(maintenanceStats.detections_to_cleanup), highlight: safeCount(maintenanceStats.detections_to_cleanup) > 0 }
             ] as stat}
-                <div class="card-base rounded-3xl p-6 text-center backdrop-blur-md">
-                    <p class="text-2xl font-black tracking-tight {stat.highlight ? 'text-amber-500' : 'text-slate-900 dark:text-white'}">{stat.val}</p>
-                    <p class="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mt-1">{stat.label}</p>
+                <div class="card-base rounded-2xl p-6 text-center">
+                    <p class="text-2xl font-bold tracking-tight {stat.highlight ? 'text-amber-500' : 'text-slate-900 dark:text-white'}">{stat.val}</p>
+                    <p class="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mt-1">{stat.label}</p>
                 </div>
             {/each}
         </div>
@@ -293,7 +297,7 @@
                 <SettingsRow
                     labelId="setting-maint-concurrency"
                     label={$_('settings.data.maintenance_max_concurrent', { default: 'Maintenance concurrency' })}
-                    description={$_('settings.data.maintenance_max_concurrent_help', { default: 'Per-kind default — each maintenance kind (backfill, weather backfill, video classification, taxonomy repair, timezone repair, analyze-unknowns) gets this many slots. Different kinds already run independently; increase this only if you want multiple jobs of the same kind to overlap.' })}
+                    description={$_('settings.data.maintenance_max_concurrent_help', { default: 'Best practice is 1. Increase this only if you intentionally want backfill, taxonomy repair, timezone repair, or analyze-unknowns to overlap.' })}
                     layout="stacked"
                 >
                     <SettingsInput
@@ -353,163 +357,193 @@
             </AdvancedSection>
         </SettingsCard>
 
-        <SettingsCard accent iconSnippet={cacheIcon} title={$_('settings.data.cache_title')}>
+        <SettingsCard accent iconSnippet={cacheIcon} title={$_('settings.data.cache_title', { default: 'Photos and video' })}>
+            <p class="text-sm text-slate-600 dark:text-slate-300" data-media-always-kept>
+                {$_('settings.data.cache_always_kept', { default: 'Photos, full-visit clips and previews are always kept. The limits below decide for how long and how much space they use.' })}
+            </p>
+            {#if cacheStats && cacheStats.storage_available === false}
+                <p class="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200" role="status" data-media-storage-unavailable>
+                    {$_('settings.data.cache_unavailable', { default: "The media folder can't be written, so photos and video are not being kept. Check the folder's permissions; system checks show the error." })}
+                </p>
+            {/if}
             <SettingsRow
-                labelId="setting-cache-enabled"
-                label={$_('settings.data.cache_title')}
+                labelId="setting-cache-clips"
+                label={$_('settings.data.cache_clips', { default: "Keep copies of Frigate's event clips" })}
+                description={$_('settings.data.cache_clips_help', { default: 'Frigate already keeps these. Copies survive Frigate deleting them, at about the size of the clip each.' })}
             >
                 <SettingsToggle
-                    checked={cacheEnabled}
-                    labelledBy="setting-cache-enabled"
-                    srLabel={$_('settings.data.cache_title')}
-                    onchange={(v) => (cacheEnabled = v)}
+                    checked={cacheClips}
+                    labelledBy="setting-cache-clips"
+                    srLabel={$_('settings.data.cache_clips', { default: "Keep copies of Frigate's event clips" })}
+                    onchange={(v) => (cacheClips = v)}
                 />
             </SettingsRow>
 
-            {#if cacheEnabled}
-                <SettingsRow
-                    labelId="setting-cache-snapshots"
-                    label={$_('settings.data.cache_snapshots')}
-                >
-                    <SettingsToggle
-                        checked={cacheSnapshots}
-                        labelledBy="setting-cache-snapshots"
-                        srLabel={$_('settings.data.cache_snapshots')}
-                        onchange={(v) => (cacheSnapshots = v)}
-                    />
-                </SettingsRow>
-                <SettingsRow
-                    labelId="setting-cache-clips"
-                    label={$_('settings.data.cache_clips')}
-                >
-                    <SettingsToggle
-                        checked={cacheClips}
-                        labelledBy="setting-cache-clips"
-                        srLabel={$_('settings.data.cache_clips')}
-                        onchange={(v) => (cacheClips = v)}
-                    />
-                </SettingsRow>
+            <div class="p-4 rounded-xl bg-surface-raised/70 flex items-center justify-between">
+                <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">{$_('settings.data.cache_size')}</span>
+                <span class="text-sm font-bold text-slate-900 dark:text-white">{cacheStats?.total_size_mb ?? 0} MB</span>
+            </div>
 
-                <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
-                    <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">{$_('settings.data.cache_size')}</span>
-                    <span class="text-sm font-black text-slate-900 dark:text-white">{cacheStats?.total_size_mb ?? 0} MB</span>
+            <!-- The archive is not the cache: clearing the cache leaves it alone (#178). -->
+            <div class="p-4 rounded-xl bg-surface-raised/70 flex flex-col gap-1" data-archive-usage>
+                <div class="flex items-center justify-between gap-3">
+                    <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">{$_('settings.data.archive_usage', { default: 'Archived favourites' })}</span>
+                    <span class="text-sm font-bold text-slate-900 dark:text-white">
+                        {$_('settings.data.archive_usage_detail', {
+                            values: { count: cacheStats?.archive_durable ?? 0, size: `${cacheStats?.archive_size_mb ?? 0} MB` },
+                            default: '{count} kept, {size}'
+                        })}
+                    </span>
                 </div>
+                {#if (cacheStats?.archive_failed ?? 0) > 0}
+                    <p class="text-xs text-rose-600 dark:text-rose-300" data-archive-failed>
+                        {$_('settings.data.archive_failed_count', {
+                            values: { count: cacheStats?.archive_failed ?? 0 },
+                            default: '{count} could not be archived. Open the visit to try again.'
+                        })}
+                    </p>
+                {/if}
+            </div>
 
-                <!-- The archive is not the cache: clearing the cache leaves it alone (#178). -->
-                <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex flex-col gap-1" data-archive-usage>
-                    <div class="flex items-center justify-between gap-3">
-                        <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">{$_('settings.data.archive_usage', { default: 'Archived favourites' })}</span>
-                        <span class="text-sm font-black text-slate-900 dark:text-white">
-                            {$_('settings.data.archive_usage_detail', {
-                                values: { count: cacheStats?.archive_durable ?? 0, size: `${cacheStats?.archive_size_mb ?? 0} MB` },
-                                default: '{count} kept, {size}'
-                            })}
-                        </span>
+            <SettingsRow
+                labelId="setting-cache-species-floor"
+                label={$_('settings.data.per_species_minimum', { default: 'Keep photos of the newest visits per species' })}
+                description={$_('settings.data.per_species_minimum_help', { default: "This many of each species' newest visits keep their photos after they pass the history window, so a rare bird keeps its pictures. Video is not kept longer. 0 turns this off." })}
+            >
+                <input
+                    type="number"
+                    min="0"
+                    max="10000"
+                    step="1"
+                    bind:value={cachePerSpeciesMinimum}
+                    aria-labelledby="setting-cache-species-floor"
+                    class="w-24 rounded-xl border border-slate-200 bg-white px-3 py-2 text-right text-sm font-semibold text-slate-900 focus-ring dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                />
+            </SettingsRow>
+
+            <SettingsRow
+                labelId="setting-cache-per_species_maximum"
+                label={$_('settings.data.per_species_maximum', { default: 'Most visits per species with photos and video' })}
+                description={$_('settings.data.per_species_maximum_help', { default: "A species' visits beyond this number lose their photos and video, oldest first. The visits stay in history. Favourites don't count. 0 means no limit." })}
+            >
+                <input type="number" min="0" max="10000" step="1"
+                    bind:value={cachePerSpeciesMaximum} aria-labelledby="setting-cache-per_species_maximum"
+                    class="input-base w-24 py-2 text-right font-semibold" />
+            </SettingsRow>
+
+            <SettingsRow
+                labelId="setting-cache-max_size_mb"
+                label={$_('settings.data.max_size_mb', { default: 'Storage limit (MiB)' })}
+                description={$_('settings.data.max_size_mb_help', { default: 'When photos and video use more than this, the oldest are removed first. Favourites and their archive are kept. This limit and the one above win over the photo floor. 0 means no limit.' })}
+            >
+                <input type="number" min="0" max="1048576" step="1"
+                    bind:value={cacheMaxSizeMb} aria-labelledby="setting-cache-max_size_mb"
+                    class="input-base w-24 py-2 text-right font-semibold" />
+            </SettingsRow>
+
+            <button
+                type="button"
+                onclick={handleCacheCleanup}
+                disabled={cleaningCache}
+                aria-label={$_('settings.data.cache_clear_button')}
+                class="w-full {buttonNeutralClass}"
+            >
+                {cleaningCache ? $_('settings.data.cleaning') : $_('settings.data.cache_clear_button')}
+            </button>
+
+            <AdvancedSection
+                id="data-cache-advanced"
+                title={$_('settings.data.cache_advanced_title', { default: 'Snapshot quality' })}
+            >
+                <SettingsRow
+                    labelId="setting-cache-hq"
+                    label={$_('settings.data.cache_high_quality_event_snapshots', { default: 'Best available event snapshots' })}
+                    description={`${$_('settings.data.cache_high_quality_event_snapshots_help', { default: 'After an event ends, choose the clearest main-stream frame and best crop available. The full frame is kept when a reliable crop cannot be made.' })} ${$_('settings.data.cache_high_quality_storage_note', { default: 'Each visit then also keeps full-resolution frames, often several MB, so set a storage limit if space is tight.' })}`}
+                >
+                    <SettingsToggle
+                        checked={cacheHighQualityEventSnapshots}
+                        labelledBy="setting-cache-hq"
+                        srLabel={$_('settings.data.cache_high_quality_event_snapshots', { default: 'Best available event snapshots' })}
+                        onchange={(v) => (cacheHighQualityEventSnapshots = v)}
+                    />
+                </SettingsRow>
+
+                <SettingsRow
+                    labelId="setting-automatic-multi-bird-scan"
+                    layout="stacked"
+                    label={$_('settings.data.automatic_multi_bird_scan', { default: 'Automatically find additional birds' })}
+                    description={$_('settings.data.automatic_multi_bird_scan_help', { default: 'Off by default to reduce processing. Normal bird identification and the target bird’s crop continue, and existing findings are kept. Use Find more birds on a photograph whenever you need a scan. When enabled, scans run on retained whole frames.' })}
+                >
+                    <SettingsToggle labelledBy="setting-automatic-multi-bird-scan" checked={cacheAutomaticMultiBirdScan}
+                        srLabel={$_('settings.data.automatic_multi_bird_scan', { default: 'Automatically find additional birds' })}
+                        onchange={(value) => (cacheAutomaticMultiBirdScan = value)} />
+                </SettingsRow>
+
+                <SettingsRow
+                    labelId="setting-bird-scan-mode"
+                    label={$_('settings.data.bird_scan_mode', { default: 'Bird scanning effort' })}
+                    description={$_('settings.data.bird_scan_mode_help', { default: 'Applies to manual and automatic scans. Standard uses less CPU. Intensive also searches tiles in large frames and classifies more crop choices. Neither guarantees every bird is found.' })}
+                    layout="stacked"
+                >
+                    <SettingsSelect id="bird-scan-mode" value={cacheBirdScanMode}
+                        ariaLabel={$_('settings.data.bird_scan_mode', { default: 'Bird scanning effort' })}
+                        options={[
+                            { value: 'standard', label: $_('settings.data.bird_scan_standard', { default: 'Standard' }) },
+                            { value: 'intensive', label: $_('settings.data.bird_scan_intensive', { default: 'Intensive' }) }
+                        ]}
+                        onchange={(v) => (cacheBirdScanMode = v === 'standard' ? 'standard' : 'intensive')}
+                    />
+                </SettingsRow>
+                {#if cacheHighQualityEventSnapshots}
+                    <div class="flex items-start gap-3 border-l-2 {cropDetectorReady ? 'border-success-400' : 'border-slate-300 dark:border-slate-600'} py-1 pl-3">
+                        <svg class="mt-0.5 h-4 w-4 flex-none {cropDetectorReady ? 'text-success-500' : 'text-slate-400'}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            {#if cropDetectorReady}
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                            {:else}
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7V4h3m10 0h3v3M4 17v3h3m10 0h3v-3M8 12h8" />
+                            {/if}
+                        </svg>
+                        <div class="min-w-0">
+                            <p class="text-sm font-bold text-slate-700 dark:text-slate-200">
+                                {cropDetectorReady
+                                    ? $_('settings.data.cache_crop_detector_ready', { default: 'Crop detector ready' })
+                                    : $_('settings.data.cache_crop_fallback_ready', { default: 'Frigate tracking fallback ready' })}
+                            </p>
+                            <p class="mt-0.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                                {cropDetectorReady
+                                    ? $_('settings.data.cache_crop_detector_ready_help', { default: 'Frigate tracking hints and the crop detectors are evaluated automatically.' })
+                                    : $_('settings.data.cache_crop_fallback_ready_help', { default: 'Frigate tracking hints are used automatically; detector crops join in when a model is installed.' })}
+                            </p>
+                        </div>
                     </div>
-                    {#if (cacheStats?.archive_failed ?? 0) > 0}
-                        <p class="text-xs text-rose-600 dark:text-rose-300" data-archive-failed>
-                            {$_('settings.data.archive_failed_count', {
-                                values: { count: cacheStats?.archive_failed ?? 0 },
-                                default: '{count} could not be archived. Open the visit to try again.'
-                            })}
-                        </p>
-                    {/if}
-                </div>
 
-                <SettingsRow
-                    labelId="setting-cache-species-floor"
-                    label={$_('settings.data.per_species_minimum', { default: 'Keep the newest per species' })}
-                    description={$_('settings.data.per_species_minimum_help', { default: 'The newest visits of each species, and their cached photographs, stay through age cleanup. 0 turns this off. Clips are not held.' })}
-                >
-                    <input
-                        type="number"
-                        min="0"
-                        max="10000"
-                        step="1"
-                        bind:value={cachePerSpeciesMinimum}
-                        aria-labelledby="setting-cache-species-floor"
-                        class="w-24 rounded-xl border border-slate-200 bg-white px-3 py-2 text-right text-sm font-semibold text-slate-900 focus-ring dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                    />
-                </SettingsRow>
-
-                <button
-                    type="button"
-                    onclick={handleCacheCleanup}
-                    disabled={cleaningCache}
-                    aria-label={$_('settings.data.cache_clear_button')}
-                    class="w-full {buttonNeutralClass}"
-                >
-                    {cleaningCache ? $_('settings.data.cleaning') : $_('settings.data.cache_clear_button')}
-                </button>
-
-                <AdvancedSection
-                    id="data-cache-advanced"
-                    title={$_('settings.data.cache_advanced_title', { default: 'Snapshot quality' })}
-                >
                     <SettingsRow
-                        labelId="setting-cache-hq"
-                        label={$_('settings.data.cache_high_quality_event_snapshots', { default: 'Best available event snapshots' })}
-                        description={$_('settings.data.cache_high_quality_event_snapshots_help', { default: 'After an event ends, choose the clearest main-stream frame and best crop available. The full frame is kept when a reliable crop cannot be made.' })}
+                        labelId="setting-cache-hq-jpeg-quality"
+                        label={$_('settings.data.cache_high_quality_event_snapshot_jpeg_quality', { default: 'HQ Snapshot JPEG Quality' })}
+                        description={$_('settings.data.cache_high_quality_event_snapshot_jpeg_quality_help', { default: 'Higher values keep more detail but create larger derived snapshot files.' })}
+                        layout="stacked"
                     >
-                        <SettingsToggle
-                            checked={cacheHighQualityEventSnapshots}
-                            labelledBy="setting-cache-hq"
-                            srLabel={$_('settings.data.cache_high_quality_event_snapshots', { default: 'Best available event snapshots' })}
-                            onchange={(v) => (cacheHighQualityEventSnapshots = v)}
-                        />
-                    </SettingsRow>
-
-                    {#if cacheHighQualityEventSnapshots}
-                        <div class="flex items-start gap-3 border-l-2 {cropDetectorReady ? 'border-success-400' : 'border-slate-300 dark:border-slate-600'} py-1 pl-3">
-                            <svg class="mt-0.5 h-4 w-4 flex-none {cropDetectorReady ? 'text-success-500' : 'text-slate-400'}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                {#if cropDetectorReady}
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                                {:else}
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7V4h3m10 0h3v3M4 17v3h3m10 0h3v-3M8 12h8" />
-                                {/if}
-                            </svg>
-                            <div class="min-w-0">
-                                <p class="text-sm font-bold text-slate-700 dark:text-slate-200">
-                                    {cropDetectorReady
-                                        ? $_('settings.data.cache_crop_detector_ready', { default: 'Crop detector ready' })
-                                        : $_('settings.data.cache_crop_fallback_ready', { default: 'Frigate tracking fallback ready' })}
-                                </p>
-                                <p class="mt-0.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-                                    {cropDetectorReady
-                                        ? $_('settings.data.cache_crop_detector_ready_help', { default: 'Frigate tracking hints and the crop detectors are evaluated automatically.' })
-                                        : $_('settings.data.cache_crop_fallback_ready_help', { default: 'Frigate tracking hints are used automatically; detector crops join in when a model is installed.' })}
-                                </p>
+                        <div class="space-y-2">
+                            <div class="flex justify-end">
+                                <span class="text-sm font-bold text-slate-900 dark:text-white">{cacheHighQualityEventSnapshotJpegQuality}</span>
+                            </div>
+                            <input
+                                type="range"
+                                min="70"
+                                max="100"
+                                step="1"
+                                bind:value={cacheHighQualityEventSnapshotJpegQuality}
+                                aria-label={$_('settings.data.cache_high_quality_event_snapshot_jpeg_quality', { default: 'HQ Snapshot JPEG Quality' })}
+                                class="w-full accent-brand-500"
+                            />
+                            <div class="flex items-center justify-between text-xs font-bold uppercase tracking-widest text-slate-400">
+                                <span>70</span>
+                                <span>100</span>
                             </div>
                         </div>
-
-                        <SettingsRow
-                            labelId="setting-cache-hq-jpeg-quality"
-                            label={$_('settings.data.cache_high_quality_event_snapshot_jpeg_quality', { default: 'HQ Snapshot JPEG Quality' })}
-                            description={$_('settings.data.cache_high_quality_event_snapshot_jpeg_quality_help', { default: 'Higher values keep more detail but create larger derived snapshot files.' })}
-                            layout="stacked"
-                        >
-                            <div class="space-y-2">
-                                <div class="flex justify-end">
-                                    <span class="text-sm font-black text-slate-900 dark:text-white">{cacheHighQualityEventSnapshotJpegQuality}</span>
-                                </div>
-                                <input
-                                    type="range"
-                                    min="70"
-                                    max="100"
-                                    step="1"
-                                    bind:value={cacheHighQualityEventSnapshotJpegQuality}
-                                    aria-label={$_('settings.data.cache_high_quality_event_snapshot_jpeg_quality', { default: 'HQ Snapshot JPEG Quality' })}
-                                    class="w-full accent-brand-500"
-                                />
-                                <div class="flex items-center justify-between text-xs font-black uppercase tracking-widest text-slate-400">
-                                    <span>70</span>
-                                    <span>100</span>
-                                </div>
-                            </div>
-                        </SettingsRow>
-                    {/if}
-                </AdvancedSection>
-            {/if}
+                    </SettingsRow>
+                {/if}
+            </AdvancedSection>
         </SettingsCard>
     </div>
 
@@ -597,11 +631,11 @@
         {#if taxonomyStatus}
             {#if taxonomyStatus.is_running}
                 <div class="flex items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-brand-500/10 border border-brand-500/20 text-brand-700 dark:text-brand-300">
-                    <span class="text-xs font-black uppercase tracking-widest">{taxonomyStatus.message || taxonomyStatus.current_item || $_('settings.data.taxonomy_repairing')}</span>
-                    <span class="text-xs font-black">{taxonomyStatus.processed} / {taxonomyStatus.total}</span>
+                    <span class="text-xs font-bold uppercase tracking-widest">{taxonomyStatus.message || taxonomyStatus.current_item || $_('settings.data.taxonomy_repairing')}</span>
+                    <span class="text-xs font-bold">{taxonomyStatus.processed} / {taxonomyStatus.total}</span>
                 </div>
             {:else if taxonomyStatus.current_item || taxonomyStatus.message || taxonomyStatus.error}
-                <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex items-center gap-3">
+                <div class="p-4 rounded-xl bg-surface-raised/70 flex items-center gap-3">
                     {#if taxonomyStatus.error}
                         <div class="w-2 h-2 rounded-full bg-red-500"></div>
                         <p class="text-xs font-bold text-red-500">{taxonomyStatus.error}</p>
@@ -636,38 +670,38 @@
         {#if timezoneRepairPreview}
             <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
                 <div class="rounded-2xl border border-slate-200 dark:border-slate-700 px-4 py-3">
-                    <p class="text-lg font-black text-slate-900 dark:text-white">{fmtCount(timezoneRepairPreview.summary.scanned_count)}</p>
-                    <p class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_scanned', { default: 'Scanned' })}</p>
+                    <p class="text-lg font-bold text-slate-900 dark:text-white">{fmtCount(timezoneRepairPreview.summary.scanned_count)}</p>
+                    <p class="text-xs font-bold uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_scanned', { default: 'Scanned' })}</p>
                 </div>
                 <div class="rounded-2xl border border-amber-200 dark:border-amber-700/60 px-4 py-3">
-                    <p class="text-lg font-black text-amber-600 dark:text-amber-400">{fmtCount(timezoneRepairPreview.summary.repair_candidate_count)}</p>
-                    <p class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_candidates', { default: 'Repair candidates' })}</p>
+                    <p class="text-lg font-bold text-amber-600 dark:text-amber-400">{fmtCount(timezoneRepairPreview.summary.repair_candidate_count)}</p>
+                    <p class="text-xs font-bold uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_candidates', { default: 'Repair candidates' })}</p>
                 </div>
                 <div class="rounded-2xl border border-slate-200 dark:border-slate-700 px-4 py-3">
-                    <p class="text-lg font-black text-slate-900 dark:text-white">{fmtCount(timezoneRepairPreview.summary.missing_frigate_event_count)}</p>
-                    <p class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_missing', { default: 'Missing in Frigate' })}</p>
+                    <p class="text-lg font-bold text-slate-900 dark:text-white">{fmtCount(timezoneRepairPreview.summary.missing_frigate_event_count)}</p>
+                    <p class="text-xs font-bold uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_missing', { default: 'Missing in Frigate' })}</p>
                 </div>
                 <div class="rounded-2xl border border-red-200 dark:border-red-700/60 px-4 py-3">
-                    <p class="text-lg font-black text-red-600 dark:text-red-400">{fmtCount(timezoneRepairPreview.summary.lookup_error_count)}</p>
-                    <p class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_lookup_errors', { default: 'Lookup errors' })}</p>
+                    <p class="text-lg font-bold text-red-600 dark:text-red-400">{fmtCount(timezoneRepairPreview.summary.lookup_error_count)}</p>
+                    <p class="text-xs font-bold uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_lookup_errors', { default: 'Lookup errors' })}</p>
                 </div>
                 <div class="rounded-2xl border border-slate-200 dark:border-slate-700 px-4 py-3">
-                    <p class="text-lg font-black text-slate-900 dark:text-white">{fmtCount(timezoneRepairPreview.summary.unsupported_delta_count)}</p>
-                    <p class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_unsupported', { default: 'Unsupported delta' })}</p>
+                    <p class="text-lg font-bold text-slate-900 dark:text-white">{fmtCount(timezoneRepairPreview.summary.unsupported_delta_count)}</p>
+                    <p class="text-xs font-bold uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_unsupported', { default: 'Unsupported delta' })}</p>
                 </div>
             </div>
 
             {#if timezoneRepairPreview.candidates.length > 0}
                 <div class="rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
                     <div class="px-5 py-3 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700">
-                        <p class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_preview_list', { default: 'Preview' })}</p>
+                        <p class="text-xs font-bold uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_preview_list', { default: 'Preview' })}</p>
                     </div>
                     <div class="divide-y divide-slate-200 dark:divide-slate-700">
                         {#each timezoneRepairPreview.candidates.slice(0, 5) as candidate}
                             <div class="px-5 py-4 space-y-1">
                                 <div class="flex items-center justify-between gap-3">
-                                    <p class="text-sm font-black text-slate-900 dark:text-white truncate">{candidate.display_name || candidate.frigate_event}</p>
-                                    <span class="text-xs font-black uppercase tracking-widest {candidate.status === 'repair_candidate' ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500'}">{candidate.status.replace(/_/g, ' ')}</span>
+                                    <p class="text-sm font-bold text-slate-900 dark:text-white truncate">{candidate.display_name || candidate.frigate_event}</p>
+                                    <span class="text-xs font-bold uppercase tracking-widest {candidate.status === 'repair_candidate' ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500'}">{candidate.status.replace(/_/g, ' ')}</span>
                                 </div>
                                 <p class="text-xs text-slate-500 dark:text-slate-400 truncate">{candidate.frigate_event}</p>
                                 <div class="text-xs text-slate-600 dark:text-slate-300">
@@ -735,7 +769,7 @@
             <div class="space-y-3 animate-in fade-in slide-in-from-top-2">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                        <label for="backfill-from-date" class="block text-xs font-black uppercase tracking-widest text-slate-500 mb-2">
+                        <label for="backfill-from-date" class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">
                             {$_('settings.data.backfill_from', { default: 'From' })}
                         </label>
                         <input
@@ -748,7 +782,7 @@
                         />
                     </div>
                     <div>
-                        <label for="backfill-to-date" class="block text-xs font-black uppercase tracking-widest text-slate-500 mb-2">
+                        <label for="backfill-to-date" class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">
                             {$_('settings.data.backfill_to', { default: 'To' })}
                         </label>
                         <input
@@ -900,7 +934,7 @@
             {@const remaining = analysisStatus.pending + analysisStatus.active}
             {@const processed = analysisTotal > 0 ? Math.max(0, analysisTotal - remaining) : 0}
 
-            <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 space-y-3 animate-in fade-in slide-in-from-top-2">
+            <div class="p-4 rounded-xl bg-surface-raised/70 space-y-3 animate-in fade-in slide-in-from-top-2">
                 <div class="flex justify-between text-xs font-bold uppercase tracking-widest">
                     <span class="text-slate-700 dark:text-slate-200">{$_('settings.data.batch_analysis_processing')}</span>
                     <span class="text-slate-500">{processed} / {analysisTotal}</span>

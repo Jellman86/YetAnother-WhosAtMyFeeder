@@ -23,7 +23,9 @@ Before writing, collect:
 - the green tag build, test, migration checks, all four x86 image builds, per-image
   startup checks, shared-volume flavor-switch gate, and final tag promotion;
 - any migration, configuration, downtime, hardware, model, or compatibility action;
-- any privacy, retention, or public-access boundary affected by the release.
+- any privacy, retention, or public-access boundary affected by the release;
+- issue authors and people who supplied recordings, diagnostics, reproduction or retests,
+  including contributors to relevant issues that remain open.
 
 ## Write for the update decision
 
@@ -56,6 +58,17 @@ faster, on which hardware, and whether accuracy or power use changes.
 - Avoid hype such as “massive”, “game-changing”, and “best ever”.
 - Avoid “we”; name YA-WAMF or speak directly to `you`.
 
+## Acknowledge issue contributors
+
+Include a **Thanks** section with linked handles and a short, concrete description of the help.
+Read the issue discussion before assigning credit; a maintainer-created follow-up can originate
+from someone else's report. Include relevant open-issue contributors even when their original
+fault still needs investigation, and state that limitation alongside any fix claim. Update
+[`CONTRIBUTORS.md`](../../CONTRIBUTORS.md) in the same release preparation. Preserve existing credits.
+
+Use the [v2.22.0 notes](../releases/v2.22.0.md) as an example. Keep future drafts explicitly
+unpublished until their version, scope and tag evidence are known, and use exact tag links.
+
 ## Publish checklist
 
 - [ ] The release title and tag match the application version.
@@ -70,6 +83,7 @@ faster, on which hardware, and whether accuracy or power use changes.
   globally safe and host-gated candidate provider lists match the reviewed compatibility evidence.
   Retired pre-3.0 assets are left untouched until their documented 3.0 removal.
 - [ ] Every statement is supported by shipped code, tests, or verified operation.
+- [ ] **Thanks** credits relevant open-issue reporters, attachment providers and retesters with linked handles and issues; `CONTRIBUTORS.md` is current, and unresolved faults are not described as fixed.
 - [ ] The opening summary makes sense without reading the changelog.
 - [ ] Bullets describe feeder-owner outcomes rather than internal components.
 - [ ] **Before you update** states every required action—or says none is needed.

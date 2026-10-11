@@ -1,8 +1,10 @@
 # Environment variables
 
-Complete reference for every environment variable YA-WAMF reads. Everything that
-can be configured in **Settings** can also be set here, so an install can be
-driven entirely from `docker-compose` with no clicking.
+Reference for deployment settings read by the configuration loader, plus the
+operator controls listed below. Many settings also have controls in **Settings**;
+[UI/file-only settings](#uifile-only-settings) have no environment override.
+Use documentation from the same application release as your image when configuring
+a stable installation.
 
 ## How overrides work
 
@@ -15,14 +17,15 @@ driven entirely from `docker-compose` with no clicking.
   `NOTIFICATIONS__DISCORD__WEBHOOK_URL`).
 - **Booleans** are the strings `true` / `false` (case-insensitive). **Numbers**
   are plain digits. **Lists** are comma-separated.
-- **Set them** under `environment:` in `docker-compose.monolith.yml` (see the
-  examples already there) or in your `.env` file.
+- **Pass them to the container** under `environment:` in your Compose file. A
+  `.env` file supplies Compose interpolation values; it does not inject every
+  variable into the container. The supplied Compose file maps names such as
+  `MQTT_SERVER` to `FRIGATE__MQTT_SERVER`. Add an explicit `environment:` entry
+  for an application variable not already mapped there.
 - **Secrets** (tokens, passwords, API keys, webhook URLs) are redacted as
-  `***REDACTED***` in the API and never logged. Setting one via env keeps it out
-  of `config.json`.
-
-> Not everything is env-configurable. A few things are **UI/file-only** by design
-> — see [UI/file-only settings](#uifile-only-settings) at the end.
+  `***REDACTED***` in the ordinary Settings API and never logged. A settings save or
+  configuration export can still contain the effective secret: protect `/config`
+  and exported backups. Environment variables are not a secret vault.
 
 ---
 
@@ -43,13 +46,13 @@ settings and do not follow the `SECTION__FIELD` precedence rules above.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `YA_WAMF_API_KEY` | _(unset)_ | Require `X-API-Key` on all API requests when set. |
+| `YA_WAMF_API_KEY` | _(unset)_ | Deprecated owner API-key authentication, accepted via `X-API-Key`. Prefer the owner login; public/auth routes follow their own access rules. |
 | `CONFIG_FILE` | `/config/config.json` | Path to the persisted config file. |
 | `LOG_LEVEL` | `INFO` | Log verbosity (`DEBUG`, `INFO`, `WARNING`, `ERROR`). |
 | `DB_PRE_MIGRATION_BACKUP_RETENTION` | `10` | Number of newest automatic pre-migration database backups to keep; values below `1` still retain one restore point. Manual backups are unaffected. |
 | `DB_POOL_SIZE` | `5` | Database connections shared by every request. Each carries its own 64 MB page cache, so raising this costs memory. |
-| `DB_POOL_ACQUIRE_TIMEOUT_SECONDS` | `60` | How long a request waits for a free connection before being refused with `503`. Defaults to twice `DB_BUSY_TIMEOUT_MS` so a write blocked on the database lock is never refused. Detection ingest always waits regardless of this setting. `0` waits indefinitely. |
-| `DB_POOL_SLOW_HOLD_WARN_MS` | `1000` | Log a warning naming any code that keeps a connection longer than this. A hold this long means work that does not need a connection is running under one. |
+| `DB_POOL_ACQUIRE_TIMEOUT_SECONDS` | `60` | How long a request waits for a free connection before being refused with `503`. Unless set explicitly, derives twice `DB_BUSY_TIMEOUT_MS` in seconds; an overloaded request may still exhaust that wait. Detection ingest always waits regardless of this setting. `0` waits indefinitely. |
+| `DB_POOL_SLOW_HOLD_WARN_MS` | `1000` | Log a warning naming any code that keeps a connection longer than this. Use the label to investigate slow queries or work held inside a connection. |
 | `DB_POOL_SLOW_ACQUIRE_WARN_MS` | `250` | Log a warning when a request waits longer than this for a connection. |
 | `DB_BUSY_TIMEOUT_MS` | `30000` | How long SQLite waits for the database lock before giving up on a statement. |
 | `MAINTENANCE__MEDIA_INTEGRITY_SCAN_ENABLED` | `false` | Periodically re-check detections against Frigate and apply `MAINTENANCE__FRIGATE_MISSING_BEHAVIOR`. Off until you turn it on. |
@@ -71,7 +74,8 @@ settings and do not follow the `SECTION__FIELD` precedence rules above.
 | `FRIGATE__FRIGATE_URL` | `http://frigate:5000` | Frigate base URL for snapshots/clips. |
 | `FRIGATE__FRIGATE_EXTERNAL_URL` | _(empty)_ | Browser-facing Frigate URL for the detection's "open in Frigate" link. Falls back to `FRIGATE__FRIGATE_URL`. |
 | `FRIGATE__FRIGATE_AUTH_TOKEN` | _(unset)_ | Bearer token if Frigate requires auth. |
-| `FRIGATE__MAIN_TOPIC` | `frigate` | Frigate MQTT base topic. |
+| `FRIGATE__MAIN_TOPIC` | `frigate` | Frigate MQTT base topic; events arrive on `<topic>/events`. |
+| `FRIGATE__CLASSIFICATION_IMAGE_SOURCE` | `frigate_snapshot` | Live input source: `frigate_snapshot` or `recording_snapshot`. Recording input requires retained recording coverage; see [Frigate setup](frigate-config.md). |
 | `FRIGATE__MQTT_SERVER` | `mqtt` | MQTT broker host. |
 | `FRIGATE__MQTT_PORT` | `1883` | MQTT broker port. |
 | `FRIGATE__MQTT_AUTH` | `false` | Enable MQTT username/password auth. |
@@ -94,9 +98,9 @@ settings and do not follow the `SECTION__FIELD` precedence rules above.
 | `CLASSIFICATION__USE_CUDA` | _(legacy)_ | Legacy boolean; mapped to `cuda`/`cpu` when the provider is unset. |
 | `CLASSIFICATION__IMAGE_EXECUTION_MODE` | `subprocess` | `subprocess` (isolated: inference runs in worker processes the app can restart) or `in_process` (one model copy shared with the app; less memory, but heavy inference competes with the interface). If an in-process call exceeds its lease, YA-WAMF quarantines that runtime and routes subsequent work to supervised workers until restart. |
 | `CLASSIFIER_RUNTIME_BENCHMARK_ENABLED` | `false` | Opt in to a synthetic accelerated-versus-CPU comparison during startup. Routine model activation validation and runtime health checks do not require it. |
-| `CLASSIFIER_IMAGE_MAX_CONCURRENT` | `2` | Maximum concurrent image-classification jobs. Use `1` on a Raspberry Pi to protect UI and event-loop responsiveness. |
+| `CLASSIFIER_IMAGE_MAX_CONCURRENT` | `2` | Image executor concurrency. In subprocess mode, admitted live/background capacity follows the worker counts below; unset worker counts resolve to one each. The Pi example uses `1`. |
 | `CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS` | `0.5` | Maximum time background image work waits for classifier capacity before it fails conservatively. The Pi example uses `1.0`. |
-| `CLASSIFIER_ACCEL_PROBE_TTL_SECONDS` | `900` | How long a hardware-capability reading stays fresh before the background scheduler re-detects it. Detection spawns short-lived child processes, so raise this on a CPU-constrained host; the capabilities cannot change without a container restart. |
+| `CLASSIFIER_ACCEL_PROBE_TTL_SECONDS` | `900` | How long a hardware-capability reading stays fresh before the background scheduler re-detects it. Detection spawns short-lived child processes, so raise this on a CPU-constrained host; recheck after changing hardware, drivers or device access. |
 | `CLASSIFICATION__WRITE_FRIGATE_SUBLABEL` | `true` | Write the identified species back to Frigate as a sub-label. |
 | `CLASSIFICATION__PERSONALIZED_RERANK_ENABLED` | `false` | Learn per-camera/model ranking from manual tags. |
 | `CLASSIFICATION__STRICT_NON_FINITE_OUTPUT` | `true` | Reject all-non-finite classifier output (also `CLASSIFIER_STRICT_NON_FINITE_OUTPUT`). |
@@ -131,18 +135,36 @@ settings and do not follow the `SECTION__FIELD` precedence rules above.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `MEDIA_CACHE__ENABLED` | `true` | Master switch for media caching. |
-| `MEDIA_CACHE__CACHE_SNAPSHOTS` | `true` | Cache event snapshots locally. |
-| `MEDIA_CACHE__CACHE_CLIPS` | `false` | Cache event clips locally. |
+| `MEDIA_CACHE__CACHE_CLIPS` | `false` | Keep copies of Frigate's event clips. Photographs, full-visit clips and previews are always kept. |
 | `MEDIA_CACHE__HIGH_QUALITY_EVENT_SNAPSHOTS` | `false` | Derive the clearest recorded frame and strongest reliable crop automatically. |
 | `MEDIA_CACHE__HIGH_QUALITY_EVENT_SNAPSHOT_BIRD_CROP` | `false` | Deprecated compatibility flag; crop attempts are automatic whenever HQ snapshots are enabled. |
-| `MEDIA_CACHE__HIGH_QUALITY_EVENT_SNAPSHOT_JPEG_QUALITY` | `95` | JPEG quality for high-quality snapshots. |
-| `MEDIA_CACHE__RETENTION_DAYS` | `0` | Days to keep cached media (`0` = keep). |
+| `MEDIA_CACHE__HIGH_QUALITY_EVENT_SNAPSHOT_JPEG_QUALITY` | `90` | JPEG quality for high-quality snapshots. These are full-resolution frames, often several MB each. |
+| `MEDIA_CACHE__RETENTION_DAYS` | `0` | Days to keep cached media; `0` follows `MAINTENANCE__RETENTION_DAYS`, whose default is unlimited. |
+| `MEDIA_CACHE__PER_SPECIES_MINIMUM` | `0` | Protect the newest N detections of each species and their photographs from age cleanup (`0` disables the floor; `0`–`10000`). Clips are not protected by this floor. |
+| `MEDIA_CACHE__PER_SPECIES_MAXIMUM` | `0` | Maximum cached visits per species, excluding favourites (`0` is unlimited; `0`–`10000`). Removes media, preserving history. |
+| `MEDIA_CACHE__MAX_SIZE_MB` | `0` | Ordinary media budget in MiB (`0` is unlimited; `0`–`1048576`). Removes oldest non-favourite media; archived favourites and models are excluded. |
+| `MEDIA_CACHE__AUTOMATIC_MULTI_BIRD_SCAN` | `false` | Scan retained whole frames for additional birds automatically. Off by default, including upgrades; manual **Find more birds** remains available. |
+| `MEDIA_CACHE__BIRD_SCAN_MODE` | `intensive` | `standard` or `intensive` additional-bird search. Controls scan effort, not an upper limit on the bird count. |
 | `MAINTENANCE__RETENTION_DAYS` | `0` | Days to keep detection history (`0` = keep forever). |
 | `MAINTENANCE__CLEANUP_ENABLED` | `true` | Run the periodic cleanup job. |
-| `MAINTENANCE__MAX_CONCURRENT` | `1` | Concurrent maintenance operations. |
+| `MAINTENANCE__MAX_CONCURRENT` | `1` | Per-kind maintenance capacity (`1`–`8`). Different kinds can overlap within the total limit; see [maintenance concurrency](configuration.md#maintenance-concurrency). |
 | `MAINTENANCE__AUTO_DELETE_MISSING_CLIPS` | `false` | Prune records whose Frigate clip is gone. |
 | `MAINTENANCE__FRIGATE_MISSING_BEHAVIOR` | `mark_missing` | How to treat a detection whose Frigate event or media has gone: `mark_missing` (flag it, keep the row), `keep` (do nothing), or `delete` (**permanently remove** the detection). |
+
+`MEDIA_CACHE__ENABLED` and `MEDIA_CACHE__CACHE_SNAPSHOTS` were removed (#622): photographs and visit
+media are always kept, within the retention and size limits. Either variable is still read once, on
+upgrade: if it was `false`, best-available snapshots (and, for `MEDIA_CACHE__ENABLED`, full-visit
+clips) are turned off once unless their current environment overrides explicitly enable them.
+Review those options afterwards. The migration marker is persisted on the next settings save. A
+startup warning says where a retired switch is still set: delete an environment variable from your
+compose file, and save settings once to remove the old keys from `config.json`.
+
+Age cleanup permanently deletes history outside the configured retention window,
+except protected favourites and the per-species floor. Audio history follows
+detection retention. The media budget and maximum can evict non-favourite media
+even when the age floor would protect it. A disabled cleanup schedule does not
+turn off the separate five-minute orphan/size-limit pass. See
+[Data settings](configuration.md#data) before setting limits.
 
 ## Integrations
 
@@ -303,7 +325,10 @@ override** — they're per-install data rather than deployment config:
   speed, wind direction, cloud cover, precipitation, rain, and snowfall entities
   under `ha_weather`. `ENABLED`, `BASE_URL`, `ACCESS_TOKEN`, and `WEATHER_ENTITY`
   are env-configurable; the per-measurement overrides are not.
-- **Selected cameras**, their feeder/nest roles, and the audio source mapping.
+- **Selected cameras**, their feeder/nest roles, Frigate ingest labels, and the audio source mapping.
+- **Audio tuning:** correlation window, buffer age and minimum audio confidence.
+- **Maintenance tuning:** total concurrency, per-kind capacities and automatic unknown-bird analysis.
+- **Text size:** a per-browser preference rather than a server environment setting.
 
 If you need one of these fixed at deploy time, set it once in the UI (it persists
 to `config.json`) or open an issue — the env surface above is what the loader

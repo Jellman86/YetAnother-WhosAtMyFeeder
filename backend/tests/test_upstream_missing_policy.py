@@ -46,6 +46,42 @@ async def _insert_detection(event_id: str) -> None:
         )
 
 
+@pytest.mark.parametrize("kind", ["clip", "snapshot", "any"])
+@pytest.mark.parametrize("behavior", ["keep", "mark_missing", "delete"])
+@pytest.mark.parametrize("previous_status", ["present", "missing"])
+@pytest.mark.asyncio
+async def test_manual_scan_preserves_prior_state_on_transient_event_error(kind, behavior, previous_status):
+    settings.frigate.clips_enabled = True
+    settings.maintenance.frigate_missing_behavior = behavior
+    await _insert_detection("evt-unavailable")
+    if previous_status == "missing":
+        async with get_db() as db:
+            await DetectionRepository(db).mark_frigate_missing("evt-unavailable", error="clip_unavailable")
+    with (
+        patch.object(settings_router.frigate_client, "get_version", new=AsyncMock(return_value="0.17")),
+        patch.object(
+            settings_router.frigate_client, "get_event_with_error", new=AsyncMock(return_value=(None, "event_http_503"))
+        ),
+        patch.object(settings_router.media_cache, "delete_cached_media", new=AsyncMock()) as delete_media,
+    ):
+        result = await (
+            settings_router._purge_missing_all_media() if kind == "any" else settings_router._purge_missing_media(kind)
+        )
+    async with get_db() as db:
+        detection = await DetectionRepository(db).get_by_frigate_event("evt-unavailable")
+    assert detection is not None
+    assert detection.frigate_status == previous_status
+    assert result["errors"] == 1
+    assert (
+        result["missing"]
+        == result["deleted_count"]
+        == result["marked_missing_count"]
+        == result["cleared_missing_count"]
+        == 0
+    )
+    delete_media.assert_not_awaited()
+
+
 @pytest.mark.asyncio
 async def test_purge_missing_media_marks_detection_when_behavior_is_mark_missing():
     settings.frigate.clips_enabled = True

@@ -423,15 +423,16 @@ def test_the_shipped_reference_matches_its_recorded_digest():
     assert species_reference.available is True
 
 
-def _ioc_workbook(tmp_path, rows):
+def _ioc_workbook(tmp_path, rows, *, name="ioc.xlsx", headings=None):
     """A minimal xlsx in the shape the IOC file uses."""
     import zipfile
 
     def esc(v):
         return str(v).replace("&", "&amp;").replace("<", "&lt;")
 
-    headings = ["seq", "Order", "Family", "IOC14.2", "English", "German", "Italian", "Chinese"]
-    all_rows = [headings] + rows
+    if headings is None:
+        headings = ["seq", "Order", "Family", "IOC14.2", "English", "German", "Italian", "Chinese"]
+    all_rows = ([headings] if headings else []) + rows
     sheet = ['<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>']
     for r_index, row in enumerate(all_rows, start=1):
         cells = "".join(
@@ -441,13 +442,23 @@ def _ioc_workbook(tmp_path, rows):
         sheet.append(f'<row r="{r_index}">{cells}</row>')
     sheet.append("</sheetData></worksheet>")
 
-    path = tmp_path / "ioc.xlsx"
+    path = tmp_path / name
     with zipfile.ZipFile(path, "w") as archive:
         archive.writestr(
             "xl/sharedStrings.xml", '<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"/>'
         )
         archive.writestr("xl/worksheets/sheet1.xml", "".join(sheet))
     return path
+
+
+def _master_workbook(tmp_path, families):
+    """The master list's shape: a title block, its heading row, then one row per family."""
+    rows = [
+        ["IOC WORLD BIRD LIST (14.2-test)"],
+        ["Infraclass", "Parvclass", "Order", "Family (Scientific)", "Family (English)"],
+    ]
+    rows += [["", "", "", family, english] for family, english in families]
+    return _ioc_workbook(tmp_path, rows, name="master.xlsx", headings=[])
 
 
 def _generator():
@@ -460,12 +471,13 @@ def _generator():
     return build_species_reference
 
 
-def _pinned_manifest(tmp_path, source_path, *, content_sha256=None, version="14.2-test"):
-    """A manifest that pins the fixture workbook, so the gate admits it."""
+def _pinned_manifest(tmp_path, source_path, *, content_sha256=None, version="14.2-test", master_path=None):
+    """A manifest that pins the fixture workbooks, so the gate admits them."""
     import hashlib
     import json
 
     digest = content_sha256 if content_sha256 is not None else hashlib.sha256(source_path.read_bytes()).hexdigest()
+    master_digest = hashlib.sha256(master_path.read_bytes()).hexdigest() if master_path else "0" * 64
     path = tmp_path / "species_sources.json"
     path.write_text(
         json.dumps(
@@ -482,7 +494,18 @@ def _pinned_manifest(tmp_path, source_path, *, content_sha256=None, version="14.
                         "citation": "IOC World Bird List. https://www.worldbirdnames.org/",
                         "redistribution": "bundled",
                         "content_sha256": digest,
-                    }
+                    },
+                    {
+                        "id": "ioc-world-bird-list-master",
+                        "name": "IOC World Bird List (Master List)",
+                        "role": "bird-classification",
+                        "version": version,
+                        "url": "https://www.worldbirdnames.org/",
+                        "licence": "CC-BY-3.0",
+                        "citation": "IOC World Bird List. https://www.worldbirdnames.org/",
+                        "redistribution": "bundled",
+                        "content_sha256": master_digest,
+                    },
                 ],
             }
         ),
@@ -522,10 +545,11 @@ def test_the_build_is_reproducible(tmp_path):
         ],
     )
 
-    manifest = _pinned_manifest(tmp_path, source)
+    master = _master_workbook(tmp_path, [("Paridae", "Tits, Chickadees"), ("Turdidae", "Thrushes")])
+    manifest = _pinned_manifest(tmp_path, source, master_path=master)
     first, second = tmp_path / "one.db", tmp_path / "two.db"
-    first_taxa, first_names, first_digest = build(source, first, manifest_path=manifest)
-    second_taxa, second_names, second_digest = build(source, second, manifest_path=manifest)
+    first_taxa, first_names, first_digest = build(source, first, master, manifest_path=manifest)
+    second_taxa, second_names, second_digest = build(source, second, master, manifest_path=manifest)
 
     # Two species, each with German, Italian and Chinese.
     assert (first_taxa, first_names) == (second_taxa, second_names) == (2, 6)
@@ -538,10 +562,35 @@ def test_the_build_refuses_a_source_that_is_not_the_pinned_release(tmp_path):
     """Adopting a new IOC release means updating the manifest, not just building."""
     build = _generator().build
     source = _ioc_workbook(tmp_path, [["1", "P", "F", "Cyanistes caeruleus", "Eurasian Blue Tit", "", "", ""]])
-    manifest = _pinned_manifest(tmp_path, source, content_sha256="c" * 64)
+    master = _master_workbook(tmp_path, [("F", "Family")])
+    manifest = _pinned_manifest(tmp_path, source, content_sha256="c" * 64, master_path=master)
 
     with pytest.raises(SystemExit, match="[Pp]rovenance"):
-        build(source, tmp_path / "refused.db", manifest_path=manifest)
+        build(source, tmp_path / "refused.db", master, manifest_path=manifest)
+
+
+def test_the_build_refuses_a_master_list_that_is_not_the_pinned_release(tmp_path):
+    build = _generator().build
+    source = _ioc_workbook(tmp_path, [["1", "P", "F", "Cyanistes caeruleus", "Eurasian Blue Tit", "", "", ""]])
+    master = _master_workbook(tmp_path, [("F", "Family")])
+    manifest = _pinned_manifest(tmp_path, source)
+
+    with pytest.raises(SystemExit, match="[Pp]rovenance"):
+        build(source, tmp_path / "refused.db", master, manifest_path=manifest)
+
+
+def test_the_build_refuses_a_family_the_master_list_does_not_name(tmp_path):
+    build = _generator().build
+    source = _ioc_workbook(tmp_path, [["1", "P", "Paridae", "Cyanistes caeruleus", "Eurasian Blue Tit", "", "", ""]])
+    master = _master_workbook(tmp_path, [("Turdidae", "Thrushes")])
+
+    with pytest.raises(SystemExit, match="Paridae"):
+        build(
+            source,
+            tmp_path / "refused.db",
+            master,
+            manifest_path=_pinned_manifest(tmp_path, source, master_path=master),
+        )
 
 
 def test_the_build_records_the_pinned_release_version(tmp_path):
@@ -550,8 +599,14 @@ def test_the_build_records_the_pinned_release_version(tmp_path):
     build = _generator().build
     source = _ioc_workbook(tmp_path, [["1", "P", "F", "Cyanistes caeruleus", "Eurasian Blue Tit", "", "", ""]])
     output = tmp_path / "versioned.db"
+    master = _master_workbook(tmp_path, [("F", "Family")])
 
-    build(source, output, manifest_path=_pinned_manifest(tmp_path, source, version="15.9-example"))
+    build(
+        source,
+        output,
+        master,
+        manifest_path=_pinned_manifest(tmp_path, source, version="15.9-example", master_path=master),
+    )
 
     connection = sqlite3.connect(f"file:{output}?mode=ro", uri=True)
     try:
@@ -567,9 +622,23 @@ def test_the_parser_keeps_species_and_skips_everything_else(tmp_path):
 
     taxa = parse_ioc(
         [
-            {"IOC14.2": "Cyanistes caeruleus", "English": "Eurasian Blue Tit", "Italian": "Cinciarella"},
+            {
+                "seq": "1",
+                "Order": "PASSERIFORMES",
+                "Family": "Paridae",
+                "IOC14.2": "Cyanistes caeruleus",
+                "English": "Eurasian Blue Tit",
+                "Italian": "Cinciarella",
+            },
             # A repeat keeps the first entry, so regeneration is stable.
-            {"IOC14.2": "cyanistes caeruleus", "English": "Duplicate", "Italian": "Doppione"},
+            {
+                "seq": "2",
+                "Order": "PASSERIFORMES",
+                "Family": "Paridae",
+                "IOC14.2": "cyanistes caeruleus",
+                "English": "Duplicate",
+                "Italian": "Doppione",
+            },
             # Order and family rows carry a single word, not a binomial.
             {"IOC14.2": "PASSERIFORMES", "English": ""},
             {"IOC14.2": "", "English": "No name at all"},
@@ -583,7 +652,18 @@ def test_the_parser_keeps_species_and_skips_everything_else(tmp_path):
 def test_a_language_with_no_name_is_simply_absent(tmp_path):
     parse_ioc = _generator().parse_ioc
 
-    taxa = parse_ioc([{"IOC14.2": "Erithacus rubecula", "English": "European Robin", "Italian": "   "}])
+    taxa = parse_ioc(
+        [
+            {
+                "seq": "1",
+                "Order": "PASSERIFORMES",
+                "Family": "Muscicapidae",
+                "IOC14.2": "Erithacus rubecula",
+                "English": "European Robin",
+                "Italian": "   ",
+            }
+        ]
+    )
 
     assert taxa[0]["names"] == {}
     assert taxa[0]["common_name"] == "European Robin"

@@ -216,6 +216,7 @@ export interface components {
     accessibility_reduced_motion?: boolean;
     appearance_explorer_view?: string;
     auth_required: boolean;
+    avatar_version?: number | null;
     birdnet_enabled?: boolean;
     date_format?: string;
     display_common_names?: boolean;
@@ -238,6 +239,7 @@ export interface components {
     needs_initial_setup?: boolean;
     public_access_allow_clip_downloads?: boolean;
     public_access_enabled: boolean;
+    public_access_rate_limit_per_minute?: number;
     public_access_show_ai_conversation?: boolean;
     public_access_show_audio?: boolean;
     public_access_show_clips?: boolean;
@@ -245,6 +247,9 @@ export interface components {
     scientific_name_primary?: boolean;
     time_format?: string;
     username?: string | null;
+};
+    AvatarResponse: {
+    avatar_version?: number | null;
 };
     BackendDiagnosticEventResponse: {
     component: string;
@@ -327,6 +332,55 @@ export interface components {
     status: string;
     updated?: number;
 };
+    BirdObservationResponse: {
+    bird_index: number;
+    candidate_id: string;
+    classifier_label?: string | null;
+    classifier_score: number;
+    clip_variant: string;
+    common_name?: string | null;
+    crop_box: Array<number>;
+    detector_confidence?: number | null;
+    frame_index: number;
+    id: number;
+    identity_score?: number | null;
+    identity_source?: "crop" | "visit" | "manual";
+    is_hidden: boolean;
+    is_unknown?: boolean;
+    manual_species: boolean;
+    scientific_name?: string | null;
+    species: string;
+    tracked?: boolean;
+};
+    BirdObservationUpdateRequest: {
+    is_hidden?: boolean | null;
+    species?: string | null;
+};
+    BirdScanRequest: {
+    candidate_id: string;
+    expected_media_version: string;
+    force?: boolean;
+};
+    BirdScanResponse: {
+    available: boolean;
+    candidate_id: string;
+    error?: string | null;
+    event_id: string;
+    queue_ahead?: number | null;
+    result_count?: number | null;
+    retained_previous?: boolean;
+    stage?: "detecting" | "naming" | "counting" | "saving" | null;
+    stage_done?: number | null;
+    stage_total?: number | null;
+    started_at?: string | null;
+    status: "not_scanned" | "queued" | "running" | "completed" | "failed";
+    unavailable_reason?: string | null;
+    updated_at?: string | null;
+};
+    BirdSpeciesCount: {
+    count: number;
+    species: string;
+};
     BirdWeatherTestRequest: {
     token?: string | null;
 };
@@ -343,6 +397,9 @@ export interface components {
 };
     BodyProbeBirdClassifierRuntimeApiClassifierProbePost: {
     image?: string | null;
+};
+    BodyPutAvatarApiAuthAvatarPut: {
+    image: string;
 };
     BodyTestBirdClassifierApiClassifierTestPost: {
     image: string;
@@ -396,8 +453,6 @@ export interface components {
     archive_size_mb?: number;
     archive_unavailable?: number;
     cache_clips: boolean;
-    cache_enabled: boolean;
-    cache_snapshots: boolean;
     clip_count: number;
     clip_size_bytes: number;
     clip_size_mb: number;
@@ -411,6 +466,7 @@ export interface components {
     snapshot_count: number;
     snapshot_size_bytes: number;
     snapshot_size_mb: number;
+    storage_available: boolean;
     total_size_bytes: number;
     total_size_mb: number;
 };
@@ -515,6 +571,11 @@ export interface components {
     input_context?: components['schemas']['ClassificationInputContext'] | null;
     source_preference?: string;
 };
+    DailyCameraVisits: {
+    camera: string;
+    last_seen?: string | null;
+    visits: number;
+};
     DailyCount: {
     count: number;
     date: string;
@@ -526,13 +587,19 @@ export interface components {
     scientific_name?: string | null;
     species: string;
     taxa_id?: number | null;
+    visit_count?: number;
 };
     DailySummaryResponse: {
     audio_confirmations: number;
+    camera_visits?: Array<components['schemas']['DailyCameraVisits']> | null;
+    counted_birds?: number;
+    counted_captures?: number;
     hourly_distribution: Array<number>;
+    hourly_visits?: Array<number>;
     latest_detection: components['schemas']['DetectionResponse'] | null;
     top_species: Array<components['schemas']['DailySpeciesSummary']>;
     total_count: number;
+    visit_count?: number;
 };
     DailyWeatherSummary: {
     am_cloud?: number | null;
@@ -616,12 +683,20 @@ export interface components {
     weather_wind_direction?: number | null;
     weather_wind_speed?: number | null;
 };
+    DetectionBirdSummary: {
+    counted: number;
+    excluded: number;
+    hint_only: boolean;
+    species: Array<components['schemas']['BirdSpeciesCount']>;
+    unknown: number;
+};
     DetectionListItemResponse: {
     archive_state?: string | null;
     audio_confirmed?: boolean;
     audio_context_species?: Array<string> | null;
     audio_score?: number | null;
     audio_species?: string | null;
+    bird_summary?: components['schemas']['DetectionBirdSummary'] | null;
     camera_name: string;
     category_name: string;
     detection_index: number;
@@ -649,6 +724,7 @@ export interface components {
     audio_context_species?: Array<string> | null;
     audio_score?: number | null;
     audio_species?: string | null;
+    bird_summary?: components['schemas']['DetectionBirdSummary'] | null;
     camera_name: string;
     category_name: string;
     common_name?: string | null;
@@ -696,6 +772,23 @@ export interface components {
     weather_snowfall?: number | null;
     weather_wind_direction?: number | null;
     weather_wind_speed?: number | null;
+};
+    DetectionVisitResponse: {
+    audio_confirmed: boolean;
+    best_score: number;
+    capture_count: number;
+    end_time: string | null;
+    latest: components['schemas']['DetectionResponse'];
+    needs_review: boolean;
+    peak_capture?: components['schemas']['DetectionResponse'] | null;
+    representative: components['schemas']['DetectionResponse'];
+    start_time: string | null;
+    visit_id: string;
+};
+    DetectionVisitsResponse: {
+    gap_seconds: number;
+    total: number;
+    visits: Array<components['schemas']['DetectionVisitResponse']>;
 };
     DetectionsActivityHeatmapCell: {
     count: number;
@@ -855,6 +948,17 @@ export interface components {
     is_favorite: boolean;
     status: string;
 };
+    FeederPortraitResponse: {
+    busiest_day?: components['schemas']['PortraitDay'] | null;
+    detections: number;
+    latest_visit?: components['schemas']['PortraitVisit'] | null;
+    newest_arrival?: components['schemas']['PortraitSpecies'] | null;
+    scope: "all" | "shared";
+    shared_days?: number | null;
+    species: number;
+    started_at?: string | null;
+    visits: number;
+};
     FocusedDiagnosticsResponse: {
     backfill?: components['schemas']['BackfillFocusedDiagnosticsResponse'] | null;
     video_classifier?: components['schemas']['VideoClassifierFocusedDiagnosticsResponse'] | null;
@@ -887,6 +991,32 @@ export interface components {
     message: string;
     readings?: Record<string, unknown>;
     status: "ok" | "error";
+};
+    HeardGroupResponse: {
+    best_birdnet_id?: number | null;
+    best_confidence: number;
+    best_heard: string;
+    call_count: number;
+    first_heard: string;
+    last_heard: string;
+    scientific_name?: string | null;
+    source_name?: string | null;
+    species: string;
+};
+    HeardGroupsResponse: {
+    call_count: number;
+    correlation_window_seconds: number;
+    gap_seconds: number;
+    groups: Array<components['schemas']['HeardGroupResponse']>;
+    matched_visits?: Array<components['schemas']['HeardVisitCallsResponse']>;
+    truncated: boolean;
+};
+    HeardVisitCallsResponse: {
+    call_count: number;
+    end_time: string;
+    scientific_name?: string | null;
+    start_time: string;
+    visit_id: string;
 };
     HiddenCountResponse: {
     hidden_count: number;
@@ -1013,6 +1143,7 @@ export interface components {
     analysis_timestamp: string;
 };
     LeaderboardPortraitResponse: {
+    film_url?: string | null;
     frigate_event: string;
     image_url: string;
     scientific_name?: string | null;
@@ -1106,6 +1237,7 @@ export interface components {
 };
     ManualObservationPrediction: {
     common_name?: string | null;
+    frame_offset_seconds?: number | null;
     inference_backend?: string | null;
     inference_provider?: string | null;
     input_is_cropped?: boolean | null;
@@ -1113,6 +1245,8 @@ export interface components {
     label: string;
     model_id?: string | null;
     model_name?: string | null;
+    photo_url?: string | null;
+    scene_url?: string | null;
     scientific_name?: string | null;
     score: number;
     taxa_id?: number | null;
@@ -1153,6 +1287,7 @@ export interface components {
     manual_tagged: boolean;
     new_species: string;
     old_species?: string | null;
+    photo_changed?: boolean;
     scientific_name?: string | null;
     species?: string | null;
     status: "updated" | "unchanged";
@@ -1280,6 +1415,26 @@ export interface components {
     authorization_url: string;
     state?: string | null;
 };
+    PortraitDay: {
+    date: string;
+    visits: number;
+};
+    PortraitSpecies: {
+    display_name: string;
+    first_seen: string;
+    scientific_name?: string | null;
+    species: string;
+    taxa_id?: number | null;
+};
+    PortraitVisit: {
+    detection_time: string;
+    display_name: string;
+    film_url?: string | null;
+    frigate_event: string;
+    image_url: string;
+    scientific_name?: string | null;
+    taxa_id?: number | null;
+};
     ProviderValidationStatus: {
     checked_at?: string | null;
     model_id?: string | null;
@@ -1297,6 +1452,7 @@ export interface components {
     checked: number;
     cleared_missing_count: number;
     deleted_count: number;
+    errors?: number;
     kept_count: number;
     marked_missing_count: number;
     message?: string | null;
@@ -1388,6 +1544,7 @@ export interface components {
     camera_audio_mapping: Record<string, string>;
     camera_roles: Record<string, "feeder" | "nest">;
     cameras: Array<string>;
+    classification_image_source?: "frigate_snapshot" | "recording_snapshot";
     classification_min_confidence?: number;
     classification_threshold?: number | null;
     clips_enabled?: boolean;
@@ -1451,14 +1608,16 @@ export interface components {
     location_temperature_unit?: string | null;
     location_weather_unit_system?: string | null;
     maintenance_max_concurrent?: number | null;
+    media_cache_automatic_multi_bird_scan?: boolean;
+    media_cache_bird_scan_mode?: "standard" | "intensive";
     media_cache_clips?: boolean;
-    media_cache_enabled?: boolean;
     media_cache_high_quality_event_snapshot_bird_crop?: boolean;
     media_cache_high_quality_event_snapshot_jpeg_quality?: number;
     media_cache_high_quality_event_snapshots?: boolean;
+    media_cache_max_size_mb?: number;
+    media_cache_per_species_maximum?: number;
     media_cache_per_species_minimum?: number;
     media_cache_retention_days?: number;
-    media_cache_snapshots?: boolean;
     media_integrity_scan_batch_size?: number;
     media_integrity_scan_enabled?: boolean;
     media_integrity_scan_interval_hours?: number;
@@ -1591,6 +1750,7 @@ export interface components {
     camera_audio_mapping?: Record<string, string>;
     camera_roles?: Record<string, "feeder" | "nest">;
     cameras?: Array<string>;
+    classification_image_source?: "frigate_snapshot" | "recording_snapshot";
     classification_min_confidence?: number;
     classification_threshold?: number | null;
     clips_enabled?: boolean;
@@ -1651,14 +1811,16 @@ export interface components {
     location_temperature_unit?: string | null;
     location_weather_unit_system?: string | null;
     maintenance_max_concurrent?: number | null;
+    media_cache_automatic_multi_bird_scan?: boolean;
+    media_cache_bird_scan_mode?: "standard" | "intensive";
     media_cache_clips?: boolean;
-    media_cache_enabled?: boolean;
     media_cache_high_quality_event_snapshot_bird_crop?: boolean;
     media_cache_high_quality_event_snapshot_jpeg_quality?: number;
     media_cache_high_quality_event_snapshots?: boolean;
+    media_cache_max_size_mb?: number;
+    media_cache_per_species_maximum?: number;
     media_cache_per_species_minimum?: number;
     media_cache_retention_days?: number;
-    media_cache_snapshots?: boolean;
     media_integrity_scan_batch_size?: number;
     media_integrity_scan_enabled?: boolean;
     media_integrity_scan_interval_hours?: number;
@@ -1791,6 +1953,7 @@ export interface components {
     status: "applied";
 };
     SnapshotCandidateListResponse: {
+    birds?: Array<components['schemas']['BirdObservationResponse']>;
     candidates: Array<components['schemas']['SnapshotCandidateResponse']>;
     current_candidate_id?: string | null;
     current_source?: string | null;
@@ -1808,11 +1971,15 @@ export interface components {
     frame_index: number;
     frame_offset_seconds?: number | null;
     image_url?: string | null;
+    photo_hidden?: boolean;
     ranking_score: number;
     selected: boolean;
     snapshot_source?: string | null;
     source_mode: string;
     thumbnail_url?: string | null;
+};
+    SnapshotDismissRequest: {
+    dismissed: boolean;
 };
     SnapshotGenerateResponse: {
     already_hq_bird_crop: boolean;
@@ -1988,6 +2155,25 @@ export interface components {
     cpu_percent?: number | null;
     sampled_at: string;
 };
+    TaxonChildrenResponse: {
+    children: Array<components['schemas']['TaxonResponse']>;
+    parent_id: number;
+};
+    TaxonLineageResponse: {
+    lineage: Array<components['schemas']['TaxonResponse']>;
+};
+    TaxonResponse: {
+    name?: string | null;
+    parent_id?: number | null;
+    principal: boolean;
+    rank: string;
+    scientific_name: string;
+    seen_count?: number | null;
+    seen_species?: number | null;
+    source?: string | null;
+    species_count?: number | null;
+    taxon_id: number;
+};
     TaxonomySyncStartResponse: {
     status: string;
 };
@@ -2145,6 +2331,10 @@ export interface components {
     link_id: number;
     status: string;
 };
+    VisitCapturesResponse: {
+    captures: Array<components['schemas']['DetectionResponse']>;
+    total: number;
+};
     WeatherBackfillRequest: {
     date_range?: string;
     end_date?: string | null;
@@ -2183,6 +2373,17 @@ export interface paths {
       response: components['schemas']['CommunityStatsResponse'];
     };
   };
+  "/api/about/portrait": {
+    get: {
+      operationId: "get_feeder_portrait_api_about_portrait_get";
+      path: never;
+      query: {
+    utc_offset_minutes?: number;
+};
+      requestBody: unknown;
+      response: components['schemas']['FeederPortraitResponse'];
+    };
+  };
   "/api/about/showcase": {
     get: {
       operationId: "get_about_showcase_api_about_showcase_get";
@@ -2197,6 +2398,17 @@ export interface paths {
   "/api/about/showcase/{event_id}.jpg": {
     get: {
       operationId: "get_about_reel_image_api_about_showcase__event_id__jpg_get";
+      path: {
+    event_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: unknown;
+    };
+  };
+  "/api/about/showcase/{event_id}.webm": {
+    get: {
+      operationId: "get_visit_film_api_about_showcase__event_id__webm_get";
       path: {
     event_id: string;
 };
@@ -2239,6 +2451,18 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: Array<components['schemas']['AudioContextDetectionResponse']>;
+    };
+  };
+  "/api/audio/heard-groups": {
+    get: {
+      operationId: "get_heard_groups_api_audio_heard_groups_get";
+      path: never;
+      query: {
+    end_date: string;
+    start_date: string;
+};
+      requestBody: unknown;
+      response: components['schemas']['HeardGroupsResponse'];
     };
   };
   "/api/audio/history": {
@@ -2330,6 +2554,29 @@ export interface paths {
 };
       requestBody: unknown;
       response: components['schemas']['AudioSummaryResponse'];
+    };
+  };
+  "/api/auth/avatar": {
+    get: {
+      operationId: "get_avatar_api_auth_avatar_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: unknown;
+    };
+    put: {
+      operationId: "put_avatar_api_auth_avatar_put";
+      path: never;
+      query: never;
+      requestBody: components['schemas']['BodyPutAvatarApiAuthAvatarPut'];
+      response: components['schemas']['AvatarResponse'];
+    };
+    delete: {
+      operationId: "remove_avatar_api_auth_avatar_delete";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['AvatarResponse'];
     };
   };
   "/api/auth/initial-setup": {
@@ -2861,6 +3108,7 @@ export interface paths {
     fields?: string | null;
     include_hidden?: boolean;
     limit?: number;
+    multiple_species_only?: boolean;
     offset?: number;
     only_hidden?: boolean;
     sort?: "newest" | "oldest" | "confidence";
@@ -2899,6 +3147,7 @@ export interface paths {
     end_date?: string | null;
     favorites?: boolean;
     include_hidden?: boolean;
+    multiple_species_only?: boolean;
     only_hidden?: boolean;
     species?: string | null;
     start_date?: string | null;
@@ -3131,6 +3380,41 @@ export interface paths {
       response: components['schemas']['FrigateTestResponse'];
     };
   };
+  "/api/frigate/{event_id}/birds/scan": {
+    get: {
+      operationId: "get_bird_scan_api_frigate__event_id__birds_scan_get";
+      path: {
+    event_id: string;
+};
+      query: {
+    candidate_id: string;
+    expected_media_version?: string | null;
+};
+      requestBody: unknown;
+      response: components['schemas']['BirdScanResponse'];
+    };
+    post: {
+      operationId: "request_bird_scan_api_frigate__event_id__birds_scan_post";
+      path: {
+    event_id: string;
+};
+      query: never;
+      requestBody: components['schemas']['BirdScanRequest'];
+      response: components['schemas']['BirdScanResponse'];
+    };
+  };
+  "/api/frigate/{event_id}/birds/{bird_id}": {
+    patch: {
+      operationId: "update_counted_bird_api_frigate__event_id__birds__bird_id__patch";
+      path: {
+    bird_id: number;
+    event_id: string;
+};
+      query: never;
+      requestBody: components['schemas']['BirdObservationUpdateRequest'];
+      response: components['schemas']['BirdObservationResponse'];
+    };
+  };
   "/api/frigate/{event_id}/clip-thumbnails.jpg": {
     get: {
       operationId: "proxy_clip_thumbnails_sprite_api_frigate__event_id__clip_thumbnails_jpg_get";
@@ -3240,6 +3524,18 @@ export interface paths {
 };
       query: never;
       requestBody: unknown;
+      response: components['schemas']['SnapshotCandidateListResponse'];
+    };
+  };
+  "/api/frigate/{event_id}/snapshot/candidates/{candidate_id}": {
+    patch: {
+      operationId: "dismiss_snapshot_candidate_api_frigate__event_id__snapshot_candidates__candidate_id__patch";
+      path: {
+    candidate_id: string;
+    event_id: string;
+};
+      query: never;
+      requestBody: components['schemas']['SnapshotDismissRequest'];
       response: components['schemas']['SnapshotCandidateListResponse'];
     };
   };
@@ -3650,6 +3946,19 @@ export interface paths {
       response: components['schemas']['ManualObservationResponse'];
     };
   };
+  "/api/manual-observations/{draft_id}/species/{position}/{view}": {
+    get: {
+      operationId: "species_photo_manual_observation_api_manual_observations__draft_id__species__position___view__get";
+      path: {
+    draft_id: string;
+    position: number;
+    view: "photo" | "scene";
+};
+      query: never;
+      requestBody: unknown;
+      response: unknown;
+    };
+  };
   "/api/models/available": {
     get: {
       operationId: "get_available_models_api_models_available_get";
@@ -4048,6 +4357,41 @@ export interface paths {
       response: components['schemas']['SystemTelemetryHistoryResponse'];
     };
   };
+  "/api/taxonomy/lineage": {
+    get: {
+      operationId: "get_species_lineage_api_taxonomy_lineage_get";
+      path: never;
+      query: {
+    scientific_name: string;
+};
+      requestBody: unknown;
+      response: components['schemas']['TaxonLineageResponse'];
+    };
+  };
+  "/api/taxonomy/{taxon_id}/children": {
+    get: {
+      operationId: "get_taxon_children_api_taxonomy__taxon_id__children_get";
+      path: {
+    taxon_id: number;
+};
+      query: {
+    limit?: number;
+};
+      requestBody: unknown;
+      response: components['schemas']['TaxonChildrenResponse'];
+    };
+  };
+  "/api/taxonomy/{taxon_id}/lineage": {
+    get: {
+      operationId: "get_taxon_lineage_api_taxonomy__taxon_id__lineage_get";
+      path: {
+    taxon_id: number;
+};
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['TaxonLineageResponse'];
+    };
+  };
   "/api/update-status": {
     get: {
       operationId: "get_update_status_api_update_status_get";
@@ -4119,6 +4463,48 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: components['schemas']['VideoShareRevokeResponse'];
+    };
+  };
+  "/api/visits": {
+    get: {
+      operationId: "get_visits_api_visits_get";
+      path: never;
+      query: {
+    audio_confirmed_only?: boolean;
+    camera?: string | null;
+    end_date?: string | null;
+    end_time?: string | null;
+    favorites?: boolean;
+    limit?: number;
+    multiple_species_only?: boolean;
+    offset?: number;
+    only_hidden?: boolean;
+    sort?: string;
+    species?: string | null;
+    start_date?: string | null;
+    start_time?: string | null;
+};
+      requestBody: unknown;
+      response: components['schemas']['DetectionVisitsResponse'];
+    };
+  };
+  "/api/visits/{visit_id}/captures": {
+    get: {
+      operationId: "get_visit_captures_api_visits__visit_id__captures_get";
+      path: {
+    visit_id: string;
+};
+      query: {
+    end_date?: string | null;
+    end_time?: string | null;
+    limit?: number;
+    offset?: number;
+    only_hidden?: boolean;
+    start_date?: string | null;
+    start_time?: string | null;
+};
+      requestBody: unknown;
+      response: components['schemas']['VisitCapturesResponse'];
     };
   };
   "/health": {

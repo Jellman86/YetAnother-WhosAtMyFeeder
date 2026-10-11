@@ -4,6 +4,21 @@ import en from '../i18n/locales/en.json';
 import { ServerJobsStore } from './server_jobs.svelte';
 
 describe('ServerJobsStore', () => {
+    it('describes photo work while the video job is still running', () => {
+        addMessages('en', en);
+        init({ fallbackLocale: 'en', initialLocale: 'en' });
+        locale.set('en');
+        const store = new ServerJobsStore();
+        store.snapshot = {
+            captured_at: '2026-10-04T10:00:00Z',
+            items: [{ id: 'video:evt-photo', event_id: 'evt-photo', kind: 'video_analysis', source: 'maintenance',
+                status: 'running', phase: 'updating_photo', current: 15, total: 15, unit: 'frames' }],
+            lanes: []
+        };
+        expect(store.activeJobs[0].message).toBe('Updating photograph · evt-photo');
+        expect(store.activeJobs[0].status).toBe('running');
+    });
+
     it('names background work by what it is, not by a Frigate event id', () => {
         // The jobs view listed rows titled "1788274081.133679-ycxd6p". An identifier does not
         // tell an owner whether the row matters; the kind of work does.

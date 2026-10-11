@@ -77,7 +77,7 @@
                 {/if}
                 {$_('jobs.circuit_reset_button', { default: 'Try again' })}
             </button>
-            <p class="mt-1 text-[10px] text-amber-600/80 dark:text-amber-300/70">
+            <p class="mt-1 text-3xs text-amber-600/80 dark:text-amber-300/70">
                 {$_('jobs.circuit_reset_confirm', { default: 'This will reopen the video classification queue immediately. Queued jobs will retry.' })}
             </p>
             {#if resetError}

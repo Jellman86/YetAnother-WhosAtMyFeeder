@@ -86,7 +86,7 @@ describe('Notifications timeline layout', () => {
     it('shows the capture as evidence and an icon for every other kind', () => {
         // The field log leads with the photograph; a detection notification should not be an
         // abstract badge when the evidence exists.
-        expect(source).toContain('getThumbnailUrl(capture)');
+        expect(source).toMatch(/getThumbnailUrl\(capture[,)]/);
         // Fixed box and placeholder underneath, so a missing image cannot shift the row.
         expect(source).toContain('h-8 w-8 object-cover');
         for (const kind of ['warn', 'check', 'clock', 'update', 'bird']) {

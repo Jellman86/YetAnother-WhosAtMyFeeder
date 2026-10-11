@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, create_model
 import structlog
 
 from app.config import CONFIG_PATH, Settings as AppSettings, settings
+from app.config_loader import migrate_imported_media_controls
 from app.auth import (
     AuthContext,
     hash_password,
@@ -32,7 +33,7 @@ from app.services.frigate_client import frigate_client
 from app.services.timezone_repair_service import timezone_repair_service
 from app.services.media_cache import media_cache
 from app.services.maintenance_coordinator import maintenance_coordinator
-from app.services.media_integrity_scan import MEDIA_INTEGRITY_SCAN_KIND
+from app.services.media_integrity_scan import MEDIA_INTEGRITY_SCAN_KIND, evaluate_media_presence
 from app.services.ai_service import AIService
 from app.services.frigate_missing_policy import apply_missing_policy, clear_missing_state_if_present
 from app.services.smtp_service import smtp_service
@@ -392,6 +393,7 @@ class PurgeMissingMediaResponse(BaseModel):
     cleared_missing_count: int
     checked: int
     missing: int
+    errors: int = 0
     message: Optional[str] = None
 
 
@@ -464,8 +466,9 @@ class CacheStatsResponse(BaseModel):
     total_size_mb: float
     oldest_file: Optional[str] = None
     newest_file: Optional[str] = None
-    cache_enabled: bool
-    cache_snapshots: bool
+    storage_available: bool = Field(
+        ..., description="False when the media folder cannot be written: photographs and visit media are then not kept"
+    )
     cache_clips: bool
     archive_count: int = 0
     archive_size_bytes: int = 0
@@ -798,6 +801,10 @@ class SettingsUpdate(BaseModel):
         le=1.0,
         description="Ignore BirdNET-Go audio detections below this confidence (0.0 stores everything)",
     )
+    classification_image_source: Literal["frigate_snapshot", "recording_snapshot"] = Field(
+        "frigate_snapshot",
+        description="Initial classification image source; recordings fall back to the detection snapshot",
+    )
     clips_enabled: bool = Field(True, description="Enable fetching of video clips from Frigate")
     recording_clip_enabled: bool = Field(False, description="Enable full-visit recording clips")
     recording_clip_before_seconds: int = Field(
@@ -890,8 +897,6 @@ class SettingsUpdate(BaseModel):
         default_factory=dict, description="Deprecated compatibility field; ignored by the runtime"
     )
     # Media cache settings
-    media_cache_enabled: bool = Field(True, description="Enable local media caching")
-    media_cache_snapshots: bool = Field(True, description="Cache snapshot images locally")
     media_cache_clips: bool = Field(False, description="Cache video clips locally (may cause initial playback delay)")
     media_cache_high_quality_event_snapshots: bool = Field(
         False,
@@ -902,7 +907,7 @@ class SettingsUpdate(BaseModel):
         description="Deprecated compatibility field; HQ snapshots automatically attempt every available crop source",
     )
     media_cache_high_quality_event_snapshot_jpeg_quality: int = Field(
-        95,
+        90,
         ge=70,
         le=100,
         description="JPEG quality for derived high-quality event snapshots",
@@ -910,6 +915,18 @@ class SettingsUpdate(BaseModel):
     media_cache_retention_days: int = Field(0, ge=0, description="Days to keep cached media (0 = follow detection)")
     media_cache_per_species_minimum: int = Field(
         0, ge=0, le=10000, description="Newest detections per species kept out of age cleanup (0 = off)"
+    )
+    media_cache_per_species_maximum: int = Field(
+        0, ge=0, le=10000, description="Maximum cached visits per species, excluding favourites; 0 is unlimited"
+    )
+    media_cache_max_size_mb: int = Field(
+        0, ge=0, le=1048576, description="Ordinary media budget in MiB, excluding archived favourites; 0 is unlimited"
+    )
+    media_cache_automatic_multi_bird_scan: bool = Field(
+        False, description="Automatically scan visit photos for additional birds; manual scans remain available"
+    )
+    media_cache_bird_scan_mode: Literal["standard", "intensive"] = Field(
+        "intensive", description="Bird scan effort; standard is lighter, intensive scans high-resolution tiles"
     )
     # Location settings
     location_latitude: Optional[float] = Field(None, description="Latitude")
@@ -1302,6 +1319,7 @@ async def import_settings(
 ) -> SettingsImportResponse:
     """Import a full configuration backup. Owner only."""
     config = _extract_import_config(payload)
+    migrate_imported_media_controls(config)
     try:
         imported = AppSettings.model_validate(config)
     except ValidationError as e:
@@ -1321,6 +1339,8 @@ async def import_settings(
         settings.classification.model,
         settings.classification.inference_provider,
         settings.classification.image_execution_mode,
+        settings.location.latitude,
+        settings.location.longitude,
     )
     previous_ebird_naming = (settings.ebird.api_key, settings.ebird.locale, settings.ebird.enabled)
     telemetry_was_enabled = settings.telemetry.enabled or settings.telemetry.health_enabled
@@ -1352,6 +1372,8 @@ async def import_settings(
         settings.classification.model,
         settings.classification.inference_provider,
         settings.classification.image_execution_mode,
+        settings.location.latitude,
+        settings.location.longitude,
     )
     if current_classifier != previous_classifier:
         from app.services.classifier_service import reload_classifier_out_of_band
@@ -1419,6 +1441,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "audio_buffer_hours": settings.frigate.audio_buffer_hours,
         "audio_correlation_window_seconds": settings.frigate.audio_correlation_window_seconds,
         "audio_min_confidence": settings.frigate.audio_min_confidence,
+        "classification_image_source": settings.frigate.classification_image_source,
         "clips_enabled": settings.frigate.clips_enabled,
         "recording_clip_enabled": settings.frigate.recording_clip_enabled,
         "recording_clip_before_seconds": settings.frigate.recording_clip_before_seconds,
@@ -1465,13 +1488,15 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "video_classification_maintenance_circuit_until": maintenance_circuit_status.get("open_until"),
         "video_classification_maintenance_circuit_failures": maintenance_circuit_status.get("failure_count", 0),
         # Media cache settings
-        "media_cache_enabled": settings.media_cache.enabled,
-        "media_cache_snapshots": settings.media_cache.cache_snapshots,
         "media_cache_clips": settings.media_cache.cache_clips,
         "media_cache_high_quality_event_snapshots": settings.media_cache.high_quality_event_snapshots,
         "media_cache_high_quality_event_snapshot_bird_crop": settings.media_cache.high_quality_event_snapshot_bird_crop,
         "media_cache_high_quality_event_snapshot_jpeg_quality": settings.media_cache.high_quality_event_snapshot_jpeg_quality,
         "media_cache_retention_days": settings.media_cache.retention_days,
+        "media_cache_per_species_maximum": settings.media_cache.per_species_maximum,
+        "media_cache_max_size_mb": settings.media_cache.max_size_mb,
+        "media_cache_automatic_multi_bird_scan": settings.media_cache.automatic_multi_bird_scan,
+        "media_cache_bird_scan_mode": settings.media_cache.bird_scan_mode,
         "media_cache_per_species_minimum": settings.media_cache.per_species_minimum,
         # Location settings
         "location_latitude": settings.location.latitude,
@@ -1631,6 +1656,7 @@ async def update_settings(
 ) -> SettingsUpdateResponse:
     """Update application settings. Owner only."""
     inference_provider_changed = False
+    previous_classifier_location = (settings.location.latitude, settings.location.longitude)
     telemetry_was_enabled = settings.telemetry.enabled or settings.telemetry.health_enabled
     telemetry_installation_id = settings.telemetry.installation_id
 
@@ -1745,6 +1771,8 @@ async def update_settings(
     if "audio_min_confidence" in fields_set:
         settings.frigate.audio_min_confidence = update.audio_min_confidence
 
+    if "classification_image_source" in fields_set:
+        settings.frigate.classification_image_source = update.classification_image_source
     if "clips_enabled" in fields_set:
         settings.frigate.clips_enabled = update.clips_enabled
     if "recording_clip_enabled" in fields_set:
@@ -1858,10 +1886,6 @@ async def update_settings(
         )
 
     # Media cache settings
-    if "media_cache_enabled" in fields_set:
-        settings.media_cache.enabled = update.media_cache_enabled
-    if "media_cache_snapshots" in fields_set:
-        settings.media_cache.cache_snapshots = update.media_cache_snapshots
     if "media_cache_clips" in fields_set:
         settings.media_cache.cache_clips = update.media_cache_clips
     if "media_cache_high_quality_event_snapshots" in fields_set:
@@ -1878,6 +1902,18 @@ async def update_settings(
         settings.media_cache.retention_days = update.media_cache_retention_days
     if "media_cache_per_species_minimum" in fields_set:
         settings.media_cache.per_species_minimum = update.media_cache_per_species_minimum
+
+    if "media_cache_per_species_maximum" in fields_set:
+        settings.media_cache.per_species_maximum = update.media_cache_per_species_maximum
+
+    if "media_cache_max_size_mb" in fields_set:
+        settings.media_cache.max_size_mb = update.media_cache_max_size_mb
+
+    if "media_cache_automatic_multi_bird_scan" in fields_set:
+        settings.media_cache.automatic_multi_bird_scan = update.media_cache_automatic_multi_bird_scan
+
+    if "media_cache_bird_scan_mode" in fields_set:
+        settings.media_cache.bird_scan_mode = update.media_cache_bird_scan_mode
 
     # Location settings
     if "location_latitude" in fields_set:
@@ -2254,7 +2290,11 @@ async def update_settings(
 
         background_tasks.add_task(start_background_refresh)
 
-    if inference_provider_changed or execution_mode_changed:
+    if (
+        inference_provider_changed
+        or execution_mode_changed
+        or previous_classifier_location != (settings.location.latitude, settings.location.longitude)
+    ):
         from app.services.classifier_service import reload_classifier_out_of_band
 
         async def full_reload():
@@ -2449,16 +2489,16 @@ async def _purge_missing_media(kind: Literal["clip", "snapshot"]) -> dict:
 
     semaphore = asyncio.Semaphore(PURGE_CHECK_CONCURRENCY)
 
-    async def check(event_id: str) -> tuple[str, bool, str | None]:
+    async def check(event_id: str) -> tuple[str, bool | None, str | None]:
         async with semaphore:
-            event_data, error = await frigate_client.get_event_with_error(event_id)
-            if not event_data:
-                return event_id, True, error or "event_not_found"
-            if kind == "clip":
-                has_media = bool(event_data.get("has_clip", False))
-                return event_id, not has_media, None if has_media else "clip_unavailable"
-            has_media = bool(event_data.get("has_snapshot", True))
-            return event_id, not has_media, None if has_media else "snapshot_unavailable"
+            try:
+                event_data, error = await frigate_client.get_event_with_error(event_id)
+            except Exception:
+                return event_id, None, "event_request_error"
+            missing, reason = evaluate_media_presence(
+                event_data, error, media=kind, clips_enabled=settings.frigate.clips_enabled
+            )
+            return event_id, missing, reason
 
     results = await asyncio.gather(*(check(event_id) for event_id in event_ids))
     missing_count = sum(1 for _event_id, missing, _error in results if missing)
@@ -2469,6 +2509,8 @@ async def _purge_missing_media(kind: Literal["clip", "snapshot"]) -> dict:
     async with get_db() as db:
         repo = DetectionRepository(db)
         for event_id, missing, error in results:
+            if missing is None:
+                continue
             if missing:
                 counts = await apply_missing_policy(
                     repo=repo,
@@ -2497,6 +2539,7 @@ async def _purge_missing_media(kind: Literal["clip", "snapshot"]) -> dict:
         "cleared_missing_count": cleared_missing_count,
         "checked": len(event_ids),
         "missing": missing_count,
+        "errors": sum(missing is None for _event_id, missing, _error in results),
     }
 
 
@@ -2535,21 +2578,16 @@ async def _purge_missing_all_media() -> dict:
 
     semaphore = asyncio.Semaphore(PURGE_CHECK_CONCURRENCY)
 
-    async def check(event_id: str) -> tuple[str, bool, str | None]:
+    async def check(event_id: str) -> tuple[str, bool | None, str | None]:
         async with semaphore:
-            event_data, error = await frigate_client.get_event_with_error(event_id)
-            if not event_data:
-                return event_id, True, error or "event_not_found"
-
-            missing_reasons: list[str] = []
-            if settings.frigate.clips_enabled and not bool(event_data.get("has_clip", False)):
-                missing_reasons.append("clip_unavailable")
-            if not bool(event_data.get("has_snapshot", True)):
-                missing_reasons.append("snapshot_unavailable")
-
-            if missing_reasons:
-                return event_id, True, ",".join(missing_reasons)
-            return event_id, False, None
+            try:
+                event_data, error = await frigate_client.get_event_with_error(event_id)
+            except Exception:
+                return event_id, None, "event_request_error"
+            missing, reason = evaluate_media_presence(
+                event_data, error, media="any", clips_enabled=settings.frigate.clips_enabled
+            )
+            return event_id, missing, reason
 
     results = await asyncio.gather(*(check(event_id) for event_id in event_ids))
     missing_count = sum(1 for _event_id, missing, _error in results if missing)
@@ -2561,6 +2599,8 @@ async def _purge_missing_all_media() -> dict:
     async with get_db() as db:
         repo = DetectionRepository(db)
         for event_id, missing, error in results:
+            if missing is None:
+                continue
             if missing:
                 counts = await apply_missing_policy(
                     repo=repo,
@@ -2589,6 +2629,7 @@ async def _purge_missing_all_media() -> dict:
         "cleared_missing_count": cleared_missing_count,
         "checked": len(event_ids),
         "missing": missing_count,
+        "errors": sum(missing is None for _event_id, missing, _error in results),
     }
 
 
@@ -2957,8 +2998,7 @@ async def get_cache_stats(auth: AuthContext = Depends(require_owner)):
 
     return {
         **stats,
-        "cache_enabled": settings.media_cache.enabled,
-        "cache_snapshots": settings.media_cache.cache_snapshots,
+        "storage_available": media_cache.available,
         "cache_clips": settings.media_cache.cache_clips,
         **archive_totals,
         "retention_days": retention,
@@ -3000,6 +3040,10 @@ async def run_cache_cleanup(auth: AuthContext = Depends(require_owner)):
     stats["clips_deleted"] += orphan_stats["clips_deleted"]
     stats["bytes_freed"] += orphan_stats["bytes_freed"]
 
+    from app.services.media_storage_service import media_storage_service
+
+    limit_stats = await media_storage_service.enforce_limits()
+    stats["bytes_freed"] += limit_stats["bytes_freed"]
     return {"status": "completed", **stats, "retention_days": retention}
 
 

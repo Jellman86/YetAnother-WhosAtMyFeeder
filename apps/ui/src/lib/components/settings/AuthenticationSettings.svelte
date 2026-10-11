@@ -9,6 +9,50 @@
     import SettingsSelect from './_primitives/SettingsSelect.svelte';
     import SettingsSegmented from './_primitives/SettingsSegmented.svelte';
     import AdvancedSection from './_primitives/AdvancedSection.svelte';
+    import { authStore } from '../../stores/auth.svelte';
+    import { avatarStore } from '../../stores/avatar.svelte';
+    import { getErrorMessage } from '../../utils/error-handling';
+    import { logger } from '../../utils/logger';
+
+    // The profile picture saves the moment it is chosen, not with the page's Save bar, so its
+    // buttons say what they do. Checked here for size so a large photo fails before the upload.
+    const AVATAR_MAX_BYTES = 8 * 1024 * 1024;
+    let avatarInput = $state<HTMLInputElement | null>(null);
+    let avatarBusy = $state(false);
+    let avatarError = $state<string | null>(null);
+    async function chooseAvatar(event: Event): Promise<void> {
+        const input = event.currentTarget as HTMLInputElement;
+        const file = input.files?.[0];
+        input.value = '';
+        if (!file) return;
+        avatarError = null;
+        if (file.size > AVATAR_MAX_BYTES) {
+            avatarError = $_('settings.auth.avatar_too_large', { default: 'That file is over 8 MB. Choose a smaller picture.' });
+            return;
+        }
+        avatarBusy = true;
+        try {
+            await avatarStore.upload(file);
+        } catch (error) {
+            avatarError = $_('settings.auth.avatar_failed', { default: 'That file could not be used as a picture. Try a JPEG or PNG.' });
+            logger.warn('Profile picture upload failed', { message: getErrorMessage(error) });
+        } finally {
+            avatarBusy = false;
+        }
+        await authStore.loadStatus();
+    }
+    async function removeAvatar(): Promise<void> {
+        avatarError = null;
+        avatarBusy = true;
+        try {
+            await avatarStore.remove();
+            await authStore.loadStatus();
+        } catch (error) {
+            avatarError = getErrorMessage(error);
+        } finally {
+            avatarBusy = false;
+        }
+    }
 
     let {
         authEnabled = $bindable(false),
@@ -139,6 +183,51 @@
             />
         </SettingsRow>
 
+        {#if authEnabled && authStore.isAuthenticated}
+            <SettingsRow
+                labelId="setting-auth-avatar"
+                label={$_('settings.auth.avatar', { default: 'Profile picture' })}
+                description={$_('settings.auth.avatar_desc', {
+                    default: 'Shown beside your name in the sidebar. It is stored as a small square picture; nothing else from the file is kept.'
+                })}
+                layout="stacked"
+            >
+                <div class="flex flex-wrap items-center gap-3" data-settings-avatar>
+                    {#if avatarStore.url}
+                        <img src={avatarStore.url} alt={$_('settings.auth.avatar', { default: 'Profile picture' })} class="h-14 w-14 rounded-xl object-cover" />
+                    {:else}
+                        <span class="grid h-14 w-14 place-items-center rounded-xl bg-brand-100 text-lg font-bold text-brand-700 dark:bg-brand-900/50 dark:text-brand-300" aria-hidden="true">
+                            {(authStore.username?.trim().slice(0, 1) || 'Y').toUpperCase()}
+                        </span>
+                    {/if}
+                    <input
+                        bind:this={avatarInput}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        class="sr-only"
+                        tabindex="-1"
+                        aria-hidden="true"
+                        onchange={chooseAvatar}
+                    />
+                    <button type="button" class="btn btn-secondary min-h-11 px-4 text-sm" disabled={avatarBusy} onclick={() => avatarInput?.click()}>
+                        {avatarBusy
+                            ? $_('settings.auth.avatar_saving', { default: 'Saving…' })
+                            : avatarStore.url
+                              ? $_('settings.auth.avatar_replace', { default: 'Replace picture' })
+                              : $_('settings.auth.avatar_upload', { default: 'Upload picture' })}
+                    </button>
+                    {#if avatarStore.url}
+                        <button type="button" class="btn btn-ghost min-h-11 px-4 text-sm" disabled={avatarBusy} onclick={removeAvatar}>
+                            {$_('settings.auth.avatar_remove', { default: 'Remove picture' })}
+                        </button>
+                    {/if}
+                    {#if avatarError}
+                        <p class="w-full text-xs text-red-600 dark:text-red-400" role="alert">{avatarError}</p>
+                    {/if}
+                </div>
+            </SettingsRow>
+        {/if}
+
         {#if authEnabled}
             <SettingsRow
             labelId="setting-auth-username"
@@ -234,7 +323,7 @@
                             onclick={addTrustedProxyHost}
                             disabled={!newTrustedProxyHost.trim()}
                             aria-label={$_('settings.auth.trusted_proxies_add', { default: 'Add trusted proxy host' })}
-                            class="px-6 py-3 bg-brand-500 hover:bg-brand-600 text-white text-xs font-black uppercase tracking-widest rounded-2xl transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                            class="px-6 py-3 bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold uppercase tracking-widest rounded-2xl transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {$_('common.add')}
                         </button>
@@ -244,7 +333,7 @@
                             <span class="group flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold {trustedProxyHostsSuggested ? 'border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/40 text-slate-500 dark:text-slate-400' : 'bg-white dark:bg-slate-800 border border-brand-200 dark:border-brand-700/50 text-slate-700 dark:text-slate-300'}">
                                 {host}
                                 {#if trustedProxyHostsSuggested}
-                                    <span class="px-2 py-0.5 rounded-full text-xs font-black uppercase tracking-widest bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                                    <span class="px-2 py-0.5 rounded-full text-xs font-bold uppercase tracking-widest bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                                         {$_('settings.auth.trusted_proxies_suggested_label', { default: 'Suggested' })}
                                     </span>
                                 {:else}
@@ -269,7 +358,7 @@
                             <button
                                 type="button"
                                 onclick={acceptTrustedProxySuggestions}
-                                class="self-start px-3 py-1.5 rounded-xl bg-brand-500 text-white text-xs font-black uppercase tracking-widest"
+                                class="self-start px-3 py-1.5 rounded-xl bg-brand-500 text-white text-xs font-bold uppercase tracking-widest"
                             >
                                 {$_('settings.auth.trusted_proxies_use_suggestions', { default: 'Use suggestions' })}
                             </button>

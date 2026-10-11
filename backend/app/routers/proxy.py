@@ -10,11 +10,11 @@ from pathlib import Path as FilePath
 from time import perf_counter
 from tempfile import NamedTemporaryFile
 from urllib.parse import quote_plus, urlsplit
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, HTTPException, Response, Path, Query, Request, Depends, Security
 from fastapi.responses import FileResponse, StreamingResponse
 from starlette.background import BackgroundTask
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from fastapi.security import HTTPAuthorizationCredentials
 import httpx
 import sqlite3
@@ -24,8 +24,11 @@ from typing import Literal
 from app.config import settings
 from app.services.frigate_client import frigate_client
 from app.services.high_quality_snapshot_service import high_quality_snapshot_service
+from app.services.photo_choice_actions import photo_choice_lock
 from app.services.i18n_service import i18n_service
 from app.utils.language import get_user_language
+from app.utils.api_datetime import utc_naive_datetime
+from app.utils.canonical_species import should_hide_species_label
 from app.utils.frigate_recording import (
     RecordingCameraIssue,
     RecordingCapabilityReason,
@@ -43,9 +46,11 @@ from app.auth import (
 from app.ratelimit import guest_rate_limit, hls_rate_limit, share_create_rate_limit
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
+from app.repositories.bird_observation_repository import BirdObservationRepository
+from app.repositories.species_repository import SpeciesRepository
 from app.repositories.video_share_repository import VideoShareRepository
 from app.utils.api_datetime import serialize_api_datetime
-from app.utils.public_access import effective_public_media_days
+from app.utils.public_access import public_media_window
 from app.utils.integration_url import validated_http_base_url
 from app.utils.hls import is_hls_asset, rewrite_hls_playlist
 
@@ -179,22 +184,6 @@ async def _proxy_hls_asset(request: Request, upstream_url: str, asset: str, lang
     )
 
 
-async def _cached_snapshot_allowed_for_current_settings(media_cache, event_id: str) -> bool:
-    """Return False when a cached HQ snapshot should not be served under current settings."""
-    if settings.media_cache.high_quality_event_snapshots:
-        return True
-
-    metadata = await media_cache.get_snapshot_metadata(event_id)
-    source = str((metadata or {}).get("source") or "").strip()
-    # Legacy cached snapshots have no metadata. When HQ snapshots are disabled,
-    # refresh them once so old full-frame HQ replacements do not keep winning.
-    if not source or source in HIGH_QUALITY_SNAPSHOT_SOURCES or source.startswith("hq_candidate_"):
-        await media_cache.delete_snapshot(event_id)
-        await media_cache.delete_thumbnail(event_id)
-        return False
-    return True
-
-
 # Validate event_id format (Frigate uses UUIDs, numeric IDs, or timestamp-based IDs with dots)
 EVENT_ID_PATTERN = re.compile(r"^[a-zA-Z0-9\-_.]+$")
 CAMERA_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_\-]+$")
@@ -208,8 +197,18 @@ def validate_camera_name(camera: str) -> bool:
     return bool(CAMERA_NAME_PATTERN.match(camera)) and len(camera) <= 64
 
 
-def _is_probably_thumbnail_sized_snapshot(image_bytes: bytes) -> bool:
+def _is_probably_thumbnail_sized_snapshot(image_bytes: bytes, *, source: str | None = None) -> bool:
     """Detect obviously thumbnail-sized cached "snapshots" from earlier shared-cache behavior."""
+    # Genuine distant-bird portraits can be smaller than a thumbnail. Only
+    # repair ambiguous legacy entries; explicit snapshot provenance wins.
+    if source in HIGH_QUALITY_SNAPSHOT_SOURCES | {
+        "frigate_snapshot_cropped",
+        "frigate_snapshot_unverified",
+        "frigate_recording_snapshot",
+        "video_evidence_crop",
+        "video_evidence_full_frame",
+    } or str(source or "").startswith("hq_candidate_"):
+        return False
     if len(image_bytes) > 16_384:
         return False
 
@@ -275,11 +274,7 @@ def _snapshot_generation_lock(event_id: str) -> asyncio.Lock:
 
 
 def _hq_bird_crop_feature_enabled() -> bool:
-    return bool(
-        settings.media_cache.enabled
-        and settings.media_cache.cache_snapshots
-        and settings.media_cache.high_quality_event_snapshots
-    )
+    return bool(settings.media_cache.high_quality_event_snapshots)
 
 
 async def _build_snapshot_status(event_id: str, *, check_original_frigate_snapshot: bool = True):
@@ -290,13 +285,19 @@ async def _build_snapshot_status(event_id: str, *, check_original_frigate_snapsh
     metadata: dict = {}
     original_frigate_snapshot_available: bool | None = None
 
-    if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
-        cached = await media_cache.get_snapshot(event_id) is not None
-        if cached:
-            metadata = await media_cache.get_snapshot_metadata(event_id) or {}
-            source = str((metadata or {}).get("source") or "").strip() or None
+    cached = await media_cache.get_snapshot(event_id) is not None
+    if cached:
+        metadata = await media_cache.get_snapshot_metadata(event_id) or {}
+        source = str((metadata or {}).get("source") or "").strip() or None
 
-    if check_original_frigate_snapshot:
+    if event_id.startswith("manual_"):
+        # Frigate never had an upload; its original photo is its own species photo.
+        from app.services.manual_observation_service import manual_observation_service
+
+        original_frigate_snapshot_available = bool(
+            await manual_observation_service.path_for_event(event_id, preview=True)
+        )
+    elif check_original_frigate_snapshot:
         original_snapshot, _error = await frigate_client.get_snapshot_with_error(
             event_id,
             crop=True,
@@ -307,6 +308,7 @@ async def _build_snapshot_status(event_id: str, *, check_original_frigate_snapsh
 
     already_hq_bird_crop = source in {
         "high_quality_bird_crop",
+        "video_evidence_crop",
         "hq_candidate_frigate_hint_crop",
         "hq_candidate_model_crop",
     }
@@ -350,38 +352,45 @@ async def _list_snapshot_candidates(event_id: str) -> list[dict]:
         return await repo.list_snapshot_candidates(event_id)
 
 
-def _candidate_thumbnail_url(request: Request, event_id: str, candidate_id: str) -> str:
-    import time
-
+def _candidate_thumbnail_url(request: Request, event_id: str, candidate_id: str, version: str) -> str:
     return (
         request.url_for(
             "get_snapshot_candidate_thumbnail",
             event_id=event_id,
             candidate_id=candidate_id,
         ).path
-        + f"?v={int(time.time())}"
+        + f"?v={version}"
     )
 
 
-def _candidate_image_url(request: Request, event_id: str, candidate_id: str) -> str:
-    import time
-
+def _candidate_image_url(request: Request, event_id: str, candidate_id: str, version: str) -> str:
     return (
         request.url_for(
             "get_snapshot_candidate_image",
             event_id=event_id,
             candidate_id=candidate_id,
         ).path
-        + f"?v={int(time.time())}"
+        + f"?v={version}"
     )
 
 
 async def _build_snapshot_candidates_response(request: Request, event_id: str) -> "SnapshotCandidateListResponse":
     status = await _build_snapshot_status(event_id, check_original_frigate_snapshot=False)
     candidates = await _list_snapshot_candidates(event_id)
+    from app.services.media_cache import media_cache
+
+    media_versions = await asyncio.gather(
+        *(
+            media_cache.get_cached_image_version(str(candidate.get(ref) or "").strip(), thumbnail=thumbnail)
+            for candidate in candidates
+            for ref, thumbnail in (("image_ref", False), ("thumbnail_ref", True))
+        )
+    )
+    async with get_db() as db:
+        birds = await BirdObservationRepository(db).named_for_event(event_id, get_user_language(request))
     current_source = status.source
     current_candidate_id = None
-    if current_source and current_source.startswith("hq_candidate_"):
+    if current_source and current_source.startswith(("hq_candidate_", "video_evidence_")):
         selected_candidate = next((item for item in candidates if bool(item.get("selected"))), None)
         if selected_candidate and str(selected_candidate.get("snapshot_source") or "") == current_source:
             current_candidate_id = str(selected_candidate.get("candidate_id") or "")
@@ -405,6 +414,7 @@ async def _build_snapshot_candidates_response(request: Request, event_id: str) -
         current_source=current_source,
         current_candidate_id=current_candidate_id,
         model_crop_miss_reason=model_crop_miss_reason,
+        birds=[BirdObservationResponse.model_validate(bird) for bird in birds],
         candidates=[
             SnapshotCandidateResponse(
                 candidate_id=str(candidate.get("candidate_id") or ""),
@@ -431,6 +441,7 @@ async def _build_snapshot_candidates_response(request: Request, event_id: str) -
                 ),
                 ranking_score=float(candidate.get("ranking_score") or 0.0),
                 selected=bool(candidate.get("selected")),
+                photo_hidden=bool(candidate.get("photo_hidden")),
                 snapshot_source=(
                     str(candidate.get("snapshot_source")) if candidate.get("snapshot_source") is not None else None
                 ),
@@ -439,22 +450,27 @@ async def _build_snapshot_candidates_response(request: Request, event_id: str) -
                         request,
                         event_id,
                         str(candidate.get("candidate_id") or ""),
+                        media_versions[index * 2],
                     )
-                    if str(candidate.get("image_ref") or "").strip()
+                    if media_versions[index * 2] is not None
                     else None
                 ),
                 thumbnail_url=_candidate_thumbnail_url(
                     request,
                     event_id,
                     str(candidate.get("candidate_id") or ""),
-                ),
+                    media_versions[index * 2 + 1],
+                )
+                if media_versions[index * 2 + 1] is not None
+                else None,
             )
-            for candidate in candidates
+            for index, candidate in enumerate(candidates)
         ],
     )
 
 
 def _pick_snapshot_candidate(candidates: list[dict], request: "SnapshotApplyRequest") -> dict | None:
+    candidates = [item for item in candidates if item.get("source_mode") != "model_observation"]
     if request.mode == "candidate":
         target_id = str(request.candidate_id or "").strip()
         return next((item for item in candidates if str(item.get("candidate_id") or "") == target_id), None)
@@ -623,6 +639,7 @@ class SnapshotGenerateResponse(SnapshotStatusResponse):
 
 
 class SnapshotCandidateResponse(BaseModel):
+    photo_hidden: bool = False
     candidate_id: str
     frame_index: int
     frame_offset_seconds: float | None = None
@@ -640,6 +657,61 @@ class SnapshotCandidateResponse(BaseModel):
     thumbnail_url: str | None = None
 
 
+class BirdObservationResponse(BaseModel):
+    id: int
+    bird_index: int
+    candidate_id: str
+    clip_variant: str
+    frame_index: int
+    crop_box: list[float]
+    detector_confidence: float | None = None
+    species: str
+    common_name: str | None = None
+    scientific_name: str | None = None
+    identity_source: Literal["crop", "visit", "manual"] = "crop"
+    identity_score: float | None = None
+    tracked: bool = Field(False, description="The bird Frigate tracked, which the visit's name is about")
+    classifier_label: str | None = None
+    classifier_score: float
+    manual_species: bool
+    is_hidden: bool
+    is_unknown: bool = False
+
+    @model_validator(mode="after")
+    def apply_unknown_species_policy(self) -> "BirdObservationResponse":
+        self.is_unknown = should_hide_species_label(self.species)
+        return self
+
+
+class BirdObservationUpdateRequest(BaseModel):
+    species: str | None = Field(default=None, min_length=1, max_length=120)
+    is_hidden: bool | None = None
+
+
+class BirdScanRequest(BaseModel):
+    candidate_id: str = Field(min_length=1, max_length=256)
+    expected_media_version: str = Field(min_length=1, max_length=128)
+    force: bool = False
+
+
+class BirdScanResponse(BaseModel):
+    event_id: str
+    candidate_id: str
+    status: Literal["not_scanned", "queued", "running", "completed", "failed"]
+    available: bool
+    unavailable_reason: str | None = None
+    error: str | None = None
+    result_count: int | None = None
+    retained_previous: bool = False
+    updated_at: str | None = None
+    # Progress, only while the scan is live: how many scans run first, then which step is running.
+    queue_ahead: int | None = None
+    started_at: str | None = None
+    stage: Literal["detecting", "naming", "counting", "saving"] | None = None
+    stage_done: int | None = None
+    stage_total: int | None = None
+
+
 class SnapshotCandidateListResponse(BaseModel):
     model_config = {"protected_namespaces": ()}
 
@@ -647,6 +719,7 @@ class SnapshotCandidateListResponse(BaseModel):
     current_source: str | None = None
     current_candidate_id: str | None = None
     candidates: list[SnapshotCandidateResponse]
+    birds: list[BirdObservationResponse] = Field(default_factory=list)
     model_crop_miss_reason: str | None = None
 
 
@@ -883,26 +956,21 @@ async def require_event_access(event_id: str, auth: AuthContext, lang: str, medi
             detection = await repo.get_by_frigate_event(event_id)
     except sqlite3.OperationalError as exc:
         log = structlog.get_logger()
-        log.warning("Failed to check event access; allowing fallback", error=str(exc))
-        return
+        log.warning("Failed to check event access; refusing media", error_type=type(exc).__name__)
+        raise HTTPException(
+            status_code=503,
+            detail=i18n_service.translate("errors.proxy.access_check_unavailable", lang),
+            headers={"Retry-After": "5"},
+        ) from exc
 
     if not detection or detection.is_hidden or not detection.detection_time:
         raise HTTPException(status_code=404, detail=i18n_service.translate("errors.proxy.event_not_found", lang))
 
     if settings.public_access.enabled:
-        max_days = effective_public_media_days()
-        detection_date = detection.detection_time.date()
-        if max_days > 0:
-            cutoff = date.today() - timedelta(days=max_days)
-            if detection_date < cutoff:
-                raise HTTPException(
-                    status_code=404, detail=i18n_service.translate("errors.proxy.event_not_found", lang)
-                )
-        else:
-            if detection_date != date.today():
-                raise HTTPException(
-                    status_code=404, detail=i18n_service.translate("errors.proxy.event_not_found", lang)
-                )
+        cutoff, end = public_media_window()
+        stamp = utc_naive_datetime(detection.detection_time)
+        if stamp < cutoff.replace(tzinfo=None) or (end is not None and stamp >= end.replace(tzinfo=None)):
+            raise HTTPException(status_code=404, detail=i18n_service.translate("errors.proxy.event_not_found", lang))
 
 
 def _normalize_detection_timestamp(value: datetime | None) -> int | None:
@@ -1018,8 +1086,7 @@ async def _get_cached_recording_clip_details(
     from app.services.media_cache import media_cache
 
     raw_cached_path: FilePath | None = None
-    if settings.media_cache.enabled:
-        raw_cached_path = media_cache.get_recording_clip_path(event_id)
+    raw_cached_path = media_cache.get_recording_clip_path(event_id)
     if not raw_cached_path:
         if not resolve_context:
             return None, None, None, None, None, None
@@ -1145,7 +1212,9 @@ async def _fetch_recording_clip_ready(event_id: str, lang: str) -> RecordingClip
                 raise HTTPException(status_code=404, detail=i18n_service.translate("errors.proxy.clip_not_found", lang))
             response.raise_for_status()
 
-            should_cache = settings.media_cache.enabled
+            # Stored before it is served, so a replayed visit is not fetched twice; a host that
+            # cannot write media streams it instead.
+            should_cache = media_cache.available
             if should_cache:
                 cached = await media_cache.cache_recording_clip_streaming(event_id, response.aiter_bytes())
                 if not cached:
@@ -1193,7 +1262,7 @@ async def _ensure_preview_assets(event_id: str, lang: str) -> str:
     from app.services.media_cache import media_cache
     from app.services.video_preview_service import video_preview_service
 
-    if not settings.media_cache.enabled:
+    if not media_cache.available:
         raise HTTPException(status_code=503, detail=i18n_service.translate("errors.proxy.preview_disabled", lang))
 
     if media_cache.get_preview_sprite_path(event_id) and await media_cache.get_preview_manifest(event_id):
@@ -1607,7 +1676,12 @@ async def generate_hq_bird_crop_snapshot(
                 result="already_hq_bird_crop",
             )
 
-        result = await high_quality_snapshot_service.process_event(event_id)
+        async with get_db() as db:
+            from app.repositories.processing_job_repository import ProcessingJobRepository
+            from app.services.high_quality_snapshot_service import HQ_PROCESSING_PIPELINE
+
+            await ProcessingJobRepository(db).enqueue(HQ_PROCESSING_PIPELINE, event_id, force=True)
+        result = await high_quality_snapshot_service.process_event(event_id, manual_override=regenerate)
         after = await _build_snapshot_status(event_id)
         if result == "bird_crop_replaced":
             status = "generated_hq_bird_crop"
@@ -1635,6 +1709,88 @@ async def get_snapshot_candidates(
     if not validate_event_id(event_id):
         raise HTTPException(status_code=400, detail="Invalid event ID format")
     return await _build_snapshot_candidates_response(request, event_id)
+
+
+@router.get("/frigate/{event_id}/birds/scan", response_model=BirdScanResponse)
+async def get_bird_scan(
+    event_id: str = Path(..., min_length=1, max_length=64),
+    candidate_id: str = Query(..., min_length=1, max_length=256),
+    expected_media_version: str | None = Query(None, min_length=1, max_length=128),
+    auth: AuthContext = Depends(require_owner),
+) -> BirdScanResponse:
+    from app.repositories.bird_scan_repository import BirdScanNotFoundError
+    from app.services.bird_scan_service import bird_scan_service
+
+    del auth
+    if not validate_event_id(event_id):
+        raise HTTPException(status_code=400, detail="Invalid event ID format")
+    try:
+        return BirdScanResponse.model_validate(
+            await bird_scan_service.get_status(event_id, candidate_id, expected_media_version=expected_media_version)
+        )
+    except BirdScanNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Detection not found") from exc
+
+
+@router.post("/frigate/{event_id}/birds/scan", response_model=BirdScanResponse, status_code=202)
+async def request_bird_scan(
+    request: BirdScanRequest,
+    event_id: str = Path(..., min_length=1, max_length=64),
+    auth: AuthContext = Depends(require_owner),
+) -> BirdScanResponse:
+    from app.repositories.bird_scan_repository import BirdScanBusyError, BirdScanNotFoundError
+    from app.services.bird_scan_service import BirdScanUnavailable, bird_scan_service
+
+    del auth
+    if not validate_event_id(event_id):
+        raise HTTPException(status_code=400, detail="Invalid event ID format")
+    try:
+        result = await bird_scan_service.enqueue(
+            event_id, request.candidate_id, force=request.force, expected_media_version=request.expected_media_version
+        )
+        return BirdScanResponse.model_validate(result)
+    except BirdScanNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Detection not found") from exc
+    except BirdScanBusyError as exc:
+        raise HTTPException(status_code=409, detail="scan_in_progress") from exc
+    except BirdScanUnavailable as exc:
+        raise HTTPException(status_code=429 if str(exc) == "queue_full" else 409, detail=str(exc)) from exc
+
+
+@router.patch("/frigate/{event_id}/birds/{bird_id}", response_model=BirdObservationResponse)
+async def update_counted_bird(
+    request: Request,
+    update: BirdObservationUpdateRequest,
+    event_id: str = Path(..., min_length=1, max_length=64),
+    bird_id: int = Path(..., ge=1),
+    auth: AuthContext = Depends(require_owner),
+) -> BirdObservationResponse:
+    del auth
+    if not validate_event_id(event_id):
+        raise HTTPException(status_code=400, detail="Invalid event ID format")
+    if (update.species is None) == (update.is_hidden is None):
+        raise HTTPException(status_code=400, detail="Change either species or visibility")
+    species = update.species.strip() if update.species is not None else None
+    if update.species is not None and not species:
+        raise HTTPException(status_code=400, detail="Species is required")
+    async with get_db() as db:
+        repo = BirdObservationRepository(db)
+        if species is not None:
+            from app.services.classifier_service import get_classifier
+
+            species = await SpeciesRepository(db).resolve_exact_species(species, get_classifier().labels)
+            if not species or should_hide_species_label(species):
+                raise HTTPException(status_code=400, detail="Choose a complete species from the search results")
+            updated = await repo.set_species(event_id, bird_id, species)
+        else:
+            updated = await repo.set_hidden(event_id, bird_id, bool(update.is_hidden))
+        if not updated:
+            raise HTTPException(status_code=404, detail="Counted bird not found")
+        birds = await repo.named_for_event(event_id, get_user_language(request))
+    bird = next((item for item in birds if item["id"] == bird_id), None)
+    if bird is None:
+        raise HTTPException(status_code=404, detail="Counted bird not found")
+    return BirdObservationResponse.model_validate(bird)
 
 
 @router.get("/frigate/{event_id}/snapshot/candidates/{candidate_id}/thumbnail.jpg", response_class=Response)
@@ -1686,6 +1842,37 @@ async def get_snapshot_candidate_image(
     return Response(content=image_bytes, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
 
 
+class SnapshotDismissRequest(BaseModel):
+    dismissed: bool
+
+
+@router.patch("/frigate/{event_id}/snapshot/candidates/{candidate_id}", response_model=SnapshotCandidateListResponse)
+async def dismiss_snapshot_candidate(
+    request: Request,
+    body: SnapshotDismissRequest,
+    event_id: str = Path(..., min_length=1, max_length=64),
+    candidate_id: str = Path(..., min_length=1, max_length=160),
+    auth: AuthContext = Depends(require_owner),
+):
+    if not validate_event_id(event_id):
+        raise HTTPException(400, "Invalid event ID format")
+    async with photo_choice_lock(event_id):
+        return await _dismiss_snapshot_candidate(request, body, event_id, candidate_id)
+
+
+async def _dismiss_snapshot_candidate(
+    request: Request, body: SnapshotDismissRequest, event_id: str, candidate_id: str
+) -> SnapshotCandidateListResponse:
+    async with get_db() as db:
+        try:
+            changed = await DetectionRepository(db).dismiss_snapshot_candidate(event_id, candidate_id, body.dismissed)
+        except ValueError as error:
+            raise HTTPException(409, str(error)) from error
+    if not changed:
+        raise HTTPException(404, "Photo choice unavailable")
+    return await _build_snapshot_candidates_response(request, event_id)
+
+
 @router.post("/frigate/{event_id}/snapshot/apply", response_model=SnapshotApplyResponse)
 async def apply_snapshot_candidate(
     request_body: SnapshotApplyRequest,
@@ -1695,23 +1882,56 @@ async def apply_snapshot_candidate(
     del auth
     if not validate_event_id(event_id):
         raise HTTPException(status_code=400, detail="Invalid event ID format")
+    async with photo_choice_lock(event_id):
+        return await _apply_snapshot_candidate(request_body, event_id)
+
+
+async def _apply_snapshot_candidate(request_body: SnapshotApplyRequest, event_id: str) -> SnapshotApplyResponse:
 
     from app.services.media_cache import media_cache
+
+    if request_body.mode == "revert_original" and event_id.startswith("manual_"):
+        # Frigate never had an upload; its original photo is its own species photo. It is held as
+        # the owner's choice, as an ordinary revert holds Frigate's, so Score again keeps it.
+        from app.services.manual_observation_service import manual_observation_service
+
+        own_photo = await manual_observation_service.path_for_event(event_id, preview=True)
+        if own_photo is None:
+            raise HTTPException(status_code=404, detail="Original photo unavailable")
+        replaced = await media_cache.replace_snapshot(
+            event_id, await asyncio.to_thread(own_photo.read_bytes), source="manual_upload", manual_selection=True
+        )
+        if not replaced:
+            raise HTTPException(status_code=409, detail="Snapshot apply failed")
+        async with get_db() as db:
+            await DetectionRepository(db).mark_selected_snapshot_candidate(event_id, None)
+        from app.services.archive_service import archive_service
+
+        await archive_service.refresh_photograph(event_id)
+        after = await _build_snapshot_status(event_id)
+        return SnapshotApplyResponse(
+            **after.model_dump(),
+            status="applied",
+            applied_mode=request_body.mode,
+            applied_candidate_id=None,
+        )
 
     if request_body.mode == "revert_original":
         snapshot_bytes = await frigate_client.get_snapshot(event_id, crop=True, quality=95)
         if not snapshot_bytes:
             raise HTTPException(status_code=404, detail="Original Frigate snapshot unavailable")
-        replaced = await media_cache.replace_snapshot(event_id, snapshot_bytes, source="frigate_snapshot")
-        if replaced:
-            # A favourite keeps the photograph as chosen; a new choice is archived again (#178).
-            from app.services.archive_service import archive_service
-
-            await archive_service.refresh_photograph(event_id)
+        replaced = await media_cache.replace_snapshot(
+            event_id, snapshot_bytes, source="frigate_snapshot", manual_selection=True
+        )
         if not replaced:
             raise HTTPException(status_code=409, detail="Snapshot apply failed")
         async with get_db() as db:
             await DetectionRepository(db).mark_selected_snapshot_candidate(event_id, None)
+        # Archive work follows the committed choice, so cancelling it cannot
+        # leave the selected candidate describing the photograph it replaced.
+        from app.services.archive_service import archive_service
+
+        await archive_service.refresh_photograph(event_id)
         after = await _build_snapshot_status(event_id)
         return SnapshotApplyResponse(
             **after.model_dump(),
@@ -1722,27 +1942,39 @@ async def apply_snapshot_candidate(
 
     candidates = await _list_snapshot_candidates(event_id)
     candidate = _pick_snapshot_candidate(candidates, request_body)
+    if candidate and candidate.get("photo_hidden"):
+        raise HTTPException(409, "Restore this photo choice before using it")
     if candidate is None:
         raise HTTPException(status_code=404, detail="Snapshot candidate unavailable")
 
     image_ref = str(candidate.get("image_ref") or "").strip()
     if not image_ref:
         raise HTTPException(status_code=409, detail="Snapshot candidate image unavailable")
-    image_bytes = await media_cache.get_snapshot(image_ref)
+    from app.services.media_cache import validate_film_alignment
+
+    async with media_cache._snapshot_commit_lock(image_ref):
+        image_bytes = await media_cache.get_snapshot(image_ref)
+        candidate_metadata = await media_cache.get_snapshot_metadata(image_ref) or {}
     if not image_bytes:
         raise HTTPException(status_code=409, detail="Snapshot candidate image unavailable")
+    alignment = validate_film_alignment(candidate_metadata.get("film_alignment"), image_bytes)
     snapshot_source = str(candidate.get("snapshot_source") or "high_quality_snapshot")
-    replaced = await media_cache.replace_snapshot(event_id, image_bytes, source=snapshot_source)
-    if replaced:
-        # A favourite keeps the photograph as chosen; a new choice is archived again (#178).
-        from app.services.archive_service import archive_service
-
-        await archive_service.refresh_photograph(event_id)
+    replaced = await media_cache.replace_snapshot(
+        event_id,
+        image_bytes,
+        source=snapshot_source,
+        manual_selection=True,
+        manual_candidate_id=str(candidate.get("candidate_id") or "") or None,
+        **({"film_alignment": alignment} if alignment is not None else {}),
+    )
     if not replaced:
         raise HTTPException(status_code=409, detail="Snapshot apply failed")
     applied_candidate_id = str(candidate.get("candidate_id") or "")
     async with get_db() as db:
         await DetectionRepository(db).mark_selected_snapshot_candidate(event_id, applied_candidate_id)
+    from app.services.archive_service import archive_service
+
+    await archive_service.refresh_photograph(event_id)
     after = await _build_snapshot_status(event_id)
     return SnapshotApplyResponse(
         **after.model_dump(),
@@ -1760,6 +1992,13 @@ async def proxy_original_snapshot(
     del auth
     if not validate_event_id(event_id):
         raise HTTPException(status_code=400, detail="Invalid event ID format")
+    if event_id.startswith("manual_"):
+        from app.services.manual_observation_service import manual_observation_service
+
+        own_photo = await manual_observation_service.path_for_event(event_id, preview=True)
+        if not own_photo:
+            raise HTTPException(status_code=404, detail="Original photo unavailable")
+        return FileResponse(own_photo, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
     snapshot_bytes = await frigate_client.get_snapshot(event_id, crop=True, quality=95)
     if not snapshot_bytes:
         raise HTTPException(status_code=404, detail="Original Frigate snapshot unavailable")
@@ -1786,20 +2025,26 @@ async def proxy_snapshot(
     if event_id.startswith("manual_"):
         from app.services.manual_observation_service import manual_observation_service
 
+        # A chosen or generated photo is held in the cache as for any visit.
+        if chosen := await media_cache.get_snapshot(event_id):
+            return Response(content=chosen, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
         manual_snapshot = await manual_observation_service.path_for_event(event_id, preview=True)
         if not manual_snapshot:
             raise HTTPException(status_code=404, detail=i18n_service.translate("errors.proxy.snapshot_not_found", lang))
         return FileResponse(manual_snapshot, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
 
     # Check cache first
-    if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
-        cached = await media_cache.get_snapshot(event_id)
-        if cached:
-            cache_allowed = await _cached_snapshot_allowed_for_current_settings(media_cache, event_id)
-            if cache_allowed and not _is_probably_thumbnail_sized_snapshot(cached):
-                return Response(content=cached, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
-            if cache_allowed:
-                await media_cache.delete_snapshot(event_id)
+    retained_legacy_photo: bytes | None = None
+    cached = await media_cache.get_snapshot(event_id)
+    if cached:
+        metadata = await media_cache.get_snapshot_metadata(event_id) or {}
+        if metadata.get("manual_selection") or not _is_probably_thumbnail_sized_snapshot(
+            cached, source=metadata.get("source")
+        ):
+            return Response(content=cached, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
+        # Keep the last retained image until a replacement is fetched.
+        # Frigate may have already expired this historical event.
+        retained_legacy_photo = cached
 
     # The cache is the live photograph; a favourite's archived copy stands in when the cache has
     # nothing, and outlives Frigate's own rotation (#178).
@@ -1820,12 +2065,15 @@ async def proxy_snapshot(
             params={"crop": 1, "quality": 95},
         )
         if resp.status_code == 404:
+            if retained_legacy_photo is not None:
+                return Response(
+                    content=retained_legacy_photo, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS
+                )
             raise HTTPException(status_code=404, detail=i18n_service.translate("errors.proxy.snapshot_not_found", lang))
         resp.raise_for_status()
 
         # Cache the response
-        if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
-            await media_cache.cache_snapshot(event_id, resp.content)
+        await media_cache.cache_snapshot(event_id, resp.content, source="frigate_snapshot_unverified")
 
         return Response(
             content=resp.content,
@@ -1833,13 +2081,19 @@ async def proxy_snapshot(
             headers=SNAPSHOT_NO_STORE_HEADERS,
         )
     except httpx.TimeoutException:
+        if retained_legacy_photo is not None:
+            return Response(content=retained_legacy_photo, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
         raise HTTPException(status_code=504, detail=i18n_service.translate("errors.proxy.frigate_timeout", lang))
     except httpx.HTTPStatusError as e:
+        if retained_legacy_photo is not None:
+            return Response(content=retained_legacy_photo, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
         raise HTTPException(
             status_code=e.response.status_code,
             detail=i18n_service.translate("errors.proxy.frigate_error", lang, status_code=e.response.status_code),
         )
     except httpx.RequestError:
+        if retained_legacy_photo is not None:
+            return Response(content=retained_legacy_photo, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
         raise HTTPException(
             status_code=502,
             detail=i18n_service.translate("errors.proxy.connection_failed", lang, url=settings.frigate.frigate_url),
@@ -1981,26 +2235,30 @@ async def check_clip_exists(
     if not settings.frigate.clips_enabled:
         raise HTTPException(status_code=403, detail=i18n_service.translate("errors.clip_disabled", lang))
 
-    if settings.media_cache.enabled:
-        (
-            recording_cached_path,
-            recording_state,
-            duration,
-            _camera,
-            _start,
-            _end,
-        ) = await _get_cached_recording_clip_details(event_id, lang, resolve_context=False)
-        if recording_cached_path and recording_state:
-            return Response(
-                status_code=200,
-                headers=_recording_clip_response_headers(
-                    recording_state,
-                    duration,
-                    include_variant=True,
-                ),
-            )
-        if settings.media_cache.cache_clips and media_cache.get_clip_path(event_id):
-            return Response(status_code=200)
+    (
+        recording_cached_path,
+        recording_state,
+        duration,
+        _camera,
+        _start,
+        _end,
+    ) = await _get_cached_recording_clip_details(event_id, lang, resolve_context=False)
+    if recording_cached_path and recording_state:
+        return Response(
+            status_code=200,
+            headers=_recording_clip_response_headers(
+                recording_state,
+                duration,
+                include_variant=True,
+            ),
+        )
+    if settings.media_cache.cache_clips and media_cache.get_clip_path(event_id):
+        return Response(status_code=200)
+
+    from app.services.archive_service import archive_service
+
+    if await archive_service.video_path(event_id) is not None:
+        return Response(status_code=200)
 
     # Frigate doesn't support HEAD for clips, so check event exists instead
     url = f"{settings.frigate.frigate_url}/api/events/{event_id}"
@@ -2054,6 +2312,11 @@ async def check_recording_clip_exists(
     if not _has_valid_share_context(request, event_id):
         await require_event_access(event_id, auth, lang, media="clip")
 
+    from app.services.archive_service import archive_service
+
+    if await archive_service.recording_path(event_id) is not None:
+        return Response(status_code=200, headers=_recording_clip_response_headers("complete", None))
+
     import time
 
     now = time.time()
@@ -2062,18 +2325,16 @@ async def check_recording_clip_exists(
         if now - cached_time < HEAD_CACHE_TTL:
             return Response(status_code=cached_status)
 
-    if settings.media_cache.enabled:
-        cached_path, state, duration, camera_name, start_ts, end_ts = await _get_cached_recording_clip_details(
-            event_id,
-            lang,
+    cached_path, state, duration, camera_name, start_ts, end_ts = await _get_cached_recording_clip_details(
+        event_id,
+        lang,
+    )
+    if cached_path and state:
+        return Response(
+            status_code=200,
+            headers=_recording_clip_response_headers(state, duration),
         )
-        if cached_path and state:
-            return Response(
-                status_code=200,
-                headers=_recording_clip_response_headers(state, duration),
-            )
-    else:
-        camera_name, start_ts, end_ts = await _get_recording_clip_context(event_id, lang)
+
     clip_url = frigate_client.get_camera_recording_clip_url(camera_name, start_ts, end_ts)
     headers = frigate_client._get_headers()
 
@@ -2127,13 +2388,15 @@ async def fetch_recording_clip(
     if not _has_valid_share_context(request, event_id):
         await require_event_access(event_id, auth, lang, media="clip")
 
+    from app.services.media_cache import media_cache
+
     recording_state = await _fetch_recording_clip_ready(event_id, lang)
     return RecordingClipFetchResponse(
         event_id=event_id,
         status="ready" if recording_state == "complete" else "partial",
         clip_variant="recording",
         recording_state=recording_state,
-        cached=bool(settings.media_cache.enabled),
+        cached=media_cache.available,
     )
 
 
@@ -2155,6 +2418,11 @@ async def proxy_event_hls(
         raise HTTPException(status_code=400, detail="Invalid HLS asset")
     if not _has_valid_share_context(request, event_id):
         await require_event_access(event_id, auth, lang, media="clip")
+
+    from app.services.archive_service import archive_service
+
+    if await archive_service.video_path(event_id) is not None:
+        raise HTTPException(status_code=404, detail="Archived video is available through MP4 playback")
 
     upstream_url = f"{settings.frigate.frigate_url}/vod/event/{event_id}/{asset}"
     return await _proxy_hls_asset(request, upstream_url, asset, lang)
@@ -2178,6 +2446,11 @@ async def proxy_recording_hls(
         raise HTTPException(status_code=400, detail="Invalid HLS asset")
     if not _has_valid_share_context(request, event_id):
         await require_event_access(event_id, auth, lang, media="clip")
+
+    from app.services.archive_service import archive_service
+
+    if await archive_service.recording_path(event_id) is not None:
+        raise HTTPException(status_code=404, detail="Archived video is available through MP4 playback")
 
     camera_name, start_ts, end_ts = await _get_recording_clip_context(event_id, lang)
     if not validate_camera_name(camera_name):
@@ -2232,56 +2505,68 @@ async def proxy_clip(
         raise HTTPException(status_code=403, detail=i18n_service.translate("errors.proxy.download_forbidden", lang))
 
     # Check cache first
-    if settings.media_cache.enabled:
-        (
-            recording_cached_path,
+    (
+        recording_cached_path,
+        recording_state,
+        duration,
+        _camera,
+        _start,
+        _end,
+    ) = await _get_cached_recording_clip_details(event_id, lang, resolve_context=False)
+    if recording_cached_path and recording_state:
+        log.info(
+            "proxy_clip_recording_cache_hit",
+            event_id=event_id,
+            recording_state=recording_state,
+            recording_duration_seconds=round(duration, 2) if duration is not None else None,
+            download=download_requested,
+            duration_ms=round((perf_counter() - request_started) * 1000, 2),
+        )
+        response_headers = _recording_clip_response_headers(
             recording_state,
             duration,
-            _camera,
-            _start,
-            _end,
-        ) = await _get_cached_recording_clip_details(event_id, lang, resolve_context=False)
-        if recording_cached_path and recording_state:
+            include_variant=True,
+        )
+        response_headers["Content-Disposition"] = (
+            f"{'attachment' if download_requested else 'inline'}; filename={event_id}.mp4"
+        )
+        return FileResponse(
+            path=recording_cached_path,
+            media_type="video/mp4",
+            filename=f"{event_id}.mp4",
+            headers=response_headers,
+        )
+    if settings.media_cache.cache_clips:
+        cached_path = media_cache.get_clip_path(event_id)
+        if cached_path:
             log.info(
-                "proxy_clip_recording_cache_hit",
+                "proxy_clip_cache_hit",
                 event_id=event_id,
-                recording_state=recording_state,
-                recording_duration_seconds=round(duration, 2) if duration is not None else None,
                 download=download_requested,
                 duration_ms=round((perf_counter() - request_started) * 1000, 2),
             )
-            response_headers = _recording_clip_response_headers(
-                recording_state,
-                duration,
-                include_variant=True,
-            )
-            response_headers["Content-Disposition"] = (
-                f"{'attachment' if download_requested else 'inline'}; filename={event_id}.mp4"
-            )
+            # Serve from cache - FileResponse handles Range requests automatically
             return FileResponse(
-                path=recording_cached_path,
+                path=cached_path,
                 media_type="video/mp4",
                 filename=f"{event_id}.mp4",
-                headers=response_headers,
+                headers={
+                    "Content-Disposition": f"{'attachment' if download_requested else 'inline'}; filename={event_id}.mp4"
+                },
             )
-        if settings.media_cache.cache_clips:
-            cached_path = media_cache.get_clip_path(event_id)
-            if cached_path:
-                log.info(
-                    "proxy_clip_cache_hit",
-                    event_id=event_id,
-                    download=download_requested,
-                    duration_ms=round((perf_counter() - request_started) * 1000, 2),
-                )
-                # Serve from cache - FileResponse handles Range requests automatically
-                return FileResponse(
-                    path=cached_path,
-                    media_type="video/mp4",
-                    filename=f"{event_id}.mp4",
-                    headers={
-                        "Content-Disposition": f"{'attachment' if download_requested else 'inline'}; filename={event_id}.mp4"
-                    },
-                )
+
+    from app.services.archive_service import archive_service
+
+    archived_clip = await archive_service.video_path(event_id)
+    if archived_clip is not None:
+        return FileResponse(
+            archived_clip,
+            media_type="video/mp4",
+            filename=f"{event_id}.mp4",
+            headers={
+                "Content-Disposition": f"{'attachment' if download_requested else 'inline'}; filename={event_id}.mp4"
+            },
+        )
 
     # Verify clip exists in Frigate before attempting download
     try:
@@ -2297,26 +2582,12 @@ async def proxy_clip(
         # Or better, just fail here to prevent empty downloads
         pass
 
-    # Nothing cached: a favourite's archived clip stands in before Frigate is asked (#178).
-    from app.services.archive_service import archive_service
-
-    archived_clip = await archive_service.clip_path(event_id)
-    if archived_clip is not None:
-        return FileResponse(
-            archived_clip,
-            media_type="video/mp4",
-            filename=f"{event_id}.mp4",
-            headers={
-                "Content-Disposition": f"{'attachment' if download_requested else 'inline'}; filename={event_id}.mp4"
-            },
-        )
-
     clip_url = f"{settings.frigate.frigate_url}/api/events/{event_id}/clip.mp4"
     headers = frigate_client._get_headers()
 
     # Forward Range header if present (only when not caching)
     range_header = request.headers.get("range")
-    should_cache = settings.media_cache.enabled and settings.media_cache.cache_clips
+    should_cache = settings.media_cache.cache_clips and media_cache.available
     log.debug(
         "proxy_clip_start",
         event_id=event_id,
@@ -2447,38 +2718,6 @@ async def proxy_recording_clip(
     if download_requested and (not auth.is_owner) and (not settings.public_access.allow_clip_downloads):
         raise HTTPException(status_code=403, detail=i18n_service.translate("errors.proxy.download_forbidden", lang))
 
-    if settings.media_cache.enabled:
-        cached_path, state, duration, camera_name, start_ts, end_ts = await _get_cached_recording_clip_details(
-            event_id,
-            lang,
-        )
-        if cached_path and state:
-            log.info(
-                "proxy_recording_clip_cache_hit",
-                event_id=event_id,
-                recording_state=state,
-                recording_duration_seconds=round(duration, 2) if duration is not None else None,
-                download=download_requested,
-                duration_ms=round((perf_counter() - request_started) * 1000, 2),
-            )
-            response_headers = _recording_clip_response_headers(state, duration)
-            response_headers["Content-Disposition"] = (
-                f"{'attachment' if download_requested else 'inline'}; filename={event_id}_recording.mp4"
-            )
-            return FileResponse(
-                path=cached_path,
-                media_type="video/mp4",
-                filename=f"{event_id}_recording.mp4",
-                headers=response_headers,
-            )
-
-    else:
-        camera_name, start_ts, end_ts = await _get_recording_clip_context(event_id, lang)
-    clip_url = frigate_client.get_camera_recording_clip_url(camera_name, start_ts, end_ts)
-    headers = frigate_client._get_headers()
-
-    range_header = request.headers.get("range")
-    # A favourite's archived recording, if one was cached when it was favourited, before Frigate (#178).
     from app.services.archive_service import archive_service
 
     archived_recording = await archive_service.recording_path(event_id)
@@ -2488,11 +2727,41 @@ async def proxy_recording_clip(
             media_type="video/mp4",
             filename=f"{event_id}_recording.mp4",
             headers={
-                "Content-Disposition": f"{'attachment' if download_requested else 'inline'}; filename={event_id}_recording.mp4"
+                **_recording_clip_response_headers("complete", None),
+                "Content-Disposition": f"{'attachment' if download_requested else 'inline'}; filename={event_id}_recording.mp4",
             },
         )
 
-    should_cache = settings.media_cache.enabled
+    cached_path, state, duration, camera_name, start_ts, end_ts = await _get_cached_recording_clip_details(
+        event_id,
+        lang,
+    )
+    if cached_path and state:
+        log.info(
+            "proxy_recording_clip_cache_hit",
+            event_id=event_id,
+            recording_state=state,
+            recording_duration_seconds=round(duration, 2) if duration is not None else None,
+            download=download_requested,
+            duration_ms=round((perf_counter() - request_started) * 1000, 2),
+        )
+        response_headers = _recording_clip_response_headers(state, duration)
+        response_headers["Content-Disposition"] = (
+            f"{'attachment' if download_requested else 'inline'}; filename={event_id}_recording.mp4"
+        )
+        return FileResponse(
+            path=cached_path,
+            media_type="video/mp4",
+            filename=f"{event_id}_recording.mp4",
+            headers=response_headers,
+        )
+
+    clip_url = frigate_client.get_camera_recording_clip_url(camera_name, start_ts, end_ts)
+    headers = frigate_client._get_headers()
+
+    range_header = request.headers.get("range")
+
+    should_cache = media_cache.available
     log.debug(
         "proxy_recording_clip_start",
         event_id=event_id,
@@ -2730,6 +2999,8 @@ async def proxy_thumb(
 ):
     from app.services.media_cache import media_cache
 
+    log = structlog.get_logger()
+
     lang = get_user_language(request)
 
     if not validate_event_id(event_id):
@@ -2741,6 +3012,8 @@ async def proxy_thumb(
     if event_id.startswith("manual_"):
         from app.services.manual_observation_service import manual_observation_service
 
+        if chosen := await media_cache.get_snapshot(event_id):
+            return Response(content=chosen, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
         manual_thumbnail = await manual_observation_service.path_for_event(event_id, preview=True)
         if not manual_thumbnail:
             raise HTTPException(
@@ -2748,30 +3021,55 @@ async def proxy_thumb(
             )
         return FileResponse(manual_thumbnail, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
 
-    if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
-        cached = await media_cache.get_thumbnail(event_id)
-        snapshot_cached = await media_cache.get_snapshot(event_id)
-        thumbnail_metadata = await media_cache.get_thumbnail_metadata(event_id)
-        if snapshot_cached and not await _cached_snapshot_allowed_for_current_settings(media_cache, event_id):
-            snapshot_cached = None
-            cached = None
-        if snapshot_cached:
-            if (
-                cached
-                and _cached_thumbnail_allowed_for_current_snapshot(thumbnail_metadata, has_snapshot=True)
-                and not _is_probably_thumbnail_sized_snapshot(cached)
-            ):
-                return Response(content=cached, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
-            try:
-                derived = await asyncio.to_thread(_build_display_thumbnail_from_snapshot, snapshot_cached)
-                await media_cache.cache_thumbnail(event_id, derived, source="snapshot_derived")
-                return Response(content=derived, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
-            except Exception:
-                # Fall back to any cached thumbnail or Frigate thumbnail fetch below.
-                if cached and _cached_thumbnail_allowed_for_current_snapshot(thumbnail_metadata, has_snapshot=True):
-                    return Response(content=cached, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
-        elif cached and _cached_thumbnail_allowed_for_current_snapshot(thumbnail_metadata, has_snapshot=False):
+    cached = await media_cache.get_thumbnail(event_id)
+    snapshot_cached = await media_cache.get_snapshot(event_id)
+    thumbnail_metadata = await media_cache.get_thumbnail_metadata(event_id)
+    if snapshot_cached:
+        if (
+            cached
+            and _cached_thumbnail_allowed_for_current_snapshot(thumbnail_metadata, has_snapshot=True)
+            and (
+                thumbnail_metadata.get("source") == "snapshot_derived"
+                or not _is_probably_thumbnail_sized_snapshot(cached)
+            )
+        ):
             return Response(content=cached, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
+        try:
+            derived = await asyncio.to_thread(_build_display_thumbnail_from_snapshot, snapshot_cached)
+            await media_cache.cache_thumbnail(event_id, derived, source="snapshot_derived")
+            return Response(content=derived, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
+        except Exception:
+            # Fall back to any cached thumbnail or Frigate thumbnail fetch below.
+            if cached and _cached_thumbnail_allowed_for_current_snapshot(thumbnail_metadata, has_snapshot=True):
+                return Response(content=cached, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
+    elif (
+        cached
+        and not _is_probably_thumbnail_sized_snapshot(cached)
+        and _cached_thumbnail_allowed_for_current_snapshot(thumbnail_metadata, has_snapshot=False)
+    ):
+        return Response(content=cached, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
+
+    from app.services.archive_service import archive_service
+
+    archived = await archive_service.snapshot_path(event_id)
+    if archived is not None:
+        try:
+            contents = await asyncio.to_thread(archived.read_bytes)
+            derived = await asyncio.to_thread(_build_display_thumbnail_from_snapshot, contents)
+            return Response(content=derived, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
+        except (OSError, ValueError):
+            log.warning("Archived card photograph unavailable", event_id=event_id)
+
+    # Snapshot caching controls persistence, not the quality of photographs on cards.
+    snapshot, _error = await frigate_client.get_snapshot_with_error(event_id, crop=True, quality=95, timeout=10.0)
+    if snapshot:
+        try:
+            derived = await asyncio.to_thread(_build_display_thumbnail_from_snapshot, snapshot)
+            await media_cache.cache_snapshot(event_id, snapshot, source="frigate_snapshot_unverified")
+            await media_cache.cache_thumbnail(event_id, derived, source="snapshot_derived")
+            return Response(content=derived, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
+        except (OSError, ValueError):
+            log.debug("Card snapshot could not be decoded", event_id=event_id)
 
     url = f"{settings.frigate.frigate_url}/api/events/{event_id}/thumbnail.jpg"
     client = get_http_client()
@@ -2785,8 +3083,7 @@ async def proxy_thumb(
         resp.raise_for_status()
 
         # Cache the response using a dedicated thumbnail key.
-        if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
-            await media_cache.cache_thumbnail(event_id, resp.content, source="frigate_thumbnail")
+        await media_cache.cache_thumbnail(event_id, resp.content, source="frigate_thumbnail")
 
         return Response(
             content=resp.content,

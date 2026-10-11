@@ -1,19 +1,30 @@
 import { API_BASE, apiFetch, handleResponse, withAuthParams } from './core';
 import type { paths } from './generated/openapi';
 
-export type AboutShowcaseResponse = paths['/api/about/showcase']['get']['response'];
-export type AboutShowcaseItem = AboutShowcaseResponse['items'][number];
 export type CommunityStatsResponse = paths['/api/about/community']['get']['response'];
+export type FeederPortrait = paths['/api/about/portrait']['get']['response'];
 
-/** One recent crop per species from this install, newest first, for the About page's reel. */
-export async function fetchAboutShowcase(limit = 12): Promise<AboutShowcaseResponse> {
-    const response = await apiFetch(`${API_BASE}/about/showcase?limit=${limit}`);
-    return handleResponse<AboutShowcaseResponse>(response);
+/** This feeder in a few measured facts and its latest visit, counted by the viewer's calendar days. */
+export async function fetchFeederPortrait(signal?: AbortSignal): Promise<FeederPortrait> {
+    const offset = -new Date().getTimezoneOffset();
+    const response = await apiFetch(`${API_BASE}/about/portrait?utc_offset_minutes=${offset}`, { signal });
+    return handleResponse<FeederPortrait>(response);
 }
 
-/** The stored photograph at card size, for the About page's reel. */
+/** The stored photograph at card size. */
 export function getReelImageUrl(frigateEvent: string): string {
     return withAuthParams(`${API_BASE}/about/showcase/${encodeURIComponent(frigateEvent)}.jpg`);
+}
+
+/** A few silent seconds of the visit, framed on the bird; null while it is not made yet. */
+export async function fetchVisitFilm(frigateEvent: string, signal?: AbortSignal): Promise<Blob | null> {
+    const response = await apiFetch(`${API_BASE}/about/showcase/${encodeURIComponent(frigateEvent)}.webm`, {
+        signal,
+        timeoutMs: 30_000
+    });
+    if (response.status === 404) return null;
+    if (!response.ok) throw new Error(`Film request failed: ${response.status}`);
+    return response.blob();
 }
 
 /** How many installs reported to the telemetry service this week; null when unknown or opted out. */

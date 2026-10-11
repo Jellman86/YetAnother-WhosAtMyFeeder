@@ -1,6 +1,7 @@
 <script lang="ts">
     import { getThumbnailUrl } from '../api';
     import type { Detection } from '../api';
+    import { detectionsStore } from '../stores/detections.svelte';
     import { formatTime } from '../utils/datetime';
     import { formatTemperature } from '../utils/temperature';
     import { getTemperatureUnitForSystem, resolveWeatherUnitSystem } from '../utils/weather-units';
@@ -22,6 +23,10 @@
          * The Explorer's selection mode owns every activation through the
          * row overlay, which is labelled for selecting, not previewing. */
         interactive?: boolean;
+        /** What activating the thumbnail does, when it is more specific than previewing the species. */
+        label?: string | null;
+        /** Off where the surrounding row already states the capture count in words. */
+        showCount?: boolean;
     }
 
     let {
@@ -31,7 +36,9 @@
         primaryName,
         secondaryName = null,
         onopen,
-        interactive = true
+        interactive = true,
+        label = null,
+        showCount = true
     }: Props = $props();
 
     /**
@@ -176,13 +183,19 @@
         };
     });
 
+    function thumbnailUrl(frame: Detection): string {
+        return getThumbnailUrl(frame.frigate_event, detectionsStore.settledMediaVersion(frame.frigate_event));
+    }
+
     // Snapshots can disappear upstream; a missing one degrades to a placeholder of the
-    // same size rather than a hole that shifts the row (CLAUDE.md §5).
+    // same size rather than a hole that shifts the row (CLAUDE.md §5). Failures are kept per
+    // address, so a photograph saved by a later run is tried.
     let failed = $state<Set<string>>(new Set());
 
-    function markFailed(eventId: string): void {
+    function markFailed(url: string | null): void {
+        if (!url) return;
         const next = new Set(failed);
-        next.add(eventId);
+        next.add(url);
         failed = next;
     }
 
@@ -219,7 +232,7 @@
             role="presentation"
         >
             {#snippet thumbnail(frame: Detection)}
-                {#if failed.has(frame.frigate_event)}
+                {#if failed.has(thumbnailUrl(frame))}
                     <span
                         class="flex h-9 w-9 items-center justify-center rounded-lg border-2 border-white bg-slate-100 text-slate-300 dark:border-slate-900 dark:bg-slate-800 dark:text-slate-600"
                         aria-hidden="true"
@@ -230,14 +243,14 @@
                     </span>
                 {:else}
                     <img
-                        src={getThumbnailUrl(frame.frigate_event)}
+                        src={thumbnailUrl(frame)}
                         alt=""
                         loading="lazy"
                         decoding="async"
                         width="36"
                         height="36"
-                        class="h-9 w-9 rounded-lg border-2 border-white object-cover dark:border-slate-900"
-                        onerror={() => markFailed(frame.frigate_event)}
+                        class="h-9 w-9 rounded-lg border-2 border-white bg-slate-100 object-cover dark:border-slate-900 dark:bg-slate-800"
+                        onerror={(event) => markFailed(event.currentTarget.getAttribute('src'))}
                     />
                 {/if}
             {/snippet}
@@ -250,7 +263,7 @@
                     onclick={() => onopen?.(frame)}
                 >
                     <span class="sr-only">
-                        {$_('dashboard.field_log.preview_trigger', {
+                        {label ?? $_('dashboard.field_log.preview_trigger', {
                             values: { species: primaryName },
                             default: 'Preview {species}'
                         })}
@@ -265,9 +278,9 @@
 
             {#if openIndex === index && anchor}
                 <div
-                    use:portal
+                    use:portal={rootEl?.closest<HTMLElement>('[popover]') ?? document.body}
                     style="left: {anchor.x}px; top: {anchor.y}px;"
-                    class="fixed z-[70] w-60 max-w-[calc(100vw-16px)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/20 animate-in fade-in zoom-in-95 motion-reduce:animate-none dark:border-slate-700 dark:bg-slate-900 {anchor.above
+                    class="fixed z-[70] w-60 max-w-[calc(100vw-16px)] overflow-hidden rounded-2xl border border-slate-200 bg-surface shadow-2xl shadow-slate-950/20 animate-in fade-in zoom-in-95 motion-reduce:animate-none dark:border-slate-700 {anchor.above
                         ? '-translate-x-1/2 -translate-y-full'
                         : '-translate-x-1/2'}"
                     role="tooltip"
@@ -275,7 +288,7 @@
                     onmouseenter={cancelScheduledClose}
                     onmouseleave={() => hide()}
                 >
-                    {#if failed.has(frame.frigate_event)}
+                    {#if failed.has(thumbnailUrl(frame))}
                         <div class="flex h-32 w-full items-center justify-center bg-slate-100 text-slate-300 dark:bg-slate-800 dark:text-slate-600">
                             <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2 1.586-1.586a2 2 0 012.828 0L20 14M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -283,15 +296,15 @@
                         </div>
                     {:else}
                         <img
-                            src={getThumbnailUrl(frame.frigate_event)}
+                            src={thumbnailUrl(frame)}
                             alt={$_('dashboard.field_log.preview_alt', {
                                 values: { species: primaryName, camera: frame.camera_name },
                                 default: '{species} on {camera}'
                             })}
                             loading="lazy"
                             decoding="async"
-                            class="h-32 w-full object-cover"
-                            onerror={() => markFailed(frame.frigate_event)}
+                            class="h-32 w-full bg-slate-100 object-cover dark:bg-slate-800"
+                            onerror={(event) => markFailed(event.currentTarget.getAttribute('src'))}
                         />
                     {/if}
                     <div class="space-y-1 p-3">
@@ -304,11 +317,11 @@
                             </span>
                         </div>
                         {#if secondaryName}
-                            <p class="truncate text-[11px] italic text-slate-500 dark:text-slate-400">
+                            <p class="truncate text-2xs italic text-slate-500 dark:text-slate-400">
                                 {secondaryName}
                             </p>
                         {/if}
-                        <p class="text-[11px] text-slate-500 dark:text-slate-400">
+                        <p class="text-2xs text-slate-500 dark:text-slate-400">
                             {formatTime(frame.detection_time)} &middot; {frame.camera_name}{frame.weather_condition
                                 ? ` · ${frame.weather_condition}`
                                 : ''}{formatTemperature(frame.temperature, temperatureUnit)
@@ -316,7 +329,7 @@
                                 : ''}
                         </p>
                         {#if frameCount > 1}
-                            <p class="text-[11px] text-slate-500 dark:text-slate-400">
+                            <p class="text-2xs text-slate-500 dark:text-slate-400">
                                 {$_('dashboard.field_log.preview_frame_position', {
                                     values: { position: index + 1, count: frameCount },
                                     default: 'Frame {position} of {count} in this visit'
@@ -329,13 +342,13 @@
         </div>
     {/each}
 
-    {#if frameCount > 1}
-        <span class="ml-1.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400 sm:hidden">
+    {#if showCount && frameCount > 1}
+        <span class="ml-1.5 text-2xs font-semibold text-slate-500 dark:text-slate-400 sm:hidden">
             +{frameCount - 1}
         </span>
     {/if}
-    {#if frameCount > VISIBLE_FRAMES}
-        <span class="ml-1.5 hidden text-[11px] font-semibold text-slate-500 sm:inline dark:text-slate-400">
+    {#if showCount && frameCount > VISIBLE_FRAMES}
+        <span class="ml-1.5 hidden text-2xs font-semibold text-slate-500 sm:inline dark:text-slate-400">
             +{frameCount - VISIBLE_FRAMES}
         </span>
     {/if}

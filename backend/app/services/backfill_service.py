@@ -16,6 +16,7 @@ from app.services.classification_input_provenance import (
     frigate_snapshot_input_provenance,
 )
 from app.services.frigate_client import frigate_client
+from app.services.recording_snapshot_input import prefer_recording_snapshot
 from app.services.high_quality_snapshot_service import high_quality_snapshot_service
 from app.services.media_cache import media_cache
 from app.services.detection_service import DetectionService
@@ -304,6 +305,9 @@ class BackfillService:
             # Frigate only honours snapshot crop query parameters while an event is
             # active. Historical events therefore use the saved snapshot policy.
             snapshot_provenance = frigate_snapshot_input_provenance(event)
+            snapshot_data, snapshot_provenance = await prefer_recording_snapshot(
+                frigate_event, event, snapshot_data, snapshot_provenance
+            )
 
             # Classify the image (async to use thread pool)
             image = await asyncio.to_thread(decode_image_bytes, snapshot_data)
@@ -373,12 +377,14 @@ class BackfillService:
                 frigate_event=frigate_event,
                 camera=camera_name,
                 start_time=start_time,
+                **({"end_time": event["end_time"]} if event.get("end_time") is not None else {}),
                 classification=top,
                 frigate_score=frigate_score,
                 sub_label=sub_label,
+                report_to_birdweather=False,
             )
 
-            if snapshot_data and settings.media_cache.enabled and settings.media_cache.cache_snapshots:
+            if snapshot_data:
                 try:
                     snapshot_cached = await asyncio.to_thread(media_cache.has_snapshot, frigate_event)
                     if not snapshot_cached:
@@ -387,10 +393,17 @@ class BackfillService:
                                 frigate_event,
                                 snapshot_data,
                                 source=snapshot_provenance.input_source,
+                                **(
+                                    {"recording_alignment": snapshot_provenance.recording_alignment()}
+                                    if snapshot_provenance.recording_alignment()
+                                    else {}
+                                ),
                             )
                         )
                     if snapshot_cached and settings.media_cache.high_quality_event_snapshots:
-                        high_quality_snapshot_service.schedule_replacement(frigate_event, event_data=event)
+                        await high_quality_snapshot_service.schedule_replacement_durable(
+                            frigate_event, event_data=event
+                        )
                 except Exception as exc:
                     # The detection has committed. A best-effort media failure must
                     # not turn that successful write into an apparent classifier failure.

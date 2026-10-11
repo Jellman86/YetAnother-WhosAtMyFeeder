@@ -802,7 +802,7 @@ class JobDiagnosticsStore {
         notes?: string,
         options: DiagnosticsExportOptions = {}
     ): JobDiagnosticBundle | null {
-        if (this.groups.length <= 0 && this.healthSnapshots.length <= 0) return null;
+        if (this.groups.length <= 0 && this.healthSnapshots.length <= 0 && !options.workspacePayload) return null;
         const id = `bundle:${Date.now()}:${this.bundleCounter++}`;
         const fallbackLabel = `Bundle ${this.bundles.length + 1}`;
         const resolvedLabel = normalizeString(label, fallbackLabel);

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import asyncio
+import hashlib
 import inspect
 import math
 from typing import Any
@@ -17,6 +19,7 @@ _CROPPED_SNAPSHOT_SOURCES = frozenset(
     {
         "frigate_snapshot_cropped",
         "high_quality_bird_crop",
+        "video_evidence_crop",
         "hq_candidate_frigate_hint_crop",
         "hq_candidate_frigate_snapshot_fallback",
         "hq_candidate_model_crop",
@@ -24,11 +27,14 @@ _CROPPED_SNAPSHOT_SOURCES = frozenset(
 )
 _FULL_FRAME_SNAPSHOT_SOURCES = frozenset(
     {
+        "frigate_snapshot_unverified",
         "frigate_snapshot",
         "frigate_snapshot_uncropped",
         "frigate_recording_frame",
+        "frigate_recording_snapshot",
         "frigate_thumbnail",
         "high_quality_snapshot",
+        "video_evidence_full_frame",
         "hq_candidate_full_frame",
     }
 )
@@ -44,6 +50,20 @@ _FRIGATE_HINT_ALIGNED_SNAPSHOT_SOURCES = frozenset(
 class ClassificationInputProvenance:
     input_source: str
     is_cropped: bool
+    recording_frame_time: float | None = None
+    recording_box: tuple[float, float, float, float] | None = None
+    recording_crop_region: tuple[float, float, float, float] | None = None
+    recording_image_sha256: str | None = None
+
+    def recording_alignment(self) -> dict[str, object] | None:
+        if self.recording_frame_time is None or self.recording_box is None:
+            return None
+        alignment: dict[str, object] = {"frame_time": self.recording_frame_time, "box": list(self.recording_box)}
+        if self.recording_crop_region is not None:
+            alignment["crop_region"] = list(self.recording_crop_region)
+        if self.recording_image_sha256 is not None:
+            alignment["image_sha256"] = self.recording_image_sha256
+        return alignment
 
 
 def _validated_frigate_hint(value: Any) -> list[float | int] | None:
@@ -94,14 +114,31 @@ def build_snapshot_classification_input_context(
         "event_id": str(event_id),
         "input_source": str(provenance.input_source),
     }
+    if provenance.input_source == "frigate_recording_snapshot":
+        if provenance.recording_alignment() is not None:
+            context["frigate_box"] = list(provenance.recording_box)
+            context["restore_frigate_snapshot_crop"] = True
+            if provenance.recording_crop_region is not None:
+                context["frigate_snapshot_crop_region"] = list(provenance.recording_crop_region)
+        return context
     if provenance.is_cropped or provenance.input_source not in _FRIGATE_HINT_ALIGNED_SNAPSHOT_SOURCES:
         return context
 
     event_payload = event_data if isinstance(event_data, dict) else {}
     payload = event_payload.get("data")
     payload = payload if isinstance(payload, dict) else {}
-    frigate_box = _validated_frigate_hint(payload.get("box") or event_payload.get("box"))
-    frigate_region = _validated_frigate_hint(payload.get("region") or event_payload.get("region"))
+    snapshot = event_payload.get("snapshot")
+    snapshot = snapshot if isinstance(snapshot, dict) else {}
+    # The full frame is Frigate's saved best snapshot. MQTT describes that frame in
+    # `snapshot`; its top-level box is the object's latest position and can have moved
+    # since. Box and region come from the same frame, never one from each.
+    snapshot_box = _validated_frigate_hint(snapshot.get("box"))
+    if snapshot_box is not None:
+        frigate_box = snapshot_box
+        frigate_region = _validated_frigate_hint(snapshot.get("region"))
+    else:
+        frigate_box = _validated_frigate_hint(payload.get("box") or event_payload.get("box"))
+        frigate_region = _validated_frigate_hint(payload.get("region") or event_payload.get("region"))
     if frigate_box is not None:
         context["frigate_box"] = frigate_box
     if frigate_region is not None:
@@ -111,11 +148,33 @@ def build_snapshot_classification_input_context(
     return context
 
 
-def cached_snapshot_input_provenance(metadata: dict[str, Any] | None) -> ClassificationInputProvenance:
+def cached_snapshot_input_provenance(
+    metadata: dict[str, Any] | None, *, snapshot_data: bytes | None = None
+) -> ClassificationInputProvenance:
     """Return trusted cache provenance without guessing from image dimensions."""
     source = str((metadata or {}).get("source") or "").strip().lower()
     if source in _CROPPED_SNAPSHOT_SOURCES:
         return ClassificationInputProvenance(input_source=source, is_cropped=True)
+    if source == "frigate_recording_snapshot":
+        from app.services.recording_snapshot_input import validated_recording_alignment
+
+        alignment = validated_recording_alignment((metadata or {}).get("recording_alignment"))
+        image_sha256 = (
+            ((metadata or {}).get("recording_alignment") or {}).get("image_sha256")
+            if isinstance((metadata or {}).get("recording_alignment"), dict)
+            else None
+        )
+        if (
+            alignment is not None
+            and snapshot_data is not None
+            and image_sha256 == hashlib.sha256(snapshot_data).hexdigest()
+        ):
+            frame_time, box = alignment
+            raw_region = (metadata or {}).get("recording_alignment", {}).get("crop_region")
+            region = validated_recording_alignment({"frame_time": frame_time, "box": raw_region})
+            return ClassificationInputProvenance(
+                source, False, frame_time, box, region[1] if region else None, image_sha256
+            )
     if source in _FULL_FRAME_SNAPSHOT_SOURCES:
         return ClassificationInputProvenance(input_source=source, is_cropped=False)
     return ClassificationInputProvenance(input_source="cached_snapshot_unknown", is_cropped=False)
@@ -162,8 +221,15 @@ async def load_snapshot_classification_input(
                 error=str(exc),
             )
             metadata = None
-        return cached, cached_snapshot_input_provenance(metadata)
+        provenance = await asyncio.to_thread(cached_snapshot_input_provenance, metadata, snapshot_data=cached)
+        return cached, provenance
 
     provenance = frigate_snapshot_input_provenance(event_data)
+    from app.config import settings
+    from app.services.recording_snapshot_input import prefer_recording_snapshot
+
+    recording_requested = settings.frigate.classification_image_source == "recording_snapshot"
+    if recording_requested:
+        provenance = ClassificationInputProvenance("frigate_snapshot", False)
     snapshot = await client.get_snapshot(event_id, crop=provenance.is_cropped, quality=95)
-    return snapshot, provenance
+    return await prefer_recording_snapshot(event_id, event_data, snapshot, provenance, client=client)

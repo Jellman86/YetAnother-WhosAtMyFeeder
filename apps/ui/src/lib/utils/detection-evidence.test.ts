@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SnapshotCandidate } from '../api';
-import { findMatchingFullFrameCandidate } from './detection-evidence';
+import { findMatchingFullFrameCandidate, findScanFrameCandidate, sameFrameCropCandidates } from './detection-evidence';
 
 function candidate(
     candidateId: string,
@@ -54,5 +54,42 @@ describe('findMatchingFullFrameCandidate', () => {
         const candidates = [candidate('stored-full', 'full_frame', 8, 'event', true)];
 
         expect(findMatchingFullFrameCandidate(candidates, 'stored-full')).toBeNull();
+    });
+});
+
+describe('sameFrameCropCandidates', () => {
+    it('keeps the chosen bird first and outlines every distinct crop from its frame', () => {
+        const chosen = { ...candidate('chosen', 'model_crop', 12, 'recording'), crop_box: [10, 10, 50, 50] };
+        const second = { ...candidate('second', 'model_crop', 12, 'recording'), crop_box: [70, 10, 110, 50] };
+        const third = { ...candidate('third', 'model_crop', 12, 'recording'), crop_box: [130, 10, 170, 50] };
+        const duplicate = { ...candidate('hint', 'frigate_hint_crop', 12, 'recording'), crop_box: [11, 11, 49, 49] };
+        const otherFrame = { ...candidate('later', 'model_crop', 13, 'recording'), crop_box: [190, 10, 230, 50] };
+        const otherClip = { ...candidate('other-clip', 'model_crop', 12, 'event'), crop_box: [250, 10, 290, 50] };
+
+        expect(sameFrameCropCandidates([duplicate, second, otherFrame, chosen, third, otherClip], chosen)
+            .map((item) => item.candidate_id)).toEqual(['chosen', 'second', 'third']);
+    });
+
+    it('does not outline crops when the displayed photograph is a full frame', () => {
+        const full = candidate('full', 'full_frame', 12);
+        const crop = { ...candidate('crop', 'model_crop', 12), crop_box: [10, 10, 50, 50] };
+        expect(sameFrameCropCandidates([full, crop], full)).toEqual([]);
+    });
+});
+
+describe('findScanFrameCandidate', () => {
+    it('targets a saved full frame itself and accepts a crop only with its exact scene', () => {
+        const full = { ...candidate('full', 'full_frame', 8), image_url: '/full.jpg' };
+        const crop = candidate('crop', 'model_crop', 8);
+        expect(findScanFrameCandidate([full, crop], 'full', 'hq_candidate_full_frame')).toBe(full);
+        expect(findScanFrameCandidate([full, crop], 'crop', 'hq_candidate_model_crop')).toBe(full);
+    });
+    it('never falls back from the original photo, a missing current id or ambiguous scenes', () => {
+        const full = { ...candidate('full', 'full_frame', 8), image_url: '/full.jpg' };
+        const crop = candidate('crop', 'model_crop', 8, 'event', true);
+        expect(findScanFrameCandidate([full, crop], null, 'hq_candidate_model_crop')).toBeNull();
+        expect(findScanFrameCandidate([full, crop], 'crop', 'frigate_snapshot')).toBeNull();
+        expect(findScanFrameCandidate([full, crop, { ...full, candidate_id: 'duplicate' }], 'crop', 'hq_candidate_model_crop')).toBeNull();
+        expect(findScanFrameCandidate([{ ...full, image_url: null, thumbnail_url: '/small.jpg' }], 'full', 'hq_candidate_full_frame')).toBeNull();
     });
 });

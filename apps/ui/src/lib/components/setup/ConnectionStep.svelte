@@ -162,7 +162,7 @@
                             class="input-base mt-1"
                         />
                         {#if mqttPasswordSaved && !mqttPassword}
-                            <p class="mt-1 text-xs text-accent-700 dark:text-accent-300">
+                            <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">
                                 {$_('setup.connection.mqtt_password_saved', { default: 'A saved password will be kept unless you enter a replacement.' })}
                             </p>
                         {/if}
@@ -201,7 +201,7 @@
         {/each}
 
         {#if savedOnce && !frigateResult?.ok}
-            <p class="text-xs text-slate-500 dark:text-slate-400">{$_('setup.connection.continue_hint', { default: "Settings are saved. You can continue and fix the connection later — but detections won't flow until Frigate is reachable." })}</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400">{$_('setup.connection.continue_hint', { default: "Settings are saved. You can continue and fix the connection later, but detections won't flow until Frigate is reachable." })}</p>
         {/if}
     </WizardLoadState>
 </WizardStepLayout>

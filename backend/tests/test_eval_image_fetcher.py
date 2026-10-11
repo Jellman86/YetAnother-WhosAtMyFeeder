@@ -206,3 +206,89 @@ def test_fetched_image_to_dict_round_trip():
     )
     assert img.to_dict()["taxa_id"] == 1
     assert img.to_dict()["source"] == "inat"
+
+
+def _jpeg(size: tuple[int, int]) -> bytes:
+    import io
+
+    from PIL import Image
+
+    buffer = io.BytesIO()
+    Image.new("RGB", size, (120, 90, 60)).save(buffer, format="JPEG")
+    return buffer.getvalue()
+
+
+@pytest.mark.asyncio
+async def test_a_full_size_photo_is_stored_at_feeder_scale(tmp_path: Path):
+    """Wikipedia's lead image is the full upload. On 2026-10-06, 40 of 299 test photos were 3840 px
+    wide and each took 2 to 2.5 s for every model, against about 0.3 s for a 800 px photo, so the
+    p95 latency measured the photo, not the model."""
+    from PIL import Image
+
+    summary = {"originalimage": {"source": "https://upload.wikimedia.org/a/Northern_Lapwing.jpg"}}
+    with (
+        patch.object(image_fetcher, "_get_json", AsyncMock(side_effect=[None, summary, None])),
+        patch.object(image_fetcher, "_download_bytes", AsyncMock(return_value=_jpeg((3840, 2560)))),
+    ):
+        async with __import__("httpx").AsyncClient() as client:
+            images = await fetch_images_for_species(
+                client=client,
+                taxa_id=4857,
+                scientific_name="Vanellus vanellus",
+                common_name="Northern Lapwing",
+                dest_root=tmp_path,
+                max_count=1,
+            )
+
+    with Image.open(images[0].local_path) as stored:
+        assert stored.size == (
+            image_fetcher.MAX_EVAL_IMAGE_SIDE,
+            round(image_fetcher.MAX_EVAL_IMAGE_SIDE * 2560 / 3840),
+        )
+
+
+@pytest.mark.asyncio
+async def test_a_photo_already_at_feeder_scale_is_stored_unchanged(tmp_path: Path):
+    payload = {"results": [{"photos": [{"url": "https://x/photos/1/square.jpg"}]}]}
+    small = _jpeg((600, 800))
+    with (
+        patch.object(image_fetcher, "_get_json", AsyncMock(return_value=payload)),
+        patch.object(image_fetcher, "_download_bytes", AsyncMock(return_value=small)),
+    ):
+        async with __import__("httpx").AsyncClient() as client:
+            images = await fetch_images_for_species(
+                client=client,
+                taxa_id=1,
+                scientific_name="Passer domesticus",
+                common_name="House Sparrow",
+                dest_root=tmp_path,
+                max_count=1,
+            )
+
+    assert Path(images[0].local_path).read_bytes() == small
+
+
+@pytest.mark.asyncio
+async def test_a_photo_pillow_refuses_as_too_large_is_skipped_later_not_fatal_now(tmp_path: Path, monkeypatch):
+    """Pillow raises DecompressionBombError (not OSError) past its pixel limit. Before the downscale step
+    that happened at evaluation time, where one bad photo is skipped; it must not abort the whole fetch."""
+    from PIL import Image
+
+    monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", 1000)
+    payload = {"results": [{"photos": [{"url": "https://x/photos/1/square.jpg"}]}]}
+    huge = _jpeg((200, 200))
+    with (
+        patch.object(image_fetcher, "_get_json", AsyncMock(return_value=payload)),
+        patch.object(image_fetcher, "_download_bytes", AsyncMock(return_value=huge)),
+    ):
+        async with __import__("httpx").AsyncClient() as client:
+            images = await fetch_images_for_species(
+                client=client,
+                taxa_id=1,
+                scientific_name="Passer domesticus",
+                common_name="House Sparrow",
+                dest_root=tmp_path,
+                max_count=1,
+            )
+
+    assert Path(images[0].local_path).read_bytes() == huge

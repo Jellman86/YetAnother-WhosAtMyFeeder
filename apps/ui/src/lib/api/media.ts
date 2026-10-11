@@ -10,8 +10,14 @@ export function getOriginalFrigateSnapshotUrl(frigateEvent: string): string {
     return withAuthParams(`${API_BASE}/frigate/${frigateEvent}/snapshot/original.jpg`);
 }
 
-export function getThumbnailUrl(frigateEvent: string): string {
-    return withAuthParams(`${API_BASE}/frigate/${frigateEvent}/thumbnail.jpg`);
+/**
+ * `version` is the capture's settled reclassification count: a finished run can save a new
+ * photograph behind the same address, and a page that already drew the old one would keep it.
+ */
+export function getThumbnailUrl(frigateEvent: string, version = 0): string {
+    const url = withAuthParams(`${API_BASE}/frigate/${frigateEvent}/thumbnail.jpg`);
+    if (version === 0) return url;
+    return `${url}${url.includes('?') ? '&' : '?'}v=${version}`;
 }
 
 export function getClipUrl(frigateEvent: string): string {
@@ -53,6 +59,23 @@ export type SnapshotCandidate =
     paths['/api/frigate/{event_id}/snapshot/candidates']['get']['response']['candidates'][number];
 
 export type SnapshotCandidateListResponse = paths['/api/frigate/{event_id}/snapshot/candidates']['get']['response'];
+export type BirdObservation = NonNullable<SnapshotCandidateListResponse['birds']>[number];
+export type BirdScanResponse = paths['/api/frigate/{event_id}/birds/scan']['get']['response'];
+
+export async function fetchBirdScan(eventId: string, candidateId: string, expectedMediaVersion: string, signal?: AbortSignal): Promise<BirdScanResponse> {
+    const response = await apiFetch(`${API_BASE}/frigate/${encodeURIComponent(eventId)}/birds/scan?candidate_id=${encodeURIComponent(candidateId)}&expected_media_version=${encodeURIComponent(expectedMediaVersion)}`, {
+        signal, cache: 'no-store', timeoutMs: 10_000
+    });
+    return handleResponse<BirdScanResponse>(response);
+}
+
+export async function startBirdScan(eventId: string, candidateId: string, expectedMediaVersion: string, force = false, signal?: AbortSignal): Promise<BirdScanResponse> {
+    const response = await apiFetch(`${API_BASE}/frigate/${encodeURIComponent(eventId)}/birds/scan`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, signal, timeoutMs: 10_000,
+        body: JSON.stringify({ candidate_id: candidateId, expected_media_version: expectedMediaVersion, force })
+    });
+    return handleResponse<BirdScanResponse>(response);
+}
 
 export type SnapshotApplyResponse = paths['/api/frigate/{event_id}/snapshot/apply']['post']['response'];
 
@@ -196,6 +219,13 @@ export async function generateHighQualityBirdCropSnapshot(frigateEvent: string):
     return handleResponse<SnapshotGenerateResponse>(response);
 }
 
+export async function dismissSnapshotCandidate(frigateEvent: string, candidateId: string, dismissed: boolean): Promise<SnapshotCandidateListResponse> {
+    const response = await apiFetch(`${API_BASE}/frigate/${encodeURIComponent(frigateEvent)}/snapshot/candidates/${encodeURIComponent(candidateId)}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dismissed })
+    });
+    return handleResponse<SnapshotCandidateListResponse>(response);
+}
+
 export async function fetchSnapshotCandidates(frigateEvent: string): Promise<SnapshotCandidateListResponse> {
     const response = await apiFetch(`${API_BASE}/frigate/${frigateEvent}/snapshot/candidates`);
     const body = await handleResponse<SnapshotCandidateListResponse>(response);
@@ -207,6 +237,19 @@ export async function fetchSnapshotCandidates(frigateEvent: string): Promise<Sna
             thumbnail_url: candidate.thumbnail_url ? withAuthParams(candidate.thumbnail_url) : candidate.thumbnail_url
         }))
     };
+}
+
+export async function updateCountedBird(
+    frigateEvent: string,
+    birdId: number,
+    change: { species: string } | { is_hidden: boolean }
+): Promise<BirdObservation> {
+    const response = await apiFetch(`${API_BASE}/frigate/${encodeURIComponent(frigateEvent)}/birds/${birdId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(change)
+    });
+    return handleResponse<BirdObservation>(response);
 }
 
 export async function applySnapshotCandidate(

@@ -4,8 +4,8 @@ This document tracks known issues and testing gaps that have not been verified e
 
 If you find a bug, please open a GitHub issue with the steps to reproduce and any redacted logs.
 
-Last reviewed against the GitHub issue tracker and opt-in fleet telemetry on
-**September 27, 2026**.
+Last reviewed against the GitHub issue tracker and the reference install on
+**October 11, 2026**.
 
 ## P0: Active Regressions
 
@@ -43,9 +43,10 @@ exact-image hardware checks pass. Tracked in the
 PR #498 separates protocol closure from process reaping, adds bounded termination
 escalation and preserves cleanup ownership through cancellation. A failed cleanup
 blocks replacement. Real-process regressions passed locally and on the Intel host,
-including an ignored TERM and NPU recovery replay in disposable state. Verify the
-built dev image after deployment; this is not a claim that #490's native GPU fault
-is resolved. Tracked in the
+including an ignored TERM and NPU recovery replay in disposable state. The reference
+install now runs the built `438ed1af` dev image, with DINO/NPU classification and
+concurrent uploaded classifications verified on October 11. This does not reproduce
+or resolve #490's native GPU fault. Tracked in the
 [inference isolation roadmap](ROADMAP.md#keep-the-web-service-and-ingest-off-the-inference-path-).
 
 ### REG-2026-09-23-01 — Native classifier stalls exhaust live and backfill work (#490)
@@ -57,28 +58,6 @@ upload tests and video-fallback accounting. Quark reproduced the recovery transi
 service with real NPU workers; reporter confirmation is still needed for the original model/driver
 combination. See the [classifier review](docs/reviews/2026-09-23-classifier-recovery-review.md) and
 the [inference isolation roadmap](ROADMAP.md#keep-the-web-service-and-ingest-off-the-inference-path-).
-
-### REG-2026-09-15-01 — Accepted detections can expire before notification dispatch
-
-The September 15 fleet review found 41 underlying occurrences across two installations in the
-preceding 30 days, including one occurrence from the then-current `dev` build. Each failure emits
-both `stage_timeout/save_and_notify` and `drop_save_and_notify_failed`; those 82 raw markers
-describe 41 failures and must not be counted as separate incidents. Current `dev` limits that
-deadline to the database decision, admits notification work immediately after commit, and only then
-runs optional Frigate sublabel, snapshot-cache and video-scheduling work. A regression test holds
-post-commit work beyond the old deadline and proves the detection is not dropped and notification
-hand-off has already happened. Keep this open until a real detection on the reference install
-confirms delivery without another paired timeout/drop marker. Tracked in the
-[telemetry-confirmed regression queue](ROADMAP.md#telemetry-confirmed-regression-queue).
-
-### REG-2026-09-15-03 — Final-mode detection notifications
-
-Stable `2.20.1` can save a final Frigate event without dispatching its notification because the
-terminal path treated the earlier preliminary classification as unchanged. PR #467 makes the
-terminal decision authoritative in `dev`, but the reference install has not yet produced a
-qualifying accepted detection since that build was deployed. Keep this open until Telegram and the
-in-app notification timeline both prove one real final-mode detection end to end. Tracked in the
-[telemetry-confirmed regression queue](ROADMAP.md#telemetry-confirmed-regression-queue).
 
 ## Known Remaining Exposure
 
@@ -101,8 +80,10 @@ in-app notification timeline both prove one real final-mode detection end to end
 - **Backfill/classifier coverage is broader but not exhaustive.** The
   [September backfill review](docs/reviews/2026-09-23-backfill-test-hardening.md) adds
   real-database detection/weather tests and real worker-process failures. Full retained-video
-  replay, published CUDA-image validation, labelled accuracy regressions and sustained mixed-load
-  checks remain on the [inference isolation roadmap](ROADMAP.md#keep-the-web-service-and-ingest-off-the-inference-path-).
+  replay and sustained mixed-load checks remain. Published CUDA-image validation covered
+  RoPE ViT-B/14 and the accurate crop detector on an RTX 4070 on October 4. The October
+  [model validation review](docs/reviews/2026-10-10-model-integration-validation.md) adds a
+  labelled public corpus and owner-feeder replay; a pinned previous-release accuracy gate remains on the [inference isolation roadmap](ROADMAP.md#keep-the-web-service-and-ingest-off-the-inference-path-).
 
 - **Low-level classifier diagnostics have separate native execution paths.** Ordinary uploaded
   classifications now share admission and isolation, but owner-only native debug/probe endpoints
@@ -115,27 +96,68 @@ in-app notification timeline both prove one real final-mode detection end to end
   over a slow mount that is sustained disk work for a number nobody is looking at. Caching the
   result for a few minutes, or updating counts as files are written and removed, is the durable
   fix and a design decision rather than a mechanical one.
-- **Reported cache sizes undercount.** `get_cache_stats` counts `*.jpg` and `*.mp4` only, so the
-  `.meta.json` sidecars beside every snapshot are not in the total. On the reference install that
-  is 14,712 uncounted files.
 - **The CUDA and amd64 `full` images stay on ONNX Runtime 1.26.** 1.27 and later ship CUDA 13
   userspace, which needs the NVIDIA 580 driver series on the host, so the bump Dependabot proposed
   in #284 was closed and the window is held until 3.0 (`ROADMAP.md`, 1.7). Those images therefore
   lack the input-validation hardening 1.29 added to several CUDA kernels. Exposure is limited: the
   runtime only loads models the owner installed, never user-supplied files.
-- **API process memory is being watched again.** #314 closed at about 340 MB resident after the
-  `MALLOC_ARENA_MAX=2` fix. On the reference install the API process measured 1.49 GB resident
-  fourteen hours after a start in subprocess mode, where it holds no model. The RSS sampler is
-  running again; if the growth continues, #314 reopens with the numbers.
+- **API process memory is growing again.** #314 closed at about 340 MB resident after the
+  `MALLOC_ARENA_MAX=2` fix. On October 4 the API process on the reference install, in subprocess
+  mode where it holds no model, measured about 0.9 GB shortly after a start and about 2 GB two
+  hours after the next one. Python's allocated block count barely moved over that time, so the
+  growth is native memory (image decoding, encoding or allocator fragmentation), not Python
+  objects. Two hundred repeated wall photograph requests did not move it. The RSS sampler was
+  restarted the same day; with a day of samples, reopen #314 with the numbers and the request mix.
 
 ## Open on the Tracker
 
-- **#490** Backfill and live-feed failures: safeguards are in `dev`; confirmation from the
-  original reporter/model/driver combination is still pending. Recent opt-in health reports for
-  `stage_timeout` came from older `2.20.3` installs, with no current-`dev` reproduction. It is the
-  only open bug report at this review; dependency-update pull requests are separate.
+- **#490** Backfill and live-feed failures: safeguards are in `dev` and #606 stops a cancelled CPU
+  recovery request from switching CPU recovery off. The reporter's original EVA-02 Intel GPU fault is
+  not shown to be fixed; waiting for fresh diagnostics.
+- **#576** Repeated video decoding during photo updates: #582 and #608 remove the repeat decoding
+  for kept and replaced photos. On NVIDIA (October 4) a photo update with reuse took about 0.15 s
+  instead of 1.2 to 1.4 s; handing the scene over adds about 0.4 to 0.5 s to classification, so
+  each video job saves about 0.7 s net. Forty CUDA jobs in a row completed with no restart or
+  fallback. What remains is production backfill under real ingest load.
+
+- **#622** Always-retained photos and visit media: implemented by #625 in `dev`.
+  Documentation and acceptance housekeeping remain; the old optional cache switches are gone.
+- **#641** SpeciesNet garden visitors: deferred feature, not an active regression or a shipped capability.
+- **#643** Identification provenance: deferred feature; do not claim every initial input source is persisted yet.
 
 ## Recently Closed (Context)
+
+- **#481** Thumbnail/species mismatch with multiple birds: closed October 9 after the photo-repair work and follow-up review.
+- **#640** New model investigation: closed after the catalogue integration, release artifacts and hardware/feeder evaluation were completed. New model/provider claims remain scoped to the published [validation evidence](docs/reviews/2026-10-10-model-integration-validation.md).
+
+### REG-2026-09-15-03 — Final-mode detection notifications
+
+Stable `2.20.1` can save a final Frigate event without dispatching its notification because the
+terminal path treated the earlier preliminary classification as unchanged. PR #467 makes the
+terminal decision authoritative in `dev`. Closed on October 4: on the reference install, in final
+mode with notifications held until video analysis, a real Blackbird visit was saved, reached an
+open owner page through the live `detection` event within a second (the same event that adds the
+in-app notification), was re-identified by video analysis, and dispatched its Telegram notification
+only after video analysis completed. Every dispatch that day reported `sent`.
+
+### #603 — Explorer species list on small screens
+
+#604 puts species search and the species list first in the Explorer sidebar with their own scroll
+and collapses the other sections. The reporter confirmed the fix and closed the issue.
+
+### REG-2026-09-15-01 — Accepted detections can expire before notification dispatch
+
+The September 15 fleet review found 41 underlying occurrences across two installations in the
+preceding 30 days, including one occurrence from the then-current `dev` build. Each failure emits
+both `stage_timeout/save_and_notify` and `drop_save_and_notify_failed`; those 82 raw markers
+describe 41 failures and must not be counted as separate incidents. Current `dev` limits that
+deadline to the database decision, admits notification work immediately after commit, and only then
+runs optional Frigate sublabel, snapshot-cache and video-scheduling work. A regression test holds
+post-commit work beyond the old deadline and proves the detection is not dropped and notification
+hand-off has already happened. Closed on October 4: real detections on the reference install after that day's deployment
+delivered Telegram notifications, with no `save_and_notify` stage timeout or paired drop marker
+in the pipeline health. Tracked in the
+[telemetry-confirmed regression queue](ROADMAP.md#telemetry-confirmed-regression-queue).
 
 ### REG-2026-09-23-02 — Pre-migration backups omit committed WAL data
 
@@ -222,7 +244,7 @@ For a step-by-step checklist, see `INTEGRATION_TESTING.md`.
 - Scope: Real bot token + chat ID, snapshot/no-snapshot paths, HTML escaping, error handling.
 - Code: `backend/app/services/notification_service.py`, Settings test endpoint `backend/app/routers/settings.py`
 - Needs testing:
-  - Settings "Send Test Notification" succeeds against the real Telegram Bot API
+  - Real final-mode notifications were verified on the reference install on October 4; the Settings test action and the remaining cases below still need explicit coverage
   - Snapshot attachment path works reliably
   - Special characters in species/camera names render correctly (no formatting injection)
 
@@ -245,12 +267,22 @@ For a step-by-step checklist, see `INTEGRATION_TESTING.md`.
 ### NVIDIA CUDA Inference Provider (Real GPU Validation)
 - Scope: End-to-end CUDA provider behavior for ONNX models on real NVIDIA hardware.
 - Code: `backend/app/services/classifier.py`, `backend/app/services/model_manager.py`, `apps/ui/src/lib/components/settings/DetectionSettings.svelte`, `apps/ui/src/lib/pages/models/ModelManager.svelte`
-- Needs testing:
-  - The full and `-cuda` images report CUDA as packaged; CPU/Intel image mismatch diagnostics remain clear and non-destructive
-  - CUDA host/runtime detection correctly reports availability only when an NVIDIA GPU is present
-  - ONNX model activation succeeds with `cuda` provider and remains stable across backend restart
-  - Live detections and manual/background reclassification flows execute on CUDA without unexpected fallback loops
-  - Failure paths surface clear diagnostics in Settings and backend logs
+- Verified on October 4, 2026 with the published `dev-cuda` image on an RTX 4070 (driver 617.14),
+  in disposable containers with no network:
+  - The image reports CUDA as packaged (ONNX Runtime GPU 1.26.0 with the CUDA provider), and the
+    hardware gate passed every applicable model and provider pair: the accurate crop detector and
+    RoPE ViT-B/14 on strict CUDA, with CPU agreement, twice each over eight real images.
+  - Video classification of the original 4K reporter clips ran on strict CUDA with identical species
+    and frame evidence with and without winning-scene reuse.
+  - High-quality photo scans with the crop detector and classifier both on CUDA kept identical
+    candidates, birds and model calls with reuse, and read one fewer frame.
+  - Forty maintenance video jobs submitted at once completed serially on CUDA in about four
+    minutes (median 5.5 s, longest 10.2 s per job) with no worker restart, no fallback and an
+    intact database.
+- Still needs testing:
+  - CUDA host/runtime detection reporting unavailable when no NVIDIA GPU is present
+  - Model activation through Settings staying on CUDA across a backend restart
+  - Failure paths surfacing clear diagnostics in Settings and backend logs
 
 ## Notes
 

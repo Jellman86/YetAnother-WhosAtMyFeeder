@@ -251,7 +251,7 @@ async def test_dispatch_frigate_message_returns_promptly_on_overload():
 
 
 @pytest.mark.asyncio
-async def test_parse_frigate_payload_meta_skips_non_actionable_updates():
+async def test_parse_frigate_payload_meta_admits_updates_for_missing_start_recovery():
     service = MQTTService("test+abc123")
 
     payload = _frigate_payload("evt-update", "update", false_positive=False)
@@ -259,7 +259,29 @@ async def test_parse_frigate_payload_meta_skips_non_actionable_updates():
 
     assert meta is not None
     assert meta["event_id"] == "evt-update"
-    assert meta["should_process"] is False
+    assert meta["should_process"] is True
+
+
+def test_pending_end_event_cannot_be_replaced_by_an_out_of_order_update():
+    end = _frigate_payload("evt-merge", "end")
+    update = _frigate_payload("evt-merge", "update")
+    merged = MQTTService._merge_pending_frigate_payload(end, update)
+    assert json.loads(merged)["type"] == "end"
+
+
+def test_false_positive_update_still_overrides_pending_end():
+    end = _frigate_payload("evt-merge", "end")
+    withdrawal = _frigate_payload("evt-merge", "update", false_positive=True)
+    merged = MQTTService._merge_pending_frigate_payload(end, withdrawal)
+    assert json.loads(merged)["after"]["false_positive"]
+
+
+def test_a_newer_end_can_refresh_completed_event_metadata():
+    end = _frigate_payload("evt-merge", "end")
+    newer = json.loads(end)
+    newer["after"]["has_clip"] = True
+    latest = json.dumps(newer).encode()
+    assert MQTTService._merge_pending_frigate_payload(end, latest) == latest
 
 
 @pytest.mark.asyncio

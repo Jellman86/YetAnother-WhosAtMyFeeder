@@ -6,7 +6,100 @@ from app.services.video_classification_policy import (
     assess_temporal_consensus,
     build_temporal_consensus,
     select_temporal_source_consensus,
+    build_target_temporal_consensus,
+    select_event_temporal_source_consensus,
 )
+
+
+def test_event_prefers_repeated_tracked_crop_over_another_bird_in_full_frame():
+    full = build_temporal_consensus([np.array([0.92, 0.08])] * 3, minimum_frame_score=0.7)
+    tracked = build_temporal_consensus([np.array([0.04, 0.96])] * 3, minimum_frame_score=0.7)
+    sources = [SourceTemporalConsensus("full_frame", full), SourceTemporalConsensus("frigate_hint_crop", tracked)]
+
+    assert select_event_temporal_source_consensus(sources, target_consensuses=[]) == sources[1]
+
+
+def test_event_target_can_be_repeated_in_minor_crops_without_winning_scene_majority():
+    scores = [
+        np.array([0.94, 0.06]),
+        np.array([0.04, 0.96]),
+        np.array([0.91, 0.09]),
+        np.array([0.08, 0.92]),
+        np.array([0.93, 0.07]),
+    ]
+    target = build_target_temporal_consensus(
+        scores, target_class_indices={1}, minimum_frame_score=0.7, frame_offsets_seconds=[0, 0, 0.5, 0.5, 1]
+    )
+    scene = build_temporal_consensus(scores, minimum_frame_score=0.7, frame_offsets_seconds=[0, 0, 0.5, 0.5, 1])
+    assert target is not None
+    assert target.winner_index == 1
+    assert target.supporting_frame_count == 2
+    assert target.evaluated_frame_count == 3
+    assert (
+        select_event_temporal_source_consensus(
+            [SourceTemporalConsensus("full_frame", scene)],
+            target_consensuses=[SourceTemporalConsensus("model_crop", target)],
+        ).consensus.winner_index
+        == 1
+    )
+
+
+@pytest.mark.parametrize(
+    "scores,offsets",
+    [
+        ([np.array([0.04, 0.96]), np.array([0.93, 0.07]), np.array([0.93, 0.07])], [0, 0.5, 1]),
+        ([np.array([0.04, 0.96])] * 3, [0, 0.01, 0.02]),
+        ([np.array([0.4, 0.6])] * 3, [0, 0.5, 1]),
+    ],
+)
+def test_event_target_does_not_lock_in_a_single_correlated_or_weak_guess(scores, offsets):
+    assert (
+        build_target_temporal_consensus(
+            scores, target_class_indices={1}, minimum_frame_score=0.7, frame_offsets_seconds=offsets
+        )
+        is None
+    )
+
+
+def test_event_without_tracked_or_existing_target_retains_disagreement_abstention():
+    sources = [
+        SourceTemporalConsensus(
+            "full_frame", build_temporal_consensus([np.array([0.92, 0.08])] * 3, minimum_frame_score=0.7)
+        ),
+        SourceTemporalConsensus(
+            "model_crop", build_temporal_consensus([np.array([0.04, 0.96])] * 3, minimum_frame_score=0.7)
+        ),
+    ]
+    assert select_event_temporal_source_consensus(sources, target_consensuses=[]) is None
+
+
+def test_invalid_output_does_not_supply_missing_target_coverage():
+    assert (
+        build_target_temporal_consensus(
+            [np.array([0.04, 0.96]), np.array([0.04, 0.96]), np.array([float("nan"), 0.9])],
+            target_class_indices={1},
+            minimum_frame_score=0.7,
+            frame_offsets_seconds=[0, 0.5, 1],
+        )
+        is None
+    )
+
+
+def test_weak_tracked_consensus_does_not_displace_strong_scene_evidence():
+    full = SourceTemporalConsensus(
+        "full_frame", build_temporal_consensus([np.array([0.92, 0.08])] * 3, minimum_frame_score=0.4)
+    )
+    weak = SourceTemporalConsensus(
+        "frigate_hint_crop", build_temporal_consensus([np.array([0.1, 0.5])] * 3, minimum_frame_score=0.4)
+    )
+    assert (
+        select_event_temporal_source_consensus(
+            [full, weak],
+            target_consensuses=[],
+            minimum_tracked_score=0.7,
+        )
+        is None
+    )
 
 
 def test_temporal_consensus_rejects_single_high_confidence_outlier():
@@ -264,3 +357,60 @@ def test_source_consensus_prefers_stronger_evidence_when_sources_agree():
     assert selected is not None
     assert selected.input_source == "model_crop"
     assert selected.consensus.supporting_frame_count == 3
+
+
+def test_old_target_cannot_override_a_conflicting_confident_tracked_region():
+    region = SourceTemporalConsensus(
+        "frigate_region_crop", build_temporal_consensus([np.array([0.08, 0.92])] * 3, minimum_frame_score=0.7)
+    )
+    old_target = SourceTemporalConsensus(
+        "model_crop", build_temporal_consensus([np.array([0.94, 0.06])] * 3, minimum_frame_score=0.7)
+    )
+    assert (
+        select_event_temporal_source_consensus(
+            [region, old_target], target_consensuses=[old_target], minimum_tracked_score=0.7
+        )
+        is None
+    )
+
+
+def _tracked_observations(*frames):
+    return assess_temporal_consensus(
+        [np.asarray(frame) for frame in frames], minimum_frame_score=0.7, frame_offsets_seconds=range(len(frames))
+    )
+
+
+def _scene_finch():
+    finch = build_temporal_consensus([np.array([0.95, 0.03, 0.02])] * 4, minimum_frame_score=0.7)
+    return [SourceTemporalConsensus("model_crop", finch), SourceTemporalConsensus("frigate_region_crop", finch)]
+
+
+def test_scene_bird_never_seen_on_the_tracked_bird_is_not_claimed_for_the_event():
+    # #481: the tracked chickadee crops split between chickadee species, so no tracked
+    # consensus; the busier finch at another feeder must not become the event's bird.
+    tracked = _tracked_observations([0.02, 0.6, 0.38], [0.03, 0.3, 0.67])
+
+    assert (
+        select_event_temporal_source_consensus(_scene_finch(), target_consensuses=[], tracked_observations=tracked)
+        is None
+    )
+
+
+def test_scene_bird_the_tracked_crops_also_showed_is_still_accepted():
+    tracked = _tracked_observations([0.55, 0.4, 0.05], [0.02, 0.6, 0.38])
+
+    selected = select_event_temporal_source_consensus(
+        _scene_finch(), target_consensuses=[], tracked_observations=tracked
+    )
+
+    assert selected is not None and selected.consensus.winner_index == 0
+
+
+def test_one_tracked_frame_is_too_little_to_overrule_the_scene():
+    tracked = _tracked_observations([0.02, 0.6, 0.38])
+
+    selected = select_event_temporal_source_consensus(
+        _scene_finch(), target_consensuses=[], tracked_observations=tracked
+    )
+
+    assert selected is not None and selected.consensus.winner_index == 0

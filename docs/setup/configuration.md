@@ -1,17 +1,11 @@
 # Configuration
 
-Almost everything about YA-WAMF is configured in the web UI, under **Settings**. Your
-choices are written to `/config/config.json` and survive container updates.
-
-> Every UI setting that can be pre-set at deploy time also has an environment
-> variable. For the **complete list of environment variables** (names, defaults,
-> and what's UI/file-only), see
-> [Environment variables](environment-variables.md).
+Configure YA-WAMF under **Settings**. Saved choices persist in `/config/config.json`;
+supported [environment overrides](environment-variables.md) take precedence on restart.
 
 ## How Settings is laid out
 
-Settings has twelve sections in four groups. The same grid appears at the top of every
-Settings page, so you can jump between sections without going back:
+Use the navigation grid to switch sections:
 
 ![The Settings navigation grid: Feeder pipeline holds Connection and Detection; Intelligence and sharing holds Integrations, Enrichment, AI and Notifications; Operations holds Health, Security, Data and Setup wizard; Interface holds Appearance and Accessibility](../images/settings-map.png)
 
@@ -25,8 +19,10 @@ Settings page, so you can jump between sections without going back:
 A **Debug** section appears alongside them when debug UI is enabled (see
 [Debug section](#debug-section)).
 
-Edits are staged. An **Unsaved Changes** bar appears at the bottom of the page until you
-select **Apply settings**; nothing reaches `config.json` before then.
+Select **Apply settings** to save form edits. Model activation, configuration import
+and setup-wizard steps save immediately. Wizard saves refresh untouched fields in an
+open form while preserving other unsaved edits. Remove an environment override if
+you want the UI to control that field.
 
 ---
 
@@ -62,8 +58,8 @@ How a snapshot becomes a species. This is the section that balances accuracy aga
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| **Confidence Threshold** | `0.7` | The species gatekeeper. At or above this score the detection is saved with its species name. |
-| **Minimum Confidence Floor** | `0.4` | The existence gatekeeper. Below this score the event is ignored completely. |
+| **Confidence Threshold** | `0.7` | Minimum local score for a named identification, also subject to the confidence floor, unknown-label policy and blocked-species rules. |
+| **Minimum Confidence Floor** | `0.4` | Reject local image results below this score. A usable trusted Frigate sublabel can still provide the configured fallback. |
 | **Trust Frigate Sublabels** | Enabled | Accept a species Frigate has already identified when local inference has nothing usable. |
 | **Write Frigate Sublabel** | Enabled | Push YA-WAMF's own identification back to the Frigate event as a sublabel. |
 | **Bird Model Region** | `Auto` | Override regional model selection (`Auto`, `Europe`, `North America`) for birds-only model families. |
@@ -76,14 +72,19 @@ How a snapshot becomes a species. This is the section that balances accuracy aga
 
 ### 🛠 How the two thresholds work together
 
-1. **Score at or above the Threshold**
-   *Saved as the identified species, and reported onward to BirdWeather and Home Assistant.*
+1. **Score at or above both the threshold and floor**
+   Saved with its species when the label is usable and not blocked. Optional reporting
+   still follows each integration's own enablement and filters.
 2. **Score between the Floor and the Threshold**
    *Saved as **Unknown Bird**.* YA-WAMF is confident something was there, but not confident
    enough to name it. The visit is kept; your species statistics stay clean.
-3. **Score below the Floor**
-   *Discarded.* The score is too low to keep the event; this can also exclude a real bird
-   in an unclear image.
+3. **Score below the floor**
+   The local result is rejected, which can exclude a real bird in an unclear image.
+
+**Trust Frigate Sublabels** allows a usable upstream species to provide a fallback when
+local inference cannot name the bird. These scores are model outputs, not calibrated
+probabilities: a 70% threshold does not mean every model is correct 70% of the time.
+Keep the floor at or below the threshold for a useful Unknown Bird band.
 
 ### 🎯 Personalized re-ranking details
 
@@ -97,7 +98,15 @@ How a snapshot becomes a species. This is the section that balances accuracy aga
 
 > **A downloaded model is not yet a proven one.** A model that has never been validated on
 > this host shows **Validate to enable** instead of **Use this model**, and the API refuses to
-> activate it. See [AI Models & Performance](../features/ai-models.md).
+> activate it. Compatibility proves finite, CPU-consistent execution on this installation,
+> not species accuracy. See [AI Models & Performance](../features/ai-models.md).
+
+Registered classifiers read their ordered output names from the species catalogue, bound
+to the exact model checksum. Integrated downloads need no separate `labels.txt`; legacy
+or custom models can still use the file fallback. See the
+[October model catalogue](../features/model-catalogue-2026-10.md) for new models, coverage
+and measured tradeoffs. These additions require an application build containing their
+integration; the rolling model release alone does not update an older application.
 
 ## Integrations
 
@@ -119,11 +128,16 @@ a saved credential can be re-tested without typing it again.
   the CSV export controls here; exporting your detections does not require an API key.
 - **iNaturalist** — owner-reviewed submissions over OAuth. Needs App Owner approval from
   iNaturalist first.
-- **Home Assistant weather** — take each visit's weather from your own HA instance instead of a
-  regional forecast.
-- **Location** — your latitude and longitude for weather enrichment, optional `state` and
+- **Home Assistant weather** — use selected HA sensors instead of a regional forecast.
+  Readings are reused for up to 30 seconds; unavailable sensors stay unknown rather
+  than borrowing forecast values. See [Home Assistant](../integrations/home-assistant.md).
+- **Location** — your latitude and longitude for weather enrichment and location-aware classifiers such as DINOv2, optional `state` and
   `country` values for the eBird export, and **Display Units** (`Metric`, `Imperial`, or
   `British` for °C with mph and mm). Distances elsewhere in the UI follow this choice.
+  DINOv2 uses both saved coordinates, including a valid zero, or neutral metadata when
+  either is absent/invalid. It does not receive a capture date or location uncertainty.
+  Saving changed coordinates reloads the classifier workers. This is the same location
+  configured in the model step of the setup wizard.
 
 ## Enrichment
 
@@ -178,30 +192,18 @@ of **any species** on **Discord*** — and each highlighted part is a control.
 | **Notification cooldown** | `0` minutes | Minimum gap between notifications. `0` disables the cooldown. |
 | **Notification language** | English | The language used in message text, independent of the UI language. |
 | **Instance address** | _(blank)_ | The address you use to open YA-WAMF. When set, every notification links to the detection it announces; blank means no link. |
-| **Notification link opens** | This YA-WAMF | `This YA-WAMF` opens the detection here; `Frigate` opens the tracked object in Frigate's Explore page via the public URL under Integrations (Frigate 0.15+). |
+| **Notification link opens** | This YA-WAMF | `This YA-WAMF` opens the detection here; `Frigate` opens the tracked object in Frigate's Explore page via **Public Frigate URL** under **Connection** (Frigate 0.15+). |
 
 Destinations are Discord, Pushover, Telegram, and Email (Gmail/Outlook OAuth or plain SMTP).
 See [Notifications](../features/notifications.md) for per-platform setup.
 
 ## Health
 
-Live diagnostics for the whole pipeline: what the host is doing, system status, what happened to
-recent frames and why, inference health, the naming sources behind your species names, and a
-downloadable diagnostics bundle.
-
-The tab opens on **System**: the last thirty minutes of CPU and accelerator load, sampled every
-five seconds and kept by the server so the graph is full when you arrive, the live figures beside
-it, and who is using the CPU. This app's own processes are named (the app, each classifier worker,
-any ffmpeg it spawned) with their CPU share and memory; everything else on the host is one
-remainder, "Other on this host", which YA-WAMF cannot name without the Docker socket and does not
-try to. The sidebar's System status card opens this tab for the owner.
-
-Each accelerator the container can read gets its own line, and each line says what its number
-covers. An NPU busy counter is the whole device, so it includes anything else on the host using
-it. GPU load is published per process, so that line is only the work YA-WAMF sent to the GPU;
-another container sharing the same card is not visible and is not guessed at. A card that is
-present but publishes no readable counter, which is the case for NVIDIA's driver inside a
-container, is named and said to be unreadable rather than left out.
+Inspect system load, service health, frame decisions, inference and naming sources,
+or download a support bundle. **System** shows the last thirty minutes of load and
+YA-WAMF process usage; unrelated processes are grouped as **Other on this host**.
+Accelerator labels state whether usage covers this app or the whole device.
+An unreadable counter is reported explicitly.
 
 ![Settings → Health: a System Status card reporting all monitored services healthy, and a "What happened" timeline showing visits recorded and frames filtered out with the reason for each](../images/settings-health.png)
 
@@ -219,35 +221,22 @@ Who can reach YA-WAMF, and what a visitor can see.
   save other settings.
 - **Public Access** — a read-only, rate-limited guest view. **Show camera names**, **Share
   audio**, **Share photographs**, and **Share video** are separate switches, all enforced at
-  the server. You also choose how far back the public history reaches.
+  the server. You also choose how far back the public history reaches. Public history and
+  media windows use UTC calendar days; “today only” runs from 00:00 UTC to the next midnight,
+  independent of the server timezone and local capture-time display.
 - **Trusted Proxy Hosts** — if you run behind a reverse proxy, list its IPs, CIDR ranges, or
   container/DNS names so client IP addresses are trusted correctly.
 
 > **Enable authentication before you expose YA-WAMF beyond your own network.** The UI and API
 > are administrative surfaces. See [Authentication & Access](../features/authentication.md).
 
-### Recommended reverse proxy routing
-
-For the monolithic deployment, route all traffic through a single upstream:
-
-- All YA-WAMF traffic → `yawamf-monalithic:8080`
-
-See the [Reverse Proxy Guide](reverse-proxy.md) for SSE and video clip proxy requirements.
-
-> **Legacy split deployment:** if you still run the older two-container stack, route `/api/*`
-> to `yawamf-backend:8000` and `/` to `yawamf-frontend:80`, to avoid a multi-hop proxy chain
-> that can break HTTPS detection.
-
-The image flavour is a deployment choice, not an application setting. Use the full
-compatibility image or a smaller CPU, Intel, or CUDA image as described in
-[Hardware Acceleration](hardware-acceleration.md). Switching image does not rewrite
-**Inference Provider**, `/config`, or `/data`.
+See [Reverse Proxy](reverse-proxy.md) for routing, HTTPS headers and live-stream requirements.
 
 ## Data
 
 Retention, caching, imports, and the destructive tools.
 
-![Settings → Data: total records, oldest seen, retention and pending-cleanup counters across the top, then a Retention Policy card set to Keep Everything with a History Duration selector and a Purge Old Records button, beside a Media Cache card with separate switches for snapshots and video clips](../images/settings-data.png)
+![Settings → Data with retention controls and Photos and video settings for locally kept media, Frigate event-clip copies and storage limits](../images/settings-data.png)
 
 - **Retention Policy** — **History Duration** sets how long sightings are kept
   (`maintenance.retention_days`; **Keep Everything (∞)** is the default). Cleanup runs once at
@@ -255,19 +244,81 @@ Retention, caching, imports, and the destructive tools.
   container last started. **Purge Old Records** runs the same cleanup now, after asking with the
   number of detections it will remove. Cleanup **permanently deletes** both visual detections and
   BirdNET-Go audio older than the window. Purged history cannot be recovered. Favourited
-  detections and each species' newest kept visits stay.
+  detections stay. The optional per-species minimum also protects the newest configured
+  number of detections per species and their photographs from age cleanup; its default
+  is `0`, so there is no species floor until you set one. It does not protect clips.
   The **Advanced → Maintenance & media integrity** disclosure holds the periodic re-check against
   Frigate and what to do when upstream media has gone.
-- **Media Cache** — cache snapshots and clips locally to reduce load on Frigate and speed up
-  the UI. **Clear cached files** asks first, then deletes cached media older than the retention
+  A failed event lookup is reported as an unsuccessful check, not missing media. Timeouts,
+  authentication errors, server errors and unusable responses preserve the saved state for a
+  later retry. A manual scan can clear an earlier missing flag only after confirming the media.
+  Automatic missing-media deletion checks favourites in its final database decision. A favourite
+  accepted before that decision keeps its detection and cached photos, even if a scan is running.
+- **Photos and video** — photographs, full-visit clips and previews are YA-WAMF's own record and are
+  always kept, within the retention and size limits; Frigate may delete its copies much sooner.
+  **Keep copies of Frigate's event clips** is the one choice, because Frigate already holds those.
+  If the media folder cannot be written, the card, system checks and `/health` say so. On upgrade
+  from a build with retired media switches off, best-available snapshots and possibly
+  full-visit clips are turned off once. Review those choices and follow the
+  [one-time migration steps](../../MIGRATION.md#retired-media-switches).
+  **Clear Cached Files** asks first, then deletes cached media older than the retention
   period and cached files that no longer belong to a detection. Favourites and each species'
-  newest kept visits are not touched.
+  newest visits covered by a configured minimum are protected from age cleanup; the
+  minimum protects photographs, not clips. Photo variants and metadata age together.
+  `media_cache.retention_days=0` follows detection retention; it does not independently mean
+  unlimited when history retention is finite.
 - **Best available event snapshots** — start from Frigate's completed clean best frame and
   tracked-object crop, then sample high-quality clip frames. A clip frame replaces the baseline
   only when a compatible species result improves confidence by at least two points. JPEG quality
-  is configurable; crop source selection is automatic.
+  is configurable; crop source selection is automatic. A reliable matching portrait can win
+  when its species confidence is within five points of the whole scene. A stale cropped photograph
+  cannot block a newer confidently matching frame. A photo chosen by the owner stays chosen until
+  they explicitly regenerate or choose another one.
+- **Automatically find additional birds** — off by default, including upgrades. Normal target
+  identification and photo selection continue; the optional wider search, additional crop
+  classifications and count rechecks run only when enabled. Existing counts are kept when you
+  turn this off. Enable it under **Settings → Data → Snapshot quality** to scan retained whole
+  frames automatically. This also works with **Best available event snapshots** off when video
+  processing retains a whole frame.
+  To scan one photograph, open it as the owner and choose **Find more birds**. The action scans
+  the retained whole frame from that photo's exact recording moment, without changing the chosen
+  photo or primary species. A cropped Frigate image, thumbnail or expired scene is insufficient;
+  the control explains when a whole frame is unavailable. Scans run one at a time and survive
+  a restart. A completed scan with no birds is distinct from a photo never scanned. An empty
+  retry keeps earlier counted-bird records and says so.
+- **Bird scanning effort** — applies to automatic and requested additional-bird scans. **Standard** uses one detector scan per sampled frame and up to three
+  classified crop choices. **Intensive** additionally searches nine overlapping tiles in large
+  high-resolution frames and classifies up to eight crop choices. Intensive remains the effort default; automatic scanning is off unless enabled. Both count all usable detector boxes from the selected scene;
+  neither promises to find every bird in the clip, and uncertain species remain Unknown Bird.
+  Regeneration preserves per-bird corrections and exclusions, retaining the existing
+  frame when a reviewed bird cannot be matched safely. This does not track individual
+  birds between frames. See [Video analysis](../features/video-analysis.md).
+
+![Photos and video settings explain always-kept photographs and generated media, optional Frigate event-clip copies, media retention and per-species storage limits](../images/settings-media-retention.png)
+
+- **Most visits per species with photos and video** — keep media for the newest configured number of visits
+  of each canonical species. Favourites are exempt. `0` means unlimited. This removes cached media,
+  including alternate photos and clips, while keeping visits and counted-bird records.
+- **Storage limit (MiB)** — periodically remove the oldest non-favourite cached visits until
+  ordinary cached snapshots, choices, thumbnails, clips, previews and metadata fit the budget.
+  `0` means unlimited. Favourites and their archive are protected; active work is deferred, so the
+  cache can temporarily exceed the budget, or stay above it if protected media alone exceed it.
+  Limits run at startup and every five minutes, and when **Clear Cached Files** is used. The budget
+  and species maximum take priority over the minimum kept through age cleanup.
+  Orphaned published files are retried on the same schedule even with both limits at
+  `0`; active writes, referenced files and favourite archives are protected.
+
+  Environment equivalents are `MEDIA_CACHE__AUTOMATIC_MULTI_BIRD_SCAN=true|false`,
+  `MEDIA_CACHE__BIRD_SCAN_MODE=standard|intensive`,
+  `MEDIA_CACHE__PER_SPECIES_MAXIMUM=0..10000`, and `MEDIA_CACHE__MAX_SIZE_MB=0..1048576`.
+  Models, backups, and archived favourites do not count towards the ordinary cache budget.
 - **Missed Detections** — import bird events Frigate still retains, over a day, week, month, or a
   custom range. Import is idempotent by Frigate event ID, so running it twice is safe.
+  Photo requests are saved when the memory queue is full and recovered after a restart. A finished
+  detection import can still have photo work pending in Jobs. Saved counters survive a restart;
+  an interrupted import is marked failed rather than reported as completed. Restarting the import
+  is explicit. Historical missing photo output is checked in pages of 100 every five minutes,
+  with bounded retries when Frigate no longer retains the source media.
 - **Batch Analysis** — re-run classification over detections currently saved as Unknown Bird,
   either on demand or automatically each day.
 - **Taxonomy Repair** — normalise species names across your whole history against iNaturalist.
@@ -311,8 +362,9 @@ How the interface reads.
 | **Bird Naming Style** | **Standard** (common name primary, scientific subtitle), **Hobbyist** (scientific primary, common subtitle), or **Strictly Scientific** (scientific only). |
 | **Explorer view** | **Cards** shows a snapshot per detection; **List** shows one compact row each, with times aligned for scanning. |
 | **Theme** | Light or dark, plus the colour and font themes. |
+| **Text size** | Smallest (75%), Smaller (81%), **Standard** (87.5%, default), Large (100%), Larger (112.5%), Extra large (125%) or Largest (150%). Saved separately on each device. |
 | **Language** | The interface language. Notifications have their own language setting. |
-| **Date format** | United Kingdom (DD/MM/YYYY), United States (MM/DD/YYYY), or Japan/China (YYYY-MM-DD). |
+| **Date format** | Follow browser language (default), United Kingdom (DD/MM/YYYY), United States (MM/DD/YYYY), or Japan/China (YYYY-MM-DD). Date and time choices are saved independently. |
 | **Time format** | 12 hour, 24 hour, or **Follow browser language**. |
 
 ## Accessibility
@@ -323,8 +375,11 @@ How the interface reads.
 
 ## Setup wizard
 
-Re-runs the guided setup as a non-destructive section map. Completing, skipping, or backing out
-of a section returns you to that map rather than marching through unrelated steps.
+Reopens guided setup as a section map. Completing, skipping, or backing out of a section
+returns to the map. Continuing saves that section; it does not reset unrelated settings.
+**Skip step** leaves the remaining choices unsaved. A location saved before a hardware
+check stays saved if you leave, and leaving does not cancel the running backend check.
+See [first-run setup](getting-started.md#4-verify) for provider and location behaviour.
 
 ## Debug section
 

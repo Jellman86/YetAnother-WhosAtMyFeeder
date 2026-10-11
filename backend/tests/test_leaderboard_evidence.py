@@ -166,19 +166,19 @@ async def test_leaderboard_species_counts_visits_the_way_the_dashboard_groups_th
     species = f"Visit Finch {prefix}"
     other = f"Passing Tit {prefix}"
     start = datetime.now(timezone.utc) - timedelta(hours=5)
-    # One visit: three frames, each within ten minutes of the one before (22 minutes end to end),
+    # One visit: three captures with gaps below sixty seconds,
     # with another species passing in between, which does not split it.
     await _insert_on_camera(f"{prefix}-a1", species, start, "feeder")
-    await _insert_on_camera(f"{prefix}-x1", other, start + timedelta(minutes=5), "feeder")
-    await _insert_on_camera(f"{prefix}-a2", species, start + timedelta(minutes=9), "feeder")
-    await _insert_on_camera(f"{prefix}-a3", species, start + timedelta(minutes=18), "feeder")
-    # A gap of more than ten minutes starts a second visit.
+    await _insert_on_camera(f"{prefix}-x1", other, start + timedelta(seconds=15), "feeder")
+    await _insert_on_camera(f"{prefix}-a2", species, start + timedelta(seconds=30), "feeder")
+    await _insert_on_camera(f"{prefix}-a3", species, start + timedelta(seconds=55), "feeder")
+    # A gap of more than sixty seconds starts a second visit.
     await _insert_on_camera(f"{prefix}-a4", species, start + timedelta(minutes=40), "feeder")
     # The same minute on another camera is another visit.
     await _insert_on_camera(f"{prefix}-a5", species, start + timedelta(minutes=40), "hedge")
     # The previous day window: two frames, one visit.
     await _insert_on_camera(f"{prefix}-p1", species, start - timedelta(days=1), "feeder")
-    await _insert_on_camera(f"{prefix}-p2", species, start - timedelta(days=1) + timedelta(minutes=2), "feeder")
+    await _insert_on_camera(f"{prefix}-p2", species, start - timedelta(days=1) + timedelta(seconds=20), "feeder")
 
     try:
         response = await client.get("/api/leaderboard/species?span=day")

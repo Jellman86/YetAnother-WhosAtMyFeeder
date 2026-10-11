@@ -64,7 +64,7 @@
                 {#if opt.icon}
                     <span class="text-2xl" aria-hidden="true">{opt.icon}</span>
                 {/if}
-                <span class="text-[10px] font-black uppercase tracking-widest">{opt.label}</span>
+                <span class="text-3xs font-semibold">{opt.label}</span>
             {:else}
                 {#if opt.swatch}
                     <div class="w-10 h-10 rounded-xl {opt.swatch} shrink-0"></div>
@@ -72,7 +72,7 @@
                     <span class="text-2xl shrink-0" aria-hidden="true">{opt.icon}</span>
                 {/if}
                 <div class="flex-1 min-w-0">
-                    <div class="text-sm font-black uppercase tracking-widest {active ? 'text-white' : 'text-slate-900 dark:text-white'}">
+                    <div class="text-sm font-semibold {active ? 'text-white' : 'text-slate-900 dark:text-white'}">
                         {opt.label}
                     </div>
                     {#if opt.sub}
@@ -81,7 +81,7 @@
                         </div>
                     {/if}
                     {#if opt.meta}
-                        <div class="text-[10px] font-semibold mt-1 {active ? 'text-white/70' : 'text-slate-400 dark:text-slate-500'}">
+                        <div class="text-3xs font-semibold mt-1 {active ? 'text-white/70' : 'text-slate-400 dark:text-slate-500'}">
                             {opt.meta}
                         </div>
                     {/if}

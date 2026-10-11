@@ -41,6 +41,7 @@ from app.services.classifier_service import (
 )
 from app.services.event_processor import EventProcessor
 from app.services.media_cache import media_cache
+from app.services.media_storage_service import media_storage_service
 from app.services.full_visit_clip_service import full_visit_clip_service
 from app.services.archive_service import archive_service
 from app.services.broadcaster import broadcaster
@@ -48,6 +49,7 @@ from app.services.telemetry_service import telemetry_service
 from app.services.system_telemetry import system_telemetry_history_service
 from app.services.auto_video_classifier_service import auto_video_classifier
 from app.services.high_quality_snapshot_service import high_quality_snapshot_service
+from app.services.bird_scan_service import bird_scan_service
 from app.services.notification_dispatcher import notification_dispatcher
 from app.services.frigate_client import frigate_client
 from app.repositories.detection_repository import DetectionRepository
@@ -56,6 +58,7 @@ from app.services.uptime import HEARTBEAT_INTERVAL_MINUTES
 from app.routers import (
     about,
     events,
+    visits,
     proxy,
     settings as settings_router,
     species,
@@ -77,9 +80,11 @@ from app.routers import (
     auth as auth_router,
     jobs as jobs_router,
     manual_observations,
+    taxonomy,
 )
 from app.config import settings, _expand_trusted_hosts
 from app.middleware.language import LanguageMiddleware
+from app.middleware.public_calendar import PublicCalendarMiddleware
 from app.utils.tasks import create_background_task
 from app.utils.runtime_flavor import get_image_flavor
 from app.services.label_enrichment import start_background_map_refresh
@@ -88,6 +93,7 @@ from app.services.startup_status import startup_status
 from app.ratelimit import limiter
 from app.auth import StreamAuth, get_stream_auth_context
 from app.auth import get_auth_context_with_legacy
+from app.auth import get_oauth_router_auth_context
 
 
 # Version management
@@ -269,24 +275,23 @@ async def run_cleanup():
                 )
 
         # Media cache cleanup
-        if settings.media_cache.enabled:
-            cache_retention = settings.media_cache.retention_days
-            if cache_retention == 0:
-                cache_retention = settings.maintenance.retention_days
-            if cache_retention > 0:
-                async with get_db() as db:
-                    repo = DetectionRepository(db)
-                    if not favorite_event_ids:
-                        favorite_event_ids = await repo.get_favorite_frigate_event_ids()
-                    # Favourites keep everything; the per-species floor keeps photographs only (#178).
-                    floor_ids = await repo.get_species_floor_frigate_event_ids(species_floor)
-                cache_stats = await media_cache.cleanup_old_media(
-                    cache_retention,
-                    protected_event_ids=favorite_event_ids,
-                    protected_snapshot_event_ids=floor_ids,
-                )
-                if cache_stats["snapshots_deleted"] > 0 or cache_stats["clips_deleted"] > 0:
-                    log.info("Media cache cleanup completed", **cache_stats)
+        cache_retention = settings.media_cache.retention_days
+        if cache_retention == 0:
+            cache_retention = settings.maintenance.retention_days
+        if cache_retention > 0:
+            async with get_db() as db:
+                repo = DetectionRepository(db)
+                if not favorite_event_ids:
+                    favorite_event_ids = await repo.get_favorite_frigate_event_ids()
+                # Favourites keep everything; the per-species floor keeps photographs only (#178).
+                floor_ids = await repo.get_species_floor_frigate_event_ids(species_floor)
+            cache_stats = await media_cache.cleanup_old_media(
+                cache_retention,
+                protected_event_ids=favorite_event_ids,
+                protected_snapshot_event_ids=floor_ids,
+            )
+            if cache_stats["snapshots_deleted"] > 0 or cache_stats["clips_deleted"] > 0:
+                log.info("Media cache cleanup completed", **cache_stats)
 
         # The archive is never aged out; only a directory with no favourite behind it goes.
         archive_sweep = await archive_service.orphan_sweep()
@@ -573,6 +578,14 @@ async def lifespan(app: FastAPI):
         )
         await _run_lifecycle_phase(
             app,
+            "bird_scan_start",
+            bird_scan_service.start,
+            fatal=False,
+            startup_phase="starting_services",
+            startup_progress=86,
+        )
+        await _run_lifecycle_phase(
+            app,
             "auto_video_classifier_start",
             auto_video_classifier.start,
             fatal=False,
@@ -594,6 +607,12 @@ async def lifespan(app: FastAPI):
             fatal=False,
             startup_phase="starting_services",
             startup_progress=88,
+        )
+        await _run_lifecycle_phase(
+            app,
+            "media_storage_start",
+            media_storage_service.start,
+            fatal=False,
         )
         await _run_lifecycle_phase(
             app,
@@ -645,6 +664,7 @@ async def lifespan(app: FastAPI):
             startup_phase="starting_services",
             startup_progress=95,
         )
+        await backfill.recover_job_history()
         backfill.start_watchdog()
         await asyncio.to_thread(startup_status.publish, "finalizing", 97)
         log.info(
@@ -697,7 +717,9 @@ async def lifespan(app: FastAPI):
         # accepted into a service that has already shut down.
         await _run_lifecycle_phase(app, "mqtt_service_stop", mqtt_service.stop, fatal=False)
         await _run_lifecycle_phase(app, "notification_dispatcher_stop", notification_dispatcher.stop, fatal=False)
+        await _run_lifecycle_phase(app, "media_storage_stop", media_storage_service.stop, fatal=False)
         await _run_lifecycle_phase(app, "high_quality_snapshot_stop", high_quality_snapshot_service.stop, fatal=False)
+        await _run_lifecycle_phase(app, "bird_scan_stop", bird_scan_service.stop, fatal=False)
         await _run_lifecycle_phase(app, "auto_video_classifier_stop", auto_video_classifier.stop, fatal=False)
         await _run_lifecycle_phase(app, "full_visit_clip_stop", full_visit_clip_service.stop, fatal=False)
         await _run_lifecycle_phase(app, "favorite_archive_stop", archive_service.stop, fatal=False)
@@ -794,6 +816,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 
 
 app.add_middleware(LanguageMiddleware)
+app.add_middleware(PublicCalendarMiddleware)
 
 # CORS configuration - Note: wildcard origins cannot be used with credentials
 app.add_middleware(
@@ -810,9 +833,13 @@ app.include_router(auth_router.router, prefix="/api", tags=["auth"])
 
 # Public/mixed access routers - use new auth system with legacy fallback
 app.include_router(events.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(visits.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(about.router, prefix="/api", tags=["about"], dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(proxy.router, prefix="/api", dependencies=[Depends(proxy.get_proxy_auth_context)])
 app.include_router(species.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(
+    taxonomy.router, prefix="/api", tags=["taxonomy"], dependencies=[Depends(get_auth_context_with_legacy)]
+)
 app.include_router(classifier.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(ai.router, prefix="/api", tags=["ai"], dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(stats.router, prefix="/api", tags=["stats"], dependencies=[Depends(get_auth_context_with_legacy)])
@@ -835,9 +862,9 @@ app.include_router(
 )
 app.include_router(jobs_router.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(manual_observations.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
-app.include_router(email.router, prefix="/api", tags=["email"], dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(email.router, prefix="/api", tags=["email"], dependencies=[Depends(get_oauth_router_auth_context)])
 app.include_router(
-    inaturalist.router, prefix="/api", tags=["inaturalist"], dependencies=[Depends(get_auth_context_with_legacy)]
+    inaturalist.router, prefix="/api", tags=["inaturalist"], dependencies=[Depends(get_oauth_router_auth_context)]
 )
 app.include_router(ebird.router, prefix="/api", tags=["ebird"], dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(geocoding.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
@@ -1125,6 +1152,9 @@ def build_health_payload() -> dict[str, object]:
         "naming": _naming_health(),
         "db_pool": db_pool_health,
         "media_integrity_scan": get_media_integrity_scan_status(),
+        # Photographs and visit media are always kept, so a folder that cannot be written is a
+        # fault to report, not a setting someone chose (#622).
+        "media_storage": {"available": media_cache.available, "error": media_cache.unavailable_reason},
         "mqtt": mqtt_health,
         "video_classifier": video_health,
         "high_quality_snapshots": high_quality_snapshot_health,
@@ -1156,6 +1186,7 @@ def build_health_payload() -> dict[str, object]:
         or int(notification_dispatch_health.get("dropped_jobs") or 0) > 0
         or event_pipeline_health.get("status") != "ok"
         or db_pool_is_degraded(db_pool_health)
+        or not media_cache.available
     ):
         health["status"] = "degraded"
 
@@ -1210,25 +1241,6 @@ async def sse_endpoint(request: Request, stream_auth: StreamAuth = Depends(get_s
     auth = stream_auth.context
     session_exp = stream_auth.session_exp
 
-    hide_camera_names = (
-        not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
-    )
-
-    def sanitize_message_for_guest(message: dict) -> dict:
-        if not hide_camera_names:
-            return message
-
-        sanitized = dict(message)
-        data = sanitized.get("data")
-        if isinstance(data, dict):
-            data = dict(data)
-            if "camera" in data:
-                data["camera"] = "Hidden"
-            if "camera_name" in data:
-                data["camera_name"] = "Hidden"
-            sanitized["data"] = data
-        return sanitized
-
     async def event_generator():
         queue = await broadcaster.subscribe()
         message_count = 0
@@ -1244,24 +1256,44 @@ async def sse_endpoint(request: Request, stream_auth: StreamAuth = Depends(get_s
                     # Wait for a message or a timeout for heartbeat
                     message = await asyncio.wait_for(queue.get(), timeout=20.0)
 
-                    # Filter sensitive events for guests
                     if not auth.is_owner:
-                        event_type = message.get("type", "")
-                        # Block owner-only events from public users
-                        if event_type in [
-                            "settings_updated",
-                            "backfill_started",
-                            "backfill_progress",
-                            "backfill_complete",
-                            "backfill_failed",
-                        ]:
+                        # Re-evaluate sharing on every delivery, not only at connect.
+                        if not settings.public_access.enabled:
+                            yield f"data: {json.dumps({'type': 'public_access_changed'})}\n\n"
+                            return
+                        # Guests receive invalidations only. The HTTP history routes
+                        # re-check current parent visibility and sharing preferences.
+                        # Never forward raw producer fields, IDs, diagnostics, or
+                        # future owner message types through a denylist.
+                        event_type = message.get("type")
+                        if event_type in {
+                            "detection",
+                            "detection_updated",
+                            "detection_deleted",
+                            "audio_history_changed",
+                        }:
+                            message = {"type": "public_history_changed"}
+                        elif event_type == "settings_updated":
+                            data = message.get("data")
+                            fields = data.get("changed_fields") if isinstance(data, dict) else None
+                            if isinstance(fields, list) and not any(
+                                isinstance(field, str)
+                                and (
+                                    field.startswith("public_access")
+                                    or field in {"maintenance", "maintenance_retention_days"}
+                                )
+                                for field in fields
+                            ):
+                                continue
+                            message = {"type": "public_access_changed"}
+                        else:
                             continue
-
-                    if not auth.is_owner:
-                        message = sanitize_message_for_guest(message)
 
                     yield f"data: {json.dumps(message)}\n\n"
                 except asyncio.TimeoutError:
+                    if not auth.is_owner and not settings.public_access.enabled:
+                        yield f"data: {json.dumps({'type': 'public_access_changed'})}\n\n"
+                        return
                     # Send a JSON heartbeat rather than a comment-only frame. Some
                     # browser/proxy combinations are less reliable at keeping SSE
                     # streams alive when idle traffic is only comments.

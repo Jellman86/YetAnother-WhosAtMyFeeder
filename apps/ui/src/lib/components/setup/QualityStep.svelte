@@ -59,7 +59,7 @@
                     {$_('settings.data.cache_high_quality_event_snapshots', { default: 'Best available event snapshots' })}
                 </span>
                 <span class="mt-1 block leading-relaxed text-slate-500 dark:text-slate-400">
-                    {$_('settings.data.cache_high_quality_event_snapshots_help', { default: 'Accurate crop, fast crop, tracked-object hint, then the clear full frame — selected automatically.' })}
+                    {$_('settings.data.cache_high_quality_event_snapshots_help', { default: 'After an event ends, choose the clearest main-stream frame and best crop available. The full frame is kept when a reliable crop cannot be made.' })}
                 </span>
             </span>
         </label>

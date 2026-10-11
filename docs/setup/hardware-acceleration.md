@@ -1,7 +1,8 @@
 # Hardware acceleration
 
-Run bird classification on a GPU or NPU instead of the CPU, so inference is
-faster or more power-efficient and the CPU stays free for the rest of your stack.
+Run bird classification on a supported graphics processor (GPU) or neural processor
+(NPU), then compare it with CPU inference on your own model and installation.
+An accelerator can reduce CPU work or inference time; it is not always the fastest provider.
 
 ## Outcome
 
@@ -29,6 +30,13 @@ A failed or interrupted check does not retry on every restart: validate the mode
 A different runtime or model artifact permits a new automatic attempt. New, never-validated
 accelerators still require manual validation.
 
+### CUDA library loading
+
+The crop detector loads ONNX Runtime's packaged CUDA libraries before creating
+its own CUDA session. It does not depend on the species classifier having loaded
+them first. CPU sessions avoid CUDA preloading, and strict hardware validation
+still rejects an unexpected CPU fallback.
+
 ## Prerequisites
 
 - A host accelerator YA-WAMF supports: an Intel integrated GPU (`/dev/dri`), an
@@ -36,9 +44,10 @@ accelerators still require manual validation.
 - Permission to pass host devices into the container (Docker Compose `devices:`
   and, usually, `group_add:`).
 
-Changing the provider only affects inference. It never touches your detection
-history or configuration, and an unusable device falls back to CPU rather than
-failing classification.
+Changing the provider saves an inference preference; it does not rewrite existing
+detections. An unavailable accelerator can use a supported CPU fallback with a
+diagnostic reason. Invalid model output, missing artifacts or exhausted recovery
+can still fail a classification, so verify the active runtime after changing it.
 
 ## Choose an image flavor
 
@@ -62,7 +71,7 @@ YAWAMF_MONALITHIC_TAG=latest-intel
 `MONALITHIC` is the established spelling in this public variable. Keep that
 spelling so an existing `.env` continues to control the Compose image tag.
 
-Pinned releases use the same suffix, for example `v2.17.0-intel`. Unsuffixed
+Pinned releases use the same suffix, for example `v2.21.1-intel`. Unsuffixed
 `latest`, `dev`, `main`, release and commit tags always mean `full`, so existing
 installs keep their current runtime. Switching flavor is non-destructive because
 every image uses the same `/config` and `/data` volume contract.
@@ -80,7 +89,7 @@ therefore stay outside the image. A flavor switch must change **only the image
 tag**; do not create new mount paths or copy data into the container filesystem.
 
 1. Keep the application version constant while testing. For example, switch
-   `dev` → `dev-intel`, or `v2.17.0` → `v2.17.0-intel`. Immutable commit tags are
+   `dev` → `dev-intel`, or `v2.21.1` → `v2.21.1-intel`. Immutable commit tags are
    even safer for comparisons: `<sha>`, `<sha>-cpu`, `<sha>-intel`, and
    `<sha>-cuda` are built from exactly the same source.
 2. Record the current tag. Export a configuration backup from **Settings → Data
@@ -164,6 +173,21 @@ accelerator's top prediction with the CPU baseline, and records median inference
 latency. The measured passing order is persisted without treating a merely installed runtime as
 working hardware.
 
+When the check finishes, **Settings → Detection** reads the classifier status back from the
+backend, so the **Runtime** cell, the runtime report and the Models card show the provider the
+workers actually report, not the check's recommendation. Unsaved edits on the page are kept. Until a
+worker has loaded the model, the provider is shown as planned (**loads on first detection**)
+rather than active. If the status cannot be read, the page says so and asks you to reload.
+The visible Detection tab also refreshes runtime status every five seconds and when the browser
+becomes visible again. This catches a check finishing elsewhere or a worker starting later;
+it does not reload your settings. **Models → Refresh** reads the runtime too.
+
+Activating a model saves that model's recommended provider. When the status shows the saved
+provider has changed, the **Inference Provider** field follows it, so saving an unrelated edit
+later keeps the new provider. If you have already picked a different provider on the page and
+not saved it, your choice is kept. The field shows your saved preference, not the provider the
+workers run on: with **Auto** saved it stays **Auto** while the runtime reports, say, Intel NPU.
+
 The resulting matrix is image-aware: `cpu`/`rpi` test CPU, `cuda` tests ONNX CPU and
 CUDA, `intel` tests ONNX CPU plus the detected OpenVINO targets, and `full` tests all
 applicable targets. In particular, OpenVINO CPU in the full image does not suppress
@@ -208,11 +232,13 @@ fallback cannot be mistaken for successful validation of the selected ONNX model
 4. Recreate the container:
 
    ```bash
-   docker compose up -d
+   docker compose -f docker-compose.monolith.yml up -d
    ```
 
-5. Open **Settings → Detection**, set **Inference Provider** to your device (or
-   leave it on **Auto**), and save.
+5. Open **Settings → Detection**, download the classifier if needed, and run its
+   device compatibility check. After it passes, select the supported device under
+   **Inference Provider** (or keep **Auto**) and select **Apply settings**.
+   Downloading alone does not authorize a host-gated GPU/NPU.
 
 ## Expected result
 
@@ -234,9 +260,14 @@ If it fails, the pill shows **Not detected** — recheck the `devices:` and
 The NPU is validated per model, not enabled blanket:
 
 - YA-WAMF only runs a model on the NPU when that model is marked NPU-validated
-  (compiles, produces finite output, and its top-k agrees with the CPU baseline).
+  (compiles, produces finite output, and passes the real-image CPU comparison).
+  A passing top prediction does not require every lower-ranked probability to be identical.
   The current Arrow Lake reference includes ConvNeXt Large, RoPE ViT-B14, FocalNet-B, FlexiViT,
-  EVA-02 Large, and accurate YOLOX-Tiny.
+  EVA-02 Large, and accurate YOLOX-Tiny. The October DINOv2, RoPE 336, Arabian RoPE
+  and BioCLIP additions have host-gated Intel candidates. NaFlex and Parallel ViT
+  do not offer Intel NPU. Use the
+  [model catalogue](../features/model-catalogue-2026-10.md) for the tested contracts
+  and limits; a reference pass does not validate every Intel host.
   Small Birds EU and Medium Birds NA are host-gated NPU candidates. Medium Birds EU disagreed with
   CPU top-1 on one of 24 real images, while Small Birds NA was inconsistent across runs, so those
   two regional routes remain excluded. MogaNet-S, ConvNeXt-V1 Tiny, RegNet-Y-8G, and UniFormer-S

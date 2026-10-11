@@ -1,4 +1,6 @@
 from pathlib import Path
+
+import pytest
 import xml.etree.ElementTree as ET
 
 
@@ -316,6 +318,34 @@ def test_legacy_intel_gpu_assets_are_pinned_verified_and_do_not_downgrade_gmmlib
     assert "./*.deb" not in dockerfile
 
 
+@pytest.mark.parametrize("dockerfile_path", ["Dockerfile", "backend/Dockerfile"])
+def test_intel_gpu_runtime_is_pinned_verified_and_newer_than_the_crashing_apt_build(dockerfile_path: str) -> None:
+    """The apt channel's compute-runtime 25.18 / IGC 2.11 crashed compiling models for the iGPU on the
+    Debian 13 base, so the runtime and its compiler come from pinned, checksummed release assets."""
+    dockerfile = (REPO_ROOT / dockerfile_path).read_text(encoding="utf-8")
+
+    assert "COMPUTE_VER=26.35.39758.10" in dockerfile
+    assert "IGC_VER=2.41.5" in dockerfile
+    assert "GMM_VER=22.10.0" in dockerfile
+    for checksum in (
+        "0a6e64a663ae65a0fa02d6912ae3b6b37cf85b90c21cc423fd9fef70aaf4f628",
+        "779e1b9e88098eb25711e9a8f67c2752665bad22f134aa40ed5649f6e1b87058",
+        "61712caaddeba3d38e4f79e2a0fb23fea25596ca2d72c3144c6eea2331ec4301",
+        "c19a641b953d55aebbf1d51bec364a84bf629f985e02fbbe6dc70224c0e88470",
+        "6031a63d6e8a12ce61c14efc15f2c8e727061286e3820b8594e6d00615e04d54",
+    ):
+        assert checksum in dockerfile
+    # IGC 2.x installs into /usr/local/lib; without ldconfig the driver cannot find it.
+    assert "ldconfig" in dockerfile
+    # The runtime itself must not come back from the apt channel.
+    apt_lines = [
+        line
+        for line in dockerfile.splitlines()
+        if line.strip().startswith(("intel-opencl-icd \\", "libze-intel-gpu1 \\"))
+    ]
+    assert apt_lines == []
+
+
 def test_every_published_image_names_its_git_revision() -> None:
     """A running container can be tied to its commit with `docker inspect` alone.
 
@@ -333,3 +363,46 @@ def test_every_published_image_names_its_git_revision() -> None:
         assert "org.opencontainers.image.revision=${{ github.sha }}" in with_block
         assert "org.opencontainers.image.version=${{ env.APP_VERSION_BASE }}" in with_block
         assert "org.opencontainers.image.source=https://github.com/${{ github.repository }}" in with_block
+
+
+def test_unraid_template_exposes_documentation_license_and_existing_brand_assets() -> None:
+    from urllib.parse import urlparse
+    from PIL import Image
+
+    template = ET.parse(REPO_ROOT / "unraid/yawamf.xml").getroot()
+    profile = ET.parse(REPO_ROOT / "ca_profile.xml").getroot()
+    base = "https://raw.githubusercontent.com/Jellman86/YetAnother-WhosAtMyFeeder/main/"
+    assert template.findtext("ReadMe") == (
+        "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/main/docs/setup/unraid.md"
+    )
+    assert template.findtext("License") == "MIT"
+    assert template.findtext("Icon") == profile.findtext("Icon")
+    for field in ("Icon", "Screenshot"):
+        url = template.findtext(field)
+        assert url and urlparse(url).scheme == "https" and url.startswith(base)
+        path = REPO_ROOT / url.removeprefix(base)
+        with Image.open(path) as asset:
+            asset.verify()
+        if field == "Icon":
+            with Image.open(path) as icon:
+                assert icon.size == (512, 512)
+
+
+def test_unraid_connection_settings_remain_editable_after_restart() -> None:
+    template = ET.parse(REPO_ROOT / "unraid/yawamf.xml").getroot()
+    pinned_connections = [
+        config.get("Target")
+        for config in template.findall("Config")
+        if (config.get("Target") or "").startswith("FRIGATE__")
+    ]
+    assert pinned_connections == []
+
+
+def test_unraid_guide_has_a_local_template_import_and_complete_connection_setup() -> None:
+    guide = (REPO_ROOT / "docs/setup/unraid.md").read_text(encoding="utf-8")
+    assert "paste the template URL" not in guide
+    assert "/boot/config/plugins/dockerMan/templates-user/my-YA-WAMF.xml" in guide
+    assert "Frigate & MQTT connection" in guide
+    assert "Settings → Connection" in guide
+    assert "FRIGATE__FRIGATE_URL" in guide and "overrides" in guide
+    assert "Docker Safe New" not in guide

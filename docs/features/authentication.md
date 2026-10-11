@@ -22,23 +22,9 @@ On a fresh installation, YA-WAMF opens the guided setup automatically because
 `auth.initial_setup_complete` is false and no password exists. The account step
 lets you create the owner account or explicitly continue without authentication
 on a trusted network. You do not need to set `AUTH__ENABLED=true` to display the
-wizard. Creating the password and owner session is one first-run operation: the
-`POST /api/auth/initial-setup` response contains a bearer token, which the UI stores
-before it loads the now owner-protected setup state. Concurrent first-run claims are
-serialized, and a failed config write restores the previous in-memory auth state.
-
-Choosing either password-protected or trusted-network mode sets
-`initial_setup_complete`. The unauthenticated endpoint then refuses every later
-request, including on an auth-disabled installation, preventing it from becoming
-an account-takeover path. After setup, you can reopen the non-destructive wizard from
-**Settings → Setup wizard** in the Settings navigation.
-
-## Quick Start (Recommended)
-
-1. **Enable Authentication** and set a strong password.
-2. **Enable Public Access** only if you want a read‑only guest view.
-3. **Set Trusted Proxy Hosts** if you are behind a reverse proxy (see below).
-4. **Save** and refresh the UI to confirm the login prompt appears.
+wizard. Creating a password signs that browser in immediately. Either choice completes first-run
+account setup, which cannot later be claimed through the unauthenticated setup endpoint. Reopen
+the non-destructive section map from **Settings → Setup wizard**.
 
 ## Password Reset
 
@@ -97,12 +83,22 @@ medium is not shared rather than shown a broken image or an error.
 | **Media window** | Follow retention | How far back snapshots and clips are served, capped at 365 days. In custom mode, `0` means today only. |
 | **Location precision** | **Approximate** | How precisely guest-facing features may use your configured location. |
 
+Public history and media windows use **UTC calendar days**, regardless of the server’s `TZ`
+setting. “Today only” starts at 00:00 UTC and excludes the next midnight; a custom `N`-day
+window starts at 00:00 UTC `N` days ago. Capture times can still be displayed in your local
+timezone. Photographs in About and leaderboard portraits follow the same media calendar.
+
 **With the default Keep Everything retention policy, both public windows cover 365 days.**
 The stored seven-day values apply only when you select custom windows. Check both windows
 before sharing your URL.
 
 Location precision defaults to **Approximate**. Choose **Exact** only if you want
 guest-facing features to use your precise feeder location.
+
+Diagnostics workspaces, support-bundle exports and model-evaluation artifacts require owner
+access even when public viewing is enabled. A shared history or media window does not grant access
+to these operational reports. Saved credentials remain redacted in API responses and are
+preserved when you save other settings.
 
 Guests can never request the current live frame from a camera. Header camera previews and
 `/api/frigate/camera/{camera}/latest.jpg` always require owner access, even when camera names and
@@ -143,84 +139,17 @@ If you run YA-WAMF behind a reverse proxy (e.g., Nginx or Cloudflare Tunnel), yo
 - Hostnames are resolved to IPs at startup. If your proxy IPs change, prefer a stable container name.
 - For Cloudflare DNS proxy (no tunnel), use Cloudflare IP ranges and keep them updated.
 
-## Recommended Proxy Topology
-
-To avoid HTTPS warnings and simplify proxy trust, use a **single reverse proxy** (Nginx Proxy Manager, Caddy, Traefik, Cloudflare Tunnel, etc.) pointing at a single upstream.
-
-### Monolithic deployment (recommended)
-
-Route all YA-WAMF traffic to one upstream:
-
-- All traffic → `yawamf-monalithic:8080`
-
-See the [Reverse Proxy Guide](../setup/reverse-proxy.md) for full Nginx Proxy Manager, Caddy, and Cloudflare Tunnel config examples including SSE and video clip tuning.
-
-For correct HTTPS detection, always pass these headers:
-
-```nginx
-proxy_set_header X-Real-IP $remote_addr;
-proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-proxy_set_header X-Forwarded-Host $host;
-proxy_set_header X-Forwarded-Proto $scheme;
-```
-
-### Cloudflare Tunnel (monolithic)
-
-Point the tunnel service at `http://yawamf-monalithic:8080`. Add the tunnel container name (e.g., `cloudflared` or `cloudflare-tunnel`) to **Trusted Proxy Hosts** in **Settings → Security**.
-
-### Legacy split deployment
-
-> [!WARNING]
-> The split `yawamf-frontend` + `yawamf-backend` stack is a legacy path. New installs should use the monolithic container. The examples below are kept for users who have not yet migrated.
-
-For the split stack, route API calls directly to the backend to avoid a multi-hop proxy chain:
-
-- `/` → `yawamf-frontend:80`
-- `/api/*` → `yawamf-backend:8000`
-
-Nginx (standalone) example:
-
-```nginx
-server {
-    listen 443 ssl;
-    server_name yawamf.example.com;
-
-    location /api/ {
-        proxy_pass http://yawamf-backend:8000;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_buffering off;
-        proxy_cache off;
-        proxy_read_timeout 86400s;
-        proxy_send_timeout 86400s;
-    }
-
-    location / {
-        proxy_pass http://yawamf-frontend:80;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-```
-
-Cloudflare Tunnel ingress for split routing:
-
-```yaml
-ingress:
-  - hostname: yawamf.example.com
-    path: /api/*
-    service: http://yawamf-backend:8000
-  - hostname: yawamf.example.com
-    service: http://yawamf-frontend:80
-  - service: http_status:404
-```
+See [Reverse Proxy Configuration](../setup/reverse-proxy.md) for monolithic, Cloudflare Tunnel and
+legacy split examples. Keep a single controlled proxy boundary and confirm HTTPS detection before
+sharing the instance.
 
 ## Technical Details
+
+Guest history limits apply before paging and counts, including statistics, leaderboards and audio.
+Media requests recheck visibility and sharing switches. Hidden or unavailable evidence is not made
+public through a cached annotation or upstream fetch. A failed refresh clears stale guest rows;
+very low request limits or several visitors sharing an address may require a later manual refresh.
+Signing out clears owner detail caches. Already downloaded data cannot be recalled from a browser.
 
 - **Token Storage:** Authentication uses JWT (JSON Web Tokens) stored in your browser's Local Storage.
 - **Media:** the browser sends the session in an `HttpOnly` cookie for images, clips, and audio.
@@ -233,5 +162,8 @@ ingress:
   once. An unredeemed ticket exposed in a log remains usable until it expires. The stream also
   accepts the session cookie or a Bearer header.
 - **Session Expiry:** Sessions are valid for 7 days by default (configurable).
-- **Rate Limiting:** Login attempts are strictly rate-limited (5 per minute) to prevent brute-force attacks.
+- **Rate Limiting:** Login attempts are limited to 5 per minute and 20 per hour per client address.
 - **Legacy API Key:** Older `YA_WAMF_API_KEY` authentication still works but is deprecated.
+
+Guest audio confirmation uses currently visible evidence from the camera's mapped microphones.
+Location precision also applies to saved manual-observation pins; owners keep the original coordinates.

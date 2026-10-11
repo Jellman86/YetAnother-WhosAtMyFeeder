@@ -50,7 +50,7 @@
         >
             <div class="flex items-center gap-3 p-4">
                 <!-- Icon -->
-                <div class="flex-shrink-0 w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-sm font-black">
+                <div class="flex-shrink-0 w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-sm font-bold">
                     {getIcon(toast.type)}
                 </div>
 

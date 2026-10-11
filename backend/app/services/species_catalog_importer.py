@@ -170,6 +170,15 @@ def _map_species(live: sqlite3.Connection, bundle: _Bundle) -> tuple[dict[int, i
                 "UPDATE species SET accepted_species_id = ? WHERE species_id = ?",
                 (id_map[accepted], id_map[species["species_id"]]),
             )
+        # The release's classification places the taxon: its parent, translated to the live
+        # identity, and its position among siblings. A release that gives no parent leaves the
+        # one the catalogue already holds, so an older or partial release never orphans a taxon.
+        parent = species["parent_species_id"]
+        if parent is not None and parent in id_map:
+            live.execute(
+                "UPDATE species SET parent_species_id = ?, sequence = ? WHERE species_id = ?",
+                (id_map[parent], species["sequence"], id_map[species["species_id"]]),
+            )
     return id_map, added, matched
 
 

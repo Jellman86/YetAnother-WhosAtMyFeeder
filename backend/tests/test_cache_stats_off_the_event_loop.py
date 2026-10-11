@@ -200,3 +200,18 @@ async def test_the_cache_stats_route_walks_off_the_loop(owner_client, monkeypatc
     assert response.status_code == 200, response.text
     assert response.json()["snapshot_count"] == 1
     assert walk_threads and walk_threads[0] != loop_thread, "the route walked the cache on the event loop"
+
+
+def test_the_sidecars_beside_each_photograph_and_clip_count_towards_the_size(tmp_path, monkeypatch):
+    service = _service_with_cache(tmp_path, monkeypatch, snapshots=2, clips=1)
+    (media_cache_module.SNAPSHOTS_DIR / "evt_0.jpg.meta.json").write_bytes(b"m" * 7)
+    (media_cache_module.CLIPS_DIR / "evt_0.mp4.meta.json").write_bytes(b"n" * 5)
+
+    stats = service._get_cache_stats_sync()
+
+    # A sidecar is part of the photograph or clip it describes, not a cached file of its own.
+    assert stats["snapshot_count"] == 2
+    assert stats["clip_count"] == 1
+    assert stats["snapshot_size_bytes"] == 2 * 10 + 7
+    assert stats["clip_size_bytes"] == 100 + 5
+    assert stats["total_size_bytes"] == 2 * 10 + 7 + 100 + 5

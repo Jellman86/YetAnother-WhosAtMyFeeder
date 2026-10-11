@@ -125,6 +125,17 @@ def pytest_configure(config):
 
 
 @pytest.fixture(autouse=True)
+def isolate_config_hostname_resolution(monkeypatch):
+    """Configuration tests must not depend on host DNS or Docker service names."""
+    import socket
+
+    def unresolved(_hostname):
+        raise socket.gaierror("No external DNS in unit tests")
+
+    monkeypatch.setattr(socket, "gethostbyname_ex", unresolved)
+
+
+@pytest.fixture(autouse=True)
 def disable_rate_limiting():
     """Disable rate limiting for all tests by default."""
     from app.ratelimit import limiter
@@ -133,6 +144,17 @@ def disable_rate_limiting():
     limiter.enabled = False
     yield
     limiter.enabled = old_enabled
+
+
+@pytest.fixture(autouse=True)
+def restore_media_storage_availability():
+    """Tests that need storage to be unwritable set the media cache unavailable; it must not
+    leak, because photographs are always kept now (#622) and every later test relies on them."""
+    from app.services.media_cache import media_cache
+
+    available = media_cache._available
+    yield
+    media_cache._available = available
 
 
 @pytest.fixture(autouse=True)

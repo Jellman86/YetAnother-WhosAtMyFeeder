@@ -51,6 +51,16 @@ export interface ModelEvalModelSummary {
     latency_drift_ratio?: number | null;
     shared_core_top1: number;
     regional_top1: number;
+    /** Runs before 2.22 carry none of the vocabulary fields. */
+    vocabulary_known?: boolean;
+    panel_species?: number;
+    species_outside_vocabulary?: number | null;
+    images_in_vocabulary?: number | null;
+    top1_accuracy_in_vocabulary?: number | null;
+    top3_accuracy_in_vocabulary?: number | null;
+    top5_accuracy_in_vocabulary?: number | null;
+    shared_core_top1_in_vocabulary?: number | null;
+    regional_top1_in_vocabulary?: number | null;
     inference_health_verdict?: string | null;
     warnings: ModelEvalWarning[];
 }
@@ -189,6 +199,12 @@ export async function cancelModelEvalRun(runId: string): Promise<void> {
     await handleResponse(resp);
 }
 
-export function modelEvalArtifactUrl(runId: string, artifact: string): string {
+export async function fetchModelEvalArtifact(runId: string, artifact: string): Promise<Blob> {
+    const response = await apiFetch(modelEvalArtifactUrl(runId, artifact), { timeoutMs: 30_000 });
+    if (!response.ok) await handleResponse(response);
+    return response.blob();
+}
+
+function modelEvalArtifactUrl(runId: string, artifact: string): string {
     return `${BASE}/runs/${encodeURIComponent(runId)}/${encodeURIComponent(artifact)}`;
 }

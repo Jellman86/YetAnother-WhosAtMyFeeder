@@ -6,6 +6,7 @@ import os
 import structlog
 from collections import Counter, deque
 from datetime import datetime, timezone
+from collections.abc import Awaitable, Callable
 from typing import Optional, Dict, Any, Tuple
 from types import SimpleNamespace
 from io import BytesIO
@@ -41,6 +42,8 @@ from app.utils.frigate import is_ingest_label, parse_sub_label
 # Backward-compat for tests that patch event_processor.notification_service
 from app.services.notification_service import notification_service  # noqa: F401
 from app.database import durable_work, get_db
+from app.services.recording_snapshot_input import read_recording_snapshot, recording_frame_time
+from app.utils.tasks import create_background_task
 from app.repositories.detection_repository import DetectionRepository
 
 log = structlog.get_logger()
@@ -57,6 +60,7 @@ FALSE_POSITIVE_TOMBSTONE_TTL_SECONDS = 600.0
 # failed ingest. Remembering that decision keeps the terminal `end` recovery from
 # reclassifying an event whose snapshot Frigate has already discarded.
 CLASSIFICATION_DECIDED_TOMBSTONE_TTL_SECONDS = 600.0
+UPDATE_RECOVERY_RETRY_SECONDS = 5.0
 EVENT_STAGE_TIMEOUT_CLASSIFY_SECONDS = max(1.0, float(os.getenv("EVENT_STAGE_TIMEOUT_CLASSIFY_SECONDS", "60")))
 EVENT_STAGE_TIMEOUT_CONTEXT_SECONDS = max(0.5, float(os.getenv("EVENT_STAGE_TIMEOUT_CONTEXT_SECONDS", "6")))
 EVENT_STAGE_TIMEOUT_AUDIO_CORRELATE_SECONDS = max(
@@ -96,6 +100,17 @@ EVENT_SNAPSHOT_RECOVERY_EXTRA_RETRIES = max(
 )
 # Short window around the detection start used to pull a classification frame from
 # Frigate's continuous recording when no snapshot/thumbnail is available.
+# Frigate serves a recording frame only once its stretch of recording is written: 11 to 13 seconds
+# after the moment on a live install. A live event identified from the recording frame waits this
+# long after Frigate's best snapshot before its first read.
+RECORDING_FRAME_READY_SECONDS = max(1.0, float(os.getenv("RECORDING_FRAME_READY_SECONDS", "12")))
+# From the snapshot moment, how long reads keep retrying before the detection snapshot is used.
+RECORDING_FRAME_DEADLINE_SECONDS = max(
+    RECORDING_FRAME_READY_SECONDS, float(os.getenv("RECORDING_FRAME_DEADLINE_SECONDS", "30"))
+)
+# A camera whose recording frames did not arrive by the deadline (no recording, or recording off)
+# is identified at once for this long, so its detections are not delayed for nothing.
+RECORDING_FRAME_CAMERA_COOLDOWN_SECONDS = 600.0
 RECORDING_FRAME_FALLBACK_BEFORE_SECONDS = max(0, int(os.getenv("RECORDING_FRAME_FALLBACK_BEFORE_SECONDS", "2")))
 RECORDING_FRAME_FALLBACK_AFTER_SECONDS = max(1, int(os.getenv("RECORDING_FRAME_FALLBACK_AFTER_SECONDS", "8")))
 _CLASSIFY_SNAPSHOT_OVERLOADED = object()
@@ -115,6 +130,8 @@ class EventData:
         self.end_time_known: bool = "end_time" in after
         self.end_time_ts: Optional[float] = after.get("end_time")
         self.received_at_ts: float = float(data.get("__received_at_ts") or time.time())
+        # Set on the second pass of an event that waited for its recording frame to be written.
+        self.recording_wait_done: bool = bool(data.get("__recording_wait_done"))
         parsed_sub_label = parse_sub_label(after.get("sub_label"))
         self.sub_label: Optional[str] = parsed_sub_label.label
         self.sub_label_score: Optional[float] = parsed_sub_label.score
@@ -204,6 +221,12 @@ class EventProcessor:
         self.notification_orchestrator = NotificationOrchestrator()
         self._false_positive_tombstones: dict[str, float] = {}
         self._classification_decided_tombstones: dict[str, float] = {}
+        self._update_recovery_attempts: dict[str, float] = {}
+        # Events waiting for their recording frame: the background task, and an `end` that arrived
+        # meanwhile, replayed once the event has been identified.
+        self._recording_waits: dict[str, dict[str, Any]] = {}
+        self._recording_unavailable_until: dict[str, float] = {}
+        self._sleep: Callable[[float], Awaitable[Any]] = asyncio.sleep
         self._started_events = 0
         self._completed_events = 0
         self._dropped_events = 0
@@ -414,6 +437,7 @@ class EventProcessor:
             "critical_failure_active": critical_failure_active,
             "has_unresolved_post_failure_work": has_unresolved_post_failure_work,
             "recent_outcomes": list(self._recent_outcomes),
+            "recording_frame_waits": len(self._recording_waits),
         }
 
     async def _run_stage(
@@ -571,6 +595,15 @@ class EventProcessor:
             return
 
         event_type = (event.type or "new").lower()
+        waiting = self._recording_waits.get(event.frigate_event)
+        if waiting is not None and not event.recording_wait_done:
+            # The event is identified once its recording frame exists. An end is kept and replayed
+            # after that, so its final media work still runs; updates add nothing until then.
+            if event_type == "end":
+                waiting["end_data"] = dict(data)
+            self._record_completed(event.frigate_event, (time.monotonic() - started) * 1000.0)
+            self._record_recent_outcome(event.frigate_event, f"{event_type}_held_for_recording_frame")
+            return
         if event_type == "end":
             try:
                 existing_detection = await self.detection_service.get_detection_by_frigate_event(event.frigate_event)
@@ -583,6 +616,7 @@ class EventProcessor:
                 self._record_drop(event.frigate_event, "end_recovery_lookup_failed")
                 return
             if existing_detection is not None:
+                self._update_recovery_attempts.pop(event.frigate_event, None)
                 await self._handle_terminal_event_enrichment(event)
                 await self._enqueue_notification_flow(
                     event=event,
@@ -604,7 +638,8 @@ class EventProcessor:
                     auto_full_visit_enabled=self._auto_full_visit_enabled(),
                 )
                 return
-            if self._is_classification_decided_tombstone_active(event.frigate_event):
+            update_recovery_attempted = self._update_recovery_attempts.pop(event.frigate_event, None) is not None
+            if self._is_classification_decided_tombstone_active(event.frigate_event) and not update_recovery_attempted:
                 log.info(
                     "Skipping terminal recovery - classification already rejected this event",
                     event_id=event.frigate_event,
@@ -633,15 +668,32 @@ class EventProcessor:
                 self._record_drop(event.frigate_event, "update_recovery_lookup_failed")
                 return
             if existing_detection is not None:
+                self._update_recovery_attempts.pop(event.frigate_event, None)
                 duration_ms = (time.monotonic() - started) * 1000.0
                 self._record_completed(event.frigate_event, duration_ms)
                 self._record_recent_outcome(event.frigate_event, "update_already_ingested")
+                return
+            if not self._admit_update_recovery(event.frigate_event):
+                self._record_drop(event.frigate_event, "update_recovery_cooldown")
                 return
             log.info(
                 "Retrying failed initial ingest from Frigate update",
                 event_id=event.frigate_event,
                 camera=event.camera,
             )
+
+        wait_seconds = None if recovering_terminal_event else self._recording_wait_seconds(event, event_type)
+        if wait_seconds is not None:
+            log.info(
+                "Waiting for the recording frame before identifying",
+                event_id=event.frigate_event,
+                camera=event.camera,
+                wait_seconds=round(wait_seconds, 1),
+            )
+            self._schedule_recording_wait(event, data, wait_seconds)
+            self._record_completed(event.frigate_event, (time.monotonic() - started) * 1000.0)
+            self._record_recent_outcome(event.frigate_event, "waiting_for_recording_frame")
+            return
 
         if not recovering_terminal_event and self._is_stale_live_event(event):
             age_seconds = round(self._live_event_age_seconds(event), 1)
@@ -813,8 +865,73 @@ class EventProcessor:
             duration_ms=round(duration_ms, 1),
         )
 
+    def _recording_wait_seconds(self, event: EventData, event_type: str) -> float | None:
+        """How long a live event must wait for its recording frame to be written, or None."""
+        if settings.frigate.classification_image_source != "recording_snapshot":
+            return None
+        if event_type not in {"new", "update"} or event.recording_wait_done:
+            return None
+        until = self._recording_unavailable_until.get(event.camera or "")
+        if until is not None and time.monotonic() < until:
+            return None
+        frame_time = recording_frame_time(event.snapshot_context())
+        if frame_time is None:
+            return None
+        wait = frame_time + RECORDING_FRAME_READY_SECONDS - time.time()
+        return wait if wait > 0 else None
+
+    def _note_recording_frame_outcome(self, camera: str | None, reason: str) -> None:
+        if not camera:
+            return
+        if reason == "recording_not_ready":
+            self._recording_unavailable_until[camera] = time.monotonic() + RECORDING_FRAME_CAMERA_COOLDOWN_SECONDS
+        elif reason == "recording_frame":
+            self._recording_unavailable_until.pop(camera, None)
+
+    def _schedule_recording_wait(self, event: EventData, data: Dict[str, Any], wait_seconds: float) -> None:
+        rerun = dict(data)
+        rerun["__recording_wait_done"] = True
+        entry: dict[str, Any] = {"end_data": None}
+        entry["task"] = create_background_task(
+            self._identify_after_recording_wait(event.frigate_event, rerun, wait_seconds),
+            name=f"recording_frame_wait:{event.frigate_event}",
+        )
+        self._recording_waits[event.frigate_event] = entry
+
+    async def _identify_after_recording_wait(self, event_id: str, data: Dict[str, Any], wait_seconds: float) -> None:
+        try:
+            await self._sleep(wait_seconds)
+            # Fresh for the live checks: the wait was deliberate, not a backlog.
+            data["__received_at_ts"] = time.time()
+            await self._process_payload_durably(data)
+        finally:
+            entry = self._recording_waits.pop(event_id, None)
+        end_data = entry.get("end_data") if entry else None
+        if end_data is not None:
+            await self._process_payload_durably(end_data)
+
+    async def _process_payload_durably(self, data: Dict[str, Any]) -> None:
+        """Run a payload the way an MQTT message runs: durable, and never raising."""
+        event_id = str((data.get("after") or {}).get("id") or "unknown")
+        try:
+            with durable_work():
+                await self._process_event_payload(data)
+        except Exception as e:
+            log.error("Error processing event", event_id=event_id, error=str(e), exc_info=True)
+
     async def _handle_terminal_event_enrichment(self, event: EventData) -> None:
         """Schedule final media work only after the detection is durable."""
+        try:
+            from app.repositories.visit_repository import VisitRepository
+
+            async with get_db() as db:
+                await VisitRepository(db).save_event_bounds(
+                    event.frigate_event,
+                    getattr(event, "start_time_ts", None),
+                    getattr(event, "end_time_ts", None),
+                )
+        except Exception as exc:
+            log.warning("Could not retain event bounds", event_id=event.frigate_event, error=str(exc))
         try:
             retention_check = getattr(event, "not_retained_by_frigate", None)
             if callable(retention_check) and retention_check():
@@ -840,9 +957,10 @@ class EventProcessor:
                         event_id=event.frigate_event,
                         error=str(exc),
                     )
-                high_quality_snapshot_service.schedule_final_replacement(
+                await high_quality_snapshot_service.schedule_replacement_durable(
                     event.frigate_event,
                     event_data=event_context,
+                    final=True,
                 )
         except Exception as exc:
             log.warning(
@@ -903,6 +1021,17 @@ class EventProcessor:
         for event_id in expired:
             self._classification_decided_tombstones.pop(event_id, None)
 
+    def _admit_update_recovery(self, event_id: str) -> bool:
+        now = time.monotonic()
+        for expired_id, attempted_at in list(self._update_recovery_attempts.items()):
+            if now - attempted_at >= CLASSIFICATION_DECIDED_TOMBSTONE_TTL_SECONDS:
+                self._update_recovery_attempts.pop(expired_id, None)
+        previous = self._update_recovery_attempts.get(event_id)
+        if previous is not None and now - previous < UPDATE_RECOVERY_RETRY_SECONDS:
+            return False
+        self._update_recovery_attempts[event_id] = now
+        return True
+
     def _mark_classification_decided_tombstone(self, event_id: str) -> None:
         if not event_id:
             return
@@ -959,11 +1088,10 @@ class EventProcessor:
         from the daily rollups, so the visible result matches a delete while
         staying recoverable. A detection the owner tagged themselves is left
         alone; that tag is their own judgement and outranks Frigate's.
+        Cached media stays available for recovery and follows the ordinary
+        retention/budget policy, including its favourite protections.
         """
         try:
-            # Clean up cached media immediately
-            await media_cache.delete_cached_media(frigate_event_id)
-
             async with get_db() as db:
                 repo = DetectionRepository(db)
                 hidden = await repo.hide_detection(frigate_event_id, skip_manually_tagged=True)
@@ -1038,7 +1166,7 @@ class EventProcessor:
 
     def _auto_full_visit_enabled(self) -> bool:
         return bool(
-            settings.frigate.clips_enabled and settings.frigate.recording_clip_enabled and settings.media_cache.enabled
+            settings.frigate.clips_enabled and settings.frigate.recording_clip_enabled and media_cache.available
         )
 
     def _live_event_age_seconds(self, event: EventData) -> float:
@@ -1190,13 +1318,12 @@ class EventProcessor:
             # active event, while a known non-null end marker is completed.
             # Keeping that distinction aligned with the requested Frigate
             # representation prevents both missed crops and double-cropping.
-            event_snapshot_state = {
-                "end_time": (
-                    getattr(event, "end_time_ts", None) if bool(getattr(event, "end_time_known", False)) else None
-                ),
-                "data": getattr(event, "data", {}),
-            }
+            event_snapshot_state = self._snapshot_context(event)
+            event_snapshot_state["camera"] = event.camera
+            event_snapshot_state.setdefault("end_time", None)
             snapshot_provenance = frigate_snapshot_input_provenance(event_snapshot_state)
+            if settings.frigate.classification_image_source == "recording_snapshot":
+                snapshot_provenance = cached_snapshot_input_provenance({"source": "frigate_snapshot"})
             snapshot_source = snapshot_provenance.input_source
             last_snapshot_error: str | None = None
             for retry_index in range(retry_budget + 1):
@@ -1233,6 +1360,20 @@ class EventProcessor:
                     start_time_ts=getattr(event, "start_time_ts", None),
                 )
                 snapshot_provenance = cached_snapshot_input_provenance({"source": snapshot_source})
+                if snapshot_source == "frigate_recording_snapshot" and snapshot_data:
+                    # The fallback's source label cannot carry alignment. Verify
+                    # the retained photo again before using or republishing hints.
+                    try:
+                        metadata_result = media_cache.get_snapshot_metadata(event.frigate_event)
+                        metadata = await metadata_result if inspect.isawaitable(metadata_result) else metadata_result
+                        if isinstance(metadata, dict) and metadata.get("source") == "frigate_recording_snapshot":
+                            snapshot_provenance = await asyncio.to_thread(
+                                cached_snapshot_input_provenance, metadata, snapshot_data=snapshot_data
+                            )
+                    except Exception as exc:
+                        log.debug(
+                            "Cached recording alignment unavailable", event_id=event.frigate_event, error=str(exc)
+                        )
             if not snapshot_data:
                 if settings.classification.trust_frigate_sublabel and event.sub_label:
                     log.info(
@@ -1249,6 +1390,26 @@ class EventProcessor:
                 )
                 return None
 
+            frame_time = recording_frame_time(event_snapshot_state)
+            waited_for_recording = bool(getattr(event, "recording_wait_done", False))
+            recording_read = await read_recording_snapshot(
+                event.frigate_event,
+                event_snapshot_state,
+                snapshot_data,
+                snapshot_provenance,
+                # Only an event that waited keeps retrying; any other read is one bounded attempt.
+                ready_by=(
+                    frame_time + RECORDING_FRAME_DEADLINE_SECONDS
+                    if waited_for_recording and frame_time is not None
+                    else None
+                ),
+                sleep=self._sleep,
+            )
+            snapshot_data, snapshot_provenance = recording_read.snapshot, recording_read.provenance
+            if waited_for_recording:
+                self._note_recording_frame_outcome(getattr(event, "camera", None), recording_read.reason)
+            snapshot_source = snapshot_provenance.input_source
+            event.recording_alignment = snapshot_provenance.recording_alignment()
             image = await asyncio.to_thread(decode_image_bytes, snapshot_data)
             results = await self.classifier.classify_async_live(
                 image,
@@ -1312,7 +1473,9 @@ class EventProcessor:
             except Exception as exc:
                 log.debug("Cached snapshot provenance unavailable", event_id=event_id, error=str(exc))
                 metadata = None
-            cached_provenance = cached_snapshot_input_provenance(metadata)
+            cached_provenance = await asyncio.to_thread(
+                cached_snapshot_input_provenance, metadata, snapshot_data=cached_snapshot
+            )
             self._record_stage_fallback("classify_snapshot", event_id)
             log.info("Using cached snapshot fallback for classification", event_id=event_id)
             return cached_snapshot, cached_provenance.input_source
@@ -1616,6 +1779,7 @@ class EventProcessor:
             frigate_event=event.frigate_event,
             camera=event.camera,
             start_time=event.start_time_ts,
+            **({"end_time": event.end_time_ts} if getattr(event, "end_time_ts", None) is not None else {}),
             classification=classification,
             frigate_score=event.frigate_score,
             sub_label=event.sub_label,
@@ -1663,7 +1827,7 @@ class EventProcessor:
 
         if changed:
             # Cache snapshot if we updated the DB (ensures image matches score)
-            if snapshot_data and settings.media_cache.enabled and settings.media_cache.cache_snapshots:
+            if snapshot_data:
                 snapshot_cached = False
                 try:
                     event_context = self._snapshot_context(event)
@@ -1672,6 +1836,11 @@ class EventProcessor:
                         snapshot_data,
                         source=str(snapshot_source or "frigate_snapshot"),
                         event_hints=high_quality_snapshot_service.extract_event_hints(event_context),
+                        **(
+                            {"recording_alignment": event.recording_alignment}
+                            if getattr(event, "recording_alignment", None)
+                            else {}
+                        ),
                     )
                     snapshot_cached = True
                 except Exception as exc:
@@ -1682,7 +1851,7 @@ class EventProcessor:
                     )
                 if snapshot_cached and settings.media_cache.high_quality_event_snapshots:
                     try:
-                        high_quality_snapshot_service.schedule_replacement(
+                        await high_quality_snapshot_service.schedule_replacement_durable(
                             event.frigate_event,
                             event_data=event_context,
                         )

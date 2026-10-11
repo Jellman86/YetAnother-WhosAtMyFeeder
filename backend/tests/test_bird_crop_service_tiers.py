@@ -117,6 +117,50 @@ def test_classification_candidate_crop_still_rejects_noise_below_distance_floor(
     assert result["fallback_reason"] == "accurate_below_threshold"
 
 
+def test_classification_candidate_crops_keep_distinct_birds_with_one_detector_pass(monkeypatch):
+    service = BirdCropService(detector_tier="accurate", expand_ratio=0.0)
+    image = Image.new("RGB", (1000, 800), "white")
+    monkeypatch.setattr(service, "_load_model_for_tier", lambda tier: {"tier": tier})
+    calls = []
+
+    def infer(_model, candidate_image):
+        calls.append(candidate_image.size)
+        return [
+            {"box": (100, 100, 260, 260), "confidence": 0.80},
+            {"box": (108, 108, 268, 268), "confidence": 0.75},
+            {"box": (620, 350, 780, 510), "confidence": 0.42},
+            {"box": (400, 400, 560, 560), "confidence": 0.01},
+        ]
+
+    monkeypatch.setattr(service, "_infer_candidates", infer)
+
+    results = service.generate_classification_candidate_crops(image, max_crops=3)
+
+    assert calls == [(1000, 800)]
+    assert [result["box"] for result in results] == [(100, 100, 260, 260), (620, 350, 780, 510)]
+    assert all(result["reason"] == "selected" for result in results)
+
+
+def test_multi_crop_guided_miss_runs_only_one_full_frame_detector_pass(monkeypatch):
+    service = BirdCropService(detector_tier="accurate", expand_ratio=0.0)
+    image = Image.new("RGB", (1000, 800), "white")
+    monkeypatch.setattr(service, "_load_model_for_tier", lambda tier: {"tier": tier})
+    calls = []
+
+    def infer(_model, candidate_image):
+        calls.append(candidate_image.size)
+        if candidate_image.size == image.size:
+            return [{"box": (600, 350, 800, 550), "confidence": 0.65}]
+        return []
+
+    monkeypatch.setattr(service, "_infer_candidates", infer)
+
+    results = service.generate_classification_candidate_crops(image, search_box=(100, 100, 300, 300))
+
+    assert calls == [(200, 200), (1000, 800)]
+    assert [result["box"] for result in results] == [(600, 350, 800, 550)]
+
+
 def test_guided_classification_crop_maps_detection_back_to_full_frame(monkeypatch):
     service = BirdCropService(detector_tier="accurate", expand_ratio=0.0)
     image = Image.new("RGB", (1000, 800), "white")

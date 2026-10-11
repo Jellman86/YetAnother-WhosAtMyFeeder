@@ -21,6 +21,7 @@ from app.auth import AuthContext
 from app.auth import get_auth_context_with_legacy
 from app.config import settings
 from app.routers.proxy import _get_valid_cached_recording_clip_path
+from app.utils.public_access import privacy_checked_db, public_event_visible
 
 router = APIRouter()
 log = structlog.get_logger()
@@ -68,6 +69,11 @@ def _raise_for_ai_error(value: str | None) -> None:
     raise HTTPException(status_code=value.http_status_hint, detail=str(value), headers=headers)
 
 
+def _require_public_ai(auth: AuthContext) -> None:
+    if not auth.is_owner and not (settings.public_access.enabled and settings.public_access.show_ai_conversation):
+        raise HTTPException(status_code=403, detail="AI conversation is not shared publicly on this instance.")
+
+
 def _compute_config_key(config: dict) -> str:
     payload = json.dumps(config, sort_keys=True).encode("utf-8")
     return hashlib.sha256(payload).hexdigest()
@@ -105,7 +111,8 @@ async def _load_ai_analysis_frames(
     if settings.frigate.clips_enabled:
         clip_bytes, clip_error = await frigate_client.get_clip_with_error(event_id)
         if clip_bytes:
-            frames = ai_service.extract_frames_from_clip(
+            frames = await asyncio.to_thread(
+                ai_service.extract_frames_from_clip,
                 clip_bytes,
                 frame_count=frame_count,
                 clip_variant="event",
@@ -136,14 +143,20 @@ async def analyze_event(
     """
     lang = get_user_language(request)
 
+    _require_public_ai(auth)
+
     # Read what the prompt needs, then let the connection go. Frame extraction,
     # the snapshot fetch and the model call together run for tens of seconds,
     # and a pooled connection held across them is a fifth of the server's
     # capacity spent waiting on someone else's network.
-    async with get_db() as db:
-        detection = await DetectionRepository(db).get_by_frigate_event(event_id)
+    async with privacy_checked_db(get_db) as db:
+        context = await DetectionRepository(db).get_ai_prompt_context(event_id)
 
-        if not detection:
+        if context is None:
+            raise HTTPException(status_code=404, detail=i18n_service.translate("errors.detection_not_found", lang))
+
+        detection, revision = context
+        if not auth.is_owner and not public_event_visible(detection):
             raise HTTPException(status_code=404, detail=i18n_service.translate("errors.detection_not_found", lang))
 
         # Check if analysis already exists and force is not set
@@ -156,11 +169,6 @@ async def analyze_event(
 
         if not auth.is_owner:
             raise HTTPException(status_code=403, detail="Owner access required to generate AI analysis.")
-
-        # If regenerating analysis, clear any existing AI chat thread so the new
-        # analysis starts with a fresh conversation context.
-        if force:
-            await AIConversationRepository(db).delete_turns(event_id)
 
     frames: list[bytes] = []
     frame_source: str | None = None
@@ -205,10 +213,16 @@ async def analyze_event(
         mime_type="image/jpeg",
     )
     _raise_for_ai_error(analysis)
+    if not analysis:
+        raise HTTPException(status_code=502, detail="AI analysis failed.")
 
     # Save analysis to database
     async with get_db() as db:
-        analysis_timestamp = await DetectionRepository(db).update_ai_analysis(event_id, analysis)
+        analysis_timestamp = await DetectionRepository(db).update_ai_analysis(
+            event_id, analysis, expected_revision=revision, reset_conversation=force
+        )
+    if analysis_timestamp is None:
+        raise HTTPException(status_code=409, detail=i18n_service.translate("errors.ai.context_changed", lang))
 
     return AIAnalysisResponse(
         analysis=analysis,
@@ -277,12 +291,12 @@ async def analyze_leaderboard(
 
 @router.get("/events/{event_id}/conversation", response_model=list[ConversationTurnResponse])
 async def get_event_conversation(event_id: str, auth: AuthContext = Depends(get_auth_context_with_legacy)):
-    is_guest_allowed = (
-        settings.public_access.enabled and settings.public_access.show_ai_conversation and (not auth.is_owner)
-    )
-    if not auth.is_owner and not is_guest_allowed:
-        raise HTTPException(status_code=403, detail="Owner access required to view AI conversation.")
-    async with get_db() as db:
+    _require_public_ai(auth)
+    async with privacy_checked_db(get_db) as db:
+        if not auth.is_owner:
+            event = await DetectionRepository(db).get_by_frigate_event(event_id)
+            if not public_event_visible(event):
+                raise HTTPException(status_code=404, detail="Detection not found")
         repo = AIConversationRepository(db)
         turns = await repo.list_turns(event_id)
     return [
@@ -306,17 +320,18 @@ async def post_event_conversation(
     # Record the question and build the prompt under one connection, then
     # release it for the duration of the model call.
     async with get_db() as db:
-        detection = await DetectionRepository(db).get_by_frigate_event(event_id)
-        if not detection:
+        context = await DetectionRepository(db).get_ai_prompt_context(event_id)
+        if context is None:
             raise HTTPException(status_code=404, detail=i18n_service.translate("errors.detection_not_found", lang))
 
+        detection, revision = context
         convo_repo = AIConversationRepository(db)
         history = await convo_repo.list_turns(event_id)
-        await convo_repo.add_turn(event_id, "user", body.message)
+        question = await convo_repo.add_turn(event_id, "user", body.message)
 
         prompt = ai_service.build_conversation_prompt(
             species=detection.display_name,
-            analysis=detection.ai_analysis,
+            analysis=revision.analysis,
             history=[{"role": t.role, "content": t.content} for t in history],
             question=body.message,
             language=lang,
@@ -328,7 +343,8 @@ async def post_event_conversation(
     async with get_db() as db:
         convo_repo = AIConversationRepository(db)
         if reply:
-            await convo_repo.add_turn(event_id, "assistant", reply)
+            if not await convo_repo.add_reply_if_context_current(event_id, question.id, reply, revision):
+                raise HTTPException(status_code=409, detail=i18n_service.translate("errors.ai.context_changed", lang))
         turns = await convo_repo.list_turns(event_id)
 
     return [

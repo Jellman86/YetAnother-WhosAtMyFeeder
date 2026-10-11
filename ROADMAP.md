@@ -206,7 +206,11 @@ never clobbers unrelated config). Steps:
   events Frigate still retains without delaying the rest of setup. Existing enrichment is
   preserved and unavailable BirdNET-Go history is stated honestly.
 
-Each step is independently re-runnable; skipping the wizard leaves the current config untouched.
+Each section can be reopened from Settings. Skipping a step does not save its unsaved form;
+leaving setup does not undo steps already saved. Background model checks continue unless cancelled.
+The current wizard saves a complete location pair before DINO validation, respects the selected
+provider and saves the displayed choice on Continue. Partial writes reconcile only their fields
+so other unsaved Settings edits are preserved.
 
 The shipped hardening pass also closes the setup boundary end to end: enabling auth returns and
 stores the initial owner session atomically; completed auth-disabled installs cannot be claimed
@@ -242,8 +246,9 @@ the rest of the app. It was the only page on Tailwind's `gray` ramp while every 
 classes rather than the kit in `app.css`, and had no control meeting the touch-target floor. Add
 observation was checked against the Evidence page shape and already follows it: slim bar, the
 1.35fr media and 0.85fr decision rail, and a confirm that names the bird it will add. Remaining on
-this surface: Model Evaluation carries no translations at all, which is its own piece of work
-rather than part of the visual pass.
+this surface: most of Model Evaluation is still untranslated, which is its own piece of work
+rather than part of the visual pass. Only the compatibility-only run view goes through
+`svelte-i18n` so far.
 
 ✅ **Background work pass:** the separate jobs view is gone. It showed the same work three times
 over, as four counters, a "Work Lanes" list and an "Active Work" list, with two lanes sharing the
@@ -413,6 +418,28 @@ may still refine idiom and choose a single regional convention for the generic P
 Candidate features, roughly ordered by value. These can land before `3.0` when they are ready,
 but otherwise remain post-3.0 backlog; they do not delay the release.
 
+#### Taxonomy explorer and family tree 🌳
+**Priority:** P2 | **Effort:** L | **Status:** 🔄 Mostly shipped in `dev`: birds classified from IOC 14.2 and Catalogue of Life; a lineage ladder on each detection and in species details; the full tree centred on the bird with its path open, seen groups marked and branches loaded as they open; fan and outline views (the outline opens first on a phone); and a card for every name, with a reference photograph for species. Remaining: search by either name inside the tree, coarser-than-species identifications at their own rank, non-bird lineages, and English order names ([design](docs/plans/2026-10-04-taxonomy-tree-design.md))
+
+Show where each bird belongs within Animalia, from kingdom and phylum through class,
+order, suborder, family, genus and species. Include intermediate groups when the chosen
+taxonomy supports them, and make it easy to discover related birds.
+
+- Open a bird's place in the hierarchy from its species page, with common and scientific
+  names and a breadcrumb back to Animalia.
+- Explore a large, zoomable family-tree view with expandable branches, search by either
+  name, and a clear highlight for the current bird and species recorded at this feeder.
+- Offer a keyboard-accessible outline and a usable phone layout alongside the large tree.
+  Load branches as needed so the wider animal kingdom does not slow the page down.
+- Build on the versioned species catalogue and its higher-rank concepts. Show the source
+  and version, handle synonyms and missing ranks explicitly, and distinguish a taxonomy
+  hierarchy from an evolutionary tree; do not invent ancestry or divergence dates.
+
+**Done when:** a recorded bird can be followed through its available ranks to Animalia,
+related genera and families can be explored without losing the selected bird, common and
+scientific searches reach the same taxon, and source provenance, missing-rank states,
+keyboard navigation, mobile layouts and bounded branch loading are tested.
+
 #### Finish multi-user: password reset + SSO 👥
 **Priority:** P2 | **Effort:** M | **Status:** 🔄 Core shipped (v2.6.0), two gaps remain
 
@@ -473,6 +500,70 @@ until requested assets are durable (or an honest unavailable state is recorded);
 cannot remove archived media; storage usage and destructive actions are visible; per-species floors
 are canonical-taxon based; backup/restore is documented; and tests cover Frigate expiry, concurrent
 favourite/unfavourite, partial downloads, cleanup order, and disk-pressure failure.
+
+#### Always keep photos and visit media 📷
+**Priority:** P1 | **Effort:** M | **Status:** ✅ Shipped in `dev`; move to Delivered at the next release
+([#622](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/622))
+
+The "Media Cache" and "Snapshots" switches are gone. With either off, YA-WAMF kept no photo of its
+own: a visit went blank when Frigate dropped its event and the photo repair after a reclassify had
+nowhere to save (#481). Photographs, full-visit clips, previews and visit films are always kept,
+within retention and the size budget; keeping copies of Frigate's own event clips stays a choice.
+Installs that had a switch off had best-available snapshots (and, with the cache off, full-visit
+clips) turned off once so disk use did not jump. An unwritable media folder is reported in
+`/health`, cache stats, an owner notification and the settings card.
+
+**Follow-up:** measure whether best-available frames can be stored smaller than JPEG 90 without a
+visible loss; on a live install they were 92% of photo storage.
+
+#### Let confident video corrections teach the initial identification 🎓
+**Priority:** P2 | **Effort:** M | **Status:** ☐ After the next release (feature freeze until then)
+
+Personalized reranking learns only from owner corrections today (`classification_feedback` rows
+with source `manual_tag`). When the deep video analysis overturns an initial identification, as with
+a Downy Woodpecker first read as a Hairy Woodpecker, the detection is fixed but the next initial
+identification learns nothing ([#481](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/481)).
+Record such corrections as feedback with their own source and a lower weight than a person's:
+
+- only when the video result is a clear consensus (several independent frames agreeing, above the
+  confidence floor), never from an abstention or a weak majority;
+- never against an owner's correction of the same detection, and withdrawn if the owner later
+  changes it;
+- weighted below `manual_tag` within the existing caps, half-life and minimum-feedback rules, and
+  reported separately in the personalization status so an owner can see what taught the model;
+- resettable on its own: clearing what the video taught leaves the owner's corrections, and the
+  reverse, as the #481 reporter suggested.
+
+**Acceptance:** a camera whose initial identification is often overturned by video shifts toward the
+video's answer over time without ever overriding an owner's correction; a model that learns a wrong
+video answer cannot move a score further than the existing caps allow; tests cover the consensus
+threshold, owner precedence, withdrawal, the weight, and resetting each source on its own.
+
+#### Moments with several species in the Explorer 🐦
+**Priority:** P2 | **Effort:** M | **Status:** ☐ After the next release (feature freeze until then)
+
+A visit is one species: its captures on one camera less than a minute apart. People also want to see
+the moments when several species were at the feeder together. Add **Moments with several species**
+as a third choice under **Show** in the Explorer filters, beside "Visits of one species" and
+"Individual captures": group every species on a camera by the same gap, list the species in each
+moment, and keep each one's captures reachable. It needs its own grouping on the server, counts and
+paging. Mock the row first. The existing "Multiple bird species" filter, two or more species in one
+capture, stays as it is.
+
+**Acceptance:** a robin and two tits arriving together read as one entry naming both species;
+counts, paging and guest windows match the other two views; the choice sits in the filter rail.
+
+#### Seen and heard in one Explorer timeline 🎧
+**Priority:** P2 | **Effort:** M | **Status:** ✅ Implemented in `dev`; broader field review continues
+
+The Explorer has a per-device **Heard calls** toggle. Audio-only call bouts appear in the timeline,
+and matched calls fold into a corresponding seen visit. Guest audio restrictions and visual-only
+filters are kept explicit. Audio History remains available for individual persisted messages;
+the leaderboard keeps its separate Seen, Heard and Both rankings. See the [Explorer guide](docs/features/explorer.md).
+
+**Acceptance:** one timeline answers "what was here, seen or heard" without leaving the Explorer;
+guest audio visibility rules hold; an unavailable BirdNET-Go is said plainly and never shown as no
+activity; spectrogram thumbnails are readable at row size.
 
 #### Analytics: insights panel + camera comparison 📊
 **Priority:** P2 | **Effort:** M | **Status:** ☐ Not started
@@ -597,22 +688,22 @@ These are high-value follow-ups. A measured regression can promote a specific it
 exit criteria; the broad initiatives do not block the release by default.
 
 #### Telemetry-confirmed regression queue
-**Priority:** P1 | **Effort:** M | **Status:** 🔄 Code complete; two fixes await live proof
+**Priority:** P1 | **Effort:** M | **Status:** ✅ Complete; all three regressions have field evidence
 
 The September 15 fleet-health review promoted three concrete regressions ahead of new reliability
 work. Their evidence, counting rules and completion criteria live in [`ISSUES.md`](ISSUES.md):
 
 - [REG-2026-09-15-01](ISSUES.md#reg-2026-09-15-01--accepted-detections-can-expire-before-notification-dispatch)
   now ends the six-second deadline at the database decision, hands notification work to its queue
-  immediately after commit, and runs slower optional integrations afterwards. Field verification
-  remains.
+  immediately after commit, and runs slower optional integrations afterwards. Verified in the field
+  on October 4: real detections delivered with no `save_and_notify` timeout or paired drop.
 - [REG-2026-09-15-02](ISSUES.md#reg-2026-09-15-02--legacy-health-batches-disappear-from-telemetry-breakdowns)
   is resolved in `dev`: mixed v1/v3 fleet-health reporting now combines cohorts before applying the
   privacy floor and labels cumulative legacy counters instead of presenting them as fresh events.
 - [REG-2026-09-15-03](ISSUES.md#reg-2026-09-15-03--final-mode-detection-notifications)
-  keeps the final-mode notification fix in verification until one real accepted event reaches both
-  Telegram and the in-app timeline; the code fix is already in `dev` via PR #467 and is not in
-  stable `2.20.1`.
+  is verified in the field on October 4: a real final-mode visit reached the live page at once and
+  sent its Telegram notification only after video analysis. The fix is in `dev` via PR #467 and is
+  not in stable `2.20.1`.
 
 The queue is complete when the open regression meets its linked acceptance criteria and both fixed
 regressions have end-to-end field evidence. It is a sequencing rule for reliability work, not an
@@ -733,8 +824,8 @@ The September 23 installed-image sweep found intermittent Intel GPU native crash
 and a pipe-EOF/process-exit race fixed by PR #498. The strict local hardware gate now
 records every child outcome, compares exact regional artifacts against CPU, and
 separates detector contracts from classifier tests. Remaining acceptance work is
-repeatable cold/warm-cache and mixed-load GPU validation, CUDA evidence from the
-NVIDIA host, a pinned accuracy corpus with previous-release comparison, and full-app
+repeatable cold/warm-cache and mixed-load GPU validation, broader CUDA model coverage,
+a pinned accuracy corpus with previous-release comparison, and full-app
 owner/guest, backfill and recovery browser journeys. A retry pass does not erase a
 native crash, and CPU/provider agreement is not a species-accuracy score.
 Persistent launch-profile quarantine and a standalone cold/warm-cache OpenVINO

@@ -2,11 +2,12 @@
 
 YA-WAMF supports multiple classifier models, allowing you to balance speed, memory usage, taxonomy scope, and identification accuracy.
 
-## The Model Market
+## Choose and validate a model
+
 You can manage models directly from **Settings → Detection → Model Manager**. The current lineup includes:
 
 - Wildlife-wide ONNX models for broad species coverage
-- Birds-only regional and global models for cleaner feeder-focused confidence
+- Birds-only regional and global models with different species coverage
 - A legacy TFLite fallback for very constrained CPU-only systems
 - Separately managed bird-crop detector tiers for generated thumbnails and automatic localization
 
@@ -17,7 +18,7 @@ container RSS; leave at least 1–2 GB for YA-WAMF and the operating system, wit
 when Frigate shares the host.
 
 MogaNet-S EU, ConvNeXt-V1 Tiny EU, RegNet-Y-8G EU, and UniFormer-S EU are retired comparison
-models. Current releases do not list, download, validate, or activate them. YA-WAMF leaves an
+models. The current development build does not list, download, validate, or activate them. YA-WAMF leaves an
 existing model directory untouched for rollback, but replaces a saved retired selection at startup:
 an installed ConvNeXt Large is preferred, with bundled MobileNet as the fail-safe. The legacy
 release assets remain available to pre-3.0 applications until the planned 3.0 asset retirement.
@@ -56,8 +57,8 @@ For ONNX models, YA-WAMF supports a provider selector under
 - `Auto` (recommended): uses the selected model's measured passing order on this installation and
   otherwise remains within its globally safe provider contract.
 - `CPU`: ONNX Runtime CPU execution.
-- `NVIDIA CUDA`: ONNX Runtime with CUDA (falls back to CPU if CUDA is not actually usable).
-- `Intel GPU (OpenVINO)`: OpenVINO GPU plugin (falls back to OpenVINO CPU if the Intel GPU is unavailable).
+- `NVIDIA CUDA`: ONNX Runtime with CUDA; initialization can use an available CPU fallback when CUDA is unavailable.
+- `Intel GPU (OpenVINO)`: OpenVINO GPU plugin; initialization can try OpenVINO CPU when the GPU is unavailable.
 - `Intel CPU (OpenVINO)`: OpenVINO CPU execution.
 - `Intel NPU (OpenVINO)`: OpenVINO NPU execution for a model validated on this host.
 
@@ -68,11 +69,13 @@ choice never proves the hardware works. See
 [Hardware Acceleration](../setup/hardware-acceleration.md) for tags, device
 passthrough, and safe switching.
 
-### Important behavior (robust fallback)
+### Initialization fallback and runtime faults
 
-YA-WAMF intentionally fails soft when acceleration is misconfigured:
+Provider initialization can try another available route when acceleration is unavailable. A
+successful load does not prove that the route can finish a live workload within its deadline.
 
-- If a provider is selected but unavailable, the backend falls back to a working provider.
+- An unavailable selected provider can use an available fallback. If no route loads or completes
+  safely, the failure remains visible rather than being reported as successful classification.
 - The UI shows:
   - **Image** and **Packaged** providers
   - **Selected** provider
@@ -80,61 +83,44 @@ YA-WAMF intentionally fails soft when acceleration is misconfigured:
   - **Backend** (`onnxruntime` or `openvino`)
   - **Fallback** reason or an image/provider mismatch warning
 - A provider/image mismatch does not rewrite the saved selection. The current
-  image uses CPU fallback and the original selection becomes usable again after
-  switching back to a compatible image.
+  image can try an available CPU route; switching to a matching image restores
+  access to the saved provider, subject to host and model validation.
 - CUDA and OpenVINO availability are probed separately from model loading, then validated again during runtime initialization.
+- **Selected** is the saved preference; **Active** describes loaded workers. If no worker has loaded
+  yet, the UI marks the provider as planned rather than claiming it is active. The Detection tab
+  refreshes this status after validation, activation and saving, periodically while visible and
+  when you return to the browser. An explicit unsaved provider choice is kept; an untouched field
+  follows a newly saved server preference so a later unrelated save cannot switch it back.
 
-### What counts as "available"
-
-- **CUDA available** means:
-  - ONNX Runtime CUDA provider is present in the installed wheel, and
-  - an NVIDIA CUDA device is actually accessible (not just CUDA-enabled packages installed).
-- **OpenVINO available** means:
-  - OpenVINO imports successfully, and
-  - OpenVINO runtime can initialize.
-- **Intel GPU auto-detected** means:
-  - OpenVINO enumerated a GPU device (or `GPU.*`) and can expose it to YA-WAMF.
-- **Intel NPU auto-detected** means:
-  - OpenVINO enumerated an NPU device and the selected model still has to pass
-    its per-host compatibility validation.
-
-If you only see `OpenVINO: Available` + `Intel GPU: Not detected`, YA-WAMF can still use **OpenVINO CPU**.
+Confirmed native worker crashes have a separate policy. Their exact profile is quarantined,
+including across restarts; the app does not silently retry it inside the server process. A
+quarantined accelerator profile can attempt the same model in a shared isolated CPU recovery
+worker, with queueing, cold load and inference inside the workload deadline. CPU may also be
+unavailable, quarantined or too slow, and recovery can fail visibly. Successful recovery does not
+clear the original crash evidence or make the installation healthy. See
+[confirmed native worker crashes](../troubleshooting/diagnostics.md#confirmed-native-worker-crashes).
 
 ### Available Tiers
 
-> **See [Model Accuracy & Benchmarks](model-accuracy.md)** for full benchmark results, GPU support details, and how to run the accuracy tests yourself.
+See [Model Accuracy & Benchmarks](model-accuracy.md) for dated accuracy panels. Coverage, download
+size and memory estimates are listed in the [model release](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/tag/models).
 
-#### Recommended: RoPE ViT-B14 (Default)
-- **Format:** ONNX, 375MB
-- **Accuracy:** ~70% top-1, 87% top-5 (10,000 species)
-- **Speed:** ~312ms on the validated Arrow Lake Intel GPU; performance varies by host
-- **Acceleration:** Intel GPU and NPU validated on Arrow Lake with OpenVINO 2026.2.1; older Intel
-  combinations must pass the built-in per-host validation before use
-- **Best for:** General-purpose wildlife identification. This is the configured default model for new installs.
-
-#### Large: ConvNeXt Large
-- **Format:** ONNX, 760MB
-- **Accuracy:** ~70% top-1, 87% top-5 (10,000 species)
-- **Speed:** ~832ms on Intel CPU
-- **Best for:** Alternative to RoPE ViT with similar accuracy but higher memory usage.
-
-#### Advanced: EVA-02 Large
-- **Format:** ONNX, 1.2GB
-- **Accuracy:** ~75% top-1, 88% top-5 (10,000 species)
-- **Speed:** ~1.6s on Intel CPU
-- **Memory:** Requires ~3GB RAM
-- **Best for:** Highest available accuracy — worth the extra cost for rare or difficult species.
+| Model | Position |
+|---|---|
+| **RoPE ViT-B14 (224 px)** | Default wildlife-wide classifier; 10,000 outputs. |
+| **ConvNeXt Large** | Larger wildlife-wide alternative; compare on your own feeder images. |
+| **EVA-02 Large** | Large comparison model. The reporter's sustained Intel GPU/backfill fault in [#490](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/490) remains unconfirmed; another host's passing check does not close it. |
 
 #### Birds-Only Families: Small Birds / Medium Birds
 - Region-aware family entries that resolve to EU or North America candidate assets based on your configured location.
-- Designed for feeder-first setups where a smaller regional label space gives cleaner confidence scores than wildlife-wide models.
+- Their regional output vocabularies exclude many species present in wildlife-wide models; compare coverage and accuracy on your own birds.
 - `Small Birds` targets lower RAM and faster inference.
-- `Medium Birds` trades more RAM for stronger regional accuracy.
+- `Medium Birds` is the larger regional option.
 
 #### Advanced Birds-Only Options
 - **FocalNet-B EU Medium:** 707-species European birds-only model with validated CPU, Intel CPU,
   Intel GPU, and Intel NPU support.
-- **FlexiViT Global Birds:** compact birds-only model for global or unsupported regions, with CPU,
+- **FlexiViT Israel Birds:** compact model with 550 Israel-checklist bird classes, including rarities, with CPU,
   Intel CPU, and Intel NPU validation. Intel GPU is offered only after the exact installation
   passes the isolated CPU-equivalence sweep.
 
@@ -142,118 +128,42 @@ The four retired EU comparison architectures are intentionally not part of this 
 benchmark rows remain in [Model Accuracy & Benchmarks](model-accuracy.md) as historical evidence
 for the catalogue decision, not as current recommendations.
 
+#### October experimental options
+
+[October classifier additions](model-catalogue-2026-10.md) compares DINOv2 with location, the new
+336 px Wildlife and EU RoPE checkpoints, Arabian Peninsula RoPE DeiT3, NaFlex EU and Israel,
+Parallel ViT EU and BioCLIP 2.5. These are additional choices, not an automatic replacement for
+existing selections. The page gives their coverage, download sizes, memory estimates and
+host-gated provider limits.
+
+![Model Manager showing the selected location-aware DINOv2 model, its memory estimate, saved-location guidance and current Intel NPU runtime](../images/model-manager-dino.png)
+
+DINOv2 uses the saved feeder coordinates at inference time. Set them in **Settings → Integrations
+→ Location**, or in the setup wizard's model step, before validating. A complete `(0, 0)` is valid;
+a missing location is explicitly represented as absent. The setup wizard saves coordinates before
+the check, blocks incomplete pairs, and shows the provider it will save on **Continue**. Changing
+the saved location reloads classifier workers. Date metadata remains absent.
+
+Registered classifiers obtain their ordered labels from the species catalogue, bound to the exact
+weights checksum and output width. All 18 registered classifier artifacts have published mappings;
+the eight October additions do not download `labels.txt`. Unknown or incompletely mapped custom
+models retain their file fallback. Do not repair a registered model by substituting another model's
+label list.
+
 #### Legacy TFLite (MobileNet V2)
-- **Format:** TFLite — runs on CPU-only systems without ONNX Runtime
-- **Accuracy:** ~67% top-1, ~73% top-5 (965 species)
-- **Speed:** ~13ms
-- Hidden by default in the UI. Use only for very constrained hardware.
 
-#### Bird Crop Detector Tiers
-- Managed in the same Model Manager as classifier models.
-- Shown separately as **Cropped thumbnails**, not as a classifier model option. Crop generation and
-  classifier crop-on/off policy are both automatic.
-- `Fast` is the default SSD-MobileNet crop detector. It is CPU-friendly and remains the safe fallback path.
-- `Accurate` is the experimental YOLOX-Tiny crop detector tier. It is optional, provider-validated, and
-  automatically retries with `Fast` when the artifact is unavailable or when accurate inference
-  cannot produce a usable crop (including no candidate, low confidence, an undersized/invalid box,
-  or inference failure).
-- Generated crops try `Accurate` first and `Fast` second. Crop-enabled classifier models use the same
-  detector fallback while retaining their separately validated crop-on/off policy. The legacy tier
-  setting remains API-compatible but no longer lowers the automatic quality path.
-- The normal accurate-detector floor remains `0.05` for thumbnails and direct image replacement.
-  Multi-representation video and HQ-snapshot analysis may retain an accurate-detector candidate down
-  to `0.02` for distant birds, but only as evidence beside the full frame. Existing identity,
-  temporal-consensus, quality, and ambiguity gates must still accept it before it can win.
-- When a timestamp-aligned Frigate hint exists, the accurate detector receives a square HQ search
-  region instead of shrinking the entire camera frame to 416 pixels. Without a hint it tries the
-  native frame first and only a miss on a large image activates four 20%-overlapping tiles. The
-  result keeps at least 160 source pixels of context around a tiny box. A model crop cannot replace
-  an available Frigate crop unless the active classifier agrees on species and improves its score by
-  at least two percentage points; detector confidence is diagnostic, not species evidence.
-- The accurate tier is intended to reduce missed or clipped bird crops in busy feeder scenes, but it should still be treated as experimental until more fixture and real-world benchmarks are published.
-- A hardware compatibility sweep validates crop detectors separately from classifiers. It uses up
-  to 24 images selected round-robin across species plus dark, foliage-like, and gradient hard
-  negatives. Every provider runs in an isolated child process and must produce finite output and
-  match the CPU baseline's runtime-significant detection presence, top box (IoU at least `0.90`),
-  and confidence (delta at most `0.03`) on every image. Proposals below the most permissive runtime
-  evidence floor are excluded so arbitrary near-zero detector noise cannot create a false mismatch.
-  Image identities remain unique even when download sources reuse filenames. Missing, unexpected,
-  or duplicated panel rows fail the comparison. Passing undeclared providers remain informational
-  until the model registry is updated from on-hardware evidence.
-- At runtime, a crop detector uses only a provider recommended by a current validation record for
-  the exact running image flavour. CUDA and OpenVINO CPU/GPU/NPU sessions are supported; Intel GPU
-  uses f32 inference precision and accelerators use a static batch where needed. Compile or inference
-  failure replaces that cached detector session with CPU while preserving the accurate-to-fast and
-  original-image fallbacks.
+CPU-only, low-memory legacy option with 965 outputs. Hidden by default in Model Manager.
 
-On Quark's Arrow Lake-S/OpenVINO 2026.2.1 runtime, the accurate tier matched CPU across a private
-40-case field panel on Intel CPU and GPU, and all runtime-significant detections matched on Intel
-NPU. The panel contains 30 independent events across seven recorded labels, distant/mid-distance
-and edge-of-frame scenes, plus 10 real feeder/foliage hard negatives. The normal sweep adds up to 24
-taxonomy-verified species images. This evidence enables `intel_npu` in the model contract, but the
-current-image, per-host gate must still pass before any installation uses it. The quantized fast SSD
-artifact remains CPU-only because OpenVINO rejects its `QLinearConv` graph.
+#### Crops, photographs and video
 
-#### Best-available event snapshots
+**Cropped thumbnails** manages the separate bird detector. The CPU-friendly **Fast** detector is
+the fallback for the experimental **Accurate** YOLOX-Tiny tier. Classifier crop policy is automatic;
+a detector score is not a species confidence score. The hardware sweep checks detectors separately
+from classifiers. See [Model Evaluation](model-evaluation.md#provider-compatibility-and-the-post-install-gate).
 
-Detection details keep the photograph unobscured, with titles and controls below it.
-Use **Regenerate snapshots** in the frame strip to rebuild choices, including for an existing HQ
-photo. A failed or empty generation keeps previously saved choices. Fallback crops must match
-the recorded species and meet the same detail requirements as normal candidates; otherwise
-the existing crop or full scene is kept. Frame preview names describe the displayed photograph.
-
-**Settings → Data → Snapshot quality → Best available event snapshots** is an automatic outcome,
-not a source selector. When enabled, YA-WAMF samples up to three centre/track-weighted moments from
-the main-stream clip, spreading them across the tracked interval when available and otherwise using
-the central clip region. Samples must be at least 250 ms apart; a neighbouring frame can recover a
-decode failure but remains part of the same evidence slot. YA-WAMF builds a full-frame candidate
-plus every valid Frigate-hint and detector crop, then reclassifies the candidates. Event-clip hint
-boxes follow Frigate's timestamped object path; recording clips with an unproven timeline do not
-reuse a potentially stale event box. The full high-quality frame competes with valid,
-identity-consistent crops and remains canonical when it is the clearest trustworthy image. The old
-`bird_crop_source_priority` and
-`media_cache_high_quality_event_snapshot_bird_crop` fields remain readable/writable for API and
-configuration compatibility, but do not override this policy.
-
-Each candidate still goes through the active classifier's declared preprocessing: input size,
-resize mode, interpolation, colour space, normalisation, mean and standard deviation. A generated
-bird crop is marked as already cropped, which prevents a model's optional localisation policy from
-cropping it a second time; it does not bypass the model's normal resize and tensor preparation.
-Low detector confidence is never fused into visual species confidence. It controls candidate
-admission only; classifier evidence and the independent-frame rules decide whether that candidate
-is useful.
-
-YA-WAMF can also use the crop classifications to refine the detection. It requires the same species
-to clear both the active model's recommended confidence and a conservative 0.60 floor at two or more
-temporally independent offsets. Multiple crop sources or nearby decode fallbacks from one evidence
-slot count as one vote. Missing timestamp provenance cannot vote. A close competing multi-frame
-result blocks promotion. Automatic refinement can upgrade **Unknown Bird** or improve a lower-scoring
-result for the same canonical species, but it never replaces a manual tag or a conflicting known
-species.
-
-The pipeline is fail-soft: the accurate detector retries through the fast detector, a detector miss
-can still use Frigate's tracked-object box, and total crop failure keeps the clear full frame. Recent
-events without generated candidates are reconciled after restart so an in-memory queue loss does not
-permanently strand their upgrade. Retry state survives restarts, backs off for five, fifteen, and
-forty-five minutes, and becomes terminal after a fourth failure; an explicit regeneration with newly
-available media can still succeed. `/health` exposes `high_quality_snapshots.crop_policy`, selected
-source counts, snapshot outcomes, classification-refinement outcomes, and the recovered-job total
-for operational verification.
-
-## Automatic Video Analysis (Deep Analysis)
-In addition to snapshot classification, YA-WAMF can perform **Deep Video Analysis**. This background
-task scans a video across multiple frames (temporal ensemble) to verify the identification. Manual
-video reclassification uses the best playable source already retained by YA-WAMF before contacting
-Frigate: a complete full-visit recording, a decodable partial recording, or the cached event clip.
-An unreadable cache entry is discarded and the next source is tried; a snapshot is the final
-fallback, not a shortcut around usable video.
-
-![A detection opened in detail: the photograph on the left with the visit's frames in one strip beneath it, and on the right the identified species with 99% confidence, a Deep Video Analysis panel reporting a 72% match from cropped video frames using RoPE ViT-B14, the weather and camera for the visit, and the nearby audio spectrogram](../images/detection-detail.png)
-
-This provides significantly higher confidence by seeing the bird from multiple angles and in motion.
-See [Deep Video Analysis](video-analysis.md) for source selection, consensus, fallback, and runtime
-requirements.
-
+For automatic best-available photographs, counted birds, **Regenerate snapshots and recount birds**,
+and **Score again**, use [Deep Video Analysis](video-analysis.md). Photo work and species analysis
+are separate outcomes; several agreeing frames still do not prove the species is correct.
 
 ## Frigate sublabel fallback
 
@@ -261,21 +171,6 @@ If **Trust Frigate sublabels** is enabled, YA-WAMF still runs the selected local
 Frigate label is a fallback when media is unavailable, local inference produces no usable result, or
 the local prediction does not clear policy. Frigate's sublabel confidence is kept separate from its
 bird-object detector score, and YA-WAMF does not echo a fallback label straight back to Frigate.
-
-Deep video uses temporal consensus rather than a single maximum frame. YA-WAMF keeps the unchanged
-full frame, then adds a time-aligned Frigate tracked-object crop and detector crop when available.
-These are alternate views of each sampled frame, not extra votes: each input source needs at least
-three independent evaluated moments and two confident votes, one species must own 60% of that
-source's confident votes, and conflicting source winners cause the analysis to abstain. Samples
-less than 250 ms apart collapse into one moment. Low-confidence decoded frames count as coverage,
-not votes against a fleeting visitor; accepted confidence is the median of at most the five
-strongest supporting moments. When the sources agree, YA-WAMF keeps the strongest consensus and
-records whether it came from full video frames, cropped video frames, a full snapshot fallback, or
-a cropped snapshot fallback. Detection
-details show that source next to the result. Historical cached snapshots without trustworthy source
-metadata remain usable but are conservatively treated as uncropped instead of being guessed from
-dimensions. If local image evidence does not clear policy and a trusted Frigate sublabel wins, the
-result is labelled as Frigate evidence rather than as snapshot or temporal video inference.
 
 ## Behavioral Analysis (LLMs)
 For advanced insights, YA-WAMF can send high-confidence snapshots to a Large Language Model (LLM) to generate a "Naturalist Note".
@@ -287,11 +182,7 @@ For advanced insights, YA-WAMF can send high-confidence snapshots to a Large Lan
 
 The LLM analyzes the image context (weather, behavior, plumage) and provides a short, educational summary of what the bird is doing. This feature requires an API key.
 
-Use **Settings → AI → Test AI Connection** before analyzing detections. The diagnostic opens a
-multi-stage result panel covering configuration, provider availability, vision support,
-multi-frame admission, and response generation. It sends five generated 1280×720 JPEG frames,
-matching the count, dimensions, media format, and approximate payload size of the default detection
-analysis without requiring a live event. A successful diagnostic therefore proves that the model
-accepts a representative production request, but it is not a provider load benchmark. Rate limits
-and temporary provider unavailability remain retryable; when the provider supplies `Retry-After`,
-the panel shows it.
+Use **Settings → AI → Test AI Connection** to check credentials, vision support and a representative
+five-frame request before analysing detections. The dialog keeps failures and retry guidance
+visible. A successful connection test is not a latency benchmark or a guarantee against later
+provider outages. Optional AI analysis sends selected images to the configured external provider.

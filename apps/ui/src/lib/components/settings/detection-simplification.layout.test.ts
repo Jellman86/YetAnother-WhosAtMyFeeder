@@ -7,6 +7,7 @@ import advancedSectionSource from './_primitives/AdvancedSection.svelte?raw';
 import detectionSettingsSource from './DetectionSettings.svelte?raw';
 import statusBandSource from './DetectionStatusBand.svelte?raw';
 import modelManagerSource from '../../pages/models/ModelManager.svelte?raw';
+import settingsPageSource from '../../pages/Settings.svelte?raw';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -76,11 +77,11 @@ describe('Detection settings, status first', () => {
         expect(modelManagerSource).toContain('model-ram-meter');
         expect(modelManagerSource).toContain('ramShortLabel(modelOption.estimated_ram_mb)');
         expect(modelManagerSource).toContain('lineupMaxRam(classifierModels)');
-        // The shared aurora (kit class, see app.css) marks the selected card
-        // and the status band, and is stilled for reduced motion.
-        expect(modelManagerSource).toContain('class="card-aurora" aria-hidden="true"');
-        expect(statusBandSource).toContain('class="card-aurora" aria-hidden="true"');
-        expect(appCss).toContain('.card-aurora');
+        // The flat look marks the selected card with its border, a brand tint and
+        // aria-pressed; no decorative animated gradient behind either surface.
+        expect(modelManagerSource).not.toContain('card-aurora');
+        expect(statusBandSource).not.toContain('card-aurora');
+        expect(appCss).not.toContain('.card-aurora');
         expect(appCss).toContain('prefers-reduced-motion');
     });
 
@@ -106,6 +107,18 @@ describe('Detection settings, status first', () => {
         expect(detectionSettingsSource).toContain('providerPreferenceLabel');
         expect(detectionSettingsSource).toContain('configuredProviderUnavailable');
         expect(detectionSettingsSource).not.toContain("{ value: 'cuda', label:");
+    });
+
+    it('keeps the saved provider, including Intel NPU, through Settings hydration, dirty checks and saves', () => {
+        expect(settingsPageSource).not.toContain('function normalizeInferenceProvider');
+        expect(settingsPageSource).toContain("let inferenceProvider = $state<InferenceProvider>('auto');");
+        expect(settingsPageSource).toContain("inferenceProvider = parseInferenceProvider(settings.inference_provider) ?? 'auto';");
+        expect(settingsPageSource).toContain(
+            "{ key: 'inferenceProvider', val: inferenceProvider, store: parseInferenceProvider(s.inference_provider) ?? 'auto' }"
+        );
+        expect(settingsPageSource).toContain(
+            'inference_provider: inferenceProviderForSave(inferenceProvider, settingsStore.settings?.inference_provider),'
+        );
     });
 
     it('keeps shared disclosures semantic, readable, and keyboard visible', () => {

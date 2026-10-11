@@ -580,3 +580,33 @@ async def test_classifier_worker_process_still_reports_ready_when_the_identity_g
 
     assert writer.messages[0]["type"] == "ready"
     assert "runtime" not in writer.messages[0]
+
+
+@pytest.mark.asyncio
+async def test_windows_worker_reads_pipe_as_bytes_without_proactor_file_descriptors(monkeypatch):
+    from io import BytesIO
+    from unittest.mock import AsyncMock
+    import app.services.classifier_worker_process as module
+    from app.services.classifier_worker_protocol import build_shutdown_request, encode_protocol_message
+
+    monkeypatch.setattr(module.sys, "platform", "win32")
+    stdin = BytesIO(encode_protocol_message(build_shutdown_request()))
+    monkeypatch.setattr(module.sys, "stdin", type("Stdin", (), {"buffer": stdin})())
+    connect = AsyncMock(side_effect=AssertionError("Windows CRT fd is not a native pipe handle"))
+    monkeypatch.setattr(asyncio.get_running_loop(), "connect_read_pipe", connect)
+    writer = _MemoryWriter()
+    await asyncio.wait_for(module.run_worker_main(classify_fn=lambda **_: [], writer=writer), 1)
+    assert writer.messages[0]["type"] == "ready"
+    connect.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_windows_pipe_reader_rejects_oversize_frame_without_unbounded_read(monkeypatch):
+    import app.services.classifier_worker_process as module
+
+    monkeypatch.setattr(module, "WORKER_PROTOCOL_STREAM_LIMIT_BYTES", 8)
+    stream = io.BytesIO(b"123456789012345\n")
+    reader = module._WindowsStdinReader(stream)
+    with pytest.raises(ValueError, match="stream limit"):
+        await reader.readline()
+    assert stream.tell() == 9

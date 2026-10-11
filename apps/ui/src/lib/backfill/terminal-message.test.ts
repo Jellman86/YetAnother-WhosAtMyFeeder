@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatTerminalBackfillMessage } from './terminal-message';
+import { formatTerminalBackfillMessage, isBackfillTerminalTransition } from './terminal-message';
 
 describe('formatTerminalBackfillMessage', () => {
     it('prefixes backend terminal messages with the completed backfill kind', () => {
@@ -18,5 +18,26 @@ describe('formatTerminalBackfillMessage', () => {
         expect(formatTerminalBackfillMessage('weather', null, 'Weather backfill complete')).toBe(
             'Weather backfill complete'
         );
+    });
+});
+
+describe('isBackfillTerminalTransition', () => {
+    const running = { id: 'current-job', status: 'running' };
+
+    it.each(['completed', 'failed'])('does not announce an initially loaded %s job', (status) => {
+        expect(isBackfillTerminalTransition(null, { ...running, status })).toBe(false);
+    });
+
+    it.each(['completed', 'failed'])('announces a running job changing to %s once', (status) => {
+        const terminal = { ...running, status };
+        expect(isBackfillTerminalTransition(running, terminal)).toBe(true);
+        expect(isBackfillTerminalTransition(terminal, terminal)).toBe(false);
+    });
+
+    it('does not confuse a different job, missing status or missing identity with a completion', () => {
+        expect(isBackfillTerminalTransition(running, { id: 'older-job', status: 'completed' })).toBe(false);
+        expect(isBackfillTerminalTransition(running, null)).toBe(false);
+        expect(isBackfillTerminalTransition(running, running)).toBe(false);
+        expect(isBackfillTerminalTransition({ id: '', status: 'running' }, { id: '', status: 'failed' })).toBe(false);
     });
 });

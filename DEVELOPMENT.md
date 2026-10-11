@@ -1,142 +1,146 @@
-# Development Workflow
+# Develop and review a YA-WAMF change
 
-This document explains the development workflow for YA-WAMF.
+Start from current `dev`, make one reviewable change on a short-lived branch,
+and submit it through a pull request. Everyday changes target `dev`; release
+pull requests alone target `main`.
 
-## Branch Strategy
+Read [CLAUDE.md](CLAUDE.md) before making changes. The
+[architecture guide](DEVELOPER.md) explains the component boundaries;
+[documentation standards](docs/documentation-standard.md) apply to user-facing text
+and screenshots.
 
-### `main` Branch (Production)
-- **Purpose:** Stable, production-ready code
-- **Primary Image Tags:** full `:latest` / `:vX.Y.Z`, with optional `-cpu`, `-intel`, and `-cuda` variants
-- **Deployment:** Use `docker-compose.monolith.yml`
-- **Protection:** Only merge tested, stable code from `dev`
+## Start a branch
 
-### `dev` Branch (Development)
-- **Purpose:** Active development, testing new features and fixes
-- **Primary Image Tags:** full `ghcr.io/jellman86/yawamf-monalithic:dev`, with optional `dev-cpu`, `dev-intel`, and `dev-cuda` variants
-- **Deployment:** Use `docker-compose.monolith.yml` with `YAWAMF_MONALITHIC_TAG=dev`
-- **Workflow:** All new features and fixes start here
-
-The older split images (`wamf-backend` and `wamf-frontend`) are still built for
-legacy v2.x installs, but new development and release validation should use the
-monolithic image first. Unsuffixed tags always select the full compatibility
-runtime. See [Hardware Acceleration](docs/setup/hardware-acceleration.md) for the
-provider-family contract and safe switching procedure.
-
-## Workflow Steps
-
-### 1. Starting New Work
+From a clean checkout:
 
 ```bash
-# Switch to dev branch
-git checkout dev
-
-# Pull latest changes
-git pull origin dev
-
-# Create a feature branch (optional, for complex features)
-git checkout -b feature/my-new-feature
+git fetch origin
+git switch -c fix/describe-the-change origin/dev
 ```
 
-### 2. Development
+Keep unrelated local work on its own branch/worktree. Do not merge locally into
+`dev` or push directly to `dev`/`main` to bypass review. Urgent fixes use the same
+reviewed path; release promotion follows the
+[release workflow](docs/development/releasing.md).
 
-Make your changes, commit frequently:
+## Prepare a local development environment
+
+Use Python 3.12 and Node.js 22, matching CI. From the repository root:
 
 ```bash
-git add .
-git commit -m "feat: description of changes"
+python3.12 -m venv backend/.venv
+source backend/.venv/bin/activate
+python -m pip install -r backend/requirements.txt
+npm --prefix apps/ui ci
+npm --prefix apps/telemetry-worker ci
 ```
 
-### 3. Testing
+The full requirements file includes all provider runtimes and development tools.
+For a platform-specific native environment, use the base, matching provider and
+development requirements as described in [testing](docs/development/testing.md).
+Do not add conversion dependencies to the live application's environment.
+
+For direct backend/UI development, use dedicated writable development paths and
+non-production integration credentials. This example runs the backend on loopback;
+run it from `backend/` with the virtual environment active:
 
 ```bash
-# Push to dev branch
-git checkout dev
-git merge feature/my-new-feature  # if using feature branch
-git push origin dev
-
-# GitHub Actions will automatically build dev images
-# Wait for the build to complete, then test:
-YAWAMF_MONALITHIC_TAG=dev docker compose -f docker-compose.monolith.yml pull
-YAWAMF_MONALITHIC_TAG=dev docker compose -f docker-compose.monolith.yml up -d
+mkdir -p ../config ../data/development
+export CONFIG_FILE="$PWD/../config/development.json"
+export DATA_DIR="$PWD/../data/development"
+export DB_PATH="$PWD/../data/development/speciesid.db"
+export SPECIES_CATALOG_PATH="$PWD/../data/development/species_catalog.db"
+export MEDIA_CACHE_DIR="$PWD/../data/development/media_cache"
+export MODEL_DIR="$PWD/../data/development/models"
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-### 4. Promoting to Production
+Startup applies migrations to these development databases. Never point a local
+experiment, reset, test fixture or migration rehearsal at production mounts.
+Configure your development Frigate/MQTT connection only when needed; a live
+connection can ingest real events and write sublabels or send enabled notifications.
+Keep outbound integrations disabled unless you intend their real effects.
 
-Once features are tested and stable on `dev`:
+In another terminal, from the repository root:
 
 ```bash
-# Switch to main
-git checkout main
-
-# Merge dev into main
-git merge dev
-
-# Push main branch
-git push origin main
-
-# Ensure `VERSION` and `CHANGELOG.md` are correct, then create and push a release tag
-# (the tag should match VERSION; this triggers the production image build)
-git tag -a vX.Y.Z -m "vX.Y.Z"
-git push origin vX.Y.Z
-
-# Deploy production:
-YAWAMF_MONALITHIC_TAG=latest docker compose -f docker-compose.monolith.yml pull
-YAWAMF_MONALITHIC_TAG=latest docker compose -f docker-compose.monolith.yml up -d
+VITE_BACKEND_PROXY_TARGET=http://127.0.0.1:8000 npm --prefix apps/ui run dev
 ```
 
-## Quick Reference
+Open `http://localhost:3000`. Vite proxies `/api` and `/health` to that backend;
+without the override its committed target is `http://yawamf-backend:8000`, suitable
+for the legacy Docker network rather than a direct host process. Native FastAPI
+OpenAPI is at `http://127.0.0.1:8000/docs`.
 
-| Environment | Branch | Image Tag | Docker Compose File |
-|-------------|--------|-----------|---------------------|
-| Production  | `main` | full `:latest` / `:vX.Y.Z`, or matching `-cpu` / `-intel` / `-cuda` | `docker-compose.monolith.yml` |
-| Development | `dev`  | full `:dev`, or `:dev-cpu` / `:dev-intel` / `:dev-cuda` | `docker-compose.monolith.yml` |
-| Local Build | any    | built locally | `docker-compose.yml` or service-specific Dockerfiles |
-| Legacy Split | v2.x installs | `wamf-backend:*` + `wamf-frontend:*` | `docker-compose.dev.yml` / `docker-compose.prod.yml` |
+To run the published application instead of local source servers, follow
+[Getting started](docs/setup/getting-started.md). The default `docker-compose.yml`
+is a legacy split deployment; it is not a shortcut for building the current
+monolith locally.
 
-## GitHub Actions
+## Implement and prove the change
 
-The workflow automatically builds and pushes Docker images:
+1. Reproduce the problem with a failing test. Keep pure policy tests independent
+   of databases, networks and models; substitute external services at their boundary.
+2. Implement the smallest change that preserves history, identity, secrets and
+   owner choices. Review second-order effects on imports, worker recovery,
+   media cleanup, notifications and guests when they share the affected path.
+3. Add a reversible migration for every schema change in the correct stream.
+   Keep one head in each stream and prove upgrade, downgrade and repeated upgrade
+   against disposable databases. Never edit a released migration.
+4. Update user-facing documentation and **Unreleased** in `CHANGELOG.md` when
+   behaviour, settings, endpoints or UI labels change. Pure documentation cleanup
+   does not invent a new release version or date.
+5. Run the gates in [testing](docs/development/testing.md), including root-level
+   lint/format, backend regression coverage, frontend check/unit/dead-code/build,
+   telemetry tests and documentation consistency. Add browser interactions or
+   trusted-host hardware checks where the change needs them.
 
-- **Trigger:** Push to `dev` or `main`, and release tags (`v*`)
-- **Primary monolith:** full, CPU, Intel, and CUDA images from one Dockerfile and commit
-- **Raspberry Pi monolith:** `ghcr.io/jellman86/yawamf-monalithic-rpi:{tag}` when that build path succeeds
-- **Legacy split images:** `ghcr.io/jellman86/wamf-backend:{tag}` and `ghcr.io/jellman86/wamf-frontend:{tag}`
-- **Tag Logic:**
-  - unsuffixed `dev`, `main`, `latest`, release, and SHA tags → full image
-  - matching `-cpu`, `-intel`, and `-cuda` suffixes → provider-family images
-  - builds publish SHA candidates first; channel/release tags move only after every flavor starts and the shared-volume full → CPU → full switch contract passes
-
-## Manual Build (Local Development)
-
-For rapid iteration without pushing to GitHub:
+API changes also require regenerated OpenAPI and frontend types. From `backend/`:
 
 ```bash
-# Use the default docker-compose.yml which builds locally
-docker compose up -d --build
+python scripts/export_openapi.py
+python scripts/export_openapi_types.py
+python scripts/export_openapi.py --check
+python scripts/export_openapi_types.py --check
 ```
 
-## Tips
+A release version bump happens before those exports, because the schema embeds
+the application version. Models need the checkpoint's actual preprocessing and
+output mapping, then hardware/accuracy evidence with clear limits; follow
+[model conversion](docs/conversions/birder-model-conversion.md).
 
-1. **Keep dev in sync with main:** Regularly merge main into dev to avoid conflicts
-   ```bash
-   git checkout dev
-   git merge main
-   ```
+## Commit and open a pull request
 
-2. **Hotfixes:** For urgent production fixes:
-   ```bash
-   git checkout main
-   git checkout -b hotfix/issue-name
-   # Fix, test, merge to main, then merge main to dev
-   ```
+Stage only the intended paths and commit after the required checks are green.
+Use a message describing the concrete outcome. Commit messages, PR descriptions
+and issue comments have no tool attribution or co-author trailers.
 
-3. **Check build status:** Visit your GitHub repository → Actions tab
+Push the short-lived branch and open a PR into `dev`. State:
 
-4. **Pull latest images:**
-   ```bash
-   # Development
-   YAWAMF_MONALITHIC_TAG=dev docker compose -f docker-compose.monolith.yml pull
+- the problem and resulting behaviour;
+- included/excluded scope and any migration, data, security or operational risk;
+- checks actually completed, including material limitations.
 
-   # Production
-   YAWAMF_MONALITHIC_TAG=latest docker compose -f docker-compose.monolith.yml pull
-   ```
+Wait for required checks and resolve blocking review conversations before merging.
+An image build is separate from a successful merge: documentation-only paths can
+skip image publication. Verify the exact commit and completed promotion before
+claiming a channel tag contains the change.
+
+## Verify a published development image
+
+[Build and Push Docker Images](.github/workflows/build-and-push.yml) publishes
+commit candidates first. Full, CPU, Intel and CUDA startup checks and the
+shared-volume full → CPU → full persistence gate must pass before mutable tags
+are promoted. Packaging a provider does not certify a physical accelerator.
+
+For a Compose-managed test installation, the monolith supports
+`YAWAMF_MONALITHIC_TAG=dev`, `dev-cpu`, `dev-intel` and `dev-cuda`. Use a dedicated
+stack and data paths; preserve a working production installation. Git-managed
+platforms must use their own sync/deploy workflow. See
+[hardware acceleration](docs/setup/hardware-acceleration.md) for packaging,
+provider selection, active runtime and same-commit rollback checks.
+
+Publishing a stable release requires a separate reviewed release state, matching
+version/tag, green exact-tag checks and human-first release notes. Follow
+[releasing](docs/development/releasing.md); merging a documentation PR does not
+publish a new application release.

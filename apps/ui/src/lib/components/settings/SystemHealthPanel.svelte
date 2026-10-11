@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
+    import { onMount, type Snippet } from 'svelte';
     import { _ } from 'svelte-i18n';
     import SettingsCard from './_primitives/SettingsCard.svelte';
     import { fetchSystemTelemetryHistory, type SystemTelemetryHistory } from '../../api';
@@ -36,6 +36,17 @@
      * The history is kept by the server, so the chart is full the moment it opens.
      */
     const POLL_MS = 5_000;
+
+    interface Props {
+        /** Header controls; without them the header names the chart's window. */
+        headerActions?: Snippet;
+        /** The overall verdict, shown first so the card opens with whether things are working. */
+        status?: Snippet;
+        /** Supporting detail closed beneath the figures. */
+        details?: Snippet;
+    }
+
+    let { headerActions, status, details }: Props = $props();
 
     let history = $state.raw<SystemTelemetryHistory | null>(null);
     let loading = $state(true);
@@ -181,10 +192,18 @@
         })}
     >
         {#snippet actions()}
-            <p class="text-xs text-slate-500 dark:text-slate-400">
-                {$_('settings.system_health.window', { default: 'Last 30 minutes, sampled every 5 s' })}
-            </p>
+            {#if headerActions}
+                {@render headerActions()}
+            {:else}
+                <p class="text-xs text-slate-500 dark:text-slate-400">
+                    {$_('settings.system_health.window', { default: 'Last 30 minutes, sampled every 5 s' })}
+                </p>
+            {/if}
         {/snippet}
+
+        {#if status}
+            {@render status()}
+        {/if}
 
         {#if loading && !history}
             <p class="text-sm text-slate-500 dark:text-slate-400" data-system-health-loading>
@@ -197,8 +216,9 @@
         {:else if history}
             <div class="grid gap-6 md:grid-cols-[minmax(0,1fr)_12rem]">
                 <div class="min-w-0">
+                    <div class="mb-2 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
                     <ul
-                        class="mb-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-slate-600 dark:text-slate-300"
+                        class="flex flex-wrap gap-x-5 gap-y-1 text-xs text-slate-600 dark:text-slate-300"
                         aria-label={$_('settings.system_health.legend', { default: 'Series' })}
                         data-system-health-legend
                     >
@@ -216,10 +236,16 @@
                                     />
                                 </svg>
                                 <span>{line.label}</span>
-                                <span class="text-[10px] text-slate-400 dark:text-slate-500">{scopeNote(line.scope)}</span>
+                                <span class="text-3xs text-slate-400 dark:text-slate-500">{scopeNote(line.scope)}</span>
                             </li>
                         {/each}
                     </ul>
+                    {#if headerActions}
+                        <p class="text-xs text-slate-500 dark:text-slate-400">
+                            {$_('settings.system_health.window', { default: 'Last 30 minutes, sampled every 5 s' })}
+                        </p>
+                    {/if}
+                    </div>
 
                     {#if points.length === 0}
                         <p class="text-sm text-slate-500 dark:text-slate-400" data-system-health-empty>
@@ -230,10 +256,12 @@
                             {$_('settings.system_health.cpu_unmeasured', { default: 'CPU load cannot be measured on this host; the counters it needs are not readable from inside the container.' })}
                         </p>
                     {:else}
-                        <div class="relative">
+                        <!-- A right gutter inside the column holds the scale, clear of the newest samples. -->
+                        <div class="relative mr-9">
                             <svg
                                 viewBox="0 0 {CHART_WIDTH} {CHART_HEIGHT}"
-                                class="block h-48 w-full overflow-visible"
+                                preserveAspectRatio="none"
+                                class="block chart-h w-full overflow-visible"
                                 role="img"
                                 aria-label={cpuSummary
                                     ? $_('settings.system_health.summary', {
@@ -245,11 +273,11 @@
                                 onpointerleave={() => (inspectedIndex = null)}
                                 data-system-health-chart
                             >
-                                <line x1="0" y1="0.5" x2={CHART_WIDTH} y2="0.5" class="stroke-slate-200 dark:stroke-slate-700" stroke-dasharray="3 5" />
-                                <line x1="0" y1={CHART_HEIGHT / 2} x2={CHART_WIDTH} y2={CHART_HEIGHT / 2} class="stroke-slate-200 dark:stroke-slate-700" stroke-dasharray="3 5" />
-                                <line x1="0" y1={CHART_HEIGHT} x2={CHART_WIDTH} y2={CHART_HEIGHT} class="stroke-slate-300 dark:stroke-slate-600" />
+                                <line x1="0" y1="0.5" x2={CHART_WIDTH} y2="0.5" class="stroke-slate-200 dark:stroke-slate-700" stroke-dasharray="3 5" vector-effect="non-scaling-stroke" />
+                                <line x1="0" y1={CHART_HEIGHT / 2} x2={CHART_WIDTH} y2={CHART_HEIGHT / 2} class="stroke-slate-200 dark:stroke-slate-700" stroke-dasharray="3 5" vector-effect="non-scaling-stroke" />
+                                <line x1="0" y1={CHART_HEIGHT} x2={CHART_WIDTH} y2={CHART_HEIGHT} class="stroke-slate-300 dark:stroke-slate-600" vector-effect="non-scaling-stroke" />
                                 {#if cpuArea}
-                                    <polygon points={cpuArea} class="fill-blue-600/10 dark:fill-blue-500/15" />
+                                    <polygon points={cpuArea} class="fill-blue-600/10 dark:fill-blue-500/15" vector-effect="non-scaling-stroke" />
                                 {/if}
                                 {#each series as line (line.id)}
                                     {#each seriesSegments(points, line.load, windowSeconds) as segment (segment)}
@@ -266,25 +294,24 @@
                                 {/each}
                                 {#if inspectedX !== null && inspectedIndex !== null}
                                     <line x1={inspectedX} y1="0" x2={inspectedX} y2={CHART_HEIGHT} class="stroke-slate-400 dark:stroke-slate-500" vector-effect="non-scaling-stroke" />
-                                    <!-- A dot on each line says which sample the crosshair and the figures belong to. -->
-                                    {#each series as line (line.id)}
-                                        {@const marker = markerFor(points, inspectedIndex, line.load, windowSeconds)}
-                                        {#if marker}
-                                            <circle
-                                                cx={marker.x}
-                                                cy={marker.y}
-                                                r="3.5"
-                                                class="{line.stroke} fill-white dark:fill-slate-900"
-                                                stroke-width="2"
-                                                vector-effect="non-scaling-stroke"
-                                                data-system-health-marker
-                                            />
-                                        {/if}
-                                    {/each}
                                 {/if}
                             </svg>
-                            <span class="pointer-events-none absolute -top-2 right-0 text-[10px] tabular-nums text-slate-400">100%</span>
-                            <span class="pointer-events-none absolute right-0 top-1/2 -translate-y-3 text-[10px] tabular-nums text-slate-400">50%</span>
+                            {#if inspectedX !== null && inspectedIndex !== null}
+                                <!-- A dot on each line says which sample the crosshair and the figures belong to.
+                                     Drawn outside the stretched chart so it stays round. -->
+                                {#each series as line (line.id)}
+                                    {@const marker = markerFor(points, inspectedIndex, line.load, windowSeconds)}
+                                    {#if marker}
+                                        <span
+                                            class="pointer-events-none absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-current bg-surface {line.text}"
+                                            style="left: {(marker.x / CHART_WIDTH) * 100}%; top: {(marker.y / CHART_HEIGHT) * 100}%"
+                                            data-system-health-marker
+                                        ></span>
+                                    {/if}
+                                {/each}
+                            {/if}
+                            <span class="pointer-events-none absolute left-full top-0 ml-1.5 -translate-y-1/2 text-3xs tabular-nums text-slate-400">100%</span>
+                            <span class="pointer-events-none absolute left-full top-1/2 ml-1.5 -translate-y-1/2 text-3xs tabular-nums text-slate-400">50%</span>
                             {#if inspected}
                                 <div
                                     class="pointer-events-none absolute top-2 rounded-lg border border-slate-200 bg-white/95 px-2.5 py-1.5 text-xs shadow-md dark:border-slate-700 dark:bg-slate-900/95"
@@ -319,7 +346,7 @@
                             aria-valuetext={inspectedSpoken}
                             data-system-health-scrub
                         />
-                        <div class="flex justify-between text-[10px] tabular-nums text-slate-400">
+                        <div class="flex justify-between text-3xs tabular-nums text-slate-400">
                             {#each ticks as tick (tick.at)}
                                 <span>{timeOf(tick.at)}</span>
                             {/each}
@@ -354,18 +381,18 @@
 
                 <dl class="grid grid-cols-3 gap-4 md:grid-cols-1 md:gap-5" data-system-health-now>
                     <div>
-                        <dt class="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('settings.system_health.cpu_now', { default: 'CPU now' })}</dt>
+                        <dt class="text-2xs font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('settings.system_health.cpu_now', { default: 'CPU now' })}</dt>
                         <dd class="font-display text-3xl font-bold tabular-nums text-blue-700 dark:text-blue-300">{formatPercent(latest?.cpu_percent) ?? '—'}</dd>
                     </div>
                     {#each acceleratorSeries as line (line.id)}
                         <div>
-                            <dt class="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('settings.system_health.accelerator_now', { values: { label: line.label }, default: '{label} now' })}</dt>
+                            <dt class="text-2xs font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('settings.system_health.accelerator_now', { values: { label: line.label }, default: '{label} now' })}</dt>
                             <dd class="font-display text-3xl font-bold tabular-nums {line.text}">{formatPercent(line.latest) ?? '—'}</dd>
-                            <p class="text-[10px] text-slate-400 dark:text-slate-500">{scopeNote(line.scope)}</p>
+                            <p class="text-3xs text-slate-400 dark:text-slate-500">{scopeNote(line.scope)}</p>
                         </div>
                     {/each}
                     <div>
-                        <dt class="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('settings.system_health.memory_now', { default: 'This app in memory' })}</dt>
+                        <dt class="text-2xs font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('settings.system_health.memory_now', { default: 'This app in memory' })}</dt>
                         <dd class="font-display text-2xl font-bold tabular-nums text-slate-900 dark:text-white">
                             {formatBytes(history.app_rss_bytes) ?? '—'}
                             {#if history.host.memory_total_bytes}
@@ -412,7 +439,7 @@
                         </div>
                     {/if}
                     <table class="mt-3 w-full text-xs sm:text-sm" data-system-health-table>
-                        <thead class="text-[11px] font-bold uppercase tracking-normal text-slate-500 sm:tracking-[0.14em] dark:text-slate-400">
+                        <thead class="text-2xs font-bold uppercase tracking-normal text-slate-500 sm:tracking-[0.14em] dark:text-slate-400">
                             <tr>
                                 <th scope="col" class="pb-2 text-left font-bold">{$_('settings.system_health.col_process', { default: 'Process' })}</th>
                                 <th scope="col" class="pb-2 pl-2 text-right font-bold">{$_('settings.system_health.col_cpu', { default: 'CPU' })}</th>
@@ -442,7 +469,7 @@
                                         <td class="py-2 pl-2 text-right text-slate-500 dark:text-slate-400">
                                             {#if row.acceleratorLabels.length > 0}
                                                 <span class="block font-semibold text-slate-800 dark:text-slate-100">{row.acceleratorLabels.join(', ')}</span>
-                                                <span class="block text-[10px] uppercase tracking-wide">{$_('settings.system_health.accelerator_loaded', { default: 'loaded' })}</span>
+                                                <span class="block text-3xs uppercase tracking-wide">{$_('settings.system_health.accelerator_loaded', { default: 'loaded' })}</span>
                                             {:else}
                                                 —
                                             {/if}
@@ -460,6 +487,10 @@
                     </p>
                 </div>
             {/if}
+        {/if}
+
+        {#if details}
+            {@render details()}
         {/if}
     </SettingsCard>
 </div>

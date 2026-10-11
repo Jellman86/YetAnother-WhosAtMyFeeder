@@ -29,11 +29,21 @@ from app.services.ebird_service import ebird_service
 from app.services.leaderboard_window import previous_window_is_complete
 from app.services.nearby_species_service import nearby_species_service, reported_nearby
 from app.utils.classifier_labels import collapse_classifier_label
+from app.utils.species_aliases import (
+    parse_species_alias_label as _parse_species_alias_label,
+    split_species_alias_parts as _split_species_alias_parts,
+)
 from app.utils.canonical_species import should_hide_species_label, user_facing_species_fields
 from app.utils.api_datetime import serialize_api_datetime
 from app.utils.language import get_user_language
 from app.utils.enrichment import get_effective_enrichment_settings
 from app.utils.audio_localization import localize_audio_species_name
+from app.utils.public_access import (
+    hide_public_audio_fields,
+    refresh_public_audio_fields,
+    public_events_window,
+    public_event_query_bounds,
+)
 from app.utils.timezone import get_user_timezone
 from app.auth import require_owner, AuthContext
 from app.auth import get_auth_context_with_legacy
@@ -68,7 +78,6 @@ SPECIES_SEARCH_HYDRATE_MAX = 30
 SPECIES_SEARCH_HYDRATE_CONCURRENCY = 6
 SPECIES_SEARCH_HYDRATE_LOOKUP_TIMEOUT = 2.5
 SPECIES_SEARCH_HYDRATE_TRANSLATION_TIMEOUT = 1.5
-SCIENTIFIC_NAME_PATTERN = re.compile(r"^[A-Z][a-z]+(?: [a-z][a-z-]+){1,3}$")
 
 # Species names that should NOT trigger Wikipedia lookup (no valid article exists)
 SKIP_WIKIPEDIA_LOOKUP = {"Unknown Bird", "Background", "Unknown", "No Detection", "Unidentified"}
@@ -219,37 +228,6 @@ def _canonical_species_response_name(
     if scientific_name:
         return scientific_name
     return species_label
-
-
-def _looks_like_scientific_name(value: str | None) -> bool:
-    return bool(value and SCIENTIFIC_NAME_PATTERN.match(value.strip()))
-
-
-def _split_species_alias_parts(label: str | None) -> tuple[str | None, str | None]:
-    raw = str(label or "").strip()
-    if not raw:
-        return None, None
-
-    match = re.match(r"^(.*?)\s*\((.*?)\)\s*$", raw)
-    if not match:
-        return None, None
-    left = match.group(1).strip()
-    right = match.group(2).strip()
-    return (left or None), (right or None)
-
-
-def _parse_species_alias_label(label: str | None) -> tuple[str | None, str | None]:
-    left, right = _split_species_alias_parts(label)
-    if not left or not right:
-        return None, None
-
-    left_is_scientific = _looks_like_scientific_name(left)
-    right_is_scientific = _looks_like_scientific_name(right)
-    if left_is_scientific and not right_is_scientific:
-        return left, right
-    if right_is_scientific and not left_is_scientific:
-        return right, left
-    return None, None
 
 
 async def _lookup_species_search_taxonomy(
@@ -900,14 +878,15 @@ def _dedupe_inaturalist_candidates(candidates: list[dict]) -> list[dict]:
 
 
 @router.get("/species", response_model=list[SpeciesCountItem])
-async def get_species_list(request: Request):
+async def get_species_list(request: Request, auth: AuthContext = Depends(get_auth_context_with_legacy)):
     """Get list of all species with counts."""
     lang = get_user_language(request)
+    bounds = {} if auth.is_owner else public_event_query_bounds()
     async with get_db() as db:
         repo = DetectionRepository(db)
         await repo.ensure_recent_rollups(90)
-        stats = await repo.get_species_leaderboard_base()
-        unified_metrics = await repo.get_unified_species_window_metrics()
+        stats = await repo.get_species_leaderboard_base(**bounds)
+        unified_metrics = await repo.get_unified_species_window_metrics(**bounds)
 
         # Transform unknown bird labels for display and aggregate counts
         unknown_labels = settings.classification.unknown_bird_labels
@@ -982,9 +961,9 @@ async def get_species_list(request: Request):
             )
 
         # Add aggregated "Unknown Bird" entry if any were found
-        unknown_stats = await repo.get_species_aggregate_for_name("Unknown Bird")
+        unknown_stats = await repo.get_species_aggregate_for_name("Unknown Bird", **bounds)
         if unknown_stats:
-            unknown_rollup = await repo.get_window_metrics_for_species_name("Unknown Bird")
+            unknown_rollup = await repo.get_window_metrics_for_species_name("Unknown Bird", **bounds)
             trend_delta = unknown_rollup.get("count_7d", 0) - unknown_rollup.get("count_prev_7d", 0)
             trend_pct = 0.0
             prev = unknown_rollup.get("count_prev_7d", 0)
@@ -1021,6 +1000,7 @@ async def get_species_list(request: Request):
 @guest_rate_limit()
 async def get_leaderboard_species(
     request: Request,
+    auth: AuthContext = Depends(get_auth_context_with_legacy),
     span: Literal["day", "week", "month"] = Query("week", description="Rolling window for leaderboard stats"),
 ):
     """Leaderboard species stats for a rolling window aligned to the current time.
@@ -1044,6 +1024,11 @@ async def get_leaderboard_species(
     prev_start = window_start - window
     prev_end = window_start
 
+    bounds = {} if auth.is_owner else public_event_query_bounds(now.replace(tzinfo=timezone.utc))
+    if not auth.is_owner:
+        cutoff = bounds["start_date"].replace(tzinfo=None)
+        window_start = max(window_start, cutoff)
+        prev_start = max(prev_start, cutoff)
     unknown_labels = settings.classification.unknown_bird_labels
 
     # Read everything the database has to say first and give the connection back.
@@ -1057,6 +1042,7 @@ async def get_leaderboard_species(
             window_end=window_end,
             prev_start=prev_start,
             prev_end=prev_end,
+            public_audio_evidence=not auth.is_owner,
         )
         unknown = await repo.get_species_leaderboard_window_for_name(
             species_name="Unknown Bird",
@@ -1064,8 +1050,9 @@ async def get_leaderboard_species(
             window_end=window_end,
             prev_start=prev_start,
             prev_end=prev_end,
+            public_audio_evidence=not auth.is_owner,
         )
-        history_start, _ = await repo.get_detection_time_bounds()
+        history_start, _ = await repo.get_detection_time_bounds(**bounds)
 
     nearby = await nearby_species_service.get_report()
 
@@ -1113,7 +1100,9 @@ async def get_leaderboard_species(
                 "window_avg_confidence": r.get("window_avg_confidence", 0.0),
                 "window_camera_count": r.get("window_camera_count", 0),
                 "window_confirmed_count": r.get("window_confirmed_count", 0),
-                "window_audio_confirmed_count": r.get("window_audio_confirmed_count", 0),
+                "window_audio_confirmed_count": r.get("window_audio_confirmed_count", 0)
+                if auth.is_owner or settings.public_access.show_audio
+                else 0,
                 "window_visit_count": r.get("window_visit_count", 0),
                 "window_prev_visit_count": r.get("prev_visit_count", 0),
                 "reported_nearby": reported_nearby(
@@ -1142,7 +1131,9 @@ async def get_leaderboard_species(
                 "window_avg_confidence": unknown.get("window_avg_confidence", 0.0),
                 "window_camera_count": unknown.get("window_camera_count", 0),
                 "window_confirmed_count": unknown.get("window_confirmed_count", 0),
-                "window_audio_confirmed_count": unknown.get("window_audio_confirmed_count", 0),
+                "window_audio_confirmed_count": unknown.get("window_audio_confirmed_count", 0)
+                if auth.is_owner or settings.public_access.show_audio
+                else 0,
                 "window_visit_count": unknown.get("window_visit_count", 0),
                 "window_prev_visit_count": unknown.get("prev_visit_count", 0),
             }
@@ -1156,7 +1147,8 @@ async def get_leaderboard_species(
         "window_start": window_start.replace(tzinfo=timezone.utc).isoformat(),
         "window_end": window_end.replace(tzinfo=timezone.utc).isoformat(),
         "history_start": serialize_api_datetime(history_start) if history_start else None,
-        "previous_window_complete": previous_window_is_complete(history_start=history_start, prev_start=prev_start),
+        "previous_window_complete": prev_start < prev_end
+        and previous_window_is_complete(history_start=history_start, prev_start=prev_start),
         "nearby_radius_km": nearby.radius_km if nearby else None,
         "nearby_days_back": nearby.days_back if nearby else None,
         "species": filtered,
@@ -1169,6 +1161,7 @@ async def get_species_stats(
     species_name: str, request: Request, auth: AuthContext = Depends(get_auth_context_with_legacy)
 ):
     """Get comprehensive statistics for a species."""
+    bounds = {} if auth.is_owner else public_event_query_bounds()
     lang = get_user_language(request)
     hide_camera_names = (
         not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
@@ -1208,7 +1201,7 @@ async def get_species_stats(
         confidence_count = 0
 
         for label in query_labels:
-            basic_stats = await repo.get_species_basic_stats(label)
+            basic_stats = await repo.get_species_basic_stats(label, **bounds)
             if basic_stats["total"] > 0:
                 total_stats["total"] += basic_stats["total"]
                 if basic_stats["first_seen"]:
@@ -1231,15 +1224,15 @@ async def get_species_stats(
                 confidence_count += basic_stats["total"]
 
                 # Aggregate distributions
-                label_hourly_counts = await repo.get_species_utc_hourly_counts(label)
+                label_hourly_counts = await repo.get_species_utc_hourly_counts(label, **bounds)
                 _accumulate_local_distributions((hourly, daily, monthly), label_hourly_counts, user_tz)
 
                 # Get camera breakdown
-                label_cameras = await repo.get_camera_breakdown(label)
+                label_cameras = await repo.get_camera_breakdown(label, **bounds)
                 all_camera_stats.extend(label_cameras)
 
                 # Get recent sightings
-                label_recent = await repo.get_recent_by_species(label, limit=5)
+                label_recent = await repo.get_recent_by_species(label, limit=5, **bounds)
                 recent.extend(label_recent)
 
         if total_stats["total"] == 0:
@@ -1281,7 +1274,14 @@ async def get_species_stats(
         # Convert dataclass detections to Pydantic models
         # Also transform display_name for unknown bird labels
         recent_detections = []
+        public_audio = (
+            await repo.get_public_audio_for_detections(recent)
+            if not auth.is_owner and settings.public_access.show_audio
+            else {}
+        )
         for d in recent:
+            if not auth.is_owner:
+                await refresh_public_audio_fields(d, repo, public_audio.get(d.frigate_event, {}))
             common_name = d.common_name
             if d.taxa_id:
                 if lang != "en":
@@ -1343,6 +1343,10 @@ async def get_species_stats(
                     taxa_id=public_species["taxa_id"],
                 )
             )
+
+        if not auth.is_owner and not settings.public_access.show_audio:
+            for detection in recent_detections:
+                hide_public_audio_fields(detection)
 
         # Get taxonomy names for the main species
         if alias_info:
@@ -2215,8 +2219,6 @@ async def _get_wikipedia_summary(
     client: httpx.AsyncClient, article_title: str, original_name: str, lang: str
 ) -> SpeciesInfo:
     """Fetch the summary for a Wikipedia article."""
-    import re
-
     base_url = f"https://{lang}.wikipedia.org/api/rest_v1/page/summary"
     encoded = quote(article_title.replace(" ", "_"))
     url = f"{base_url}/{encoded}"
@@ -2229,16 +2231,12 @@ async def _get_wikipedia_summary(
             description = data.get("description", "")
             extract = data.get("extract", "")
 
-            # Get the best available image
+            # SpeciesInfo bounds originals to a supported reference-photo size.
             thumbnail_url = None
             if "originalimage" in data:
                 thumbnail_url = data["originalimage"].get("source")
             elif "thumbnail" in data:
-                thumb_url = data["thumbnail"].get("source", "")
-                if "/thumb/" in thumb_url and "px-" in thumb_url:
-                    thumbnail_url = re.sub(r"/\d+px-", "/800px-", thumb_url)
-                else:
-                    thumbnail_url = thumb_url
+                thumbnail_url = data["thumbnail"].get("source", "")
 
             wikipedia_url = data.get("content_urls", {}).get("desktop", {}).get("page")
             return SpeciesInfo(
@@ -2287,6 +2285,28 @@ class LeaderboardPortraitResponse(BaseModel):
     taxa_id: int | None = None
     frigate_event: str
     image_url: str
+    # A few silent seconds of the same visit, framed on the bird, once one has been made.
+    film_url: str | None = None
+
+
+# The reel asks for films for its first few species; the rest keep their photographs.
+PORTRAIT_FILMS = 6
+
+
+async def _portrait_responses(portraits: list[dict], *, films_allowed: bool) -> list[LeaderboardPortraitResponse]:
+    from app.services.visit_film_service import visit_film_service
+
+    responses = []
+    for index, portrait in enumerate(portraits):
+        film_url = None
+        if films_allowed:
+            event_id = portrait["frigate_event"]
+            if await visit_film_service.ready_path(event_id) is not None:
+                film_url = f"/api/about/showcase/{quote(event_id, safe='')}.webm"
+            elif index < PORTRAIT_FILMS:
+                await visit_film_service.request(event_id)
+        responses.append(LeaderboardPortraitResponse(**portrait, film_url=film_url))
+    return responses
 
 
 class LeaderboardPortraitsResponse(BaseModel):
@@ -2320,27 +2340,32 @@ async def get_leaderboard_portraits(
     """
     from app.routers.about import is_crop_source
     from app.services.media_cache import media_cache
-    from app.utils.public_access import effective_public_media_days
-
-    if not (settings.media_cache.enabled and settings.media_cache.cache_snapshots):
-        return LeaderboardPortraitsResponse(span=span, portraits=[])
+    from app.utils.public_access import public_media_window
 
     is_guest = not auth.is_owner and settings.public_access.enabled
     if is_guest and not settings.public_access.show_snapshots:
         return LeaderboardPortraitsResponse(span=span, portraits=[])
     cache_key = (span, limit, is_guest)
     cached = _portraits_cache.get(cache_key)
-    if cached and (asyncio.get_running_loop().time() - cached[0]) < PORTRAITS_CACHE_SECONDS:
-        return LeaderboardPortraitsResponse(span=span, portraits=[LeaderboardPortraitResponse(**p) for p in cached[1]])
+    if not is_guest and cached and (asyncio.get_running_loop().time() - cached[0]) < PORTRAITS_CACHE_SECONDS:
+        return LeaderboardPortraitsResponse(
+            span=span, portraits=await _portrait_responses(cached[1], films_allowed=True)
+        )
 
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     window_start, window_end = _portraits_window(span, now)
     guest_cutoff: datetime | None = None
     if is_guest:
-        max_days = effective_public_media_days()
-        guest_cutoff = (
-            now - timedelta(days=max_days) if max_days > 0 else now.replace(hour=0, minute=0, second=0, microsecond=0)
-        )
+        media_start, media_end = public_media_window(now.replace(tzinfo=timezone.utc))
+        guest_cutoff = media_start.replace(tzinfo=None)
+        if media_end is not None:
+            window_end = min(window_end, media_end.replace(tzinfo=None))
+
+    if is_guest:
+        event_start, public_end = public_events_window(now.replace(tzinfo=timezone.utc))
+        window_start = max(window_start, event_start.replace(tzinfo=None), guest_cutoff)
+        if public_end is not None:
+            window_end = min(window_end, public_end.replace(tzinfo=None))
 
     unknown_labels = settings.classification.unknown_bird_labels
     async with get_db() as db:
@@ -2359,7 +2384,12 @@ async def get_leaderboard_portraits(
             and not should_hide_species_label(r["species"])
         ][:limit]
         recent_by_species = {
-            r["species"]: await repo.get_recent_by_species(r["species"], limit=PORTRAIT_CANDIDATES_PER_SPECIES)
+            r["species"]: await repo.get_recent_by_species(
+                r["species"],
+                limit=PORTRAIT_CANDIDATES_PER_SPECIES,
+                start_date=window_start if is_guest else None,
+                end_date=window_end if is_guest else None,
+            )
             for r in ranked
         }
 
@@ -2382,8 +2412,12 @@ async def get_leaderboard_portraits(
             )
             break
 
-    _portraits_cache[cache_key] = (asyncio.get_running_loop().time(), portraits)
-    return LeaderboardPortraitsResponse(span=span, portraits=[LeaderboardPortraitResponse(**p) for p in portraits])
+    if not is_guest:
+        _portraits_cache[cache_key] = (asyncio.get_running_loop().time(), portraits)
+    films_allowed = not is_guest or settings.public_access.show_clips
+    return LeaderboardPortraitsResponse(
+        span=span, portraits=await _portrait_responses(portraits, films_allowed=films_allowed)
+    )
 
 
 def clear_portraits_cache() -> None:

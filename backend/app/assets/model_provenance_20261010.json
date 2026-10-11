@@ -1,0 +1,98 @@
+[
+  {
+    "classes": 10000,
+    "external_weights_sha256": "ec76f79196d5a64c4c8b4e4199c3d2d43771e50a5693947aae9502bc5ac9f34c",
+    "graph_sha256": "d61793c4c5aeb6ab850b831f5e7ce4ac2a5ec8609769bc6a3704270aa1610109",
+    "metadata_policy": "Configured location at runtime; date and uncertainty absent; eight zeros when location unavailable",
+    "model_id": "dinov2_b14_inat21_metadata_336",
+    "output_source_sha256": "f2b1294bc0b3a943425655e8b74cd7489e623d0ec7fa6dc5ce57cc85a93f8ac5",
+    "reference_checks": 3,
+    "source_checkpoint_sha256": "1eee0f1df655c48f95d250a70492e95dda04601e2d6480bf61788abcaaec5367",
+    "source_model_id": "kokoc30/inat2021-dinov2-species-classification@v1.0.0",
+    "source_revision": "d468bf1c3d6ac05eec656102614ffbc84f5cf026"
+  },
+  {
+    "classes": 10000,
+    "external_weights_sha256": null,
+    "graph_sha256": "e997ad65c4442dd154dbaf28e86e4568e74cb53a91e7f8d97ce95c175c85accf",
+    "metadata_policy": null,
+    "model_id": "rope_vit_b14_inat21_336",
+    "output_source_sha256": "2d9fd87ac88f8a209f398e45e206eb1618ee11435573ee40b07f18c773e295d9",
+    "reference_checks": 24,
+    "source_checkpoint_sha256": "25befb5a460cc80a5a7961db61e747916461bf6967f3d39d9294ee474bd31304",
+    "source_model_id": "rope_vit_reg4_b14_capi-inat21",
+    "source_revision": "2706e935a8f09eefffc925b74f8af65c4fd17274"
+  },
+  {
+    "classes": 707,
+    "external_weights_sha256": null,
+    "graph_sha256": "867e373f488379a57d12aa872ef7fbe9b48a318b3a18fefeb16f891332cda461",
+    "metadata_policy": null,
+    "model_id": "rope_vit_b14_eu_common_336",
+    "output_source_sha256": "0946dccf33af161902a5e34e4ba73be7b1ad25d5a875f9bc7690d84830c2ecb0",
+    "reference_checks": 24,
+    "source_checkpoint_sha256": "5f9529dbb354ac755ee7c584fdc9227f469233ca35a09998ddf57afa54199e44",
+    "source_model_id": "rope_vit_reg4_b14_capi-intermediate-eu-common",
+    "source_revision": "04624a2fbbb5a50346ef553dc1b65dcfe707692c"
+  },
+  {
+    "classes": 735,
+    "external_weights_sha256": null,
+    "graph_sha256": "c6aeee86291d0513ae30e40bd1d2ee6ec5e752345a936f42528e6ee0d7893870",
+    "metadata_policy": null,
+    "model_id": "rope_deit3_m14_arabian_peninsula",
+    "output_source_sha256": "a39407b11061715fb7931c31b6db67099dff21de7d620e6c830cef39c72c91a3",
+    "reference_checks": 24,
+    "source_checkpoint_sha256": "596223dde050561e2045352d4c0816ef874b9e8ccc6e5157f9e112cecfa9fb8c",
+    "source_model_id": "rope_deit3_reg4_m14_arabian-peninsula",
+    "source_revision": "281c721d62cc35bb318b7d1137a097bd4d1ad8ff"
+  },
+  {
+    "classes": 707,
+    "external_weights_sha256": "578576de178a4c3c7734e118a5db440148be55268fa3a97c3bf4de75e41db55f",
+    "graph_sha256": "dd8fce1479611a076558116c2fb8fbc40641e09beee7e57873c1cfffe313fad5",
+    "metadata_policy": null,
+    "model_id": "naflex_so150m_eu_common",
+    "output_source_sha256": "0946dccf33af161902a5e34e4ba73be7b1ad25d5a875f9bc7690d84830c2ecb0",
+    "reference_checks": 24,
+    "source_checkpoint_sha256": "31940434aedb4431e1e73a4bdb2f692e2f42d5650cc80e33453a30b2c16d4c24",
+    "source_model_id": "naflex_vit_reg4_so150m_p14_ls_dino-v2-bio-intermediate-eu-common",
+    "source_revision": "87fa3cc23777c32ffa0ac079d31f1e01724c1734"
+  },
+  {
+    "classes": 550,
+    "external_weights_sha256": "1bef9a850025c27c06191e149e6a7b64f92baab4b543ab7522d48e4ef787a1c4",
+    "graph_sha256": "c6285567c3388cbfc0ed07ac07f06c01392bd7220e4003411396682d6e3b407f",
+    "metadata_policy": null,
+    "model_id": "naflex_so150m_il_all",
+    "output_source_sha256": "f65bff0e822832ba992c7a4ef60366ffe22f465d00747e163af07a8f139fc74c",
+    "reference_checks": 24,
+    "source_checkpoint_sha256": "b360668afb052bf3b9a93981cc10e44ddfd48da47bbdba77cf81b2dec2b120e1",
+    "source_model_id": "naflex_vit_reg4_so150m_p14_ls_dino-v2-bio-intermediate-il-all",
+    "source_revision": "8c8a60b1f65ccd3a11d7e6beeb472bdb6f192fc7"
+  },
+  {
+    "classes": 707,
+    "external_weights_sha256": null,
+    "graph_sha256": "f730f8816547481f6bf26351e9fab4d5d362ca9dd26cecb6821a213b8c6ec811",
+    "metadata_policy": null,
+    "model_id": "vit_parallel_s16_eu_common",
+    "output_source_sha256": "0946dccf33af161902a5e34e4ba73be7b1ad25d5a875f9bc7690d84830c2ecb0",
+    "reference_checks": 24,
+    "source_checkpoint_sha256": "1c697b42eac7150121325335b0d41ab5643ecab7afd04216b5088a538fcf94bb",
+    "source_model_id": "vit_parallel_s16_18x2_ls_avg_data2vec-intermediate-eu-common",
+    "source_revision": "edfa951183706d0f92a51b6541fcaecfce7b37e9"
+  },
+  {
+    "classes": 9025,
+    "external_weights_sha256": "58e4de6c678534ac70752567bf3a1911a97e8a7aa3dc18bcccc967b485133a5d",
+    "graph_sha256": "98759a200ffe7e85c2df14809e6e621d4702cb79ade7f1d92cf344715626186d",
+    "metadata_policy": null,
+    "model_id": "bioclip25_inat9025",
+    "output_source_sha256": "f1f41967c68e4aedea91d3b504ec3ad1c3db073ac60c6b1a227efd4abdb9949d",
+    "reference_checks": 24,
+    "source_checkpoint_sha256": "ac2e37c2f89ef8e6b889176a9a3f418970ad9db15a218bd29e3321e95c46ae97",
+    "source_model_id": "imageomics/bioclip-2.5-vith14",
+    "source_revision": "6e3d04e3d6522012c88181085c5ae666e14c45cd"
+  }
+]

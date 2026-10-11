@@ -1,10 +1,28 @@
 import httpx
+import logging
+import re
 import structlog
 from datetime import datetime
 from typing import Optional
+from urllib.parse import quote
 from app.config import settings
 
 log = structlog.get_logger()
+
+
+class _StationCredentialLogFilter(logging.Filter):
+    """HTTP client logs include URLs, and BirdWeather authenticates in the path."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        message = record.getMessage()
+        redacted = re.sub(r"(https://app\.birdweather\.com/api/v1/stations/)[^/\s]+", r"\1***REDACTED***", message)
+        if redacted != message:
+            record.msg = redacted
+            record.args = ()
+        return True
+
+
+logging.getLogger("httpx").addFilter(_StationCredentialLogFilter())
 
 
 class BirdWeatherService:
@@ -30,7 +48,7 @@ class BirdWeatherService:
         if token is None and not settings.birdweather.enabled:
             return False
 
-        url = f"{self.api_url}/stations/{active_token}/detections"
+        url = f"{self.api_url}/stations/{quote(active_token, safe='')}/detections"
 
         # Format timestamp as ISO8601
         ts = timestamp or datetime.now()
@@ -59,8 +77,13 @@ class BirdWeatherService:
                 resp.raise_for_status()
                 log.info("Reported detection to BirdWeather", species=scientific_name, status=resp.status_code)
                 return True
-        except Exception as e:
-            log.error("Failed to report detection to BirdWeather", species=scientific_name, error=str(e))
+        except Exception as exc:
+            log.error(
+                "Failed to report detection to BirdWeather",
+                species=scientific_name,
+                error_type=type(exc).__name__,
+                status_code=exc.response.status_code if isinstance(exc, httpx.HTTPStatusError) else None,
+            )
             return False
 
 

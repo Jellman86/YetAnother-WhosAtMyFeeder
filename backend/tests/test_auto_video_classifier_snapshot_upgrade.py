@@ -112,8 +112,68 @@ async def test_process_event_triggers_snapshot_upgrade_when_clip_valid():
         ANY,
         event_data={"has_clip": True},
         clip_variant="event",
+        clip_start_timestamp=None,
+        scene_cache=ANY,
     )
     service._save_results.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("photo_outcome", ["replaced", "matching_photo_preserved", "frame_extract_failed"])
+async def test_video_photo_finishes_before_completion_with_hq_disabled(photo_outcome):
+    service = AutoVideoClassifierService()
+    top = {"label": "Robin", "score": 0.92, "index": 1}
+    service._classifier = MagicMock()
+    service._classifier.classify_video_async = AsyncMock(return_value=[top])
+    service._update_status = AsyncMock()
+    service._save_results = AsyncMock(return_value=True)
+    service._wait_for_clip = AsyncMock(return_value=(True, None))
+    settings.media_cache.high_quality_event_snapshots = False
+    sequence = []
+    service._active_metadata["evt-video-photo-off"] = {
+        "source": "manual",
+        "phase": "analyzing",
+        "current": 15,
+        "total": 15,
+    }
+
+    async def photo(*args, **kwargs):
+        job = service.get_jobs_snapshot()[0]
+        assert job["phase"] == "updating_photo" and job["status"] == "running"
+        sequence.append("photo")
+        return photo_outcome
+
+    async def publish(*args, **kwargs):
+        sequence.append("completed")
+
+    with (
+        patch.object(
+            auto_video_classifier_module.frigate_client,
+            "get_event_with_error",
+            new=AsyncMock(return_value=({"has_clip": True}, None)),
+        ),
+        patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()) as broadcast,
+        patch.object(
+            auto_video_classifier_module, "replace_video_snapshot", new=AsyncMock(side_effect=photo), create=True
+        ) as replace,
+        patch.object(
+            auto_video_classifier_module.video_classification_waiter, "publish", new=AsyncMock(side_effect=publish)
+        ),
+    ):
+        await service._process_event("evt-video-photo-off", "cam1", skip_delay=True)
+    replace.assert_awaited_once_with(
+        "evt-video-photo-off", ANY, top, clip_variant="event", automatic=True, scene_cache=ANY
+    )
+    assert (
+        replace.await_args.kwargs["scene_cache"]
+        is service._classifier.classify_video_async.await_args.kwargs["scene_cache"]
+    )
+    assert sequence == ["photo", "completed"]
+
+    completion = [
+        call.args[0] for call in broadcast.await_args_list if call.args[0]["type"] == "reclassification_completed"
+    ]
+    assert completion[-1]["data"]["photo_outcome"] == photo_outcome
 
 
 @pytest.mark.asyncio
@@ -173,6 +233,7 @@ async def test_process_event_records_temporal_abstention_without_breaker_failure
             "outcome": "no_result",
             "reason": "video_no_results",
             "diagnostics": diagnostics,
+            "photo_outcome": "owner_identification_preserved",
         }
         diagnostic = next(
             item
@@ -232,6 +293,8 @@ async def test_manual_video_abstention_falls_back_to_best_retained_snapshot():
         "cam1",
         event_data={"has_clip": True},
         manual_tagged=True,
+        photo_outcome="owner_identification_preserved",
+        snapshot_input=ANY,
     )
     service._save_results.assert_not_awaited()
     service._record_success.assert_called_once_with("evt-manual-video-abstention", source="manual")
@@ -321,12 +384,15 @@ async def test_process_event_still_classifies_when_snapshot_upgrade_fails():
         ANY,
         event_data={"has_clip": True},
         clip_variant="event",
+        clip_start_timestamp=None,
+        scene_cache=ANY,
     )
     service._save_results.assert_awaited_once()
 
 
 @pytest.mark.asyncio
-async def test_process_event_falls_back_to_snapshot_when_clip_not_retained_for_batch_mode():
+async def test_process_event_falls_back_to_snapshot_when_clip_not_retained_for_batch_mode(monkeypatch):
+    monkeypatch.setattr(auto_video_classifier_module, "_active_model_id_or_none", lambda: "model.tflite")
     service = AutoVideoClassifierService()
     service._classifier = MagicMock()
     service._classifier.classify_async_background = AsyncMock(
@@ -391,6 +457,7 @@ async def test_process_event_falls_back_to_snapshot_when_clip_not_retained_for_b
             "model_id": "model.tflite",
         },
         manual_tagged=False,
+        publish_completion=False,
     )
 
 
@@ -437,7 +504,8 @@ async def test_manual_reclassification_falls_back_for_any_unavailable_video_erro
 
 
 @pytest.mark.asyncio
-async def test_process_event_snapshot_fallback_retries_background_overload_then_succeeds():
+async def test_process_event_snapshot_fallback_retries_background_overload_then_succeeds(monkeypatch):
+    monkeypatch.setattr(auto_video_classifier_module, "_active_model_id_or_none", lambda: "model.tflite")
     service = AutoVideoClassifierService()
     service._classifier = MagicMock()
     service._classifier.classify_async_background = AsyncMock(
@@ -487,6 +555,7 @@ async def test_process_event_snapshot_fallback_retries_background_overload_then_
             "model_id": "model.tflite",
         },
         manual_tagged=False,
+        publish_completion=False,
     )
     service._record_success.assert_called_once_with("evt-batch-fallback-retry", source="maintenance")
     service._record_failure.assert_not_called()
@@ -614,11 +683,115 @@ async def test_process_event_passes_event_id_into_video_classification_context()
         "event_id": "evt-batch-video-context",
         "clip_variant": "event",
         "include_video_diagnostics": True,
-        "clip_start_timestamp": 100.0,
         "frigate_box": [0.2, 0.3, 0.4, 0.5],
         "frigate_region": [0.1, 0.2, 0.8, 0.9],
         "frigate_path_data": [[[0.4, 0.8], 100.5]],
     }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "identity_state",
+    ["unchanged", "automatic_overturn", "manual_correction", "manual_reanalysis", "legacy", "borrowed_frigate_label"],
+)
+async def test_process_event_uses_initial_identity_unless_manually_corrected(identity_state):
+    event_id = f"evt-existing-video-target-{identity_state}"
+    service = AutoVideoClassifierService()
+    service._classifier = MagicMock()
+    service._classifier.classify_video_async = AsyncMock(
+        return_value=[
+            {
+                "label": "Baeolophus bicolor",
+                "score": 0.96,
+                "index": 1,
+            }
+        ]
+    )
+    service._update_status = AsyncMock()
+    service._save_results = AsyncMock()
+    service._wait_for_clip = AsyncMock(return_value=(True, None))
+    async with get_db() as db:
+        await DetectionRepository(db).create(
+            Detection(
+                detection_time=auto_video_classifier_module.utc_naive_now(),
+                detection_index=1,
+                score=0.8,
+                category_name="Baeolophus bicolor",
+                display_name="Tufted Titmouse",
+                scientific_name="Baeolophus bicolor",
+                common_name="Tufted Titmouse",
+                frigate_event=event_id,
+                camera_name="cam1",
+            )
+        )
+    async with get_db() as db:
+        if identity_state in {"automatic_overturn", "manual_correction"}:
+            await db.execute(
+                "UPDATE detections SET category_name = 'Dryobates pubescens', scientific_name = 'Dryobates pubescens', "
+                "display_name = 'Downy Woodpecker', common_name = 'Downy Woodpecker', manual_tagged = ? WHERE frigate_event = ?",
+                (identity_state in {"manual_correction", "manual_reanalysis"}, event_id),
+            )
+        if identity_state == "manual_correction":
+            await DetectionRepository(db).confirm_manual_species_tag(frigate_event=event_id)
+        if identity_state == "borrowed_frigate_label":
+            await db.execute(
+                "UPDATE detection_initial_classifications SET label_source = 'frigate_sublabel' "
+                "WHERE detection_id = (SELECT id FROM detections WHERE frigate_event = ?)",
+                (event_id,),
+            )
+        if identity_state == "legacy":
+            await db.execute(
+                "DELETE FROM detection_initial_classifications WHERE detection_id = (SELECT id FROM detections WHERE frigate_event = ?)",
+                (event_id,),
+            )
+        await db.commit()
+    if identity_state == "manual_reanalysis":
+        from app.services.detection_service import DetectionService
+
+        with (
+            patch(
+                "app.services.detection_service.taxonomy_service.get_names",
+                new=AsyncMock(
+                    return_value={"scientific_name": "Dryobates pubescens", "common_name": "Downy Woodpecker"}
+                ),
+            ),
+            patch(
+                "app.services.audio.audio_service.audio_service.correlate_species",
+                new=AsyncMock(return_value=(False, None, None)),
+            ),
+            patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()),
+        ):
+            assert await DetectionService(service._classifier).apply_video_result(
+                event_id, "Dryobates pubescens", 0.98, 2, manual_tagged=True
+            )
+        async with get_db() as db:
+            assert (await DetectionRepository(db).get_by_frigate_event(event_id)).manual_tagged
+    with (
+        patch.object(
+            auto_video_classifier_module.frigate_client,
+            "get_event_with_error",
+            new=AsyncMock(return_value=({"has_clip": True}, None)),
+        ),
+        patch.object(
+            auto_video_classifier_module.broadcaster,
+            "broadcast",
+            new=AsyncMock(),
+        ),
+    ):
+        await service._process_event(event_id, "cam1", skip_delay=True)
+    context = service._classifier.classify_video_async.await_args.kwargs["input_context"]
+    if identity_state == "legacy":
+        assert context.get("event_target_labels", []) == []
+        assert context["event_target_label_source"] == "unavailable"
+    elif identity_state == "borrowed_frigate_label":
+        assert context["event_target_labels"] == []
+        assert context["event_target_label_source"] == "initial_frigate_sublabel_not_used"
+    elif identity_state == "manual_correction":
+        assert set(context["event_target_labels"]) == {"Dryobates pubescens", "Downy Woodpecker"}
+        assert context["event_target_label_source"] == "manual_correction"
+    else:
+        assert set(context["event_target_labels"]) == {"Baeolophus bicolor", "Tufted Titmouse"}
+        assert context["event_target_label_source"] == "initial_classification"
 
 
 @pytest.mark.asyncio
@@ -1016,7 +1189,8 @@ async def test_process_event_maintenance_timeout_falls_back_to_snapshot_without_
 @pytest.mark.parametrize(
     "failure", [asyncio.TimeoutError(), VideoClassificationWorkerError("video_worker_heartbeat_timeout")]
 )
-async def test_video_failure_still_opens_circuit_when_snapshot_is_filtered(monkeypatch, failure):
+@pytest.mark.parametrize("snapshot_error", ["low_confidence", "snapshot_fetch_failed"])
+async def test_video_failure_still_opens_circuit_when_snapshot_cannot_recover(monkeypatch, failure, snapshot_error):
     monkeypatch.setattr(settings.classification, "video_classification_failure_threshold", 1)
     service = AutoVideoClassifierService()
     event_id = "evt-filtered-snapshot-after-failure"
@@ -1025,7 +1199,7 @@ async def test_video_failure_still_opens_circuit_when_snapshot_is_filtered(monke
     service._classifier.classify_video_async = AsyncMock(side_effect=failure)
     service._update_status = AsyncMock()
     service._wait_for_clip = AsyncMock(return_value=(True, None))
-    service._classify_from_snapshot = AsyncMock(return_value="low_confidence")
+    service._classify_from_snapshot = AsyncMock(return_value=snapshot_error)
     with (
         patch.object(
             auto_video_classifier_module.frigate_client,
@@ -1125,7 +1299,7 @@ async def test_process_event_top_frames_ranked_by_score_descending():
     # Verify ranking logic directly via the internal helper
     persisted: list[dict] = []
 
-    async def collect(frigate_event, frame_scores, clip_variant):
+    async def collect(frigate_event, frame_scores, clip_variant, **kwargs):
         from app.services.auto_video_classifier_service import _VIDEO_TOP_FRAMES_LIMIT
 
         sorted_frames = sorted(frame_scores, key=lambda f: f["frame_score"], reverse=True)
@@ -1311,3 +1485,40 @@ async def test_a_stopped_service_does_not_queue_a_lost_visit_again(monkeypatch):
 
     requeue.assert_not_awaited()
     assert service._worker_failure_retry_tasks == {}
+
+
+@pytest.mark.asyncio
+async def test_localized_video_photo_is_available_before_hq_selection():
+    service = AutoVideoClassifierService()
+    service._classifier = MagicMock()
+    service._classifier.classify_video_async = AsyncMock(return_value=[{"label": "Robin", "score": 0.92, "index": 1}])
+    service._update_status = AsyncMock()
+    service._save_results = AsyncMock(return_value=True)
+    service._wait_for_clip = AsyncMock(return_value=(True, None))
+    settings.media_cache.high_quality_event_snapshots = True
+    order = []
+
+    async def baseline(*args, **kwargs):
+        order.append("baseline")
+        return "replaced"
+
+    async def hq(*args, **kwargs):
+        order.append("hq")
+        return "existing_crop_preserved"
+
+    with (
+        patch.object(
+            auto_video_classifier_module.frigate_client,
+            "get_event_with_error",
+            new=AsyncMock(return_value=({"has_clip": True}, None)),
+        ),
+        patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()),
+        patch.object(auto_video_classifier_module, "replace_video_snapshot", new=AsyncMock(side_effect=baseline)),
+        patch.object(
+            auto_video_classifier_module.high_quality_snapshot_service,
+            "replace_from_clip_path",
+            new=AsyncMock(side_effect=hq),
+        ),
+    ):
+        await service._process_event("evt-photo-quality-order", "cam1", skip_delay=True)
+    assert order == ["baseline", "hq"]

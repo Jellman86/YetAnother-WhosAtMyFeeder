@@ -1,5 +1,5 @@
 import { API_BASE, apiFetch, handleResponse } from './core';
-import type { paths } from './generated/openapi';
+import type { paths, components } from './generated/openapi';
 import type { BirdModelRegionOverride } from '../settings/bird-model-region-override';
 import type { CropModelOverride, CropSourceOverride } from '../settings/crop-overrides';
 
@@ -10,6 +10,8 @@ export interface BlockedSpeciesEntry {
 }
 
 export type NotificationSpeciesFilterMode = 'none' | 'blacklist' | 'whitelist';
+
+export type ClassificationImageSource = NonNullable<components['schemas']['SettingsResponse']['classification_image_source']>;
 
 export interface Settings {
     frigate_url: string;
@@ -27,6 +29,7 @@ export interface Settings {
     camera_audio_mapping: Record<string, string>;
     camera_roles: Record<string, 'feeder' | 'nest'>;
     nest_dedupe_minutes: number;
+    classification_image_source?: ClassificationImageSource;
     clips_enabled: boolean;
     recording_clip_enabled: boolean;
     recording_clip_before_seconds: number;
@@ -67,13 +70,15 @@ export interface Settings {
     video_classification_circuit_failures?: number;
     audio_buffer_hours?: number;
     audio_correlation_window_seconds?: number;
-    media_cache_enabled: boolean;
-    media_cache_snapshots: boolean;
     media_cache_clips: boolean;
     media_cache_high_quality_event_snapshots: boolean;
     media_cache_high_quality_event_snapshot_bird_crop: boolean;
     media_cache_high_quality_event_snapshot_jpeg_quality: number;
     media_cache_retention_days: number;
+    media_cache_per_species_maximum: NonNullable<components['schemas']['SettingsResponse']['media_cache_per_species_maximum']>;
+    media_cache_max_size_mb: NonNullable<components['schemas']['SettingsResponse']['media_cache_max_size_mb']>;
+    media_cache_automatic_multi_bird_scan?: NonNullable<components['schemas']['SettingsResponse']['media_cache_automatic_multi_bird_scan']>;
+    media_cache_bird_scan_mode: NonNullable<components['schemas']['SettingsResponse']['media_cache_bird_scan_mode']>;
     media_cache_per_species_minimum: number;
     location_latitude?: number | null;
     location_longitude?: number | null;
@@ -220,13 +225,27 @@ export async function fetchSettings(): Promise<Settings> {
     return handleResponse<Settings>(response);
 }
 
+type SettingsUpdateListener = (settings: SettingsUpdate) => void;
+const settingsUpdateListeners = new Set<SettingsUpdateListener>();
+
+/** Confirmed writes from another local view, such as the setup wizard. */
+export function subscribeSettingsUpdates(listener: SettingsUpdateListener): () => void {
+    settingsUpdateListeners.add(listener);
+    return () => { settingsUpdateListeners.delete(listener); };
+}
+
 export async function updateSettings(settings: SettingsUpdate): Promise<{ status: string }> {
     const response = await apiFetch(`${API_BASE}/settings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings),
     });
-    return handleResponse<{ status: string }>(response);
+    const result = await handleResponse<{ status: string }>(response);
+    for (const listener of settingsUpdateListeners) {
+        try { listener(settings); }
+        catch { console.error('Failed to reconcile saved settings'); }
+    }
+    return result;
 }
 
 export interface ConfigBackupImportResult {

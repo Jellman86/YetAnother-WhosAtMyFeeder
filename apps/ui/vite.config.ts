@@ -131,6 +131,11 @@ export default defineConfig(({ mode }) => ({
     server: {
         host: true,
         port: 3000,
+        // Playwright writes traces holding generated HTML while the fixtures are served; watching
+        // them reloads pages under test. Vite only skips Playwright's default `test-results`.
+        watch: {
+            ignored: ['**/playwright-results/**', '**/playwright-report/**']
+        },
         proxy: {
             '/api': {
                 target: process.env.VITE_BACKEND_PROXY_TARGET || 'http://yawamf-backend:8000',

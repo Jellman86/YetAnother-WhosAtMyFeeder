@@ -1,4 +1,4 @@
-<?xml version="1.0"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Container version="2">
   <Name>YA-WAMF</Name>
   <Repository>ghcr.io/jellman86/yawamf-monalithic:latest</Repository>
@@ -10,17 +10,19 @@
   <ExtraParams>--user 99:100</ExtraParams>
   <Support>https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues</Support>
   <Project>https://github.com/Jellman86/YetAnother-WhosAtMyFeeder</Project>
-  <Overview>YA-WAMF (Yet Another WhosAtMyFeeder) identifies birds at your feeder from Frigate NVR events using local machine-learning models. It shows a real-time dashboard, correlates visual detections with BirdNET-Go audio, enriches species with taxonomy, and can send notifications.&#13;&#13;This template starts the full compatibility image and leaves inference on Auto. Optional CPU, Intel, and NVIDIA image tags are documented in the Unraid setup guide. Provider selection stays in Settings → Detection so it remains editable and persistent.</Overview>
+  <ReadMe>https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/main/docs/setup/unraid.md</ReadMe>
+  <License>MIT</License>
+  <Overview>YA-WAMF (Yet Another WhosAtMyFeeder) identifies birds at your feeder from Frigate NVR events using local machine-learning models. It shows a real-time dashboard, correlates visual detections with BirdNET-Go audio, enriches species with taxonomy, and can send notifications.&#13;&#13;This template starts the full compatibility image and leaves inference on Auto. Optional CPU, Intel, and NVIDIA image tags are documented in the Unraid setup guide. Connect Frigate and MQTT in the first-run wizard or Settings → Connection. Provider selection stays in Settings → Detection so settings remain editable and persistent.</Overview>
   <Category>HomeAutomation: Other:</Category>
   <WebUI>http://[IP]:[PORT:8080]/</WebUI>
   <TemplateURL>https://raw.githubusercontent.com/Jellman86/YetAnother-WhosAtMyFeeder/main/unraid/yawamf.xml</TemplateURL>
   <Icon>https://raw.githubusercontent.com/Jellman86/YetAnother-WhosAtMyFeeder/main/apps/ui/public/pwa-512x512.png</Icon>
+  <Screenshot>https://raw.githubusercontent.com/Jellman86/YetAnother-WhosAtMyFeeder/main/docs/images/dashboard.png</Screenshot>
   <ExtraSearchTerms>bird birds feeder frigate birdnet classification nvr</ExtraSearchTerms>
-  <Requires>A reachable Frigate instance and MQTT broker. The default latest tag is the full compatibility image; optional latest-cpu, latest-intel, and latest-cuda tags use the same persistent data. Add only the hardware device/runtime your host provides, then select Auto or a provider under Settings → Detection. Do not override the image-flavor identity.</Requires>
+  <Requires>A reachable Frigate instance and MQTT broker. The default latest tag is the full compatibility image; optional latest-cpu, latest-intel, and latest-cuda tags use the same persistent data. Configure Frigate and MQTT in the web UI using addresses reachable from this bridge-network container. Add only the hardware device/runtime your host provides, then select Auto or a provider under Settings → Detection. Do not override the image-flavor identity.</Requires>
   <Description>YA-WAMF identifies birds at your feeder from Frigate NVR events using local ML models, with a real-time dashboard, optional BirdNET-Go audio correlation, taxonomy enrichment, and notifications.&#13;&#13;Configuration is stored in /config and the detections database and media cache live in /data. The template defaults to the full image and Auto provider. Intel GPU/NPU and NVIDIA CUDA setup, smaller image tags, diagnostics, and rollback are covered in the Unraid hardware-acceleration guide.</Description>
   <Config Name="WebUI Port" Target="8080" Default="9852" Mode="tcp" Description="Host port for the YA-WAMF web interface (container listens on 8080)." Type="Port" Display="always" Required="true" Mask="false">9852</Config>
   <Config Name="Config" Target="/config" Default="/mnt/user/appdata/ya-wamf/config" Mode="rw" Description="Persistent application configuration (config.json, keys)." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/ya-wamf/config</Config>
   <Config Name="Data" Target="/data" Default="/mnt/user/appdata/ya-wamf/data" Mode="rw" Description="Detections database (SQLite) and cached media. Can grow with retention; keep on fast storage." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/ya-wamf/data</Config>
-  <Config Name="Frigate URL" Target="FRIGATE__FRIGATE_URL" Default="http://frigate:5000" Mode="" Description="Base URL of your Frigate instance (for the MQTT-driven event pipeline and media fetch)." Type="Variable" Display="always" Required="true" Mask="false">http://frigate:5000</Config>
   <Config Name="Timezone (TZ)" Target="TZ" Default="" Mode="" Description="Container timezone, e.g. Europe/London. Leave blank for UTC." Type="Variable" Display="advanced" Required="false" Mask="false"/>
 </Container>

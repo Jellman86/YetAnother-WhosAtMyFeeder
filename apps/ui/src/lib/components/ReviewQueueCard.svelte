@@ -1,17 +1,22 @@
 <script lang="ts">
     import { getThumbnailUrl } from '../api';
     import type { Detection } from '../api';
+    import { detectionsStore } from '../stores/detections.svelte';
     import type { ReviewQueue } from '../utils/review-queue';
+    import MediaImage from './MediaImage.svelte';
     import { formatDate, formatTime } from '../utils/datetime';
     import { _ } from 'svelte-i18n';
 
     interface Props {
         queue: ReviewQueue;
+        /** Until the history is read, an empty queue is unknown, not "nothing waiting". */
+        status?: 'loading' | 'ready' | 'unavailable';
         onreview?: (detection: Detection) => void;
         onreviewall?: () => void;
+        onretry?: () => void;
     }
 
-    let { queue, onreview, onreviewall }: Props = $props();
+    let { queue, status = 'ready', onreview, onreviewall, onretry }: Props = $props();
 
     // The queue reaches back further than today, so a bare time would be ambiguous.
     function when(detection: Detection): string {
@@ -25,9 +30,9 @@
 </script>
 
 <section
-    class="rounded-2xl border p-4 {queue.total > 0
+    class="rounded-2xl border p-5 {queue.total > 0
         ? 'border-accent-300 bg-accent-50/70 dark:border-accent-800/70 dark:bg-accent-950/25'
-        : 'border-slate-200 bg-white/70 dark:border-slate-700/60 dark:bg-slate-900/40'}"
+        : 'border-line-soft bg-surface'}"
     data-dashboard-review-queue
     aria-labelledby="review-queue-title"
 >
@@ -44,9 +49,9 @@
         >
             <path stroke-linecap="round" stroke-linejoin="round" d="M5 21V4h9l-1 3h6l-2 4 2 4h-9l-1-3H5" />
         </svg>
-        <h3 id="review-queue-title" class="font-display text-sm font-bold text-slate-950 dark:text-white">
+        <h2 id="review-queue-title" class="font-display text-xl font-bold text-slate-950 dark:text-white">
             {$_('dashboard.review_queue.title', { default: 'Needs your call' })}
-        </h3>
+        </h2>
         {#if queue.total > 0}
             <span
                 class="ml-auto rounded-full bg-accent-500 px-2 py-0.5 text-xs font-bold text-accent-950"
@@ -57,7 +62,30 @@
         {/if}
     </header>
 
-    {#if queue.total === 0}
+    {#if status === 'loading' && queue.total === 0}
+        <p role="status" class="sr-only">
+            {$_('dashboard.review_queue.loading', { default: 'Checking for visits that need you…' })}
+        </p>
+        <div class="mt-3 space-y-2" aria-hidden="true">
+            {#each ['w-28', 'w-20'] as width (width)}
+                <div class="flex items-center gap-2.5 px-1.5">
+                    <span class="h-8 w-8 shrink-0 rounded-lg bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-700/60" data-loading-placeholder></span>
+                    <span class="h-3 rounded bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-700/60 {width}" data-loading-placeholder></span>
+                </div>
+            {/each}
+        </div>
+    {:else if status === 'unavailable' && queue.total === 0}
+        <p class="mt-2 text-xs text-slate-600 dark:text-slate-300">
+            {$_('dashboard.review_queue.unavailable', {
+                default: 'The queue could not be checked, so it is not known whether anything is waiting.'
+            })}
+        </p>
+        {#if onretry}
+            <button type="button" class="btn btn-secondary mt-3 min-h-11 px-3 text-xs" onclick={() => onretry?.()}>
+                {$_('dashboard.field_log.retry', { default: 'Try again' })}
+            </button>
+        {/if}
+    {:else if queue.total === 0}
         <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
             {$_('dashboard.review_queue.empty', {
                 default: 'Every visit today has a species. Nothing waiting on you.'
@@ -71,20 +99,21 @@
                         class="flex w-full items-center gap-2.5 rounded-xl px-1.5 py-1.5 text-left transition-colors hover:bg-white/70 focus-ring dark:hover:bg-slate-800/60"
                         onclick={() => onreview?.(detection)}
                     >
-                        <img
-                            src={getThumbnailUrl(detection.frigate_event)}
+                        <MediaImage
+                            sources={[getThumbnailUrl(detection.frigate_event, detectionsStore.settledMediaVersion(detection.frigate_event))]}
                             alt=""
                             loading="lazy"
                             decoding="async"
-                            width="32"
-                            height="32"
-                            class="h-8 w-8 shrink-0 rounded-lg object-cover"
+                            width={32}
+                            height={32}
+                            class="h-8 w-8 shrink-0 rounded-lg bg-slate-100 object-cover dark:bg-slate-800"
+                            iconClass="h-4 w-4"
                         />
                         <span class="min-w-0 flex-1">
                             <span class="block truncate text-xs font-semibold text-slate-800 dark:text-slate-100">
                                 {detection.display_name}
                             </span>
-                            <span class="block truncate text-[11px] text-slate-500 dark:text-slate-400">
+                            <span class="block truncate text-2xs text-slate-500 dark:text-slate-400">
                                 {#if queue.reasons.get(detection.frigate_event) === 'new_species'}
                                     <span class="font-semibold text-accent-700 dark:text-accent-300">
                                         {$_('dashboard.review_queue.new_species_tag', {
@@ -97,7 +126,7 @@
                                 {when(detection)} · {detection.camera_name}
                             </span>
                         </span>
-                        <span class="shrink-0 text-[11px] font-bold tabular-nums text-accent-700 dark:text-accent-300">
+                        <span class="shrink-0 text-2xs font-bold tabular-nums text-accent-700 dark:text-accent-300">
                             {Math.round((detection.score ?? 0) * 100)}%
                         </span>
                     </button>
@@ -106,7 +135,7 @@
         </ul>
 
         {#if queue.remaining > 0}
-            <p class="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
+            <p class="mt-2 text-2xs text-slate-500 dark:text-slate-400">
                 {$_('dashboard.review_queue.remaining', {
                     values: { count: queue.remaining },
                     default: '{count} more waiting'
@@ -114,7 +143,7 @@
             </p>
         {/if}
 
-        <button class="btn btn-primary mt-3 w-full px-3 py-2 text-xs" onclick={() => onreviewall?.()}>
+        <button class="btn btn-primary mt-3 min-h-11 w-full px-3 py-2 text-xs" onclick={() => onreviewall?.()}>
             {$_('dashboard.review_queue.work_through', { default: 'Work through the queue' })}
         </button>
     {/if}

@@ -7,6 +7,7 @@ export type BackendDiagnosticEvent = DiagnosticsWorkspacePayload['backend_diagno
 
 export async function fetchDiagnosticsWorkspace(limit = 200): Promise<DiagnosticsWorkspacePayload> {
     const response = await apiFetch(`${API_BASE}/diagnostics/workspace?limit=${Math.max(1, Math.floor(limit))}`, {
+        cache: 'no-store',
         timeoutMs: 15_000
     });
     return handleResponse<DiagnosticsWorkspacePayload>(response);

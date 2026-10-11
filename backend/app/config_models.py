@@ -223,6 +223,10 @@ class FrigateSettings(BaseModel):
         le=3600,
         description="Seconds of recording to include after the detection timestamp",
     )
+    classification_image_source: Literal["frigate_snapshot", "recording_snapshot"] = Field(
+        default="frigate_snapshot",
+        description="Initial image source. Recording snapshots use a matching higher-resolution retained frame, with immediate snapshot fallback.",
+    )
     recording_frame_classification_fallback: bool = Field(
         default=True,
         description=(
@@ -569,9 +573,12 @@ class MaintenanceSettings(BaseModel):
 
 
 class MediaCacheSettings(BaseModel):
-    enabled: bool = Field(default=True, description="Enable local media caching")
-    cache_snapshots: bool = Field(default=True, description="Cache snapshot images locally")
-    cache_clips: bool = Field(default=False, description="Cache video clips locally (may cause initial playback delay)")
+    # Photographs, full-visit clips, previews and visit films are YA-WAMF's own record and are
+    # always kept, within the retention settings below (#622). Only copies of Frigate's own
+    # event clips, which Frigate already holds, stay optional.
+    cache_clips: bool = Field(
+        default=False, description="Keep copies of Frigate's event clips (may cause initial playback delay)"
+    )
     high_quality_event_snapshots: bool = Field(
         default=False,
         description="Asynchronously replace cached event snapshots with a frame derived from the Frigate clip",
@@ -581,7 +588,9 @@ class MediaCacheSettings(BaseModel):
         description="Deprecated compatibility field; HQ snapshots automatically attempt every available crop source",
     )
     high_quality_event_snapshot_jpeg_quality: int = Field(
-        default=95,
+        # 90 rather than 95: these are 4K frames, and on a live install 95 cost about 4 MB a
+        # visit, most of all stored photographs, for little visible difference.
+        default=90,
         ge=70,
         le=100,
         description="JPEG quality for derived high-quality event snapshots",
@@ -595,8 +604,37 @@ class MediaCacheSettings(BaseModel):
             "age-based cleanup (0 = off). Clips are not held by this floor."
         ),
     )
+    per_species_maximum: int = Field(
+        default=0,
+        ge=0,
+        le=10000,
+        description="Maximum cached visits per species, excluding favourites (0 = unlimited). Detection history is kept.",
+    )
+    max_size_mb: int = Field(
+        default=0,
+        ge=0,
+        le=1048576,
+        description="Media cache budget in MiB (0 = unlimited). Oldest non-favourite media is removed; archives are excluded.",
+    )
+    automatic_multi_bird_scan: bool = Field(
+        default=False,
+        description="Automatically scan visit photos for additional birds; target-bird identification stays active",
+    )
+    bird_scan_mode: Literal["standard", "intensive"] = Field(
+        default="intensive",
+        description="Standard uses whole frames and up to 3 species crops. Intensive adds large-image tiles and up to 8 crops. Bird counts are not capped by the crop limit.",
+    )
     retention_days: int = Field(
         default=0, ge=0, description="Days to keep cached media (0 = follow detection retention)"
+    )
+    storage_controls_migrated: bool = Field(
+        default=False,
+        description=(
+            "Internal one-time migration marker (#622). The 'Media Cache' and 'Snapshots' switches "
+            "were removed; an install that had either off had high-quality frames (and, with the "
+            "cache off, full-visit clips) turned off once so its disk use does not jump. Persisted "
+            "on the next save so a later choice is kept."
+        ),
     )
 
 

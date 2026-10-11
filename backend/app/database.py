@@ -12,6 +12,7 @@ from pathlib import Path
 from contextlib import asynccontextmanager, contextmanager, closing
 from contextvars import ContextVar
 from typing import Optional
+from app.utils.system_stats import get_process_uid_gid
 
 log = structlog.get_logger()
 
@@ -70,7 +71,7 @@ def get_db_path_diagnostics() -> dict:
         "parent": str(parent),
         "parent_exists": exists,
         "parent_writable": writable,
-        "process_uid_gid": f"{os.getuid()}:{os.getgid()}",
+        "process_uid_gid": get_process_uid_gid(),
     }
 
 
@@ -93,7 +94,7 @@ def _assert_db_path_writable(db_path: str) -> None:
             owner = "unknown"
         raise RuntimeError(
             "DB_PATH directory is not writable by current process: "
-            f"path={parent} owner={owner} mode={mode} process_uid_gid={os.getuid()}:{os.getgid()}. "
+            f"path={parent} owner={owner} mode={mode} process_uid_gid={get_process_uid_gid() or 'unavailable'}. "
             f"Set DB_PATH to a writable location (current: {db_path})."
         )
 
@@ -105,7 +106,7 @@ def _assert_db_path_writable(db_path: str) -> None:
     except Exception as e:
         raise RuntimeError(
             "DB_PATH directory exists but write probe failed: "
-            f"path={parent} process_uid_gid={os.getuid()}:{os.getgid()} error={e}. "
+            f"path={parent} process_uid_gid={get_process_uid_gid() or 'unavailable'} error={e}. "
             f"Set DB_PATH to a writable location (current: {db_path})."
         ) from e
 
@@ -135,6 +136,25 @@ REQUIRED_COLUMNS = {
     },
     "taxonomy_cache": {
         "thumbnail_url",
+    },
+    "detection_initial_classifications": {
+        "detection_id",
+        "category_name",
+        "display_name",
+        "scientific_name",
+        "common_name",
+        "score",
+        "detection_index",
+        "model_artifact_id",
+        "model_output_index",
+        "label_source",
+    },
+    "detection_species_choices": {
+        "detection_id",
+        "category_name",
+        "display_name",
+        "scientific_name",
+        "common_name",
     },
 }
 
@@ -208,7 +228,7 @@ def _backup_db(
                     raise sqlite3.DatabaseError("Pre-migration backup integrity check failed")
             # Publish only a complete, checked snapshot on the same filesystem.
             # Close all handles first so this also works on Windows.
-            with open(partial, "rb") as completed:
+            with open(partial, "r+b") as completed:
                 os.fsync(completed.fileno())
             os.replace(partial, dst)
         finally:

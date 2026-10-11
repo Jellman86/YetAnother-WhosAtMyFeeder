@@ -1,3 +1,5 @@
+import type { components } from './generated/openapi';
+
 export interface Detection {
     id?: number;
     frigate_event: string;
@@ -55,6 +57,8 @@ export interface Detection {
     video_result_blocked?: boolean;
     ai_analysis?: string | null;
     ai_analysis_timestamp?: string | null;
+    /** Owner-only localized birds of this capture; absent or null when none are stored, which is not zero. */
+    bird_summary?: components['schemas']['DetectionBirdSummary'] | null;
 }
 
 interface VideoClassificationCandidateEvidence {

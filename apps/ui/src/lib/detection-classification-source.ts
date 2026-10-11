@@ -3,11 +3,12 @@ import type { Detection } from './api';
 export type DetectionClassificationSource = 'snapshot' | 'manual' | 'video';
 export type ClassificationInputKind = 'video_crop' | 'video_full' | 'snapshot_crop' | 'snapshot_full' | 'upstream' | 'unknown';
 
-const VIDEO_CROP_SOURCES = new Set(['frigate_hint_crop', 'model_crop', 'provided_crop']);
+const VIDEO_CROP_SOURCES = new Set(['frigate_hint_crop', 'frigate_region_crop', 'model_crop', 'provided_crop']);
 const VIDEO_FULL_SOURCES = new Set(['full_frame']);
 const SNAPSHOT_CROP_SOURCES = new Set([
     'frigate_snapshot_cropped',
     'high_quality_bird_crop',
+    'video_evidence_crop',
     'snapshot_frigate_hint_crop',
     'snapshot_model_crop',
     'hq_candidate_frigate_hint_crop',
@@ -20,6 +21,7 @@ const SNAPSHOT_FULL_SOURCES = new Set([
     'frigate_recording_frame',
     'frigate_thumbnail',
     'high_quality_snapshot',
+    'video_evidence_full_frame',
     'hq_candidate_full_frame'
 ]);
 const UPSTREAM_SOURCES = new Set(['frigate_sublabel']);

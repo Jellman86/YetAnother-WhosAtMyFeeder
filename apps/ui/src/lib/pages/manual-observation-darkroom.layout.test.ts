@@ -11,32 +11,42 @@ describe('manual observation evidence review', () => {
         );
     });
 
-    it('lets you compare the scored input against the original upload', () => {
-        expect(manualObservationSource).toContain("let evidenceView = $state<'scored' | 'original'>");
-        expect(manualObservationSource).toContain('canCompareEvidence');
-        expect(manualObservationSource).toContain('manual_observation.evidence.original');
-        expect(manualObservationSource).toContain('aria-pressed={evidenceView === ');
-        // The toggle is meaningless unless the model actually scored a crop.
-        expect(manualObservationSource).toContain('topPrediction?.input_is_cropped');
+    it('shows the photo of the species you are confirming, not the first frame (#481)', () => {
+        // A video can hold several species; each suggestion carries its own best frame.
+        expect(manualObservationSource).toContain('findPredictionForSpecies(draft?.predictions ?? [], selectedLabel)');
+        expect(manualObservationSource).toContain('selectedPrediction?.photo_url');
+        expect(manualObservationSource).toContain('src={evidenceImageUrl');
+        expect(manualObservationSource).toContain('data-manual-observation-suggestion-photo');
+        expect(manualObservationSource).toContain('manual_observation.review.several_species');
     });
 
-    it('only offers the original when it is an image the browser can show', () => {
-        expect(manualObservationSource).toContain("draft.media_type === 'image'");
+    it('lets you check the crop against the whole frame it came from', () => {
+        expect(manualObservationSource).toContain('selectedPrediction?.scene_url');
+        expect(manualObservationSource).toContain("aria-pressed={evidenceView === 'bird'}");
+        expect(manualObservationSource).toContain("aria-pressed={evidenceView === 'scene'}");
+        expect(manualObservationSource).toContain('manual_observation.evidence.whole_frame');
+        // Choosing another species reopens on its bird without an effect syncing state.
+        expect(manualObservationSource).toContain('wholeFrameShownFor === selectedPrediction.label');
     });
 
-    it('says which input was scored rather than leaving it implied', () => {
-        expect(manualObservationSource).toContain('manual_observation.evidence.scored_help');
+    it('says what the photo is instead of claiming it is the scored input', () => {
+        // The old caption called the uploaded photo "the exact input the classifier scored",
+        // which was untrue whenever the classifier scored a crop.
+        expect(manualObservationSource).not.toContain('manual_observation.evidence.scored_help');
+        expect(manualObservationSource).toContain('manual_observation.evidence.no_species_frame_help');
+        expect(manualObservationSource).toContain('manual_observation.evidence.photo_cropped_help');
         expect(manualObservationSource).toContain('manual_observation.evidence.input');
         expect(manualObservationSource).toContain('manual_observation.evidence.file');
     });
 
-    it('names the confirm action by the species being added', () => {
+    it('names the confirm action by the species being added, in its friendly name', () => {
         expect(manualObservationSource).toContain('manual_observation.review.save_species');
+        expect(manualObservationSource).toContain('values: { species: selectedSpeciesName }');
         expect(manualObservationSource).toContain(': confirmLabel}</button>');
     });
 
     it('keeps the toggle keyboard operable at the touch-target floor', () => {
-        expect(manualObservationSource).toMatch(/aria-pressed=\{evidenceView === 'scored'\}/);
+        expect(manualObservationSource).toMatch(/aria-pressed=\{evidenceView === 'bird'\}/);
         expect(manualObservationSource).toMatch(/min-h-11 rounded-full px-3 text-xs font-bold/);
         expect(manualObservationSource).toContain('focus-ring');
     });

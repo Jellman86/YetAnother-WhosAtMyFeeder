@@ -1,6 +1,14 @@
 # Model Accuracy & Benchmark Results
 
-This document describes how to run the model accuracy benchmark, explains the methodology, and documents the current results for all installed models on this hardware.
+See [October 2026 classifier additions](model-catalogue-2026-10.md) for the new experimental
+models, their input contracts, sizes and catalogue integration. The historical tables below
+retain their original benchmark scope.
+
+This explanation records dated benchmark panels and the production evidence rules. It does not
+rank every current model on one common test set. For current installation-specific hardware
+measurements use [Model Evaluation](model-evaluation.md); for October public and retained-feeder
+comparisons use the [integration validation report](../reviews/2026-10-10-model-integration-validation.md).
+Compatibility results measure agreement with CPU, not agreement with the true bird species.
 
 ---
 
@@ -10,7 +18,7 @@ Results are measured against 60 labeled bird images drawn from iNaturalist (15 s
 
 Each run tests two preprocessing modes — **raw** (image sent as-is) and **letterbox** (padded to a square with gray borders) — to identify whether padding helps or hurts each model.
 
-> **Note on scope mismatch:** The birds-only models are not directly comparable to the wildlife-wide models on this mixed fixture set. `Small Birds` and `Medium Birds` resolve to regional variants, the published benchmark rows here use the EU variants, `EU FocalNet-B` is European-only, and `FlexiViT Global` covers a smaller 550-species global bird label space. Lower scores here often reflect out-of-scope input in the fixture set, not a real-world failure on their intended deployment.
+> **Note on scope mismatch:** The birds-only models are not directly comparable to the wildlife-wide models on this mixed fixture set. `Small Birds` and `Medium Birds` resolve to regional variants, the published benchmark rows here use the EU variants, `EU FocalNet-B` is European-only, and `FlexiViT Israel Birds` covers a smaller 550-class Israel-checklist bird label space. Lower scores here often reflect out-of-scope input in the fixture set, not a real-world failure on their intended deployment.
 
 ### Accuracy Table (22 March 2026)
 
@@ -23,21 +31,21 @@ Each run tests two preprocessing modes — **raw** (image sent as-is) and **lett
 | **Small Birds** (EU variant) | small | birds_only (EU) | 41.7% | 38.3% | 48.3% | 50.0% | 55ms | intel_cpu |
 | **EU FocalNet-B** | medium | birds_only (EU) | 41.7% | 36.7% | 53.3% | 48.3% | 266ms | intel_gpu |
 | **Medium Birds** (EU variant) | medium | birds_only (EU) | 40.0% | 33.3% | 50.0% | 48.3% | 62ms | intel_cpu |
-| **FlexiViT Global** | small | birds_only (global) | 33.3% | 31.7% | 40.0% | 38.3% | 199ms | intel_cpu |
+| **FlexiViT Israel Birds** | small | birds_only (Israel checklist) | 33.3% | 31.7% | 40.0% | 38.3% | 199ms | intel_cpu |
 | **Bird Crop Detector (Fast)** | fast | system | n/a | n/a | n/a | n/a | 5ms | cpu |
 | **Bird Crop Detector Accurate (YOLOX-Tiny)** | accurate | system | n/a | n/a | n/a | n/a | 11–30ms provider sweep | host-validated |
 
-> **Birds-only model note:** `Small Birds` and `Medium Birds` are region-resolved family entries, `EU FocalNet-B` is Europe-specific, and `FlexiViT Global` trades coverage and size for speed. The shared fixture set is still weighted toward North American species, so these rows should be read as scope-mismatch diagnostics rather than direct leaderboard entries against the wildlife-wide models.
+> **Birds-only model note:** `Small Birds` and `Medium Birds` are region-resolved family entries, `EU FocalNet-B` is Europe-specific, and `FlexiViT Israel Birds` trades coverage and size for speed. The shared fixture set is still weighted toward North American species, so these rows should be read as scope-mismatch diagnostics rather than direct leaderboard entries against the wildlife-wide models.
 
 > **Intel GPU support:** Support depends on the Intel generation and OpenVINO runtime. RoPE ViT-B14
 > is validated on Arrow Lake-S with OpenVINO 2026.2.1, while older Intel GPU / OpenVINO 2025.4
 > combinations produced NaNs. YA-WAMF's post-install device validation is the authority for a
 > particular host. See the Intel GPU Support table below.
 
-### Key Takeaways
+### What the March panel showed
 
-- **EVA-02 Large** achieves the highest top-1 accuracy (68.3% raw) but is slow (~1.6s) and requires ~3GB RAM.
-- **RoPE ViT-B14** is the recommended default: 63.3% top-1 / 80.0% top-5 at 493ms — the best speed/accuracy balance for wildlife-wide classification. Letterboxing gives a marginal top-1 gain (+1.7%) at the cost of top-5 (−5.0%).
+- **EVA-02 Large** achieved the highest top-1 accuracy in this March panel (68.3% raw) but is slow (~1.6s) and requires ~3GB RAM.
+- **RoPE ViT-B14** remains the configured default. This panel measured 63.3% top-1 / 80.0% top-5 at 493ms; that result does not establish a universal best model. Letterboxing gives a marginal top-1 gain (+1.7%) at the cost of top-5 (−5.0%).
 - **ConvNeXt Large** matches RoPE top-1 but is twice as slow (976ms) with no accuracy advantage.
 - **Letterboxing** makes no meaningful difference across any model (±1–7% top-1). Raw preprocessing is recommended as the default.
 - **Legacy TFLite MobileNet V2** is fast (13ms) but has fewer labels and lower top-5 accuracy. Hidden in the UI by default and labelled as legacy.
@@ -89,7 +97,7 @@ applications.
 | MobileNet V2 | 54.86 / 66.67 | 50.00 / 60.42 | **Crop on** |
 | Small Birds NA | 27.78 / 34.72 | 23.61 / 34.03 | **Crop on** |
 | Medium Birds NA | 33.33 / 45.14 | 31.25 / 39.58 | **Crop on** |
-| FlexiViT Global | 19.44 / 21.53 | 17.36 / 20.14 | **Crop on** |
+| FlexiViT Israel Birds | 19.44 / 21.53 | 17.36 / 20.14 | **Crop on** |
 | Small Birds EU | 25.69 / 28.47 | 25.69 / 29.86 | Full frame |
 | Medium Birds EU | 27.08 / 31.25 | 27.78 / 33.33 | Full frame |
 | ConvNeXt Large | 63.19 / 71.53 | 68.75 / 76.39 | Full frame |
@@ -124,6 +132,13 @@ measuring accuracy rather than confidence.
 
 ### Completed-track baseline (21 July 2026)
 
+Saved photographs carry source metadata. Genuine small generated crops remain usable instead
+of being discarded as legacy thumbnails. Regular Frigate JPEGs fetched by the photo proxy have
+unverified framing: ended-event crop queries may be ignored, and the camera may crop or resize
+its saved image. Reclassification does not reapply full-frame coordinates to those JPEGs.
+If Frigate has expired an event or cannot refresh an ambiguous legacy image, the retained image
+stays available. Turning off future HQ scanning keeps existing photographs and owner selections.
+
 HQ selection now treats Frigate's completed-event best frame as a protected baseline instead of
 assuming that a sampled recording frame is automatically better. At Frigate `end`, YA-WAMF fetches
 the full-resolution clean copy, applies the box tied to Frigate's selected snapshot (falling back
@@ -132,6 +147,27 @@ crop alongside independent video frames. A recording-derived candidate must pred
 identity and improve classifier confidence by at least `0.02` before it can replace that baseline.
 Both final Frigate candidates remain in the bounded audit set even when video wins.
 The final still can also complete the HQ replacement by itself when all clip sources are absent.
+
+When a sampled frame or Frigate's clean completed still contains more than one bird, the HQ
+snapshot path scores up to three distinct detector crops in Standard mode, or eight in Intensive
+mode. Intensive also searches overlapping tiles in large high-resolution frames. It compares
+their classifications with the tracked visit's existing identity before choosing a stored
+photograph. The detection and review views show spatially distinct crops as separate photo choices,
+each with its own tentative model read; choosing a photo does not change the visit's species.
+Every scored crop from the completed still is kept in the bounded review list, even when another
+bird's crop scored higher.
+These crops remain candidates for one Frigate event, not separate visits, and several crops from
+one frame still count as one temporal observation. If only Frigate's regular, possibly pre-cropped
+snapshot is available, it needs a matching classification before it can replace the current
+photograph. Counts use every usable detector box, independently of the classified photo-choice
+limit, in the scene with the most birds. They estimate birds in analyzed captures, not unique
+individuals across a visit or day. A low-confidence species is kept as Unknown Bird.
+
+Automatic portraits require usable image detail, matching species evidence and, for detector
+crops, at least 0.08 localization confidence. A matching portrait with species confidence at least
+0.65 may be preferred when within 0.05 of the whole scene. This avoids leaving an old, contradictory
+portrait simply because the new correct scene is uncropped. An owner-selected photo is preserved
+through later automatic updates; explicit regeneration releases that choice.
 
 The same correction fixes time-aligned event crops: Frigate `path_data` coordinates describe each
 tracked box's **bottom-centre**, not its geometric centre. YA-WAMF now reconstructs the box with
@@ -167,11 +203,41 @@ calibration and formal risk/coverage selection require a representative labelled
 described by [Guo et al.](https://proceedings.mlr.press/v70/guo17a.html) and
 [Geifman and El-Yaniv](https://papers.nips.cc/paper/2017/hash/4a8423d5e91fda00bb7e46540e2b0cf1-Abstract.html).
 
-Frigate `path_data` now guides video crops as well as HQ snapshots. YA-WAMF aligns each absolute
-bottom-centre path point with the actual event-clip or retained recording start timestamp, restores
-the tracked box at that sampled moment, and ignores a path point more than 0.75 seconds away. A
-retained recording never reuses the event's one static box outside those aligned moments; when
-tracking metadata is absent or stale, full-frame and detector-crop evidence remain available.
+Frigate `path_data` guides precise video crops only when the first frame's absolute timestamp is
+known. The event's start time alone cannot establish that timestamp because event clips include
+pre-capture footage. Video classification and HQ scanning withhold exact path crops and
+path-targeted frame indices when the clip origin is unknown. Retained recording metadata can
+supply a trustworthy origin; stale path points more than 0.75 seconds away remain unusable.
+
+The tracked region, extended to cover observed path positions, also bounds primary video evidence.
+An old label alone cannot select a distant bird outside that region.
+Native crops need at least half their area inside that region; the broader region itself is
+scored as another input. Confidence and independent-frame requirements remain unchanged. Bird
+counts and alternate HQ photo choices still inspect the whole scene. Retained event hints can
+supply this spatial context after Frigate deletes its event; no clip start is inferred from them.
+Only normalized hints can guide video when the original detect-stream resolution is unknown.
+MQTT pixel corners are not scaled using recording dimensions. Conflicting confident region and
+current-target evidence abstains instead of reinforcing an old identity.
+
+Reclassification finishes photo work before reporting completion. The previous photograph is
+retained as a separate choice before video or HQ work replaces it, even if Frigate has removed
+its copy. The retained still has no inferred clip timestamp. Photo-update outcomes appear in
+completion events and structured logs. Owner, identity, storage and failure outcomes also enter
+diagnostics; routine replacements and matching photographs do not. A kept photo can be
+distinguished from extraction or storage failure without filling the warning history with
+successful work.
+
+Open records, review windows, cards and previews reread their photographs after the run settles,
+including when the accepted species did not change. They keep existing choices visible while
+rereading, and retry a failed image when a later photograph has been saved. Progress ticks do
+not refresh media. Earlier photographs are separate photo options, with no claimed clip timing
+or individual classifier read.
+
+The photo strip offers controls at either end that has more choices, native touch scrolling,
+and Left/Right/Home/End keyboard movement. It brings an offscreen chosen photo into view. Escape
+closes the comparison before the record and returns focus appropriately. **Needs your call**
+uses the record's dialog styling, fills the phone screen and keeps its decision controls within
+reach as the species list scrolls.
 
 When no source clears the policy, YA-WAMF stores a bounded diagnostic summary on the detection:
 decoded frames, independent moments, confident votes, the support required for each source, up to
@@ -179,7 +245,7 @@ three confident candidates, and separate all-score observation context. **Detect
 technical details** presents the voting evidence. The summary explains the decision; it never
 promotes a rejected candidate or replaces the raw media needed for later reclassification.
 
-Manual reclassification uses the same safety and configured confidence rules; clicking Reclassify
+Manual reclassification uses the same safety and configured confidence rules; choosing **Score again**
 does not bypass the promotion threshold. A video abstention or below-threshold candidate triggers
 the best retained snapshot before the run finishes. Its progress view ends with one explicit
 outcome: a new identification, **Identification unchanged** when both routes abstain, or a technical
@@ -202,7 +268,7 @@ schema-4 sweep against 24 real images per classifier:
 | Small Birds EU (MobileNetV4-L) | ✅ Host-gated candidate | Two explicit EU runs matched CPU top-1 on 24/24 images with 5/5 mean top-5 overlap; the latest measured 25.3 ms. An older shared-context run failed, so the isolated exact-installation gate remains required. |
 | Medium Birds EU (ConvNeXt-V2-Tiny) | ✅ Validated | The explicit EU run matched CPU top-1 on 24/24 images with 5/5 mean top-5 overlap at 36.1 ms. |
 | MogaNet-S EU (retired) | Historical pass | 24/24 top-1 matched CPU, 5/5 mean top-5 overlap, 72.2 ms. Retained as retirement evidence, not a current option. |
-| FlexiViT Global | ✅ Host-gated candidate | 24/24 top-1 matched CPU, 5/5 mean top-5 overlap, 71.1 ms. Older OpenVINO runs produced non-finite output. |
+| FlexiViT Israel Birds | ✅ Host-gated candidate | 24/24 top-1 matched CPU, 5/5 mean top-5 overlap, 71.1 ms. Older OpenVINO runs produced non-finite output. |
 | ConvNeXt Large | ✅ Host-gated candidate | 24/24 GPU top-1 results matched CPU, mean top-5 overlap was 5/5, and median inference was 355.8 ms. OpenVINO 2025.4.1 produced systematically wrong rankings, so Intel GPU is a candidate rather than globally safe. |
 | RoPE ViT-B14 | ✅ Host-gated candidate | 24/24 top-1 matched CPU, 5/5 mean top-5 overlap, 310.8 ms. Older Intel GPU / OpenVINO 2025.4 combinations produced NaNs, so per-host validation remains required. |
 | ConvNeXt-V1 Tiny EU (retired) | Historical pass | 24/24 top-1 matched CPU, 5/5 mean top-5 overlap, 57.8 ms. Retained as retirement evidence, not a current option. |
@@ -212,7 +278,15 @@ schema-4 sweep against 24 real images per classifier:
 | Small Birds NA (EfficientNet-B0) | ✅ Host-gated candidate | The post-deploy NA run matched CPU top-1 on 24/24 images at 5.4 ms, but historical runs crashed or produced non-finite output. It is never assumed safe and must pass on the exact artifact and installation. |
 | Medium Birds NA (Binocular) | ✅ Host-gated candidate | The post-deploy NA run matched CPU top-1 on 24/24 images with 5/5 mean top-5 overlap at 96.6 ms. Older runs produced non-finite output, so exact-installation validation remains mandatory. |
 
-**Intel CPU (OpenVINO)** works correctly for all ONNX models and provides a meaningful speedup over plain ONNX Runtime CPU. It remains the safe fallback when host validation rejects an accelerator.
+**Intel CPU (OpenVINO)** is a declared route for the registered ONNX models. Its correctness and
+speed still depend on the exact model and installation; it is not guaranteed to outperform ONNX
+Runtime CPU. Follow the current passing order rather than the device's name.
+
+The 10 October 2026 Quark compatibility run rejected **Medium Birds** on Intel GPU for non-finite
+output, despite the dated pass above. The gate excluded that path. EVA-02's isolated host pass also
+does not resolve the reporter's sustained Intel GPU/backfill failure in
+[issue #490](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/490). Keep the exact
+runtime, artifact and test workload alongside any claimed hardware result.
 
 The `auto` provider setting uses the measured passing order for the exact model artifact, runtime
 stack, image, and visible hardware. Without current evidence it stays within the model's globally
@@ -245,8 +319,8 @@ rather than preferring an accelerator by name.
 3. **Fixture images**: Download iNaturalist test images (one-time setup):
 
 ```bash
-python3 backend/scripts/download_test_fixtures.py
-# Downloads 60 images (15 species × 4 each) to backend/tests/fixtures/bird_images/
+python3 backend/scripts/download_test_fixtures.py --count 4
+# Requests up to 60 images (15 species × 4 each) to backend/tests/fixtures/bird_images/
 ```
 
 Alternatively, pass `--auto_download` and the script will fetch them automatically if not already present.
@@ -268,7 +342,12 @@ python3 backend/scripts/pipeline_api_test.py --base_url http://localhost:9852
 
 ### Run against all installed models
 
-This cycles through every installed model in turn, activates it, tests it, then restores the original:
+This cycles through every installed model in turn, activates it, tests it, then restores the original.
+
+Let the run finish before choosing a different operating model. The diagnostic temporarily
+changes the active model and restores the selection it started with, so a model selected during
+the run may be replaced. Location-aware models use the saved location during normal in-app
+diagnostics; record whether location was present when comparing separate benchmark results.
 
 ```bash
 python3 backend/scripts/pipeline_api_test.py \
@@ -313,164 +392,73 @@ python3 backend/scripts/pipeline_api_test.py \
 
 ---
 
-## Running the Automated Model Tests
+## Validate installed hardware safely
 
-### Smoke tests (no images required, fast)
+Use the in-app compatibility check for normal setup. For a maintainer's independent check, use
+the isolated, fail-closed [installed-model gate](../development/testing.md#mandatory-local-modelprovider-gate).
+It uses production preprocessing and read-only weights, keeps configuration and databases in
+scratch space, and does not change the application's active model or provider eligibility.
 
-Verifies every installed model loads, has correct I/O shape, and produces finite output:
-
-```bash
-cd backend
-source venv/bin/activate
-pytest tests/test_model_smoke.py -v
-```
-
-### Integration tests (requires downloaded fixture images)
-
-Tests each model with real bird images to verify label matching and confidence:
+For example, with an Intel image, an installed DINOv2 model and retained images already inside the
+container:
 
 ```bash
-cd backend
-source venv/bin/activate
-pytest tests/test_model_integration.py -v
-# Filter to a specific model:
-pytest tests/test_model_integration.py -v --model rope_vit_b14_inat21
+docker exec -w /app -e PYTHONPATH=/app yawamf-monalithic \
+  python scripts/run_model_hardware_gate.py \
+  --models-dir /data/models \
+  --output /config/yawamf-eval/local-dino-hardware-check \
+  --model dinov2_b14_inat21_metadata_336 \
+  --provider intel_npu --repeat 2 \
+  --image /config/retained-bird-1.jpg \
+  --image /config/retained-bird-2.jpg
 ```
 
-### OpenVINO GPU validation tests
+Replace the image paths with existing retained inputs and use a new output directory. Add a
+representative panel rather than treating two example images as sufficient evidence. Request only
+providers packaged by your image and exposed to it; use `--provider cuda` on an appropriately
+configured NVIDIA host. CPU is always the comparison baseline. This isolated recipe does not
+inherit the running app's saved feeder coordinates, so record location absent for a DINOv2 check.
+Use normal in-app diagnostics when comparing its saved-location path.
 
-Validates which models compile and produce correct output on Intel GPU:
+Every requested model/provider/repeat gets a disposable child process and bounded deadline.
+Missing inputs, crashes, timeouts, non-finite output, incomplete coverage and CPU disagreement fail
+the command. A skipped hardware test is not a passing device check. Keep runs serial on a live
+feeder and retain the exact artifact, image, runtime and device evidence with the result.
 
-```bash
-cd backend
-source venv/bin/activate
-pytest tests/test_model_openvino_gpu.py -v
-```
-
-These tests skip automatically if no Intel GPU is detected.
-
-#### Running inside Docker (required for GPU access)
-
-The Intel GPU is only accessible inside the running container, not from the host shell. Run the tests there (use `yawamf-backend` for the legacy split deployment):
-
-```bash
-docker exec yawamf-monalithic python -m pytest tests/test_model_openvino_gpu.py -v
-```
-
-#### Diagnostic probes (no pass/fail — print a results table)
-
-Two additional probes help investigate GPU failures. They never fail; use `-s` to see the output table.
-
-**NaN / wrong-prediction fix probe** — tries HETERO, SDPA-off, and combined strategies on every model currently failing on GPU:
-
-```bash
-docker exec yawamf-monalithic python -m pytest \
-  tests/test_model_openvino_gpu.py::test_gpu_nan_fix_probe -v -s
-```
-
-**ConvNeXt Large precision probe** — tries seven compilation strategies specifically for ConvNeXt's precision-degradation failure (f16, ACCURACY hint, no-Winograd, HETERO, combinations):
-
-```bash
-docker exec yawamf-monalithic python -m pytest \
-  tests/test_model_openvino_gpu.py::test_convnext_gpu_precision_probe -v -s
-```
-
-The table columns are: `GPU range`, `ratio` (GPU/CPU), `spearman` (rank correlation vs CPU), `top5 ∩` (top-5 overlap with CPU), and `result`. A strategy is considered fixed when ratio ≥ 0.5, Spearman ≥ 0.50, and top-5 ∩ ≥ 1.
-
-Results from OV 2025.4.1 and the newer Arrow Lake-S / OV 2026.2.1 RoPE validation are documented in
-the Intel GPU Support table above and in the validation matrices in
-`tests/test_model_openvino_gpu.py`.
-
----
-
-### NVIDIA GPU diagnostic probes
-
-Contributors with NVIDIA GPUs can run a separate diagnostic suite that tests every installed model through ONNX Runtime's `CUDAExecutionProvider` and `TensorrtExecutionProvider`. These probes are best-effort only: they print a results table and are expected to skip cleanly on hosts without an exposed NVIDIA device.
-
-#### Prerequisites
-
-Use the unsuffixed full image or a `-cuda` image for these probes; the CPU,
-Intel, and Raspberry Pi images deliberately omit CUDA. NVIDIA Container Toolkit
-must still be installed on the host so the GPU driver/runtime is exposed inside
-the container. Confirm **Settings → Detection → Runtime diagnostics** lists
-`cuda` under **Packaged**, then add GPU access to your Compose file. For
-`docker-compose.monolith.yml`:
-
-```yaml
-services:
-  yawamf:
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-```
-
-Or for a one-off run without modifying compose:
-
-```bash
-docker run --gpus all ghcr.io/jellman86/yawamf-monalithic:latest \
-    python -m pytest tests/test_model_nvidia_gpu.py -v -s
-```
-
-#### Full per-model survey (all strategies)
-
-Tests every installed ONNX model through CUDA/fp32, CUDA/fp32+exhaustive, TRT/fp32, TRT/fp16, and TRT/fp16+exhaust:
-
-```bash
-docker exec yawamf-monalithic python -m pytest \
-  tests/test_model_nvidia_gpu.py::test_nvidia_gpu_full_probe -v -s
-```
-
-#### ConvNeXt Large focused probe
-
-ConvNeXt Large was broken on the tested OpenVINO 2025.4 Intel path but passes on Quark's current
-OpenVINO 2026.2.1 stack. This focused probe remains useful for NVIDIA validation and for detecting
-future Intel runtime regressions:
-
-```bash
-docker exec yawamf-monalithic python -m pytest \
-  tests/test_model_nvidia_gpu.py::test_convnext_nvidia_probe -v -s
-```
-
-The table columns are the same as the Intel probes: `GPU range`, `ratio` (GPU/CPU), `spearman` (rank correlation vs CPU), `top5 ∩` (top-5 overlap with CPU), and `result`.  A strategy passes when ratio ≥ 0.5, Spearman ≥ 0.50, and top-5 ∩ ≥ 1.
-
-#### Sharing results
-
-If you run these probes, please paste the printed table into the relevant GitHub issue along with:
-
-```bash
-nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader
-python -c "import onnxruntime; print(onnxruntime.__version__)"
-```
-
----
+The source checkout also contains model smoke/integration tests and exploratory Intel/NVIDIA
+pytest probes. Published images do not include the test suite. Run source tests in a prepared
+`.venv`; filter parametrised cases with `-k`, not a `--model` pytest option. Legacy hardware probes
+require `YAWAMF_LEGACY_HARDWARE_DIAGNOSTICS=1`, can crash their pytest process and are not release
+or provider-selection gates. See [development testing](../development/testing.md) for the current
+commands and safeguards.
 
 ## Test Fixture Details
 
-The benchmark uses 60 research-grade photos from iNaturalist (CC-BY/CC0 licensed), covering:
+The March benchmark requested four photos for each of 15 species. The current downloader defaults
+to three per species; use `--count 4` to request the original panel size. Downloads retain verified
+source provenance and may return fewer usable images. The current species and taxon IDs below
+come from `backend/tests/fixtures/bird_image_manifest.json`; changing or refreshing inputs means
+you must report a new panel rather than presenting the historical score as reproduced.
 
-| Species | Common Name | Region | iNat Taxon ID |
-|---------|-------------|--------|---------------|
+| Species | Common name | Scope | iNaturalist taxon ID |
+| --- | --- | --- | --- |
 | Cardinalis cardinalis | Northern Cardinal | NA | 9083 |
 | Cyanocitta cristata | Blue Jay | NA | 8229 |
 | Turdus migratorius | American Robin | NA | 12727 |
 | Haemorhous mexicanus | House Finch | NA | 199840 |
 | Spinus tristis | American Goldfinch | NA | 145310 |
-| Dryobates pubescens | Downy Woodpecker | NA | 18100 |
-| Sitta carolinensis | White-breasted Nuthatch | NA | 13933 |
-| Poecile atricapillus | Black-capped Chickadee | NA | 13028 |
-| Sturnus vulgaris | European Starling | NA/EU | 12727 |
-| Passer domesticus | House Sparrow | Global | 125813 |
-| Hirundo rustica | Barn Swallow | Global | 14889 |
-| Turdus merula | Eurasian Blackbird | EU | 12879 |
-| Erithacus rubecula | European Robin | EU | 20823 |
-| Columba livia | Rock Pigeon | Global | 4886 |
-| Anas platyrhynchos | Mallard | Global | 6930 |
+| Dryobates pubescens | Downy Woodpecker | NA | 792988 |
+| Erithacus rubecula | European Robin | EU | 13094 |
+| Parus major | Great Tit | EU | 203153 |
+| Cyanistes caeruleus | Blue Tit | EU | 144849 |
+| Fringilla coelebs | Chaffinch | EU | 10070 |
+| Turdus merula | Eurasian Blackbird | EU | 12716 |
+| Passer domesticus | House Sparrow | NA / EU / GLOBAL | 13858 |
+| Hirundo rustica | Barn Swallow | NA / EU / GLOBAL | 11901 |
+| Anas platyrhynchos | Mallard | NA / EU / GLOBAL | 6930 |
+| Columba livia | Rock Pigeon | NA / EU / GLOBAL | 3017 |
 
-Images are downloaded once and cached in `backend/tests/fixtures/bird_images/`. Re-run `download_test_fixtures.py` to refresh them.
+Images are downloaded once and cached in `backend/tests/fixtures/bird_images/`. Use `--force` only when deliberately refreshing them; keep the previous inputs and provenance if you need a repeatable comparison.
 
 ---
 
@@ -491,4 +479,4 @@ Edit `backend/tests/fixtures/bird_image_manifest.json` to add species. Each entr
 }
 ```
 
-Then run `download_test_fixtures.py` to fetch 4 images for the new species.
+Then run `download_test_fixtures.py --count 4` to request four images for the new species, and review their labels before scoring.

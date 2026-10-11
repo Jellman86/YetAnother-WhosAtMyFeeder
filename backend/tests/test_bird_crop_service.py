@@ -4,11 +4,115 @@ import numpy as np
 import pytest
 from PIL import Image
 
+from app.config import settings
 from app.services.bird_crop_service import BirdCropService
 
 
 def _make_image(width: int = 100, height: int = 100) -> Image.Image:
     return Image.new("RGB", (width, height), color="white")
+
+
+def test_video_multi_crop_uses_one_native_scan_and_keeps_other_birds(monkeypatch):
+    service = BirdCropService()
+    scans = []
+    monkeypatch.setattr(service, "_ensure_model_for_tier", lambda tier: object())
+
+    def infer(model, image):
+        scans.append(image.size)
+        return [{"box": (100, 100, 200, 200), "confidence": 0.9}, {"box": (400, 100, 500, 200), "confidence": 0.8}]
+
+    monkeypatch.setattr(service, "_infer_candidates", infer)
+    monkeypatch.setattr(
+        service, "generate_classification_candidate_crop", lambda image: pytest.fail("unbounded fallback")
+    )
+    crops = service.generate_video_classification_candidate_crops(_make_image(3840, 2160), max_crops=3)
+    assert len(crops) == 2
+    assert scans == [(3840, 2160)]
+
+
+def test_video_multi_crop_does_not_escalate_detector_misses(monkeypatch):
+    service = BirdCropService()
+    monkeypatch.setattr(service, "_ensure_model_for_tier", lambda tier: object())
+    monkeypatch.setattr(service, "_infer_candidates", lambda model, image: [])
+    monkeypatch.setattr(
+        service, "generate_classification_candidate_crop", lambda image: pytest.fail("unbounded fallback")
+    )
+    assert service.generate_video_classification_candidate_crops(_make_image(), max_crops=3) == []
+
+
+@pytest.mark.parametrize("provider", ["cpu", "cuda"])
+def test_crop_session_preloads_packaged_libraries_only_before_cuda(monkeypatch, tmp_path, provider):
+    calls = []
+
+    class FakeSession:
+        def get_providers(self):
+            return ["CUDAExecutionProvider" if provider == "cuda" else "CPUExecutionProvider"]
+
+        def get_inputs(self):
+            return [types.SimpleNamespace(name="images", shape=[1, 3, 416, 416])]
+
+    def preload_dlls(*, directory):
+        calls.append(("preload", directory))
+
+    def create_session(*args, **kwargs):
+        calls.append(("session", kwargs["providers"]))
+        return FakeSession()
+
+    ort = types.SimpleNamespace(preload_dlls=preload_dlls, SessionOptions=object, InferenceSession=create_session)
+    service = BirdCropService()
+    monkeypatch.setattr(service, "_import_onnxruntime", lambda: ort)
+
+    service._load_model_on_provider(
+        tier="accurate", model_path=tmp_path / "model.onnx", model_config={}, provider=provider
+    )
+
+    expected = [("session", ["CUDAExecutionProvider" if provider == "cuda" else "CPUExecutionProvider"])]
+    if provider == "cuda":
+        expected.insert(0, ("preload", ""))
+    assert calls == expected
+
+
+def test_observation_boxes_are_not_capped_by_photo_choice_limit(monkeypatch):
+    service = BirdCropService()
+    image = _make_image(1000, 100)
+    monkeypatch.setattr(service, "_ensure_model_for_tier", lambda tier: object())
+    monkeypatch.setattr(
+        service,
+        "_infer_candidates",
+        lambda model, frame: [{"box": (index * 40, 10, index * 40 + 30, 50), "confidence": 0.2} for index in range(12)],
+    )
+
+    boxes = service.detect_observation_boxes(image)
+
+    assert len(boxes) == 12
+    assert boxes[-1]["box"] == (440, 10, 470, 50)
+
+
+def test_large_scene_tiles_birds_and_keeps_all_boxes_when_photo_choices_are_bounded(monkeypatch):
+    service = BirdCropService()
+    image = _make_image(3840, 2160)
+    sizes = []
+    monkeypatch.setattr(service, "_ensure_model_for_tier", lambda tier: object())
+
+    def infer(_model, frame):
+        sizes.append(frame.size)
+        return [{"box": (100, 100, 220, 220), "confidence": 0.8}]
+
+    monkeypatch.setattr(service, "_infer_candidates", infer)
+
+    crops = service.generate_classification_candidate_crops(image, max_crops=3)
+
+    assert len(sizes) == 10  # whole 4K frame plus nine overlapping tiles
+    assert len(crops) == 3
+    assert len(crops[0]["observation_boxes"]) == 10
+    assert any(box["box"][0] > 2000 for box in crops[0]["observation_boxes"])
+
+
+def test_crop_overlap_merges_similar_tile_boxes_but_keeps_a_group_sized_box():
+    overlap = BirdCropService._box_overlap_ratio
+
+    assert overlap((1157, 631, 1401, 830), (1185, 664, 1427, 904)) >= 0.6
+    assert overlap((1157, 631, 1401, 830), (983, 703, 1448, 1423)) < 0.6
 
 
 def test_generate_crop_selects_and_expands_box(monkeypatch):
@@ -716,3 +820,71 @@ def test_infer_candidates_parses_fixed_size_ssd_outputs_and_restores_image_box()
     assert len(candidates) == 1
     assert candidates[0]["confidence"] == pytest.approx(0.93)
     assert candidates[0]["box"] == pytest.approx((80.0, 40.0, 240.0, 120.0))
+
+
+@pytest.mark.parametrize("api", ["generate_classification_candidate_crops", "detect_observation_boxes"])
+def test_photo_scan_can_report_transient_runtime_failure_without_changing_default_fail_soft(api, monkeypatch):
+    from app.services.bird_crop_service import BirdDetectionError
+
+    service = BirdCropService()
+    monkeypatch.setattr(service, "_ensure_model_for_tier", lambda tier: object())
+
+    def fail(model, image):
+        raise RuntimeError("temporary runtime failure")
+
+    monkeypatch.setattr(service, "_infer_candidates", fail)
+    image = _make_image(640, 480)
+    assert getattr(service, api)(image) == []
+    with pytest.raises(BirdDetectionError):
+        getattr(service, api)(image, raise_on_error=True)
+
+
+@pytest.mark.parametrize("failure_path", ["sliced", "guided"])
+def test_strict_photo_scan_reports_failure_in_fallback_regions(monkeypatch, failure_path):
+    from app.services.bird_crop_service import BirdDetectionError
+
+    service = BirdCropService()
+    image = _make_image(3840, 2160)
+    monkeypatch.setattr(settings.media_cache, "bird_scan_mode", "balanced")
+    monkeypatch.setattr(service, "_ensure_model_for_tier", lambda tier: object() if tier == "accurate" else None)
+
+    def infer(model, region):
+        if region.size == image.size:
+            return []
+        raise RuntimeError("temporary region inference failure")
+
+    monkeypatch.setattr(service, "_infer_candidates", infer)
+    kwargs = {"search_box": (10, 10, 500, 500)} if failure_path == "guided" else {}
+    assert service.generate_classification_candidate_crops(image, **kwargs) == []
+    with pytest.raises(BirdDetectionError):
+        service.generate_classification_candidate_crops(image, raise_on_error=True, **kwargs)
+
+
+@pytest.mark.parametrize("failure", ["load", "inference"])
+@pytest.mark.parametrize("fast_available", [True, False])
+def test_ordinary_crop_retains_runtime_failure_when_fallback_finds_no_bird(monkeypatch, failure, fast_available):
+    service = BirdCropService()
+
+    def load(tier):
+        if tier == "accurate" and failure == "load":
+            raise RuntimeError("temporary load failure")
+        return {"tier": tier} if tier == "accurate" or fast_available else None
+
+    def infer(model, image):
+        if model["tier"] == "accurate":
+            raise RuntimeError("temporary inference failure")
+        return []
+
+    monkeypatch.setattr(service, "_ensure_model_for_tier", load)
+    monkeypatch.setattr(service, "_infer_candidates", infer)
+    result = service.generate_crop(_make_image(640, 480), detector_tier="accurate")
+    assert result["crop_image"] is None
+    assert result.get("runtime_error") is True
+
+
+def test_absent_crop_models_are_not_runtime_failures(monkeypatch):
+    service = BirdCropService()
+    monkeypatch.setattr(service, "_ensure_model_for_tier", lambda tier: None)
+    result = service.generate_crop(_make_image(640, 480), detector_tier="accurate")
+    assert result["crop_image"] is None
+    assert not result.get("runtime_error")

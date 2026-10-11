@@ -113,7 +113,7 @@ interface DetectionsStoreLike {
         reason: string | null,
         diagnostics: Detection['video_classification_diagnostics']
     ): void;
-    dismissReclassification(eventId: string): void;
+    failReclassification(eventId: string): void;
     markReclassificationStrategyChanged(
         eventId: string,
         from: string | null,
@@ -194,6 +194,7 @@ interface LiveUpdateDeps {
     t: TranslateFn;
     shouldNotify: () => boolean;
     hasOwnerAccess?: () => boolean;
+    refreshOwnerHistory?: () => Promise<void>;
     applyNotificationPolicy: (id: string, signature: string, throttleMs?: number) => boolean;
     notificationCenter: NotificationCenterLike;
     jobProgress: JobProgressLike;
@@ -202,11 +203,13 @@ interface LiveUpdateDeps {
     announcer: { announce(message: string): void };
     logger: LoggerLike;
     checkHealth: () => Promise<HealthPayload>;
-    fetchCacheStats: () => Promise<{ cache_enabled?: boolean }>;
+    fetchCacheStats: () => Promise<{ storage_available?: boolean }>;
     fetchAnalysisStatus: () => Promise<AnalysisStatus>;
     diagnostics?: JobDiagnosticsLike;
     syncDiagnosticsWorkspace?: () => Promise<void>;
     onConnected?: () => void;
+    onPublicHistoryChanged?: () => void;
+    onPublicAccessChanged?: () => void;
 }
 
 const ARCHIVE_STATES = new Set(['pending', 'durable', 'unavailable', 'failed']);
@@ -284,8 +287,15 @@ export class LiveUpdateCoordinator {
     }
 
     async runOwnerSystemChecks() {
-        if (!this.deps.shouldNotify()) return;
         if (this.deps.hasOwnerAccess && !this.deps.hasOwnerAccess()) return;
+        // HQ work does not emit per-capture count updates. Reuse the existing
+        // owner check cadence, with the store's stale/single-flight guard.
+        try {
+            await this.deps.refreshOwnerHistory?.();
+        } catch {
+            this.deps.logger.warn('owner_history_refresh_failed');
+        }
+        if (!this.deps.shouldNotify()) return;
         let startupInstanceId = 'unknown';
 
         try {
@@ -326,20 +336,24 @@ export class LiveUpdateCoordinator {
 
         try {
             const cache = await this.deps.fetchCacheStats();
-            if (!cache.cache_enabled) {
-                const id = `system:cache-disabled:${startupInstanceId}`;
-                this.removeNotificationsByPrefix('system:cache-disabled');
+            // Photographs and visit media are always kept (#622). The one thing that stops it is a
+            // media folder that cannot be written, and only an explicit false means that: an older
+            // backend that does not report it must not raise a false alarm.
+            this.removeNotificationsByPrefix('system:cache-disabled');
+            if (cache.storage_available === false) {
+                const id = `system:media-storage-unavailable:${startupInstanceId}`;
+                this.removeNotificationsByPrefix('system:media-storage-unavailable');
                 if (!this.deps.notificationCenter.items.some((item) => item.id === id)) {
                     this.deps.notificationCenter.add({
                         id,
                         type: 'system',
-                        title: this.deps.t('notifications.system_cache_disabled_title'),
-                        message: this.deps.t('notifications.system_cache_disabled_message'),
+                        title: this.deps.t('notifications.system_media_storage_unavailable_title'),
+                        message: this.deps.t('notifications.system_media_storage_unavailable_message'),
                         meta: { source: 'cache', route: '/settings' }
                     });
                 }
             } else {
-                this.removeNotificationsByPrefix('system:cache-disabled');
+                this.removeNotificationsByPrefix('system:media-storage-unavailable');
             }
         } catch (error) {
             this.deps.logger.warn('cache_stats_check_failed', { error });
@@ -434,6 +448,15 @@ export class LiveUpdateCoordinator {
             }
 
             if (payload.type === 'heartbeat') {
+                return;
+            }
+
+            if (payload.type === 'public_history_changed') {
+                this.deps.onPublicHistoryChanged?.();
+                return;
+            }
+            if (payload.type === 'public_access_changed') {
+                this.deps.onPublicAccessChanged?.();
                 return;
             }
 
@@ -573,7 +596,7 @@ export class LiveUpdateCoordinator {
                     });
                     this.clearReclassifyProgressNotification(eventId);
                 }
-                this.deps.detectionsStore.dismissReclassification(eventId);
+                this.deps.detectionsStore.failReclassification(eventId);
                 return;
             }
 

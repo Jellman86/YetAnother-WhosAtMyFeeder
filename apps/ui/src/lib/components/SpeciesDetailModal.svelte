@@ -1,6 +1,7 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
+    import { onMount, untrack } from 'svelte';
     import Map from './Map.svelte';
+    import TaxonomyLineage from './TaxonomyLineage.svelte';
     import {
         fetchSpeciesStats,
         fetchSpeciesInfo,
@@ -11,7 +12,6 @@
         type SpeciesStats,
         type SpeciesInfo,
         type EbirdNearbyResult,
-        type Detection,
         getThumbnailUrl,
         ApiRequestError
     } from '../api';
@@ -19,10 +19,10 @@
     import { settingsStore } from '../stores/settings.svelte';
     import { publicSettingsStore } from '../stores/public_settings.svelte';
     import { authStore } from '../stores/auth.svelte';
+    import { createObservationProjectionLoader } from '../app/observation-projection-loader';
     import { detectionsStore } from '../stores/detections.svelte';
     import { toastStore } from '../stores/toast.svelte';
     import SimpleBarChart from './SimpleBarChart.svelte';
-    import VideoPlayer from './VideoPlayer.svelte';
     import RangeMap from './RangeMap.svelte';
     import { _, locale } from 'svelte-i18n';
     import { get } from 'svelte/store';
@@ -75,6 +75,9 @@
     });
 
     let info = $state<SpeciesInfo | null>(null);
+    // The name this feeder's records carry first, as the catalogue resolves those; the reference
+    // source's spelling only when no record holds one.
+    const lineageName = $derived(stats?.scientific_name || info?.scientific_name || null);
     let loading = $state(true);
     let error = $state<string | null>(null);
     let isUnknownBird = $state(false);
@@ -90,8 +93,6 @@
     let rangeMapError = $state<string | null>(null);
 
     // Video playback state
-    let showVideo = $state(false);
-    let selectedSighting = $state<Detection | null>(null);
 
     // Reclassification state
     let reclassifying = $state(false);
@@ -278,6 +279,49 @@
     }
 
 
+    let destroyed = false;
+    let observedLocalRecord = false;
+    let statsPending = false;
+    const statsLoader = createObservationProjectionLoader<SpeciesStats | null>({
+        fetch: async () => {
+            try {
+                return await fetchSpeciesStats(isUnknownLabel(speciesName) ? UNKNOWN_SPECIES_NAME : speciesName);
+            } catch (e) {
+                // Catalogue-only species can legitimately have no local record.
+                if (e instanceof ApiRequestError && e.status === 404) return null;
+                throw e;
+            }
+        },
+        apply: (value) => { stats = value; observedLocalRecord = Boolean(value && value.total_sightings > 0); },
+        clear: () => { stats = null; },
+        fail: (e) => {
+            stats = null;
+            error = getErrorMessage(e) || 'Failed to load species details';
+        },
+        settled: () => { statsPending = false; }
+    });
+
+    let handledPublicHistoryVersion = detectionsStore.publicHistoryVersion;
+    $effect(() => {
+        const version = detectionsStore.publicHistoryVersion;
+        if (version <= handledPublicHistoryVersion || !authStore.isGuest) return;
+        handledPublicHistoryVersion = version;
+        untrack(() => {
+            if (!observedLocalRecord && !statsPending) return;
+            const hadLocalRecord = observedLocalRecord;
+            statsLoader.invalidate();
+            statsPending = true;
+            void statsLoader.load().then(() => {
+                if (destroyed || statsPending || version !== detectionsStore.publicHistoryVersion || !authStore.isGuest) return;
+                if (!stats || stats.total_sightings <= 0) {
+                    if (hadLocalRecord) onclose();
+                }
+            });
+        });
+    });
+
+    function getCurrentStats(): SpeciesStats | null { return stats; }
+
     async function loadSpeciesDetails() {
         loading = true;
         error = null;
@@ -290,30 +334,24 @@
         isUnknownBird = isUnknownLabel(speciesName);
 
         try {
-            try {
-                stats = await fetchSpeciesStats(isUnknownBird ? UNKNOWN_SPECIES_NAME : speciesName);
-            } catch (e) {
-                // A species with no visits at this feeder 404s here. That is
-                // the normal case for a notable sighting nearby, not an error:
-                // the card still has naming, description, and range to show.
-                if (!(e instanceof ApiRequestError && e.status === 404)) throw e;
-                stats = null;
-            }
+            statsPending = true;
+            await statsLoader.load();
+            const currentStats = getCurrentStats();
 
             if (!isUnknownBird) {
-                const statsTaxaId = stats?.recent_sightings?.[0]?.taxa_id ?? null;
+                const statsTaxaId = currentStats?.recent_sightings?.[0]?.taxa_id ?? null;
                 if (summaryEnabled || (seasonalityEnabled && !statsTaxaId)) {
                     info = await fetchSpeciesInfo(speciesName);
                 }
             }
 
-            const sciName = info?.scientific_name || stats?.scientific_name || undefined;
+            const sciName = info?.scientific_name || currentStats?.scientific_name || undefined;
 
             if (!isUnknownBird && ebirdEnabled && showEbirdNearby) {
                 void loadEbirdNearby(speciesName, sciName);
             }
 
-            const taxonId = info?.taxa_id || stats?.recent_sightings?.[0]?.taxa_id;
+            const taxonId = info?.taxa_id || currentStats?.recent_sightings?.[0]?.taxa_id;
             if (seasonalityEnabled && taxonId) {
                 void loadSeasonality(taxonId);
             }
@@ -336,6 +374,8 @@
         void loadSpeciesDetails();
 
         return () => {
+            destroyed = true;
+            statsLoader.dispose();
             document.body.style.overflow = previousOverflow;
         };
     });
@@ -414,14 +454,14 @@
     <!-- Modal Container -->
     <div
         bind:this={modalElement}
-        class="animate-fade-in h-[100dvh] w-full max-w-6xl overflow-hidden bg-white shadow-2xl ring-1 ring-black/5 dark:bg-slate-900 sm:h-auto sm:max-h-[92dvh] sm:rounded-3xl sm:border sm:border-white/10"
+        class="animate-fade-in h-[100dvh] w-full max-w-6xl overflow-hidden bg-surface shadow-2xl ring-1 ring-black/5 sm:h-auto sm:max-h-[92dvh] sm:rounded-2xl sm:border sm:border-white/10"
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
         tabindex="-1"
     >
         <!-- Header -->
-        <header data-species-modal-header class="flex min-h-[76px] items-center justify-between gap-4 border-b border-brand-100 bg-gradient-to-r from-brand-50 via-accent-50/70 to-white px-4 py-3 dark:border-slate-800 dark:from-brand-950/40 dark:via-accent-950/20 dark:to-slate-900 sm:px-6">
+        <header data-species-modal-header class="flex min-h-[76px] items-center justify-between gap-4 border-b border-brand-100 bg-surface-raised px-4 py-3 dark:border-slate-800 sm:px-6">
             <div class="min-w-0">
                 <h2 id="modal-title" class="truncate text-xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-2xl">
                     {primaryName}
@@ -594,17 +634,10 @@
                             </div>
                             <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
                                 {#each stats.recent_sightings as sighting}
-                                    <button
-                                        type="button"
+                                    <a
+                                        href={toAppPath(`/events?event=${encodeURIComponent(sighting.frigate_event)}`)}
                                         class="group relative cursor-pointer overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 text-left transition-colors hover:border-brand-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-default dark:border-slate-700 dark:bg-slate-800/50 dark:hover:border-brand-700"
-                                        aria-label={sighting.has_clip
-                                            ? $_('detection.play_video', { values: { species: sighting.display_name } })
-                                            : $_('species_detail.video_unavailable')}
-                                        disabled={!sighting.has_clip}
-                                        onclick={() => {
-                                            selectedSighting = sighting as Detection;
-                                            if (sighting.has_clip) showVideo = true;
-                                        }}
+                                        aria-label={$_('visits.open_capture', { values: { species: sighting.display_name }, default: 'Open {species} capture' })}
                                     >
                                         <div class="relative aspect-[4/3] bg-slate-200 dark:bg-slate-700">
                                             <img
@@ -619,7 +652,7 @@
                                             />
                                             {#if sighting.has_clip}
                                                 <span class="absolute bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-brand-700 shadow-sm transition-transform group-hover:scale-105 group-focus-visible:scale-105 dark:bg-slate-900/90 dark:text-brand-300">
-                                                    <svg class="ml-0.5 h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
+                                                    <svg class="ml-0.5 h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" /></svg>
                                                 </span>
                                             {/if}
                                         </div>
@@ -627,7 +660,7 @@
                                             <p class="text-xs font-medium text-slate-700 dark:text-slate-200">{formatDate(sighting.detection_time)}</p>
                                             <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{formatTime(sighting.detection_time)} · {(sighting.score * 100).toFixed(0)}%</p>
                                         </div>
-                                    </button>
+                                    </a>
                                 {/each}
                             </div>
                         </section>
@@ -676,6 +709,12 @@
                             </div>
                         </section>
                     {/if}
+                {/if}
+
+                {#if !isUnknownBird && lineageName}
+                    <section data-species-taxonomy class="border-t border-slate-200 pt-8 dark:border-slate-700">
+                        <TaxonomyLineage scientificName={lineageName} />
+                    </section>
                 {/if}
 
                 <!-- Species Description -->
@@ -1020,18 +1059,6 @@
 
     </div>
 </div>
-
-<!-- Video Player Modal -->
-{#if showVideo && selectedSighting}
-    <VideoPlayer
-        frigateEvent={selectedSighting.frigate_event}
-        playIntent="user"
-        onClose={() => {
-            showVideo = false;
-            selectedSighting = null;
-        }}
-    />
-{/if}
 
 <style>
     .animate-fade-in {

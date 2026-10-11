@@ -65,11 +65,9 @@ describe('leaderboard field-journal layout', () => {
         expect(leaderboardSource).toContain('tabular-nums');
     });
 
-    it('links BirdNET-enabled leaderboards to the complete listening history', () => {
-        expect(leaderboardSource).toContain("import { toAppPath } from '../app/url-base'");
-        expect(leaderboardSource).toContain('data-leaderboard-audio-history-link');
-        expect(leaderboardSource).toContain("href={toAppPath('/audio')}");
-        expect(leaderboardSource).toContain("$_('nav.audio_history')");
+    it('leaves the listening history link to the Explorer', () => {
+        expect(leaderboardSource).not.toContain('data-leaderboard-audio-history-link');
+        expect(leaderboardSource).not.toContain("toAppPath('/audio')");
     });
 
     it('does not turn an unavailable BirdNET result into measured zero activity', () => {
@@ -108,7 +106,7 @@ describe('leaderboard field-journal layout', () => {
         expect(leaderboardSource).toContain("const count = visits ? (s.window_visit_count ?? 0) : (s.window_count ?? 0)");
         expect(leaderboardSource).toContain('delta: count - prevCount');
         // Total has no visit counts, so it must never be labelled as visits.
-        expect(leaderboardSource).toContain('fetchSpecies(controller.signal).then(mapAllTimeSpecies);\n                countsAreVisits = false;');
+        expect(leaderboardSource).toContain('const allSpecies = await fetchSpecies(controller.signal);\n                if (loadGeneration !== leaderboardLoadGeneration || controller.signal.aborted) return;\n                species = mapAllTimeSpecies(allSpecies);\n                countsAreVisits = false;');
     });
 
     it('draws weather under the detections on its own axis, never as a second y-axis', () => {
@@ -124,12 +122,14 @@ describe('leaderboard field-journal layout', () => {
         expect(leaderboardSource).toContain('data-leaderboard-unlikely-note');
         expect(leaderboardSource).toContain('data-leaderboard-unlikely-reason');
         // Wash, dot and words together, never a coloured rule on the row's edge.
-        expect(leaderboardSource).toContain("bg-gradient-to-r from-amber-50 to-transparent dark:from-amber-500/10");
+        expect(leaderboardSource).toContain("bg-amber-50/70 dark:bg-amber-500/10");
         expect(leaderboardSource).not.toMatch(/border-l-(2|4)[^"]*amber/);
     });
 
     it('fits the weekday heatmap to its column instead of scrolling it sideways', () => {
-        expect(heatmapSource).toContain('repeat(24, minmax(0, 1fr))');
+        // Columns shrink to fit, and cap at 3rem so cells stay square rather than stretching wide.
+        expect(heatmapSource).toContain('repeat(24, minmax(0, 3rem))');
+        expect(heatmapSource).toContain('aspect-square min-h-6 w-full');
         expect(leaderboardSource).not.toMatch(/min-w-\[650px\]/);
         expect(leaderboardSource).not.toContain('h-[260px] overflow-x-auto');
         // A display:none label leaves the grid and shifts every cell after it by one column.

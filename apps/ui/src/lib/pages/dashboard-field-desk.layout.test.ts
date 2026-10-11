@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import dashboardSource from './Dashboard.svelte?raw';
 import fieldLogSource from '../components/FieldLog.svelte?raw';
+import visitRowSource from '../components/FieldLogVisitRow.svelte?raw';
 import notableNearbySource from '../components/NotableNearby.svelte?raw';
 import histogramSource from '../components/DailyHistogram.svelte?raw';
 import previewSource from '../components/DetectionPreview.svelte?raw';
@@ -40,14 +41,34 @@ describe('dashboard field desk layout', () => {
         expect(notableNearbySource).toContain('dashboard.notable_nearby.retry');
     });
 
-    it('keeps top visitors at full width instead of compressing it into the rail', () => {
+    it('orders the rail from what is happening to what is merely interesting', () => {
         const aside = dashboardSource.indexOf('<aside');
         const asideEnd = dashboardSource.indexOf('</aside>');
-        const topVisitors = dashboardSource.indexOf('data-dashboard-top-visitors');
+        const order = ['<ReviewQueueCard', '<DeskContextCards', '<RecentAudio', '<DailyHistogram', 'data-dashboard-top-visitors'].map(
+            (marker) => dashboardSource.indexOf(marker)
+        );
+        for (const at of order) expect(at > aside && at < asideEnd).toBe(true);
+        expect([...order].sort((a, b) => a - b)).toEqual(order);
+        // A compact vertical list now, so it belongs in the rail rather than a near-empty band.
+        expect(visitorsSource).toContain('<ol class="divide-y');
+        expect(visitorsSource).not.toContain('xl:grid-cols-5');
+    });
 
-        expect(topVisitors).toBeGreaterThan(-1);
-        // The component lays out horizontally; an 18rem rail breaks it.
-        expect(topVisitors > aside && topVisitors < asideEnd).toBe(false);
+    it('counts visits everywhere the desk says visits', () => {
+        // The summary's frame count is a different unit; the day bar takes its visit count.
+        expect(dashboardSource).toContain('let last24hCount = $derived(summary?.visit_count ?? allVisits.length);');
+        expect(dashboardSource).toContain('<DailyHistogram data={summary.hourly_visits ?? []} currentHour={summaryHour} />');
+        expect(dashboardSource).toContain('cameraVisits={summary?.camera_visits ?? null}');
+        expect(visitorsSource).toContain('item.visit_count ?? item.count');
+        expect(histogramSource).toContain("dashboard.histogram.visits_per_hour");
+    });
+
+    it('draws the rolling day so it ends now, and says when it was busiest', () => {
+        expect(histogramSource).toContain('const hour = (currentHour + 1 + offset) % 24;');
+        expect(histogramSource).toContain('data-dashboard-activity-peak');
+        expect(histogramSource).toContain("dashboard.histogram.now");
+        // No unlabelled total competing with the day bar.
+        expect(histogramSource).not.toContain('text-2xl font-bold tabular-nums text-brand-700');
     });
 
     it('keeps the review queue and its actions to owners', () => {
@@ -56,11 +77,11 @@ describe('dashboard field desk layout', () => {
         expect(dashboardSource).toContain('{#if canReview}');
         expect(dashboardSource).toContain('{#if reviewSessionOpen && canReview}');
         expect(dashboardSource).toContain('canIdentify={canReview}');
-        expect(fieldLogSource).toContain('{#if visit.needsReview && canIdentify}');
+        expect(visitRowSource).toContain('{#if visit.needsReview && canIdentify}');
     });
 
     it('folds repeat frames into visits instead of printing one card per frame', () => {
-        expect(dashboardSource).toContain('groupDetectionsIntoVisits(deskDetections, { reviewThreshold })');
+        expect(dashboardSource).toContain("fetchVisits({ ...window, limit: VISIT_ROW_LIMIT, signal, requestKey: 'dashboard:visits' })");
         expect(dashboardSource).toContain('buildReviewQueue(deskDetections, { reviewThreshold, newSpecies: newSpeciesEntries })');
         expect(dashboardSource).not.toContain('LatestDetectionHero');
         expect(dashboardSource).not.toContain('data-dashboard-discovery-feed');
@@ -76,19 +97,20 @@ describe('dashboard field desk layout', () => {
 
     it('says in words when a visit was confirmed by a matching call', () => {
         // The header counts cross-confirmed visits; a row confirmed by a heard call says so beside
-        // its name, on a wide screen and on a phone, with the same words the record uses.
-        expect(fieldLogSource).toContain('{#if visit.audioConfirmed}');
-        expect(fieldLogSource).toContain('data-field-log-audio');
-        expect(fieldLogSource.split("$_('detection.fact_heard_yes', { default: 'matching call' })").length).toBe(3);
+        // its name at every width, and each capture that was heard says so in the visit's list, with
+        // the same words the record uses.
+        expect(visitRowSource).toContain('{#if visit.audioConfirmed}');
+        expect(visitRowSource).toContain('data-field-log-audio');
+        expect(visitRowSource.split("$_('detection.fact_heard_yes', { default: 'matching call' })").length).toBe(3);
         expect(visitGroupingSource).toContain('audioConfirmed: frames.some(');
     });
 
     it('keeps every visit row reachable and shows why a row is flagged', () => {
         expect(fieldLogSource).toContain('data-field-log-row');
-        expect(fieldLogSource).toContain('data-needs-review');
+        expect(visitRowSource).toContain('data-needs-review');
         // Colour alone must not carry the flag (CLAUDE.md §5).
-        expect(fieldLogSource).toContain('dashboard.field_log.needs_name');
-        expect(fieldLogSource).toContain('dashboard.field_log.identify');
+        expect(visitRowSource).toContain('dashboard.field_log.needs_name');
+        expect(visitRowSource).toContain('dashboard.field_log.identify');
         expect(fieldLogSource).toContain('min-h-11');
     });
 
@@ -127,9 +149,11 @@ describe('dashboard field desk layout', () => {
     it('reuses the existing thumbnail proxy for the preview instead of a second endpoint', () => {
         expect(previewSource).toContain("import { getThumbnailUrl } from '../api'");
         expect(previewSource).toContain('loading="lazy"');
-        expect(previewSource.match(/getThumbnailUrl/g) ?? []).toHaveLength(3);
+        // Stack and panel draw the same proxy address; thumbnail-refresh.spec.ts proves both
+        // show it. No other media endpoint may creep in beside it.
+        expect(previewSource).not.toMatch(/['"`]\/api\//);
         expect(previewSource).toContain('onopen?.(frame)');
-        expect(fieldLogSource).toContain('onopen={(frame) => onselect?.(frame)}');
+        expect(visitRowSource).toContain('onopen={(frame) => onselect?.(frame)}');
         expect(previewSource).toContain('min-h-11 min-w-11');
     });
 
@@ -139,7 +163,6 @@ describe('dashboard field desk layout', () => {
         expect(histogramSource).toContain('role="img"');
         expect(histogramSource).not.toContain('card-base');
         expect(recentAudioSource).toContain('data-dashboard-audio');
-        expect(recentAudioSource).toContain('divide-y');
         expect(recentAudioSource).not.toContain('card-base');
     });
 
@@ -152,11 +175,25 @@ describe('dashboard field desk layout', () => {
         expect(visitorsSource).not.toContain('card-base');
     });
 
-    it('finishes the audio preview without a doubled bottom rule', () => {
+    it('frames every desk section as one panel with one header shape', () => {
+        // Each rail section is a ruled panel that opens with the same display heading and a
+        // muted window line, so the three columns read as one set rather than three styles.
+        for (const source of [recentAudioSource, histogramSource, visitorsSource]) {
+            expect(source).toContain('font-display text-xl font-bold text-slate-950 dark:text-white');
+            expect(source).toMatch(/<section[^>]*class="panel /);
+        }
+        expect(fieldLogSource).toContain('<section class="space-y-4 sm:panel" data-dashboard-field-log>');
+        expect(notableNearbySource).toContain('class="panel space-y-4"');
         expect(recentAudioSource).toContain('data-audio-history-action');
-        expect(recentAudioSource).toContain('data-dashboard-audio-list');
-        expect(recentAudioSource).toMatch(/data-dashboard-audio[^>]+border-t/);
-        expect(recentAudioSource).not.toMatch(/data-dashboard-audio[^>]+border-y/);
-        expect(recentAudioSource).not.toMatch(/data-dashboard-audio-list[^>]+border-y/);
+    });
+
+    it('splits the rail into what needs you and the reference on a wide screen', () => {
+        const now = dashboardSource.indexOf('data-dashboard-rail-now');
+        const reference = dashboardSource.indexOf('data-dashboard-rail-reference');
+        expect(now).toBeGreaterThan(dashboardSource.indexOf('<aside'));
+        expect(reference).toBeGreaterThan(now);
+        expect(dashboardSource.indexOf('<ReviewQueueCard')).toBeLessThan(reference);
+        expect(dashboardSource.indexOf('<NotableNearby')).toBeGreaterThan(reference);
+        expect(dashboardSource).toContain('3xl:grid-cols-2');
     });
 });

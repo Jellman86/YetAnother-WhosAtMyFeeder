@@ -8,6 +8,7 @@ import {
     faultDropCount,
     faultDropReasons,
     hasExpectedDrops,
+    keyedPipelineDetections,
     recentFaultDetections,
     recentFilteredDetections
 } from './pipeline-health';
@@ -161,5 +162,30 @@ describe('backend diagnostics list', () => {
         const withoutSeverity: Array<{ id: string; severity?: string }> = [{ id: '1' }];
         expect(faultDiagnostics(withoutSeverity)).toHaveLength(1);
         expect(faultDiagnostics(null)).toEqual([]);
+    });
+});
+
+
+describe('pipeline attempt identity', () => {
+    const entry = { eventId: 'event', timestamp: null, reason: 'filter_low_confidence', label: null, score: null };
+
+    it('preserves repeated attempts, including identical records', () => {
+        const rows = keyedPipelineDetections([entry, { ...entry }]);
+        expect(rows.map(row => row.entry)).toEqual([entry, entry]);
+        expect(new Set(rows.map(row => row.key)).size).toBe(2);
+    });
+
+    it('keeps existing keys stable when a new attempt arrives at the front', () => {
+        const before = keyedPipelineDetections([entry, { ...entry }]);
+        const after = keyedPipelineDetections([{ ...entry }, entry, { ...entry }]);
+        expect(after.slice(1)).toEqual(before);
+        expect(new Set(after.map(row => row.key)).size).toBe(3);
+    });
+
+    it('keeps delimiter-like event metadata distinct without changing the inputs', () => {
+        const entries = [entry, { ...entry, eventId: 'event:null', timestamp: 'null' }];
+        const rows = keyedPipelineDetections(entries);
+        expect(new Set(rows.map(row => row.key)).size).toBe(2);
+        expect(entries).toEqual([entry, { ...entry, eventId: 'event:null', timestamp: 'null' }]);
     });
 });

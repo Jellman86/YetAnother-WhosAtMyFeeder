@@ -1,17 +1,20 @@
 <script lang="ts">
+    import { tick, untrack } from 'svelte';
     import { _ } from 'svelte-i18n';
     import { portal } from '../utils/portal';
+    import MediaImage from './MediaImage.svelte';
     import {
         formatOffset,
+        preferredCandidate,
         momentImageUrl,
         momentThumbnailUrl,
         type FrameMoment
     } from '../utils/frame-moments';
 
     /**
-     * One ordered strip of the visit's moments (#256).
+     * One ordered strip of the visit's photograph choices (#256).
      *
-     * Each thumbnail is a moment of the visit, oldest first. Hover or focus opens a pop-out
+     * A frame with several birds offers each crop separately. Hover or focus opens a pop-out
      * that shows the frame at decision size with what the model read in it, and one action,
      * "Use this frame", which changes the record's photograph and nothing else. Where a frame
      * came from is not shown here; Details holds that.
@@ -28,10 +31,19 @@
         busy?: boolean;
         /** The camera's own snapshot, for the as-recorded moment which has no candidate record. */
         asRecordedUrl?: string | null;
+        /**
+         * The record's saved photograph. It is the current moment's own picture, so it stands in
+         * when that moment's candidate file is gone, and only for that moment.
+         */
+        photographUrl?: string | null;
+        /** What to say when the visit has no frames at all; the strip's own wording otherwise. */
+        emptyText?: string | null;
         canRegenerate?: boolean;
         regeneratePending?: boolean;
         onuse: (moment: FrameMoment) => void;
         onregenerate?: () => void;
+        eventId?: string;
+        onremove?: (candidateId: string, dismissed: boolean) => Promise<void>;
     }
 
     let {
@@ -42,13 +54,56 @@
         applyingKey = null,
         busy = false,
         asRecordedUrl = null,
+        photographUrl = null,
+        emptyText = null,
         canRegenerate = false,
         regeneratePending = false,
         onuse,
-        onregenerate
+        onregenerate,
+        eventId,
+        onremove
     }: Props = $props();
 
     let openIndex = $state<number | null>(null);
+    // With one moment there is nothing to choose between, so it carries no "Chosen" mark.
+    const marksChoice = $derived(moments.length > 1);
+    // An earlier photograph is not a frame of the clip, so a strip holding one, like a strip of
+    // several birds' crops, counts photo options rather than frames.
+    let removedPhoto = $state<{ eventId: string; candidateId: string } | null>(null);
+    let removalError = $state(false);
+    let hoverPaused = false;
+    let undoButton = $state<HTMLButtonElement | null>(null);
+    async function removeChoice(moment: FrameMoment): Promise<void> {
+        const candidate = preferredCandidate(moment);
+        const subject = eventId;
+        if (!candidate || !subject || !onremove || busy) return;
+        removalError = false;
+        try {
+            await onremove(candidate.candidate_id, true);
+            if (eventId === subject) {
+                hoverPaused = true;
+                hide(true);
+                removedPhoto = { eventId: subject, candidateId: candidate.candidate_id };
+                await tick();
+                if (eventId === subject) undoButton?.focus();
+            }
+        } catch {
+            if (eventId === subject) removalError = true;
+        }
+    }
+    async function undoRemoval(): Promise<void> {
+        if (!removedPhoto || removedPhoto.eventId !== eventId || !onremove || busy) return;
+        const previous = removedPhoto;
+        removalError = false;
+        try {
+            await onremove(previous.candidateId, false);
+            if (removedPhoto === previous) removedPhoto = null;
+        } catch { removalError = true; }
+    }
+
+    const offersPhotoOptions = $derived(
+        moments.some((moment) => moment.choice === 'crop' || moment.choice === 'previous')
+    );
     let rootEl = $state<HTMLElement | null>(null);
     let triggers = $state<HTMLElement[]>([]);
     let closeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -80,6 +135,7 @@
     // opens on hover: a backdrop under a hovering pointer is a mouseleave, which would close
     // what the mouseenter had just opened.
     function hoverOpen(index: number, event: PointerEvent): void {
+        if (hoverPaused) return;
         if (event.pointerType === 'touch' || isSheet()) return;
         show(index);
     }
@@ -183,10 +239,26 @@
     // The panel is portalled to the body, outside the dialog's focus trap, so Tab never
     // reaches it. The arrow keys carry focus down into the panel and Tab carries it back.
     function handleTriggerKeydown(event: KeyboardEvent, index: number): void {
+        const along = alongStrip(event.key, index);
+        if (along !== null) {
+            event.preventDefault();
+            triggers[along]?.focus();
+            return;
+        }
         if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
         event.preventDefault();
         if (openIndex !== index) show(index);
         queueMicrotask(() => panelEl?.querySelector<HTMLElement>('button, [tabindex]')?.focus());
+    }
+
+    // Left, Right, Home and End move along the strip, so the last of many is one key away.
+    function alongStrip(key: string, index: number): number | null {
+        const last = moments.length - 1;
+        if (key === 'ArrowLeft') return Math.max(index - 1, 0);
+        if (key === 'ArrowRight') return Math.min(index + 1, last);
+        if (key === 'Home') return 0;
+        if (key === 'End') return last;
+        return null;
     }
 
     // Focus returns to the trigger before the pop-out hides: moving focus replays focusin on the
@@ -203,6 +275,32 @@
     }
 
     let panelEl = $state<HTMLElement | null>(null);
+
+    // Once a choice becomes the photograph, its Use button gives way to a label and the focus on
+    // it would fall to the page, where neither the strip's Escape nor the modal's can hear it. On
+    // a phone that leaves the sheet open with no key to close it. Focus moves to the panel's
+    // Close, or to the thumbnail if the panel has gone, and only when it had nowhere else to be.
+    let usedKey = $state<string | null>(null);
+
+    function use(moment: FrameMoment): void {
+        usedKey = moment.key;
+        onuse(moment);
+    }
+
+    $effect(() => {
+        const key = usedKey;
+        if (key === null || current?.key !== key) return;
+        const index = moments.findIndex((moment) => moment.key === key);
+        untrack(() => {
+            usedKey = null;
+            queueMicrotask(() => {
+                const active = document.activeElement;
+                if (active && active !== document.body && active.isConnected) return;
+                const target = openIndex === index ? panelEl?.querySelector<HTMLElement>('button') : triggers[index];
+                target?.focus();
+            });
+        });
+    });
 
     $effect(() => {
         return () => {
@@ -228,12 +326,29 @@
                 place(index);
             });
         };
+        // Safari does not focus a button on click, so after a click focus can still be on the
+        // modal's own Close and its Escape would close the whole modal. While a comparison is
+        // open, Escape closes it first wherever focus is. Focus returns to its thumbnail from the
+        // strip, the panel or nowhere; focus elsewhere, such as a search being typed, stays put.
+        const escape = (event: KeyboardEvent) => {
+            if (event.key !== 'Escape') return;
+            event.preventDefault();
+            event.stopPropagation();
+            const active = document.activeElement;
+            const lost = !active || active === document.body;
+            if (lost || (active && (rootEl?.contains(active) || panelEl?.contains(active)))) {
+                triggers[index]?.focus();
+            }
+            hide(true);
+        };
         window.addEventListener('scroll', follow, true);
         window.addEventListener('resize', follow);
+        window.addEventListener('keydown', escape, true);
         return () => {
             if (pending !== null) cancelAnimationFrame(pending);
             window.removeEventListener('scroll', follow, true);
             window.removeEventListener('resize', follow);
+            window.removeEventListener('keydown', escape, true);
         };
     });
 
@@ -245,22 +360,30 @@
         }
     });
 
+    let scrollerEl = $state<HTMLElement | null>(null);
+    let moreBefore = $state(false);
+    let moreAfter = $state(false);
+
+    // The edge controls sit over the strip's ends, so a thumbnail counts as in view only once it
+    // is clear of them. Paging keeps one thumbnail's width of overlap, so nothing is skipped.
+    const EDGE_CLEARANCE = 48;
+    const THUMBNAIL_STEP = 62;
+
     /**
-     * Shows the strip's trailing hint only while it actually overflows. The hint is a separate,
-     * pointer-transparent layer so desktop browsers never hit-test through a CSS mask.
-     * Thumbnails load lazily, so image loads are watched as well as resizes.
+     * Tracks whether the strip runs on past either end. Each end then gets a fade and a control;
+     * both are hidden while that end is in view. Thumbnails load lazily, so image loads are
+     * watched as well as resizes.
      */
     function watchOverflow(node: HTMLElement) {
-        const shell = node.closest<HTMLElement>('[data-snapshot-strip-shell]');
         const update = () => {
-            const hasMoreToRight = node.scrollLeft + node.clientWidth < node.scrollWidth - 1;
-            shell?.style.setProperty('--strip-fade-opacity', hasMoreToRight ? '1' : '0');
+            moreBefore = node.scrollLeft > 1;
+            moreAfter = node.scrollLeft + node.clientWidth < node.scrollWidth - 1;
         };
         update();
         const resize = new ResizeObserver(update);
         resize.observe(node);
         // The container keeps its size when the moment list changes, so a resize alone would
-        // leave the fade describing a strip that is no longer there.
+        // leave the ends describing a strip that is no longer there.
         const mutation = new MutationObserver(update);
         mutation.observe(node, { childList: true });
         node.addEventListener('load', update, true);
@@ -269,32 +392,79 @@
             destroy() {
                 resize.disconnect();
                 mutation.disconnect();
-                shell?.style.removeProperty('--strip-fade-opacity');
                 node.removeEventListener('load', update, true);
                 node.removeEventListener('scroll', update);
             }
         };
     }
 
-    // A thumbnail that fails to load degrades to a same-size placeholder, never a hole.
-    let failed = $state<Set<string>>(new Set());
-    function markFailed(key: string): void {
-        const next = new Set(failed);
-        next.add(key);
-        failed = next;
+    function scrollBehavior(): ScrollBehavior {
+        return window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
     }
 
-    function thumbnailFor(moment: FrameMoment): string | null {
-        return moment.asRecorded ? asRecordedUrl : momentThumbnailUrl(moment);
+    function scrollAlong(direction: -1 | 1): void {
+        if (!scrollerEl) return;
+        const step = Math.max(scrollerEl.clientWidth - EDGE_CLEARANCE * 2 - THUMBNAIL_STEP, THUMBNAIL_STEP);
+        scrollerEl.scrollBy({ left: direction * step, behavior: scrollBehavior() });
     }
 
-    function imageFor(moment: FrameMoment): string | null {
-        return moment.asRecorded ? asRecordedUrl : momentImageUrl(moment);
+    /** Scrolls the strip, and only the strip, until a thumbnail is clear of the edge controls. */
+    function reveal(trigger: HTMLElement, centre: boolean): void {
+        const scroller = scrollerEl;
+        if (!scroller || scroller.scrollWidth <= scroller.clientWidth) return;
+        const view = scroller.getBoundingClientRect();
+        const rect = trigger.getBoundingClientRect();
+        const left = rect.left - view.left;
+        const right = rect.right - view.left;
+        let delta = 0;
+        if (left < EDGE_CLEARANCE) delta = left - EDGE_CLEARANCE;
+        else if (right > view.width - EDGE_CLEARANCE) delta = right - (view.width - EDGE_CLEARANCE);
+        if (delta === 0) return;
+        if (centre) delta = (left + right) / 2 - view.width / 2;
+        scroller.scrollLeft += delta;
+    }
+
+    // Focus that arrives by keyboard (Tab or the arrows) brings its thumbnail clear of the ends.
+    // A pointer's focus is left alone: moving the strip under a press would drop its click.
+    function revealFocused(event: FocusEvent): void {
+        const target = event.target;
+        if (!(target instanceof HTMLElement) || !triggers.includes(target)) return;
+        if (isKeyboardFocus(target)) reveal(target, false);
+    }
+
+    // The photograph in use is in view whenever the strip opens or its list changes, however far
+    // along it sits. A list from another capture starts the strip again from its first frame.
+    let shownKeys: string[] = [];
+    $effect(() => {
+        const keys = moments.filter((moment) => !moment.asRecorded).map((moment) => moment.key);
+        const index = moments.findIndex((moment) => moment.key === current?.key);
+        const trigger = index >= 0 ? triggers[index] : undefined;
+        const scroller = scrollerEl;
+        untrack(() => {
+            if (scroller && keys.length > 0 && !keys.some((key) => shownKeys.includes(key))) {
+                scroller.scrollLeft = 0;
+            }
+            shownKeys = keys;
+            if (trigger) reveal(trigger, true);
+        });
+    });
+
+    // A thumbnail that fails to load degrades to a same-size placeholder, never a hole. The
+    // current moment first falls back to the saved photograph, which is the same picture.
+    function thumbnailSources(moment: FrameMoment): Array<string | null> {
+        return [moment.asRecorded ? asRecordedUrl : momentThumbnailUrl(moment), isCurrent(moment) ? photographUrl : null];
+    }
+
+    function imageSources(moment: FrameMoment): Array<string | null> {
+        return [moment.asRecorded ? asRecordedUrl : momentImageUrl(moment), isCurrent(moment) ? photographUrl : null];
     }
 
     function framingLabel(moment: FrameMoment): string {
         if (moment.asRecorded) {
             return $_('detection.snapshot_framing_as_recorded', { default: 'As Frigate recorded it' });
+        }
+        if (moment.previous) {
+            return $_('detection.snapshot_framing_previous', { default: 'An earlier photograph' });
         }
         return moment.crop
             ? $_('detection.snapshot_framing_close', { default: 'Close on the bird' })
@@ -310,6 +480,18 @@
         const score = moment.read.score === null ? null : Math.round(moment.read.score * 100);
         return score === null ? moment.read.label : `${moment.read.label} ${score}%`;
     }
+
+    function positionLabel(moment: FrameMoment): string {
+        return offersPhotoOptions
+            ? $_('detection.photo_option_position', {
+                values: { position: moment.position, count: moments.length },
+                default: 'Photo option {position} of {count}'
+            })
+            : $_('detection.frame_position', {
+                values: { position: moment.position, count: moments.length },
+                default: 'Frame {position} of {count}'
+            });
+    }
 </script>
 
 <div
@@ -317,23 +499,28 @@
     class="flex flex-col gap-1 px-3 pb-3"
     data-frame-strip
     aria-busy={loading || busy}
-    onmouseleave={hoverClose}
+    onpointermove={() => { hoverPaused = false; }}
+    onmouseleave={() => { hoverPaused = false; hoverClose(); }}
     onfocusout={handleFocusOut}
     onkeydown={handleKeydown}
     role="presentation"
 >
-    <div class="flex min-h-4 items-center justify-between gap-2 px-1 text-[10px] font-semibold text-white/65" aria-live="polite">
-        <span>
+    <div class="flex min-h-4 items-center justify-between gap-2 px-1 text-3xs font-semibold text-white/65" aria-live="polite">
+        <!-- The count keeps its one line beside the hint, which truncates instead, so the strip never
+             grows when its frames arrive. Phones hide the hint, so there the count may wrap. -->
+        <span class="sm:shrink-0 sm:whitespace-nowrap">
             {#if loading}
                 {$_('detection.snapshot_candidates_loading', { default: 'Loading frames...' })}
             {:else if moments.length === 0}
-                {$_('detection.frame_strip_empty', { default: 'No frames kept from this visit yet.' })}
+                {emptyText ?? $_('detection.frame_strip_empty', { default: 'No frames kept from this visit yet.' })}
             {:else if moments.length === 1}
-                {$_('detection.frame_strip_count_one', { default: '1 frame from this visit' })}
+                {offersPhotoOptions
+                    ? $_('detection.photo_option_count_one', { default: '1 photo option from this visit' })
+                    : $_('detection.frame_strip_count_one', { default: '1 frame from this visit' })}
             {:else}
-                {$_('detection.frame_strip_count', {
+                {$_(offersPhotoOptions ? 'detection.photo_option_count' : 'detection.frame_strip_count', {
                     values: { count: moments.length },
-                    default: '{count} frames from this visit'
+                    default: offersPhotoOptions ? '{count} photo options from this visit' : '{count} frames from this visit'
                 })}
             {/if}
         </span>
@@ -345,10 +532,21 @@
     </div>
     <div class="flex min-w-0 items-center gap-1.5">
         <div class="snapshot-strip-shell relative min-w-0 flex-1" data-snapshot-strip-shell>
-            <div class="snapshot-strip -my-2 flex min-w-0 gap-1.5 overflow-x-auto px-1 py-3" use:watchOverflow>
+            <div
+                bind:this={scrollerEl}
+                class="snapshot-strip -my-2 flex min-w-0 gap-1.5 overflow-x-auto px-1 py-3"
+                data-frame-strip-scroller
+                use:watchOverflow
+                onfocusin={revealFocused}
+            >
+                {#if loading && moments.length === 0}
+                    <!-- Holds a thumbnail's room while the frames are read, so they arrive in place. -->
+                    <span class="shrink-0 rounded-md p-1" aria-hidden="true" data-frame-strip-pending>
+                        <span class="block h-9 w-12 rounded-md bg-slate-800/70"></span>
+                    </span>
+                {/if}
                 {#each moments as moment, index (moment.key)}
                     {@const chosen = isCurrent(moment)}
-                    {@const thumb = thumbnailFor(moment)}
                     <div
                         class="relative shrink-0"
                         onpointerenter={(event) => hoverOpen(index, event)}
@@ -358,51 +556,45 @@
                         <button
                             type="button"
                             bind:this={triggers[index]}
-                            class="relative min-h-11 min-w-11 shrink-0 rounded-md p-1 transition duration-200 ease-out motion-reduce:transform-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 {chosen
+                            class="relative block min-h-11 min-w-11 shrink-0 rounded-md p-1 transition duration-200 ease-out motion-reduce:transform-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 {chosen && marksChoice
                                 ? 'z-10 -translate-y-1 scale-105 bg-white/15 opacity-100 shadow-lg shadow-black/50'
-                                : 'opacity-80 hover:opacity-100'}"
+                                : chosen ? 'opacity-100' : 'opacity-80 hover:opacity-100'}"
                             aria-pressed={chosen}
                             aria-expanded={openIndex === index}
-                            aria-label={$_('detection.frame_compare', {
+                            aria-label={$_(offersPhotoOptions ? 'detection.photo_option_compare' : 'detection.frame_compare', {
                                 values: { position: moment.position, count: moments.length },
-                                default: 'Compare frame {position} of {count}'
+                                default: offersPhotoOptions ? 'Compare photo option {position} of {count}' : 'Compare frame {position} of {count}'
                             })}
                             onclick={(event) => { event.stopPropagation(); show(index); }}
                             onkeydown={(event) => handleTriggerKeydown(event, index)}
                         >
-                            {#if thumb && !failed.has(moment.key)}
-                                <img
-                                    src={thumb}
-                                    alt=""
-                                    loading="lazy"
-                                    decoding="async"
-                                    width="48"
-                                    height="36"
-                                    class="h-9 w-12 rounded-md object-cover"
-                                    onerror={() => markFailed(moment.key)}
-                                />
-                            {:else}
-                                <span class="flex h-9 w-12 items-center justify-center rounded-md bg-slate-800 text-slate-500" aria-hidden="true">
-                                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2 1.586-1.586a2 2 0 012.828 0L20 14M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                    </svg>
-                                </span>
-                            {/if}
-                            {#if chosen}
-                                <span class="pointer-events-none absolute bottom-1.5 left-1.5 rounded bg-brand-500 px-1 text-[9px] font-bold leading-4 text-slate-950">
+                            <MediaImage
+                                sources={thumbnailSources(moment)}
+                                alt=""
+                                loading="lazy"
+                                decoding="async"
+                                width={48}
+                                height={36}
+                                class="block h-9 w-12 rounded-md bg-slate-800 object-cover"
+                                placeholderClass="text-slate-500"
+                                iconClass="h-4 w-4"
+                            />
+                            {#if chosen && marksChoice}
+                                <span class="pointer-events-none absolute bottom-1.5 left-1.5 rounded bg-brand-500 px-1 text-3xs font-bold leading-4 text-slate-950">
                                     {$_('detection.frame_chosen_badge', { default: 'Chosen' })}
                                 </span>
                             {/if}
                         </button>
 
                         {#if openIndex === index && anchor}
-                            {@const image = imageFor(moment)}
                             {@const read = readLine(moment)}
                             {@const applying = applyingKey === moment.key}
                             {#if anchor.sheet}
+                                <!-- Needs your call is itself a z-[70] layer. Portalled after it and
+                                     before the sheet, the backdrop shares that layer and covers it. -->
                                 <div
                                     use:portal
-                                    class="fixed inset-0 z-[69] bg-slate-950/50"
+                                    class="fixed inset-0 z-[70] bg-slate-950/50"
                                     data-frame-strip-backdrop
                                     onclick={() => hide(true)}
                                     role="presentation"
@@ -420,17 +612,15 @@
                                 role="presentation"
                                 data-frame-strip-panel
                                 onmouseenter={cancelScheduledClose}
-                                onmouseleave={hoverClose}
+                                onpointermove={() => { hoverPaused = false; }}
+    onmouseleave={() => { hoverPaused = false; hoverClose(); }}
                                 onfocusout={handleFocusOut}
                                 onkeydown={handlePanelKeydown}
                             >
                               <div
                                 class="relative"
                                 role="group"
-                                aria-label={$_('detection.frame_position', {
-                                    values: { position: moment.position, count: moments.length },
-                                    default: 'Frame {position} of {count}'
-                                })}
+                                aria-label={positionLabel(moment)}
                               >
                                 <button
                                     type="button"
@@ -440,29 +630,20 @@
                                 >
                                     <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" stroke-linecap="round" /></svg>
                                 </button>
-                                {#if image && !failed.has(moment.key)}
-                                    <img
-                                        src={image}
-                                        alt={primaryName}
-                                        loading="lazy"
-                                        decoding="async"
-                                        class="w-full bg-slate-950 object-contain {anchor.sheet ? 'h-56' : 'h-40'}"
-                                        onerror={() => markFailed(moment.key)}
-                                    />
-                                {:else}
-                                    <div class="flex h-40 w-full items-center justify-center bg-slate-950 text-slate-600" aria-hidden="true">
-                                        <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2 1.586-1.586a2 2 0 012.828 0L20 14M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                        </svg>
-                                    </div>
-                                {/if}
-                                <div class="flex flex-col gap-1.5 p-3 text-[13px]">
+                                <MediaImage
+                                    sources={imageSources(moment)}
+                                    alt={offersPhotoOptions
+                                        ? $_('detection.photo_option_image_alt', { default: 'Candidate photograph from this visit' })
+                                        : primaryName}
+                                    decoding="async"
+                                    class="w-full bg-slate-950 object-contain {anchor.sheet ? 'h-56' : 'h-40'}"
+                                    placeholderClass="text-slate-600"
+                                    iconClass="h-8 w-8"
+                                />
+                                <div class="flex flex-col gap-1.5 p-3 text-[0.8125rem]">
                                     <div class="flex items-baseline justify-between gap-2">
-                                        <span class="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
-                                            {$_('detection.frame_position', {
-                                                values: { position: moment.position, count: moments.length },
-                                                default: 'Frame {position} of {count}'
-                                            })}
+                                        <span class="text-3xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+                                            {positionLabel(moment)}
                                             &middot; {framingLabel(moment)}
                                         </span>
                                         {#if formatOffset(moment.offsetSeconds)}
@@ -471,12 +652,18 @@
                                     </div>
                                     {#if read}
                                         <div class="flex items-baseline justify-between gap-2">
-                                            <span class="text-slate-400">{$_('detection.frame_model_read', { default: 'Model reads this frame as' })}</span>
+                                            <span class="text-slate-400">{$_(moment.choice === 'crop' ? 'detection.photo_option_model_read' : 'detection.frame_model_read', { default: moment.choice === 'crop' ? 'Model reads this crop as' : 'Model reads this frame as' })}</span>
                                             <span class="shrink-0 font-semibold text-white">{read}</span>
                                         </div>
                                         <p class="text-xs text-slate-500">
                                             {$_('detection.frame_read_note', {
                                                 default: 'A read of one frame. The identification stays until you change it.'
+                                            })}
+                                        </p>
+                                    {:else if moment.previous}
+                                        <p class="text-xs text-slate-500">
+                                            {$_('detection.previous_photo_note', {
+                                                default: 'The photograph this record had before a later analysis replaced it.'
                                             })}
                                         </p>
                                     {:else}
@@ -493,13 +680,22 @@
                                             type="button"
                                             class="btn btn-primary mt-1 min-h-10 px-3 text-xs"
                                             disabled={busy}
-                                            onclick={(event) => { event.stopPropagation(); onuse(moment); }}
+                                            onclick={(event) => { event.stopPropagation(); use(moment); }}
                                         >
                                             {#if applying}
                                                 <span class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden="true"></span>
                                             {/if}
-                                            {$_('detection.frame_use', { default: 'Use this frame' })}
+                                            {$_(offersPhotoOptions ? 'detection.photo_option_use' : 'detection.frame_use', { default: offersPhotoOptions ? 'Use this photo' : 'Use this frame' })}
                                         </button>
+                                    {/if}
+                                    {#if onremove && preferredCandidate(moment)}
+                                        {@const candidate = preferredCandidate(moment)}
+                                        <button type="button" class="btn btn-ghost mt-1 min-h-11 px-3 text-xs"
+                                            disabled={busy || Boolean(candidate?.selected)}
+                                            onclick={(event) => { event.stopPropagation(); void removeChoice(moment); }}>
+                                            {$_('visits.remove_photo', { default: 'Remove photo choice' })}
+                                        </button>
+                                        {#if candidate?.selected}<p class="text-xs text-slate-500">{$_('visits.choose_first', { default: 'Choose another photograph before removing this one.' })}</p>{/if}
                                     {/if}
                                 </div>
                               </div>
@@ -508,19 +704,42 @@
                     </div>
                 {/each}
             </div>
-            <div
-                class="snapshot-strip-fade pointer-events-none absolute inset-y-2 right-0 w-14 bg-gradient-to-r from-transparent to-slate-950/80 transition-opacity duration-150 motion-reduce:transition-none"
-                data-snapshot-strip-fade
-                aria-hidden="true"
-            ></div>
+            {#each [
+                { forward: false, shown: moreBefore, label: $_('detection.frame_strip_scroll_left', { default: 'Scroll left' }) },
+                { forward: true, shown: moreAfter, label: $_('detection.frame_strip_scroll_right', { default: 'Scroll right' }) }
+            ] as end (end.forward)}
+                <!-- The fade says the strip runs on; the control takes it there. Keyboard users
+                     move along the strip itself, so the control stays out of the Tab order. -->
+                <div
+                    class="pointer-events-none absolute inset-y-2 w-14 from-transparent to-slate-950/90 transition-opacity duration-150 motion-reduce:transition-none {end.forward ? 'right-0 bg-gradient-to-r' : 'left-0 bg-gradient-to-l'} {end.shown ? 'opacity-100' : 'opacity-0'}"
+                    data-snapshot-strip-fade
+                    aria-hidden="true"
+                ></div>
+                <button
+                    type="button"
+                    tabindex="-1"
+                    class="group absolute inset-y-0 flex w-11 items-center transition-[opacity,visibility] duration-150 motion-reduce:transition-none {end.forward ? 'right-0 justify-end' : 'left-0 justify-start'} {end.shown ? 'visible opacity-100' : 'pointer-events-none invisible opacity-0'}"
+                    aria-label={end.label}
+                    title={end.label}
+                    data-frame-strip-back={end.forward ? undefined : ''}
+                    data-frame-strip-forward={end.forward ? '' : undefined}
+                    onclick={(event) => { event.stopPropagation(); scrollAlong(end.forward ? 1 : -1); }}
+                >
+                    <span class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-slate-950/75 text-white/80 shadow-md shadow-black/40 backdrop-blur-sm transition-colors group-hover:border-white/40 group-hover:text-white group-active:bg-slate-900">
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <path d={end.forward ? 'm9 6 6 6-6 6' : 'm15 6-6 6 6 6'} stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </span>
+                </button>
+            {/each}
         </div>
         {#if canRegenerate && onregenerate}
             <button
                 type="button"
                 class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-brand-300/35 bg-brand-500/15 text-brand-100 transition-colors hover:bg-brand-500/25 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
                 disabled={regeneratePending || busy}
-                title={$_('detection.snapshot_regenerate', { default: 'Regenerate snapshots' })}
-                aria-label={$_('detection.snapshot_regenerate', { default: 'Regenerate snapshots' })}
+                title={$_('detection.snapshot_regenerate', { default: 'Regenerate snapshots and recount birds' })}
+                aria-label={$_('detection.snapshot_regenerate', { default: 'Regenerate snapshots and recount birds' })}
                 onclick={(event) => { event.stopPropagation(); onregenerate?.(); }}
             >
                 {#if regeneratePending}
@@ -533,14 +752,21 @@
             </button>
         {/if}
     </div>
+    {#if removedPhoto?.eventId === eventId}
+        <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500" role="status">
+            <span>{$_('visits.photo_removed', { default: 'Photo removed from the choices.' })}</span>
+            <button type="button" class="btn btn-ghost min-h-11 px-3 text-xs" bind:this={undoButton} disabled={busy} onclick={() => void undoRemoval()}>{$_('common.undo', { default: 'Undo' })}</button>
+        </div>
+    {/if}
+    {#if removalError}<p role="alert" class="mt-2 text-sm text-slate-600 dark:text-slate-300">{$_('visits.remove_failed', { default: 'Could not change this photo choice. Try again.' })}</p>{/if}
 </div>
 
 <style>
     /*
      * The strip sits over a dark gradient on the image, where a native scrollbar is both ugly
-     * and low contrast. The bar is hidden and a pointer-transparent sibling darkens the right
-     * edge instead, so there is still a signal that more frames exist without blocking selection.
-     * Scrolling by wheel, trackpad and keyboard is unaffected.
+     * and low contrast. The bar is hidden; each end that runs on is darkened by a
+     * pointer-transparent fade and carries a control that scrolls it. Swiping, trackpads and the
+     * keyboard scroll it as before.
      */
     .snapshot-strip {
         scrollbar-width: none;
@@ -549,9 +775,5 @@
 
     .snapshot-strip::-webkit-scrollbar {
         display: none;
-    }
-
-    .snapshot-strip-fade {
-        opacity: var(--strip-fade-opacity, 0);
     }
 </style>

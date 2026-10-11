@@ -15,14 +15,15 @@ describe('the Explorer list row', () => {
     it('leads with the time, in a column whose digits line up', () => {
         // The alignment is the whole point: it is what makes scrolling for a
         // time work. A proportional font would defeat it.
-        expect(detectionRowSource).toMatch(/grid-cols-\[3\.25rem_/);
+        // Wide enough for the day beneath the time ("Yesterday", a date) at the larger text sizes.
+        expect(detectionRowSource).toMatch(/grid-cols-\[4rem_/);
         const timeBlock = detectionRowSource.match(/font-display[^"]*tabular-nums[^"]*"[\s\S]{0,140}formatTime/);
         expect(timeBlock, 'the first column should be the time, tabular').not.toBeNull();
     });
 
     it('flags a detection needing a person with all three signals', () => {
         // Never colour alone: a wash, a rule and a worded reason.
-        expect(detectionRowSource).toContain('from-accent-500');
+        expect(detectionRowSource).toContain('bg-accent-500/10');
         expect(detectionRowSource).toContain('bg-accent-500');
         expect(detectionRowSource).toContain('events.row_below_threshold');
     });
@@ -66,11 +67,10 @@ describe('the Explorer list row', () => {
         // The row no longer loads its own image. DetectionPreview owns it, and
         // holds the guarantee more firmly than the row did: the thumbnail is
         // decorative (`alt=""`), so there is no text to spill even before
-        // `onerror` fires, and a failure swaps in an explicit placeholder.
+        // `onerror` fires. That a failure swaps in the placeholder, and that a
+        // later photograph is tried again, is proven in thumbnail-refresh.spec.ts.
         expect(detectionRowSource).toContain('<DetectionPreview');
         expect(previewSource).toContain('alt=""');
-        expect(previewSource).toContain('onerror={() => markFailed(frame.frigate_event)}');
-        expect(previewSource).toContain('failed.has(frame.frigate_event)');
     });
 });
 

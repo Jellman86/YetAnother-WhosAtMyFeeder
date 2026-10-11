@@ -38,7 +38,10 @@ function buildCoordinator(options?: {
     activeJobs?: any[];
     shouldNotify?: boolean;
     fetchAnalysisStatus?: () => Promise<any>;
+    fetchCacheStats?: () => Promise<{ storage_available?: boolean }>;
     checkHealth?: () => Promise<any>;
+    hasOwnerAccess?: boolean;
+    refreshOwnerHistory?: () => Promise<void>;
 }) {
     const calls = {
         upsertRunning: [] as any[],
@@ -53,7 +56,7 @@ function buildCoordinator(options?: {
         startReclassification: [] as any[],
         updateReclassificationProgress: [] as any[],
         completeReclassification: [] as any[],
-        dismissReclassification: [] as any[],
+        failReclassification: [] as any[],
         markReclassificationStrategyChanged: [] as any[],
         syncDiagnosticsWorkspace: [] as any[]
     };
@@ -72,11 +75,14 @@ function buildCoordinator(options?: {
     const coordinator = new LiveUpdateCoordinator({
         t: (key: string) => key,
         shouldNotify: () => options?.shouldNotify ?? true,
-        hasOwnerAccess: () => true,
+        hasOwnerAccess: () => options?.hasOwnerAccess ?? true,
+        refreshOwnerHistory: options?.refreshOwnerHistory,
         applyNotificationPolicy: () => true,
         notificationCenter: {
             items: notificationItems,
-            add: () => undefined,
+            add: (item: any) => {
+                notificationItems.unshift(item);
+            },
             upsert: (item: any) => {
                 calls.notificationUpserts.push(item);
                 const idx = notificationItems.findIndex((existing) => existing.id === item.id);
@@ -103,7 +109,7 @@ function buildCoordinator(options?: {
             startReclassification: (...args: any[]) => calls.startReclassification.push(args),
             updateReclassificationProgress: (...args: any[]) => calls.updateReclassificationProgress.push(args),
             completeReclassification: (...args: any[]) => calls.completeReclassification.push(args),
-            dismissReclassification: (...args: any[]) => calls.dismissReclassification.push(args),
+            failReclassification: (...args: any[]) => calls.failReclassification.push(args),
             markReclassificationStrategyChanged: (...args: any[]) => calls.markReclassificationStrategyChanged.push(args)
         },
         settingsStore: {
@@ -118,7 +124,7 @@ function buildCoordinator(options?: {
             sseEvent: () => undefined
         },
         checkHealth: options?.checkHealth ?? (async () => ({})),
-        fetchCacheStats: async () => ({}),
+        fetchCacheStats: options?.fetchCacheStats ?? (async () => ({})),
         fetchAnalysisStatus: options?.fetchAnalysisStatus ?? (async () => ({
             pending: 0,
             active: 0,
@@ -258,7 +264,7 @@ describe('LiveUpdateCoordinator reclassify fallback', () => {
                 startReclassification: () => undefined,
                 updateReclassificationProgress: () => undefined,
                 completeReclassification: () => undefined,
-                dismissReclassification: () => undefined,
+                failReclassification: () => undefined,
                 markReclassificationStrategyChanged: () => undefined
             },
             settingsStore: { liveAnnouncements: false },
@@ -299,6 +305,20 @@ describe('LiveUpdateCoordinator reclassify fallback', () => {
         expect(updates[0].category_name).toBe('blue jay');
     });
 
+    it('warns the owner only when the media folder cannot be written, and clears the retired cache notice', async () => {
+        const unwritable = buildCoordinator({ fetchCacheStats: async () => ({ storage_available: false }) });
+        unwritable.notificationItems.push({ id: 'system:cache-disabled:old-start' });
+        await unwritable.coordinator.runOwnerSystemChecks();
+        const ids = unwritable.notificationItems.map((item) => String(item.id));
+        expect(ids.some((id) => id.startsWith('system:media-storage-unavailable:'))).toBe(true);
+        expect(ids.some((id) => id.startsWith('system:cache-disabled'))).toBe(false);
+
+        // An older backend that does not report storage must not raise a false alarm.
+        const silent = buildCoordinator({ fetchCacheStats: async () => ({}) });
+        await silent.coordinator.runOwnerSystemChecks();
+        expect(silent.notificationItems.some((item) => String(item.id).startsWith('system:media-storage-unavailable'))).toBe(false);
+    });
+
     it('forwards health payloads to diagnostics ingest', async () => {
         const { coordinator, calls } = buildCoordinator();
         await coordinator.runOwnerSystemChecks();
@@ -309,6 +329,21 @@ describe('LiveUpdateCoordinator reclassify fallback', () => {
         const { coordinator, calls } = buildCoordinator();
         await coordinator.runOwnerSystemChecks();
         expect(calls.syncDiagnosticsWorkspace).toHaveLength(1);
+    });
+
+    it('refreshes stale owner history during existing checks even when notifications are off', async () => {
+        const refreshOwnerHistory = vi.fn(async () => undefined);
+        const { coordinator, calls } = buildCoordinator({ refreshOwnerHistory, shouldNotify: false });
+        await coordinator.runOwnerSystemChecks();
+        expect(refreshOwnerHistory).toHaveBeenCalledOnce();
+        expect(calls.ingestHealth).toEqual([]);
+    });
+
+    it('does not refresh owner history during guest system checks', async () => {
+        const refreshOwnerHistory = vi.fn(async () => undefined);
+        const { coordinator } = buildCoordinator({ refreshOwnerHistory, hasOwnerAccess: false });
+        await coordinator.runOwnerSystemChecks();
+        expect(refreshOwnerHistory).not.toHaveBeenCalled();
     });
 
     it('clears synthetic batch analysis state when the backend instance changes', async () => {
@@ -650,7 +685,7 @@ describe('LiveUpdateCoordinator reclassify fallback', () => {
         expect(calls.completeReclassification).toEqual([
             ['evt-terminal-failure', [], 'failed', 'video_timeout', null]
         ]);
-        expect(calls.dismissReclassification).toHaveLength(0);
+        expect(calls.failReclassification).toHaveLength(0);
     });
 
     it('settles an explicit reclassification failure and dismisses its overlay', () => {
@@ -666,7 +701,7 @@ describe('LiveUpdateCoordinator reclassify fallback', () => {
         });
 
         expect(calls.markFailed).toHaveLength(1);
-        expect(calls.dismissReclassification).toEqual([['evt-failed']]);
+        expect(calls.failReclassification).toEqual([['evt-failed']]);
         expect(calls.completeReclassification).toHaveLength(0);
     });
 

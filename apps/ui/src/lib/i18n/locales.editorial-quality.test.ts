@@ -116,6 +116,12 @@ describe('locale editorial quality', () => {
                 )
             ).toEqual([]);
         });
+
+        // docs/standards/layout-patterns.md §5: no em dashes, in any language. A lone dash
+        // standing in for an empty value is not punctuation.
+        it(`${name} uses no em dash as punctuation`, () => {
+            expect(leaves.filter(([, value]) => value.includes('—') && value.trim() !== '—')).toEqual([]);
+        });
     }
 
     for (const [name, markers] of Object.entries(ASCII_ACCENT_LOSS_MARKERS)) {

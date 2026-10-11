@@ -2,23 +2,46 @@
     import { get } from 'svelte/store';
     import { _ } from 'svelte-i18n';
     import { onMount, onDestroy } from 'svelte';
-    import { fetchAvailableModels, fetchInstalledModels, downloadModel, fetchDownloadStatus, activateModel, deleteModel, validateModel, checkHealth, fetchClassifierStatus, getVisibleTieredModelLineup, groupTieredModelLineup, categorizeModel, MODEL_CATEGORY_INFO, type ModelMetadata, type InstalledModel, type DownloadProgress, type ClassifierStatus, type HealthStatus } from '../../api';
+    import { fetchAvailableModels, fetchInstalledModels, downloadModel, fetchDownloadStatus, activateModel, deleteModel, validateModel, checkHealth, getVisibleTieredModelLineup, groupTieredModelLineup, categorizeModel, MODEL_CATEGORY_INFO, type ModelMetadata, type InstalledModel, type DownloadProgress, type ClassifierStatus, type HealthStatus } from '../../api';
     import { jobProgressStore } from '../../stores/job_progress.svelte';
     import { confirmAction } from '../../stores/confirm_dialog.svelte';
     import { toastStore } from '../../stores/toast.svelte';
     import { startModelDownloadProgress, syncModelDownloadProgress } from './model_download_progress';
+    import { usesSavedFeederLocation } from './model_location_input';
     import { getRuntimeProviderOrder } from '../../settings/inference-providers';
+    import { toAppPath } from '../../app/url-base';
     import DiagnosticDialog from '../../components/DiagnosticDialog.svelte';
     import type { DiagnosticStage, DiagnosticResult } from '../../utils/diagnostic-runner';
-    let { executionMode = 'subprocess', autoVideoEnabled = false }: {
+    // The live runtime is owned by the Settings page, so the band, the runtime
+    // report and this card always show the same, freshest provider.
+    let { executionMode = 'subprocess', autoVideoEnabled = false, classifierStatus, onruntimechange, onopenlocationsettings }: {
         executionMode?: string;
         autoVideoEnabled?: boolean;
+        classifierStatus: ClassifierStatus | null;
+        onruntimechange?: () => Promise<unknown>;
+        onopenlocationsettings?: () => void;
     } = $props();
+
+    // Switching tabs in place keeps unsaved settings edits; a full page load
+    // would discard them. Modified clicks still open a new tab as usual.
+    function handleLocationSettingsClick(event: MouseEvent): void {
+        if (
+            !onopenlocationsettings
+            || event.button !== 0
+            || event.metaKey
+            || event.ctrlKey
+            || event.shiftKey
+            || event.altKey
+        ) {
+            return;
+        }
+        event.preventDefault();
+        onopenlocationsettings();
+    }
 
     let availableModels = $state<ModelMetadata[]>([]);
     let installedModels = $state<InstalledModel[]>([]);
     let health = $state<HealthStatus | null>(null);
-    let classifierStatus = $state<ClassifierStatus | null>(null);
     let loading = $state(true);
     let error = $state<string | null>(null);
     let downloadStatuses = $state<Record<string, DownloadProgress>>({});
@@ -34,7 +57,9 @@
     let wizardRunId = $state(0);
     let wizardDownload = $state(false);
     let showAdvancedModels = $state(false);
-    let cropDetectorStatus = $state<ClassifierStatus['crop_detector'] | null>(null);
+    const cropDetectorStatus = $derived(classifierStatus?.crop_detector ?? null);
+    // Until a worker reports what it loaded, the provider is the plan, not a fact.
+    const runtimePlanned = $derived(classifierStatus?.runtime_source === 'planned');
 
     function t(key: string, fallback: string, values?: Record<string, string | number>): string {
         return get(_)(key, values ? { values, default: fallback } : { default: fallback });
@@ -88,7 +113,7 @@
     function statusChipClass(status: string | undefined): string {
         switch (status ?? 'stable') {
             case 'stable':
-                return 'bg-accent-500/10 text-accent-700 dark:text-accent-300 border-accent-500/20';
+                return 'bg-success-500/10 text-success-700 dark:text-success-300 border-success-500/20';
             case 'beta':
                 return 'bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/20';
             case 'experimental':
@@ -125,21 +150,15 @@
         loading = true;
         error = null;
         try {
-            const [available, installed, healthData, classifierData] = await Promise.all([
+            const [available, installed, healthData] = await Promise.all([
                 fetchAvailableModels(),
                 fetchInstalledModels(),
-                checkHealth(),
-                fetchClassifierStatus().catch((e) => {
-                    console.warn("Failed to load classifier status in model manager", e);
-                    return null;
-                })
+                checkHealth()
             ]);
             availableModels = available;
             installedModels = installed;
             health = healthData;
-            classifierStatus = classifierData;
-            cropDetectorStatus = classifierData?.crop_detector ?? null;
-            
+
             if (!selectedModelId && installed.length > 0) {
                 const activeModel = installed.find(m => m.is_active);
                 if (activeModel) selectedModelId = activeModel.id;
@@ -154,6 +173,10 @@
         } finally {
             loading = false;
         }
+    }
+
+    async function refreshModels(): Promise<void> {
+        await Promise.all([loadData(), onruntimechange?.()]);
     }
 
     async function pollDownloads() {
@@ -291,7 +314,7 @@
                 if (isActive) {
                     return {
                         label: `${baseLabel}: ${t('settings.detection.model_manager_provider_active_suffix', 'Active')}`,
-                        className: 'bg-accent-500/10 text-accent-700 dark:text-accent-300 border-accent-500/20',
+                        className: 'bg-success-500/10 text-success-700 dark:text-success-300 border-success-500/20',
                         title: t('settings.detection.active_provider_label', 'Active')
                     };
                 }
@@ -388,6 +411,7 @@
         try {
             await activateModel(modelId);
             installedModels = await fetchInstalledModels();
+            await onruntimechange?.();
         } catch (e) {
             console.error(e);
             toastStore.error(t('settings.detection.model_manager_activate_error', 'Failed to activate model'));
@@ -480,7 +504,7 @@
             }
             const ms = result.latency_ms ? ` · ${Math.round(result.latency_ms)} ms/frame` : '';
             const msg = result.best_provider
-                ? t('settings.detection.model_manager_device_set', 'Fastest verified provider: {provider}{ms} — it will be applied when this model is enabled.', { provider: result.best_provider, ms })
+                ? t('settings.detection.model_manager_device_set', 'Fastest verified provider: {provider}{ms}. It will be applied when this model is enabled.', { provider: result.best_provider, ms })
                 : t('settings.detection.model_manager_validate_ran_ok', 'Ran on {provider}{ms} and produced valid output.', { provider: result.provider, ms });
             set(1, { state: 'passed', message: msg });
         } catch (e) {
@@ -500,6 +524,7 @@
         }
         wizardBusy = false;
         installedModels = await fetchInstalledModels();
+        await onruntimechange?.();
     }
 
     function handleInstall(model: ModelMetadata) {
@@ -622,7 +647,7 @@
                             </p>
                             <button
                                 type="button"
-                                onclick={loadData}
+                                onclick={refreshModels}
                                 class="btn btn-ghost inline-flex min-h-11 items-center gap-1.5 px-3 text-xs font-bold"
                                 aria-label={$_('settings.detection.model_manager_refresh', { default: 'Refresh' })}
                                 title={$_('settings.detection.model_manager_refresh', { default: 'Refresh' })}
@@ -636,7 +661,7 @@
                         <div class="mt-3 space-y-4" aria-labelledby="classifier-model-lineup-label">
                             {#each modelGroups as group (group.category)}
                                 <div>
-                                    <p class="mb-2 text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">{group.info.label}</p>
+                                    <p class="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">{group.info.label}</p>
                                     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                                         {#each group.models as modelOption (modelOption.id)}
                                             {@const cardState = modelCardState(modelOption.id)}
@@ -648,9 +673,6 @@
                                                 onclick={() => (selectedModelId = modelOption.id)}
                                                 class="model-card relative flex h-full min-h-11 cursor-pointer flex-col gap-2.5 overflow-hidden rounded-2xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950 {cardSelected ? 'model-card-selected border-brand-500 shadow-md dark:border-brand-400/70' : 'border-slate-200 bg-white/70 hover:border-brand-300 dark:border-slate-700 dark:bg-slate-900/40 dark:hover:border-brand-500/50'}"
                                             >
-                                                {#if cardSelected}
-                                                    <span class="card-aurora" aria-hidden="true"></span>
-                                                {/if}
                                                 <span class="relative flex items-start justify-between gap-2">
                                                     <span class="text-sm font-bold leading-snug text-slate-900 dark:text-white">{modelOption.name}</span>
                                                     <span class="shrink-0 rounded-full border px-2 py-0.5 text-xs font-semibold {modelCardStateClass(cardState)}">{modelCardStateLabel(cardState)}</span>
@@ -668,7 +690,7 @@
                                                             role="img"
                                                             aria-label={t('settings.detection.model_manager_card_ram_label', 'Estimated memory per worker copy: {ram}', { ram: ramShortLabel(modelOption.estimated_ram_mb) })}
                                                         >
-                                                            <span class="block h-full rounded-full bg-gradient-to-r from-brand-400 to-accent-500" style="width: {cardRamPct}%"></span>
+                                                            <span class="block h-full rounded-full bg-brand-500" style="width: {cardRamPct}%"></span>
                                                         </span>
                                                     {/if}
                                                 </span>
@@ -742,11 +764,18 @@
 
                             {#if active && classifierStatus?.active_provider}
                                 <p class="mt-3 text-sm text-slate-800 dark:text-slate-100" aria-live="polite">
-                                    <span class="mr-2 text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_current_runtime', { default: 'Current runtime' })}</span>
+                                    <span class="mr-2 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                                        {runtimePlanned
+                                            ? $_('settings.detection.model_manager_planned_runtime', { default: 'Planned runtime' })
+                                            : $_('settings.detection.model_manager_current_runtime', { default: 'Current runtime' })}
+                                    </span>
                                     <span class="inline-flex items-center gap-2 font-semibold">
-                                        <span class="h-2 w-2 rounded-full bg-accent-500" aria-hidden="true"></span>
+                                        <span class="h-2 w-2 rounded-full {runtimePlanned ? 'bg-slate-400' : 'bg-accent-500'}" aria-hidden="true"></span>
                                         {providerLabel(classifierStatus.active_provider)}
                                     </span>
+                                    {#if runtimePlanned}
+                                        <span class="ml-1 text-xs font-medium text-slate-500 dark:text-slate-400">{$_('settings.detection.band_runtime_planned', { default: 'loads on first detection' })}</span>
+                                    {/if}
                                     {#if runtimeProviderOrder.length > 1}
                                         <span class="mt-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
                                             {$_('settings.detection.model_manager_runtime_order', { default: 'Automatic order' })}:
@@ -767,7 +796,7 @@
                                         </span>
                                     </div>
                                     <div class="model-ram-meter mt-2 h-2.5 overflow-hidden rounded-full bg-slate-200/80 dark:bg-slate-700/60">
-                                        <div class="h-full rounded-full bg-gradient-to-r from-brand-400 to-accent-500" style="width: {ramPercent(predictedTotalMb, maxLineupRam * Math.max(1, prediction.copies))}%"></div>
+                                        <div class="h-full rounded-full bg-brand-500" style="width: {ramPercent(predictedTotalMb, maxLineupRam * Math.max(1, prediction.copies))}%"></div>
                                     </div>
                                     <p class="mt-1.5 text-xs font-medium text-slate-500 dark:text-slate-400">
                                         {#if executionMode === 'in_process'}
@@ -811,9 +840,27 @@
                                 </div>
                             {/if}
 
+                            {#if usesSavedFeederLocation(model)}
+                                <div class="mt-4 border-l-2 border-sky-400 pl-3 text-sm text-slate-600 dark:text-slate-300">
+                                    <p class="font-semibold text-slate-900 dark:text-white">
+                                        {$_('settings.detection.model_manager_location_title', { default: 'Uses your feeder location' })}
+                                    </p>
+                                    <p class="mt-1 max-w-3xl leading-relaxed">
+                                        {$_('settings.detection.model_manager_location_desc', { default: 'This model also uses the feeder coordinates saved in Settings → Integrations → Location. If no valid coordinates are saved, it identifies birds without location. It does not use the date or a location accuracy radius.' })}
+                                    </p>
+                                    <a
+                                        href={toAppPath('/settings/integrations')}
+                                        onclick={handleLocationSettingsClick}
+                                        class="inline-flex min-h-11 items-center rounded font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-300 dark:hover:text-brand-200"
+                                    >
+                                        {$_('settings.detection.model_manager_location_link', { default: 'Open Location settings' })}
+                                    </a>
+                                </div>
+                            {/if}
+
                             {#if installed && !ready}
                                 <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800 dark:border-amber-800/60 dark:bg-amber-900/20 dark:text-amber-200" role="alert">
-                                    {$_('settings.detection.model_manager_repair_needed', { default: 'This model install is incomplete. Re-download it to repair the missing labels or configuration before activation.' })}
+                                    {$_('settings.detection.model_manager_repair_needed', { default: 'This model install is incomplete. Re-download it to restore the missing species names or model configuration before activation.' })}
                                 </div>
                             {:else if installed && !active && !validated}
                                 <div class="mt-4 rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-800 dark:border-sky-800/60 dark:bg-sky-900/20 dark:text-sky-200">
@@ -1062,12 +1109,12 @@
 {/if}
 
 <style>
-    /* The selected card gets an opaque-enough ground for the shared aurora
-       (see .card-aurora in app.css) to read on both themes. */
+    /* The selected card is a recessed key in the brand tint; its border and
+       aria-pressed carry the selection, the tint only reinforces it. */
     .model-card-selected {
-        background-color: rgb(255 255 255 / 0.85);
+        background-color: rgb(var(--brand-50) / 0.9);
     }
     :global(.dark) .model-card-selected {
-        background-color: rgb(15 23 42 / 0.75);
+        background-color: rgb(var(--brand-950) / 0.55);
     }
 </style>

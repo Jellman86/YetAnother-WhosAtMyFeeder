@@ -16,6 +16,7 @@ async def _create_table(db: aiosqlite.Connection) -> None:
             attempt_count INTEGER NOT NULL DEFAULT 0,
             retry_after TIMESTAMP,
             last_error TEXT,
+            revision INTEGER NOT NULL DEFAULT 0,
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (pipeline, event_id)
         )

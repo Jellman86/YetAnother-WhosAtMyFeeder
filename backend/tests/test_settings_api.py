@@ -1794,3 +1794,43 @@ async def test_settings_import_that_opts_out_of_telemetry_forgets_the_installati
         forget.assert_awaited_once_with("install-123")
     finally:
         settings_router._apply_imported_settings(snapshot)
+
+
+@pytest.mark.asyncio
+async def test_settings_roundtrip_classification_image_source_and_rejects_unknown(client, monkeypatch):
+    monkeypatch.setattr(settings.auth, "enabled", False)
+    monkeypatch.setattr(settings.public_access, "enabled", False)
+    monkeypatch.setattr(settings.frigate, "classification_image_source", "frigate_snapshot")
+    before = (await client.get("/api/settings")).json()
+    assert before["classification_image_source"] == "frigate_snapshot"
+    response = await client.post("/api/settings", json={"classification_image_source": "recording_snapshot"})
+    assert response.status_code == 200
+    assert (await client.get("/api/settings")).json()["classification_image_source"] == "recording_snapshot"
+    assert settings.frigate.classification_image_source == "recording_snapshot"
+    assert (await client.post("/api/settings", json={"classification_image_source": "random"})).status_code == 422
+    assert settings.frigate.classification_image_source == "recording_snapshot"
+    await client.post("/api/settings", json={"classification_image_source": "frigate_snapshot"})
+
+
+@pytest.mark.asyncio
+async def test_settings_roundtrip_automatic_multi_bird_scan_preserves_partial_updates(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    original = settings.media_cache.automatic_multi_bird_scan
+    original_effort = settings.media_cache.bird_scan_mode
+    try:
+        for enabled in (True, False):
+            response = await client.post("/api/settings", json={"media_cache_automatic_multi_bird_scan": enabled})
+            assert response.status_code == 200, response.text
+            response = await client.get("/api/settings")
+            assert response.json()["media_cache_automatic_multi_bird_scan"] is enabled
+            assert Settings.load().media_cache.automatic_multi_bird_scan is enabled
+        settings.media_cache.automatic_multi_bird_scan = True
+        response = await client.post("/api/settings", json={"media_cache_bird_scan_mode": "standard"})
+        assert response.status_code == 200, response.text
+        assert settings.media_cache.automatic_multi_bird_scan is True
+    finally:
+        await client.post(
+            "/api/settings",
+            json={"media_cache_automatic_multi_bird_scan": original, "media_cache_bird_scan_mode": original_effort},
+        )

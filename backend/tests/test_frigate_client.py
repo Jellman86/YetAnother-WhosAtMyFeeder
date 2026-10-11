@@ -175,3 +175,63 @@ async def test_set_sublabel_preserves_full_species_name_and_confidence():
     assert updated is True
     assert requests[0].url.path == "/api/events/evt-long-species/sub_label"
     assert requests[0].read().decode() == ('{"subLabel":"Black-crowned Night Heron","subLabelScore":0.876}')
+
+
+@pytest.mark.asyncio
+async def test_recording_snapshot_requests_native_frame_with_fractional_time_and_safe_camera_path():
+    async def handler(request):
+        assert request.url.raw_path == b"/api/bird%2Fcam/recordings/105.25/snapshot.png"
+        assert not request.url.params
+        return httpx.Response(200, content=b"frame", headers={"Content-Type": "image/jpeg"})
+
+    client = FrigateClient()
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as transport:
+        client._client = transport
+        assert await client.get_recording_snapshot_with_error("bird/cam", 105.25) == (b"frame", None)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", [200, 404, 500])
+async def test_recording_snapshot_rejects_non_image_and_unavailable_responses(status):
+    client = FrigateClient()
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda request: httpx.Response(status, json={"error": True}))
+    ) as transport:
+        client._client = transport
+        frame, error = await client.get_recording_snapshot_with_error("birdcam", 105.25)
+        assert frame is None
+        assert error is not None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("webp_status", [200, 404])
+async def test_alignment_snapshot_accepts_full_clean_webp_or_older_clean_png(webp_status):
+    requests = []
+
+    async def handler(request):
+        requests.append(request.url.raw_path)
+        if request.url.path.endswith(".webp"):
+            return httpx.Response(webp_status, content=b"clean", headers={"Content-Type": "image/webp"})
+        return httpx.Response(200, content=b"clean", headers={"Content-Type": "image/png"})
+
+    client = FrigateClient()
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as transport:
+        client._client = transport
+        assert await client.get_alignment_snapshot_with_error("evt/cam") == (b"clean", None)
+    assert requests[0] == b"/api/events/evt%2Fcam/snapshot-clean.webp"
+    assert len(requests) == (2 if webp_status == 404 else 1)
+
+
+@pytest.mark.asyncio
+async def test_alignment_snapshot_does_not_retry_non_missing_clean_copy_errors():
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        return httpx.Response(500, json={"error": True})
+
+    client = FrigateClient()
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as transport:
+        client._client = transport
+        assert (await client.get_alignment_snapshot_with_error("evt"))[0] is None
+    assert len(calls) == 1

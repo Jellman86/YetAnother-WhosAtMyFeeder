@@ -17,6 +17,11 @@
         cameraFilter: string;
         favoritesOnly: boolean;
         audioConfirmedOnly: boolean;
+        multipleSpeciesOnly?: boolean;
+        /** How results are shown: a species' visits, or every capture on its own. */
+        groupVisits?: boolean;
+        /** Selecting works on captures, so the choice is held while selecting. */
+        groupingLocked?: boolean;
         /** Owner-only: hidden detections are soft-deleted, not gone. */
         showHidden: boolean;
         hiddenCount: number;
@@ -24,13 +29,14 @@
         customStartDate: string;
         customEndDate: string;
         refreshing?: boolean;
-        resultCount: number;
         onchange: (next: {
             datePreset?: DatePreset;
             speciesFilter?: string;
             cameraFilter?: string;
             favoritesOnly?: boolean;
             audioConfirmedOnly?: boolean;
+            multipleSpeciesOnly?: boolean;
+            groupVisits?: boolean;
             showHidden?: boolean;
             customStartDate?: string;
             customEndDate?: string;
@@ -50,13 +56,15 @@
         cameraFilter,
         favoritesOnly,
         audioConfirmedOnly,
+        multipleSpeciesOnly = false,
+        groupVisits = true,
+        groupingLocked = false,
         showHidden,
         hiddenCount,
         canSeeHidden,
         customStartDate,
         customEndDate,
         refreshing = false,
-        resultCount,
         onchange,
         onclear,
         onrefresh
@@ -128,6 +136,7 @@
                 clear: () => onchange({ audioConfirmedOnly: false })
             });
         }
+        if (multipleSpeciesOnly) applied.push({ key: 'multiple-species', label: $_('visits.multiple_species', { default: 'Multiple bird species' }), clear: () => onchange({ multipleSpeciesOnly: false }) });
         if (showHidden) {
             applied.push({
                 key: 'hidden',
@@ -144,16 +153,14 @@
 <section
     class="pb-4 pt-1 {collapsed
         ? ''
-        : 'lg:flex lg:h-[calc(100dvh-2rem)] lg:max-h-[calc(100dvh-2rem)] lg:flex-col lg:pb-0 lg:pt-0'}"
+        : 'lg:flex lg:h-[calc(100dvh-2rem)] lg:max-h-[calc(100dvh-2rem)] lg:flex-col lg:rounded-2xl lg:border lg:border-line-soft lg:bg-surface lg:p-3'}"
     data-events-filter-bar
 >
     <div class="flex shrink-0 flex-wrap items-center gap-2">
-        <p class="text-sm font-semibold text-slate-900 dark:text-white">
-            {$_('events.filters.result_count', {
-                values: { count: resultCount.toLocaleString() },
-                default: '{count} visits'
-            })}
-        </p>
+        <!-- The toolbar above the list already counts the results; the rail names itself. -->
+        <h2 class="hidden text-sm font-semibold text-slate-900 dark:text-white {collapsed ? '' : 'lg:block lg:flex-1'}">
+            {$_('events.filters.title', { default: 'Filters' })}
+        </h2>
 
         {#each tokens as token (token.key)}
             <button
@@ -168,7 +175,9 @@
         {/each}
 
         <button
-            class="btn btn-secondary min-h-11 px-3 py-2 text-xs {collapsed ? '' : 'lg:hidden'}"
+            class="btn min-h-11 px-3 py-2 text-xs {panelOpen
+                ? 'border border-brand-300 bg-brand-100 text-brand-700 dark:border-brand-400/60 dark:bg-brand-500/20 dark:text-brand-100'
+                : 'btn-secondary'} {collapsed ? '' : 'lg:hidden'}"
             aria-expanded={panelOpen}
             aria-controls="explorer-facets"
             onclick={() => (panelOpen = !panelOpen)}
@@ -186,17 +195,82 @@
 
     <div
         id="explorer-facets"
-        class="mt-3 gap-5 border-t border-slate-200 pt-3 dark:border-slate-700 {panelOpen
-            ? 'grid grid-cols-1 sm:grid-cols-3'
+        class="mt-3 gap-3 border-t border-slate-200 pt-3 dark:border-slate-700 {panelOpen
+            ? 'flex flex-col'
             : 'hidden'} {collapsed
             ? ''
-            : 'lg:!flex lg:mt-0 lg:min-h-0 lg:flex-1 lg:flex-col lg:gap-5 lg:overflow-hidden lg:border-t-0 lg:pt-0'}"
+            : 'lg:!flex lg:mt-2 lg:min-h-0 lg:flex-1 lg:flex-col lg:gap-3 lg:overflow-y-auto lg:overscroll-contain lg:border-t-0 lg:pt-0'}"
         data-explorer-facets
     >
-            <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
-                    {$_('events.filters.when', { default: 'When' })}
+            <!-- How results are shown, not what they are: Clear all leaves it as it is. -->
+            <div class="min-w-0 shrink-0" role="group" aria-labelledby="explorer-show-heading" data-explorer-show-facet>
+                <p id="explorer-show-heading" class="eyebrow">
+                    {$_('events.filters.show', { default: 'Show' })}
                 </p>
+                <div class="mt-2 space-y-0.5">
+                    {#each [
+                        { grouped: true, label: $_('events.filters.show_visits', { default: 'Visits of one species' }), hint: $_('events.filters.show_visits_hint', { default: "One bird's stay: its captures less than a minute apart." }) },
+                        { grouped: false, label: $_('events.filters.show_captures', { default: 'Individual captures' }), hint: $_('events.filters.show_captures_hint', { default: 'Every capture on its own.' }) }
+                    ] as option (option.grouped)}
+                        {@const chosen = groupVisits === option.grouped && !groupingLocked}
+                        <button
+                            type="button"
+                            class="flex min-h-11 w-full flex-col items-start justify-center rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-slate-800/60 {chosen
+                                ? 'bg-brand-50 dark:bg-brand-950/40'
+                                : ''}"
+                            aria-pressed={chosen}
+                            disabled={groupingLocked}
+                            onclick={() => onchange({ groupVisits: option.grouped })}
+                            data-explorer-show={option.grouped ? 'visits' : 'captures'}
+                        >
+                            <span class="text-xs {chosen ? 'font-semibold text-brand-800 dark:text-brand-200' : 'text-slate-700 dark:text-slate-300'}">{option.label}</span>
+                            <span class="text-2xs leading-4 text-slate-500 dark:text-slate-400">{option.hint}</span>
+                        </button>
+                    {/each}
+                </div>
+                {#if groupingLocked}
+                    <p class="mt-1 px-2 text-2xs text-slate-500 dark:text-slate-400">{$_('events.filters.show_locked', { default: 'Selecting works on individual captures.' })}</p>
+                {/if}
+            </div>
+
+            <div class="min-w-0 shrink-0" data-explorer-species-facet>
+                <p class="eyebrow">
+                    {$_('events.filters.all_species')}
+                </p>
+                <label class="mt-2 block">
+                    <span class="sr-only">{$_('events.filters.search_species', { default: 'Search species' })}</span>
+                    <input class="input-base text-xs" type="search" bind:value={search} placeholder={$_('events.filters.search_species', { default: 'Search species' })} />
+                </label>
+                <div
+                    class="mt-2 max-h-64 space-y-0.5 overflow-y-auto"
+                    data-explorer-species-list
+                >
+                    {#each visibleSpecies as item (item.value)}
+                        <button
+                            class="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-2 text-left text-xs transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:bg-slate-800/60 {speciesFilter ===
+                            item.value
+                                ? 'font-semibold text-brand-800 dark:text-brand-200'
+                                : 'text-slate-700 dark:text-slate-300'}"
+                            aria-pressed={speciesFilter === item.value}
+                            onclick={() =>
+                                onchange({ speciesFilter: speciesFilter === item.value ? '' : item.value })}
+                        >
+                            <span class="min-w-0 py-1.5 leading-4 [overflow-wrap:anywhere]">{item.display_name}</span>
+                            <span class="shrink-0 tabular-nums text-slate-500 dark:text-slate-400">{item.count ?? 0}</span>
+                        </button>
+                    {:else}
+                        <p class="px-2 py-2 text-xs text-slate-500 dark:text-slate-400">
+                            {$_('events.filters.no_species_match', { default: 'No species matches that.' })}
+                        </p>
+                    {/each}
+                </div>
+            </div>
+
+            <details class="group shrink-0 border-t border-line-soft pt-1" data-explorer-date-facet>
+                <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 eyebrow rounded-lg hover:bg-surface-raised hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:text-slate-200 [&::-webkit-details-marker]:hidden">
+                    <span>{$_('events.filters.when', { default: 'When' })}</span>
+                    <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 7.5 5 5 5-5" /></svg>
+                </summary>
                 <div class="mt-2 flex flex-wrap gap-1.5">
                     {#each datePresets as preset}
                         <button
@@ -237,10 +311,34 @@
                     </div>
                 {/if}
 
-                <p class="mt-4 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
-                    {$_('events.filters.only', { default: 'Only' })}
-                </p>
+            </details>
+
+            <details class="group shrink-0 border-t border-line-soft pt-1" data-explorer-only-facet>
+                <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 eyebrow rounded-lg hover:bg-surface-raised hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:text-slate-200 [&::-webkit-details-marker]:hidden">
+                    <span>{$_('events.filters.only', { default: 'Only' })}</span>
+                    <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 7.5 5 5 5-5" /></svg>
+                </summary>
                 <div class="mt-2 space-y-1">
+                    {#if canSeeHidden}
+                        <!-- The same row as the facets beneath it; it has no count, so its state is a check. -->
+                        <button
+                            class="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-2 text-xs transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:bg-slate-800/60 {multipleSpeciesOnly
+                                ? 'font-semibold text-brand-800 dark:text-brand-200'
+                                : 'text-slate-700 dark:text-slate-300'}"
+                            aria-pressed={multipleSpeciesOnly}
+                            onclick={() => onchange({ multipleSpeciesOnly: !multipleSpeciesOnly })}
+                            data-explorer-multiple-species-facet
+                        >
+                            <span>{$_('visits.multiple_species', { default: 'Multiple bird species' })}</span>
+                            {#if multipleSpeciesOnly}
+                                <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="m5 10 3.5 3.5L15 7" />
+                                </svg>
+                            {/if}
+                        </button>
+                        <p class="px-2 text-xs text-slate-500 dark:text-slate-400">{$_('visits.multiple_species_hint', { default: 'Two or more named species in one analyzed capture.' })}</p>
+                    {/if}
+
                     <button
                         class="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-2 text-xs transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:bg-slate-800/60 {favoritesOnly
                             ? 'font-semibold text-brand-800 dark:text-brand-200'
@@ -276,57 +374,14 @@
                         </button>
                     {/if}
 
-                    <button
-                        class="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-2 text-xs text-slate-700 transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800/60"
-                        disabled={refreshing}
-                        onclick={onrefresh}
-                    >
-                        <span>
-                            {refreshing
-                                ? $_('events.filters.refreshing_options', { default: 'Refreshing options' })
-                                : $_('events.filters.refresh_options', { default: 'Refresh options' })}
-                        </span>
-                    </button>
                 </div>
-            </div>
+            </details>
 
-            <div class="lg:flex lg:min-h-0 lg:flex-1 lg:flex-col" data-explorer-species-facet>
-                <p class="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
-                    {$_('events.filters.all_species')}
-                </p>
-                <label class="mt-2 block">
-                    <span class="sr-only">{$_('events.filters.search_species', { default: 'Search species' })}</span>
-                    <input class="input-base text-xs" type="search" bind:value={search} placeholder={$_('events.filters.search_species', { default: 'Search species' })} />
-                </label>
-                <div
-                    class="mt-2 max-h-56 space-y-0.5 overflow-y-auto overscroll-contain lg:min-h-0 lg:max-h-none lg:flex-1"
-                    data-explorer-species-list
-                >
-                    {#each visibleSpecies as item (item.value)}
-                        <button
-                            class="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-2 text-left text-xs transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:bg-slate-800/60 {speciesFilter ===
-                            item.value
-                                ? 'font-semibold text-brand-800 dark:text-brand-200'
-                                : 'text-slate-700 dark:text-slate-300'}"
-                            aria-pressed={speciesFilter === item.value}
-                            onclick={() =>
-                                onchange({ speciesFilter: speciesFilter === item.value ? '' : item.value })}
-                        >
-                            <span class="truncate">{item.display_name}</span>
-                            <span class="shrink-0 tabular-nums text-slate-500 dark:text-slate-400">{item.count ?? 0}</span>
-                        </button>
-                    {:else}
-                        <p class="px-2 py-2 text-xs text-slate-500 dark:text-slate-400">
-                            {$_('events.filters.no_species_match', { default: 'No species matches that.' })}
-                        </p>
-                    {/each}
-                </div>
-            </div>
-
-            <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
-                    {$_('events.filters.all_cameras')}
-                </p>
+            <details class="group shrink-0 border-t border-line-soft pt-1" data-explorer-camera-facet>
+                <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 eyebrow rounded-lg hover:bg-surface-raised hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:text-slate-200 [&::-webkit-details-marker]:hidden">
+                    <span>{$_('events.filters.cameras', { default: 'Cameras' })}</span>
+                    <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 7.5 5 5 5-5" /></svg>
+                </summary>
                 <div class="mt-2 space-y-0.5">
                     {#each cameras as camera (camera)}
                         <button
@@ -344,6 +399,19 @@
                         </button>
                     {/each}
                 </div>
-            </div>
+            </details>
+
+            <!-- Options are counted when the page loads; this re-reads them, it changes no filter. -->
+            <button
+                type="button"
+                class="mt-auto inline-flex min-h-11 shrink-0 items-center gap-1.5 self-start rounded-lg text-xs font-semibold text-slate-500 transition-colors hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:opacity-50 dark:text-slate-400 dark:hover:text-slate-200"
+                disabled={refreshing}
+                onclick={onrefresh}
+            >
+                <svg class="h-3.5 w-3.5 {refreshing ? 'animate-spin motion-reduce:animate-none' : ''}" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M16 10a6 6 0 1 1-1.8-4.3M16 4v3.5h-3.5" /></svg>
+                {refreshing
+                    ? $_('events.filters.refreshing_options', { default: 'Refreshing options' })
+                    : $_('events.filters.refresh_options', { default: 'Refresh options' })}
+            </button>
     </div>
 </section>

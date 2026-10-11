@@ -6,6 +6,700 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.22.0] - 2026-10-11
+
+- Documentation is shorter and aligned with the current setup, model, Explorer, retention and
+  support workflows. Updated screenshots use reproducible, sanitised fixtures. Release preparation
+  now includes acknowledgements for issue reporters and follow-up testers, with contributor credits
+  recorded alongside the draft notes.
+- The setup wizard offers feeder coordinates for location-aware classifiers, saves them before
+  hardware validation, and handles missing coordinates and valid zero coordinates explicitly.
+  Incomplete installs, invalid coordinate pairs and running checks cannot be continued with.
+  The provider shown is the one saved on Continue; a passing manual choice is kept and a failed
+  choice is replaced with an explanation. Results show the measured best provider and median,
+  without claiming accuracy. Leaving a check stops page polling without cancelling the job or
+  letting late replies alter another step. **Skip step** and **Skip setup** now name their
+  different effects. First-run, re-run, optional history import, retry and credential-preservation
+  paths have browser regression coverage. Confirmed wizard saves also update untouched fields
+  in an open Settings form, preserving other unsaved edits and preventing a later save from
+  undoing setup.
+- Model Evaluation no longer shows 0% accuracy for a compatibility check, which never measures
+  accuracy. Such runs are labelled **Compatibility check only** and show each model's best
+  validated provider, its median inference time and the providers that passed, instead of
+  accuracy, mean and p95 columns. Only the files the run wrote (`summary.json`,
+  `device_matrix.json`) are offered for download. A genuinely measured 0% is still shown, and
+  picking a run while another is loading no longer shows the earlier run.
+- After a compatibility check, **Settings → Detection** reads the live classifier status again,
+  so it shows the provider the workers actually moved to (for example Intel NPU) instead of the
+  CPU it showed before the check. Unsaved edits on the page are kept. The Models card now shows
+  the same status, model activation and saving settings refresh it too, and a provider that no
+  worker has loaded yet is shown as planned rather than active.
+  The visible Detection tab also refreshes status periodically and on returning to the browser,
+  so a check finishing elsewhere or a delayed worker start cannot leave the old provider shown.
+  The **Inference Provider** field also follows the provider saved on the server, such as the
+  one model activation picks, unless you have already chosen a different provider on the page.
+  Before, it kept showing the old choice (for example CPU), and saving an unrelated edit such as
+  a threshold wrote that old provider back over the new one.
+
+- Model Manager adds eight experimental classifiers: location-aware DINOv2, RoPE Wildlife
+  336, RoPE EU 336, Arabian Peninsula RoPE DeiT3, NaFlex EU and Israel Birds, Parallel ViT EU,
+  and BioCLIP 2.5 with a fixed 9,025-species head. Defaults are preserved; accelerators remain
+  subject to the exact installation's CPU comparison. NaFlex preserves native aspect ratio;
+  DINOv2 receives configured location at runtime and workers reload when location changes.
+- All registered classifier outputs are held in the species catalogue. Complete published
+  mappings remove the runtime label-file requirement, while custom/legacy file fallback stays
+  available. New artifacts install without `labels.txt`; checksum and output-width mismatches
+  fail closed. BioCLIP's split external weights are verified per part and after assembly.
+- FlexiViT's description correctly identifies its Israel-checklist coverage rather than claiming
+  a global species list. Its existing weights and predictions are unchanged.
+- Catalogue-backed classifiers report their label count correctly from subprocess workers and
+  no longer receive a false missing-label-file warning in model evaluation.
+- Location-aware models explain their saved-location input in Model Manager and link to Location
+  settings without discarding unsaved settings edits. Install repair guidance also covers species
+  names held in the catalogue.
+- The October validation report records the published Intel image's DINOv2 provider, upload,
+  concurrency and history-preservation checks. Model diagnostic guidance explains temporary
+  selection changes and distinguishes saved-location runs from missing-location benchmarks.
+
+- Classifier centre-crop metadata can request torchvision-style truncation for models that
+  require it. Existing model defaults, resize policies and crop detector behaviour are preserved.
+
+- **Settings → Appearance → Text size** makes every page smaller or larger, in seven steps from
+  Smallest (75%) to Largest (150%). **Standard**, the default, is 87.5% of the browser's size, a
+  step smaller than before; Large gives the old size back. The choice is kept on each device on its
+  own, so a wall display can read larger than a phone, and it multiplies the automatic growth on
+  large displays rather than replacing it. Touch targets stay at least 44px at every size.
+- The Needs a check sheet failed to rename, confirm or hide a visit with more than one capture
+  ("Input should be less than or equal to 50"). It now reads a visit's captures page by page.
+- **Needs a check** on the leaderboard opens a check sheet instead of the species page. Each
+  flagged species shows its visits as the crops the camera actually took, all selected, with the
+  likeliest answer first: a bird this feeder already knows that the same crops were also read as,
+  or the feeder's most common bird. One tap renames every capture of the selected visits; any other
+  species, picked from the feeder's regulars or a search, takes a second tap. A species the
+  catalogue places outside the birds, such as a squirrel, is offered as "It really is…" when the
+  camera is sure and "Not a bird" (hides the visits) when it is not. Answers go species after
+  species and end on a summary. A rename also teaches personalised identification, so the sheet
+  offers no undo.
+
+- **Find more birds** and **Scan again** now show progress. A waiting scan says how many scans are
+  ahead of it; a running scan shows its four real steps (find, name, count, save), names the step
+  in words ("Naming each bird found: 2 of 5") and counts the seconds. The button reads
+  **Scanning…** while it works.
+- A heard call opens in a proper player: its spectrogram across the full width with a playhead,
+  click or arrow keys to move through the call, one play button and the call's details beside it,
+  instead of the browser's own audio control.
+- The **Family tree** on a detection is a stepped ladder: each rank sits one step in from the rank
+  above, so the path from class to species reads at a glance.
+
+- Text is easier to read. The smallest print is now 11px instead of 10px, and text and spacing
+  grow on larger screens: from a 1280px window the whole app scales up smoothly to a quarter larger
+  by 2304px. Your browser's own text size still applies. The Explorer list now fills a large display like every other page.
+
+- The **Explorer** can show what was heard as well as seen. Turn on **Heard calls** above the list
+  (off until you do; each device remembers its choice) and BirdNET-Go calls appear between the
+  visits: one band per gap with its span, a spectrogram, a chip per species with its count, and
+  **Show calls** for each species' strongest call with its clip. Calls that confirm a visit are
+  counted on that visit instead, and the **Audio History** link steps aside while calls are shown
+  in the list. A capture with several species now reads **Multiple species**
+  with a chip per species. The filter rail has its own panel, one heading style and **Cameras**
+  as its section title.
+- **Settings, Cameras** no longer scrolls its camera list inside the card, which hid the first
+  camera under the card header and cut off the nest window below the list.
+- Missing snapshots no longer open the video inference circuit and pause the rest of a
+  maintenance queue. Unavailable-media jobs still fail visibly; worker failures retain circuit
+  protection (#481).
+
+- Opening Settings no longer repeats old detection and weather backfill completion or failure
+  messages. New completions still announce once; saved results remain available.
+
+- Notifications links owners to Health and diagnostics export. Support bundles now capture fresh
+  server evidence even without local errors, and delayed video retries remain visible while waiting (#481).
+
+- Video jobs waiting for a recording clip keep their bounded retry count. Periodic recovery
+  could reclaim the same waiting visit repeatedly, leaving a persistent backlog even at a quiet
+  feeder. Retries now use the normal queue and its concurrency limits (#481).
+
+- The **Health** settings page is tidier. The system graph fills the width of its card instead of
+  sitting small in the middle, its scale sits beside the plot rather than over the newest samples,
+  and the overall verdict (**System Status**) now opens the **System** card with the subsystem
+  detail at its foot. **What happened** is its own card, and **Current Issues** and **Recent
+  Backend Diagnostics** use the same headings as every other panel.
+- Model evaluation files download with the signed-in owner session. The download links previously
+  opened without that session and incorrectly reported that owner access was required (#660).
+- A calmer, more modern look across the whole app. Panels are flat with a fine rule instead of
+  shadows, glass blur and colour washes, headings and figures use the display face, buttons speak
+  in sentence case, and a selected page or tab is shown by a tinted key and a lit icon. The
+  dashboard opens with the last 24 hours as its heading and every figure for that window in one
+  band; each figure says its scope (for example **nothing to review**). From 1920px wide the
+  dashboard uses three columns: the field log, what needs you and what is happening now, then the
+  activity, notable sightings and top visitors. Amber now only ever means something needs you: the
+  eBird search radius, notification choices and the **Advanced** sections no longer use it.
+- The dashboard shows full species names in narrow desktop columns. Names wrap, and the camera
+  sits beneath them instead of taking a column that squeezed or cut off the name (#666).
+- Text follows your display scaling and your browser's text size everywhere. Small print was set
+  in fixed pixels in many places, so a larger text size left it unchanged.
+- Charts keep sensible proportions at any size. The weekday-by-hour heatmap keeps square cells
+  that fill their column instead of stretching each hour into a bar, the trend and audio charts
+  grow a little with the window instead of flattening into a strip, their bars widen to fit, and
+  the species donuts scale with them. Audio charts follow the colour theme instead of always being
+  teal.
+- Settings and About use the full width like every other page; they kept the old narrow centred
+  column. About still holds its paragraphs to a comfortable line length. The unsaved-changes bar in
+  Settings starts beside the sidebar instead of running under it.
+- Healthy states are green in every colour theme: **All good**, **Verified**, an available
+  accelerator and an active provider showed in the blue tit theme's amber, which means something
+  needs you.
+- The sidebar runs to the bottom of the page in every case, and its CPU and accelerator readout no
+  longer crowds the **System status** label.
+- The app uses the whole width of a wide screen instead of a narrow centred column. On a very wide
+  screen the dashboard puts the field log beside the rest of the desk, and the footer is one slim
+  band: name and version, a bird fact, then the links.
+- The Leaderboard's **Detections over time** chart keeps its set height. Its box grew with the chart,
+  so the chart stretched to half the page width in height: about 600 pixels on a 2560 screen
+  instead of 380.
+- An uploaded video now gets the same photo choices, **Birds found in this capture** and **Score
+  again** as any visit (#481). The server could already read the uploaded video for them, but the
+  record hid all three for every upload. A frame you choose becomes the upload's photo, and going
+  back to the original restores its species photo instead of failing on a Frigate snapshot it never
+  had. An uploaded photo has no frames, so it still has none of these.
+- An uploaded bird keeps its common name. When the name lookup returned none, the upload was saved
+  without it; the list filled it in, but the next live update brought back the stored name, so the
+  record dropped to the scientific name a while after saving. The common name now comes from the
+  taxon, as the list's does, and the shown name follows the common-name setting like any visit's.
+- **Find more birds** sits in one quiet row under the photograph, saying what is known about the
+  frame before offering the action, with a viewfinder icon in place of a glyph that read as a
+  chain link on a phone. The field log's capture count on a phone is a quiet chip with its arrow
+  after the count, rather than a bordered button louder than the bird's name.
+- CPU, CUDA and TFLite classifiers now use complete catalogue labels for the actual
+  model weights, including runtime fallbacks. A missing or altered label file no
+  longer overrides those labels; unknown or incompletely mapped models retain
+  the existing file fallback.
+
+- Video analysis keeps a visit tied to the bird in Frigate's photograph (#481). At a busy
+  feeder Frigate's track can move to a neighbouring bird after the photographed one leaves;
+  crops after that jump no longer count as the visit's bird, and the visit's area no longer
+  stretches to cover it. When the tracked bird's own crops cannot agree on a species, a
+  different bird that is easier to see elsewhere in the frame is no longer named instead:
+  the visit keeps its existing identification.
+- A favourite capture now leads its visit (#481). With captures grouped into visits, a favourite
+  could sit unseen inside a stack whose card showed another capture, even under the Favorites
+  filter. The visit card now shows the favourite (the best-scoring one when there are several),
+  and the capture lists in the Explorer and the field log mark each favourite as **Favorited**.
+- **Model evaluation** compares models fairly. A prediction is scored by species, so a European
+  model's "Common starling" now counts as the European Starling it is. Accuracy is shown on the test
+  birds each model can name, with how many that is under **Can name**: a European model is no
+  longer marked down for American birds it has no output for, and no longer warned about as a
+  likely broken install. Rescoring an earlier run this way moved the European FocalNet model from
+  52.8% to about 83%, level with EVA-02 Large on the European birds it was built for. Providers are now validated before accuracy is measured, so a
+  model is scored on the accelerator it will use rather than on its CPU fallback. Full-size test
+  photos are stored at 1024 px, so latency measures the model instead of a 3840 px upload, and
+  each model's health comes from its own runtime instead of always reading "unknown".
+- Health diagnostics now show video queue counts and waiting ages by source, active phases,
+  and scheduler-observed pressure and progress counters. These help distinguish live-work
+  priority, worker capacity and circuit waits without changing scheduling or worker counts.
+
+- Audio History uses less memory while summarising large BirdNET histories and gives other
+  requests time to run between batches. Filtering captures with multiple species also avoids
+  repeatedly rebuilding the same unknown-bird label rules; changing those rules still takes
+  effect immediately.
+- Video analysis on native Windows can finish and update the photograph when the platform
+  cannot safely open the optional scene cache files. It decodes the selected frame again,
+  preserving the same checks on the photograph and avoiding unsafe file access.
+- Additional-bird scanning is now optional and **off by default**, including on upgrade.
+  Normal identification and target-photo selection continue. Enable **Automatically find
+  additional birds** in **Settings → Data → Snapshot quality** to scan retained scenes
+  automatically, or use **Find more birds** on one photo. Manual scans keep the chosen photo
+  and primary identification, preserve bird corrections and exclusions, and report queued,
+  running, failed and completed results separately from photos that have never been scanned.
+  A retained whole frame is required; an empty retry keeps earlier counted-bird records.
+
+- In the default **Subprocess (Isolated)** mode, detections are tied to the model that produced
+  them again. The main process never loads the model, and it only recorded the model's checksum
+  when it did, so no detection got its model and output recorded and the species catalogue's
+  check that the model and the label agree on a bird never ran. The test install had none of its
+  663 detections tied to a model. Each result now carries the checksum of the model that produced
+  it, so a model switch while an event is being saved cannot credit one model's answer to another,
+  and the main process also records the workers' model at start-up and on every switch.
+- Video jobs count time already spent in the queue toward Frigate's clip-finalization wait.
+  A busy queue no longer adds a fresh 30-second pause to each old visit. Fresh clips still get
+  their waiting period, and unavailable clips keep the existing retries and snapshot fallback.
+- Opening a visit's captures avoids repeating the history-grouping query. Visit lists count
+  birds only in the matching captures, reducing work on installations with large histories.
+- Bursts of detections share current weather readings for up to 30 seconds. Home Assistant
+  weather sensors are read together, keeping slow sensors from adding their timeouts one after
+  another. Missing fields remain unknown; entirely unavailable readings are retried after five seconds.
+- Asking AI Naturalist about an event clip no longer blocks live updates while its frames are decoded.
+- In **Subprocess (Isolated)** mode, identifying a bird no longer freezes the rest of the app for
+  a moment. Each picture is packed losslessly for the classifier worker, and for a full camera
+  frame (identifying from the recording frame, and every backfilled event) that took 0.3 to
+  1.4 seconds on the test install, during which live updates, MQTT and the web pages waited. It
+  now happens beside them.
+- Intel GPU (iGPU) acceleration works with every model again. The image's Intel GPU driver, from
+  Intel's Ubuntu LTS channel, crashed intermittently when compiling a model for the iGPU on the
+  image's Debian base, so most models could not be verified on Intel GPU and stayed on the CPU or
+  NPU. The image now installs Intel's compute runtime 26.35 with graphics compiler 2.41.5, pinned
+  and checksummed; on a Core Ultra 200 every model compiled and gave the CPU's answers.
+- The bundled **MobileNet V2 Birds** model sees the photo again. Its pixels were converted twice,
+  which turned every image almost white, so it named nearly everything American White Pelican and
+  scored 0.3% in a model evaluation. On twenty feeder photos of species it knows it now gets 9
+  right, from none before.
+- A large model on an Intel NPU no longer fails every identification after it is first chosen.
+  Compiling ConvNeXt Large for the NPU takes about 16 seconds the first time, longer than the
+  request that started the classifier worker was allowed to wait. When that request gave up, the
+  half-loaded worker was stopped with it, so the compile was never cached and every later request
+  started it again and gave up too: a model evaluation scored ConvNeXt 0% because all 299 images
+  timed out. The worker now finishes loading on its own and serves the next request; after that
+  the cached compile takes under a second.
+- **Birds found in this capture** points out the bird a visit's name is about. When several birds
+  are counted, the one Frigate tracked is labelled **Being named** on the scene and in the list,
+  even when the name is too uncertain to lend it. If no single bird matches, it says the name cannot
+  be tied to one of them. This mostly helps in **Needs your call**, where every name is uncertain
+  (#481).
+- New photo options and **Score again** work for old favourites and uploaded videos. The player
+  plays a favourite's archived clip and an uploaded video after Frigate and the media cache have let
+  them go, but generating photos and video analysis only looked in Frigate and the cache, so for
+  those visits they silently did nothing (#481). Both now use the same kept video, and an upload no
+  longer waits on Frigate, which never had it.
+- The model picker lists RoPE ViT-B14 at 87%+ on iNat21, the published figure for the 224 px
+  version YA-WAMF ships, instead of 89%+.
+- The setup wizard's hint after the hardware check now says the Debug tab it points to only appears
+  when the debug UI is enabled (`SYSTEM__DEBUG_UI_ENABLED=true`).
+- The first-run setup wizard, the Frigate, MQTT, BirdNET-Go, BirdWeather and notification test
+  dialogs, and the hardware compatibility check are now translated. 120 of their strings were
+  never in any language file, so every language showed them in English; a test now fails if the
+  app uses a text that has no English entry. The hint after the hardware check now names where the
+  details are, **Settings → Debug → Model evaluation harness**. German now addresses you with
+  "Sie" throughout, Portuguese uses Brazilian forms throughout, and no language uses em dashes.
+- The strings new in this release read better in every language. Each term is now said one way
+  in each language: a "capture" no longer switches between two words on one page in French,
+  Japanese, Chinese and Russian, nor a "visit" in Chinese. Russian counts use their proper forms
+  ("2 визита", "21 визит"). Japanese and Chinese now say the photo and video limit applies per
+  species. French and Portuguese point to the Settings page by its real name. Italian, French and
+  Portuguese call the family tree by its usual name, and new Portuguese strings follow the
+  Brazilian Portuguese of the rest of the app.
+- With **Identify new detections from: Recording frame**, a detection whose recording frame could
+  not be used was identified from the whole camera view instead of the bird. Frigate's crop was
+  dropped whenever the recording was past retention, still being written, or slow to arrive, so
+  small birds scored a few percent and were discarded: a backfill of older events kept almost
+  none of them, and busy live moments lost birds too. The detection snapshot keeps its crop
+  whenever it is the same full frame Frigate saved; one Frigate cropped itself still gets none.
+- BirdWeather no longer receives the same sighting twice. **Missed Detections** uploaded every
+  sighting it fetched from Frigate's history, so a reset followed by a backfill sent the whole
+  history again, and a visit that later got a better-scoring frame was uploaded a second time.
+  Each visit is now uploaded once, the first time it is saved with a species, and a backfill
+  uploads nothing.
+- The Explorer's **Visits / Captures** switch moves from the toolbar into the filter rail as
+  **Show**, with plain names and a line under each: **Visits of one species** ("one bird's stay: its
+  captures less than a minute apart") and **Individual captures**. **Clear all** leaves the choice
+  as it is, and while selecting it stays on individual captures and says why.
+- An opened visit in the Explorer list and the dashboard's field log reads as one visit. A real
+  button beside **Open** shows and hides its captures (on a phone, the "N captures" pill does), in
+  place of the small arrow under the time. The visit's score is labelled **best capture**. The
+  captures sit in an inset list on the day's same thread, each with the same ring; the visit photo
+  is said in words on its row. Hovering a node names it, such as "Capture at 08:23:28, part of
+  this visit". Every capture keeps its own name, score and notes, set quieter than the visit.
+- A tall bird photo, such as a woodpecker on a pole, is shown whole on its card and in the record
+  instead of being cut to a band through the middle. Past a quarter of the photo lost, it sits
+  over a soft blurred copy of itself; scenes and near-square photos still fill the card. Nothing
+  stored changes, so existing photos benefit at once (#481).
+- The limits under **Settings → Data → Photos and video** say what they do. "Keep the newest per
+  species" read as if it turned clips off; it is now **Keep photos of the newest visits per
+  species** and says video is not kept longer. The cap and the budget are now **Most visits per
+  species with photos and video** and **Storage limit**, and the size shows as **Space used**.
+- The link to the BirdNET-Go listening history moves from the leaderboard to the Explorer, beside
+  its other views of past detections. The leaderboard keeps its Seen, Heard and Both rankings.
+- **Identify new detections from: Recording frame** now works for live detections. Frigate can
+  serve a recording frame only once that part of the recording is written, 11 to 13 seconds after
+  the moment on a live install, and YA-WAMF asked about a second after a bird arrived, so every
+  live detection quietly fell back to the lower-quality detection snapshot. A live detection now
+  waits until its recording frame exists, retrying until 30 seconds after the snapshot before
+  falling back, and its updates and end are held and handled once it is identified. New detections
+  and their notifications arrive about 12 seconds later with this setting. A recording frame the
+  same size as an upscaled detect frame is now used, a camera without recordings stops waiting for
+  ten minutes after a miss, and each fallback is logged with its reason.
+  A recording read that runs past its five-second bound, as when several birds arrive together, is
+  retried within the same 30 seconds instead of falling back at once.
+- Photos and visit video are always kept now, and the **Media Cache** and **Snapshots** switches
+  are gone (#622). With either off, YA-WAMF kept no photo of its own: a visit went blank once Frigate
+  dropped its event, a better photo after a reclassify had nowhere to go, and nothing said why.
+  **Settings → Data → Photos and video** now holds only limits: how long history and media are
+  kept, a size budget, and the newest or most visits per species. The one remaining choice is
+  whether to keep copies of Frigate's own event clips, which Frigate already holds.
+  - **If you had either switch off**, the upgrade turns off best-available snapshots once, and with
+    the cache off also full-visit clips. They were doing nothing for you before, and left on they
+    would start storing several MB (frames) to about 25 MB (clips) a visit. Turn them back on in
+    Settings if you want them. Basic photos cost about 0.3 MB a visit.
+    Restoring a configuration backup taken before the upgrade gets the same one-time change.
+  - `MEDIA_CACHE__ENABLED` and `MEDIA_CACHE__CACHE_SNAPSHOTS` are read only for that one-time
+    change. A startup warning says where a retired switch is still set and how to clear it:
+    saving settings once removes it from `config.json`, and an environment variable needs
+    deleting from the compose file.
+  - Best-available snapshots now default to JPEG quality 90 instead of 95: these are full-resolution
+    frames, and 95 roughly doubled their size for little visible difference. An existing setting
+    is kept.
+  - A media folder that cannot be written is now reported in system checks, on the card and in
+    `/health`, rather than looking like a choice. Full-visit clips stream without being stored in
+    that case instead of failing, and automatic cleanup and the size budget always run.
+- The family tree reads properly on a phone. The detection card shows the classification as a
+  ladder, one rank per row, so a long family name such as "Chats, Old World Flycatchers" no longer
+  breaks the line into ragged rows. The full view opens as the outline on a narrow screen until
+  another layout is chosen.
+- The species details now show the family tree too. Every name in it, in the ladder and in the full
+  tree, opens a card on hover, keyboard focus or tap. A species card shows a reference photograph
+  to compare a capture against and how often it was captured here; a group's card shows how many
+  species it holds worldwide and how many were seen here.
+- A detection now shows where its bird sits in the classification: a line from class to species
+  beneath the identification, with how many species its family holds worldwide and how many have
+  been seen at this feeder. "Open the family tree" shows the whole tree centred on the bird, with
+  its path open, the groups seen here marked, and the rest summed until asked for. The same tree
+  can be read as a fan or as an outline list. Branches load as they open. The taxonomy routes now
+  report what was seen beneath each taxon, and `GET /api/taxonomy/lineage?scientific_name=` finds a
+  species' lineage by name.
+- The species catalogue now holds each bird's place in the classification: its genus, family and
+  order from the pinned IOC World Bird List 14.2 (44 orders, 254 families with their English names,
+  2,392 genera), and the ranks from Animalia down to Aves from Catalogue of Life. Each taxon points
+  at its parent, and new `GET /api/taxonomy/{taxon_id}/lineage` and `/children` routes read it.
+  Existing installs receive it through the shipped catalogue release; every species keeps its
+  identity, and a genus or family name does not resolve detection history.
+- Large image buffers are returned to the system when freed instead of fragmenting the allocator,
+  so the service no longer creeps upward during photo work. Repeated high-quality scans of a 4K
+  clip settled at about 1.55 GB instead of rising from 1.9 to 2.2 GB.
+- The media cache size in system checks now includes the `.meta.json` sidecar beside every
+  photograph and clip, so the reported size matches the disk. File counts are unchanged.
+- A visit's photograph is replaced only when a candidate is clearly better: the classifier's
+  confidence, the picture's sharpness, exposure and size, and how sure the detector is of the bird
+  are weighed together, so a marginally higher score or a tiny weak crop no longer swaps a clear
+  photo. A photo also needs a firmer bird detection than counting does, and the video's winning
+  photograph is in place before the high-quality scan compares against it. Photos the owner chose
+  or removed are never defended or restored.
+- Explain capture badges on hover, keyboard focus and touch, including the orange
+  warning that Frigate no longer has an event or its media. Explanations remain
+  readable above cards and capture panels, and close when their badge leaves view.
+- The leaderboard opens on a contact sheet of this feeder's own visits instead of a drifting reel
+  of one photograph per species. The share by species bar now sits on top of it as its navigation:
+  hovering a segment opens it out and lights that species' visits, a click pins the highlight, and
+  hovering a visit opens a pop-out with the larger photograph, names, confidence, time, camera and
+  frame count. The wall matches captures to species whatever the naming mode, and the arrow keys
+  move between visits.
+- Reuse the exact winning video scene for the visit photograph and matching
+  high-quality photo frames. Retain at most two scenes with a 64 MiB pixel-storage
+  budget, validate clip/frame provenance, and decode normally when reuse is unavailable.
+  Request-owned lossless artifacts are removed on completion or cancellation.
+  Video result descriptions now refer to supporting observations across the video;
+  jobs show **Updating photograph** until the photo work finishes.
+- Cancelling an isolated CPU recovery request reaps its worker without disabling
+  later requests for that workload. Genuine inference failures and uncontended
+  workload deadlines retain their existing retry protections.
+
+- Manual reclassification repairs an automatically chosen photograph even when video
+  and snapshot classification cannot establish a new species. Keep the accepted species
+  and an explicitly selected owner photograph unchanged.
+- Keep Explorer's species search and list first, with date, other filters and cameras
+  collapsed initially. Selecting filters no longer squeezes the species list out of
+  a short desktop window; expanded sections remain scrollable.
+
+- Expanded visit captures refresh after a recount or owner edit, even when visit membership
+  stays the same.
+- Camera filters keep visit identities and expanded capture totals consistent when legacy
+  taxonomy records are ambiguous.
+- Recovered birds get one bounded contextual classification attempt when the original crop is
+  uncertain. Preserve the exact scored crop separately from photo choices and keep counts on
+  timeout or disagreement.
+
+- Group repeat captures into expandable visits before pagination in Explorer, Dashboard and Health.
+  Retain valid event ends from live ingest and backfill, including imports arriving out of order.
+  Visits use a shared canonical species and camera identity, verified event ends where available,
+  and a 60-second inactivity gap. Statistics use the same rule. Every original capture remains
+  available; visit counts do not claim individual bird identity or sum birds across frames.
+- Remove unwanted photo choices with Undo while retaining source images and counting evidence.
+  Choose a replacement before removing the current photograph. Removed unchanged images remain
+  excluded when snapshots are regenerated.
+- Filter Explorer for captures containing at least two identified bird species. Recent sightings
+  in species details now link to their exact detection, including captures without video.
+- Expanded captures show their own species, scientific name and confidence beside the
+  thumbnail and time. Explorer card capture lists float above the grid, so opening a visit
+  keeps the following row in place. Close the panel with its Close control, Escape, or a
+  click outside it; keyboard and touch use the same capture control.
+- Open a visit's captures from its time in the field log. The captures join the log's thread in the
+  same columns as the visit: each capture's time to the second, its thumbnail, score, clip and bird
+  count, on hollow nodes along a tinted stretch of the line, with the visit's photo filled and
+  marked. The row says how many captures it holds beside the name, apart from the busiest capture's
+  bird count, so a visit of many captures no longer takes an extra line. A single-capture visit
+  keeps its plain row and Open action. The camera is named on rows only when more than one camera
+  appears in the log. Health rows and Explorer cards and rows open their captures from a compact
+  control of their own. Reopening a visit reuses the captures already read, the list says how many
+  of the total are shown, and an empty or failed read is stated in words. Opening one card no longer
+  stretches its neighbours. Each Explorer card and its capture footer share one rounded frame,
+  with separate record and capture actions and visible keyboard focus. The multiple-species filter
+  now matches the filters beneath it, and the
+  photo Undo control matches Remove.
+- The dashboard no longer claims anything before it has read the day. While loading, the field log
+  shows placeholder rows shaped like its real rows, the day bar shows placeholders instead of zeros,
+  and the review queue and camera list no longer say nothing is waiting or no camera is reporting.
+  Configured cameras keep unknown visit totals until the summary loads, including after a failed
+  first read. A failed first read says so and offers to try again. Placeholders stand still under
+  reduced motion.
+
+- Recover weakly detected birds with up to four small regional checks per snapshot scan, guided
+  by confidently identified birds in nearby frames. Each recovered bird still needs detector
+  evidence in the counted frame and keeps its own species score. Combine guided and whole-frame
+  detections without letting a box around several birds hide their separate detections.
+  **Regenerate snapshots and recount birds** now names both effects and reports the current count.
+
+- Move the photo reel from the About page to the top of the leaderboard, with films, in place of the
+  photo spotlight. Each leading species has a card of this feeder's own photograph, in rank order,
+  opening the species. The leaders' cards play four silent seconds of the visit, cut from Frigate's
+  recording and framed on the bird, so they are sharp where a stored crop is small. Films are made
+  in the background one at a time the first time they are asked for, follow the clip sharing rules
+  for guests, load only when a card is on screen, and never play under reduced motion or a
+  data-saver connection. Frigate keeps recordings for days, so older visits keep their photographs.
+  The share bar and Needs a check stay beneath the reel; the large touring photograph and its second
+  ranked list are gone, since the reel and the rankings table cover them.
+  Motion and data-saver preferences take effect while the page is open. Film work and failure
+  records are bounded, and a recording that is still being written can be tried again later.
+  Films use the recording moment and crop bound to the saved photograph and are invalidated when
+  it changes. New final-snapshot crops retain this evidence; older or unaligned photos stay still.
+
+- Open the About page on a portrait of the feeder: when it started, its visits and species to date,
+  its busiest day and its newest arrival, beside its latest visit, which plays its film once one is
+  made. A species seen once is never announced as the newest arrival, and guests are told the facts
+  cover only the shared window. A change to the shared history clears and refreshes a guest's
+  portrait so withdrawn visits do not keep playing.
+
+- Name a counted bird from its accepted visit identification when Frigate's retained tracked box
+  uniquely matches it and its own species guess agrees. Keep the original crop score and owner
+  corrections, and use the same resolved identity in the capture summary. Search counted birds by
+  common or scientific name in both review dialogs; saving requires a complete known species.
+
+- Run the Chromium browser regression suite on pull requests, retaining failed interaction
+  screenshots and traces for diagnosis.
+
+- Wrap long identification buttons at enlarged text sizes, including wider fallback fonts,
+  so capture details remain within a narrow phone screen.
+
+- Keep slow video progress updates from blocking a recovered CPU worker's completed result
+  or the next live classification. Bound outstanding progress work and reap stalled or crashed
+  inference workers without consuming the rest of a backfill.
+
+- Reconcile the photograph when video analysis finds no confident species. Reuse a verified
+  matching choice, or an uncropped scene with a localized bird when a matching crop is unavailable.
+  Keep the accepted identification and owner choices, report the photo outcome, and preserve the
+  original snapshot input if classification falls back to it.
+
+- Show the sidebar's system status as three icon tiles, Live, Audio and Alerts, instead of three lines of
+  text. A tile that is off has a slash through its icon as well as a muted colour, and each keeps its full
+  sentence as a tooltip and for screen readers.
+
+- Let the owner set a profile picture in Settings → Authentication; it replaces the initial in the
+  sidebar's account card. The upload is turned upright, cropped to a small square and re-encoded, so no
+  metadata from the original file (location included) is kept. New owner-only `GET`, `PUT` and
+  `DELETE /api/auth/avatar`; auth status reports `avatar_version` to the owner.
+
+- Tidy the dashboard's right column and make it count visits. The day bar said "Today" over a rolling
+  24 hours and counted frames as visits; it now says Last 24 hours and counts visits, from new
+  `visit_count`, `hourly_visits`, `camera_visits` and per-species `visit_count` fields on the day
+  summary (the leaderboard's 10-minute rule). The column runs from what is happening to what is merely
+  interesting: At the feeder now (each camera's last visit and the window's visits, which no longer
+  undercount on a busy day, with the weather beneath), Heard (calls, species, cross-confirmed, the
+  species heard most and the latest call, with the camera-mismatch note as plain context rather than a
+  warning), Activity Pulse (visits per hour, ending at the current hour, with the busiest hour in words)
+  and Top Visitors as a compact list. Every section uses one heading style.
+
+- Replace the leaderboard's photo showcase with a share bar: each species' share of the window in
+  its chart colour. Species that are probably misidentifications are kept out of its named segments
+  and listed beneath it under Needs a check. Pointing at or tabbing to a part of the bar names it:
+  the common and scientific name over the species' stock photograph, with its count and share.
+
+- Crop a retried event's snapshot around the bird in that snapshot. When the first classification
+  failed and YA-WAMF retried from Frigate's later event update, it cut the saved best frame using
+  the bird's latest position, which can be somewhere else once the bird has moved or flown off.
+  It now uses the box Frigate recorded for that frame, and the latest position only when Frigate
+  sent none.
+
+- Let video analysis correct a species borrowed from Frigate (#481). When YA-WAMF's own score stayed
+  below the threshold and it used Frigate's sub-label instead, a confident video result had to beat that
+  sub-label's score plus an extra margin, so a short visit by a different bird could never correct it.
+  Such a label is now recorded as borrowed, is not used to steer which bird video analysis follows, and
+  gives way to a video result that clears the normal threshold. It also no longer carries the
+  classifier's output index for a different species. Older visits keep the earlier rule.
+
+- Raise the inference runtime floors to ONNX Runtime 1.30 (CPU, Intel and the ARM64 side of the full
+  image) and OpenVINO 2026.4 (Intel and full images). Both resolve on Linux for every image
+  flavour; the CUDA images keep ONNX Runtime GPU below 1.27 and stay on CUDA 12.
+
+- Give an uploaded video's photo the bird you confirm, not whatever its first frame shows (#481). Analysis keeps each suggested species' best frame and bird box, the review shows that frame beside every suggestion with a **Bird** and **Whole frame** view, and saving uses the chosen species' frame. Picking a different species on a saved upload moves its photo to that species' frame, or back to the first frame when none localised it. The review no longer calls the uploaded photo "the exact input the classifier scored", **Start over** asks before deleting an upload, an empty **Observed at** says it means the save time, and a failed analysis gives the classifier's reason separately from the plain explanation.
+
+- Regenerate a visit's photo from YA-WAMF's cached clip when Frigate has already expired the event. The clip still played, but **Generate** polled Frigate for about half a minute and then reported the clip missing. **Generate** now uses the cached clip straight away; the automatic photo pass still asks Frigate first, because a clip played during a visit can be cached cut short, and falls back to the cached clip.
+
+- Choose automatic video and HQ photographs only when an object detector localizes a bird inside that photo. Keep exploratory weak crops for classification, retain real detector boxes and confidence separately from species scores, and reuse checked HQ photos without decoding the video again. Apply the same accepted-species confidence gate to HQ and baseline photos to prevent repeated weak-photo replacements. If localization is unavailable, keep the current photo and report why. Distinguish disabled caching, unavailable storage and missing localization, keep the chosen photo selected when a scan abstains, and avoid repeatedly scanning unchanged media for the same presence miss. Temporary detector/classifier failures and pressure-deferred work keep bounded retries; this does not guarantee every small or partly hidden bird is detected.
+
+- Preserve the first classification separately from later automatic results. Video retries use this original evidence or a manual correction as a soft prior, so an automatic overturn cannot become its own starting evidence. Historical visits without original provenance remain unknown, so reanalysis of an older multi-species visit may choose a different supported bird. Explicit species choices remain separate from requested model runs, and multi-crop search also works without a species prior.
+
+- Bound automatically retained earlier photo choices to eight, while keeping the earliest available photo, manual choices and counted scenes. Store content hashes for duplicate checks, keep regenerated candidate files immutable, and prune old files only after a successful save.
+
+- Allow a reported CPU fallback during model startup while still rejecting an unexpected CUDA-to-CPU session change during inference. Attribute CPU-session execution errors to the active CPU provider.
+
+- Keep packaged cuDNN dependencies discoverable during native Windows CUDA inference. Prevent silent whole-session CPU retries from being reported as successful GPU work; recovery remains controlled by the application.
+
+- Keep tracked-region crops and earlier-photo choices attached to their visit during cache recovery and storage eviction, including older sidecars containing the photo key.
+
+- Avoid decoding a video again when the saved photo already positively matches the accepted species. Check owner choices and retained bytes first, and recheck every staged replacement before saving.
+
+- Hold the background page still while **Needs your call** is open, restore its position on close, and keep the full-screen dialog within the viewport. Wrap its title and species names at enlarged text sizes.
+
+- Refresh open detection and review photographs, frame choices, card thumbnails and previews after analysis finishes, including an unchanged species. Retry images that failed before the new photograph was saved without refreshing on every progress update.
+
+- Reach every photo choice with strip edge controls, touch scrolling or Left/Right/Home/End keys. Keep the chosen photo visible and close comparisons before the record, with reliable focus and mobile backdrops.
+
+- Give **Needs your call** the same dialog styling as the record, a calmer species list and review reason, and mobile decision controls that stay within reach.
+
+- Preserve genuine small bird photographs and existing photos when HQ scanning is turned off. Keep legacy photos when Frigate refresh fails, and record unverified Frigate snapshot framing conservatively for later classification.
+
+- Keep primary video evidence within the tracked bird's region and observed path, so an old wrong label cannot select a distant bird. Use exact path timing in video and HQ scans only when the clip's first-frame timestamp is known.
+
+- Retain the previous photograph as a choice before video or HQ replacement, including expired Frigate events, and record the photo-update outcome in diagnostics and completion events.
+
+- Find species by common or scientific name in **Needs your call**, using the same taxonomy search as the full record. Keep search results tied to the current query and visit, and distinguish loading or failed searches from an empty result.
+
+- Send delayed video notifications using the visit's accepted species and current audio confirmation, after the photo work finishes. Rejected video guesses, deleted or hidden visits, and blocked or unknown species cannot bypass the saved result.
+
+- Synchronize the saved photo with the exact positively identified video moment and crop, even when optional high-quality scanning is disabled. Preserve manual choices and storage eviction, keep existing frame choices, and prevent late Frigate snapshots from overwriting refined photos.
+
+- Keep the bird that triggered a Frigate event ahead of another species elsewhere in the video. Prioritize reliable tracked crops and repeated, confident evidence for the existing species; inspect up to three native detector crops when the target has no valid hint, without tiled video scans or detector retries. Weak, single-frame guesses still cannot lock an identification in.
+
+- Keep a guest leaderboard's scroll position steady while live updates clear and recheck shared records. Reserve the existing page height during the read, with an accessible loading state that respects reduced motion.
+
+- Keep review and detection photographs visible when a whole-scene or candidate image is missing. Reserve photo, frame-strip and counted-frame space during loading and failure, retain the chosen moment when its candidate files have expired, and place outlines on the exact unscaled frame within letterboxing.
+- Simplify review choices into consistent rows, keep progress visible on phones, and make the skip shortcut work from button focus without intercepting typing or modified keys.
+
+- Bound Wikimedia species reference photos to supported thumbnails, including older cached metadata, so tiny leaderboard portraits do not download and decode full-resolution originals. Keep smaller provider renditions and species details intact without refreshing the catalogue.
+
+- Keep final Frigate still candidates attached to their saved capture during cache cleanup, including older metadata, so live crop and counted-frame images are not mistaken for deleted visits.
+- Advertise candidate image and thumbnail URLs only when their files are retained, and keep unchanged file URLs stable across reads. Missing media preserves candidate choices and counted bird corrections.
+
+- Preserve an explicitly selected Intel NPU when saving unrelated settings, so a settings reload does not silently switch it to automatic device selection.
+
+- Offer a higher-resolution recording frame for initial bird identification and backfill, using the best snapshot timestamp and scaled matching coordinates. A clean detection copy establishes native coordinates even when a saved event image is cropped or resized. Missing, slow or mismatched recordings fall back to the detection snapshot; retained photos keep their own crop alignment for reclassification. The faster snapshot source remains the default.
+
+- Keep guest audio evidence lookups within each capture’s time window using the timestamp index, avoiding repeated scans of shared audio history while preserving microphone mapping and visibility rules.
+
+- Read live device telemetry off the API event loop, so a busy device or concurrent sampling cannot stall other page requests.
+
+- Keep repeated filtering and fault attempts visible on Health without duplicate row IDs crashing the page.
+
+- Complete Unraid app metadata with setup, licence and screenshot links. Keep Frigate and MQTT settings editable in the app, and correct template import, bridge-network and existing-install guidance.
+
+- Flush completed SQLite restore points through a writable handle before atomic publication, so native Windows backups retain committed WAL data and preserve previous restore points on failure.
+- Package IANA timezone data for Windows development installs and make worker lifecycle regression clocks independent of host timer resolution.
+- Handle Windows native worker fault statuses with persistent launch-profile quarantine and readable fault names. Normal termination and out-of-memory statuses do not claim a native compiler or memory fault.
+- Read Windows worker input through a bounded binary reader, and launch workers, runtime probes and validation/test children directly while preserving virtual environment dependencies, so requests, timeouts and shutdown own the native process. Cancelled crop validation reaps its child before returning.
+- Refresh native-worker model fingerprints after rapid same-size writes and atomic replacements on filesystems with coarse timestamps, while retaining cached hashes for settled unchanged weights.
+- Allow native Windows startup and diagnostics when POSIX process counters and user/group IDs are unavailable. Missing measurements remain unavailable rather than guessed.
+- Load bundled CUDA libraries before crop-detector sessions, so a fresh GPU validation process can use the NVIDIA provider without relying on the species classifier to load it first.
+
+- Keep capture details readable on narrow phones with enlarged text. The photo stays within the sheet, long names and camera labels wrap, and footer actions and technical details reflow while retaining their touch targets.
+
+- Rework how several birds in one capture are shown. The record lists every counted bird, with an explicit Show all for large sets, and repeated species are told apart by position. Each bird's thumbnail is cut from the frame it was counted on; hovering, focusing or choosing it highlights that bird on the frame. Outlines are drawn only on that exact full-resolution frame, which may differ from the photograph, and are withheld with a stated reason when the frame is missing, resized or ambiguous. Unknown birds keep their low-confidence guess as a guess. The Dashboard field log says when a visit had several birds in one capture, or that every bird was excluded, using a new owner-only `bird_summary` on event rows; a capture without counted birds says nothing rather than zero. Counts follow the server's configured unknown-label policy, refresh during the existing owner checks, and cannot be replaced by an unrelated parent update or a superseded capture read.
+
+- Use UTC calendar days consistently for public history and media windows. Guests no longer lose current visits around local midnight on non-UTC servers; About photographs and leaderboard portraits use the same midnight media boundary. Each response keeps admission, counts and audio evidence on one UTC day when midnight passes during a query. Local capture-time display and owner date filters are unchanged.
+- Protect cached files whose generated variant names also belong to another saved visit. Cache limits recheck every possible parent and favourite before deletion and protect active alias writers; ordinary eviction resumes when the conflicting parent is removed.
+
+- Finish an admitted cache-budget deletion and its durable recovery markers before shutdown cancellation returns. Favourite protection is rechecked before files are removed.
+
+- Retry leftover media cleanup every five minutes after a visit is deleted, even with cache budgets or caching disabled. Active owner/background writers and ambiguous legacy filenames are protected; cancellation waits for local file work before releasing cleanup coordination.
+
+- Remember automatic full-visit clip eviction alongside photo eviction. Late fetch outcomes and restarts cannot refill deliberately evicted media; admitted background jobs are protected while they run.
+
+- Match all regenerated bird boxes together before transferring IDs, corrections or exclusions. Reranking overlapping crops no longer moves an owner’s decision to another bird; ambiguous reviewed matches preserve the existing frame.
+
+- Reject late analysis and chat replies when the capture’s species, time or weather changes during generation. The prompt and revision are read together; unrelated favourite changes still allow completion.
+
+- Keep guest audio confirmations and counts tied to the camera’s mapped microphones, batch evidence reads across each page, and exclude tomorrow’s audio from today-only views. Guest leaderboard portraits are checked against current visibility before ranking; saved observation pins follow the selected location precision.
+
+- Apply public-history limits and current visibility to cached AI conversations, species statistics, charts, all audio views and media. Guests cannot retrieve hidden, older or unknown BirdNET media by its upstream ID; failed visibility checks return a retryable error. Live public messages carry only refresh signals, with bounded follow-up fetches through the public API and a refresh when sharing settings change. Hidden audio cannot remain in public visual labels or confirmation counts. Failed public refreshes clear stale rows and retry, and signing out discards owner detail caches. Owner live updates retain their detailed payloads.
+- Keep provider response bodies and exception messages out of AI connection-test logs and results. Rejected keys, retry delays and image-support failures still have useful guidance.
+
+- Increase bird-correction, mobile header, sidebar account/theme controls and language-picker hit regions to at least 44 px. Existing icons, labels and colours are retained, with keyboard and narrow-phone checks for non-overlapping controls.
+
+- Start keyboard reading of the activity heatmap at its busiest slot when the grid receives focus. Refresh browser coverage for the current grid, weather panels, precipitation shading, keyboard navigation and mobile touch interactions.
+
+- Keep the saved analysis and chat when regeneration fails. Successful regeneration replaces both together; stale concurrent analysis and chat replies return a translated refresh message rather than overwriting newer owner input.
+
+- Apply notification cooldown before concurrent deliveries start. Failed or wholly cancelled deliveries remain retryable; a completed channel delivery still starts the cooldown if another channel is cancelled.
+
+- Report failed, empty or malformed provider responses as errors across analysis, charts and chat. Failed replies are never saved as answers; rate-limit and temporary-unavailability responses retain retry information. Provider logs omit response bodies and credentials.
+
+- Show manual-upload draft photos and video to signed-in owners through the existing HttpOnly media cookie. Only exact draft preview/media GET and HEAD routes accept it; writes and guests remain protected. Original draft media is private and is not cached by shared proxies.
+
+- Return keyboard focus to the opener when detection details or other shared dialogs close. Nested dialogs keep their own focus, removed openers fall back to the page content, and closing cancels pending initial focus.
+
+- Allow owner-started Gmail, Outlook and iNaturalist connections to finish on private instances without a Bearer header on the provider redirect. Only exact callback routes bypass normal request authentication; each consumes an expiring, single-use, provider-bound owner state. Failed token storage is reported as a failed connection.
+
+- Preserve browser-language date settings and independent clock choices when opening or saving Settings. Appearance now offers the saved browser-language date option.
+
+- Let older uncached full-visit clips progress past cached or failing newer visits. Reconciliation
+  remembers completed work and bounded retry delays in the existing durable job table, including
+  across restarts.
+
+- Recover missed or failed initial detections from normal Frigate updates, with bounded retries
+  and one final recovery attempt after an update retry. Existing visits avoid repeated inference;
+  out-of-order updates cannot replace a pending completed event or undo a false-positive withdrawal.
+
+- Keep cached photographs and owner photo choices when Frigate withdraws a false-positive
+  event. Automatic withdrawal hides untagged visits without destroying their recovery media;
+  owner-tagged visits remain visible.
+
+- Preserve per-bird corrections and exclusions during background regeneration. Matching
+  observations keep their IDs, and regeneration reserves its short database write before
+  reading owner decisions.
+
+- Preserve favourites accepted during automatic missing-media deletion. The final database
+  decision checks favourites atomically before cached photos are removed; a simultaneous
+  favourite request for an already deleted visit returns not found cleanly.
+
+- Keep BirdWeather station credentials out of failed-report and verbose HTTP request logs,
+  while retaining the error type and HTTP status for diagnosis.
+
+- Refuse guest media access when detection visibility cannot be checked, with a retryable
+  response instead of falling back to an upstream snapshot or clip.
+
+- Preserve detection history and its saved media state when a Frigate event check fails.
+  Scheduled and manual media scans distinguish confirmed absence from timeouts, server errors
+  and unusable responses, and report failed checks separately from missing media.
+
+- Prefer a reliable crop of the visit's species over a near-equivalent whole scene, and allow
+  positive identity evidence to replace an older crop showing another bird. Owner photo choices
+  are protected from later automatic and live snapshot updates.
+- Play archived favourite clips and full visits even after Frigate removes the original event,
+  including availability checks, range requests, downloads, and the player's MP4 fallback.
+  Card photos use a full snapshot or archived photo even when snapshot disk caching is off.
+- Save photo-processing requests before queue admission, recover overflow and retries after a
+  restart, and retain backfill counters with an explicit interrupted state. Recover historical
+  missing photo output in bounded pages; age cleanup and cache limits do not trigger endless regeneration.
+- Add Standard and Intensive bird scanning effort, an optional maximum of cached visits per
+  species, and a media cache budget. Favourites and archived media remain protected, and media
+  eviction retains detection history. Candidate photos, thumbnails and metadata follow their
+  parent visit through cleanup. Prune orphaned derived database references and prevent late
+  background work from recreating them after a visit is deleted.
+
+- Scan large high-resolution scenes in overlapping tiles as well as the full frame when finding
+  bird crop choices and counting birds. This keeps small, distant birds visible to the detector;
+  the count reuses the crop scan instead of repeating the tiled inference. Only a spatially close
+  crop can supply a counted bird's suggested species.
+
+- Keep up to eight spatially distinct detector crops from each sampled high-quality snapshot frame
+  and the completed Frigate still, so another bird can be scored without creating another visit.
+  Show each distinct bird as its own photo choice in the detection and review views, retain all
+  scored crops from the completed still, keep the full frame paired with the chosen crop, and
+  outline distinct retained crop regions from that frame when peeking at the whole scene. Label
+  the chosen crop and require matching species evidence
+  before an already-cropped Frigate fallback can replace the photograph.
+  Count all distinct detector boxes independently of the eight photo-choice crops, from the frame
+  with the most birds, and record individual birds under one capture. Show every counted box on the
+  full frame, and let owners correct or exclude birds individually.
+  The dashboard shows birds found in analyzed captures separately from visits; this estimate can
+  miss birds or include false positives, and repeat captures can count a bird again.
+
 ## [2.21.1] - 2026-09-27
 
 - **Backfill counts match saved history.** New means a detection was inserted; Updated means an

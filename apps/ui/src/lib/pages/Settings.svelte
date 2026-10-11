@@ -8,6 +8,7 @@
     import {
         fetchSettings,
         updateSettings,
+        subscribeSettingsUpdates,
         fetchFrigateConfig,
         fetchClassifierStatus,
         downloadDefaultModel,
@@ -57,7 +58,7 @@
         type PurgeMissingMediaResult,
         type RecordingClipCapability
     } from '../api';
-    import type { BlockedSpeciesEntry, NotificationSpeciesFilterMode, Settings as SettingsPayload } from '../api/settings';
+    import type { BlockedSpeciesEntry, ClassificationImageSource, NotificationSpeciesFilterMode, Settings as SettingsPayload, SettingsUpdate } from '../api/settings';
     import { themeStore, type ColorTheme, type FontTheme, type Theme } from '../stores/theme.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { analysisQueueStatusStore } from '../stores/analysis_queue_status.svelte';
@@ -76,7 +77,7 @@
         resolveRunningBackfillMessage,
         updateScopedBackfillProgress
     } from '../backfill/progress';
-    import { formatTerminalBackfillMessage } from '../backfill/terminal-message';
+    import { formatTerminalBackfillMessage, isBackfillTerminalTransition } from '../backfill/terminal-message';
     import { _, locale } from 'svelte-i18n';
     import { setAppLocale } from '../i18n';
     import { get } from 'svelte/store';
@@ -87,6 +88,13 @@
     import SettingsRow from '../components/settings/_primitives/SettingsRow.svelte';
     import SettingsToggle from '../components/settings/_primitives/SettingsToggle.svelte';
     import { locationSettingsDirty } from '../settings/location-dirty';
+    import {
+        inferenceProviderForSave,
+        parseInferenceProvider,
+        reconcileSavedInferenceProvider,
+        type InferenceProvider
+    } from '../settings/inference-providers';
+    import { normalizeDateFormat, normalizeTimeFormat } from '../utils/datetime';
     import { getErrorMessage } from '../utils/error-handling';
 
     // Import all 7 settings components
@@ -101,7 +109,6 @@
     import AuthenticationSettings from '../components/settings/AuthenticationSettings.svelte';
     import AISettings from '../components/settings/AISettings.svelte';
     import Errors from './Errors.svelte';
-    import SystemHealthPanel from '../components/settings/SystemHealthPanel.svelte';
     import {
         buildBirdModelRegionOverrideSettings,
         resolveBirdModelRegionOverrideFromSettings,
@@ -149,14 +156,6 @@
 
     function normalizeColorTheme(value: unknown): ColorTheme {
         return value === 'default' || value === 'bluetit' ? value : 'bluetit';
-    }
-
-    function normalizeInferenceProvider(
-        value: unknown
-    ): 'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu' {
-        return value === 'cpu' || value === 'cuda' || value === 'intel_gpu' || value === 'intel_cpu'
-            ? value
-            : 'auto';
     }
 
     function normalizeFrigateMissingBehavior(value: unknown): 'mark_missing' | 'keep' | 'delete' {
@@ -225,6 +224,7 @@
     let birdnetSourcesError = $state<string | null>(null);
     let audioBufferHours = $state(24);
     let audioCorrelationWindowSeconds = $state(300);
+    let classificationImageSource = $state<ClassificationImageSource>('frigate_snapshot');
     let clipsEnabled = $state(true);
     let recordingClipEnabled = $state(false);
     let recordingClipBeforeSeconds = $state(30);
@@ -247,7 +247,7 @@
     let videoClassificationFrames = $state(15);
     let birdModelRegionOverride = $state<'auto' | 'eu' | 'na'>('auto');
     let imageExecutionMode = $state<'in_process' | 'subprocess' | string>('subprocess');
-    let inferenceProvider = $state<'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu'>('auto');
+    let inferenceProvider = $state<InferenceProvider>('auto');
     let videoCircuitOpen = $state(false);
     let videoCircuitUntil = $state<string | null>(null);
     let videoCircuitFailures = $state(0);
@@ -1299,7 +1299,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let publicAccessMediaHistoricalDays = $state(7);
     let publicAccessRateLimitPerMinute = $state(30);
     let publicAccessExternalBaseUrl = $state('');
-    let dateFormat = $state('dmy');
+    let dateFormat = $state('locale');
     let timeFormat = $state('locale');
     let debugUiEnabled = $state(false);
     let strictNonFiniteOutput = $state(true);
@@ -1712,9 +1712,12 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     function emitTerminalBackfillToast(
         kind: 'detections' | 'weather',
         status: BackfillJobStatus,
+        previous: BackfillJobStatus | null,
         type: 'success' | 'error',
         fallbackText: string
     ): boolean {
+        // The first poll restores history; only a running job becoming terminal is new feedback.
+        if (!isBackfillTerminalTransition(previous, status)) return false;
         const jobId = status.id || 'unknown';
         const terminalState = status.status === 'completed' ? 'completed' : 'failed';
         const key = `settings:backfill-toast:${kind}:${jobId}:${terminalState}`;
@@ -1766,6 +1769,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'birdnetEnabled', val: birdnetEnabled, store: s.birdnet_enabled ?? true },
             { key: 'birdnetUrl', val: birdnetUrl, store: s.birdnet_url || '' },
             { key: 'birdnetExternalUrl', val: birdnetExternalUrl, store: s.birdnet_external_url || '' },
+            { key: 'classificationImageSource', val: classificationImageSource, store: s.classification_image_source ?? 'frigate_snapshot' },
             { key: 'clipsEnabled', val: clipsEnabled, store: s.clips_enabled ?? true },
             { key: 'recordingClipEnabled', val: recordingClipEnabled, store: s.recording_clip_enabled ?? false },
             { key: 'recordingClipBeforeSeconds', val: recordingClipBeforeSeconds, store: s.recording_clip_before_seconds ?? 30 },
@@ -1785,7 +1789,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'videoClassificationFrames', val: videoClassificationFrames, store: s.video_classification_frames ?? 15 },
             { key: 'imageExecutionMode', val: imageExecutionMode, store: s.image_execution_mode ?? 'subprocess' },
             { key: 'strictNonFiniteOutput', val: strictNonFiniteOutput, store: s.strict_non_finite_output ?? true },
-            { key: 'inferenceProvider', val: inferenceProvider, store: normalizeInferenceProvider(s.inference_provider) },
+            { key: 'inferenceProvider', val: inferenceProvider, store: parseInferenceProvider(s.inference_provider) ?? 'auto' },
             { key: 'selectedCameras', val: JSON.stringify(selectedCameras), store: JSON.stringify(s.cameras || []) },
             { key: 'retentionDays', val: retentionDays, store: s.retention_days || 0 },
             { key: 'maintenanceMaxConcurrent', val: maintenanceMaxConcurrent, store: s.maintenance_max_concurrent ?? 1 },
@@ -1798,12 +1802,14 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'autoAnalyzeUnknowns', val: autoAnalyzeUnknowns, store: s.auto_analyze_unknowns ?? false },
             { key: 'blockedLabels', val: JSON.stringify(blockedLabels), store: JSON.stringify(blockedLabelsBaseline) },
             { key: 'blockedSpecies', val: JSON.stringify(blockedSpecies), store: JSON.stringify(blockedSpeciesBaseline) },
-            { key: 'cacheEnabled', val: cacheEnabled, store: s.media_cache_enabled ?? true },
-            { key: 'cacheSnapshots', val: cacheSnapshots, store: s.media_cache_snapshots ?? true },
             { key: 'cacheClips', val: cacheClips, store: s.media_cache_clips ?? false },
             { key: 'cacheHighQualityEventSnapshots', val: cacheHighQualityEventSnapshots, store: s.media_cache_high_quality_event_snapshots ?? false },
-            { key: 'cacheHighQualityEventSnapshotJpegQuality', val: cacheHighQualityEventSnapshotJpegQuality, store: s.media_cache_high_quality_event_snapshot_jpeg_quality ?? 95 },
+            { key: 'cacheHighQualityEventSnapshotJpegQuality', val: cacheHighQualityEventSnapshotJpegQuality, store: s.media_cache_high_quality_event_snapshot_jpeg_quality ?? 90 },
             { key: 'cacheRetentionDays', val: cacheRetentionDays, store: s.media_cache_retention_days ?? 0 },
+            { key: 'cachePerSpeciesMaximum', val: cachePerSpeciesMaximum, store: s.media_cache_per_species_maximum ?? 0 },
+            { key: 'cacheMaxSizeMb', val: cacheMaxSizeMb, store: s.media_cache_max_size_mb ?? 0 },
+            { key: 'cacheAutomaticMultiBirdScan', val: cacheAutomaticMultiBirdScan, store: s.media_cache_automatic_multi_bird_scan ?? false },
+            { key: 'cacheBirdScanMode', val: cacheBirdScanMode, store: s.media_cache_bird_scan_mode ?? 'intensive' },
             { key: 'cachePerSpeciesMinimum', val: cachePerSpeciesMinimum, store: s.media_cache_per_species_minimum ?? 0 },
             { key: 'birdweatherEnabled', val: birdweatherEnabled, store: s.birdweather_enabled ?? false },
             { key: 'birdweatherStationToken', val: birdweatherStationToken, store: normalizeSecret(s.birdweather_station_token) },
@@ -1872,8 +1878,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'publicAccessMediaHistoricalDays', val: publicAccessMediaHistoricalDays, store: s.public_access_media_historical_days ?? 7 },
             { key: 'publicAccessRateLimitPerMinute', val: publicAccessRateLimitPerMinute, store: s.public_access_rate_limit_per_minute ?? 30 },
             { key: 'publicAccessExternalBaseUrl', val: publicAccessExternalBaseUrl, store: s.public_access_external_base_url ?? '' },
-            { key: 'dateFormat', val: dateFormat, store: s.date_format ?? 'dmy' },
-            { key: 'timeFormat', val: timeFormat, store: s.time_format ?? 'locale' },
+            { key: 'dateFormat', val: dateFormat, store: normalizeDateFormat(s.date_format) },
+            { key: 'timeFormat', val: timeFormat, store: normalizeTimeFormat(s.time_format) },
 
             // Notifications
             { key: 'discordEnabled', val: discordEnabled, store: s.notifications_discord_enabled ?? false },
@@ -1964,12 +1970,14 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let applyingTimezoneRepair = $state(false);
 
     // Media cache state
-    let cacheEnabled = $state(true);
-    let cacheSnapshots = $state(true);
     let cacheClips = $state(false);
     let cacheHighQualityEventSnapshots = $state(false);
-    let cacheHighQualityEventSnapshotJpegQuality = $state(95);
+    let cacheHighQualityEventSnapshotJpegQuality = $state(90);
     let cacheRetentionDays = $state(0);
+    let cachePerSpeciesMaximum = $state<number>(0);
+    let cacheMaxSizeMb = $state<number>(0);
+    let cacheAutomaticMultiBirdScan = $state(false);
+    let cacheBirdScanMode = $state<'standard' | 'intensive'>('intensive');
     let cachePerSpeciesMinimum = $state(0);
     let cacheStats = $state<CacheStats | null>(null);
     let cleaningCache = $state(false);
@@ -2059,6 +2067,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         currentColorTheme = themeStore.colorTheme;
     });
 
+    onMount(() => subscribeSettingsUpdates(reconcileLocalSettingsUpdate));
+
     onMount(async () => {
         // Guests should never load the Settings view or call /api/settings.
         if (!authStore.showSettings) {
@@ -2093,7 +2103,27 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
 
     $effect(() => {
         if (isDirty) return;
-        return pageRefreshAction.register(() => loadSettings());
+        return pageRefreshAction.register(async () => {
+            await Promise.all([loadSettings(), loadClassifierStatus()]);
+        });
+    });
+
+    // A harness can finish in another tab, and isolated workers can start after
+    // the completion response. Keep the visible runtime current without touching
+    // the settings form or accumulating overlapping background reads.
+    $effect(() => {
+        if (activeTab !== 'detection' || !authStore.showSettings) return;
+        const refreshRuntime = (): void => {
+            if (!document.hidden && classifierStatusReads === 0) void loadClassifierStatus();
+        };
+        refreshRuntime();
+        const interval = window.setInterval(refreshRuntime, 5000);
+        document.addEventListener('visibilitychange', refreshRuntime);
+        return () => {
+            window.clearInterval(interval);
+            document.removeEventListener('visibilitychange', refreshRuntime);
+            classifierStatusRequest += 1;
+        };
     });
 
     $effect(() => {
@@ -2390,9 +2420,10 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 deleted: (result.deleted_count ?? 0).toLocaleString(),
                 marked: (result.marked_missing_count ?? 0).toLocaleString(),
                 kept: (result.kept_count ?? 0).toLocaleString(),
-                restored: (result.cleared_missing_count ?? 0).toLocaleString()
+                restored: (result.cleared_missing_count ?? 0).toLocaleString(),
+                errors: (result.errors ?? 0).toLocaleString()
             },
-            default: 'Scan complete: checked {checked}, missing {missing}, deleted {deleted}, marked missing {marked}, kept {kept}, restored {restored}.'
+            default: 'Scan complete: checked {checked}, missing {missing}, deleted {deleted}, marked missing {marked}, kept {kept}, restored {restored}. Unable to check {errors}; their saved state was preserved.'
         });
     }
 
@@ -2643,6 +2674,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             ]);
 
             if (detections) {
+                const previousJob = backfillJob;
                 backfillJob = detections;
                 backfillResult = {
                     status: detections.status,
@@ -2660,11 +2692,11 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 backfillTotal = scoped.total;
                 backfilling = detections.status === 'running';
                 if (detections.status === 'completed') {
-                    if (emitTerminalBackfillToast('detections', detections, 'success', 'Backfill complete')) {
+                    if (emitTerminalBackfillToast('detections', detections, previousJob, 'success', 'Backfill complete')) {
                         await loadMaintenanceStats();
                     }
                 } else if (detections.status === 'failed') {
-                    emitTerminalBackfillToast('detections', detections, 'error', 'Backfill failed');
+                    emitTerminalBackfillToast('detections', detections, previousJob, 'error', 'Backfill failed');
                 }
                 reconcileBackfillNotification('detections', detections, scoped.total);
             } else {
@@ -2677,6 +2709,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             }
 
             if (weather) {
+                const previousJob = weatherBackfillJob;
                 weatherBackfillJob = weather;
                 weatherBackfillResult = {
                     status: weather.status,
@@ -2692,9 +2725,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 weatherBackfillTotal = scoped.total;
                 weatherBackfilling = weather.status === 'running';
                 if (weather.status === 'completed') {
-                    emitTerminalBackfillToast('weather', weather, 'success', 'Weather backfill complete');
+                    emitTerminalBackfillToast('weather', weather, previousJob, 'success', 'Weather backfill complete');
                 } else if (weather.status === 'failed') {
-                    emitTerminalBackfillToast('weather', weather, 'error', 'Weather backfill failed');
+                    emitTerminalBackfillToast('weather', weather, previousJob, 'error', 'Weather backfill failed');
                 }
                 reconcileBackfillNotification('weather', weather, scoped.total);
             } else {
@@ -2759,12 +2792,95 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         }
     }
 
-    async function loadClassifierStatus() {
+    // Reads only the live runtime, never the settings form, so a refresh after a
+    // compatibility check or a model switch keeps the owner's unsaved edits. The
+    // newest request wins, so a slow earlier reply cannot restore a stale provider.
+    let classifierStatusRequest = 0;
+    let classifierStatusReads = 0;
+    // The provider as loadSettings last put it in the form. The shared settings
+    // store can be refreshed independently, so it cannot tell whether the form
+    // still shows the loaded provider or one the owner has picked since.
+    let loadedInferenceProvider: unknown = undefined;
+    let loadedSetupSettings: SettingsPayload | null = null;
+    let settingsFormLoads = 0;
+
+    async function loadClassifierStatus(): Promise<boolean> {
+        const request = ++classifierStatusRequest;
+        const formLoad = settingsFormLoads;
+        classifierStatusReads += 1;
         try {
-            classifierStatus = await fetchClassifierStatus();
+            const status = await fetchClassifierStatus();
+            if (request === classifierStatusRequest) {
+                classifierStatus = status;
+                // A status read that started before the form was last loaded, or
+                // that lands mid-save, may report a preference older than the form's.
+                if (formLoad === settingsFormLoads && !saving) adoptSavedInferenceProvider(status.selected_provider);
+            }
+            return true;
         } catch (e) {
             console.error('Failed to load classifier status', e);
+            return false;
+        } finally {
+            classifierStatusReads -= 1;
         }
+    }
+
+    // Activating a model saves that model's provider on the server. Without this,
+    // the form and its saved baseline keep the old provider, and the next save of
+    // an unrelated edit writes it back over the new one.
+    function adoptSavedInferenceProvider(reportedProvider: unknown): void {
+        const update = reconcileSavedInferenceProvider(reportedProvider, loadedInferenceProvider, inferenceProvider);
+        if (!update) return;
+        loadedInferenceProvider = update.saved;
+        inferenceProvider = update.form;
+        if (settingsStore.settings) {
+            settingsStore.update({ ...settingsStore.settings, inference_provider: update.saved });
+        }
+    }
+
+    // A re-run overlays this form. Adopt confirmed wizard writes only for fields
+    // the owner has not edited here, so an unrelated later save cannot undo setup.
+    function reconcileLocalSettingsUpdate(patch: SettingsUpdate): void {
+        if (saving || !loadedSetupSettings) return;
+        const baseline = loadedSetupSettings;
+        const confirmed: Partial<SettingsPayload> = {};
+        function adopt<K extends keyof SettingsPayload>(key: K, current: SettingsPayload[K], previous: SettingsPayload[K], write: (value: SettingsPayload[K]) => void) {
+            const saved = patch[key as keyof SettingsUpdate];
+            if (saved === undefined || saved === null) return;
+            const value = saved as SettingsPayload[K];
+            if (JSON.stringify(current) === JSON.stringify(previous)) write(value);
+            confirmed[key] = value;
+        }
+        adopt('frigate_url', frigateUrl, baseline.frigate_url, value => frigateUrl = value);
+        adopt('mqtt_server', mqttServer, baseline.mqtt_server, value => mqttServer = value);
+        adopt('mqtt_port', mqttPort, baseline.mqtt_port, value => mqttPort = value);
+        adopt('mqtt_auth', mqttAuth, baseline.mqtt_auth, value => mqttAuth = value);
+        adopt('mqtt_username', mqttUsername, baseline.mqtt_username || '', value => mqttUsername = value || '');
+        adopt('cameras', selectedCameras, baseline.cameras || [], value => selectedCameras = value);
+        adopt('media_cache_high_quality_event_snapshots', cacheHighQualityEventSnapshots, baseline.media_cache_high_quality_event_snapshots ?? false, value => cacheHighQualityEventSnapshots = value);
+        adopt('birdnet_enabled', birdnetEnabled, baseline.birdnet_enabled ?? true, value => birdnetEnabled = value);
+        adopt('birdnet_url', birdnetUrl, baseline.birdnet_url || '', value => birdnetUrl = value);
+        adopt('ebird_enabled', ebirdEnabled, baseline.ebird_enabled ?? false, value => ebirdEnabled = value ?? false);
+        adopt('inaturalist_enabled', inaturalistEnabled, baseline.inaturalist_enabled ?? false, value => inaturalistEnabled = value ?? false);
+        adopt('birdweather_enabled', birdweatherEnabled, baseline.birdweather_enabled ?? false, value => birdweatherEnabled = value);
+        adopt('llm_enabled', llmEnabled, baseline.llm_enabled ?? false, value => llmEnabled = value);
+        adopt('telemetry_enabled', telemetryEnabled, baseline.telemetry_enabled ?? true, value => telemetryEnabled = value);
+        // Coordinates form one input: never combine half an unsaved pair with setup.
+        if (patch.location_latitude !== undefined && patch.location_longitude !== undefined) {
+            if (locationLat === (baseline.location_latitude ?? null) && locationLon === (baseline.location_longitude ?? null)) {
+                locationLat = patch.location_latitude;
+                locationLon = patch.location_longitude;
+            }
+            confirmed.location_latitude = patch.location_latitude;
+            confirmed.location_longitude = patch.location_longitude;
+        }
+        if (patch.inference_provider !== undefined) adoptSavedInferenceProvider(patch.inference_provider);
+        if (patch.mqtt_password && patch.mqtt_password !== '***REDACTED***') {
+            mqttPasswordSaved = !mqttPassword;
+            confirmed.mqtt_password = '***REDACTED***';
+        }
+        loadedSetupSettings = { ...baseline, ...confirmed };
+        if (settingsStore.settings) settingsStore.update({ ...settingsStore.settings, ...confirmed });
     }
 
     async function loadRecordingClipCapability() {
@@ -2786,6 +2902,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         birdnetSourcesError = null;
         try {
             const settings = await fetchSettings();
+            loadedSetupSettings = settings;
             settingsStore.update(settings);
             frigateUrl = settings.frigate_url;
             frigateIngestLabels = (settings.frigate_ingest_labels ?? ['bird']).join(', ');
@@ -2827,6 +2944,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             }
             audioBufferHours = settings.audio_buffer_hours ?? 24;
             audioCorrelationWindowSeconds = settings.audio_correlation_window_seconds ?? 300;
+            classificationImageSource = settings.classification_image_source ?? 'frigate_snapshot';
             clipsEnabled = settings.clips_enabled ?? true;
             recordingClipEnabled = settings.recording_clip_enabled ?? false;
             recordingClipBeforeSeconds = settings.recording_clip_before_seconds ?? 30;
@@ -2848,7 +2966,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             birdModelRegionOverride = resolveBirdModelRegionOverrideFromSettings(settings.bird_model_region_override);
             imageExecutionMode = settings.image_execution_mode ?? 'subprocess';
             strictNonFiniteOutput = settings.strict_non_finite_output ?? true;
-            inferenceProvider = normalizeInferenceProvider(settings.inference_provider);
+            inferenceProvider = parseInferenceProvider(settings.inference_provider) ?? 'auto';
+            loadedInferenceProvider = settings.inference_provider;
+            settingsFormLoads += 1;
             videoCircuitOpen = settings.video_classification_circuit_open ?? false;
             videoCircuitUntil = settings.video_classification_circuit_until ?? null;
             videoCircuitFailures = settings.video_classification_circuit_failures ?? 0;
@@ -2874,12 +2994,14 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             blockedLabelsBaseline = [...blockedLabels];
             blockedSpeciesBaseline = [...blockedSpecies];
             // Media cache settings
-            cacheEnabled = settings.media_cache_enabled ?? true;
-            cacheSnapshots = settings.media_cache_snapshots ?? true;
             cacheClips = settings.media_cache_clips ?? false;
             cacheHighQualityEventSnapshots = settings.media_cache_high_quality_event_snapshots ?? false;
-            cacheHighQualityEventSnapshotJpegQuality = settings.media_cache_high_quality_event_snapshot_jpeg_quality ?? 95;
+            cacheHighQualityEventSnapshotJpegQuality = settings.media_cache_high_quality_event_snapshot_jpeg_quality ?? 90;
             cacheRetentionDays = settings.media_cache_retention_days ?? 0;
+            cachePerSpeciesMaximum = settings.media_cache_per_species_maximum ?? 0;
+            cacheMaxSizeMb = settings.media_cache_max_size_mb ?? 0;
+            cacheAutomaticMultiBirdScan = settings.media_cache_automatic_multi_bird_scan ?? false;
+            cacheBirdScanMode = settings.media_cache_bird_scan_mode ?? 'intensive';
             cachePerSpeciesMinimum = settings.media_cache_per_species_minimum ?? 0;
             // Location settings
             locationLat = settings.location_latitude ?? null;
@@ -3003,13 +3125,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             publicAccessMediaHistoricalDays = settings.public_access_media_historical_days ?? 7;
             publicAccessRateLimitPerMinute = settings.public_access_rate_limit_per_minute ?? 30;
             publicAccessExternalBaseUrl = settings.public_access_external_base_url ?? '';
-            if (settings.date_format === 'mdy' || settings.date_format === 'dmy' || settings.date_format === 'ymd') {
-                dateFormat = settings.date_format;
-                timeFormat = settings.time_format ?? 'locale';
-            } else {
-                dateFormat = 'dmy';
-                timeFormat = 'locale';
-            }
+            dateFormat = normalizeDateFormat(settings.date_format);
+            timeFormat = normalizeTimeFormat(settings.time_format);
             debugUiEnabled = settings.debug_ui_enabled ?? false;
 
             // Notifications
@@ -3189,6 +3306,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 nest_dedupe_minutes: nestDedupeMinutes,
                 audio_buffer_hours: audioBufferHours,
                 audio_correlation_window_seconds: audioCorrelationWindowSeconds,
+                classification_image_source: classificationImageSource,
                 clips_enabled: clipsEnabled,
                 recording_clip_enabled: recordingClipEnabled,
                 recording_clip_before_seconds: recordingClipBeforeSeconds,
@@ -3210,7 +3328,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 ...buildBirdModelRegionOverrideSettings(birdModelRegionOverride),
                 image_execution_mode: imageExecutionMode,
                 strict_non_finite_output: strictNonFiniteOutput,
-                inference_provider: inferenceProvider,
+                inference_provider: inferenceProviderForSave(inferenceProvider, settingsStore.settings?.inference_provider),
                 cameras: selectedCameras,
                 retention_days: retentionDays,
                 maintenance_max_concurrent: maintenanceMaxConcurrent,
@@ -3220,14 +3338,16 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 auto_analyze_unknowns: autoAnalyzeUnknowns,
                 blocked_labels: blockedLabels,
                 blocked_species: blockedSpecies,
-                media_cache_enabled: cacheEnabled,
-                media_cache_snapshots: cacheSnapshots,
                 media_cache_clips: cacheClips,
                 media_cache_high_quality_event_snapshots: cacheHighQualityEventSnapshots,
                 // Compatibility field: best-available snapshots always attempt an automatic crop.
                 media_cache_high_quality_event_snapshot_bird_crop: cacheHighQualityEventSnapshots,
                 media_cache_high_quality_event_snapshot_jpeg_quality: cacheHighQualityEventSnapshotJpegQuality,
                 media_cache_retention_days: cacheRetentionDays,
+                media_cache_per_species_maximum: cachePerSpeciesMaximum,
+                media_cache_max_size_mb: cacheMaxSizeMb,
+                media_cache_automatic_multi_bird_scan: cacheAutomaticMultiBirdScan,
+                media_cache_bird_scan_mode: cacheBirdScanMode,
                 media_cache_per_species_minimum: cachePerSpeciesMinimum,
                 location_latitude: locationLat,
                 location_longitude: locationLon,
@@ -3363,7 +3483,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             // Sync local state to handle server-side normalization (e.g. stripped slashes)
             await loadSettings(true);
             message = { type: 'success', text: $_('notifications.settings_saved') };
-            await Promise.all([loadMaintenanceStats(), loadCacheStats()]);
+            // A saved provider or worker change re-plans the runtime.
+            await Promise.all([loadMaintenanceStats(), loadCacheStats(), loadClassifierStatus()]);
         } catch (e) {
             message = {
                 type: 'error',
@@ -3453,6 +3574,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:selectedCameras
                     bind:cameraRoles
                     bind:nestDedupeMinutes
+                    bind:classificationImageSource
                     bind:clipsEnabled
                     bind:recordingClipEnabled
                     bind:recordingClipBeforeSeconds
@@ -3490,11 +3612,13 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:imageExecutionMode
                     bind:inferenceProvider
                     {classifierStatus}
+                    onrefreshclassifierstatus={loadClassifierStatus}
                     bind:blockedLabels
                     bind:blockedSpecies
                     {videoCircuitOpen}
                     {videoCircuitUntil}
                     {videoCircuitFailures}
+                    onopenlocationsettings={() => handleTabChange('integrations')}
                 />
             {/if}
 
@@ -3563,10 +3687,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
 
             <!-- Health Tab -->
             {#if activeTab === 'health'}
-                <div class="space-y-6">
-                    <SystemHealthPanel />
-                    <Errors {onNavigate} />
-                </div>
+                <!-- The health page builds the System card itself, with its verdict inside it. -->
+                <Errors {onNavigate} />
             {/if}
 
             <!-- Integrations Tab -->
@@ -3718,12 +3840,14 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:autoPurgeMissingClips
                     bind:autoPurgeMissingSnapshots
                     bind:autoAnalyzeUnknowns
-                    bind:cacheEnabled
-                    bind:cacheSnapshots
                     bind:cacheClips
                     bind:cacheHighQualityEventSnapshots
                     bind:cacheHighQualityEventSnapshotJpegQuality
                     bind:cacheRetentionDays
+                    bind:cachePerSpeciesMaximum
+                    bind:cacheMaxSizeMb
+                    bind:cacheAutomaticMultiBirdScan
+                    bind:cacheBirdScanMode
                     bind:cachePerSpeciesMinimum
                     bind:backfillDateRange
                     bind:backfillStartDate
@@ -3838,7 +3962,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                             <button
                                 type="button"
                                 onclick={() => onNavigate && onNavigate('/diagnostics/model-eval')}
-                                class="min-h-11 shrink-0 rounded-xl bg-slate-900 px-4 py-2 text-xs font-black text-white transition-colors hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white dark:focus-visible:ring-offset-slate-950"
+                                class="min-h-11 shrink-0 rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white dark:focus-visible:ring-offset-slate-950"
                             >
                                 {$_('settings.debug.model_eval_open')}
                             </button>

@@ -36,7 +36,13 @@ Telemetry tests build the Worker without deploying it, then use local Miniflare
 databases. They do not require credentials or write to production Cloudflare D1.
 They now run before merge, not just during deployment.
 
-## Local browser matrix
+## Browser regressions
+
+Pull requests run the complete Chromium fixture suite in CI. Failed runs retain
+screenshots and traces for seven days. The same command works locally:
+`npm run test:browser -- --project=chromium` from `apps/ui`.
+
+For the wider local matrix:
 
 From `apps/ui`:
 
@@ -59,21 +65,45 @@ the ignored `apps/ui/playwright-results` directory. Use
 `npx playwright show-trace path/to/trace.zip` to inspect a failed interaction.
 
 These are rendered-component regression tests, not full application end-to-end
-tests. They mount the production Health timeline and previews with real styles
-and translations, and substitute only media responses. They check:
+tests. They mount current production components with real styles and translations, substituting
+API and media responses in controlled fixtures. Coverage includes:
 
+- Setup wizard account/model steps, partial Settings writes, provider selection, validation
+  failures and late-response cleanup.
+- Model compatibility results and runtime refresh after restoring the active model.
+- Explorer seen/heard controls and visit/capture review journeys.
 - Recorded, filtered and failed detections remain distinguishable.
 - Only recorded visits offer **View record**, and it returns the correct event.
 - Previews escape a deliberately clipping ancestor and remain inside the viewport.
 - Keyboard dismissal, focus, touch activation, unmount cleanup and expired images.
 - Loading and empty states, and no horizontal overflow at mobile width.
+- Species composition controls, the 168-cell activity grid, initial keyboard
+  reading at the busiest slot, arrow/Home/End navigation, Escape and touch dismissal.
+- Separate temperature/wind charts with the expected samples, precipitation
+  shading only in wet buckets, chart capture for analysis and reduced motion.
+- Actual 44 px hit regions for bird corrections, suggestions, mobile header,
+  sidebar and language-picker controls at 320 px, with keyboard operation,
+  distinct hit regions and no page overflow.
+- Counted-bird identities and separate crop confidence, common/scientific species
+  searches, explicit selection before saving, stale responses and failed requests.
 
 Unexpected API requests and uncaught JavaScript errors fail the fixture. Its HTML
 is a development test entry, not included in the production build. New browser
 tests belong in `browser-tests/*.spec.ts`; do not replace interaction assertions
 with checks that a source file merely contains a string.
 
+For documentation captures, use the isolated [screenshot recipe](../images/README.md).
+It renders current components with safe fixtures and rejects production destinations; captured
+figures illustrate controls and do not add hardware-validation evidence.
+
 ## Joined backend paths and recovery
+
+`test_issue490_worker_processes.py` injects hangs and exits into real disposable
+child processes. It checks that live requests can finish while a background worker
+fails, that failed workers are reaped, and that failed CPU recovery is not retried
+for every item. `test_native_cpu_recovery.py` also exercises stalled progress
+callbacks so progress I/O cannot hold up an inference result. These tests do not
+establish the health of a particular GPU or driver.
 
 `test_live_notification_integration.py` sends MQTT payloads through the real
 event processor, detection policy, migrated SQLite repositories, notification
@@ -86,7 +116,8 @@ failure and optional Frigate write-back failure. It never sends Telegram message
 `test_database_backups.py` now restores real SQLite snapshots, including committed
 WAL rows and owner metadata. Uncommitted writes are excluded. Corrupt input, failed
 writes, locked databases, filename collisions and clock corrections cannot replace
-the previous restore point with a partial copy.
+the previous restore point with a partial copy. Completed snapshots are flushed
+through a writable file handle before publication, including on native Windows.
 
 ## Hardware and longer checks
 
@@ -142,6 +173,41 @@ reports, process logs and a `summary.json`, including failures. A requested prov
 must actually be exercised to pass. Registry-incompatible combinations are explicitly
 not applicable; candidate combinations are tested but do not gain supported status
 from a single pass. Review every failure, even when another repeat passes.
+
+### Native Windows validation
+
+Install `requirements-base.txt`, `requirements-provider-cuda.txt` and
+`requirements-dev.txt` into an isolated Python 3.12 virtual environment. The base
+requirements include Windows timezone data, because Windows has no system IANA
+database. Run worker lifecycle tests before the installed-model CUDA gate.
+
+Windows workers use bounded binary stdin reads in a thread so heartbeats continue
+while waiting for requests. The parent launches the base interpreter directly
+with [CPython's virtual environment launcher hint](https://github.com/python/cpython/blob/3.12/Modules/getpath.py), retaining the environment's
+packages and ownership of the actual worker process. Runtime discovery probes,
+model validation and hardware/regression gates use the same launch helper.
+Cancelled crop validation kills and reaps its child before returning, including
+a child that exits during cancellation. An explicitly restricted child environment
+stays restricted. The same CPU recovery
+overrides remain confined to the child. Test small and large messages, readiness,
+heartbeats, parent EOF and confirmed termination on the real Windows host.
+
+Missing POSIX process counters or user/group IDs must not prevent native startup.
+Process attribution and unavailable IDs remain unmeasured in diagnostics. The
+Linux process-counter tests use explicit counters and still verify attribution.
+
+Crash quarantine recognises documented Windows memory/compiler fault statuses
+in addition to POSIX fault signals. It preserves the exact launch profile across
+restarts and records a readable status without attributing a fault to a specific
+library. Ordinary exits, Ctrl+C and memory exhaustion do not establish a native
+fault. Synthetic exit-status tests prove recovery handling, not an actual GPU
+crash.
+
+Model fingerprints hash recent revisions directly until file timestamps settle.
+Stable weights retain the hash cache, and atomic replacement invalidates it through
+file identity even when size and timestamps match. This guards rapid same-size
+updates on coarse-timestamp filesystems without hashing every settled model on
+every request.
 
 ### Native OpenVINO crash reproducer
 
@@ -213,8 +279,10 @@ corpus still needs pinned, reviewed images and a previous-release baseline.
   SSE reconnection and detection-modal/media journeys across browsers.
 - Concurrent duplicate notification jobs and delivery interrupted between send
   and marking the row notified; sequential replay tests do not prove exactly-once delivery.
-- A labelled multi-species accuracy corpus, retained-video maintenance replay,
-  published CUDA-image checks and sustained mixed-load memory/queue bounds.
+- A pinned, reviewed accuracy regression corpus with a previous-release baseline,
+  broader retained-video replay, CUDA coverage beyond the tested RoPE/crop pair,
+  and sustained mixed-load memory/queue bounds. The October [model evaluation](../reviews/2026-10-10-model-integration-validation.md)
+  is scoped evidence, not a universal accuracy or hardware certification.
 - Removing the old test-wide aiosqlite daemon-thread workaround by fixing each
   leaking fixture. Strict process exit catches other hangs but does not prove that
   all database connections are currently closed.

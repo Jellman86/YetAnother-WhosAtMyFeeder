@@ -21,7 +21,7 @@
     const contentId = $derived(id ? `${id}-content` : undefined);
 </script>
 
-<div class="rounded-2xl border border-dashed border-slate-200 dark:border-slate-700/60 bg-slate-50/40 dark:bg-slate-900/30">
+<div class="rounded-2xl border border-dashed border-line">
     <button
         type="button"
         aria-expanded={open}
@@ -30,10 +30,10 @@
         class="flex min-h-11 w-full cursor-pointer items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950"
     >
         <span class="flex min-w-0 items-center gap-2">
-            <span class="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs font-black uppercase tracking-wide text-amber-700 dark:text-amber-300">
+            <span class="eyebrow rounded-md border border-line px-2 py-0.5">
                 {$_('settings.common.advanced', { default: 'Advanced' })}
             </span>
-            <span class="text-sm font-bold text-slate-700 dark:text-slate-200">
+            <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">
                 {title ?? $_('settings.common.advanced_default_title', { default: 'Advanced options' })}
             </span>
         </span>

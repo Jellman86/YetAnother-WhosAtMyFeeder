@@ -131,7 +131,8 @@ class SpeciesCatalogStatus:
                     "sources": _manifest_sources(release_row["source_manifest"]),
                 }
 
-            species_count = connection.execute("SELECT COUNT(*) FROM species").fetchone()[0]
+            # Species, not every taxon: the catalogue also holds the genera, families and orders above them.
+            species_count = connection.execute("SELECT COUNT(*) FROM species WHERE rank = 'species'").fetchone()[0]
 
             artifacts: list[dict[str, Any]] = []
             for row in connection.execute(

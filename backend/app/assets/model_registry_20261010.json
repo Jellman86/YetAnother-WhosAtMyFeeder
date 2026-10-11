@@ -1,0 +1,504 @@
+[
+  {
+    "accuracy_tier": "Experimental",
+    "advanced_only": false,
+    "architecture": "kokoc30/inat2021-dinov2-species-classification@v1.0.0",
+    "artifact_kind": "classifier",
+    "candidate_inference_providers": [
+      "cpu",
+      "intel_cpu",
+      "cuda",
+      "intel_gpu",
+      "intel_npu"
+    ],
+    "crop_generator": {
+      "enabled": false,
+      "source_preference": "standard"
+    },
+    "description": "Location-aware wildlife classifier. Uses your configured feeder location; missing date and uncertainty stay absent.",
+    "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/dinov2_b14_inat21_metadata_336.onnx",
+    "estimated_ram_mb": 2048,
+    "file_size_mb": 456.5,
+    "id": "dinov2_b14_inat21_metadata_336",
+    "inference_speed": "Measured per host",
+    "input_size": 336,
+    "label_format": "scientific_binomial",
+    "labels_sha256": "f2b1294bc0b3a943425655e8b74cd7489e623d0ec7fa6dc5ce57cc85a93f8ac5",
+    "labels_url": "",
+    "license": "MIT; DINOv2 backbone Apache-2.0",
+    "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/dinov2_b14_inat21_metadata_336_model_config.json",
+    "name": "DINOv2 B/14 with location",
+    "notes": "CPU reference retained. Accelerator selection requires validation on this exact installation. ",
+    "preprocessing": {
+      "color_space": "RGB",
+      "crop_pct": 0.875,
+      "interpolation": "bicubic",
+      "mean": [
+        0.485,
+        0.456,
+        0.406
+      ],
+      "metadata_input": "inat2021_location_v1",
+      "normalization": "float32",
+      "resize_mode": "center_crop",
+      "resize_rounding": "floor",
+      "std": [
+        0.229,
+        0.224,
+        0.225
+      ]
+    },
+    "recommended_for": "Wildlife classification on a host with sufficient memory.",
+    "recommended_threshold": 0.6,
+    "runtime": "onnx",
+    "sha256": "d61793c4c5aeb6ab850b831f5e7ce4ac2a5ec8609769bc6a3704270aa1610109",
+    "sort_order": 45,
+    "status": "experimental",
+    "supported_inference_providers": [
+      "cpu",
+      "intel_cpu"
+    ],
+    "taxonomy_scope": "wildlife_wide",
+    "tier": "large",
+    "weights_sha256": "ec76f79196d5a64c4c8b4e4199c3d2d43771e50a5693947aae9502bc5ac9f34c",
+    "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/dinov2_b14_inat21_metadata_336.onnx.data"
+  },
+  {
+    "accuracy_tier": "Experimental",
+    "advanced_only": false,
+    "architecture": "rope_vit_reg4_b14_capi-inat21",
+    "artifact_kind": "classifier",
+    "candidate_inference_providers": [
+      "cpu",
+      "intel_cpu",
+      "cuda",
+      "intel_gpu",
+      "intel_npu"
+    ],
+    "crop_generator": {
+      "enabled": false,
+      "source_preference": "standard"
+    },
+    "description": "Experimental wildlife-wide classifier evaluated against the current pipeline.",
+    "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/rope_vit_b14_inat21_336.onnx",
+    "estimated_ram_mb": 1536,
+    "file_size_mb": 364.3,
+    "id": "rope_vit_b14_inat21_336",
+    "inference_speed": "Measured per host",
+    "input_size": 336,
+    "label_format": "scientific_binomial",
+    "labels_sha256": "2d9fd87ac88f8a209f398e45e206eb1618ee11435573ee40b07f18c773e295d9",
+    "labels_url": "",
+    "license": "Apache-2.0",
+    "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/rope_vit_b14_inat21_336_model_config.json",
+    "name": "RoPE ViT-B14 Wildlife 336",
+    "notes": "CPU reference retained. Accelerator selection requires validation on this exact installation. ",
+    "preprocessing": {
+      "color_space": "RGB",
+      "crop_pct": 1.0,
+      "interpolation": "bicubic",
+      "mean": [
+        0.5191,
+        0.5306,
+        0.4877
+      ],
+      "normalization": "float32",
+      "resize_mode": "direct_resize",
+      "std": [
+        0.2316,
+        0.2304,
+        0.2588
+      ]
+    },
+    "recommended_for": "Wildlife classification on a host with sufficient memory.",
+    "recommended_threshold": 0.6,
+    "runtime": "onnx",
+    "sha256": "e997ad65c4442dd154dbaf28e86e4568e74cb53a91e7f8d97ce95c175c85accf",
+    "sort_order": 46,
+    "status": "experimental",
+    "supported_inference_providers": [
+      "cpu",
+      "intel_cpu"
+    ],
+    "taxonomy_scope": "wildlife_wide",
+    "tier": "medium"
+  },
+  {
+    "accuracy_tier": "Experimental",
+    "advanced_only": false,
+    "architecture": "rope_vit_reg4_b14_capi-intermediate-eu-common",
+    "artifact_kind": "classifier",
+    "candidate_inference_providers": [
+      "cpu",
+      "intel_cpu",
+      "cuda",
+      "intel_gpu",
+      "intel_npu"
+    ],
+    "crop_generator": {
+      "enabled": false,
+      "source_preference": "standard"
+    },
+    "description": "Experimental regional birds-only classifier evaluated against the current pipeline.",
+    "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/rope_vit_b14_eu_common_336.onnx",
+    "estimated_ram_mb": 1536,
+    "file_size_mb": 337.0,
+    "id": "rope_vit_b14_eu_common_336",
+    "inference_speed": "Measured per host",
+    "input_size": 336,
+    "label_format": "common_name",
+    "labels_sha256": "0946dccf33af161902a5e34e4ba73be7b1ad25d5a875f9bc7690d84830c2ecb0",
+    "labels_url": "",
+    "license": "Apache-2.0",
+    "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/rope_vit_b14_eu_common_336_model_config.json",
+    "name": "RoPE ViT-B14 EU 336",
+    "notes": "CPU reference retained. Accelerator selection requires validation on this exact installation. EU centre-crop policy retained from the paired comparison; this is one checkpoint, not a second model.",
+    "preprocessing": {
+      "color_space": "RGB",
+      "crop_pct": 1.0,
+      "interpolation": "bicubic",
+      "mean": [
+        0.5191,
+        0.5306,
+        0.4877
+      ],
+      "normalization": "float32",
+      "resize_mode": "center_crop",
+      "std": [
+        0.2316,
+        0.2304,
+        0.2588
+      ]
+    },
+    "recommended_for": "Regional comparison; does not identify other wildlife.",
+    "recommended_threshold": 0.6,
+    "runtime": "onnx",
+    "sha256": "867e373f488379a57d12aa872ef7fbe9b48a318b3a18fefeb16f891332cda461",
+    "sort_order": 47,
+    "status": "experimental",
+    "supported_inference_providers": [
+      "cpu",
+      "intel_cpu"
+    ],
+    "taxonomy_scope": "birds_only",
+    "tier": "medium"
+  },
+  {
+    "accuracy_tier": "Experimental",
+    "advanced_only": true,
+    "architecture": "rope_deit3_reg4_m14_arabian-peninsula",
+    "artifact_kind": "classifier",
+    "candidate_inference_providers": [
+      "cpu",
+      "intel_cpu",
+      "cuda",
+      "intel_gpu",
+      "intel_npu"
+    ],
+    "crop_generator": {
+      "enabled": false,
+      "source_preference": "standard"
+    },
+    "description": "Experimental regional birds-only classifier evaluated against the current pipeline.",
+    "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/rope_deit3_m14_arabian_peninsula.onnx",
+    "estimated_ram_mb": 768,
+    "file_size_mb": 151.6,
+    "id": "rope_deit3_m14_arabian_peninsula",
+    "inference_speed": "Measured per host",
+    "input_size": 252,
+    "label_format": "common_name",
+    "labels_sha256": "a39407b11061715fb7931c31b6db67099dff21de7d620e6c830cef39c72c91a3",
+    "labels_url": "",
+    "license": "Apache-2.0",
+    "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/rope_deit3_m14_arabian_peninsula_model_config.json",
+    "name": "RoPE DeiT3-M14 Arabian Peninsula",
+    "notes": "CPU reference retained. Accelerator selection requires validation on this exact installation. ",
+    "preprocessing": {
+      "color_space": "RGB",
+      "crop_pct": 1.0,
+      "interpolation": "bicubic",
+      "mean": [
+        0.5248,
+        0.5372,
+        0.5086
+      ],
+      "normalization": "float32",
+      "resize_mode": "direct_resize",
+      "std": [
+        0.2135,
+        0.2103,
+        0.2622
+      ]
+    },
+    "recommended_for": "Regional comparison; does not identify other wildlife.",
+    "recommended_threshold": 0.6,
+    "runtime": "onnx",
+    "sha256": "c6aeee86291d0513ae30e40bd1d2ee6ec5e752345a936f42528e6ee0d7893870",
+    "sort_order": 48,
+    "status": "experimental",
+    "supported_inference_providers": [
+      "cpu",
+      "intel_cpu"
+    ],
+    "taxonomy_scope": "birds_only",
+    "tier": "medium"
+  },
+  {
+    "accuracy_tier": "Experimental",
+    "advanced_only": false,
+    "architecture": "naflex_vit_reg4_so150m_p14_ls_dino-v2-bio-intermediate-eu-common",
+    "artifact_kind": "classifier",
+    "candidate_inference_providers": [
+      "cpu",
+      "intel_cpu",
+      "cuda",
+      "intel_gpu"
+    ],
+    "crop_generator": {
+      "enabled": false,
+      "source_preference": "standard"
+    },
+    "description": "Experimental regional birds-only classifier evaluated against the current pipeline.",
+    "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/naflex_so150m_eu_common.onnx",
+    "estimated_ram_mb": 2048,
+    "file_size_mb": 515.1,
+    "id": "naflex_so150m_eu_common",
+    "inference_speed": "Measured per host",
+    "input_size": 336,
+    "label_format": "common_name",
+    "labels_sha256": "0946dccf33af161902a5e34e4ba73be7b1ad25d5a875f9bc7690d84830c2ecb0",
+    "labels_url": "",
+    "license": "Apache-2.0",
+    "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/naflex_so150m_eu_common_model_config.json",
+    "name": "NaFlex SO150M EU",
+    "notes": "CPU reference retained. Accelerator selection requires validation on this exact installation. Variable-aspect 14px patches, at most 576 tokens; Intel NPU compilation is unsupported.",
+    "preprocessing": {
+      "color_space": "RGB",
+      "crop_pct": 1.0,
+      "interpolation": "bicubic",
+      "max_seq_len": 576,
+      "mean": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "normalization": "float32",
+      "patch_size": 14,
+      "resize_mode": "native_aspect_ratio",
+      "std": [
+        0.5,
+        0.5,
+        0.5
+      ]
+    },
+    "recommended_for": "Regional comparison; does not identify other wildlife.",
+    "recommended_threshold": 0.6,
+    "runtime": "onnx",
+    "sha256": "dd8fce1479611a076558116c2fb8fbc40641e09beee7e57873c1cfffe313fad5",
+    "sort_order": 49,
+    "status": "experimental",
+    "supported_inference_providers": [
+      "cpu",
+      "intel_cpu"
+    ],
+    "taxonomy_scope": "birds_only",
+    "tier": "large",
+    "weights_sha256": "578576de178a4c3c7734e118a5db440148be55268fa3a97c3bf4de75e41db55f",
+    "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/naflex_so150m_eu_common.onnx.data"
+  },
+  {
+    "accuracy_tier": "Experimental",
+    "advanced_only": true,
+    "architecture": "naflex_vit_reg4_so150m_p14_ls_dino-v2-bio-intermediate-il-all",
+    "artifact_kind": "classifier",
+    "candidate_inference_providers": [
+      "cpu",
+      "intel_cpu",
+      "cuda",
+      "intel_gpu"
+    ],
+    "crop_generator": {
+      "enabled": false,
+      "source_preference": "standard"
+    },
+    "description": "Experimental native-aspect birds-only classifier covering 550 Israel-checklist classes, including rarities.",
+    "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/naflex_so150m_il_all.onnx",
+    "estimated_ram_mb": 2048,
+    "file_size_mb": 514.6,
+    "id": "naflex_so150m_il_all",
+    "inference_speed": "Measured per host",
+    "input_size": 336,
+    "label_format": "common_name",
+    "labels_sha256": "f65bff0e822832ba992c7a4ef60366ffe22f465d00747e163af07a8f139fc74c",
+    "labels_url": "",
+    "license": "Apache-2.0",
+    "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/naflex_so150m_il_all_model_config.json",
+    "name": "NaFlex SO150M Israel Birds",
+    "notes": "CPU reference retained. Accelerator selection requires validation on this exact installation. Variable-aspect 14px patches, at most 576 tokens; Intel NPU compilation is unsupported.",
+    "preprocessing": {
+      "color_space": "RGB",
+      "crop_pct": 1.0,
+      "interpolation": "bicubic",
+      "max_seq_len": 576,
+      "mean": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "normalization": "float32",
+      "patch_size": 14,
+      "resize_mode": "native_aspect_ratio",
+      "std": [
+        0.5,
+        0.5,
+        0.5
+      ]
+    },
+    "recommended_for": "Feeders in Israel or regional comparison where this checklist covers the local birds.",
+    "recommended_threshold": 0.6,
+    "runtime": "onnx",
+    "sha256": "c6285567c3388cbfc0ed07ac07f06c01392bd7220e4003411396682d6e3b407f",
+    "sort_order": 50,
+    "status": "experimental",
+    "supported_inference_providers": [
+      "cpu",
+      "intel_cpu"
+    ],
+    "taxonomy_scope": "birds_only",
+    "tier": "large",
+    "weights_sha256": "1bef9a850025c27c06191e149e6a7b64f92baab4b543ab7522d48e4ef787a1c4",
+    "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/naflex_so150m_il_all.onnx.data"
+  },
+  {
+    "accuracy_tier": "Experimental",
+    "advanced_only": true,
+    "architecture": "vit_parallel_s16_18x2_ls_avg_data2vec-intermediate-eu-common",
+    "artifact_kind": "classifier",
+    "candidate_inference_providers": [
+      "cpu",
+      "intel_cpu",
+      "cuda",
+      "intel_gpu"
+    ],
+    "crop_generator": {
+      "enabled": false,
+      "source_preference": "standard"
+    },
+    "description": "Experimental regional birds-only classifier evaluated against the current pipeline.",
+    "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/vit_parallel_s16_eu_common.onnx",
+    "estimated_ram_mb": 1536,
+    "file_size_mb": 247.4,
+    "id": "vit_parallel_s16_eu_common",
+    "inference_speed": "Measured per host",
+    "input_size": 384,
+    "label_format": "common_name",
+    "labels_sha256": "0946dccf33af161902a5e34e4ba73be7b1ad25d5a875f9bc7690d84830c2ecb0",
+    "labels_url": "",
+    "license": "Apache-2.0",
+    "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/vit_parallel_s16_eu_common_model_config.json",
+    "name": "Parallel ViT-S16 EU",
+    "notes": "CPU reference retained. Accelerator selection requires validation on this exact installation. Parallel ViT NPU compilation timed out; NPU is excluded.",
+    "preprocessing": {
+      "color_space": "RGB",
+      "crop_pct": 1.0,
+      "interpolation": "bicubic",
+      "mean": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "normalization": "float32",
+      "resize_mode": "direct_resize",
+      "std": [
+        0.5,
+        0.5,
+        0.5
+      ]
+    },
+    "recommended_for": "Regional comparison; does not identify other wildlife.",
+    "recommended_threshold": 0.6,
+    "runtime": "onnx",
+    "sha256": "f730f8816547481f6bf26351e9fab4d5d362ca9dd26cecb6821a213b8c6ec811",
+    "sort_order": 51,
+    "status": "experimental",
+    "supported_inference_providers": [
+      "cpu",
+      "intel_cpu"
+    ],
+    "taxonomy_scope": "birds_only",
+    "tier": "medium"
+  },
+  {
+    "accuracy_tier": "Experimental",
+    "advanced_only": true,
+    "architecture": "imageomics/bioclip-2.5-vith14",
+    "artifact_kind": "classifier",
+    "candidate_inference_providers": [
+      "cpu",
+      "intel_cpu",
+      "cuda",
+      "intel_gpu",
+      "intel_npu"
+    ],
+    "crop_generator": {
+      "enabled": false,
+      "source_preference": "standard"
+    },
+    "description": "Experimental wildlife-wide classifier evaluated against the current pipeline.",
+    "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/bioclip25_inat9025.onnx",
+    "estimated_ram_mb": 8192,
+    "file_size_mb": 2449.2,
+    "id": "bioclip25_inat9025",
+    "inference_speed": "Measured per host",
+    "input_size": 224,
+    "label_format": "scientific_binomial",
+    "labels_sha256": "f1f41967c68e4aedea91d3b504ec3ad1c3db073ac60c6b1a227efd4abdb9949d",
+    "labels_url": "",
+    "license": "MIT",
+    "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/bioclip25_inat9025_model_config.json",
+    "name": "BioCLIP 2.5 Wildlife (9,025-class head)",
+    "notes": "CPU reference retained. Accelerator selection requires validation on this exact installation. Fixed iNat-intersection prototype head, not the full BioCLIP vocabulary. High memory and cold-start costs; confidence is not calibrated.",
+    "preprocessing": {
+      "color_space": "RGB",
+      "crop_pct": 1.0,
+      "interpolation": "bicubic",
+      "mean": [
+        0.48145466,
+        0.4578275,
+        0.40821073
+      ],
+      "normalization": "float32",
+      "resize_mode": "center_crop",
+      "resize_rounding": "floor",
+      "std": [
+        0.26862954,
+        0.26130258,
+        0.27577711
+      ]
+    },
+    "recommended_for": "Wildlife classification on a host with sufficient memory.",
+    "recommended_threshold": 0.6,
+    "runtime": "onnx",
+    "sha256": "98759a200ffe7e85c2df14809e6e621d4702cb79ade7f1d92cf344715626186d",
+    "sort_order": 52,
+    "status": "experimental",
+    "supported_inference_providers": [
+      "cpu",
+      "intel_cpu"
+    ],
+    "taxonomy_scope": "wildlife_wide",
+    "tier": "large",
+    "weights_parts": [
+      {
+        "sha256": "0e4021bc3c2ac7b67bb72d1c5f8c8c6730cc1ced7904ad6b7f59e7950c2715b2",
+        "url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/bioclip25_inat9025.onnx.data.part1"
+      },
+      {
+        "sha256": "5e4804a8f738e13092b26b7d4bd4dedcc2077f0ed48d8b4df4658f8d76f08232",
+        "url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/bioclip25_inat9025.onnx.data.part2"
+      }
+    ],
+    "weights_sha256": "58e4de6c678534ac70752567bf3a1911a97e8a7aa3dc18bcccc967b485133a5d",
+    "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/bioclip25_inat9025.onnx.data.part1"
+  }
+]

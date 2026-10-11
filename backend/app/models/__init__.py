@@ -1,6 +1,7 @@
-from pydantic import BaseModel, field_serializer
+from pydantic import BaseModel, field_serializer, field_validator
 from datetime import datetime
 from app.utils.api_datetime import serialize_api_datetime
+from app.utils.reference_images import bounded_reference_thumbnail
 
 
 class OAuthAuthorizeResponse(BaseModel):
@@ -26,6 +27,8 @@ class APIModel(BaseModel):
         "first_seen",
         "last_seen",
         "cached_at",
+        "start_time",
+        "end_time",
         check_fields=False,
         when_used="json",
     )
@@ -89,6 +92,24 @@ class Detection(APIModel):
     ai_analysis_timestamp: datetime | None = None
 
 
+class BirdSpeciesCount(BaseModel):
+    species: str
+    count: int
+
+
+class DetectionBirdSummary(BaseModel):
+    """Localized birds stored for one capture: owner decisions, not unique individuals.
+
+    Owner-only. Null means no observation evidence is stored, which is not a measured zero.
+    """
+
+    counted: int
+    unknown: int
+    excluded: int
+    species: list[BirdSpeciesCount]
+    hint_only: bool
+
+
 class DetectionResponse(Detection):
     has_clip: bool = False  # Clip availability from Frigate
     has_snapshot: bool = True  # Snapshot availability from Frigate
@@ -97,6 +118,7 @@ class DetectionResponse(Detection):
     observation_latitude: float | None = None
     observation_longitude: float | None = None
     observation_location_source: str | None = None
+    bird_summary: DetectionBirdSummary | None = None
 
 
 class DetectionListItemResponse(APIModel):
@@ -124,6 +146,31 @@ class DetectionListItemResponse(APIModel):
     observation_latitude: float | None = None
     observation_longitude: float | None = None
     observation_location_source: str | None = None
+    bird_summary: DetectionBirdSummary | None = None
+
+
+class DetectionVisitResponse(APIModel):
+    visit_id: str
+    start_time: datetime
+    end_time: datetime
+    capture_count: int
+    best_score: float
+    needs_review: bool
+    audio_confirmed: bool
+    representative: DetectionResponse
+    latest: DetectionResponse
+    peak_capture: DetectionResponse | None = None
+
+
+class DetectionVisitsResponse(BaseModel):
+    visits: list[DetectionVisitResponse]
+    total: int
+    gap_seconds: int
+
+
+class VisitCapturesResponse(BaseModel):
+    captures: list[DetectionResponse]
+    total: int
 
 
 class FrigateEvent(APIModel):
@@ -174,6 +221,11 @@ class SpeciesInfo(APIModel):
     conservation_status: str | None = None
     taxa_id: int | None = None
     cached_at: datetime | None = None
+
+    @field_validator("thumbnail_url")
+    @classmethod
+    def bound_reference_photo(cls, value: str | None) -> str | None:
+        return bounded_reference_thumbnail(value)
 
 
 class SpeciesRangeMap(APIModel):

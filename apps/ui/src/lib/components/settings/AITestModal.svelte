@@ -96,10 +96,10 @@
     {onRetry}
 >
     {#snippet summary()}
-        <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">{$_('settings.llm.provider')}</span>
+        <span class="text-3xs font-bold uppercase tracking-widest text-slate-400">{$_('settings.llm.provider')}</span>
         <span class="font-bold text-slate-800 dark:text-slate-100">{provider}</span>
         <span class="text-slate-300 dark:text-slate-600" aria-hidden="true">·</span>
-        <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">{$_('settings.llm.model')}</span>
+        <span class="text-3xs font-bold uppercase tracking-widest text-slate-400">{$_('settings.llm.model')}</span>
         <span class="min-w-0 truncate font-bold text-slate-800 dark:text-slate-100" title={model}>{model}</span>
     {/snippet}
 </DiagnosticDialog>

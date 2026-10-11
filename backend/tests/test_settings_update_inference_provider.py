@@ -31,6 +31,23 @@ def _base_payload() -> dict:
 
 
 @pytest.mark.asyncio
+async def test_coordinate_change_reloads_workers_for_metadata_models(monkeypatch):
+    app.dependency_overrides[require_owner] = lambda: AuthContext(auth_level=AuthLevel.OWNER, username="test")
+    original = settings.location.latitude, settings.location.longitude
+    dummy = _DummyClassifier()
+    monkeypatch.setattr("app.services.classifier_service.get_classifier", lambda: dummy)
+    try:
+        settings.location.latitude, settings.location.longitude = 10, 20
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.post("/api/settings", json={**_base_payload(), "location_latitude": 11})
+        assert response.status_code == 200
+        assert dummy.reload_calls == 1
+    finally:
+        settings.location.latitude, settings.location.longitude = original
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
 async def test_update_settings_does_not_reload_model_when_provider_unchanged(monkeypatch):
     app.dependency_overrides[require_owner] = lambda: AuthContext(auth_level=AuthLevel.OWNER, username="test")
     original_provider = settings.classification.inference_provider

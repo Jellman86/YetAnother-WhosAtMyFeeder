@@ -38,11 +38,25 @@ class _StdoutWriter:
             close()
 
 
+class _WindowsStdinReader:
+    def __init__(self, stream: Any) -> None:
+        self._stream = stream
+
+    async def readline(self) -> bytes:
+        # Inherited stdin uses a CRT descriptor, not an overlapped IOCP handle.
+        # One bounded read at a time keeps heartbeats responsive without feeding
+        # an unbounded queue; shutdown or parent pipe EOF finishes the read.
+        data = await asyncio.to_thread(self._stream.readline, WORKER_PROTOCOL_STREAM_LIMIT_BYTES + 1)
+        if len(data) > WORKER_PROTOCOL_STREAM_LIMIT_BYTES:
+            raise ValueError("Worker protocol frame exceeds the stream limit")
+        return data
+
+
 class ClassifierWorkerProcess:
     def __init__(
         self,
         *,
-        reader: asyncio.StreamReader,
+        reader: asyncio.StreamReader | _WindowsStdinReader,
         writer: Any,
         classify_fn: Callable[..., list[dict[str, Any]] | Awaitable[list[dict[str, Any]]]],
         classify_video_fn: Callable[..., list[dict[str, Any]] | Awaitable[list[dict[str, Any]]]] | None = None,
@@ -377,13 +391,17 @@ async def run_worker_main(
     runtime_recovery_getter: Callable[[], dict[str, Any] | None] | None = None,
     runtime_identity_getter: Callable[[], dict[str, Any] | None] | None = None,
 ) -> None:
-    loop = asyncio.get_running_loop()
-    reader = asyncio.StreamReader(limit=WORKER_PROTOCOL_STREAM_LIMIT_BYTES)
-    protocol = asyncio.StreamReaderProtocol(reader)
-    try:
-        await loop.connect_read_pipe(lambda: protocol, sys.stdin)
-    except (PermissionError, OSError):
-        reader.feed_eof()
+    reader: asyncio.StreamReader | _WindowsStdinReader
+    if sys.platform == "win32":
+        reader = _WindowsStdinReader(sys.stdin.buffer)
+    else:
+        loop = asyncio.get_running_loop()
+        reader = asyncio.StreamReader(limit=WORKER_PROTOCOL_STREAM_LIMIT_BYTES)
+        protocol = asyncio.StreamReaderProtocol(reader)
+        try:
+            await loop.connect_read_pipe(lambda: protocol, sys.stdin)
+        except (PermissionError, OSError):
+            reader.feed_eof()
     worker = ClassifierWorkerProcess(
         reader=reader,
         writer=writer or _StdoutWriter(),

@@ -1,10 +1,15 @@
 <script lang="ts">
-    import SpeciesShowcase from '../components/SpeciesShowcase.svelte';
-    import { buildShowcaseRows, SHOWCASE_TILES } from '../leaderboard/showcase';
-    import { onDestroy, tick } from 'svelte';
+    import CaptureWall from '../components/CaptureWall.svelte';
+    import SpeciesChecks from '../components/SpeciesChecks.svelte';
+    import SpeciesCheckSheet from '../components/SpeciesCheckSheet.svelte';
+    import { buildShowcaseRows, SPOTLIGHT_PORTRAITS } from '../leaderboard/showcase';
+    import { wallTiles } from '../leaderboard/wall';
+    import { onDestroy, tick, untrack } from 'svelte';
     import {
         analyzeLeaderboardGraph,
         fetchDetectionsActivityHeatmapSpan,
+        fetchEvents,
+        type Detection,
         fetchDetectionsTimelineSpan,
         fetchLeaderboardAnalysis,
         fetchLeaderboardPortraits,
@@ -33,6 +38,7 @@
     } from '../leaderboard/source-metrics';
     import { settingsStore } from '../stores/settings.svelte';
     import { authStore } from '../stores/auth.svelte';
+    import { detectionsStore } from '../stores/detections.svelte';
     import { themeStore } from '../stores/theme.svelte';
     import { getBirdNames } from '../naming';
     import { formatTemperature } from '../utils/temperature';
@@ -44,6 +50,7 @@
         resolveWeatherUnitSystem
     } from '../utils/weather-units';
     import { logger } from '../utils/logger';
+    import { toLocalYMD } from '../utils/date-only';
     import { _, locale } from 'svelte-i18n';
     import { refreshCoordinator } from '../stores/refresh_coordinator.svelte';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
@@ -51,7 +58,6 @@
     import type { ChartDataset, Plugin } from 'chart.js';
     import { doughnutInsightPlugin } from '../actions/chartjs-doughnut';
     import type { TemperatureUnit } from '../utils/temperature';
-    import { toAppPath } from '../app/url-base';
     import { evidenceFor, isCorroborated, isUnlikelyHere, trendMeasured, type SpeciesEvidence } from '../leaderboard/evidence';
     import { busiestHourOfDay } from '../leaderboard/heatmap';
     import ActivityHeatmap from '../components/ActivityHeatmap.svelte';
@@ -96,6 +102,8 @@
     let audioLoadState = $state<AudioLoadState>('disabled');
     let sourceMode = $state<SourceMode>('seen');
     let loading = $state(true);
+    let pageElement: HTMLDivElement | undefined;
+    let refreshHeight = $state(0);
     let error = $state<string | null>(null);
     let span = $state<LeaderboardSpan>('month');
     let leaderboardWindow = $state<{ start: string; end: string } | null>(null);
@@ -122,6 +130,8 @@
     let hiddenTimelineSeries = $state<string[]>([]);
     let includeUnknownBird = $state(false);
     let selectedSpecies = $state<string | null>(null);
+    /** The flagged species the owner opened the check sheet on, or null when it is closed. */
+    let checkStart = $state<string | null>(null);
     let timeline = $state<DetectionsTimelineSpanResponse | null>(null);
     let activityHeatmap = $state<DetectionsActivityHeatmapResponse | null>(null);
     let speciesInfoCache = $state<Record<string, SpeciesInfo>>({});
@@ -231,9 +241,11 @@
     let portraits = $state<LeaderboardPortrait[]>([]);
     $effect(() => {
         const requestedSpan = span;
+        const publicVersion = authStore.isGuest ? detectionsStore.publicHistoryVersion : 0;
+        void publicVersion;
         const controller = new AbortController();
         portraits = [];
-        void fetchLeaderboardPortraits(requestedSpan, controller.signal)
+        void fetchLeaderboardPortraits(requestedSpan, controller.signal, SPOTLIGHT_PORTRAITS)
             .then((response) => {
                 if (!controller.signal.aborted) portraits = response.portraits;
             })
@@ -245,7 +257,6 @@
     });
     let showcaseRows = $derived(
         buildShowcaseRows(leaderboardRows, {
-            trendAvailable,
             sourceMode,
             portraits,
             isFlagged: (row) => isUnlikelyHere(evidenceFor(row, { audioKnown }), row.reported_nearby),
@@ -255,29 +266,96 @@
             })
         })
     );
+    function showcaseCountLabel(count: number): string {
+        if (sourceMode === 'both') {
+            return countsAreVisits
+                ? $_('leaderboard.showcase_visits_and_calls', { values: { count }, default: 'visits and calls' })
+                : $_('leaderboard.showcase_detections_and_calls', { values: { count }, default: 'detections and calls' });
+        }
+        if (countsAreVisits) {
+            return count === 1
+                ? $_('leaderboard.showcase_visit', { default: 'visit' })
+                : $_('leaderboard.showcase_visits', { values: { count }, default: 'visits' });
+        }
+        return count === 1
+            ? $_('leaderboard.showcase_detection', { default: 'detection' })
+            : $_('leaderboard.showcase_detections', { values: { count }, default: 'detections' });
+    }
+    // The opener: a contact sheet of this feeder's own visits in the window. It loads beside the
+    // standings and never blocks them; a failed load simply leaves the wall out.
+    const WALL_CAPTURES = 400;
+    // A capture is matched to its species by name, scientific name or taxon, so the list carries those.
+    const WALL_FIELDS = 'frigate_event,detection_time,display_name,score,camera_name,has_clip,has_snapshot,is_hidden,observation_source,scientific_name,taxa_id';
+    // A guest's photographs share the request budget with everything else the page asks for.
+    const GUEST_WALL_TILES = 24;
+    // The captures are kept with the span they were fetched for, so a wall never shows one window
+    // under another's heading while the next load is in flight.
+    let wallFetched = $state<{ span: LeaderboardSpan | null; detections: Detection[] }>({ span: null, detections: [] });
+    // Dates select whole days, so the captures are cut to the window's own start and end.
+    let wallDetections = $derived.by(() => {
+        if (wallFetched.span !== span) return [];
+        const start = leaderboardWindow ? Date.parse(leaderboardWindow.start) : Number.NaN;
+        const end = leaderboardWindow ? Date.parse(leaderboardWindow.end) : Number.NaN;
+        if (Number.isNaN(start) || Number.isNaN(end)) return wallFetched.detections;
+        return wallFetched.detections.filter((detection) => {
+            const at = Date.parse(detection.detection_time);
+            return Number.isNaN(at) || (at >= start && at <= end);
+        });
+    });
+    // The skeleton stands in only for a window's first answer: a refresh of a window already known to be
+    // too quiet for a wall must not push the page about with a placeholder.
+    let wallLoading = $state(true);
+    $effect(() => {
+        const requestedSpan = span;
+        const range = leaderboardWindow;
+        const publicVersion = authStore.isGuest ? detectionsStore.publicHistoryVersion : 0;
+        void publicVersion;
+        // The captures shown must belong to what the page now asks about: a withdrawn window is cleared at
+        // once, as the portraits are, instead of staying on screen until the new answer arrives.
+        if (requestedSpan !== 'all' && range === null) {
+            wallLoading = true;
+            return;
+        }
+        const controller = new AbortController();
+        wallLoading = true;
+        if (authStore.isGuest) wallFetched = { span: requestedSpan, detections: [] };
+        void fetchEvents({
+            limit: WALL_CAPTURES,
+            fields: WALL_FIELDS,
+            startDate: requestedSpan === 'all' || !range ? undefined : toLocalYMD(range.start),
+            endDate: requestedSpan === 'all' || !range ? undefined : toLocalYMD(range.end),
+            requestKey: 'leaderboard:wall',
+            signal: controller.signal
+        })
+            .then((response) => {
+                if (!controller.signal.aborted) wallFetched = { span: requestedSpan, detections: response };
+            })
+            .catch((error) => {
+                if (controller.signal.aborted) return;
+                wallFetched = { span: requestedSpan, detections: [] };
+                logger.warn('Leaderboard wall unavailable', { message: getErrorMessage(error) });
+            })
+            .finally(() => {
+                if (!controller.signal.aborted) wallLoading = false;
+            });
+        return () => controller.abort();
+    });
+    let leaderboardWall = $derived(
+        wallTiles(wallDetections, showcaseRows, {
+            reviewThreshold: settingsStore.settings?.classification_threshold ?? null,
+            filmEvents: new Set(portraits.filter((portrait) => portrait.film_url).map((portrait) => portrait.frigate_event))
+        })
+    );
     $effect(() => {
         // The reference image is what stands in for a species with no crop of its own.
         for (const row of showcaseRows) void loadSpeciesInfo(row.key);
     });
-    let showcaseEyebrow = $derived(
-        sourceMode === 'both'
-            ? $_('leaderboard.most_active', { default: 'Most active' })
-            : span === 'all' || !countsAreVisits
-              ? span === 'day'
-                ? $_('leaderboard.most_detected_day', { default: 'Most detected today' })
-                : span === 'week'
-                  ? $_('leaderboard.most_detected_week', { default: 'Most detected this week' })
-                  : span === 'all'
-                    ? $_('leaderboard.most_detected_all', { default: 'Most detected ever' })
-                    : $_('leaderboard.most_detected_month', { default: 'Most detected this month' })
-              : span === 'day'
-                ? $_('leaderboard.most_visits_day', { default: 'Most visits today' })
-                : span === 'week'
-                  ? $_('leaderboard.most_visits_week', { default: 'Most visits this week' })
-                  : $_('leaderboard.most_visits_month', { default: 'Most visits this month' })
-    );
-    function scrollToRankings(): void {
-        document.querySelector('[data-leaderboard-rankings]')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    function scrollToChecks(): void {
+        const checks = document.querySelector<HTMLElement>('[data-spotlight-checks]');
+        if (!checks) return;
+        const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches || document.documentElement.classList.contains('reduced-motion');
+        checks.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'nearest' });
+        checks.querySelector<HTMLElement>('button')?.focus({ preventScroll: true });
     }
     let topByTrend = $derived(
         !trendAvailable
@@ -485,6 +563,32 @@
         void loadLeaderboard();
     });
 
+    let handledPublicHistoryVersion = detectionsStore.publicHistoryVersion;
+    $effect(() => {
+        const version = detectionsStore.publicHistoryVersion;
+        if (version <= handledPublicHistoryVersion || !authStore.isGuest) return;
+        handledPublicHistoryVersion = version;
+        untrack(() => {
+            // Clear private records immediately, but keep the document tall enough
+            // that the browser does not clamp the reader's scroll position.
+            refreshHeight = pageElement?.getBoundingClientRect().height ?? 0;
+            species = [];
+            audioSpecies = [];
+            timeline = null;
+            leaderboardWindow = null;
+            historyStart = null;
+            audioHistoryStart = null;
+            previousWindowComplete = false;
+            audioPreviousWindowComplete = false;
+            activityHeatmap = null;
+            speciesHeatmap = null;
+            heatmapChoice = null;
+            leaderboardAnalysis = null;
+            leaderboardAnalysisTimestamp = null;
+            void loadLeaderboard();
+        });
+    });
+
     // Re-fetch leaderboard when tab regains focus or user navigates here,
     // but only if the data is older than the stale threshold.
     $effect(() => {
@@ -581,7 +685,9 @@
         // doesn't make the leaderboard table disappear.
         try {
             if (requestedSpan === 'all') {
-                species = await fetchSpecies(controller.signal).then(mapAllTimeSpecies);
+                const allSpecies = await fetchSpecies(controller.signal);
+                if (loadGeneration !== leaderboardLoadGeneration || controller.signal.aborted) return;
+                species = mapAllTimeSpecies(allSpecies);
                 countsAreVisits = false;
                 leaderboardWindow = null;
                 historyStart = null;
@@ -589,6 +695,7 @@
                 nearbyCheck = null;
             } else {
                 const response = await fetchLeaderboardSpecies(requestedSpan, controller.signal);
+                if (loadGeneration !== leaderboardLoadGeneration || controller.signal.aborted) return;
                 countsAreVisits = windowCountsAreVisits(response);
                 species = mapWindowSpecies(response, countsAreVisits);
                 leaderboardWindow = {
@@ -678,6 +785,8 @@
         if (loadGeneration === leaderboardLoadGeneration) {
             loading = false;
             leaderboardAbortController = null;
+            await tick();
+            if (loadGeneration === leaderboardLoadGeneration) refreshHeight = 0;
         }
     }
 
@@ -786,6 +895,13 @@
         if (span === 'week') return $_('leaderboard.sort_by_week');
         if (span === 'month') return $_('leaderboard.sort_by_month');
         return $_('leaderboard.sort_by_total');
+    }
+
+    function wallEyebrow(): string {
+        return $_('leaderboard.wall_eyebrow', {
+            values: { unit: showcaseCountLabel(2), window: selectedCountLabel() },
+            default: 'Most {unit} · {window}'
+        });
     }
 
     function selectedCountLabel(): string {
@@ -1060,8 +1176,10 @@
                 backgroundColor: isBar ? item.color : (item.type === 'area' ? `${item.color}33` : item.color),
                 borderColor: item.color,
                 borderWidth: isBar ? 0 : 2,
-                borderRadius: isBar ? 3 : 0,
-                maxBarThickness: timeline?.bucket === 'day' ? 24 : 18,
+                borderRadius: isBar ? 4 : 0,
+                barPercentage: 0.8,
+                categoryPercentage: 0.9,
+                maxBarThickness: 72,
                 fill: item.type === 'area',
                 tension: isBar ? 0 : 0.32,
                 pointRadius: 0,
@@ -1512,7 +1630,7 @@
     {/if}
 {/snippet}
 
-<div class="space-y-10" data-leaderboard-page>
+<div class="space-y-10" data-leaderboard-page bind:this={pageElement} style:min-height={refreshHeight ? `${refreshHeight}px` : undefined}>
     <!-- Ranking controls -->
     <div class="border-y border-slate-200/80 py-4 dark:border-slate-700/70">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -1567,16 +1685,6 @@
 
         <div class="flex flex-wrap items-center gap-3">
             {#if birdnetEnabled}
-                <a
-                    data-leaderboard-audio-history-link
-                    href={toAppPath('/audio')}
-                    class="btn btn-secondary inline-flex min-h-11 items-center gap-2 px-3 text-xs focus-visible:ring-2 focus-visible:ring-brand-500"
-                >
-                    <svg aria-hidden="true" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 12v2m4-5v8m4-13v16m4-13v10m4-7v4" />
-                    </svg>
-                    {$_('nav.audio_history')}
-                </a>
                 <div class="inline-flex rounded-xl bg-slate-100 dark:bg-slate-800/70 p-0.5" role="group" aria-label={$_('leaderboard.source_toggle', { default: 'Detection source' })}>
                     <button
                         type="button"
@@ -1627,9 +1735,9 @@
     {/if}
 
     {#if loading && leaderboardRows.length === 0}
-        <div class="space-y-3">
+        <div class="space-y-3" role="status" aria-label={$_('common.loading', { default: 'Loading…' })}>
             {#each [1, 2, 3, 4, 5, 6] as _}
-                <div class="h-16 bg-slate-100 dark:bg-slate-800 rounded-xl animate-pulse"></div>
+                <div class="h-16 rounded-xl bg-slate-100 motion-safe:animate-pulse dark:bg-slate-800" aria-hidden="true"></div>
             {/each}
         </div>
     {:else if sourceMode !== 'seen' && audioLoadState === 'error'}
@@ -1659,30 +1767,25 @@
         </div>
     {:else}
         {#if sourceMode !== 'heard' && sourceLeader && sourceLeader.count > 0}
-            <SpeciesShowcase
+            <CaptureWall
+                tiles={leaderboardWall}
                 rows={showcaseRows}
-                eyebrow={showcaseEyebrow}
-                rankEyebrow={(rank) => span === 'day'
-                    ? $_('leaderboard.showcase_rank_day', { values: { rank }, default: 'Rank {rank} today' })
-                    : span === 'week'
-                      ? $_('leaderboard.showcase_rank_week', { values: { rank }, default: 'Rank {rank} this week' })
-                      : span === 'all'
-                        ? $_('leaderboard.showcase_rank_all', { values: { rank }, default: 'Rank {rank} of all time' })
-                        : $_('leaderboard.showcase_rank_month', { values: { rank }, default: 'Rank {rank} this month' })}
-                countLabel={(count) => sourceMode === 'both'
-                    ? countsAreVisits
-                        ? $_('leaderboard.showcase_visits_and_calls', { values: { count }, default: 'visits and calls' })
-                        : $_('leaderboard.showcase_detections_and_calls', { values: { count }, default: 'detections and calls' })
-                    : countsAreVisits
-                      ? count === 1
-                          ? $_('leaderboard.showcase_visit', { default: 'visit' })
-                          : $_('leaderboard.showcase_visits', { values: { count }, default: 'visits' })
-                      : count === 1
-                          ? $_('leaderboard.showcase_detection', { default: 'detection' })
-                          : $_('leaderboard.showcase_detections', { values: { count }, default: 'detections' })}
-                moreCount={Math.max(0, leaderboardRows.length - (SHOWCASE_TILES + 1))}
+                eyebrow={wallEyebrow()}
+                label={$_('leaderboard.wall_label', { default: 'Photographs of recent visits to this feeder' })}
+                countLabel={showcaseCountLabel}
+                colourFor={(key) => (key ? speciesSeriesColor(speciesSlot().get(key) ?? SPECIES_SERIES_SLOTS, isDark()) : otherSeriesColor(isDark()))}
+                otherColour={otherSeriesColor(isDark())}
+                loading={wallLoading && wallFetched.span !== span}
+                maxTiles={authStore.isGuest ? GUEST_WALL_TILES : undefined}
                 onopen={(key) => (selectedSpecies = key)}
-                onmore={scrollToRankings}
+                onchecks={scrollToChecks}
+            />
+            <SpeciesChecks
+                checks={showcaseRows.filter((row) => row.flagged)}
+                countLabel={showcaseCountLabel}
+                nearbyRadiusKm={nearbyCheck?.radiusKm ?? null}
+                onopen={(key) => (selectedSpecies = key)}
+                oncheck={authStore.hasOwnerAccess ? (key) => (checkStart = key) : undefined}
             />
         {/if}
 
@@ -1782,7 +1885,7 @@
                     <button
                         type="button"
                         onclick={() => selectedSpecies = item.species}
-                        class="group flex min-h-20 w-full items-center gap-3 py-3 text-left transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 dark:hover:bg-slate-800/40 {unlikelyHere(item) ? 'bg-gradient-to-r from-amber-50 to-transparent dark:from-amber-500/10' : ''}"
+                        class="group flex min-h-20 w-full items-center gap-3 py-3 text-left transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 dark:hover:bg-slate-800/40 {unlikelyHere(item) ? 'bg-amber-50/70 dark:bg-amber-500/10' : ''}"
                         title={item.species === "Unknown Bird" ? $_('leaderboard.unidentified_desc') : ""}
                         aria-label={$_('leaderboard.view_species', { values: { species: item.displayName } })}
                     >
@@ -1834,7 +1937,7 @@
                             {@const rowCountPct = maxCount > 0 ? Math.round((item.count / maxCount) * 100) : 0}
                             {@const rowHeardPct = maxHeard > 0 ? Math.round((item.heard_count / maxHeard) * 100) : 0}
                             {@const evidence = evidenceOf(item)}
-                            <tr class="transition hover:bg-slate-50/80 dark:hover:bg-slate-800/35 {unlikelyHere(item) ? 'bg-gradient-to-r from-amber-50 to-transparent dark:from-amber-500/10' : ''}" data-leaderboard-unlikely={unlikelyHere(item) ? 'true' : undefined}>
+                            <tr class="transition hover:bg-slate-50/80 dark:hover:bg-slate-800/35 {unlikelyHere(item) ? 'bg-amber-50/70 dark:bg-amber-500/10' : ''}" data-leaderboard-unlikely={unlikelyHere(item) ? 'true' : undefined}>
                                 <td class="px-3 py-3 text-center"><span class="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold tabular-nums {index < 3 ? 'bg-brand-100 text-brand-800 dark:bg-brand-900/50 dark:text-brand-200' : 'text-slate-500 dark:text-slate-400'}" aria-label={`${$_('leaderboard.rank')} ${index + 1}`}>{index + 1}</span></td>
                                 <td class="px-3 py-3">
                                     <button type="button" onclick={() => selectedSpecies = item.species} class="group flex min-h-11 max-w-full items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500" aria-label={$_('leaderboard.view_species', { values: { species: item.displayName } })}>
@@ -1895,11 +1998,13 @@
                     </div>
                 </div>
 
-                <div class="mt-6 w-full flex-1 min-h-[140px]" style="height: {isStackedChart() ? 380 : 260}px">
+                <!-- A fixed box, not a flex-grown one: Chart.js sizes the canvas to its parent, so a parent
+                     that grows with its content lets the chart balloon to half the page width. -->
+                <div class="mt-6 w-full shrink-0 {isStackedChart() ? 'chart-h-tall' : 'chart-h'}">
                     {#if timeline?.points?.length}
                         {#key `${span}-${timeline.total_count}-${timeline.bucket}-${showPrecip}-${isDark()}-${themeStore.colorTheme}`}
                             <div class="flex h-full min-w-0 flex-col">
-                                <div class="min-h-0 flex-1"><canvas use:chartjs={chartOptions()} bind:this={chartEl} aria-label="{$_('leaderboard.detections_over_time')}: {metricLabel()}" class="w-full"></canvas></div>
+                                <div class="relative min-h-0 flex-1"><canvas use:chartjs={chartOptions()} bind:this={chartEl} aria-label="{$_('leaderboard.detections_over_time')}: {metricLabel()}" class="w-full"></canvas></div>
                             </div>
                         {/key}
                     {:else}
@@ -2164,7 +2269,7 @@
                     <div class="mt-4 min-h-[260px]">
                         {#if donutHasData()}
                             {#key `${span}-${donutSeries().series.join(',')}-${isDark()}-${themeStore.colorTheme}`}
-                                <div class="relative h-[210px] w-full"><canvas use:chartjs={donutChartOptions()} bind:this={donutChartEl} aria-label={$_('leaderboard.detection_breakdown_subtitle', { default: 'Species composition' })}></canvas></div>
+                                <div class="relative chart-h w-full"><canvas use:chartjs={donutChartOptions()} bind:this={donutChartEl} aria-label={$_('leaderboard.detection_breakdown_subtitle', { default: 'Species composition' })}></canvas></div>
                                 <div class="mt-2 flex flex-wrap justify-center gap-x-1" role="group" aria-label={$_('leaderboard.detection_breakdown_subtitle', { default: 'Species composition' })}>
                                     {#each donutSeries().labels as label, index}
                                         <button type="button" class="btn btn-ghost min-h-11 gap-1.5 px-2 text-xs focus-visible:ring-2 focus-visible:ring-brand-500 {hiddenDonutSpecies.includes(index) ? 'opacity-45 line-through' : ''}"
@@ -2194,5 +2299,16 @@
     <SpeciesDetailModal
         speciesName={selectedSpecies}
         onclose={() => selectedSpecies = null}
+    />
+{/if}
+
+{#if checkStart !== null}
+    <SpeciesCheckSheet
+        checks={showcaseRows.filter((row) => row.flagged).map((row) => ({ key: row.key, displayName: row.displayName, scientificName: row.scientificName }))}
+        startKey={checkStart}
+        window={leaderboardWindow}
+        nearbyRadiusKm={nearbyCheck?.radiusKm ?? null}
+        onclose={() => (checkStart = null)}
+        onchanged={() => void loadLeaderboard()}
     />
 {/if}

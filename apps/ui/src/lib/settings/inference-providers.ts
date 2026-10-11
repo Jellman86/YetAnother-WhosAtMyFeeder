@@ -22,6 +22,51 @@ function isInferenceProvider(value: string | null | undefined): value is Inferen
     return INFERENCE_PROVIDERS.includes(value as InferenceProvider);
 }
 
+/** The saved provider when it is one the form can show, else null. Exact match, like the API. */
+export function parseInferenceProvider(value: unknown): InferenceProvider | null {
+    return typeof value === 'string' && isInferenceProvider(value) ? value : null;
+}
+
+/**
+ * The provider a whole-form settings save should send. A stored value the form
+ * cannot represent is left out rather than replaced by the Auto fallback, so an
+ * unrelated save never rewrites it; an explicit new choice is still sent.
+ */
+export function inferenceProviderForSave(
+    formValue: InferenceProvider,
+    storedValue: unknown,
+): InferenceProvider | undefined {
+    const storedIsUnrecognised = storedValue !== undefined
+        && storedValue !== null
+        && storedValue !== ''
+        && parseInferenceProvider(storedValue) === null;
+    return storedIsUnrecognised && formValue === 'auto' ? undefined : formValue;
+}
+
+export interface SavedInferenceProviderUpdate {
+    saved: InferenceProvider;
+    form: InferenceProvider;
+}
+
+/**
+ * Reconciles the open form with the provider preference the classifier status
+ * reports as saved, which model activation can change on the server. The form
+ * follows only while it still shows the provider last loaded, so an unsaved
+ * choice is kept. Returns null when there is nothing to change. The backend
+ * reports an unrecognised stored value as Auto, so that is not a change.
+ */
+export function reconcileSavedInferenceProvider(
+    reportedProvider: unknown,
+    loadedProvider: unknown,
+    formValue: InferenceProvider,
+): SavedInferenceProviderUpdate | null {
+    const saved = parseInferenceProvider(reportedProvider);
+    const loaded = parseInferenceProvider(loadedProvider);
+    if (saved === null || saved === loaded) return null;
+    if (loaded === null && saved === 'auto') return null;
+    return { saved, form: formValue === (loaded ?? 'auto') ? saved : formValue };
+}
+
 function uniqueSelectableProviders(values: string[] | null | undefined): InferenceProvider[] {
     const providers: InferenceProvider[] = [];
     for (const value of values ?? []) {

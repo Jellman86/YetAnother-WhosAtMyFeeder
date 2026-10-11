@@ -3,14 +3,15 @@ import time
 import unicodedata
 from fastapi import APIRouter, HTTPException, Query, Request, Depends
 from typing import List, Optional, Literal
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from pydantic import BaseModel, Field
 import structlog
 from PIL import Image
 
 from app.database import get_db
-from app.models import DetectionListItemResponse, DetectionResponse
-from app.repositories.detection_repository import DetectionRepository
+from app.models import DetectionBirdSummary, DetectionListItemResponse, DetectionResponse
+from app.repositories.bird_observation_repository import BirdObservationRepository
+from app.repositories.detection_repository import DetectionRepository, Detection as StoredDetection
 from app.config import settings
 from app.services.classifier_service import get_classifier
 from app.services.frigate_client import frigate_client
@@ -32,7 +33,15 @@ from app.utils.audio_localization import localize_audio_detections, localize_aud
 from app.auth import require_owner, AuthContext
 from app.auth import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
-from app.utils.public_access import effective_public_events_days
+from app.utils.public_access import (
+    effective_public_events_days,
+    hide_public_audio_fields,
+    refresh_public_audio_fields,
+    approximate_coordinate,
+    public_events_cutoff,
+    public_utc_day,
+    public_events_window,
+)
 from app.utils.api_datetime import serialize_api_datetime
 from app.utils.canonical_species import (
     UNKNOWN_BIRD_DISPLAY_LABEL as CANONICAL_UNKNOWN_BIRD_DISPLAY_LABEL,
@@ -73,6 +82,7 @@ class ManualTagResponse(BaseModel):
     common_name: str | None = None
     taxa_id: int | None = None
     manual_tagged: bool
+    photo_changed: bool = False
 
 
 def _build_event_classification_input_context(
@@ -268,12 +278,14 @@ async def batch_check_clips(event_ids: list[str]) -> dict[str, dict[str, bool]]:
 
     semaphore = asyncio.Semaphore(CLIP_CHECK_CONCURRENCY)
 
-    def cached_media_flags(event_id: str) -> dict[str, bool]:
+    async def cached_media_flags(event_id: str) -> dict[str, bool]:
+        from app.services.archive_service import archive_service
+
         cached_snapshot = media_cache.has_snapshot(event_id)
         cached_clip = media_cache.has_clip(event_id) or media_cache.has_recording_clip(event_id)
         return {
-            "has_clip": bool(cached_clip),
-            "has_snapshot": bool(cached_snapshot),
+            "has_clip": bool(cached_clip or await archive_service.video_path(event_id)),
+            "has_snapshot": bool(cached_snapshot or await archive_service.snapshot_path(event_id)),
         }
 
     async def check(event_id: str) -> tuple[str, dict[str, bool]]:
@@ -296,7 +308,7 @@ async def batch_check_clips(event_ids: list[str]) -> dict[str, dict[str, bool]]:
                     event_id,
                     timeout=CLIP_CHECK_TIMEOUT_SECONDS,
                 )
-                cached_flags = cached_media_flags(event_id)
+                cached_flags = await cached_media_flags(event_id)
                 if not event_data:
                     if error == "event_not_found" and frigate_event_absence.record_absent(event_id):
                         log.info(
@@ -315,7 +327,7 @@ async def batch_check_clips(event_ids: list[str]) -> dict[str, dict[str, bool]]:
                     "has_snapshot": bool(event_data.get("has_snapshot", True)) or cached_flags["has_snapshot"],
                 }
             except Exception:
-                cached_flags = cached_media_flags(event_id)
+                cached_flags = await cached_media_flags(event_id)
                 return event_id, {
                     "has_frigate_event": False,
                     "has_clip": cached_flags["has_clip"],
@@ -422,13 +434,11 @@ class EventFilters(BaseModel):
 _event_filters_cache: dict[tuple[str, bool, str], tuple[float, EventFilters]] = {}
 
 
-def _event_filter_start_date(auth: AuthContext) -> datetime | None:
+def _event_filter_start_date(auth: AuthContext, now: datetime | None = None) -> datetime | None:
     """Match facet visibility to the same history boundary as guest event lists."""
     if auth.is_owner or not settings.public_access.enabled:
         return None
-    public_days = effective_public_events_days()
-    cutoff_date = date.today() - timedelta(days=public_days) if public_days > 0 else date.today()
-    return datetime.combine(cutoff_date, datetime.min.time())
+    return public_events_cutoff(now).replace(tzinfo=None)
 
 
 class EventsCountResponse(BaseModel):
@@ -451,12 +461,14 @@ async def get_event_filters(
     hide_camera_names = (
         not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
     )
-    start_date = _event_filter_start_date(auth)
+    policy_now = datetime.now(timezone.utc)
+    start_date = _event_filter_start_date(auth, policy_now)
+    end_date = None if auth.is_owner else public_events_window(policy_now)[1]
     lang = get_user_language(request)
     cache_scope = start_date.date().isoformat() if start_date else "owner"
     cache_key = (lang, hide_camera_names, cache_scope)
     now = time.monotonic()
-    if not force_refresh:
+    if auth.is_owner and not force_refresh:
         cached = _event_filters_cache.get(cache_key)
         if cached and (now - cached[0]) < EVENT_FILTERS_CACHE_TTL_SECONDS:
             return cached[1]
@@ -466,8 +478,8 @@ async def get_event_filters(
     # whole loop and each cache read takes its own.
     async with get_db() as db:
         repo = DetectionRepository(db)
-        species_rows = await repo.get_unique_species_with_taxonomy(start_date=start_date)
-        cameras = [] if hide_camera_names else await repo.get_unique_cameras(start_date=start_date)
+        species_rows = await repo.get_unique_species_with_taxonomy(start_date=start_date, end_date=end_date)
+        cameras = [] if hide_camera_names else await repo.get_unique_cameras(start_date=start_date, end_date=end_date)
 
     unknown_label_keys = {
         key
@@ -556,8 +568,15 @@ async def get_event_filters(
 
     async with get_db() as db:
         repo = DetectionRepository(db)
-        camera_counts = {} if hide_camera_names else await repo.get_camera_counts(start_date=start_date)
-        totals = await repo.get_facet_totals(start_date=start_date)
+        camera_counts = (
+            {} if hide_camera_names else await repo.get_camera_counts(start_date=start_date, end_date=end_date)
+        )
+        totals = await repo.get_facet_totals(
+            start_date=start_date, end_date=end_date, public_audio_evidence=not auth.is_owner
+        )
+
+        if not auth.is_owner and not settings.public_access.show_audio:
+            totals["audio_matched"] = 0
 
         result = EventFilters(
             species=species_options,
@@ -565,7 +584,8 @@ async def get_event_filters(
             camera_counts=camera_counts,
             totals=EventFilterTotals(**totals),
         )
-        _event_filters_cache[cache_key] = (now, result)
+        if auth.is_owner:
+            _event_filters_cache[cache_key] = (now, result)
         return result
 
 
@@ -590,7 +610,10 @@ _LIST_FIELDS = {
     "audio_score",
     "audio_confirmed",
     "audio_context_species",
+    "bird_summary",
 }
+# Localized birds are owner evidence from the private candidate scan, never a guest field.
+_OWNER_ONLY_FIELDS = {"bird_summary"}
 _DETAIL_FIELDS = set()  # Empty = all fields
 
 
@@ -638,6 +661,9 @@ async def get_events(
     event_id: Optional[str] = Query(default=None, max_length=255, description="Filter by exact Frigate event ID"),
     favorites: bool = Query(default=False, description="Only return favorited detections"),
     audio_confirmed_only: bool = Query(default=False, description="Only return detections with audio confirmation"),
+    multiple_species_only: bool = Query(
+        default=False, description="Owner: captures with at least two named bird species"
+    ),
     sort: Literal["newest", "oldest", "confidence"] = Query(default="newest", description="Sort order"),
     include_hidden: bool = Query(default=False, description="Include hidden/ignored detections"),
     only_hidden: bool = Query(default=False, description="Return only hidden/ignored detections"),
@@ -651,7 +677,6 @@ async def get_events(
 
     Public users see limited historical data based on settings.
     """
-    lang = get_user_language(request)
     hide_camera_names = (
         not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
     )
@@ -659,15 +684,16 @@ async def get_events(
     # Apply public access restrictions
     if not auth.is_owner and settings.public_access.enabled:
         # Restrict historical data for guests
+        today = public_utc_day()
         max_days = effective_public_events_days()
         if max_days > 0:
-            cutoff_date = date.today() - timedelta(days=max_days)
+            cutoff_date = today - timedelta(days=max_days)
             if start_date is None or start_date < cutoff_date:
                 start_date = cutoff_date
         else:
             # Only show today's data
-            start_date = date.today()
-            end_date = date.today()
+            start_date = today
+            end_date = today
 
         # Limit result count for guests
         limit = min(limit, 50)
@@ -675,6 +701,9 @@ async def get_events(
         # Never show hidden detections to guests
         include_hidden = False
         only_hidden = False
+
+        if not settings.public_access.show_audio:
+            audio_confirmed_only = False
 
         # Prevent camera-based filtering if camera names are hidden
         if hide_camera_names:
@@ -705,10 +734,23 @@ async def get_events(
             hidden_only=only_hidden,
             favorite_only=favorites,
             audio_confirmed_only=audio_confirmed_only,
+            public_audio_evidence=not auth.is_owner,
+            multiple_species_only=multiple_species_only and auth.is_owner,
             frigate_event=event_id,
         )
 
-        event_ids = [e.frigate_event for e in events]
+    return await present_events(events, request, auth, fields)
+
+
+async def present_events(
+    events: list[StoredDetection], request: Request, auth: AuthContext, fields: str | None = None
+) -> list[DetectionResponse] | list[dict[str, object]]:
+    lang = get_user_language(request)
+    hide_camera_names = (
+        not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
+    )
+    event_ids = [event.frigate_event for event in events]
+    async with get_db() as db:
         from app.repositories.manual_observation_repository import ManualObservationRepository
 
         manual_observation_metadata = await ManualObservationRepository(db).metadata_by_event_ids(event_ids)
@@ -721,6 +763,7 @@ async def get_events(
     clip_availability = await batch_check_clips(event_ids)
 
     async with get_db() as db:
+        repo = DetectionRepository(db)
         # Get labels that should be displayed as "Unknown Bird"
         unknown_labels = settings.classification.unknown_bird_labels
 
@@ -742,6 +785,15 @@ async def get_events(
             results = await asyncio.gather(*(lookup(taxa_id) for taxa_id in taxa_ids))
             localized_names = {taxa_id: name for taxa_id, name in results if name}
 
+        bird_summaries = await BirdObservationRepository(db).summaries_for_events(event_ids) if auth.is_owner else {}
+
+        public_audio = {}
+        if not auth.is_owner:
+            if settings.public_access.show_audio:
+                public_audio = await repo.get_public_audio_for_detections(events)
+            for event in events:
+                await refresh_public_audio_fields(event, repo, public_audio.get(event.frigate_event, {}))
+
         # Pre-resolve unconfirmed audio_species names concurrently.
         # audio_confirmed species are resolved via localized_names[taxa_id] in the loop below.
         unconfirmed_audio_species: set[str] = {
@@ -758,6 +810,8 @@ async def get_events(
 
         audio_context_species_by_event: dict[str, list[str]] = {}
         for event in events:
+            if not auth.is_owner and not settings.public_access.show_audio:
+                continue
             if event.audio_confirmed or not event.audio_species:
                 continue
 
@@ -767,12 +821,15 @@ async def get_events(
 
             # The suppressed count is for the detail view, which explains an empty
             # result; the event list only needs the species it can show.
-            nearby_audio, _ = await repo.get_audio_context(
-                target_time=event.detection_time,
-                window_seconds=settings.frigate.audio_correlation_window_seconds,
-                mapping_value=mapping_value,
-                limit=8,
-            )
+            if auth.is_owner:
+                nearby_audio, _ = await repo.get_audio_context(
+                    target_time=event.detection_time,
+                    window_seconds=settings.frigate.audio_correlation_window_seconds,
+                    mapping_value=mapping_value,
+                    limit=8,
+                )
+            else:
+                nearby_audio = public_audio.get(event.frigate_event, {}).get("context", [])
             await localize_audio_detections(nearby_audio, lang, db)
 
             seen_species: set[str] = set()
@@ -848,8 +905,16 @@ async def get_events(
                 frigate_event=event.frigate_event,
                 observation_source="manual_upload" if event.frigate_event.startswith("manual_") else "frigate",
                 observation_notes=manual_metadata.get("notes"),
-                observation_latitude=manual_metadata.get("latitude"),
-                observation_longitude=manual_metadata.get("longitude"),
+                observation_latitude=(
+                    approximate_coordinate(manual_metadata.get("latitude"))
+                    if not auth.is_owner and settings.public_access.location_precision == "approximate"
+                    else manual_metadata.get("latitude")
+                ),
+                observation_longitude=(
+                    approximate_coordinate(manual_metadata.get("longitude"))
+                    if not auth.is_owner and settings.public_access.location_precision == "approximate"
+                    else manual_metadata.get("longitude")
+                ),
                 observation_location_source=manual_metadata.get("location_source"),
                 camera_name="Hidden" if hide_camera_names else event.camera_name,
                 has_clip=clip_availability.get(event.frigate_event, {}).get("has_clip", False),
@@ -894,6 +959,28 @@ async def get_events(
                 ai_analysis=event.ai_analysis,
                 ai_analysis_timestamp=event.ai_analysis_timestamp,
             )
+            if auth.is_owner:
+                summary = bird_summaries.get(event.frigate_event)
+                response_event.bird_summary = DetectionBirdSummary.model_validate(summary) if summary else None
+            if not auth.is_owner:
+                # Public HTTP responses are the authoritative projection used after
+                # SSE invalidation; producer diagnostics are owner information.
+                for field in (
+                    "frigate_last_error",
+                    "video_classification_error",
+                    "video_classification_diagnostics",
+                    "video_classification_provider",
+                    "video_classification_backend",
+                    "video_classification_model_id",
+                    "video_classification_model_name",
+                    "video_classification_input_source",
+                ):
+                    setattr(response_event, field, None)
+                if not settings.public_access.show_audio:
+                    hide_public_audio_fields(response_event)
+                if not settings.public_access.show_ai_conversation:
+                    response_event.ai_analysis = None
+                    response_event.ai_analysis_timestamp = None
             response_events.append(response_event)
 
         # Apply field filtering if requested
@@ -907,6 +994,8 @@ async def get_events(
                 selected_fields = {f.strip() for f in fields.split(",") if f.strip()}
                 # Always include id and frigate_event for navigation
                 selected_fields.update({"id", "frigate_event"})
+            if selected_fields and not auth.is_owner:
+                selected_fields = selected_fields - _OWNER_ONLY_FIELDS
 
             if selected_fields:
                 log.info("Filtering fields", count=len(selected_fields))
@@ -1007,6 +1096,9 @@ async def get_events_count(
     camera: Optional[str] = Query(default=None, description="Filter by camera name"),
     favorites: bool = Query(default=False, description="Only count favorited detections"),
     audio_confirmed_only: bool = Query(default=False, description="Only count detections with audio confirmation"),
+    multiple_species_only: bool = Query(
+        default=False, description="Owner: captures with at least two named bird species"
+    ),
     include_hidden: bool = Query(default=False, description="Include hidden/ignored detections"),
     only_hidden: bool = Query(default=False, description="Count only hidden/ignored detections"),
     auth: AuthContext = Depends(get_auth_context_with_legacy),
@@ -1017,16 +1109,19 @@ async def get_events_count(
     )
     # Apply public access restrictions
     if not auth.is_owner and settings.public_access.enabled:
+        today = public_utc_day()
         max_days = effective_public_events_days()
         if max_days > 0:
-            cutoff_date = date.today() - timedelta(days=max_days)
+            cutoff_date = today - timedelta(days=max_days)
             if start_date is None or start_date < cutoff_date:
                 start_date = cutoff_date
         else:
-            start_date = date.today()
-            end_date = date.today()
+            start_date = today
+            end_date = today
         include_hidden = False
         only_hidden = False
+        if not settings.public_access.show_audio:
+            audio_confirmed_only = False
         if hide_camera_names:
             camera = None
 
@@ -1051,6 +1146,8 @@ async def get_events_count(
             hidden_only=only_hidden,
             favorite_only=favorites,
             audio_confirmed_only=audio_confirmed_only,
+            public_audio_evidence=not auth.is_owner,
+            multiple_species_only=multiple_species_only and auth.is_owner,
         )
 
         # Determine if any filters are applied
@@ -1597,6 +1694,28 @@ async def _apply_manual_tag_update(
     }
 
 
+async def _photo_follows_species(result: dict, requested_species: str) -> bool:
+    """Move an uploaded video's photo to the bird its corrected species names.
+
+    Runs after the request's database connection is released: it reads its own draft row and may
+    decode a frame from the upload, which must not hold a pooled connection meanwhile.
+    """
+    event_id = str(result.get("event_id") or "")
+    if result.get("status") != "updated" or not event_id.startswith("manual_"):
+        return False
+    from app.services.manual_observation_service import manual_observation_service
+
+    try:
+        return await manual_observation_service.follow_species(
+            event_id,
+            [requested_species, result.get("new_species"), result.get("scientific_name"), result.get("common_name")],
+        )
+    except Exception as exc:
+        # The correction is already saved; a photo that cannot follow keeps the previous one.
+        log.warning("Uploaded video photo did not follow the corrected species", event_id=event_id, error=str(exc))
+        return False
+
+
 @router.post(
     "/events/{event_id}/reclassify",
     response_model=ReclassifyResponse,
@@ -1789,6 +1908,7 @@ async def reclassify_event(
             video_provider=top.get("inference_provider"),
             video_backend=top.get("inference_backend"),
             video_model_id=top.get("model_id"),
+            video_model_sha256=top.get("model_sha256"),
             video_input_source=top.get("input_source"),
         )
 
@@ -1883,6 +2003,7 @@ async def bulk_manual_tag_events(
         if result.get("status") == "updated":
             updated_event_ids.append(event_id)
             last_new_species = result.get("new_species") or last_new_species
+            await _photo_follows_species(result, update_request.display_name)
         else:
             unchanged_event_ids.append(event_id)
             last_new_species = result.get("new_species") or last_new_species
@@ -1974,7 +2095,7 @@ async def update_event(
         if not detection:
             raise HTTPException(status_code=404, detail=i18n_service.translate("errors.detection_not_found", lang))
 
-        return await _apply_manual_tag_update(
+        result = await _apply_manual_tag_update(
             db=db,
             repo=repo,
             detection=detection,
@@ -1982,6 +2103,8 @@ async def update_event(
             lang=lang,
             prefetched_taxonomy=prefetched_taxonomy,
         )
+    result["photo_changed"] = await _photo_follows_species(result, update_request.display_name)
+    return result
 
 
 class WildlifeClassification(BaseModel):

@@ -14,6 +14,7 @@ import json
 import sqlite3
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -141,6 +142,46 @@ def resolver(seed):
 
 def _kinds(rows):
     return [(row.index, row.kind, row.provider, row.taxon) for row in rows]
+
+
+def test_extending_mappings_preserves_released_output_identity(monkeypatch, seed):
+    labels = ["Eurasian blue tit"]
+    digest = hashlib.sha256(b"Eurasian blue tit\n").hexdigest()
+    frozen = {
+        "label_format": "common_name",
+        "output_width": 1,
+        "outputs": [
+            {"index": 0, "kind": "species", "label": "Old unresolved name", "unresolved": "no catalogue identity"}
+        ],
+    }
+    base = {"schema_version": 1, "label_files": {"frozen": frozen}, "artifacts": []}
+    artifacts = [
+        SimpleNamespace(
+            artifact_id=key,
+            labels_sha256=key,
+            artifact_kind="classifier",
+            label_format="common_name",
+            sha256=key + "-model",
+            runtime="onnx",
+        )
+        for key in ("frozen", digest)
+    ]
+    monkeypatch.setattr(compiler, "registry_artifacts", lambda: artifacts)
+
+    result = compiler.extend_mappings({digest: labels}, seed, base)
+
+    assert result["label_files"]["frozen"] == frozen
+    assert result["label_files"][digest]["outputs"][0]["taxon"] == "Cyanistes caeruleus"
+    assert [row["artifact_id"] for row in result["artifacts"]] == ["frozen", digest]
+
+
+def test_extending_mappings_refuses_unverified_output_order(monkeypatch, seed):
+    artifact = SimpleNamespace(
+        artifact_id="new", labels_sha256="expected", artifact_kind="classifier", label_format="common_name"
+    )
+    monkeypatch.setattr(compiler, "registry_artifacts", lambda: [artifact])
+    with pytest.raises(SystemExit, match="Missing or unverified output source"):
+        compiler.extend_mappings({"expected": ["Wrong output order"]}, seed, {"label_files": {}})
 
 
 class TestMapLabels:
@@ -422,10 +463,10 @@ def test_the_committed_mapping_coverage_is_what_was_measured():
             else:
                 declared += 1
 
-    assert total == 23332
-    assert mapped == 21970
-    assert declared == 3  # two Unknown classes and one background class
-    assert unresolved == 1359
+    assert total == 43092
+    assert mapped == 40579
+    assert declared == 4  # three Unknown classes and one background class
+    assert unresolved == 2509
 
 
 def test_the_committed_assets_build_a_fully_mapped_catalogue(tmp_path):
@@ -440,9 +481,9 @@ def test_the_committed_assets_build_a_fully_mapped_catalogue(tmp_path):
     output = tmp_path / "full_seed.db"
     seed_builder.build(reference, output, col_concepts_path=col, model_mappings_path=mappings)
 
-    assert _query(output, "SELECT COUNT(*) FROM model_artifacts")[0][0] == 10
+    assert _query(output, "SELECT COUNT(*) FROM model_artifacts")[0][0] == 18
     # One row per output index across every artifact, unresolved ones included.
-    assert _query(output, "SELECT COUNT(*) FROM model_output_taxa")[0][0] == 34746
+    assert _query(output, "SELECT COUNT(*) FROM model_output_taxa")[0][0] == 67177
     orphans = _query(
         output,
         "SELECT COUNT(*) FROM model_output_taxa t WHERE t.species_id IS NOT NULL"

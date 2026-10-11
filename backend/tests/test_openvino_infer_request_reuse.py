@@ -29,6 +29,7 @@ def _fake_compiled(output_key: str, output_array: np.ndarray) -> MagicMock:
 def _classifier_instance(output_array: np.ndarray) -> OpenVINOModelInstance:
     instance = OpenVINOModelInstance.__new__(OpenVINOModelInstance)
     instance.name = "test"
+    instance.preprocessing = {}
     instance._lock = threading.Lock()
     instance.input_name = "images"
     instance.compiled_model = _fake_compiled("logits", output_array)

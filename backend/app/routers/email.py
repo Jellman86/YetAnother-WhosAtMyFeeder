@@ -3,7 +3,7 @@ Email notification OAuth and management endpoints
 """
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime
 from fastapi import APIRouter, HTTPException, Request, Query, Depends
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
@@ -11,8 +11,8 @@ import structlog
 import os
 from typing import Optional
 from urllib.parse import urlencode
-import secrets
 import json
+from html import escape
 
 import httpx
 
@@ -21,6 +21,7 @@ from google_auth_oauthlib.flow import Flow
 from app.config import settings
 from app.models import MessageResponse, OAuthAuthorizeResponse
 from app.services.smtp_service import smtp_service
+from app.services.oauth_state import oauth_states
 from app.services.i18n_service import i18n_service
 from app.utils.language import get_user_language
 from app.utils.font_theme import get_email_font_family
@@ -30,8 +31,6 @@ import aiofiles
 
 router = APIRouter(prefix="/email", tags=["email"])
 log = structlog.get_logger()
-_oauth_state_cache: dict[str, datetime] = {}
-OAUTH_STATE_TTL = timedelta(minutes=10)
 
 
 def _decode_jwt_payload(token: str) -> dict:
@@ -106,7 +105,7 @@ async def gmail_oauth_authorize(request: Request, auth: AuthContext = Depends(re
             include_granted_scopes="true",
             prompt="consent",  # Force consent to get refresh token
         )
-        _oauth_state_cache[state] = datetime.utcnow() + OAUTH_STATE_TTL
+        oauth_states.remember("gmail", state)
 
         log.info("gmail_oauth_initiated", redirect_uri=redirect_uri)
 
@@ -127,18 +126,10 @@ async def gmail_oauth_callback(request: Request, code: str = Query(...), state: 
     Handle Gmail OAuth2 callback and store tokens
     """
     try:
-        # Validate state to reduce CSRF risk (best-effort in-memory cache).
-        if not state or state not in _oauth_state_cache:
+        if not oauth_states.consume("gmail", state):
             raise HTTPException(
                 status_code=400, detail=i18n_service.translate("errors.email.invalid_state", get_user_language(request))
             )
-        expires_at = _oauth_state_cache.get(state)
-        if expires_at and expires_at < datetime.utcnow():
-            _oauth_state_cache.pop(state, None)
-            raise HTTPException(
-                status_code=400, detail=i18n_service.translate("errors.email.state_expired", get_user_language(request))
-            )
-        _oauth_state_cache.pop(state, None)
 
         # Create OAuth flow
         flow = Flow.from_client_config(
@@ -158,7 +149,7 @@ async def gmail_oauth_callback(request: Request, code: str = Query(...), state: 
         flow.redirect_uri = f"{str(request.base_url)}api/email/oauth/gmail/callback"
 
         # Exchange authorization code for tokens
-        flow.fetch_token(code=code)
+        await asyncio.to_thread(flow.fetch_token, code=code)
 
         credentials = flow.credentials
 
@@ -189,7 +180,7 @@ async def gmail_oauth_callback(request: Request, code: str = Query(...), state: 
                 now = datetime.now(expiry.tzinfo)
             expires_in = max(0, int((expiry - now).total_seconds()))
 
-        await smtp_service.store_oauth_token(
+        stored = await smtp_service.store_oauth_token(
             provider="gmail",
             email=email,
             access_token=credentials.token,
@@ -197,6 +188,9 @@ async def gmail_oauth_callback(request: Request, code: str = Query(...), state: 
             expires_in=expires_in,
             scope=" ".join(credentials.scopes) if credentials.scopes else None,
         )
+
+        if not stored:
+            raise RuntimeError("oauth_token_storage_failed")
 
         log.info("gmail_oauth_completed", email=email)
 
@@ -215,11 +209,13 @@ async def gmail_oauth_callback(request: Request, code: str = Query(...), state: 
                 </script>
             </body>
         </html>
-        """.format(email=email)
+        """.format(email=escape(str(email)))
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
-        log.error("gmail_oauth_callback_error", error=str(e))
+        log.error("gmail_oauth_callback_error", error_type=type(e).__name__)
         return HTMLResponse(
             content="""
         <html>
@@ -250,8 +246,7 @@ async def outlook_oauth_authorize(request: Request, auth: AuthContext = Depends(
         # Generate authorization URL (Microsoft identity platform v2.0).
         # We request offline_access so we can obtain refresh tokens for long-lived setups.
         redirect_uri = f"{str(request.base_url)}api/email/oauth/outlook/callback"
-        state_value = secrets.token_urlsafe(32)
-        _oauth_state_cache[state_value] = datetime.utcnow() + OAUTH_STATE_TTL
+        state_value = oauth_states.issue("outlook")
         params = {
             "client_id": settings.notifications.email.outlook_client_id,
             "response_type": "code",
@@ -283,14 +278,8 @@ async def outlook_oauth_callback(request: Request, code: str = Query(...), state
     """
     lang = get_user_language(request)
     try:
-        # Validate state to reduce CSRF risk (best-effort in-memory cache).
-        if not state or state not in _oauth_state_cache:
+        if not oauth_states.consume("outlook", state):
             raise HTTPException(status_code=400, detail=i18n_service.translate("errors.email.invalid_state", lang))
-        expires_at = _oauth_state_cache.get(state)
-        if expires_at and expires_at < datetime.utcnow():
-            _oauth_state_cache.pop(state, None)
-            raise HTTPException(status_code=400, detail=i18n_service.translate("errors.email.state_expired", lang))
-        _oauth_state_cache.pop(state, None)
 
         redirect_uri = f"{str(request.base_url)}api/email/oauth/outlook/callback"
 
@@ -312,10 +301,9 @@ async def outlook_oauth_callback(request: Request, code: str = Query(...), state
 
         access_token = result.get("access_token")
         if not access_token:
-            error_desc = result.get(
-                "error_description", i18n_service.translate("errors.email.access_token_failed", lang)
+            raise HTTPException(
+                status_code=400, detail=i18n_service.translate("errors.email.access_token_failed", lang)
             )
-            raise HTTPException(status_code=400, detail=error_desc)
 
         # Best-effort email extraction from id_token for display and SMTP user.
         email = None
@@ -327,7 +315,7 @@ async def outlook_oauth_callback(request: Request, code: str = Query(...), state
             raise HTTPException(status_code=400, detail=i18n_service.translate("errors.email.email_missing", lang))
 
         # Store tokens in database
-        await smtp_service.store_oauth_token(
+        stored = await smtp_service.store_oauth_token(
             provider="outlook",
             email=email,
             access_token=access_token,
@@ -335,6 +323,9 @@ async def outlook_oauth_callback(request: Request, code: str = Query(...), state
             expires_in=result.get("expires_in", 3600),
             scope=result.get("scope"),
         )
+
+        if not stored:
+            raise RuntimeError("oauth_token_storage_failed")
 
         log.info("outlook_oauth_completed", email=email)
 
@@ -346,7 +337,7 @@ async def outlook_oauth_callback(request: Request, code: str = Query(...), state
             <body style="font-family: sans-serif; text-align: center; padding: 50px;">
                 <h1 style="color: #10b981;">✓ Outlook Connected Successfully!</h1>
                 <p>You can close this window and return to YA-WAMF settings.</p>
-                <p style="color: #64748b; font-size: 14px;">Email: {email}</p>
+                <p style="color: #64748b; font-size: 14px;">Email: {escape(str(email))}</p>
                 <script>
                     setTimeout(() => window.close(), 3000);
                 </script>
@@ -355,8 +346,10 @@ async def outlook_oauth_callback(request: Request, code: str = Query(...), state
         """
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
-        log.error("outlook_oauth_callback_error", error=str(e))
+        log.error("outlook_oauth_callback_error", error_type=type(e).__name__)
         return HTMLResponse(
             content="""
         <html>

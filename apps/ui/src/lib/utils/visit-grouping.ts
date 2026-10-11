@@ -1,18 +1,19 @@
 import type { Detection } from '../api';
+import type { DetectionVisit as ServerVisit } from '../api/visits';
 
 /**
- * A visit is one bird at one camera over a short window. Frigate emits several frames
+ * A visit groups captures of a species at one camera over a short window. Frigate emits several frames
  * for a single approach, and the dashboard used to print one card per frame, so a
  * blackbird that landed once could appear four times.
  */
 export interface DetectionVisit {
-    /** Stable across re-renders: the newest frame owns the visit. */
+    /** Server visits use the first accessible capture as their stable key. */
     key: string;
     species: string;
     camera: string;
-    /** Newest frame first, matching the order the store hands detections out. */
+    /** Summary captures, or all captures in local fixture groups. */
     frames: Detection[];
-    /** The newest frame, which titles the row. */
+    /** The newest capture. */
     lead: Detection;
     /** The highest-scoring frame, the one worth showing a picture of. */
     best: Detection;
@@ -21,10 +22,13 @@ export interface DetectionVisit {
     needsReview: boolean;
     /** A matching call was heard for at least one frame; a second sensor agrees with the camera. */
     audioConfirmed: boolean;
+    captureCount?: number;
+    server?: ServerVisit;
+    window?: { startTime?: string; endTime?: string };
 }
 
 /** Frames further apart than this are separate approaches, not one visit. */
-export const VISIT_GAP_MS = 10 * 60 * 1000;
+export const VISIT_GAP_MS = 60 * 1000;
 
 /** The dashboard is a "today" surface; Explorer holds the longer history. */
 const DESK_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -126,10 +130,8 @@ export function groupDetectionsIntoVisits(
 
     const visits: Detection[][] = [];
     for (const detection of ordered) {
-        const current = visits[visits.length - 1];
-        // Compare against the nearest frame so a long, steady visit is not split by the
-        // distance back to where it started.
-        if (current && belongsToVisit(current[current.length - 1], detection, gapMs)) {
+        const current = visits.find((frames) => belongsToVisit(frames[frames.length - 1], detection, gapMs));
+        if (current && detection.observation_source !== 'manual_upload' && detection.display_name.trim().toLowerCase() !== UNRESOLVED_LABEL) {
             current.push(detection);
         } else {
             visits.push([detection]);
@@ -137,4 +139,18 @@ export function groupDetectionsIntoVisits(
     }
 
     return visits.map((frames) => toVisit(frames, reviewThreshold));
+}
+
+/** Loaded summaries carry their full capture count even when the timeline is closed. */
+export function fromServerVisit(visit: ServerVisit, window?: { startTime?: string; endTime?: string }): DetectionVisit {
+    const captures = [visit.representative, visit.latest, visit.peak_capture].filter((capture): capture is Detection => capture !== null);
+    const unique = [...new Map(captures.map((capture) => [capture.frigate_event, capture])).values()];
+    return {
+        key: visit.visit_id, species: visit.representative.display_name,
+        camera: visit.representative.camera_name, frames: unique,
+        lead: visit.latest, best: visit.representative,
+        startTime: visit.start_time, endTime: visit.end_time,
+        needsReview: visit.needs_review, audioConfirmed: visit.audio_confirmed,
+        captureCount: visit.capture_count, server: visit, window
+    };
 }

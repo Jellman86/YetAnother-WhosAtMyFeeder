@@ -5,6 +5,7 @@ export * from './api/auth';
 export * from './api/system';
 export * from './api/leaderboard';
 export * from './api/events';
+export { fetchVisits } from './api/visits';
 export * from './api/settings';
 export * from './api/maintenance';
 export * from './api/species';

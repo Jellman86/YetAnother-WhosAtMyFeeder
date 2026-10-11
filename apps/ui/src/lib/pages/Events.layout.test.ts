@@ -24,13 +24,14 @@ describe('Explorer page layout', () => {
         expect(eventsSource).not.toContain('species={availableSpecies}');
     });
 
-    it('shows the complete species facet and lets it use the remaining desktop viewport', () => {
+    it('shows the complete species facet before the collapsible filters', () => {
         expect(filtersSource).toContain("filterExplorerSpecies(species, search)");
         expect(filtersSource).not.toContain('.slice(0, 12)');
         expect(filtersSource).toContain('data-explorer-species-facet');
         expect(filtersSource).toContain('data-explorer-species-list');
         expect(filtersSource).toContain('lg:max-h-[calc(100dvh-2rem)]');
-        expect(filtersSource).toContain('lg:min-h-0 lg:max-h-none lg:flex-1');
+        expect(filtersSource.indexOf('data-explorer-species-facet')).toBeLessThan(filtersSource.indexOf('data-explorer-date-facet'));
+        expect(filtersSource).toContain('lg:overflow-y-auto');
     });
 
     it('separates the timeline and pagination with space, not rules', () => {
@@ -115,5 +116,34 @@ describe('Explorer page layout', () => {
         expect(eventsSource).toMatch(/role="group"/);
         expect(eventsSource).toContain("aria-pressed={selectedTimelineBucket === 'all'}");
         expect(eventsSource).toContain('aria-pressed={selectedTimelineBucket === bucket.key}');
+    });
+});
+
+it('withdraws stale guest rows and choices before reloading public history', () => {
+    expect(eventsSource).toContain('events = [];\n            pageVisits = [];\n            totalCount = 0;\n            loading = true;');
+    expect(eventsSource).toContain('void refreshCurrentEventsPage(version);');
+    expect(eventsSource).toContain('const filters = await eventMetadataRefresh.load(forceRefresh);');
+});
+
+describe('Explorer listening history link', () => {
+    it('links to the BirdNET-Go detection history when audio is enabled and visible', () => {
+        expect(eventsSource).toContain("import { toAppPath } from '../app/url-base'");
+        expect(eventsSource).toContain('data-explorer-audio-history-link');
+        expect(eventsSource).toContain("href={toAppPath('/audio')}");
+        expect(eventsSource).toContain("$_('nav.audio_history')");
+        expect(eventsSource).toMatch(/audioHistoryAvailable = \$derived\([\s\S]*?authStore\.canViewAudio/);
+        expect(eventsSource).toContain('{#if audioHistoryAvailable && !heardWanted}');
+    });
+
+    it('steps aside while heard calls are mixed into the list, which already shows them', () => {
+        expect(eventsSource).toMatch(/heardWanted = \$derived\(audioHistoryAvailable && explorerHeardStore\.enabled/);
+        expect(eventsSource).toContain('data-explorer-heard-toggle');
+    });
+});
+
+describe('the Explorer list on a large display', () => {
+    it('fills the page width like the rest of the app instead of a capped column', () => {
+        const list = eventsSource.match(/<div class="([^"]*)" data-explorer-list>/)?.[1] ?? '';
+        expect(list).not.toMatch(/max-w-/);
     });
 });

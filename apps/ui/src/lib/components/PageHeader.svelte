@@ -19,11 +19,11 @@
     }
 </script>
 
-<header class="flex items-center justify-between gap-4 mb-4">
-    <div class="min-w-0 flex-1">
-        <h1 class="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight truncate">{title}</h1>
+<header class="mb-6 flex items-start justify-between gap-4">
+    <div class="min-w-0 flex-1 space-y-1">
+        <h1 class="font-display text-3xl font-bold leading-tight text-slate-900 sm:text-4xl dark:text-white">{title}</h1>
         {#if subtitle}
-            <p class="text-sm text-slate-500 dark:text-slate-400 font-medium truncate">{subtitle}</p>
+            <p class="text-base text-slate-600 dark:text-slate-400">{subtitle}</p>
         {/if}
     </div>
     <div class="flex items-center gap-1 shrink-0">
@@ -35,7 +35,7 @@
                     type="button"
                     onclick={() => void pageRefreshAction.run()}
                     disabled={pageRefreshAction.refreshing}
-                    class="p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-all duration-200 focus-ring disabled:opacity-60 disabled:cursor-wait"
+                    class="grid min-h-11 min-w-11 place-items-center rounded-xl text-slate-500 transition-colors duration-200 hover:bg-surface-raised hover:text-slate-900 focus-ring dark:text-slate-400 dark:hover:text-white disabled:opacity-60 disabled:cursor-wait"
                     title={$_('common.refresh')}
                     aria-label={$_('common.refresh')}
                     aria-busy={pageRefreshAction.refreshing}
@@ -48,12 +48,12 @@
             <CameraStatus />
             <NotificationCenter
                 onNavigate={(path) => onNavigate?.(path)}
-                buttonClass="relative p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-all duration-200 focus-ring"
+                buttonClass="relative grid min-h-11 min-w-11 place-items-center rounded-xl text-slate-500 transition-colors duration-200 hover:bg-surface-raised hover:text-slate-900 focus-ring dark:text-slate-400 dark:hover:text-white"
             />
             <button
                 type="button"
                 onclick={goSettings}
-                class="p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-all duration-200 focus-ring"
+                class="grid min-h-11 min-w-11 place-items-center rounded-xl text-slate-500 transition-colors duration-200 hover:bg-surface-raised hover:text-slate-900 focus-ring dark:text-slate-400 dark:hover:text-white"
                 title={$_('nav.settings')}
                 aria-label={$_('nav.settings')}
             >

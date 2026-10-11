@@ -29,5 +29,12 @@ compatibility image and link docs/setup/hardware-acceleration.md. -->
 - **[Optional detail].** [Use this for an opt-in feature, changed default,
   model/hardware limit, privacy note, or performance cost that should not be buried.]
 
+## Thanks
+
+Thanks to [@ISSUE_CONTRIBUTOR](https://github.com/ISSUE_CONTRIBUTOR) for [the report,
+recordings, diagnostics or retesting that helped this release](ISSUE_URL).
+<!-- Credit contributors to relevant open issues as well as closed ones. State
+what they contributed; do not imply an unresolved issue is fixed. Link CONTRIBUTORS.md. -->
+
 See the [full changelog](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/TAG/CHANGELOG.md)
 for the complete technical record.

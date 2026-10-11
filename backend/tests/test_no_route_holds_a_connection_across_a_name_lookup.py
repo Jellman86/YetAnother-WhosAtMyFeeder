@@ -113,6 +113,10 @@ ROUTES = [
     "/api/stats/daily-summary",
     "/api/audio/history?days=1",
     "/api/audio/summary?days=1",
+    "/api/audio/heard-groups?start_date="
+    + (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    + "&end_date="
+    + (datetime.now(timezone.utc) + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ"),
     "/api/audio/species?span=day",
     "/api/audio/context/event/evt_0",
 ]

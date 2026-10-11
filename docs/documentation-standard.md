@@ -90,7 +90,9 @@ Every page that touches deletion, retention, credentials, public access, or medi
 proxying must state the relevant boundary:
 
 - The detections database is user data; ingest is idempotent (`frigate_event` is
-  unique) so a re-processed event does not duplicate or mutate history.
+  unique), so a re-processed event does not create a duplicate row. Reprocessing may
+  improve permitted automatic classification fields; preserve owner corrections
+  and existing evidence according to the implemented update rules.
 - Hiding a detection is a soft delete (`is_hidden`) and is recoverable; a hard
   delete is irreversible and must be labelled as such.
 - Retention cleanup permanently deletes detections — visual and BirdNET-Go audio —

@@ -98,7 +98,7 @@
 <WizardStepLayout
     title={$_('setup.review.title', { default: 'Review setup' })}
     description={$_('setup.review.description', {
-        default: 'Here is where each section stands. Jump into any one to change it — nothing else is affected.'
+        default: 'Here is where each section stands. Jump into any one to change it; nothing else is affected.'
     })}
     showBack={setupWizardStore.mode === 'first_run'}
     canContinue={sections.length > 0}

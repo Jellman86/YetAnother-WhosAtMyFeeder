@@ -315,8 +315,18 @@ def test_the_committed_assets_build_the_full_catalogue(tmp_path):
     seed_builder.build(reference, output, col_concepts_path=col)
 
     # 7,878 resolved classes collapse onto 7,865 accepted taxa: 12 lumps share an identity.
-    assert _query(output, "SELECT COUNT(*) FROM species")[0][0] == 11276 + 7865
-    assert _query(output, "SELECT COUNT(*) FROM species_concepts WHERE provider = 'catalogue-of-life'")[0][0] == 7865
+    assert _query(output, "SELECT COUNT(*) FROM species WHERE rank = 'species'")[0][0] == 11276 + 7865
+    # Above the birds: IOC's 44 orders, 254 families and 2,392 genera, and Catalogue of Life's
+    # seven taxa from Animalia down to Aves.
+    assert _query(output, "SELECT COUNT(*) FROM species WHERE rank != 'species'")[0][0] == 44 + 254 + 2392 + 7
+    assert (
+        _query(
+            output,
+            "SELECT COUNT(*) FROM species_concepts c JOIN species s ON s.species_id = c.species_id"
+            " WHERE c.provider = 'catalogue-of-life' AND s.rank = 'species'",
+        )[0][0]
+        == 7865
+    )
     assert _query(output, "SELECT COUNT(*) FROM species_aliases WHERE resolution = 'resolved'")[0][0] == 342
     assert _query(output, "SELECT COUNT(*) FROM species_aliases WHERE resolution = 'unresolved'")[0][0] == 636
 
@@ -330,10 +340,11 @@ def test_the_committed_reference_builds_a_complete_seed(tmp_path):
     output = tmp_path / "seed.db"
     seed_builder.build(reference, output)
 
-    species = _query(output, "SELECT COUNT(*) FROM species")[0][0]
+    species = _query(output, "SELECT COUNT(*) FROM species WHERE rank = 'species'")[0][0]
     names = _query(output, "SELECT COUNT(*) FROM species_names")[0][0]
     localized = _query(output, "SELECT COUNT(*) FROM species_names WHERE language_tag != 'en'")[0][0]
     assert species == 11276
     assert localized == 87656
-    assert names == 87656 + 11276  # every taxon in the committed list has an English name
+    # Every species in the committed list has an English name, and so does every family.
+    assert names == 87656 + 11276 + 254
     assert _query(output, "SELECT COUNT(*) FROM species_names WHERE language_tag = 'zh'")[0][0] > 10000

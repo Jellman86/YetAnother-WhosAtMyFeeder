@@ -1,5 +1,6 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
+    import { fetchVisits } from '../api/visits';
+    import { onMount, untrack } from 'svelte';
     import DetectionModal from '../components/DetectionModal.svelte';
     import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
     import VideoPlayer from '../components/VideoPlayer.svelte';
@@ -14,6 +15,7 @@
     import DeskContextCards from '../components/DeskContextCards.svelte';
     import ReclassificationOverlay from '../components/ReclassificationOverlay.svelte';
     import RecentAudio from '../components/RecentAudio.svelte';
+    import { createObservationProjectionLoader } from '../app/observation-projection-loader';
     import { detectionsStore } from '../stores/detections.svelte';
     import { toastStore } from '../stores/toast.svelte';
     import { confirmAction } from '../stores/confirm_dialog.svelte';
@@ -29,7 +31,7 @@
     import { selectReclassificationStrategy } from '../utils/reclassification';
 
     import { getBirdNames } from '../naming';
-    import { groupDetectionsIntoVisits, withinDeskWindow } from '../utils/visit-grouping';
+    import { fromServerVisit, withinDeskWindow } from '../utils/visit-grouping';
     import { buildReviewQueue, type NewSpeciesEntry } from '../utils/review-queue';
     import { applyManualTagResult } from '../utils/manual-tag';
 
@@ -41,8 +43,12 @@
 
     /** The dashboard shows the recent slice of the day; Explorer holds the full history. */
     const VISIT_ROW_LIMIT = 12;
+    let serverVisits = $state<ReturnType<typeof fromServerVisit>[]>([]);
+    let totalVisits = $state(0);
 
     let summary = $state<DailySummary | null>(null);
+    // The clock hour the summary's rolling window ended in, so the activity chart ends where its data does.
+    let summaryHour = $state(new Date().getHours());
     let summaryLoading = $state(true);
     let topSpeciesInfo = $state<SpeciesInfo | null>(null);
     let selectedEvent = $state<Detection | null>(null);
@@ -103,9 +109,9 @@
     let reviewThreshold = $derived(settingsStore.settings?.classification_threshold ?? null);
 
     // The day reads as visits, not frames: repeat frames of one bird fold into one row.
-    let allVisits = $derived(groupDetectionsIntoVisits(deskDetections, { reviewThreshold }));
+    let allVisits = $derived(serverVisits);
     let visits = $derived(allVisits.slice(0, VISIT_ROW_LIMIT));
-    let hiddenVisitCount = $derived(Math.max(allVisits.length - visits.length, 0));
+    let hiddenVisitCount = $derived(Math.max(totalVisits - visits.length, 0));
 
     // Reviewing is an owner capability: the identify and hide calls require it, so a guest
     // must not be shown the queue, the walk-through, or an Identify button that would 403.
@@ -270,10 +276,13 @@
             asNumber(d.video_classification_score),
             asText(d.ai_analysis),
             asText(d.ai_analysis_timestamp),
+            JSON.stringify(d.bird_summary ?? null),
         ].join('|');
     }
 
-    let last24hCount = $derived(summary?.total_count ?? detectionsStore.totalToday);
+    // Visits, as the log counts them. The summary counts the whole window; until it arrives the
+    // loaded visits stand in, never the frame count, which is a different unit.
+    let last24hCount = $derived(summary?.visit_count ?? allVisits.length);
     let last24hSpecies = $derived(summary?.top_species.length ?? 0);
     let audioConfirmations = $derived(summary?.audio_confirmations ?? 0);
 
@@ -286,26 +295,46 @@
         return getBirdNames(top, showCommon, preferSci).primary;
     });
 
-    async function loadSummary(force = false) {
-        try {
-            const [summaryRes, labelsRes] = await Promise.all([
+    const summaryLoader = createObservationProjectionLoader({
+        fetch: async (signal) => {
+            const now = new Date();
+            const window = { startTime: new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(), endTime: now.toISOString() };
+            const [summaryRes, labelsRes, visitsRes] = await Promise.all([
                 fetchDailySummary(),
-                fetchClassifierLabels().catch(() => ({ labels: [] }))
+                fetchClassifierLabels().catch(() => ({ labels: [] })),
+                fetchVisits({ ...window, limit: VISIT_ROW_LIMIT, signal, requestKey: 'dashboard:visits' })
             ]);
-            summary = summaryRes;
-            classifierLabels = labelsRes.labels;
-        } catch (e) {
+            return { summaryRes, labelsRes, visitsRes, window };
+        },
+        apply: ({ summaryRes, labelsRes, visitsRes, window }) => { summary = summaryRes; summaryHour = new Date().getHours(); classifierLabels = labelsRes.labels; serverVisits = visitsRes.visits.map((visit) => fromServerVisit(visit, window)); totalVisits = visitsRes.total; },
+        clear: () => { summary = null; topSpeciesInfo = null; serverVisits = []; totalVisits = 0; },
+        fail: (e) => {
+            if (authStore.isGuest) { summary = null; topSpeciesInfo = null; }
             if (isTransientRequestError(e)) {
-                logger.warn('Dashboard summary fetch failed (transient)', {
-                    message: getErrorMessage(e)
-                });
+                logger.warn('Dashboard summary fetch failed (transient)', { message: getErrorMessage(e) });
             } else {
                 logger.error('Failed to load summary', e);
             }
-        } finally {
-            summaryLoading = false;
-        }
+        },
+        settled: () => { summaryLoading = false; }
+    });
+
+    async function loadSummary(force = false) {
+        // A retry after a failed first read is loading again, not still failed.
+        if (summary === null) summaryLoading = true;
+        await summaryLoader.load();
     }
+
+    // Until the day has been read, its figures are unknown rather than zero.
+    let summaryPending = $derived(summary === null && summaryLoading);
+    let summaryUnavailable = $derived(summary === null && !summaryLoading);
+    let queueStatus = $derived<'loading' | 'ready' | 'unavailable'>(
+        detectionsStore.historyStatus === 'ready'
+            ? 'ready'
+            : detectionsStore.historyStatus === 'failed' && !detectionsStore.isLoading
+              ? 'unavailable'
+              : 'loading'
+    );
 
     $effect(() => {
         const topSpecies = summary?.top_species?.[0]?.species;
@@ -328,32 +357,56 @@
         })();
     });
 
-    onMount(async () => {
-        await loadSummary(true);
+    onMount(() => {
+        void loadSummary(true);
+        const interval = setInterval(() => { if (document.visibilityState === 'visible') void loadSummary(); }, 60_000);
+        return () => { clearInterval(interval); summaryLoader.dispose(); audioSummaryLoader.dispose(); };
     });
 
-    // One audio summary for the whole desk: the day bar and the sensor card share it.
+    let handledVisitMutation = detectionsStore.mutationVersion;
+    $effect(() => {
+        const version = detectionsStore.mutationVersion;
+        if (version <= handledVisitMutation) return;
+        handledVisitMutation = version;
+        const timeout = setTimeout(() => { void loadSummary(); }, 2000);
+        return () => clearTimeout(timeout);
+    });
+
+    // The day bar's call count. The rail's Heard card polls its own summary to stay current.
     let audioSummary = $state<AudioSummaryResponse | null>(null);
 
-    $effect(() => {
-        if (!birdnetEnabled) {
-            audioSummary = null;
-            return;
-        }
-        const controller = new AbortController();
-        void (async () => {
-            try {
-                audioSummary = await fetchAudioSummary({ days: 1 }, controller.signal);
-            } catch (e) {
-                if (controller.signal.aborted) return;
-                if (isTransientRequestError(e)) {
-                    logger.warn('Audio summary unavailable (transient)', { message: getErrorMessage(e) });
-                } else {
-                    logger.error('Failed to fetch audio summary', e);
-                }
+    const audioSummaryLoader = createObservationProjectionLoader({
+        fetch: (signal) => fetchAudioSummary({ days: 1 }, signal),
+        apply: (value) => { audioSummary = value; },
+        clear: () => { audioSummary = null; },
+        fail: (e) => {
+            if (authStore.isGuest) audioSummary = null;
+            if (isTransientRequestError(e)) {
+                logger.warn('Audio summary unavailable (transient)', { message: getErrorMessage(e) });
+            } else {
+                logger.error('Failed to fetch audio summary', e);
             }
-        })();
-        return () => controller.abort();
+        }
+    });
+
+    $effect(() => {
+        if (!birdnetEnabled) { audioSummaryLoader.invalidate(); return; }
+        untrack(() => { void audioSummaryLoader.load(); });
+        return () => audioSummaryLoader.dispose();
+    });
+
+    let handledPublicHistoryVersion = detectionsStore.publicHistoryVersion;
+    $effect(() => {
+        const version = detectionsStore.publicHistoryVersion;
+        if (version <= handledPublicHistoryVersion || !authStore.isGuest) return;
+        handledPublicHistoryVersion = version;
+        untrack(() => {
+            summaryLoading = true;
+            summaryLoader.invalidate();
+            audioSummaryLoader.invalidate();
+            void loadSummary(true);
+            if (birdnetEnabled) void audioSummaryLoader.load();
+        });
     });
 
     $effect(() => {
@@ -519,82 +572,104 @@
             analyzingAI = false;
         }
     }
+
+    /** A bird correction, exclusion or recount changes the day's total and the log's summaries. */
+    function handleBirdsChanged(): void {
+        void loadSummary(true);
+        void detectionsStore.refreshAfterOwnerEdit();
+    }
 </script>
 
 <div class="space-y-6">
     <DayBar
-        visitCount={last24hCount}
-        speciesCount={last24hSpecies}
-        unresolvedCount={reviewQueue.total}
+        visitCount={summary ? last24hCount : null}
+        countedBirds={summary?.counted_birds ?? 0}
+        countedCaptures={summary?.counted_captures ?? 0}
+        speciesCount={summary ? last24hSpecies : null}
+        unresolvedCount={queueStatus === 'ready' || reviewQueue.total > 0 ? reviewQueue.total : null}
         audioCalls={audioSummary?.total ?? null}
         {audioConfirmations}
+        loading={summaryPending || queueStatus === 'loading'}
         connected={detectionsStore.connected}
     />
 
     <ProviderWarning {onnavigate} />
 
-    <!-- Field desk: the day reads as one chronological log, with the outstanding work docked beside it. -->
+    <!-- Field desk: the day reads as one chronological log beside a rail. Below 1920px the rail is one
+         column; from there it splits in two, what needs you and what is happening beside the
+         reference, so the log keeps a readable row instead of stretching across a wide screen. -->
     <section
         data-dashboard-field-desk
-        class="grid grid-cols-1 items-start gap-8 xl:grid-cols-[minmax(0,1.55fr)_minmax(18rem,0.7fr)]"
+        class="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(18rem,0.75fr)] 3xl:grid-cols-[minmax(0,1.4fr)_minmax(0,2fr)]"
     >
-        <div class="space-y-7" data-dashboard-field-log-column>
+        <div class="min-w-0" data-dashboard-field-log-column>
             <FieldLog
                 visits={visits}
                 hiddenCount={hiddenVisitCount}
-                loading={detectionsStore.isLoading}
+                loading={summaryPending}
+                unavailable={summaryUnavailable}
+                onretry={() => void loadSummary(true)}
                 canIdentify={canReview}
                 onselect={(detection) => selectedEvent = detection}
                 onidentify={(detection) => selectedEvent = detection}
+                onplay={(detection) => { videoEventId = detection.frigate_event; showVideo = true; }}
                 onseeall={() => onnavigate?.('/events')}
-            />
-
-            <NotableNearby
-                canConfigure={canReview}
-                refreshKey={notableRefreshKey}
-                onconfigure={() => onnavigate?.('/settings/integrations')}
-                onselectspecies={(species) => (selectedSpecies = species)}
             />
         </div>
 
-        <aside class="flex flex-col gap-7 xl:border-l xl:border-slate-200 xl:pl-8 dark:xl:border-slate-700">
-            {#if canReview}
-                <ReviewQueueCard
-                    queue={reviewQueue}
-                    onreview={(detection) => selectedEvent = detection}
-                    onreviewall={() => (reviewSessionOpen = true)}
+        <aside class="grid min-w-0 grid-cols-1 items-start gap-6 3xl:grid-cols-2">
+            <!-- What needs you, then what is happening now. -->
+            <div class="flex min-w-0 flex-col gap-6" data-dashboard-rail-now>
+                {#if canReview}
+                    <ReviewQueueCard
+                        queue={reviewQueue}
+                        status={queueStatus}
+                        onretry={() => void detectionsStore.loadInitial()}
+                        onreview={(detection) => selectedEvent = detection}
+                        onreviewall={() => (reviewSessionOpen = true)}
+                    />
+                {/if}
+
+                <DeskContextCards
+                    detections={deskDetections}
+                    visits={allVisits}
+                    cameraVisits={summary?.camera_visits ?? null}
+                    loading={summaryPending}
+                    unavailable={summaryUnavailable}
                 />
-            {/if}
 
-            <DeskContextCards
-                detections={deskDetections}
-                visits={allVisits}
-                {birdnetEnabled}
-                {audioSummary}
-            />
+                {#if birdnetEnabled}
+                    <RecentAudio onNavigate={onnavigate} matchedCalls={summary ? audioConfirmations : null} />
+                {/if}
+            </div>
 
-            {#if summary}
-                <DailyHistogram data={summary.hourly_distribution} />
-            {:else if summaryLoading}
-                <div class="min-h-[210px] animate-pulse border-y border-slate-200/60 bg-slate-100/60 dark:border-slate-700/60 dark:bg-slate-800/40"></div>
-            {/if}
+            <!-- Reference: the shape of the day, the area around the feeder, who comes most. -->
+            <div class="flex min-w-0 flex-col gap-6" data-dashboard-rail-reference>
+                {#if summary}
+                    <DailyHistogram data={summary.hourly_visits ?? []} currentHour={summaryHour} />
+                {:else if summaryLoading}
+                    <div class="h-40 animate-pulse rounded-2xl bg-surface-raised motion-reduce:animate-none"></div>
+                {/if}
 
-            {#if birdnetEnabled}
-                <RecentAudio onNavigate={onnavigate} />
-            {/if}
+                <NotableNearby
+                    canConfigure={canReview}
+                    refreshKey={notableRefreshKey}
+                    onconfigure={() => onnavigate?.('/settings/integrations')}
+                    onselectspecies={(species) => (selectedSpecies = species)}
+                />
+
+                <div data-dashboard-top-visitors>
+                    {#if summary}
+                        <TopVisitors
+                            species={summary.top_species}
+                            onSpeciesClick={handleSpeciesSummaryClick}
+                        />
+                    {:else if summaryLoading}
+                        <div class="h-40 animate-pulse rounded-2xl bg-surface-raised motion-reduce:animate-none"></div>
+                    {/if}
+                </div>
+            </div>
         </aside>
-    </section>
-
-    <!-- Top visitors needs the full width; it does not compress into the rail. -->
-    <section data-dashboard-top-visitors>
-        {#if summary && summary.top_species.length > 0}
-            <TopVisitors
-                species={summary.top_species}
-                onSpeciesClick={handleSpeciesSummaryClick}
-            />
-        {:else if summaryLoading}
-            <div class="min-h-[150px] animate-pulse border-y border-slate-200/60 bg-slate-100/60 dark:border-slate-700/60 dark:bg-slate-800/40"></div>
-        {/if}
     </section>
 </div>
 
@@ -605,6 +680,7 @@
         newSpecies: newSpeciesEntries
     })}
     <ReviewQueueModal
+        onbirdschanged={handleBirdsChanged}
         queue={fullQueue.items}
         reasons={fullQueue.reasons}
         labels={classifierLabels}
@@ -620,6 +696,7 @@
 <!-- Event Detail Modal -->
 {#if selectedEvent}
     <DetectionModal
+        onbirdschanged={handleBirdsChanged}
         detection={selectedEvent}
         {classifierLabels}
         llmReady={llmReady}

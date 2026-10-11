@@ -165,6 +165,7 @@ async def test_manual_update_confirms_exact_existing_species_without_rewriting_t
             "common_name": "Blue Tit",
             "taxa_id": taxa_id,
             "manual_tagged": True,
+            "photo_changed": False,
         }
         mock_get_names.assert_not_awaited()
         mock_audio.assert_not_awaited()

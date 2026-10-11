@@ -29,6 +29,7 @@ adding a tab to `MIGRATED_COMPONENTS` is what enrolls it in the guard.
 - **One accent colour**: teal. Status colours (amber, red, emerald) signal warning / danger / success only — they aren't decoration.
 - **One typography ramp**: card h3 (lg/xl, font-black), row label (sm, font-bold), row description (text-[11px]). Don't add a fourth.
 - **One focus ring**: `focus:ring-2 focus:ring-teal-400`.
+- **Selects draw their own box**: `SettingsSelect` uses `appearance-none`, `min-h-11` and a decorative chevron, because desktop WebKit's native menu list discards padding and height (a 22px control). Below `sm` it uses `pl-2 pr-5` with the chevron at `right-1.5`, so a 320px screen at 200% text still shows part of the value; from `sm` up it uses `pl-4 pr-8`. The option picker stays native.
 
 ## Basic vs Advanced taxonomy
 

@@ -1437,6 +1437,17 @@
             "title": "Auth Required",
             "type": "boolean"
           },
+          "avatar_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Version"
+          },
           "birdnet_enabled": {
             "default": false,
             "title": "Birdnet Enabled",
@@ -1551,6 +1562,13 @@
             "title": "Public Access Enabled",
             "type": "boolean"
           },
+          "public_access_rate_limit_per_minute": {
+            "default": 30,
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Public Access Rate Limit Per Minute",
+            "type": "integer"
+          },
           "public_access_show_ai_conversation": {
             "default": false,
             "title": "Public Access Show Ai Conversation",
@@ -1599,6 +1617,23 @@
           "is_authenticated"
         ],
         "title": "AuthStatusResponse",
+        "type": "object"
+      },
+      "AvatarResponse": {
+        "properties": {
+          "avatar_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Version"
+          }
+        },
+        "title": "AvatarResponse",
         "type": "object"
       },
       "BackendDiagnosticEventResponse": {
@@ -2122,6 +2157,363 @@
         "title": "BackfillResponse",
         "type": "object"
       },
+      "BirdObservationResponse": {
+        "properties": {
+          "bird_index": {
+            "title": "Bird Index",
+            "type": "integer"
+          },
+          "candidate_id": {
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "classifier_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Classifier Label"
+          },
+          "classifier_score": {
+            "title": "Classifier Score",
+            "type": "number"
+          },
+          "clip_variant": {
+            "title": "Clip Variant",
+            "type": "string"
+          },
+          "common_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Common Name"
+          },
+          "crop_box": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Crop Box",
+            "type": "array"
+          },
+          "detector_confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detector Confidence"
+          },
+          "frame_index": {
+            "title": "Frame Index",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "identity_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Identity Score"
+          },
+          "identity_source": {
+            "default": "crop",
+            "enum": [
+              "crop",
+              "visit",
+              "manual"
+            ],
+            "title": "Identity Source",
+            "type": "string"
+          },
+          "is_hidden": {
+            "title": "Is Hidden",
+            "type": "boolean"
+          },
+          "is_unknown": {
+            "default": false,
+            "title": "Is Unknown",
+            "type": "boolean"
+          },
+          "manual_species": {
+            "title": "Manual Species",
+            "type": "boolean"
+          },
+          "scientific_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scientific Name"
+          },
+          "species": {
+            "title": "Species",
+            "type": "string"
+          },
+          "tracked": {
+            "default": false,
+            "description": "The bird Frigate tracked, which the visit's name is about",
+            "title": "Tracked",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "bird_index",
+          "candidate_id",
+          "clip_variant",
+          "frame_index",
+          "crop_box",
+          "species",
+          "classifier_score",
+          "manual_species",
+          "is_hidden"
+        ],
+        "title": "BirdObservationResponse",
+        "type": "object"
+      },
+      "BirdObservationUpdateRequest": {
+        "properties": {
+          "is_hidden": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Hidden"
+          },
+          "species": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Species"
+          }
+        },
+        "title": "BirdObservationUpdateRequest",
+        "type": "object"
+      },
+      "BirdScanRequest": {
+        "properties": {
+          "candidate_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "expected_media_version": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Expected Media Version",
+            "type": "string"
+          },
+          "force": {
+            "default": false,
+            "title": "Force",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "candidate_id",
+          "expected_media_version"
+        ],
+        "title": "BirdScanRequest",
+        "type": "object"
+      },
+      "BirdScanResponse": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "candidate_id": {
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "event_id": {
+            "title": "Event Id",
+            "type": "string"
+          },
+          "queue_ahead": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Queue Ahead"
+          },
+          "result_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result Count"
+          },
+          "retained_previous": {
+            "default": false,
+            "title": "Retained Previous",
+            "type": "boolean"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "enum": [
+                  "detecting",
+                  "naming",
+                  "counting",
+                  "saving"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
+          },
+          "stage_done": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage Done"
+          },
+          "stage_total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage Total"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "enum": [
+              "not_scanned",
+              "queued",
+              "running",
+              "completed",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "unavailable_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unavailable Reason"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "event_id",
+          "candidate_id",
+          "status",
+          "available"
+        ],
+        "title": "BirdScanResponse",
+        "type": "object"
+      },
+      "BirdSpeciesCount": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "species": {
+            "title": "Species",
+            "type": "string"
+          }
+        },
+        "required": [
+          "species",
+          "count"
+        ],
+        "title": "BirdSpeciesCount",
+        "type": "object"
+      },
       "BirdWeatherTestRequest": {
         "properties": {
           "token": {
@@ -2225,6 +2617,20 @@
           }
         },
         "title": "Body_probe_bird_classifier_runtime_api_classifier_probe_post",
+        "type": "object"
+      },
+      "Body_put_avatar_api_auth_avatar_put": {
+        "properties": {
+          "image": {
+            "contentMediaType": "application/octet-stream",
+            "title": "Image",
+            "type": "string"
+          }
+        },
+        "required": [
+          "image"
+        ],
+        "title": "Body_put_avatar_api_auth_avatar_put",
         "type": "object"
       },
       "Body_test_bird_classifier_api_classifier_test_post": {
@@ -2517,14 +2923,6 @@
             "title": "Cache Clips",
             "type": "boolean"
           },
-          "cache_enabled": {
-            "title": "Cache Enabled",
-            "type": "boolean"
-          },
-          "cache_snapshots": {
-            "title": "Cache Snapshots",
-            "type": "boolean"
-          },
           "clip_count": {
             "title": "Clip Count",
             "type": "integer"
@@ -2591,6 +2989,11 @@
             "title": "Snapshot Size Mb",
             "type": "number"
           },
+          "storage_available": {
+            "description": "False when the media folder cannot be written: photographs and visit media are then not kept",
+            "title": "Storage Available",
+            "type": "boolean"
+          },
           "total_size_bytes": {
             "title": "Total Size Bytes",
             "type": "integer"
@@ -2612,8 +3015,7 @@
           "preview_size_mb",
           "total_size_bytes",
           "total_size_mb",
-          "cache_enabled",
-          "cache_snapshots",
+          "storage_available",
           "cache_clips",
           "retention_days",
           "retention_source"
@@ -3301,6 +3703,35 @@
         "title": "CropGeneratorConfig",
         "type": "object"
       },
+      "DailyCameraVisits": {
+        "properties": {
+          "camera": {
+            "title": "Camera",
+            "type": "string"
+          },
+          "last_seen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen"
+          },
+          "visits": {
+            "title": "Visits",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "camera",
+          "visits"
+        ],
+        "title": "DailyCameraVisits",
+        "type": "object"
+      },
       "DailyCount": {
         "properties": {
           "count": {
@@ -3365,6 +3796,11 @@
               }
             ],
             "title": "Taxa Id"
+          },
+          "visit_count": {
+            "default": 0,
+            "title": "Visit Count",
+            "type": "integer"
           }
         },
         "required": [
@@ -3381,11 +3817,42 @@
             "title": "Audio Confirmations",
             "type": "integer"
           },
+          "camera_visits": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/DailyCameraVisits"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Camera Visits"
+          },
+          "counted_birds": {
+            "default": 0,
+            "title": "Counted Birds",
+            "type": "integer"
+          },
+          "counted_captures": {
+            "default": 0,
+            "title": "Counted Captures",
+            "type": "integer"
+          },
           "hourly_distribution": {
             "items": {
               "type": "integer"
             },
             "title": "Hourly Distribution",
+            "type": "array"
+          },
+          "hourly_visits": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Hourly Visits",
             "type": "array"
           },
           "latest_detection": {
@@ -3407,6 +3874,11 @@
           },
           "total_count": {
             "title": "Total Count",
+            "type": "integer"
+          },
+          "visit_count": {
+            "default": 0,
+            "title": "Visit Count",
             "type": "integer"
           }
         },
@@ -4185,6 +4657,43 @@
         "title": "Detection",
         "type": "object"
       },
+      "DetectionBirdSummary": {
+        "description": "Localized birds stored for one capture: owner decisions, not unique individuals.\n\nOwner-only. Null means no observation evidence is stored, which is not a measured zero.",
+        "properties": {
+          "counted": {
+            "title": "Counted",
+            "type": "integer"
+          },
+          "excluded": {
+            "title": "Excluded",
+            "type": "integer"
+          },
+          "hint_only": {
+            "title": "Hint Only",
+            "type": "boolean"
+          },
+          "species": {
+            "items": {
+              "$ref": "#/components/schemas/BirdSpeciesCount"
+            },
+            "title": "Species",
+            "type": "array"
+          },
+          "unknown": {
+            "title": "Unknown",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "counted",
+          "unknown",
+          "excluded",
+          "species",
+          "hint_only"
+        ],
+        "title": "DetectionBirdSummary",
+        "type": "object"
+      },
       "DetectionListItemResponse": {
         "properties": {
           "archive_state": {
@@ -4238,6 +4747,16 @@
               }
             ],
             "title": "Audio Species"
+          },
+          "bird_summary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DetectionBirdSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "camera_name": {
             "title": "Camera Name",
@@ -4447,6 +4966,16 @@
               }
             ],
             "title": "Audio Species"
+          },
+          "bird_summary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DetectionBirdSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "camera_name": {
             "title": "Camera Name",
@@ -4887,6 +5416,107 @@
           "camera_name"
         ],
         "title": "DetectionResponse",
+        "type": "object"
+      },
+      "DetectionVisitResponse": {
+        "properties": {
+          "audio_confirmed": {
+            "title": "Audio Confirmed",
+            "type": "boolean"
+          },
+          "best_score": {
+            "title": "Best Score",
+            "type": "number"
+          },
+          "capture_count": {
+            "title": "Capture Count",
+            "type": "integer"
+          },
+          "end_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Time"
+          },
+          "latest": {
+            "$ref": "#/components/schemas/DetectionResponse"
+          },
+          "needs_review": {
+            "title": "Needs Review",
+            "type": "boolean"
+          },
+          "peak_capture": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DetectionResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "representative": {
+            "$ref": "#/components/schemas/DetectionResponse"
+          },
+          "start_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Time"
+          },
+          "visit_id": {
+            "title": "Visit Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "visit_id",
+          "start_time",
+          "end_time",
+          "capture_count",
+          "best_score",
+          "needs_review",
+          "audio_confirmed",
+          "representative",
+          "latest"
+        ],
+        "title": "DetectionVisitResponse",
+        "type": "object"
+      },
+      "DetectionVisitsResponse": {
+        "properties": {
+          "gap_seconds": {
+            "title": "Gap Seconds",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "visits": {
+            "items": {
+              "$ref": "#/components/schemas/DetectionVisitResponse"
+            },
+            "title": "Visits",
+            "type": "array"
+          }
+        },
+        "required": [
+          "visits",
+          "total",
+          "gap_seconds"
+        ],
+        "title": "DetectionVisitsResponse",
         "type": "object"
       },
       "DetectionsActivityHeatmapCell": {
@@ -5897,6 +6527,90 @@
         "title": "FavoriteResponse",
         "type": "object"
       },
+      "FeederPortraitResponse": {
+        "properties": {
+          "busiest_day": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PortraitDay"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "detections": {
+            "title": "Detections",
+            "type": "integer"
+          },
+          "latest_visit": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PortraitVisit"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "newest_arrival": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PortraitSpecies"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "scope": {
+            "enum": [
+              "all",
+              "shared"
+            ],
+            "title": "Scope",
+            "type": "string"
+          },
+          "shared_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shared Days"
+          },
+          "species": {
+            "title": "Species",
+            "type": "integer"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "visits": {
+            "title": "Visits",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "scope",
+          "visits",
+          "detections",
+          "species"
+        ],
+        "title": "FeederPortraitResponse",
+        "type": "object"
+      },
       "FocusedDiagnosticsResponse": {
         "properties": {
           "backfill": {
@@ -6100,6 +6814,160 @@
           "message"
         ],
         "title": "HaWeatherTestResponse",
+        "type": "object"
+      },
+      "HeardGroupResponse": {
+        "properties": {
+          "best_birdnet_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best Birdnet Id"
+          },
+          "best_confidence": {
+            "title": "Best Confidence",
+            "type": "number"
+          },
+          "best_heard": {
+            "title": "Best Heard",
+            "type": "string"
+          },
+          "call_count": {
+            "title": "Call Count",
+            "type": "integer"
+          },
+          "first_heard": {
+            "title": "First Heard",
+            "type": "string"
+          },
+          "last_heard": {
+            "title": "Last Heard",
+            "type": "string"
+          },
+          "scientific_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scientific Name"
+          },
+          "source_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Name"
+          },
+          "species": {
+            "title": "Species",
+            "type": "string"
+          }
+        },
+        "required": [
+          "species",
+          "first_heard",
+          "last_heard",
+          "call_count",
+          "best_confidence",
+          "best_heard"
+        ],
+        "title": "HeardGroupResponse",
+        "type": "object"
+      },
+      "HeardGroupsResponse": {
+        "properties": {
+          "call_count": {
+            "title": "Call Count",
+            "type": "integer"
+          },
+          "correlation_window_seconds": {
+            "title": "Correlation Window Seconds",
+            "type": "integer"
+          },
+          "gap_seconds": {
+            "title": "Gap Seconds",
+            "type": "integer"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/HeardGroupResponse"
+            },
+            "title": "Groups",
+            "type": "array"
+          },
+          "matched_visits": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/HeardVisitCallsResponse"
+            },
+            "title": "Matched Visits",
+            "type": "array"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "groups",
+          "call_count",
+          "truncated",
+          "gap_seconds",
+          "correlation_window_seconds"
+        ],
+        "title": "HeardGroupsResponse",
+        "type": "object"
+      },
+      "HeardVisitCallsResponse": {
+        "properties": {
+          "call_count": {
+            "title": "Call Count",
+            "type": "integer"
+          },
+          "end_time": {
+            "title": "End Time",
+            "type": "string"
+          },
+          "scientific_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scientific Name"
+          },
+          "start_time": {
+            "title": "Start Time",
+            "type": "string"
+          },
+          "visit_id": {
+            "title": "Visit Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "visit_id",
+          "start_time",
+          "end_time",
+          "call_count"
+        ],
+        "title": "HeardVisitCallsResponse",
         "type": "object"
       },
       "HiddenCountResponse": {
@@ -6946,6 +7814,17 @@
       },
       "LeaderboardPortraitResponse": {
         "properties": {
+          "film_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Film Url"
+          },
           "frigate_event": {
             "title": "Frigate Event",
             "type": "string"
@@ -7612,6 +8491,18 @@
             ],
             "title": "Common Name"
           },
+          "frame_offset_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Where in the video that frame is.",
+            "title": "Frame Offset Seconds"
+          },
           "inference_backend": {
             "anyOf": [
               {
@@ -7681,6 +8572,30 @@
               }
             ],
             "title": "Model Name"
+          },
+          "photo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "This species' best frame in a video, cropped to the bird; null without one.",
+            "title": "Photo Url"
+          },
+          "scene_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The whole frame photo_url was cropped from.",
+            "title": "Scene Url"
           },
           "scientific_name": {
             "anyOf": [
@@ -7976,6 +8891,11 @@
               }
             ],
             "title": "Old Species"
+          },
+          "photo_changed": {
+            "default": false,
+            "title": "Photo Changed",
+            "type": "boolean"
           },
           "scientific_name": {
             "anyOf": [
@@ -8877,6 +9797,130 @@
         "title": "OAuthAuthorizeResponse",
         "type": "object"
       },
+      "PortraitDay": {
+        "properties": {
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "visits": {
+            "title": "Visits",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "visits"
+        ],
+        "title": "PortraitDay",
+        "type": "object"
+      },
+      "PortraitSpecies": {
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "first_seen": {
+            "title": "First Seen",
+            "type": "string"
+          },
+          "scientific_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scientific Name"
+          },
+          "species": {
+            "title": "Species",
+            "type": "string"
+          },
+          "taxa_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taxa Id"
+          }
+        },
+        "required": [
+          "species",
+          "display_name",
+          "first_seen"
+        ],
+        "title": "PortraitSpecies",
+        "type": "object"
+      },
+      "PortraitVisit": {
+        "properties": {
+          "detection_time": {
+            "title": "Detection Time",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "film_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Film Url"
+          },
+          "frigate_event": {
+            "title": "Frigate Event",
+            "type": "string"
+          },
+          "image_url": {
+            "title": "Image Url",
+            "type": "string"
+          },
+          "scientific_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scientific Name"
+          },
+          "taxa_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taxa Id"
+          }
+        },
+        "required": [
+          "frigate_event",
+          "display_name",
+          "detection_time",
+          "image_url"
+        ],
+        "title": "PortraitVisit",
+        "type": "object"
+      },
       "ProviderValidationStatus": {
         "properties": {
           "checked_at": {
@@ -8985,6 +10029,11 @@
           },
           "deleted_count": {
             "title": "Deleted Count",
+            "type": "integer"
+          },
+          "errors": {
+            "default": 0,
+            "title": "Errors",
             "type": "integer"
           },
           "kept_count": {
@@ -9716,6 +10765,15 @@
             "title": "Cameras",
             "type": "array"
           },
+          "classification_image_source": {
+            "default": "frigate_snapshot",
+            "enum": [
+              "frigate_snapshot",
+              "recording_snapshot"
+            ],
+            "title": "Classification Image Source",
+            "type": "string"
+          },
           "classification_min_confidence": {
             "default": 0.4,
             "title": "Classification Min Confidence",
@@ -10399,14 +11457,23 @@
             "default": 1,
             "title": "Maintenance Max Concurrent"
           },
+          "media_cache_automatic_multi_bird_scan": {
+            "default": false,
+            "title": "Media Cache Automatic Multi Bird Scan",
+            "type": "boolean"
+          },
+          "media_cache_bird_scan_mode": {
+            "default": "intensive",
+            "enum": [
+              "standard",
+              "intensive"
+            ],
+            "title": "Media Cache Bird Scan Mode",
+            "type": "string"
+          },
           "media_cache_clips": {
             "default": false,
             "title": "Media Cache Clips",
-            "type": "boolean"
-          },
-          "media_cache_enabled": {
-            "default": true,
-            "title": "Media Cache Enabled",
             "type": "boolean"
           },
           "media_cache_high_quality_event_snapshot_bird_crop": {
@@ -10415,7 +11482,7 @@
             "type": "boolean"
           },
           "media_cache_high_quality_event_snapshot_jpeg_quality": {
-            "default": 95,
+            "default": 90,
             "title": "Media Cache High Quality Event Snapshot Jpeg Quality",
             "type": "integer"
           },
@@ -10423,6 +11490,16 @@
             "default": false,
             "title": "Media Cache High Quality Event Snapshots",
             "type": "boolean"
+          },
+          "media_cache_max_size_mb": {
+            "default": 0,
+            "title": "Media Cache Max Size Mb",
+            "type": "integer"
+          },
+          "media_cache_per_species_maximum": {
+            "default": 0,
+            "title": "Media Cache Per Species Maximum",
+            "type": "integer"
           },
           "media_cache_per_species_minimum": {
             "default": 0,
@@ -10433,11 +11510,6 @@
             "default": 0,
             "title": "Media Cache Retention Days",
             "type": "integer"
-          },
-          "media_cache_snapshots": {
-            "default": true,
-            "title": "Media Cache Snapshots",
-            "type": "boolean"
           },
           "media_integrity_scan_batch_size": {
             "default": 1000,
@@ -11821,6 +12893,16 @@
             "title": "Cameras",
             "type": "array"
           },
+          "classification_image_source": {
+            "default": "frigate_snapshot",
+            "description": "Initial classification image source; recordings fall back to the detection snapshot",
+            "enum": [
+              "frigate_snapshot",
+              "recording_snapshot"
+            ],
+            "title": "Classification Image Source",
+            "type": "string"
+          },
           "classification_min_confidence": {
             "default": 0.4,
             "description": "Minimum confidence floor (0-1)",
@@ -12557,16 +13639,26 @@
             "description": "Maximum concurrent maintenance workflows",
             "title": "Maintenance Max Concurrent"
           },
+          "media_cache_automatic_multi_bird_scan": {
+            "default": false,
+            "description": "Automatically scan visit photos for additional birds; manual scans remain available",
+            "title": "Media Cache Automatic Multi Bird Scan",
+            "type": "boolean"
+          },
+          "media_cache_bird_scan_mode": {
+            "default": "intensive",
+            "description": "Bird scan effort; standard is lighter, intensive scans high-resolution tiles",
+            "enum": [
+              "standard",
+              "intensive"
+            ],
+            "title": "Media Cache Bird Scan Mode",
+            "type": "string"
+          },
           "media_cache_clips": {
             "default": false,
             "description": "Cache video clips locally (may cause initial playback delay)",
             "title": "Media Cache Clips",
-            "type": "boolean"
-          },
-          "media_cache_enabled": {
-            "default": true,
-            "description": "Enable local media caching",
-            "title": "Media Cache Enabled",
             "type": "boolean"
           },
           "media_cache_high_quality_event_snapshot_bird_crop": {
@@ -12576,7 +13668,7 @@
             "type": "boolean"
           },
           "media_cache_high_quality_event_snapshot_jpeg_quality": {
-            "default": 95,
+            "default": 90,
             "description": "JPEG quality for derived high-quality event snapshots",
             "maximum": 100.0,
             "minimum": 70.0,
@@ -12588,6 +13680,22 @@
             "description": "Replace cached event snapshots with a frame derived from the Frigate clip when available",
             "title": "Media Cache High Quality Event Snapshots",
             "type": "boolean"
+          },
+          "media_cache_max_size_mb": {
+            "default": 0,
+            "description": "Ordinary media budget in MiB, excluding archived favourites; 0 is unlimited",
+            "maximum": 1048576.0,
+            "minimum": 0.0,
+            "title": "Media Cache Max Size Mb",
+            "type": "integer"
+          },
+          "media_cache_per_species_maximum": {
+            "default": 0,
+            "description": "Maximum cached visits per species, excluding favourites; 0 is unlimited",
+            "maximum": 10000.0,
+            "minimum": 0.0,
+            "title": "Media Cache Per Species Maximum",
+            "type": "integer"
           },
           "media_cache_per_species_minimum": {
             "default": 0,
@@ -12603,12 +13711,6 @@
             "minimum": 0.0,
             "title": "Media Cache Retention Days",
             "type": "integer"
-          },
-          "media_cache_snapshots": {
-            "default": true,
-            "description": "Cache snapshot images locally",
-            "title": "Media Cache Snapshots",
-            "type": "boolean"
           },
           "media_integrity_scan_batch_size": {
             "default": 1000,
@@ -13866,6 +14968,13 @@
       },
       "SnapshotCandidateListResponse": {
         "properties": {
+          "birds": {
+            "items": {
+              "$ref": "#/components/schemas/BirdObservationResponse"
+            },
+            "title": "Birds",
+            "type": "array"
+          },
           "candidates": {
             "items": {
               "$ref": "#/components/schemas/SnapshotCandidateResponse"
@@ -14012,6 +15121,11 @@
             ],
             "title": "Image Url"
           },
+          "photo_hidden": {
+            "default": false,
+            "title": "Photo Hidden",
+            "type": "boolean"
+          },
           "ranking_score": {
             "title": "Ranking Score",
             "type": "number"
@@ -14056,6 +15170,19 @@
           "selected"
         ],
         "title": "SnapshotCandidateResponse",
+        "type": "object"
+      },
+      "SnapshotDismissRequest": {
+        "properties": {
+          "dismissed": {
+            "title": "Dismissed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "dismissed"
+        ],
+        "title": "SnapshotDismissRequest",
         "type": "object"
       },
       "SnapshotGenerateResponse": {
@@ -15323,6 +16450,146 @@
         "title": "SystemTelemetryResponse",
         "type": "object"
       },
+      "TaxonChildrenResponse": {
+        "properties": {
+          "children": {
+            "items": {
+              "$ref": "#/components/schemas/TaxonResponse"
+            },
+            "title": "Children",
+            "type": "array"
+          },
+          "parent_id": {
+            "title": "Parent Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "parent_id",
+          "children"
+        ],
+        "title": "TaxonChildrenResponse",
+        "type": "object"
+      },
+      "TaxonLineageResponse": {
+        "properties": {
+          "lineage": {
+            "description": "From the root down to the taxon asked for",
+            "items": {
+              "$ref": "#/components/schemas/TaxonResponse"
+            },
+            "title": "Lineage",
+            "type": "array"
+          }
+        },
+        "required": [
+          "lineage"
+        ],
+        "title": "TaxonLineageResponse",
+        "type": "object"
+      },
+      "TaxonResponse": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Common name in the reader's language, else English, when one exists",
+            "title": "Name"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "principal": {
+            "description": "False for intermediate ranks a view may collapse",
+            "title": "Principal",
+            "type": "boolean"
+          },
+          "rank": {
+            "description": "kingdom, phylum, class, order, family, genus, species, or an intermediate rank",
+            "title": "Rank",
+            "type": "string"
+          },
+          "scientific_name": {
+            "title": "Scientific Name",
+            "type": "string"
+          },
+          "seen_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Detections of those species here, in the reader's window",
+            "title": "Seen Count"
+          },
+          "seen_species": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Species beneath this taxon (or this species) with a detection here, in the reader's window",
+            "title": "Seen Species"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The pinned source the taxon comes from",
+            "title": "Source"
+          },
+          "species_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Species at or beneath this taxon in the catalogue",
+            "title": "Species Count"
+          },
+          "taxon_id": {
+            "description": "Catalogue identity; for a species it is its species_id",
+            "title": "Taxon Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "taxon_id",
+          "rank",
+          "scientific_name",
+          "principal"
+        ],
+        "title": "TaxonResponse",
+        "type": "object"
+      },
       "TaxonomySyncStartResponse": {
         "properties": {
           "status": {
@@ -16262,6 +17529,27 @@
         "title": "VideoShareRevokeResponse",
         "type": "object"
       },
+      "VisitCapturesResponse": {
+        "properties": {
+          "captures": {
+            "items": {
+              "$ref": "#/components/schemas/DetectionResponse"
+            },
+            "title": "Captures",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "captures",
+          "total"
+        ],
+        "title": "VisitCapturesResponse",
+        "type": "object"
+      },
       "WeatherBackfillRequest": {
         "properties": {
           "date_range": {
@@ -16420,7 +17708,7 @@
   },
   "info": {
     "title": "Yet Another WhosAtMyFeeder API",
-    "version": "2.21.1"
+    "version": "2.22.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -16452,6 +17740,65 @@
           }
         ],
         "summary": "Get About Community",
+        "tags": [
+          "about"
+        ]
+      }
+    },
+    "/api/about/portrait": {
+      "get": {
+        "description": "This feeder in a few facts: since when, how many visits and species, its busiest day,\nits newest arrival, and its latest visit. Guests see the shared window, and are told so.",
+        "operationId": "get_feeder_portrait_api_about_portrait_get",
+        "parameters": [
+          {
+            "description": "The viewer's offset from UTC, for calendar days",
+            "in": "query",
+            "name": "utc_offset_minutes",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "The viewer's offset from UTC, for calendar days",
+              "maximum": 840,
+              "minimum": -840,
+              "title": "Utc Offset Minutes",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeederPortraitResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Feeder Portrait",
         "tags": [
           "about"
         ]
@@ -16560,6 +17907,61 @@
           }
         ],
         "summary": "Get About Reel Image",
+        "tags": [
+          "about"
+        ]
+      }
+    },
+    "/api/about/showcase/{event_id}.webm": {
+      "get": {
+        "description": "A few silent seconds of the visit, framed on the bird, under the same rules as its clip.\n\nA film not made yet is asked for and answered 404 with `X-Film-Status: pending`; the card\nkeeps its photograph until a later load finds the film.",
+        "operationId": "get_visit_film_api_about_showcase__event_id__webm_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "event_id",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Event Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "video/webm": {}
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "No film, or not made yet"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Visit Film",
         "tags": [
           "about"
         ]
@@ -16790,6 +18192,72 @@
           }
         ],
         "summary": "Get Event Audio Context",
+        "tags": [
+          "audio",
+          "audio"
+        ]
+      }
+    },
+    "/api/audio/heard-groups": {
+      "get": {
+        "description": "BirdNET-Go calls in a window, for the Explorer's heard bands.\n\nThe Explorer asks for the span its page of visits covers. Calls that support a visit the\npipeline confirmed are counted on that visit; the rest are folded per species into bouts of\nno more than ``gap_seconds`` of silence, so a chattering sparrow is one entry rather than forty.",
+        "operationId": "get_heard_groups_api_audio_heard_groups_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "start_date",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "title": "Start Date",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "end_date",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "title": "End Date",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HeardGroupsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Heard Groups",
         "tags": [
           "audio",
           "audio"
@@ -17039,6 +18507,8 @@
             "required": false,
             "schema": {
               "default": 10,
+              "maximum": 500,
+              "minimum": 1,
               "title": "Limit",
               "type": "integer"
             }
@@ -17413,6 +18883,102 @@
         "tags": [
           "audio",
           "audio"
+        ]
+      }
+    },
+    "/api/auth/avatar": {
+      "delete": {
+        "description": "Remove the owner's profile picture; the account shows its initial again.",
+        "operationId": "remove_avatar_api_auth_avatar_delete",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AvatarResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Remove Avatar",
+        "tags": [
+          "auth"
+        ]
+      },
+      "get": {
+        "description": "The owner's profile picture, a 256 px square JPEG.",
+        "operationId": "get_avatar_api_auth_avatar_get",
+        "responses": {
+          "200": {
+            "content": {
+              "image/jpeg": {}
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "No profile picture"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Avatar",
+        "tags": [
+          "auth"
+        ]
+      },
+      "put": {
+        "description": "Replace the owner's profile picture. The upload is re-encoded; nothing of the original is kept.",
+        "operationId": "put_avatar_api_auth_avatar_put",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_put_avatar_api_auth_avatar_put"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AvatarResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Put Avatar",
+        "tags": [
+          "auth"
         ]
       }
     },
@@ -20190,6 +21756,18 @@
             }
           },
           {
+            "description": "Owner: captures with at least two named bird species",
+            "in": "query",
+            "name": "multiple_species_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Owner: captures with at least two named bird species",
+              "title": "Multiple Species Only",
+              "type": "boolean"
+            }
+          },
+          {
             "description": "Sort order",
             "in": "query",
             "name": "sort",
@@ -20509,6 +22087,18 @@
               "default": false,
               "description": "Only count detections with audio confirmation",
               "title": "Audio Confirmed Only",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Owner: captures with at least two named bird species",
+            "in": "query",
+            "name": "multiple_species_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Owner: captures with at least two named bird species",
+              "title": "Multiple Species Only",
               "type": "boolean"
             }
           },
@@ -21651,6 +23241,219 @@
         "summary": "Test Frigate Connection"
       }
     },
+    "/api/frigate/{event_id}/birds/scan": {
+      "get": {
+        "operationId": "get_bird_scan_api_frigate__event_id__birds_scan_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "event_id",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Event Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "maxLength": 256,
+              "minLength": 1,
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "expected_media_version",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Expected Media Version"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BirdScanResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Bird Scan"
+      },
+      "post": {
+        "operationId": "request_bird_scan_api_frigate__event_id__birds_scan_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "event_id",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Event Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BirdScanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BirdScanResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Request Bird Scan"
+      }
+    },
+    "/api/frigate/{event_id}/birds/{bird_id}": {
+      "patch": {
+        "operationId": "update_counted_bird_api_frigate__event_id__birds__bird_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "event_id",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Event Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "bird_id",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "title": "Bird Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BirdObservationUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BirdObservationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Update Counted Bird"
+      }
+    },
     "/api/frigate/{event_id}/clip-thumbnails.jpg": {
       "get": {
         "description": "Return generated sprite image for clip timeline previews.",
@@ -22255,6 +24058,79 @@
           }
         ],
         "summary": "Get Snapshot Candidates"
+      }
+    },
+    "/api/frigate/{event_id}/snapshot/candidates/{candidate_id}": {
+      "patch": {
+        "operationId": "dismiss_snapshot_candidate_api_frigate__event_id__snapshot_candidates__candidate_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "event_id",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Event Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "maxLength": 160,
+              "minLength": 1,
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SnapshotDismissRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotCandidateListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Dismiss Snapshot Candidate"
       }
     },
     "/api/frigate/{event_id}/snapshot/candidates/{candidate_id}/image.jpg": {
@@ -24118,6 +25994,74 @@
           }
         ],
         "summary": "Retry Manual Observation",
+        "tags": [
+          "manual observations"
+        ]
+      }
+    },
+    "/api/manual-observations/{draft_id}/species/{position}/{view}": {
+      "get": {
+        "operationId": "species_photo_manual_observation_api_manual_observations__draft_id__species__position___view__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "title": "Draft Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "position",
+            "required": true,
+            "schema": {
+              "title": "Position",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "view",
+            "required": true,
+            "schema": {
+              "enum": [
+                "photo",
+                "scene"
+              ],
+              "title": "View",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Species Photo Manual Observation",
         "tags": [
           "manual observations"
         ]
@@ -26084,6 +28028,182 @@
         ]
       }
     },
+    "/api/taxonomy/lineage": {
+      "get": {
+        "description": "Where a species sits, found by its scientific name through the catalogue (synonyms included).",
+        "operationId": "get_species_lineage_api_taxonomy_lineage_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "scientific_name",
+            "required": true,
+            "schema": {
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Scientific Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaxonLineageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Species Lineage",
+        "tags": [
+          "taxonomy"
+        ]
+      }
+    },
+    "/api/taxonomy/{taxon_id}/children": {
+      "get": {
+        "description": "The taxa directly beneath one, in the source's order, each with the number of species it holds.",
+        "operationId": "get_taxon_children_api_taxonomy__taxon_id__children_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "taxon_id",
+            "required": true,
+            "schema": {
+              "title": "Taxon Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 500,
+              "maximum": 5000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaxonChildrenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Taxon Children",
+        "tags": [
+          "taxonomy"
+        ]
+      }
+    },
+    "/api/taxonomy/{taxon_id}/lineage": {
+      "get": {
+        "description": "Where a taxon sits: every taxon above it, root first, with what was seen here beneath each.",
+        "operationId": "get_taxon_lineage_api_taxonomy__taxon_id__lineage_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "taxon_id",
+            "required": true,
+            "schema": {
+              "title": "Taxon Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaxonLineageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Taxon Lineage",
+        "tags": [
+          "taxonomy"
+        ]
+      }
+    },
     "/api/update-status": {
       "get": {
         "description": "Report whether a newer YA-WAMF release is available (in-app update prompt).\n\nA notification only \u2014 YA-WAMF never updates itself; pulling a new image is left to the\norchestrator. Honours the `system.update_check_enabled` opt-out and never blocks.",
@@ -26421,6 +28541,378 @@
           }
         ],
         "summary": "Revoke Video Share Link"
+      }
+    },
+    "/api/visits": {
+      "get": {
+        "operationId": "get_visits_api_visits_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 24,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "start_date",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start Date"
+            }
+          },
+          {
+            "in": "query",
+            "name": "end_date",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "End Date"
+            }
+          },
+          {
+            "in": "query",
+            "name": "start_time",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start Time"
+            }
+          },
+          {
+            "in": "query",
+            "name": "end_time",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "End Time"
+            }
+          },
+          {
+            "in": "query",
+            "name": "species",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Species"
+            }
+          },
+          {
+            "in": "query",
+            "name": "camera",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Camera"
+            }
+          },
+          {
+            "in": "query",
+            "name": "multiple_species_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Multiple Species Only",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "favorites",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Favorites",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "audio_confirmed_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Audio Confirmed Only",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "only_hidden",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Only Hidden",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "default": "newest",
+              "pattern": "^(newest|oldest|confidence)$",
+              "title": "Sort",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DetectionVisitsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Visits",
+        "tags": [
+          "visits"
+        ]
+      }
+    },
+    "/api/visits/{visit_id}/captures": {
+      "get": {
+        "operationId": "get_visit_captures_api_visits__visit_id__captures_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "visit_id",
+            "required": true,
+            "schema": {
+              "title": "Visit Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "start_date",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start Date"
+            }
+          },
+          {
+            "in": "query",
+            "name": "end_date",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "End Date"
+            }
+          },
+          {
+            "in": "query",
+            "name": "start_time",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start Time"
+            }
+          },
+          {
+            "in": "query",
+            "name": "end_time",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "End Time"
+            }
+          },
+          {
+            "in": "query",
+            "name": "only_hidden",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Only Hidden",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitCapturesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Visit Captures",
+        "tags": [
+          "visits"
+        ]
       }
     },
     "/health": {

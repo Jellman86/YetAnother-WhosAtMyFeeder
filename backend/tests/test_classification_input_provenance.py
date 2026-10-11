@@ -32,6 +32,13 @@ def test_cached_full_frame_provenance_is_not_marked_as_cropped():
     assert provenance.is_cropped is False
 
 
+@pytest.mark.parametrize("source,cropped", [("video_evidence_crop", True), ("video_evidence_full_frame", False)])
+def test_verified_video_photo_preserves_its_input_geometry(source, cropped):
+    provenance = cached_snapshot_input_provenance({"source": source})
+    assert provenance.input_source == source
+    assert provenance.is_cropped is cropped
+
+
 def test_unknown_cached_snapshot_provenance_fails_safe_to_uncropped():
     provenance = cached_snapshot_input_provenance({"source": "unexpected_external_value"})
 
@@ -237,3 +244,65 @@ async def test_load_snapshot_keeps_cached_image_when_metadata_read_fails():
     assert provenance.input_source == "cached_snapshot_unknown"
     assert provenance.is_cropped is False
     client.get_snapshot.assert_not_awaited()
+
+
+def test_unverified_frigate_jpeg_never_reuses_full_frame_coordinates():
+    provenance = cached_snapshot_input_provenance({"source": "frigate_snapshot_unverified"})
+    context = build_snapshot_classification_input_context(
+        event_id="unknown-framing",
+        event_data={"data": {"box": [0.2, 0.3, 0.1, 0.1]}},
+        provenance=provenance,
+    )
+    assert provenance.input_source == "frigate_snapshot_unverified"
+    assert context["is_cropped"] is False
+    assert "frigate_box" not in context
+    assert "restore_frigate_snapshot_crop" not in context
+
+
+def test_full_frame_snapshot_is_cropped_with_its_own_box_not_the_latest_mqtt_box():
+    # MQTT `after.box` is where the bird was last tracked; the saved snapshot is the
+    # best frame, described by `after.snapshot`. A bird that flew off moved its box away.
+    provenance = frigate_snapshot_input_provenance({"end_time": 1234.5})
+
+    context = build_snapshot_classification_input_context(
+        event_id="event-mqtt-recovery",
+        event_data={
+            "end_time": 1234.5,
+            "data": {"box": [470, 520, 560, 600], "region": [400, 450, 700, 750]},
+            "snapshot": {"frame_time": 1230.0, "box": [584, 607, 710, 709], "region": [464, 502, 784, 822]},
+        },
+        provenance=provenance,
+    )
+
+    assert context["frigate_box"] == [584, 607, 710, 709]
+    assert context["frigate_region"] == [464, 502, 784, 822]
+    assert context["restore_frigate_snapshot_crop"] is True
+
+
+def test_snapshot_box_without_region_does_not_borrow_the_latest_region():
+    provenance = frigate_snapshot_input_provenance({"end_time": 1234.5})
+
+    context = build_snapshot_classification_input_context(
+        event_id="event-mqtt-snapshot-box-only",
+        event_data={
+            "end_time": 1234.5,
+            "data": {"box": [470, 520, 560, 600], "region": [400, 450, 700, 750]},
+            "snapshot": {"box": [584, 607, 710, 709]},
+        },
+        provenance=provenance,
+    )
+
+    assert context["frigate_box"] == [584, 607, 710, 709]
+    assert "frigate_region" not in context
+
+
+def test_malformed_snapshot_box_falls_back_to_the_event_box():
+    provenance = frigate_snapshot_input_provenance({"end_time": 1234.5})
+
+    context = build_snapshot_classification_input_context(
+        event_id="event-mqtt-bad-snapshot",
+        event_data={"end_time": 1234.5, "data": {"box": [786, 323, 910, 417]}, "snapshot": {"box": "nope"}},
+        provenance=provenance,
+    )
+
+    assert context["frigate_box"] == [786, 323, 910, 417]

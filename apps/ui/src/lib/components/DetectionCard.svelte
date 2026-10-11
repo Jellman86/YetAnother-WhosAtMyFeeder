@@ -1,15 +1,20 @@
 <script lang="ts">
+    import type { Snippet } from 'svelte';
     import type { Detection } from '../api';
     import { getThumbnailUrl } from '../api';
     import { detectionsStore } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { _ } from 'svelte-i18n';
+    import BadgeHint from './BadgeHint.svelte';
+    import { explanation } from '../utils/explanation';
     import DetectionCardAnalysisOverlay from './DetectionCardAnalysisOverlay.svelte';
 
     import { getBirdNames } from '../naming';
     import { formatDate as formatDateValue, formatTime } from '../utils/datetime';
     import { formatTemperature } from '../utils/temperature';
+    import { photoFitFor, type PhotoFit } from '../utils/photo-fit';
+    import type { SpeciesInCapture } from '../utils/visit-captures';
     import {
         getTemperatureUnitForSystem,
         resolveWeatherUnitSystem
@@ -29,6 +34,16 @@
         fullVisitAvailable?: boolean;
         fullVisitFetched?: boolean;
         fullVisitFetchState?: 'idle' | 'fetching' | 'ready' | 'partial' | 'failed';
+        /**
+         * Content that belongs to this record, such as its visit's captures. It sits inside the
+         * card's one frame, under the record, as a separate control; the card itself still opens
+         * the record. Without it the card is the plain, closed shape.
+         */
+        footer?: Snippet;
+        /** Species in the visit's busiest capture, when there is more than one. */
+        speciesMix?: SpeciesInCapture[] | null;
+        /** Heard calls that fold into this visit because they confirm it. */
+        matchedCalls?: number;
     }
 
     let {
@@ -44,8 +59,12 @@
         selected = false,
         fullVisitAvailable: _fullVisitAvailable = false,
         fullVisitFetched = false,
-        fullVisitFetchState: _fullVisitFetchState = 'idle'
+        fullVisitFetchState: _fullVisitFetchState = 'idle',
+        footer,
+        speciesMix = null,
+        matchedCalls = 0
     }: Props = $props();
+    const mixed = $derived((speciesMix?.length ?? 0) >= 2);
 
     // Check if this detection is being reclassified
     let reclassifyProgress = $derived(!hideProgress ? detectionsStore.getReclassificationProgress(detection.frigate_event) : null);
@@ -58,8 +77,8 @@
         return getBirdNames(detection, showCommon, preferSci);
     });
 
-    let primaryName = $derived(naming.primary);
-    let subName = $derived(naming.secondary);
+    let primaryName = $derived(mixed ? $_('events.multiple_species', { default: 'Multiple species' }) : naming.primary);
+    let subName = $derived(mixed ? null : naming.secondary);
 
     let isManualObservation = $derived(detection.observation_source === 'manual_upload');
     let isVerified = $derived(!isManualObservation && detection.audio_confirmed && detection.score > 0.7);
@@ -74,8 +93,16 @@
         detection.temperature !== undefined && detection.temperature !== null
     );
 
-    let imageError = $state(false);
+    const thumbnailUrl = $derived(
+        getThumbnailUrl(detection.frigate_event, detectionsStore.settledMediaVersion(detection.frigate_event))
+    );
+    // A failure belongs to the address that failed, so a photograph saved by a later run is tried.
+    let failedThumbnailUrl = $state<string | null>(null);
+    const imageError = $derived(failedThumbnailUrl === thumbnailUrl);
     let imageLoaded = $state(false);
+    // Measured per address, so a replacement photograph is fitted afresh.
+    let measuredFit = $state<{ url: string; fit: PhotoFit } | null>(null);
+    const photoFit = $derived(measuredFit?.url === thumbnailUrl ? measuredFit.fit : 'cover');
     let cardElement = $state<HTMLElement | null>(null);
     let isVisible = $state(false);
 
@@ -182,11 +209,11 @@
     }
 </script>
 
-<div class="relative rounded-[2rem] transition-all duration-300 ease-out">
+<div class="relative h-full rounded-[2rem] transition-all duration-300 ease-out">
     <div
         bind:this={cardElement}
         data-detection-card
-        class="group relative bg-white/90 dark:bg-slate-800/75 rounded-3xl
+        class="group relative bg-white/90 dark:bg-slate-800/75 rounded-2xl
                shadow-sm hover:shadow-md dark:shadow-slate-950/15
                border border-slate-200/80 dark:border-slate-700/60
                hover:border-brand-500/40 dark:hover:border-brand-500/30
@@ -199,16 +226,18 @@
                {selectionMode && selected && !analysisActive ? 'border-2 border-cyan-300 dark:border-cyan-300/90 ring-2 ring-cyan-500/35 dark:ring-cyan-300/20 bg-cyan-50/20 dark:bg-cyan-500/5' : ''}"
         style="animation-delay: {index * 40}ms"
     >
+    <!-- The record: everything above the footer opens it, and nothing in the footer does. -->
+    <div class="relative flex flex-1 flex-col">
     <button
         type="button"
         aria-label="{$_('detection.card_label', { values: { species: primaryName, camera: detection.camera_name } })}"
         onclick={onclick}
-        class="absolute inset-0 z-10 rounded-3xl focus:outline-none focus:ring-2 focus:ring-brand-500/50"
+        class="absolute inset-0 z-10 {footer ? 'rounded-t-2xl' : 'rounded-2xl'} focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
     ></button>
 
     <!-- Reclassification Overlay -->
     {#if analysisActive && reclassifyProgress}
-        <div class="absolute inset-0 z-50 pointer-events-none rounded-3xl overflow-hidden">
+        <div class="absolute inset-0 z-50 pointer-events-none rounded-2xl overflow-hidden">
             <DetectionCardAnalysisOverlay progress={reclassifyProgress} />
         </div>
     {/if}
@@ -219,15 +248,23 @@
             {#if !imageLoaded}
                 <div class="absolute inset-0 bg-slate-100 dark:bg-slate-800 animate-shimmer bg-[length:200%_100%] bg-gradient-to-r from-transparent via-slate-200/10 to-transparent"></div>
             {/if}
+            {#if photoFit === 'contain'}
+                <!-- A tall crop is shown whole over a soft copy of itself, not cut to a band. -->
+                <img src={thumbnailUrl} alt="" aria-hidden="true" class="absolute inset-0 h-full w-full scale-110 object-cover opacity-60 blur-xl" data-card-photo-fill />
+            {/if}
             <img
-                src={getThumbnailUrl(detection.frigate_event)}
+                src={thumbnailUrl}
                 alt="{$_('detection.image_alt', { values: { species: primaryName, camera: detection.camera_name } })}"
                 loading="lazy"
-                class="w-full h-full object-cover transition-transform duration-300 ease-out
+                class="relative w-full h-full {photoFit === 'contain' ? 'object-contain' : 'object-cover'} transition-transform duration-300 ease-out
                        group-hover:scale-[1.025]
                        {imageLoaded ? 'opacity-100' : 'opacity-0'}"
-                onload={() => imageLoaded = true}
-                onerror={() => imageError = true}
+                data-card-photo-fit={photoFit}
+                onload={(event) => {
+                    imageLoaded = true;
+                    measuredFit = { url: thumbnailUrl, fit: photoFitFor(event.currentTarget as HTMLImageElement) };
+                }}
+                onerror={(event) => failedThumbnailUrl = event.currentTarget.getAttribute('src')}
             />
             <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 opacity-60"></div>
             <div class="absolute inset-0 bg-brand-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
@@ -241,64 +278,59 @@
         {/if}
         {#if !analysisActive}
             <!-- Top-left: icon-only badges (favorite, verified, audio) -->
-            <div class="absolute top-3 left-3 flex items-center gap-1.5">
+            <div class="absolute top-3 left-3 z-20 flex items-center gap-1.5">
                 {#if detection.is_favorite}
-                    <div
-                        role="img"
+                    <BadgeHint
                         class="w-7 h-7 rounded-full bg-amber-500/90 text-white flex items-center justify-center shadow-lg shadow-amber-500/30"
-                        title={$_('detection.favorite', { default: 'Favorite' })}
-                        aria-label={$_('detection.favorite', { default: 'Favorite' })}
+                        text={$_('detection.favorite', { default: 'Favorite' })}
+                        label={$_('detection.favorite', { default: 'Favorite' })}
                     >
                         <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                             <path d="M11.05 2.927c.3-.921 1.603-.921 1.902 0l2.02 6.217a1 1 0 00.95.69h6.54c.969 0 1.371 1.24.588 1.81l-5.29 3.844a1 1 0 00-.364 1.118l2.02 6.217c.3.921-.755 1.688-1.539 1.118l-5.29-3.844a1 1 0 00-1.175 0l-5.29 3.844c-.783.57-1.838-.197-1.539-1.118l2.02-6.217a1 1 0 00-.364-1.118L.98 11.644c-.783-.57-.38-1.81.588-1.81h6.54a1 1 0 00.95-.69l2.02-6.217z" />
                         </svg>
-                    </div>
+                    </BadgeHint>
                 {/if}
                 {#if isVerified}
-                    <div
-                        role="img"
+                    <BadgeHint
                         class="w-7 h-7 rounded-full bg-accent-500/90 text-white flex items-center justify-center shadow-lg shadow-accent-500/40"
-                        title={$_('detection.verified')}
-                        aria-label={$_('detection.verified')}
+                        text={$_('detection.audio_evidence_hint')}
+                        label={$_('detection.verified')}
                     >
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z" />
                         </svg>
-                    </div>
+                    </BadgeHint>
                 {/if}
                 {#if hasAudioConfirmed && !isVerified}
-                    <div
-                        role="img"
+                    <BadgeHint
                         class="w-7 h-7 rounded-full bg-brand-500/90 text-white flex items-center justify-center shadow-lg shadow-brand-500/30"
-                        title={$_('detection.audio_match')}
-                        aria-label={$_('detection.audio_match')}
+                        text={$_('detection.audio_evidence_hint')}
+                        label={$_('detection.audio_match')}
                     >
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z" />
                         </svg>
-                    </div>
+                    </BadgeHint>
                 {/if}
                 {#if detection.observation_source === 'manual_upload'}
-                    <div
-                        role="img"
+                    <BadgeHint
                         class="flex h-7 w-7 items-center justify-center rounded-full bg-brand-500/95 text-white shadow-lg shadow-brand-500/30"
-                        title={$_('detection.manual_upload', { default: 'Added from an upload' })}
-                        aria-label={$_('detection.manual_upload', { default: 'Added from an upload' })}
+                        text={$_('detection.manual_upload', { default: 'Added from an upload' })}
+                        label={$_('detection.manual_upload', { default: 'Added from an upload' })}
                     >
                         <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 16V4m0 0L8 8m4-4 4 4M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" /></svg>
-                    </div>
+                    </BadgeHint>
                 {/if}
                 {#if upstreamMissing}
-                    <div
-                        role="img"
+                    <BadgeHint
                         class="w-7 h-7 rounded-full bg-orange-500/95 text-white flex items-center justify-center shadow-lg shadow-orange-500/35"
-                        title={$_('detection.upstream_missing.card_title', { default: 'Frigate no longer has this event or media' })}
-                        aria-label={$_('detection.upstream_missing.card_label', { default: 'Missing upstream' })}
+                        text={$_('detection.upstream_missing.card_title', { default: 'Frigate no longer has this event or media' })}
+                        label={$_('detection.upstream_missing.card_label', { default: 'Missing upstream' })}
                     >
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
                         </svg>
-                    </div>
+                    </BadgeHint>
                 {/if}
             </div>
 
@@ -315,20 +347,23 @@
                  the guard fired on an ordinary laptop and covered the bird. The
                  grid now keeps a card wide enough for one line instead. -->
             <div class="absolute bottom-3 left-3 z-20 flex flex-nowrap items-center gap-2">
-                <div class="flex min-h-11 items-center gap-1.5 rounded-full border border-white/10 bg-black/60 px-3 py-2 text-xs font-bold text-white backdrop-blur-md">
+                <BadgeHint text={$_('detection.captured_at_hint', { values: { date: formatDateValue(detection.detection_time), time: formatTime(detection.detection_time) } })} class="flex min-h-11 items-center gap-1.5 rounded-full border border-white/10 bg-black/60 px-3 py-2 text-xs font-bold text-white backdrop-blur-md">
                     <svg class="w-3 h-3 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     {formatTime(detection.detection_time)}
-                </div>
-                <div class="flex min-h-11 items-center gap-1.5 rounded-full border border-white/10 bg-black/60 px-3 py-2 text-xs font-bold text-white backdrop-blur-md">
+                </BadgeHint>
+                {#if !mixed}
+                <BadgeHint text={$_('detection.confidence_hint', { values: { score: (detection.score * 100).toFixed(0) } })} class="flex min-h-11 items-center gap-1.5 rounded-full border border-white/10 bg-black/60 px-3 py-2 text-xs font-bold text-white backdrop-blur-md">
                     <span class="h-2 w-2 rounded-full {detection.score >= 0.9 ? 'bg-accent-500' : detection.score >= 0.7 ? 'bg-amber-500' : 'bg-red-500'}"></span>
                     {(detection.score * 100).toFixed(0)}%
-                </div>
+                </BadgeHint>
+                {/if}
                 {#if canPlayVideo}
                     <span class="relative inline-flex">
                     <button
                         onclick={handlePlayClick}
+                        use:explanation={$_('detection.play_video', { values: { species: primaryName } })}
                         onkeydown={(e) => {
                             if (e.key === 'Enter' || e.key === ' ') {
                                 e.preventDefault();
@@ -344,11 +379,10 @@
                         </svg>
                     </button>
                     {#if fullVisitFetched}
-                        <span
-                            class="pointer-events-none absolute -right-0.5 -top-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border border-slate-950/40 bg-brand-500 text-white shadow-md"
-                            title={$_('video_player.full_visit_ready', { default: 'Full visit clip ready' })}
-                            aria-label={$_('video_player.full_visit_ready', { default: 'Full visit clip ready' })}
-                            role="img"
+                        <BadgeHint
+                            class="absolute -right-0.5 -top-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border border-slate-950/40 bg-brand-500 text-white shadow-md"
+                            text={$_('video_player.full_visit_ready', { default: 'Full visit clip ready' })}
+                            label={$_('video_player.full_visit_ready', { default: 'Full visit clip ready' })}
                         >
                             <svg class="h-2 w-2" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
                                 <path d="M7 3H5a2 2 0 00-2 2v2" stroke-linecap="round" stroke-linejoin="round"></path>
@@ -356,7 +390,7 @@
                                 <path d="M17 13v2a2 2 0 01-2 2h-2" stroke-linecap="round" stroke-linejoin="round"></path>
                                 <path d="M7 17H5a2 2 0 01-2-2v-2" stroke-linecap="round" stroke-linejoin="round"></path>
                             </svg>
-                        </span>
+                        </BadgeHint>
                     {/if}
                     </span>
                 {/if}
@@ -416,8 +450,22 @@
                 {primaryName}
             </h3>
             {#if subName}
-                <p class="text-[11px] italic text-slate-500 dark:text-slate-400 font-medium mt-0.5 truncate opacity-80">
+                <p class="text-2xs italic text-slate-500 dark:text-slate-400 font-medium mt-0.5 truncate opacity-80">
                     {subName}
+                </p>
+            {/if}
+            {#if mixed && speciesMix}
+                <ul class="mt-1.5 flex flex-wrap gap-1.5" aria-label={$_('events.species_in_capture', { default: 'Species in this capture' })}>
+                    {#each speciesMix as entry (entry.species)}
+                        <li class="inline-flex min-h-6 items-center gap-1.5 rounded-full border border-line-soft bg-surface px-2 text-2xs font-semibold text-slate-700 dark:text-slate-200">
+                            {entry.species}<span class="font-bold tabular-nums text-brand-700 dark:text-brand-300">{entry.count}</span>
+                        </li>
+                    {/each}
+                </ul>
+            {/if}
+            {#if hasAudioConfirmed && matchedCalls > 0}
+                <p class="mt-1 text-2xs font-semibold text-brand-700 dark:text-brand-300">
+                    {$_('events.heard.matching_calls', { values: { count: matchedCalls }, default: 'matching call, {count} calls' })}
                 </p>
             {/if}
         </div>
@@ -462,16 +510,19 @@
         {/if}
 
         <!-- Compact metadata line: date + camera -->
-        <div class="mt-auto flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">
+        <div class="mt-auto flex items-center gap-1.5 text-2xs text-slate-500 dark:text-slate-400 font-medium truncate">
             <span>{formatDate(detection.detection_time)}</span>
             <span class="text-slate-300 dark:text-slate-600">&middot;</span>
             <span class="truncate">{detection.camera_name}</span>
         </div>
     </div>
+    </div>
+    {#if footer}
+        <div class="relative z-20" data-detection-card-footer>{@render footer()}</div>
+    {/if}
     {#if selectionMode && selected && !analysisActive}
-        <div class="absolute inset-0 z-40 overflow-hidden rounded-3xl pointer-events-none">
+        <div class="absolute inset-0 z-40 overflow-hidden rounded-2xl pointer-events-none">
             <div class="absolute inset-0 bg-cyan-500/24 backdrop-blur-sm"></div>
-            <div class="absolute inset-0 bg-gradient-to-br from-cyan-300/22 via-sky-400/14 to-blue-500/22"></div>
             <div class="absolute inset-0 bg-slate-950/10 dark:bg-slate-950/22"></div>
             <div class="absolute inset-0 z-50 flex items-center justify-center">
                 <svg class="h-16 w-16 text-white drop-shadow-[0_6px_18px_rgba(8,47,73,0.45)]" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">

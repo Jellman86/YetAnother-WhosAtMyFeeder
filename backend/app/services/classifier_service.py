@@ -15,20 +15,37 @@ import json
 import math
 import re
 import subprocess
-import sys
 import threading
 import time
+import tempfile
+import shutil
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from PIL import Image
-from typing import Optional, Any, Awaitable, Callable, Iterable, Literal, NoReturn
+from typing import Optional, Any, Awaitable, Callable, Iterable, Literal, NoReturn, NamedTuple
 
 from app.services.inference_health import InferenceHealth, Outcome, RuntimeKey
 from app.services.openvino_cache import resolve_openvino_cache_dir
+from app.services.photo_presence import has_localized_bird
+from app.services.video_scene_cache import VideoSceneCache
 from app.services.startup_status import startup_status
 from app.utils.canonical_species import should_hide_species_label
-from app.utils.frigate_coordinates import normalize_frigate_hint_box, restore_frigate_hint_box
+from app.utils.frigate_coordinates import (
+    frigate_snapshot_crop_box,
+    normalized_frigate_video_hint,
+    photographed_track,
+    restore_frigate_hint_box,
+)
 from app.utils.runtime_flavor import get_image_flavor, image_flavor_warning, packaged_inference_providers
+
+
+class VideoFrameCandidate(NamedTuple):
+    source: str
+    image: Image.Image
+    crop_box: tuple[int, int, int, int] | None
+    detector_box: tuple[int, int, int, int] | None = None
+    detector_confidence: float | None = None
+
 
 # TFLite runtime
 try:
@@ -72,10 +89,9 @@ def _preload_onnxruntime_cuda_runtime_libraries() -> None:
     """
     if ort is None:
         return
-    preload_dlls = getattr(ort, "preload_dlls", None)
-    if not callable(preload_dlls):
-        return
-    preload_dlls(directory="")
+    from app.utils.cuda_runtime import preload_packaged_cuda_libraries
+
+    preload_packaged_cuda_libraries(ort)
 
 
 def _detect_openvino_support() -> dict:
@@ -134,6 +150,8 @@ OpenVINOCore = _OPENVINO_SUPPORT["core_class"]
 OPENVINO_AVAILABLE = bool(_OPENVINO_SUPPORT["available"])
 
 from app.config import settings  # noqa: E402
+from app.utils.python_subprocess import python_subprocess_launch  # noqa: E402
+
 from app.services.native_crash_quarantine import (  # noqa: E402
     NativeCrashQuarantine,
     NativeCrashQuarantinedError,
@@ -162,7 +180,8 @@ from app.services.video_classification_policy import (  # noqa: E402
     VIDEO_MIN_FRAME_SEPARATION_SECONDS,
     VIDEO_SPARSE_POOL_MAX_FRAMES,
     assess_temporal_consensus,
-    select_temporal_source_consensus,
+    build_target_temporal_consensus,
+    select_event_temporal_source_consensus,
 )
 from app.utils.classifier_labels import (  # noqa: E402
     build_grouped_classifier_labels,
@@ -466,6 +485,13 @@ def _label_integrity_for(model: object) -> dict[str, object]:
 
     from app.services.label_integrity import LabelVerdict, verify_model_labels
 
+    from app.services.catalogue_labels import catalogue_labels_for_model
+
+    checksum = getattr(model, "model_sha256", None)
+    catalogue = catalogue_labels_for_model(checksum)
+    if catalogue:
+        return {"verdict": LabelVerdict.VERIFIED.value, "label_count": len(catalogue), "source": "catalogue"}
+
     labels_path = getattr(model, "labels_path", None)
     if not labels_path:
         return {"verdict": LabelVerdict.MISSING.value, "label_count": 0}
@@ -734,6 +760,11 @@ def _build_classification_results(
     ]
 
 
+def _check_catalogue_output_width(labels: list[str], output_width: int, source: str) -> None:
+    if source == "catalogue" and len(labels) != output_width:
+        raise ValueError(f"Catalogue output width {len(labels)} differs from model output width {output_width}")
+
+
 def _resolve_model_labels(
     labels_path: str,
     label_grouping: dict,
@@ -827,7 +858,7 @@ def _resolve_color_space(preprocessing: Optional[dict[str, Any]]) -> str:
 
 def _resolve_resize_mode(preprocessing: Optional[dict[str, Any]], *, default: str = "letterbox") -> str:
     mode = str((preprocessing or {}).get("resize_mode") or default).strip().lower()
-    if mode not in {"letterbox", "center_crop", "direct_resize"}:
+    if mode not in {"letterbox", "center_crop", "direct_resize", "native_aspect_ratio"}:
         return default
     return mode
 
@@ -858,16 +889,27 @@ def _resize_preserving_aspect_shortest_edge(
     shortest_edge: int,
     *,
     interpolation: Image.Resampling,
+    rounding: str = "round",
 ) -> Image.Image:
     width, height = image.size
     if width <= 0 or height <= 0:
         return image
     if width <= height:
         new_width = shortest_edge
-        new_height = max(1, int(round(height * (shortest_edge / width))))
+        new_height = max(
+            1,
+            int(shortest_edge * height / width)
+            if rounding == "floor"
+            else int(round(height * (shortest_edge / width))),
+        )
     else:
         new_height = shortest_edge
-        new_width = max(1, int(round(width * (shortest_edge / height))))
+        new_width = max(
+            1,
+            int(shortest_edge * width / height)
+            if rounding == "floor"
+            else int(round(width * (shortest_edge / height))),
+        )
     return image.resize((new_width, new_height), interpolation)
 
 
@@ -878,6 +920,59 @@ def _center_crop_to_size(image: Image.Image, target_size: int) -> Image.Image:
     right = left + target_size
     bottom = top + target_size
     return image.crop((left, top, right, bottom))
+
+
+def _native_aspect_resize(
+    image: Image.Image, *, patch_size: int, max_seq_len: int, interpolation: Image.Resampling
+) -> Image.Image:
+    """Birder's native patch-grid contract (64-step search with ceiling).
+
+    Keeping the token budget, rather than a square edge, preserves the aspect
+    ratio the NaFlex encoder was trained to consume.
+    """
+    if patch_size <= 0 or max_seq_len <= 0:
+        raise ValueError("Positive patch size and token budget required")
+    width, height = image.size
+    low, high = 0.0, max_seq_len / min(height, width)
+    for _ in range(64):
+        scale = (low + high) / 2.0
+        grid_h, grid_w = max(1, math.ceil(height * scale)), max(1, math.ceil(width * scale))
+        if grid_h * grid_w <= max_seq_len:
+            low = scale
+        else:
+            high = scale
+    grid_h, grid_w = max(1, math.ceil(height * low)), max(1, math.ceil(width * low))
+    return image.resize((grid_w * patch_size, grid_h * patch_size), interpolation)
+
+
+def _inat_location_metadata(latitude: Any, longitude: Any) -> np.ndarray:
+    """Official iNat DINOv2 eight-feature contract, with date/uncertainty absent.
+
+    A real (0,0) location is distinct from missing coordinates. Never substitute
+    today's date for the capture date, or invent a location uncertainty.
+    """
+    result = np.zeros((1, 8), dtype=np.float32)
+    if isinstance(latitude, bool) or isinstance(longitude, bool):
+        return result
+    try:
+        lat, lon = float(latitude), float(longitude)
+    except (TypeError, ValueError):
+        return result
+    if not math.isfinite(lat) or not math.isfinite(lon) or not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        return result
+    lat, lon = math.radians(lat), math.radians(lon)
+    result[0, :3] = (math.cos(lat) * math.cos(lon), math.cos(lat) * math.sin(lon), math.sin(lat))
+    result[0, 6] = 1
+    return result
+
+
+def _classifier_auxiliary_inputs(preprocessing: dict[str, Any]) -> dict[str, np.ndarray]:
+    contract = preprocessing.get("metadata_input")
+    if contract is None:
+        return {}
+    if contract != "inat2021_location_v1":
+        raise ValueError(f"Unsupported classifier metadata contract: {contract}")
+    return {"metadata": _inat_location_metadata(settings.location.latitude, settings.location.longitude)}
 
 
 def _resize_with_preprocessing(
@@ -892,6 +987,14 @@ def _resize_with_preprocessing(
     interpolation = _resolve_interpolation(preprocessing)
     resize_mode = _resolve_resize_mode(preprocessing, default=default_resize_mode)
 
+    if resize_mode == "native_aspect_ratio":
+        return _native_aspect_resize(
+            image,
+            patch_size=int((preprocessing or {})["patch_size"]),
+            max_seq_len=int((preprocessing or {})["max_seq_len"]),
+            interpolation=interpolation,
+        )
+
     if resize_mode == "direct_resize":
         return image.resize((target_size, target_size), interpolation)
 
@@ -904,6 +1007,7 @@ def _resize_with_preprocessing(
             image,
             scale_size,
             interpolation=interpolation,
+            rounding=str((preprocessing or {}).get("resize_rounding") or "round").strip().lower(),
         )
         return _center_crop_to_size(resized, target_size)
 
@@ -976,6 +1080,12 @@ def _safe_sha256_file(path: str) -> str | None:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _instance_model_sha256(model: Any) -> str | None:
+    """The digest of the weights a model instance loaded, the key the species catalogue uses."""
+    value = str(getattr(model, "loaded_artifact_sha256", "") or "").strip().lower()
+    return value or None
 
 
 def _extract_model_artifact_metadata(model_path: str) -> dict[str, Any]:
@@ -1127,9 +1237,11 @@ def _probe_onnxruntime_cuda_provider_safe() -> dict:
         "    print(json.dumps({'ok': False, 'error': f'{type(e).__name__}: {e}'}))\n"
         "    sys.exit(2)\n"
     )
+    executable, child_environment = python_subprocess_launch()
     try:
         proc = subprocess.run(
-            [sys.executable, "-c", script],
+            [executable, "-c", script],
+            env=child_environment,
             capture_output=True,
             text=True,
             timeout=5,
@@ -1182,9 +1294,11 @@ def _probe_openvino_devices_safe() -> dict:
         "    print(json.dumps({'ok': False, 'error': f'{type(e).__name__}: {e}'}))\n"
         "    sys.exit(2)\n"
     )
+    executable, child_environment = python_subprocess_launch()
     try:
         proc = subprocess.run(
-            [sys.executable, "-c", script],
+            [executable, "-c", script],
+            env=child_environment,
             capture_output=True,
             text=True,
             timeout=5,
@@ -1249,9 +1363,11 @@ def _probe_openvino_gpu_plugin_error_safe() -> Optional[str]:
         "    print(f'{type(e).__name__}: {e}')\n"
         "    sys.exit(2)\n"
     )
+    executable, child_environment = python_subprocess_launch()
     try:
         proc = subprocess.run(
-            [sys.executable, "-c", script],
+            [executable, "-c", script],
+            env=child_environment,
             capture_output=True,
             text=True,
             timeout=5,
@@ -1847,9 +1963,13 @@ class ModelInstance:
         self.labels_path = labels_path
         self.preprocessing = preprocessing or {}
         self.label_grouping = dict(label_grouping or {})
-        # None means "read the label file", which is what every caller that has
-        # not been given a checksum should keep doing.
-        self.model_sha256 = model_sha256
+        # The weights this instance loads, bound now: results carry it as their
+        # provenance, and a reinstall can replace the file under a running instance.
+        # Every backend and fallback is built here, including one loading other weights.
+        self.loaded_artifact_sha256 = artifact_digest(model_path)
+        # Fallbacks may load different weights from the selected registry model.
+        # Reuse their bound digest so labels follow those actual output indices.
+        self.model_sha256 = self.loaded_artifact_sha256 or model_sha256
         self.interpreter = None
         self.labels: list[str] = []
         self.grouped_labels: list[str] = []
@@ -1871,6 +1991,7 @@ class ModelInstance:
                 model_sha256=self.model_sha256,
                 context=self.name,
             )
+            self._label_source = label_source
             if self.labels:
                 log.info(f"Loaded {len(self.labels)} labels for {self.name}", label_source=label_source)
 
@@ -1976,7 +2097,12 @@ class ModelInstance:
             quant_params = input_details.get("quantization_parameters", {})
             scales = np.asarray(quant_params.get("scales", []), dtype=np.float32)
             zero_points = np.asarray(quant_params.get("zero_points", []), dtype=np.float32)
-            if scales.size > 0 and float(scales[0]) > 0:
+            if normalization in {"uint8", "none"} and input_dtype == np.dtype(np.uint8):
+                # A uint8 model reads the RGB bytes as its quantized input; its scale and zero point
+                # describe what they mean, not a conversion still to apply. Quantizing them again
+                # (scale 1/128, zero point 128 on the bundled MobileNet) saturated the image to white.
+                input_data = np.clip(real_input, 0, 255).astype(np.uint8)
+            elif scales.size > 0 and float(scales[0]) > 0:
                 zero_point = float(zero_points[0]) if zero_points.size > 0 else 0.0
                 quantized = np.rint(real_input / float(scales[0]) + zero_point)
                 limits = np.iinfo(input_dtype)
@@ -2035,6 +2161,7 @@ class ModelInstance:
                     detail=f"{self.name} int8 output is missing valid quantization metadata",
                 )
 
+        _check_catalogue_output_width(self.labels, results.size, getattr(self, "_label_source", "none"))
         # Softmax if needed (logits vs probabilities)
         finite_results = results[np.isfinite(results)]
         if finite_results.size == 0:
@@ -2141,12 +2268,17 @@ class ONNXModelInstance:
         self.labels_path = labels_path
         self.preprocessing = preprocessing or {}
         self.label_grouping = dict(label_grouping or {})
-        # None means "read the label file", which is what any caller without a
-        # checksum should keep doing.
-        self.model_sha256 = model_sha256
+        # The weights this instance loads, bound now: results carry it as their
+        # provenance, and a reinstall can replace the file under a running instance.
+        # Every backend and fallback is built here, including one loading other weights.
+        self.loaded_artifact_sha256 = artifact_digest(model_path)
+        # Fallbacks may load different weights from the selected registry model.
+        # Reuse their bound digest so labels follow those actual output indices.
+        self.model_sha256 = self.loaded_artifact_sha256 or model_sha256
         self.input_size = input_size
         self.ort_providers = list(ort_providers or ["CPUExecutionProvider"])
         self.session = None
+        self._session_primary_provider: str | None = None
         self.labels: list[str] = []
         self.grouped_labels: list[str] = []
         self.loaded = False
@@ -2173,6 +2305,7 @@ class ONNXModelInstance:
             model_sha256=self.model_sha256,
             context=self.name,
         )
+        self._label_source = label_source
         if self.labels:
             log.info(f"Loaded {len(self.labels)} labels for ONNX model {self.name}", label_source=label_source)
 
@@ -2192,6 +2325,11 @@ class ONNXModelInstance:
             if "CUDAExecutionProvider" in providers:
                 _preload_onnxruntime_cuda_runtime_libraries()
             self.session = ort.InferenceSession(self.model_path, sess_options, providers=providers)
+            self._session_primary_provider = self._active_primary_provider()
+            if self._session_primary_provider == "CUDAExecutionProvider":
+                from app.utils.cuda_runtime import prevent_internal_cuda_fallback
+
+                prevent_internal_cuda_fallback(self.session)
             self.loaded = True
             self.error = None
             log.info(f"{self.name} ONNX model loaded successfully", input_size=self.input_size, providers=providers)
@@ -2222,18 +2360,36 @@ class ONNXModelInstance:
 
     def _softmax(self, x: np.ndarray) -> np.ndarray:
         """Apply softmax to convert logits to probabilities."""
+        _check_catalogue_output_width(self.labels, np.asarray(x).size, getattr(self, "_label_source", "none"))
         return _safe_softmax(x, context=f"{self.name}:onnx")
+
+    def _active_primary_provider(self) -> str | None:
+        get_providers = getattr(self.session, "get_providers", None)
+        providers = list(get_providers() or []) if callable(get_providers) else []
+        return providers[0] if providers else None
 
     def _run_inference(self, input_name: str, input_tensor: np.ndarray) -> list[Any]:
         """Run the provider and expose execution failures to recovery policy."""
         try:
             with self._lock:
-                return self.session.run(None, {input_name: input_tensor})
+                if self._session_primary_provider is None:
+                    self._session_primary_provider = self._active_primary_provider()
+                enforce_cuda = self._session_primary_provider == "CUDAExecutionProvider"
+                if enforce_cuda:
+                    from app.utils.cuda_runtime import verify_cuda_session_provider
+
+                    verify_cuda_session_provider(self.session)
+                outputs = self.session.run(
+                    None, {input_name: input_tensor, **_classifier_auxiliary_inputs(self.preprocessing)}
+                )
+                if enforce_cuda:
+                    verify_cuda_session_provider(self.session)
+                return outputs
         except Exception as exc:
             log.error(f"ONNX inference failed for {self.name}", error=str(exc))
             raise InvalidInferenceOutputError(
                 backend="onnxruntime",
-                provider=(self.ort_providers[0] if self.ort_providers else "cpu"),
+                provider=self._session_primary_provider or (self.ort_providers[0] if self.ort_providers else "cpu"),
                 detail=f"{self.name} inference execution failed: {exc}",
                 diagnostics={"exception_type": type(exc).__name__},
             ) from exc
@@ -2248,14 +2404,14 @@ class ONNXModelInstance:
         except Exception as exc:
             raise InvalidInferenceOutputError(
                 backend="onnxruntime",
-                provider=(self.ort_providers[0] if self.ort_providers else "cpu"),
+                provider=self._session_primary_provider or (self.ort_providers[0] if self.ort_providers else "cpu"),
                 detail=f"{self.name} returned an invalid output structure: {exc}",
                 diagnostics={"exception_type": type(exc).__name__},
             ) from exc
         if probs.size == 0:
             raise InvalidInferenceOutputError(
                 backend="onnxruntime",
-                provider=(self.ort_providers[0] if self.ort_providers else "cpu"),
+                provider=self._session_primary_provider or (self.ort_providers[0] if self.ort_providers else "cpu"),
                 detail=f"{self.name} inference produced no finite probabilities",
             )
         return probs
@@ -2313,8 +2469,8 @@ class ONNXModelInstance:
             except Exception:
                 report["active_providers"] = []
             input_name = self.session.get_inputs()[0].name
-            with self._lock:
-                outputs = self.session.run(None, {input_name: input_tensor})
+            outputs = self._run_inference(input_name, input_tensor)
+            report["active_providers"] = list(self.session.get_providers() or [])
             logits = np.asarray(outputs[0])
             if logits.ndim > 0 and logits.shape[0] == 1:
                 logits = logits[0]
@@ -2325,6 +2481,10 @@ class ONNXModelInstance:
         except Exception as exc:
             report["status"] = "runtime_error"
             report["error"] = _summarize_runtime_exception(exc, max_len=600)
+            try:
+                report["active_providers"] = list(self.session.get_providers() or [])
+            except Exception:
+                report["active_providers"] = []
             return report
 
     def cleanup(self):
@@ -2333,6 +2493,7 @@ class ONNXModelInstance:
             # ONNX sessions don't have explicit cleanup,
             # but we can dereference to allow garbage collection
             self.session = None
+        self._session_primary_provider = None
         self.loaded = False
         log.info(f"{self.name} ONNX model resources cleaned up")
 
@@ -2370,9 +2531,13 @@ class OpenVINOModelInstance:
         self.labels_path = labels_path
         self.preprocessing = preprocessing or {}
         self.label_grouping = dict(label_grouping or {})
-        # None means "read the label file", which is what any caller without a
-        # checksum should keep doing.
-        self.model_sha256 = model_sha256
+        # The weights this instance loads, bound now: results carry it as their
+        # provenance, and a reinstall can replace the file under a running instance.
+        # Every backend and fallback is built here, including one loading other weights.
+        self.loaded_artifact_sha256 = artifact_digest(model_path)
+        # Fallbacks may load different weights from the selected registry model.
+        # Reuse their bound digest so labels follow those actual output indices.
+        self.model_sha256 = self.loaded_artifact_sha256 or model_sha256
         self.input_size = input_size
         self.device_name = device_name
         self._startup_self_test_enabled = (
@@ -2486,6 +2651,7 @@ class OpenVINOModelInstance:
             model_sha256=self.model_sha256,
             context=self.name,
         )
+        self._label_source = label_source
         if self.labels:
             log.info(f"Loaded {len(self.labels)} labels for OpenVINO model {self.name}", label_source=label_source)
 
@@ -2614,6 +2780,7 @@ class OpenVINOModelInstance:
         return arr[np.newaxis, ...].astype(np.float32)
 
     def _softmax(self, x: np.ndarray) -> np.ndarray:
+        _check_catalogue_output_width(self.labels, np.asarray(x).size, getattr(self, "_label_source", "none"))
         return _safe_softmax(x, context=f"{self.name}:openvino")
 
     def _infer_output_tensor(
@@ -2643,7 +2810,9 @@ class OpenVINOModelInstance:
             # runtime allocations on every classification (#314).
             if self._infer_request is None:
                 self._infer_request = self.compiled_model.create_infer_request()
-            outputs = self._infer_request.infer({self.input_name: input_tensor})
+            outputs = self._infer_request.infer(
+                {self.input_name: input_tensor, **_classifier_auxiliary_inputs(self.preprocessing)}
+            )
             try:
                 raw = outputs[self.compiled_model.outputs[0]]
             except Exception:
@@ -2919,6 +3088,23 @@ class ClassifierService:
                 startup_status.mark_failed("loading_model")
                 raise
             startup_status.publish("model_ready" if self.model_loaded else "model_unavailable", 60)
+        else:
+            self._record_worker_model_identity()
+
+    def _record_worker_model_identity(self) -> None:
+        """Record the checksum of the model the workers load, without loading it here.
+
+        A subprocess-mode parent never runs ``_init_bird_model``, which is where the
+        checksum was recorded, so ``active_model_sha256`` stayed None and no detection
+        was ever tied to the model that produced it through the species catalogue.
+        A missing file leaves no checksum rather than a previous model's.
+        """
+        try:
+            model_path = str(self._resolve_active_bird_model_spec().get("model_path") or "")
+            self._bird_model_artifact_metadata = {"model_sha256": artifact_digest(model_path)}
+        except Exception as error:
+            self._bird_model_artifact_metadata = {}
+            log.warning("Could not record the active model checksum for the workers", error=str(error))
 
     def _get_model_paths(self, model_file: str, labels_file: str) -> tuple[str, str]:
         """Get full paths for model and labels files."""
@@ -4403,6 +4589,8 @@ class ClassifierService:
                 # should be using supervisor workers instead.
                 if self._worker_process_mode or self._image_execution_mode != "subprocess":
                     self._init_bird_model()
+                else:
+                    self._record_worker_model_identity()
 
         # Model init loads weights and re-detects hardware, which spawns child
         # processes. A reload is triggered from request handlers' background
@@ -4846,9 +5034,8 @@ class ClassifierService:
             try:
                 spec = self._resolve_active_bird_model_spec()
                 labels_path = str(spec.get("labels_path") or "")
-                if labels_path and os.path.exists(labels_path):
-                    with open(labels_path, "r", encoding="utf-8", errors="replace") as handle:
-                        return normalize_classifier_labels(line.strip() for line in handle.readlines() if line.strip())
+                labels, _, _ = _resolve_model_labels(labels_path, {}, model_sha256=spec.get("model_sha256"))
+                return labels
             except Exception:
                 return []
         return []
@@ -4863,13 +5050,17 @@ class ClassifierService:
         bird = self._models.get("bird")
         return getattr(bird, "error", None)
 
-    def _labels_count_for_status(self, labels_path: Optional[str]) -> Optional[int]:
-        """Non-empty lines in the active model's label file, cached by mtime.
+    def _labels_count_for_status(self, labels_path: Optional[str], model_sha256: Optional[str] = None) -> Optional[int]:
+        """Count complete catalogue outputs, or legacy file lines cached by mtime.
 
-        In subprocess mode the API process holds no model, so the count comes
-        from the file the workers will load. None means it could not be read,
-        never zero-by-absence.
+        The subprocess API holds no resident model. Use the same label source
+        as its workers; None means neither source could be read.
         """
+        from app.services.catalogue_labels import catalogue_labels_for_model
+
+        catalogue = catalogue_labels_for_model(model_sha256)
+        if catalogue:
+            return len(catalogue)
         if not labels_path:
             return None
         try:
@@ -4930,6 +5121,7 @@ class ClassifierService:
         packaged_providers = packaged_inference_providers(image_flavor)
         active_model_estimated_ram_mb: Optional[int] = None
         active_model_labels_path: Optional[str] = None
+        active_model_artifact_sha256: Optional[str] = None
         try:
             active_model_spec = self._resolve_active_bird_model_spec()
             supported_providers = list(active_model_spec.get("supported_inference_providers") or [])
@@ -4940,6 +5132,7 @@ class ClassifierService:
             raw_ram = active_model_spec.get("estimated_ram_mb")
             active_model_estimated_ram_mb = int(raw_ram) if raw_ram else None
             active_model_labels_path = str(active_model_spec.get("labels_path") or "") or None
+            active_model_artifact_sha256 = active_model_spec.get("model_sha256")
         except Exception:
             supported_providers = []
             validated_providers = []
@@ -4974,7 +5167,7 @@ class ClassifierService:
             # process holds the weights: in subprocess mode no model is
             # resident here, and a resident model's own count overwrites this
             # when its status is merged below.
-            "labels_count": self._labels_count_for_status(active_model_labels_path),
+            "labels_count": self._labels_count_for_status(active_model_labels_path, active_model_artifact_sha256),
             "accel_caps_age_seconds": accel_caps_age,
             "accel_caps_stale": self.accel_caps_are_stale(),
             "image_flavor": image_flavor,
@@ -5149,14 +5342,7 @@ class ClassifierService:
             settings.classification.wildlife_model, settings.classification.wildlife_labels
         )
         model_exists = os.path.exists(model_path)
-        labels_exist = os.path.exists(labels_path)
-        labels_count = 0
-        if labels_exist:
-            try:
-                with open(labels_path, "r") as f:
-                    labels_count = sum(1 for line in f if line.strip())
-            except Exception:
-                pass
+        labels_count = self._labels_count_for_status(labels_path, artifact_digest(model_path)) or 0
 
         return {
             "loaded": False,
@@ -5208,6 +5394,50 @@ class ClassifierService:
             }
         return None
 
+    @staticmethod
+    def _frigate_path_points(raw_path_data: list[Any]) -> list[tuple[float, float, float]]:
+        path_points: list[tuple[float, float, float]] = []
+        for item in raw_path_data:
+            if not isinstance(item, (list, tuple)) or len(item) < 2:
+                continue
+            point = item[0]
+            if not isinstance(point, (list, tuple)) or len(point) < 2:
+                continue
+            try:
+                x = float(point[0])
+                y = float(point[1])
+                timestamp = float(item[1])
+            except (TypeError, ValueError):
+                continue
+            if all(math.isfinite(value) for value in (x, y, timestamp)) and 0.0 <= x <= 1.0 and 0.0 <= y <= 1.0:
+                path_points.append((timestamp, x, y))
+        return path_points
+
+    def _frigate_snapshot_time(self, input_context: ClassificationInputContext) -> float | None:
+        value = self._input_context_extra(input_context, "frigate_snapshot_frame_time")
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
+            return None
+        return float(value)
+
+    def _photographed_track_window(
+        self,
+        input_context: ClassificationInputContext,
+        image_size: tuple[int, int] | None,
+    ) -> tuple[float, float]:
+        """Time window in which Frigate's track still follows the photographed bird."""
+        snapshot_time = self._frigate_snapshot_time(input_context)
+        box = normalized_frigate_video_hint(self._input_context_extra(input_context, "frigate_box"))
+        raw_path_data = self._input_context_extra(input_context, "frigate_path_data")
+        if snapshot_time is None or box is None or not isinstance(raw_path_data, list):
+            return -math.inf, math.inf
+        _points, start, end = photographed_track(
+            self._frigate_path_points(raw_path_data),
+            box=box,
+            snapshot_time=snapshot_time,
+            image_size=image_size or (1, 1),
+        )
+        return start, end
+
     def _tracked_frigate_box_for_frame(
         self,
         input_context: ClassificationInputContext,
@@ -5235,32 +5465,25 @@ class ClassifierService:
             return None
         if image_size is None:
             image_size = (1, 1)
-        normalized_box = normalize_frigate_hint_box(raw_box, image_size)
+        normalized_box = normalized_frigate_video_hint(raw_box)
         if normalized_box is None:
             return None
         _left, _top, width, height = normalized_box
         if width > 1.0 or height > 1.0:
             return None
 
-        path_points: list[tuple[float, float, float]] = []
-        for item in raw_path_data:
-            if not isinstance(item, (list, tuple)) or len(item) < 2:
-                continue
-            point = item[0]
-            if not isinstance(point, (list, tuple)) or len(point) < 2:
-                continue
-            try:
-                x = float(point[0])
-                y = float(point[1])
-                timestamp = float(item[1])
-            except (TypeError, ValueError):
-                continue
-            if all(math.isfinite(value) for value in (x, y, timestamp)) and 0.0 <= x <= 1.0 and 0.0 <= y <= 1.0:
-                path_points.append((timestamp, x, y))
+        path_points = self._frigate_path_points(raw_path_data)
         if not path_points:
             return None
 
         target_timestamp = clip_start + offset
+        snapshot_time = self._frigate_snapshot_time(input_context)
+        if snapshot_time is not None:
+            path_points, start, end = photographed_track(
+                path_points, box=normalized_box, snapshot_time=snapshot_time, image_size=image_size
+            )
+            if not start <= target_timestamp < end:
+                return None
         point_timestamp, bottom_center_x, bottom_y = min(
             path_points,
             key=lambda item: abs(item[0] - target_timestamp),
@@ -5283,14 +5506,66 @@ class ClassifierService:
 
         A Frigate event's top-level box describes one tracked instant. Reusing it
         across a full-visit recording repeatedly classifies the same background
-        patch after a fleeting bird has moved away. Recording clips therefore use
-        a Frigate hint only when ``path_data`` can align it to this frame. Event
-        clips retain the static fallback when no tracking path was supplied.
+        patch after a fleeting bird has moved away. Precise hints require a
+        known clip origin and aligned path data. A broader spatial prior remains
+        useful when the exact frame timing is unknown.
         """
         frame_context_payload = dict(input_context.model_dump())
         clip_variant = str(self._input_context_extra(input_context, "clip_variant") or "event").strip().lower()
+        # A spatial prior survives unknown pre-capture timing and also constrains
+        # full-visit recordings. Include the observed path so a moving bird is
+        # not excluded merely because the final region covers its last position.
+        subject_region = normalized_frigate_video_hint(
+            self._input_context_extra(input_context, "frigate_region")
+        ) or normalized_frigate_video_hint(self._input_context_extra(input_context, "frigate_box"))
+        for key in ("frigate_box", "frigate_region"):
+            if normalized_frigate_video_hint(frame_context_payload.get(key)) is None:
+                frame_context_payload.pop(key, None)
         raw_path_data = self._input_context_extra(input_context, "frigate_path_data")
-        requires_time_aligned_hint = clip_variant == "recording" or bool(raw_path_data)
+        if subject_region is not None:
+            normalized_region = subject_region
+            tracked_size = normalized_frigate_video_hint(self._input_context_extra(input_context, "frigate_box"))
+            if normalized_region is not None and tracked_size is not None and isinstance(raw_path_data, list):
+                left, top, width, height = normalized_region
+                right, bottom = left + width, top + height
+                # A track that moved on to another bird must not stretch the event's subject to it.
+                track_start, track_end = self._photographed_track_window(input_context, image_size)
+                for item in raw_path_data:
+                    if (
+                        not isinstance(item, (list, tuple))
+                        or not item
+                        or not isinstance(item[0], (list, tuple))
+                        or len(item[0]) < 2
+                    ):
+                        continue
+                    if math.isfinite(track_start) or math.isfinite(track_end):
+                        timestamp = item[1] if len(item) > 1 else None
+                        if (
+                            isinstance(timestamp, bool)
+                            or not isinstance(timestamp, (int, float))
+                            or not track_start <= timestamp < track_end
+                        ):
+                            continue
+                    x, y = item[0][:2]
+                    if (
+                        isinstance(x, bool)
+                        or isinstance(y, bool)
+                        or not isinstance(x, (int, float))
+                        or not isinstance(y, (int, float))
+                    ):
+                        continue
+                    if not math.isfinite(x) or not math.isfinite(y) or not 0 <= x <= 1 or not 0 <= y <= 1:
+                        continue
+                    left, top = min(left, x - tracked_size[2] / 2), min(top, y - tracked_size[3])
+                    right, bottom = max(right, x + tracked_size[2] / 2), max(bottom, y)
+                left, top, right, bottom = max(0, left), max(0, top), min(1, right), min(1, bottom)
+                subject_region = [left, top, right - left, bottom - top]
+            frame_context_payload["event_subject_region"] = subject_region
+        requires_time_aligned_hint = (
+            clip_variant == "recording"
+            or bool(raw_path_data)
+            or self._input_context_extra(input_context, "clip_start_timestamp") is None
+        )
         if requires_time_aligned_hint:
             frame_context_payload.pop("frigate_box", None)
             frame_context_payload.pop("frigate_region", None)
@@ -5305,37 +5580,9 @@ class ClassifierService:
 
     @staticmethod
     def _frigate_snapshot_crop_box(
-        box: tuple[int, int, int, int],
-        image_size: tuple[int, int],
+        box: tuple[int, int, int, int], image_size: tuple[int, int]
     ) -> tuple[int, int, int, int] | None:
-        """Recreate Frigate's saved-snapshot crop region defensively.
-
-        Frigate centres a square around the tracked box, uses a 1.1 multiplier,
-        rounds the side to a multiple of four, and keeps at least 300 pixels of
-        context. Capping the square to the actual image makes the equivalent
-        operation safe for unusually small or externally supplied snapshots.
-        """
-        left, top, right, bottom = box
-        image_width, image_height = image_size
-        box_width = right - left
-        box_height = bottom - top
-        if image_width <= 0 or image_height <= 0 or box_width <= 0 or box_height <= 0:
-            return None
-
-        longest_edge = max(box_width, box_height)
-        side = int((longest_edge * 1.1) // 4 * 4)
-        side = max(300, side)
-        side = min(side, image_width, image_height)
-        if side <= 0:
-            return None
-
-        centre_x = left + (box_width / 2.0)
-        centre_y = top + (box_height / 2.0)
-        crop_left = int(centre_x - (side / 2.0))
-        crop_top = int(centre_y - (side / 2.0))
-        crop_left = max(0, min(image_width - side, crop_left))
-        crop_top = max(0, min(image_height - side, crop_top))
-        return crop_left, crop_top, crop_left + side, crop_top + side
+        return frigate_snapshot_crop_box(box, image_size)
 
     def _resolve_frigate_snapshot_crop(
         self,
@@ -5344,6 +5591,16 @@ class ClassifierService:
         input_context: ClassificationInputContext,
     ) -> dict[str, Any] | None:
         """Restore the crop Frigate supplies for an active event snapshot."""
+        aligned_region = self._input_context_extra(input_context, "frigate_snapshot_crop_region")
+        if self._input_context_extra(input_context, "input_source") == "frigate_recording_snapshot":
+            crop_box = self._restore_frigate_hint_box(aligned_region, image.size)
+            if crop_box is not None:
+                return {
+                    "crop_image": image.crop(crop_box),
+                    "box": crop_box,
+                    "confidence": None,
+                    "reason": "frigate_snapshot_scaled_crop",
+                }
         for hint_key, reason in (("frigate_box", "frigate_box"), ("frigate_region", "frigate_region")):
             raw_hint = self._input_context_extra(input_context, hint_key)
             box = self._restore_frigate_hint_box(raw_hint, image.size)
@@ -5433,26 +5690,51 @@ class ClassifierService:
         image: Image.Image,
         *,
         input_context: ClassificationInputContext,
-    ) -> list[tuple[str, Image.Image]]:
+    ) -> list[VideoFrameCandidate]:
         """Return bounded, independently evaluated views of one video frame."""
         if bool(input_context.is_cropped):
             supplied_source = str(self._input_context_extra(input_context, "input_source") or "provided_crop")
-            return [(supplied_source, image)]
+            return [VideoFrameCandidate(supplied_source, image, None)]
 
-        candidates: list[tuple[str, Image.Image]] = [("full_frame", image)]
+        subject_box = restore_frigate_hint_box(
+            self._input_context_extra(input_context, "event_subject_region"), image.size
+        )
+        candidates: list[VideoFrameCandidate] = (
+            [VideoFrameCandidate("frigate_region_crop", image.crop(subject_box), subject_box)]
+            if subject_box is not None
+            else [VideoFrameCandidate("full_frame", image, None)]
+        )
+
+        def within_subject(candidate: VideoFrameCandidate) -> bool:
+            if subject_box is None:
+                return True
+            box = candidate[2]
+            if box is None:
+                return False
+            left, top, right, bottom = box
+            area = max(0, right - left) * max(0, bottom - top)
+            overlap = max(0, min(right, subject_box[2]) - max(left, subject_box[0])) * max(
+                0, min(bottom, subject_box[3]) - max(top, subject_box[1])
+            )
+            return area > 0 and overlap / area >= 0.5
+
         seen_boxes: set[tuple[int, int, int, int]] = set()
 
         hint_result = self._resolve_frigate_hint_crop(image, input_context=input_context)
         hint_image = hint_result.get("crop_image") if isinstance(hint_result, dict) else None
         hint_box: tuple[int, int, int, int] | None = None
         if isinstance(hint_image, Image.Image):
-            candidates.append(("frigate_hint_crop", hint_image))
             raw_hint_box = hint_result.get("box")
             if isinstance(raw_hint_box, tuple) and len(raw_hint_box) == 4:
                 hint_box = raw_hint_box
                 seen_boxes.add(raw_hint_box)
+            candidates.append(VideoFrameCandidate("frigate_hint_crop", hint_image, hint_box))
 
         if self._bird_crop_detector_available():
+            if hint_box is None:
+                native = self._video_native_model_candidates(image, seen_boxes=seen_boxes)
+                if native is not None:
+                    return [candidate for candidate in candidates + native if within_subject(candidate)]
             try:
                 model_result = self._resolve_model_candidate_crop(image, search_box=hint_box)
             except Exception as exc:
@@ -5462,8 +5744,43 @@ class ClassifierService:
             model_box = model_result.get("box") if isinstance(model_result, dict) else None
             duplicate_box = isinstance(model_box, tuple) and len(model_box) == 4 and model_box in seen_boxes
             if isinstance(model_image, Image.Image) and not duplicate_box:
-                candidates.append(("model_crop", model_image))
+                candidates.append(
+                    VideoFrameCandidate(
+                        "model_crop",
+                        model_image,
+                        model_box,
+                        model_result.get("detector_box"),
+                        model_result.get("confidence"),
+                    )
+                )
+            elif not isinstance(model_image, Image.Image):
+                # A geometrically valid box may contain empty background after departure.
+                # One guided miss must not prevent checking the other birds in the scene.
+                candidates.extend(self._video_native_model_candidates(image, seen_boxes=seen_boxes) or [])
 
+        return [candidate for candidate in candidates if within_subject(candidate)]
+
+    def _video_native_model_candidates(
+        self,
+        image: Image.Image,
+        *,
+        seen_boxes: set[tuple[int, int, int, int]],
+    ) -> list[VideoFrameCandidate] | None:
+        if not callable(getattr(type(self._bird_crop_service), "generate_video_classification_candidate_crops", None)):
+            return None
+        try:
+            results = self._bird_crop_service.generate_video_classification_candidate_crops(image, max_crops=3)
+        except Exception as exc:
+            log.debug("Video multi-crop detector failed; retaining other inputs", error=str(exc))
+            return []
+        candidates = []
+        for result in results[:3]:
+            crop, box = result.get("crop_image"), result.get("box")
+            if isinstance(crop, Image.Image) and isinstance(box, tuple) and len(box) == 4 and box not in seen_boxes:
+                candidates.append(
+                    VideoFrameCandidate("model_crop", crop, box, result.get("detector_box"), result.get("confidence"))
+                )
+                seen_boxes.add(box)
         return candidates
 
     def _resolve_crop_by_priority(
@@ -5700,7 +6017,9 @@ class ClassifierService:
         supplied_source = str(self._input_context_extra(input_context, "input_source") or "").strip().lower()
         if bool(crop_diagnostics.get("crop_applied")):
             crop_reason = str(crop_diagnostics.get("crop_reason") or "").strip().lower()
-            if crop_reason in {"frigate_box", "frigate_region"}:
+            if crop_reason in {"frigate_box", "frigate_region", "frigate_snapshot_scaled_crop"}:
+                if supplied_source == "frigate_recording_snapshot":
+                    return "recording_snapshot_frigate_hint_crop", True
                 return "snapshot_frigate_hint_crop", True
             return "snapshot_model_crop", True
         if supplied_source:
@@ -5761,6 +6080,14 @@ class ClassifierService:
                 results = _invoke_model_classify(bird, crop_image, input_context=normalized_input_context)
                 if self._inference_backend == "openvino" and self._active_inference_provider == "intel_gpu":
                     self._record_gpu_success()
+                # Bound here, from the model instance that ran: a model switch while the
+                # event is still being saved must not pair this output index with
+                # another model's identity.
+                model_sha256 = _instance_model_sha256(bird)
+                if model_sha256:
+                    for result in results:
+                        if isinstance(result, dict):
+                            result["model_sha256"] = model_sha256
                 return self._attach_classification_input_provenance(
                     results,
                     input_context=normalized_input_context,
@@ -5827,12 +6154,16 @@ class ClassifierService:
         if self._classifier_supervisor is None:
             raise RuntimeError("classifier supervisor is not configured")
         normalized_input_context = _normalize_classification_input_context(input_context)
+        # A lossless full frame (recording-frame identification and backfill send the
+        # native picture) takes 0.3 to 1.4 s to encode; on the loop that stalled SSE,
+        # MQTT and the API once per event.
+        image_b64 = await asyncio.to_thread(self._encode_image_for_worker, image)
         try:
             results = await self._classifier_supervisor.classify(
                 priority=priority,
                 work_id=str(work_id or f"{priority}-{time.monotonic_ns()}"),
                 lease_token=int(lease_token or 1),
-                image_b64=self._encode_image_for_worker(image),
+                image_b64=image_b64,
                 camera_name=camera_name,
                 model_id=model_id,
                 input_context=dict(normalized_input_context.model_dump())
@@ -6689,6 +7020,15 @@ class ClassifierService:
 
             scores_by_input_source: dict[str, list[np.ndarray]] = {source: [] for source in expected_input_sources}
             offsets_by_input_source: dict[str, list[float | None]] = {source: [] for source in expected_input_sources}
+            all_scores_by_input_source: dict[str, list[np.ndarray]] = {}
+            all_offsets_by_input_source: dict[str, list[float | None]] = {}
+            best_snapshot_evidence: dict[tuple[str, int], dict[str, Any]] = {}
+            scene_directory = self._input_context_extra(normalized_input_context, "_video_scene_directory")
+            scene_cache = (
+                VideoSceneCache(clip_path=Path(video_path), clip_variant=clip_variant)
+                if isinstance(scene_directory, str)
+                else None
+            )
             processed_frame_count = 0
             any_valid_scores = False
             skipped_unknown_frame_count = 0
@@ -6756,7 +7096,12 @@ class ClassifierService:
                     input_context=frame_input_context,
                 )
                 stage_seconds["candidate_generation"] += time.perf_counter() - stage_started
-                for input_source, candidate_image in frame_candidates:
+                for frame_candidate in frame_candidates:
+                    input_source, candidate_image, crop_box = (
+                        frame_candidate.source,
+                        frame_candidate.image,
+                        frame_candidate.crop_box,
+                    )
                     candidate_counts[input_source] = candidate_counts.get(input_source, 0) + 1
                     if input_source not in scores_by_input_source:
                         expected_input_sources.append(input_source)
@@ -6780,8 +7125,39 @@ class ClassifierService:
                         bird_model = active_bird_model
                     if len(scores) > 0:
                         any_valid_scores = True
-                        candidate_scores[input_source] = scores
-                        candidate_images[input_source] = candidate_image
+                        all_scores_by_input_source.setdefault(input_source, []).append(scores)
+                        all_offsets_by_input_source.setdefault(input_source, []).append(frame_offset_sec)
+                        if np.all(np.isfinite(scores)):
+                            candidate_index = int(np.argmax(scores))
+                            candidate_score = float(scores[candidate_index])
+                            key = (input_source, candidate_index)
+                            previous_evidence = best_snapshot_evidence.get(key)
+                            if previous_evidence is None or candidate_score > previous_evidence["score"]:
+                                photo_evidence = {
+                                    "frame_index": int(idx),
+                                    "frame_offset_seconds": frame_offset_sec,
+                                    "frame_width": int(image.width),
+                                    "frame_height": int(image.height),
+                                    "crop_box": list(crop_box) if crop_box is not None else None,
+                                    "input_source": input_source,
+                                    "input_is_cropped": input_source != "full_frame",
+                                    "score": candidate_score,
+                                    "presence_source": "bird_crop_detector"
+                                    if input_source == "model_crop" and crop_box is not None
+                                    else None,
+                                    "bird_box": list(frame_candidate.detector_box)
+                                    if frame_candidate.detector_box is not None
+                                    else None,
+                                    "detector_confidence": frame_candidate.detector_confidence,
+                                }
+                                if has_localized_bird(photo_evidence):
+                                    best_snapshot_evidence[key] = photo_evidence
+                                    if scene_cache is not None:
+                                        scene_cache.retain(photo_evidence, image)
+                        previous = candidate_scores.get(input_source)
+                        if previous is None or float(np.max(scores)) > float(np.max(previous)):
+                            candidate_scores[input_source] = scores
+                            candidate_images[input_source] = candidate_image
 
                 labels = list(getattr(bird_model, "labels", []) or [])
                 class_count = len(labels)
@@ -6871,7 +7247,44 @@ class ClassifierService:
                 SourceTemporalConsensus(input_source=input_source, consensus=assessment.consensus)
                 for input_source, assessment in source_assessments.items()
             ]
-            selected_source_consensus = select_temporal_source_consensus(source_consensuses)
+            raw_target_labels = self._input_context_extra(normalized_input_context, "event_target_labels")
+            target_labels = {
+                " ".join(normalize_classifier_label(str(label)).replace("_", " ").split()).casefold()
+                for label in (raw_target_labels if isinstance(raw_target_labels, list) else [])
+                if not should_hide_species_label(label)
+            }
+            target_indices = {
+                index
+                for index, label in enumerate(labels)
+                if " ".join(normalize_classifier_label(label).replace("_", " ").split()).casefold() in target_labels
+            }
+            target_consensuses = (
+                [
+                    SourceTemporalConsensus(
+                        input_source=source,
+                        consensus=build_target_temporal_consensus(
+                            scores,
+                            target_class_indices=target_indices,
+                            minimum_frame_score=max(minimum_frame_score, float(settings.classification.threshold)),
+                            excluded_class_indices=excluded_class_indices,
+                            frame_offsets_seconds=all_offsets_by_input_source[source],
+                        ),
+                    )
+                    for source, scores in all_scores_by_input_source.items()
+                ]
+                if target_indices and fps > 0
+                else []
+            )
+            selected_source_consensus = select_event_temporal_source_consensus(
+                source_consensuses,
+                target_consensuses=target_consensuses,
+                minimum_tracked_score=max(minimum_frame_score, float(settings.classification.threshold)),
+                tracked_observations=source_assessments.get("frigate_hint_crop"),
+            )
+            event_target_selected = selected_source_consensus is not None and (
+                selected_source_consensus.input_source == "frigate_hint_crop"
+                or selected_source_consensus in target_consensuses
+            )
             consensus_diagnostics = {
                 input_source: {
                     "reason": assessment.reason,
@@ -6943,7 +7356,12 @@ class ClassifierService:
                         else "no_source_consensus"
                     )
                 ),
+                "event_target_selected": event_target_selected,
                 "runtime": self.runtime_identity(),
+                "event_target_label_source": self._input_context_extra(
+                    normalized_input_context, "event_target_label_source"
+                )
+                or "unavailable",
                 "crop_detector_runtime": {
                     "active_providers": dict(crop_status.get("active_providers") or {}),
                     "provider_fallbacks": dict(crop_status.get("provider_fallbacks") or {}),
@@ -6992,12 +7410,15 @@ class ClassifierService:
                         "inference_backend": str(self._inference_backend or ""),
                         "model_id": str(active_model_id or ""),
                         "model_name": model_name,
+                        "model_sha256": _instance_model_sha256(bird_model),
                         "input_source": input_source,
                         "input_is_cropped": input_source != "full_frame",
+                        "event_target_selected": event_target_selected,
                         "temporal_supporting_frames": evidence.supporting_frame_count,
                         "temporal_evaluated_frames": consensus.evaluated_frame_count,
                         "temporal_independent_frames": consensus.independent_frame_count,
                         "temporal_required_frames": consensus.required_supporting_frames,
+                        "_video_snapshot_evidence": best_snapshot_evidence.get(("model_crop", int(i))),
                     }
                 )
 
@@ -7034,6 +7455,18 @@ class ClassifierService:
 
             if include_diagnostics:
                 classifications.append({"_video_diagnostics": diagnostic_payload})
+            if scene_cache is not None and classifications:
+                artifact_started = time.perf_counter()
+                winning_evidence = classifications[0].get("_video_snapshot_evidence")
+                saved = isinstance(winning_evidence, dict) and scene_cache.write(
+                    Path(scene_directory), Path(video_path), clip_variant, winning_evidence
+                )
+                diagnostic_payload["performance"]["winning_scene"] = {
+                    "saved": saved,
+                    "retained_scenes": scene_cache.retained_count,
+                    "retained_bytes": scene_cache.retained_bytes,
+                    "artifact_ms": round((time.perf_counter() - artifact_started) * 1000, 1),
+                }
             return classifications
 
         except Exception as e:
@@ -7045,6 +7478,57 @@ class ClassifierService:
                 cap.release()
 
     async def classify_video_async(
+        self,
+        video_path: str,
+        stride: int = 5,
+        max_frames: Optional[int] = None,
+        progress_callback=None,
+        camera_name: Optional[str] = None,
+        model_id: Optional[str] = None,
+        input_context: Any | None = None,
+        propagate_worker_failure: bool = False,
+        diagnostics_callback: Callable[[dict[str, Any]], Awaitable[None] | None] | None = None,
+        scene_cache: VideoSceneCache | None = None,
+    ) -> list[dict]:
+        context = dict(_normalize_classification_input_context(input_context).model_dump())
+        # Only this request owner supplies an artifact directory. Public input
+        # context must never choose a worker's output path.
+        context.pop("_video_scene_directory", None)
+        kwargs = {
+            "video_path": video_path,
+            "stride": stride,
+            "max_frames": max_frames,
+            "progress_callback": progress_callback,
+            "camera_name": camera_name,
+            "model_id": model_id,
+            "input_context": context,
+            "propagate_worker_failure": propagate_worker_failure,
+            "diagnostics_callback": diagnostics_callback,
+        }
+        if scene_cache is None:
+            return await self._classify_video_async_impl(**kwargs)
+        # A supervised cancellation reaps the worker before this scope exits.
+        # Legacy late threads cannot recreate the removed directory.
+        with tempfile.TemporaryDirectory(prefix="yawamf-video-scene-") as directory:
+            try:
+                context["_video_scene_directory"] = directory
+                results = await self._classify_video_async_impl(**kwargs)
+                await asyncio.to_thread(
+                    scene_cache.load, Path(directory), Path(video_path), str(context.get("clip_variant") or "event")
+                )
+                return results
+            finally:
+                # Remove the worker's pathname atomically before enumerating
+                # files, so a late thread cannot add a manifest during rmtree.
+                discarded = Path(directory).with_name(Path(directory).name + "-discard")
+                try:
+                    os.replace(directory, discarded)
+                except FileNotFoundError:
+                    pass
+                else:
+                    shutil.rmtree(discarded)
+
+    async def _classify_video_async_impl(
         self,
         video_path: str,
         stride: int = 5,
@@ -7201,6 +7685,8 @@ class ClassifierService:
                 await callback_result
 
         if not base_results:
+            return base_results
+        if base_results[0].get("event_target_selected"):
             return base_results
         if not bool(getattr(settings.classification, "personalized_rerank_enabled", False)):
             return base_results

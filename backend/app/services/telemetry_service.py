@@ -246,7 +246,9 @@ def build_runtime_telemetry_payload(
             "model_type": model_type,
             "llm_enabled": settings.llm.enabled,
             "llm_provider": settings.llm.provider,
-            "media_cache_enabled": settings.media_cache.enabled,
+            # Photographs and visit media are always kept now (#622). The field stays, true, because
+            # the telemetry dashboard counts it: dropping it would read as every install turning it off.
+            "media_cache_enabled": True,
             "media_cache_clips": settings.media_cache.cache_clips,
             "auto_video_classification": settings.classification.auto_video_classification,
         },

@@ -16,6 +16,14 @@ from app.services.classifier_supervisor import (
 from app.services.native_crash_quarantine import NativeCrashQuarantine, NativeCrashQuarantinedError
 
 
+async def _wait_for_sent(created):
+    async def sent():
+        while not created or not created[0].sent_messages:
+            await asyncio.sleep(0)
+
+    await asyncio.wait_for(sent(), 2)
+
+
 @pytest.mark.asyncio
 @pytest.mark.skipif(sys.platform != "linux", reason="Linux signal/reaping contract, no macOS crash reporter")
 async def test_real_native_child_crash_is_reaped_and_persistently_quarantined(tmp_path):
@@ -510,7 +518,7 @@ async def test_classifier_supervisor_classify_starts_requested_pool_only():
             model_id="default",
         )
     )
-    await asyncio.sleep(0.01)
+    await _wait_for_sent(created)
 
     assert [worker.worker_name for worker in created] == ["background-0"]
     await created[0].events.put(
@@ -601,7 +609,7 @@ async def test_classifier_supervisor_assigns_work_to_idle_worker():
             model_id="default",
         )
     )
-    await asyncio.sleep(0.01)
+    await _wait_for_sent(created)
     assert created[0].sent_messages[0]["type"] == "classify"
     await created[0].events.put(
         {
@@ -780,7 +788,7 @@ async def test_classifier_supervisor_abort_request_replaces_matching_worker():
             model_id="default",
         )
     )
-    await asyncio.sleep(0.01)
+    await _wait_for_sent(created)
 
     aborted = await supervisor.abort_request(
         priority="live",
@@ -826,7 +834,7 @@ async def test_classifier_supervisor_abort_request_ignores_stale_token():
             model_id="default",
         )
     )
-    await asyncio.sleep(0.01)
+    await _wait_for_sent(created)
 
     aborted = await supervisor.abort_request(
         priority="live",
@@ -947,10 +955,12 @@ async def test_classifier_supervisor_replaces_worker_after_send_transport_failur
 async def test_classifier_supervisor_starts_pool_workers_sequentially():
     created: list[_GateReadyWorker] = []
     gate = asyncio.Event()
+    first_created = asyncio.Event()
 
     async def _factory(*, worker_name: str, worker_generation: int, **_kwargs):
         worker = _GateReadyWorker(worker_name, worker_generation, gate=gate)
         created.append(worker)
+        first_created.set()
         return worker
 
     supervisor = ClassifierSupervisor(
@@ -963,14 +973,17 @@ async def test_classifier_supervisor_starts_pool_workers_sequentially():
     )
 
     start_task = asyncio.create_task(supervisor.start("video"))
-    await asyncio.sleep(0.01)
-    assert [worker.worker_name for worker in created] == ["video-0"]
-
-    gate.set()
-    await start_task
-
-    assert [worker.worker_name for worker in created] == ["video-0", "video-1"]
-    await supervisor.shutdown()
+    try:
+        await asyncio.wait_for(first_created.wait(), 2)
+        assert [worker.worker_name for worker in created] == ["video-0"]
+        gate.set()
+        await asyncio.wait_for(start_task, 2)
+        assert [worker.worker_name for worker in created] == ["video-0", "video-1"]
+    finally:
+        gate.set()
+        start_task.cancel()
+        await asyncio.gather(start_task, return_exceptions=True)
+        await supervisor.shutdown()
 
 
 @pytest.mark.asyncio
@@ -1000,7 +1013,7 @@ async def test_classifier_supervisor_uses_video_specific_ready_timeout():
             video_path="/tmp/test.mp4",
         )
     )
-    await asyncio.sleep(0.05)
+    await _wait_for_sent(created)
 
     assert created[0].ready_timeout_seen == pytest.approx(0.05)
     await created[0].events.put(
@@ -1076,7 +1089,7 @@ async def test_classifier_supervisor_ignores_stale_results_from_replaced_worker(
             model_id="default",
         )
     )
-    await asyncio.sleep(0.01)
+    await _wait_for_sent(created)
     first_request_id = created[0].sent_messages[0]["request_id"]
     created[0].last_heartbeat_monotonic = time.monotonic() - 1.0
 
@@ -1304,7 +1317,7 @@ async def test_classifier_supervisor_records_worker_runtime_recovery():
             model_id="default",
         )
     )
-    await asyncio.sleep(0.01)
+    await _wait_for_sent(created)
     request_id = created[0].sent_messages[0]["request_id"]
     await created[0].events.put(
         {
@@ -1381,7 +1394,7 @@ async def test_classifier_supervisor_does_not_block_result_on_slow_async_progres
             progress_callback=_slow_progress,
         )
     )
-    await asyncio.sleep(0.01)
+    await _wait_for_sent(created)
     request_id = created[0].sent_messages[0]["request_id"]
 
     await created[0].events.put(
@@ -1908,3 +1921,95 @@ async def test_video_pool_keeps_a_busy_worker_within_its_own_heartbeat_budget():
     assert supervisor.get_metrics()["video"]["restarts"] == 0
 
     await supervisor.shutdown()
+
+
+def _classify(supervisor: ClassifierSupervisor, work_id: str) -> "asyncio.Task[list[dict]]":
+    return asyncio.create_task(
+        supervisor.classify(
+            priority="background", work_id=work_id, lease_token=1, image_b64="x", camera_name=None, model_id=None
+        )
+    )
+
+
+async def _cancelled(task: asyncio.Task) -> None:
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+
+@pytest.mark.asyncio
+async def test_a_request_cancelled_while_its_pool_starts_leaves_the_loading_worker_alive():
+    """A cold NPU compile of a large model outlasts a 15 s request lease. Cancelling the request
+    used to terminate the worker mid-compile, so nothing was cached and every later request started
+    the same cold load and timed out again (ConvNeXt Large: 299 of 299 in a model evaluation)."""
+    gate = asyncio.Event()
+    created: list[_FakeWorker] = []
+
+    async def factory(**kwargs):
+        worker = _GateReadyWorker(kwargs["worker_name"], kwargs["worker_generation"], gate=gate)
+        created.append(worker)
+        return worker
+
+    supervisor = ClassifierSupervisor(
+        live_worker_count=1,
+        background_worker_count=1,
+        heartbeat_timeout_seconds=5,
+        hard_deadline_seconds=10,
+        worker_factory=factory,
+    )
+    try:
+        first = _classify(supervisor, "first")
+        while not created:
+            await asyncio.sleep(0)
+        await _cancelled(first)
+        assert not created[0].terminated and not created[0].killed
+
+        gate.set()
+        second = _classify(supervisor, "second")
+        await _wait_for_sent(created)
+        assert len(created) == 1
+        assert created[0].sent_messages[0]["work_id"] == "second"
+        await _cancelled(second)
+    finally:
+        await supervisor.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_a_request_cancelled_while_a_lost_worker_is_restored_leaves_the_replacement_alive():
+    gate = asyncio.Event()
+    created: list[_FakeWorker] = []
+
+    async def factory(**kwargs):
+        if created:
+            worker = _GateReadyWorker(kwargs["worker_name"], kwargs["worker_generation"], gate=gate)
+        else:
+            worker = _FakeWorker(kwargs["worker_name"], kwargs["worker_generation"])
+        created.append(worker)
+        return worker
+
+    supervisor = ClassifierSupervisor(
+        live_worker_count=0,
+        background_worker_count=1,
+        heartbeat_timeout_seconds=5,
+        hard_deadline_seconds=10,
+        worker_factory=factory,
+    )
+    try:
+        await supervisor.start("background")
+        supervisor._record_unavailable_slot("background", 0, "startup_failed")
+
+        first = _classify(supervisor, "first")
+        while len(created) < 2:
+            await asyncio.sleep(0)
+        await _cancelled(first)
+        assert not created[1].terminated and not created[1].killed
+
+        gate.set()
+        second = _classify(supervisor, "second")
+        while not created[1].sent_messages:
+            await asyncio.sleep(0)
+        assert len(created) == 2
+        assert created[1].sent_messages[0]["work_id"] == "second"
+        await _cancelled(second)
+    finally:
+        await supervisor.shutdown()

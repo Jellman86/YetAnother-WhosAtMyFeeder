@@ -145,7 +145,7 @@ async def test_cancellation_reaps_worker_and_never_claims_recovery(tmp_path):
     with pytest.raises(asyncio.CancelledError):
         await task
     assert worker.closed
-    assert runner.snapshot()["live"]["status"] == "failed"
+    assert "live" not in runner.snapshot()
 
 
 @pytest.mark.asyncio
@@ -258,6 +258,163 @@ async def test_video_progress_is_forwarded_without_losing_result(tmp_path):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("fail_progress", [False, True])
+async def test_video_progress_cannot_block_cpu_result_or_the_next_live_request(tmp_path, fail_progress):
+    worker = Worker()
+    runner = recovery(tmp_path, worker)
+    original = worker.next_event
+    progress_started = asyncio.Event()
+    progress_cancelled = asyncio.Event()
+    calls = 0
+
+    async def events():
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return {**worker.sent[-1], "type": "progress", "current_frame": 1}
+        await progress_started.wait()
+        return await original()
+
+    async def slow_progress(*_args):
+        progress_started.set()
+        if fail_progress:
+            raise RuntimeError("Progress storage failed")
+        try:
+            await asyncio.Event().wait()
+        finally:
+            progress_cancelled.set()
+
+    worker.next_event = events
+    try:
+        result = await runner.run(
+            priority="video",
+            timeout_seconds=0.1,
+            payload={"video_path": "unused"},
+            progress_callback=slow_progress,
+        )
+        assert result and runner.snapshot()["video"]["recovered"]
+        assert not worker.closed
+        if not fail_progress:
+            assert progress_cancelled.is_set()
+        assert await classify(runner, "live", timeout=0.1)
+        assert len(worker.sent) == 2
+    finally:
+        await runner.shutdown()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("finish", ["result", "cancel", "timeout"])
+async def test_cpu_progress_retention_is_bounded_and_cleaned_on_every_request_exit(tmp_path, finish):
+    worker = Worker()
+    runner = recovery(tmp_path, worker)
+    original = worker.next_event
+    progress_started = asyncio.Event()
+    progress_cancelled = asyncio.Event()
+    burst_drained = asyncio.Event()
+    progress_calls = 0
+    event_calls = 0
+
+    async def events():
+        nonlocal event_calls
+        event_calls += 1
+        if event_calls <= 100:
+            return {**worker.sent[-1], "type": "progress", "current_frame": event_calls}
+        burst_drained.set()
+        if finish != "result":
+            await asyncio.Event().wait()
+        return await original()
+
+    async def slow_progress(*_args):
+        nonlocal progress_calls
+        progress_calls += 1
+        progress_started.set()
+        try:
+            await asyncio.Event().wait()
+        finally:
+            progress_cancelled.set()
+
+    worker.next_event = events
+    task = asyncio.create_task(
+        runner.run(
+            priority="video",
+            timeout_seconds=2,
+            payload={"video_path": "unused"},
+            progress_callback=slow_progress,
+        )
+    )
+    try:
+        await asyncio.wait_for(progress_started.wait(), 5)
+        await asyncio.wait_for(burst_drained.wait(), 5)
+        assert progress_calls == 1
+        if finish == "cancel":
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+        elif finish == "timeout":
+            with pytest.raises(NativeCpuRecoveryUnavailable):
+                await task
+        else:
+            assert await task
+        assert progress_cancelled.is_set()
+        assert worker.closed == (finish != "result")
+    finally:
+        if not task.done():
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+        await runner.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_progress_cancellation_cleanup_cannot_hold_the_cpu_worker_or_accumulate_tasks(tmp_path):
+    worker = Worker()
+    runner = recovery(tmp_path, worker)
+    original = worker.next_event
+    cleanup_started = asyncio.Event()
+    release_cleanup = asyncio.Event()
+    progress_calls = 0
+    event_calls = 0
+
+    async def events():
+        nonlocal event_calls
+        event_calls += 1
+        if event_calls % 2:
+            return {**worker.sent[-1], "type": "progress", "current_frame": 1}
+        return await original()
+
+    async def slow_cleanup(*_args):
+        nonlocal progress_calls
+        progress_calls += 1
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            cleanup_started.set()
+            await release_cleanup.wait()
+
+    worker.next_event = events
+    try:
+        for _ in range(2):
+            assert await asyncio.wait_for(
+                runner.run(
+                    priority="video",
+                    timeout_seconds=1,
+                    payload={"video_path": "unused"},
+                    progress_callback=slow_cleanup,
+                ),
+                0.5,
+            )
+        assert cleanup_started.is_set()
+        assert progress_calls == 1
+        assert runner._progress_task is not None and not runner._progress_task.done()
+        assert await classify(runner, "live", timeout=1)
+        assert not runner._lock.locked()
+        assert not worker.closed
+    finally:
+        release_cleanup.set()
+        await runner.shutdown()
+    assert runner._progress_task is None
+
+
+@pytest.mark.asyncio
 @pytest.mark.skipif(sys.platform != "linux", reason="Native signal contract without macOS crash reporter")
 async def test_real_cpu_child_fault_is_reaped_and_blocks_all_workload_retries(tmp_path):
     from app.services.classifier_worker_client import ClassifierWorkerClient
@@ -292,8 +449,10 @@ async def test_real_cpu_child_fault_is_reaped_and_blocks_all_workload_retries(tm
 
 @pytest.mark.asyncio
 async def test_failed_cleanup_never_reuses_worker_in_another_pool(tmp_path):
+    from unittest.mock import AsyncMock
+
     worker = Worker()
-    worker.delay = 10
+    worker.next_event = AsyncMock(side_effect=TimeoutError("classification timed out"))
     runner = recovery(tmp_path, worker)
     original_kill = worker.kill
 
@@ -302,7 +461,7 @@ async def test_failed_cleanup_never_reuses_worker_in_another_pool(tmp_path):
 
     worker.kill = unreaped
     with pytest.raises(NativeCpuRecoveryUnavailable, match="cleanup"):
-        await classify(runner, timeout=0.01)
+        await classify(runner)
     with pytest.raises(NativeCpuRecoveryUnavailable):
         await classify(runner, "background")
     assert len(worker.sent) == 1
@@ -324,6 +483,76 @@ def recovery_with_fresh_workers(tmp_path, delays):
     policy = NativeCrashQuarantine(lambda: PROFILE, root=tmp_path)
     policy.record(PROFILE, -signal.SIGSEGV)
     return NativeCpuRecovery(lambda: dict(PROFILE), policy, worker_factory=factory), workers
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("priority", ["live", "background", "video"])
+@pytest.mark.parametrize("previous_success", [False, True])
+async def test_caller_cancellation_allows_later_same_workload_to_recover(tmp_path, priority, previous_success):
+    delays = {"now": 0}
+    runner, workers = recovery_with_fresh_workers(tmp_path, delays)
+
+    async def request():
+        payload = (
+            {"video_path": "/tmp/unused.mp4", "stride": 5, "max_frames": 3}
+            if priority == "video"
+            else {"image_b64": "unused", "camera_name": None, "model_id": None}
+        )
+        return await runner.run(priority=priority, timeout_seconds=5, payload=payload)
+
+    try:
+        if previous_success:
+            assert await request()
+        before = runner.snapshot().get(priority)
+        delays["now"] = 10
+        for worker in workers:
+            worker.delay = 10
+        task = asyncio.create_task(request())
+        while not workers or len(workers[-1].sent) < 1 + int(previous_success):
+            await asyncio.sleep(0)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        assert workers[-1].closed
+        assert runner.snapshot().get(priority) == before
+        delays["now"] = 0
+        assert await request()
+        assert len(workers) == 2
+        assert runner.snapshot()[priority]["status"] == "degraded"
+    finally:
+        await runner.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_queued_retry_waits_for_cancelled_worker_cleanup(tmp_path):
+    delays = {"now": 10}
+    runner, workers = recovery_with_fresh_workers(tmp_path, delays)
+    cleanup_started, release_cleanup = asyncio.Event(), asyncio.Event()
+    active = asyncio.create_task(classify(runner, timeout=5))
+    while not workers or not workers[0].sent:
+        await asyncio.sleep(0)
+    original_kill = workers[0].kill
+
+    async def delayed_kill():
+        cleanup_started.set()
+        await release_cleanup.wait()
+        await original_kill()
+
+    workers[0].kill = delayed_kill
+    delays["now"] = 0
+    queued = asyncio.create_task(classify(runner, timeout=5))
+    active.cancel()
+    await cleanup_started.wait()
+    assert len(workers) == 1
+    assert not queued.done()
+    release_cleanup.set()
+    with pytest.raises(asyncio.CancelledError):
+        await active
+    try:
+        assert await queued
+        assert len(workers) == 2 and workers[0].closed
+    finally:
+        await runner.shutdown()
 
 
 @pytest.mark.asyncio

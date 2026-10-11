@@ -31,7 +31,8 @@
       "preview_not_found": "Clip timeline previews are not available",
       "preview_generation_failed": "Failed to generate clip timeline previews",
       "preview_disabled": "Clip timeline previews are disabled because media cache is disabled",
-      "download_forbidden": "Clip download is not allowed for public users"
+      "download_forbidden": "Clip download is not allowed for public users",
+      "access_check_unavailable": "Unable to check media access. Please try again."
     },
     "events": {
       "snapshot_fetch_failed": "Failed to fetch snapshot from Frigate",
@@ -50,6 +51,7 @@
     "ai": {
       "provider_not_configured": "AI provider not configured",
       "api_key_missing": "API key not configured for {provider}",
+      "context_changed": "The analysis or conversation changed. Refresh before trying again.",
       "analysis_failed": "Failed to analyze image",
       "image_fetch_failed": "Failed to fetch image from Frigate",
       "gemini_not_configured": "Gemini API key not configured",

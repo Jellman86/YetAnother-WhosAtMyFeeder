@@ -325,6 +325,58 @@ def _build_temp_seed() -> Path:
     return seed_path
 
 
+def extend_mappings(sources: dict[str, list[str]], seed_path: Path, base: dict) -> dict[str, object]:
+    """Add reviewed artifacts without changing the meaning of existing ones.
+
+    Sources are build-time JSON arrays in model output order. Their canonical
+    newline digest is checked just like the older text sources. A known output
+    vocabulary reuses its frozen mapping; newly resolvable names never silently
+    rewrite an already released checkpoint's mapping.
+    """
+    resolver = CatalogResolver(seed_path)
+    entries = dict(base["label_files"])
+    results = {
+        key: LabelFileResult(entry["label_format"], [OutputRow(**row) for row in entry["outputs"]])
+        for key, entry in entries.items()
+    }
+    added = set()
+    classifiers = [a for a in registry_artifacts() if a.artifact_kind == "classifier"]
+    for artifact in classifiers:
+        key = artifact.labels_sha256
+        if key in entries:
+            if entries[key]["label_format"] != artifact.label_format:
+                raise SystemExit(f"Conflicting output grammar for {artifact.artifact_id}")
+            continue
+        labels = sources.get(key)
+        if not labels or hashlib.sha256(("\n".join(labels) + "\n").encode()).hexdigest() != key:
+            raise SystemExit(f"Missing or unverified output source for {artifact.artifact_id}")
+        results[key] = LabelFileResult(artifact.label_format, map_labels(labels, artifact.label_format, resolver))
+        added.add(key)
+    bridge_common_names(results)
+    resolve_subspecies(results, resolver)
+    resolve_moved_genus(results, resolver)
+    for key in added:
+        result = results[key]
+        entries[key] = {
+            "label_format": result.label_format,
+            "output_width": len(result.rows),
+            "outputs": [{k: v for k, v in vars(row).items() if v is not None} for row in result.rows],
+        }
+    return {
+        **base,
+        "label_files": entries,
+        "artifacts": [
+            {
+                "artifact_id": a.artifact_id,
+                "model_sha256": a.sha256,
+                "labels_sha256": a.labels_sha256,
+                "runtime": a.runtime,
+            }
+            for a in classifiers
+        ],
+    }
+
+
 def compile_mappings(labels_dir: Path, seed_path: Path) -> dict[str, object]:
     resolver = CatalogResolver(seed_path)
     classifiers = [a for a in registry_artifacts() if a.artifact_kind == "classifier"]
@@ -432,14 +484,23 @@ def _write_report(report: Path, payload: dict[str, object]) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--labels-dir", required=True, type=Path, help="directory of <labels_sha256>.txt files")
+    parser.add_argument("--labels-dir", type=Path, help="directory of legacy <labels_sha256>.txt build sources")
+    parser.add_argument("--output-sources", type=Path, help="JSON object of digest to ordered source-name array")
+    parser.add_argument("--base-mappings", type=Path, default=DEFAULT_OUTPUT, help="frozen mappings to extend")
     parser.add_argument("--seed", type=Path, default=None, help="built seed catalogue; defaults to a fresh build")
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--report", type=Path, default=DEFAULT_REPORT)
     args = parser.parse_args()
 
     seed_path = args.seed if args.seed else _build_temp_seed()
-    payload = compile_mappings(args.labels_dir, seed_path)
+    if args.output_sources:
+        payload = extend_mappings(
+            json.loads(args.output_sources.read_text()), seed_path, json.loads(args.base_mappings.read_text())
+        )
+    elif args.labels_dir:
+        payload = compile_mappings(args.labels_dir, seed_path)
+    else:
+        parser.error("Provide --output-sources or --labels-dir")
     args.output.write_text(json.dumps(payload, indent=1, sort_keys=True) + "\n", encoding="utf-8")
     _write_report(args.report, payload)
 

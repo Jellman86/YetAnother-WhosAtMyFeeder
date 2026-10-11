@@ -1,9 +1,10 @@
 import asyncio
 import os
-import sys
 import time
 from collections.abc import Awaitable, Callable
 from typing import Any
+
+from app.utils.python_subprocess import python_subprocess_launch
 
 from .classifier_worker_protocol import (
     WORKER_PROTOCOL_STREAM_LIMIT_BYTES,
@@ -319,10 +320,11 @@ class ClassifierWorkerClient:
                 "CLASSIFICATION__INFERENCE_PROVIDER": self._inference_provider_override,
                 "YA_WAMF_NATIVE_CPU_RECOVERY": "1",
             }
+        executable, environment = python_subprocess_launch(environment)
         # The stream limit is the protocol's own: both ends read newline-framed
         # JSON, and a single high-quality frame is megabytes of base64.
         return await asyncio.create_subprocess_exec(
-            sys.executable,
+            executable,
             "-m",
             "app.services.classifier_worker_process",
             worker_name,

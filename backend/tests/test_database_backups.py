@@ -131,3 +131,30 @@ def test_clock_correction_cannot_prune_the_backup_just_created(tmp_path):
     current = _backup_db(str(database), retention=1)
     assert Path(current).exists()
     assert not future.exists()
+
+
+def test_backup_flush_uses_a_writable_handle_before_publishing(tmp_path, monkeypatch):
+    import builtins
+    import app.database as module
+
+    path = tmp_path / "speciesid.db"
+    create_database(path)
+    modes = {}
+    original_fsync = module.os.fsync
+
+    def tracked_open(*args, **kwargs):
+        handle = builtins.open(*args, **kwargs)
+        modes[handle.fileno()] = args[1]
+        return handle
+
+    def writable_flush(descriptor):
+        if "+" not in modes.get(descriptor, ""):
+            raise OSError(9, "Windows flush requires a writable handle")
+        original_fsync(descriptor)
+
+    monkeypatch.setattr(module, "open", tracked_open, raising=False)
+    monkeypatch.setattr(module.os, "fsync", writable_flush)
+    backup = _backup_db(str(path))
+    assert backup is not None
+    with closing(sqlite3.connect(backup)) as restored:
+        assert restored.execute("SELECT value FROM saved").fetchall() == [("owner data",)]

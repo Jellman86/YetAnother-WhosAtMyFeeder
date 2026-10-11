@@ -38,17 +38,19 @@ async def apply_missing_policy(
         **(extra_context or {}),
     }
     if behavior == "delete":
-        # A favourite is the owner's promise to keep the visit, and its archive is what keeps
-        # it once Frigate has rotated the event; Frigate forgetting is the case it exists for.
-        detection = await repo.get_by_frigate_event(frigate_event)
-        if detection is not None and detection.is_favorite:
-            behavior = "mark_missing"
+        # Check the owner's keep decision in the DELETE itself. A stale read followed by
+        # file cleanup would destroy a favourite accepted while that cleanup was awaiting.
+        deleted = await repo.delete_by_frigate_event(frigate_event, preserve_favorites=True)
+        if not deleted:
+            detection = await repo.get_by_frigate_event(frigate_event)
+            if detection is None or not detection.is_favorite:
+                return {"deleted_count": 0, "marked_missing_count": 0, "kept_count": 0}
+            behavior = context["behavior"] = "mark_missing"
             context["favorite_kept"] = True
 
     if behavior == "delete":
         if delete_cached_media:
             await media_cache.delete_cached_media(frigate_event)
-        deleted = await repo.delete_by_frigate_event(frigate_event)
         if deleted and broadcast_delete:
             await broadcaster.broadcast(
                 {
@@ -70,7 +72,7 @@ async def apply_missing_policy(
             context=context,
         )
         log.info("Applied Frigate missing policy", action="delete", **context)
-        return {"deleted_count": 1 if deleted else 0, "marked_missing_count": 0, "kept_count": 0}
+        return {"deleted_count": 1, "marked_missing_count": 0, "kept_count": 0}
 
     if behavior == "mark_missing":
         marked = await repo.mark_frigate_missing(

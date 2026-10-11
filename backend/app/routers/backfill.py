@@ -11,6 +11,7 @@ from app.services.i18n_service import i18n_service
 from app.services.media_cache import media_cache
 from app.services.weather_service import weather_service
 from app.repositories.detection_repository import DetectionRepository
+from app.repositories.maintenance_job_repository import MaintenanceJobRepository
 from app.database import get_db
 from app.utils.language import get_user_language
 from app.auth import require_owner, AuthContext
@@ -143,12 +144,13 @@ def _touch_job(job: BackfillJobStatus) -> None:
     _stale_job_ids_reported.discard(job.id)
 
 
-def _track_job(job: BackfillJobStatus):
+async def _track_job(job: BackfillJobStatus) -> None:
     if not job.started_at:
         job.started_at = _now_iso()
     _touch_job(job)
     _JOB_STORE[job.id] = job
     _LATEST_JOB_BY_KIND[job.kind] = job.id
+    await _persist_job(job)
 
 
 def _prune_terminal_jobs() -> None:
@@ -169,6 +171,27 @@ def _prune_terminal_jobs() -> None:
 
 def _job_payload(job: BackfillJobStatus) -> dict:
     return job.model_dump()
+
+
+async def _persist_job(job: BackfillJobStatus) -> None:
+    async with get_db() as db:
+        await MaintenanceJobRepository(db).save(_job_payload(job))
+
+
+async def _publish_job(event_type: str, job: BackfillJobStatus) -> None:
+    await _persist_job(job)
+    await broadcaster.broadcast({"type": event_type, "data": _job_payload(job)})
+
+
+async def recover_job_history() -> None:
+    async with get_db() as db:
+        repo = MaintenanceJobRepository(db)
+        await repo.recover_interrupted()
+        history = await repo.recent()
+    for payload in history:
+        job = BackfillJobStatus.model_validate(payload)
+        _JOB_STORE[job.id] = job
+        _LATEST_JOB_BY_KIND.setdefault(job.kind, job.id)
 
 
 async def _register_request_task(task_id: str) -> bool:
@@ -590,7 +613,14 @@ async def backfill_detections_async(
         acquired = await maintenance_coordinator.try_acquire(holder_id, kind="backfill")
         if not acquired:
             raise HTTPException(status_code=409, detail=_maintenance_busy_message())
-        _track_job(job)
+        try:
+            await _track_job(job)
+        except BaseException:
+            _JOB_STORE.pop(job.id, None)
+            if _LATEST_JOB_BY_KIND.get(job.kind) == job.id:
+                _LATEST_JOB_BY_KIND.pop(job.kind, None)
+            await maintenance_coordinator.release(holder_id)
+            raise
 
     async def runner():
         try:
@@ -607,7 +637,7 @@ async def backfill_detections_async(
                 )
 
             job.message = "Querying Frigate API for historical events..."
-            await broadcaster.broadcast({"type": "backfill_started", "data": _job_payload(job)})
+            await _publish_job("backfill_started", job)
 
             def note_fetch_progress(found: int) -> None:
                 job.message = f"Querying Frigate API — {found} event(s) found"
@@ -625,7 +655,7 @@ async def backfill_detections_async(
             job.message = _build_running_message(job, backfill_service.classifier.get_admission_status())
             last_broadcast = 0
             broadcast_every = max(1, job.total // 20) if job.total else 1
-            await broadcaster.broadcast({"type": "backfill_progress", "data": _job_payload(job)})
+            await _publish_job("backfill_progress", job)
 
             async for _event, status, reason in backfill_service.iter_historical_results(events):
                 job.processed += 1
@@ -642,10 +672,11 @@ async def backfill_detections_async(
                     job.errors += 1
                     if reason:
                         job.error_reasons[reason] = job.error_reasons.get(reason, 0) + 1
+                await _persist_job(job)
                 if job.processed - last_broadcast >= broadcast_every or job.processed == job.total:
                     last_broadcast = job.processed
                     job.message = _build_running_message(job, backfill_service.classifier.get_admission_status())
-                    await broadcaster.broadcast({"type": "backfill_progress", "data": _job_payload(job)})
+                    await _publish_job("backfill_progress", job)
             if job.new_detections > 0:
                 message = f"Added {job.new_detections} new detection(s)"
             else:
@@ -659,7 +690,7 @@ async def backfill_detections_async(
             job.message = message
             job.status = "completed"
             job.finished_at = _now_iso()
-            await broadcaster.broadcast({"type": "backfill_complete", "data": _job_payload(job)})
+            await _publish_job("backfill_complete", job)
 
             weather_request = WeatherBackfillRequest(
                 date_range=backfill_request.date_range,
@@ -674,7 +705,7 @@ async def backfill_detections_async(
                 job.status = "failed"
                 job.message = "Backfill cancelled"
                 job.finished_at = _now_iso()
-                await broadcaster.broadcast({"type": "backfill_failed", "data": _job_payload(job)})
+                await _publish_job("backfill_failed", job)
             raise
         except Exception as e:
             log.error("Async backfill failed", error=str(e))
@@ -690,10 +721,13 @@ async def backfill_detections_async(
                 severity="error",
                 context={"job_id": job.id, "error": str(e) or repr(e)},
             )
-            await broadcaster.broadcast({"type": "backfill_failed", "data": _job_payload(job)})
+            await _publish_job("backfill_failed", job)
         finally:
-            _prune_terminal_jobs()
-            await maintenance_coordinator.release(holder_id)
+            try:
+                await _persist_job(job)
+                _prune_terminal_jobs()
+            finally:
+                await maintenance_coordinator.release(holder_id)
 
     coroutine = runner()
     try:
@@ -868,7 +902,14 @@ async def _start_weather_backfill_async(
             if raise_on_busy:
                 raise HTTPException(status_code=409, detail=_maintenance_busy_message())
             return None
-        _track_job(job)
+        try:
+            await _track_job(job)
+        except BaseException:
+            _JOB_STORE.pop(job.id, None)
+            if _LATEST_JOB_BY_KIND.get(job.kind) == job.id:
+                _LATEST_JOB_BY_KIND.pop(job.kind, None)
+            await maintenance_coordinator.release(holder_id)
+            raise
 
     async def runner():
         try:
@@ -898,12 +939,12 @@ async def _start_weather_backfill_async(
             _touch_job(job)
             last_broadcast = 0
             broadcast_every = max(1, job.total // 20) if job.total else 1
-            await broadcaster.broadcast({"type": "backfill_started", "data": _job_payload(job)})
+            await _publish_job("backfill_started", job)
             if not detections:
                 job.status = "completed"
                 job.message = "No detections found in range"
                 job.finished_at = _now_iso()
-                await broadcaster.broadcast({"type": "backfill_complete", "data": _job_payload(job)})
+                await _publish_job("backfill_complete", job)
                 return
 
             hourly = await weather_service.get_hourly_weather(start, end)
@@ -913,7 +954,7 @@ async def _start_weather_backfill_async(
                 job.status = "completed"
                 job.message = "Weather archive unavailable for range"
                 job.finished_at = _now_iso()
-                await broadcaster.broadcast({"type": "backfill_complete", "data": _job_payload(job)})
+                await _publish_job("backfill_complete", job)
                 return
 
             async with get_db() as db:
@@ -958,7 +999,7 @@ async def _start_weather_backfill_async(
                     _touch_job(job)
                     if job.processed - last_broadcast >= broadcast_every or job.processed == job.total:
                         last_broadcast = job.processed
-                        await broadcaster.broadcast({"type": "backfill_progress", "data": _job_payload(job)})
+                        await _publish_job("backfill_progress", job)
 
                 message = f"Updated {job.updated} detection(s)"
                 if job.skipped:
@@ -968,14 +1009,14 @@ async def _start_weather_backfill_async(
                 job.message = message
                 job.status = "completed"
                 job.finished_at = _now_iso()
-                await broadcaster.broadcast({"type": "backfill_complete", "data": _job_payload(job)})
+                await _publish_job("backfill_complete", job)
         except asyncio.CancelledError:
             log.warning("Async weather backfill cancelled", job_id=job.id)
             if _JOB_STORE.get(job.id) is job:
                 job.status = "failed"
                 job.message = "Weather backfill cancelled"
                 job.finished_at = _now_iso()
-                await broadcaster.broadcast({"type": "backfill_failed", "data": _job_payload(job)})
+                await _publish_job("backfill_failed", job)
             raise
         except Exception as e:
             log.error("Async weather backfill failed", error=str(e))
@@ -991,7 +1032,7 @@ async def _start_weather_backfill_async(
                 severity="error",
                 context={"job_id": job.id, "error": str(e) or repr(e)},
             )
-            await broadcaster.broadcast({"type": "backfill_failed", "data": _job_payload(job)})
+            await _publish_job("backfill_failed", job)
         finally:
             _prune_terminal_jobs()
             await maintenance_coordinator.release(holder_id)
@@ -1089,9 +1130,15 @@ async def get_backfill_status(
     """Return the latest backfill job status (optionally filtered by kind)."""
     if kind:
         job_id = _LATEST_JOB_BY_KIND.get(kind)
-        return _JOB_STORE.get(job_id) if job_id else None
+        if job_id and job_id in _JOB_STORE:
+            return _JOB_STORE[job_id]
+        async with get_db() as db:
+            payload = await MaintenanceJobRepository(db).latest(kind)
+        return BackfillJobStatus.model_validate(payload) if payload else None
     if not _LATEST_JOB_BY_KIND:
-        return None
+        async with get_db() as db:
+            payload = await MaintenanceJobRepository(db).latest()
+        return BackfillJobStatus.model_validate(payload) if payload else None
     latest = max(_JOB_STORE.values(), key=lambda j: j.started_at or "")
     return latest
 
@@ -1100,5 +1147,9 @@ async def get_backfill_status(
 async def get_backfill_status_by_id(job_id: str, auth: AuthContext = Depends(require_owner)):
     job = _JOB_STORE.get(job_id)
     if not job:
+        async with get_db() as db:
+            payload = await MaintenanceJobRepository(db).get(job_id)
+        if payload:
+            return BackfillJobStatus.model_validate(payload)
         raise HTTPException(status_code=404, detail="Backfill job not found")
     return job

@@ -169,7 +169,7 @@
 
 {#if diagnosticOpen}
     <DiagnosticDialog
-        title={$_('settings.integrations.birdnet.test_title', { default: 'BirdNET-Go path test' })}
+        title={$_('settings.integrations.birdnet.test_title', { default: 'BirdNET-Go connection test' })}
         subtitle={$_('setup.integrations.birdnet_test_subtitle', { default: 'Checks this URL, the saved MQTT broker, and local detection storage.' })}
         stages={diagnosticStages}
         result={diagnosticResult}

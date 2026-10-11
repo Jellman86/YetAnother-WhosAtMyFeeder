@@ -14,8 +14,15 @@ The build is reproducible: no timestamp is written, so regenerating from the
 same source produces a byte-identical file and the recorded digest can be
 checked rather than trusted.
 
+Each species also carries its place in IOC's classification: the order and
+family the multilingual file records against it, its genus (the first word of
+the binomial, by definition), and IOC's sequence number, which orders taxa
+the way the list does. English family names come from the master list of the
+same release, which the multilingual file does not carry.
+
 Usage:
-    python scripts/build_species_reference.py --ioc /path/to/Multiling_IOC_14.2.xlsx
+    python scripts/build_species_reference.py --ioc /path/to/Multiling_IOC_14.2.xlsx \
+        --master /path/to/master_ioc_list_v14.2.xlsx
 """
 
 from __future__ import annotations
@@ -38,8 +45,9 @@ from app.services.species_provenance import (  # noqa: E402
     require_build_source,
 )
 
-SCHEMA_VERSION = "2"
+SCHEMA_VERSION = "3"
 SOURCE_NAME = "ioc-world-bird-list"
+MASTER_SOURCE_NAME = "ioc-world-bird-list-master"
 
 _NS = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
 
@@ -65,8 +73,17 @@ CREATE TABLE reference_meta (
 CREATE TABLE taxon (
     id              INTEGER PRIMARY KEY,
     scientific_name TEXT NOT NULL,
-    common_name     TEXT
+    common_name     TEXT,
+    order_name      TEXT NOT NULL,
+    family_name     TEXT NOT NULL,
+    sequence        INTEGER NOT NULL
 );
+
+-- English names for families, from the master list of the same release.
+CREATE TABLE family (
+    name        TEXT PRIMARY KEY,
+    common_name TEXT NOT NULL
+) WITHOUT ROWID;
 
 CREATE UNIQUE INDEX idx_taxon_scientific ON taxon (scientific_name COLLATE NOCASE);
 CREATE INDEX idx_taxon_common ON taxon (common_name COLLATE NOCASE);
@@ -83,8 +100,8 @@ CREATE TABLE taxon_name (
 """
 
 
-def _read_sheet(path: Path) -> list[dict[str, str]]:
-    """Read the first worksheet as dictionaries keyed by column heading.
+def _read_cells(path: Path) -> list[dict[str, str]]:
+    """Read the first worksheet as rows of cells keyed by column letter.
 
     Parsed straight from the workbook XML so the build needs no spreadsheet
     dependency in the runtime image.
@@ -128,8 +145,40 @@ def _read_sheet(path: Path) -> list[dict[str, str]]:
                 values[column] = value.text or ""
         return values
 
-    headings = {name: column for column, name in cells(rows[0]).items() if name}
-    return [{name: (cells(row).get(column) or "").strip() for name, column in headings.items()} for row in rows[1:]]
+    return [cells(row) for row in rows]
+
+
+def _read_sheet(path: Path) -> list[dict[str, str]]:
+    """Read the first worksheet as dictionaries keyed by the headings in its first row."""
+    rows = _read_cells(path)
+    if not rows:
+        return []
+    headings = {name: column for column, name in rows[0].items() if name}
+    return [{name: (row.get(column) or "").strip() for name, column in headings.items()} for row in rows[1:]]
+
+
+def parse_family_names(rows: list[dict[str, str]]) -> dict[str, str]:
+    """English family names from the master list: its family rows carry the scientific and English name.
+
+    The master list is laid out as a tree, one row per order, family, genus and species, beneath a
+    title block. Its heading row names the columns; a family row is the one with a scientific family
+    name in the family column.
+    """
+    heading = next((row for row in rows if (row.get("A") or "").strip() == "Infraclass"), None)
+    if heading is None:
+        raise SystemExit("No heading row found in the IOC master list")
+    columns = {name.strip(): column for column, name in heading.items() if name}
+    scientific_column = columns.get("Family (Scientific)")
+    english_column = columns.get("Family (English)")
+    if not scientific_column or not english_column:
+        raise SystemExit("The IOC master list has no family columns")
+    families: dict[str, str] = {}
+    for row in rows[rows.index(heading) + 1 :]:
+        scientific = (row.get(scientific_column) or "").strip()
+        english = (row.get(english_column) or "").strip()
+        if scientific and english and scientific not in families:
+            families[scientific] = english
+    return families
 
 
 def parse_ioc(records: list[dict[str, str]]) -> list[dict[str, object]]:
@@ -149,9 +198,18 @@ def parse_ioc(records: list[dict[str, str]]) -> list[dict[str, object]]:
         if key in seen:
             continue
         seen.add(key)
+        order = (record.get("Order") or "").strip()
+        family = (record.get("Family") or "").strip()
+        sequence = (record.get("seq") or "").strip()
+        if not order or not family or not sequence.isdigit():
+            raise SystemExit(f"IOC row for {scientific} lacks its order, family or sequence")
         taxa.append(
             {
                 "scientific_name": scientific,
+                # IOC writes orders in capitals; the scientific form is capitalised once.
+                "order_name": order.capitalize(),
+                "family_name": family,
+                "sequence": int(sequence),
                 "common_name": (record.get(_ENGLISH_COLUMN) or "").strip() or None,
                 "names": {
                     locale: record[column].strip()
@@ -163,19 +221,30 @@ def parse_ioc(records: list[dict[str, str]]) -> list[dict[str, object]]:
     return taxa
 
 
-def build(source_path: Path, output_path: Path, *, manifest_path: Path | None = None) -> tuple[int, int, str]:
+def build(
+    source_path: Path, output_path: Path, master_path: Path, *, manifest_path: Path | None = None
+) -> tuple[int, int, str]:
     # The provenance gate: the input must be the release the manifest froze.
     # A new IOC release is adopted by updating species_sources.json in the same
     # commit, never by building from whatever file happens to be at hand.
     source_digest = hashlib.sha256(source_path.read_bytes()).hexdigest()
+    master_digest = hashlib.sha256(master_path.read_bytes()).hexdigest()
+    manifest = load_source_manifest(manifest_path)
     try:
-        source = require_build_source(load_source_manifest(manifest_path), SOURCE_NAME, content_sha256=source_digest)
+        source = require_build_source(manifest, SOURCE_NAME, content_sha256=source_digest)
+        master = require_build_source(manifest, MASTER_SOURCE_NAME, content_sha256=master_digest)
     except SourceProvenanceError as error:
         raise SystemExit(f"Provenance gate refused the build: {error}") from error
+    if master.version != source.version:
+        raise SystemExit(f"The master list ({master.version}) and multilingual file ({source.version}) differ")
 
     taxa = parse_ioc(_read_sheet(source_path))
     if not taxa:
         raise SystemExit(f"No usable species rows found in {source_path}")
+    families = parse_family_names(_read_cells(master_path))
+    missing = sorted({str(taxon["family_name"]) for taxon in taxa} - families.keys())
+    if missing:
+        raise SystemExit(f"The master list names no English family for: {', '.join(missing)}")
 
     if output_path.exists():
         output_path.unlink()
@@ -187,13 +256,26 @@ def build(source_path: Path, output_path: Path, *, manifest_path: Path | None = 
         connection.executescript(SCHEMA)
         for index, taxon in enumerate(taxa, start=1):
             connection.execute(
-                "INSERT INTO taxon (id, scientific_name, common_name) VALUES (?, ?, ?)",
-                (index, taxon["scientific_name"], taxon["common_name"]),
+                "INSERT INTO taxon (id, scientific_name, common_name, order_name, family_name, sequence)"
+                " VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    index,
+                    taxon["scientific_name"],
+                    taxon["common_name"],
+                    taxon["order_name"],
+                    taxon["family_name"],
+                    taxon["sequence"],
+                ),
             )
             names = [(index, locale, name) for locale, name in sorted(taxon["names"].items())]
             connection.executemany("INSERT INTO taxon_name VALUES (?, ?, ?)", names)
             localized += len(names)
 
+        used_families = {str(taxon["family_name"]) for taxon in taxa}
+        connection.executemany(
+            "INSERT INTO family (name, common_name) VALUES (?, ?)",
+            sorted((name, english) for name, english in families.items() if name in used_families),
+        )
         connection.executemany(
             "INSERT INTO reference_meta (key, value) VALUES (?, ?)",
             [
@@ -204,6 +286,7 @@ def build(source_path: Path, output_path: Path, *, manifest_path: Path | None = 
                 ("taxon_count", str(len(taxa))),
                 ("localized_name_count", str(localized)),
                 ("source_sha256", source_digest),
+                ("master_source_sha256", master_digest),
             ],
         )
         connection.commit()
@@ -220,6 +303,7 @@ def build(source_path: Path, output_path: Path, *, manifest_path: Path | None = 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--ioc", required=True, type=Path, help="IOC multilingual .xlsx")
+    parser.add_argument("--master", required=True, type=Path, help="IOC master list .xlsx of the same release")
     parser.add_argument(
         "--output",
         type=Path,
@@ -227,7 +311,7 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    taxa, localized, digest = build(args.ioc, args.output)
+    taxa, localized, digest = build(args.ioc, args.output, args.master)
     size_mb = args.output.stat().st_size / 1024 / 1024
     print(f"Wrote {args.output}: {taxa} taxa, {localized} localized names, {size_mb:.2f} MB")
     print(f"sha256 {digest}")

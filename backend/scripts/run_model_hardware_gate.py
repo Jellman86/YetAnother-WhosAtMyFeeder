@@ -22,6 +22,10 @@ import time
 from typing import Any
 
 BACKEND = Path(__file__).resolve().parents[1]
+if str(BACKEND) not in sys.path:
+    sys.path.insert(0, str(BACKEND))
+from app.utils.python_subprocess import python_subprocess_launch  # noqa: E402
+
 PROVIDERS = ("cpu", "intel_cpu", "intel_npu", "intel_gpu", "cuda")
 
 
@@ -92,11 +96,14 @@ def compare_reports(baseline: dict[str, Any], report: dict[str, Any], *, crop: b
 
 def run_child(command: list[str], output: Path, *, timeout: float) -> dict[str, Any]:
     started = time.monotonic()
+    executable, environment = python_subprocess_launch()
+    if command[0] == sys.executable:
+        command = [executable, *command[1:]]
     result: dict[str, Any] = {"status": "spawn_failed", "exit_code": None}
     try:
         with (output / "process.log").open("w") as log:
             process = subprocess.Popen(
-                command, stdout=log, stderr=subprocess.STDOUT, start_new_session=os.name == "posix"
+                command, env=environment, stdout=log, stderr=subprocess.STDOUT, start_new_session=os.name == "posix"
             )
             try:
                 result["exit_code"] = process.wait(timeout=timeout)

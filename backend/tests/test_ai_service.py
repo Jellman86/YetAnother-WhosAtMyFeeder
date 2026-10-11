@@ -156,7 +156,8 @@ async def test_analyze_gemini_error_does_not_expose_query_string_api_key(ai_serv
             result = await ai_service.analyze_detection(species="Cardinal", image_data=b"fake_image", metadata={})
 
     assert secret not in result
-    assert "***REDACTED***" in result
+    assert isinstance(result, AIAnalysisError)
+    assert result.http_status_hint == 503
 
 
 @pytest.mark.asyncio

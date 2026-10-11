@@ -17,30 +17,98 @@ from pathlib import Path
 from typing import Any, Optional
 
 import cv2
-import numpy as np
 import structlog
 from PIL import Image
 
 from app.config import settings
-from app.services.bird_crop_service import bird_crop_service
+from app.services.bird_crop_service import BirdDetectionError, bird_crop_service, detector_scan_failed
+from app.services.bird_count_recheck import choose_count_rechecks, recheck_confirms_seed, contextual_recheck_box
+from app.services.species_reference import species_reference
 from app.services.frigate_client import frigate_client
 from app.services.hq_classification_refinement import (
     HQ_REFINEMENT_MIN_TEMPORAL_SEPARATION_SECONDS,
     choose_hq_classification_refinement,
     crop_labels_with_independent_support,
 )
-from app.services.media_cache import media_cache
+from app.services.media_cache import media_cache, validate_film_alignment
+from app.services.photo_choice_actions import photo_choice_lock
+from app.services.video_scene_cache import VideoSceneCache
 from app.services.classification_input_provenance import cached_snapshot_input_provenance
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
+from app.repositories.bird_observation_repository import BirdObservationRepository
+from app.services.photo_quality import image_quality_score, materially_improves_photo
+from app.services.photo_presence import attach_photo_presence, has_localized_bird, has_confident_photo_species
+from app.services.bird_observation_selection import (
+    BirdObservationSelection,
+    select_bird_observations,
+    MIN_DETECTOR_CONFIDENCE,
+    MIN_SPECIES_CONFIDENCE,
+)
 from app.repositories.processing_job_repository import ProcessingJobRepository
 from app.utils.canonical_species import should_hide_species_label
 from app.utils.classifier_labels import normalize_classifier_label
-from app.utils.frigate_coordinates import normalize_frigate_hint_box, restore_frigate_hint_box
+from app.utils.frigate_coordinates import normalized_frigate_video_hint, restore_frigate_hint_box
 from app.utils.tasks import create_background_task
 from app.utils.image_io import decode_image_bytes
+from app.utils.api_datetime import serialize_storage_datetime, utc_naive_now
 
 log = structlog.get_logger()
+
+
+def final_snapshot_film_alignment(
+    event_data: dict[str, Any], candidate: dict[str, Any], frame_size: tuple[int, int]
+) -> dict[str, Any] | None:
+    """Seal a clean final still's actual crop to its explicit recording timestamp."""
+    if (
+        candidate.get("clip_variant") != "frigate_snapshot"
+        or candidate.get("frame_index") != 0
+        or candidate.get("frame_offset_seconds") is not None
+    ):
+        return None
+    snapshot = event_data.get("snapshot")
+    payload = event_data.get("data")
+    moments = [
+        value
+        for value in (
+            snapshot.get("frame_time") if isinstance(snapshot, dict) else None,
+            payload.get("snapshot_frame_time") if isinstance(payload, dict) else None,
+        )
+        if value is not None
+    ]
+    end = event_data.get("end_time")
+    start = event_data.get("start_time")
+    bounds = [end] + ([start] if start is not None else [])
+    if not moments or any(
+        isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0
+        for value in moments + bounds
+    ):
+        return None
+    moment = float(moments[0])
+    if any(not math.isclose(float(value), moment, abs_tol=0.001, rel_tol=0) for value in moments[1:]):
+        return None
+    if moment > end or (start is not None and moment < start):
+        return None
+    crop = candidate.get("crop_box")
+    image_bytes = candidate.get("image_bytes")
+    if not isinstance(crop, (list, tuple)) or len(crop) != 4 or not isinstance(image_bytes, bytes):
+        return None
+    if any(
+        isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) for value in crop
+    ):
+        return None
+    width, height = frame_size
+    left, top, right, bottom = crop
+    if width <= 0 or height <= 0 or not (0 <= left < right <= width and 0 <= top < bottom <= height):
+        return None
+    return validate_film_alignment(
+        {
+            "frame_time": moment,
+            "box": [left / width, top / height, (right - left) / width, (bottom - top) / height],
+            "image_sha256": hashlib.sha256(image_bytes).hexdigest(),
+        },
+        image_bytes,
+    )
 
 
 def _write_temp_clip(contents: bytes) -> Path:
@@ -52,7 +120,10 @@ def _write_temp_clip(contents: bytes) -> Path:
 HQ_HINT_CROP_EXPAND_RATIO = 0.36
 HQ_MODEL_CROP_EXTRA_EXPAND_RATIO = 0.18
 HQ_MAX_CROP_SCORING_FRAMES = 3
-HQ_MAX_PERSISTED_CANDIDATES = 8
+# Bound expensive classifier photo choices; count boxes come from a separate whole-frame detector
+# pass and are not limited by this ceiling. Background admission keeps live inference first.
+HQ_MAX_MODEL_CROPS_PER_FRAME = 8
+HQ_MAX_PERSISTED_CANDIDATES = 16
 HQ_RECONCILE_LOOKBACK_HOURS = 6
 HQ_RECONCILE_LIMIT = 100
 HQ_RECONCILE_INTERVAL_SECONDS = 300
@@ -60,6 +131,7 @@ HQ_CANDIDATE_INFERENCE_QUEUE_TIMEOUT_SECONDS = 30.0
 HQ_MIN_CROP_EDGE_PIXELS = 160
 HQ_MIN_CROP_AREA_PIXELS = 25_000
 HQ_MODEL_CROP_MIN_CLASSIFIER_ADVANTAGE = 0.02
+HQ_PORTRAIT_MAX_CLASSIFIER_LOSS = 0.05
 HQ_CLIP_REPLACEMENT_MIN_CLASSIFIER_ADVANTAGE = 0.02
 HQ_PATH_HINT_MAX_DISTANCE_SECONDS = 0.75
 HQ_PROCESSING_PIPELINE = "high_quality_snapshot"
@@ -86,6 +158,14 @@ def crop_source_order(priority: str) -> tuple[str, ...]:
         str(priority or "").strip().lower(),
         CROP_SOURCE_ORDERS[DEFAULT_CROP_SOURCE_PRIORITY],
     )
+
+
+class PhotoScanRetry(RuntimeError):
+    """Photo work was incomplete and can recover without replacing the old image."""
+
+    def __init__(self, outcome: str):
+        super().__init__(outcome)
+        self.outcome = outcome
 
 
 class HighQualitySnapshotService:
@@ -122,14 +202,21 @@ class HighQualitySnapshotService:
         self._selected_sources: Counter[str] = Counter()
         self._classification_refinements: Counter[str] = Counter()
         self._last_result: dict[str, str] | None = None
+        self._durable_pending_count = 0
+        self._repair_cursor = 0
+        self._recovery_lock = asyncio.Lock()
 
     def enabled(self) -> bool:
+        # Expensive work whose only product is a stored photograph: skipped when it cannot be stored.
         return bool(
-            settings.media_cache.enabled
-            and settings.media_cache.cache_snapshots
+            media_cache.available
             and settings.media_cache.high_quality_event_snapshots
             and (settings.frigate.clips_enabled or settings.frigate.recording_clip_enabled)
         )
+
+    @staticmethod
+    def _additional_birds_enabled(requested: bool | None) -> bool:
+        return settings.media_cache.automatic_multi_bird_scan if requested is None else requested
 
     def _automatic_crop_enabled(self) -> bool:
         """HQ snapshots always attempt the best crop; the old crop flag is compatibility-only."""
@@ -157,6 +244,98 @@ class HighQualitySnapshotService:
                 return False
         self._scheduled_total += 1
         return True
+
+    async def schedule_replacement_durable(
+        self, event_id: str, event_data: Optional[dict[str, Any]] = None, *, final: bool = False
+    ) -> bool:
+        if not self.enabled():
+            return False
+        await self._persist_event_hints(event_id, event_data)
+        async with get_db() as db:
+            saved = await ProcessingJobRepository(db).enqueue(
+                HQ_PROCESSING_PIPELINE, event_id, force=final, preserve_storage_eviction=True
+            )
+        if not saved:
+            return False
+        # Disk remains the owner of overflow work; the memory queue only admits execution.
+        if final and event_data is not None:
+            self.schedule_final_replacement(event_id, event_data)
+        else:
+            self.schedule_replacement(event_id, event_data)
+        return True
+
+    async def recover_durable_jobs(self) -> int:
+        if not self.enabled() or self._recovery_lock.locked():
+            return 0
+        async with self._recovery_lock:
+            if self._queued_ids or self._deferred_ids:
+                self._ensure_workers_started()
+            now = datetime.now(timezone.utc)
+            async with get_db() as db:
+                repo = ProcessingJobRepository(db)
+                self._durable_pending_count = await repo.pending_count(HQ_PROCESSING_PIPELINE)
+                ids = await repo.list_due(
+                    HQ_PROCESSING_PIPELINE, now, limit=self.MAX_PENDING_QUEUE + self.MAX_DEFERRED_EVENTS
+                )
+            scheduled = 0
+            for event_id in ids:
+                if event_id in self._active_ids or event_id in self._queued_ids or event_id in self._deferred_ids:
+                    continue
+                if self._pending_queue.full() and len(self._deferred_ids) >= self.MAX_DEFERRED_EVENTS:
+                    break
+                self._completed_ids.discard(event_id)
+                if self.schedule_replacement(event_id):
+                    scheduled += 1
+            return scheduled
+
+    async def repair_missing_candidate_files(self) -> int:
+        """Walk historical visits in bounded pages so old dropped work can recover."""
+        if not self.enabled():
+            return 0
+        async with get_db() as db:
+            rows = await DetectionRepository(db).list_snapshot_recovery_candidates(
+                self._repair_cursor, limit=HQ_RECONCILE_LIMIT
+            )
+        if not rows:
+            self._repair_cursor = 0
+            return 0
+        repaired = 0
+        for detection_id, event_id in rows:
+            self._repair_cursor = detection_id
+            if event_id.startswith("manual_"):
+                continue
+            metadata = await media_cache.get_snapshot_metadata(event_id) or {}
+            if metadata.get("manual_selection") or metadata.get("storage_evicted"):
+                continue
+            async with get_db() as db:
+                candidates = await DetectionRepository(db).list_snapshot_candidates(event_id)
+                state = await ProcessingJobRepository(db).get(HQ_PROCESSING_PIPELINE, event_id)
+                birds = await BirdObservationRepository(db).list_for_event(event_id)
+            if state is not None and state.status in {"queued", "retryable", "terminal"}:
+                continue
+            counted_frames = {(bird["clip_variant"], bird["frame_index"]) for bird in birds}
+            required = [
+                candidate
+                for candidate in candidates
+                if candidate.get("selected")
+                or (
+                    candidate.get("source_mode") == "full_frame"
+                    and (candidate.get("clip_variant"), candidate.get("frame_index")) in counted_frames
+                )
+            ]
+            has_any_image = False
+            missing_required = False
+            for candidate in candidates:
+                image_ref = candidate.get("image_ref")
+                exists = bool(image_ref and await media_cache.get_snapshot_path(image_ref) is not None)
+                has_any_image |= exists
+                missing_required |= candidate in required and not exists
+            if has_any_image and not missing_required:
+                continue
+            async with get_db() as db:
+                saved = await ProcessingJobRepository(db).enqueue(HQ_PROCESSING_PIPELINE, event_id, force=True)
+            repaired += int(saved)
+        return repaired
 
     def schedule_final_replacement(self, event_id: str, event_data: dict[str, Any]) -> bool:
         """Queue an ended event even when an earlier live-event pass is still running."""
@@ -190,21 +369,36 @@ class HighQualitySnapshotService:
         self._scheduled_total += 1
         return True
 
-    async def process_event(self, event_id: str) -> str:
+    async def process_event(self, event_id: str, *, manual_override: bool = False) -> str:
         """Process one event and persist its bounded retry outcome."""
-        result = await self._process_event_once(event_id)
-        await self._persist_processing_outcome(event_id, result)
+        async with get_db() as db:
+            state = await ProcessingJobRepository(db).get(HQ_PROCESSING_PIPELINE, event_id)
+        if state is not None and state.last_error == "storage_evicted":
+            return self._record_outcome(event_id, "storage_evicted")
+        revision = state.revision if state else 0
+        result = (
+            await self._process_event_once(event_id, manual_override=True)
+            if manual_override
+            else await self._process_event_once(event_id)
+        )
+        await self._persist_processing_outcome(event_id, result, expected_revision=revision)
         return result
 
-    async def _process_event_once(self, event_id: str) -> str:
+    async def _process_event_once(self, event_id: str, *, manual_override: bool = False) -> str:
         """Fetch the clip, derive a frame, and atomically replace the cached snapshot."""
+        async with photo_choice_lock(event_id):
+            return await self._process_event_once_unlocked(event_id, manual_override=manual_override)
+
+    async def _process_event_once_unlocked(self, event_id: str, *, manual_override: bool = False) -> str:
         if not self.enabled():
             self._crop_event_hints.pop(event_id, None)
             return self._record_outcome(event_id, "disabled")
 
+        include_additional_birds = self._additional_birds_enabled(None)
+        initial_metadata = (await media_cache.get_snapshot_metadata(event_id) or {}) if manual_override else {}
         event_data = self._pop_crop_event_hints(event_id)
         clip_variant = "event"
-        clip_bytes, clip_error = await self._wait_for_clip(event_id)
+        clip_bytes, clip_error = await self._load_event_clip(event_id, prefer_cached=manual_override)
         if not clip_bytes:
             clip_bytes = await self._load_recording_clip_bytes(event_id)
             clip_variant = "recording"
@@ -214,7 +408,7 @@ class HighQualitySnapshotService:
         if event_data is None:
             event_data = await self._load_persisted_event_hints(event_id)
         await self._persist_event_hints(event_id, event_data)
-        snapshot_event_data = event_data if clip_variant == "event" else None
+        snapshot_event_data = None
         selected_candidate = None
         classification_candidates: list[dict[str, Any]] = []
         try:
@@ -224,15 +418,31 @@ class HighQualitySnapshotService:
                     clip_bytes,
                     event_data=event_data,
                     clip_variant=clip_variant,
+                    include_additional_birds=include_additional_birds,
                 )
             else:
-                final_candidates = await self._load_final_frigate_snapshot_candidates(event_id, event_data)
-                candidate_bundle = await self._score_and_select_snapshot_candidates(event_id, final_candidates)
+                final_candidates = await self._load_final_frigate_snapshot_candidates(
+                    event_id, event_data, include_additional_birds=include_additional_birds
+                )
+                candidate_bundle = await self._score_and_select_snapshot_candidates(
+                    event_id, final_candidates, include_additional_birds=include_additional_birds
+                )
             if candidate_bundle:
                 candidates = candidate_bundle.get("candidates") or []
                 await self._persist_snapshot_candidates(event_id, candidates)
+                await self._persist_scan_bundle(event_id, candidate_bundle)
                 classification_candidates = candidates
                 selected_candidate = candidate_bundle.get("selected_candidate")
+                if selected_candidate and selected_candidate.get("preserve_existing_photo"):
+                    await self._apply_classification_refinement(event_id, classification_candidates)
+                    return self._record_outcome(event_id, "existing_crop_preserved")
+                if candidate_bundle.get("photo_outcome") == "bird_presence_unconfirmed":
+                    await self._apply_classification_refinement(event_id, classification_candidates)
+                    return self._record_outcome(event_id, "bird_presence_unconfirmed")
+        except PhotoScanRetry as exc:
+            return self._record_outcome(event_id, exc.outcome)
+        except BirdDetectionError:
+            return self._record_outcome(event_id, "detector_error")
         except Exception as e:
             log.warning("High-quality snapshot candidate generation failed", event_id=event_id, error=str(e))
 
@@ -254,17 +464,26 @@ class HighQualitySnapshotService:
                     snapshot_event_data,
                     clip_variant,
                 )
+            except BirdDetectionError:
+                return self._record_outcome(event_id, "detector_error")
             except Exception as e:
                 log.warning("High-quality snapshot extraction failed", event_id=event_id, error=str(e))
                 return self._record_outcome(event_id, "frame_extract_failed")
-            image_bytes, crop_applied = await self._identity_safe_fallback_crop(
-                event_id,
-                image_bytes,
-                snapshot_event_data,
-            )
+            try:
+                image_bytes, crop_applied = await self._identity_safe_fallback_crop(
+                    event_id,
+                    image_bytes,
+                    snapshot_event_data,
+                )
+            except PhotoScanRetry as exc:
+                return self._record_outcome(event_id, exc.outcome)
+            except BirdDetectionError:
+                return self._record_outcome(event_id, "detector_error")
+            if image_bytes is None:
+                return self._record_outcome(event_id, "bird_presence_unconfirmed")
             snapshot_source = "high_quality_bird_crop" if crop_applied else "high_quality_snapshot"
 
-        if not crop_applied and await self._existing_snapshot_is_cropped(event_id):
+        if not crop_applied and await self._should_preserve_existing_crop(event_id, selected_candidate):
             await self._apply_classification_refinement(event_id, classification_candidates)
             log.info(
                 "Preserved existing cropped snapshot because no replacement crop was available",
@@ -277,6 +496,14 @@ class HighQualitySnapshotService:
             event_id,
             image_bytes,
             source=snapshot_source,
+            automatic=not manual_override,
+            clear_manual_selection=manual_override,
+            expected_manual_selection_updated_at=initial_metadata.get("updated_at"),
+            **(
+                {"film_alignment": selected_candidate["film_alignment"]}
+                if isinstance(selected_candidate, dict) and selected_candidate.get("film_alignment")
+                else {}
+            ),
         )
         if not replaced:
             return self._record_outcome(event_id, "snapshot_replace_failed")
@@ -286,14 +513,27 @@ class HighQualitySnapshotService:
         await archive_service.refresh_photograph(event_id)
 
         await self._apply_classification_refinement(event_id, classification_candidates)
+        if (await media_cache.get_snapshot_metadata(event_id) or {}).get("manual_selection"):
+            return self._record_outcome(event_id, "manual_selection_preserved")
+        if manual_override and initial_metadata.get("manual_selection"):
+            async with media_cache._snapshot_commit_lock(event_id):
+                if not (await media_cache.get_snapshot_metadata(event_id) or {}).get("manual_selection"):
+                    async with get_db() as db:
+                        await DetectionRepository(db).mark_selected_snapshot_candidate(
+                            event_id, str(selected_candidate.get("candidate_id") or "") if selected_candidate else None
+                        )
         log.info("High-quality snapshot replaced", event_id=event_id, size=len(image_bytes), source=snapshot_source)
         return self._record_outcome(event_id, "bird_crop_replaced" if crop_applied else "replaced")
 
     async def _load_recording_clip_bytes(self, event_id: str) -> Optional[bytes]:
         """Fall back to the full-visit recording clip when the event clip is unavailable."""
-        if not settings.frigate.recording_clip_enabled:
-            return None
+        if settings.frigate.recording_clip_enabled and (clip := await self._load_live_recording_clip_bytes(event_id)):
+            return clip
+        from app.services.retained_visit_video import retained_recording_clip
 
+        return await self._read_retained(event_id, await retained_recording_clip(event_id))
+
+    async def _load_live_recording_clip_bytes(self, event_id: str) -> Optional[bytes]:
         cached_path = media_cache.get_recording_clip_path(event_id)
         if cached_path and await asyncio.to_thread(cached_path.exists):
             try:
@@ -336,17 +576,45 @@ class HighQualitySnapshotService:
         event_data: Optional[dict[str, Any]] = None,
         *,
         clip_variant: str = "event",
+        clip_start_timestamp: float | None = None,
+        scene_cache: VideoSceneCache | None = None,
     ) -> str:
         """Best-effort replacement from a clip already on disk; the caller owns the file (#341)."""
+        async with photo_choice_lock(event_id):
+            return await self._replace_from_clip_path_unlocked(
+                event_id,
+                clip_path,
+                event_data,
+                clip_variant=clip_variant,
+                clip_start_timestamp=clip_start_timestamp,
+                **({"scene_cache": scene_cache} if scene_cache is not None else {}),
+            )
+
+    async def _replace_from_clip_path_unlocked(
+        self,
+        event_id: str,
+        clip_path: Path,
+        event_data: Optional[dict[str, Any]] = None,
+        *,
+        clip_variant: str = "event",
+        clip_start_timestamp: float | None = None,
+        scene_cache: VideoSceneCache | None = None,
+    ) -> str:
         if not self.enabled():
             return self._record_outcome(event_id, "disabled")
 
+        include_additional_birds = self._additional_birds_enabled(None)
         self._cleanup_completed_workers()
         if event_id in self._active_ids:
             self._crop_event_hints.pop(event_id, None)
             self._duplicate_requests += 1
             return self._record_outcome(event_id, "duplicate")
 
+        async with get_db() as db:
+            state = await ProcessingJobRepository(db).get(HQ_PROCESSING_PIPELINE, event_id)
+        if state and state.last_error == "storage_evicted":
+            return self._record_outcome(event_id, "storage_evicted")
+        revision = state.revision if state else 0
         self._active_ids.add(event_id)
         self._mark_job_active(event_id)
         try:
@@ -356,7 +624,7 @@ class HighQualitySnapshotService:
             if crop_event_data is None:
                 crop_event_data = await self._load_persisted_event_hints(event_id)
             await self._persist_event_hints(event_id, crop_event_data)
-            snapshot_event_data = crop_event_data if clip_variant == "event" else None
+            snapshot_event_data = None
             selected_candidate = None
             classification_candidates: list[dict[str, Any]] = []
             try:
@@ -365,12 +633,34 @@ class HighQualitySnapshotService:
                     Path(clip_path),
                     event_data=crop_event_data,
                     clip_variant=clip_variant,
+                    clip_start_timestamp=clip_start_timestamp,
+                    include_additional_birds=include_additional_birds,
+                    **({"scene_cache": scene_cache} if scene_cache is not None else {}),
                 )
                 if candidate_bundle:
                     candidates = candidate_bundle.get("candidates") or []
                     await self._persist_snapshot_candidates(event_id, candidates)
+                    await self._persist_scan_bundle(event_id, candidate_bundle)
                     classification_candidates = candidates
                     selected_candidate = candidate_bundle.get("selected_candidate")
+                    if selected_candidate and selected_candidate.get("preserve_existing_photo"):
+                        await self._apply_classification_refinement(event_id, classification_candidates)
+                        result = self._record_outcome(event_id, "existing_crop_preserved")
+                        await self._persist_processing_outcome(event_id, result, expected_revision=revision)
+                        return result
+                    if candidate_bundle.get("photo_outcome") == "bird_presence_unconfirmed":
+                        await self._apply_classification_refinement(event_id, classification_candidates)
+                        result = self._record_outcome(event_id, "bird_presence_unconfirmed")
+                        await self._persist_processing_outcome(event_id, result, expected_revision=revision)
+                        return result
+            except PhotoScanRetry as exc:
+                result = self._record_outcome(event_id, exc.outcome)
+                await self._persist_processing_outcome(event_id, result, expected_revision=revision)
+                return result
+            except BirdDetectionError:
+                result = self._record_outcome(event_id, "detector_error")
+                await self._persist_processing_outcome(event_id, result, expected_revision=revision)
+                return result
             except Exception as e:
                 log.warning("High-quality snapshot candidate generation failed", event_id=event_id, error=str(e))
 
@@ -390,17 +680,37 @@ class HighQualitySnapshotService:
                         snapshot_event_data,
                         clip_variant,
                     )
+                except BirdDetectionError:
+                    result = self._record_outcome(event_id, "detector_error")
+                    await self._persist_processing_outcome(event_id, result, expected_revision=revision)
+                    return result
                 except Exception as e:
                     log.warning("High-quality snapshot extraction failed", event_id=event_id, error=str(e))
-                    return self._record_outcome(event_id, "frame_extract_failed")
-                image_bytes, crop_applied = await self._identity_safe_fallback_crop(
-                    event_id,
-                    image_bytes,
-                    snapshot_event_data,
-                )
+                    result = self._record_outcome(event_id, "frame_extract_failed")
+                    await self._persist_processing_outcome(event_id, result, expected_revision=revision)
+                    return result
+                try:
+                    image_bytes, crop_applied = await self._identity_safe_fallback_crop(
+                        event_id,
+                        image_bytes,
+                        snapshot_event_data,
+                    )
+                except PhotoScanRetry as exc:
+                    result = self._record_outcome(event_id, exc.outcome)
+                    await self._persist_processing_outcome(event_id, result, expected_revision=revision)
+                    return result
+                except BirdDetectionError:
+                    result = self._record_outcome(event_id, "detector_error")
+                    await self._persist_processing_outcome(event_id, result, expected_revision=revision)
+                    return result
+                if image_bytes is None:
+                    await self._apply_classification_refinement(event_id, classification_candidates)
+                    result = self._record_outcome(event_id, "bird_presence_unconfirmed")
+                    await self._persist_processing_outcome(event_id, result, expected_revision=revision)
+                    return result
                 snapshot_source = "high_quality_bird_crop" if crop_applied else "high_quality_snapshot"
 
-            if not crop_applied and await self._existing_snapshot_is_cropped(event_id):
+            if not crop_applied and await self._should_preserve_existing_crop(event_id, selected_candidate):
                 await self._apply_classification_refinement(event_id, classification_candidates)
                 if event_id not in self._final_refresh_ids and (
                     event_id in self._queued_ids or event_id in self._deferred_ids
@@ -412,13 +722,19 @@ class HighQualitySnapshotService:
                     attempted_source=snapshot_source,
                 )
                 result = self._record_outcome(event_id, "existing_crop_preserved")
-                await self._persist_processing_outcome(event_id, result)
+                await self._persist_processing_outcome(event_id, result, expected_revision=revision)
                 return result
 
             replaced = await media_cache.replace_snapshot(
                 event_id,
                 image_bytes,
                 source=snapshot_source,
+                automatic=True,
+                **(
+                    {"film_alignment": selected_candidate["film_alignment"]}
+                    if isinstance(selected_candidate, dict) and selected_candidate.get("film_alignment")
+                    else {}
+                ),
             )
             if not replaced:
                 return self._record_outcome(event_id, "snapshot_replace_failed")
@@ -439,8 +755,12 @@ class HighQualitySnapshotService:
                 size=len(image_bytes),
                 source=snapshot_source,
             )
-            result = self._record_outcome(event_id, "bird_crop_replaced" if crop_applied else "replaced")
-            await self._persist_processing_outcome(event_id, result)
+            manual = (await media_cache.get_snapshot_metadata(event_id) or {}).get("manual_selection")
+            result = self._record_outcome(
+                event_id,
+                "manual_selection_preserved" if manual else "bird_crop_replaced" if crop_applied else "replaced",
+            )
+            await self._persist_processing_outcome(event_id, result, expected_revision=revision)
             return result
         finally:
             self._active_ids.discard(event_id)
@@ -481,7 +801,10 @@ class HighQualitySnapshotService:
         *,
         event_data: Optional[dict[str, Any]] = None,
         clip_variant: str = "event",
+        clip_start_timestamp: float | None = None,
+        include_additional_birds: bool | None = None,
     ) -> dict[str, Any]:
+        include_additional_birds = self._additional_birds_enabled(include_additional_birds)
         tmp_path = await asyncio.to_thread(_write_temp_clip, clip_bytes)
         try:
             return await self.generate_snapshot_candidates_from_clip_path(
@@ -489,6 +812,8 @@ class HighQualitySnapshotService:
                 tmp_path,
                 event_data=event_data,
                 clip_variant=clip_variant,
+                clip_start_timestamp=clip_start_timestamp,
+                include_additional_birds=include_additional_birds,
             )
         finally:
             with contextlib.suppress(Exception):
@@ -501,8 +826,12 @@ class HighQualitySnapshotService:
         *,
         event_data: Optional[dict[str, Any]] = None,
         clip_variant: str = "event",
+        clip_start_timestamp: float | None = None,
+        scene_cache: VideoSceneCache | None = None,
+        include_additional_birds: bool | None = None,
     ) -> dict[str, Any]:
         """Candidate generation against a clip already on disk; the caller owns the file (#341)."""
+        include_additional_birds = self._additional_birds_enabled(include_additional_birds)
         preferred_indices = await self._load_preferred_frame_indices(event_id, clip_variant=clip_variant)
 
         raw_candidates: list[dict[str, Any]] = []
@@ -514,8 +843,13 @@ class HighQualitySnapshotService:
                 event_id=event_id,
                 event_data=event_data,
                 clip_variant=clip_variant,
+                clip_start_timestamp=clip_start_timestamp,
                 override_frame_indices=preferred_indices,
+                include_additional_birds=include_additional_birds,
+                **({"scene_cache": scene_cache} if scene_cache is not None else {}),
             )
+        except BirdDetectionError:
+            raise
         except Exception as exc:
             extraction_error = exc
             log.warning(
@@ -524,18 +858,32 @@ class HighQualitySnapshotService:
                 error=str(exc),
             )
 
-        raw_candidates.extend(await self._load_final_frigate_snapshot_candidates(event_id, event_data))
+        raw_candidates.extend(
+            await self._load_final_frigate_snapshot_candidates(
+                event_id, event_data, include_additional_birds=include_additional_birds
+            )
+        )
         if not raw_candidates and extraction_error is not None:
             raise extraction_error
 
-        return await self._score_and_select_snapshot_candidates(event_id, raw_candidates)
+        return await self._score_and_select_snapshot_candidates(
+            event_id, raw_candidates, include_additional_birds=include_additional_birds
+        )
 
     async def _score_and_select_snapshot_candidates(
         self,
         event_id: str,
         raw_candidates: list[dict[str, Any]],
+        include_additional_birds: bool | None = None,
     ) -> dict[str, Any]:
         """Score, select, and bound candidates independent of their media source."""
+        include_additional_birds = self._additional_birds_enabled(include_additional_birds)
+        scan_state = None
+        if include_additional_birds:
+            from app.repositories.bird_scan_repository import BirdScanRepository
+
+            async with get_db() as db:
+                scan_state = await BirdScanRepository(db).get(event_id)
         scored: list[dict[str, Any]] = []
         for candidate in raw_candidates:
             enriched = await self._score_snapshot_candidate(candidate)
@@ -543,17 +891,63 @@ class HighQualitySnapshotService:
                 scored.append(enriched)
 
         if not scored:
-            return {"selected_candidate": None, "candidates": []}
+            return {
+                "selected_candidate": None,
+                "candidates": [],
+                "bird_selection": None,
+                "additional_bird_scan_performed": False,
+            }
 
         ranked = self._rank_snapshot_candidates(scored)
         expected_labels = await self._load_expected_species_labels(event_id)
+        # Target crop geometry remains photo-presence evidence even when optional
+        # whole-scene enumeration and recovered-bird classification are disabled.
+        observation_candidates = await self._detect_count_candidates(scored) if include_additional_birds else []
+        rechecked_observations = (
+            await self._recheck_weak_count_candidates(scored, observations=observation_candidates)
+            if include_additional_birds
+            else []
+        )
+        supported = attach_photo_presence(scored, observation_candidates)
+        # Presence is attached to copies; the persisted scenes carry it too, so a moment with a
+        # located bird stays reusable as a photo scene even when no species is confident enough.
+        located = {str(candidate.get("candidate_id")): candidate for candidate in supported}
+        ranked = [located.get(str(item.get("candidate_id")), item) for item in ranked]
+        expected_keys = {self._candidate_label_key(label) for label in expected_labels}
+        supported = [
+            candidate
+            for candidate in supported
+            if has_confident_photo_species(candidate, threshold=settings.classification.threshold)
+            and (not expected_keys or self._candidate_label_key(candidate.get("classifier_label")) in expected_keys)
+        ]
+        supported = await self._available_photo_candidates(event_id, supported)
         selected_candidate = self._select_canonical_snapshot_candidate(
-            ranked,
+            supported,
             expected_labels=expected_labels,
         )
+        bird_selection = (
+            select_bird_observations(
+                scored + observation_candidates + rechecked_observations, selected_candidate=selected_candidate
+            )
+            if include_additional_birds
+            else None
+        )
+        count_evidence = [item for item in rechecked_observations if item.get("image_bytes")]
+        # The photograph already shown stays unless a candidate is clearly better: a marginal
+        # winner (or a tiny weak crop that out-scores it by a hair) is churn, not an improvement.
+        incumbent = await self._load_verified_incumbent_photo(event_id, expected_keys)
+        if incumbent is not None and (
+            selected_candidate is None or not materially_improves_photo(selected_candidate, incumbent)
+        ):
+            selected_candidate = {**incumbent, "preserve_existing_photo": True}
+            ranked = [item for item in ranked if item.get("candidate_id") != incumbent["candidate_id"]] + [
+                selected_candidate
+            ]
         persisted = self._select_persisted_candidates(
-            ranked,
+            ranked + count_evidence,
             selected_candidate=selected_candidate,
+            count_full_frame_candidate_id=bird_selection.full_frame_candidate_id if bird_selection else None,
+            count_candidate_ids={bird.candidate_id for bird in bird_selection.birds} if bird_selection else set(),
         )
         selected_candidate_id = str((selected_candidate or {}).get("candidate_id") or "")
         for candidate in persisted:
@@ -563,55 +957,396 @@ class HighQualitySnapshotService:
         return {
             "selected_candidate": selected_candidate,
             "candidates": persisted,
+            "bird_selection": bird_selection,
+            "additional_bird_scan_performed": include_additional_birds,
+            # A retained incumbent may be appended to photo choices without being
+            # scanned this time. Only the original count traversal can prove zero.
+            "automatic_scan_scenes": [
+                item
+                for item in scored
+                if item.get("source_mode") == "full_frame" and item.get("input_is_cropped") is not True
+            ]
+            if include_additional_birds and any(item.get("source_mode") == "model_crop" for item in scored)
+            else [],
+            "automatic_scan_expected_revision": scan_state.revision if scan_state else None,
+            "automatic_scan_expected_generation": scan_state.generation if scan_state else None,
+            "photo_outcome": None if selected_candidate is not None else "bird_presence_unconfirmed",
         }
+
+    async def _available_photo_candidates(
+        self, event_id: str, candidates: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """Apply photo-choice removal to selection without discarding detector evidence."""
+        if not candidates:
+            return candidates
+        async with get_db() as db:
+            existing = await DetectionRepository(db).list_snapshot_candidates(event_id)
+        removed = [row for row in existing if row.get("photo_hidden")]
+        if not removed:
+            return candidates
+        removed_hashes = {row["content_sha256"] for row in removed if row.get("content_sha256")}
+        removed_ids = {row["candidate_id"] for row in removed}
+        legacy_ids = set()
+        for row in removed:
+            if row.get("content_sha256"):
+                continue
+            image = await media_cache.get_snapshot(row["image_ref"]) if row.get("image_ref") else None
+            if image:
+                removed_hashes.add(await asyncio.to_thread(lambda: hashlib.sha256(image).hexdigest()))
+            else:
+                legacy_ids.add(row["candidate_id"])
+
+        def available() -> list[dict[str, Any]]:
+            result = []
+            for candidate in candidates:
+                candidate_id = candidate.get("candidate_id")
+                image = candidate.get("image_bytes")
+                if candidate_id in legacy_ids or (legacy_ids and not candidate_id):
+                    continue
+                if isinstance(image, (bytes, bytearray)):
+                    # The same frame ID may yield new pixels after regeneration. Compare
+                    # actual content, including duplicate choices and raw fallback crops.
+                    if hashlib.sha256(image).hexdigest() in removed_hashes:
+                        continue
+                elif candidate_id in removed_ids:
+                    continue
+                result.append(candidate)
+            return result
+
+        return await asyncio.to_thread(available)
+
+    async def _recheck_weak_count_candidates(
+        self, scored: list[dict[str, Any]], *, observations: list[dict[str, Any]] | None = None
+    ) -> list[dict[str, Any]]:
+        """Use neighboring crops as search hints, retaining only same-frame detector evidence."""
+
+        def choose() -> list[dict[str, Any]]:
+            labels = {item.get("classifier_label") for item in scored if item.get("source_mode") == "model_crop"}
+            known = {}
+            for label in labels:
+                reference = species_reference.lookup(label)
+                if reference:
+                    known[label] = reference["scientific_name"]
+            return choose_count_rechecks(scored, bird_species=known, observations=observations)
+
+        seeds = await asyncio.to_thread(choose)
+        existing_observations = observations or []
+        frames: dict[str, Image.Image | None] = {}
+        observations = []
+        for seed in seeds:
+            full = next(
+                (
+                    item
+                    for item in scored
+                    if item.get("source_mode") == "full_frame"
+                    and item.get("input_is_cropped") is not True
+                    and all(
+                        item.get(key) == seed.get(key)
+                        for key in ("clip_variant", "frame_index", "frame_width", "frame_height")
+                    )
+                ),
+                None,
+            )
+            if full is None or not isinstance(full.get("image_bytes"), (bytes, bytearray)):
+                continue
+            frame_id = str(full.get("candidate_id") or "")
+            try:
+                if frame_id not in frames:
+                    frames[frame_id] = None
+                    image = await asyncio.to_thread(decode_image_bytes, bytes(full["image_bytes"]), convert_rgb=True)
+                    if image.size == (seed["frame_width"], seed["frame_height"]):
+                        frames[frame_id] = image
+                image = frames[frame_id]
+                if image is None:
+                    continue
+                result = await asyncio.to_thread(bird_crop_service.refine_observation_box, image, seed["detector_box"])
+                if not recheck_confirms_seed(seed, result):
+                    continue
+            except Exception as exc:
+                log.warning("Bird count regional recheck failed", candidate_id=seed.get("candidate_id"), error=str(exc))
+                continue
+            observations.append(
+                {
+                    "candidate_id": seed["candidate_id"],
+                    "source_mode": "model_observation",
+                    "clip_variant": seed["clip_variant"],
+                    "frame_index": seed["frame_index"],
+                    "crop_box": result["detector_box"],
+                    "crop_confidence": result["confidence"],
+                    "classifier_label": seed.get("classifier_label"),
+                    "classifier_score": seed.get("classifier_score"),
+                    "ranking_score": seed.get("ranking_score"),
+                }
+            )
+        for index, recovered in enumerate(observations):
+            seed = next(item for item in seeds if item["candidate_id"] == recovered["candidate_id"])
+            frame = (seed["clip_variant"], seed["frame_index"])
+            same_frame = [
+                item
+                for item in scored + existing_observations + observations
+                if (item.get("clip_variant"), item.get("frame_index")) == frame
+            ]
+            neighbors = select_bird_observations(same_frame, selected_candidate=None).birds
+            crop_box = contextual_recheck_box(seed, recovered["crop_box"], [bird.box for bird in neighbors])
+            full = next((item for item in same_frame if item.get("source_mode") == "full_frame"), None)
+            image = frames.get(str((full or {}).get("candidate_id") or ""))
+            if crop_box is None or image is None:
+                continue
+            try:
+                evidence = await self._score_recovered_bird_context(seed, recovered, image, crop_box)
+            except Exception as exc:
+                log.debug("Recovered bird context unavailable", candidate_id=seed["candidate_id"], error=str(exc))
+                continue
+            if evidence is not None:
+                observations[index] = evidence
+        if seeds:
+            log.info("Bird count regional rechecks", regions=len(seeds), confirmed=len(observations))
+        return observations
+
+    async def _score_recovered_bird_context(
+        self,
+        seed: dict[str, Any],
+        recovered: dict[str, Any],
+        image: Image.Image,
+        crop_box: tuple[int, int, int, int],
+    ) -> dict[str, Any] | None:
+        if self._finite_candidate_score(seed.get("classifier_score")) >= MIN_SPECIES_CONFIDENCE:
+            return None
+        candidate_id = str(seed["candidate_id"]) + "__context"
+        crop = await asyncio.to_thread(image.crop, crop_box)
+        evidence = {
+            **seed,
+            **recovered,
+            "candidate_id": candidate_id,
+            "detector_box": recovered["crop_box"],
+            "crop_box": crop_box,
+            "crop_strategy": "count_context",
+            "input_is_cropped": True,
+            "snapshot_source": "count_context",
+            "selected": False,
+            "image_ref": candidate_id + "__image",
+            "thumbnail_ref": candidate_id + "__thumb",
+            "image_bytes": await asyncio.to_thread(self._encode_pil_to_jpeg_bytes, crop),
+            "thumbnail_bytes": await asyncio.to_thread(self._thumbnail_bytes_for_candidate, crop),
+        }
+        scored = await asyncio.wait_for(self._score_snapshot_candidate(evidence), timeout=15)
+        if scored is None:
+            return None
+        score = scored.get("classifier_score")
+        if type(score) not in {int, float} or not math.isfinite(score) or not MIN_SPECIES_CONFIDENCE <= score <= 1:
+            return None
+
+        def same_species() -> bool:
+            original = species_reference.lookup(seed.get("classifier_label"))
+            contextual = species_reference.lookup(scored.get("classifier_label"))
+            return bool(original and contextual and original["scientific_name"] == contextual["scientific_name"])
+
+        if not await asyncio.to_thread(same_species):
+            return None
+        return scored
+
+    async def _load_verified_incumbent_photo(self, event_id: str, expected_keys: set[str]) -> dict[str, Any] | None:
+        from app.services.photo_presence import has_reusable_bird_presence
+
+        metadata = await media_cache.get_snapshot_metadata(event_id) or {}
+        if metadata.get("manual_selection") or metadata.get("storage_evicted"):
+            return None
+        async with get_db() as db:
+            rows = await DetectionRepository(db).list_snapshot_candidates(event_id)
+        current = next((row for row in rows if row.get("selected")), None)
+        # A photo the owner removed is never defended as the incumbent.
+        if (
+            current is None
+            or current.get("photo_hidden")
+            or not expected_keys
+            or self._candidate_label_key(current.get("classifier_label")) not in expected_keys
+        ):
+            return None
+        if not has_reusable_bird_presence(current) or not has_confident_photo_species(
+            current, threshold=settings.classification.threshold
+        ):
+            return None
+        displayed = await media_cache.get_snapshot(event_id)
+        reference = current.get("image_ref")
+        if not displayed or not reference or await media_cache.get_snapshot(reference) != displayed:
+            return None
+        try:
+            image = await asyncio.to_thread(decode_image_bytes, displayed, convert_rgb=True)
+            quality = await asyncio.to_thread(image_quality_score, image)
+        except Exception:
+            return None
+        return {
+            **current,
+            "image_bytes": displayed,
+            "image_quality_score": quality,
+            "image_width": image.width,
+            "image_height": image.height,
+        }
+
+    async def _detect_count_candidates(self, scored: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Scan whole frames for every bird, independently of the photo-choice crop ceiling."""
+        if not any(item.get("source_mode") == "model_crop" for item in scored):
+            return []
+        detector = getattr(bird_crop_service, "detect_observation_boxes", None)
+        if not callable(detector):
+            return []
+        observations: list[dict[str, Any]] = []
+        for full in scored:
+            if full.get("source_mode") != "full_frame" or full.get("input_is_cropped") is True:
+                continue
+            cached = next(
+                (
+                    crop.get("observation_boxes")
+                    for crop in scored
+                    if crop.get("source_mode") == "model_crop"
+                    and crop.get("clip_variant") == full.get("clip_variant")
+                    and crop.get("frame_index") == full.get("frame_index")
+                    and isinstance(crop.get("observation_boxes"), list)
+                ),
+                None,
+            )
+            if cached is not None:
+                boxes = cached
+            else:
+                image_bytes = full.get("image_bytes")
+                if not isinstance(image_bytes, (bytes, bytearray)):
+                    continue
+                try:
+                    image = await asyncio.to_thread(decode_image_bytes, bytes(image_bytes), convert_rgb=True)
+                    boxes = await asyncio.to_thread(detector, image, raise_on_error=True)
+                except Exception as exc:
+                    log.warning("Whole-frame bird count failed", candidate_id=full.get("candidate_id"), error=str(exc))
+                    raise BirdDetectionError("Whole-frame bird count failed") from exc
+            for index, item in enumerate(boxes):
+                box = item.get("box") if isinstance(item, dict) else None
+                confidence = item.get("confidence") if isinstance(item, dict) else None
+                if not isinstance(box, (tuple, list)) or len(box) != 4:
+                    continue
+                matching_crops = [
+                    crop
+                    for crop in scored
+                    if crop.get("source_mode") == "model_crop"
+                    and crop.get("clip_variant") == full.get("clip_variant")
+                    and crop.get("frame_index") == full.get("frame_index")
+                    and isinstance(crop.get("detector_box"), (tuple, list))
+                    and self._box_iou(crop["detector_box"], box) >= 0.5
+                ]
+                matching = max(
+                    matching_crops,
+                    key=lambda crop: (
+                        self._box_iou(crop["detector_box"], box),
+                        float(crop.get("classifier_score") or 0.0),
+                    ),
+                    default=None,
+                )
+                observations.append(
+                    {
+                        "candidate_id": f"{full.get('candidate_id')}__observed__{index}",
+                        "source_mode": "model_observation",
+                        "clip_variant": full.get("clip_variant"),
+                        "frame_index": full.get("frame_index"),
+                        "frame_width": full.get("frame_width"),
+                        "frame_height": full.get("frame_height"),
+                        "crop_box": box,
+                        "crop_confidence": confidence,
+                        "classifier_label": matching.get("classifier_label") if matching else None,
+                        "classifier_score": matching.get("classifier_score") if matching else 0.0,
+                        "ranking_score": confidence or 0.0,
+                    }
+                )
+        return observations
+
+    @staticmethod
+    def _box_iou(left: tuple | list, right: tuple | list) -> float:
+        intersection = max(0.0, min(left[2], right[2]) - max(left[0], right[0])) * max(
+            0.0, min(left[3], right[3]) - max(left[1], right[1])
+        )
+        left_area = max(0.0, left[2] - left[0]) * max(0.0, left[3] - left[1])
+        right_area = max(0.0, right[2] - right[0]) * max(0.0, right[3] - right[1])
+        union = left_area + right_area - intersection
+        return intersection / union if union > 0 else 0.0
 
     def _select_persisted_candidates(
         self,
         ranked: list[dict[str, Any]],
         *,
         selected_candidate: Optional[dict[str, Any]],
+        count_full_frame_candidate_id: str | None = None,
+        count_candidate_ids: set[str] | None = None,
     ) -> list[dict[str, Any]]:
         """Retain leaders plus the canonical and auditable Frigate baselines."""
         if len(ranked) <= HQ_MAX_PERSISTED_CANDIDATES:
             return list(ranked)
 
-        persisted = list(ranked[:HQ_MAX_PERSISTED_CANDIDATES])
         best_full_frame = next(
             (item for item in ranked if str(item.get("source_mode") or "full_frame") == "full_frame"),
             None,
         )
+        selected_full_frame = None
+        if selected_candidate and str(selected_candidate.get("source_mode") or "") != "full_frame":
+            selected_frame_index = selected_candidate.get("frame_index")
+            selected_clip_variant = selected_candidate.get("clip_variant")
+            if selected_frame_index is not None and selected_clip_variant is not None:
+                selected_full_frame = next(
+                    (
+                        item
+                        for item in ranked
+                        if str(item.get("source_mode") or "") == "full_frame"
+                        and item.get("frame_index") == selected_frame_index
+                        and item.get("clip_variant") == selected_clip_variant
+                    ),
+                    None,
+                )
         final_snapshot_candidates = [
             item for item in ranked if str(item.get("clip_variant") or "") == "frigate_snapshot"
         ]
-        best_final_snapshot = max(
-            final_snapshot_candidates,
-            key=lambda item: float(item.get("ranking_score") or 0.0),
-            default=None,
-        )
-        final_full_frame = next(
-            (
-                item
-                for item in final_snapshot_candidates
-                if str(item.get("source_mode") or "full_frame") == "full_frame"
-            ),
-            None,
+        count_full_frame = next(
+            (item for item in ranked if item.get("candidate_id") == count_full_frame_candidate_id), None
         )
         required = [
             item
-            for item in (selected_candidate, best_full_frame, best_final_snapshot, final_full_frame)
+            for item in (
+                selected_candidate,
+                selected_full_frame,
+                count_full_frame,
+                *(item for item in ranked if item.get("candidate_id") in (count_candidate_ids or set())),
+                *final_snapshot_candidates,
+            )
             if item is not None
         ]
+        if len({str(item.get("candidate_id") or "") for item in required}) < HQ_MAX_PERSISTED_CANDIDATES:
+            if best_full_frame is not None:
+                required.append(best_full_frame)
+        # Reserve photo and count evidence before filling optional baseline
+        # choices; protecting every initial slot can otherwise evict the count frame.
+        required = list({str(item.get("candidate_id") or ""): item for item in required}.values())[
+            :HQ_MAX_PERSISTED_CANDIDATES
+        ]
         required_ids = {str(item.get("candidate_id") or "") for item in required}
+        persisted = (
+            required
+            + [item for item in ranked if str(item.get("candidate_id") or "") not in required_ids][
+                : HQ_MAX_PERSISTED_CANDIDATES - len(required)
+            ]
+        )
         persisted_ids = {str(item.get("candidate_id") or "") for item in persisted}
-        for candidate in required:
+        for candidate in ranked:
             candidate_id = str(candidate.get("candidate_id") or "")
-            if candidate_id in persisted_ids:
+            label = self._candidate_label_key(candidate.get("classifier_label"))
+            if not label or candidate_id in persisted_ids:
+                continue
+            label_counts = Counter(self._candidate_label_key(item.get("classifier_label")) for item in persisted)
+            if label_counts[label]:
                 continue
             replacement_index = next(
                 (
                     index
                     for index in range(len(persisted) - 1, -1, -1)
                     if str(persisted[index].get("candidate_id") or "") not in required_ids
+                    and (
+                        not self._candidate_label_key(persisted[index].get("classifier_label"))
+                        or label_counts[self._candidate_label_key(persisted[index].get("classifier_label"))] > 1
+                    )
                 ),
                 None,
             )
@@ -709,7 +1444,13 @@ class HighQualitySnapshotService:
         usable_crops = [
             item
             for item in candidates
-            if str(item.get("source_mode") or "full_frame") != "full_frame" and self._crop_has_usable_detail(item)
+            if str(item.get("source_mode") or "full_frame") not in {"full_frame", "model_observation"}
+            and self._crop_has_usable_detail(item)
+            and (
+                item.get("source_mode") != "model_crop"
+                or item.get("crop_confidence") is None
+                or self._finite_candidate_score(item.get("crop_confidence")) >= MIN_DETECTOR_CONFIDENCE
+            )
         ]
 
         normalized_expected = {
@@ -719,8 +1460,12 @@ class HighQualitySnapshotService:
             full_frames = [
                 item
                 for item in full_frames
-                if not self._candidate_label_key(item.get("classifier_label"))
-                or self._candidate_label_key(item.get("classifier_label")) in normalized_expected
+                if (
+                    self._candidate_label_key(item.get("classifier_label")) in normalized_expected
+                    or (
+                        not item.get("input_is_cropped") and not self._candidate_label_key(item.get("classifier_label"))
+                    )
+                )
             ]
             usable_crops = [
                 item
@@ -728,6 +1473,7 @@ class HighQualitySnapshotService:
                 if self._candidate_label_key(item.get("classifier_label")) in normalized_expected
             ]
         else:
+            full_frames = [item for item in full_frames if not item.get("input_is_cropped")]
             supported_labels = crop_labels_with_independent_support(usable_crops)
             usable_crops = [
                 item
@@ -737,10 +1483,26 @@ class HighQualitySnapshotService:
 
         pool = full_frames + usable_crops
         if not pool:
-            if not all_full_frames:
+            safe_full_frames = [item for item in all_full_frames if not item.get("input_is_cropped")]
+            if not safe_full_frames:
                 return None
-            pool = all_full_frames
+            pool = safe_full_frames
         selected = max(pool, key=lambda item: float(item.get("ranking_score") or 0.0))
+        if normalized_expected and selected.get("source_mode") == "full_frame":
+            portraits = [
+                crop
+                for crop in usable_crops
+                if self._finite_candidate_score(crop.get("classifier_score")) >= MIN_SPECIES_CONFIDENCE
+                and (
+                    crop.get("source_mode") != "model_crop"
+                    or crop.get("crop_confidence") is None
+                    or self._finite_candidate_score(crop.get("crop_confidence")) >= MIN_DETECTOR_CONFIDENCE
+                )
+                and self._finite_candidate_score(crop.get("classifier_score")) + HQ_PORTRAIT_MAX_CLASSIFIER_LOSS
+                >= self._finite_candidate_score(selected.get("classifier_score"))
+            ]
+            if portraits:
+                selected = max(portraits, key=lambda item: float(item.get("ranking_score") or 0.0))
         if str(selected.get("source_mode") or "") != "model_crop":
             return selected
 
@@ -818,7 +1580,11 @@ class HighQualitySnapshotService:
         event_data: Optional[dict[str, Any]] = None,
         clip_variant: str = "event",
         override_frame_indices: Optional[list[int]] = None,
+        clip_start_timestamp: float | None = None,
+        scene_cache: VideoSceneCache | None = None,
+        include_additional_birds: bool | None = None,
     ) -> list[dict[str, Any]]:
+        include_additional_birds = self._additional_birds_enabled(include_additional_birds)
         cap = cv2.VideoCapture(str(clip_path))
         if not cap.isOpened():
             raise ValueError(f"Unable to open clip for snapshot extraction: {clip_path}")
@@ -833,6 +1599,7 @@ class HighQualitySnapshotService:
                     fps=fps,
                     event_data=event_data,
                     clip_variant=clip_variant,
+                    clip_start_timestamp=clip_start_timestamp,
                 )
                 candidate_indices = self._select_temporally_diverse_frame_indices(
                     [*override_frame_indices, *fallback_indices],
@@ -846,41 +1613,60 @@ class HighQualitySnapshotService:
                     fps=fps,
                     event_data=event_data,
                     clip_variant=clip_variant,
+                    clip_start_timestamp=clip_start_timestamp,
                 )[:HQ_MAX_CROP_SCORING_FRAMES]
             seen: set[str] = set()
             used_frame_indices: list[int] = []
             results: list[dict[str, Any]] = []
             for target_frame_index in candidate_indices:
-                decoded = self._read_temporally_independent_frame(
-                    cap,
-                    target_frame_index=target_frame_index,
-                    frame_count=frame_count,
-                    fps=fps,
-                    used_frame_indices=used_frame_indices,
+                base_image = (
+                    scene_cache.frame_for(clip_path, clip_variant, target_frame_index)
+                    if scene_cache is not None
+                    and not any(
+                        abs(target_frame_index - used) < self._minimum_temporal_frame_gap(fps)
+                        for used in used_frame_indices
+                    )
+                    else None
                 )
-                if decoded is None:
-                    continue
-                frame_index, frame = decoded
+                if base_image is not None:
+                    frame_index = target_frame_index
+                else:
+                    decoded = self._read_temporally_independent_frame(
+                        cap,
+                        target_frame_index=target_frame_index,
+                        frame_count=frame_count,
+                        fps=fps,
+                        used_frame_indices=used_frame_indices,
+                    )
+                    if decoded is None:
+                        continue
+                    frame_index, frame = decoded
+                    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    base_image = Image.fromarray(rgb_frame).convert("RGB")
                 used_frame_indices.append(frame_index)
-                rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                base_image = Image.fromarray(rgb_frame).convert("RGB")
                 frame_offset_seconds = (float(frame_index) / fps) if fps > 0 else None
                 frame_event_data = self._event_hints_for_frame(
                     event_data,
                     frame_offset_seconds=frame_offset_seconds,
                     clip_variant=clip_variant,
+                    clip_start_timestamp=clip_start_timestamp,
                     image_size=base_image.size,
                 )
+                source_ordinals: Counter[str] = Counter()
                 for source_mode, candidate_image, crop_result in self._candidate_images_for_frame(
                     base_image,
                     event_data=frame_event_data,
                     event_id=event_id,
+                    include_additional_birds=include_additional_birds,
                 ):
                     image_bytes = self._encode_pil_to_jpeg_bytes(candidate_image)
+                    crop_index = source_ordinals[source_mode]
+                    source_ordinals[source_mode] += 1
                     candidate_id = self._build_snapshot_candidate_id(
                         event_id,
                         frame_index=frame_index,
                         source_mode=source_mode,
+                        crop_index=crop_index,
                     )
                     if candidate_id in seen:
                         continue
@@ -895,6 +1681,12 @@ class HighQualitySnapshotService:
                             "source_mode": source_mode,
                             "clip_variant": clip_variant,
                             "crop_box": (crop_result or {}).get("box") if isinstance(crop_result, dict) else None,
+                            "detector_box": (crop_result or {}).get("detector_box")
+                            if isinstance(crop_result, dict)
+                            else None,
+                            "observation_boxes": (crop_result or {}).get("observation_boxes")
+                            if isinstance(crop_result, dict)
+                            else None,
                             "crop_confidence": (crop_result or {}).get("confidence")
                             if isinstance(crop_result, dict)
                             else None,
@@ -922,7 +1714,9 @@ class HighQualitySnapshotService:
         *,
         event_data: Optional[dict[str, Any]],
         event_id: str,
+        include_additional_birds: bool | None = None,
     ) -> list[tuple[str, Image.Image, Optional[dict[str, Any]]]]:
+        include_additional_birds = self._additional_birds_enabled(include_additional_birds)
         candidates: list[tuple[str, Image.Image, Optional[dict[str, Any]]]] = [("full_frame", image, None)]
         hint_result = self._crop_from_event_hints(image, event_data)
         hint_image = hint_result.get("crop_image") if isinstance(hint_result, dict) else None
@@ -930,23 +1724,59 @@ class HighQualitySnapshotService:
             candidates.append(("frigate_hint_crop", hint_image, hint_result))
         if self._automatic_crop_enabled() and self._bird_crop_model_available():
             hint_box = hint_result.get("box") if isinstance(hint_result, dict) else None
-            if isinstance(hint_box, (list, tuple)) and len(hint_box) == 4:
-                model_result = self._crop_candidate_from_bird_model(
-                    image,
-                    event_id=event_id,
-                    search_box=tuple(int(value) for value in hint_box),
+            search_box = (
+                tuple(int(value) for value in hint_box)
+                if isinstance(hint_box, (list, tuple)) and len(hint_box) == 4
+                else None
+            )
+            candidates.extend(
+                self._model_crop_images_for_frame(
+                    image, event_id=event_id, search_box=search_box, include_additional_birds=include_additional_birds
                 )
-            else:
-                model_result = self._crop_candidate_from_bird_model(image, event_id=event_id)
+            )
+        return candidates
+
+    def _model_crop_images_for_frame(
+        self,
+        image: Image.Image,
+        *,
+        event_id: str,
+        search_box: tuple[int, int, int, int] | None,
+        include_additional_birds: bool | None = None,
+    ) -> list[tuple[str, Image.Image, dict[str, Any]]]:
+        include_additional_birds = self._additional_birds_enabled(include_additional_birds)
+        multi_generator = getattr(bird_crop_service, "generate_classification_candidate_crops", None)
+        model_results: list[dict[str, Any]] = []
+        if include_additional_birds and callable(multi_generator):
+            try:
+                model_results = multi_generator(
+                    image,
+                    max_crops=HQ_MAX_MODEL_CROPS_PER_FRAME if settings.media_cache.bird_scan_mode == "intensive" else 3,
+                    raise_on_error=True,
+                    **({"search_box": search_box} if search_box is not None else {}),
+                )
+            except Exception as exc:
+                log.warning("Multi-bird snapshot crop generation failed", event_id=event_id, error=str(exc))
+                raise BirdDetectionError("Multi-bird snapshot crop generation failed") from exc
+        if not model_results:
+            fallback = self._crop_candidate_from_bird_model(
+                image,
+                event_id=event_id,
+                **({"search_box": search_box} if search_box is not None else {}),
+            )
+            model_results = [fallback] if isinstance(fallback, dict) else []
+        crops: list[tuple[str, Image.Image, dict[str, Any]]] = []
+        for model_result in model_results[:HQ_MAX_MODEL_CROPS_PER_FRAME]:
             model_image = model_result.get("crop_image") if isinstance(model_result, dict) else None
             if isinstance(model_image, Image.Image):
-                candidates.append(("model_crop", model_image, model_result))
-        return candidates
+                crops.append(("model_crop", model_image, model_result))
+        return crops
 
     async def _load_final_frigate_snapshot_candidates(
         self,
         event_id: str,
         event_data: Optional[dict[str, Any]],
+        include_additional_birds: bool | None = None,
     ) -> list[dict[str, Any]]:
         """Build a protected baseline from Frigate's completed-event best snapshot.
 
@@ -954,6 +1784,7 @@ class HighQualitySnapshotService:
         only use this baseline once the event has a concrete end time, ensuring
         a live intermediate image is never mistaken for the final best frame.
         """
+        include_additional_birds = self._additional_birds_enabled(include_additional_birds)
         if not isinstance(event_data, dict) or event_data.get("end_time") is None:
             return []
 
@@ -1013,6 +1844,36 @@ class HighQualitySnapshotService:
                     crop_result=crop_result,
                 )
             )
+        if clean_copy_available and self._automatic_crop_enabled() and self._bird_crop_model_available():
+            hint_box = crop_result.get("box") if isinstance(crop_result, dict) else None
+            search_box = (
+                tuple(int(value) for value in hint_box)
+                if isinstance(hint_box, (list, tuple)) and len(hint_box) == 4
+                else None
+            )
+            model_crops = await asyncio.to_thread(
+                self._model_crop_images_for_frame,
+                image,
+                event_id=event_id,
+                search_box=search_box,
+                include_additional_birds=include_additional_birds,
+            )
+            for crop_index, (_source_mode, model_image, model_result) in enumerate(model_crops):
+                candidates.append(
+                    self._build_final_snapshot_candidate_payload(
+                        event_id,
+                        model_image,
+                        source_mode="model_crop",
+                        frame_size=image.size,
+                        crop_result=model_result,
+                        crop_index=crop_index,
+                    )
+                )
+        if clean_copy_available:
+            for candidate in candidates:
+                alignment = final_snapshot_film_alignment(event_data, candidate, image.size)
+                if alignment is not None:
+                    candidate["film_alignment"] = alignment
         return candidates
 
     def _build_final_snapshot_candidate_payload(
@@ -1025,10 +1886,15 @@ class HighQualitySnapshotService:
         crop_result: Optional[dict[str, Any]] = None,
         input_is_cropped: bool | None = None,
         snapshot_source: str | None = None,
+        crop_index: int = 0,
     ) -> dict[str, Any]:
         """Create a persisted candidate row for Frigate's final still image."""
-        digest = hashlib.sha1(f"{event_id}:frigate_snapshot:{source_mode}".encode("utf-8")).hexdigest()[:10]
-        candidate_id = f"{event_id}__{source_mode}__final__{digest}"
+        identity = f"{event_id}:frigate_snapshot:{source_mode}"
+        if crop_index:
+            identity += f":{crop_index}"
+        digest = hashlib.sha1(identity.encode("utf-8")).hexdigest()[:10]
+        suffix = f"__c{crop_index}" if crop_index else ""
+        candidate_id = f"{event_id}__{source_mode}__final{suffix}__{digest}"
         frame_width, frame_height = frame_size or image.size
         encoded = self._encode_pil_to_jpeg_bytes(image)
         return {
@@ -1038,7 +1904,11 @@ class HighQualitySnapshotService:
             "source_mode": source_mode,
             "clip_variant": "frigate_snapshot",
             "crop_box": (crop_result or {}).get("box") if isinstance(crop_result, dict) else None,
-            "crop_confidence": None,
+            "detector_box": (crop_result or {}).get("detector_box") if isinstance(crop_result, dict) else None,
+            "observation_boxes": (crop_result or {}).get("observation_boxes")
+            if isinstance(crop_result, dict)
+            else None,
+            "crop_confidence": (crop_result or {}).get("confidence") if isinstance(crop_result, dict) else None,
             "crop_strategy": (crop_result or {}).get("strategy") if isinstance(crop_result, dict) else None,
             "thumbnail_ref": f"{candidate_id}__thumb",
             "image_ref": f"{candidate_id}__image",
@@ -1083,19 +1953,10 @@ class HighQualitySnapshotService:
         frame_offset_seconds: Optional[float],
         clip_variant: str,
         image_size: tuple[int, int] | None = None,
+        clip_start_timestamp: float | None = None,
     ) -> Optional[dict[str, Any]]:
-        """Return a Frigate hint translated to the tracked position at this frame.
-
-        Event clips share Frigate's event timeline, so path points can move the
-        tracked box safely. Full-visit recordings may begin before the event and
-        partial recordings may begin late; without an explicit clip-start
-        timestamp, applying the event box to that different timeline would be
-        misleading, so recording frames rely on the model detector instead.
-        """
-
-        if not isinstance(event_data, dict):
-            return None
-        if str(clip_variant or "event").strip().lower() != "event":
+        """Align tracked coordinates only against a known clip origin."""
+        if not isinstance(event_data, dict) or clip_start_timestamp is None:
             return None
         raw_payload = event_data.get("data")
         payload = raw_payload if isinstance(raw_payload, dict) else {}
@@ -1115,9 +1976,9 @@ class HighQualitySnapshotService:
             if all(math.isfinite(value) for value in (x, y, timestamp)) and 0.0 <= x <= 1.0 and 0.0 <= y <= 1.0:
                 path_points.append((timestamp, x, y))
         if not path_points:
-            return event_data
+            return None
         try:
-            start_time = float(event_data.get("start_time"))
+            start_time = float(clip_start_timestamp)
             offset = float(frame_offset_seconds)
         except (TypeError, ValueError):
             return None
@@ -1134,7 +1995,7 @@ class HighQualitySnapshotService:
         raw_box = payload.get("box")
         if image_size is None:
             image_size = (1, 1)
-        normalized_box = normalize_frigate_hint_box(raw_box, image_size)
+        normalized_box = normalized_frigate_video_hint(raw_box)
         if normalized_box is None:
             return None
         _left, _top, width, height = normalized_box
@@ -1162,6 +2023,7 @@ class HighQualitySnapshotService:
         classifier_score = 0.0
         classifier_label = None
         classifier_index = None
+        classifier_model_sha256 = None
         try:
             classifier_module = sys.modules.get("app.services.classifier_service")
             classifier = (
@@ -1184,18 +2046,15 @@ class HighQualitySnapshotService:
                     classifier_label = top_result.get("label")
                     classifier_score = float(top_result.get("score") or 0.0)
                     classifier_index = int(top_result.get("index") or 0)
+                    classifier_model_sha256 = top_result.get("model_sha256")
         except Exception as e:
             log.debug(
                 "Snapshot candidate classifier scoring failed", candidate_id=candidate.get("candidate_id"), error=str(e)
             )
+            raise PhotoScanRetry("classifier_error") from e
 
-        grayscale = cv2.cvtColor(np.asarray(image), cv2.COLOR_RGB2GRAY)
-        sharpness = float(cv2.Laplacian(grayscale, cv2.CV_64F).var())
-        sharpness_score = min(1.0, math.log1p(max(0.0, sharpness)) / math.log1p(1000.0))
-        exposure_score = float(((grayscale >= 8) & (grayscale <= 247)).mean())
-        resolution_score = min(1.0, math.sqrt(image.width * image.height) / 512.0)
-        image_quality_score = (sharpness_score * 0.45) + (exposure_score * 0.35) + (resolution_score * 0.20)
-        ranking_score = (classifier_score * 0.85) + (image_quality_score * 0.15)
+        quality_score = await asyncio.to_thread(image_quality_score, image)
+        ranking_score = (classifier_score * 0.85) + (quality_score * 0.15)
 
         enriched = dict(candidate)
         enriched["image_width"] = image.width
@@ -1203,7 +2062,8 @@ class HighQualitySnapshotService:
         enriched["classifier_label"] = classifier_label
         enriched["classifier_score"] = classifier_score
         enriched["classifier_index"] = classifier_index
-        enriched["image_quality_score"] = image_quality_score
+        enriched["classifier_model_sha256"] = classifier_model_sha256
+        enriched["image_quality_score"] = quality_score
         enriched["ranking_score"] = ranking_score
         return enriched
 
@@ -1260,6 +2120,7 @@ class HighQualitySnapshotService:
                 video_provider=str(getattr(classifier, "_active_inference_provider", "") or "") or None,
                 video_backend=str(getattr(classifier, "_inference_backend", "") or "") or None,
                 video_model_id=str(model_spec.get("model_id") or "") or None,
+                video_model_sha256=decision.model_sha256,
                 persist_video_result=False,
             )
             outcome = "promoted" if applied else "recorded"
@@ -1287,33 +2148,106 @@ class HighQualitySnapshotService:
     async def _persist_snapshot_candidates(self, event_id: str, candidates: list[dict[str, Any]]) -> None:
         if not candidates:
             return
-        stale_image_refs: list[str] = []
-        stale_thumbnail_refs: list[str] = []
+        async with media_cache._snapshot_commit_lock(event_id):
+            await self._persist_snapshot_candidates_locked(event_id, candidates)
+
+    async def _persist_snapshot_candidates_locked(self, event_id: str, candidates: list[dict[str, Any]]) -> None:
+        metadata = await media_cache.get_snapshot_metadata(event_id) or {}
         async with get_db() as db:
             repo = DetectionRepository(db)
             existing = await repo.list_snapshot_candidates(event_id)
-            existing_image_refs = {
-                str(item.get("image_ref") or "").strip()
-                for item in existing
-                if str(item.get("image_ref") or "").strip()
+            birds = await BirdObservationRepository(db).list_for_event(event_id)
+        legacy_removed_hashes: dict[str, str] = {}
+        for row in existing:
+            if not row.get("photo_hidden") or row.get("content_sha256") or not row.get("image_ref"):
+                continue
+            image = await media_cache.get_snapshot(row["image_ref"])
+            if image:
+                legacy_removed_hashes[row["candidate_id"]] = await asyncio.to_thread(
+                    lambda: hashlib.sha256(image).hexdigest()
+                )
+        previous = {row["candidate_id"]: row for row in existing}
+        created_at = serialize_storage_datetime(utc_naive_now())
+        candidates = [
+            {
+                **row,
+                "created_at": row.get("created_at")
+                or previous.get(row["candidate_id"], {}).get("created_at")
+                or created_at,
             }
-            existing_thumbnail_refs = {
-                str(item.get("thumbnail_ref") or "").strip()
-                for item in existing
-                if str(item.get("thumbnail_ref") or "").strip()
-            }
-            new_image_refs = {
-                str(item.get("image_ref") or "").strip()
-                for item in candidates
-                if str(item.get("image_ref") or "").strip()
-            }
-            new_thumbnail_refs = {
-                str(item.get("thumbnail_ref") or "").strip()
-                for item in candidates
-                if str(item.get("thumbnail_ref") or "").strip()
-            }
-            stale_image_refs = sorted(existing_image_refs - new_image_refs)
-            stale_thumbnail_refs = sorted(existing_thumbnail_refs - new_thumbnail_refs)
+            for row in candidates
+        ]
+        reviewed_frames = {(bird["clip_variant"], bird["frame_index"]) for bird in birds}
+        manual_choice = bool(metadata.get("manual_selection"))
+        chosen_id = metadata.get("manual_candidate_id")
+        chosen = (
+            next((item for item in existing if str(item.get("candidate_id") or "") == chosen_id), None)
+            if chosen_id
+            else (
+                next((item for item in existing if item.get("selected")), None)
+                if "manual_candidate_id" not in metadata
+                else None
+            )
+        )
+        from app.services.video_snapshot_service import retained_snapshot_candidate
+        from app.utils.photo_retention import merge_photo_choices, photo_content_key
+
+        displayed_photo = await media_cache.get_snapshot(event_id)
+        displayed_photo_sha256 = (
+            await asyncio.to_thread(lambda: hashlib.sha256(displayed_photo).hexdigest()) if displayed_photo else None
+        )
+        retained = await retained_snapshot_candidate(
+            event_id,
+            displayed_photo,
+            metadata,
+            existing,
+            replaced_candidate_ids={item["candidate_id"] for item in candidates if item.get("image_bytes")},
+            photo_content_sha256=displayed_photo_sha256,
+        )
+        if retained is not None:
+            candidates = list(candidates) + [retained]
+        if not manual_choice and not any(row.get("selected") for row in candidates) and displayed_photo:
+            current = next((row for row in existing if row.get("selected")), None)
+            if current is not None:
+                digest = current.get("content_sha256")
+                matches_displayed = (
+                    digest == displayed_photo_sha256
+                    if digest
+                    else (
+                        bool(current.get("image_ref"))
+                        and await media_cache.get_snapshot(current["image_ref"]) == displayed_photo
+                    )
+                )
+                if matches_displayed:
+                    candidates = [row for row in candidates if row["candidate_id"] != current["candidate_id"]]
+                    candidates.append({**current, "selected": True})
+                elif retained is not None:
+                    retained["selected"] = True
+            elif retained is not None:
+                retained["selected"] = True
+        if manual_choice:
+            candidates = [{**item, "selected": False} for item in candidates]
+            if chosen is not None:
+                reviewed_frames.add((chosen.get("clip_variant"), chosen.get("frame_index")))
+                candidates = [item for item in candidates if item.get("candidate_id") != chosen["candidate_id"]]
+                candidates.append({**chosen, "selected": True})
+        for row in candidates:
+            image_bytes = row.get("image_bytes")
+            thumbnail_bytes = row.get("thumbnail_bytes")
+            if isinstance(image_bytes, (bytes, bytearray)):
+                digest = await asyncio.to_thread(lambda: hashlib.sha256(image_bytes).hexdigest())
+                row["content_sha256"] = digest
+                row["image_ref"] = photo_content_key(event_id, row, digest) + "__image"
+            if isinstance(thumbnail_bytes, (bytes, bytearray)):
+                digest = await asyncio.to_thread(lambda: hashlib.sha256(thumbnail_bytes).hexdigest())
+                row["thumbnail_ref"] = photo_content_key(event_id, row, digest) + "__thumb"
+        candidates = merge_photo_choices(
+            existing,
+            candidates,
+            reviewed_frames=reviewed_frames,
+            manual_candidate_id=chosen.get("candidate_id") if manual_choice and chosen else None,
+            displayed_photo_sha256=displayed_photo_sha256,
+        )
 
         for candidate in candidates:
             image_ref = str(candidate.get("image_ref") or "")
@@ -1321,7 +2255,12 @@ class HighQualitySnapshotService:
             image_bytes = candidate.get("image_bytes")
             thumbnail_bytes = candidate.get("thumbnail_bytes")
             if image_ref and isinstance(image_bytes, (bytes, bytearray)):
-                await media_cache.cache_snapshot(image_ref, bytes(image_bytes), source="snapshot_candidate")
+                await media_cache.cache_snapshot(
+                    image_ref,
+                    bytes(image_bytes),
+                    source="snapshot_candidate",
+                    **({"film_alignment": candidate["film_alignment"]} if candidate.get("film_alignment") else {}),
+                )
             if thumbnail_ref and isinstance(thumbnail_bytes, (bytes, bytearray)):
                 await media_cache.cache_thumbnail(thumbnail_ref, bytes(thumbnail_bytes), source="snapshot_candidate")
 
@@ -1330,14 +2269,37 @@ class HighQualitySnapshotService:
             row = dict(candidate)
             row.pop("image_bytes", None)
             row.pop("thumbnail_bytes", None)
+            row.pop("observation_boxes", None)
             persisted_rows.append(row)
         async with get_db() as db:
             repo = DetectionRepository(db)
+            for row in persisted_rows:
+                old_digest = legacy_removed_hashes.get(row["candidate_id"])
+                if old_digest and old_digest == row.get("content_sha256"):
+                    await repo.bind_legacy_snapshot_candidate_dismissal(event_id, row["candidate_id"], old_digest)
             await repo.replace_snapshot_candidates(event_id, persisted_rows)
-        for image_ref in stale_image_refs:
-            await media_cache.delete_snapshot(image_ref)
-        for thumbnail_ref in stale_thumbnail_refs:
-            await media_cache.delete_thumbnail(thumbnail_ref)
+        from app.services.video_snapshot_service import prune_unreferenced_photo_files
+
+        await prune_unreferenced_photo_files(existing, persisted_rows)
+
+    async def _persist_scan_bundle(self, event_id: str, bundle: dict[str, Any]) -> None:
+        from app.services.bird_scan_service import bird_scan_service
+
+        try:
+            await bird_scan_service.record_automatic(event_id, bundle)
+        except Exception:
+            # Counting remains best-effort enrichment, never a failed photo replacement.
+            log.warning("Unable to publish automatic bird scan", event_id=event_id)
+
+    async def _persist_bird_observations(self, event_id: str, selection: BirdObservationSelection | None) -> None:
+        if not isinstance(selection, BirdObservationSelection) or not selection.birds:
+            return
+        try:
+            async with get_db() as db:
+                await BirdObservationRepository(db).replace_generated(event_id, selection)
+        except Exception as exc:
+            # Counting is best-effort enrichment; it must never interrupt snapshot replacement.
+            log.warning("Unable to persist counted birds", event_id=event_id, error=str(exc))
 
     def _thumbnail_bytes_for_candidate(self, image: Image.Image, *, max_size: int = 240) -> bytes:
         thumb = image.copy()
@@ -1354,9 +2316,15 @@ class HighQualitySnapshotService:
         )
         return buffer.getvalue()
 
-    def _build_snapshot_candidate_id(self, event_id: str, *, frame_index: int, source_mode: str) -> str:
-        digest = hashlib.sha1(f"{event_id}:{frame_index}:{source_mode}".encode("utf-8")).hexdigest()[:10]
-        return f"{event_id}__{source_mode}__f{frame_index}__{digest}"
+    def _build_snapshot_candidate_id(
+        self, event_id: str, *, frame_index: int, source_mode: str, crop_index: int = 0
+    ) -> str:
+        identity = f"{event_id}:{frame_index}:{source_mode}"
+        if crop_index:
+            identity += f":{crop_index}"
+        digest = hashlib.sha1(identity.encode("utf-8")).hexdigest()[:10]
+        suffix = f"__c{crop_index}" if crop_index else ""
+        return f"{event_id}__{source_mode}__f{frame_index}{suffix}__{digest}"
 
     async def wait_for_idle(self) -> None:
         """Wait for all scheduled replacement tasks to complete."""
@@ -1415,6 +2383,9 @@ class HighQualitySnapshotService:
             await asyncio.sleep(30)
             while self._running:
                 try:
+                    await self.recover_durable_jobs()
+                    await self.repair_missing_candidate_files()
+                    await self.recover_durable_jobs()
                     await self.reconcile_recent_detections()
                 except asyncio.CancelledError:
                     raise
@@ -1461,6 +2432,8 @@ class HighQualitySnapshotService:
         self._selected_sources.clear()
         self._classification_refinements.clear()
         self._reconciled_total = 0
+        self._durable_pending_count = 0
+        self._repair_cursor = 0
         self._last_result = None
 
     @staticmethod
@@ -1495,7 +2468,11 @@ class HighQualitySnapshotService:
             self._final_refresh_ids.discard(event_id)
             self._active_ids.add(event_id)
             self._mark_job_active(event_id)
+            revision = 0
             try:
+                async with get_db() as db:
+                    state = await ProcessingJobRepository(db).get(HQ_PROCESSING_PIPELINE, event_id)
+                revision = state.revision if state else 0
                 await self.process_event(event_id)
             except asyncio.CancelledError:
                 raise
@@ -1508,12 +2485,19 @@ class HighQualitySnapshotService:
                     exc_info=True,
                 )
                 self._record_outcome(event_id, "worker_exception")
-                await self._persist_processing_outcome(event_id, "worker_exception")
+                await self._persist_processing_outcome(event_id, "worker_exception", expected_revision=revision)
             finally:
                 self._active_ids.discard(event_id)
                 queue.task_done()
                 self._promote_deferred_events()
                 self._forget_finished_job(event_id)
+            if self._running:
+                try:
+                    await self.recover_durable_jobs()
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:
+                    log.warning("Photo queue refill deferred", error=str(exc))
 
     def _ensure_workers_started(self) -> None:
         self._cleanup_completed_workers()
@@ -1537,6 +2521,9 @@ class HighQualitySnapshotService:
                 alive_tasks.append(task)
         self._worker_tasks = alive_tasks
 
+    def get_active_event_ids(self) -> set[str]:
+        return set(self._active_ids)
+
     def get_status(self) -> dict:
         self._cleanup_completed_workers()
         return {
@@ -1547,6 +2534,7 @@ class HighQualitySnapshotService:
             "workers": len(self._worker_tasks),
             "recovery_running": self._running,
             "reconciled_total": self._reconciled_total,
+            "durable_pending": self._durable_pending_count,
             "scheduled_total": self._scheduled_total,
             "duplicate_requests": self._duplicate_requests,
             "disabled_requests": self._disabled_requests,
@@ -1598,6 +2586,27 @@ class HighQualitySnapshotService:
                 }
             )
         return jobs
+
+    async def get_saved_jobs_snapshot(self) -> list[dict[str, object]]:
+        async with get_db() as db:
+            repo = ProcessingJobRepository(db)
+            self._durable_pending_count = await repo.pending_count(HQ_PROCESSING_PIPELINE)
+            pending = await repo.list_pending(HQ_PROCESSING_PIPELINE)
+        memory_ids = self._active_ids | self._queued_ids | self._deferred_ids
+        return [
+            {
+                "id": f"high_quality_snapshot:{row['event_id']}",
+                "event_id": row["event_id"],
+                "kind": "high_quality_snapshot",
+                "source": "automatic",
+                "status": "retrying" if row["status"] == "retryable" else "queued",
+                "phase": "waiting",
+                "updated_at": row["updated_at"],
+                "route": f"/events?detection={row['event_id']}",
+            }
+            for row in pending
+            if row["event_id"] not in memory_ids
+        ]
 
     def _enqueue_pending(self, event_id: str) -> bool:
         try:
@@ -1672,8 +2681,70 @@ class HighQualitySnapshotService:
                 self._deferred_order.appendleft(event_id)
                 return
 
+    async def _load_event_clip(self, event_id: str, *, prefer_cached: bool) -> tuple[Optional[bytes], Optional[str]]:
+        """The event clip from Frigate or from YA-WAMF's own cache.
+
+        The player serves the cached clip after Frigate has expired the event, so a photo must be able
+        to use it too. A person asking for a new photo gets it straight away. The automatic pass asks
+        Frigate first: a clip played while the visit was still running can be cached cut short.
+        """
+        if prefer_cached and (cached := await self._read_cached_event_clip(event_id)):
+            return cached, None
+        if prefer_cached and (kept := await self._read_retained_event_clip(event_id)):
+            return kept, None
+        if event_id.startswith("manual_"):
+            # Frigate never had an uploaded video; it is kept with the observation.
+            if kept := await self._read_retained_event_clip(event_id):
+                return kept, None
+            return None, "clip_unavailable"
+        clip_bytes, clip_error = await self._wait_for_clip(event_id)
+        if clip_bytes:
+            return clip_bytes, None
+        if cached := await self._read_cached_event_clip(event_id):
+            log.info("Using cached event clip for the photo; Frigate no longer has it", event_id=event_id)
+            return cached, None
+        if kept := await self._read_retained_event_clip(event_id):
+            log.info("Using the favourite's archived clip for the photo", event_id=event_id)
+            return kept, None
+        return None, clip_error
+
+    async def _read_retained_event_clip(self, event_id: str) -> Optional[bytes]:
+        """A favourite's archived clip, or an uploaded video (#481)."""
+        from app.services.retained_visit_video import retained_event_clip
+
+        return await self._read_retained(event_id, await retained_event_clip(event_id))
+
+    @staticmethod
+    async def _read_retained(event_id: str, path: Optional[Path]) -> Optional[bytes]:
+        if path is None:
+            return None
+        try:
+            return await asyncio.to_thread(path.read_bytes)
+        except OSError as exc:
+            log.warning("Kept visit video unreadable", event_id=event_id, error=str(exc))
+            return None
+
+    async def _read_cached_event_clip(self, event_id: str) -> Optional[bytes]:
+        cached_path = media_cache.get_clip_path(event_id)
+        if cached_path is None:
+            return None
+        try:
+            return await asyncio.to_thread(cached_path.read_bytes)
+        except OSError as exc:
+            log.warning("Cached event clip unreadable", event_id=event_id, error=str(exc))
+            return None
+
     async def _wait_for_clip(self, event_id: str) -> tuple[Optional[bytes], Optional[str]]:
-        """Poll Frigate for clip availability with bounded retries."""
+        """Use the cached event clip when there is one, otherwise poll Frigate with bounded retries."""
+        # The player serves the cached clip after Frigate has expired the event, so a photo request must
+        # use it too; polling Frigate first spent half a minute and then reported a playable clip missing.
+        cached_path = media_cache.get_clip_path(event_id)
+        if cached_path is not None:
+            try:
+                return await asyncio.to_thread(cached_path.read_bytes), None
+            except OSError as exc:
+                log.warning("Cached event clip unreadable; asking Frigate", event_id=event_id, error=str(exc))
+
         await asyncio.sleep(self.INITIAL_DELAY_SECONDS)
 
         last_error: Optional[str] = None
@@ -1789,6 +2860,20 @@ class HighQualitySnapshotService:
         metadata = await media_cache.get_snapshot_metadata(event_id)
         return cached_snapshot_input_provenance(metadata).is_cropped
 
+    async def _should_preserve_existing_crop(self, event_id: str, selected_candidate: dict[str, Any] | None) -> bool:
+        if not await self._existing_snapshot_is_cropped(event_id):
+            return False
+        candidate = selected_candidate or {}
+        expected = await self._load_expected_species_labels(event_id)
+        label = self._candidate_label_key(candidate.get("classifier_label"))
+        # A previous crop can show a different bird. Positive current identity evidence
+        # must win over its crop provenance, while failed inference stays conservative.
+        return not (
+            label
+            and label in {self._candidate_label_key(value) for value in expected}
+            and self._finite_candidate_score(candidate.get("classifier_score")) >= MIN_SPECIES_CONFIDENCE
+        )
+
     async def _load_event_data_for_crop(self, event_id: str) -> Optional[dict[str, Any]]:
         """Fetch event metadata only when it can improve HQ bird-crop accuracy."""
         if not self._automatic_crop_enabled():
@@ -1811,18 +2896,27 @@ class HighQualitySnapshotService:
 
     async def _identity_safe_fallback_crop(
         self, event_id: str, image_bytes: bytes, event_data: Optional[dict[str, Any]]
-    ) -> tuple[bytes, bool]:
+    ) -> tuple[bytes | None, bool]:
         """A failed candidate pass must not bypass the normal species and detail gates."""
+        if self._automatic_crop_enabled() and not self._background_crop_work_allowed():
+            raise PhotoScanRetry("inference_deferred")
         cropped, applied = await asyncio.to_thread(self._maybe_crop_snapshot_bytes, event_id, image_bytes, event_data)
         if not applied:
-            return image_bytes, False
+            return None, False
         expected = await self._load_expected_species_labels(event_id)
         if not expected:
-            return image_bytes, False
+            return None, False
         candidate = await self._score_snapshot_candidate({"image_bytes": cropped, "source_mode": "model_crop"})
-        if candidate and self._select_best_trusted_candidate([candidate], expected_labels=expected):
-            return cropped, True
-        return image_bytes, False
+        if (
+            candidate
+            and has_confident_photo_species(candidate, threshold=settings.classification.threshold)
+            and self._candidate_label_key(candidate.get("classifier_label"))
+            in {self._candidate_label_key(label) for label in expected}
+            and self._select_best_trusted_candidate([candidate], expected_labels=expected)
+        ):
+            if await self._available_photo_candidates(event_id, [{**candidate, "image_bytes": cropped}]):
+                return cropped, True
+        return None, False
 
     def _maybe_crop_snapshot_bytes(
         self,
@@ -1853,6 +2947,19 @@ class HighQualitySnapshotService:
                 event_id=event_id,
                 reason=(crop_result or {}).get("reason") if isinstance(crop_result, dict) else "invalid_crop_result",
             )
+            return image_bytes, False
+
+        if not has_localized_bird(
+            {
+                "presence_source": "bird_crop_detector",
+                "bird_box": crop_result.get("detector_box"),
+                "detector_confidence": crop_result.get("confidence"),
+                "crop_box": crop_result.get("box"),
+                "frame_width": source_image.width,
+                "frame_height": source_image.height,
+                "input_is_cropped": True,
+            }
+        ):
             return image_bytes, False
 
         try:
@@ -1927,7 +3034,9 @@ class HighQualitySnapshotService:
             crop_result = bird_crop_service.generate_crop(image, detector_tier="accurate")
         except Exception as e:
             log.warning("High-quality bird crop generation failed", event_id=event_id, error=str(e))
-            return None
+            raise BirdDetectionError("Bird crop generation failed") from e
+        if isinstance(crop_result, dict) and detector_scan_failed(crop_result):
+            raise BirdDetectionError("Bird crop inference failed")
         if not self._has_crop_image(crop_result):
             return crop_result if isinstance(crop_result, dict) else None
         return self._expand_model_crop_context(image, crop_result)
@@ -1963,7 +3072,9 @@ class HighQualitySnapshotService:
             crop_result = candidate_generator(image)
         except Exception as e:
             log.warning("High-quality bird crop candidate generation failed", event_id=event_id, error=str(e))
-            return None
+            raise BirdDetectionError("Bird crop candidate generation failed") from e
+        if isinstance(crop_result, dict) and detector_scan_failed(crop_result):
+            raise BirdDetectionError("Bird crop candidate inference failed")
         if not self._has_crop_image(crop_result):
             return crop_result if isinstance(crop_result, dict) else None
         return self._expand_model_crop_context(image, crop_result)
@@ -2117,6 +3228,7 @@ class HighQualitySnapshotService:
         fps: float,
         event_data: Optional[dict[str, Any]] = None,
         clip_variant: str = "event",
+        clip_start_timestamp: float | None = None,
     ) -> list[int]:
         if frame_count <= 0:
             return [0]
@@ -2127,6 +3239,7 @@ class HighQualitySnapshotService:
                 frame_count=frame_count,
                 fps=fps,
                 event_data=event_data,
+                clip_start_timestamp=clip_start_timestamp,
             )
         mid = frame_count // 2
         center_weighted_anchors = [mid, frame_count // 4, (frame_count * 3) // 4]
@@ -2250,11 +3363,12 @@ class HighQualitySnapshotService:
         frame_count: int,
         fps: float,
         event_data: Optional[dict[str, Any]],
+        clip_start_timestamp: float | None = None,
     ) -> list[int]:
-        if frame_count <= 0 or fps <= 0.0 or not isinstance(event_data, dict):
+        if frame_count <= 0 or fps <= 0.0 or not isinstance(event_data, dict) or clip_start_timestamp is None:
             return []
         try:
-            start_time = float(event_data.get("start_time"))
+            start_time = float(clip_start_timestamp)
         except (TypeError, ValueError):
             return []
         if not math.isfinite(start_time):
@@ -2284,8 +3398,9 @@ class HighQualitySnapshotService:
         clip_duration_seconds = float(frame_count) / float(fps)
         indices: list[int] = []
         for target_time in ordered_timestamps:
-            offset_seconds = max(0.0, target_time - start_time)
-            offset_seconds = min(offset_seconds, max(0.0, clip_duration_seconds))
+            offset_seconds = target_time - start_time
+            if not 0.0 <= offset_seconds < clip_duration_seconds:
+                continue
             indices.append(int(round(offset_seconds * fps)))
         return indices
 
@@ -2544,20 +3659,28 @@ class HighQualitySnapshotService:
             return True
         return state is None or state.can_attempt(now)
 
-    async def _persist_processing_outcome(self, event_id: str, result: str) -> None:
-        if result in {"disabled", "duplicate"}:
+    async def _persist_processing_outcome(
+        self, event_id: str, result: str, *, expected_revision: int | None = None
+    ) -> None:
+        if result in {"disabled", "duplicate", "storage_evicted"}:
             return
         try:
             async with get_db() as db:
                 repo = ProcessingJobRepository(db)
-                if result in {"replaced", "bird_crop_replaced"}:
-                    await repo.record_success(HQ_PROCESSING_PIPELINE, event_id)
+                if result in {
+                    "replaced",
+                    "bird_crop_replaced",
+                    "manual_selection_preserved",
+                    "existing_crop_preserved",
+                }:
+                    await repo.record_success(HQ_PROCESSING_PIPELINE, event_id, expected_revision=expected_revision)
                     return
                 state = await repo.record_failure(
                     HQ_PROCESSING_PIPELINE,
                     event_id,
                     error=result,
-                    retry_delays_seconds=HQ_RETRY_DELAYS_SECONDS,
+                    retry_delays_seconds=() if result == "bird_presence_unconfirmed" else HQ_RETRY_DELAYS_SECONDS,
+                    expected_revision=expected_revision,
                 )
         except Exception as exc:
             log.warning(

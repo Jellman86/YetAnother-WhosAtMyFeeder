@@ -12,6 +12,17 @@ follow `ui-ux.md`.
 
 ## 1. The rules that produced these screens
 
+Capture status, time and confidence badges use `BadgeHint` for explanations on
+hover, keyboard focus and tap. Existing action buttons use the `explanation`
+action so their click keeps its original effect. Escape closes the explanation
+before its enclosing panel; scrolling a badge out of view closes its explanation.
+Keep badges above the card's record-opening overlay. The orange missing-upstream
+warning means Frigate no longer has the event or media; it does not express
+uncertainty about the bird's identity. A matching-call badge describes audio evidence.
+A badge set in a line of small text takes `target`, a full 44px touch target that does not make
+the line taller. On a phone the Field Log's lines are too close for that, so its confidence and
+matching-call markers stay plain words there; the record and the wider layout explain them.
+
 Six decisions carry most of the design. Apply them before reaching for a component.
 
 ### 1.1 One window per surface
@@ -31,6 +42,41 @@ frame and the best score. Anything that lists detections to a person groups firs
 what its frames established: it needs a person only if every frame does, and it is confirmed by a
 matching call if any frame was, and the row says so in words ("matching call") so the header's
 cross-confirmed count and the rows beneath it agree.
+
+When one capture contains several birds, keep the Frigate event as the parent record. Count
+localized birds from one analyzed frame as child observations, so repeated sampled frames do not
+inflate the count. Show that count separately from visits and name its coverage: it only includes
+captures analyzed with the high-quality crop model. A detector estimate needs visible boxes and
+an owner correction path because it can miss birds or mark other objects.
+Frigate's event box localizes its one tracked bird; it is not a scene-wide list. The local crop
+detector scans the full frame and overlapping tiles on large high-resolution scenes for additional
+birds. When it is unavailable, the UI must say that only the Frigate hint could be counted.
+The eight classified photo crops per frame are a performance limit on photograph choices, not a
+limit on counted detector boxes. The count still reflects only birds the detector localized in an
+analyzed frame, so it must not be presented as an exact census.
+
+The counted frame need not be the photograph's frame. `CountedBirds` resolves the exact retained
+full frame (same clip variant, frame index and, where the observation names it, candidate) and
+outlines birds only on its full-resolution image, whose decoded size is the boxes' coordinate
+space. A thumbnail, a possibly cropped Frigate fallback, an ambiguous match or a box outside the
+decoded size withholds the outlines and says why; the list stays. Each bird's thumbnail is cut
+from that frame by CSS, so it costs no request, and hovering, focusing or choosing its row
+highlights it on the frame. Drawn boxes are never controls; the rows are. Repeated species are
+told apart by position from the left. The field log reports a visit's busiest single capture
+("3 birds in one capture") from the owner-only `bird_summary`, never a sum across repeat frames,
+and says nothing for a capture with no stored birds, because not counted is not zero.
+Use the server's `is_unknown` decision on each bird so configured unknown labels and
+noncanonical taxa agree with the field log. Unrelated parent/SSE patches must not overwrite
+the summary from an authoritative event read. Background HQ counts are picked up by the
+existing visible-owner checks (once a minute), using stale and single-flight guards. Guests
+add no count reads, and completions do not trigger one request per capture. An open record
+rereads its scene when that authoritative count changes; superseded reads cannot apply.
+
+An uncertain counted bird can use the accepted visit identity only when its own guess agrees
+and Frigate's retained tracked box uniquely identifies it in that same frame. Label this source
+as the visit and keep the separate crop score in the evidence. Other birds and owner corrections
+keep their own identity. Both counted-bird editors use the shared common/scientific species
+search; require a selected complete species and discard searches from an earlier capture or edit.
 
 ### 1.3 Say what needs a human, and say why
 
@@ -78,18 +124,48 @@ by a badge.
 
 Four shapes cover the app. Pick one; do not blend them.
 
+Explorer's filter rail puts species search and its scrollable list first. Date, other
+filters and cameras use native collapsible sections, initially closed. Applied filters
+stay visible as removable tokens. The rail scrolls when expanded sections exceed the
+available height, so selecting a species never shrinks its list to zero. Phones use the
+same ordering behind the Filters button.
+
+Explorer can show heard calls between its visits, from a **Heard calls** switch on the page (off
+until a device turns it on, remembered per device like Cards/List, never a setting). Visits stay
+the rows. A call that supports a visit the pipeline already confirmed (same species, a mapped
+microphone, within the visit widened by the correlation window) is counted on that visit, call by
+call ("matching call, 4 calls"), so a bout that runs on past a visit is split at its edge. Every
+other call folds per species into bouts across up to five minutes of silence, the default
+correlation window, and the bouts gather into one band per gap between two visits: its start time, layered spectrograms,
+a heading with its span and counts, a chip per species, and **Show calls**. A band is quieter than
+a visit and is placed and labelled by when it began. A filter that only describes camera visits
+(camera, favourites, hidden, multiple species, matching call, a species group, confidence order)
+hides the calls and says why; an empty span says no calls are stored, never that nothing was
+heard. A capture with several species uses the band's shape: **Multiple species**, layered
+thumbnail, a chip per species with its count and **Show species**, and no single score.
+
 ### Desk (Dashboard)
 
 ```
-day bar: label, 4 to 6 inline metrics, live indicator
-[ primary log, 1.55fr ]        [ context rail, 0.7fr ]
-                                queue card (the work)
-                                standing cards (cameras, sensors, conditions)
-                                reference (activity, top visitors)
+day bar: eyebrow, the window as the page heading, live indicator
+         then every figure for that window in one ruled band (label above figure, scope beneath)
+[ primary log, 1.55fr ]        [ context rail, 0.75fr ]
+                                what needs you and what is happening:
+                                  queue card (the work), at the feeder now, heard
+                                reference:
+                                  activity pulse, notable nearby, top visitors
+from 1920px the rail splits into those two columns:
+[ primary log, 1.4fr ]  [ needs you / happening, 1fr ]  [ reference, 1fr ]
 ```
 
 The rail is ordered by urgency, not by data source: what needs you, then what is running, then
-what is merely interesting. The primary column is one list, not a grid of cards.
+what is merely interesting. On a very wide screen the rail becomes two columns so the log keeps a
+readable row; the order inside each holds. Every desk section is a panel (`panel`) that opens the
+same way, a display heading with an icon and a muted line naming the window (the desk's rolling 24
+hours, which the day bar names too). Counts there are visits, from the day summary, never the
+loaded page of detections, which undercounts on a busy day. The primary column is one list, not a
+grid of cards and not a hero photograph over a list: every row already opens its full frame. On a
+phone the log drops its panel frame so the rows keep their width.
 
 ### Evidence (Add observation)
 
@@ -113,12 +189,15 @@ slim bar: subject, camera, time, close
 ```
 
 The photograph is always the crop. The whole scene is a look, not a mode: hover or focus on
-the photograph peeks at it with the crop outlined, a click pins it, and only the pinned state
+the photograph peeks at it with the chosen crop outlined and labeled. Other distinct retained crop
+regions from that same frame are outlined too; this shows available evidence, not a bird count.
+A click pins the peek, and only the pinned state
 offers "Use the whole scene as the photograph". Beneath the photograph is one strip of the
-visit's moments in time order (`FrameStrip`), one thumbnail per moment; where a frame came from
-is not shown, and the framings of one moment fold into it. Each thumbnail opens a pop-out on
-hover or focus with the frame at decision size, what the model read in it (labelled as a read),
-and one action, "Use this frame", which changes the photograph and never the identification.
+visit's moments in time order (`FrameStrip`), normally one thumbnail per moment; where a frame
+came from is not shown, and framings of the same bird fold into it. If separate birds share a
+frame, each spatially distinct crop has its own photo choice and tentative model read. Each
+thumbnail opens a pop-out on hover or focus with the photograph at decision size and one action
+to use that photograph without changing the identification.
 There is no Best crop / Full frame switch and no preview-then-save step (#256). The peek is
 `WholeScenePeek` in `utils/whole-scene-peek.svelte.ts`, and the review queue uses the same one, and
 the same `FrameStrip` beneath its photograph, so every frame kept from a visit is there to decide
@@ -128,11 +207,29 @@ scientific naming preferences as the full record.
 On a phone the comparison pop-out is a sheet at the foot of the screen with a backdrop and its
 own Close, because there is no hover to lose.
 
+Beneath the identification, `TaxonomyLineage` shows where the bird sits: one line from class to
+species with each rank named, the family's species worldwide against those seen here, and "Open
+the family tree". It shows nothing when the catalogue does not hold the bird; a missing lineage is
+not an error worth the space. `FamilyTreeDialog` is the full view: a horizontal tree centred on
+the bird, as taxonomy trees are usually drawn, with Animalia and Chordata as a breadcrumb rather
+than branches. Its path is open and amber; groups seen at this feeder are green and say how many;
+everything else in an open group is summed in one "more" node. A group's label sits above its node
+so branches never cross it, and every node is a keyboard button with `aria-expanded`. The fan and
+the outline list read the same visible tree, and a narrow screen opens on the outline until the
+reader picks another. Every name in the ladder, the tree and the outline opens a `TaxonCard` under
+the §4 contract, one card per surface driven by `utils/taxon-peek.svelte.ts`: a species shows its
+reference photograph (one species-information request per species per page, through
+`utils/taxon-pictures.ts`), a group shows its size and what was seen here. A group never asks for a
+picture, because the species-information route would cache it as a species. Selecting a species,
+which has nothing to open, pins its card; the species details show the same ladder. The tree is a ranked classification, and the footer
+says so: it shows grouping, not divergence.
+
 ### Standing (Leaderboard)
 
 ```
 span bar: day, week, month, total · seen, heard, both
-showcase: the leader expanded, the rest as tiles, in the expanded-view manner of a photo library
+wall: the leader named, the share bar as its navigation, then a contact sheet of this feeder's own visits
+flagged species: probable misidentifications, named apart for a person to check
 standing band: species, detections, busiest hour, heard or confirmed, rising, most recent
 rankings (with evidence), then analytics
 ```
@@ -141,25 +238,70 @@ A leaderboard is only as good as its identifications, so the rankings say what s
 species besides the classifier: confirmed by the owner, heard by BirdNET in the same window, or the
 camera alone (`leaderboard/evidence.ts`). A trend is claimed only when the history covers the whole
 previous window (`previous_window_complete` from the route); otherwise the page says when records
-start. Rankings count visits (`window_visit_count`, the same ten-minute rule as
-`groupDetectionsIntoVisits`), and only the all-time view, which has no visit counts, says detections.
+start. Rankings count visits (`window_visit_count`, the shared server rule of a 60-second inactivity gap after the latest verified event end,
+with capture time as the fallback), and only the all-time view, which has no visit counts, says detections.
 The timeline and the composition chart share one colour per species
 (`leaderboard/species-palette.ts`, validated for colour-blind separation on both surfaces).
 
-The showcase (`SpeciesShowcase`) is the leaderboard's centrepiece. Every species is a photograph:
-this feeder's own newest crop (`/api/leaderboard/portraits`), or, where there is none, the
-species' reference image from the taxonomy cache, labelled as a reference photo and never passed
-off as the feeder's. Clicking a tile brings it forward and the leader it replaces takes the slot
-the tile left, so nothing else in the grid moves; each species is one element for its whole life
-there, and the two boxes are measured before and after the change and animated between them (no
-transition pairing, which is not reliable across blocks). The grid's tracks come from the
-container's aspect ratio alone, so a box in flight never resizes a cell. Under reduced motion
-nothing drifts or morphs. The last tile points at the full rankings.
+The wall (`CaptureWall`) opens the page. Its header names the leading species, and under it the
+share bar is the wall's navigation: one segment per species in its chart colour, sized by its share,
+then the species beyond the list summed as "other species" and the flagged ones as "Needs a check"
+(`SpeciesChecks`, which lists them for a person to review). For an owner it opens the check sheet
+(`SpeciesCheckSheet`, decisions in `utils/species-check.ts`): one flagged species at a time, its
+visits as their best crops (never the whole scene), all selected, and the likeliest answer first
+with its effect on the button. Only the suggestion commits in one tap; any other species takes a
+second, because a rename also teaches personalised identification and is not undone by renaming
+back. On a phone the crops are a sideways strip so the answer stays within reach. Hovering or focusing a segment opens it
+out to say its share and count and lights that species' visits while the rest step back; a click
+pins the highlight (a second click lets go, Escape too) and offers "Open" for the species, which is
+all touch has. A highlight always points at something: a segment no longer in the bar, or a species
+with no visit on the wall, dims nothing. Ink on each segment is chosen for contrast, and the focus
+ring is two-toned so it shows on every colour.
+
+Under the bar is a contact sheet of this feeder's own visits in the window, newest first, one stored
+crop per visit, packed densely like a photo library: a fixed number of rows (more once "Show more
+visits" is chosen) of square cells whose size comes from the width alone. Visits are folded by the
+shared visit rule (`utils/visit-grouping.ts`) from the owner's capture list, cut to the window's own
+start and end, and shown by their strongest frame. A capture is matched to its species by the
+ranking's key, name, taxon or scientific name, so scientific-first naming and owner renames still
+light and open the right species. The leading species' strongest visits are drawn at four times the
+area, a number that grows with the wall (none under eight visits, at most four). `packTiles` lays
+them out the way the grid will and keeps the longest run with no hole, trying the last large tiles
+small when that shows more of the wall, so a full wall ends in a full row and a small one keeps
+every visit. Only stored crops are shown: a whole scene at card size is a picture of a feeder, so the
+backend leaves it out, and a photograph that fails to load leaves the wall rather than leaving a
+hole. A species flagged as a probable misidentification is never put on show, and with fewer than
+eight visits there is no wall. A guest's photographs share the request budget, so a guest's wall is
+capped.
+
+Hovering or focusing a visit rings it and draws its photograph in a little closer; the tile never
+changes size and nothing around it moves. After a short intent delay a pop-out opens beside it under
+the hover contract (§4): the larger photograph, rank, the common and scientific names, the
+classifier's confidence, when and where it was seen, how many frames the visit holds and whether a
+clip exists. Once one is open, the next visit's pop-out is immediate and the pop-out glides to it.
+It sits against the viewport on the side that points into the wall, follows its tile while the page
+scrolls, can be reached with the pointer so its text can be read, and closes on Escape, on leaving,
+or when its tile leaves the screen. On touch a tap opens the species. The wall has one Tab stop and
+the arrow keys, Home and End move between visits. It rises into place once on first paint and
+stands still under reduced motion.
+
+The pop-out plays a film once one is made (`VisitFilm`): four silent seconds of the visit, cut
+from Frigate's recording around the moment of the visit's best snapshot and framed on the bird, so
+the card is sharp where a stored crop is a few hundred pixels across. The photograph is always
+underneath, so a missing film is a photograph and the layout never moves. A film is fetched only
+when its card nears the viewport, plays only while visible, is downloaded once however many copies
+of the card show it (`utils/visit-films.ts`), and is never fetched under reduced motion or a
+data-saver connection. Changing either preference while the page is open releases the film and
+keeps the photograph. Frigate keeps recordings for days, so older visits keep their photographs.
+Films require a proven recording moment and crop bound to the saved image. New final-snapshot
+crops keep that evidence, including a selected alternative bird. Older photographs and video
+choices without exact recording alignment stay still: a film from the original tracked bird
+must not cover a photograph of a different bird. Changing the photograph invalidates the film.
 
 ### Reference (About)
 
 ```
-reel: this install's own photographs, one crop per species, each opening its record
+portrait: since when, visits and species, the busiest day and the newest arrival, beside the latest visit
 colophon: what this is, in plain sentences
 live diagram: the standard flow, annotated with this instance's state
 build detail: what to quote in an issue report
@@ -169,12 +311,15 @@ credits
 Sections are ordered by reader: visitor, then anyone, then owner. Do not add a feature grid; the
 readme and `docs/` hold the feature list.
 
-The reel (`CaptureReel`) drifts in two rows that run opposite ways, pauses under the pointer or
-focus, and stands still as a scrollable strip under reduced motion. Its loop is a second copy of
-each row, hidden from readers and out of the Tab order. Only stored crops are shown: a whole
-scene at card size is a picture of a feeder, so the backend leaves it out
-(`/api/about/showcase`). The install count beside the stats is a cached read of the telemetry
-worker's public summary, off with update checks, and absent rather than zero when unknown.
+The portrait (`FeederPortrait`, `/api/about/portrait`) is one calm block of facts the feeder has
+measured: when it started, its visits (the shared 60-second visit rule) and species to date, its
+busiest day in the viewer's own calendar days, and its newest arrival, which must have been seen at
+least three times or confirmed so a single misidentification is never announced. Beside them is
+the latest visit with a stored crop, which plays its film once one is made and opens its record. A
+guest sees the shared window only, and the heading says so, so a short window never reads as a
+young feeder. A shared-history change clears the guest's portrait immediately and reloads its facts
+and latest visit; an older response cannot restore withdrawn media. The install count beneath is a cached read of the telemetry worker's public summary,
+off with update checks, and absent rather than zero when unknown.
 
 ---
 
@@ -184,6 +329,8 @@ worker's public summary, off with update checks, and absent rather than zero whe
 | --- | --- | --- |
 | `FieldLog` | The Dashboard's chronological visit log and its identification actions | Use for operational history or search results; Health and Explorer own those |
 | `HealthActivityTimeline` | The Health page's chronological account of recorded visits, expected filtering and fault drops, with each outcome stated explicitly | Turn it into an identification queue; the Dashboard owns outstanding work |
+| `FieldLogVisitRow` | One visit on the field log's thread, opening from its time onto its captures in the same columns | Add a second disclosure control, or colour capture nodes without also changing their shape |
+| `VisitCaptures` | A visit's chronological captures: `inline` inside a Health row, `footer` closing an Explorer card or row | Render for a single capture, repeat the visit's camera or day on each line, or sum birds across captures |
 | `FilteredFramePreview` | A frame the classifier rejected, which has no detection record | Use where a `Detection` exists; that is `DetectionPreview` |
 | `DetectionPreview` | Any thumbnail under ~64px | Use as a click target for navigation; click opens the record |
 | `FrameStrip` | The moments of one visit inside its record, with the comparison pop-out | Show framing variants of one moment side by side; the pop-out carries the framing |
@@ -195,7 +342,36 @@ worker's public summary, off with update checks, and absent rather than zero whe
 | `ReviewQueueModal` | Working a queue item by item | Use for viewing one record; that is `DetectionModal` |
 | `ActivityHeatmap` | A weekday by hour grid that reads a slot on hover, tap or arrow keys, with hour and day totals in its margins | Rely on native `title` tooltips; they arrive late and never on touch |
 
-Pure logic lives in `apps/ui/src/lib/utils/`: `visit-grouping.ts` (grouping, the desk window and
+Server grouping lives in `backend/app/repositories/visit_repository.py`, shared with statistics.
+`VisitCaptures` expands any visit into bounded chronological pages of original records; no inference
+runs to group history. A visit and its captures are one object. Explorer card footers sit inside the card's single
+rounded frame. The record action covers the record section; capture actions remain separate. In the field log
+(`FieldLogVisitRow`) a visit of several captures opens from its time, which carries a chevron and
+is a real button with `aria-expanded`. The row states "13 captures" in words beside the name, apart
+from the busiest capture's bird count, so it costs no extra line. Its captures join the same thread
+in the same columns, through CSS subgrid: the time to the second, the node, the thumbnail (which
+opens that exact capture), its own species and scientific name, any note, the score under the visit's score, and the clip under Open.
+A visit's node is solid; a capture's is hollow on a tinted stretch of the line, and the capture
+used as the visit photo is filled and says "Visit photo", so the two kinds differ by shape,
+position and words as well as colour. A single-capture visit has no list and keeps its Open
+action. Each line names its own species with the shared naming preferences and states its own
+confidence. Camera and day stay at visit level. The camera appears beneath the species name only when the log holds more than one camera.
+Primary species names wrap fully, including in narrow desktop dashboard columns; the camera
+shares the metadata line so it cannot squeeze the name into a separate tiny column.
+`VisitCaptureList` reads the first page when a visit first opens and reuses it until the visit,
+window or access changes; Health rows and Explorer cards use the same loader through
+`VisitCaptures`. Explorer grids use a native floating capture panel above the cards, so no grid row moves
+when it opens. Its control works by click, touch or keyboard; Escape, an outside click or
+Close dismiss it. The panel stays within the viewport and scrolls long lists. Thumbnail
+previews portal into the panel's top layer. Explorer list and Health layouts stay inline. `FrameStrip` removes unwanted photo choices reversibly with Undo while retaining
+counting evidence. Recent species sightings open exact detection links.
+
+Loading never claims a state. Until the day has been read, the field log shows placeholder rows
+in the anatomy and height of real rows, the day bar shows placeholders instead of zeros, the review
+queue does not say "Nothing waiting", and the camera list does not say none are reporting. A first
+read that fails says so with a retry. Every placeholder stands still under reduced motion.
+
+Pure logic lives in `apps/ui/src/lib/utils/`: `visit-grouping.ts` (summary adapters, fixture grouping, the desk window and
 threshold-aware review decisions), `review-queue.ts` (queue selection and ordering),
 `dashboard-cameras.ts` (configured-camera scope and visit counts), `pipeline-health.ts` (which
 dropped events are faults and which are expected filtering) and `health-timeline.ts` (merging kept
@@ -266,16 +442,45 @@ build something better."*
 
 ## 6. Visual details worth copying
 
-- **Type**: Bricolage Grotesque (`font-display`) for headings and figures, Instrument Sans for
-  everything else. `tabular-nums` wherever digits align in a column.
+- **Type**: the display face (`font-display`) for headings and figures, the body face for
+  everything else; the shipped classic pairing is Playfair Display over Source Serif 4, and the
+  font setting swaps both. Figures that stand alone use `.figure` (display face, lining tabular
+  digits). `tabular-nums` wherever digits align in a column. Small print uses `text-3xs` (11px)
+  and `text-2xs` (12px) or `text-xs`: sizes in rem, never `text-[Npx]`, so display scaling and
+  the reader's text size carry through.
+  The root size grows on a large display (`clamp(100%, 100% + (100vw - 1280px) / 256, 125%)` in
+  `app.css`), so a rem layout scales as a whole; never set a px font size on the root. The reader's
+  **Text size** in Appearance multiplies it through `--text-scale` (per device, 75% to 150%, with
+  Standard at 87.5%), so a layout must hold at the largest size on a 320px phone, not only at the
+  default. Touch targets use the `11` spacing step, which is `max(2.75rem, 44px)`: never write a
+  target size that a smaller text size could take below 44px.
+- **Finish**: flat. Panels are a hairline (`line-soft`) and a fill (`surface`), with no shadow, blur
+  or gradient wash; `surface-raised` fills a well inside a panel. These tokens are set per mode and
+  theme in `app.css`, so a component never names a theme. Gradients remain only where they do a
+  job: a scrim that keeps a caption legible over a photo, a scroll fade, a loading shimmer.
+- **Labels and controls**: a small uppercase label with wide tracking (`.eyebrow`) names a group or
+  a window. Controls speak in sentence case; `app.css` holds every button to that.
+- **Selection**: a selected route, tab or option is a recessed key in the brand tint with a lit
+  icon. Never a coloured bar on one edge.
+- **Charts**: a line or bar chart takes `chart-h` or `chart-h-tall`, a height between a floor and
+  a cap that follows the window width, so a wide screen neither flattens it into a strip nor
+  stretches it without bound (keep it under about 4.5:1). Bars take their width from their slot
+  (`barPercentage`, `categoryPercentage`) with a generous cap. A heatmap keeps square cells with a
+  maximum size, so its columns fit a phone and stop growing on a wide screen.
+- **Photographs in a fixed box**: fill the box (`object-cover`) unless that would cut away more
+  than a quarter of the photo, as for a tall crop of a woodpecker on a pole. Then show it whole
+  over a soft blurred copy of itself. `utils/photo-fit.ts` decides from the loaded image; the
+  detection card and the record's photograph use it (#481).
 - **Panels**: `card-base` for standing surfaces. Rows inside a list are separated by hairlines,
   not by nested cards.
-- **Flagged rows**: a left-to-right amber wash plus a state dot plus a worded reason. All three.
+- **Flagged rows**: an amber tint plus a state dot plus a worded reason. All three.
 - **Score**: a percentage in a tone band (under 60 amber, under 85 brand, above 85 green) and a
   3px bar. Never the bar alone. **Exception:** a frame the filter rejected scores under 60 by
   definition and wants nothing from anyone, so it renders in slate with its reason in words. Amber
   on those rows would contradict 1.3 and put seven of them under a heading saying nothing failed.
 - **Touch targets**: `min-h-11` on anything interactive, including chips and inline actions.
+- **Review overlay**: the queue pins the underlying page at its current scroll position while open and restores it on close. Its backdrop covers the viewport even when the page has scrollbars. Opening the full record releases the queue lock before the record takes its own lock; closing the record returns to the same page position.
+- **Text reflow**: capture detail sheets fit 320px at 200% text. Media flex items need `min-w-0` so an aspect ratio plus a minimum height cannot widen the sheet in Safari. Fact labels, technical disclosure chrome and footer controls wrap when enlarged text no longer fits; complete names remain readable and controls retain their touch-target floor. Check the actual modal in Chromium and WebKit, including a full-resolution whole-scene peek and its outline geometry.
 - **Disclosures**: a collapsible section is not required to look like every other one — a terminal
   panel and an inline "show technical details" link are different things — but all of them owe the
   reader the same three signals: it says whether it is open (a chevron that rotates on `group-open`,

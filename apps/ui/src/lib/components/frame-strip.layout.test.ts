@@ -3,6 +3,7 @@ import stripSource from './FrameStrip.svelte?raw';
 import previewSource from './DetectionPreview.svelte?raw';
 import filteredSource from './FilteredFramePreview.svelte?raw';
 import modalSource from './DetectionModal.svelte?raw';
+import reviewSource from './ReviewQueueModal.svelte?raw';
 
 describe('the frame strip is one ordered set of moments (#256)', () => {
     it('renders one thumbnail per moment and never a framing variant beside it', () => {
@@ -52,7 +53,7 @@ describe('the frame strip is one ordered set of moments (#256)', () => {
         // With a backdrop, a Close and Escape, the pointer drifting off the strip is not a dismissal,
         // and a tap on the sheet's own picture (focus going nowhere) is not either.
         expect(stripSource).toContain('if (anchor?.sheet) return;\n        hide();');
-        expect(stripSource).toContain('onmouseleave={hoverClose}');
+        expect(stripSource).toContain('onmouseleave={() => { hoverPaused = false; hoverClose(); }}');
         expect(stripSource).not.toContain('onmouseleave={() => hide()}');
         // Only the sheet ignores focus going nowhere; a desktop pop-out still closes.
         expect(stripSource).toContain('if (!(next instanceof Node)) {\n            if (!anchor?.sheet) hide(true);');
@@ -97,16 +98,34 @@ describe('the frame strip is one ordered set of moments (#256)', () => {
     it('keeps overflowing moments clickable beneath a non-interactive fade', () => {
         expect(stripSource).toContain('.snapshot-strip');
         expect(stripSource).toContain('scrollbar-width: none');
-        expect(stripSource).toContain('node.scrollLeft + node.clientWidth < node.scrollWidth - 1');
+        expect(stripSource).toContain('moreBefore = node.scrollLeft > 1;');
+        expect(stripSource).toContain('moreAfter = node.scrollLeft + node.clientWidth < node.scrollWidth - 1;');
         expect(stripSource).toContain("node.addEventListener('scroll', update, { passive: true })");
-        expect(stripSource).toContain("style.setProperty('--strip-fade-opacity', hasMoreToRight ? '1' : '0')");
         expect(stripSource).toContain('data-snapshot-strip-fade');
         expect(stripSource).toContain('pointer-events-none');
         expect(stripSource).not.toContain('mask-image:');
         // The container keeps its size when the moment list changes, so a resize observer
-        // alone would leave the fade describing a strip that is no longer there.
+        // alone would leave the ends describing a strip that is no longer there.
         expect(stripSource).toContain('new MutationObserver(update)');
         expect(stripSource).toContain('{ childList: true }');
+    });
+
+    it('gives a strip that runs on a control at each end, and the keyboard a way along it', () => {
+        expect(stripSource).toContain('data-frame-strip-scroller');
+        expect(stripSource).toContain('data-frame-strip-back');
+        expect(stripSource).toContain('data-frame-strip-forward');
+        expect(stripSource).toContain("$_('detection.frame_strip_scroll_left', { default: 'Scroll left' })");
+        expect(stripSource).toContain("$_('detection.frame_strip_scroll_right', { default: 'Scroll right' })");
+        // A hidden end control never catches a tap while it fades out.
+        expect(stripSource).toContain("'pointer-events-none invisible opacity-0'");
+        expect(stripSource).toContain("window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'");
+        for (const key of ["'ArrowLeft'", "'ArrowRight'", "'Home'", "'End'"]) {
+            expect(stripSource).toContain(`key === ${key}`);
+        }
+        // Only keyboard focus moves the strip; moving it under a press would drop the click.
+        expect(stripSource).toContain('if (isKeyboardFocus(target)) reveal(target, false);');
+        // The photograph in use is brought into view when the strip opens.
+        expect(stripSource).toContain('if (trigger) reveal(trigger, true);');
     });
 
     it('lifts the chosen moment like a dock item without using an active outline', () => {
@@ -116,8 +135,8 @@ describe('the frame strip is one ordered set of moments (#256)', () => {
     });
 
     it('degrades a missing thumbnail to a placeholder of the same size', () => {
-        expect(stripSource).toContain('failed.has(moment.key)');
-        expect(stripSource).toContain('h-9 w-12 items-center justify-center rounded-md bg-slate-800');
+        expect(stripSource).toContain("import MediaImage from './MediaImage.svelte'");
+        expect(stripSource).toContain('class=\"block h-9 w-12 rounded-md bg-slate-800 object-cover\"');
     });
 });
 
@@ -155,19 +174,21 @@ describe('the record uses the strip and drops the framing toggle (#256)', () => 
         // The peek only exists when the same moment has an uncropped frame to show, so never
         // over Frigate's own snapshot, whose "matching" frame would be another moment's.
         expect(modalSource).toContain('findMatchingFullFrameCandidate');
-        expect(modalSource).toContain("currentSnapshotSource !== 'frigate_snapshot'\n        && !!(fullFrameSnapshotCandidate");
+        expect(modalSource).toContain("currentSnapshotSource !== 'frigate_snapshot'\n        && wholeSceneSources.length > 0");
         expect(modalSource).toContain('{#if canPeekWholeScene}');
     });
 
-    it('outlines the crop on the whole scene from a measurement, never a guess', () => {
-        expect(modalSource).toContain('wholeScene.measure(heroImageEl, currentCropCandidate?.crop_box)');
-        expect(modalSource).toContain('onload={measureWholeScene}');
+    it('outlines every retained bird crop on the matching whole scene', () => {
+        expect(modalSource).toContain('wholeScene.measure(sceneImageEl, wholeSceneCrops[0]?.crop_box, otherCropBoxes)');
+        expect(modalSource).toContain('onload={wholeSceneLoaded}');
         expect(modalSource).toContain('data-detection-whole-scene-outline');
-        expect(modalSource).toContain('{#if wholeScene.showing && wholeScene.outline}');
+        expect(modalSource).toContain('data-detection-other-bird-outline');
+        expect(reviewSource).toContain('data-review-other-bird-outline');
+        expect(modalSource).toContain('{#if wholeSceneReady && wholeScene.outline}');
     });
 
     it('offers the whole-scene rescue only while pinned, and Escape unpins before it closes', () => {
-        expect(modalSource).toContain('{#if wholeScene.pinned && wholeScene.showing}');
+        expect(modalSource).toContain('{#if wholeScene.pinned && wholeSceneReady}');
         expect(modalSource).toContain('detection.whole_scene_use');
         expect(modalSource).toContain('detection.whole_scene_back');
         expect(modalSource).toContain('useWholeSceneAsPhotograph()');
@@ -192,9 +213,9 @@ describe('the record uses the strip and drops the framing toggle (#256)', () => 
         expect(confirm).toBeGreaterThan(-1);
         expect(pick).toBeGreaterThan(confirm);
         expect(score).toBeGreaterThan(pick);
-        expect(actions).toContain('class="btn btn-primary min-h-11 w-full px-4 text-sm sm:w-auto sm:flex-1"');
-        expect(actions).toContain('class="btn btn-secondary min-h-11 w-full px-4 text-sm sm:w-auto sm:flex-1"');
-        expect(actions).toContain('class="btn btn-ghost min-h-11 w-full px-4 text-sm sm:w-auto"');
+        expect(actions).toContain('class="btn btn-primary min-h-11 min-w-0 w-full px-4 text-sm sm:w-auto sm:flex-1"');
+        expect(actions).toContain('class="btn btn-secondary min-h-11 min-w-0 w-full px-4 text-sm sm:w-auto sm:flex-1"');
+        expect(actions).toContain('class="btn btn-ghost min-h-11 min-w-0 w-full px-4 text-sm sm:w-auto"');
     });
 
     it('stacks its controls full width on a phone and lets the rail name the bird', () => {

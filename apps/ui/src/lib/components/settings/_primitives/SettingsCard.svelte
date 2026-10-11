@@ -22,7 +22,7 @@
     let { title, description, iconSnippet, actions, accent = false, children }: Props = $props();
 </script>
 
-<section class="card-base overflow-hidden rounded-3xl backdrop-blur-md">
+<section class="card-base overflow-hidden">
     <header class="flex items-start justify-between gap-4 px-6 md:px-8 pt-6 md:pt-8 pb-6">
         <div class="flex items-start gap-3 min-w-0">
             {#if iconSnippet}
@@ -36,11 +36,11 @@
                 </div>
             {/if}
             <div class="min-w-0">
-                <h3 class="text-lg md:text-xl font-black text-slate-900 dark:text-white tracking-tight">
+                <h3 class="font-display text-xl font-bold text-slate-900 dark:text-white">
                     {title}
                 </h3>
                 {#if description}
-                    <p class="mt-1 text-sm font-medium leading-relaxed text-slate-600 dark:text-slate-400">
+                    <p class="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
                         {description}
                     </p>
                 {/if}

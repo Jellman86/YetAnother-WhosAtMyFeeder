@@ -18,6 +18,23 @@ from app.utils.api_datetime import serialize_api_datetime, serialize_storage_dat
 
 log = structlog.get_logger()
 
+# Recorded with the first classification when the stored species is a trusted
+# Frigate sub-label rather than YA-WAMF's own identification.
+INITIAL_LABEL_SOURCE_FRIGATE_SUBLABEL = "frigate_sublabel"
+
+
+AI_PROMPT_CONTEXT_COLUMNS = ("id", "display_name", "detection_time", "temperature", "weather_condition")
+AI_PROMPT_CONTEXT_PREDICATE = " AND ".join(f"{column} IS ?" for column in AI_PROMPT_CONTEXT_COLUMNS)
+
+
+@dataclass(frozen=True)
+class AIAnalysisRevision:
+    analysis: str | None
+    timestamp: str | None
+    last_turn_id: int
+    prompt_context: tuple
+
+
 # Species alias sets change only when a new label variant lands, but the
 # lookup reads the detections table - a fixed cost the species filter used to
 # pay on every request (#258). Cached per process, briefly.
@@ -28,6 +45,74 @@ _SPECIES_ALIAS_CACHE_MAX_ENTRIES = 512
 
 def clear_species_alias_cache() -> None:
     _SPECIES_ALIAS_CACHE.clear()
+
+
+def _history_bounds_sql(start_date: datetime | None, end_date: datetime | None, column: str) -> tuple[str, list]:
+    """Optional history bounds, applied before grouping or pagination."""
+    sql, params = "", []
+    if start_date is not None:
+        sql += f" AND {column} >= ?"
+        params.append(serialize_storage_datetime(start_date))
+    if end_date is not None:
+        sql += f" AND {column} < ?"
+        params.append(serialize_storage_datetime(end_date))
+    return sql, params
+
+
+def _audio_species_matches(species: object, scientific_name: object, primary: object) -> bool:
+    key = str(primary or "").strip().casefold()
+    return bool(key) and key in {str(species or "").strip().casefold(), str(scientific_name or "").strip().casefold()}
+
+
+async def _public_audio_conditions_sql(db: aiosqlite.Connection, *, match_species: bool = True) -> tuple[str, list]:
+    from app.config import settings
+    from app.utils.public_access import public_events_window
+
+    mappings = {
+        camera: _parse_mapping_filter_values(value)
+        for camera, value in (settings.frigate.camera_audio_mapping or {}).items()
+    }
+
+    def mapping_matches(camera: str, sensor: str | None, raw: str | None) -> bool:
+        wildcard, keys = mappings.get(camera, (False, set()))
+        return wildcard or bool(keys.intersection(_extract_audio_mapping_keys(sensor, raw)))
+
+    def window_bound(stamp: str, seconds: int) -> str | None:
+        try:
+            return serialize_storage_datetime(datetime.fromisoformat(stamp) + timedelta(seconds=seconds))
+        except (ValueError, TypeError):
+            return None
+
+    await db.create_function("public_audio_mapping_matches", 3, mapping_matches, deterministic=True)
+    await db.create_function("public_audio_species_matches", 3, _audio_species_matches, deterministic=True)
+    await db.create_function("public_audio_window_bound", 2, window_bound, deterministic=True)
+    public_start, public_end = public_events_window()
+    seconds = int(settings.frigate.audio_correlation_window_seconds)
+    # Competing inequalities let SQLite seek the whole shared-history range and
+    # evaluate the capture bound once per audio row. One intersected range makes
+    # the timestamp index seek only this capture's authorized correlation window.
+    sql = """a.is_hidden = 0
+        AND a.timestamp >= MAX(?, public_audio_window_bound(d.detection_time, ?))"""
+    params = [serialize_storage_datetime(public_start), -seconds]
+    if public_end is None:
+        sql += " AND a.timestamp <= public_audio_window_bound(d.detection_time, ?)"
+        params.append(seconds)
+    else:
+        end = serialize_storage_datetime(public_end)
+        sql += """ AND a.timestamp <= MIN(?, public_audio_window_bound(d.detection_time, ?))
+            AND a.timestamp <> ?"""
+        # MIN caps the inclusive seek at midnight; excluding that exact endpoint
+        # retains the public window's exclusive end without a competing range.
+        params.extend([end, seconds, end])
+    sql += " AND public_audio_mapping_matches(d.camera_name, a.sensor_id, a.raw_data)"
+    if match_species:
+        sql += " AND public_audio_species_matches(a.species, a.scientific_name, d.audio_species)"
+    return sql, params
+
+
+async def _public_audio_evidence_sql(db: aiosqlite.Connection) -> tuple[str, list]:
+    conditions, params = await _public_audio_conditions_sql(db)
+    return f"EXISTS (SELECT 1 FROM audio_detections a WHERE {conditions})", params
 
 
 def _fold_same_bird(rows: list[dict], combine: Callable[[dict, dict], None]) -> list[dict]:
@@ -77,6 +162,7 @@ def merge_species_count_rows(rows: list[dict]) -> list[dict]:
 
     def combine(target: dict, row: dict) -> None:
         target["count"] = int(target.get("count") or 0) + int(row.get("count") or 0)
+        target["visit_count"] = int(target.get("visit_count") or 0) + int(row.get("visit_count") or 0)
         row_time = row.get("latest_detection_time")
         target_time = target.get("latest_detection_time")
         if row_time is not None and (target_time is None or row_time > target_time):
@@ -86,11 +172,6 @@ def merge_species_count_rows(rows: list[dict]) -> list[dict]:
     merged = _fold_same_bird(rows, combine)
     merged.sort(key=lambda entry: int(entry.get("count") or 0), reverse=True)
     return merged
-
-
-# Frames of one species on one camera belong to one visit while each is within this many minutes of
-# the one before. Keep in step with VISIT_GAP_MS in apps/ui/src/lib/utils/visit-grouping.ts.
-VISIT_GAP_MINUTES = 10
 
 
 def merge_species_leaderboard_rows(rows: list[dict]) -> list[dict]:
@@ -514,6 +595,77 @@ class DetectionRepository:
         self.db = db
         self._table_exists_cache: dict[str, bool] = {}
 
+    async def get_initial_classification_labels(self, frigate_event: str) -> list[str] | None:
+        if not await self._table_exists("detection_initial_classifications"):
+            return None
+        async with self.db.execute(
+            """SELECT i.category_name, i.scientific_name, i.common_name, i.display_name
+               FROM detection_initial_classifications i
+               JOIN detections d ON d.id = i.detection_id WHERE d.frigate_event = ?""",
+            (frigate_event,),
+        ) as cursor:
+            row = await cursor.fetchone()
+        return list(dict.fromkeys(str(label) for label in row if label)) if row is not None else None
+
+    async def get_initial_label_source(self, frigate_event: str) -> str | None:
+        """Where the first stored label came from, or None when it was not recorded."""
+        if not await self._table_exists("detection_initial_classifications"):
+            return None
+        async with self.db.execute(
+            """SELECT i.label_source FROM detection_initial_classifications i
+               JOIN detections d ON d.id = i.detection_id WHERE d.frigate_event = ?""",
+            (frigate_event,),
+        ) as cursor:
+            row = await cursor.fetchone()
+        return str(row[0]) if row is not None and row[0] else None
+
+    async def has_unchanged_initial_label_from(self, frigate_event: str, label_source: str) -> bool:
+        """Whether the stored label is still the first one, and that one came from ``label_source``.
+
+        Any later write that changed the species or its score (a better classification, a
+        video result, an owner choice) means the current label no longer rests on that source.
+        """
+        if not await self._table_exists("detection_initial_classifications"):
+            return False
+        async with self.db.execute(
+            """SELECT 1 FROM detection_initial_classifications i
+               JOIN detections d ON d.id = i.detection_id
+               WHERE d.frigate_event = ? AND i.label_source = ?
+                 AND d.category_name = i.category_name AND d.score = i.score""",
+            (frigate_event, label_source),
+        ) as cursor:
+            return await cursor.fetchone() is not None
+
+    async def _record_initial_label_source(self, frigate_event: str, label_source: str) -> None:
+        if await self._table_exists("detection_initial_classifications"):
+            await self.db.execute(
+                """UPDATE detection_initial_classifications SET label_source = ?
+                   WHERE detection_id = (SELECT id FROM detections WHERE frigate_event = ?)""",
+                (label_source, frigate_event),
+            )
+
+    async def get_owner_species_choice_labels(self, frigate_event: str) -> list[str] | None:
+        if not await self._table_exists("detection_species_choices"):
+            return None
+        async with self.db.execute(
+            """SELECT c.category_name, c.scientific_name, c.common_name, c.display_name
+               FROM detection_species_choices c JOIN detections d ON d.id = c.detection_id
+               WHERE d.frigate_event = ?""",
+            (frigate_event,),
+        ) as cursor:
+            row = await cursor.fetchone()
+        return list(dict.fromkeys(str(label) for label in row if label)) if row is not None else None
+
+    async def _record_owner_species_choice(self, frigate_event: str) -> None:
+        if await self._table_exists("detection_species_choices"):
+            await self.db.execute(
+                """INSERT OR REPLACE INTO detection_species_choices
+                   (detection_id, category_name, display_name, scientific_name, common_name)
+                   SELECT id, category_name, display_name, scientific_name, common_name
+                   FROM detections WHERE frigate_event = ?""",
+                (frigate_event,),
+            )
+
     async def replace_snapshot_candidates(
         self,
         frigate_event: str,
@@ -521,6 +673,8 @@ class DetectionRepository:
     ) -> None:
         if not await self._table_exists("snapshot_candidates"):
             return
+        previous = {row["candidate_id"]: row for row in await self.list_snapshot_candidates(frigate_event)}
+        now = serialize_storage_datetime(utc_naive_now())
         await self.db.execute(
             "DELETE FROM snapshot_candidates WHERE frigate_event = ?",
             (frigate_event,),
@@ -546,8 +700,10 @@ class DetectionRepository:
                     selected,
                     thumbnail_ref,
                     image_ref,
-                    snapshot_source
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    snapshot_source,
+                    content_sha256,
+                    created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     frigate_event,
@@ -566,6 +722,10 @@ class DetectionRepository:
                     candidate.get("thumbnail_ref"),
                     candidate.get("image_ref"),
                     candidate.get("snapshot_source"),
+                    candidate.get("content_sha256"),
+                    candidate.get("created_at")
+                    or previous.get(str(candidate.get("candidate_id") or ""), {}).get("created_at")
+                    or now,
                 ),
             )
         await self.db.commit()
@@ -573,8 +733,14 @@ class DetectionRepository:
     async def list_snapshot_candidates(self, frigate_event: str) -> list[dict]:
         if not await self._table_exists("snapshot_candidates"):
             return []
+        dismissed = "0"
+        if await self._table_exists("snapshot_candidate_dismissals"):
+            dismissed = """EXISTS (SELECT 1 FROM snapshot_candidate_dismissals x
+                WHERE x.frigate_event = snapshot_candidates.frigate_event
+                  AND x.candidate_id = snapshot_candidates.candidate_id
+                  AND x.content_identity = COALESCE(snapshot_candidates.content_sha256, snapshot_candidates.candidate_id))"""
         async with self.db.execute(
-            """
+            f"""
             SELECT
                 candidate_id,
                 frame_index,
@@ -590,7 +756,9 @@ class DetectionRepository:
                 selected,
                 thumbnail_ref,
                 image_ref,
-                snapshot_source
+                snapshot_source,
+                content_sha256,
+                created_at, {dismissed} AS photo_hidden
             FROM snapshot_candidates
             WHERE frigate_event = ?
             ORDER BY ranking_score DESC, frame_index ASC, candidate_id ASC
@@ -624,9 +792,66 @@ class DetectionRepository:
                     "thumbnail_ref": row[12],
                     "image_ref": row[13],
                     "snapshot_source": row[14],
+                    "content_sha256": row[15],
+                    "created_at": row[16],
+                    "photo_hidden": bool(row[17]) and not bool(row[11]),
                 }
             )
         return result
+
+    async def list_snapshot_recovery_candidates(self, after_id: int, *, limit: int = 100) -> list[tuple[int, str]]:
+        async with self.db.execute(
+            "SELECT id, frigate_event FROM detections WHERE id>? ORDER BY id LIMIT ?", (after_id, limit)
+        ) as cursor:
+            rows = await cursor.fetchall()
+        return [(int(row[0]), str(row[1])) for row in rows]
+
+    async def dismiss_snapshot_candidate(self, event_id: str, candidate_id: str, dismissed: bool) -> bool:
+        candidates = await self.list_snapshot_candidates(event_id)
+        candidate = next((item for item in candidates if item["candidate_id"] == candidate_id), None)
+        if candidate is None:
+            return False
+        if dismissed and candidate["selected"]:
+            raise ValueError("Choose another photograph before removing this one")
+        if dismissed:
+            await self.db.execute(
+                """INSERT INTO snapshot_candidate_dismissals (frigate_event, candidate_id, content_identity)
+                SELECT frigate_event, candidate_id, COALESCE(content_sha256, candidate_id)
+                FROM snapshot_candidates WHERE frigate_event = ? AND candidate_id = ? AND selected = 0
+                  AND COALESCE(content_sha256, candidate_id) = ?
+                ON CONFLICT(frigate_event, candidate_id)
+                DO UPDATE SET content_identity = excluded.content_identity""",
+                (event_id, candidate_id, candidate.get("content_sha256") or candidate_id),
+            )
+            if await self._last_statement_changes() == 0:
+                async with self.db.execute(
+                    "SELECT selected FROM snapshot_candidates WHERE frigate_event = ? AND candidate_id = ?",
+                    (event_id, candidate_id),
+                ) as cursor:
+                    current = await cursor.fetchone()
+                await self.db.rollback()
+                if current and current[0]:
+                    raise ValueError("Choose another photograph before removing this one")
+                return False
+        else:
+            await self.db.execute(
+                "DELETE FROM snapshot_candidate_dismissals WHERE frigate_event = ? AND candidate_id = ?",
+                (event_id, candidate_id),
+            )
+        await self.db.commit()
+        return True
+
+    async def bind_legacy_snapshot_candidate_dismissal(self, event_id: str, candidate_id: str, digest: str) -> None:
+        """Bind verified legacy pixels inside the caller's candidate replacement transaction."""
+        await self.db.execute(
+            """UPDATE snapshot_candidate_dismissals SET content_identity = ?
+            WHERE frigate_event = ? AND candidate_id = ? AND content_identity = candidate_id
+              AND EXISTS (SELECT 1 FROM snapshot_candidates s
+                  WHERE s.frigate_event = snapshot_candidate_dismissals.frigate_event
+                    AND s.candidate_id = snapshot_candidate_dismissals.candidate_id
+                    AND s.content_sha256 IS NULL AND s.selected = 0)""",
+            (digest, event_id, candidate_id),
+        )
 
     async def get_selected_snapshot_candidate(self, frigate_event: str) -> Optional[dict]:
         candidates = await self.list_snapshot_candidates(frigate_event)
@@ -1108,15 +1333,19 @@ class DetectionRepository:
             f"""SELECT {DETECTION_SELECT_COLUMNS}
                FROM detections d
                LEFT JOIN detection_favorites f ON f.detection_id = d.id
+               LEFT JOIN processing_job_state p ON p.event_id = d.frigate_event AND p.pipeline = 'full_visit_clip'
                WHERE d.frigate_event IS NOT NULL
                  AND d.frigate_event != ''
+                 AND d.frigate_event NOT GLOB 'manual_*'
                  AND d.camera_name IS NOT NULL
                  AND d.camera_name != ''
                  AND d.detection_time <= ?
                  AND d.detection_time >= ?
-               ORDER BY d.detection_time DESC
+                 AND (p.event_id IS NULL OR p.status IN ('queued', 'retryable'))
+                 AND (p.retry_after IS NULL OR julianday(p.retry_after) <= julianday(?))
+               ORDER BY d.detection_time DESC, d.id DESC
                LIMIT ?""",
-            (detected_before, detected_after, limit),
+            (detected_before, detected_after, serialize_storage_datetime(utc_naive_now()), limit),
         ) as cursor:
             rows = await cursor.fetchall()
         return [_row_to_detection(row) for row in rows]
@@ -1375,19 +1604,68 @@ class DetectionRepository:
             )
             return False
 
-    async def update_ai_analysis(self, frigate_event: str, analysis: str) -> datetime:
-        """Update AI naturalist analysis for an event."""
-        now = utc_naive_now()
-        await self.db.execute(
-            """
-            UPDATE detections
-            SET ai_analysis = ?,
-                ai_analysis_timestamp = ?
-            WHERE frigate_event = ?
-        """,
-            (analysis, now, frigate_event),
+    async def get_ai_prompt_context(self, frigate_event: str) -> tuple[Detection, AIAnalysisRevision] | None:
+        """Read the prompt and its compare-and-swap token from the same SQLite snapshot."""
+        context_columns = ", ".join(f"d.{column}" for column in AI_PROMPT_CONTEXT_COLUMNS)
+        async with self.db.execute(
+            f"""SELECT {DETECTION_SELECT_COLUMNS}, d.ai_analysis, d.ai_analysis_timestamp,
+                       (SELECT COALESCE(MAX(id), 0) FROM ai_conversation_turns
+                        WHERE frigate_event = d.frigate_event), {context_columns}
+                FROM detections d LEFT JOIN detection_favorites f ON f.detection_id = d.id
+                WHERE d.frigate_event = ?""",
+            (frigate_event,),
+        ) as cursor:
+            row = await cursor.fetchone()
+        if not row:
+            return None
+        context_size = len(AI_PROMPT_CONTEXT_COLUMNS)
+        revision_start = len(row) - context_size - 3
+        revision = AIAnalysisRevision(
+            row[revision_start], row[revision_start + 1], row[revision_start + 2], tuple(row[-context_size:])
         )
-        await self.db.commit()
+        return _row_to_detection(row[:revision_start]), revision
+
+    async def get_ai_analysis_revision(self, frigate_event: str) -> AIAnalysisRevision | None:
+        context = await self.get_ai_prompt_context(frigate_event)
+        return context[1] if context else None
+
+    async def update_ai_analysis(
+        self,
+        frigate_event: str,
+        analysis: str,
+        *,
+        expected_revision: AIAnalysisRevision,
+        reset_conversation: bool,
+    ) -> datetime | None:
+        """Replace only the context read before external work; clear its chat atomically."""
+        now = utc_naive_now()
+        try:
+            await self.db.execute("BEGIN IMMEDIATE")
+            cursor = await self.db.execute(
+                f"""UPDATE detections SET ai_analysis = ?, ai_analysis_timestamp = ?
+                   WHERE frigate_event = ? AND ai_analysis IS ? AND ai_analysis_timestamp IS ?
+                     AND (SELECT COALESCE(MAX(id), 0) FROM ai_conversation_turns WHERE frigate_event = ?) = ?
+                     AND {AI_PROMPT_CONTEXT_PREDICATE}""",
+                (
+                    analysis,
+                    now,
+                    frigate_event,
+                    expected_revision.analysis,
+                    expected_revision.timestamp,
+                    frigate_event,
+                    expected_revision.last_turn_id,
+                    *expected_revision.prompt_context,
+                ),
+            )
+            if cursor.rowcount != 1:
+                await self.db.rollback()
+                return None
+            if reset_conversation:
+                await self.db.execute("DELETE FROM ai_conversation_turns WHERE frigate_event = ?", (frigate_event,))
+            await self.db.commit()
+        except BaseException:
+            await self.db.rollback()
+            raise
         return now
 
     async def hide_detection(self, frigate_event: str, *, skip_manually_tagged: bool = False) -> bool:
@@ -1420,16 +1698,17 @@ class DetectionRepository:
 
     async def favorite_detection(self, frigate_event: str, created_by: Optional[str] = None) -> Optional[bool]:
         """Mark detection as favorite. Returns True if detection exists, None if not found."""
-        detection = await self.get_by_frigate_event(frigate_event)
-        if not detection or detection.id is None:
-            return None
-
         await self.db.execute(
-            "INSERT OR IGNORE INTO detection_favorites (detection_id, created_by) VALUES (?, ?)",
-            (detection.id, created_by),
+            """INSERT OR IGNORE INTO detection_favorites (detection_id, created_by)
+               SELECT id, ? FROM detections WHERE frigate_event = ?""",
+            (created_by, frigate_event),
         )
+        inserted = await self._last_statement_changes()
         await self.db.commit()
-        return True
+        if inserted:
+            return True
+        detection = await self.get_by_frigate_event(frigate_event)
+        return True if detection and detection.is_favorite else None
 
     async def get_favorite_archive(self, frigate_event: str) -> Optional[dict]:
         """The favourite row's archive fields, or None when the visit is not a favourite."""
@@ -1653,9 +1932,14 @@ class DetectionRepository:
         await self.db.commit()
         return changed > 0
 
-    async def delete_by_frigate_event(self, frigate_event: str) -> bool:
+    async def delete_by_frigate_event(self, frigate_event: str, *, preserve_favorites: bool = False) -> bool:
         """Delete a detection by Frigate event ID. Returns True if deleted."""
-        await self.db.execute("DELETE FROM detections WHERE frigate_event = ?", (frigate_event,))
+        query = "DELETE FROM detections WHERE frigate_event = ?"
+        if preserve_favorites:
+            query += """ AND NOT EXISTS (
+                SELECT 1 FROM detection_favorites f WHERE f.detection_id = detections.id
+            )"""
+        await self.db.execute(query, (frigate_event,))
         changed = await self._last_statement_changes()
         await self.db.commit()
         return changed > 0
@@ -1832,8 +2116,13 @@ class DetectionRepository:
         )
         await self.db.commit()
 
-    async def upsert_if_higher_score(self, detection: Detection) -> tuple[bool, bool]:
+    async def upsert_if_higher_score(
+        self, detection: Detection, *, initial_label_source: str | None = None
+    ) -> tuple[bool, bool]:
         """Insert if missing, otherwise update only when score/audio is better.
+
+        ``initial_label_source`` is recorded with the first classification, in the
+        same transaction as the insert, and never on an update.
 
         Returns:
             Tuple of (was_inserted, was_updated)
@@ -1886,6 +2175,8 @@ class DetectionRepository:
         )
         inserted = await self._last_statement_changes() > 0
         if inserted:
+            if initial_label_source:
+                await self._record_initial_label_source(detection.frigate_event, initial_label_source)
             await self.db.commit()
             return (True, False)
 
@@ -2277,9 +2568,11 @@ class DetectionRepository:
         hidden_only: bool = False,
         favorite_only: bool = False,
         audio_confirmed_only: bool = False,
+        public_audio_evidence: bool = False,
+        multiple_species_only: bool = False,
         frigate_event: str | None = None,
     ) -> list[Detection]:
-        if self._species_fast_path_eligible(
+        if not multiple_species_only and self._species_fast_path_eligible(
             species=species,
             species_any=species_any,
             taxa_id=taxa_id,
@@ -2382,10 +2675,22 @@ class DetectionRepository:
             conditions.append("f.detection_id IS NOT NULL")
         if audio_confirmed_only:
             conditions.append("d.audio_confirmed = 1")
+            if public_audio_evidence:
+                evidence_sql, evidence_params = await _public_audio_evidence_sql(self.db)
+                conditions.append(evidence_sql)
+                params.extend(evidence_params)
         if frigate_event:
             conditions.append("d.frigate_event = ?")
             params.append(frigate_event)
 
+        if multiple_species_only:
+            from app.repositories.bird_observation_repository import BirdObservationRepository
+
+            clause, values = await BirdObservationRepository(self.db).multiple_species_condition(
+                start=start_date, end=end_date, camera=camera, hidden_only=hidden_only, include_hidden=include_hidden
+            )
+            conditions.append(clause)
+            params.extend(values)
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
 
@@ -2417,7 +2722,9 @@ class DetectionRepository:
         favorite_only: bool = False,
         exclude_favorites: bool = False,
         audio_confirmed_only: bool = False,
+        public_audio_evidence: bool = False,
         exclude_species_floor: int = 0,
+        multiple_species_only: bool = False,
     ) -> int:
         """Get total count of detections, optionally filtered."""
         has_taxonomy_cache = await self._table_exists("taxonomy_cache")
@@ -2495,9 +2802,21 @@ class DetectionRepository:
 
         if audio_confirmed_only:
             conditions.append("d.audio_confirmed = 1")
+            if public_audio_evidence:
+                evidence_sql, evidence_params = await _public_audio_evidence_sql(self.db)
+                conditions.append(evidence_sql)
+                params.extend(evidence_params)
         if exclude_species_floor > 0:
             conditions.append(f"d.id NOT IN ({self._species_floor_sql(exclude_species_floor)})")
 
+        if multiple_species_only:
+            from app.repositories.bird_observation_repository import BirdObservationRepository
+
+            clause, values = await BirdObservationRepository(self.db).multiple_species_condition(
+                start=start_date, end=end_date, camera=camera, hidden_only=hidden_only, include_hidden=include_hidden
+            )
+            conditions.append(clause)
+            params.extend(values)
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
 
@@ -2514,6 +2833,7 @@ class DetectionRepository:
     async def get_unique_species_with_taxonomy(
         self,
         start_date: datetime | None = None,
+        end_date: datetime | None = None,
     ) -> list[tuple[str, str | None, str | None, int | None, int]]:
         """Get unique species, pre-grouped to avoid duplicates from display_name variants.
 
@@ -2531,8 +2851,7 @@ class DetectionRepository:
         all collapse to a single row before Python taxonomy resolution runs, removing
         the source of duplicate entries in the Explorer species filter.
         """
-        start_filter = "AND d.detection_time >= ?" if start_date else ""
-        params = [start_date.isoformat(sep=" ")] if start_date else []
+        start_filter, params = _history_bounds_sql(start_date, end_date, "d.detection_time")
         async with self.db.execute(
             f"""
             WITH species_rows AS (
@@ -2629,10 +2948,11 @@ class DetectionRepository:
         ) as cursor:
             return await cursor.fetchall()
 
-    async def get_camera_counts(self, start_date: datetime | None = None) -> dict[str, int]:
+    async def get_camera_counts(
+        self, start_date: datetime | None = None, *, end_date: datetime | None = None
+    ) -> dict[str, int]:
         """Detections per camera, for the Explorer camera facet."""
-        start_filter = "AND detection_time >= ?" if start_date else ""
-        params = [start_date.isoformat(sep=" ")] if start_date else []
+        start_filter, params = _history_bounds_sql(start_date, end_date, "detection_time")
         async with self.db.execute(
             f"""
             SELECT camera_name, COUNT(*)
@@ -2647,23 +2967,31 @@ class DetectionRepository:
             rows = await cursor.fetchall()
             return {row[0]: row[1] for row in rows if row[0]}
 
-    async def get_facet_totals(self, start_date: datetime | None = None) -> dict[str, int]:
+    async def get_facet_totals(
+        self,
+        start_date: datetime | None = None,
+        *,
+        end_date: datetime | None = None,
+        public_audio_evidence: bool = False,
+    ) -> dict[str, int]:
         """Counts for the facets that are a flag rather than a value."""
-        start_filter = "AND d.detection_time >= ?" if start_date else ""
-        params = [start_date.isoformat(sep=" ")] if start_date else []
+        start_filter, params = _history_bounds_sql(start_date, end_date, "d.detection_time")
+        evidence_sql, evidence_params = (
+            await _public_audio_evidence_sql(self.db) if public_audio_evidence else ("1 = 1", [])
+        )
         async with self.db.execute(
             f"""
             SELECT
                 COUNT(*),
                 SUM(CASE WHEN f.detection_id IS NOT NULL THEN 1 ELSE 0 END),
-                SUM(CASE WHEN d.audio_confirmed = 1 THEN 1 ELSE 0 END),
+                SUM(CASE WHEN d.audio_confirmed = 1 AND {evidence_sql} THEN 1 ELSE 0 END),
                 SUM(CASE WHEN d.video_classification_status = 'completed' THEN 1 ELSE 0 END)
             FROM detections d
             LEFT JOIN detection_favorites f ON f.detection_id = d.id
             WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
               {start_filter}
             """,
-            params,
+            [*evidence_params, *params],
         ) as cursor:
             row = await cursor.fetchone()
             if not row:
@@ -2675,10 +3003,11 @@ class DetectionRepository:
                 "video_analysed": row[3] or 0,
             }
 
-    async def get_unique_cameras(self, start_date: datetime | None = None) -> list[str]:
+    async def get_unique_cameras(
+        self, start_date: datetime | None = None, *, end_date: datetime | None = None
+    ) -> list[str]:
         """Get list of unique camera names, sorted alphabetically."""
-        start_filter = "AND detection_time >= ?" if start_date else ""
-        params = [start_date.isoformat(sep=" ")] if start_date else []
+        start_filter, params = _history_bounds_sql(start_date, end_date, "detection_time")
         async with self.db.execute(
             f"""
             SELECT DISTINCT camera_name
@@ -2751,6 +3080,7 @@ class DetectionRepository:
                 frigate_event,
             ),
         )
+        await self._record_owner_species_choice(frigate_event)
 
     async def confirm_manual_species_tag(self, *, frigate_event: str) -> None:
         """Record a human confirmation without rewriting the stored species identity."""
@@ -2758,6 +3088,7 @@ class DetectionRepository:
             "UPDATE detections SET manual_tagged = 1 WHERE frigate_event = ?",
             (frigate_event,),
         )
+        await self._record_owner_species_choice(frigate_event)
 
     def _species_floor_sql(self, minimum: int) -> str:
         """Ids of the newest `minimum` visible detections of each canonical species.
@@ -3300,15 +3631,85 @@ class DetectionRepository:
                 return _parse_datetime(row[0])
             return None
 
-    async def get_detection_time_bounds(self) -> tuple[datetime | None, datetime | None]:
+    async def get_detection_time_bounds(
+        self, *, start_date: datetime | None = None, end_date: datetime | None = None
+    ) -> tuple[datetime | None, datetime | None]:
         """Return (min_detection_time, max_detection_time) across all detections."""
+        bounds_sql, bounds_params = _history_bounds_sql(start_date, end_date, "detection_time")
         async with self.db.execute(
-            "SELECT MIN(detection_time), MAX(detection_time) FROM detections WHERE (is_hidden = 0 OR is_hidden IS NULL)"
+            f"SELECT MIN(detection_time), MAX(detection_time) FROM detections WHERE (is_hidden = 0 OR is_hidden IS NULL){bounds_sql}",
+            bounds_params,
         ) as cursor:
             row = await cursor.fetchone()
             if not row:
                 return (None, None)
             return (_parse_datetime(row[0]) if row[0] else None, _parse_datetime(row[1]) if row[1] else None)
+
+    async def get_feeder_species_history(
+        self, *, start_date: datetime | None = None, end_date: datetime | None = None
+    ) -> list[dict]:
+        """Every species the feeder has seen: when first and last, how often, and whether a person confirmed it."""
+        canonical_key = self._canonical_key_sql(taxonomy_alias=None)
+        bounds_sql, bounds_params = _history_bounds_sql(start_date, end_date, "d.detection_time")
+        query = f"""
+            WITH keyed AS (
+                SELECT d.id, d.detection_time, d.display_name, d.common_name, d.scientific_name, d.taxa_id,
+                       d.manual_tagged, {canonical_key} AS species_key
+                FROM detections d
+                WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL) AND d.display_name IS NOT NULL{bounds_sql}
+            ),
+            latest AS (
+                SELECT species_key, display_name, common_name, scientific_name, taxa_id,
+                       ROW_NUMBER() OVER (PARTITION BY species_key ORDER BY detection_time DESC, id DESC) AS row_num
+                FROM keyed
+            )
+            SELECT keyed.species_key, MIN(keyed.detection_time), MAX(keyed.detection_time), COUNT(*),
+                   MAX(CASE WHEN keyed.manual_tagged = 1 THEN 1 ELSE 0 END),
+                   latest.display_name, latest.common_name, latest.scientific_name, latest.taxa_id
+            FROM keyed
+            JOIN latest ON latest.species_key = keyed.species_key AND latest.row_num = 1
+            GROUP BY keyed.species_key
+        """
+        async with self.db.execute(query, bounds_params) as cursor:
+            rows = await cursor.fetchall()
+        return [
+            {
+                "species": row[5],
+                "common_name": row[6],
+                "scientific_name": row[7],
+                "taxa_id": row[8],
+                "first_seen": _parse_datetime(row[1]),
+                "last_seen": _parse_datetime(row[2]),
+                "detections": int(row[3]),
+                "confirmed": bool(row[4]),
+            }
+            for row in rows
+            if row[1] and row[2]
+        ]
+
+    async def get_daily_visit_counts(
+        self,
+        *,
+        utc_offset_minutes: int = 0,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+    ) -> dict[str, int]:
+        """Visits per local calendar day, by the leaderboard's visit rule.
+
+        The offset is the viewer's, so a day is the viewer's day; it is a fixed shift, so a
+        daylight-saving change moves the boundary by an hour on the days either side of it.
+        """
+        from app.repositories.visit_repository import VisitRepository
+
+        cte, params = await VisitRepository(self.db).grouping_cte(start=start_date, end=end_date)
+        offset = f"{int(utc_offset_minutes):+d} minutes"
+        async with self.db.execute(
+            f"WITH {cte} SELECT date(detection_time, ?) AS day, COUNT(DISTINCT visit_id) "
+            "FROM visit_members WHERE visit_position = 1 GROUP BY day",
+            [*params, offset],
+        ) as cursor:
+            rows = await cursor.fetchall()
+        return {str(row[0]): int(row[1]) for row in rows if row[0]}
 
     async def get_timebucket_counts_hourly(self, start: datetime, end: datetime) -> dict[str, int]:
         """Counts grouped by UTC hour bucket within [start, end)."""
@@ -3837,10 +4238,26 @@ class DetectionRepository:
             out.append((bucket_start, count))
         return out
 
-    async def get_species_leaderboard_base(self) -> list[dict]:
+    async def species_identity_counts(
+        self, *, start_date: datetime | None = None, end_date: datetime | None = None
+    ) -> dict[int, int]:
+        """Visible detections per catalogue identity, for placing what was seen here on the taxonomy."""
+        bounds_sql, bounds_params = _history_bounds_sql(start_date, end_date, "d.detection_time")
+        query = f"""
+            SELECT d.species_id, COUNT(*) FROM detections d
+            WHERE d.species_id IS NOT NULL AND (d.is_hidden = 0 OR d.is_hidden IS NULL){bounds_sql}
+            GROUP BY d.species_id
+        """
+        async with self.db.execute(query, bounds_params) as cursor:
+            return {int(species_id): int(count) for species_id, count in await cursor.fetchall()}
+
+    async def get_species_leaderboard_base(
+        self, *, start_date: datetime | None = None, end_date: datetime | None = None
+    ) -> list[dict]:
         """Get leaderboard base stats per species with taxonomy and time bounds."""
         canonical_key = self._canonical_key_sql()
         taxonomy_join = self._taxonomy_join_sql()
+        bounds_sql, bounds_params = _history_bounds_sql(start_date, end_date, "d.detection_time")
         query = f"""
             SELECT 
                 {canonical_key} as unified_id,
@@ -3859,11 +4276,11 @@ class DetectionRepository:
                 MAX(tc.manual_common_name) as manual_common_name
             FROM detections d
             {taxonomy_join}
-            WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
+            WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL){bounds_sql}
             GROUP BY {canonical_key}
             ORDER BY total_count DESC
         """
-        async with self.db.execute(query) as cursor:
+        async with self.db.execute(query, bounds_params) as cursor:
             rows = await cursor.fetchall()
             return [
                 {
@@ -3903,51 +4320,21 @@ class DetectionRepository:
         prev_start: datetime,
         prev_end: datetime,
     ) -> dict[object, tuple[int, int]]:
-        """Visits per species key in the window and the one before it.
+        """Each window counts its visible portion of a visit once."""
+        from app.repositories.visit_repository import VisitRepository
 
-        A detection opens a visit unless the same species was on the same camera within
-        VISIT_GAP_MINUTES before it. Another bird in between does not split a visit. A visit
-        already running when a window opens counts in that window too, so each window stands
-        on its own.
-        """
-        query = f"""
-            SELECT key,
-                SUM(CASE WHEN at >= ? AND at < ?
-                          AND (previous_at IS NULL OR previous_at < ?
-                               OR (julianday(at) - julianday(previous_at)) * 1440.0 > {VISIT_GAP_MINUTES})
-                    THEN 1 ELSE 0 END) AS window_visits,
-                SUM(CASE WHEN at >= ? AND at < ?
-                          AND (previous_at IS NULL
-                               OR (julianday(at) - julianday(previous_at)) * 1440.0 > {VISIT_GAP_MINUTES})
-                    THEN 1 ELSE 0 END) AS prev_visits
-            FROM (
-                SELECT {key_sql} AS key,
-                       d.detection_time AS at,
-                       LAG(d.detection_time) OVER (
-                           PARTITION BY {key_sql}, d.camera_name ORDER BY d.detection_time
-                       ) AS previous_at
-                FROM detections d
-                {join_sql}
-                WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
-                  AND d.detection_time >= ?
-                  AND d.detection_time < ?
-                  AND {condition_sql}
-            )
-            GROUP BY key
-        """
-        params = [
-            window_start,
-            window_end,
-            window_start,
-            prev_start,
-            prev_end,
-            prev_start,
-            window_end,
-            *condition_params,
-        ]
-        async with self.db.execute(query, params) as cursor:
-            rows = await cursor.fetchall()
-        return {row[0]: (int(row[1] or 0), int(row[2] or 0)) for row in rows}
+        counts: dict[object, list[int]] = {}
+        for index, (start, end) in enumerate(((window_start, window_end), (prev_start, prev_end))):
+            cte, params = await VisitRepository(self.db).grouping_cte(start=start, end=end - timedelta(microseconds=1))
+            query = f"""WITH {cte}, openings AS (
+                SELECT DISTINCT d.visit_id, {key_sql} AS key
+                FROM visit_members d {join_sql}
+                WHERE d.visit_position = 1 AND {condition_sql}
+            ) SELECT key, COUNT(*) FROM openings GROUP BY key"""
+            async with self.db.execute(query, [*params, *condition_params]) as cursor:
+                for key, count in await cursor.fetchall():
+                    counts.setdefault(key, [0, 0])[index] = int(count)
+        return {key: (value[0], value[1]) for key, value in counts.items()}
 
     async def get_species_leaderboard_window(
         self,
@@ -3955,6 +4342,8 @@ class DetectionRepository:
         window_end: datetime,
         prev_start: datetime,
         prev_end: datetime,
+        *,
+        public_audio_evidence: bool = False,
     ) -> list[dict]:
         """Get leaderboard stats for a rolling window and the prior window.
 
@@ -3964,6 +4353,9 @@ class DetectionRepository:
         """
         canonical_key = self._canonical_key_sql()
         taxonomy_join = self._taxonomy_join_sql()
+        audio_evidence_sql, audio_evidence_params = (
+            await _public_audio_evidence_sql(self.db) if public_audio_evidence else ("1 = 1", [])
+        )
         query = f"""
             SELECT
                 {canonical_key} as unified_id,
@@ -3981,7 +4373,7 @@ class DetectionRepository:
                 AVG(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.score ELSE NULL END) as window_avg_confidence,
                 COUNT(DISTINCT CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.camera_name ELSE NULL END) as window_camera_count,
                 SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? AND d.manual_tagged = 1 THEN 1 ELSE 0 END) as window_confirmed_count,
-                SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? AND d.audio_confirmed = 1 THEN 1 ELSE 0 END) as window_audio_confirmed_count
+                SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? AND d.audio_confirmed = 1 AND {audio_evidence_sql} THEN 1 ELSE 0 END) as window_audio_confirmed_count
             FROM detections d
             {taxonomy_join}
             WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
@@ -4006,6 +4398,7 @@ class DetectionRepository:
             window_end,
             window_start,
             window_end,
+            *audio_evidence_params,
             prev_start,
             window_end,
         )
@@ -4398,7 +4791,30 @@ class DetectionRepository:
             results.append({"date": key, "count": counts_by_date.get(key, 0)})
         return results
 
-    async def get_unified_species_window_metrics(self, lookback_days: int = 30) -> dict[str, dict]:
+    async def list_cached_media_visits(self, event_ids: list[str]) -> list[dict]:
+        """Resolve ownership and canonical species in bounded SQLite parameter pages."""
+        key = self._canonical_key_sql()
+        join = self._taxonomy_join_sql()
+        result = []
+        for start in range(0, len(event_ids), 400):
+            page = event_ids[start : start + 400]
+            placeholders = ",".join("?" for _ in page)
+            async with self.db.execute(
+                f"""SELECT d.frigate_event, {key}, d.detection_time,
+                    EXISTS(SELECT 1 FROM detection_favorites f WHERE f.detection_id=d.id)
+                    FROM detections d {join} WHERE d.frigate_event IN ({placeholders})""",
+                page,
+            ) as cursor:
+                rows = await cursor.fetchall()
+            result.extend(
+                {"event_id": row[0], "species_key": row[1], "detected_at": str(row[2]), "is_favorite": bool(row[3])}
+                for row in rows
+            )
+        return result
+
+    async def get_unified_species_window_metrics(
+        self, lookback_days: int = 30, *, start_date: datetime | None = None, end_date: datetime | None = None
+    ) -> dict[str, dict]:
         """Aggregate recent per-species metrics using a stable unified key.
 
         Keyed by `_canonical_key_sql`, the same rule the leaderboard groups by.
@@ -4411,6 +4827,7 @@ class DetectionRepository:
         # label here and on the cached scientific name there.
         canonical_key = self._canonical_key_sql()
         taxonomy_join = self._taxonomy_join_sql()
+        bounds_sql, bounds_params = _history_bounds_sql(start_date, end_date, "d.detection_time")
         query = f"""
             SELECT
                 {canonical_key} as unified_key,
@@ -4425,10 +4842,10 @@ class DetectionRepository:
             FROM detections d
             {taxonomy_join}
             WHERE d.detection_time >= datetime('now', ?)
-              AND (d.is_hidden = 0 OR d.is_hidden IS NULL)
+              AND (d.is_hidden = 0 OR d.is_hidden IS NULL){bounds_sql}
             GROUP BY unified_key
         """
-        async with self.db.execute(query, (window,)) as cursor:
+        async with self.db.execute(query, [window, *bounds_params]) as cursor:
             rows = await cursor.fetchall()
 
         metrics: dict[str, dict] = {}
@@ -4444,13 +4861,21 @@ class DetectionRepository:
             }
         return metrics
 
-    async def get_window_metrics_for_species_name(self, species_name: str, lookback_days: int = 30) -> dict:
+    async def get_window_metrics_for_species_name(
+        self,
+        species_name: str,
+        lookback_days: int = 30,
+        *,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+    ) -> dict:
         """Aggregate recent per-species metrics directly from detections."""
         window = f"-{lookback_days} day"
         join_sql, species_condition, params = await self._canonical_species_query_parts(
             detection_alias="d",
             species_name=species_name,
         )
+        bounds_sql, bounds_params = _history_bounds_sql(start_date, end_date, "d.detection_time")
         async with self.db.execute(
             f"""
                 SELECT
@@ -4466,9 +4891,9 @@ class DetectionRepository:
                 {join_sql}
                 WHERE d.detection_time >= datetime('now', ?)
                   AND (d.is_hidden = 0 OR d.is_hidden IS NULL)
-                  AND {species_condition}
+                  AND {species_condition}{bounds_sql}
             """,
-            [window, *params],
+            [window, *params, *bounds_params],
         ) as cursor:
             row = await cursor.fetchone()
         if not row:
@@ -4510,12 +4935,15 @@ class DetectionRepository:
             "camera_count": row[6] or 0,
         }
 
-    async def get_species_aggregate_for_name(self, species_name: str) -> dict | None:
+    async def get_species_aggregate_for_name(
+        self, species_name: str, *, start_date: datetime | None = None, end_date: datetime | None = None
+    ) -> dict | None:
         """Aggregate stats for a canonical species selection."""
         join_sql, species_condition, params = await self._canonical_species_query_parts(
             detection_alias="d",
             species_name=species_name,
         )
+        bounds_sql, bounds_params = _history_bounds_sql(start_date, end_date, "d.detection_time")
         async with self.db.execute(
             f"""
                 SELECT COUNT(*), MIN(d.detection_time), MAX(d.detection_time),
@@ -4523,10 +4951,10 @@ class DetectionRepository:
                        COUNT(DISTINCT d.camera_name)
                 FROM detections d
                 {join_sql}
-                WHERE {species_condition}
+                WHERE {species_condition}{bounds_sql}
                   AND (d.is_hidden = 0 OR d.is_hidden IS NULL)
             """,
-            params,
+            [*params, *bounds_params],
         ) as cursor:
             row = await cursor.fetchone()
         if not row or row[0] == 0:
@@ -4541,19 +4969,22 @@ class DetectionRepository:
             "camera_count": row[6] or 0,
         }
 
-    async def get_species_basic_stats(self, species_name: str) -> dict:
+    async def get_species_basic_stats(
+        self, species_name: str, *, start_date: datetime | None = None, end_date: datetime | None = None
+    ) -> dict:
         """Get basic stats for a species: count, min/max dates, confidence stats."""
         join_sql, species_condition, params = await self._canonical_species_query_parts(
             detection_alias="d",
             species_name=species_name,
         )
+        bounds_sql, bounds_params = _history_bounds_sql(start_date, end_date, "d.detection_time")
         async with self.db.execute(
             f"""SELECT COUNT(*), MIN(d.detection_time), MAX(d.detection_time),
                        AVG(d.score), MAX(d.score), MIN(d.score)
                 FROM detections d
                 {join_sql}
-                WHERE {species_condition}""",
-            params,
+                WHERE ({species_condition}) AND (d.is_hidden = 0 OR d.is_hidden IS NULL){bounds_sql}""",
+            [*params, *bounds_params],
         ) as cursor:
             row = await cursor.fetchone()
             if row and row[0] > 0:
@@ -4581,11 +5012,16 @@ class DetectionRepository:
         window_end: datetime,
         prev_start: datetime,
         prev_end: datetime,
+        *,
+        public_audio_evidence: bool = False,
     ) -> dict | None:
         """Aggregate leaderboard window stats for a canonical species selection."""
         join_sql, species_condition, params = await self._canonical_species_query_parts(
             detection_alias="d",
             species_name=species_name,
+        )
+        audio_evidence_sql, audio_evidence_params = (
+            await _public_audio_evidence_sql(self.db) if public_audio_evidence else ("1 = 1", [])
         )
         async with self.db.execute(
             f"""
@@ -4597,7 +5033,7 @@ class DetectionRepository:
                     AVG(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.score ELSE NULL END) as window_avg_confidence,
                     COUNT(DISTINCT CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.camera_name ELSE NULL END) as window_camera_count,
                     SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? AND d.manual_tagged = 1 THEN 1 ELSE 0 END) as window_confirmed_count,
-                    SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? AND d.audio_confirmed = 1 THEN 1 ELSE 0 END) as window_audio_confirmed_count
+                    SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? AND d.audio_confirmed = 1 AND {audio_evidence_sql} THEN 1 ELSE 0 END) as window_audio_confirmed_count
                 FROM detections d
                 {join_sql}
                 WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
@@ -4622,6 +5058,7 @@ class DetectionRepository:
                 window_end,
                 window_start,
                 window_end,
+                *audio_evidence_params,
                 # The rows span both windows, or prev_count could never be anything but 0.
                 prev_start,
                 window_end,
@@ -4659,19 +5096,22 @@ class DetectionRepository:
             "prev_visit_count": prev_visits,
         }
 
-    async def get_camera_breakdown(self, species_name: str) -> list[dict]:
+    async def get_camera_breakdown(
+        self, species_name: str, *, start_date: datetime | None = None, end_date: datetime | None = None
+    ) -> list[dict]:
         """Get detection counts grouped by camera."""
         join_sql, species_condition, params = await self._canonical_species_query_parts(
             detection_alias="d",
             species_name=species_name,
         )
+        bounds_sql, bounds_params = _history_bounds_sql(start_date, end_date, "d.detection_time")
         async with self.db.execute(
             f"""SELECT d.camera_name, COUNT(*) as count
                 FROM detections d
                 {join_sql}
-                WHERE {species_condition}
+                WHERE ({species_condition}) AND (d.is_hidden = 0 OR d.is_hidden IS NULL){bounds_sql}
                 GROUP BY d.camera_name ORDER BY count DESC""",
-            params,
+            [*params, *bounds_params],
         ) as cursor:
             rows = await cursor.fetchall()
             total = sum(row[1] for row in rows)
@@ -4760,22 +5200,25 @@ class DetectionRepository:
                 distribution[hour] = row[1]
             return distribution
 
-    async def get_species_utc_hourly_counts(self, species_name: str) -> list[tuple[datetime, int]]:
+    async def get_species_utc_hourly_counts(
+        self, species_name: str, *, start_date: datetime | None = None, end_date: datetime | None = None
+    ) -> list[tuple[datetime, int]]:
         """Return counts grouped by UTC hour buckets for a canonical species lookup."""
         join_sql, species_condition, params = await self._canonical_species_query_parts(
             detection_alias="d",
             species_name=species_name,
         )
+        bounds_sql, bounds_params = _history_bounds_sql(start_date, end_date, "d.detection_time")
         async with self.db.execute(
             f"""
                 SELECT strftime('%Y-%m-%d %H:00:00', d.detection_time) as bucket_start, COUNT(*)
                 FROM detections d
                 {join_sql}
-                WHERE {species_condition}
+                WHERE ({species_condition}) AND (d.is_hidden = 0 OR d.is_hidden IS NULL){bounds_sql}
                 GROUP BY bucket_start
                 ORDER BY bucket_start ASC
             """,
-            params,
+            [*params, *bounds_params],
         ) as cursor:
             rows = await cursor.fetchall()
 
@@ -4788,21 +5231,55 @@ class DetectionRepository:
             out.append((bucket_start, count))
         return out
 
+    async def get_window_visit_openings(self, start_date: datetime, end_date: datetime) -> list[dict]:
+        """The first visible capture of each shared visit inside the window."""
+        from app.repositories.visit_repository import VisitRepository
+
+        cte, params = await VisitRepository(self.db).grouping_cte(start=start_date, end=end_date)
+        async with self.db.execute(
+            f"WITH {cte} SELECT camera_name, detection_time FROM visit_members "
+            "WHERE visit_position = 1 ORDER BY at, id",
+            params,
+        ) as cursor:
+            rows = await cursor.fetchall()
+        return [{"camera": row[0], "opened_at": _parse_datetime(row[1])} for row in rows]
+
+    async def get_camera_last_seen(self, start_date: datetime, end_date: datetime) -> dict[str, datetime]:
+        """The latest visible detection per camera in a time range."""
+        async with self.db.execute(
+            """SELECT camera_name, MAX(detection_time) FROM detections
+               WHERE detection_time >= ? AND detection_time <= ?
+                 AND (is_hidden = 0 OR is_hidden IS NULL)
+               GROUP BY camera_name""",
+            (start_date.isoformat(sep=" "), end_date.isoformat(sep=" ")),
+        ) as cursor:
+            rows = await cursor.fetchall()
+        return {str(row[0]): _parse_datetime(row[1]) for row in rows if row[0] and row[1]}
+
     async def get_daily_species_counts(self, start_date: datetime, end_date: datetime) -> list[dict]:
-        """Get detection counts per species for a specific time range."""
+        """Detection and visit counts per species for a time range.
+
+        A visit follows the leaderboard's rule: a detection opens one unless the same species was
+        on the same camera within sixty seconds of the last verified event end, or capture time.
+        """
+        from app.repositories.visit_repository import VisitRepository
+
+        visit_cte, visit_params = await VisitRepository(self.db).grouping_cte(start=start_date, end=end_date)
         canonical_key = self._canonical_key_sql(taxonomy_alias=None)
         query = f"""
-            WITH filtered AS (
+            WITH {visit_cte}, filtered AS (
                 SELECT
                     d.id,
                     d.detection_time,
+                    d.camera_name,
                     d.frigate_event,
                     d.scientific_name,
                     d.common_name,
                     d.display_name,
                     d.taxa_id,
+                    d.visit_position,
                     {canonical_key} AS unified_id
-                FROM detections d
+                FROM visit_members d
                 WHERE d.detection_time >= ? AND d.detection_time <= ?
                   AND (d.is_hidden = 0 OR d.is_hidden IS NULL)
             ),
@@ -4824,6 +5301,10 @@ class DetectionRepository:
                 SELECT unified_id, COUNT(*) AS count
                 FROM filtered
                 GROUP BY unified_id
+            ),
+            visits AS (
+                SELECT unified_id, COUNT(*) AS visit_count FROM filtered
+                WHERE visit_position = 1 GROUP BY unified_id
             )
             SELECT
                 counts.unified_id,
@@ -4833,8 +5314,10 @@ class DetectionRepository:
                 ranked.scientific_name,
                 ranked.common_name,
                 ranked.display_name,
-                ranked.taxa_id
+                ranked.taxa_id,
+                COALESCE(visits.visit_count, 0) AS visit_count
             FROM counts
+            LEFT JOIN visits ON visits.unified_id = counts.unified_id
             JOIN ranked
               ON ranked.unified_id = counts.unified_id
              AND ranked.row_num = 1
@@ -4843,7 +5326,9 @@ class DetectionRepository:
              AND filtered_latest.frigate_event = ranked.frigate_event
             ORDER BY counts.count DESC
         """
-        async with self.db.execute(query, (start_date.isoformat(sep=" "), end_date.isoformat(sep=" "))) as cursor:
+        async with self.db.execute(
+            query, [*visit_params, start_date.isoformat(sep=" "), end_date.isoformat(sep=" ")]
+        ) as cursor:
             rows = await cursor.fetchall()
             return merge_species_count_rows(
                 [
@@ -4855,6 +5340,7 @@ class DetectionRepository:
                         "scientific_name": row[4],
                         "common_name": row[5],
                         "taxa_id": row[7],
+                        "visit_count": int(row[8] or 0),
                     }
                     for row in rows
                 ]
@@ -4976,15 +5462,26 @@ class DetectionRepository:
             row = await cursor.fetchone()
         return row is not None and not bool(row[0])
 
-    async def get_recent_audio_source_observations(self, limit: int = 200) -> list[dict]:
+    async def get_recent_audio_source_observations(
+        self, limit: int = 200, start_date: datetime | None = None, end_date: datetime | None = None
+    ) -> list[dict]:
         """Return recent raw audio rows for source discovery/deduping."""
+        predicate = "is_hidden = 0"
+        params: list = []
+        if start_date is not None:
+            predicate += " AND timestamp >= ?"
+            params.append(serialize_storage_datetime(start_date))
+        if end_date is not None:
+            predicate += " AND timestamp < ?"
+            params.append(serialize_storage_datetime(end_date))
+        params.append(limit)
         async with self.db.execute(
-            """SELECT timestamp, sensor_id, raw_data
+            f"""SELECT timestamp, sensor_id, raw_data
                FROM audio_detections
-               WHERE is_hidden = 0
+               WHERE {predicate}
                ORDER BY timestamp DESC
                LIMIT ?""",
-            (limit,),
+            params,
         ) as cursor:
             rows = await cursor.fetchall()
 
@@ -4997,8 +5494,74 @@ class DetectionRepository:
             for row in rows
         ]
 
+    async def get_public_audio_for_detections(self, detections: list) -> dict[str, dict]:
+        """Bound each page chunk to one primary and eight nearby rows per visual event.
+
+        Mapping/species/window authorization stays in SQL, before pagination and
+        ranking, rather than retaining all audio in a broad page-wide time range.
+        """
+        targets = [d for d in detections if d.audio_species]
+        if not targets:
+            return {}
+        conditions, conditions_params = await _public_audio_conditions_sql(self.db, match_species=False)
+        result: dict[str, dict] = {}
+        for offset in range(0, len(targets), 50):
+            chunk = targets[offset : offset + 50]
+            params: list = []
+            for detection in chunk:
+                params.extend(
+                    (
+                        detection.frigate_event,
+                        detection.camera_name,
+                        serialize_storage_datetime(detection.detection_time),
+                        detection.audio_species,
+                        int(detection.audio_confirmed),
+                    )
+                )
+                result[detection.frigate_event] = {"primary": None, "context": []}
+            values = ",".join("(?,?,?,?,?)" for _ in chunk)
+            query = f"""WITH d(frigate_event,camera_name,detection_time,audio_species,audio_confirmed) AS
+                (VALUES {values}), ranked AS (
+                SELECT d.frigate_event, d.audio_confirmed, a.timestamp, a.species,
+                    a.confidence, a.sensor_id, a.scientific_name,
+                    public_audio_species_matches(a.species,a.scientific_name,d.audio_species) AS primary_match,
+                    ROW_NUMBER() OVER (PARTITION BY d.frigate_event ORDER BY
+                        public_audio_species_matches(a.species,a.scientific_name,d.audio_species) DESC,
+                        a.confidence DESC, a.id DESC) AS primary_rank,
+                    ROW_NUMBER() OVER (PARTITION BY d.frigate_event ORDER BY
+                        ABS(julianday(a.timestamp)-julianday(d.detection_time)),
+                        a.confidence DESC, a.id DESC) AS context_rank
+                FROM d JOIN audio_detections a ON {conditions})
+                SELECT frigate_event,timestamp,species,confidence,sensor_id,scientific_name,
+                    primary_match,primary_rank,context_rank,audio_confirmed
+                FROM ranked WHERE (primary_match=1 AND primary_rank=1)
+                    OR (audio_confirmed=0 AND context_rank<=8)
+                ORDER BY frigate_event,context_rank"""
+            async with self.db.execute(query, [*params, *conditions_params]) as cursor:
+                rows = await cursor.fetchall()
+            for row in rows:
+                item = {
+                    "timestamp": row[1],
+                    "species": row[2],
+                    "confidence": row[3],
+                    "sensor_id": row[4],
+                    "scientific_name": row[5],
+                }
+                evidence = result[row[0]]
+                if row[6] and row[7] == 1:
+                    evidence["primary"] = item
+                if not row[9] and row[8] <= 8:
+                    evidence["context"].append(item)
+        return result
+
     async def get_audio_context(
-        self, target_time: datetime, window_seconds: int, mapping_value: Optional[str], limit: int
+        self,
+        target_time: datetime,
+        window_seconds: int,
+        mapping_value: Optional[str],
+        limit: int,
+        minimum_start: datetime | None = None,
+        maximum_end: datetime | None = None,
     ) -> tuple[list[dict], int]:
         """Return audio near ``target_time`` plus how many rows the mapping excluded.
 
@@ -5010,11 +5573,16 @@ class DetectionRepository:
             target_time = target_time.replace(tzinfo=timezone.utc)
 
         start_dt = target_time - timedelta(seconds=window_seconds)
+        if minimum_start is not None:
+            start_dt = max(start_dt, minimum_start)
         end_dt = target_time + timedelta(seconds=window_seconds)
         query = """SELECT timestamp, species, confidence, sensor_id, scientific_name, raw_data
                    FROM audio_detections
                    WHERE is_hidden = 0 AND timestamp >= ? AND timestamp <= ?"""
         params: list = [serialize_storage_datetime(start_dt), serialize_storage_datetime(end_dt)]
+        if maximum_end is not None:
+            query += " AND timestamp < ?"
+            params.append(serialize_storage_datetime(maximum_end))
         query += " ORDER BY timestamp DESC"
 
         async with self.db.execute(query, params) as cursor:
@@ -5074,6 +5642,7 @@ class DetectionRepository:
         species: Optional[str],
         source: Optional[str],
         min_confidence: Optional[float],
+        maximum_end: datetime | None = None,
     ) -> tuple[str, list]:
         clauses: list[str] = ["is_hidden = 0"]
         params: list = []
@@ -5084,6 +5653,9 @@ class DetectionRepository:
         if end_date is not None:
             clauses.append("timestamp <= ?")
             params.append(serialize_storage_datetime(end_date))
+        if maximum_end is not None:
+            clauses.append("timestamp < ?")
+            params.append(serialize_storage_datetime(maximum_end))
         if species:
             clauses.append("LOWER(species) LIKE ?")
             params.append(f"%{species.strip().casefold()}%")
@@ -5106,6 +5678,7 @@ class DetectionRepository:
         min_confidence: Optional[float] = None,
         limit: int = 100,
         offset: int = 0,
+        maximum_end: datetime | None = None,
     ) -> dict:
         """Return persisted BirdNET detections for history browsing."""
         where_sql, params = self._build_audio_history_filter(
@@ -5114,6 +5687,7 @@ class DetectionRepository:
             species=species,
             source=source,
             min_confidence=min_confidence,
+            maximum_end=maximum_end,
         )
 
         async with self.db.execute(f"SELECT COUNT(*) FROM audio_detections{where_sql}", params) as cursor:
@@ -5169,6 +5743,7 @@ class DetectionRepository:
         start_date: datetime,
         end_date: datetime,
         scientific_names: set[str],
+        maximum_end: datetime | None = None,
     ) -> list[dict]:
         """Return bounded automatic video results eligible for audio-history links."""
         normalized_names = sorted(
@@ -5193,6 +5768,9 @@ class DetectionRepository:
                       AND video_classification_status = 'completed'
                       AND video_classification_label IS NOT NULL
                       AND LOWER(TRIM(video_classification_label)) IN ({placeholders})"""
+        if maximum_end is not None:
+            query += " AND detection_time < ?"
+            params.append(serialize_storage_datetime(maximum_end))
         async with self.db.execute(query, params) as cursor:
             rows = await cursor.fetchall()
         return [
@@ -5213,6 +5791,7 @@ class DetectionRepository:
         species: Optional[str] = None,
         source: Optional[str] = None,
         min_confidence: Optional[float] = None,
+        maximum_end: datetime | None = None,
     ) -> dict:
         """Return rollups over persisted BirdNET detections."""
         where_sql, params = self._build_audio_history_filter(
@@ -5221,6 +5800,7 @@ class DetectionRepository:
             species=species,
             source=source,
             min_confidence=min_confidence,
+            maximum_end=maximum_end,
         )
 
         async with self.db.execute(
@@ -5262,6 +5842,7 @@ class DetectionRepository:
         ) as cursor:
             hourly_rows = await cursor.fetchall()
 
+        source_totals: dict[str, dict] = {}
         async with self.db.execute(
             f"""SELECT timestamp, sensor_id, raw_data
                 FROM audio_detections
@@ -5269,20 +5850,18 @@ class DetectionRepository:
                 ORDER BY timestamp DESC""",
             params,
         ) as cursor:
-            source_rows = await cursor.fetchall()
-
-        source_totals: dict[str, dict] = {}
-        for row in source_rows:
-            source_name = _extract_birdnet_source_name(row[1], row[2])
-            if not source_name:
-                source_name = "Unknown source"
-            if source_name not in source_totals:
-                source_totals[source_name] = {
-                    "source_name": source_name,
-                    "count": 0,
-                    "last_heard": serialize_api_datetime(_parse_datetime(row[0])),
-                }
-            source_totals[source_name]["count"] += 1
+            while source_rows := await cursor.fetchmany(512):
+                for row in source_rows:
+                    source_name = _extract_birdnet_source_name(row[1], row[2])
+                    if not source_name:
+                        source_name = "Unknown source"
+                    if source_name not in source_totals:
+                        source_totals[source_name] = {
+                            "source_name": source_name,
+                            "count": 0,
+                            "last_heard": serialize_api_datetime(_parse_datetime(row[0])),
+                        }
+                    source_totals[source_name]["count"] += 1
 
         top_species = [
             {
@@ -5367,11 +5946,88 @@ class DetectionRepository:
         identities = {name: resolve_audio_identity(name, resolver=resolver) for name, _count in pending}
         return await self.assign_audio_species_ids(pending, identities)
 
-    async def get_audio_history_start(self) -> datetime | None:
+    async def get_audio_history_start(
+        self, minimum_start: datetime | None = None, maximum_end: datetime | None = None
+    ) -> datetime | None:
         """When BirdNET-Go's stored history begins; it can start long after the camera's."""
-        async with self.db.execute("SELECT MIN(timestamp) FROM audio_detections") as cursor:
+        query = "SELECT MIN(timestamp) FROM audio_detections"
+        params: list = []
+        if minimum_start is not None:
+            query += " WHERE is_hidden = 0 AND timestamp >= ?"
+            params.append(serialize_storage_datetime(minimum_start))
+        if maximum_end is not None:
+            query += " AND timestamp < ?" if minimum_start is not None else " WHERE is_hidden = 0 AND timestamp < ?"
+            params.append(serialize_storage_datetime(maximum_end))
+        async with self.db.execute(query, params) as cursor:
             row = await cursor.fetchone()
         return _parse_datetime(row[0]) if row and row[0] else None
+
+    async def public_birdnet_media_visible(
+        self, birdnet_id: int, minimum_start: datetime, maximum_end: datetime | None = None
+    ) -> bool:
+        """Resolve the upstream identity, never the unrelated local row id.
+
+        Resolve identity across retained rows before applying sharing bounds.
+        A hidden tombstone or conflicting source/time cannot authorize a different
+        numeric ID at the single upstream URL, even outside the public window.
+        """
+        from app.services.audio.audio_service import _extract_birdnet_id
+
+        if not 0 < birdnet_id <= 2**63 - 1:
+            return False
+        payload = "CASE WHEN json_valid(raw_data) THEN raw_data ELSE '{}' END"
+        predicate = " OR ".join(
+            f"CAST(json_extract({payload}, '$.{key}') AS INTEGER) = ?" for key in ("detectionId", "detection_id", "id")
+        )
+        async with self.db.execute(
+            f"SELECT raw_data, is_hidden, sensor_id, timestamp FROM audio_detections WHERE {predicate}",
+            (birdnet_id, birdnet_id, birdnet_id),
+        ) as cursor:
+            identity: tuple[str, str] | None = None
+            lower = serialize_storage_datetime(minimum_start)
+            upper = serialize_storage_datetime(maximum_end) if maximum_end is not None else None
+            async for row in cursor:
+                try:
+                    data = json.loads(row[0])
+                    resolved_id = _extract_birdnet_id(data)
+                except (ValueError, TypeError):
+                    return False
+                if resolved_id != birdnet_id:
+                    continue
+                source = _extract_birdnet_source_name(row[2], row[0])
+                source_fields = data.get("Source")
+                source_fields = source_fields if isinstance(source_fields, dict) else {}
+                # Stable device IDs distinguish equal display names and allow a
+                # device to be renamed without making its media ambiguous.
+                source_ids = [
+                    value
+                    for value in (data.get("sourceId"), data.get("src"), source_fields.get("id"))
+                    if value is not None
+                ]
+                if any(not isinstance(value, str) or not value.strip() for value in source_ids):
+                    return False
+                if source_ids:
+                    normalized_ids = {value.strip().casefold() for value in source_ids}
+                    if len(normalized_ids) != 1:
+                        return False
+                    source_key = "id:" + normalized_ids.pop()
+                elif source:
+                    source_key = "name:" + source.strip().casefold()
+                else:
+                    return False
+                if row[1]:
+                    return False
+                try:
+                    stamp = serialize_storage_datetime(datetime.fromisoformat(row[3]))
+                except (ValueError, TypeError):
+                    return False
+                if stamp < lower or (upper is not None and stamp >= upper):
+                    return False
+                candidate = (source_key, stamp)
+                if identity is not None and identity != candidate:
+                    return False
+                identity = candidate
+        return identity is not None
 
     async def get_audio_species_counts(
         self,
@@ -5436,43 +6092,53 @@ class DetectionRepository:
             )
         return results
 
-    async def get_audio_confirmations_count(self, start_date: datetime, end_date: datetime) -> int:
-        """Get total audio-confirmed detections in a time range."""
+    async def get_audio_confirmations_count(
+        self, start_date: datetime, end_date: datetime, *, public_evidence: bool = False
+    ) -> int:
+        """Count confirmations, with current public evidence for anonymous summaries."""
+        evidence_sql, evidence_params = await _public_audio_evidence_sql(self.db) if public_evidence else ("1 = 1", [])
         async with self.db.execute(
-            """SELECT COUNT(*)
-               FROM detections
-               WHERE detection_time >= ? AND detection_time <= ?
-               AND audio_confirmed = 1
-               AND (is_hidden = 0 OR is_hidden IS NULL)""",
-            (start_date.isoformat(sep=" "), end_date.isoformat(sep=" ")),
+            f"""SELECT COUNT(*) FROM detections d
+               WHERE d.detection_time >= ? AND d.detection_time <= ?
+               AND d.audio_confirmed = 1
+               AND (d.is_hidden = 0 OR d.is_hidden IS NULL)
+               AND {evidence_sql}""",
+            [serialize_storage_datetime(start_date), serialize_storage_datetime(end_date), *evidence_params],
         ) as cursor:
             row = await cursor.fetchone()
             return int(row[0] or 0)
 
     async def get_recent_by_species(
-        self, species_name: str, limit: int = 5, include_hidden: bool = False
+        self,
+        species_name: str,
+        limit: int = 5,
+        include_hidden: bool = False,
+        *,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
     ) -> list[Detection]:
         """Get most recent detections for a species."""
         join_sql, species_condition, params = await self._canonical_species_query_parts(
             detection_alias="d",
             species_name=species_name,
         )
+        bounds_sql, bounds_params = _history_bounds_sql(start_date, end_date, "d.detection_time")
         if include_hidden:
             query = f"""SELECT {DETECTION_SELECT_COLUMNS}
                    FROM detections d
                    LEFT JOIN detection_favorites f ON f.detection_id = d.id
                    {join_sql}
-                   WHERE {species_condition}
+                   WHERE {species_condition}{bounds_sql}
                    ORDER BY d.detection_time DESC LIMIT ?"""
-            params = [*params, limit]
+            params = [*params, *bounds_params, limit]
         else:
             query = f"""SELECT {DETECTION_SELECT_COLUMNS}
                    FROM detections d
                    LEFT JOIN detection_favorites f ON f.detection_id = d.id
                    {join_sql}
-                   WHERE {species_condition} AND (d.is_hidden = 0 OR d.is_hidden IS NULL)
+                   WHERE {species_condition}{bounds_sql} AND (d.is_hidden = 0 OR d.is_hidden IS NULL)
                    ORDER BY d.detection_time DESC LIMIT ?"""
-            params = [*params, limit]
+            params = [*params, *bounds_params, limit]
 
         async with self.db.execute(query, params) as cursor:
             rows = await cursor.fetchall()

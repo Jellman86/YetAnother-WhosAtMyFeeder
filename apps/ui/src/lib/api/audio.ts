@@ -1,5 +1,5 @@
 import { API_BASE, apiFetch, handleResponse } from './core';
-import type { paths } from './generated/openapi';
+import type { components, paths } from './generated/openapi';
 import type { LeaderboardSpan } from './leaderboard';
 
 export type AudioDetection = paths['/api/audio/recent']['get']['response'][number];
@@ -101,4 +101,23 @@ export async function setAudioHidden(id: number, hidden: boolean): Promise<paths
         body: JSON.stringify({ hidden })
     });
     return handleResponse<paths['/api/audio/history/{detection_id}']['patch']['response']>(response);
+}
+
+export type HeardGroup = components['schemas']['HeardGroupResponse'];
+
+export type HeardGroupsResponse = components['schemas']['HeardGroupsResponse'];
+
+export type HeardVisitCalls = components['schemas']['HeardVisitCallsResponse'];
+
+export async function fetchHeardGroups(
+    startDate: string,
+    endDate: string,
+    signal?: AbortSignal
+): Promise<HeardGroupsResponse> {
+    const query = new URLSearchParams({ start_date: startDate, end_date: endDate });
+    const response = await apiFetch(`${API_BASE}/audio/heard-groups?${query.toString()}`, {
+        signal,
+        timeoutMs: 15_000
+    });
+    return handleResponse<HeardGroupsResponse>(response);
 }

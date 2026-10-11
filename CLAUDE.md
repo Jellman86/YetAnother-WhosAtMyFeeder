@@ -274,6 +274,7 @@ looser.
   ([`backend/scripts/ci_migration_path_check.py`](backend/scripts/ci_migration_path_check.py)),
   single-Alembic-head check, and `pytest`. **frontend**: `npm ci` → `npm run check`
   → `npm run lint:dead` (knip: no unused files, exports, or packages) → `npm test` → `npm run build`.
+  **browser**: the complete Chromium fixture suite, with failure screenshots and traces retained.
   A backend module reachable from nothing that runs fails
   [`backend/tests/test_dead_modules.py`](backend/tests/test_dead_modules.py) inside `pytest`.
   **telemetry worker**: dependency check.

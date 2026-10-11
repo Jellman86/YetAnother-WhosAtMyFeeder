@@ -4,6 +4,9 @@ import {
     buildInferenceProviderChoices,
     getProviderPreferenceOrder,
     getRuntimeProviderOrder,
+    inferenceProviderForSave,
+    parseInferenceProvider,
+    reconcileSavedInferenceProvider,
 } from './inference-providers';
 
 const baseStatus: ClassifierStatus = {
@@ -173,5 +176,84 @@ describe('inference provider choices', () => {
         expect(buildInferenceProviderChoices(null, 'auto')).toEqual([
             { value: 'auto', unavailable: false },
         ]);
+    });
+});
+
+describe('saved inference provider preservation', () => {
+    it('recognises every provider the settings API accepts, including Intel NPU', () => {
+        for (const provider of ['auto', 'cpu', 'cuda', 'intel_gpu', 'intel_cpu', 'intel_npu']) {
+            expect(parseInferenceProvider(provider)).toBe(provider);
+        }
+    });
+
+    it('does not mistake a missing or unrecognised value for a provider', () => {
+        for (const value of [undefined, null, '', 'Intel_NPU', ' intel_npu', 'rocm', 42]) {
+            expect(parseInferenceProvider(value)).toBeNull();
+        }
+    });
+
+    it('writes a saved Intel NPU choice back unchanged on an unrelated settings save', () => {
+        const stored = 'intel_npu';
+        const form = parseInferenceProvider(stored) ?? 'auto';
+
+        expect(inferenceProviderForSave(form, stored)).toBe('intel_npu');
+    });
+
+    it('sends the form value when the stored value is known or absent', () => {
+        expect(inferenceProviderForSave('cpu', 'intel_npu')).toBe('cpu');
+        expect(inferenceProviderForSave('auto', 'intel_npu')).toBe('auto');
+        expect(inferenceProviderForSave('intel_npu', 'auto')).toBe('intel_npu');
+        expect(inferenceProviderForSave('auto', undefined)).toBe('auto');
+        expect(inferenceProviderForSave('auto', null)).toBe('auto');
+    });
+
+    it('leaves an unrecognised stored value untouched instead of rewriting it to Auto', () => {
+        expect(inferenceProviderForSave('auto', 'Intel_NPU')).toBeUndefined();
+        expect(inferenceProviderForSave('auto', 'rocm')).toBeUndefined();
+        expect(inferenceProviderForSave('intel_cpu', 'rocm')).toBe('intel_cpu');
+    });
+});
+
+describe('saved inference provider reconciliation', () => {
+    it('follows a server-side change when the form still shows the loaded provider', () => {
+        expect(reconcileSavedInferenceProvider('intel_npu', 'cpu', 'cpu')).toEqual({
+            saved: 'intel_npu',
+            form: 'intel_npu',
+        });
+    });
+
+    it('records the new saved provider but keeps an unsaved choice in the form', () => {
+        expect(reconcileSavedInferenceProvider('intel_npu', 'intel_cpu', 'cpu')).toEqual({
+            saved: 'intel_npu',
+            form: 'cpu',
+        });
+        expect(reconcileSavedInferenceProvider('intel_npu', 'cpu', 'auto')).toEqual({
+            saved: 'intel_npu',
+            form: 'auto',
+        });
+    });
+
+    it('does nothing when the saved provider has not changed', () => {
+        expect(reconcileSavedInferenceProvider('auto', 'auto', 'auto')).toBeNull();
+        expect(reconcileSavedInferenceProvider('intel_npu', 'intel_npu', 'cpu')).toBeNull();
+    });
+
+    it('ignores a missing or unrecognised reported provider', () => {
+        for (const reported of [undefined, null, '', 'rocm', 'Intel_NPU', 42]) {
+            expect(reconcileSavedInferenceProvider(reported, 'cpu', 'cpu')).toBeNull();
+        }
+    });
+
+    it('does not coerce a legacy stored value that the backend reports as Auto', () => {
+        expect(reconcileSavedInferenceProvider('auto', 'rocm', 'auto')).toBeNull();
+        expect(reconcileSavedInferenceProvider('auto', undefined, 'auto')).toBeNull();
+        expect(reconcileSavedInferenceProvider('auto', null, 'auto')).toBeNull();
+    });
+
+    it('adopts a real provider change over a legacy stored value', () => {
+        expect(reconcileSavedInferenceProvider('intel_npu', 'rocm', 'auto')).toEqual({
+            saved: 'intel_npu',
+            form: 'intel_npu',
+        });
     });
 });

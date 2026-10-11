@@ -125,3 +125,12 @@ History views are working records first and analytics dashboards second:
 - [Nielsen Norman Group — 10 Usability Heuristics for User Interface Design](https://www.nngroup.com/articles/ten-usability-heuristics/)
 - [W3C — Web Content Accessibility Guidelines (WCAG) 2.2](https://www.w3.org/TR/WCAG22/) · [WCAG 2 Overview](https://www.w3.org/WAI/standards-guidelines/wcag/)
 - [Refactoring UI](https://www.refactoringui.com/) (Adam Wathan & Steve Schoger)
+
+### Dialog focus lifecycle
+
+The shared `trapFocus` utility returns focus to the connected, visible opener when a dialog
+closes. Nested dialogs restore their own opener first; disposing a parent cannot steal focus
+from a still-open child. A removed or disabled opener falls back to the remaining dialog or
+the main page content. Closing cancels the delayed initial focus, and deliberately moving
+focus to another control is preserved. Dialog components use this shared cleanup rather than
+adding a second unconditional focus restoration.

@@ -83,8 +83,8 @@ describe('groupDetectionsIntoVisits', () => {
 
     it('measures the gap against the nearest frame, not the first of the visit', () => {
         const withinWindow = groupDetectionsIntoVisits([
-            detection({ frigate_event: 'c', detection_time: '2026-08-11T11:16:00Z' }),
-            detection({ frigate_event: 'b', detection_time: '2026-08-11T11:08:00Z' }),
+            detection({ frigate_event: 'c', detection_time: '2026-08-11T11:01:20Z' }),
+            detection({ frigate_event: 'b', detection_time: '2026-08-11T11:00:40Z' }),
             detection({ frigate_event: 'a', detection_time: '2026-08-11T11:00:00Z' })
         ]);
 
@@ -108,7 +108,8 @@ describe('groupDetectionsIntoVisits', () => {
             })
         ]);
 
-        expect(visits[0].startTime).toBe('2026-08-11T11:10:05Z');
+        expect(visits).toHaveLength(2);
+        expect(visits[0].startTime).toBe('2026-08-11T11:11:05Z');
         expect(visits[0].endTime).toBe('2026-08-11T11:11:05Z');
         expect(visits[0].needsReview).toBe(true);
     });
@@ -163,7 +164,7 @@ describe('groupDetectionsIntoVisits', () => {
         );
 
         expect(visits).toHaveLength(1);
-        expect(VISIT_GAP_MS).toBe(10 * 60 * 1000);
+        expect(VISIT_GAP_MS).toBe(60 * 1000);
     });
 
     it('keeps the desk on one window so its numbers cannot contradict each other', () => {

@@ -3,6 +3,7 @@ import settingsSource from './Settings.svelte?raw';
 import appSource from '../../App.svelte?raw';
 import tabsSource from '../components/settings/SettingsTabs.svelte?raw';
 import panelSource from '../components/settings/SystemHealthPanel.svelte?raw';
+import errorsSource from './Errors.svelte?raw';
 import sidebarSource from '../components/Sidebar.svelte?raw';
 import en from '../i18n/locales/en.json';
 
@@ -17,7 +18,15 @@ describe('settings health tab', () => {
     });
 
     it('opens on what the host is doing, with this app named and the rest an honest remainder', () => {
-        expect(settingsSource).toContain('<SystemHealthPanel />');
+        // The health page builds the System card, so its verdict and detail live inside it.
+        expect(settingsSource).not.toContain('<SystemHealthPanel');
+        expect(errorsSource).toContain('<SystemHealthPanel>');
+        expect(errorsSource).toContain('{#snippet status()}');
+        expect(errorsSource).toContain('{#snippet details()}');
+        expect(errorsSource.indexOf('</SystemHealthPanel>')).toBeLessThan(errorsSource.indexOf('data-health-timeline'));
+        // The chart fills its column and its markers stay round.
+        expect(panelSource).toContain('preserveAspectRatio="none"');
+        expect(panelSource).not.toContain('<circle');
         expect(panelSource).toContain("fetchSystemTelemetryHistory(signal)");
         // One axis, a named line per readable device with a legend, a crosshair tooltip,
         // and a text summary for the window.

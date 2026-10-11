@@ -5,6 +5,9 @@ YA-WAMF allows you to contribute your bird sightings to the [BirdWeather](https:
 ## How it works
 Every time a bird is identified with a specific species (i.e., not "Unknown Bird"), YA-WAMF will automatically upload the detection to your BirdWeather station if configured.
 
+Each camera event is reported when it is first saved with a reportable species. A better frame of the
+same event later on does not report it again. Several events grouped into one Explorer visit can still be separate reports. **Missed Detections** (Settings → Data) never uploads: re-importing history must not create duplicate external sightings, including after a database reset. An import therefore does not fill historical gaps in your BirdWeather station.
+
 ## Setup
 1. Log in to your BirdWeather account.
 2. Find your **Station Token** in your station settings.
@@ -18,3 +21,7 @@ Click **Test connection** in the BirdWeather settings section. This sends a mock
 tested without entering it again; typing a replacement tests the value currently in
 the form. The staged dialog reports the real provider response and keeps failures
 visible until you close or retry it.
+
+Failed reports log the error type and HTTP status without the station token or provider
+exception text. BirdWeather request URLs also redact the station credential when verbose HTTP
+logging is enabled. Keep the token private when sharing configuration or third-party logs.

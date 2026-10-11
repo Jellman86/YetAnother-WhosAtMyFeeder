@@ -79,4 +79,40 @@ describe('buildDashboardCameraRows', () => {
 
         expect(rows.map((row) => row.name)).toEqual(['front']);
     });
+
+    it('counts the whole window from the server, not just the loaded page of visits', () => {
+        // The loaded page holds two garden visits; the server counted the day's twelve.
+        const rows = buildDashboardCameraRows({
+            cameraStatus: null,
+            visits: [visit('garden', 'g1', '2026-08-12T08:00:00Z'), visit('garden', 'g2', '2026-08-12T08:30:00Z')],
+            cameraVisits: [{ camera: 'garden', visits: 12, last_seen: '2026-08-12T08:45:00Z' }],
+            configuredCameras: null
+        });
+        expect(rows).toEqual([{ name: 'garden', visits: 12, status: 'unknown', lastSeen: '2026-08-12T08:45:00Z' }]);
+    });
+
+    it('names configured cameras before the day is read but leaves their visits unknown, not zero', () => {
+        const rows = buildDashboardCameraRows({
+            cameraStatus: status,
+            visits: [],
+            cameraVisits: null,
+            configuredCameras: ['garden', 'front'],
+            countsMeasured: false
+        });
+        expect(rows).toEqual([
+            { name: 'front', visits: null, status: 'online', lastSeen: null },
+            { name: 'garden', visits: null, status: 'online', lastSeen: null }
+        ]);
+    });
+
+    it('ignores any loaded visits while the counts are unmeasured, so a partial page is never a total', () => {
+        const rows = buildDashboardCameraRows({
+            cameraStatus: null,
+            visits: [visit('garden', 'g1', '2026-08-12T08:00:00Z')],
+            cameraVisits: null,
+            configuredCameras: ['garden'],
+            countsMeasured: false
+        });
+        expect(rows).toEqual([{ name: 'garden', visits: null, status: 'unknown', lastSeen: null }]);
+    });
 });

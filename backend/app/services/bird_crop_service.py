@@ -15,8 +15,24 @@ from PIL import Image
 
 from app.config import settings
 from app.services.openvino_cache import resolve_openvino_cache_dir
+from app.utils.cuda_runtime import (
+    preload_packaged_cuda_libraries,
+    prevent_internal_cuda_fallback,
+    verify_cuda_session_provider,
+)
 
 log = structlog.get_logger()
+
+
+class BirdDetectionError(RuntimeError):
+    """A scan failed at runtime rather than finding no usable bird."""
+
+
+def detector_scan_failed(result: dict[str, Any]) -> bool:
+    return (
+        result.get("runtime_error") is True
+        or str(result.get("reason") or "").removesuffix("_no_fallback") == "inference_failed"
+    )
 
 
 def _openvino_dimension_value(dimension: Any) -> int | str:
@@ -230,7 +246,11 @@ class BirdCropService:
             "fast",
             fallback_reason=fallback_reason,
         )
-        if fast_available:
+        if fast_result.get("reason") == "selected":
+            return fast_result
+        if detector_scan_failed(result):
+            return self._with_fallback_reason(result, fallback_reason)
+        if fast_available or detector_scan_failed(fast_result):
             return fast_result
         if not model_available:
             return self._empty_result(
@@ -268,6 +288,7 @@ class BirdCropService:
                     "load_failed",
                     detector_tier=detector_tier,
                     fallback_reason=fallback_reason,
+                    runtime_error=bool(self._model_errors.get(detector_tier)),
                 ),
                 False,
             )
@@ -346,6 +367,8 @@ class BirdCropService:
             sliced_result = self._generate_sliced_classification_candidate_crop(image)
             if sliced_result is not None and sliced_result.get("reason") == "selected":
                 return sliced_result
+            if sliced_result is not None and detector_scan_failed(sliced_result):
+                native_result = sliced_result
 
         accurate_reason = str(native_result.get("reason") or "unavailable").removesuffix("_no_fallback")
         fallback_reason = "accurate_unavailable" if not accurate_available else f"accurate_{accurate_reason}"
@@ -355,6 +378,12 @@ class BirdCropService:
             fallback_reason=fallback_reason,
         )
         if fast_available:
+            if fast_result.get("reason") != "selected" and detector_scan_failed(native_result):
+                return native_result
+            return self._annotate_candidate_strategy(fast_result, strategy="fast_native")
+        if detector_scan_failed(native_result):
+            return native_result
+        if detector_scan_failed(fast_result):
             return self._annotate_candidate_strategy(fast_result, strategy="fast_native")
         if not accurate_available:
             return self._annotate_candidate_strategy(
@@ -367,11 +396,179 @@ class BirdCropService:
             )
         return native_result
 
+    def generate_classification_candidate_crops(
+        self,
+        image: Image.Image,
+        *,
+        max_crops: int = 3,
+        search_box: tuple[int, int, int, int] | None = None,
+        raise_on_error: bool = False,
+    ) -> list[dict[str, Any]]:
+        """Find a bounded set of distinct birds for per-crop species scoring."""
+        if not isinstance(image, Image.Image):
+            return []
+        limit = max(1, min(8, int(max_crops)))
+        selected: list[dict[str, Any]] = []
+        guided_failed = False
+        if search_box is not None:
+            guided = self.generate_guided_classification_candidate_crop(
+                image, search_box=search_box, allow_fallback=False
+            )
+            if isinstance(guided.get("crop_image"), Image.Image):
+                selected.append(guided)
+            guided_failed = detector_scan_failed(guided)
+
+        try:
+            model = self._ensure_model_for_tier("accurate")
+            if model is None and raise_on_error and self._model_errors.get("accurate"):
+                raise BirdDetectionError("Bird detector model failed to load")
+            raw_candidates = self._infer_frame_candidates(model, image) if model is not None else []
+        except Exception as exc:
+            log.warning("Multi-bird crop detection failed", error=str(exc))
+            if raise_on_error:
+                raise BirdDetectionError("Multi-bird crop detection failed") from exc
+            raw_candidates = []
+
+        ranked = sorted(
+            (item for item in raw_candidates if isinstance(item, dict)),
+            key=lambda item: self._coerce_confidence(item) or float("-inf"),
+            reverse=True,
+        )
+        for raw_candidate in ranked:
+            if len(selected) >= limit:
+                break
+            result = self._select_best_valid_candidate(
+                image,
+                [raw_candidate],
+                detector_tier="accurate",
+                fallback_reason=None,
+                confidence_threshold_ceiling=self.CLASSIFICATION_CANDIDATE_CONFIDENCE_FLOOR,
+                min_crop_size_ceiling=self.CLASSIFICATION_CANDIDATE_MIN_DETECTION_SIZE,
+                minimum_output_size=self.CLASSIFICATION_CANDIDATE_MIN_OUTPUT_SIZE,
+            )
+            if not isinstance(result.get("crop_image"), Image.Image):
+                continue
+            result = self._annotate_candidate_strategy(result, strategy="multi_native")
+            if any(
+                self._box_overlap_ratio(result.get("detector_box"), prior.get("detector_box")) >= 0.6
+                for prior in selected
+            ):
+                continue
+            selected.append(result)
+
+        if not selected:
+            fallback = self.generate_classification_candidate_crop(image)
+            if isinstance(fallback.get("crop_image"), Image.Image):
+                selected.append(fallback)
+            elif raise_on_error and (guided_failed or detector_scan_failed(fallback)):
+                raise BirdDetectionError("Bird crop fallback inference failed")
+        if selected:
+            # Keep every detector box with the first photo choice. HQ counting can reuse this
+            # scan instead of running the full-frame and tile detector a second time.
+            selected[0]["observation_boxes"] = self._usable_observation_boxes(raw_candidates, image.size)
+        return selected[:limit]
+
+    def detect_observation_boxes(self, image: Image.Image, *, raise_on_error: bool = False) -> list[dict[str, Any]]:
+        """Return every usable bird box; photo-crop limits do not cap the count."""
+        if not isinstance(image, Image.Image):
+            return []
+        try:
+            model = self._ensure_model_for_tier("accurate")
+            raw = self._infer_frame_candidates(model, image) if model is not None else []
+        except Exception as exc:
+            log.warning("Bird observation detection failed", error=str(exc))
+            if raise_on_error:
+                raise BirdDetectionError("Bird observation detection failed") from exc
+            return []
+        return self._usable_observation_boxes(raw, image.size)
+
+    def _infer_frame_candidates(self, model: Any, image: Image.Image) -> list[dict[str, Any]]:
+        """Scan large scenes in overlapping tiles so small birds keep useful model pixels."""
+        candidates = [item for item in self._infer_candidates(model, image) if isinstance(item, dict)]
+        if settings.media_cache.bird_scan_mode != "intensive" or image.width < 3000 or image.height < 1500:
+            return candidates
+        for tile_box in self._classification_tile_boxes(image.size, grid_size=3):
+            tile = image.crop(tile_box)
+            for item in self._infer_candidates(model, tile):
+                if not isinstance(item, dict):
+                    continue
+                raw_box = self._extract_box(item)
+                if raw_box is None:
+                    continue
+                candidates.append(
+                    {
+                        "box": (
+                            raw_box[0] + tile_box[0],
+                            raw_box[1] + tile_box[1],
+                            raw_box[2] + tile_box[0],
+                            raw_box[3] + tile_box[1],
+                        ),
+                        "confidence": self._coerce_confidence(item),
+                    }
+                )
+        return candidates
+
+    def _usable_observation_boxes(self, raw: list[dict[str, Any]], image_size: tuple[int, int]) -> list[dict[str, Any]]:
+        width, height = image_size
+        observations: list[dict[str, Any]] = []
+        for item in sorted(
+            (item for item in raw if isinstance(item, dict)),
+            key=lambda item: self._coerce_confidence(item) or float("-inf"),
+            reverse=True,
+        ):
+            confidence = self._coerce_confidence(item)
+            if confidence is None or confidence < 0.08:
+                break
+            raw_box = self._extract_box(item)
+            box = self._normalize_box(raw_box) if raw_box else None
+            if box is None:
+                continue
+            left = max(0, min(width, box[0]))
+            top = max(0, min(height, box[1]))
+            right = max(0, min(width, box[2]))
+            bottom = max(0, min(height, box[3]))
+            if right - left < 24 or bottom - top < 24:
+                continue
+            observations.append({"box": (left, top, right, bottom), "confidence": confidence})
+        return observations
+
+    @staticmethod
+    def _box_overlap_ratio(first: Any, second: Any) -> float:
+        try:
+            left = max(float(first[0]), float(second[0]))
+            top = max(float(first[1]), float(second[1]))
+            right = min(float(first[2]), float(second[2]))
+            bottom = min(float(first[3]), float(second[3]))
+            intersection = max(0.0, right - left) * max(0.0, bottom - top)
+            first_area = max(0.0, float(first[2]) - float(first[0])) * max(0.0, float(first[3]) - float(first[1]))
+            second_area = max(0.0, float(second[2]) - float(second[0])) * max(0.0, float(second[3]) - float(second[1]))
+        except (IndexError, TypeError, ValueError):
+            return 0.0
+        smaller_area = min(first_area, second_area)
+        larger_area = max(first_area, second_area)
+        if smaller_area <= 0.0:
+            return 0.0
+        # Nearby detections of one bird often have noticeably different edges across
+        # tiles. A group-sized box can contain a real single-bird crop, so only use
+        # overlap of the smaller box when the two boxes have comparable areas.
+        if smaller_area / larger_area >= 0.5:
+            return intersection / smaller_area
+        union = first_area + second_area - intersection
+        return intersection / union if union > 0.0 else 0.0
+
+    def refine_observation_box(self, image: Image.Image, box: tuple | list) -> dict[str, Any]:
+        """Check one small region at twice the detector's input scale, without fallback scans."""
+        region = self._square_search_box(box, image.size, minimum_size=2 * self.CLASSIFICATION_TILE_MODEL_INPUT_SIZE)
+        if region is None:
+            return self._empty_result("invalid_guided_search_box", detector_tier="accurate")
+        return self.generate_guided_classification_candidate_crop(image, search_box=region, allow_fallback=False)
+
     def generate_guided_classification_candidate_crop(
         self,
         image: Image.Image,
         *,
         search_box: tuple[int, int, int, int] | list[int],
+        allow_fallback: bool = True,
     ) -> dict[str, Any]:
         """Refine a trustworthy Frigate region before falling back to native/sliced inference.
 
@@ -384,6 +581,8 @@ class BirdCropService:
             return self._annotate_candidate_strategy(self._empty_result("invalid_image"), strategy="frigate_guided")
         normalized_search_box = self._normalize_search_box(search_box, image.size)
         if normalized_search_box is None:
+            if not allow_fallback:
+                return self._empty_result("invalid_guided_search_box", detector_tier="accurate")
             fallback = self.generate_classification_candidate_crop(image)
             return self._with_fallback_reason(fallback, "invalid_guided_search_box")
         normalized_search_box = self._square_search_box(
@@ -392,6 +591,8 @@ class BirdCropService:
             minimum_size=self.CLASSIFICATION_CANDIDATE_MIN_OUTPUT_SIZE,
         )
         if normalized_search_box is None:
+            if not allow_fallback:
+                return self._empty_result("invalid_guided_search_box", detector_tier="accurate")
             fallback = self.generate_classification_candidate_crop(image)
             return self._with_fallback_reason(fallback, "invalid_guided_search_box")
 
@@ -408,9 +609,49 @@ class BirdCropService:
                 strategy="frigate_guided",
             )
 
+        if not allow_fallback:
+            return guided_result
         fallback = self.generate_classification_candidate_crop(image)
         guided_reason = "unavailable" if not accurate_available else str(guided_result.get("reason") or "miss")
         return self._with_fallback_reason(fallback, f"guided_{guided_reason}")
+
+    def generate_video_classification_candidate_crops(
+        self,
+        image: Image.Image,
+        *,
+        max_crops: int = 3,
+    ) -> list[dict[str, Any]]:
+        """Retain alternative birds from one bounded video detector pass."""
+        if not isinstance(image, Image.Image):
+            return []
+        try:
+            model = self._ensure_model_for_tier("accurate")
+            raw = self._infer_candidates(model, image) if model is not None else []
+        except Exception as exc:
+            log.debug("Video multi-bird detector unavailable", error=str(exc))
+            return []
+        selected: list[dict[str, Any]] = []
+        for candidate in sorted(raw, key=lambda item: self._coerce_confidence(item) or 0.0, reverse=True):
+            result = self._select_best_valid_candidate(
+                image,
+                [candidate],
+                detector_tier="accurate",
+                fallback_reason=None,
+                confidence_threshold_ceiling=self.CLASSIFICATION_CANDIDATE_CONFIDENCE_FLOOR,
+                min_crop_size_ceiling=self.CLASSIFICATION_CANDIDATE_MIN_DETECTION_SIZE,
+                minimum_output_size=self.CLASSIFICATION_CANDIDATE_MIN_OUTPUT_SIZE,
+            )
+            if not isinstance(result.get("crop_image"), Image.Image):
+                continue
+            if any(
+                self._box_overlap_ratio(result.get("detector_box"), prior.get("detector_box")) >= 0.6
+                for prior in selected
+            ):
+                continue
+            selected.append(self._annotate_candidate_strategy(result, strategy="video_native"))
+            if len(selected) >= max(1, min(3, int(max_crops))):
+                break
+        return selected
 
     def generate_video_classification_candidate_crop(
         self,
@@ -479,6 +720,7 @@ class BirdCropService:
             return None
 
         selected: list[dict[str, Any]] = []
+        failed_result: dict[str, Any] | None = None
         for tile_box in tile_boxes:
             tile = image.crop(tile_box)
             tile_result, available = self._generate_classification_candidate_for_tier(
@@ -486,7 +728,9 @@ class BirdCropService:
                 strategy="sliced_2x2",
             )
             if not available:
-                return None
+                return failed_result
+            if detector_scan_failed(tile_result):
+                failed_result = tile_result
             if tile_result.get("reason") != "selected":
                 continue
             selected.append(
@@ -499,17 +743,19 @@ class BirdCropService:
                 )
             )
         if not selected:
-            return None
+            return failed_result
         return max(selected, key=lambda result: float(result.get("confidence") or 0.0))
 
-    def _classification_tile_boxes(self, image_size: tuple[int, int]) -> list[tuple[int, int, int, int]]:
+    def _classification_tile_boxes(
+        self, image_size: tuple[int, int], *, grid_size: int | None = None
+    ) -> list[tuple[int, int, int, int]]:
         width, height = (max(0, int(image_size[0])), max(0, int(image_size[1])))
         model_input = self.CLASSIFICATION_TILE_MODEL_INPUT_SIZE
         if min(width, height) < model_input or max(width, height) < model_input * 2:
             return []
 
         overlap = min(0.49, max(0.0, float(self.CLASSIFICATION_TILE_OVERLAP_RATIO)))
-        grid_size = max(2, int(self.CLASSIFICATION_TILE_GRID_SIZE))
+        grid_size = max(2, int(grid_size or self.CLASSIFICATION_TILE_GRID_SIZE))
         divisor = float(grid_size) - (float(grid_size - 1) * overlap)
         tile_width = min(width, max(1, int(math.ceil(float(width) / divisor))))
         tile_height = min(height, max(1, int(math.ceil(float(height) / divisor))))
@@ -596,6 +842,11 @@ class BirdCropService:
             )
         updated = dict(result)
         updated["box"] = restored
+        if isinstance(result.get("detector_box"), (tuple, list)):
+            detector_box = result["detector_box"]
+            updated["detector_box"] = tuple(
+                int(detector_box[index] + (offset_x if index % 2 == 0 else offset_y)) for index in range(4)
+            )
         updated["crop_image"] = image.crop(restored)
         updated["strategy"] = strategy
         if strategy == "frigate_guided":
@@ -758,6 +1009,8 @@ class BirdCropService:
         normalized_provider = str(provider or "cpu").strip().lower()
         if normalized_provider in {"cpu", "cuda"}:
             ort = self._import_onnxruntime()
+            if normalized_provider == "cuda":
+                preload_packaged_cuda_libraries(ort)
             sess_options = ort.SessionOptions()
             ort_provider = "CUDAExecutionProvider" if normalized_provider == "cuda" else "CPUExecutionProvider"
             session = ort.InferenceSession(
@@ -768,6 +1021,8 @@ class BirdCropService:
             active = list(getattr(session, "get_providers", lambda: [ort_provider])() or [])
             if not active or active[0] != ort_provider:
                 raise RuntimeError(f"{ort_provider} was requested but is not the primary active provider")
+            if normalized_provider == "cuda":
+                prevent_internal_cuda_fallback(session)
         else:
             device = {
                 "intel_cpu": "CPU",
@@ -950,6 +1205,8 @@ class BirdCropService:
             preprocessing=dict(model.get("preprocessing") or {}),
         )
         outputs = session.run(None, {str(model.get("input_name") or "images"): input_tensor})
+        if model.get("provider") == "cuda":
+            verify_cuda_session_provider(session)
         return list(outputs or []), transform
 
     def _infer_candidates(self, model: Any, image: Image.Image) -> list[dict[str, Any]]:
@@ -1671,6 +1928,7 @@ class BirdCropService:
             return {
                 "crop_image": crop_image,
                 "box": expanded,
+                "detector_box": box,
                 "confidence": confidence,
                 "reason": "selected",
                 "detector_tier": detector_tier,
@@ -1794,7 +2052,9 @@ class BirdCropService:
         confidence: float | None = None,
         detector_tier: str | None = None,
         fallback_reason: str | None = None,
+        runtime_error: bool = False,
     ) -> dict[str, Any]:
+        runtime_error = runtime_error or reason == "inference_failed"
         if not self.fallback_to_original:
             reason = f"{reason}_no_fallback"
         return {
@@ -1804,6 +2064,7 @@ class BirdCropService:
             "reason": reason,
             "detector_tier": detector_tier,
             "fallback_reason": fallback_reason,
+            "runtime_error": runtime_error,
         }
 
 

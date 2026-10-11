@@ -1,86 +1,127 @@
-# Migration Guide
+# Upgrade an existing YA-WAMF installation
 
-## Notes for Integrators (AI Output)
+Keep your configuration, detection history and photographs when updating the image.
+This guide describes current repository behaviour; read the release notes and documentation
+for the exact tag you install. The `models` release is a rolling asset catalogue, not an
+application update.
 
-If you parse or post-process AI Naturalist output programmatically, treat the content as Markdown and avoid depending on exact heading names/ordering. No database migrations are required for these UI/content changes.
+## Before you update
 
-## Upgrading to v2.6.0 (Authentication & Public Access)
+1. Record the current image tag and deployment file.
+2. Back up both persistent mounts, `/config` and `/data`, with YA-WAMF stopped or with
+   a consistent storage snapshot. They contain credentials, detection history, the species
+   catalogue, model files and retained media. Protect the backup like a password.
+3. Keep the same mount paths and user permissions when recreating the container.
+4. Read the selected release's **Before you update** notes. An image update can apply
+   database migrations during startup. Automatic migration restore points are useful,
+   but do not replace a current backup of both mounts.
 
-Version 2.6.0 introduces a major security upgrade with a new authentication system and public access controls. This guide covers how to migrate from previous versions.
+For a Compose-managed installation, update through the existing project:
 
-### ⚡ Quick Summary
+```bash
+docker compose -f docker-compose.monolith.yml pull
+docker compose -f docker-compose.monolith.yml up -d
+```
 
-- **Zero Breaking Changes:** Your existing installation will continue to work.
-- **New Feature:** You can now set a password for the admin interface.
-- **New Feature:** You can enable a "Public View" to share your bird detections without giving admin access.
-- **Deprecated:** The `YA_WAMF_API_KEY` environment variable is deprecated and scheduled for removal in a future release.
+If a Git-managed platform or Unraid owns your stack, use that platform's update
+workflow instead. See [Unraid](docs/setup/unraid.md) and
+[split-to-monolith migration](docs/setup/migrate-split-to-monolith.md).
 
----
+## Check the updated installation
 
-### 🟢 Scenario 1: Fresh Installation
+1. Wait for the container health check, then open the dashboard.
+2. Confirm your saved cameras, recent detections and photographs are present.
+3. Open **Settings → Detection → Runtime diagnostics**. Check the image family,
+   selected provider, actual active provider and any fallback reason.
+4. If model/runtime/hardware validation is stale, let automatic recovery finish or
+   run the model compatibility check. Compatibility is not a species-accuracy score.
+5. Check **Settings → Health** and the **Jobs** page for failed or waiting work.
+   Network errors during a switch/router outage do not by themselves prove a model fault.
 
-If you are installing YA-WAMF for the first time:
+Unsuffixed image tags remain the full compatibility image. Optional `-cpu`,
+`-intel` and `-cuda` variants keep the same volumes and application code for a given
+commit. A same-commit flavour change needs no data migration; it can change the
+available providers. See [hardware acceleration](docs/setup/hardware-acceleration.md).
 
-1. Start the container.
-2. Open the dashboard (`http://localhost:9852`).
-3. You will see a **Setup Wizard**.
-4. Create an admin username and password.
-5. (Optional) You can choose to skip authentication if you are on a trusted local network, but it is recommended to secure your instance.
+## Retired media switches
 
----
+Current builds always retain photographs and generated visit media locally, subject
+to retention, per-species and size limits. Copies of Frigate's short event clips remain
+optional. The old **Media Cache** and **Snapshots** enable switches are retired.
 
-### 🟡 Scenario 2: Upgrading from v2.5.x (No API Key)
+On the first load of an older configuration:
 
-If you previously ran YA-WAMF without any authentication:
+- If either old switch was off, best-available event snapshots are turned off once.
+- If the old Media Cache switch was off, full-visit clips are also turned off once.
+- An explicit current `MEDIA_CACHE__HIGH_QUALITY_EVENT_SNAPSHOTS` or
+  `FRIGATE__RECORDING_CLIP_ENABLED` environment override takes precedence.
 
-1. Update your Docker image tag to `v2.6.0` (or `latest`).
-2. Recreate the container (`docker compose up -d`).
-3. The system will automatically migrate your `config.json` to include the new authentication settings (disabled by default).
-4. You will see a banner in the UI prompting you to secure your installation.
-5. Go to **Settings → Security** to enable authentication and set a password.
+This avoids silently enabling expensive media work that the old switches prevented.
+Review **Settings → Data → Snapshot quality** and **Settings → Connection → Full-visit clips**
+if you want those options on. Save settings once to persist the one-time marker and
+remove retired keys from `config.json`. Remove `MEDIA_CACHE__ENABLED` and
+`MEDIA_CACHE__CACHE_SNAPSHOTS` from your deployment environment; startup warnings
+identify any remaining retired switches.
 
----
+A `media_cache.retention_days` value of `0` follows detection retention. A
+`maintenance.retention_days` value of `0` keeps history indefinitely. Finite history
+retention permanently deletes old visual and BirdNET-Go records, except protected
+visual records. Size and per-species maximum limits can delete non-favourite media
+while retaining detection rows. See [Data settings](docs/setup/configuration.md#data)
+before changing limits.
 
-### 🟠 Scenario 3: Upgrading with Legacy API Key
+## Models and catalogue-backed names
 
-If you were using `YA_WAMF_API_KEY` in your `.env` file:
+Updating does not automatically replace your selected classifier. The October models
+require an application build containing their integration; published model files alone
+cannot enable them in an older image.
 
-1. Update your Docker image.
-2. The system will detect your existing API key and continue to honor it.
-3. You will see a warning in the Settings page: **"Legacy API Key Detected"**.
-4. **To Migrate:**
-   - Go to **Settings → Security**.
-   - Enable "Authentication".
-   - Set a username and password.
-   - Save settings.
-5. **Cleanup:**
-   - Once verified, remove `YA_WAMF_API_KEY` from your `.env` or `docker-compose.yml` file.
-   - Restart the container.
+Use **Settings → Detection → Model Manager** to download, validate and activate a model.
+Registered classifier outputs are held in the species catalogue and bound to the
+model checksum, so integrated downloads need no separate `labels.txt`. Custom and
+legacy label-file fallback remains available. Do not replace a live species database
+with a downloaded catalogue seed. See the
+[October model catalogue](docs/features/model-catalogue-2026-10.md).
 
----
+DINOv2 reads the saved feeder latitude and longitude at runtime. The setup wizard
+and **Settings → Integrations → Location** edit the same values. Missing coordinates
+use neutral metadata; date and location uncertainty are not supplied. Changing
+coordinates reloads classifier workers.
 
-### 🛡️ Rollback Guide
+## Authentication on older installations
 
-If you encounter issues after upgrading, you can easily roll back or reset authentication.
+Password authentication and read-only public access were introduced in v2.6.0.
+An existing installation without authentication remains accessible until you enable
+it; do that before exposing the UI or API beyond your trusted network.
 
-**Option A: Disable Auth via Config File**
-If you get locked out or forget your password, you can manually reset it:
+1. Open **Settings → Security**, set an owner username and password, and enable
+   **Authentication**.
+2. Select **Apply settings** and confirm you can sign in.
+3. Enable **Public Access** only if you want a guest view, then review its separate
+   photograph, video, audio and history permissions.
 
-1. Access your server via SSH/terminal.
-2. Edit `config/config.json`.
-3. Find the `"auth"` section.
-4. Remove the `"password_hash"` line (or set it to `null`).
-   ```json
-   "auth": {
-     "enabled": true,
-     "username": "admin",
-     "password_hash": null,  <-- Set to null
-     ...
-   }
-   ```
-5. Restart the backend container. You will be prompted to set a new password.
+The legacy `YA_WAMF_API_KEY` is still supported but deprecated. Confirm owner-login
+access before removing it from the deployment environment and recreating the
+container. Do not rely on the first-run endpoint to change an established account:
+a completed account decision closes that unauthenticated endpoint.
 
-For more details, see the [Authentication Guide](docs/features/authentication.md).
+If you lose the password, follow the
+[password reset procedure](docs/features/authentication.md#password-reset). Stop the
+app and back up the configuration first; both `auth.password_hash=null` and
+`auth.initial_setup_complete=false` are needed to reopen account setup. Clearing
+only the password hash does not reopen it.
 
-**Option B: Downgrade Docker Image**
-You can revert by changing the image tag in `docker-compose.yml` to a prior version tag (for example `v2.5.1`). Newer `config.json` fields are typically ignored by older versions, but always keep a backup before downgrading.
+## Roll back safely
+
+A same-commit image-flavour rollback can reuse the current volumes. An application
+version downgrade is different: an older image may not understand newer database,
+configuration or model contracts. Do not assume changing only the tag reverses a
+migration. Restore the previous image and its matching consistent `/config` and
+`/data` backup when a release does not document backwards compatibility. Keep the
+current volumes intact until you have verified the restored installation.
+
+## Integrators using AI Naturalist output
+
+Treat analysis text as Markdown. Do not depend on exact headings or paragraph order;
+those depend on the configured prompt. Use the documented API and status codes to
+distinguish saved analysis from failed provider requests. See the [API reference](docs/api.md).

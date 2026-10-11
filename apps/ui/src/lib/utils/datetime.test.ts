@@ -6,7 +6,7 @@ const authState: { dateFormat: string; timeFormat: string } = { dateFormat: 'loc
 vi.mock('../stores/settings.svelte', () => ({ settingsStore: settingsState }));
 vi.mock('../stores/auth.svelte', () => ({ authStore: authState }));
 
-const { formatTime, formatDateTime } = await import('./datetime');
+const { formatTime, formatDateTime, normalizeDateFormat, normalizeTimeFormat } = await import('./datetime');
 
 // 13:45 local, so the two clocks are unambiguous.
 const AFTERNOON = new Date(2026, 7, 22, 13, 45, 0);
@@ -61,5 +61,20 @@ describe('time format follows the owner setting, not the browser locale', () => 
         settingsState.settings = { time_format: 'nonsense' };
         const expected = AFTERNOON.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         expect(formatTime(AFTERNOON)).toBe(expected);
+    });
+});
+
+
+describe('display preference normalization', () => {
+    it.each(['locale', 'mdy', 'dmy', 'ymd'])('preserves the accepted date choice %s', value => {
+        expect(normalizeDateFormat(value)).toBe(value);
+    });
+    it.each(['locale', '12h', '24h'])('preserves the accepted clock choice %s independently of the date', value => {
+        expect(normalizeTimeFormat(value)).toBe(value);
+        expect(normalizeDateFormat('locale')).toBe('locale');
+    });
+    it.each([undefined, null, '', 'unknown', 24])('falls back to the browser language for invalid preferences %s', value => {
+        expect(normalizeDateFormat(value)).toBe('locale');
+        expect(normalizeTimeFormat(value)).toBe('locale');
     });
 });

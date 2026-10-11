@@ -25,6 +25,16 @@ If live job status cannot be read, the page keeps the last known progress, shows
 and retries automatically. **Try again** on a paused video-analysis lane reopens the circuit
 breaker; it does not discard queued detections.
 
+Opening Settings restores the last detection and weather backfill results without announcing
+them again. A backfill observed running on that page announces its completion or failure once;
+returning to Settings or reloading it does not replay the result.
+
+For a support report, follow **Health · Diagnostics export** to **Settings → Health** and expand
+**Diagnostics export**. **Capture Bundle** saves a snapshot; **Download without saving** exports
+one directly. Both request current server evidence, even with no browser errors. These actions
+require owner access and do not send a report automatically. A saved bundle retains its original
+capture time. See [Diagnostics](../troubleshooting/diagnostics.md#capture-current-evidence-for-a-report).
+
 ## Supported Platforms
 
 ### Discord
@@ -121,6 +131,13 @@ different UI language does not quietly break your filter.
 A minimum gap in minutes between notifications, across all channels (default `0`, disabled).
 Use it to reduce notification frequency when the feeder is busy.
 
+When enabled, only one delivery can begin at a time, even when separate visits
+reach different delivery workers together. A delivery with no eligible channels,
+or with no successful channel, leaves the next visit eligible. A completed channel
+starts the cooldown even if another channel is cancelled. Turning the cooldown
+off allows concurrent deliveries as before. This is local delivery admission;
+it cannot guarantee whether a remote service accepted a request interrupted in transit.
+
 ## Notification Modes
 
 Choose a delivery mode in **Settings → Notifications**:
@@ -131,12 +148,17 @@ Choose a delivery mode in **Settings → Notifications**:
 - **Silent:** Disable all notifications.
 - **Advanced (Custom):** Manually toggle the exact triggers.
 
+Delayed video notifications wait for the associated photo work within the notification
+timeout. They use the visit's accepted identification and current audio confirmation,
+including manual corrections, rather than a video guess that the promotion rules
+rejected. Deleted, hidden, blocked and unknown visits are checked again before delivery.
+
 ## How it Works
 
 1. **Event Trigger:** A detection is processed and saved to the database.
 2. **Filter Check:** The system checks your confidence, audio, and species filters.
 3. **Dispatch:** If passed, the notification service dispatches async requests to all enabled platforms simultaneously.
-4. **Rich Media:** If enabled, the system fetches the high-quality crop from Frigate to attach to the message.
+4. **Rich Media:** If enabled, the service attaches the available photograph. A photo or video guess cannot override the visit's accepted species merely to provide an attachment.
 
 ## Setup
 

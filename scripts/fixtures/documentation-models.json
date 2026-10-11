@@ -1,0 +1,333 @@
+{
+  "available": [
+    {
+      "id": "mobilenet_v2_birds",
+      "name": "MobileNet V2 (Fast)",
+      "description": "Lightweight iNat bird classifier (~960 species). Fast inference, good for real-time detection.",
+      "architecture": "MobileNetV2",
+      "artifact_kind": "classifier",
+      "file_size_mb": 3.4,
+      "accuracy_tier": "Medium",
+      "inference_speed": "Fast (~30ms)",
+      "download_url": "https://raw.githubusercontent.com/google-coral/test_data/104342d2d3480b3e66203073dac24f4e2dbb4c41/mobilenet_v2_1.0_224_inat_bird_quant.tflite",
+      "weights_url": null,
+      "labels_url": "https://raw.githubusercontent.com/google-coral/test_data/104342d2d3480b3e66203073dac24f4e2dbb4c41/inat_bird_labels.txt",
+      "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/mobilenet_v2_birds_model_config.json",
+      "sha256": "350fcd8cf1df1560060d464595dfed8b174b05792788052896004848d9ad04f9",
+      "labels_sha256": "a16108dfe3f8daff015b87a97ab6a17e717b9b1bccd719f6d8f747746d7b9277",
+      "weights_sha256": null,
+      "input_size": 224,
+      "runtime": "tflite",
+      "preprocessing": {
+        "color_space": "RGB",
+        "resize_mode": "letterbox",
+        "interpolation": "bicubic",
+        "padding_color": 128,
+        "normalization": "uint8"
+      },
+      "supported_inference_providers": [
+        "cpu"
+      ],
+      "candidate_inference_providers": null,
+      "tier": "cpu_only",
+      "taxonomy_scope": "birds_only",
+      "recommended_for": "Default bird-only inference on CPU and low-RAM devices.",
+      "estimated_ram_mb": 128,
+      "advanced_only": true,
+      "sort_order": 10,
+      "status": "stable",
+      "notes": "Legacy TFLite model \u2014 lower accuracy than the ONNX models. Kept for CPU-only environments with very limited RAM.",
+      "recommended_threshold": 0.7,
+      "family_id": null,
+      "default_region": null,
+      "region_variants": null,
+      "label_grouping": null,
+      "crop_generator": {
+        "enabled": true,
+        "source_preference": "standard",
+        "input_context": null
+      }
+    },
+    {
+      "id": "dinov2_b14_inat21_metadata_336",
+      "name": "DINOv2 B/14 with location",
+      "description": "Location-aware wildlife classifier. Uses your configured feeder location; missing date and uncertainty stay absent.",
+      "architecture": "kokoc30/inat2021-dinov2-species-classification@v1.0.0",
+      "artifact_kind": "classifier",
+      "file_size_mb": 456.5,
+      "accuracy_tier": "Experimental",
+      "inference_speed": "Measured per host",
+      "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/dinov2_b14_inat21_metadata_336.onnx",
+      "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/dinov2_b14_inat21_metadata_336.onnx.data",
+      "labels_url": "",
+      "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/dinov2_b14_inat21_metadata_336_model_config.json",
+      "sha256": "d61793c4c5aeb6ab850b831f5e7ce4ac2a5ec8609769bc6a3704270aa1610109",
+      "labels_sha256": "f2b1294bc0b3a943425655e8b74cd7489e623d0ec7fa6dc5ce57cc85a93f8ac5",
+      "weights_sha256": "ec76f79196d5a64c4c8b4e4199c3d2d43771e50a5693947aae9502bc5ac9f34c",
+      "input_size": 336,
+      "runtime": "onnx",
+      "preprocessing": {
+        "color_space": "RGB",
+        "crop_pct": 0.875,
+        "interpolation": "bicubic",
+        "mean": [
+          0.485,
+          0.456,
+          0.406
+        ],
+        "metadata_input": "inat2021_location_v1",
+        "normalization": "float32",
+        "resize_mode": "center_crop",
+        "resize_rounding": "floor",
+        "std": [
+          0.229,
+          0.224,
+          0.225
+        ]
+      },
+      "supported_inference_providers": [
+        "cpu",
+        "intel_cpu"
+      ],
+      "candidate_inference_providers": [
+        "cpu",
+        "intel_cpu",
+        "cuda",
+        "intel_gpu",
+        "intel_npu"
+      ],
+      "tier": "large",
+      "taxonomy_scope": "wildlife_wide",
+      "recommended_for": "Wildlife classification on a host with sufficient memory.",
+      "estimated_ram_mb": 2048,
+      "advanced_only": false,
+      "sort_order": 45,
+      "status": "experimental",
+      "notes": "CPU reference retained. Accelerator selection requires validation on this exact installation. ",
+      "recommended_threshold": 0.6,
+      "family_id": null,
+      "default_region": null,
+      "region_variants": null,
+      "label_grouping": null,
+      "crop_generator": {
+        "enabled": false,
+        "source_preference": "standard",
+        "input_context": null
+      }
+    },
+    {
+      "id": "rope_vit_b14_inat21_336",
+      "name": "RoPE ViT-B14 Wildlife 336",
+      "description": "Experimental wildlife-wide classifier evaluated against the current pipeline.",
+      "architecture": "rope_vit_reg4_b14_capi-inat21",
+      "artifact_kind": "classifier",
+      "file_size_mb": 364.3,
+      "accuracy_tier": "Experimental",
+      "inference_speed": "Measured per host",
+      "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/rope_vit_b14_inat21_336.onnx",
+      "weights_url": null,
+      "labels_url": "",
+      "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/rope_vit_b14_inat21_336_model_config.json",
+      "sha256": "e997ad65c4442dd154dbaf28e86e4568e74cb53a91e7f8d97ce95c175c85accf",
+      "labels_sha256": "2d9fd87ac88f8a209f398e45e206eb1618ee11435573ee40b07f18c773e295d9",
+      "weights_sha256": null,
+      "input_size": 336,
+      "runtime": "onnx",
+      "preprocessing": {
+        "color_space": "RGB",
+        "crop_pct": 1.0,
+        "interpolation": "bicubic",
+        "mean": [
+          0.5191,
+          0.5306,
+          0.4877
+        ],
+        "normalization": "float32",
+        "resize_mode": "direct_resize",
+        "std": [
+          0.2316,
+          0.2304,
+          0.2588
+        ]
+      },
+      "supported_inference_providers": [
+        "cpu",
+        "intel_cpu"
+      ],
+      "candidate_inference_providers": [
+        "cpu",
+        "intel_cpu",
+        "cuda",
+        "intel_gpu",
+        "intel_npu"
+      ],
+      "tier": "medium",
+      "taxonomy_scope": "wildlife_wide",
+      "recommended_for": "Wildlife classification on a host with sufficient memory.",
+      "estimated_ram_mb": 1536,
+      "advanced_only": false,
+      "sort_order": 46,
+      "status": "experimental",
+      "notes": "CPU reference retained. Accelerator selection requires validation on this exact installation. ",
+      "recommended_threshold": 0.6,
+      "family_id": null,
+      "default_region": null,
+      "region_variants": null,
+      "label_grouping": null,
+      "crop_generator": {
+        "enabled": false,
+        "source_preference": "standard",
+        "input_context": null
+      }
+    }
+  ],
+  "installed": [
+    {
+      "id": "mobilenet_v2_birds",
+      "path": "/data/models/mobilenet_v2_birds/model.tflite",
+      "labels_path": "/data/models/mobilenet_v2_birds/labels.txt",
+      "is_active": false,
+      "ready": true,
+      "reason": "ready",
+      "validated": false,
+      "validation_reason": "unvalidated",
+      "validated_inference_providers": [],
+      "provider_preference_order": [],
+      "preferred_inference_provider": null,
+      "metadata": {
+        "id": "mobilenet_v2_birds",
+        "name": "MobileNet V2 (Fast)",
+        "description": "Lightweight iNat bird classifier (~960 species). Fast inference, good for real-time detection.",
+        "architecture": "MobileNetV2",
+        "artifact_kind": "classifier",
+        "file_size_mb": 3.4,
+        "accuracy_tier": "Medium",
+        "inference_speed": "Fast (~30ms)",
+        "download_url": "https://raw.githubusercontent.com/google-coral/test_data/104342d2d3480b3e66203073dac24f4e2dbb4c41/mobilenet_v2_1.0_224_inat_bird_quant.tflite",
+        "weights_url": null,
+        "labels_url": "https://raw.githubusercontent.com/google-coral/test_data/104342d2d3480b3e66203073dac24f4e2dbb4c41/inat_bird_labels.txt",
+        "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/mobilenet_v2_birds_model_config.json",
+        "sha256": "350fcd8cf1df1560060d464595dfed8b174b05792788052896004848d9ad04f9",
+        "labels_sha256": "a16108dfe3f8daff015b87a97ab6a17e717b9b1bccd719f6d8f747746d7b9277",
+        "weights_sha256": null,
+        "input_size": 224,
+        "runtime": "tflite",
+        "preprocessing": {
+          "color_space": "RGB",
+          "resize_mode": "letterbox",
+          "interpolation": "bicubic",
+          "padding_color": 128,
+          "normalization": "uint8"
+        },
+        "supported_inference_providers": [
+          "cpu"
+        ],
+        "candidate_inference_providers": null,
+        "tier": "cpu_only",
+        "taxonomy_scope": "birds_only",
+        "recommended_for": "Default bird-only inference on CPU and low-RAM devices.",
+        "estimated_ram_mb": 128,
+        "advanced_only": true,
+        "sort_order": 10,
+        "status": "stable",
+        "notes": "Legacy TFLite model \u2014 lower accuracy than the ONNX models. Kept for CPU-only environments with very limited RAM.",
+        "recommended_threshold": 0.7,
+        "family_id": null,
+        "default_region": null,
+        "region_variants": null,
+        "label_grouping": null,
+        "crop_generator": {
+          "enabled": true,
+          "source_preference": "standard",
+          "input_context": null
+        }
+      }
+    },
+    {
+      "id": "dinov2_b14_inat21_metadata_336",
+      "path": "/data/models/dinov2_b14_inat21_metadata_336/model.onnx",
+      "labels_path": "/data/models/dinov2_b14_inat21_metadata_336/labels.txt",
+      "is_active": true,
+      "ready": true,
+      "reason": "ready",
+      "validated": true,
+      "validation_reason": "active",
+      "validated_inference_providers": [
+        "cpu",
+        "intel_npu"
+      ],
+      "provider_preference_order": [
+        "intel_npu",
+        "cpu"
+      ],
+      "preferred_inference_provider": "intel_npu",
+      "metadata": {
+        "id": "dinov2_b14_inat21_metadata_336",
+        "name": "DINOv2 B/14 with location",
+        "description": "Location-aware wildlife classifier. Uses your configured feeder location; missing date and uncertainty stay absent.",
+        "architecture": "kokoc30/inat2021-dinov2-species-classification@v1.0.0",
+        "artifact_kind": "classifier",
+        "file_size_mb": 456.5,
+        "accuracy_tier": "Experimental",
+        "inference_speed": "Measured per host",
+        "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/dinov2_b14_inat21_metadata_336.onnx",
+        "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/dinov2_b14_inat21_metadata_336.onnx.data",
+        "labels_url": "",
+        "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/dinov2_b14_inat21_metadata_336_model_config.json",
+        "sha256": "d61793c4c5aeb6ab850b831f5e7ce4ac2a5ec8609769bc6a3704270aa1610109",
+        "labels_sha256": "f2b1294bc0b3a943425655e8b74cd7489e623d0ec7fa6dc5ce57cc85a93f8ac5",
+        "weights_sha256": "ec76f79196d5a64c4c8b4e4199c3d2d43771e50a5693947aae9502bc5ac9f34c",
+        "input_size": 336,
+        "runtime": "onnx",
+        "preprocessing": {
+          "color_space": "RGB",
+          "crop_pct": 0.875,
+          "interpolation": "bicubic",
+          "mean": [
+            0.485,
+            0.456,
+            0.406
+          ],
+          "metadata_input": "inat2021_location_v1",
+          "normalization": "float32",
+          "resize_mode": "center_crop",
+          "resize_rounding": "floor",
+          "std": [
+            0.229,
+            0.224,
+            0.225
+          ]
+        },
+        "supported_inference_providers": [
+          "cpu",
+          "intel_cpu"
+        ],
+        "candidate_inference_providers": [
+          "cpu",
+          "intel_cpu",
+          "cuda",
+          "intel_gpu",
+          "intel_npu"
+        ],
+        "tier": "large",
+        "taxonomy_scope": "wildlife_wide",
+        "recommended_for": "Wildlife classification on a host with sufficient memory.",
+        "estimated_ram_mb": 2048,
+        "advanced_only": false,
+        "sort_order": 45,
+        "status": "experimental",
+        "notes": "CPU reference retained. Accelerator selection requires validation on this exact installation. ",
+        "recommended_threshold": 0.6,
+        "family_id": null,
+        "default_region": null,
+        "region_variants": null,
+        "label_grouping": null,
+        "crop_generator": {
+          "enabled": false,
+          "source_preference": "standard",
+          "input_context": null
+        }
+      }
+    }
+  ]
+}

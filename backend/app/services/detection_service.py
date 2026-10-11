@@ -3,8 +3,8 @@ import os
 import asyncio
 import math
 from app.config import settings
-from app.repositories.detection_repository import DetectionRepository, Detection
-from app.services.classifier_service import ClassifierService, get_classifier
+from app.repositories.detection_repository import INITIAL_LABEL_SOURCE_FRIGATE_SUBLABEL, Detection, DetectionRepository
+from app.services.classifier_service import ClassifierService
 from app.services.species_catalog_resolver import ShadowResolution, species_catalog_resolver
 from app.services.broadcaster import broadcaster
 from app.services.taxonomy.taxonomy_service import taxonomy_service
@@ -37,10 +37,12 @@ async def _catalog_shadow_resolution(
     output_index = classification.get("index")
     if not isinstance(output_index, int) or output_index < 0:
         return ShadowResolution(verdict="unavailable")
+    # Only the checksum the producing model stamped on its result: the model loaded
+    # now may have been switched in since this result was computed.
+    model_sha256 = classification.get("model_sha256")
+    if not isinstance(model_sha256, str) or not model_sha256:
+        return ShadowResolution(verdict="unavailable")
     try:
-        model_sha256 = get_classifier().active_model_sha256()
-        if not model_sha256:
-            return ShadowResolution(verdict="unavailable")
         return await asyncio.to_thread(
             species_catalog_resolver.shadow_resolve,
             model_sha256,
@@ -54,25 +56,24 @@ async def _catalog_shadow_resolution(
 
 
 async def _catalog_identity_for_refinement(
-    refinement_model_id: str | None, output_index: int | None, scientific_name: str | None, frigate_event: str
+    output_index: int | None,
+    scientific_name: str | None,
+    frigate_event: str,
+    *,
+    model_sha256: str | None,
 ) -> ShadowResolution:
-    """Shadow-resolve a queued refinement result, guarding against model swaps.
+    """Shadow-resolve a queued refinement result through the model that produced it.
 
-    A video result can be applied after the owner switches models; attributing
-    it to the currently loaded artifact would record false provenance, so the
-    result resolves only while the refining model is still the active one.
+    A video result can be applied after the owner switches models, or switches a
+    regional model's region, which keeps its model id. Only the checksum carried
+    with the result names the producing weights; without one, no provenance is
+    recorded rather than borrowing the loaded model's.
     """
     if not isinstance(output_index, int) or output_index < 0:
         return ShadowResolution(verdict="unavailable")
+    if not isinstance(model_sha256, str) or not model_sha256:
+        return ShadowResolution(verdict="unavailable")
     try:
-        classifier = get_classifier()
-        status = classifier.get_status()
-        current_model_id = str(status.get("effective_model_id") or status.get("active_model_id") or "").strip()
-        if refinement_model_id and current_model_id and refinement_model_id != current_model_id:
-            return ShadowResolution(verdict="unavailable")
-        model_sha256 = classifier.active_model_sha256()
-        if not model_sha256:
-            return ShadowResolution(verdict="unavailable")
         return await asyncio.to_thread(
             species_catalog_resolver.shadow_resolve,
             model_sha256,
@@ -86,6 +87,10 @@ async def _catalog_identity_for_refinement(
 
 
 TAXONOMY_LOOKUP_TIMEOUT_SECONDS = max(0.5, float(os.getenv("TAXONOMY_LOOKUP_TIMEOUT_SECONDS", "3")))
+
+
+def _reportable_species(scientific_name: str | None) -> bool:
+    return bool(scientific_name) and scientific_name != "Unknown Bird"
 
 
 class DetectionService:
@@ -116,6 +121,7 @@ class DetectionService:
                     "inference_backend",
                     "model_id",
                     "model_name",
+                    "model_sha256",
                     "input_source",
                     "input_is_cropped",
                 )
@@ -226,10 +232,12 @@ class DetectionService:
                 final_score=final_score,
                 event_id=frigate_event,
             )
+            # The classifier's own output index belongs to a different label; carrying
+            # it would attribute this borrowed species to a model output.
             return {
                 "label": frigate_sub_label,
                 "score": final_score,
-                "index": top.get("index", -1),
+                "index": -1,
                 "source": "frigate_fallback",
                 "input_source": "frigate_sublabel",
             }, "frigate_fallback"
@@ -400,10 +408,15 @@ class DetectionService:
         weather_precipitation: float = None,
         weather_rain: float = None,
         weather_snowfall: float = None,
+        end_time: float | None = None,
+        report_to_birdweather: bool = True,
     ) -> tuple[bool, bool]:
         """
         Save or update a detection in the database and broadcast the event.
         Returns (changed, was_inserted).
+
+        ``report_to_birdweather`` is false for a replay of history: those sightings were
+        reported when they happened, and BirdWeather keeps every submission as a new one.
         """
         try:
             score = float(classification["score"])
@@ -528,8 +541,20 @@ class DetectionService:
                 taxa_id=taxa_id,
             )
 
+            previous = await repo.get_by_frigate_event(frigate_event) if report_to_birdweather else None
             # Atomic upsert: insert or update only if score is higher
-            was_inserted, was_updated = await repo.upsert_if_higher_score(detection)
+            was_inserted, was_updated = await repo.upsert_if_higher_score(
+                detection,
+                initial_label_source=(
+                    INITIAL_LABEL_SOURCE_FRIGATE_SUBLABEL
+                    if classification.get("source") == "frigate_fallback"
+                    else None
+                ),
+            )
+            if end_time is not None:
+                from app.repositories.visit_repository import VisitRepository
+
+                await VisitRepository(db).save_event_bounds(frigate_event, start_time, end_time)
             changed = was_inserted or was_updated
 
             if changed:
@@ -588,8 +613,14 @@ class DetectionService:
                     }
                 )
 
-                # 3. Report to BirdWeather (if enabled)
-                if scientific_name and scientific_name != "Unknown Bird":
+                # 3. Report to BirdWeather (if enabled), once per visit: the first save that names a
+                # species. A better frame of the same visit updates the row, and BirdWeather would
+                # count a second submission as a second sighting.
+                if (
+                    report_to_birdweather
+                    and _reportable_species(scientific_name)
+                    and not (previous and _reportable_species(previous.scientific_name))
+                ):
                     # Run in background to not block the main loop
                     create_background_task(
                         birdweather_service.report_detection(
@@ -622,6 +653,7 @@ class DetectionService:
         video_input_source: str | None = None,
         video_diagnostics: dict | None = None,
         persist_video_result: bool = True,
+        video_model_sha256: str | None = None,
     ):
         """
         Process a trustworthy asynchronous classification result.
@@ -718,6 +750,18 @@ class DetectionService:
             # never cleared that threshold in the first place.
             baseline_gate = threshold if current_score >= threshold else effective_floor
             base_required_score = max(current_score, baseline_gate)
+            # A label borrowed from Frigate's sub-label is not YA-WAMF's identification:
+            # its own classifier stayed below threshold, and the stored score is on
+            # Frigate's model scale. Checking the sub-label against itself would add a
+            # second-opinion guard to the very opinion under test, so a confident
+            # YA-WAMF video result only has to clear the normal threshold.
+            borrowed_frigate_label = (
+                not manual_tagged
+                and not existing_is_unknown
+                and await repo.has_unchanged_initial_label_from(frigate_event, INITIAL_LABEL_SOURCE_FRIGATE_SUBLABEL)
+            )
+            if borrowed_frigate_label:
+                base_required_score = threshold
 
             normalized_video_label = str(normalized_video_label or "").strip().casefold()
             normalized_sub_label = normalize_sub_label(getattr(existing, "sub_label", None))
@@ -728,7 +772,9 @@ class DetectionService:
 
             required_score = base_required_score
             override_reason = "score_gate_passed"
-            if sublabel_disagrees:
+            if borrowed_frigate_label:
+                override_reason = "replaces_borrowed_frigate_sublabel"
+            elif sublabel_disagrees:
                 disagreement_min_score = min(0.95, threshold + 0.20)
                 required_score = max(required_score, disagreement_min_score)
                 override_reason = "score_gate_passed_with_sublabel_disagreement"
@@ -827,7 +873,7 @@ class DetectionService:
                     audio_confirmed, audio_species, audio_score = False, None, None
 
                 shadow = await _catalog_identity_for_refinement(
-                    video_model_id, video_index, scientific_name, frigate_event
+                    video_index, scientific_name, frigate_event, model_sha256=video_model_sha256
                 )
 
                 primary_updated = await repo.update_primary_classification(
@@ -908,6 +954,7 @@ class DetectionService:
                     threshold=threshold,
                     existing_is_unknown=existing_is_unknown,
                     sublabel_disagrees=sublabel_disagrees,
+                    borrowed_frigate_label=borrowed_frigate_label,
                     sub_label=normalized_sub_label,
                     video_label=normalized_video_label,
                     manual_tagged=manual_tagged,

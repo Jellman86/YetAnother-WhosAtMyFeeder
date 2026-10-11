@@ -12,12 +12,14 @@ import {
     resolveWeatherUnitSystem,
     type WeatherUnitSystem
 } from '../utils/weather-units';
+import { normalizeGuestRateLimit } from '../app/public-refresh-budget';
 import { StaleTracker } from '../utils/stale_tracker';
 import { refreshCoordinator } from './refresh_coordinator.svelte';
 
 class AuthStore {
     authRequired = $state(false);
     publicAccessEnabled = $state(false);
+    publicAccessRateLimitPerMinute = $state(30);
     publicAccessShowAiConversation = $state(false);
     publicAccessAllowClipDownloads = $state(false);
     publicAccessShowAudio = $state(true);
@@ -26,6 +28,8 @@ class AuthStore {
     needsInitialSetup = $state(false);
     isAuthenticated = $state(false);
     username = $state<string | null>(null);
+    /** The owner's profile picture version from the status call; null without one or for a guest. */
+    avatarVersion = $state<number | null>(null);
     statusLoaded = $state(false);
     statusHealthy = $state(false);
     statusLoading = $state(false);
@@ -93,6 +97,7 @@ class AuthStore {
             const status = await fetchAuthStatus();
             this.authRequired = status.auth_required;
             this.publicAccessEnabled = status.public_access_enabled;
+            this.publicAccessRateLimitPerMinute = normalizeGuestRateLimit(status.public_access_rate_limit_per_minute);
             this.publicAccessShowAiConversation = status.public_access_show_ai_conversation ?? false;
             this.publicAccessShowAudio = status.public_access_show_audio ?? true;
             this.publicAccessShowSnapshots = status.public_access_show_snapshots ?? true;
@@ -106,6 +111,7 @@ class AuthStore {
                 void createSessionCookie().catch(() => undefined);
             }
             this.username = status.username ?? null;
+            this.avatarVersion = status.avatar_version ?? null;
             this.httpsWarning = status.https_warning ?? false;
             this.birdnetEnabled = status.birdnet_enabled ?? false;
             this.llmEnabled = status.llm_enabled ?? false;

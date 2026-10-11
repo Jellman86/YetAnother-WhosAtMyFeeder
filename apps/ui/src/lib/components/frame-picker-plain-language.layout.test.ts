@@ -14,6 +14,13 @@ describe('the frame strip names pictures, not subsystems (#256)', () => {
         expect(stripSource).toContain('detection.snapshot_framing_as_recorded');
     });
 
+    it('names a kept photograph as an earlier one, never as a frame of the clip', () => {
+        expect(stripSource).toContain("$_('detection.snapshot_framing_previous', { default: 'An earlier photograph' })");
+        expect(stripSource).toContain('detection.previous_photo_note');
+        // Counting it among "frames" would claim a place in the clip that nobody measured.
+        expect(stripSource).toContain("moment.choice === 'crop' || moment.choice === 'previous'");
+    });
+
     it('has retired the subsystem vocabulary from the record', () => {
         for (const source of [stripSource, modalSource]) {
             expect(source).not.toContain('snapshot_source_frigate_hint_crop');

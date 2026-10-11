@@ -63,7 +63,9 @@ describe('settings primitives — style audit', () => {
     it('SettingsCard primitive uses the standard card chrome', () => {
         const cardPath = join(PRIMITIVES_DIR, 'SettingsCard.svelte');
         const src = readFileSync(cardPath, 'utf8');
-        expect(src).toContain('rounded-3xl');
+        // The kit's flat panel: its own radius and rule, no blur or extra radius on top.
         expect(src).toContain('card-base');
+        expect(src).not.toContain('rounded-3xl');
+        expect(src).not.toContain('backdrop-blur');
     });
 });

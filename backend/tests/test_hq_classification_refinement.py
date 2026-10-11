@@ -197,3 +197,14 @@ def test_rejects_ambiguous_competing_multi_frame_consensus():
     )
 
     assert decision is None
+
+
+def test_the_decision_names_the_model_that_scored_its_winning_crop():
+    candidates = [_candidate(frame, "Columba palumbus", 0.82) for frame in (10, 20, 30)]
+    for candidate in candidates:
+        candidate["classifier_model_sha256"] = "c" * 64
+
+    decision = choose_hq_classification_refinement(detection=_detection(), candidates=candidates, minimum_score=0.60)
+
+    assert decision is not None
+    assert decision.model_sha256 == "c" * 64
