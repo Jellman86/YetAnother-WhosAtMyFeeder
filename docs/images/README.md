@@ -23,7 +23,7 @@ cd apps/ui && npx playwright install chromium && cd ../..
 Start the current UI in one terminal:
 
 ```bash
-npm --prefix apps/ui run dev -- --host 127.0.0.1 --port 4189 --strictPort
+APP_BRANCH=stable npm --prefix apps/ui run dev -- --host 127.0.0.1 --port 4189 --strictPort
 ```
 
 In another terminal, from the repository root:
@@ -33,19 +33,25 @@ node scripts/capture_docs_screenshots.mjs
 ```
 
 Port 4189 keeps this capture separate from the browser regression suite. For
+matching frontend and fixture version metadata, use the `stable` branch label
+shown above; the fixture reads the version from `VERSION`. For
 another local port, set `DOCS_UI_URL=http://127.0.0.1:PORT`. The capture script
 rejects non-local UI URLs, URL credentials, queries and fragments. A network
 guard aborts every request to another origin; local API responses are mocked,
-including a session-cookie acknowledgement. All other API writes are rejected,
-so no session or application state is written to a server. The script reports
+including session-cookie and stream-ticket acknowledgements. All other API writes
+are rejected, so no session or application state is written to a server. The script reports
 browser page errors and exits unsuccessfully
 if any occur. It blocks external font requests and uses the system font fallback.
 The example clock is fixed to 11 October 2026, with the Europe/London time zone.
 
-The isolated [documentation page fixture](../../apps/ui/browser-tests/documentation.ts)
-mounts the real Dashboard and Add observation pages. Other captures reuse the
-existing Settings, wizard, Explorer, review, model-evaluation, audio and species
-browser fixtures. These fixtures bypass application background schedulers.
+The dashboard overview uses the complete application shell, including the expanded
+desktop sidebar and mobile navigation bar. The capture rejects a missing or clipped
+desktop sidebar. Its live stream is an empty local fixture, so no live connection
+is implied. The isolated [documentation page fixture](../../apps/ui/browser-tests/documentation.ts)
+mounts the real Dashboard for focused figures and the Add observation page.
+Other captures reuse the existing Settings, wizard, Explorer, review, model-evaluation, audio and species
+browser fixtures. The isolated fixtures bypass application background schedulers;
+the full application overview's requests are all handled by the same local guard.
 
 ## Data and privacy
 
@@ -74,8 +80,8 @@ example counts or runtime values into product guarantees.
 
 | File | Visible information |
 |---|---|
-| `dashboard.png` | Last 24 hours, visit field log, review queue and feeder context |
-| `dashboard-mobile.png` | Mobile viewport with the same dashboard and review flow |
+| `dashboard.png` | Complete desktop sidebar, Last 24 hours, visit field log, review queue and feeder context |
+| `dashboard-mobile.png` | Mobile navigation bar with the same dashboard and review flow |
 | `dashboard-field-log.png` | Dunnock visit, three captures, confidence and open action |
 | `explorer.png` | Visit cards, filter rail and Heard calls between camera visits |
 | `explorer-heard-calls.png` | Three Robin calls in a separate heard-between-visits card |
