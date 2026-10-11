@@ -9,6 +9,7 @@
   <a href="#quick-start">Quick Start</a> •
   <a href="https://yetanotherwhosatmyfeeder.pownet.uk">Live Demo</a>
 </p>
+
 YA-WAMF identifies birds in [Frigate NVR](https://frigate.video/) events using local models.
 It keeps photographs and visit history, can match BirdNET-Go calls, and offers a read-only
 view you can share.
