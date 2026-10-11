@@ -1,6 +1,8 @@
 """The hardware runner's safety contract needs no model downloads or accelerator."""
 
 import json
+import hashlib
+import sqlite3
 from pathlib import Path
 import sys
 from types import SimpleNamespace
@@ -18,18 +20,50 @@ from scripts.run_model_hardware_gate import (
 )
 
 
-def test_hardware_probe_uses_a_private_catalogue_with_bundled_model_labels(tmp_path, monkeypatch):
+def test_hardware_probe_seeds_private_catalogue_labels_from_its_verified_image_seed(tmp_path, monkeypatch):
     from app.services.catalogue_labels import catalogue_labels_for_model
-    from app.services.species_catalog_store import DEFAULT_SEED_PATH
-    from app.services.model_manager import REMOTE_REGISTRY
+    from app.services import species_catalog_store, model_manager
+    from app.services.species_catalog_migrations import upgrade_catalog
 
+    seed = tmp_path / "image-seed.db"
+    upgrade_catalog(seed)
+    with sqlite3.connect(seed) as connection:
+        connection.execute(
+            "INSERT INTO model_artifacts (id, registry_id, model_sha256, output_width, runtime)"
+            " VALUES (1, 'fixture', 'fixture-sha', 2, 'onnx')"
+        )
+        connection.executemany(
+            "INSERT INTO model_output_taxa (model_artifact_id, output_index, class_kind, source_label)"
+            " VALUES (1, ?, 'unknown', ?)",
+            [(0, "Erithacus rubecula"), (1, "Cyanistes caeruleus")],
+        )
+    seed.with_suffix(".db.sha256").write_text(hashlib.sha256(seed.read_bytes()).hexdigest())
+    monkeypatch.setattr(species_catalog_store, "DEFAULT_SEED_PATH", seed)
+    monkeypatch.setattr(model_manager, "REMOTE_REGISTRY", [])
     private = tmp_path / "catalogue.db"
     monkeypatch.setenv("SPECIES_CATALOG_PATH", str(private))
+    before = seed.read_bytes()
     prepare_catalogue()
-    assert private.is_file() and private.resolve() != DEFAULT_SEED_PATH.resolve()
-    model = next(row for row in REMOTE_REGISTRY if row["id"] == "dinov2_b14_inat21_metadata_336")
-    labels = catalogue_labels_for_model(model["sha256"], catalog_path=private)
-    assert labels is not None and len(labels) == 10000
+    assert private.is_file() and private.resolve() != seed.resolve()
+    assert catalogue_labels_for_model("fixture-sha", catalog_path=private) == [
+        "Erithacus rubecula",
+        "Cyanistes caeruleus",
+    ]
+    assert seed.read_bytes() == before
+
+
+@pytest.mark.parametrize("seed_present", [False, True])
+def test_hardware_probe_refuses_an_absent_or_corrupt_image_seed(tmp_path, monkeypatch, seed_present):
+    from app.services import species_catalog_store
+
+    seed = tmp_path / "image-seed.db"
+    if seed_present:
+        seed.write_bytes(b"corrupt seed")
+        seed.with_suffix(".db.sha256").write_text("0" * 64)
+    monkeypatch.setattr(species_catalog_store, "DEFAULT_SEED_PATH", seed)
+    monkeypatch.setenv("SPECIES_CATALOG_PATH", str(tmp_path / "catalogue.db"))
+    with pytest.raises(RuntimeError, match="Hardware probe catalogue is unavailable"):
+        prepare_catalogue()
 
 
 def test_registry_discovery_includes_nested_variants_and_excludes_retired_artifacts(tmp_path):
