@@ -150,8 +150,8 @@ matrices, hardware probes and sustained-load runs provide different evidence; th
 do not replace normal tests. Follow [testing](docs/development/testing.md).
 
 The recommended deployment is the monolithic root `Dockerfile` and
-`docker-compose.monolith.yml`. Unsuffixed images are the full runtime family;
-CPU, Intel and CUDA variants preserve the same volume contract. The ARM64 Raspberry
+`docker-compose.monolith.yml`. The full, CPU, Intel, and CUDA image families preserve
+the same volume contract; unsuffixed tags select full. The ARM64 Raspberry
 Pi image is a separate CPU-only best-effort path. The legacy split layout is kept
 for existing installations. See [Getting started](docs/setup/getting-started.md)
 and [release workflow](docs/development/releasing.md).

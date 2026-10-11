@@ -223,8 +223,9 @@ Legacy split deployment (from the Docker network):
 curl -fsS http://yawamf-backend:8000/api/classifier/status
 ```
 
-The status response includes image/package eligibility, host probes, selected and active providers,
-worker evidence, fallback reasons and model-install warnings. **Selected** is a preference;
+The status response names the image family in `image_flavor`, eligible providers in
+`packaged_inference_providers` and any image/provider mismatch in `image_flavor_warning`.
+It also includes host probes, worker evidence, fallback reasons and model-install warnings. **Selected** is a preference;
 **Active** needs a loaded worker. A planned provider has not established actual inference yet.
 
 For `selected_provider_not_packaged`, switch to the matching image using the
