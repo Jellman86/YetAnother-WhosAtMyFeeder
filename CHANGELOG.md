@@ -6,6 +6,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- The isolated hardware gate prepares its own checksum-verified species catalogue, so catalogue-only
+  models such as DINOv2 can be tested without labels.txt or access to the running application’s database.
+
 ## [2.22.0] - 2026-10-11
 
 - Documentation is shorter and aligned with the current setup, model, Explorer, retention and

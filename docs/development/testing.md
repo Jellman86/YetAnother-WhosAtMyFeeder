@@ -153,6 +153,10 @@ python backend/scripts/run_model_hardware_gate.py \
   --provider intel_npu --provider intel_gpu --repeat 2
 ```
 
+The gate prepares a private species catalogue from the bundled checksum-verified seed before
+loading models. Catalogue-only models need no `labels.txt`, and the application’s catalogue is
+never opened or changed.
+
 The output directory must not already exist. On the NVIDIA host, request
 `--provider cuda` instead. Use `--model medium_birds/eu` to select an exact
 regional artifact. CPU is always run as the comparison baseline. Eight committed
