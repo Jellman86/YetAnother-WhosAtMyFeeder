@@ -6,7 +6,9 @@ To get the best results with YA-WAMF, your Frigate NVR should be configured to c
 
 ## Full Configuration Example (`config.yml`)
 
-Below is a complete, commented configuration optimized for birding.
+Merge this example into your existing Frigate configuration, replacing camera
+addresses and credentials. Keep any existing detector and hardware-acceleration
+settings; the example focuses on bird inputs and media retention.
 
 ```yaml
 # --- Global Settings ---
@@ -27,7 +29,7 @@ go2rtc:
 objects:
   track:
     - bird
-    - (other objects...)
+    # Add other labels your detector supports if needed.
     - dog
 
 # --- Camera Settings ---
@@ -46,7 +48,7 @@ cameras:
       enabled: True
       width: 1280 # Resolution of your detect stream
       height: 720
-      fps: 10 # Match your sub-stream's native FPS (see note below)
+      fps: 5 # Start conservatively; raise only with measured detector headroom
 
     # --- CRITICAL FOR YA-WAMF SNAPSHOTS ---
     snapshots:
@@ -59,7 +61,7 @@ cameras:
       retain:
         default: 7 # Days to keep snapshots in Frigate
 
-    # --- REQUIRED FOR DEEP VIDEO ANALYSIS ---
+    # --- RECORDINGS FOR VIDEO AND FULL-VISIT CLIPS ---
     record:
       enabled: True
       # Frigate 0.17+ uses tiered retention. Keep at least 1 day of continuous
@@ -89,32 +91,43 @@ cameras:
         bird:
           min_area: 500 # Filter out tiny movements (leaves, etc)
           min_score: 0.45  # per-frame floor to start tracking (Frigate default 0.5)
-          threshold: 0.5   # MEDIAN score needed for Frigate to SAVE the object as an event
-                           # (Frigate default 0.7). Lower = brief visits persist instead of
-                           # becoming "event not found"; raise toward 0.7 for fewer, stricter events.
+          threshold: 0.5   # Median tracked-object score to become a true positive.
+                           # Lowering this can keep brief birds but also admits more false positives.
 ```
 
 > For a bird feeder you usually want to catch quick visits, so this example lowers `threshold` below Frigate's `0.7` default. See [Detection FPS and Missing Events](#-detection-fps-and-missing-events) below and the [Event Not Found troubleshooting guide](../troubleshooting/frigate-event-not-found.md).
 
 ## Why use go2rtc?
 Using the `go2rtc` section in Frigate provides several major benefits:
-1.  **Lower Latency:** Provides a much faster stream for the YA-WAMF dashboard.
+1. **Stream reuse:** Frigate can reuse the camera feed for detection, recording and live view.
 2.  **Resource Efficiency:** Connects to your camera once and redistributes the stream internally to multiple Frigate roles (`detect`, `record`), reducing the load on your camera hardware.
 3.  **Stability:** Handles stream reconnections much more gracefully than basic FFmpeg inputs.
 
 ## Important Considerations
 
 ### 🎯 Detection FPS and Missing Events
-Frigate publishes an MQTT event as soon as a bird is first detected, but **only persists the event to its database once the object has been tracked across multiple frames**. If your `detect.fps` is too low and a bird appears briefly, it may only be captured in a single frame. In that case:
-- YA-WAMF receives the MQTT event and can grab the snapshot (served from memory).
-- But Frigate never writes the event to its database, so `/api/events/{id}` returns 404 and no clip is available.
+A brief detection may produce MQTT activity without usable retained media later.
+Check the event in Frigate before assuming YA-WAMF lost it: false-positive filtering,
+short tracking, disabled snapshots, retention expiry and camera outages can all
+leave a snapshot or clip unavailable.
 
-There are two levers, and it is easy to change the wrong one:
+Frigate has separate tracking and confidence controls:
 
-- **`threshold`** (median score to *save* the object as an event) is the main control. A brief bird fires MQTT but only becomes a persistent event once its median crosses `threshold`. **Lower `threshold` (e.g. `0.5`) to keep brief visits**; raising it *increases* "event not found", it does not reduce it.
-- **`detect.fps`** and **`detect.min_initialized`** control how quickly an object starts being tracked. Higher fps lets a brief bird reach its `min_initialized` frame count sooner (5 frames = 0.5 s at 10 fps). Frigate now recommends `fps: 5` and derives `min_initialized` as ½ the fps; raise fps only if your detector has headroom, and keep `min_initialized` low if you want brief visits tracked.
+- `min_score` rejects low-scoring individual detections. `threshold` compares the
+  tracked object's computed median score with the true-positive threshold. Lower
+  settings can retain more brief birds but also admit more false positives; they
+  do not guarantee every event will have media. See
+  [Frigate's object-score reference](https://docs.frigate.video/configuration/object_filters/#object-scores).
+- `detect.fps` determines the processed-frame rate. Start with `5` and increase only
+  if brief birds are missed and the detector has headroom. Check initialization,
+  skipped frames and detector latency rather than treating a higher rate as a fix
+  for expired recordings.
 
-Whatever you choose, YA-WAMF caches the snapshot and clip the instant the MQTT event arrives, so brief visits are still classified even when Frigate never persists the event. Full explanation: [Frigate "Event Not Found" guide](../troubleshooting/frigate-event-not-found.md).
+YA-WAMF classifies available input and stores photographs for retained detections.
+Clip copies are optional, recordings may still be finalizing, and unavailable media
+is retried within bounded limits; arrival of MQTT does not guarantee an immediate
+clip or a saved detection. See the
+[Event Not Found guide](../troubleshooting/frigate-event-not-found.md).
 
 ### 📷 Detection stream and snapshot resolution
 
@@ -156,7 +169,14 @@ AAC as the most compatible audio format, and `preset-record-generic-audio-copy` 
 unnecessary transcoding when the camera already emits AAC.
 
 ### 🎥 Record Mode (Frigate 0.17+)
-YA-WAMF's **Deep Video Analysis** requires access to the recording files. You must have `record: enabled: True` and set `continuous.days` to at least `1`; increase it only if you need to re-analyze older events from Frigate rather than YA-WAMF's media cache. Use `mode: all` under `alerts.retain` and `detections.retain` when you want every recording segment overlapping a retained bird event to remain available.
+**Auto Video Analysis** needs a usable retained clip. Continuous recording with
+positive retention gives the broader coverage needed by **Full-visit clips** and
+recording-frame workflows. Keep `record.enabled: True`, a `record` FFmpeg role and
+positive `continuous.days` on every selected camera when enabling full visits.
+Longer continuous retention is optional and costs more storage. `mode: all` under
+alerts/detections retains their overlapping segments, rather than guaranteeing
+an uninterrupted timeline between those events. See
+[Frigate recording retention](https://docs.frigate.video/configuration/record/).
 
 The optional **Full-visit clips** feature uses the same recording store, but proxies a longer camera-level window around the detection time and persists that result locally in YA-WAMF. In YA-WAMF, this is gated in **Settings → Connection → Frigate** and only becomes switchable when **every selected camera** is enabled, has an FFmpeg input with the `record` role, has recording enabled, and inherits or declares a positive `record.continuous.days` value. The UI reports the guaranteed minimum continuous retention across those cameras and names each camera whose configuration is incomplete.
 
@@ -167,7 +187,7 @@ Important behavior:
   native HLS; other supported browsers use Media Source Extensions through `hls.js`. Cached,
   archived and downloaded clips continue to use YA-WAMF's MP4 endpoint, which is also the automatic
   fallback for older Frigate versions without HLS VOD support.
-- When recording clips and the YA-WAMF media cache are enabled, YA-WAMF automatically tries to generate a full-visit clip after eligible Frigate `end` events. It waits beyond the requested end timestamp so Frigate can finalize the newest segment, validates the resulting duration, and makes bounded delayed attempts to upgrade a partial result.
+- When recording clips are enabled and YA-WAMF's local media folder is writable, YA-WAMF automatically tries to generate a full-visit clip after eligible Frigate `end` events. It waits beyond the requested end timestamp so Frigate can finalize the newest segment, validates the resulting duration, and makes bounded delayed attempts to upgrade a partial result.
 - Recording downloads are written to a staging file. A validated candidate replaces the live cache atomically only when it is longer, so a failed or shorter retry cannot corrupt or shorten an existing playable visit.
 - YA-WAMF's normal clip route (`/api/frigate/{event_id}/clip.mp4`) prefers a persisted recording automatically. A near-complete recording is presented as **Full visit**; a shorter but decodable recording remains playable and is explicitly presented as **Partial visit** instead of silently falling back to the much shorter event clip.
 - The requested recording window is configurable in YA-WAMF with sane defaults of `30` seconds before the detection and `90` seconds after it, for a default target window of about `120` seconds total.
@@ -180,4 +200,6 @@ Frigate “events” have a `start_time` and `end_time`. If the bird only trigge
 
 If you want more context around each detection, configure `record.alerts.pre_capture` / `post_capture` and `record.detections.pre_capture` / `post_capture` (example above). A common setup is `pre_capture: 5` and `post_capture: 25` to target roughly 30 seconds total context.
 
-If events are **missing entirely** (YA-WAMF shows detections but Frigate returns 404 for event details and clips), see the [Detection FPS and Missing Events](#-detection-fps-and-missing-events) section above. This is almost always caused by `detect.fps` being too low, so the bird only appears in a single frame and Frigate never persists the event. Setting `record.continuous.days` to at least `1` also helps, as it ensures recording segments always exist for clip generation.
+If events are **missing entirely** (YA-WAMF shows detections but Frigate returns 404 for event details and clips), see the [Detection FPS and Missing Events](#-detection-fps-and-missing-events) section above. Check tracking/score filters, snapshot and recording settings, retention expiry, and
+recent camera/network outages. Positive continuous retention provides source footage
+for recording workflows, but cannot recover footage from a camera that was offline.

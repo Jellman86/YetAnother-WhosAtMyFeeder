@@ -4,7 +4,11 @@ See [October 2026 classifier additions](model-catalogue-2026-10.md) for the new 
 models, their input contracts, sizes and catalogue integration. The historical tables below
 retain their original benchmark scope.
 
-This document describes how to run the model accuracy benchmark, explains the methodology, and documents the current results for all installed models on this hardware.
+This explanation records dated benchmark panels and the production evidence rules. It does not
+rank every current model on one common test set. For current installation-specific hardware
+measurements use [Model Evaluation](model-evaluation.md); for October public and retained-feeder
+comparisons use the [integration validation report](../reviews/2026-10-10-model-integration-validation.md).
+Compatibility results measure agreement with CPU, not agreement with the true bird species.
 
 ---
 
@@ -38,10 +42,10 @@ Each run tests two preprocessing modes — **raw** (image sent as-is) and **lett
 > combinations produced NaNs. YA-WAMF's post-install device validation is the authority for a
 > particular host. See the Intel GPU Support table below.
 
-### Key Takeaways
+### What the March panel showed
 
-- **EVA-02 Large** achieves the highest top-1 accuracy (68.3% raw) but is slow (~1.6s) and requires ~3GB RAM.
-- **RoPE ViT-B14** is the recommended default: 63.3% top-1 / 80.0% top-5 at 493ms — the best speed/accuracy balance for wildlife-wide classification. Letterboxing gives a marginal top-1 gain (+1.7%) at the cost of top-5 (−5.0%).
+- **EVA-02 Large** achieved the highest top-1 accuracy in this March panel (68.3% raw) but is slow (~1.6s) and requires ~3GB RAM.
+- **RoPE ViT-B14** remains the configured default. This panel measured 63.3% top-1 / 80.0% top-5 at 493ms; that result does not establish a universal best model. Letterboxing gives a marginal top-1 gain (+1.7%) at the cost of top-5 (−5.0%).
 - **ConvNeXt Large** matches RoPE top-1 but is twice as slow (976ms) with no accuracy advantage.
 - **Letterboxing** makes no meaningful difference across any model (±1–7% top-1). Raw preprocessing is recommended as the default.
 - **Legacy TFLite MobileNet V2** is fast (13ms) but has fewer labels and lower top-5 accuracy. Hidden in the UI by default and labelled as legacy.
@@ -241,7 +245,7 @@ three confident candidates, and separate all-score observation context. **Detect
 technical details** presents the voting evidence. The summary explains the decision; it never
 promotes a rejected candidate or replaces the raw media needed for later reclassification.
 
-Manual reclassification uses the same safety and configured confidence rules; clicking Reclassify
+Manual reclassification uses the same safety and configured confidence rules; choosing **Score again**
 does not bypass the promotion threshold. A video abstention or below-threshold candidate triggers
 the best retained snapshot before the run finishes. Its progress view ends with one explicit
 outcome: a new identification, **Identification unchanged** when both routes abstain, or a technical
@@ -274,7 +278,15 @@ schema-4 sweep against 24 real images per classifier:
 | Small Birds NA (EfficientNet-B0) | ✅ Host-gated candidate | The post-deploy NA run matched CPU top-1 on 24/24 images at 5.4 ms, but historical runs crashed or produced non-finite output. It is never assumed safe and must pass on the exact artifact and installation. |
 | Medium Birds NA (Binocular) | ✅ Host-gated candidate | The post-deploy NA run matched CPU top-1 on 24/24 images with 5/5 mean top-5 overlap at 96.6 ms. Older runs produced non-finite output, so exact-installation validation remains mandatory. |
 
-**Intel CPU (OpenVINO)** works correctly for all ONNX models and provides a meaningful speedup over plain ONNX Runtime CPU. It remains the safe fallback when host validation rejects an accelerator.
+**Intel CPU (OpenVINO)** is a declared route for the registered ONNX models. Its correctness and
+speed still depend on the exact model and installation; it is not guaranteed to outperform ONNX
+Runtime CPU. Follow the current passing order rather than the device's name.
+
+The 10 October 2026 Quark compatibility run rejected **Medium Birds** on Intel GPU for non-finite
+output, despite the dated pass above. The gate excluded that path. EVA-02's isolated host pass also
+does not resolve the reporter's sustained Intel GPU/backfill failure in
+[issue #490](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/490). Keep the exact
+runtime, artifact and test workload alongside any claimed hardware result.
 
 The `auto` provider setting uses the measured passing order for the exact model artifact, runtime
 stack, image, and visible hardware. Without current evidence it stays within the model's globally
@@ -307,8 +319,8 @@ rather than preferring an accelerator by name.
 3. **Fixture images**: Download iNaturalist test images (one-time setup):
 
 ```bash
-python3 backend/scripts/download_test_fixtures.py
-# Downloads 60 images (15 species × 4 each) to backend/tests/fixtures/bird_images/
+python3 backend/scripts/download_test_fixtures.py --count 4
+# Requests up to 60 images (15 species × 4 each) to backend/tests/fixtures/bird_images/
 ```
 
 Alternatively, pass `--auto_download` and the script will fetch them automatically if not already present.
@@ -380,164 +392,73 @@ python3 backend/scripts/pipeline_api_test.py \
 
 ---
 
-## Running the Automated Model Tests
+## Validate installed hardware safely
 
-### Smoke tests (no images required, fast)
+Use the in-app compatibility check for normal setup. For a maintainer's independent check, use
+the isolated, fail-closed [installed-model gate](../development/testing.md#mandatory-local-modelprovider-gate).
+It uses production preprocessing and read-only weights, keeps configuration and databases in
+scratch space, and does not change the application's active model or provider eligibility.
 
-Verifies every installed model loads, has correct I/O shape, and produces finite output:
-
-```bash
-cd backend
-source venv/bin/activate
-pytest tests/test_model_smoke.py -v
-```
-
-### Integration tests (requires downloaded fixture images)
-
-Tests each model with real bird images to verify label matching and confidence:
+For example, with an Intel image, an installed DINOv2 model and retained images already inside the
+container:
 
 ```bash
-cd backend
-source venv/bin/activate
-pytest tests/test_model_integration.py -v
-# Filter to a specific model:
-pytest tests/test_model_integration.py -v --model rope_vit_b14_inat21
+docker exec -w /app -e PYTHONPATH=/app yawamf-monalithic \
+  python scripts/run_model_hardware_gate.py \
+  --models-dir /data/models \
+  --output /config/yawamf-eval/local-dino-hardware-check \
+  --model dinov2_b14_inat21_metadata_336 \
+  --provider intel_npu --repeat 2 \
+  --image /config/retained-bird-1.jpg \
+  --image /config/retained-bird-2.jpg
 ```
 
-### OpenVINO GPU validation tests
+Replace the image paths with existing retained inputs and use a new output directory. Add a
+representative panel rather than treating two example images as sufficient evidence. Request only
+providers packaged by your image and exposed to it; use `--provider cuda` on an appropriately
+configured NVIDIA host. CPU is always the comparison baseline. This isolated recipe does not
+inherit the running app's saved feeder coordinates, so record location absent for a DINOv2 check.
+Use normal in-app diagnostics when comparing its saved-location path.
 
-Validates which models compile and produce correct output on Intel GPU:
+Every requested model/provider/repeat gets a disposable child process and bounded deadline.
+Missing inputs, crashes, timeouts, non-finite output, incomplete coverage and CPU disagreement fail
+the command. A skipped hardware test is not a passing device check. Keep runs serial on a live
+feeder and retain the exact artifact, image, runtime and device evidence with the result.
 
-```bash
-cd backend
-source venv/bin/activate
-pytest tests/test_model_openvino_gpu.py -v
-```
-
-These tests skip automatically if no Intel GPU is detected.
-
-#### Running inside Docker (required for GPU access)
-
-The Intel GPU is only accessible inside the running container, not from the host shell. Run the tests there (use `yawamf-backend` for the legacy split deployment):
-
-```bash
-docker exec yawamf-monalithic python -m pytest tests/test_model_openvino_gpu.py -v
-```
-
-#### Diagnostic probes (no pass/fail — print a results table)
-
-Two additional probes help investigate GPU failures. They never fail; use `-s` to see the output table.
-
-**NaN / wrong-prediction fix probe** — tries HETERO, SDPA-off, and combined strategies on every model currently failing on GPU:
-
-```bash
-docker exec yawamf-monalithic python -m pytest \
-  tests/test_model_openvino_gpu.py::test_gpu_nan_fix_probe -v -s
-```
-
-**ConvNeXt Large precision probe** — tries seven compilation strategies specifically for ConvNeXt's precision-degradation failure (f16, ACCURACY hint, no-Winograd, HETERO, combinations):
-
-```bash
-docker exec yawamf-monalithic python -m pytest \
-  tests/test_model_openvino_gpu.py::test_convnext_gpu_precision_probe -v -s
-```
-
-The table columns are: `GPU range`, `ratio` (GPU/CPU), `spearman` (rank correlation vs CPU), `top5 ∩` (top-5 overlap with CPU), and `result`. A strategy is considered fixed when ratio ≥ 0.5, Spearman ≥ 0.50, and top-5 ∩ ≥ 1.
-
-Results from OV 2025.4.1 and the newer Arrow Lake-S / OV 2026.2.1 RoPE validation are documented in
-the Intel GPU Support table above and in the validation matrices in
-`tests/test_model_openvino_gpu.py`.
-
----
-
-### NVIDIA GPU diagnostic probes
-
-Contributors with NVIDIA GPUs can run a separate diagnostic suite that tests every installed model through ONNX Runtime's `CUDAExecutionProvider` and `TensorrtExecutionProvider`. These probes are best-effort only: they print a results table and are expected to skip cleanly on hosts without an exposed NVIDIA device.
-
-#### Prerequisites
-
-Use the unsuffixed full image or a `-cuda` image for these probes; the CPU,
-Intel, and Raspberry Pi images deliberately omit CUDA. NVIDIA Container Toolkit
-must still be installed on the host so the GPU driver/runtime is exposed inside
-the container. Confirm **Settings → Detection → Runtime diagnostics** lists
-`cuda` under **Packaged**, then add GPU access to your Compose file. For
-`docker-compose.monolith.yml`:
-
-```yaml
-services:
-  yawamf:
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-```
-
-Or for a one-off run without modifying compose:
-
-```bash
-docker run --gpus all ghcr.io/jellman86/yawamf-monalithic:latest \
-    python -m pytest tests/test_model_nvidia_gpu.py -v -s
-```
-
-#### Full per-model survey (all strategies)
-
-Tests every installed ONNX model through CUDA/fp32, CUDA/fp32+exhaustive, TRT/fp32, TRT/fp16, and TRT/fp16+exhaust:
-
-```bash
-docker exec yawamf-monalithic python -m pytest \
-  tests/test_model_nvidia_gpu.py::test_nvidia_gpu_full_probe -v -s
-```
-
-#### ConvNeXt Large focused probe
-
-ConvNeXt Large was broken on the tested OpenVINO 2025.4 Intel path but passes on Quark's current
-OpenVINO 2026.2.1 stack. This focused probe remains useful for NVIDIA validation and for detecting
-future Intel runtime regressions:
-
-```bash
-docker exec yawamf-monalithic python -m pytest \
-  tests/test_model_nvidia_gpu.py::test_convnext_nvidia_probe -v -s
-```
-
-The table columns are the same as the Intel probes: `GPU range`, `ratio` (GPU/CPU), `spearman` (rank correlation vs CPU), `top5 ∩` (top-5 overlap with CPU), and `result`.  A strategy passes when ratio ≥ 0.5, Spearman ≥ 0.50, and top-5 ∩ ≥ 1.
-
-#### Sharing results
-
-If you run these probes, please paste the printed table into the relevant GitHub issue along with:
-
-```bash
-nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader
-python -c "import onnxruntime; print(onnxruntime.__version__)"
-```
-
----
+The source checkout also contains model smoke/integration tests and exploratory Intel/NVIDIA
+pytest probes. Published images do not include the test suite. Run source tests in a prepared
+`.venv`; filter parametrised cases with `-k`, not a `--model` pytest option. Legacy hardware probes
+require `YAWAMF_LEGACY_HARDWARE_DIAGNOSTICS=1`, can crash their pytest process and are not release
+or provider-selection gates. See [development testing](../development/testing.md) for the current
+commands and safeguards.
 
 ## Test Fixture Details
 
-The benchmark uses 60 research-grade photos from iNaturalist (CC-BY/CC0 licensed), covering:
+The March benchmark requested four photos for each of 15 species. The current downloader defaults
+to three per species; use `--count 4` to request the original panel size. Downloads retain verified
+source provenance and may return fewer usable images. The current species and taxon IDs below
+come from `backend/tests/fixtures/bird_image_manifest.json`; changing or refreshing inputs means
+you must report a new panel rather than presenting the historical score as reproduced.
 
-| Species | Common Name | Region | iNat Taxon ID |
-|---------|-------------|--------|---------------|
+| Species | Common name | Scope | iNaturalist taxon ID |
+| --- | --- | --- | --- |
 | Cardinalis cardinalis | Northern Cardinal | NA | 9083 |
 | Cyanocitta cristata | Blue Jay | NA | 8229 |
 | Turdus migratorius | American Robin | NA | 12727 |
 | Haemorhous mexicanus | House Finch | NA | 199840 |
 | Spinus tristis | American Goldfinch | NA | 145310 |
-| Dryobates pubescens | Downy Woodpecker | NA | 18100 |
-| Sitta carolinensis | White-breasted Nuthatch | NA | 13933 |
-| Poecile atricapillus | Black-capped Chickadee | NA | 13028 |
-| Sturnus vulgaris | European Starling | NA/EU | 12727 |
-| Passer domesticus | House Sparrow | Global | 125813 |
-| Hirundo rustica | Barn Swallow | Global | 14889 |
-| Turdus merula | Eurasian Blackbird | EU | 12879 |
-| Erithacus rubecula | European Robin | EU | 20823 |
-| Columba livia | Rock Pigeon | Global | 4886 |
-| Anas platyrhynchos | Mallard | Global | 6930 |
+| Dryobates pubescens | Downy Woodpecker | NA | 792988 |
+| Erithacus rubecula | European Robin | EU | 13094 |
+| Parus major | Great Tit | EU | 203153 |
+| Cyanistes caeruleus | Blue Tit | EU | 144849 |
+| Fringilla coelebs | Chaffinch | EU | 10070 |
+| Turdus merula | Eurasian Blackbird | EU | 12716 |
+| Passer domesticus | House Sparrow | NA / EU / GLOBAL | 13858 |
+| Hirundo rustica | Barn Swallow | NA / EU / GLOBAL | 11901 |
+| Anas platyrhynchos | Mallard | NA / EU / GLOBAL | 6930 |
+| Columba livia | Rock Pigeon | NA / EU / GLOBAL | 3017 |
 
-Images are downloaded once and cached in `backend/tests/fixtures/bird_images/`. Re-run `download_test_fixtures.py` to refresh them.
+Images are downloaded once and cached in `backend/tests/fixtures/bird_images/`. Use `--force` only when deliberately refreshing them; keep the previous inputs and provenance if you need a repeatable comparison.
 
 ---
 
@@ -558,4 +479,4 @@ Edit `backend/tests/fixtures/bird_image_manifest.json` to add species. Each entr
 }
 ```
 
-Then run `download_test_fixtures.py` to fetch 4 images for the new species.
+Then run `download_test_fixtures.py --count 4` to request four images for the new species, and review their labels before scoring.

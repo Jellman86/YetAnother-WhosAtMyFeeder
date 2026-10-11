@@ -35,7 +35,9 @@ The integration can expose YA-WAMF through the Home Assistant sidebar. Enable
 **Show YA-WAMF in the Home Assistant sidebar** in the integration options. Home
 Assistant authenticates the browser session, then the custom component proxies
 requests to the configured YA-WAMF URL using the credentials stored in the
-integration.
+integration. The sidebar uses those stored credentials, so access to it can carry
+their YA-WAMF owner permissions; it is not automatically reduced to guest access.
+Only enable it for a Home Assistant audience you trust with those permissions.
 
 The same YA-WAMF frontend bundle works for both standalone access and the Home
 Assistant sidebar. The app detects the Home Assistant ingress path at runtime,

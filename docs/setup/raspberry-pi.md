@@ -48,6 +48,7 @@ Practical guidance:
 Follow the normal monolith setup from [Getting Started](getting-started.md), but start from the Raspberry Pi example env file:
 
 ```bash
+curl -O https://raw.githubusercontent.com/Jellman86/YetAnother-WhosAtMyFeeder/main/.env.rpi.example
 cp .env.rpi.example .env
 ```
 
@@ -67,7 +68,7 @@ docker compose -f docker-compose.monolith.yml up -d
 If you want to pin a release instead of following `latest`, use a current version tag such as:
 
 ```env
-YAWAMF_MONALITHIC_TAG=v2.17.0
+YAWAMF_MONALITHIC_TAG=v2.21.1
 ```
 
 ## Recommended Pi Settings
@@ -86,8 +87,11 @@ Recommended starting point:
   effective fallback
 - Next step on Raspberry Pi 5 only: `RoPE ViT-B14` if you want better wildlife-wide accuracy and can tolerate slower inference
 - Avoid initially: `ConvNeXt Large`, `EVA-02 Large`, and other heavier video-centric workflows
-- If Frigate already classifies well, enable `Trust Frigate Sublabels` to save Pi CPU time
-- Leave Deep Video Analysis off initially, then enable it later only if the system stays responsive
+- Keep **Trust Frigate Sublabels** enabled if you want a usable Frigate species to
+  provide fallback when local inference cannot name the bird; it does not bypass
+  every local classification.
+- Leave **Auto Video Analysis** and **Automatically find additional birds** off
+  initially; add heavier background work only after checking responsiveness.
 
 Optional trade-off if you want to reduce disk and CPU pressure:
 
@@ -105,8 +109,8 @@ container settings.
 
 The setup wizard shows the model the classifier actually loaded, not merely a saved selection whose
 files are missing. MobileNet V2 is available offline. If you choose another model, the wizard can
-download it with visible progress and then run the same image/hardware validation used by Model
-Evaluation.
+download it with visible progress and then run the same compatibility-only image/hardware validation used by Model
+Evaluation. This proves CPU execution, not accuracy on your feeder species.
 
 You should see the selected model pass CPU validation before **Continue** becomes available. If the
 download or validation fails, keep MobileNet selected, retry from the same step, and review

@@ -36,6 +36,12 @@ frame of the species you confirm. If you later pick a different species on the s
 photo moves to that species' frame. When no frame singled out the chosen species, the photo is the
 video's first frame, and the review says so.
 
+After saving, an uploaded video supports the same photo choices, **Birds found in this capture**
+and **Score again** controls as a camera visit. Choosing a frame updates its photo; returning to
+the original restores the upload's species photo. An uploaded still has no video frames, so those
+frame controls are absent. An upload remains separate from Frigate and needs no Frigate event to
+retain or serve its media.
+
 ## Reliability and privacy
 
 - Uploads are owner-only and use the existing authentication boundary.
@@ -61,7 +67,7 @@ video's first frame, and the review says so.
   time is not evidence that a nearby microphone heard the same bird.
 - Confirmation writes a local observation and its classifier provenance. It does not replay a
   Frigate event or send automatic live-detection integrations and alerts for historical media.
-- Deleting a saved manual detection also removes its media and durable workflow record.
+- Permanently deleting a saved manual detection also removes its media and durable workflow record. This cannot be undone; hiding a detection is a separate, recoverable action.
 
 Manual observations are included in the normal history and statistics after confirmation. The
 `observation_source` API field distinguishes `manual_upload` from `frigate`. Optional

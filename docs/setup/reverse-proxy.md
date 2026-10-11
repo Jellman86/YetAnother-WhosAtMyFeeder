@@ -1,6 +1,10 @@
 # Reverse Proxy Configuration Guide
 
-When running Yet Another WhosAtMyFeeder (YA-WAMF) behind a reverse proxy, specific configurations are required to ensure the **Live Status** (Server-Sent Events) and **Video Playback** features work correctly without disconnection or buffering issues.
+Proxy YA-WAMF through one address while preserving live updates, owner login and
+video playback. Use HTTPS and enable YA-WAMF authentication before exposing its
+administrative UI/API beyond your trusted network. Media routes enforce guest
+sharing rules; the proxy must preserve the app's session cookie, authorization and
+byte-range headers.
 
 > [!WARNING]
 > The monolithic container (`yawamf-monalithic`) is the recommended deployment. New installs should use the monolithic examples on this page. The split `yawamf-frontend` + `yawamf-backend` path is legacy and kept only for existing installs that have not yet migrated.
@@ -29,17 +33,21 @@ If you are using Cloudflare Tunnel (cloudflared), use these settings to prevent 
 ### Public Hostname Settings
 
 *   **Service:** `http://yawamf-monalithic:8080` (or your internal IP/Hostname)
-*   **HTTP Host Header:** `your-public-domain.com` (e.g., `yetanotherwhosatmyfeeder.pownet.uk`)
+*   **HTTP Host Header:** `your-public-domain.example`
     *   *Critical:* Must match your public domain exactly. Do not duplicate it.
 
 ### Additional Settings (Parameters)
 
 | Setting | Value | Reason |
 | :--- | :--- | :--- |
-| **No Chunked Encoding** | **Off** (Disabled) | **CRITICAL:** SSE requires chunked encoding. Enabling this will break the stream. |
-| **Idle Timeout** | `120s` | Prevents Cloudflare from closing the stream during silence between heartbeats (20s). |
-| **TCP Keep-Alive** | `15s` | Keeps the underlying tunnel socket active. |
-| **Connect Timeout** | `30s` | Standard timeout. |
+| **Disable Chunked Encoding** | Off (default) | Keep HTTP/1.1 streaming enabled. |
+| **Connect Timeout** | `30s` (default) | Time allowed to establish the origin connection; this is not the SSE stream lifetime. |
+| **TCP Keep Alive Interval** | `30s` (default) | Origin TCP keepalive interval. |
+
+These names follow [Cloudflare's origin parameter reference](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/origin-parameters/).
+**Idle Connection Expiration Time** controls idle pooled origin connections; it is
+not a guarantee for the lifetime of an active SSE response. Check every proxy hop
+for buffering and stream timeouts if live updates disconnect.
 
 ---
 
@@ -48,7 +56,7 @@ If you are using Cloudflare Tunnel (cloudflared), use these settings to prevent 
 In Nginx Proxy Manager, standard UI settings are not enough for SSE. You must use the **Advanced** tab.
 
 ### Details Tab
-*   **Websockets Support:** Enabled
+* **Websockets Support:** Optional; YA-WAMF live updates use SSE, not WebSockets.
 *   **Block Common Exploits:** Enabled
 
 ### SSL Tab
@@ -57,7 +65,12 @@ In Nginx Proxy Manager, standard UI settings are not enough for SSE. You must us
 *   **HSTS:** Enabled
 
 ### Advanced Tab (Custom Configuration)
-Paste this entire block into the "Custom Nginx Configuration" box for the **monolithic** deployment. This handles SSE, video clips, and correct header forwarding while using a resolver to prevent stale DNS cache issues.
+Use this **monolithic** example in the **Advanced** custom configuration, adapting
+the hostname to your network. It assumes NPM terminates browser HTTPS. `$scheme`
+records the connection that NPM received; behind another TLS-terminating proxy,
+configure a trusted upstream header policy instead. Never blindly trust a public
+client's `X-Forwarded-Proto` or `X-Forwarded-For`. Add the actual proxy addresses to
+**Settings → Security → Trusted Proxy Hosts** (or `SYSTEM__TRUSTED_PROXY_HOSTS`).
 
 ```nginx
 # Docker DNS Resolver (Required for dynamic container resolution)
@@ -90,7 +103,7 @@ location /api/sse {
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+    proxy_set_header X-Forwarded-Proto $scheme;
 }
 
 # 2. Video Clips (Optimized for large files)
@@ -112,7 +125,7 @@ location ~ ^/api/frigate/.+/clip\.mp4$ {
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+    proxy_set_header X-Forwarded-Proto $scheme;
 }
 
 # 3. Manual Observation Upload (bounded multipart streaming)
@@ -127,7 +140,7 @@ location = /api/manual-observations {
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+    proxy_set_header X-Forwarded-Proto $scheme;
     proxy_http_version 1.1;
     proxy_set_header Connection "";
 }
@@ -138,7 +151,7 @@ location /api/ {
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+    proxy_set_header X-Forwarded-Proto $scheme;
     proxy_http_version 1.1;
 }
 
@@ -146,11 +159,11 @@ location /api/ {
 location / {
     proxy_pass http://$app_upstream:8080;
     
-    # Ensure backend sees "https" even if proxy terminates SSL
+    # Forward the scheme of the connection this proxy received
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+    proxy_set_header X-Forwarded-Proto $scheme;
     
     # Standard NPM inclusions
     proxy_set_header Upgrade $http_upgrade;
@@ -221,7 +234,7 @@ server {
 }
 ```
 
-The exact manual-observation location must appear before a generic `/api/` route. The 256 MiB
+The exact manual-observation location takes precedence over the generic `/api/` route. The 256 MiB
 request envelope is intentionally bounded: it covers multipart overhead while the application
 continues to reject image files above 25 MiB and video files above 250 MiB. Disabling request
 buffering avoids storing a second full copy at the proxy before the backend streams and validates
@@ -260,11 +273,16 @@ your-domain.com {
 
 ### "System Offline" / Red Status Icon
 *   **Cause:** Connection dropping between heartbeats (20s).
-*   **Fix:** Increase proxy `read_timeout` to >60s and backend `keep-alive-timeout` to 75s.
+* **Fix:** Confirm buffering is disabled and each proxy's active-response read timeout
+  exceeds the 20-second heartbeat interval. Test the direct app address as well as
+  the public URL to distinguish an app/network outage from a proxy timeout.
 
 ### "Authentication enabled over HTTP" Warning
 *   **Cause:** Backend sees `X-Forwarded-Proto: http` instead of `https`.
-*   **Fix:** Ensure your proxy passes `proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;` (or hardcode to `https`).
+* **Fix:** Forward the real browser-facing scheme from a trusted proxy, and configure
+  **Trusted Proxy Hosts** for that proxy. Use `$scheme` where the proxy terminates
+  HTTPS; behind a tunnel or another proxy, preserve only that trusted hop's scheme.
+  Do not hardcode HTTPS for a route that also accepts unprotected HTTP.
 
 ### 404 Errors / 301 Redirect Loops
 *   **Cause:** "Force SSL" enabled on Proxy but Cloudflare is connecting via HTTP.

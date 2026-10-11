@@ -206,7 +206,11 @@ never clobbers unrelated config). Steps:
   events Frigate still retains without delaying the rest of setup. Existing enrichment is
   preserved and unavailable BirdNET-Go history is stated honestly.
 
-Each step is independently re-runnable; skipping the wizard leaves the current config untouched.
+Each section can be reopened from Settings. Skipping a step does not save its unsaved form;
+leaving setup does not undo steps already saved. Background model checks continue unless cancelled.
+The current wizard saves a complete location pair before DINO validation, respects the selected
+provider and saves the displayed choice on Continue. Partial writes reconcile only their fields
+so other unsaved Settings edits are preserved.
 
 The shipped hardening pass also closes the setup boundary end to end: enabling auth returns and
 stores the initial owner session atomically; completed auth-disabled installs cannot be claimed
@@ -550,12 +554,12 @@ capture, stays as it is.
 counts, paging and guest windows match the other two views; the choice sits in the filter rail.
 
 #### Seen and heard in one Explorer timeline 🎧
-**Priority:** P2 | **Effort:** M | **Status:** 🔄 Built, being reviewed on the reference install
+**Priority:** P2 | **Effort:** M | **Status:** ✅ Implemented in `dev`; broader field review continues
 
-Bring BirdNET-Go detections into the Explorer instead of a separate Audio History page: a Seen /
-Heard / Both switch, heard-only detections as audio rows in the day timeline with their spectrogram
-and clip, and a visit marked when a call was heard during it. Mock the layouts first. For now the
-Explorer links to Audio History, and the leaderboard keeps its Seen, Heard and Both rankings.
+The Explorer has a per-device **Heard calls** toggle. Audio-only call bouts appear in the timeline,
+and matched calls fold into a corresponding seen visit. Guest audio restrictions and visual-only
+filters are kept explicit. Audio History remains available for individual persisted messages;
+the leaderboard keeps its separate Seen, Heard and Both rankings. See the [Explorer guide](docs/features/explorer.md).
 
 **Acceptance:** one timeline answers "what was here, seen or heard" without leaving the Explorer;
 guest audio visibility rules hold; an unavailable BirdNET-Go is said plainly and never shown as no
@@ -820,8 +824,8 @@ The September 23 installed-image sweep found intermittent Intel GPU native crash
 and a pipe-EOF/process-exit race fixed by PR #498. The strict local hardware gate now
 records every child outcome, compares exact regional artifacts against CPU, and
 separates detector contracts from classifier tests. Remaining acceptance work is
-repeatable cold/warm-cache and mixed-load GPU validation, CUDA evidence from the
-NVIDIA host, a pinned accuracy corpus with previous-release comparison, and full-app
+repeatable cold/warm-cache and mixed-load GPU validation, broader CUDA model coverage,
+a pinned accuracy corpus with previous-release comparison, and full-app
 owner/guest, backfill and recovery browser journeys. A retry pass does not erase a
 native crash, and CPU/provider agreement is not a species-accuracy score.
 Persistent launch-profile quarantine and a standalone cold/warm-cache OpenVINO

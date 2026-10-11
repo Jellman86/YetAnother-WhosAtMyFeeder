@@ -8,10 +8,10 @@ YA-WAMF features deep integration with [BirdNET-Go](https://github.com/tphakala/
 3. When **Frigate** detects a bird visually, YA-WAMF checks its buffer inside the configured
    audio-correlation window (five minutes by default), looking for the visual species before
    treating a stronger different call as nearby context.
-4. If a match is found, the detection is marked as **"Verified"** in the UI with an audio badge.
+4. If a match is found, the detection is shown with an **Audio confirmed** badge. This is corroborating audio evidence, not proof that the species identification is correct.
 
 Every persisted audio detection is browsable in its own right under **Audio History**, reached from
-the **Leaderboard** or from the dashboard's **Recent Audio** card. Calls heard but never matched to
+the **Leaderboard** or from the dashboard's **Heard** card. Calls heard but never matched to
 a camera visit still live here, which is usually the fastest way to tell "the microphone heard
 nothing" apart from "the correlation window missed it":
 
@@ -42,10 +42,10 @@ the container. **If the links go nowhere** but spectrograms are fine, the browse
 
 ### 3. Sensor Mapping
 For correlation to work, YA-WAMF needs to know which audio sensor belongs to which camera.
-1. Observe the **Recent Audio** widget on the dashboard.
-2. Note the **Sensor ID** displayed in the top-right of the audio entries (e.g., `rtsp_42182153`).
-3. Go to **Settings → Integrations → BirdNET-Go → BirdNET Source Mapping (Optional)**.
-4. Type that ID next to the corresponding Frigate camera name.
+1. Go to **Settings → Integrations → BirdNET-Go → Audio buffer & sensor mapping**.
+2. Check **Recently Detected BirdNET Sources** after audio messages have arrived.
+3. Under **BirdNET Source Mapping (Optional)**, use **Add detected source…** for the corresponding camera, or type the stable source name.
+4. Multiple source names can be mapped to a camera; comma-separated entries are accepted. Apply Settings to save the mapping.
 
 A named camera without a mapping does not receive audio from another source. Use `*` only when you
 deliberately want any source to correlate with that camera; a blank or missing mapping is not a
@@ -60,12 +60,12 @@ camera contribute independent audio context. See BirdNET-Go's
 [RTSP/multiple-source guide](https://github.com/tphakala/birdnet-go/wiki/BirdNET%E2%80%90Go-Guide#live-audio-streaming).
 
 ### 4. Dynamic Sensor IDs (Wildcard)
-If your audio source (like a re-streaming camera) generates a new Sensor ID every time it restarts, you can use a **wildcard** to match *any* audio detection to a specific camera.
+If your audio source (like a re-streaming camera) generates a new Sensor ID every time it restarts, you can use a **wildcard** to allow any source for that camera. The species and time-window checks still apply.
 
 - In the source mapping field for that camera, enter: `*`
-- This tells YA-WAMF: "Any audio detection that happens at the same time as this camera's visual detection is a match, regardless of the sensor name."
+- This tells YA-WAMF: "Ignore the source-name restriction, while keeping the species and configured time-window checks."
 
-> ⚠️ **Important:** For correlation to work, your **Timezone (TZ)** must be synced across all containers. See the [Getting Started](../setup/getting-started.md#🌍-the-importance-of-timezone-tz) guide for more details.
+Keep host clocks synchronized and ensure timestamp payloads include the correct offset. Correlation uses UTC instants; matching display timezones alone does not correct a wrong clock or an incorrectly labelled timestamp. `TZ` controls local display and scheduling; see [Getting Started](../setup/getting-started.md).
 
 ### 5. Test the complete path
 
@@ -96,12 +96,14 @@ By default YA-WAMF stores every BirdNET-Go detection it receives. To drop noisy 
 
 ## Audio history and visual matches
 
-The dashboard includes a "Recent Audio" widget that shows the live in-memory detections from
-BirdNET-Go, even if no visual event occurred. The dashboard and leaderboard both link to the full
-Audio History view, which reads persisted BirdNET detections and provides date-window, species,
-source, and confidence filters plus top-species, source, and hourly activity summaries. This audio
-history stays separate from the visual feeder leaderboard so "heard" detections do not inflate
-"seen" detections.
+The dashboard's **Heard** card summarizes persisted calls for the selected day and opens
+Audio History. The [Explorer](../features/explorer.md) can also show heard-only call bouts:
+turn **Heard calls** on in Explorer for that device. Repeated calls are grouped, and matched calls
+can appear with the corresponding seen visit rather than as duplicate cards. Audio-only
+calls do not become visual captures or inflate camera counts.
+
+Audio History provides date-window, species, source, and confidence filters plus top-species,
+source, and hourly summaries. Use it to inspect individual persisted messages and spectrograms.
 
 Source summaries process stored messages in small batches to limit memory use while other
 requests run. Summaries still cover the entire selected window, so a narrower date range reduces

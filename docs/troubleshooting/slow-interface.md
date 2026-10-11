@@ -1,8 +1,10 @@
 # The interface is slow, or a page never loads
 
 If the dashboard takes ten or twenty seconds, Settings is slow to populate, live updates keep
-dropping, or a page sits loading and never arrives, the usual cause is not a slow query. It is the
-server waiting for a database connection that something else is holding.
+dropping, or a page sits loading and never arrives, check whether the server is waiting for
+database connections before changing worker counts.
+Database contention is one possible cause; network outages, a busy inference queue and failed
+page requests need separate checks in [Diagnostics](diagnostics.md).
 
 ## What is happening
 
@@ -19,7 +21,7 @@ Requests queue, the browser times out, and the live-updates stream drops with th
 Open **Settings → Health** and generate a diagnostics bundle, or read the health endpoint directly:
 
 ```bash
-curl -fsS http://localhost:8000/health | jq .db_pool
+curl -fsS http://localhost:9852/health | jq .db_pool
 ```
 
 The fields that matter:
@@ -52,34 +54,26 @@ that does not need one. Report it with the label and the bundle; it is a bug in 
 **If `acquire_timeouts` is climbing and requests return 503**, the pool is saturated rather than
 blocked by one offender. Consider whether background work is set too high:
 
-- **Settings → Detection → deep video analysis concurrency** defaults to `1`. Raising it lets more
-  video jobs run at once, and each one uses the same shared pool. Values well above the pool size
-  put background work and the interface in direct competition.
+- `CLASSIFICATION__BACKGROUND_WORKER_COUNT` controls video concurrency (one when unset, at most
+  four). Raising it adds model copies and competing background work; it is not a database fix.
+  The legacy `video_classification_max_concurrent` field is ignored. Start with one and compare
+  queue waiting ages, memory and database holds before increasing it. See
+  [maintenance concurrency](../setup/configuration.md#maintenance-concurrency).
 - `DB_POOL_SIZE` raises the pool itself. Each connection carries its own 64 MB page cache, so five
   connections is roughly 320 MB of headroom; raising it costs memory in proportion, and SQLite does
   not write faster with more connections.
 
-**Detections are never refused.** Ingesting a Frigate event or a BirdNET-Go detection always waits
-for a connection, however long that takes, because each is delivered once and dropping one would
-lose a sighting. A saturated pool can therefore delay a detection appearing, but will not lose it.
+Durable ingestion uses an unbounded database-acquisition wait so this pool timeout does not
+refuse a sighting. That is not a guarantee against every source of lost events: a network outage,
+a stopped process, unavailable snapshots or admission limits can still affect ingestion. A
+saturated pool can delay a detection appearing; check MQTT and classifier evidence separately.
 
 **If you would rather wait than be refused**, set `DB_POOL_ACQUIRE_TIMEOUT_SECONDS=0`. Requests then
 queue indefinitely instead of returning 503. This makes the stall silent again, so prefer it only
 on hardware slow enough that the default sixty seconds is genuinely too short.
 
-## What this is not
+## Include the evidence
 
-- **It is not the size of your history.** Filtering and paging are indexed; a large database is not
-  by itself a cause here.
-- **It is not the species filter being slow to query.** That was a separate, earlier problem in how
-  the filter matched names, fixed in its own right.
-- **It is not a corrupted database.** Nothing here damages stored detections; the symptom is
-  contention for connections, and it clears when the work holding them completes.
-
-## Known remaining cause
-
-Six read paths still resolve species names while holding a connection, so the first time a species
-is displayed in a language it has not been shown in before, that path can hold a connection for up
-to ten seconds waiting on iNaturalist. It is bounded to the first sighting per species per language
-and clears as the cache fills. `ISSUES.md` lists them. If `slow_hold_last_label` names one of those
-and the wait was around ten seconds, that is this, and it will not recur for the same species.
+Report the exact build, `slow_hold_last_label`, recent wait/hold values and a fresh diagnostics
+bundle while the stall is happening. Do not assume that one old list of slow handlers identifies
+a current regression: name lookups, cache state and background workload can differ between runs.

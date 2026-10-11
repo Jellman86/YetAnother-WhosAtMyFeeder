@@ -2,80 +2,38 @@
 
 YA-WAMF occasionally records a detection as `event_not_found` — meaning it received a Frigate MQTT event for a bird, but when it then queried Frigate's HTTP API for event metadata or the video clip, Frigate returned a 404.
 
-This is not a bug in YA-WAMF. It is a known characteristic of how Frigate handles short or low-confidence detections. There are two distinct causes.
+A 404 does not by itself identify a classifier fault or prove that the bird never existed. Check
+the exact event ID, camera and time before changing detection thresholds.
 
----
+## Check the event and media separately
 
-## Cause 1 — MQTT fires before Frigate commits to its database (race condition)
+1. Open the same tracked event in Frigate. An MQTT tracker ID may arrive before metadata or media
+   is available, or may no longer exist after retention, a database reset or storage changes.
+2. Check the camera's current snapshots and recording configuration. A live stream and a saved
+   snapshot do not establish that a recording clip exists. See the
+   [recommended Frigate recording setup](../setup/frigate-config.md).
+3. Check YA-WAMF's retained media. A cached event clip or full-visit recording can remain usable
+   after Frigate removes the event. A file must decode successfully to support inference.
+4. Capture a fresh [diagnostics bundle](diagnostics.md#capture-current-evidence-for-a-report) after
+   reproducing the problem. Include recent network, camera power or storage changes and distinguish
+   a 404 from a connection timeout or service-unavailable response.
 
-Frigate publishes MQTT messages in near-real-time as detections occur. However, Frigate's internal database write happens asynchronously after the MQTT publish. In practice, there is a brief window (usually under a second) during which the MQTT message has been delivered but the event does not yet exist in Frigate's API.
+YA-WAMF retries transient event/media availability within bounded limits. It cannot create a clip
+that Frigate never recorded or recover an expired snapshot that it did not retain. A missing
+snapshot can prevent initial classification; a missing video on an existing visit does not erase
+that visit's identification. Do not reset the database to repair missing media.
 
-YA-WAMF is designed to tolerate this: it retries the event lookup several times with short delays before giving up. If the event appears within the retry window, classification proceeds normally.
+## Tune Frigate only after checking the evidence
 
----
+Frigate's `min_score` rejects individual weak detections; `threshold` evaluates its score history
+to decide whether a tracked object is a true positive. A higher threshold can miss real birds,
+and a lower threshold admits more false positives. Neither control guarantees a stored clip.
+See [Frigate's object-score filters](https://docs.frigate.video/configuration/object_filters/) and
+[MQTT event contract](https://docs.frigate.video/integrations/mqtt/) for your installed version.
 
-## Cause 2 — The bird did not accumulate enough frames to be confirmed
-
-Frigate uses a multi-stage confidence gate before writing an event to its database:
-
-| Setting | Default | Purpose |
-|---|---|---|
-| `min_score` | `0.5` | Raw detection score required to begin tracking |
-| `min_initialized` | ~½ × frame rate | Consecutive frames required for the tracker to initialise |
-| `threshold` | `0.7` | Median score across tracked frames required for DB confirmation |
-
-A detection only becomes a persistent Frigate event (visible in the API and UI) once all three gates are cleared. However, **Frigate publishes MQTT regardless**, even for transient detections that will never reach the database.
-
-If a bird passes through frame quickly — fewer frames than `min_initialized` requires — Frigate sends the MQTT message, YA-WAMF receives it and caches the snapshot and clip immediately, but Frigate's event API returns 404 because the event was never written to its database. No clip file will exist in Frigate's media storage either.
-
-This is expected Frigate behaviour, not a fault. How you tune it depends on **what you want** — and the two goals pull in opposite directions, so it is easy to change the wrong knob.
-
-### First, understand the three gates
-
-- **`min_score`** (per-frame, default `0.5`): a single frame scoring below this is discarded and never tracked.
-- **`min_initialized`** (default **½ × `detect.fps`**): consecutive frames an object must be detected before Frigate *starts tracking* it (and publishes MQTT). Setting this **below** the default makes very brief blips become tracked objects — they fire MQTT (so YA-WAMF processes them) but frequently never persist.
-- **`threshold`** (median score, default `0.7`): the **median** across the object's tracked frames must cross this before Frigate *saves the object as an event* in its database.
-
-An object fires MQTT once it is tracked (`min_score` + `min_initialized`), but only becomes a persistent, API-visible event once its **median** crosses `threshold`. A brief visit can fire MQTT yet never cross `threshold`, giving `event_not_found`.
-
-> ⚠️ **Common trap:** raising `threshold` does **not** reduce `event_not_found` — it *increases* it, because more tracked objects fail to reach the higher median bar and are never saved.
-
-### If you want fewer, higher-confidence detections
-
-Stop fleeting/weak objects from being tracked at all, so they never fire MQTT:
-
-```yaml
-# frigate config.yml — per camera
-detect:
-  min_initialized: 5     # require more frames before tracking (≈ ½ fps at fps 10)
-objects:
-  filters:
-    bird:
-      min_score: 0.5      # discard weaker per-frame detections
-```
-
-This removes brief fly-throughs entirely — you will not see them in YA-WAMF either.
-
-### If you want to keep brief visits (recommended for a feeder)
-
-Keep tracking sensitive, but **lower `threshold`** so briefly-tracked birds cross the median bar and Frigate saves them as real events:
-
-```yaml
-# frigate config.yml — per camera
-detect:
-  min_initialized: 2     # keep tracking brief objects
-objects:
-  filters:
-    bird:
-      min_score: 0.45     # allow fainter per-frame detections
-      threshold: 0.5      # persist brief objects instead of dropping them
-```
-
-Trade-off: a lower `threshold` admits more marginal detections. YA-WAMF's own classifier and the **Minimum audio/visual confidence** settings then filter what is kept, so the noise does not reach your history.
-
-`detect.fps` interacts with all of this: at a higher fps a brief bird accumulates its `min_initialized` frames sooner (5 frames = 0.5 s at 10 fps vs 1 s at 5 fps), so genuine quick visits confirm faster. Frigate recommends `fps: 5`; raise it only if your hardware has detection headroom. See the [Frigate object filters documentation](https://docs.frigate.video/configuration/object_filters/) and [detect configuration](https://docs.frigate.video/configuration/detect/).
-
-Whichever you choose, YA-WAMF still caches the snapshot and clip the moment the MQTT event arrives, so a brief visit is classified even when Frigate never persists the event.
+YA-WAMF has its own species-confidence and admission rules. They cannot guarantee that every
+false positive admitted by a lower Frigate threshold is rejected. Change one setting at a time
+and inspect new tracked events, their snapshots and retained clips before changing more.
 
 Frigate may also lose and reacquire the same bird as a new track. In that case YA-WAMF can retain
 the original MQTT tracker ID while the Frigate history contains a nearby event with a different ID.
@@ -86,7 +44,10 @@ so timestamp proximity alone is not a safe identity rule.
 
 ## What YA-WAMF does about it
 
-YA-WAMF caches the snapshot and clip to local storage the moment the MQTT event arrives, before any classification attempt. When the event precheck later returns `event_not_found`, YA-WAMF checks whether the clip is already cached:
+YA-WAMF retains available media during normal processing, subject to its media settings, writable
+storage and upstream availability. It cannot guarantee that every incoming tracker already has a
+local snapshot and clip. When the event precheck returns `event_not_found`, it checks for retained
+video before giving up on that source:
 
 - **Cached clip found** → classification proceeds using the local cache. The diagnostic entry will show reason code `precheck_cache_bypass`.
 - **No cached clip** → automatic video work records `event_not_found`; an owner-requested job
@@ -135,7 +96,7 @@ You can control this in **Settings → Data → Media integrity**:
 ## Related reason codes
 
 `event_not_found` is one of a family of Frigate media/event conditions. On the
-**Errors** page (and in health telemetry) you may see any of these:
+**Notifications → Errors** view (and in health telemetry) you may see any of these:
 
 | Reason code | Component | What it means | Detection kept? |
 |---|---|---|---|
@@ -150,16 +111,17 @@ You can control this in **Settings → Data → Media integrity**:
 
 The two that lose data — `drop_classify_snapshot_unavailable` (a live detection
 dropped) and `frigate_missing_deleted` (a stored detection removed) — are the ones
-worth acting on. Both are reduced by the same steps: make sure `snapshots` are
-enabled in Frigate for the camera, keep the brief-visit tuning above so more objects
-persist, and set the Media integrity policy to **keep**.
+worth acting on. For snapshot failures, verify camera snapshots and reachability while the event is still
+available. For deletion by policy, select **Mark missing and keep local data** or **Keep local
+data unchanged** before the next integrity pass. Changing a policy does not restore rows already
+permanently deleted.
 
 Missing events, clips and snapshots do not count as inference circuit failures. Worker crashes
 and inference timeouts still count, including when a snapshot fallback cannot recover the job.
 
 ## Checking whether this affected a specific detection
 
-In the YA-WAMF **Errors** page, look for the reason codes above. For example:
+In the YA-WAMF **Notifications → Errors** view, look for the reason codes above. For example:
 
 - `reason_code: precheck_cache_bypass` — classification succeeded from local cache despite `event_not_found`
 - `reason_code: event_not_found` — classification failed because there was no cached copy either
@@ -167,7 +129,7 @@ In the YA-WAMF **Errors** page, look for the reason codes above. For example:
 You can also inspect the detection directly via the API:
 
 ```bash
-curl http://localhost:9852/api/events/{id}
+curl -fsS http://localhost:9852/api/events/{id}
 ```
 
 A detection affected by this scenario will have:

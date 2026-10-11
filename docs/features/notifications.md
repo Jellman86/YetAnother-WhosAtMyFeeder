@@ -29,6 +29,12 @@ Opening Settings restores the last detection and weather backfill results withou
 them again. A backfill observed running on that page announces its completion or failure once;
 returning to Settings or reloading it does not replay the result.
 
+For a support report, follow **Health · Diagnostics export** to **Settings → Health** and expand
+**Diagnostics export**. **Capture Bundle** saves a snapshot; **Download without saving** exports
+one directly. Both request current server evidence, even with no browser errors. These actions
+require owner access and do not send a report automatically. A saved bundle retains its original
+capture time. See [Diagnostics](../troubleshooting/diagnostics.md#capture-current-evidence-for-a-report).
+
 ## Supported Platforms
 
 ### Discord
@@ -152,7 +158,7 @@ rejected. Deleted, hidden, blocked and unknown visits are checked again before d
 1. **Event Trigger:** A detection is processed and saved to the database.
 2. **Filter Check:** The system checks your confidence, audio, and species filters.
 3. **Dispatch:** If passed, the notification service dispatches async requests to all enabled platforms simultaneously.
-4. **Rich Media:** If enabled, the system fetches the high-quality crop from Frigate to attach to the message.
+4. **Rich Media:** If enabled, the service attaches the available photograph. A photo or video guess cannot override the visit's accepted species merely to provide an attachment.
 
 ## Setup
 

@@ -65,9 +65,13 @@ the ignored `apps/ui/playwright-results` directory. Use
 `npx playwright show-trace path/to/trace.zip` to inspect a failed interaction.
 
 These are rendered-component regression tests, not full application end-to-end
-tests. They mount the production Health timeline and previews with real styles
-and translations, and substitute only media responses. They check:
+tests. They mount current production components with real styles and translations, substituting
+API and media responses in controlled fixtures. Coverage includes:
 
+- Setup wizard account/model steps, partial Settings writes, provider selection, validation
+  failures and late-response cleanup.
+- Model compatibility results and runtime refresh after restoring the active model.
+- Explorer seen/heard controls and visit/capture review journeys.
 - Recorded, filtered and failed detections remain distinguishable.
 - Only recorded visits offer **View record**, and it returns the correct event.
 - Previews escape a deliberately clipping ancestor and remain inside the viewport.
@@ -87,6 +91,10 @@ Unexpected API requests and uncaught JavaScript errors fail the fixture. Its HTM
 is a development test entry, not included in the production build. New browser
 tests belong in `browser-tests/*.spec.ts`; do not replace interaction assertions
 with checks that a source file merely contains a string.
+
+For documentation captures, use the isolated [screenshot recipe](../images/README.md).
+It renders current components with safe fixtures and rejects production destinations; captured
+figures illustrate controls and do not add hardware-validation evidence.
 
 ## Joined backend paths and recovery
 
@@ -271,8 +279,10 @@ corpus still needs pinned, reviewed images and a previous-release baseline.
   SSE reconnection and detection-modal/media journeys across browsers.
 - Concurrent duplicate notification jobs and delivery interrupted between send
   and marking the row notified; sequential replay tests do not prove exactly-once delivery.
-- A labelled multi-species accuracy corpus, retained-video maintenance replay,
-  published CUDA-image checks and sustained mixed-load memory/queue bounds.
+- A pinned, reviewed accuracy regression corpus with a previous-release baseline,
+  broader retained-video replay, CUDA coverage beyond the tested RoPE/crop pair,
+  and sustained mixed-load memory/queue bounds. The October [model evaluation](../reviews/2026-10-10-model-integration-validation.md)
+  is scoped evidence, not a universal accuracy or hardware certification.
 - Removing the old test-wide aiosqlite daemon-thread workaround by fixing each
   leaking fixture. Strict process exit catches other hangs but does not prove that
   all database connections are currently closed.

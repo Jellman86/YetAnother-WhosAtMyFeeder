@@ -5,109 +5,58 @@ identifications agree. It can provide clearer evidence when a snapshot is blurre
 is partly hidden. If neither the video nor the snapshot fallback provides sufficient evidence,
 YA-WAMF keeps the existing identification.
 
-## How It Works
+## Check a photograph and count the birds
 
-For a new live visit, YA-WAMF allows Frigate time to finish its clip before requesting it.
-Time already spent in the video queue counts toward this delay: an older queued visit does
-not start a fresh waiting period when a worker becomes available. A missing clip still uses
-the existing bounded retries and snapshot fallback. Choosing **Detection Snapshot** for the
-initial identification does not disable automatic video analysis or best-available photo work.
+Video identification, the displayed photograph and additional birds in a capture are separate
+outcomes. A completed species analysis does not prove that a suitable new photograph was found.
 
-1. The backend resolves the best local video first: a complete cached full-visit recording, a
-   decodable partial recording, then the cached event clip. It asks Frigate for the event clip only
-   when no usable local copy exists. Each candidate is decoded before inference; an invalid cached
-   file is removed and resolution continues instead of falling straight back to a snapshot.
-2. It uses deterministic, centre-weighted stratified sampling. Event clips retain their first/last
-   boundaries and place the remaining samples through the central half, where the tracked subject is
-   most likely to be useful. Longer recording clips keep roughly 70% uniform coverage and spend the
-   remaining samples in that central region. The default is **15 frames**, configurable in
-   **Settings → Detection**.
-3. Each frame is evaluated as a full frame and, when valid, with independent Frigate-hint and
-   detector-crop representations that match the active model's input contract.
-4. Each representation must form its own temporal consensus across multiple frames. At least two
-   confident moments must vote, and one species must own at least 60% of those confident votes.
-   Samples less than 250 ms apart collapse into one moment, and every winning source needs three
-   independent evaluated moments. Decoded frames below the confidence floor prove source coverage
-   but do not vote against a fleeting visitor. A detector crop can win from sparse recurring
-   evidence without occupying a fixed percentage of a long visit. A reliable tracked-object crop
-   has priority over a different bird elsewhere in the frame. Otherwise, two separated, confident
-   identifications of the initial event species keep that target ahead of a scene winner; a weak
-   guess or single glimpse does not. Without either anchor, conflicting source winners cause an
-   abstention instead of adding misleading extra votes. When a frame has no valid hint,
-   video inference checks up to three distinct native detector crops per sampled frame. This is one
-   native detector pass, without tiled scanning or retries, but may add two species-classifier
-   calls. A guided detector miss in an otherwise valid box also permits that native pass, because
-   the bird may already have left the hinted position.
-5. A video result must still clear the configured promotion threshold before a user-requested run
-   can replace the stored identification. If temporal evidence abstains or stays below that
-   threshold, YA-WAMF tries the best retained snapshot. If neither route has usable evidence, it
-   returns **No confident result**, preserves the existing identification, and records no manual
-   override.
+- **Best available event snapshots** in **Settings → Data → Snapshot quality** controls automatic
+  photo work. Owner-selected photos and explicit species corrections remain protected.
+- **Automatically find additional birds** in that section is off by default, including on
+  upgrade. Normal identification and target-photo selection still work when it is off.
+- **Find more birds** scans one retained whole frame. **Scan again** repeats a scan without changing
+  the chosen photo or the capture's primary identification, and keeps corrections and exclusions.
+  An empty retry preserves earlier counted-bird records.
+- The scan reports queued and running states separately, then **find**, **name**, **count** and
+  **save** progress. A waiting scan shows how many scans are ahead; a running button says
+  **Scanning…**. A failed scan is distinct from a photo that has never been scanned.
+- **Regenerate snapshots and recount birds** rebuilds available photo choices and checks their
+  birds again. A failed or empty generation keeps saved choices. **Needs your call** offers the
+  species picker and **Skip for now** when a person is needed.
 
+See [Explorer and reviewing visits](explorer.md) for the viewing and correction workflow.
 
-The first saved classification is retained separately from later labels. Repeated analysis uses
-that initial classification as a soft prior, or an explicitly confirmed or chosen species.
-Clicking Reclassify requests a model decision and does not turn its output into a human
-species choice or erase a previous explicit species choice. Another confirmation or manual
-species choice replaces that prior. The existing manual lock still protects both actions from automatic changes.
-A prior is not proof of which bird Frigate tracked and cannot force a result without repeated
-confident video support. A genuinely wrong initial label can still change. The first saved classification may have used a trusted Frigate sublabel as a snapshot
-fallback. A sublabel can also be YA-WAMF's own earlier write-back, so it is not proof of
-independent species evidence. Video runs do not add the current Frigate sublabel as another
-prior.
+## How it works
 
-When the first label was such a fallback, YA-WAMF records that it was borrowed. Its own
-classifier did not reach the threshold on the event image, so a borrowed label is not used as
-the species prior: it would otherwise favour that species wherever it appears in the clip, such
-as another bird sitting in view throughout a short visit. While the stored label is still that
-borrowed one, a video result replaces it once it clears the normal threshold. It does not have
-to beat the sub-label's score, which comes from Frigate's model, or the stricter margin that
-applies when a video result disagrees with an independent Frigate sublabel. Visits saved before
-this was recorded keep the earlier rule.
+YA-WAMF waits briefly for Frigate to finish a new clip. It prefers a usable cached full-visit
+recording, then a partial recording, then an event clip, before asking Frigate for media. Missing
+video has bounded retries and a snapshot fallback. A shorter, decodable clip remains useful evidence.
 
-Existing visits without preserved initial classification remain unknown; migration does not
-copy a possibly overwritten current label into their history. They still use available tracked
-geometry and temporal consensus. Diagnostics report whether the species prior came from the
-initial classification, an explicit manual correction or was unavailable. Native multi-crop
-search does not require a species prior; older and Unknown visits keep the same bounded
-search. Duplicate ingestion and a backfill with a different model do not rewrite the initial
-classification. A downgrade removes this new provenance while preserving detections;
-re-upgrading cannot recover that discarded provenance.
+The default is **15 frames**, configurable under **Settings → Detection**. Each sampled moment can
+provide a full-frame view, a timestamp-aligned Frigate crop and detector crops. Those are alternate
+views of one moment, not extra votes. A result needs repeated confident support; reliable tracked
+geometry and repeated evidence for the event's bird take priority over another bird in the scene.
+Unresolved source disagreement causes abstention.
 
-For retained full-visit recordings, a Frigate event box is used only at sampled timestamps that
-match the event's tracked `path_data`. YA-WAMF never repeats one static event box across the whole
-recording after the bird has moved away. Full-frame and detector-crop evidence remain available
-when tracked coordinates are absent.
+The first saved classification or an explicit owner species choice can guide target selection,
+but cannot force a result without video support. A borrowed Frigate sublabel is not an independent
+model prediction. Old visits without preserved initial evidence still use available geometry and
+consensus; YA-WAMF does not invent their original classification.
 
-### Reusing video scenes for photographs
+**Score again** requests a model decision. It does not turn the output into a human species choice
+or erase an explicit choice. A below-threshold or abstaining run tries the retained snapshot; if
+neither route qualifies, it keeps the identification and reports **No confident result**.
 
-Video analysis retains at most two decoded RGB scenes, accounting for Pillow's four-byte
-pixel storage within a 64 MiB budget. This cache only speeds up photo work; eviction never
-removes classification or counted-bird evidence. After consensus, the worker writes one
-available winning scene as a lossless, request-owned artifact. The parent validates the
-clip identity, clip variant, frame index, dimensions, offset and content hash before reuse.
-The photo crop keeps the exact geometry attached to the selected species evidence.
+### Photograph progress
 
-The baseline photograph and optional high-quality scan reuse that scene where their frame
-coordinates match. Other high-quality frames, a different reranked winner, oversized scenes
-and missing or invalid artifacts use the existing decoder. No image data or artifact paths
-are returned in classification results or completion events. Cancellation removes the output
-path before deleting its files, so late executor work cannot leave a new manifest behind.
-Owner photo choices, species corrections, hidden/blocked visits, removed photos and storage
-eviction retain their final commit protections. Completion and notifications still wait for
-the photograph update. The job remains running and says **Updating photograph** during this
-stage. Logs separate photo decode/reuse, encoding and media commit times;
-video diagnostics record the retained scene count, pixel budget and artifact creation time.
-
-On platforms without safe no-follow file opening, including native Windows, the optional
-scene artifact is neither written nor loaded. Photo updates decode the selected frame again;
-in-memory scene reuse remains available. This fallback keeps the same photograph checks and
-does not permit following symbolic links to share cached pixels.
-
+Photo work can reuse the winning decoded frame to avoid decoding it again. Invalid or unavailable
+reusable data falls back to decoding. The job says **Updating photograph** while that work finishes,
+and completion waits for its outcome. Owner photo choices, corrections, hidden/blocked visits and
+storage eviction are checked before a replacement is saved.
 
 ## Running an Analysis
 
-Open a detection and select **Reclassify**. The same detail view also carries **Confirm
+Open a detection and select **Score again**. The same detail view also carries **Confirm
 <species>**, **Pick a different species**, and **Edit name** for correcting an identification by
 hand, and **Ask AI Naturalist** for the behavioural note. When an event clip or fetched full-visit
 clip is available, YA-WAMF performs temporal video analysis; it does not replace that explicit video run
@@ -121,24 +70,13 @@ Temporal inference always runs in a supervised subprocess; cancellation or a har
 terminates that worker, so native OpenVINO/ONNX work cannot continue invisibly after the request
 ends.
 
-The worker is not the visit. A video worker is judged alive on its own heartbeat budget
-(`CLASSIFICATION__VIDEO_WORKER_HEARTBEAT_TIMEOUT_SECONDS`, thirty seconds by default, because a
-temporal analysis is one long native job), and the video hard deadline still ends one that has truly
-hung. When a worker is replaced mid-analysis, whatever the reason, the visit in hand goes back on the
-queue after a short pause and runs again on the fresh worker, twice at most, with its durable status
-returned to **pending** so a process restart in the gap recovers it like any other queued visit.
-Work queued while the replacement loads waits for it rather than being handed to the dead worker.
-Only when those attempts are spent is the visit marked failed with the worker's reason, and a
-manual request then falls back to the retained snapshot as before. Every worker kill is logged with
-the numbers it rested on (seconds since the last heartbeat, activity and stderr, time in the
-request, restarts in the window), so a false positive can be told from a hung worker afterwards.
-
-A shorter-than-requested full-visit clip remains valid evidence when it is a real, decodable MP4.
-YA-WAMF analyzes the frames it contains instead of discarding the clip merely because Frigate could
-not provide the ideal window.
+A replaced worker returns unfinished work to the queue for at most two retries. Queued work waits
+for the replacement; exhausted retries fail visibly. Check **Notifications → Jobs** and a fresh
+[diagnostics bundle](../troubleshooting/diagnostics.md#capture-current-evidence-for-a-report) when a
+worker repeatedly restarts.
 
 This source selection is independent of stale Frigate metadata. If the detection says its event
-clip is gone but YA-WAMF can still play a cached full-visit recording, the Reclassify action uses
+clip is gone but YA-WAMF can still play a cached full-visit recording, the **Score again** action uses
 that recording. Completing a cached-video run also replaces any obsolete `event_not_found` status
 with the result of the new attempt.
 
@@ -156,29 +94,12 @@ leading species, and how many matches were required. A snapshot downgrade remain
 exhaustion of both media routes is an unchanged result, while an unrecovered media/runtime fault is
 an explicit failure.
 
-The owner **Notifications → Jobs** view also shows automatic and maintenance video work from the
-backend, including delayed retries waiting for a recording clip or worker recovery. The old
-`/jobs` address redirects to Notifications. Use **Health · Diagnostics export** there to open
-**Settings → Health**, then expand **Diagnostics export**. **Capture Bundle** saves a report with
-your notes; **Download without saving** downloads one immediately. Both fetch current server
-evidence, even in a browser with no local errors. Saved bundles keep their original evidence and
-remain downloadable when the server is unavailable. A queued
-item remains labelled **Queued** until a worker starts it, and pending/processing automatic jobs are
-reclaimed from the detections database after a container restart. Frame progress sent by a
-subprocess retains the sampled frame number and exact clip offset, so saved top-frame evidence can
-be traced back to the media position that produced it.
-
-A pending visit waiting for a recording clip keeps its delayed retry owner, so periodic recovery
-cannot restart its retry budget. The retry uses the normal video queue, concurrency limits and live
-work priority. If the clip remains unavailable after the bounded retry, the visit follows the
-existing snapshot fallback or failure policy. A full queue or open circuit at retry time reports
-a failure instead of starting another recovery loop. Restart recovery still reclaims unfinished
-work when there is no in-memory owner.
-
-Scheduled analysis of unknown detections waits for Frigate's API to become available during a
-stack restart. If an entire precheck batch fails transiently, YA-WAMF leaves those detections
-eligible and retries up to five times at two-minute intervals. A later daily cleanup will try
-again if Frigate remains unavailable. Transient precheck errors are not queued as video jobs.
+**Notifications → Jobs** includes automatic and maintenance video work, delayed media retries and
+worker recovery. **Queued** means no worker has started yet. Unfinished automatic work is reclaimed
+after a container restart. Use its **Health · Diagnostics export** link to
+[capture a fresh support bundle](../troubleshooting/diagnostics.md#capture-current-evidence-for-a-report).
+Missing recordings and temporary Frigate outages have bounded retries; they do not start endless
+recovery loops.
 
 ## Settings
 
@@ -190,83 +111,37 @@ Video-job concurrency follows `CLASSIFICATION__BACKGROUND_WORKER_COUNT` (one wor
 unset), with one clip per worker. The legacy `video_classification_max_concurrent` setting is
 ignored. See [Maintenance concurrency](../setup/configuration.md#maintenance-concurrency).
 
-Live snapshot work takes priority over new video starts. The existing policy allows one
-video slot when maintenance work has waited at least five seconds; automatic or manual jobs
-alone do not activate that relief. The queue remains shared and FIFO, so eligible maintenance
-can allow an earlier automatic or manual job to start. Critical MQTT pressure prevents new
-video starts, and source circuit breakers and maintenance capacity still apply. These
-scheduling priorities are unchanged by the queue metrics.
-
-The public health response includes video queue counts and oldest waiting ages by source
-and active phases. The existing maintenance-specific fields remain available. A manual
-request joining an existing job appears as manual in the source breakdown, matching Jobs;
-its underlying queue owner and circuit protections stay intact. Missing ages are `null`,
-and restored jobs begin a new in-memory waiting interval after restart.
-
-`scheduler_pressure` contains cumulative observed pressure/wait seconds and start, relief-start
-and finish counts. Relief starts count the existing maintenance-triggered slot. These update when the scheduler checks or the queue changes, independently
-of health polling, and reset with the process. They describe scheduler observations, so short
-live bursts between checks can be missed; they are not precise accelerator utilization or an
-end-to-end latency measure. A finish also includes cancelled or failed owners: use the job's
-stored result to determine whether classification succeeded.
+Live snapshot work takes priority over new video starts. **Settings → Health** reports queue
+counts, waiting ages and active phases. Queue relief and pressure counters describe scheduler
+observations, not accelerator utilization or proof that a job succeeded; check its stored result.
 
 ## Requirements
 
-- `record: enabled: True` must be set in your Frigate config, every analyzed camera needs an FFmpeg input with the `record` role, and `continuous.days` must be at least `1` so the recording exists when analysis runs. Alert/detection retention alone only preserves matching event segments and cannot guarantee the complete analysis window.
+A missing clip is a media-availability problem; it does not establish an inference failure. Check
+the recording configuration on the specific camera, including after changing its power or network
+connection. A working live stream or snapshots do not prove that Frigate recorded a clip.
+
+- Enable recording and an FFmpeg `record` role on every analyzed camera. Event clips need retained event footage. **Full-visit clips** additionally require positive `record.continuous.days` (at least `1` in the example configuration); alert/detection retention alone cannot guarantee that longer window.
 - The active model must be downloaded. Deep Video Analysis uses the same model as real-time detection.
 
 See the [Recommended Frigate Config](../setup/frigate-config.md) for the exact recording settings needed.
 
 ## Keeping the photo aligned
 
-After video analysis, a replacement photo uses an exact sampled frame and crop where
-an object detector localized a bird and the species model supported the accepted species.
-Object confidence and species confidence are checked separately. Weak exploratory detector
-proposals still help classification but cannot select the photo. This step reuses localization
-from the video analysis, decodes one previously analysed moment and performs no additional
-inference. It works when optional high-quality photo scanning is disabled.
+A replacement needs both localized bird presence and species evidence for the accepted identity.
+A species score alone cannot prove a bird is visible, so successful classification does not
+guarantee a new photo. A matching, checked HQ photo stays selected; otherwise the selected video
+moment can supply a suitable crop even when optional HQ scanning is off.
 
-HQ scanning reuses its existing detector work to check the chosen full frame or crop. A
-matching, checked HQ photo remains selected when its retained bytes match the displayed photo;
-that check happens before another video decode. Older HQ choices without sufficient object
-localization may be replaced once by a suitable video crop. The initial and previous photos
-remain available through the normal retention rules.
+An abstaining run may repair a misleading automatic crop without changing the species. A whole-scene
+fallback shows context without claiming the accepted species was found there. Owner-selected photos,
+manual identifications, hidden/blocked visits and storage eviction remain protected. Failed extraction
+keeps the current photo and does not discard a successful classification.
 
-HQ and baseline photo changes use the same species-confidence floor: the configured classification
-threshold or 60%, whichever is higher. A photo must support the current accepted species; a weaker
-HQ candidate cannot displace a stronger baseline photo and then be replaced on every repeated check.
-
-An abstaining video run also checks the photograph. It first reuses retained evidence;
-when HQ scanning is enabled and no suitable retained choice exists, it can generate photo
-candidates from the clip without changing the identification. A verified matching photo
-is preferred. Missing, unreadable or corrupt retained candidate files do not prevent that
-one fresh scan. Otherwise, an uncropped scene with detector-supported bird presence can
-replace a misleading crop, reported as `full_frame_fallback`. This does not claim the
-accepted species was found in that scene. Automatic runs protect manual identifications;
-an explicit **Reclassify** request can repair an automatic photograph while keeping the
-accepted identity when classification abstains. Owner-selected photos, hidden visits,
-blocked species and storage eviction remain protected. Snapshot fallback classification
-uses the original image and provenance even if this photo check changes the displayed image.
-Completion includes the photo outcome after the photo work settles.
-
-If no suitable localized photo is available, YA-WAMF keeps the current photo and records
-`bird_presence_unconfirmed`. This includes an absent or disabled crop detector, detector misses
-and cases where no localized crop supports the accepted species. A species score alone cannot
-prove that a bird is visible. Small or partly hidden birds can be missed, and an object detector
-can still mistake background for a bird. Classification success therefore does not guarantee
-a new photograph. A completed scan with no suitable localized bird does not repeatedly
-rescan the same media on a timer; an explicit new scan or final-event refresh can try again.
-Photographs are always kept, so the one storage reason a replacement is skipped is a media folder
-that cannot be written, reported as `media_cache_unavailable` and in system checks. Missing clips retain their bounded availability retries. A temporary detector or species-inference
-failure, or deferred work while live processing is busy, also retains bounded retries with a distinct
-reason. These are incomplete scans, not confirmed presence misses. Classification refinement remains
-independent of photo eligibility. Owner choices and corrections are checked again before saving.
-
-Automatic photo changes respect manual identifications and photo choices, hidden
-visits, blocked species and storage eviction. A rejected video result cannot
-replace the photo with a different species. Later routine Frigate snapshot writes
-update event hints without overwriting a retained refined photo. Extraction
-failures preserve the current photo and do not discard a successful classification.
+`bird_presence_unconfirmed` means no suitable localized photograph was found. A completed miss does
+not rescan the same media on a timer; an explicit scan or final-event refresh can try again.
+`media_cache_unavailable` means the media directory could not be written. Temporary inference
+failures, deferred work and missing clips have distinct bounded retry paths.
 
 ### Earlier photograph choices
 
@@ -277,12 +152,6 @@ persisted bird observations are protected. A kept crop retains its matching
 whole frame for comparison. These protections can take the total above eight;
 the limit does not reduce the birds counted in a capture or the current scan.
 
-Content hashes avoid rereading every saved JPEG to check for duplicates. Older
-rows without a hash receive at most eight byte comparisons per update. Files
-removed from the photo list are pruned only after the replacement commits.
-Existing choices are trimmed when a new photo set is saved, not at startup.
-Photographs already removed by storage eviction cannot be restored by retention.
-
-Older installations may have equal creation times for several photos because
-previous saves reset those times. Their exact original order cannot be recovered;
-Frigate photographs are preferred when choosing the protected comparison.
+Earlier choices are trimmed when a new set is saved, not at startup. Media already removed by
+storage eviction cannot be restored by this photo-history protection; see
+[retention boundaries](favourites.md#retention-boundaries).

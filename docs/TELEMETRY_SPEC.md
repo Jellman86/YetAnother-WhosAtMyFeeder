@@ -18,7 +18,9 @@ The heartbeat payload is strictly limited to metadata about the installation and
 - **Installation ID**: A random UUID generated once per installation. It is not linked to any personal identity.
 - **Application Version**: The current version/build of YA-WAMF.
 - **Platform Metadata**: Operating system type, release version, and machine architecture (e.g., Linux x86_64).
-- **Configuration Flags**: Enabled features such as LLM providers, Media Caching, and Auto Video Classification.
+- **Configuration Flags**: Enabled LLM and integration features, event-clip retention, and automatic video classification. Photograph retention is always enabled.
+- **Runtime and Hardware**: Configured versus active inference provider, backend, worker mode, coarse device availability, compile result, and degraded recovery state.
+- **Deployment**: Packaged image family, architecture, branch and Git identity. These do not include local hostnames or paths.
 - **Feature Usage**: Which integrations (eBird, iNaturalist), notification channels (Discord, Email, etc.), and enrichment modes are active.
 - **Access Settings**: Whether authentication or public access is enabled (boolean flags only).
 - **Geography**: The approximate country derived from the Cloudflare request header (the IP address itself is **not** stored in the database).
@@ -34,49 +36,24 @@ The heartbeat payload is strictly limited to metadata about the installation and
 - **URL**: `https://yawamf-telemetry.ya-wamf.workers.dev/heartbeat`
 - **Frequency**: Once every 24 hours while the application is running.
 
-### Payload Schema
-```json
-{
-  "installation_id": "string (UUID)",
-  "version": "string (e.g. 2.0.0)",
-  "platform": {
-    "system": "string (e.g. Linux)",
-    "release": "string",
-    "machine": "string"
-  },
-  "configuration": {
-    "model_type": "string",
-    "llm_enabled": "boolean",
-    "llm_provider": "string",
-    "media_cache_enabled": "boolean",
-    "media_cache_clips": "boolean",
-    "auto_video_classification": "boolean"
-  },
-  "integrations": {
-    "birdnet_enabled": "boolean",
-    "birdweather_enabled": "boolean",
-    "ebird_enabled": "boolean",
-    "inaturalist_enabled": "boolean"
-  },
-  "notifications": {
-    "discord_enabled": "boolean",
-    "pushover_enabled": "boolean",
-    "telegram_enabled": "boolean",
-    "email_enabled": "boolean",
-    "mode": "string"
-  },
-  "enrichment": {
-    "mode": "string",
-    "summary_source": "string",
-    "sightings_source": "string",
-    "taxonomy_source": "string"
-  },
-  "access": {
-    "auth_enabled": "boolean",
-    "public_access_enabled": "boolean"
-  }
-}
-```
+### Heartbeat contract
+
+The canonical builder is `build_runtime_telemetry_payload` in
+[`telemetry_service.py`](../backend/app/services/telemetry_service.py). Settings shows a preview
+of that payload rather than a separately maintained approximation.
+
+| Group | Content |
+|---|---|
+| `installation_id`, `timestamp`, `version` | Random installation identity, heartbeat time, running application version. |
+| `platform` | Operating system, release and machine architecture. |
+| `configuration` | Model ID, LLM enable/provider, always-true photograph-retention flag, event-clip copies and automatic video setting. |
+| `runtime` | Model runtime, configured/active provider, active backend, execution mode, crop tier, inference-health counts and latest recovery status/reason. |
+| `hardware` | CUDA/OpenVINO availability, coarse NVIDIA/Intel GPU/NPU availability, OpenVINO compile result/device and fallback state. |
+| `deployment` | Deployment mode, image family, architecture, branch and Git hash. |
+| `integrations`, `notifications`, `enrichment`, `access` | Enabled features and configured source/mode flags, without credentials. |
+
+These are coarse application facts. An active-provider value is not a species-accuracy result,
+and an unavailable field must not be interpreted as proof of a failed device.
 
 `configuration.media_cache_enabled` is always `true` from #622 on, when photographs and visit media
 stopped being optional. It is still sent because earlier reports carry it, and a missing value would
@@ -85,7 +62,7 @@ count as off. A jump to every install reporting it is that change, not installs 
 ## User Control (Opt-In)
 Telemetry is **disabled by default** and completely optional. Users who wish to help improve YA-WAMF can opt in at any time via the **Settings → Connection → Telemetry** toggle in the UI. You can also disable it at any time if you change your mind.
 
-On first launch, you may see a friendly banner inviting you to opt in - this can be dismissed and won't appear again.
+The opt-in banner can be dismissed. **Anonymous health diagnostics** is a separate, also opt-in report of sanitized warning/error groups. It does not upload raw support bundles, owner notes or media. See [Telemetry & Usage Metrics](features/telemetry.md) for the boundaries and public aggregate dashboard.
 
 ## Source Code & Transparency
 I believe in full transparency regarding the data I collect. You can inspect exactly how the heartbeat is constructed and transmitted in the backend source code:

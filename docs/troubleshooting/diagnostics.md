@@ -5,7 +5,32 @@ system status, what happened to every recent frame and why it was or was not rec
 health, where your species names come from, and it is where you capture a diagnostics bundle to
 attach to a bug report.
 
-![Settings → Health: a System Status card reporting all monitored services healthy with the time of the latest health check, and a "What happened" timeline listing visits recorded and frames filtered out, each with its species, confidence, and the reason it was not recorded](../images/settings-health.png)
+![Settings → Health showing System Status and a What happened timeline with recorded, filtered and fault legend entries and two recorded visits](../images/settings-health.png)
+
+## Capture current evidence for a report
+
+1. Sign in as the owner and open **Settings → Health**. The **Health · Diagnostics export** link
+   under **Notifications → Jobs** takes you to the same page.
+2. Expand **Diagnostics export** and add the approximate time, camera, action and expected result
+   in the notes. Include recent network or camera changes when relevant.
+3. Select **Capture Bundle** to save a named bundle in this browser, or **Download without saving**
+   to download one immediately.
+4. Check the capture time and attach the JSON file to the report after reviewing its contents.
+
+![Diagnostics export with an issue-note field and separate Capture Bundle and Download without saving controls](../images/support-bundle.png)
+
+Both actions request fresh server health, classifier status, startup warnings and backend
+incident evidence even when the browser has no local errors. If that refresh fails, the export
+shows an error; a saved older bundle remains its original snapshot rather than becoming fresh
+because you downloaded it again. Saved bundles can be downloaded while the server is unavailable.
+The direct server endpoint is `GET /api/diagnostics/bundle` and requires owner access; public
+visitors cannot export it. An instance with authentication disabled treats visitors as owners,
+so enable authentication before exposing it remotely.
+
+Notes are included in the file. Redacted settings do not make everything you type private: omit
+credentials and review event identifiers, camera names and other operational context before
+posting publicly. Diagnostics export is a deliberate local download, separate from optional
+anonymous health reporting; it does not automatically send a support report.
 
 ## Container startup takes time
 
@@ -71,10 +96,17 @@ container cannot reach the broker on the Docker network. See
 [MQTT Broker Setup](../setup/mqtt-broker.md).
 
 ## 🔊 Audio Correlation Issues
-If Birds are appearing on the dashboard but never have the **"Verified"** audio badge:
+If camera visits appear but never have the **Audio confirmed** badge:
 
-1.  **Check Sensor ID:** Verify that the Sensor ID in the **Recent Audio** widget matches your mapping in Settings.
-2.  **Verify Timezone (TZ):** Run `docker exec -it yawamf-monalithic date` (or `yawamf-backend` for the legacy split deployment) and compare it to the time on your host. If they differ, audio correlation will fail because events won't align. Ensure all containers (Frigate, BirdNET, YA-WAMF) have the same `TZ` environment variable.
+1.  **Check the mapped source:** Open **Settings → Integrations → BirdNET-Go → Audio buffer &
+    sensor mapping** and inspect **Recently Detected BirdNET Sources**. Map the camera to the stable
+    source name that is actually arriving; multiple names can be comma-separated. A blank mapping
+    is not a wildcard, and a different microphone's call does not confirm this camera's visit.
+2.  **Verify clocks and timestamps:** Confirm Frigate and BirdNET-Go report the correct moment, with
+    Unix timestamps or ISO timestamps carrying the intended offset. YA-WAMF compares times in UTC;
+    a different display `TZ` alone does not break correlation. A timestamp without an offset is
+    interpreted as UTC, so a sender incorrectly emitting local wall time can shift the match.
+    Keep host clocks synchronised.
 3.  **Buffer Window:** Correlation only works for events within your configured `audio_correlation_window_seconds` (default ±300 seconds).
 
 ## 🌐 Network Connectivity
@@ -82,7 +114,7 @@ Since YA-WAMF runs in a Docker network, it must be able to reach your other serv
 
 ```bash
 # Test connection to Frigate (monolithic deployment)
-docker exec yawamf-monalithic curl -s http://frigate:5000/api/version
+docker exec yawamf-monalithic curl -fsS http://frigate:5000/api/version
 
 # Test connection to MQTT
 docker exec yawamf-monalithic ping -c 1 mosquitto
@@ -90,7 +122,11 @@ docker exec yawamf-monalithic ping -c 1 mosquitto
 
 Replace `yawamf-monalithic` with `yawamf-backend` if you are on the legacy split deployment.
 
-If these fail, verify that all services are on the same `DOCKER_NETWORK` in your `.env` file.
+A shared Docker network is one option; a reachable LAN address is another. Check the addresses
+saved in YA-WAMF, container DNS, routing and firewall rules. A successful ping does not prove that
+MQTT authentication or its TCP port works; use **Test Connection** for that check. After a switch,
+PoE supply or camera change, compare the error times with that outage and verify fresh Frigate
+frames before treating old connectivity incidents as an active classifier fault.
 
 ## 🔒 Permission Issues
 If you see `PermissionError` in your backend logs or the container fails to start after an update:
@@ -165,6 +201,10 @@ This usually tells you whether the problem is:
 
 ### Quick API check
 
+On an authenticated instance, use an owner bearer token for protected API requests, as described
+in the [API authentication reference](../api.md#authentication). Do not paste tokens into a public
+report. The examples below show service addresses without credentials.
+
 From the host (monolithic deployment):
 
 ```bash
@@ -183,45 +223,19 @@ Legacy split deployment (from the Docker network):
 curl -fsS http://yawamf-backend:8000/api/classifier/status
 ```
 
-Key fields:
+The status response names the image family in `image_flavor`, eligible providers in
+`packaged_inference_providers` and any image/provider mismatch in `image_flavor_warning`.
+It also includes host probes, worker evidence, fallback reasons and model-install warnings. **Selected** is a preference;
+**Active** needs a loaded worker. A planned provider has not established actual inference yet.
 
-- `image_flavor`, `packaged_inference_providers`, and `image_flavor_warning`
-- `host_available_providers` (packaged providers that passed runtime/device probes,
-  before model compatibility is applied)
-- `available_providers` (packaged providers that passed runtime/device probes and
-  are globally safe or currently validated for the active model)
-- `provider_preference_order` (the active provider followed by its concrete
-  runtime-recovery path)
-- `active_model_candidate_providers`, `active_model_validated_providers`, and
-  `validated_provider_preference_order`
-- `cuda_provider_installed` vs `cuda_available`
-  - `true` / `false` means the CUDA-capable ONNX Runtime wheel is installed, but no usable NVIDIA GPU is available to the container
-- `openvino_available`
-- `openvino_devices`
-- `intel_gpu_available` and `intel_npu_available`
-- `active_model_id`, `selected_provider`, and `active_provider`
-- `host_device_eligibility`
-- `fallback_reason`
-- `model_config_warnings`
-- `openvino_import_error`
-- `openvino_probe_error`
-- `openvino_gpu_probe_error`
-- `dev_dri_present`, `dev_dri_entries`, `process_groups`
+For `selected_provider_not_packaged`, switch to the matching image using the
+[safe flavour procedure](../setup/hardware-acceleration.md#switch-safely-between-flavors).
+For model-config or mapping warnings, repair the download in **Model Manager** and validate again.
+Do not install packages into the running container or copy labels from another model.
 
-`image_flavor_warning: selected_provider_not_packaged` means the saved provider
-does not belong to this image. YA-WAMF keeps that saved selection intact and
-uses an actually available fallback. Switch to the full or matching provider image using the
-[safe flavor procedure](../setup/hardware-acceleration.md#switch-safely-between-flavors);
-do not try to install packages into the running container.
-
-Provider validation is installation- and model-specific. The global registry separates safe
-providers from reviewed candidates; the sweep only tests candidates that the running image
-packages and the host probe exposes. Schema-4 evidence is tied to the model checksum, inference
-package versions, kernel, architecture, visible accelerator identity, and image flavour. Evidence
-left by a different artifact, runtime, host, kernel, or flavour is rejected and the model returns
-to its globally safe baseline until revalidated. A remaining `model_config_warnings` entry is
-therefore actionable: repair or download the model again in **Settings → Detection → Model
-Manager**, or include it in a diagnostics bundle when asking for help.
+See [model validation](../features/ai-models.md#validate-before-you-select-post-install-gate) for
+installation-specific evidence and [DINOv2 location and catalogue labels](../features/ai-models.md#october-experimental-options)
+for their input requirements. A compatibility pass does not establish species accuracy.
 
 ### Intel iGPU (OpenVINO) checklist
 
@@ -243,27 +257,15 @@ Replace `yawamf-monalithic` below with `yawamf-backend` if you are on the legacy
    - If `openvino_gpu_probe_error` mentions `libOpenCL.so.1`, the image is missing OpenCL runtime libraries.
    - If it reports no supported devices, the Intel GPU userspace/driver stack is not available to the container.
 
-### ConvNeXt OpenVINO model patch (unsupported ONNX sequence ops)
+### ConvNeXt reports unsupported ONNX sequence operators
 
-If `convnext_large_inat21` fails with:
-
-- `SequenceEmpty`
-- `SequenceInsert`
-- `ConcatFromSequence`
-
-you can generate an OpenVINO-compatible ONNX variant with:
-
-```bash
-cd backend
-python3 scripts/patch_convnext_openvino_model.py \
-  --model /data/models/convnext_large_inat21/model.onnx \
-  --replace
-docker restart yawamf-monalithic
-```
-
-(Use `docker restart yawamf-backend` if you are on the legacy split deployment.)
-
-The script creates a timestamped backup of the original model before replacement.
+`SequenceEmpty`, `SequenceInsert` or `ConcatFromSequence` can indicate an older export/runtime
+combination. Update to a matching application image and repair the model through **Model Manager**,
+then validate again. Current registered model identities are bound to the weights checksum;
+patching the active graph in place can invalidate its catalogue mapping and install integrity.
+Keep any old export and report the model checksum and runtime rather than silently replacing its
+operators on a running feeder. The source patch script is a maintainer tool for reviewed exports,
+not a substitute for installing the published artifact.
 
 ### NVIDIA CUDA checklist
 
@@ -323,7 +325,7 @@ If the dashboard is blank or buttons don't work:
 
 ## Frigate "Event Not Found" Detections
 
-If a detection shows `video_classification_error: event_not_found` or the **Errors** page shows diagnostic entries with `reason_code: event_not_found` or `reason_code: precheck_cache_bypass`, see the dedicated explanation:
+If a detection shows `video_classification_error: event_not_found` or **Notifications → Errors** shows diagnostic entries with `reason_code: event_not_found` or `reason_code: precheck_cache_bypass`, see the dedicated explanation:
 
 → [Frigate "Event Not Found" Explained](frigate-event-not-found.md)
 
@@ -355,33 +357,17 @@ There is no automatic in-process fallback for this condition. A deadline kill,
 normal termination or possible out-of-memory SIGKILL is not classified as a native
 crash by this safeguard.
 
-The profile includes the requested provider, model/label/external-weight hashes,
-region, preprocessing, crop configuration and runtime/hardware signature. It
-describes the worker configuration, not proof of which native library failed.
-Selecting CPU for the same model is the preferred mitigation if that combination
-is supported and can meet the workload's deadline; another installed model is not
-required. For quarantined accelerator profiles, isolated live, background and video work
-automatically attempt the same model in one shared, isolated CPU worker. Crop
-generation in that worker is also CPU-only. The configured provider is unchanged.
-The loaded model/labels/external weights and actual provider must match before and
-after inference. Queueing, cold load and inference share the workload deadline;
-merely loading a model is not recovery. Health remains degraded after successful
-CPU inference and retains the original crash evidence. A failed attempt that had its own
-budget is not repeated for that workload until a configuration change or process restart.
-Caller cancellation reaps the worker but allows a later request to try again; it does not
-establish that CPU inference is too slow. A native crash in the CPU profile remains
-quarantined across restarts. Wildlife work
-does not reuse this bird-model recovery path.
-Recovery deliberately uses one CPU worker to bound memory after a crash. A long video or
-backfill classification can consume another request's queue budget; that request fails visibly
-rather than spawning extra model copies or killing another workload's healthy inference. Running
-out of budget while queued does not mark its workload failed, and a request whose remaining
-budget is shorter than the last completed inference is refused without touching the shared
-worker. Select a validated provider appropriate to your workload if sustained CPU recovery
-cannot keep up.
-Changing to a different independently validated provider is also a mitigation;
-changing execution mode or restarting alone does not clear the retained evidence.
-This does not protect against a first native crash in legacy in-process mode.
+The record identifies a configuration, not the native library that caused the failure. A
+quarantined accelerator can attempt the same model in one shared isolated CPU worker. Queueing,
+cold load and inference must all fit the workload deadline. CPU may be unavailable, quarantined or
+too slow; a successful load alone is not recovery. Successful CPU inference leaves health degraded
+and preserves the original crash evidence. The saved accelerator preference is unchanged.
+
+Caller cancellation permits a later attempt; a completed failed attempt is not repeatedly retried
+for that workload until configuration changes or the process restarts. A native CPU crash is also
+quarantined. Selecting another independently validated provider can be a mitigation. Restarting or
+changing execution mode alone does not clear quarantine, and this safeguard cannot prevent a first
+crash in legacy in-process mode.
 
 Keep the evidence and use the [local reproducer](../development/testing.md#native-openvino-crash-reproducer)
 to investigate. Do not clear quarantine because one retry passed. After addressing
@@ -393,11 +379,6 @@ detection database. If evidence cannot be persisted, the current process remains
 blocked and logs `native_crash_quarantine_persistence_failed`; fix config-volume
 permissions before relying on persistence across restarts. Driver-only changes
 not represented in the runtime signature also need explicit revalidation.
-
-Native signal names and bounded recovery outcomes enter the existing opt-in health
-report batches once per profile/workload state per process. Requested GPU is not
-reported as proof that GPU code caused the fault. No stderr, image, core dump or
-local file path is included, and reporting frequency and ingestion are unchanged.
 
 **Audio context note:** Backfill reprocesses **Frigate** events only. BirdNET-Go audio confirmations are not backfilled unless you have a separate historical audio source to import. After a database reset, audio context will only appear for new detections once BirdNET-Go is running again.
 

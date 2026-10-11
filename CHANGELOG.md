@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Documentation is shorter and aligned with the current setup, model, Explorer, retention and
+  support workflows. Updated screenshots use reproducible, sanitised fixtures. Release preparation
+  now includes acknowledgements for issue reporters and follow-up testers, with contributor credits
+  recorded alongside the draft notes.
 - The setup wizard offers feeder coordinates for location-aware classifiers, saves them before
   hardware validation, and handles missing coordinates and valid zero coordinates explicitly.
   Incomplete installs, invalid coordinate pairs and running checks cannot be continued with.

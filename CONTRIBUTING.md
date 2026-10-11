@@ -32,30 +32,26 @@ locally if your backend is not reachable at the default development target.
 
 ## Required Checks
 
-Run the checks that match the files you changed before opening a pull request.
-
-Backend:
-
-```bash
-cd backend
-pytest
-ruff check .
-```
-
-Frontend:
+Use the [shared regression gate](docs/development/testing.md), which defines the complete
+backend, frontend, telemetry and browser checks. From the repository root with the backend
+virtual environment active:
 
 ```bash
-cd apps/ui
-npm run check
-npm test
-npm run build
+python -m ruff check .
+python -m ruff format --check .
+python backend/scripts/run_regression_gate.py
+npm --prefix apps/ui run check
+npm --prefix apps/ui run lint:dead
+npm --prefix apps/ui test
+npm --prefix apps/ui run build
+npm --prefix apps/telemetry-worker test
+python backend/scripts/docs_consistency_check.py
 ```
 
-Documentation:
-
-```bash
-python3 backend/scripts/docs_consistency_check.py
-```
+For documentation, follow the [documentation standard](docs/documentation-standard.md),
+read changed pages top to bottom, check links and commands against their implementation,
+and visually inspect every changed screenshot. Keep examples free of credentials and
+private location data. Capture screenshots from current components or a matching build.
 
 If you change schema, add an Alembic migration in the same commit and prove the
 migration can upgrade, downgrade, and upgrade again.
@@ -71,7 +67,7 @@ Use the repository pull request template to:
 - describe the useful outcome and exact included/excluded scope;
 - record focused and full checks with their real results;
 - include tests for new or changed behaviour;
-- update `CHANGELOG.md` under `Unreleased`;
+- update `CHANGELOG.md` under `Unreleased` for implemented user/operator behavior changes; documentation-only maintenance does not need a new behavior entry;
 - update docs when settings, APIs, integrations, or user-visible behaviour change;
 - identify data-integrity, migration, security, or operational risk and recovery;
 - keep required checks green and resolve blocking review conversations.
@@ -99,7 +95,8 @@ Bugs are tracked as GitHub issues. Please include:
 - steps to reproduce,
 - backend logs (`docker compose -f docker-compose.monolith.yml logs yawamf`, or
   `docker compose logs yawamf-backend` for the legacy split deployment),
-- browser console errors for UI issues.
+- browser console errors for UI issues,
+- a fresh support bundle from **Settings → Health** when requested, reviewed for private details before sharing. Include the running build and what happened around the failure; a healthy later capture cannot prove an earlier incident did not occur.
 
 ## Security Issues
 

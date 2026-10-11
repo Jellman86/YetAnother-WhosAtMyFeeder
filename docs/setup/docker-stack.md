@@ -23,7 +23,16 @@ services:
       - FRIGATE__FRIGATE_URL=http://frigate:5000
       - FRIGATE__MQTT_SERVER=mosquitto
       - FRIGATE__MQTT_PORT=1883
+
+networks:
+  bird_network:
+    name: bird_network
+    external: true
 ```
+
+This example joins an existing `bird_network`; use the actual network shared by
+your Frigate and broker, or use their reachable LAN addresses instead. Configure
+MQTT credentials in YA-WAMF when your broker requires them.
 
 The unsuffixed `latest` tag is the full compatibility image. To avoid pulling
 unused accelerator runtimes, change only the suffix: `latest-cpu` for CPU-only,
@@ -34,7 +43,7 @@ variant keeps ONNX CPU fallback and the same `/config` and `/data` volumes. See
 ## Legacy Split Example
 
 > [!WARNING]
-> The split deployment (`wamf-backend` + `wamf-frontend`) is a **legacy path** kept for existing installs only. It will receive no further updates starting with v3.0 — no bug fixes, no new features, and no compatibility guarantee. New installs should use the monolithic example above. See the [Split-to-Monolith Migration](migrate-split-to-monolith.md) guide.
+> The split deployment (`wamf-backend` + `wamf-frontend`) is a **legacy path** kept for existing installs. New installs should use the monolithic example above. See the [Split-to-Monolith Migration](migrate-split-to-monolith.md) guide.
 
 The example below shows the legacy two-container layout for reference.
 
@@ -51,7 +60,7 @@ services:
     networks:
       - bird_network
     volumes:
-      - ./config:/config        # Stores config.json
+      - ./config:/config        # Settings, credentials and default retained media
       - ./data:/data            # Stores database and AI models
     # Optional Intel iGPU (OpenVINO) pass-through for ONNX models:
     # devices:
@@ -62,8 +71,6 @@ services:
     #   - "107"  # example: renderD128 / render
     environment:
       - TZ=Europe/London
-      - PUID=${PUID:-1000}
-      - PGID=${PGID:-1000}
       - FRIGATE__FRIGATE_URL=http://frigate:5000
       - FRIGATE__MQTT_SERVER=mosquitto
       - FRIGATE__MQTT_PORT=1883
@@ -87,7 +94,7 @@ services:
   frigate:
     image: ghcr.io/blakeblackshear/frigate:stable
     container_name: frigate
-    privileged: true # Required for hardware acceleration
+    # Add only the device access your Frigate detector/decoder requires.
     restart: unless-stopped
     networks:
       - bird_network
@@ -103,8 +110,7 @@ services:
       - "5000:5000"
       - "8554:8554" # RTSP feeds
     environment:
-      - TZ=Europe/London # Ensure this matches YA-WAMF
-      - FRIGATE_MQTT_PASSWORD=password
+      - TZ=Europe/London
 
   # --- The Voice: MQTT Broker ---
   mosquitto:
@@ -122,23 +128,15 @@ services:
     ports:
       - "1883:1883"
 
-  # --- The Ears: BirdNET-Go (Optional) ---
-  birdnet-go:
-    image: ghcr.io/tphakala/birdnet-go:latest
-    container_name: birdnet-go
-    restart: unless-stopped
-    networks:
-      - bird_network
-    environment:
-      - TZ=Europe/London
-      - MQTT_SERVER=mosquitto
-      - MQTT_PORT=1883
-      - RTSP_URL=rtsp://frigate:8554/birdcam # Point this to your camera feed
-
 networks:
   bird_network:
     name: bird_network
 ```
+
+BirdNET-Go is optional and has its own deployment, audio-source and MQTT
+configuration. Install it using its maintained upstream instructions, then follow
+[the YA-WAMF integration guide](../integrations/birdnet-go.md). Do not assume
+YA-WAMF's environment-variable names configure another application's container.
 
 ## Key Configuration Steps
 
@@ -155,7 +153,10 @@ mqtt:
 
 ### 3. Storage
 Ensure your host machine has enough space. 
-- **YA-WAMF data:** ~2GB (mostly for large AI models).
+- **YA-WAMF data:** allow for model downloads, staging/compile caches and retained media.
+  The experimental BioCLIP model alone downloads about 2.4 GiB; installing every
+  October addition needs about 4.9 GiB before staging and other storage.
+  Set explicit [media limits](configuration.md#data) for a busy feeder.
 - **Frigate storage:** Depends on your recording settings (usually 100GB+ recommended).
 
 ### 4. Optional GPU Acceleration (YA-WAMF ONNX models)
@@ -181,18 +182,16 @@ For Intel iGPU specifically:
 ## 🖥 Hardware Requirements
 
 YA-WAMF currently has the most validation on x86_64 environments.  
-Raspberry Pi compatibility is being implemented as a **best-effort ARM64 target** and is not yet validated on physical Pi hardware in this project environment.
+A dedicated Raspberry Pi ARM64 CPU image is published as a best-effort target. CI runs
+MobileNet inference under emulation; the maintainer has not validated physical Pi hardware.
+See [Raspberry Pi setup](raspberry-pi.md).
 
-Model choice still strongly affects RAM/CPU requirements:
-
-| Model Tier | CPU | RAM (Recommended) |
-|------------|-----|-------------------|
-| **Fast (MobileNet V2 legacy)** | Low | 512MB (baseline, may be higher in real deployments) |
-| **Balanced (RoPE ViT-B14 / birds-only small)** | Medium | 1-2GB |
-| **High (ConvNeXt / birds-only medium)** | Medium | 2GB+ |
-| **Elite (EVA-02)** | High | 4GB+ |
-
-> 💡 **Pro Tip:** For low-power or ARM devices (including trial Pi deployments), start with **MobileNet V2** or one of the smaller birds-only models, and only enable heavier wildlife-wide models after stability checks.
+Model memory estimates are working sets, not whole-container limits. In the default
+subprocess mode one live and one background worker can each hold a model copy.
+Leave room for the app, operating system, Frigate and concurrent media jobs.
+Choose one classifier to start; you do not need every model installed. See
+[AI Models & Performance](../features/ai-models.md) and the
+[October catalogue](../features/model-catalogue-2026-10.md) for model-specific limits.
 
 ## 🔄 Updating YA-WAMF
 
@@ -208,6 +207,6 @@ docker compose -f docker-compose.monolith.yml up -d
 # docker compose up -d
 ```
 
-Your settings and history will be preserved because they are stored in the
-persistent volumes (`/config` and `/data`). Keep those mount paths unchanged if
+Back up `/config` and `/data` consistently before updating. Settings and history are stored in the
+persistent volumes rather than the image. Keep those mount paths unchanged if
 you also switch image flavor while updating.

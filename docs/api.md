@@ -15,7 +15,7 @@ Swagger UI (`/docs`) is served directly by the FastAPI process. How you access i
 To inspect the schema from a monolith install without modifying docker-compose:
 
 ```bash
-docker exec yawamf-monalithic curl -s http://127.0.0.1:8000/openapi.json | python3 -m json.tool | head -40
+docker exec yawamf-monalithic curl -fsS http://127.0.0.1:8000/openapi.json | python3 -m json.tool | head -40
 ```
 
 ## Base URLs
@@ -58,10 +58,26 @@ Content-Type: application/json
 
 ```bash
 # Monolithic deployment (host port 9852):
-curl -H "Authorization: Bearer <token>" http://localhost:9852/api/events
+curl -fsS -H "Authorization: Bearer <token>" http://localhost:9852/api/events
 # Legacy split deployment (backend exposed on 8946):
-# curl -H "Authorization: Bearer <token>" http://localhost:8946/api/events
+# curl -fsS -H "Authorization: Bearer <token>" http://localhost:8946/api/events
 ```
+
+### Common responses
+
+| Status | Meaning |
+|---|---|
+| `401` | Authentication is missing, invalid or expired. |
+| `403` | The authenticated role cannot perform this action. |
+| `404` | The accessible resource or retained artifact does not exist. |
+| `409` | The action conflicts with current state, for example an active model, an incomplete install or an already running evaluation. |
+| `422` | The request does not match its schema or allowed values. |
+| `429` | A rate limit or upstream AI quota was reached; respect `Retry-After` when present. |
+| `503` | Startup, database admission or a required upstream/runtime is temporarily unavailable. |
+
+See each endpoint for additional statuses. A `200` response can still carry a documented
+`no_result` or test failure state; automation must inspect the body rather than infer
+that an identification was accepted.
 
 ### Session cookie for media
 
@@ -484,7 +500,7 @@ Notes:
   and the player falls back to the canonical MP4 route.
 - `GET /api/frigate/{event_id}/clip.mp4` is the canonical YA-WAMF clip route. When a persisted recording exists for the event, this route serves it before falling back to the shorter Frigate event clip. Recording responses expose `X-YAWAMF-Clip-Variant: recording`, `X-YAWAMF-Recording-Clip-State: complete|partial`, and the measured `X-YAWAMF-Recording-Clip-Duration` when available.
 - `GET` and `HEAD /api/frigate/{event_id}/recording-clip.mp4` remain available as explicit full-visit routes and use the same persisted `{event_id}_recording.mp4` cache file. `X-YAWAMF-Recording-Clip-Ready` is `cached` for a complete file and `partial` for a usable shorter file.
-- `POST /api/frigate/{event_id}/recording-clip/fetch` remains available as a manual recovery/warm endpoint. Its response reports `status: ready|partial` and `recording_state: complete|partial`; with recording clips and the media cache enabled YA-WAMF also generates and upgrades full-visit clips automatically for eligible completed detections.
+- `POST /api/frigate/{event_id}/recording-clip/fetch` remains available as a manual recovery/warm endpoint. Its response reports `status: ready|partial` and `recording_state: complete|partial`; with recording clips enabled and writable local media storage, YA-WAMF also generates and upgrades full-visit clips automatically for eligible completed detections.
 
 ### Species and Leaderboard
 
@@ -593,7 +609,9 @@ active model session. Important deployment fields are:
 | `active_model_validated_providers` | Providers that passed current artifact/runtime/install validation for the active model. |
 | `validated_provider_preference_order` | Passing providers ordered by this installation's measured latency. |
 | `selected_provider` | Saved preference from configuration. An image mismatch does not rewrite it. |
-| `active_provider` / `inference_backend` | Provider and backend used by the loaded model session. |
+| `active_provider` / `inference_backend` | Provider and backend resolved for the runtime; inspect `runtime_source` before claiming a loaded worker. |
+| `runtime_source` | `worker` is a worker-reported loaded session; `in_process` or `in_process_fallback` describes a loaded parent session. `planned` and `default` do not prove inference has run. |
+| `labels_count` | Number of ordered catalogue outputs for this artifact, or legacy label-file entries if no complete catalogue mapping is available. It is independent of whether the parent process holds the model. |
 | `fallback_reason` | Why the active session differs from the selected provider, when known. |
 
 Use these fields together. For example, an Intel image can legitimately report
@@ -614,6 +632,8 @@ Each compatibility summary row has `requested_provider: "validation_sweep"`. Its
 are zero placeholders, not measurements, and its `mean_latency_ms`, `p50_latency_ms` and
 `p95_latency_ms` all hold the best provider's median inference latency. Clients should use the
 marker, not a zero score, to tell such a row from a measured one.
+Compatibility-only clients should label the run **Compatibility check only**, omit accuracy/mean/p95
+claims, and read measured provider medians from `device_matrix.json`.
 Compatibility summaries also expose `validated_providers` and `failed_providers` per model; the
 measured passing order becomes the current-install activation and `Auto` recommendation.
 `discover_providers=true` additionally probes packaged, host-visible providers omitted by current
@@ -652,6 +672,31 @@ retrying; the server does not repeat a paid provider call.
   copy: a setting is public because it is named in `backend/app/models/public_settings.py`, so a
   new one is public or owner-only by decision rather than by whether anyone remembered.
 - `POST /api/settings` (owner)
+
+Settings writes are partial and use the flat API field names, rather than the nested
+`config.json` layout. Omitted fields stay unchanged. Empty or redacted secrets retain
+the saved value; they do not clear it. A provider or execution-mode change reloads
+the classifier, as does a saved-coordinate change. For example:
+
+```http
+POST /api/settings
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "classification_threshold": 0.7,
+  "inference_provider": "auto",
+  "location_latitude": null,
+  "location_longitude": null
+}
+```
+
+Here both explicit `null` coordinates clear the saved feeder location; omitting them
+keeps it. Location-aware DINOv2 receives either a complete valid coordinate pair or
+neutral metadata, including in subprocess workers. It receives no date or uncertainty.
+Use `/api/classifier/status` after reload to distinguish saved preference from the
+worker-reported runtime.
+
 - `POST /api/settings/birdnet/test` (owner) — synchronously proves a mock detection can
   enter the audio-correlation buffer and complete a database insert/delete; returns `502`
   rather than a false success when persistence or cleanup fails. The synthetic row and buffer
@@ -678,8 +723,8 @@ retrying; the server does not repeat a paid provider call.
   hash is refused. A successful import replaces the current configuration and broadcasts the
   changed fields. It keeps this installation's `auth.session_secret` and `auth.oauth_token_secret`,
   which sign current logins and decrypt OAuth tokens stored in this database, and it applies the
-  same follow-up as a settings save: a classifier reload when the model, provider or execution
-  mode changes, and forgetting the telemetry installation when telemetry is turned off.
+  same follow-up as a settings save: a classifier reload when the model, provider, execution
+  mode or saved feeder coordinates change, and forgetting the telemetry installation when telemetry is turned off.
 - `GET /api/maintenance/taxonomy/status` (owner)
 - `POST /api/maintenance/taxonomy/sync` (owner)
 - `GET /api/maintenance/stats` (owner)
@@ -720,7 +765,7 @@ retrying; the server does not repeat a paid provider call.
   the bird, under the same access rules as the clip. Answers byte ranges and is never cached. A film
   not made yet is asked for and answered 404 with `X-Film-Status: pending`; a full work queue also
   returns `pending` so a later request can try again. `unavailable` means the film cannot be made
-  now, including a disabled media cache, expired recording, non-Frigate visit or a retry delay.
+  now, including an unwritable media folder, expired recording, non-Frigate visit or a retry delay.
   Generation admits at most eight jobs and renders one at a time. Missing recordings for active
   or very recent visits can be retried after 30 seconds; other temporary failures wait six hours.
   Failure records are bounded to 256 entries. The newest 40 films are kept under the media cache
@@ -744,7 +789,8 @@ retrying; the server does not repeat a paid provider call.
   detection history and favourites. `media_cache_bird_scan_mode` accepts `standard` or `intensive`.
 
 Published ordinary cache files left after a capture deletion are retried every five
-minutes independently of optional limits and the cache-enabled switch. Active media
+minutes independently of optional limits. Photographs and generated visit media no
+longer have an enable/disable cache switch. Active media
 writers and current parent records protect their files; failed local cleanup is retried
 on the next pass. Favourite archives and hidden temporary files are outside this sweep.
 Local atomic publication/deletion finishes before cancellation releases its coordination;
@@ -876,20 +922,50 @@ The callback exception grants no owner role and does not expand cookie authentic
 - `GET /api/diagnostics/workspace`
 - `GET /api/diagnostics/bundle` — the whole owner diagnostics bundle as one exportable JSON
   payload; this is what **Settings → Health → Diagnostics export** downloads. `limit` is `1`–`1000`
-  (default `200`).
+  (default `200`). Each request gathers fresh server health, classifier, queues and
+  bounded recent diagnostics even when no local UI error exists. The response includes
+  `generated_at`, `schema_version` and `server.startup_instance_id` to identify its capture.
+  It is a support snapshot, not a restorable configuration/history backup.
 - `POST /api/diagnostics/clear`
 
 ### Model evaluation (owner)
 
-Benchmarks every installed classifier against labelled feeder images. See
-[Model evaluation](features/model-evaluation.md).
+Runs labelled-image accuracy evaluation or a compatibility-only device sweep.
+Installed classifiers are the default scope; `model_ids` narrows it and
+`sweep_all_models=true` can download the registry. Evaluation temporarily switches the
+active model and attempts to restore it afterwards. Avoid competing model changes
+during a run and verify the selected model/provider when it finishes.
+See [Model evaluation](features/model-evaluation.md).
 
 - `POST /api/diagnostics/model-eval/runs` — start a run.
 - `GET /api/diagnostics/model-eval/runs` — list runs.
 - `GET /api/diagnostics/model-eval/runs/{run_id}` — one run's status and results.
-- `GET /api/diagnostics/model-eval/runs/{run_id}/{artifact}` — download a run artifact.
+- `GET /api/diagnostics/model-eval/runs/{run_id}/{artifact}` — download an existing run
+  artifact with owner authorization. Compatibility-only runs normally write `summary.json`
+  and `device_matrix.json`; accuracy/per-image files are not implied. An allowed filename
+  that this run did not write returns `404`. The media-only session cookie does not authorize
+  these downloads; browser clients use the owner API client, then download the fetched blob.
 - `POST /api/diagnostics/model-eval/runs/{run_id}/cancel` — stop a run in progress.
 - `DELETE /api/diagnostics/model-eval/runs/{run_id}` — delete a run and its artifacts.
+
+A minimal compatibility-only request for one installed classifier is:
+
+```http
+POST /api/diagnostics/model-eval/runs
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "sweep_devices": true,
+  "compat_only": true,
+  "model_ids": ["dinov2_b14_inat21_metadata_336"]
+}
+```
+
+The response is `{"run_id": "<run-id>"}`. Poll that run's status, then fetch the
+artifacts appropriate to its mode. A successful sweep proves compatible execution on the tested
+inputs, not accuracy at a new feeder. Deleting a run permanently removes its evidence
+and files; download evidence you need before deleting it.
 
 ### AI Usage Stats (owner)
 
