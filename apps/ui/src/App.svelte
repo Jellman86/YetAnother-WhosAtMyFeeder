@@ -65,6 +65,7 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
   const loadAboutPage = createRetryablePageLoader(() => import('./lib/pages/About.svelte'));
   const loadNotificationsPage = createRetryablePageLoader(() => import('./lib/pages/Notifications.svelte'));
   const loadModelEvaluationPage = createRetryablePageLoader(() => import('./lib/pages/ModelEvaluation.svelte'));
+  const loadGardenPage = createRetryablePageLoader(() => import('./lib/pages/Garden.svelte'));
   const loadManualObservationPage = createRetryablePageLoader(() => import('./lib/pages/ManualObservation.svelte'));
 
   let isSidebarCollapsed = $derived(layoutStore.sidebarCollapsed);
@@ -78,6 +79,7 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
   let pageTitle = $derived.by(() => {
       if (currentRoute === '/') return $_('nav.dashboard', { default: 'Dashboard' });
       if (currentRoute.startsWith('/events')) return $_('nav.events', { default: 'Events' });
+      if (currentRoute.startsWith('/garden')) return $_('garden.title', { default: 'Garden animals' });
       if (currentRoute.startsWith('/observations/new')) return $_('nav.add_observation', { default: 'Add observation' });
       if (currentRoute.startsWith('/species')) return $_('nav.species', { default: 'Species' });
       if (currentRoute.startsWith('/audio')) return $_('nav.audio_history', { default: 'Audio History' });
@@ -90,6 +92,7 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
   let pageSubtitle = $derived.by(() => {
       if (currentRoute === '/') return $_('page_subtitle.dashboard', { default: 'Live detections, recent activity, and feeder health at a glance.' });
       if (currentRoute.startsWith('/events')) return $_('page_subtitle.events', { default: 'Browse, filter, and manage every classified visit.' });
+      if (currentRoute.startsWith('/garden')) return $_('garden.subtitle', { default: 'Review animal captures separately from your bird history.' });
       if (currentRoute.startsWith('/observations/new')) return $_('page_subtitle.add_observation', { default: 'Classify your own photo or video, review the evidence, and add it to your history.' });
       if (currentRoute.startsWith('/species')) return $_('page_subtitle.species', { default: 'Leaderboard, totals, and taxonomy details for the birds you have seen.' });
       if (currentRoute.startsWith('/audio')) return $_('page_subtitle.audio_history', { default: 'Browse persisted BirdNET-Go detections and audio-only activity.' });
@@ -172,7 +175,7 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
       if (!authStore.statusLoaded || !authStore.statusHealthy) return;
       if (authStore.needsInitialSetup) return;
       const isOwnerOnly = isNotificationRoute(currentRoute)
-          || currentRoute.startsWith('/settings') || currentRoute.startsWith('/diagnostics/model-eval') || currentRoute.startsWith('/observations/new');
+          || currentRoute.startsWith('/settings') || currentRoute.startsWith('/diagnostics/model-eval') || currentRoute.startsWith('/observations/new') || currentRoute.startsWith('/garden');
       if (!isOwnerOnly) return;
 
       if (!authStore.showSettings) {
@@ -809,6 +812,10 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
                       label={pageTitle}
                       onLoadError={handleRouteLoadError}
                   />
+              {:else if currentRoute.startsWith('/garden')}
+                  {#if authStore.showSettings}
+                      <LazyRoute loader={loadGardenPage} props={{ onNavigate: navigate }} label={pageTitle} onLoadError={handleRouteLoadError} />
+                  {/if}
               {:else if currentRoute.startsWith('/observations/new')}
                   {#if authStore.showSettings}
                       <LazyRoute

@@ -500,8 +500,19 @@ class MQTTService:
             label = str(after.get("label") or "").strip().lower()
             false_positive = bool(after.get("false_positive", False))
             event_id = str(after.get("id") or "").strip()
+            from app.services.garden_capture_policy import should_handle_garden
+            from app.services.garden_capture_service import garden_capture_service
+
             should_process = bool(
-                is_ingest_label(label, settings.frigate.ingest_labels)
+                (
+                    is_ingest_label(label, settings.frigate.ingest_labels)
+                    or should_handle_garden(
+                        data,
+                        settings.frigate.garden_cameras,
+                        settings.frigate.garden_labels,
+                        has_history=garden_capture_service.has_history,
+                    )
+                )
                 and (false_positive or event_type in {"new", "update", "end"})
             )
             return {
@@ -671,7 +682,18 @@ class MQTTService:
         except (TypeError, ValueError, json.JSONDecodeError):
             return False
         after = data.get("after") if isinstance(data, dict) else None
-        return bool(isinstance(after, dict) and after.get("false_positive"))
+        from app.services.garden_capture_service import garden_capture_service
+
+        return bool(
+            isinstance(after, dict)
+            and (
+                after.get("false_positive")
+                or (
+                    (bool(settings.frigate.garden_cameras) or garden_capture_service.has_history)
+                    and str(after.get("label") or "").strip().lower() in {"person", "human"}
+                )
+            )
+        )
 
     @classmethod
     def _merge_pending_frigate_payload(cls, existing: bytes | None, incoming: bytes) -> bytes:

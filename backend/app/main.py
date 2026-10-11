@@ -52,6 +52,8 @@ from app.services.high_quality_snapshot_service import high_quality_snapshot_ser
 from app.services.bird_scan_service import bird_scan_service
 from app.services.notification_dispatcher import notification_dispatcher
 from app.services.frigate_client import frigate_client
+from app.repositories.garden_repository import GardenRepository
+from app.routers import garden
 from app.repositories.detection_repository import DetectionRepository
 from app.repositories.health_repository import HealthRepository
 from app.services.uptime import HEARTBEAT_INTERVAL_MINUTES
@@ -259,6 +261,7 @@ async def run_cleanup():
                     cutoff, preserve_favorites=True, species_floor=species_floor
                 )
                 deleted_audio_count = await repo.delete_audio_detections_older_than(cutoff)
+                await GardenRepository(db).delete_older_than(cutoff)
             if deleted_count > 0:
                 log.info(
                     "Automatic cleanup completed",
@@ -524,6 +527,16 @@ async def lifespan(app: FastAPI):
             fatal=True,
             startup_phase="database",
             startup_progress=68,
+        )
+        from app.services.garden_capture_service import garden_capture_service
+
+        await _run_lifecycle_phase(
+            app,
+            "garden_review_init",
+            garden_capture_service.initialize,
+            fatal=False,
+            startup_phase="database",
+            startup_progress=69,
         )
         from app.services.species_catalog_store import start_species_catalog
 
@@ -861,6 +874,7 @@ app.include_router(
     model_eval.router, prefix="/api", tags=["diagnostics"], dependencies=[Depends(get_auth_context_with_legacy)]
 )
 app.include_router(jobs_router.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(garden.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(manual_observations.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(email.router, prefix="/api", tags=["email"], dependencies=[Depends(get_oauth_router_auth_context)])
 app.include_router(

@@ -218,6 +218,8 @@
     let audioTopic = $state('birdnet/text');
     let cameraAudioMapping = $state<Record<string, string>>({});
     let cameraRoles = $state<Record<string, 'feeder' | 'nest'>>({});
+    let gardenCameras = $state<string[]>([]);
+    let gardenLabels = $state('cat, dog');
     let nestDedupeMinutes = $state(30);
     let birdnetSourceOptions = $state<AudioSourceOption[]>([]);
     let loadingBirdnetSources = $state(false);
@@ -1853,6 +1855,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'llmChartPromptTemplate', val: llmChartPromptTemplate, store: s.llm_chart_prompt_template || '' },
             { key: 'aiPricingJson', val: aiPricingJson, store: s.ai_pricing_json || '[]' },
             { key: 'cameraAudioMapping', val: JSON.stringify(cameraAudioMapping), store: JSON.stringify(s.camera_audio_mapping || {}) },
+            { key: 'gardenCameras', val: JSON.stringify(gardenCameras), store: JSON.stringify(s.garden_cameras || []) },
+            { key: 'gardenLabels', val: JSON.stringify(gardenLabels.split(/[,;\n]+/).map(label => label.trim().toLowerCase()).filter(Boolean)), store: JSON.stringify(s.garden_labels || ['cat', 'dog']) },
             { key: 'cameraRoles', val: JSON.stringify(cameraRoles), store: JSON.stringify(s.camera_roles || {}) },
             { key: 'nestDedupeMinutes', val: nestDedupeMinutes, store: s.nest_dedupe_minutes ?? 30 },
             { key: 'minConfidence', val: minConfidence, store: s.classification_min_confidence ?? 0.4 },
@@ -2930,6 +2934,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             if (typeof cameraRoles !== 'object' || Array.isArray(cameraRoles)) {
                 cameraRoles = {};
             }
+            gardenCameras = settings.garden_cameras || [];
+            gardenLabels = (settings.garden_labels || ['cat', 'dog']).join(', ');
             nestDedupeMinutes = typeof settings.nest_dedupe_minutes === 'number' && settings.nest_dedupe_minutes > 0
                 ? settings.nest_dedupe_minutes
                 : 30;
@@ -3303,6 +3309,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 audio_topic: audioTopic,
                 camera_audio_mapping: cameraAudioMapping,
                 camera_roles: cameraRoles,
+                garden_cameras: gardenCameras,
+                garden_labels: gardenLabels.split(/[,;\n]+/).map(label => label.trim().toLowerCase()).filter(Boolean),
                 nest_dedupe_minutes: nestDedupeMinutes,
                 audio_buffer_hours: audioBufferHours,
                 audio_correlation_window_seconds: audioCorrelationWindowSeconds,
@@ -3572,6 +3580,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:mqttPassword
                     bind:mqttPasswordSaved
                     bind:selectedCameras
+                    bind:gardenCameras
+                    bind:gardenLabels
                     bind:cameraRoles
                     bind:nestDedupeMinutes
                     bind:classificationImageSource

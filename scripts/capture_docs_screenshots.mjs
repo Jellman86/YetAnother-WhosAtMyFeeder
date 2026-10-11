@@ -14,11 +14,13 @@ if (!['127.0.0.1', 'localhost'].includes(baseUrl.hostname) || !['http:', 'https:
     throw new Error('Documentation capture requires a local UI origin without credentials, a path, query or fragment');
 }
 const images = resolve('docs/images');
+const gardenOnly = process.argv.includes('--garden-only');
 const version = (await readFile('VERSION', 'utf8')).trim();
 const catalog = JSON.parse(await readFile('scripts/fixtures/documentation-models.json', 'utf8'));
 const DINO = 'dinov2_b14_inat21_metadata_336';
 const runId = 'example-compatibility';
 const settings = {
+    garden_cameras: gardenOnly ? ['feeder'] : [], garden_labels: ['cat', 'dog'],
     frigate_url: 'http://frigate:5000', mqtt_server: 'mqtt', mqtt_port: 1883,
     mqtt_auth: true, mqtt_username: 'feeder', mqtt_password: '***REDACTED***',
     cameras: ['feeder'], classification_threshold: 0.6, classification_min_confidence: 0.6,
@@ -100,6 +102,7 @@ await context.route(url => url.origin === baseUrl.origin && (url.pathname === '/
     if (path === '/api/version') return json({ version, base_version: version, branch: 'stable', git_hash: 'unknown' });
     if (path === '/api/auth/status') return json({ auth_required: true, public_access_enabled: false, is_authenticated: true, needs_initial_setup: firstRun, username: 'admin', show_camera_names: true, share_audio: true, share_photos: true });
     if (path === '/api/settings') return json(settings);
+    if (path === '/api/garden') return json({ items: [], total: 0, offset: 0, limit: 8 });
     if (path === '/api/classifier/status') return json(status);
     if (path === '/api/models/available') return json(catalog.available);
     if (path === '/api/models/installed') return json(catalog.installed);
@@ -169,6 +172,13 @@ async function openSettings(tab) {
 }
 await mkdir(images, { recursive: true });
 try {
+    if (gardenOnly) {
+        await openSettings('Connection');
+        await shot('settings-garden-cameras', page.locator('[data-camera-list]'));
+        await page.goto(`${base}/browser-tests/garden.html`);
+        await page.getByText('No captures in this view').waitFor();
+        await shot('garden-review', page.locator('#app'));
+    } else {
     await openSettings('Connection');
     await shot('settings-map', page.locator('[data-settings-navigation]'));
     for (const [tab, name] of [['Connection','settings-connection'],['Detection','settings-detection'],['Integrations','settings-integrations'],['Notifications','settings-notifications'],['Security','settings-security'],['Data','settings-data']]) {
@@ -268,6 +278,7 @@ try {
     await page.waitForTimeout(500);
     await page.getByRole('button', { name: /European Robin.*Identify/ }).waitFor();
     await shot('detection-photo-review', page.getByRole('dialog'));
+    }
     if (errors.length) throw new Error(`Browser errors: ${errors.join('; ')}`);
     console.log(JSON.stringify({ captured, pageErrors: errors }, null, 2));
 } finally { await browser.close(); }

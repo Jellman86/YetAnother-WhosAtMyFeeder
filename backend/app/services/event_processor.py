@@ -573,6 +573,16 @@ class EventProcessor:
 
     async def _process_event_payload(self, data: Dict[str, Any]) -> None:
         """Process a decoded MQTT payload end-to-end with guardrails."""
+        from app.services.garden_capture_service import garden_capture_service
+
+        try:
+            await garden_capture_service.process(data)
+        except Exception:
+            # Garden collection must not interrupt bird identification.
+            log.exception("Garden capture collection failed")
+        after = data.get("after") if isinstance(data, dict) else None
+        if isinstance(after, dict) and not is_ingest_label(after.get("label"), settings.frigate.ingest_labels):
+            return
         event = self._parse_and_validate_event(data)
         if not event:
             return
