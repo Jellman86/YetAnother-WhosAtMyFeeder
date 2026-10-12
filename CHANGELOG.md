@@ -6,6 +6,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- The image build's startup check keeps the species catalogue in its temporary data directory,
+  so garden initialization is checked without requiring a writable host `/data` directory.
+
 - Garden animals adds independent camera opt-in and a private review history for completed
   Frigate animal events. Confirm animal presence, dismiss false detections and restore reviews
   without affecting bird history or exports. Confirmed captures can request a SpeciesNet suggestion
