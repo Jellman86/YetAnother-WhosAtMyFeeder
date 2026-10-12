@@ -1887,6 +1887,21 @@ async def shutdown_classifier() -> None:
             _classifier_instance = None
 
 
+def garden_inference_pressure() -> dict | None:
+    """Read admission without constructing or reloading the bird classifier."""
+    service = _classifier_instance
+    if service is None or service._image_execution_mode != "subprocess":
+        return None
+    status = service.get_admission_status()
+    supervisors = {
+        supervisor
+        for supervisor in (service._classifier_supervisor, service._video_supervisor)
+        if supervisor is not None
+    }
+    status["native_work_pending"] = not supervisors or any(supervisor.has_native_work() for supervisor in supervisors)
+    return status
+
+
 async def refresh_accel_caps_if_running() -> None:
     """Refresh capabilities on the running classifier, never building one.
 

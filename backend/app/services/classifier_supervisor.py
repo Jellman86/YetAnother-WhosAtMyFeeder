@@ -306,6 +306,10 @@ class ClassifierSupervisor:
             "late_results_ignored": self._metrics["late_results_ignored"],
         }
 
+    def has_native_work(self) -> bool:
+        """Include native cleanup after an admission lease has been reclaimed."""
+        return bool(self._assignments or self._cleanup_pending or self._replacing)
+
     async def classify(
         self,
         *,

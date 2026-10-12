@@ -1,6 +1,6 @@
 """Pure, opt-in garden decisions for the isolated prototype in #641.
 
-No production service imports this module yet. Garden output cannot call bird
+Garden output cannot call bird
 repositories, notifications, external submissions or personalization.
 """
 
@@ -111,7 +111,7 @@ def decide_prediction(
         return GardenDecision("low_confidence")
     geofenced = _blocked(taxon, country, geofence)
     if geofenced:
-        by_key = {item.key: item for item in taxonomy}
+        by_key = {item.key: item for item in taxonomy if item.animal}
         # Retain only the winner's ancestry. A geographically plausible
         # runner-up must never replace the observed classification.
         for depth in (3, 2, 1, 0):

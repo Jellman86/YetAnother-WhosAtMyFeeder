@@ -548,6 +548,16 @@ async def lifespan(app: FastAPI):
             startup_phase="database",
             startup_progress=70,
         )
+        from app.services.garden_identification import garden_identification_service
+
+        await _run_lifecycle_phase(
+            app,
+            "garden_catalogue_init",
+            garden_identification_service.initialize,
+            fatal=False,
+            startup_phase="database",
+            startup_progress=70,
+        )
         from app.services.species_catalog_backfill import start_background_catalog_backfill
 
         create_background_task(start_background_catalog_backfill(), name="species_catalog_backfill")

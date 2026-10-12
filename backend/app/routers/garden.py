@@ -1,15 +1,25 @@
 """Private, paginated animal reviews. Confirmation records presence, not species."""
 
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel
+from typing import Literal
 
 from app.auth import AuthContext, require_owner
 from app.database import get_db
 from app.repositories.garden_repository import GardenCapture, GardenRepository, GardenStatus
 from app.services.garden_capture_service import garden_capture_service
+from app.models.garden import GardenIdentification, GardenIdentificationStatus, GardenIdentifyRequest, GardenVariant
+from app.services.garden_identification import garden_identification_service
+from app.services.species_names import species_name_lookup
 
 
-router = APIRouter(prefix="/garden", tags=["garden"], dependencies=[Depends(require_owner)])
+def private_response(response: Response) -> None:
+    response.headers["Cache-Control"] = "private, no-store"
+
+
+router = APIRouter(prefix="/garden", tags=["garden"], dependencies=[Depends(require_owner), Depends(private_response)])
 
 
 class GardenCaptureResponse(BaseModel):
@@ -20,6 +30,7 @@ class GardenCaptureResponse(BaseModel):
     status: GardenStatus
     reviewed_at: str | None
     snapshot_url: str | None
+    identification: GardenIdentification | None = None
 
 
 class GardenCapturePage(BaseModel):
@@ -29,7 +40,15 @@ class GardenCapturePage(BaseModel):
     offset: int
 
 
-def _response(capture: GardenCapture) -> GardenCaptureResponse:
+async def _response(capture: GardenCapture, names: dict[int, str] | None = None) -> GardenCaptureResponse:
+    identification = capture.identification
+    if identification and identification.species_id:
+        if names is None:
+            names = await asyncio.to_thread(
+                species_name_lookup.display_names, [identification.species_id], language="en"
+            )
+        if name := names.get(identification.species_id):
+            identification = identification.model_copy(update={"name": name})
     return GardenCaptureResponse(
         id=capture.id,
         camera=capture.camera,
@@ -38,20 +57,53 @@ def _response(capture: GardenCapture) -> GardenCaptureResponse:
         status=capture.status,
         reviewed_at=capture.reviewed_at + "Z" if capture.reviewed_at else None,
         snapshot_url=f"/api/garden/{capture.id}/snapshot" if capture.has_snapshot else None,
+        identification=identification,
     )
 
 
 @router.get("", response_model=GardenCapturePage)
 async def list_captures(
+    response: Response,
     status: GardenStatus = "pending",
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ) -> GardenCapturePage:
+    response.headers["Cache-Control"] = "private, no-store"
     async with get_db() as db:
         repository = GardenRepository(db)
         items = await repository.list(status, limit, offset)
         total = await repository.count(status)
-    return GardenCapturePage(items=[_response(item) for item in items], total=total, limit=limit, offset=offset)
+    names = await asyncio.to_thread(
+        species_name_lookup.display_names,
+        [item.identification.species_id for item in items if item.identification and item.identification.species_id],
+        language="en",
+    )
+    return GardenCapturePage(
+        items=[await _response(item, names) for item in items], total=total, limit=limit, offset=offset
+    )
+
+
+@router.get("/identification", response_model=GardenIdentificationStatus)
+async def identification_status(response: Response) -> GardenIdentificationStatus:
+    response.headers["Cache-Control"] = "private, no-store"
+    return await garden_identification_service.status()
+
+
+@router.post("/models/{variant}/install", response_model=GardenIdentificationStatus)
+async def install_garden_model(variant: GardenVariant) -> GardenIdentificationStatus:
+    return await garden_identification_service.install(variant)
+
+
+@router.post("/{capture_id}/identify", response_model=GardenCaptureResponse)
+async def identify_capture(capture_id: str, request: GardenIdentifyRequest) -> GardenCaptureResponse:
+    await garden_identification_service.identify(capture_id, request)
+    return await _response(await garden_capture_service.get(capture_id))
+
+
+@router.post("/{capture_id}/identification/{action}", response_model=GardenCaptureResponse)
+async def review_identification(capture_id: str, action: Literal["accept", "dismiss"]) -> GardenCaptureResponse:
+    await garden_identification_service.review(capture_id, action)
+    return await _response(await garden_capture_service.get(capture_id))
 
 
 async def _review(capture_id: str, status: GardenStatus) -> GardenCaptureResponse:
@@ -59,7 +111,7 @@ async def _review(capture_id: str, status: GardenStatus) -> GardenCaptureRespons
         capture = await GardenRepository(db).review(capture_id, status)
     if capture is None:
         raise HTTPException(404, "Garden capture not found")
-    return _response(capture)
+    return await _response(capture)
 
 
 @router.post("/{capture_id}/confirm", response_model=GardenCaptureResponse)

@@ -96,6 +96,8 @@ personalization, BirdWeather, eBird or notifications.
 
 The intended camera control is **Garden animals** alongside the existing
 **Feeder** and **Nest** choices, with independent garden opt-in so a mixed camera
-can still record birds. The application now collects completed Frigate animal events for explicit owner
-review, independently of this tool. Automatic model identification, local garden
-media archiving and accuracy qualification remain separate work.
+can still record birds. The application collects completed Frigate animal events and offers explicit owner-requested
+SpeciesNet suggestions, independently of this tool. The application requires a tracked
+box for the crop variant; the replay’s explicitly marked whole-frame fallback is not
+used there. Automatic identification, local garden media archiving and accuracy
+qualification remain separate work.

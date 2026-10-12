@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+const modelStatus = { country: 'GBR', catalogue_ready: true, busy: false, error: null, models: [{ variant: '4.0.3b', installed: true, size_bytes: 223999179 }] };
+
 const id = 'a'.repeat(32);
 const row = { id, camera: 'patio', frigate_label: 'cat', observed_at: '2026-10-11T18:00:00Z', reviewed_at: null, status: 'pending', snapshot_url: `/api/garden/${id}/snapshot` };
 
@@ -7,6 +9,7 @@ test('owner can dismiss a false capture, restore it and review at narrow widths'
     let status = 'pending';
     await page.route(url => url.pathname.startsWith('/api/garden'), async route => {
         const url = new URL(route.request().url());
+        if (url.pathname === '/api/garden/identification') return route.fulfill({ json: modelStatus });
         if (url.pathname.endsWith('/snapshot')) return route.fulfill({ status: 404 });
         if (route.request().method() === 'POST') {
             status = url.pathname.endsWith('/dismiss') ? 'dismissed' : 'pending';
@@ -34,6 +37,7 @@ test('owner can dismiss a false capture, restore it and review at narrow widths'
 test('owner confirms presence only after the photo loads', async ({ page }) => {
     let confirmed = false;
     await page.route(url => url.pathname.startsWith('/api/garden'), async route => {
+        if (route.request().url().endsWith('/identification')) return route.fulfill({ json: modelStatus });
         if (route.request().url().endsWith('/snapshot')) return route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="640" height="360" fill="#28594a"/></svg>' });
         if (route.request().method() === 'POST') {
             confirmed = true;
@@ -101,4 +105,89 @@ test('garden camera opt-in saves independently of a Nest bird role', async ({ pa
     await expect.poll(() => written?.garden_cameras).toEqual(['patio']);
     await expect.poll(() => written?.camera_roles).toEqual({ patio: 'nest' });
     await expect.poll(() => written?.garden_labels).toEqual(['cat', 'dog', 'squirrel']);
+});
+
+for (const outcome of ['species', 'group', 'unknown'] as const) {
+    test(`owner reviews a ${outcome} suggestion without changing animal presence`, async ({ page }) => {
+        let suggestion: Record<string, unknown> | null = null;
+        const actions: string[] = [];
+        await page.route(url => url.pathname.startsWith('/api/garden'), async route => {
+            const path = new URL(route.request().url()).pathname;
+            if (path === '/api/garden/identification') return route.fulfill({ json: modelStatus });
+            if (path.endsWith('/snapshot')) return route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="640" height="360" fill="#28594a"/></svg>' });
+            if (route.request().method() === 'POST') {
+                actions.push(path);
+                if (path.endsWith('/identify')) {
+                    expect(route.request().postDataJSON()).toEqual({ variant: '4.0.3b', provider: 'cpu' });
+                    suggestion = { outcome: outcome === 'unknown' ? 'unknown' : 'suggestion', review: 'unreviewed', name: outcome === 'group' ? 'canidae' : 'red fox', rank: outcome === 'group' ? 'family' : 'species', score: 0.91, variant: '4.0.3b', devices: ['CPUExecutionProvider'], country: 'GBR', input_kind: 'whole_image', box_xywh: null, frame_size: [640, 360] };
+                } else if (suggestion) suggestion = { ...suggestion, review: path.endsWith('/accept') ? 'accepted' : 'dismissed' };
+                return route.fulfill({ json: { ...row, status: 'confirmed', identification: suggestion } });
+            }
+            const items = new URL(route.request().url()).searchParams.get('status') === 'confirmed' ? [{ ...row, status: 'confirmed', identification: suggestion }] : [];
+            return route.fulfill({ json: { items, total: items.length, limit: 8, offset: 0 } });
+        });
+        await page.goto('/browser-tests/garden.html');
+        await expect(page.getByRole('button', { name: 'Confirmed animals', exact: true })).toBeEnabled();
+        await page.getByRole('button', { name: 'Confirmed animals', exact: true }).click();
+        await expect(page.getByRole('button', { name: 'Suggest species', exact: true })).toBeEnabled();
+        await page.getByRole('button', { name: 'Suggest species', exact: true }).click();
+        if (outcome === 'unknown') {
+            await expect(page.getByText(/No reliable identification/)).toBeVisible();
+            await expect(page.getByRole('button', { name: 'Confirm identification', exact: true })).toHaveCount(0);
+        } else {
+            if (outcome === 'group') await expect(page.getByText('Animal group only; species is unresolved.')).toBeVisible();
+            await page.getByRole('button', { name: 'Confirm identification', exact: true }).click();
+            await expect(page.getByText('Identification confirmed by you')).toBeVisible();
+            await page.getByRole('button', { name: 'Discard identification', exact: true }).click();
+            await expect(page.getByText('Identification confirmed by you')).toHaveCount(0);
+        }
+        expect(actions.every(path => path.endsWith('/identify') || path.includes('/identification/'))).toBe(true);
+        await page.getByText('Species suggestions', { exact: true }).click();
+        await page.setViewportSize({ width: 320, height: 740 });
+        await page.evaluate(() => document.documentElement.style.fontSize = '200%');
+        await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    });
+}
+
+test('bird preemption is explained and does not manufacture a suggestion', async ({ page }) => {
+    await page.route(url => url.pathname.startsWith('/api/garden'), route => {
+        const path = new URL(route.request().url()).pathname;
+        if (path === '/api/garden/identification') return route.fulfill({ json: modelStatus });
+        if (path.endsWith('/snapshot')) return route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"/>' });
+        if (path.endsWith('/identify')) return route.fulfill({ status: 409, json: { detail: 'Bird inference needs the hardware. Try again when it is idle.' } });
+        return route.fulfill({ json: { items: [{ ...row, status: 'confirmed' }], total: 1, limit: 8, offset: 0 } });
+    });
+    await page.goto('/browser-tests/garden.html');
+    await expect(page.getByRole('button', { name: 'Confirmed animals', exact: true })).toBeEnabled();
+    await page.getByRole('button', { name: 'Confirmed animals', exact: true }).click();
+    await page.getByRole('button', { name: 'Suggest species', exact: true }).click();
+    await expect(page.getByRole('alert')).toContainText('Bird inference needs the hardware');
+    await expect(page.getByRole('button', { name: 'Confirm identification', exact: true })).toHaveCount(0);
+});
+
+test('tracked crop outline stays on the photographed pixels with letterboxing', async ({ page }) => {
+    const identification = { outcome: 'suggestion', review: 'unreviewed', name: 'red fox', rank: 'species', score: 0.9, variant: '4.0.3a', devices: ['NPU'], country: 'GBR', input_kind: 'tracked_crop', box_xywh: [0.1, 0.2, 0.3, 0.4], frame_size: [640, 1000] };
+    await page.route(url => url.pathname.startsWith('/api/garden'), route => {
+        const path = new URL(route.request().url()).pathname;
+        if (path === '/api/garden/identification') return route.fulfill({ json: modelStatus });
+        if (path.endsWith('/snapshot')) return route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="1000"><rect width="640" height="1000" fill="#28594a"/></svg>' });
+        return route.fulfill({ json: { items: [{ ...row, status: 'confirmed', identification }], total: 1, limit: 8, offset: 0 } });
+    });
+    await page.goto('/browser-tests/garden.html');
+    await expect(page.getByRole('button', { name: 'Confirmed animals', exact: true })).toBeEnabled();
+    await page.getByRole('button', { name: 'Confirmed animals', exact: true }).click();
+    await expect(page.getByText(/Tracked snapshot crop/)).toBeVisible();
+    for (const width of [320, 1280]) {
+        await page.setViewportSize({ width, height: 900 });
+        await expect(page.locator('[data-garden-input] rect')).toBeVisible();
+        const image = await page.locator('article img').boundingBox();
+        const outline = await page.locator('[data-garden-input] rect').boundingBox();
+        if (!image || !outline) throw new Error('Expected the photo and its input outline');
+        const scale = Math.min(image.width / 640, image.height / 1000);
+        // The visible 2px non-scaling stroke extends 1px beyond each crop edge.
+        expect(outline.x).toBeCloseTo(image.x + (image.width - 640 * scale) / 2 + 64 * scale - 1, 1);
+        expect(outline.y).toBeCloseTo(image.y + (image.height - 1000 * scale) / 2 + 200 * scale - 1, 1);
+        expect(outline.width).toBeCloseTo(192 * scale + 2, 1);
+        expect(outline.height).toBeCloseTo(400 * scale + 2, 1);
+    }
 });

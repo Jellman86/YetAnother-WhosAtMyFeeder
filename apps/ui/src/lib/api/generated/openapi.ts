@@ -476,9 +476,9 @@ export interface components {
     percentage: number;
 };
     ClassificationEvidence: {
-    box?: Array<unknown> | null;
+    box?: [number, number, number, number] | null;
     frame_sha256?: string | null;
-    frame_size?: Array<unknown> | null;
+    frame_size?: [number, number] | null;
     frame_time?: number | null;
     is_cropped?: boolean | null;
     source: string;
@@ -518,7 +518,7 @@ export interface components {
     ClassifierTestResponse: {
     error?: string | null;
     image_mode?: string | null;
-    image_size?: Array<unknown> | null;
+    image_size?: [number, number] | null;
     results?: Array<Record<string, components['schemas']['JsonValue']>>;
     status?: string | null;
     traceback?: string | null;
@@ -1004,10 +1004,50 @@ export interface components {
     camera: string;
     frigate_label: string;
     id: string;
+    identification?: components['schemas']['GardenIdentification'] | null;
     observed_at: string;
     reviewed_at: string | null;
     snapshot_url: string | null;
     status: "pending" | "confirmed" | "dismissed";
+};
+    GardenIdentification: {
+    box_xywh?: [number, number, number, number] | null;
+    country: string;
+    devices: Array<string>;
+    frame_size: [number, number];
+    geofenced?: boolean;
+    identified_at: string;
+    image_sha256: string;
+    input_kind: "tracked_crop" | "whole_image";
+    model_sha256: string;
+    name?: string | null;
+    outcome: "suggestion" | "unknown";
+    output_index: number;
+    package_sha256: string;
+    provider: "cpu" | "intel_cpu" | "intel_gpu" | "intel_npu" | "cuda";
+    rank?: string | null;
+    reason: string;
+    review?: "unreviewed" | "accepted" | "dismissed";
+    score?: number | null;
+    species_id?: number | null;
+    taxon_id?: string | null;
+    variant: "4.0.3a" | "4.0.3b";
+};
+    GardenIdentificationStatus: {
+    busy: boolean;
+    catalogue_ready: boolean;
+    country: string | null;
+    error?: string | null;
+    models: Array<components['schemas']['GardenModelStatus']>;
+};
+    GardenIdentifyRequest: {
+    provider?: "cpu" | "intel_cpu" | "intel_gpu" | "intel_npu" | "cuda";
+    variant?: "4.0.3a" | "4.0.3b";
+};
+    GardenModelStatus: {
+    installed: boolean;
+    size_bytes: number;
+    variant: "4.0.3a" | "4.0.3b";
 };
     HTTPValidationError: {
     detail?: Array<components['schemas']['ValidationError']>;
@@ -2145,7 +2185,7 @@ export interface components {
     utilization_percent?: number | null;
 };
     SystemDebugResponse: {
-    disk_usage: Array<unknown>;
+    disk_usage: [number, number, number];
     platform: string;
     python: string;
 };
@@ -3656,6 +3696,26 @@ export interface paths {
       response: components['schemas']['GardenCapturePage'];
     };
   };
+  "/api/garden/identification": {
+    get: {
+      operationId: "identification_status_api_garden_identification_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['GardenIdentificationStatus'];
+    };
+  };
+  "/api/garden/models/{variant}/install": {
+    post: {
+      operationId: "install_garden_model_api_garden_models__variant__install_post";
+      path: {
+    variant: "4.0.3a" | "4.0.3b";
+};
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['GardenIdentificationStatus'];
+    };
+  };
   "/api/garden/{capture_id}/confirm": {
     post: {
       operationId: "confirm_capture_api_garden__capture_id__confirm_post";
@@ -3675,6 +3735,29 @@ export interface paths {
 };
       query: never;
       requestBody: unknown;
+      response: components['schemas']['GardenCaptureResponse'];
+    };
+  };
+  "/api/garden/{capture_id}/identification/{action}": {
+    post: {
+      operationId: "review_identification_api_garden__capture_id__identification__action__post";
+      path: {
+    action: "accept" | "dismiss";
+    capture_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['GardenCaptureResponse'];
+    };
+  };
+  "/api/garden/{capture_id}/identify": {
+    post: {
+      operationId: "identify_capture_api_garden__capture_id__identify_post";
+      path: {
+    capture_id: string;
+};
+      query: never;
+      requestBody: components['schemas']['GardenIdentifyRequest'];
       response: components['schemas']['GardenCaptureResponse'];
     };
   };
