@@ -600,7 +600,7 @@
     <SettingsCard accent iconSnippet={camerasIcon} title={$_('settings.cameras.title')}>
         <!-- The page scrolls; a second scroller inside the card hid the first camera under the
              card header and cut off the nest window below the list. -->
-        <p class="mb-3 text-sm text-slate-600 dark:text-slate-400">{$_('garden.settings_help', { default: 'Garden animals collects completed animal events for your review. Species identification is not enabled yet.' })}</p>
+        <p class="mb-3 text-sm text-slate-600 dark:text-slate-400">{$_('garden.settings_help', { default: 'Garden animals collects completed animal events for your review. Species suggestions run only when you ask.' })}</p>
         <div class="space-y-3" data-camera-list>
             {#if availableCameras.length === 0}
                 <div class="p-8 text-center bg-slate-50 dark:bg-slate-900/30 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700">

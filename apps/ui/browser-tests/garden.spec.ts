@@ -118,6 +118,7 @@ for (const outcome of ['species', 'group', 'unknown'] as const) {
             if (route.request().method() === 'POST') {
                 actions.push(path);
                 if (path.endsWith('/identify')) {
+                    expect(route.request().headers()['content-type']).toBe('application/json');
                     expect(route.request().postDataJSON()).toEqual({ variant: '4.0.3b', provider: 'cpu' });
                     suggestion = { outcome: outcome === 'unknown' ? 'unknown' : 'suggestion', review: 'unreviewed', name: outcome === 'group' ? 'canidae' : 'red fox', rank: outcome === 'group' ? 'family' : 'species', score: 0.91, variant: '4.0.3b', devices: ['CPUExecutionProvider'], country: 'GBR', input_kind: 'whole_image', box_xywh: null, frame_size: [640, 360] };
                 } else if (suggestion) suggestion = { ...suggestion, review: path.endsWith('/accept') ? 'accepted' : 'dismissed' };

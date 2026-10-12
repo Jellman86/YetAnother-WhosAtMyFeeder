@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Garden species suggestions now send the JSON request expected by the backend, fixing
+  a validation error when selecting Suggest species. Camera settings describe the available
+  manual suggestions.
+
 - Unavailable garden species data no longer prevents bird startup from becoming ready.
   Garden suggestions stay unavailable until their catalogue is restored. Container smoke checks
   explicitly verify the garden catalogue under both normal and non-root users.
