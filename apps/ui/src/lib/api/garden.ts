@@ -26,7 +26,7 @@ export async function installGardenModel(variant: GardenIdentifyRequest['variant
 }
 
 export async function identifyGarden(id: string, request: GardenIdentifyRequest): Promise<GardenCapture> {
-    return handleResponse<GardenCapture>(await apiFetch(`${API_BASE}/garden/${encodeURIComponent(id)}/identify`, { method: 'POST', body: JSON.stringify(request), timeoutMs: 160000 }));
+    return handleResponse<GardenCapture>(await apiFetch(`${API_BASE}/garden/${encodeURIComponent(id)}/identify`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(request), timeoutMs: 160000 }));
 }
 
 export async function reviewGardenIdentification(id: string, action: 'accept' | 'dismiss'): Promise<GardenCapture> {
