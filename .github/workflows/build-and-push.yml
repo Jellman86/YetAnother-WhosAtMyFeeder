@@ -152,6 +152,7 @@ jobs:
           os.environ["CONFIG_DIR"] = str(Path(temp_dir) / "config")
           os.environ["CONFIG_FILE"] = str(Path(temp_dir) / "config" / "config.json")
           os.environ["DB_PATH"] = str(Path(temp_dir) / "speciesid.db")
+          os.environ["SPECIES_CATALOG_PATH"] = str(Path(os.environ["DATA_DIR"]) / "species_catalog.db")
 
           Path(os.environ["MEDIA_CACHE_DIR"]).mkdir(parents=True, exist_ok=True)
           Path(os.environ["DATA_DIR"]).mkdir(parents=True, exist_ok=True)

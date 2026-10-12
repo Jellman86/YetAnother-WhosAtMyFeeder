@@ -32,6 +32,10 @@ builds use this same command and `backend/.coveragerc`: branch measurement with 
 The test process must exit successfully within eight minutes. A printed pass
 summary does not excuse a teardown hang or a failed coverage report.
 
+The image build also starts and stops the backend with both databases under its
+temporary directory. Set `SPECIES_CATALOG_PATH` explicitly when reproducing that
+check outside a container; its runtime default is `/data/species_catalog.db`.
+
 Telemetry tests build the Worker without deploying it, then use local Miniflare
 databases. They do not require credentials or write to production Cloudflare D1.
 They now run before merge, not just during deployment.
