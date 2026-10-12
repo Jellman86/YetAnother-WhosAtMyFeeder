@@ -1,7 +1,7 @@
 <script lang="ts">
     import { onDestroy, onMount } from 'svelte';
     import { _ } from 'svelte-i18n';
-    import { fetchGarden, reviewGarden, type GardenCapture } from '../api/garden';
+    import { fetchGarden, reviewGarden, fetchGardenIdentification, installGardenModel, identifyGarden, reviewGardenIdentification, type GardenCapture, type GardenIdentificationStatus, type GardenIdentifyRequest } from '../api/garden';
     import { withAuthParams } from '../api/core';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
 
@@ -15,6 +15,11 @@
     let error = $state<string | null>(null);
     let loadedImages = $state<Record<string, boolean>>({});
     let failedImages = $state<Record<string, boolean>>({});
+    let identification = $state.raw<GardenIdentificationStatus | null>(null);
+    let variant = $state<NonNullable<GardenIdentifyRequest['variant']>>('4.0.3b');
+    let provider = $state<NonNullable<GardenIdentifyRequest['provider']>>('cpu');
+    const selectedModel = $derived(identification?.models.find(model => model.variant === variant));
+    const canIdentify = $derived(Boolean(identification?.catalogue_ready && identification.country && !identification.error && selectedModel?.installed && !identification.busy));
     let controller: AbortController | null = null;
     let generation = 0;
     let destroyed = false;
@@ -39,6 +44,13 @@
             if (destroyed || request !== generation) return;
             items = result.items;
             total = result.total;
+            try {
+                const modelStatus = await fetchGardenIdentification(controller.signal);
+                if (!destroyed && request === generation) identification = modelStatus;
+            } catch {
+                if (!destroyed && request === generation) identification = null;
+            }
+            if (destroyed || request !== generation) return;
             if (offset > 0 && items.length === 0) {
                 offset = Math.max(0, offset - 8);
                 await load();
@@ -71,6 +83,35 @@
         }
     }
 
+    async function speciesAction(item: GardenCapture, action: 'identify' | 'accept' | 'dismiss'): Promise<void> {
+        if (saving) return;
+        saving = item.id;
+        error = null;
+        try {
+            if (action === 'identify') await identifyGarden(item.id, { variant, provider });
+            else await reviewGardenIdentification(item.id, action);
+            if (!destroyed) await load();
+        } catch (failure) {
+            if (!destroyed) error = failure instanceof Error ? failure.message : $_('garden.save_error', { default: 'Could not save your review. Try again.' });
+        } finally {
+            if (!destroyed) saving = null;
+        }
+    }
+
+    async function downloadModel(): Promise<void> {
+        if (saving) return;
+        saving = 'model';
+        error = null;
+        try {
+            const result = await installGardenModel(variant);
+            if (!destroyed) identification = result;
+        } catch (failure) {
+            if (!destroyed) error = failure instanceof Error ? failure.message : $_('garden.model_error', { default: 'Could not download the garden model. Try again.' });
+        } finally {
+            if (!destroyed) saving = null;
+        }
+    }
+
     onMount(() => {
         unregisterRefresh = pageRefreshAction.register(load);
         void load();
@@ -86,8 +127,41 @@
 <div class="space-y-5" data-garden-history>
     <div class="card-base p-4 space-y-2">
         <p class="eyebrow">{$_('garden.review_only', { default: 'Owner review prototype' })}</p>
-        <p class="text-sm text-slate-600 dark:text-slate-400">{$_('garden.review_help', { default: 'Confirm that an animal is present, or dismiss a false detection. Frigate labels are suggestions; species identification is not enabled.' })}</p>
+        <p class="text-sm text-slate-600 dark:text-slate-400">{$_('garden.review_help', { default: 'Check the photo and confirm animal presence first. You can then request a species suggestion. Model scores can be confidently wrong; identification always needs your review.' })}</p>
         <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.retention_help', { default: 'Garden visits stay separate from bird totals and exports. Photos remain in Frigate and expire with its retention settings.' })}</p>
+        <details class="group">
+            <summary class="min-h-11 list-none [&::-webkit-details-marker]:hidden cursor-pointer py-3 text-sm font-semibold focus-visible:ring-2 focus-visible:ring-brand"><span>{$_('garden.species_settings', { default: 'Species suggestions' })}</span><span class="inline-block ml-2 transition-transform group-open:rotate-180" aria-hidden="true">⌄</span></summary>
+            <div class="space-y-3 pt-2">
+                <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.species_help', { default: 'SpeciesNet runs only when you ask. Bird inference takes priority and can interrupt it. No automatic identification or notifications are enabled.' })}</p>
+                {#if !identification}
+                    <p role="status" class="text-sm">{$_('garden.model_status_unavailable', { default: 'Model status unavailable. Refresh to try again.' })}</p>
+                {:else if identification.error}
+                    <p role="alert" class="text-sm">{identification.error}</p>
+                {:else if !identification.catalogue_ready}
+                    <p role="status" class="text-sm">{$_('garden.catalogue_unavailable', { default: 'Garden species data is unavailable. Check the application startup diagnostics.' })}</p>
+                {:else}
+                    <div class="grid gap-3 sm:grid-cols-2">
+                        <label class="space-y-1 text-sm"><span>{$_('garden.model', { default: 'Garden model' })}</span>
+                            <select class="select-base w-full" bind:value={variant} disabled={saving !== null}>
+                                <option value="4.0.3b">{$_('garden.model_whole', { default: 'SpeciesNet 4.0.3b · Whole image' })}</option>
+                                <option value="4.0.3a">{$_('garden.model_crop', { default: 'SpeciesNet 4.0.3a · Tracked crop' })}</option>
+                            </select>
+                        </label>
+                        <label class="space-y-1 text-sm"><span>{$_('garden.provider', { default: 'Run garden model on' })}</span>
+                            <select class="select-base w-full" bind:value={provider} disabled={saving !== null}>
+                                <option value="cpu">CPU</option><option value="intel_cpu">Intel CPU</option><option value="intel_gpu">Intel GPU</option><option value="intel_npu">Intel NPU</option><option value="cuda">NVIDIA GPU</option>
+                            </select>
+                        </label>
+                    </div>
+                    <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.country', { default: 'Country filter: {country}', values: { country: identification.country ?? $_('garden.country_missing', { default: 'Set a recognised country or ISO code in Settings → Location' }) } })}</p>
+                    {#if selectedModel?.installed}
+                        <p class="text-xs">{$_('garden.model_downloaded', { default: 'Model downloaded. The checksum and selected provider are checked on each identification; unavailable hardware does not fall back to CPU.' })}</p>
+                    {:else}
+                        <button class="btn btn-secondary min-h-11 px-4 py-2 whitespace-normal" disabled={saving !== null || identification.busy} onclick={downloadModel}>{saving === 'model' ? $_('garden.downloading', { default: 'Downloading and verifying…' }) : $_('garden.download_model', { default: 'Download selected model (224 MB)' })}</button>
+                    {/if}
+                {/if}
+            </div>
+        </details>
     </div>
     <div class="flex flex-wrap items-center justify-between gap-3">
         <div class="flex flex-wrap gap-2" role="group" aria-label={$_('garden.views', { default: 'Garden review views' })}>
@@ -119,6 +193,13 @@
                                     alt={$_('garden.photo_alt', { default: 'Animal capture from {camera}', values: { camera: item.camera } })}
                                     loading="lazy" onload={() => loadedImages = { ...loadedImages, [item.id]: true }}
                                     onerror={() => failedImages = { ...failedImages, [item.id]: true }} />
+                                {#if loadedImages[item.id] && item.identification?.box_xywh && item.identification.review !== 'dismissed'}
+                                    {@const box = item.identification.box_xywh}
+                                    {@const size = item.identification.frame_size}
+                                    <svg class="pointer-events-none absolute inset-0 h-full w-full text-amber-400" viewBox={`0 0 ${size[0]} ${size[1]}`} preserveAspectRatio="xMidYMid meet" aria-hidden="true" data-garden-input>
+                                        <rect x={box[0] * size[0]} y={box[1] * size[1]} width={box[2] * size[0]} height={box[3] * size[1]} fill="none" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke" />
+                                    </svg>
+                                {/if}
                             {:else}
                                 <p class="absolute inset-0 flex items-center justify-center p-4 text-center text-sm text-slate-600 dark:text-slate-400">{$_('garden.snapshot_unavailable', { default: 'Snapshot unavailable' })}</p>
                             {/if}
@@ -129,10 +210,33 @@
                                 <time class="block text-xs text-slate-600 dark:text-slate-400" datetime={item.observed_at}>{new Date(item.observed_at).toLocaleString()}</time>
                                 <p class="break-words text-sm">{$_('garden.frigate_suggested', { default: 'Frigate suggested: {label}', values: { label: item.frigate_label } })}</p>
                                 <p class="text-xs text-slate-600 dark:text-slate-400">{views.find(view => view.id === item.status)?.name}</p>
+                                {#if item.identification && item.identification.review !== 'dismissed'}
+                                    {#if item.identification.outcome === 'suggestion'}
+                                        <p class="break-words font-semibold">{item.identification.name}</p>
+                                        <p class="text-xs text-slate-600 dark:text-slate-400">{item.identification.review === 'accepted' ? $_('garden.identification_confirmed', { default: 'Identification confirmed by you' }) : $_('garden.identification_needs_review', { default: 'Suggested identification · Needs your review' })}</p>
+                                        {#if item.identification.rank !== 'species'}<p class="text-xs">{$_('garden.group_only', { default: 'Animal group only; species is unresolved.' })}</p>{/if}
+                                        <p class="text-xs">{$_('garden.model_score', { default: 'Model score: {score}%', values: { score: ((item.identification.score ?? 0) * 100).toFixed(1) } })}</p>
+                                    {:else}
+                                        <p class="text-sm">{$_('garden.identification_unknown', { default: 'No reliable identification. Leave this animal unidentified or try another model.' })}</p>
+                                    {/if}
+                                    <p class="text-xs text-slate-600 dark:text-slate-400">{item.identification.variant} · {item.identification.devices.join(', ')} · {item.identification.country} · {item.identification.input_kind === 'tracked_crop' ? $_('garden.tracked_crop', { default: 'Tracked snapshot crop' }) : $_('garden.whole_image', { default: 'Whole image with model border trim' })}</p>
+                                {/if}
                             </div>
                             <div class="flex flex-col gap-2">
                                 {#if item.status === 'pending'}
                                     <button class="btn btn-primary min-h-11 px-4 py-2 whitespace-normal" disabled={saving !== null || !loadedImages[item.id]} onclick={() => review(item, 'confirm')}>{$_('garden.confirm', { default: 'Confirm animal present' })}</button>
+                                {/if}
+                                {#if item.status === 'confirmed'}
+                                    {#if item.identification?.review === 'accepted'}
+                                        <button class="btn btn-secondary min-h-11 px-4 py-2 whitespace-normal" disabled={saving !== null} onclick={() => speciesAction(item, 'dismiss')}>{$_('garden.discard_identification', { default: 'Discard identification' })}</button>
+                                    {:else}
+                                        <button class="btn btn-secondary min-h-11 px-4 py-2 whitespace-normal" disabled={saving !== null || !loadedImages[item.id] || !canIdentify} onclick={() => speciesAction(item, 'identify')}>{saving === item.id ? $_('garden.working', { default: 'Working…' }) : $_('garden.suggest_species', { default: 'Suggest species' })}</button>
+                                        {#if !canIdentify}<p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.setup_needed', { default: 'Open Species suggestions above to check the model, country and availability.' })}</p>{/if}
+                                        {#if item.identification?.outcome === 'suggestion' && item.identification.review === 'unreviewed'}
+                                            <button class="btn btn-primary min-h-11 px-4 py-2 whitespace-normal" disabled={saving !== null || !loadedImages[item.id]} onclick={() => speciesAction(item, 'accept')}>{$_('garden.accept_identification', { default: 'Confirm identification' })}</button>
+                                            <button class="btn btn-secondary min-h-11 px-4 py-2 whitespace-normal" disabled={saving !== null} onclick={() => speciesAction(item, 'dismiss')}>{$_('garden.dismiss_suggestion', { default: 'Dismiss suggestion' })}</button>
+                                        {/if}
+                                    {/if}
                                 {/if}
                                 {#if item.status !== 'dismissed'}
                                     <button class="btn btn-secondary min-h-11 px-4 py-2 whitespace-normal" disabled={saving !== null} onclick={() => review(item, 'dismiss')}>{$_('garden.dismiss', { default: 'Dismiss capture' })}</button>

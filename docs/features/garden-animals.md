@@ -1,8 +1,8 @@
 # Review garden animals
 
 **Garden animals** is an owner-only review prototype in current `dev`. It collects
-completed Frigate animal events separately from bird history. It does not yet
-identify species or save model guesses automatically.
+completed Frigate animal events separately from bird history. It offers optional, owner-requested SpeciesNet suggestions. It never saves a model
+guess as a confirmed identification automatically.
 
 1. Open **Settings → Connection**, sync the camera list, and enable **Garden animals**
    for the camera you want to watch. Its **Feeder** or **Nest** bird role is independent.
@@ -15,9 +15,9 @@ identify species or save model guesses automatically.
 
 ![Independent Garden animals toggle beside the bird camera role, with Frigate animal labels](../images/settings-garden-cameras.png)
 
-![Owner-only Garden animals review with no captures and instructions to enable a camera](../images/garden-review.png)
+![Owner-only Garden animals review with model download, country filtering and camera setup instructions](../images/garden-review.png)
 
-Confirmation records animal presence, not the suggested species. Repeated MQTT
+The first confirmation records animal presence. Species identification has a separate review. Repeated MQTT
 messages cannot create duplicate visits or undo your decision. Existing Frigate
 history is not backfilled into this view.
 
@@ -34,6 +34,39 @@ archive garden photographs or clips. They can expire before the review metadata.
 An unavailable photograph disables confirmation. Review metadata follows
 **Settings → Data → Detection Retention** when automatic cleanup is enabled;
 turning off Garden animals stops collection but preserves existing reviews.
+
+To request a species suggestion, open **Species suggestions** above the history:
+
+1. Set a recognised country name or ISO code in **Settings → Location**. Filtering
+   runs locally; coordinates are not sent to the model.
+2. Choose and download a garden model, about **224 MB** per variant. The default
+   **4.0.3b** uses the whole photograph with the model’s vertical border trim.
+   **4.0.3a** requires Frigate’s tracked snapshot box; it never guesses a crop.
+3. Choose a provider supported by your image and hardware. CPU, Intel CPU/GPU/NPU
+   and NVIDIA GPU are supported runtimes; unavailable hardware produces an error
+   rather than a CPU fallback.
+4. Open **Confirmed animals**, inspect the photo and select **Suggest species**.
+   Check the proposed identity, score and input context. Choose **Confirm
+   identification**, **Dismiss suggestion**, or leave it unreviewed.
+
+Bird inference has priority. If it is busy or begins while SpeciesNet is running,
+the garden request stops and can be retried later. One garden operation runs at a
+time, with a two-minute native deadline. Loading the model for each request costs
+more time than a warm inference, but its process and memory are released afterward.
+
+The catalogue holds both models’ ordered outputs, canonical identities, taxonomy
+and country rules; there is no runtime labels file. Country filtering can broaden
+the winning species to its family or higher group. It never substitutes a local
+runner-up. An animal group is not a species identification; uncertain results stay
+unidentified. A model score is not measured accuracy: a Patio toy car produced a
+confident cattle prediction during testing. Review every suggestion. Recognised
+people erase the capture and any saved suggestion; this cannot guarantee that a
+missed person is absent from a photograph.
+
+Confirmation checks that Frigate still supplies the exact photo used by the model.
+An expired or changed photograph cannot be used to confirm an old suggestion.
+**Discard identification** revokes your identification confirmation without changing
+animal presence. Dismissing animal presence also revokes its identification confirmation. No garden suggestions enable notifications or bird exports.
 
 Automatic species identification still needs reviewed daytime and infrared animal
 captures and hard negatives. The [developer replay](../development/garden-replay.md)

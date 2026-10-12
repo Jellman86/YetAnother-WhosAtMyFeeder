@@ -6948,6 +6948,16 @@
             "title": "Id",
             "type": "string"
           },
+          "identification": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GardenIdentification"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "observed_at": {
             "title": "Observed At",
             "type": "string"
@@ -6994,6 +7004,314 @@
           "snapshot_url"
         ],
         "title": "GardenCaptureResponse",
+        "type": "object"
+      },
+      "GardenIdentification": {
+        "properties": {
+          "box_xywh": {
+            "anyOf": [
+              {
+                "maxItems": 4,
+                "minItems": 4,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Box Xywh"
+          },
+          "country": {
+            "title": "Country",
+            "type": "string"
+          },
+          "devices": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Devices",
+            "type": "array"
+          },
+          "frame_size": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "title": "Frame Size",
+            "type": "array"
+          },
+          "geofenced": {
+            "default": false,
+            "title": "Geofenced",
+            "type": "boolean"
+          },
+          "identified_at": {
+            "title": "Identified At",
+            "type": "string"
+          },
+          "image_sha256": {
+            "title": "Image Sha256",
+            "type": "string"
+          },
+          "input_kind": {
+            "enum": [
+              "tracked_crop",
+              "whole_image"
+            ],
+            "title": "Input Kind",
+            "type": "string"
+          },
+          "model_sha256": {
+            "title": "Model Sha256",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "outcome": {
+            "enum": [
+              "suggestion",
+              "unknown"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "output_index": {
+            "minimum": 0.0,
+            "title": "Output Index",
+            "type": "integer"
+          },
+          "package_sha256": {
+            "title": "Package Sha256",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "cpu",
+              "intel_cpu",
+              "intel_gpu",
+              "intel_npu",
+              "cuda"
+            ],
+            "title": "Provider",
+            "type": "string"
+          },
+          "rank": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rank"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "review": {
+            "default": "unreviewed",
+            "enum": [
+              "unreviewed",
+              "accepted",
+              "dismissed"
+            ],
+            "title": "Review",
+            "type": "string"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "species_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Species Id"
+          },
+          "taxon_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taxon Id"
+          },
+          "variant": {
+            "enum": [
+              "4.0.3a",
+              "4.0.3b"
+            ],
+            "title": "Variant",
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome",
+          "reason",
+          "country",
+          "variant",
+          "provider",
+          "devices",
+          "model_sha256",
+          "package_sha256",
+          "image_sha256",
+          "output_index",
+          "input_kind",
+          "frame_size",
+          "identified_at"
+        ],
+        "title": "GardenIdentification",
+        "type": "object"
+      },
+      "GardenIdentificationStatus": {
+        "properties": {
+          "busy": {
+            "title": "Busy",
+            "type": "boolean"
+          },
+          "catalogue_ready": {
+            "title": "Catalogue Ready",
+            "type": "boolean"
+          },
+          "country": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/GardenModelStatus"
+            },
+            "title": "Models",
+            "type": "array"
+          }
+        },
+        "required": [
+          "country",
+          "catalogue_ready",
+          "busy",
+          "models"
+        ],
+        "title": "GardenIdentificationStatus",
+        "type": "object"
+      },
+      "GardenIdentifyRequest": {
+        "properties": {
+          "provider": {
+            "default": "cpu",
+            "enum": [
+              "cpu",
+              "intel_cpu",
+              "intel_gpu",
+              "intel_npu",
+              "cuda"
+            ],
+            "title": "Provider",
+            "type": "string"
+          },
+          "variant": {
+            "default": "4.0.3b",
+            "enum": [
+              "4.0.3a",
+              "4.0.3b"
+            ],
+            "title": "Variant",
+            "type": "string"
+          }
+        },
+        "title": "GardenIdentifyRequest",
+        "type": "object"
+      },
+      "GardenModelStatus": {
+        "properties": {
+          "installed": {
+            "title": "Installed",
+            "type": "boolean"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "variant": {
+            "enum": [
+              "4.0.3a",
+              "4.0.3b"
+            ],
+            "title": "Variant",
+            "type": "string"
+          }
+        },
+        "required": [
+          "variant",
+          "installed",
+          "size_bytes"
+        ],
+        "title": "GardenModelStatus",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -24825,6 +25143,95 @@
         ]
       }
     },
+    "/api/garden/identification": {
+      "get": {
+        "operationId": "identification_status_api_garden_identification_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GardenIdentificationStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Identification Status",
+        "tags": [
+          "garden"
+        ]
+      }
+    },
+    "/api/garden/models/{variant}/install": {
+      "post": {
+        "operationId": "install_garden_model_api_garden_models__variant__install_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "variant",
+            "required": true,
+            "schema": {
+              "enum": [
+                "4.0.3a",
+                "4.0.3b"
+              ],
+              "title": "Variant",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GardenIdentificationStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Install Garden Model",
+        "tags": [
+          "garden"
+        ]
+      }
+    },
     "/api/garden/{capture_id}/confirm": {
       "post": {
         "operationId": "confirm_capture_api_garden__capture_id__confirm_post",
@@ -24926,6 +25333,135 @@
           }
         ],
         "summary": "Dismiss Capture",
+        "tags": [
+          "garden"
+        ]
+      }
+    },
+    "/api/garden/{capture_id}/identification/{action}": {
+      "post": {
+        "operationId": "review_identification_api_garden__capture_id__identification__action__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "capture_id",
+            "required": true,
+            "schema": {
+              "title": "Capture Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "action",
+            "required": true,
+            "schema": {
+              "enum": [
+                "accept",
+                "dismiss"
+              ],
+              "title": "Action",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GardenCaptureResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Review Identification",
+        "tags": [
+          "garden"
+        ]
+      }
+    },
+    "/api/garden/{capture_id}/identify": {
+      "post": {
+        "operationId": "identify_capture_api_garden__capture_id__identify_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "capture_id",
+            "required": true,
+            "schema": {
+              "title": "Capture Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GardenIdentifyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GardenCaptureResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Identify Capture",
         "tags": [
           "garden"
         ]

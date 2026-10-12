@@ -118,3 +118,14 @@ def test_render_openapi_types_covers_components_paths_and_payload_shapes():
     assert "path: never;" in output
     assert "query: never;" in output
     assert "response: string;" in output
+
+
+def test_fixed_openapi_coordinate_tuples_keep_their_numeric_types():
+    from scripts.export_openapi_types import _ts_type
+
+    assert (
+        _ts_type(
+            {"type": "array", "prefixItems": [{"type": "number"}, {"type": "number"}], "minItems": 2, "maxItems": 2}
+        )
+        == "[number, number]"
+    )

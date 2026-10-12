@@ -76,6 +76,9 @@ def _ts_type(schema: dict[str, Any] | None) -> str:
     if schema_type == "boolean":
         return "boolean"
     if schema_type == "array":
+        prefix = schema.get("prefixItems")
+        if isinstance(prefix, list) and schema.get("minItems") == schema.get("maxItems") == len(prefix):
+            return "[" + ", ".join(_ts_type(item) for item in prefix) + "]"
         item_type = _ts_type(schema.get("items"))
         return f"Array<{item_type}>"
     if schema_type == "object" or "properties" in schema or "additionalProperties" in schema:

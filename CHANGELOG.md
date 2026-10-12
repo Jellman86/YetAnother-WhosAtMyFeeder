@@ -8,8 +8,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 - Garden animals adds independent camera opt-in and a private review history for completed
   Frigate animal events. Confirm animal presence, dismiss false detections and restore reviews
-  without affecting bird history or exports. Species identification remains a separate research
-  prototype; garden photographs follow Frigate retention and are not archived locally.
+  without affecting bird history or exports. Confirmed captures can request a SpeciesNet suggestion
+  using country-filtered species data from the catalogue, with explicit identification review and
+  disposable inference that yields to bird work. Garden photographs follow Frigate retention and
+  are not archived locally.
 
 - An isolated Garden animals developer replay evaluates retained footage with SpeciesNet and a
   separate detector. It produces private review candidates, excludes birds and recognized people,

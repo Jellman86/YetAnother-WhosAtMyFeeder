@@ -34,7 +34,7 @@ New development features require a matching `dev` image.
   frames when Frigate retained a usable clip.
 - **Add your own sightings:** classify and save a photograph or clip through
   [Add observation](docs/features/manual-observations.md).
-- **Review garden visitors:** current `dev` offers a separate [Garden animals review prototype](docs/features/garden-animals.md), with independent camera opt-in.
+- **Review garden visitors:** current `dev` offers a separate [Garden animals review prototype](docs/features/garden-animals.md), with independent camera opt-in and owner-reviewed SpeciesNet suggestions.
 - **Connect other services:** [BirdNET-Go](docs/integrations/birdnet-go.md),
   [Home Assistant](docs/integrations/home-assistant.md), notifications and optional community-science exports.
 - **Share deliberately:** choose which history, camera names and media guests can see in

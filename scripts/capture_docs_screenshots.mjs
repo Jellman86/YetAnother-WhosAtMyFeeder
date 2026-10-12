@@ -102,6 +102,7 @@ await context.route(url => url.origin === baseUrl.origin && (url.pathname === '/
     if (path === '/api/version') return json({ version, base_version: version, branch: 'stable', git_hash: 'unknown' });
     if (path === '/api/auth/status') return json({ auth_required: true, public_access_enabled: false, is_authenticated: true, needs_initial_setup: firstRun, username: 'admin', show_camera_names: true, share_audio: true, share_photos: true });
     if (path === '/api/settings') return json(settings);
+    if (path === '/api/garden/identification') return json({ country: 'GBR', catalogue_ready: true, busy: false, error: null, models: [{ variant: '4.0.3a', installed: false, size_bytes: 223998782 }, { variant: '4.0.3b', installed: false, size_bytes: 223999179 }] });
     if (path === '/api/garden') return json({ items: [], total: 0, offset: 0, limit: 8 });
     if (path === '/api/classifier/status') return json(status);
     if (path === '/api/models/available') return json(catalog.available);
@@ -177,6 +178,8 @@ try {
         await shot('settings-garden-cameras', page.locator('[data-camera-list]'));
         await page.goto(`${base}/browser-tests/garden.html`);
         await page.getByText('No captures in this view').waitFor();
+        await page.getByText('Species suggestions', { exact: true }).click();
+        await page.getByText('Country filter: GBR', { exact: true }).waitFor();
         await shot('garden-review', page.locator('#app'));
     } else {
     await openSettings('Connection');

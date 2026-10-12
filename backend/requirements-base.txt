@@ -6,6 +6,7 @@ pydantic-settings==2.15.0
 structlog==26.1.0
 aiosqlite==0.22.1
 aiofiles>=25.1.0
+pycountry==26.2.16
 httpx==0.28.1
 python-multipart==0.0.32
 # Windows does not provide a system IANA timezone database.

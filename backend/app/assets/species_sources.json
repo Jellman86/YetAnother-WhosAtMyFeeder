@@ -74,6 +74,18 @@
       "redistribution": "bundled",
       "content_sha256": "a16108dfe3f8daff015b87a97ab6a17e717b9b1bccd719f6d8f747746d7b9277",
       "notes": "The MobileNet V2 label file: 964 scientific/common pairs plus a background class. Pinned to the same commit and checksum the model registry downloads and verifies."
+    },
+    {
+      "id": "google-speciesnet",
+      "name": "Google SpeciesNet",
+      "role": "garden-model-taxonomy",
+      "version": "4.0.3",
+      "url": "https://github.com/google/cameratrapai",
+      "licence": "Apache-2.0",
+      "citation": "Google SpeciesNet 4.0.3a/b, taxonomy release 20260609. https://github.com/google/cameratrapai",
+      "redistribution": "bundled",
+      "content_sha256": "02a0537052b0e134043e0ef9ecbeb43fc88324c4d7a11f34ece9d449cda6d93e",
+      "notes": "Ordered outputs, taxonomy and geofence from the official 4.0.3a/b releases; checksum-bound ONNX exports validated separately. Stored in the species catalogue for owner-reviewed garden suggestions."
     }
   ]
 }

@@ -338,8 +338,8 @@ can change their framing. Full-frame Frigate coordinates must not be reapplied t
 
 ### Garden animal review
 
-All garden routes require owner access. Review confirmation records animal presence,
-not a species identification; `frigate_label` remains an upstream suggestion.
+All garden routes require owner access and use `private, no-store`. Presence and
+species identification have separate reviews; `frigate_label` remains an upstream suggestion.
 
 - `GET /api/garden` — `status=pending|confirmed|dismissed`, `limit=1..100` (default 20),
   `offset>=0`; returns `items`, `total`, `limit`, `offset`.
@@ -349,6 +349,25 @@ not a species identification; `frigate_label` remains an upstream suggestion.
 - `GET /api/garden/{capture_id}/snapshot` — owner-only Frigate photograph, `404` when
   missing or rejected. The exact read-only route accepts the owner session cookie
   and uses `private, no-store`; review writes still require an authorization header.
+
+- `GET /api/garden/identification` — catalogue availability, normalised ISO-3 country,
+  per-variant model download status, busy state and any worker cleanup error.
+- `POST /api/garden/models/{variant}/install` — atomically download and verify
+  `4.0.3a` or `4.0.3b`; no body. Both files are about 224 MB.
+- `POST /api/garden/{capture_id}/identify` — body `{"variant":"4.0.3b","provider":"cpu"}`.
+  Providers: `cpu`, `intel_cpu`, `intel_gpu`, `intel_npu`, `cuda`. Requires confirmed
+  animal presence, an enabled garden camera, installed model and recognised country.
+  Returns the capture with an unreviewed suggestion or unknown result. `409` covers
+  bird priority, unavailable prerequisites or a changed capture; `503` covers
+  a failed provider, model verification, timeout or worker cleanup.
+- `POST /api/garden/{capture_id}/identification/{action}` — `accept` or `dismiss`,
+  no body. Acceptance requires an unreviewed identity and the unchanged source photo.
+  Group-level identities retain their rank; unknown results cannot be accepted.
+
+Identification metadata includes the canonical `species_id`, model/package/photo
+checksums, raw winning `output_index`, country, requested provider, actual devices,
+input kind, optional normalized XYWH box, frame size and review state. This belongs
+only to garden history. No automatic inference or model switch is performed.
 
 Settings use `garden_cameras` (default `[]`) and `garden_labels` (default
 `["cat", "dog"]`), persisted under `frigate` in the configuration. These are
