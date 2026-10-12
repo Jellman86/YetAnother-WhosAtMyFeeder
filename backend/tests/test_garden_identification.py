@@ -245,3 +245,22 @@ async def test_failed_native_cleanup_still_cancels_the_pipe_reader():
     with pytest.raises(GardenCleanupFailed):
         await supervise_worker(process, lambda: True)
     assert closed == [True]
+
+
+@pytest.mark.asyncio
+async def test_unavailable_optional_garden_catalogue_does_not_fail_bird_startup(monkeypatch):
+    import sqlite3
+    from app.services.garden_identification import GardenIdentificationService
+
+    service = GardenIdentificationService()
+
+    def unavailable():
+        raise sqlite3.OperationalError("unable to open database file")
+
+    monkeypatch.setattr(service.catalog, "initialize", unavailable)
+    monkeypatch.setattr(service.catalog, "load", unavailable)
+    await service.initialize()
+    status = await service.status()
+    assert not status.catalogue_ready
+    assert not status.busy
+    assert service.error is None

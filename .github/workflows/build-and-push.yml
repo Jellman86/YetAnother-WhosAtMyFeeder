@@ -164,6 +164,8 @@ jobs:
               async with lifespan(app):
                   assert hasattr(app.state, "startup_warnings")
                   assert isinstance(app.state.startup_warnings, list)
+                  from app.services.garden_identification import garden_identification_service
+                  assert (await garden_identification_service.status()).catalogue_ready
                   transport = httpx.ASGITransport(app=app)
                   async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
                       health = await client.get("/health")

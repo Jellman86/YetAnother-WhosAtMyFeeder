@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Unavailable garden species data no longer prevents bird startup from becoming ready.
+  Garden suggestions stay unavailable until their catalogue is restored. Container smoke checks
+  explicitly verify the garden catalogue under both normal and non-root users.
+
 - The image build's startup check keeps the species catalogue in its temporary data directory,
   so garden initialization is checked without requiring a writable host `/data` directory.
 
