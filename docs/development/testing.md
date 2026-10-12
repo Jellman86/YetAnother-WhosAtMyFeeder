@@ -35,6 +35,8 @@ summary does not excuse a teardown hang or a failed coverage report.
 The image build also starts and stops the backend with both databases under its
 temporary directory. Set `SPECIES_CATALOG_PATH` explicitly when reproducing that
 check outside a container; its runtime default is `/data/species_catalog.db`.
+Container smoke checks do the same for normal and non-root users and explicitly
+require garden catalogue availability, independently of bird readiness.
 
 Telemetry tests build the Worker without deploying it, then use local Miniflare
 databases. They do not require credentials or write to production Cloudflare D1.

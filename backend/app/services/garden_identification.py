@@ -139,7 +139,12 @@ class GardenIdentificationService:
         self.error: str | None = None
 
     async def initialize(self) -> None:
-        await asyncio.to_thread(self.catalog.initialize)
+        try:
+            await asyncio.to_thread(self.catalog.initialize)
+        except (OSError, ValueError, sqlite3.Error) as error:
+            # Optional garden data must not take bird readiness down with it.
+            # status() reports catalogue availability and inference fails closed.
+            log.warning("garden_catalogue_unavailable", error_type=type(error).__name__)
 
     def model_path(self, variant: str) -> Path:
         if variant not in MODEL_SIZES:

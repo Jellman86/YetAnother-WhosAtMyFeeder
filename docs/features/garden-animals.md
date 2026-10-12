@@ -63,6 +63,10 @@ confident cattle prediction during testing. Review every suggestion. Recognised
 people erase the capture and any saved suggestion; this cannot guarantee that a
 missed person is absent from a photograph.
 
+If garden species data is unavailable, suggestions stay unavailable in this view.
+Bird detection can still start and run. Restore the catalogue and restart the
+application to restore garden suggestions.
+
 Confirmation checks that Frigate still supplies the exact photo used by the model.
 An expired or changed photograph cannot be used to confirm an old suggestion.
 **Discard identification** revokes your identification confirmation without changing
