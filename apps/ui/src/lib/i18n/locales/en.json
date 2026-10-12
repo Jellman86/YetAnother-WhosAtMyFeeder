@@ -3580,7 +3580,7 @@
     "previous": "Previous",
     "page_count": "{start}–{end} of {total}",
     "next": "Next",
-    "settings_help": "Garden animals collects completed animal events for your review. Species identification is not enabled yet.",
+    "settings_help": "Garden animals collects completed animal events for your review. Species suggestions run only when you ask.",
     "title": "Garden animals",
     "camera_help": "Independent animal review. Keeps this camera’s bird role.",
     "labels": "Frigate animal labels",

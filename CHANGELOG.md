@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Camera settings now describe the available manual garden species suggestions.
+
 - Unavailable garden species data no longer prevents bird startup from becoming ready.
   Garden suggestions stay unavailable until their catalogue is restored. Container smoke checks
   explicitly verify the garden catalogue under both normal and non-root users.
