@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Fixed:** Mobile and page headers reflow at narrow widths with enlarged text, keeping menu, theme and page actions reachable (#703).
+
 - Garden motion photos show MegaDetector Cedar's saved candidate box before
   animal presence is confirmed. The outline follows the displayed photo, including
   letterboxing, and remains separate from species identification and owner review.

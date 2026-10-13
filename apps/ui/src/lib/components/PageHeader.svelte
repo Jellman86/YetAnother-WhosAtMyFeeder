@@ -19,14 +19,14 @@
     }
 </script>
 
-<header class="mb-6 flex items-start justify-between gap-4">
-    <div class="min-w-0 flex-1 space-y-1">
+<header class="mb-6 flex flex-wrap items-start justify-between gap-4">
+    <div class="min-w-0 basis-64 grow space-y-1 break-words">
         <h1 class="font-display text-3xl font-bold leading-tight text-slate-900 sm:text-4xl dark:text-white">{title}</h1>
         {#if subtitle}
             <p class="text-base text-slate-600 dark:text-slate-400">{subtitle}</p>
         {/if}
     </div>
-    <div class="flex items-center gap-1 shrink-0">
+    <div class="flex max-w-full flex-wrap items-center gap-1 shrink-0">
         {#if actions}
             {@render actions()}
         {:else}
