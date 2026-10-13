@@ -20,11 +20,11 @@
         </svg>
         <span class="sr-only">{toggleMenuLabel}</span>
     </button>
-    <div class="flex items-center gap-2">
-        <div class="w-7 h-7 flex items-center justify-center overflow-hidden">
+    <div class="mobile-brand min-w-0 flex-1 flex items-center justify-center">
+        <div class="w-7 h-7 shrink-0 flex items-center justify-center overflow-hidden">
             <img src={APP_ICON_192_URL} alt={appTitle} class="w-full h-full object-contain bg-transparent" />
         </div>
-        <span class="font-display text-base font-bold text-slate-900 dark:text-white">{appTitle}</span>
+        <span class="mobile-wordmark min-w-0 truncate ml-2 font-display text-base font-bold text-slate-900 dark:text-white">{appTitle}</span>
     </div>
     <button
         class="btn btn-ghost min-h-11 min-w-11 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
@@ -42,3 +42,14 @@
         {/if}
     </button>
 </div>
+
+<style>
+    .mobile-brand {
+        container-type: inline-size;
+    }
+    @container (max-width: 10rem) {
+        .mobile-wordmark {
+            display: none;
+        }
+    }
+</style>

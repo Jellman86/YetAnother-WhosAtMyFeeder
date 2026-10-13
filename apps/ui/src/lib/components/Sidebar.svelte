@@ -92,7 +92,7 @@
 {/if}
 
 <aside
-    class="fixed left-0 top-0 z-50 flex h-full flex-col border-r border-line-soft bg-surface transition-all duration-300 {collapsed ? 'w-20' : 'w-64'} {mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}"
+    class="fixed left-0 top-0 z-50 flex h-full max-w-full flex-col border-r border-line-soft bg-surface transition-all duration-300 {collapsed ? 'w-20' : 'w-64'} {mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}"
 >
     <div
         data-sidebar-brand
