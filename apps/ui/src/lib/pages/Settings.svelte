@@ -220,6 +220,7 @@
     let cameraRoles = $state<Record<string, 'feeder' | 'nest'>>({});
     let gardenCameras = $state<string[]>([]);
     let gardenLabels = $state('cat, dog');
+    let gardenMotionCameras = $state<string[]>([]);
     let nestDedupeMinutes = $state(30);
     let birdnetSourceOptions = $state<AudioSourceOption[]>([]);
     let loadingBirdnetSources = $state(false);
@@ -1855,6 +1856,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'llmChartPromptTemplate', val: llmChartPromptTemplate, store: s.llm_chart_prompt_template || '' },
             { key: 'aiPricingJson', val: aiPricingJson, store: s.ai_pricing_json || '[]' },
             { key: 'cameraAudioMapping', val: JSON.stringify(cameraAudioMapping), store: JSON.stringify(s.camera_audio_mapping || {}) },
+            { key: 'gardenMotionCameras', val: JSON.stringify(gardenMotionCameras), store: JSON.stringify(s.garden_motion_cameras || []) },
             { key: 'gardenCameras', val: JSON.stringify(gardenCameras), store: JSON.stringify(s.garden_cameras || []) },
             { key: 'gardenLabels', val: JSON.stringify(gardenLabels.split(/[,;\n]+/).map(label => label.trim().toLowerCase()).filter(Boolean)), store: JSON.stringify(s.garden_labels || ['cat', 'dog']) },
             { key: 'cameraRoles', val: JSON.stringify(cameraRoles), store: JSON.stringify(s.camera_roles || {}) },
@@ -2935,6 +2937,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 cameraRoles = {};
             }
             gardenCameras = settings.garden_cameras || [];
+            gardenMotionCameras = settings.garden_motion_cameras || [];
             gardenLabels = (settings.garden_labels || ['cat', 'dog']).join(', ');
             nestDedupeMinutes = typeof settings.nest_dedupe_minutes === 'number' && settings.nest_dedupe_minutes > 0
                 ? settings.nest_dedupe_minutes
@@ -3310,6 +3313,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 camera_audio_mapping: cameraAudioMapping,
                 camera_roles: cameraRoles,
                 garden_cameras: gardenCameras,
+                garden_motion_cameras: gardenMotionCameras,
                 garden_labels: gardenLabels.split(/[,;\n]+/).map(label => label.trim().toLowerCase()).filter(Boolean),
                 nest_dedupe_minutes: nestDedupeMinutes,
                 audio_buffer_hours: audioBufferHours,
@@ -3580,6 +3584,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:mqttPassword
                     bind:mqttPasswordSaved
                     bind:selectedCameras
+                    bind:gardenMotionCameras
                     bind:gardenCameras
                     bind:gardenLabels
                     bind:cameraRoles

@@ -6,6 +6,15 @@ type GardenPage = components['schemas']['GardenCapturePage'];
 type GardenStatus = GardenCapture['status'];
 export type GardenIdentificationStatus = components['schemas']['GardenIdentificationStatus'];
 export type GardenIdentifyRequest = components['schemas']['GardenIdentifyRequest'];
+export type GardenMotionStatus = components['schemas']['GardenMotionStatus'];
+
+export async function fetchGardenMotion(signal: AbortSignal): Promise<GardenMotionStatus> {
+    return handleResponse<GardenMotionStatus>(await apiFetch(`${API_BASE}/garden/motion`, { signal }));
+}
+
+export async function installGardenMotion(): Promise<GardenMotionStatus> {
+    return handleResponse<GardenMotionStatus>(await apiFetch(`${API_BASE}/garden/motion/install`, { method: 'POST', timeoutMs: 240000 }));
+}
 
 export async function fetchGarden(status: GardenStatus, offset: number, signal: AbortSignal): Promise<GardenPage> {
     const response = await apiFetch(`${API_BASE}/garden?status=${status}&offset=${offset}&limit=8`, { signal, timeoutMs: 15000 });

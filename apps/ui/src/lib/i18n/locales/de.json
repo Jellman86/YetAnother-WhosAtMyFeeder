@@ -3564,7 +3564,7 @@
     "save_error": "Prüfung konnte nicht gespeichert werden. Bitte erneut versuchen.",
     "review_only": "Prototyp zur Prüfung durch den Eigentümer",
     "review_help": "Prüfe das Foto und bestätige zuerst die Anwesenheit eines Tieres. Danach kannst du einen Artenvorschlag anfordern. Auch hohe Modellwerte können falsch sein; jede Bestimmung muss von dir geprüft werden.",
-    "retention_help": "Gartenbesuche bleiben von Vogelzahlen und Exporten getrennt. Fotos bleiben in Frigate und verfallen nach dessen Aufbewahrungsregeln.",
+    "retention_help": "Gartenbesuche bleiben von Vogelzahlen und Exporten getrennt. Frigate-Ereignisfotos folgen dessen Aufbewahrung. Bewegungsfotos verfallen nach drei Tagen; unbestätigte Bewegungsfunde werden dann entfernt.",
     "views": "Ansichten der Gartenprüfung",
     "refresh": "Aktualisieren",
     "loading": "Gartenaufnahmen werden geladen…",
@@ -3612,6 +3612,14 @@
     "suggest_species": "Art vorschlagen",
     "tracked_crop": "Verfolgter Fotoausschnitt",
     "whole_image": "Ganzes Bild mit beschnittenem Modellrand",
-    "working": "Wird bearbeitet…"
+    "working": "Wird bearbeitet…",
+    "motion_toggle": "Bewegungsfotos zur Prüfung sammeln",
+    "motion_camera_help": "Optionale CPU-Prüfung gespeicherter Bewegungsaufnahmen. Laden Sie den Detektor unter Gartentiere herunter; die Vogelerkennung behält ihre Einstellungen.",
+    "motion_title": "Bewegungsaufnahmen sammeln",
+    "motion_help": "Cedar schlägt Tiere aus kurzen Bewegungsaufnahmen vor, auch ohne Frigate-Verfolgung. Vögel und Gegenstände können ebenfalls vorgeschlagen werden. Jedes Foto muss geprüft werden; Arten werden nicht automatisch bestimmt.",
+    "motion_limits": "Nur CPU · Eine kurze Aufnahme alle {seconds}s · Bis zu {limit} Fotos · Fotos werden {days} Tage gespeichert",
+    "motion_last_scan": "Letzte Prüfung: {time}",
+    "motion_download": "Cedar-Detektor herunterladen (101 MB)",
+    "motion_source": "Kandidat aus gespeicherter Bewegungsaufnahme"
   }
 }

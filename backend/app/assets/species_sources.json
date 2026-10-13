@@ -86,6 +86,18 @@
       "redistribution": "bundled",
       "content_sha256": "02a0537052b0e134043e0ef9ecbeb43fc88324c4d7a11f34ece9d449cda6d93e",
       "notes": "Ordered outputs, taxonomy and geofence from the official 4.0.3a/b releases; checksum-bound ONNX exports validated separately. Stored in the species catalogue for owner-reviewed garden suggestions."
+    },
+    {
+      "id": "megadetector-cedar",
+      "name": "MegaDetector v1000 Cedar detector metadata",
+      "role": "garden-detector-output-mapping",
+      "version": "1000.0-raw-640",
+      "url": "https://github.com/agentmorris/MegaDetector/releases/tag/v1000.0",
+      "licence": "MIT (metadata); GPL-3.0 (architecture source)",
+      "citation": "MegaDetector v1000 Cedar, Dan Morris; YOLOv9, Chien-Yao Wang and Hong-Yuan Mark Liao. https://github.com/agentmorris/MegaDetector",
+      "redistribution": "bundled",
+      "content_sha256": "e91a2c65c016ef5c101fa0760df021179dc3cb028393f299de9605af2d2a541c",
+      "notes": "Checksum-bound raw three-class ONNX export. Model weights download separately; architecture source and model notice accompany the model asset. Generic animal maps to Animalia; person and vehicle are rejection/background outputs, never species."
     }
   ]
 }

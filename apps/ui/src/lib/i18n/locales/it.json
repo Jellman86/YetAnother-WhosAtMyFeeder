@@ -3564,7 +3564,7 @@
     "save_error": "Impossibile salvare la revisione. Riprova.",
     "review_only": "Prototipo con revisione del proprietario",
     "review_help": "Controlla la foto e conferma prima la presenza di un animale. Poi puoi richiedere un suggerimento sulla specie. Anche un punteggio alto può essere sbagliato; verifica sempre l’identificazione.",
-    "retention_help": "Le visite del giardino restano separate dai totali e dalle esportazioni degli uccelli. Le foto restano in Frigate e scadono secondo le sue regole di conservazione.",
+    "retention_help": "Le visite in giardino restano separate dai totali e dalle esportazioni degli uccelli. Le foto degli eventi seguono la conservazione di Frigate. Le foto di movimento scadono dopo tre giorni; le catture non confermate vengono quindi rimosse.",
     "views": "Viste di revisione del giardino",
     "refresh": "Aggiorna",
     "loading": "Caricamento delle catture del giardino…",
@@ -3612,6 +3612,14 @@
     "suggest_species": "Suggerisci specie",
     "tracked_crop": "Ritaglio della foto dell’oggetto seguito",
     "whole_image": "Immagine intera con bordi ritagliati dal modello",
-    "working": "Elaborazione…"
+    "working": "Elaborazione…",
+    "motion_toggle": "Raccogli foto di movimento da verificare",
+    "motion_camera_help": "Analisi CPU facoltativa delle registrazioni di movimento conservate. Scarica il rilevatore in Animali del giardino; il rilevamento degli uccelli mantiene le impostazioni attuali.",
+    "motion_title": "Raccolta dei movimenti",
+    "motion_help": "Cedar propone animali da brevi registrazioni, anche senza tracciamento di Frigate. Può proporre anche uccelli e oggetti. Ogni foto richiede una verifica; nessuna specie viene identificata automaticamente.",
+    "motion_limits": "Solo CPU · Una breve registrazione ogni {seconds}s · Fino a {limit} foto · Foto conservate per {days} giorni",
+    "motion_last_scan": "Ultima analisi: {time}",
+    "motion_download": "Scarica il rilevatore Cedar (101 MB)",
+    "motion_source": "Candidato da una registrazione di movimento conservata"
   }
 }

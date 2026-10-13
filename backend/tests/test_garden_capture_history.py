@@ -205,12 +205,18 @@ async def test_garden_settings_roundtrip_preserves_bird_role_and_partial_updates
     settings.frigate.camera_roles = {"patio": "nest"}
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
         response = await client.post(
-            "/api/settings", json={"garden_cameras": [" patio ", "patio"], "garden_labels": [" Cat "]}
+            "/api/settings",
+            json={
+                "garden_cameras": [" patio ", "patio"],
+                "garden_labels": [" Cat "],
+                "garden_motion_cameras": ["patio"],
+            },
         )
         assert response.status_code == 200, response.text
         data = (await client.get("/api/settings")).json()
         assert data["garden_cameras"] == ["patio"]
         assert data["garden_labels"] == ["cat"]
+        assert data["garden_motion_cameras"] == ["patio"]
         assert data["camera_roles"] == {"patio": "nest"}
         assert (await client.post("/api/settings", json={"nest_dedupe_minutes": 42})).status_code == 200
         assert settings.frigate.garden_cameras == ["patio"]
@@ -424,6 +430,43 @@ async def test_explicit_suggestion_uses_catalogue_country_and_private_disposable
         assert result.input_kind == "whole_image" and result.box_xywh is None
         assert await (await db.execute("SELECT COUNT(*) FROM detections")).fetchone() == before
     assert not service.busy
+
+
+@pytest.mark.asyncio
+async def test_motion_suggestion_uses_its_bound_photo_crop_without_a_fabricated_event(garden_inference, monkeypatch):
+    import hashlib
+    import time
+    from app.models.garden import GardenIdentifyRequest
+    from app.models.garden_motion import MotionSource
+
+    service, _, launch, _ = garden_inference
+    service.model_path("4.0.3a").touch()
+    now = time.time() - 60
+    source = MotionSource(
+        camera="patio",
+        clip_start=now,
+        clip_end=now + 10,
+        frame_index=25,
+        frame_offset=1,
+        clip_sha256="a" * 64,
+        image_sha256=hashlib.sha256(b"photo").hexdigest(),
+        detector_sha256="c" * 64,
+        detector_score=0.8,
+        box_xywh=(0.1, 0.2, 0.3, 0.4),
+    )
+    async with get_db() as db:
+        repo = GardenRepository(db)
+        capture_id = await repo.capture_motion(source, b"photo")
+        await repo.review(capture_id, "confirmed")
+    event_lookup = AsyncMock()
+    monkeypatch.setattr("app.services.garden_identification.frigate_client.get_event", event_lookup)
+    await service.identify(capture_id, GardenIdentifyRequest(variant="4.0.3a"))
+    event_lookup.assert_not_awaited()
+    launch.assert_awaited_once()
+    async with get_db() as db:
+        result = (await GardenRepository(db).get(capture_id)).identification
+        assert result.box_xywh == source.box_xywh and result.input_kind == "tracked_crop"
+        assert result.image_sha256 == source.image_sha256
 
 
 @pytest.mark.asyncio

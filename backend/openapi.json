@@ -6958,6 +6958,16 @@
               }
             ]
           },
+          "motion_source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MotionSource"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "observed_at": {
             "title": "Observed At",
             "type": "string"
@@ -6983,6 +6993,15 @@
               }
             ],
             "title": "Snapshot Url"
+          },
+          "source_kind": {
+            "default": "frigate_event",
+            "enum": [
+              "frigate_event",
+              "motion"
+            ],
+            "title": "Source Kind",
+            "type": "string"
           },
           "status": {
             "enum": [
@@ -7312,6 +7331,95 @@
           "size_bytes"
         ],
         "title": "GardenModelStatus",
+        "type": "object"
+      },
+      "GardenMotionStatus": {
+        "properties": {
+          "busy": {
+            "title": "Busy",
+            "type": "boolean"
+          },
+          "cameras": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Cameras",
+            "type": "array"
+          },
+          "catalogue_ready": {
+            "title": "Catalogue Ready",
+            "type": "boolean"
+          },
+          "installed": {
+            "title": "Installed",
+            "type": "boolean"
+          },
+          "interval_seconds": {
+            "default": 120,
+            "title": "Interval Seconds",
+            "type": "integer"
+          },
+          "last_outcome": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Outcome"
+          },
+          "last_scan_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Scan At"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "model_bytes": {
+            "default": 101228666,
+            "title": "Model Bytes",
+            "type": "integer"
+          },
+          "photo_limit": {
+            "default": 128,
+            "title": "Photo Limit",
+            "type": "integer"
+          },
+          "photo_retention_days": {
+            "default": 3,
+            "title": "Photo Retention Days",
+            "type": "integer"
+          },
+          "state": {
+            "enum": [
+              "disabled",
+              "waiting",
+              "scanning",
+              "unavailable"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "cameras",
+          "installed",
+          "catalogue_ready",
+          "busy",
+          "state",
+          "message"
+        ],
+        "title": "GardenMotionStatus",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -10167,6 +10275,116 @@
         "title": "ModelValidateResponse",
         "type": "object"
       },
+      "MotionSource": {
+        "additionalProperties": false,
+        "properties": {
+          "box_xywh": {
+            "maxItems": 4,
+            "minItems": 4,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Box Xywh",
+            "type": "array"
+          },
+          "camera": {
+            "pattern": "^[A-Za-z0-9_-]{1,100}$",
+            "title": "Camera",
+            "type": "string"
+          },
+          "clip_end": {
+            "exclusiveMinimum": 0.0,
+            "title": "Clip End",
+            "type": "number"
+          },
+          "clip_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Clip Sha256",
+            "type": "string"
+          },
+          "clip_start": {
+            "exclusiveMinimum": 0.0,
+            "title": "Clip Start",
+            "type": "number"
+          },
+          "detector_input_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detector Input Sha256"
+          },
+          "detector_score": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Detector Score",
+            "type": "number"
+          },
+          "detector_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Detector Sha256",
+            "type": "string"
+          },
+          "frame_index": {
+            "maximum": 1200.0,
+            "minimum": 0.0,
+            "title": "Frame Index",
+            "type": "integer"
+          },
+          "frame_offset": {
+            "minimum": 0.0,
+            "title": "Frame Offset",
+            "type": "number"
+          },
+          "image_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Image Sha256",
+            "type": "string"
+          },
+          "sampled_frame_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sampled Frame Sha256"
+          }
+        },
+        "required": [
+          "camera",
+          "clip_start",
+          "clip_end",
+          "frame_index",
+          "frame_offset",
+          "clip_sha256",
+          "image_sha256",
+          "detector_sha256",
+          "detector_score",
+          "box_xywh"
+        ],
+        "title": "MotionSource",
+        "type": "object"
+      },
       "NewSpeciesQueueResponse": {
         "properties": {
           "items": {
@@ -11637,6 +11855,13 @@
             "title": "Garden Labels",
             "type": "array"
           },
+          "garden_motion_cameras": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Garden Motion Cameras",
+            "type": "array"
+          },
           "ha_weather_access_token": {
             "anyOf": [
               {
@@ -13086,6 +13311,7 @@
           "camera_roles",
           "garden_cameras",
           "garden_labels",
+          "garden_motion_cameras",
           "cameras",
           "blocked_labels",
           "blocked_species",
@@ -13812,6 +14038,14 @@
               "type": "string"
             },
             "title": "Garden Labels",
+            "type": "array"
+          },
+          "garden_motion_cameras": {
+            "description": "Garden cameras opted in to bounded motion review scans",
+            "items": {
+              "type": "string"
+            },
+            "title": "Garden Motion Cameras",
             "type": "array"
           },
           "ha_weather_access_token": {
@@ -25227,6 +25461,70 @@
           }
         ],
         "summary": "Install Garden Model",
+        "tags": [
+          "garden"
+        ]
+      }
+    },
+    "/api/garden/motion": {
+      "get": {
+        "operationId": "motion_status_api_garden_motion_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GardenMotionStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Motion Status",
+        "tags": [
+          "garden"
+        ]
+      }
+    },
+    "/api/garden/motion/install": {
+      "post": {
+        "operationId": "install_motion_detector_api_garden_motion_install_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GardenMotionStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Install Motion Detector",
         "tags": [
           "garden"
         ]

@@ -1005,9 +1005,11 @@ export interface components {
     frigate_label: string;
     id: string;
     identification?: components['schemas']['GardenIdentification'] | null;
+    motion_source?: components['schemas']['MotionSource'] | null;
     observed_at: string;
     reviewed_at: string | null;
     snapshot_url: string | null;
+    source_kind?: "frigate_event" | "motion";
     status: "pending" | "confirmed" | "dismissed";
 };
     GardenIdentification: {
@@ -1048,6 +1050,20 @@ export interface components {
     installed: boolean;
     size_bytes: number;
     variant: "4.0.3a" | "4.0.3b";
+};
+    GardenMotionStatus: {
+    busy: boolean;
+    cameras: Array<string>;
+    catalogue_ready: boolean;
+    installed: boolean;
+    interval_seconds?: number;
+    last_outcome?: string | null;
+    last_scan_at?: string | null;
+    message: string;
+    model_bytes?: number;
+    photo_limit?: number;
+    photo_retention_days?: number;
+    state: "disabled" | "waiting" | "scanning" | "unavailable";
 };
     HTTPValidationError: {
     detail?: Array<components['schemas']['ValidationError']>;
@@ -1455,6 +1471,20 @@ export interface components {
     providers?: Array<components['schemas']['ModelValidateDevice']>;
     reason: string;
 };
+    MotionSource: {
+    box_xywh: [number, number, number, number];
+    camera: string;
+    clip_end: number;
+    clip_sha256: string;
+    clip_start: number;
+    detector_input_sha256?: string | null;
+    detector_score: number;
+    detector_sha256: string;
+    frame_index: number;
+    frame_offset: number;
+    image_sha256: string;
+    sampled_frame_sha256?: string | null;
+};
     NewSpeciesQueueResponse: {
     items: Array<components['schemas']['NewSpeciesSighting']>;
     max_sightings: number;
@@ -1643,6 +1673,7 @@ export interface components {
     frigate_url?: string | null;
     garden_cameras: Array<string>;
     garden_labels: Array<string>;
+    garden_motion_cameras: Array<string>;
     ha_weather_access_token?: string | null;
     ha_weather_base_url?: string | null;
     ha_weather_cloud_cover_entity?: string | null;
@@ -1850,6 +1881,7 @@ export interface components {
     frigate_url?: string | null;
     garden_cameras?: Array<string>;
     garden_labels?: Array<string>;
+    garden_motion_cameras?: Array<string>;
     ha_weather_access_token?: string | null;
     ha_weather_base_url?: string | null;
     ha_weather_cloud_cover_entity?: string | null;
@@ -3714,6 +3746,24 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: components['schemas']['GardenIdentificationStatus'];
+    };
+  };
+  "/api/garden/motion": {
+    get: {
+      operationId: "motion_status_api_garden_motion_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['GardenMotionStatus'];
+    };
+  };
+  "/api/garden/motion/install": {
+    post: {
+      operationId: "install_motion_detector_api_garden_motion_install_post";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['GardenMotionStatus'];
     };
   };
   "/api/garden/{capture_id}/confirm": {

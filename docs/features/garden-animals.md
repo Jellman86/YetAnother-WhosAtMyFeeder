@@ -29,11 +29,46 @@ and prevents a delayed animal message from restoring it, even after capture is
 switched off. This relies on Frigate's labels; a missed person could still be in
 an animal photograph, so the view and its media are always owner-only.
 
-Photographs are requested from Frigate only when viewed; this prototype does not
-archive garden photographs or clips. They can expire before the review metadata.
+Frigate event photographs are requested only when viewed. They can expire before the review metadata.
 An unavailable photograph disables confirmation. Review metadata follows
 **Settings → Data → Detection Retention** when automatic cleanup is enabled;
 turning off Garden animals stops collection but preserves existing reviews.
+
+## Collect candidates from motion recordings
+
+If Frigate does not track the animals you want, optionally enable **Collect motion review
+photos** for that garden camera in **Settings → Connection**, then save. Open **Garden
+animals → Motion collection** and **Download Cedar detector (101 MB)**. This separate
+detector uses the species catalogue for its three outputs; it needs no labels file.
+It does not replace Frigate's bird detector or change bird classification settings.
+
+Collection is off by default. It scans at most one completed recording every two
+minutes across all enabled cameras, sampling three frames from up to ten seconds.
+Only motion recordings from the last ten minutes are considered, so Frigate must
+retain motion footage. This samples activity; it does not track animals or promise
+to find every visit. The panel reports waiting, failures and the last attempted scan.
+Refresh the page to read the latest state.
+
+Cedar runs on CPU with two inference threads and one video-decoding thread. It
+yields to queued or running bird inference and stops if active Frigate cameras
+fall behind. One garden operation runs at a time, with a 45-second motion-worker
+deadline. Busy systems may collect no photos until pressure clears.
+
+Candidates appear in **Needs review**, labelled **Candidate from retained motion
+footage**. The generic animal class includes birds, and toys or shadows can trigger
+it. Confirm presence only after inspecting the photograph. A detected person in
+any sampled frame rejects the recording. Known overlapping Frigate person events
+also reject it, and later person or false-positive updates erase overlapping garden
+evidence. Missing or overfull person history stops that scan. Recognition can miss
+people; these photographs remain owner-only.
+
+At most 128 motion photos of 512 KiB each are stored in the application database,
+a 64 MiB photo budget. Clips are temporary and removed after each scan. Photos
+expire three days after the recording; unconfirmed and dismissed motion captures
+are then permanently removed. Confirmed history and identification metadata remain
+subject to normal history retention. A recording cannot create another review or
+undo a dismissal when the detector changes. A full photo budget pauses storage
+until expiry frees room. Turning collection off does not immediately erase photos.
 
 To request a species suggestion, open **Species suggestions** above the history:
 
@@ -41,7 +76,8 @@ To request a species suggestion, open **Species suggestions** above the history:
    runs locally; coordinates are not sent to the model.
 2. Choose and download a garden model, about **224 MB** per variant. The default
    **4.0.3b** uses the whole photograph with the model’s vertical border trim.
-   **4.0.3a** requires Frigate’s tracked snapshot box; it never guesses a crop.
+   **4.0.3a** requires Frigate’s tracked snapshot box or the retained motion detector
+   box; it never guesses a crop.
 3. Choose a provider supported by your image and hardware. CPU, Intel CPU/GPU/NPU
    and NVIDIA GPU are supported runtimes; unavailable hardware produces an error
    rather than a CPU fallback.

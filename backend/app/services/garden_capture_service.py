@@ -5,6 +5,8 @@ Snapshots remain with Frigate and are fetched only when an owner opens them.
 """
 
 from datetime import datetime, timezone
+import hashlib
+import math
 
 from fastapi import HTTPException
 
@@ -40,6 +42,21 @@ class GardenCaptureService:
         if not settings.frigate.garden_cameras and not (rejected and self.has_history):
             return
         if rejected or (bird and camera in settings.frigate.garden_cameras):
+            if rejected:
+                from app.services import garden_motion_privacy
+
+                # Invalid timestamps fail closed for existing media on this camera.
+                start, end = after.get("start_time"), after.get("end_time")
+                start = float(start) if type(start) in (int, float) and math.isfinite(start) else 0.0
+                end = (
+                    float(end)
+                    if type(end) in (int, float) and math.isfinite(end)
+                    else datetime.now(timezone.utc).timestamp()
+                )
+                async with garden_motion_privacy.lock:
+                    garden_motion_privacy.invalidate()
+                    async with get_db() as db:
+                        await GardenRepository(db).block_motion_overlap(camera, start, max(start, end))
             async with get_db() as db:
                 await GardenRepository(db).block(
                     event_id, create=rejected and camera in settings.frigate.garden_cameras
@@ -71,6 +88,15 @@ class GardenCaptureService:
 
     async def snapshot(self, capture_id: str) -> bytes:
         capture = await self.get(capture_id)
+        if capture.motion_source:
+            async with get_db() as db:
+                image = await GardenRepository(db).motion_photo(capture_id)
+            await self.get(capture_id)
+            if not image:
+                raise HTTPException(404, "This motion photo has expired")
+            if hashlib.sha256(image).hexdigest() != capture.motion_source.image_sha256:
+                raise HTTPException(409, "The motion photo differs from its recorded evidence")
+            return image
         if not capture.has_snapshot or not safe_event_id(capture.frigate_event):
             raise HTTPException(404, "This capture has no snapshot")
         image = await frigate_client.get_snapshot(capture.frigate_event, crop=False)

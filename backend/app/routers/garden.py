@@ -11,6 +11,8 @@ from app.database import get_db
 from app.repositories.garden_repository import GardenCapture, GardenRepository, GardenStatus
 from app.services.garden_capture_service import garden_capture_service
 from app.models.garden import GardenIdentification, GardenIdentificationStatus, GardenIdentifyRequest, GardenVariant
+from app.models.garden_motion import MotionSource, GardenMotionStatus
+from app.services.garden_motion import garden_motion_service
 from app.services.garden_identification import garden_identification_service
 from app.services.species_names import species_name_lookup
 
@@ -31,6 +33,8 @@ class GardenCaptureResponse(BaseModel):
     reviewed_at: str | None
     snapshot_url: str | None
     identification: GardenIdentification | None = None
+    source_kind: Literal["frigate_event", "motion"] = "frigate_event"
+    motion_source: MotionSource | None = None
 
 
 class GardenCapturePage(BaseModel):
@@ -58,6 +62,8 @@ async def _response(capture: GardenCapture, names: dict[int, str] | None = None)
         reviewed_at=capture.reviewed_at + "Z" if capture.reviewed_at else None,
         snapshot_url=f"/api/garden/{capture.id}/snapshot" if capture.has_snapshot else None,
         identification=identification,
+        source_kind="motion" if capture.motion_source else "frigate_event",
+        motion_source=capture.motion_source,
     )
 
 
@@ -94,6 +100,16 @@ async def install_garden_model(variant: GardenVariant) -> GardenIdentificationSt
     return await garden_identification_service.install(variant)
 
 
+@router.get("/motion", response_model=GardenMotionStatus)
+async def motion_status() -> GardenMotionStatus:
+    return await garden_motion_service.status()
+
+
+@router.post("/motion/install", response_model=GardenMotionStatus)
+async def install_motion_detector() -> GardenMotionStatus:
+    return await garden_motion_service.install()
+
+
 @router.post("/{capture_id}/identify", response_model=GardenCaptureResponse)
 async def identify_capture(capture_id: str, request: GardenIdentifyRequest) -> GardenCaptureResponse:
     await garden_identification_service.identify(capture_id, request)
@@ -108,6 +124,10 @@ async def review_identification(capture_id: str, action: Literal["accept", "dism
 
 async def _review(capture_id: str, status: GardenStatus) -> GardenCaptureResponse:
     async with get_db() as db:
+        if status == "confirmed":
+            original = await GardenRepository(db).get(capture_id)
+            if original and original.motion_source and not await GardenRepository(db).motion_photo(capture_id):
+                raise HTTPException(409, "This motion photo has expired. Refresh before reviewing another capture.")
         capture = await GardenRepository(db).review(capture_id, status)
     if capture is None:
         raise HTTPException(404, "Garden capture not found")

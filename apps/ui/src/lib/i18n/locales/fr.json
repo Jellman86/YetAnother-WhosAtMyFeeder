@@ -3564,7 +3564,7 @@
     "save_error": "Impossible d’enregistrer votre vérification. Réessayez.",
     "review_only": "Prototype réservé au propriétaire",
     "review_help": "Vérifiez la photo et confirmez d’abord la présence d’un animal. Vous pouvez ensuite demander une suggestion d’espèce. Un score élevé peut être erroné ; vérifiez toujours l’identification.",
-    "retention_help": "Les visites du jardin restent séparées des totaux et exports d’oiseaux. Les photos restent dans Frigate et expirent selon ses règles de conservation.",
+    "retention_help": "Les visites du jardin restent séparées des totaux et exports d’oiseaux. Les photos d’événements suivent la conservation de Frigate. Les photos de mouvement expirent après trois jours ; les captures non confirmées sont alors supprimées.",
     "views": "Vues de vérification du jardin",
     "refresh": "Actualiser",
     "loading": "Chargement des captures du jardin…",
@@ -3612,6 +3612,14 @@
     "suggest_species": "Suggérer une espèce",
     "tracked_crop": "Recadrage de la photo de l’objet suivi",
     "whole_image": "Image entière avec découpe des bordures du modèle",
-    "working": "Traitement…"
+    "working": "Traitement…",
+    "motion_toggle": "Collecter des photos de mouvement à vérifier",
+    "motion_camera_help": "Analyse CPU facultative des enregistrements de mouvement conservés. Téléchargez le détecteur dans Animaux du jardin ; les réglages de détection des oiseaux restent identiques.",
+    "motion_title": "Collecte des mouvements",
+    "motion_help": "Cedar propose des animaux à partir de courts enregistrements, même sans suivi par Frigate. Des oiseaux et des objets peuvent aussi être proposés. Chaque photo doit être vérifiée ; aucune espèce n’est identifiée automatiquement.",
+    "motion_limits": "CPU uniquement · Un court enregistrement toutes les {seconds}s · Jusqu’à {limit} photos · Photos conservées {days} jours",
+    "motion_last_scan": "Dernière analyse : {time}",
+    "motion_download": "Télécharger le détecteur Cedar (101 Mo)",
+    "motion_source": "Candidat provenant d’un enregistrement de mouvement conservé"
   }
 }

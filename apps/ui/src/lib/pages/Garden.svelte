@@ -4,6 +4,7 @@
     import { fetchGarden, reviewGarden, fetchGardenIdentification, installGardenModel, identifyGarden, reviewGardenIdentification, type GardenCapture, type GardenIdentificationStatus, type GardenIdentifyRequest } from '../api/garden';
     import { withAuthParams } from '../api/core';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
+    import { fetchGardenMotion, installGardenMotion, type GardenMotionStatus } from '../api/garden';
 
     let { onNavigate }: { onNavigate: (path: string) => void } = $props();
     let status = $state<GardenCapture['status']>('pending');
@@ -16,6 +17,7 @@
     let loadedImages = $state<Record<string, boolean>>({});
     let failedImages = $state<Record<string, boolean>>({});
     let identification = $state.raw<GardenIdentificationStatus | null>(null);
+    let motion = $state.raw<GardenMotionStatus | null>(null);
     let variant = $state<NonNullable<GardenIdentifyRequest['variant']>>('4.0.3b');
     let provider = $state<NonNullable<GardenIdentifyRequest['provider']>>('cpu');
     const selectedModel = $derived(identification?.models.find(model => model.variant === variant));
@@ -49,6 +51,13 @@
                 if (!destroyed && request === generation) identification = modelStatus;
             } catch {
                 if (!destroyed && request === generation) identification = null;
+            }
+            if (destroyed || request !== generation) return;
+            try {
+                const motionStatus = await fetchGardenMotion(controller.signal);
+                if (!destroyed && request === generation) motion = motionStatus;
+            } catch {
+                if (!destroyed && request === generation) motion = null;
             }
             if (destroyed || request !== generation) return;
             if (offset > 0 && items.length === 0) {
@@ -112,6 +121,20 @@
         }
     }
 
+    async function downloadMotionDetector(): Promise<void> {
+        if (saving) return;
+        saving = 'motion-model';
+        error = null;
+        try {
+            const result = await installGardenMotion();
+            if (!destroyed) motion = result;
+        } catch (failure) {
+            if (!destroyed) error = failure instanceof Error ? failure.message : $_('garden.model_error', { default: 'Could not download the garden model. Try again.' });
+        } finally {
+            if (!destroyed) saving = null;
+        }
+    }
+
     onMount(() => {
         unregisterRefresh = pageRefreshAction.register(load);
         void load();
@@ -128,7 +151,24 @@
     <div class="card-base p-4 space-y-2">
         <p class="eyebrow">{$_('garden.review_only', { default: 'Owner review prototype' })}</p>
         <p class="text-sm text-slate-600 dark:text-slate-400">{$_('garden.review_help', { default: 'Check the photo and confirm animal presence first. You can then request a species suggestion. Model scores can be confidently wrong; identification always needs your review.' })}</p>
-        <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.retention_help', { default: 'Garden visits stay separate from bird totals and exports. Photos remain in Frigate and expire with its retention settings.' })}</p>
+        <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.retention_help', { default: 'Garden visits stay separate from bird totals and exports. Frigate event photos follow Frigate retention. Motion review photos expire after three days; unconfirmed motion captures are then removed.' })}</p>
+        <details class="group" data-garden-motion>
+            <summary class="min-h-11 list-none [&::-webkit-details-marker]:hidden cursor-pointer py-3 text-sm font-semibold focus-visible:ring-2 focus-visible:ring-brand"><span>{$_('garden.motion_title', { default: 'Motion collection' })}</span><span class="inline-block ml-2 transition-transform group-open:rotate-180" aria-hidden="true">⌄</span></summary>
+            <div class="space-y-3 pt-2">
+                <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.motion_help', { default: 'Cedar proposes animals from short motion recordings, including wildlife Frigate did not track. Birds and objects can also be proposed. Every photo needs your review; no species is identified automatically.' })}</p>
+                {#if !motion}
+                    <p role="status" class="text-sm">{$_('garden.model_status_unavailable', { default: 'Model status unavailable. Refresh to try again.' })}</p>
+                {:else}
+                    <p role="status" class="text-sm">{motion.message}</p>
+                    <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.motion_limits', { default: 'CPU only · One short recording every {seconds}s · Up to {limit} photos · {days}-day photo retention', values: { seconds: motion.interval_seconds, limit: motion.photo_limit, days: motion.photo_retention_days } })}</p>
+                    {#if motion.last_scan_at}<p class="text-xs">{$_('garden.motion_last_scan', { default: 'Last scan: {time}', values: { time: new Date(motion.last_scan_at).toLocaleString() } })}</p>{/if}
+                    {#if !motion.installed}
+                        <button class="btn btn-secondary min-h-11 px-4 py-2 whitespace-normal" disabled={saving !== null || motion.busy || !motion.catalogue_ready} onclick={downloadMotionDetector}>{saving === 'motion-model' ? $_('garden.downloading', { default: 'Downloading and verifying…' }) : $_('garden.motion_download', { default: 'Download Cedar detector (101 MB)' })}</button>
+                    {/if}
+                    <button class="btn btn-secondary min-h-11 px-4 py-2" onclick={() => onNavigate('/settings/connection')}>{$_('garden.camera_settings', { default: 'Camera settings' })}</button>
+                {/if}
+            </div>
+        </details>
         <details class="group">
             <summary class="min-h-11 list-none [&::-webkit-details-marker]:hidden cursor-pointer py-3 text-sm font-semibold focus-visible:ring-2 focus-visible:ring-brand"><span>{$_('garden.species_settings', { default: 'Species suggestions' })}</span><span class="inline-block ml-2 transition-transform group-open:rotate-180" aria-hidden="true">⌄</span></summary>
             <div class="space-y-3 pt-2">
@@ -208,7 +248,7 @@
                             <div class="space-y-1">
                                 <h2 class="break-words font-semibold">{item.camera}</h2>
                                 <time class="block text-xs text-slate-600 dark:text-slate-400" datetime={item.observed_at}>{new Date(item.observed_at).toLocaleString()}</time>
-                                <p class="break-words text-sm">{$_('garden.frigate_suggested', { default: 'Frigate suggested: {label}', values: { label: item.frigate_label } })}</p>
+                                <p class="break-words text-sm">{item.source_kind === 'motion' ? $_('garden.motion_source', { default: 'Candidate from retained motion footage' }) : $_('garden.frigate_suggested', { default: 'Frigate suggested: {label}', values: { label: item.frigate_label } })}</p>
                                 <p class="text-xs text-slate-600 dark:text-slate-400">{views.find(view => view.id === item.status)?.name}</p>
                                 {#if item.identification && item.identification.review !== 'dismissed'}
                                     {#if item.identification.outcome === 'suggestion'}

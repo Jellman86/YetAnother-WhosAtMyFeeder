@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "registry_id": "garden/md1000-cedar",
+  "version": "1000.0-raw-640",
+  "model_sha256": "1a1f32bf00b10ed4907dca7d05c66fef8ac37adc48526cdfdf957eaa0e2ffff3",
+  "model_bytes": 101228666,
+  "input_size": 640,
+  "input_tensor": "NCHW",
+  "input_color": "RGB",
+  "input_range": [
+    0,
+    1
+  ],
+  "preprocessing": "letterbox-114",
+  "output_shape": [
+    1,
+    7,
+    8400
+  ],
+  "names": [
+    "animal",
+    "person",
+    "vehicle"
+  ],
+  "source_checkpoint_url": "https://github.com/agentmorris/MegaDetector/releases/download/v1000.0/md_v1000.0.0-cedar.pt",
+  "source_checkpoint_sha256": "48f72a8b086dfd6a3ef6defaef422bd4a250b9084981044dcc2bb35764c93ca5",
+  "architecture_source": "https://github.com/WongKinYiu/yolov9/tree/5b1ea9a8b3f0ffe4fe0e203ec6232d788bb3fcff",
+  "architecture_licence": "GPL-3.0",
+  "onnx_opset": 17
+}

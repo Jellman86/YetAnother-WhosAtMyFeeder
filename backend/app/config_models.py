@@ -264,6 +264,16 @@ class FrigateSettings(BaseModel):
     garden_labels: list[str] = Field(
         default_factory=lambda: ["cat", "dog"], description="Supported animal labels to collect for garden review"
     )
+    garden_motion_cameras: list[str] = Field(
+        default_factory=list, description="Opt-in garden cameras for bounded CPU scans of retained motion recordings"
+    )
+
+    @field_validator("garden_motion_cameras", mode="before")
+    @classmethod
+    def _normalize_motion_cameras(cls, value: object) -> list[str]:
+        from app.services.garden_motion_policy import normalize_motion_cameras
+
+        return normalize_motion_cameras(value)
 
     @field_validator("garden_cameras", mode="before")
     @classmethod

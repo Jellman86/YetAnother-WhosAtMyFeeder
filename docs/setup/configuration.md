@@ -39,6 +39,7 @@ Where bird events come from.
 | **Public Frigate URL** | The address *your browser* uses to open Frigate, when it differs from the server address above. Used for the "open in Frigate" link on a detection. |
 | **Active Cameras** | Which Frigate cameras YA-WAMF monitors. **Sync Cameras** pulls the list from Frigate; **Preview** shows a live snapshot through the Frigate proxy. |
 | **Garden animals** | Independent per-camera opt-in, off by default. Collects completed animal events for owner review without changing the bird role. See [Garden animals](../features/garden-animals.md). |
+| **Collect motion review photos** | Additional opt-in for garden cameras, off by default (`frigate.garden_motion_cameras: []`). Requires retained motion recordings and the Cedar download. Bounded CPU scans create private review candidates; no automatic species identification. |
 | **Frigate animal labels** | Defaults to `cat, dog`. Supported animal labels for garden review; the Frigate detector must already track them. Birds, people and vehicles are excluded. |
 | **Camera role** | Mark each camera as a **feeder** or a **nest** camera. Nest cameras use their own de-duplication window. |
 | **MQTT Broker** / **Port** / **Use Authentication** | Under **MQTT Settings (Frigate Events)**: your broker's hostname, its port (default `1883`), and optional user and pass. |

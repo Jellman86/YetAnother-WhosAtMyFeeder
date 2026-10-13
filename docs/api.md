@@ -346,9 +346,16 @@ species identification have separate reviews; `frigate_label` remains an upstrea
 - `POST /api/garden/{capture_id}/confirm` — move to confirmed history; no body.
 - `POST /api/garden/{capture_id}/dismiss` — dismiss a false detection; no body.
 - `POST /api/garden/{capture_id}/restore` — return to pending review; no body.
-- `GET /api/garden/{capture_id}/snapshot` — owner-only Frigate photograph, `404` when
+- `GET /api/garden/{capture_id}/snapshot` — owner-only Frigate or retained motion photograph, `404` when
   missing or rejected. The exact read-only route accepts the owner session cookie
   and uses `private, no-store`; review writes still require an authorization header.
+
+- `GET /api/garden/motion` — enabled cameras, catalogue and detector availability,
+  shared busy state, collection state/message, last attempted scan/outcome and fixed
+  interval/photo limits. Refresh to read progress; it does not initiate a scan.
+- `POST /api/garden/motion/install` — atomically download and checksum-verify the
+  101 MB Cedar ONNX detector; no body. `409` if another garden operation is running,
+  `503` if the catalogue, download or worker cleanup is unavailable.
 
 - `GET /api/garden/identification` — catalogue availability, normalised ISO-3 country,
   per-variant model download status, busy state and any worker cleanup error.
@@ -369,9 +376,19 @@ checksums, raw winning `output_index`, country, requested provider, actual devic
 input kind, optional normalized XYWH box, frame size and review state. This belongs
 only to garden history. No automatic inference or model switch is performed.
 
-Settings use `garden_cameras` (default `[]`) and `garden_labels` (default
+Captures include `source_kind=frigate_event|motion`. Motion captures have no Frigate
+event ID. Their `motion_source` binds the requested recording window, returned frame
+index/offset, model/input/frame/clip/photo hashes and normalized detector box. These
+are detector proposals, including possible birds and false positives. Confirmation
+requires an unexpired stored photo. The 128-photo budget is capped at 512 KiB per
+photo; clips are temporary, photos expire after three days and unconfirmed motion
+captures are removed. Confirmed history survives photo expiry.
+
+Settings use `garden_cameras` (default `[]`), `garden_motion_cameras` (default `[]`) and `garden_labels` (default
 `["cat", "dog"]`), persisted under `frigate` in the configuration. These are
 independent of `cameras`, `camera_roles` and bird `frigate_ingest_labels`.
+Motion cameras must also be enabled garden cameras; otherwise they are inactive.
+Motion collection ignores animal event labels and does not perform species identification.
 Garden captures have no bird detection ID and cannot be submitted by bird export APIs.
 See [Garden animals](features/garden-animals.md) for retention and prototype limits.
 
