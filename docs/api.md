@@ -353,7 +353,12 @@ species identification have separate reviews; `frigate_label` remains an upstrea
 
 - `GET /api/garden/motion` — enabled cameras, catalogue and detector availability,
   shared busy state, collection state/message, last attempted scan/outcome and fixed
-  interval/photo limits. Refresh to read progress; it does not initiate a scan.
+  minimum interval/photo limits. `interval_seconds` is the cooldown after a scan,
+  not a promised capture rate. `catchup_seconds` bounds recording age; `queue_limit`
+  caps each rebuilt camera queue. `queued_windows`, `queue_camera` and
+  `queue_checked_at` describe the latest inspected camera, not a live total across
+  all cameras. More footage may remain when the queue is full. Refresh to read
+  progress; it does not initiate a scan.
 - `POST /api/garden/motion/install` — atomically download and checksum-verify the
   101 MB Cedar ONNX detector; no body. `409` if another garden operation is running,
   `503` if the catalogue, download or worker cleanup is unavailable.

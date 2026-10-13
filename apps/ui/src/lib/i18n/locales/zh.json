@@ -3617,11 +3617,13 @@
     "motion_camera_help": "可选用CPU分析保留的移动录像。请在“花园动物”下载检测器；鸟类检测设置保持不变。",
     "motion_title": "移动录像收集",
     "motion_help": "Cedar从短录像中提出动物候选，包括Frigate未跟踪的野生动物。也可能提出鸟类和物体。每张照片都需要您审核，不会自动识别物种。",
-    "motion_limits": "仅CPU · 每{seconds}秒一段短录像 · 最多{limit}张照片 · 照片保留{days}天",
+    "motion_limits": "仅 CPU · 扫描间隔至少 {seconds} 秒 · 最多 {limit} 张照片 · 照片保留 {days} 天",
     "motion_last_scan": "上次分析：{time}",
     "motion_download": "下载Cedar检测器（101 MB）",
     "motion_source": "来自保留移动录像的候选",
     "presence_box": "边框：MegaDetector Cedar 检测的候选对象。请查看照片后再确认。",
-    "motion_restore_unavailable": "照片已不再保存，无法将此记录重新提交审核。"
+    "motion_restore_unavailable": "照片已不再保存，无法将此记录重新提交审核。",
+    "motion_coverage": "每台摄像头最多排队处理过去 {minutes} 分钟内的 {limit} 个短片段。鸟类处理和摄像头负载会暂停收集，可能错过短暂的到访。",
+    "motion_queue": "{camera}：在 {time} 检查时有 {count} 个片段等待处理。达到队列上限时，可能还有更多片段。"
   }
 }

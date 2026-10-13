@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Garden motion collection drains bounded recording windows in order, resumes long
+  recordings and restarts from its saved cursor. A ten-second cooldown and thirty-minute
+  catch-up window reduce sampling gaps while preserving bird priority, camera-pressure
+  guards, privacy checks and photo limits. The panel shows the latest camera queue check.
+
 - **Fixed:** Mobile and page headers reflow at narrow widths with enlarged text, keeping menu, theme and page actions reachable (#703).
 
 - Garden motion photos show MegaDetector Cedar's saved candidate box before

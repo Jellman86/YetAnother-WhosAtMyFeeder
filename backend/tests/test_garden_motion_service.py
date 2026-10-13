@@ -196,3 +196,138 @@ async def test_cancelled_service_drains_worker_before_returning(collector, monke
     await collector.stop()
     assert cleaned.is_set()
     assert not garden_identification_service.busy
+
+
+@pytest.mark.asyncio
+async def test_queue_drains_long_recording_and_restart_resumes_durable_cursor(collector, monkeypatch):
+    clock = [100.0]
+    monkeypatch.setattr("app.services.garden_motion.time.monotonic", lambda: clock[0])
+    monkeypatch.setattr("app.services.garden_motion.time.time", lambda: 2000.0)
+    requests = []
+
+    async def get(path, **kwargs):
+        if path == "api/stats":
+            payload = {"cameras": {"patio": {"camera_fps": 10, "process_fps": 10, "skipped_fps": 0}}}
+        else:
+            requests.append(kwargs["params"])
+            payload = [{"start_time": 1900, "end_time": 1930, "motion": 10}]
+        return httpx.Response(200, json=payload, request=httpx.Request("GET", "http://frigate/"))
+
+    monkeypatch.setattr("app.services.garden_motion.frigate_client.get", get)
+    native = AsyncMock(return_value={"outcome": "no_candidate"})
+    monkeypatch.setattr(collector, "_native", native)
+    await collector.scan_once()
+    assert collector.next_scan == 110
+    assert (await collector.status()).queued_windows == 2
+    await collector.scan_once()
+    assert native.await_count == 1
+    clock[0] = 111
+    await collector.scan_once()
+    assert native.await_count == 2
+    # Restart loses ephemeral scheduling state, but not the recording cursor.
+    restarted = GardenMotionService()
+    restarted.path = collector.path
+    restarted.catalog = collector.catalog
+    monkeypatch.setattr(restarted, "_native", native)
+    await restarted.scan_once()
+    assert native.await_count == 3
+    async with get_db() as db:
+        assert await GardenRepository(db).motion_cursor("patio") == 1930
+        assert await GardenRepository(db).count("pending") == 0
+    assert requests == [
+        {"after": 200, "before": 1980},
+        {"after": 1910, "before": 1980},
+        {"after": 1920, "before": 1980},
+    ]
+
+
+@pytest.mark.asyncio
+async def test_preemption_keeps_window_for_retry_and_camera_round_robin_is_fair(collector, monkeypatch):
+    from app.services.garden_identification import GardenBusy
+
+    monkeypatch.setattr(settings.frigate, "garden_cameras", ["patio", "side"])
+    monkeypatch.setattr(settings.frigate, "garden_motion_cameras", ["patio", "side"])
+    monkeypatch.setattr(collector, "_camera_clear", AsyncMock(return_value=True))
+    calls = []
+    original = collector._native
+
+    async def native(payload, blocked):
+        calls.append(payload["duration"])
+        if len(calls) == 1:
+            raise GardenBusy("Bird work arrived")
+        return await original(payload, blocked)
+
+    monkeypatch.setattr(collector, "_native", native)
+    await collector.scan_once()
+    assert collector.last_outcome == "paused"
+    async with get_db() as db:
+        assert await GardenRepository(db).motion_cursor("patio") is None
+    collector.next_scan = 0
+    await collector.scan_once()
+    async with get_db() as db:
+        assert await GardenRepository(db).motion_cursor("side") is not None
+        assert await GardenRepository(db).motion_cursor("patio") is None
+    collector.next_scan = 0
+    await collector.scan_once()
+    async with get_db() as db:
+        assert await GardenRepository(db).motion_cursor("patio") is not None
+
+
+@pytest.mark.asyncio
+async def test_failed_window_backs_off_without_advancing_recording_cursor(collector, monkeypatch):
+    monkeypatch.setattr("app.services.garden_motion.time.monotonic", lambda: 100.0)
+    monkeypatch.setattr(collector, "_native", AsyncMock(side_effect=ValueError("Invalid clip")))
+    await collector.scan_once()
+    assert collector.last_outcome == "failed"
+    assert collector.next_scan == 130.0
+    async with get_db() as db:
+        assert await GardenRepository(db).motion_cursor("patio") is None
+
+
+@pytest.mark.asyncio
+async def test_bounded_queue_refills_without_duplicates_and_bird_arrival_preserves_cursor(collector, monkeypatch):
+    from app.services.garden_motion import frigate_client
+
+    monkeypatch.setattr("app.services.garden_motion.time.time", lambda: 2000.0)
+    monkeypatch.setattr(collector, "_camera_clear", AsyncMock(return_value=True))
+    monkeypatch.setattr(
+        frigate_client,
+        "get",
+        AsyncMock(
+            return_value=httpx.Response(
+                200,
+                json=[{"start_time": 1400.0, "end_time": 1700.0, "motion": 20}],
+                request=httpx.Request("GET", "http://frigate/"),
+            )
+        ),
+    )
+    downloads = []
+
+    async def download(camera, start, end, path):
+        downloads.append((start, end))
+        path.write_bytes(b"clip")
+
+    monkeypatch.setattr(frigate_client, "download_motion_recording", download)
+    native = AsyncMock(return_value={"outcome": "no_candidate"})
+    monkeypatch.setattr(collector, "_native", native)
+    for index in range(30):
+        collector.next_scan = 0
+        if index == 4:
+            monkeypatch.setattr(
+                "app.services.garden_motion.garden_inference_pressure",
+                lambda: {"live": {"queued": 7}, "background": {}},
+            )
+            await collector.scan_once()
+            assert native.await_count == 4
+            async with get_db() as db:
+                assert await GardenRepository(db).motion_cursor("patio") == 1440
+            monkeypatch.setattr(
+                "app.services.garden_motion.garden_inference_pressure", lambda: {"live": {}, "background": {}}
+            )
+        await collector.scan_once()
+        status = await collector.status()
+        assert 0 <= status.queued_windows <= 24
+    assert downloads == [(1400 + index * 10, 1410 + index * 10) for index in range(30)]
+    assert native.await_count == 30
+    assert status.queued_windows == 0
+    assert status.queue_camera == "patio"

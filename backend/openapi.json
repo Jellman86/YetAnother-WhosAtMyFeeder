@@ -7350,12 +7350,17 @@
             "title": "Catalogue Ready",
             "type": "boolean"
           },
+          "catchup_seconds": {
+            "default": 1800,
+            "title": "Catchup Seconds",
+            "type": "integer"
+          },
           "installed": {
             "title": "Installed",
             "type": "boolean"
           },
           "interval_seconds": {
-            "default": 120,
+            "default": 10,
             "title": "Interval Seconds",
             "type": "integer"
           },
@@ -7398,6 +7403,40 @@
           "photo_retention_days": {
             "default": 3,
             "title": "Photo Retention Days",
+            "type": "integer"
+          },
+          "queue_camera": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Queue Camera"
+          },
+          "queue_checked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Queue Checked At"
+          },
+          "queue_limit": {
+            "default": 24,
+            "title": "Queue Limit",
+            "type": "integer"
+          },
+          "queued_windows": {
+            "default": 0,
+            "maximum": 24.0,
+            "minimum": 0.0,
+            "title": "Queued Windows",
             "type": "integer"
           },
           "state": {

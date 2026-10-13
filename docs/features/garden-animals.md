@@ -44,15 +44,27 @@ MegaDetector v1000 Cedar model uses the species catalogue for its three outputs;
 it needs no labels file.
 It does not replace Frigate's bird detector or change bird classification settings.
 
-Collection is off by default. It scans at most one completed recording every two
-minutes across all enabled cameras, sampling three frames from up to ten seconds.
+Collection is off by default. One worker drains up to 24 queued recording windows
+per camera, oldest first, taking turns between enabled cameras. Each window covers
+up to ten seconds and samples three frames. There is at least a ten-second pause
+after each scan; failed scans retry after thirty seconds. Queues refill from
+Frigate metadata and the saved completion cursor, so restarting does not replay
+completed windows. Longer recordings resume from the cursor instead of losing
+their remaining footage. Overlapping recording metadata is merged before sampling.
+No new database queue or retained clips are needed.
+
+Only completed motion recordings from the last thirty minutes are considered.
+Frigate must retain that footage. Pressure or repeated failures can let older
+windows fall outside this catch-up limit without being scanned. This samples
+activity; it does not track animals or promise to find every visit. Even within
+a scanned window, a brief visit can fall between the three sampled frames.
+
 Frigate can include keyframe padding in the returned clip. Up to five extra seconds
-are tolerated, but samples stay within the first ten seconds. Recording windows
+are tolerated, but samples stay within the requested duration. Recording windows
 and decoded frame offsets are retained separately; displayed visit times are approximate.
-Only motion recordings from the last ten minutes are considered, so Frigate must
-retain motion footage. This samples activity; it does not track animals or promise
-to find every visit. The panel reports waiting, failures and the last attempted scan.
-Refresh the page to read the latest state.
+The panel reports waiting, failures, the last attempted scan and the latest checked
+camera's remaining queue count and check time. A full queue can have further footage
+waiting in Frigate. Refresh the page to read the latest state.
 
 Cedar runs on CPU with two inference threads and one video-decoding thread. It
 yields to queued or running bird inference and stops if active Frigate cameras
