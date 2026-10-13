@@ -11,7 +11,8 @@ guess as a confirmed identification automatically.
    Frigate must already track that label and publish completed events over MQTT.
 3. Save settings, then open **Garden animals** in the sidebar. Select **Needs review**,
    inspect the photograph, and choose **Confirm animal present** or **Dismiss capture**.
-   **Return to review** restores a dismissed capture.
+   **Return to review** restores a dismissed capture. Motion captures need their
+   photo to remain available.
 
 ![Independent Garden animals toggle beside the bird camera role, with Frigate animal labels](../images/settings-garden-cameras.png)
 
@@ -72,8 +73,13 @@ a 64 MiB photo budget. Clips are temporary and removed after each scan. Photos
 expire three days after the recording; unconfirmed and dismissed motion captures
 are then permanently removed. Confirmed history and identification metadata remain
 subject to normal history retention. A recording cannot create another review or
-undo a dismissal when the detector changes. A full photo budget pauses storage
-until expiry frees room. Turning collection off does not immediately erase photos.
+undo a dismissal when the detector changes. Dismissed photos stay available for
+**Return to review** until expiry or until a new candidate needs their space. At
+the photo limit, the oldest dismissed photos are reclaimed first; pending and
+confirmed photos are protected. A reclaimed capture stays in **Dismissed** until
+expiry, with Restore unavailable and an explanation. If all photo slots belong to
+pending or confirmed captures, collection waits for a dismissal or expiry.
+Turning collection off does not immediately erase photos.
 
 To request a species suggestion, open **Species suggestions** above the history:
 

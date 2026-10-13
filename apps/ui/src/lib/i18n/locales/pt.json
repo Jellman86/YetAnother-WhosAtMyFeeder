@@ -3564,7 +3564,7 @@
     "save_error": "Não foi possível guardar a revisão. Tente novamente.",
     "review_only": "Protótipo para revisão pelo proprietário",
     "review_help": "Verifique a fotografia e confirme primeiro a presença de um animal. Depois pode pedir uma sugestão de espécie. Mesmo uma pontuação elevada pode estar errada; verifique sempre a identificação.",
-    "retention_help": "As visitas ao jardim ficam separadas dos totais e exportações de aves. As fotos de eventos seguem a retenção do Frigate. As fotos de movimento expiram após três dias; as capturas não confirmadas são então removidas.",
+    "retention_help": "As visitas ao jardim ficam separadas dos totais de aves e das exportações. As fotos de eventos do Frigate seguem a retenção do Frigate. As fotos de movimento são guardadas até três dias; as descartadas podem abrir espaço para novas capturas antes. As capturas de movimento não confirmadas são removidas ao expirar.",
     "views": "Vistas de revisão do jardim",
     "refresh": "Atualizar",
     "loading": "A carregar capturas do jardim…",
@@ -3620,6 +3620,7 @@
     "motion_limits": "Apenas CPU · Uma gravação curta a cada {seconds}s · Até {limit} fotos · Fotos guardadas durante {days} dias",
     "motion_last_scan": "Última análise: {time}",
     "motion_download": "Transferir detetor Cedar (101 MB)",
-    "motion_source": "Candidato de uma gravação de movimento guardada"
+    "motion_source": "Candidato de uma gravação de movimento guardada",
+    "motion_restore_unavailable": "A foto já não está guardada. A captura não pode voltar à revisão."
   }
 }

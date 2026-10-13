@@ -8,7 +8,7 @@ from typing import Literal
 
 from app.auth import AuthContext, require_owner
 from app.database import get_db
-from app.repositories.garden_repository import GardenCapture, GardenRepository, GardenStatus
+from app.repositories.garden_repository import GardenCapture, GardenRepository, GardenStatus, GardenPhotoUnavailable
 from app.services.garden_capture_service import garden_capture_service
 from app.models.garden import GardenIdentification, GardenIdentificationStatus, GardenIdentifyRequest, GardenVariant
 from app.models.garden_motion import MotionSource, GardenMotionStatus
@@ -124,11 +124,10 @@ async def review_identification(capture_id: str, action: Literal["accept", "dism
 
 async def _review(capture_id: str, status: GardenStatus) -> GardenCaptureResponse:
     async with get_db() as db:
-        if status == "confirmed":
-            original = await GardenRepository(db).get(capture_id)
-            if original and original.motion_source and not await GardenRepository(db).motion_photo(capture_id):
-                raise HTTPException(409, "This motion photo has expired. Refresh before reviewing another capture.")
-        capture = await GardenRepository(db).review(capture_id, status)
+        try:
+            capture = await GardenRepository(db).review(capture_id, status)
+        except GardenPhotoUnavailable as error:
+            raise HTTPException(409, str(error)) from error
     if capture is None:
         raise HTTPException(404, "Garden capture not found")
     return await _response(capture)

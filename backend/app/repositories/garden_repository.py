@@ -21,6 +21,10 @@ MOTION_PHOTO_BYTES = 512 * 1024
 GardenStatus = Literal["pending", "confirmed", "dismissed"]
 
 
+class GardenPhotoUnavailable(ValueError):
+    pass
+
+
 @dataclass(frozen=True)
 class GardenCapture:
     id: str
@@ -113,15 +117,34 @@ class GardenRepository:
         return int(row[0]) if row else 0
 
     async def review(self, capture_id: str, status: GardenStatus) -> GardenCapture | None:
+        # The write lock checks photo availability against concurrent reclamation.
+        updated = await self.db.execute(
+            """UPDATE garden_captures SET status = ?, reviewed_at = ?
+               WHERE id = ? AND status != 'blocked' AND (
+                 ? = 'dismissed'
+                 OR NOT EXISTS (SELECT 1 FROM garden_motion_sources WHERE capture_id=garden_captures.id)
+                 OR EXISTS (SELECT 1 FROM garden_motion_sources WHERE capture_id=garden_captures.id
+                            AND image IS NOT NULL AND expires_at > ?))""",
+            (
+                status,
+                utc_naive_now().isoformat() if status != "pending" else None,
+                capture_id,
+                status,
+                utc_naive_now().isoformat(),
+            ),
+        )
+        if not updated.rowcount:
+            await self.db.rollback()
+            if await self.get(capture_id):
+                raise GardenPhotoUnavailable(
+                    "This motion photo is no longer stored. Refresh to review a newer capture."
+                )
+            return None
         if status != "confirmed":
             await self.db.execute(
                 "UPDATE garden_identifications SET result_json=json_set(result_json,'$.review','dismissed') WHERE capture_id=?",
                 (capture_id,),
             )
-        await self.db.execute(
-            "UPDATE garden_captures SET status = ?, reviewed_at = ? WHERE id = ? AND status != 'blocked'",
-            (status, utc_naive_now().isoformat() if status != "pending" else None, capture_id),
-        )
         await self.db.commit()
         return await self.get(capture_id)
 
@@ -157,6 +180,7 @@ class GardenRepository:
             if not inserted.rowcount:
                 await self.db.execute("RELEASE garden_motion_capture")
                 return None
+            await self._reclaim_dismissed_photos()
             stored = await self.db.execute(
                 """INSERT INTO garden_motion_sources(capture_id,source_json,image,expires_at)
                    SELECT ?,?,?,? WHERE (SELECT COUNT(*) FROM garden_motion_sources WHERE image IS NOT NULL) < ?""",
@@ -188,9 +212,23 @@ class GardenRepository:
         return bytes(row[0]) if row and row[0] else None
 
     async def motion_storage_full(self) -> bool:
-        async with self.db.execute("SELECT COUNT(*) FROM garden_motion_sources WHERE image IS NOT NULL") as cursor:
+        async with self.db.execute(
+            """SELECT COUNT(*) FROM garden_motion_sources JOIN garden_captures ON id=capture_id
+               WHERE image IS NOT NULL AND status != 'dismissed'"""
+        ) as cursor:
             row = await cursor.fetchone()
         return row[0] >= MOTION_PHOTO_LIMIT
+
+    async def _reclaim_dismissed_photos(self) -> None:
+        # Keep Undo photos until a successful new capture needs their space.
+        await self.db.execute(
+            """UPDATE garden_motion_sources SET image=NULL WHERE capture_id IN (
+                 SELECT capture_id FROM garden_motion_sources JOIN garden_captures ON id=capture_id
+                 WHERE image IS NOT NULL AND status='dismissed'
+                 ORDER BY reviewed_at, id
+                 LIMIT (SELECT MAX(0,COUNT(*)-?+1) FROM garden_motion_sources WHERE image IS NOT NULL))""",
+            (MOTION_PHOTO_LIMIT,),
+        )
 
     async def expire_motion_photos(self) -> None:
         async with self.db.execute(

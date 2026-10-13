@@ -151,7 +151,7 @@
     <div class="card-base p-4 space-y-2">
         <p class="eyebrow">{$_('garden.review_only', { default: 'Owner review prototype' })}</p>
         <p class="text-sm text-slate-600 dark:text-slate-400">{$_('garden.review_help', { default: 'Check the photo and confirm animal presence first. You can then request a species suggestion. Model scores can be confidently wrong; identification always needs your review.' })}</p>
-        <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.retention_help', { default: 'Garden visits stay separate from bird totals and exports. Frigate event photos follow Frigate retention. Motion review photos expire after three days; unconfirmed motion captures are then removed.' })}</p>
+        <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.retention_help', { default: 'Garden visits stay separate from bird totals and exports. Frigate event photos follow Frigate retention. Motion photos last up to three days; dismissed photos may make room for new captures sooner. Unconfirmed motion captures are removed on expiry.' })}</p>
         <details class="group" data-garden-motion>
             <summary class="min-h-11 list-none [&::-webkit-details-marker]:hidden cursor-pointer py-3 text-sm font-semibold focus-visible:ring-2 focus-visible:ring-brand"><span>{$_('garden.motion_title', { default: 'Motion collection' })}</span><span class="inline-block ml-2 transition-transform group-open:rotate-180" aria-hidden="true">⌄</span></summary>
             <div class="space-y-3 pt-2">
@@ -281,7 +281,10 @@
                                 {#if item.status !== 'dismissed'}
                                     <button class="btn btn-secondary min-h-11 px-4 py-2 whitespace-normal" disabled={saving !== null} onclick={() => review(item, 'dismiss')}>{$_('garden.dismiss', { default: 'Dismiss capture' })}</button>
                                 {:else}
-                                    <button class="btn btn-secondary min-h-11 px-4 py-2 whitespace-normal" disabled={saving !== null} onclick={() => review(item, 'restore')}>{$_('garden.restore', { default: 'Return to review' })}</button>
+                                    <button class="btn btn-secondary min-h-11 px-4 py-2 whitespace-normal" disabled={saving !== null || (item.source_kind === 'motion' && !item.snapshot_url)} onclick={() => review(item, 'restore')}>{$_('garden.restore', { default: 'Return to review' })}</button>
+                                    {#if item.source_kind === 'motion' && !item.snapshot_url}
+                                        <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.motion_restore_unavailable', { default: 'Photo no longer stored. It cannot return to review.' })}</p>
+                                    {/if}
                                 {/if}
                             </div>
                         </div>

@@ -72,8 +72,12 @@ async def test_wrong_photo_hash_never_creates_a_capture_or_advances_the_cursor()
 async def test_expired_photo_cannot_be_served_but_confirmed_history_survives_cleanup():
     async with get_db() as db:
         repo = GardenRepository(db)
-        capture_id = await repo.capture_motion(evidence(start=time.time() - 4 * 86400), b"photo")
+        capture_id = await repo.capture_motion(evidence(), b"photo")
         await repo.review(capture_id, "confirmed")
+        await db.execute(
+            "UPDATE garden_motion_sources SET expires_at='2000-01-01T00:00:00' WHERE capture_id=?", (capture_id,)
+        )
+        await db.commit()
         assert await repo.motion_photo(capture_id) is None
         await repo.expire_motion_photos()
         capture = await repo.get(capture_id)
@@ -201,7 +205,8 @@ async def test_confirmation_between_expiry_read_and_write_keeps_confirmed_histor
             if not interleaved and sql.lstrip().startswith(("UPDATE", "DELETE")):
                 interleaved = True
                 async with get_db() as owner_db:
-                    await GardenRepository(owner_db).review(capture_id, "confirmed")
+                    await owner_db.execute("UPDATE garden_captures SET status='confirmed' WHERE id=?", (capture_id,))
+                    await owner_db.commit()
             return await original(sql, parameters)
 
         monkeypatch.setattr(db, "execute", execute)
@@ -225,6 +230,156 @@ async def test_motion_photo_budget_refuses_new_data_without_eviction_or_partial_
         assert await repo.capture_motion(second, b"photo") is None
         assert await repo.count("pending") == 1
         assert await repo.motion_cursor("patio") == first.clip_end
+
+
+@pytest.mark.asyncio
+async def test_dismissed_photos_stay_restorable_until_a_new_candidate_needs_space(monkeypatch):
+    import app.repositories.garden_repository as module
+
+    monkeypatch.setattr(module, "MOTION_PHOTO_LIMIT", 2)
+    async with get_db() as db:
+        repo = GardenRepository(db)
+        before = await (await db.execute("SELECT * FROM detections ORDER BY id")).fetchall()
+        first = await repo.capture_motion(evidence(start=time.time() - 100), b"photo")
+        second = await repo.capture_motion(evidence(start=time.time() - 80), b"photo")
+        await repo.review(first, "dismissed")
+        await repo.review(second, "dismissed")
+        assert await repo.motion_photo(first) == b"photo"
+        assert not await repo.motion_storage_full()
+        third = await repo.capture_motion(evidence(), b"photo")
+        assert third
+        old = await repo.get(first)
+        assert old and old.status == "dismissed" and not old.has_snapshot and old.motion_source
+        assert await repo.motion_photo(first) is None
+        assert await repo.motion_photo(second) == b"photo"
+        assert (await repo.review(second, "pending")).has_snapshot
+        assert (
+            await (await db.execute("SELECT COUNT(*) FROM garden_motion_sources WHERE image IS NOT NULL")).fetchone()
+        )[0] == 2
+        assert await (await db.execute("SELECT * FROM detections ORDER BY id")).fetchall() == before
+
+
+@pytest.mark.asyncio
+async def test_duplicate_and_failed_capture_do_not_reclaim_a_dismissed_photo(monkeypatch):
+    import app.repositories.garden_repository as module
+
+    monkeypatch.setattr(module, "MOTION_PHOTO_LIMIT", 1)
+    async with get_db() as db:
+        repo = GardenRepository(db)
+        source = evidence(start=time.time() - 100)
+        capture_id = await repo.capture_motion(source, b"photo")
+        await repo.review(capture_id, "dismissed")
+        assert await repo.capture_motion(source, b"photo") is None
+        with pytest.raises(ValueError):
+            await repo.capture_motion(evidence(), b"wrong")
+        assert await repo.motion_photo(capture_id) == b"photo"
+
+
+@pytest.mark.asyncio
+async def test_restored_and_confirmed_photos_cannot_be_reclaimed(monkeypatch):
+    import app.repositories.garden_repository as module
+
+    monkeypatch.setattr(module, "MOTION_PHOTO_LIMIT", 2)
+    async with get_db() as db:
+        repo = GardenRepository(db)
+        ids = [
+            await repo.capture_motion(evidence(start=time.time() - 100 - index * 20), b"photo") for index in range(2)
+        ]
+        for capture_id in ids:
+            await repo.review(capture_id, "dismissed")
+        await repo.review(ids[0], "pending")
+        await repo.review(ids[1], "confirmed")
+        assert await repo.motion_storage_full()
+        assert await repo.capture_motion(evidence(), b"photo") is None
+        assert all([await repo.motion_photo(capture_id) == b"photo" for capture_id in ids])
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("action", ["restore", "confirm"])
+async def test_reclaimed_motion_photo_cannot_be_restored_or_confirmed_from_a_stale_page(monkeypatch, action):
+    import httpx
+    import app.repositories.garden_repository as module
+    from app.config import settings
+    from app.main import app
+
+    monkeypatch.setattr(module, "MOTION_PHOTO_LIMIT", 1)
+    monkeypatch.setattr(settings.auth, "enabled", False)
+    monkeypatch.setattr(settings.public_access, "enabled", False)
+    async with get_db() as db:
+        repo = GardenRepository(db)
+        source = evidence(start=time.time() - 100)
+        capture_id = await repo.capture_motion(source, b"photo")
+        await repo.review(capture_id, "dismissed")
+        assert await repo.capture_motion(evidence(), b"photo")
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post(f"/api/garden/{capture_id}/{action}")
+        assert response.status_code == 409
+        assert "photo" in response.json()["detail"].lower()
+        assert (await client.get(f"/api/garden/{capture_id}/snapshot")).status_code == 404
+        row = (await client.get("/api/garden", params={"status": "dismissed"})).json()["items"][0]
+        assert row["snapshot_url"] is None and row["source_kind"] == "motion"
+    async with get_db() as db:
+        repo = GardenRepository(db)
+        assert (await repo.get(capture_id)).status == "dismissed"
+        assert await repo.capture_motion(source, b"photo") is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("action", ["restore", "confirm"])
+async def test_reclamation_between_review_read_and_update_cannot_produce_a_photoless_review(monkeypatch, action):
+    import httpx
+    import app.repositories.garden_repository as module
+    from app.config import settings
+    from app.main import app
+
+    monkeypatch.setattr(module, "MOTION_PHOTO_LIMIT", 1)
+    monkeypatch.setattr(settings.auth, "enabled", False)
+    monkeypatch.setattr(settings.public_access, "enabled", False)
+    async with get_db() as db:
+        repo = GardenRepository(db)
+        capture_id = await repo.capture_motion(evidence(start=time.time() - 100), b"photo")
+        await repo.review(capture_id, "dismissed")
+    original = GardenRepository.review
+    reclaimed = False
+
+    async def interleave(self, identifier, status):
+        nonlocal reclaimed
+        if identifier == capture_id and status != "dismissed":
+            async with get_db() as writer:
+                assert await GardenRepository(writer).capture_motion(evidence(), b"photo")
+            reclaimed = True
+        return await original(self, identifier, status)
+
+    monkeypatch.setattr(GardenRepository, "review", interleave)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        assert (await client.post(f"/api/garden/{capture_id}/{action}")).status_code == 409
+    assert reclaimed
+    async with get_db() as db:
+        assert (await GardenRepository(db).get(capture_id)).status == "dismissed"
+
+
+@pytest.mark.asyncio
+async def test_failed_storage_transaction_rolls_back_dismissed_photo_reclamation(monkeypatch):
+    import sqlite3
+    import app.repositories.garden_repository as module
+
+    monkeypatch.setattr(module, "MOTION_PHOTO_LIMIT", 1)
+    async with get_db() as db:
+        repo = GardenRepository(db)
+        source = evidence(start=time.time() - 100)
+        capture_id = await repo.capture_motion(source, b"photo")
+        await repo.review(capture_id, "dismissed")
+        await db.execute(
+            "CREATE TEMP TRIGGER fail_motion_insert BEFORE INSERT ON garden_motion_sources BEGIN SELECT RAISE(ABORT, 'private test write failure'); END"
+        )
+        try:
+            with pytest.raises(sqlite3.IntegrityError):
+                await repo.capture_motion(evidence(), b"photo")
+        finally:
+            await db.execute("DROP TRIGGER fail_motion_insert")
+        assert await repo.motion_photo(capture_id) == b"photo"
+        assert await repo.count("pending") == 0
+        assert await repo.motion_cursor("patio") == source.clip_end
 
 
 @pytest.mark.asyncio

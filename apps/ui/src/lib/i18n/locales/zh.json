@@ -3564,7 +3564,7 @@
     "save_error": "无法保存审核结果，请重试。",
     "review_only": "由所有者审核的原型",
     "review_help": "请先查看照片并确认有动物，然后可以请求物种建议。即使模型评分很高，也可能判断错误；请务必审核识别结果。",
-    "retention_help": "花园访问与鸟类统计和导出分开。Frigate事件照片遵循Frigate保留设置。移动照片三天后过期，未确认的移动记录也会被移除。",
+    "retention_help": "庭院访问记录与鸟类统计和导出分开保存。Frigate事件照片遵循Frigate的保留期限。移动照片最多保留三天；已忽略的照片可能提前为新记录腾出空间。未确认的移动记录会在到期后删除。",
     "views": "花园审核视图",
     "refresh": "刷新",
     "loading": "正在加载花园抓拍…",
@@ -3620,6 +3620,7 @@
     "motion_limits": "仅CPU · 每{seconds}秒一段短录像 · 最多{limit}张照片 · 照片保留{days}天",
     "motion_last_scan": "上次分析：{time}",
     "motion_download": "下载Cedar检测器（101 MB）",
-    "motion_source": "来自保留移动录像的候选"
+    "motion_source": "来自保留移动录像的候选",
+    "motion_restore_unavailable": "照片已不再保存，无法将此记录重新提交审核。"
   }
 }
