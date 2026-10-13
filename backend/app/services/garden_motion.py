@@ -21,7 +21,13 @@ import structlog
 
 from app.config import settings
 from app.database import get_db
-from app.models.garden_motion import GardenMotionStatus, MotionSource, MOTION_PADDING_SECONDS
+from app.models.garden_motion import (
+    GardenMotionStatus,
+    MotionSource,
+    MOTION_PADDING_SECONDS,
+    MOTION_INTERVAL_SECONDS,
+    MOTION_CATCHUP_SECONDS,
+)
 from app.repositories.garden_detector_catalog import GardenDetectorCatalog
 from app.repositories.garden_repository import GardenRepository
 from app.services import garden_motion_privacy
@@ -37,7 +43,7 @@ from app.services.garden_identification import (
     MODEL_BASE_URL,
 )
 from app.services.garden_model_runtime import digest
-from app.services.garden_motion_policy import choose_segment, camera_pressure
+from app.services.garden_motion_policy import recording_queue, camera_pressure
 from app.services.model_manager import MODELS_DIR
 from app.utils.api_datetime import utc_naive_now
 from app.utils.python_subprocess import python_subprocess_launch
@@ -56,6 +62,9 @@ class GardenMotionService:
         self.message = "Enable a garden camera and download the motion detector to start."
         self.next_scan = 0.0
         self.camera_index = 0
+        self.queued_windows = 0
+        self.queue_camera: str | None = None
+        self.queue_checked_at: str | None = None
 
     def cameras(self) -> list[str]:
         return [
@@ -100,6 +109,9 @@ class GardenMotionService:
             message=message,
             last_scan_at=self.last_scan_at,
             last_outcome=self.last_outcome,
+            queued_windows=self.queued_windows if self.queue_camera in cameras else 0,
+            queue_camera=self.queue_camera if self.queue_camera in cameras else None,
+            queue_checked_at=self.queue_checked_at if self.queue_camera in cameras else None,
         )
 
     async def install(self) -> GardenMotionStatus:
@@ -171,7 +183,7 @@ class GardenMotionService:
             except Exception as error:
                 log.warning("garden_motion_cycle_failed", error_type=type(error).__name__)
                 self.message = "Motion collection could not finish. It will retry automatically."
-            await asyncio.sleep(10)
+            await asyncio.sleep(MOTION_INTERVAL_SECONDS)
 
     async def _person_overlap(self, camera: str, start: float, end: float) -> bool:
         start -= MOTION_PADDING_SECONDS
@@ -248,7 +260,7 @@ class GardenMotionService:
             return
         garden_identification_service.busy = True
         self.scanning = True
-        self.next_scan = time.monotonic() + 120
+        self.last_outcome = None
         temporary: str | None = None
         watcher: asyncio.Task | None = None
         camera = cameras[self.camera_index % len(cameras)]
@@ -292,15 +304,20 @@ class GardenMotionService:
             async with get_db() as db:
                 cursor = await GardenRepository(db).motion_cursor(camera)
             response = await frigate_client.get(
-                f"api/{camera}/recordings", params={"after": max(cursor or 0, now - 600), "before": now - 20}, timeout=5
+                f"api/{camera}/recordings",
+                params={"after": max(cursor or 0, now - MOTION_CATCHUP_SECONDS), "before": now - 20},
+                timeout=5,
             )
             response.raise_for_status()
-            segment = choose_segment(response.json(), after=cursor or now - 600, now=now)
-            if segment is None:
+            windows = recording_queue(response.json(), after=cursor or now - MOTION_CATCHUP_SECONDS, now=now)
+            self.queued_windows = len(windows)
+            self.queue_camera = camera
+            self.queue_checked_at = utc_naive_now().isoformat() + "Z"
+            if not windows:
                 self.message = "No recent completed motion recordings to scan."
                 self.last_outcome = "no_recording"
                 return
-            start, end = segment
+            start, end = windows[0]
             self.last_scan_at = utc_naive_now().isoformat() + "Z"
             if await self._person_overlap(camera, start, end):
                 self.last_outcome = "person_rejected"
@@ -309,6 +326,8 @@ class GardenMotionService:
                 )
                 async with get_db() as db:
                     await GardenRepository(db).advance_motion_cursor(camera, end)
+                self.queued_windows -= 1
+                self.queue_checked_at = utc_naive_now().isoformat() + "Z"
                 return
             temporary = await asyncio.to_thread(tempfile.mkdtemp, prefix="yawamf-motion-")
             clip, photo = Path(temporary) / "clip.mp4", Path(temporary) / "photo.jpg"
@@ -365,6 +384,8 @@ class GardenMotionService:
                             return
                     else:
                         await repo.advance_motion_cursor(camera, end)
+            self.queued_windows -= 1
+            self.queue_checked_at = utc_naive_now().isoformat() + "Z"
             self.last_outcome = result["outcome"]
             self.message = (
                 "Review photo collected. Confirm animal presence before requesting a species suggestion."
@@ -403,6 +424,8 @@ class GardenMotionService:
                 await asyncio.to_thread(shutil.rmtree, temporary)
             self.scanning = False
             garden_identification_service.busy = False
+            cooldown = 30 if self.last_outcome == "failed" else MOTION_INTERVAL_SECONDS
+            self.next_scan = time.monotonic() + cooldown
 
 
 garden_motion_service = GardenMotionService()

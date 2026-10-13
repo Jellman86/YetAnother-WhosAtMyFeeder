@@ -3617,11 +3617,13 @@
     "motion_camera_help": "Analisi CPU facoltativa delle registrazioni di movimento conservate. Scarica il rilevatore in Animali del giardino; il rilevamento degli uccelli mantiene le impostazioni attuali.",
     "motion_title": "Raccolta dei movimenti",
     "motion_help": "Cedar propone animali da brevi registrazioni, anche senza tracciamento di Frigate. Può proporre anche uccelli e oggetti. Ogni foto richiede una verifica; nessuna specie viene identificata automaticamente.",
-    "motion_limits": "Solo CPU · Una breve registrazione ogni {seconds}s · Fino a {limit} foto · Foto conservate per {days} giorni",
+    "motion_limits": "Solo CPU · Almeno {seconds}s tra le scansioni · Fino a {limit} foto · Conservazione di {days} giorni",
     "motion_last_scan": "Ultima analisi: {time}",
     "motion_download": "Scarica il rilevatore Cedar (101 MB)",
     "motion_source": "Candidato da una registrazione di movimento conservata",
     "presence_box": "Riquadro: candidato di MegaDetector Cedar. Controlla la foto prima di confermare.",
-    "motion_restore_unavailable": "La foto non è più conservata. L’acquisizione non può tornare in revisione."
+    "motion_restore_unavailable": "La foto non è più conservata. L’acquisizione non può tornare in revisione.",
+    "motion_coverage": "Fino a {limit} brevi intervalli in coda per telecamera degli ultimi {minutes} minuti. Gli uccelli e il carico delle telecamere sospendono la raccolta; le visite brevi possono sfuggire.",
+    "motion_queue": "{camera}: {count} intervalli in attesa al controllo delle {time}. Al limite della coda potrebbero essercene altri."
   }
 }

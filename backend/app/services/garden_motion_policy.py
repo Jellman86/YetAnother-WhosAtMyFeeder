@@ -3,7 +3,7 @@
 import math
 import re
 
-from app.models.garden_motion import MotionSource
+from app.models.garden_motion import MotionSource, MOTION_CATCHUP_SECONDS, MOTION_QUEUE_LIMIT
 
 
 def motion_key(source: MotionSource) -> str:
@@ -26,8 +26,20 @@ def _number(value: object) -> bool:
 
 
 def choose_segment(records: object, *, after: float, now: float) -> tuple[float, float] | None:
+    windows = recording_queue(records, after=after, now=now)
+    return windows[0] if windows else None
+
+
+def recording_queue(records: object, *, after: float, now: float) -> list[tuple[float, float]]:
+    """Reconstruct a bounded oldest-first queue from retained recording metadata.
+
+    Frigate returns overlapping records, including one that straddles the saved
+    cursor. Merge overlaps before splitting so duplicate metadata cannot replay
+    a sampled window. Only the completed cursor needs to survive a restart.
+    """
     if not isinstance(records, list) or len(records) > 2048 or not _number(after) or not _number(now):
-        return None
+        return []
+    floor = max(after, now - MOTION_CATCHUP_SECONDS, 0)
     candidates = []
     for record in records:
         if not isinstance(record, dict):
@@ -35,9 +47,23 @@ def choose_segment(records: object, *, after: float, now: float) -> tuple[float,
         start, end, motion = (record.get(k) for k in ("start_time", "end_time", "motion"))
         if not all(_number(v) for v in (start, end, motion)):
             continue
-        if max(after, now - 600) <= start < end <= now - 20 and motion > 0:
-            candidates.append((float(start), float(min(end, start + 10))))
-    return min(candidates) if candidates else None
+        if 0 < start < end <= now - 20 and end > floor and motion > 0:
+            candidates.append((float(max(start, floor)), float(end)))
+    merged: list[tuple[float, float]] = []
+    for start, end in sorted(candidates):
+        if merged and start <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+        else:
+            merged.append((start, end))
+    windows: list[tuple[float, float]] = []
+    for start, end in merged:
+        while end - start >= 0.1:
+            stop = min(end, start + 10)
+            windows.append((start, stop))
+            if len(windows) == MOTION_QUEUE_LIMIT:
+                return windows
+            start = stop
+    return windows
 
 
 def camera_pressure(stats: object, camera: str) -> bool:

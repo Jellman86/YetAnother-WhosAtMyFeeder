@@ -1055,6 +1055,7 @@ export interface components {
     busy: boolean;
     cameras: Array<string>;
     catalogue_ready: boolean;
+    catchup_seconds?: number;
     installed: boolean;
     interval_seconds?: number;
     last_outcome?: string | null;
@@ -1063,6 +1064,10 @@ export interface components {
     model_bytes?: number;
     photo_limit?: number;
     photo_retention_days?: number;
+    queue_camera?: string | null;
+    queue_checked_at?: string | null;
+    queue_limit?: number;
+    queued_windows?: number;
     state: "disabled" | "waiting" | "scanning" | "unavailable";
 };
     HTTPValidationError: {

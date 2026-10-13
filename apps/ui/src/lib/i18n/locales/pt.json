@@ -3617,11 +3617,13 @@
     "motion_camera_help": "Análise opcional na CPU de gravações de movimento guardadas. Transfira o detetor em Animais do jardim; a deteção de aves mantém as definições atuais.",
     "motion_title": "Recolha de movimento",
     "motion_help": "Cedar propõe animais a partir de gravações curtas, incluindo os que Frigate não seguiu. Também pode propor aves e objetos. Todas as fotos precisam de revisão; nenhuma espécie é identificada automaticamente.",
-    "motion_limits": "Apenas CPU · Uma gravação curta a cada {seconds}s · Até {limit} fotos · Fotos guardadas durante {days} dias",
+    "motion_limits": "Apenas CPU · Pelo menos {seconds}s entre análises · Até {limit} fotos · Retenção de {days} dias",
     "motion_last_scan": "Última análise: {time}",
     "motion_download": "Transferir detetor Cedar (101 MB)",
     "motion_source": "Candidato de uma gravação de movimento guardada",
     "presence_box": "Caixa: candidato do MegaDetector Cedar. Verifique a foto antes de confirmar.",
-    "motion_restore_unavailable": "A foto já não está guardada. A captura não pode voltar à revisão."
+    "motion_restore_unavailable": "A foto já não está guardada. A captura não pode voltar à revisão.",
+    "motion_coverage": "Até {limit} intervalos curtos em fila por câmara dos últimos {minutes} minutos. As aves e a carga das câmaras pausam a recolha; visitas breves podem não ser detetadas.",
+    "motion_queue": "{camera}: {count} intervalos em espera na verificação às {time}. Pode haver mais quando a fila atinge o limite."
   }
 }

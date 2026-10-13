@@ -3617,11 +3617,13 @@
     "motion_camera_help": "Optional CPU scans of retained motion footage. Download the detector on Garden animals; bird detection keeps its current settings.",
     "motion_title": "Motion collection",
     "motion_help": "Cedar proposes animals from short motion recordings, including wildlife Frigate did not track. Birds and objects can also be proposed. Every photo needs your review; no species is identified automatically.",
-    "motion_limits": "CPU only · One short recording every {seconds}s · Up to {limit} photos · {days}-day photo retention",
+    "motion_limits": "CPU only · At least {seconds}s between scans · Up to {limit} photos · {days}-day photo retention",
     "motion_last_scan": "Last scan: {time}",
     "motion_download": "Download Cedar detector (101 MB)",
     "motion_source": "Candidate from retained motion footage",
     "presence_box": "Box: MegaDetector Cedar candidate. Check the photo before confirming.",
-    "motion_restore_unavailable": "Photo no longer stored. It cannot return to review."
+    "motion_restore_unavailable": "Photo no longer stored. It cannot return to review.",
+    "motion_coverage": "Up to {limit} short windows queued per camera from the last {minutes} minutes. Birds and camera pressure pause collection; brief visits can be missed.",
+    "motion_queue": "{camera}: {count} windows waiting when checked at {time}. More may be available at the queue limit."
   }
 }

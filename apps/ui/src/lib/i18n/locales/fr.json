@@ -3617,11 +3617,13 @@
     "motion_camera_help": "Analyse CPU facultative des enregistrements de mouvement conservés. Téléchargez le détecteur dans Animaux du jardin ; les réglages de détection des oiseaux restent identiques.",
     "motion_title": "Collecte des mouvements",
     "motion_help": "Cedar propose des animaux à partir de courts enregistrements, même sans suivi par Frigate. Des oiseaux et des objets peuvent aussi être proposés. Chaque photo doit être vérifiée ; aucune espèce n’est identifiée automatiquement.",
-    "motion_limits": "CPU uniquement · Un court enregistrement toutes les {seconds}s · Jusqu’à {limit} photos · Photos conservées {days} jours",
+    "motion_limits": "CPU uniquement · Au moins {seconds}s entre les analyses · Jusqu’à {limit} photos · Conservation de {days} jours",
     "motion_last_scan": "Dernière analyse : {time}",
     "motion_download": "Télécharger le détecteur Cedar (101 Mo)",
     "motion_source": "Candidat provenant d’un enregistrement de mouvement conservé",
     "presence_box": "Cadre : proposition de MegaDetector Cedar. Vérifiez la photo avant de confirmer.",
-    "motion_restore_unavailable": "La photo n’est plus conservée. La capture ne peut pas revenir en vérification."
+    "motion_restore_unavailable": "La photo n’est plus conservée. La capture ne peut pas revenir en vérification.",
+    "motion_coverage": "Jusqu’à {limit} courts segments en attente par caméra sur les {minutes} dernières minutes. Les oiseaux et la charge des caméras suspendent la collecte ; les visites brèves peuvent être manquées.",
+    "motion_queue": "{camera} : {count} segments en attente lors de la vérification à {time}. D’autres peuvent être disponibles lorsque la limite est atteinte."
   }
 }

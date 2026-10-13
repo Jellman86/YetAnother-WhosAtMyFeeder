@@ -3617,11 +3617,13 @@
     "motion_camera_help": "Optionale CPU-Prüfung gespeicherter Bewegungsaufnahmen. Laden Sie den Detektor unter Gartentiere herunter; die Vogelerkennung behält ihre Einstellungen.",
     "motion_title": "Bewegungsaufnahmen sammeln",
     "motion_help": "Cedar schlägt Tiere aus kurzen Bewegungsaufnahmen vor, auch ohne Frigate-Verfolgung. Vögel und Gegenstände können ebenfalls vorgeschlagen werden. Jedes Foto muss geprüft werden; Arten werden nicht automatisch bestimmt.",
-    "motion_limits": "Nur CPU · Eine kurze Aufnahme alle {seconds}s · Bis zu {limit} Fotos · Fotos werden {days} Tage gespeichert",
+    "motion_limits": "Nur CPU · Mindestens {seconds} s zwischen Scans · Bis zu {limit} Fotos · Fotos bleiben {days} Tage",
     "motion_last_scan": "Letzte Prüfung: {time}",
     "motion_download": "Cedar-Detektor herunterladen (101 MB)",
     "motion_source": "Kandidat aus gespeicherter Bewegungsaufnahme",
     "presence_box": "Rahmen: Vorschlag von MegaDetector Cedar. Prüfe das Foto vor dem Bestätigen.",
-    "motion_restore_unavailable": "Das Foto ist nicht mehr gespeichert. Die Aufnahme kann nicht zur Prüfung zurückkehren."
+    "motion_restore_unavailable": "Das Foto ist nicht mehr gespeichert. Die Aufnahme kann nicht zur Prüfung zurückkehren.",
+    "motion_coverage": "Pro Kamera werden bis zu {limit} kurze Abschnitte aus den letzten {minutes} Minuten vorgemerkt. Vogelerkennung und Kameralast pausieren die Erfassung; kurze Besuche können fehlen.",
+    "motion_queue": "{camera}: {count} wartende Abschnitte bei der Prüfung um {time}. Am Warteschlangenlimit können weitere verfügbar sein."
   }
 }

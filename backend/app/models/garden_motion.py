@@ -8,6 +8,9 @@ from typing_extensions import Self
 from typing import Literal
 
 MOTION_PADDING_SECONDS = 5
+MOTION_INTERVAL_SECONDS = 10
+MOTION_CATCHUP_SECONDS = 1800
+MOTION_QUEUE_LIMIT = 24
 
 
 class MotionSource(BaseModel):
@@ -58,6 +61,11 @@ class GardenMotionStatus(BaseModel):
     message: str
     last_scan_at: str | None = None
     last_outcome: str | None = None
-    interval_seconds: int = 120
+    interval_seconds: int = MOTION_INTERVAL_SECONDS
+    catchup_seconds: int = MOTION_CATCHUP_SECONDS
+    queue_limit: int = MOTION_QUEUE_LIMIT
+    queued_windows: int = Field(default=0, ge=0, le=MOTION_QUEUE_LIMIT)
+    queue_camera: str | None = None
+    queue_checked_at: str | None = None
     photo_retention_days: int = 3
     photo_limit: int = 128

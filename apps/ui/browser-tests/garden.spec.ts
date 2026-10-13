@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 const modelStatus = { country: 'GBR', catalogue_ready: true, busy: false, error: null, models: [{ variant: '4.0.3b', installed: true, size_bytes: 223999179 }] };
 
-const motionStatus = { cameras: [], installed: false, catalogue_ready: true, busy: false, state: 'disabled', message: 'Motion collection is off.', interval_seconds: 120, photo_limit: 128, photo_retention_days: 3 };
+const motionStatus = { cameras: [], installed: false, catalogue_ready: true, busy: false, state: 'disabled', message: 'Motion collection is off.', interval_seconds: 10, catchup_seconds: 1800, queue_limit: 24, photo_limit: 128, photo_retention_days: 3 };
 
 const id = 'a'.repeat(32);
 const row = { id, camera: 'patio', frigate_label: 'cat', observed_at: '2026-10-11T18:00:00Z', reviewed_at: null, status: 'pending', snapshot_url: `/api/garden/${id}/snapshot` };
@@ -26,14 +26,20 @@ for (const size of [[640, 1000], [1280, 720], [1600, 400]]) {
             await page.evaluate(() => document.documentElement.style.fontSize = '200%');
             const rect = page.locator('[data-garden-presence] rect').last();
             await expect(rect).toBeVisible();
-            const image = await page.locator('article img').boundingBox();
-            const outline = await rect.boundingBox();
-            if (!image || !outline) throw new Error('Expected a decoded photo and detector proposal');
+            // Measure together: a late font load can move the article between
+            // two independent browser calls without moving its box relative to the photo.
+            const { image, outline } = await page.locator('article').evaluate(article => {
+                const photo = article.querySelector('img');
+                const box = article.querySelector('[data-garden-presence] rect:last-child');
+                if (!photo || !box) throw new Error('Expected a decoded photo and detector proposal');
+                return { image: photo.getBoundingClientRect().toJSON(), outline: box.getBoundingClientRect().toJSON() };
+            });
             const scale = Math.min(image.width / size[0], image.height / size[1]);
-            expect(outline.x).toBeCloseTo(image.x + (image.width - size[0] * scale) / 2 + size[0] * 0.1 * scale - 1, 1);
-            expect(outline.y).toBeCloseTo(image.y + (image.height - size[1] * scale) / 2 + size[1] * 0.2 * scale - 1, 1);
-            expect(outline.width).toBeCloseTo(size[0] * 0.3 * scale + 2, 1);
-            expect(outline.height).toBeCloseTo(size[1] * 0.4 * scale + 2, 1);
+            // DOM rect geometry excludes the outline's non-scaling paint stroke.
+            expect(outline.x).toBeCloseTo(image.x + (image.width - size[0] * scale) / 2 + size[0] * 0.1 * scale, 1);
+            expect(outline.y).toBeCloseTo(image.y + (image.height - size[1] * scale) / 2 + size[1] * 0.2 * scale, 1);
+            expect(outline.width).toBeCloseTo(size[0] * 0.3 * scale, 1);
+            expect(outline.height).toBeCloseTo(size[1] * 0.4 * scale, 1);
             await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
         }
     });
@@ -295,8 +301,25 @@ test('motion proposals show their source and measured collector state on a narro
     await expect(page.getByText('Frigate suggested: animal')).toHaveCount(0);
     await page.getByText('Motion collection', {exact: true}).click();
     await expect(page.getByText('Waiting for bird inference to become idle.')).toBeVisible();
-    await expect(page.getByText(/One short recording every 120s/)).toBeVisible();
+    await expect(page.getByText(/At least 10s between scans/)).toBeVisible();
     await page.setViewportSize({width: 320, height: 740});
+    await page.evaluate(() => document.documentElement.style.fontSize = '200%');
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test('motion panel explains bounded catch-up and time of the last camera queue check', async ({ page }) => {
+    await page.route('**/api/garden?**', route => route.fulfill({ json: { items: [], total: 0, limit: 8, offset: 0 } }));
+    await page.route('**/api/garden/identification', route => route.fulfill({ json: modelStatus }));
+    await page.route('**/api/garden/motion', route => route.fulfill({ json: {
+        ...motionStatus, interval_seconds: 10, catchup_seconds: 1800, queue_limit: 24,
+        queued_windows: 24, queue_camera: 'patio', queue_checked_at: '2026-10-13T18:00:00Z'
+    } }));
+    await page.goto('/browser-tests/garden.html');
+    await page.locator('[data-garden-motion] summary').click();
+    await expect(page.getByText('CPU only · At least 10s between scans · Up to 128 photos · 3-day photo retention')).toBeVisible();
+    await expect(page.getByText('Up to 24 short windows queued per camera from the last 30 minutes. Birds and camera pressure pause collection; brief visits can be missed.')).toBeVisible();
+    await expect(page.getByText(/patio: 24 windows waiting when checked at/)).toBeVisible();
+    await page.setViewportSize({ width: 320, height: 900 });
     await page.evaluate(() => document.documentElement.style.fontSize = '200%');
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
