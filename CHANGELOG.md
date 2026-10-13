@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Garden review skips Frigate events without an advertised snapshot and hides known
+  unavailable photos from Needs review without deleting review metadata. Confirmed
+  history remains visible; stale confirmation and Restore requests require a photo (#698).
+  Thanks to @byrnes-patrick for the report and screenshots.
+
 - Garden motion collection drains bounded recording windows in order, resumes long
   recordings and restarts from its saved cursor. A ten-second cooldown and thirty-minute
   catch-up window reduce sampling gaps while preserving bird priority, camera-pressure

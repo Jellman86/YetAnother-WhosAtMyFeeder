@@ -3622,7 +3622,7 @@
     "motion_download": "Transferir detetor Cedar (101 MB)",
     "motion_source": "Candidato de uma gravação de movimento guardada",
     "presence_box": "Caixa: candidato do MegaDetector Cedar. Verifique a foto antes de confirmar.",
-    "motion_restore_unavailable": "A foto já não está guardada. A captura não pode voltar à revisão.",
+    "photo_restore_unavailable": "A foto está indisponível. A captura não pode voltar à revisão.",
     "motion_coverage": "Até {limit} intervalos curtos em fila por câmara dos últimos {minutes} minutos. As aves e a carga das câmaras pausam a recolha; visitas breves podem não ser detetadas.",
     "motion_queue": "{camera}: {count} intervalos em espera na verificação às {time}. Pode haver mais quando a fila atinge o limite."
   }

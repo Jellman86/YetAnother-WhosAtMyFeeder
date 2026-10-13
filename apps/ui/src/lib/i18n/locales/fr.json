@@ -3622,7 +3622,7 @@
     "motion_download": "Télécharger le détecteur Cedar (101 Mo)",
     "motion_source": "Candidat provenant d’un enregistrement de mouvement conservé",
     "presence_box": "Cadre : proposition de MegaDetector Cedar. Vérifiez la photo avant de confirmer.",
-    "motion_restore_unavailable": "La photo n’est plus conservée. La capture ne peut pas revenir en vérification.",
+    "photo_restore_unavailable": "La photo est indisponible. La capture ne peut pas revenir en vérification.",
     "motion_coverage": "Jusqu’à {limit} courts segments en attente par caméra sur les {minutes} dernières minutes. Les oiseaux et la charge des caméras suspendent la collecte ; les visites brèves peuvent être manquées.",
     "motion_queue": "{camera} : {count} segments en attente lors de la vérification à {time}. D’autres peuvent être disponibles lorsque la limite est atteinte."
   }

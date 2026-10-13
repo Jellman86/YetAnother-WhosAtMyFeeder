@@ -16,7 +16,8 @@ Reports, recordings, support bundles and retests help reproduce problems and che
 - [@jeremyheslop](https://github.com/jeremyheslop)
   Thanks for clear bug reports and practical UI/backend fix feedback.
 - [@byrnes-patrick](https://github.com/byrnes-patrick)
-  Thanks for the recent issue reports, diagnostics bundles, and validation feedback that helped land the video analysis and blocked-label fixes.
+  Thanks for issue reports, diagnostic bundles and retests for video analysis and
+  blocked labels, and the [Garden review snapshot report (#698)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/698).
 - [@aav7fl](https://github.com/aav7fl)
   Thanks for the [multi-bird photograph report (#481)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/481),
   original clips, screenshots, support bundles and follow-up testing. That evidence exposed

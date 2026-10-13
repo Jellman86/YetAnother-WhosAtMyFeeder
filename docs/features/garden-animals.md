@@ -11,8 +11,7 @@ guess as a confirmed identification automatically.
    Frigate must already track that label and publish completed events over MQTT.
 3. Save settings, then open **Garden animals** in the sidebar. Select **Needs review**,
    inspect the photograph, and choose **Confirm animal present** or **Dismiss capture**.
-   **Return to review** restores a dismissed capture. Motion captures need their
-   photo to remain available.
+   **Return to review** restores a dismissed capture while its photo remains available.
 
 ![Independent Garden animals toggle beside the bird camera role, with Frigate animal labels](../images/settings-garden-cameras.png)
 
@@ -30,8 +29,12 @@ and prevents a delayed animal message from restoring it, even after capture is
 switched off. This relies on Frigate's labels; a missed person could still be in
 an animal photograph, so the view and its media are always owner-only.
 
-Frigate event photographs are requested only when viewed. They can expire before the review metadata.
-An unavailable photograph disables confirmation. Review metadata follows
+Frigate events without an advertised snapshot are skipped. **Needs review** omits
+captures whose photo is known to be unavailable, without deleting or changing
+their review metadata. Confirmed history remains visible after photo loss.
+Frigate event photographs are requested only when viewed and can expire before
+their metadata. A failed download disables confirmation but does not discard the
+capture: a network error is not proof that the photo is gone. Review metadata follows
 **Settings → Data → Detection Retention** when automatic cleanup is enabled;
 turning off Garden animals stops collection but preserves existing reviews.
 

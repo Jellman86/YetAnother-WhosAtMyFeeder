@@ -3622,7 +3622,7 @@
     "motion_download": "Scarica il rilevatore Cedar (101 MB)",
     "motion_source": "Candidato da una registrazione di movimento conservata",
     "presence_box": "Riquadro: candidato di MegaDetector Cedar. Controlla la foto prima di confermare.",
-    "motion_restore_unavailable": "La foto non è più conservata. L’acquisizione non può tornare in revisione.",
+    "photo_restore_unavailable": "La foto non è disponibile. L’acquisizione non può tornare in revisione.",
     "motion_coverage": "Fino a {limit} brevi intervalli in coda per telecamera degli ultimi {minutes} minuti. Gli uccelli e il carico delle telecamere sospendono la raccolta; le visite brevi possono sfuggire.",
     "motion_queue": "{camera}: {count} intervalli in attesa al controllo delle {time}. Al limite della coda potrebbero essercene altri."
   }

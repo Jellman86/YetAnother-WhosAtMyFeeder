@@ -86,6 +86,17 @@ async def test_expired_photo_cannot_be_served_but_confirmed_history_survives_cle
 
 
 @pytest.mark.asyncio
+async def test_expired_pending_motion_photo_is_omitted_before_cleanup_without_changing_its_review():
+    async with get_db() as db:
+        repo = GardenRepository(db)
+        capture_id = await repo.capture_motion(evidence(start=time.time() - 4 * 86400), b"photo")
+        assert await repo.count("pending") == 0
+        assert await repo.list("pending", 20, 0) == []
+        capture = await repo.get(capture_id)
+        assert capture.status == "pending" and not capture.has_snapshot
+
+
+@pytest.mark.asyncio
 async def test_person_veto_erases_motion_photo_and_provenance_and_blocks_redelivery():
     source = evidence()
     async with get_db() as db:

@@ -299,9 +299,9 @@
                                 {#if item.status !== 'dismissed'}
                                     <button class="btn btn-secondary min-h-11 px-4 py-2 whitespace-normal" disabled={saving !== null} onclick={() => review(item, 'dismiss')}>{$_('garden.dismiss', { default: 'Dismiss capture' })}</button>
                                 {:else}
-                                    <button class="btn btn-secondary min-h-11 px-4 py-2 whitespace-normal" disabled={saving !== null || (item.source_kind === 'motion' && !item.snapshot_url)} onclick={() => review(item, 'restore')}>{$_('garden.restore', { default: 'Return to review' })}</button>
-                                    {#if item.source_kind === 'motion' && !item.snapshot_url}
-                                        <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.motion_restore_unavailable', { default: 'Photo no longer stored. It cannot return to review.' })}</p>
+                                    <button class="btn btn-secondary min-h-11 px-4 py-2 whitespace-normal" disabled={saving !== null || !item.snapshot_url} onclick={() => review(item, 'restore')}>{$_('garden.restore', { default: 'Return to review' })}</button>
+                                    {#if !item.snapshot_url}
+                                        <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.photo_restore_unavailable', { default: 'Photo unavailable. It cannot return to review.' })}</p>
                                     {/if}
                                 {/if}
                             </div>

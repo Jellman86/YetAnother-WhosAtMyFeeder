@@ -61,6 +61,95 @@ def test_garden_defaults_off_and_rejects_non_animal_labels():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("advertised", [False, None, "missing"])
+async def test_terminal_animal_without_advertised_photo_does_not_enter_review(advertised):
+    payload = event(has_snapshot=advertised)
+    if advertised == "missing":
+        payload["after"].pop("has_snapshot")
+    with patch("app.services.garden_capture_service.frigate_client.get_snapshot", new=AsyncMock()) as snapshot:
+        await garden_capture_service.process(payload)
+        snapshot.assert_not_awaited()
+    async with get_db() as db:
+        assert await GardenRepository(db).count("pending") == 0
+        assert await (await db.execute("SELECT count(*) FROM garden_captures")).fetchone() == (0,)
+    # A later terminal delivery can advertise a usable photo. A delayed false
+    # flag must not erase the owner's review or the existing image reference.
+    await garden_capture_service.process(event())
+    async with get_db() as db:
+        repo = GardenRepository(db)
+        capture = (await repo.list("pending", 20, 0))[0]
+        await repo.review(capture.id, "confirmed")
+    await garden_capture_service.process(payload)
+    async with get_db() as db:
+        capture = await GardenRepository(db).get(capture.id)
+        assert capture.status == "confirmed" and capture.has_snapshot
+
+
+@pytest.mark.asyncio
+async def test_person_without_photo_still_revokes_an_earlier_animal_capture():
+    await garden_capture_service.process(event())
+    await garden_capture_service.process(event("person", has_snapshot=False))
+    await garden_capture_service.process(event())
+    async with get_db() as db:
+        assert await GardenRepository(db).count("pending") == 0
+        assert await (await db.execute("SELECT status FROM garden_captures")).fetchone() == ("blocked",)
+
+
+@pytest.mark.asyncio
+async def test_known_photoless_pending_captures_are_hidden_without_rewriting_history():
+    async with get_db() as db:
+        repo = GardenRepository(db)
+        for index in range(4):
+            await repo.capture(f"legacy-{index}", "patio", "cat", f"2026-10-13T12:00:0{index}", index < 2)
+        await repo.capture("confirmed-no-photo", "patio", "cat", "2026-10-13T12:01:00", False)
+        await db.execute("UPDATE garden_captures SET status='confirmed' WHERE frigate_event='confirmed-no-photo'")
+        await db.commit()
+        before = await (await db.execute("SELECT * FROM garden_captures ORDER BY id")).fetchall()
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        first = (await client.get("/api/garden", params={"limit": 1})).json()
+        second = (await client.get("/api/garden", params={"limit": 1, "offset": 1})).json()
+        assert first["total"] == second["total"] == 2
+        assert len(first["items"]) == len(second["items"]) == 1
+        assert first["items"][0]["id"] != second["items"][0]["id"]
+        assert all(row["snapshot_url"] for row in first["items"] + second["items"])
+        history = (await client.get("/api/garden", params={"status": "confirmed"})).json()
+        assert history["total"] == 1 and history["items"][0]["snapshot_url"] is None
+    async with get_db() as db:
+        assert await (await db.execute("SELECT * FROM garden_captures ORDER BY id")).fetchall() == before
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("action", ["confirm", "restore"])
+async def test_stale_frigate_capture_without_photo_cannot_be_confirmed_or_restored(action):
+    async with get_db() as db:
+        repo = GardenRepository(db)
+        await repo.capture("no-photo", "patio", "cat", "2026-10-13T12:00:00", False)
+        capture = await (await db.execute("SELECT id FROM garden_captures")).fetchone()
+        await repo.review(capture[0], "dismissed")
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post(f"/api/garden/{capture[0]}/{action}")
+        assert response.status_code == 409
+        assert "photo" in response.json()["detail"].lower()
+        assert (await client.get("/api/garden", params={"status": "dismissed"})).json()["total"] == 1
+
+
+@pytest.mark.asyncio
+async def test_failed_snapshot_request_does_not_discard_an_advertised_capture():
+    await garden_capture_service.process(event())
+    async with get_db() as db:
+        repo = GardenRepository(db)
+        capture = (await repo.list("pending", 20, 0))[0]
+    with patch("app.services.garden_capture_service.frigate_client.get_snapshot", new=AsyncMock(return_value=None)):
+        with pytest.raises(Exception) as error:
+            await garden_capture_service.snapshot(capture.id)
+        assert error.value.status_code == 404
+    async with get_db() as db:
+        repo = GardenRepository(db)
+        assert await repo.get(capture.id) == capture
+        assert await repo.count("pending") == 1
+
+
+@pytest.mark.asyncio
 async def test_only_terminal_opted_in_animals_create_one_review_without_bird_writes():
     for payload in (
         event(event_type="new"),

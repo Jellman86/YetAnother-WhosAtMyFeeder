@@ -71,6 +71,8 @@ class GardenCaptureService:
             return
         if str(data.get("type", "")).lower() != "end":
             return
+        if not after.get("has_snapshot"):
+            return
         retention_days = settings.maintenance.retention_days if settings.maintenance.cleanup_enabled else 0
         observed_at = observation_time(after.get("start_time"), datetime.now(timezone.utc), retention_days)
         if observed_at is None:
