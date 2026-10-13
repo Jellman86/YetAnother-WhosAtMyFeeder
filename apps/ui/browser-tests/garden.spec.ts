@@ -6,6 +6,50 @@ const motionStatus = { cameras: [], installed: false, catalogue_ready: true, bus
 
 const id = 'a'.repeat(32);
 const row = { id, camera: 'patio', frigate_label: 'cat', observed_at: '2026-10-11T18:00:00Z', reviewed_at: null, status: 'pending', snapshot_url: `/api/garden/${id}/snapshot` };
+const motionSource = {
+    camera: 'patio', clip_start: 1, clip_end: 9, frame_index: 1, frame_offset: 1,
+    clip_sha256: 'a'.repeat(64), image_sha256: 'b'.repeat(64), detector_sha256: 'c'.repeat(64),
+    detector_score: 0.8, box_xywh: [0.1, 0.2, 0.3, 0.4]
+};
+
+for (const size of [[640, 1000], [1280, 720], [1600, 400]]) {
+    test(`presence proposal aligns with the ${size.join('x')} photo before species analysis`, async ({ page }) => {
+        await page.route('**/api/garden?**', route => route.fulfill({ json: { items: [{ ...row, source_kind: 'motion', motion_source: motionSource }], total: 1, limit: 8, offset: 0 } }));
+        await page.route('**/api/garden/motion', route => route.fulfill({ json: motionStatus }));
+        await page.route('**/api/garden/identification', route => route.fulfill({ json: modelStatus }));
+        await page.route('**/api/garden/*/snapshot', route => route.fulfill({ contentType: 'image/svg+xml', body: `<svg xmlns="http://www.w3.org/2000/svg" width="${size[0]}" height="${size[1]}"><rect width="100%" height="100%" fill="#28594a"/></svg>` }));
+        await page.goto('/browser-tests/garden.html');
+        await expect(page.getByRole('button', { name: 'Confirm animal present' })).toBeEnabled();
+        await expect(page.getByText('Box: MegaDetector Cedar candidate. Check the photo before confirming.')).toBeVisible();
+        for (const width of [1280, 320]) {
+            await page.setViewportSize({ width, height: 900 });
+            await page.evaluate(() => document.documentElement.style.fontSize = '200%');
+            const rect = page.locator('[data-garden-presence] rect').last();
+            await expect(rect).toBeVisible();
+            const image = await page.locator('article img').boundingBox();
+            const outline = await rect.boundingBox();
+            if (!image || !outline) throw new Error('Expected a decoded photo and detector proposal');
+            const scale = Math.min(image.width / size[0], image.height / size[1]);
+            expect(outline.x).toBeCloseTo(image.x + (image.width - size[0] * scale) / 2 + size[0] * 0.1 * scale - 1, 1);
+            expect(outline.y).toBeCloseTo(image.y + (image.height - size[1] * scale) / 2 + size[1] * 0.2 * scale - 1, 1);
+            expect(outline.width).toBeCloseTo(size[0] * 0.3 * scale + 2, 1);
+            expect(outline.height).toBeCloseTo(size[1] * 0.4 * scale + 2, 1);
+            await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+        }
+    });
+}
+
+test('failed motion photo hides its box and blocks presence confirmation', async ({ page }) => {
+    await page.route('**/api/garden?**', route => route.fulfill({ json: { items: [{ ...row, source_kind: 'motion', motion_source: motionSource }], total: 1, limit: 8, offset: 0 } }));
+    await page.route('**/api/garden/motion', route => route.fulfill({ json: motionStatus }));
+    await page.route('**/api/garden/identification', route => route.fulfill({ json: modelStatus }));
+    await page.route('**/api/garden/*/snapshot', route => route.fulfill({ status: 404 }));
+    await page.goto('/browser-tests/garden.html');
+    await expect(page.getByText('Snapshot unavailable')).toBeVisible();
+    await expect(page.locator('[data-garden-presence]')).toHaveCount(0);
+    await expect(page.getByText('Box: MegaDetector Cedar candidate. Check the photo before confirming.')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Confirm animal present' })).toBeDisabled();
+});
 
 for (const photoAvailable of [true, false]) {
     test(`dismissed motion photo ${photoAvailable ? 'can return to review' : 'explains why restoration is unavailable'}`, async ({ page }) => {
@@ -227,9 +271,9 @@ test('tracked crop outline stays on the photographed pixels with letterboxing', 
     await expect(page.getByText(/Tracked snapshot crop/)).toBeVisible();
     for (const width of [320, 1280]) {
         await page.setViewportSize({ width, height: 900 });
-        await expect(page.locator('[data-garden-input] rect')).toBeVisible();
+        await expect(page.locator('[data-garden-input] rect').last()).toBeVisible();
         const image = await page.locator('article img').boundingBox();
-        const outline = await page.locator('[data-garden-input] rect').boundingBox();
+        const outline = await page.locator('[data-garden-input] rect').last().boundingBox();
         if (!image || !outline) throw new Error('Expected the photo and its input outline');
         const scale = Math.min(image.width / 640, image.height / 1000);
         // The visible 2px non-scaling stroke extends 1px beyond each crop edge.

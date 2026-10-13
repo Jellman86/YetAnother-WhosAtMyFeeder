@@ -3621,6 +3621,7 @@
     "motion_last_scan": "前回の解析: {time}",
     "motion_download": "Cedar検出器をダウンロード (101 MB)",
     "motion_source": "保存された動体映像からの候補",
+    "presence_box": "枠：MegaDetector Cedarが検出した候補です。確認する前に写真を確認してください。",
     "motion_restore_unavailable": "写真は保存されていません。確認待ちに戻すことはできません。"
   }
 }

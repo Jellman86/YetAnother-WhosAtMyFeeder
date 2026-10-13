@@ -3621,6 +3621,7 @@
     "motion_last_scan": "Последний анализ: {time}",
     "motion_download": "Загрузить детектор Cedar (101 МБ)",
     "motion_source": "Кандидат из сохранённой записи движения",
+    "presence_box": "Рамка: кандидат MegaDetector Cedar. Проверьте фото перед подтверждением.",
     "motion_restore_unavailable": "Фото больше не хранится. Вернуть запись на проверку нельзя."
   }
 }

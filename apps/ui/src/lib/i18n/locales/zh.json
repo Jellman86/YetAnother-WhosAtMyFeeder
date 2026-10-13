@@ -3621,6 +3621,7 @@
     "motion_last_scan": "上次分析：{time}",
     "motion_download": "下载Cedar检测器（101 MB）",
     "motion_source": "来自保留移动录像的候选",
+    "presence_box": "边框：MegaDetector Cedar 检测的候选对象。请查看照片后再确认。",
     "motion_restore_unavailable": "照片已不再保存，无法将此记录重新提交审核。"
   }
 }

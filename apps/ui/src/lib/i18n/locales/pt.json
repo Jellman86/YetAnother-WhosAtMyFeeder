@@ -3621,6 +3621,7 @@
     "motion_last_scan": "Última análise: {time}",
     "motion_download": "Transferir detetor Cedar (101 MB)",
     "motion_source": "Candidato de uma gravação de movimento guardada",
+    "presence_box": "Caixa: candidato do MegaDetector Cedar. Verifique a foto antes de confirmar.",
     "motion_restore_unavailable": "A foto já não está guardada. A captura não pode voltar à revisão."
   }
 }

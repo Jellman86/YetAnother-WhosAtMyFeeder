@@ -3621,6 +3621,7 @@
     "motion_last_scan": "Letzte Prüfung: {time}",
     "motion_download": "Cedar-Detektor herunterladen (101 MB)",
     "motion_source": "Kandidat aus gespeicherter Bewegungsaufnahme",
+    "presence_box": "Rahmen: Vorschlag von MegaDetector Cedar. Prüfe das Foto vor dem Bestätigen.",
     "motion_restore_unavailable": "Das Foto ist nicht mehr gespeichert. Die Aufnahme kann nicht zur Prüfung zurückkehren."
   }
 }
