@@ -378,7 +378,10 @@ only to garden history. No automatic inference or model switch is performed.
 
 Captures include `source_kind=frigate_event|motion`. Motion captures have no Frigate
 event ID. Their `motion_source` binds the requested recording window, returned frame
-index/offset, model/input/frame/clip/photo hashes and normalized detector box. These
+index/offset, model/input/frame/clip/photo hashes and normalized detector box. The
+windows describe the requested Frigate interval; the returned clip can include up
+to five seconds of keyframe padding. Samples stay within its first ten seconds,
+person checks include the padded interval and displayed observation times are approximate. These
 are detector proposals, including possible birds and false positives. Confirmation
 requires an unexpired stored photo. The 128-photo budget is capped at 512 KiB per
 photo; clips are temporary, photos expire after three days and unconfirmed motion

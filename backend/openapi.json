@@ -10304,6 +10304,7 @@
             "type": "string"
           },
           "clip_end": {
+            "description": "Requested Frigate recording end, Unix UTC",
             "exclusiveMinimum": 0.0,
             "title": "Clip End",
             "type": "number"
@@ -10314,6 +10315,7 @@
             "type": "string"
           },
           "clip_start": {
+            "description": "Requested Frigate recording start, Unix UTC",
             "exclusiveMinimum": 0.0,
             "title": "Clip Start",
             "type": "number"
@@ -10348,6 +10350,7 @@
             "type": "integer"
           },
           "frame_offset": {
+            "description": "Decoded frame offset from the returned clip start; Frigate may include bounded keyframe padding",
             "minimum": 0.0,
             "title": "Frame Offset",
             "type": "number"

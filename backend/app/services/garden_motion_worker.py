@@ -14,6 +14,7 @@ import cv2
 
 from app.services.garden_detector_runtime import detector_input, decode_candidates
 from app.services.garden_model_runtime import Runtime, digest
+from app.models.garden_motion import MOTION_PADDING_SECONDS
 
 
 def scan_clip(payload: dict[str, Any]) -> dict[str, Any]:
@@ -33,7 +34,7 @@ def scan_clip(payload: dict[str, Any]) -> dict[str, Any]:
         if not all(math.isfinite(v) and v > 0 for v in (width, height, fps, count)):
             raise ValueError("Motion recording has no valid dimensions or frame rate")
         duration = count / fps
-        if width * height > 16_000_000 or fps > 120 or not 0.1 <= duration <= duration_limit + 1:
+        if width * height > 16_000_000 or fps > 120 or not 0.1 <= duration <= duration_limit + MOTION_PADDING_SECONDS:
             raise ValueError("Motion recording exceeds its pixel or duration limit")
         runtime = Runtime(model, "cpu")
         best = None

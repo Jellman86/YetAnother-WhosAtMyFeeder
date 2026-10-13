@@ -21,7 +21,7 @@ import structlog
 
 from app.config import settings
 from app.database import get_db
-from app.models.garden_motion import GardenMotionStatus, MotionSource
+from app.models.garden_motion import GardenMotionStatus, MotionSource, MOTION_PADDING_SECONDS
 from app.repositories.garden_detector_catalog import GardenDetectorCatalog
 from app.repositories.garden_repository import GardenRepository
 from app.services import garden_motion_privacy
@@ -174,6 +174,8 @@ class GardenMotionService:
             await asyncio.sleep(10)
 
     async def _person_overlap(self, camera: str, start: float, end: float) -> bool:
+        start -= MOTION_PADDING_SECONDS
+        end += MOTION_PADDING_SECONDS
         for label in ("person", "human"):
             # No lower time bound: a long-running person can start before this clip.
             events = await frigate_client.list_events(

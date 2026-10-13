@@ -161,6 +161,18 @@ async def test_unrelated_frigate_false_positive_preserves_independent_motion_rev
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("offset", [-4.0, 11.0])
+async def test_person_in_bounded_keyframe_padding_revokes_motion(offset):
+    source = evidence()
+    async with get_db() as db:
+        repo = GardenRepository(db)
+        capture_id = await repo.capture_motion(source, b"photo")
+        await repo.block_motion_overlap("patio", source.clip_start + offset, source.clip_start + offset + 1)
+        assert await repo.get(capture_id) is None
+        assert await repo.motion_photo(capture_id) is None
+
+
+@pytest.mark.asyncio
 async def test_expiry_removes_unconfirmed_media_and_identity_in_bounded_batches():
     async with get_db() as db:
         repo = GardenRepository(db)

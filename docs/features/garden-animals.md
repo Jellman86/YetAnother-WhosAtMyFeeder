@@ -44,6 +44,9 @@ It does not replace Frigate's bird detector or change bird classification settin
 
 Collection is off by default. It scans at most one completed recording every two
 minutes across all enabled cameras, sampling three frames from up to ten seconds.
+Frigate can include keyframe padding in the returned clip. Up to five extra seconds
+are tolerated, but samples stay within the first ten seconds. Recording windows
+and decoded frame offsets are retained separately; displayed visit times are approximate.
 Only motion recordings from the last ten minutes are considered, so Frigate must
 retain motion footage. This samples activity; it does not track animals or promise
 to find every visit. The panel reports waiting, failures and the last attempted scan.
@@ -59,6 +62,7 @@ footage**. The generic animal class includes birds, and toys or shadows can trig
 it. Confirm presence only after inspecting the photograph. A detected person in
 any sampled frame rejects the recording. Known overlapping Frigate person events
 also reject it, and later person updates erase overlapping motion evidence.
+Person checks include the bounded padding around the requested recording window.
 An unrelated false-positive bird, animal or vehicle event cannot erase an independent
 motion review. Missing or overfull person history stops that scan. Recognition can miss
 people; these photographs remain owner-only.

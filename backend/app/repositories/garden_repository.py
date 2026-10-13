@@ -12,7 +12,7 @@ import aiosqlite
 
 from app.utils.api_datetime import utc_naive_now
 from app.models.garden import GardenIdentification
-from app.models.garden_motion import MotionSource
+from app.models.garden_motion import MotionSource, MOTION_PADDING_SECONDS
 
 MOTION_PHOTO_LIMIT = 128
 MOTION_PHOTO_BYTES = 512 * 1024
@@ -224,7 +224,7 @@ class GardenRepository:
                WHERE json_extract(source_json,'$.camera')=?
                AND json_extract(source_json,'$.clip_start') <= ?
                AND json_extract(source_json,'$.clip_end') >= ?""",
-            (camera, end, start),
+            (camera, end + MOTION_PADDING_SECONDS, start - MOTION_PADDING_SECONDS),
         ) as cursor:
             captures = await cursor.fetchall()
         for (capture_id,) in captures:
