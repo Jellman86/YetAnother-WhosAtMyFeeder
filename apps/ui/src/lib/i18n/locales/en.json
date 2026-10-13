@@ -3564,7 +3564,7 @@
     "save_error": "Could not save your review. Try again.",
     "review_only": "Owner review prototype",
     "review_help": "Check the photo and confirm animal presence first. You can then request a species suggestion. Model scores can be confidently wrong; identification always needs your review.",
-    "retention_help": "Garden visits stay separate from bird totals and exports. Photos remain in Frigate and expire with its retention settings.",
+    "retention_help": "Garden visits stay separate from bird totals and exports. Frigate event photos follow Frigate retention. Motion review photos expire after three days; unconfirmed motion captures are then removed.",
     "views": "Garden review views",
     "refresh": "Refresh",
     "loading": "Loading garden captures…",
@@ -3612,6 +3612,14 @@
     "accept_identification": "Confirm identification",
     "dismiss_suggestion": "Dismiss suggestion",
     "working": "Working…",
-    "setup_needed": "Open Species suggestions above to check the model, country and availability."
+    "setup_needed": "Open Species suggestions above to check the model, country and availability.",
+    "motion_toggle": "Collect motion review photos",
+    "motion_camera_help": "Optional CPU scans of retained motion footage. Download the detector on Garden animals; bird detection keeps its current settings.",
+    "motion_title": "Motion collection",
+    "motion_help": "Cedar proposes animals from short motion recordings, including wildlife Frigate did not track. Birds and objects can also be proposed. Every photo needs your review; no species is identified automatically.",
+    "motion_limits": "CPU only · One short recording every {seconds}s · Up to {limit} photos · {days}-day photo retention",
+    "motion_last_scan": "Last scan: {time}",
+    "motion_download": "Download Cedar detector (101 MB)",
+    "motion_source": "Candidate from retained motion footage"
   }
 }

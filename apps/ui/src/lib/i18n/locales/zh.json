@@ -3564,7 +3564,7 @@
     "save_error": "无法保存审核结果，请重试。",
     "review_only": "由所有者审核的原型",
     "review_help": "请先查看照片并确认有动物，然后可以请求物种建议。即使模型评分很高，也可能判断错误；请务必审核识别结果。",
-    "retention_help": "花园来访记录不计入鸟类统计或导出。照片保留在 Frigate 中，并按其保留设置过期。",
+    "retention_help": "花园访问与鸟类统计和导出分开。Frigate事件照片遵循Frigate保留设置。移动照片三天后过期，未确认的移动记录也会被移除。",
     "views": "花园审核视图",
     "refresh": "刷新",
     "loading": "正在加载花园抓拍…",
@@ -3612,6 +3612,14 @@
     "suggest_species": "请求物种建议",
     "tracked_crop": "跟踪对象的照片裁剪",
     "whole_image": "经模型去除边缘的完整图像",
-    "working": "正在处理…"
+    "working": "正在处理…",
+    "motion_toggle": "收集待审核的移动照片",
+    "motion_camera_help": "可选用CPU分析保留的移动录像。请在“花园动物”下载检测器；鸟类检测设置保持不变。",
+    "motion_title": "移动录像收集",
+    "motion_help": "Cedar从短录像中提出动物候选，包括Frigate未跟踪的野生动物。也可能提出鸟类和物体。每张照片都需要您审核，不会自动识别物种。",
+    "motion_limits": "仅CPU · 每{seconds}秒一段短录像 · 最多{limit}张照片 · 照片保留{days}天",
+    "motion_last_scan": "上次分析：{time}",
+    "motion_download": "下载Cedar检测器（101 MB）",
+    "motion_source": "来自保留移动录像的候选"
   }
 }

@@ -35,6 +35,7 @@
         recordingClipAfterSeconds = $bindable(90),
         selectedCameras = $bindable<string[]>([]),
         gardenCameras = $bindable<string[]>([]),
+        gardenMotionCameras = $bindable<string[]>([]),
         gardenLabels = $bindable('cat, dog'),
         cameraRoles = $bindable<Record<string, 'feeder' | 'nest'>>({}),
         nestDedupeMinutes = $bindable(30),
@@ -67,6 +68,7 @@
         recordingClipAfterSeconds: number;
         selectedCameras: string[];
         gardenCameras?: string[];
+        gardenMotionCameras?: string[];
         gardenLabels?: string;
         cameraRoles: Record<string, 'feeder' | 'nest'>;
         nestDedupeMinutes: number;
@@ -683,6 +685,17 @@
                                 </button>
                                 <span class="min-w-0 flex-1 text-xs text-slate-600 dark:text-slate-400">{$_('garden.camera_help', { default: 'Independent animal review. Keeps this camera’s bird role.' })}</span>
                             </div>
+                            {#if gardenCameras.includes(camera)}
+                                <div class="px-2 pb-3 space-y-2">
+                                    <button type="button" class="btn btn-secondary min-h-11 px-3 py-2"
+                                        aria-pressed={gardenMotionCameras.includes(camera)}
+                                        onclick={() => gardenMotionCameras = gardenMotionCameras.includes(camera) ? gardenMotionCameras.filter(name => name !== camera) : [...gardenMotionCameras, camera]}>
+                                        {$_('garden.motion_toggle', { default: 'Collect motion review photos' })}
+                                        <span aria-hidden="true">{gardenMotionCameras.includes(camera) ? '✓' : '+'}</span>
+                                    </button>
+                                    <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.motion_camera_help', { default: 'Optional CPU scans of retained motion footage. Download the detector on Garden animals; bird detection keeps its current settings.' })}</p>
+                                </div>
+                            {/if}
                             {#if previewVisible && previewCamera === camera}
                                 <div class="rounded-2xl border border-slate-200/80 dark:border-slate-700/60 bg-white/95 dark:bg-slate-900/95 overflow-hidden shadow-lg shadow-slate-900/10 dark:shadow-black/30">
                                     <div class="px-4 py-2 flex items-center justify-between gap-2">

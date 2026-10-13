@@ -791,6 +791,16 @@ class SettingsUpdate(BaseModel):
     garden_labels: list[str] = Field(
         default_factory=lambda: ["cat", "dog"], description="Animal labels for garden review"
     )
+    garden_motion_cameras: list[str] = Field(
+        default_factory=list, description="Garden cameras opted in to bounded motion review scans"
+    )
+
+    @field_validator("garden_motion_cameras", mode="before")
+    @classmethod
+    def validate_motion_cameras(cls, value: object) -> list[str]:
+        from app.services.garden_motion_policy import normalize_motion_cameras
+
+        return normalize_motion_cameras(value)
 
     @field_validator("garden_cameras", mode="before")
     @classmethod
@@ -1460,6 +1470,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "camera_roles": settings.frigate.camera_roles,
         "garden_cameras": settings.frigate.garden_cameras,
         "garden_labels": settings.frigate.garden_labels,
+        "garden_motion_cameras": settings.frigate.garden_motion_cameras,
         "nest_dedupe_minutes": settings.frigate.nest_dedupe_minutes,
         "audio_buffer_hours": settings.frigate.audio_buffer_hours,
         "audio_correlation_window_seconds": settings.frigate.audio_correlation_window_seconds,
@@ -1789,6 +1800,8 @@ async def update_settings(
         settings.frigate.garden_cameras = update.garden_cameras
     if "garden_labels" in fields_set:
         settings.frigate.garden_labels = update.garden_labels
+    if "garden_motion_cameras" in fields_set:
+        settings.frigate.garden_motion_cameras = update.garden_motion_cameras
     if "nest_dedupe_minutes" in fields_set and update.nest_dedupe_minutes is not None:
         settings.frigate.nest_dedupe_minutes = update.nest_dedupe_minutes
     if "audio_buffer_hours" in fields_set:

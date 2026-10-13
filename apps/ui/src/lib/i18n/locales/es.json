@@ -3564,7 +3564,7 @@
     "save_error": "No se pudo guardar la revisión. Inténtalo de nuevo.",
     "review_only": "Prototipo para revisión del propietario",
     "review_help": "Revisa la foto y confirma primero que hay un animal. Después puedes solicitar una sugerencia de especie. El modelo puede equivocarse incluso con una puntuación alta; revisa siempre la identificación.",
-    "retention_help": "Las visitas del jardín quedan separadas de los totales y exportaciones de aves. Las fotos permanecen en Frigate y caducan según su configuración de retención.",
+    "retention_help": "Las visitas al jardín no se mezclan con los totales ni las exportaciones de aves. Las fotos de eventos siguen la retención de Frigate. Las fotos de movimiento caducan a los tres días; entonces se eliminan las capturas sin confirmar.",
     "views": "Vistas de revisión del jardín",
     "refresh": "Actualizar",
     "loading": "Cargando capturas del jardín…",
@@ -3612,6 +3612,14 @@
     "suggest_species": "Sugerir especie",
     "tracked_crop": "Recorte de la captura del objeto seguido",
     "whole_image": "Imagen completa con recorte de bordes del modelo",
-    "working": "Procesando…"
+    "working": "Procesando…",
+    "motion_toggle": "Recopilar fotos de movimiento para revisar",
+    "motion_camera_help": "Análisis opcional en CPU de grabaciones de movimiento conservadas. Descarga el detector en Animales del jardín; la detección de aves mantiene su configuración.",
+    "motion_title": "Recopilación de movimiento",
+    "motion_help": "Cedar propone animales a partir de grabaciones breves, incluidos los que Frigate no siguió. También puede proponer aves y objetos. Cada foto requiere revisión; no se identifican especies automáticamente.",
+    "motion_limits": "Solo CPU · Una grabación breve cada {seconds}s · Hasta {limit} fotos · Fotos conservadas {days} días",
+    "motion_last_scan": "Último análisis: {time}",
+    "motion_download": "Descargar detector Cedar (101 MB)",
+    "motion_source": "Candidato de una grabación de movimiento conservada"
   }
 }

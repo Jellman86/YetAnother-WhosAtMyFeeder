@@ -53,6 +53,7 @@ for behavior shipped in a tagged image.
 
 - [Contributing](../CONTRIBUTING.md) · [Development workflow](../DEVELOPMENT.md) · [Architecture](../DEVELOPER.md).
 - [API reference](api.md) · [Regression testing](development/testing.md) · [Model conversion](conversions/birder-model-conversion.md).
+- [Cedar detector artifact](development/cedar-model.md) — source, conversion and runtime input contract.
 - [Garden prototype replay](development/garden-replay.md) — local model research; automatic species identification is not enabled.
 - [Engineering contract](../CLAUDE.md) · [Code quality](standards/code-quality.md) · [UI/UX](standards/ui-ux.md).
 - [Documentation standard](documentation-standard.md) · [Screenshot capture](images/README.md).

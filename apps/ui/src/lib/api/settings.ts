@@ -29,6 +29,7 @@ export interface Settings {
     camera_audio_mapping: Record<string, string>;
     camera_roles: Record<string, 'feeder' | 'nest'>;
     garden_cameras: NonNullable<components['schemas']['SettingsResponse']['garden_cameras']>;
+    garden_motion_cameras?: NonNullable<components['schemas']['SettingsResponse']['garden_motion_cameras']>;
     garden_labels: NonNullable<components['schemas']['SettingsResponse']['garden_labels']>;
     nest_dedupe_minutes: number;
     classification_image_source?: ClassificationImageSource;

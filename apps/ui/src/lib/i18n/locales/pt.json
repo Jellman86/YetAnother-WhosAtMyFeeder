@@ -3564,7 +3564,7 @@
     "save_error": "Não foi possível guardar a revisão. Tente novamente.",
     "review_only": "Protótipo para revisão pelo proprietário",
     "review_help": "Verifique a fotografia e confirme primeiro a presença de um animal. Depois pode pedir uma sugestão de espécie. Mesmo uma pontuação elevada pode estar errada; verifique sempre a identificação.",
-    "retention_help": "As visitas do jardim ficam separadas dos totais e exportações de aves. As fotos permanecem no Frigate e expiram segundo as suas definições de retenção.",
+    "retention_help": "As visitas ao jardim ficam separadas dos totais e exportações de aves. As fotos de eventos seguem a retenção do Frigate. As fotos de movimento expiram após três dias; as capturas não confirmadas são então removidas.",
     "views": "Vistas de revisão do jardim",
     "refresh": "Atualizar",
     "loading": "A carregar capturas do jardim…",
@@ -3612,6 +3612,14 @@
     "suggest_species": "Sugerir espécie",
     "tracked_crop": "Recorte da fotografia do objeto seguido",
     "whole_image": "Imagem completa com recorte das margens do modelo",
-    "working": "A processar…"
+    "working": "A processar…",
+    "motion_toggle": "Recolher fotos de movimento para revisão",
+    "motion_camera_help": "Análise opcional na CPU de gravações de movimento guardadas. Transfira o detetor em Animais do jardim; a deteção de aves mantém as definições atuais.",
+    "motion_title": "Recolha de movimento",
+    "motion_help": "Cedar propõe animais a partir de gravações curtas, incluindo os que Frigate não seguiu. Também pode propor aves e objetos. Todas as fotos precisam de revisão; nenhuma espécie é identificada automaticamente.",
+    "motion_limits": "Apenas CPU · Uma gravação curta a cada {seconds}s · Até {limit} fotos · Fotos guardadas durante {days} dias",
+    "motion_last_scan": "Última análise: {time}",
+    "motion_download": "Transferir detetor Cedar (101 MB)",
+    "motion_source": "Candidato de uma gravação de movimento guardada"
   }
 }

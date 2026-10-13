@@ -6,6 +6,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Garden cameras can opt in to bounded CPU scans of retained motion recordings using
+  the separate Cedar detector. Private proposals retain exact frame and model evidence,
+  need owner review, yield to bird work and camera pressure, and never change bird
+  history or the active bird model. Motion photos have a 64 MiB budget and expire after
+  three days; unconfirmed motion captures are then removed. Recognised people reject
+  the recording and late Frigate person updates revoke overlapping evidence.
+
 - Garden species suggestions now send the JSON request expected by the backend, fixing
   a validation error when selecting Suggest species. Camera settings describe the available
   manual suggestions.
@@ -21,8 +28,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   Frigate animal events. Confirm animal presence, dismiss false detections and restore reviews
   without affecting bird history or exports. Confirmed captures can request a SpeciesNet suggestion
   using country-filtered species data from the catalogue, with explicit identification review and
-  disposable inference that yields to bird work. Garden photographs follow Frigate retention and
-  are not archived locally.
+  disposable inference that yields to bird work. Event photographs follow Frigate retention;
+  optional motion review photos have separate bounded retention.
 
 - An isolated Garden animals developer replay evaluates retained footage with SpeciesNet and a
   separate detector. It produces private review candidates, excludes birds and recognized people,

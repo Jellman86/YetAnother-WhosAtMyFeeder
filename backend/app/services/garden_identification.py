@@ -281,18 +281,23 @@ class GardenIdentificationService:
 
         if blocked():
             raise GardenBusy("Bird inference needs the hardware. Try again when it is idle.")
-        event = await frigate_client.get_event(capture.frigate_event)
-        if not event or event.get("camera") != capture.camera:
-            raise HTTPException(404, "Frigate no longer has this capture")
-        if event.get("false_positive") or event.get("label") in {"person", "human"}:
-            async with get_db() as db:
-                await GardenRepository(db).block(capture.frigate_event, create=False)
-            raise HTTPException(404, "Garden capture no longer available")
-        if str(event.get("label", "")).lower() not in settings.frigate.garden_labels:
-            raise HTTPException(409, "Frigate's current label is not an enabled garden animal")
-        # REST data.box describes Frigate's representative snapshot in normalized XYWH.
-        data = event.get("data") if isinstance(event.get("data"), dict) else {}
-        box = normalized_frigate_video_hint(data.get("box")) if request.variant == "4.0.3a" else None
+        event_label = capture.label
+        if capture.motion_source:
+            box = capture.motion_source.box_xywh if request.variant == "4.0.3a" else None
+        else:
+            event = await frigate_client.get_event(capture.frigate_event)
+            if not event or event.get("camera") != capture.camera:
+                raise HTTPException(404, "Frigate no longer has this capture")
+            if event.get("false_positive") or event.get("label") in {"person", "human"}:
+                async with get_db() as db:
+                    await GardenRepository(db).block_capture(capture.id)
+                raise HTTPException(404, "Garden capture no longer available")
+            event_label = str(event.get("label", "")).lower()
+            if event_label not in settings.frigate.garden_labels:
+                raise HTTPException(409, "Frigate's current label is not an enabled garden animal")
+            # REST data.box describes Frigate's representative snapshot in normalized XYWH.
+            data = event.get("data") if isinstance(event.get("data"), dict) else {}
+            box = normalized_frigate_video_hint(data.get("box")) if request.variant == "4.0.3a" else None
         if request.variant == "4.0.3a" and (box is None or box[0] + box[2] > 1 or box[1] + box[3] > 1):
             raise HTTPException(409, "A tracked snapshot crop is unavailable. Choose the whole-image model.")
         image = await garden_capture_service.snapshot(capture_id)
@@ -350,7 +355,7 @@ class GardenIdentificationService:
         )
         if decision.reason == "human_rejected":
             async with get_db() as db:
-                await GardenRepository(db).block(capture.frigate_event, create=False)
+                await GardenRepository(db).block_capture(capture.id)
             raise HTTPException(404, "Garden capture no longer available")
         taxon = decision.taxon
         binding = bundle["bindings"].get(taxon.id) if taxon else None
@@ -380,7 +385,7 @@ class GardenIdentificationService:
         if (
             normalize_country(settings.location.country) != country
             or capture.camera not in settings.frigate.garden_cameras
-            or str(event.get("label", "")).lower() not in settings.frigate.garden_labels
+            or (not capture.motion_source and event_label not in settings.frigate.garden_labels)
         ):
             raise HTTPException(409, "Garden camera or location changed. Request a new suggestion.")
         async with get_db() as db:

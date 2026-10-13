@@ -99,5 +99,6 @@ The intended camera control is **Garden animals** alongside the existing
 can still record birds. The application collects completed Frigate animal events and offers explicit owner-requested
 SpeciesNet suggestions, independently of this tool. The application requires a tracked
 box for the crop variant; the replay’s explicitly marked whole-frame fallback is not
-used there. Automatic identification, local garden media archiving and accuracy
+used there. The application's optional motion collector uses Cedar with bounded private
+photo retention, separately from this replay. Automatic identification and local accuracy
 qualification remain separate work.
