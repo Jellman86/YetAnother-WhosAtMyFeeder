@@ -127,6 +127,40 @@ async def test_late_person_update_revokes_overlapping_motion_only(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_unrelated_frigate_false_positive_preserves_independent_motion_review(monkeypatch):
+    from app.config import settings
+    from app.services.garden_capture_service import garden_capture_service
+
+    monkeypatch.setattr(settings.frigate, "garden_cameras", ["patio"])
+    source = evidence()
+    async with get_db() as db:
+        repo = GardenRepository(db)
+        capture_id = await repo.capture_motion(source, b"photo")
+        await repo.review(capture_id, "confirmed")
+        await repo.capture("false-dog", "patio", "dog", "2026-10-13T12:00:00", True)
+    for label in ("bird", "dog", "car"):
+        await garden_capture_service.process(
+            {
+                "type": "update",
+                "after": {
+                    "id": "false-" + label,
+                    "camera": "patio",
+                    "label": label,
+                    "false_positive": True,
+                    "start_time": source.clip_start,
+                    "end_time": source.clip_end,
+                },
+            }
+        )
+    async with get_db() as db:
+        repo = GardenRepository(db)
+        capture = await repo.get(capture_id)
+        assert capture and capture.status == "confirmed"
+        assert await repo.motion_photo(capture_id) == b"photo"
+        assert not any(row.frigate_event == "false-dog" for row in await repo.list("pending", 20, 0))
+
+
+@pytest.mark.asyncio
 async def test_expiry_removes_unconfirmed_media_and_identity_in_bounded_batches():
     async with get_db() as db:
         repo = GardenRepository(db)

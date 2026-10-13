@@ -24,7 +24,7 @@ history is not backfilled into this view.
 Garden visits never enter bird totals, personalization, bird notifications,
 BirdWeather, eBird or iNaturalist submissions. Bird labels, including custom bird
 ingest labels, take precedence. People and vehicles cannot be configured as garden
-labels. A later person or false-positive update removes the capture from all views
+labels. A later person or false-positive update removes its Frigate event capture from all views
 and prevents a delayed animal message from restoring it, even after capture is
 switched off. This relies on Frigate's labels; a missed person could still be in
 an animal photograph, so the view and its media are always owner-only.
@@ -58,8 +58,9 @@ Candidates appear in **Needs review**, labelled **Candidate from retained motion
 footage**. The generic animal class includes birds, and toys or shadows can trigger
 it. Confirm presence only after inspecting the photograph. A detected person in
 any sampled frame rejects the recording. Known overlapping Frigate person events
-also reject it, and later person or false-positive updates erase overlapping garden
-evidence. Missing or overfull person history stops that scan. Recognition can miss
+also reject it, and later person updates erase overlapping motion evidence.
+An unrelated false-positive bird, animal or vehicle event cannot erase an independent
+motion review. Missing or overfull person history stops that scan. Recognition can miss
 people; these photographs remain owner-only.
 
 At most 128 motion photos of 512 KiB each are stored in the application database,
