@@ -3621,6 +3621,7 @@
     "motion_last_scan": "Dernière analyse : {time}",
     "motion_download": "Télécharger le détecteur Cedar (101 Mo)",
     "motion_source": "Candidat provenant d’un enregistrement de mouvement conservé",
+    "presence_box": "Cadre : proposition de MegaDetector Cedar. Vérifiez la photo avant de confirmer.",
     "motion_restore_unavailable": "La photo n’est plus conservée. La capture ne peut pas revenir en vérification."
   }
 }

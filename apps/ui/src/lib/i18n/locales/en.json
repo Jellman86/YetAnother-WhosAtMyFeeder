@@ -3621,6 +3621,7 @@
     "motion_last_scan": "Last scan: {time}",
     "motion_download": "Download Cedar detector (101 MB)",
     "motion_source": "Candidate from retained motion footage",
+    "presence_box": "Box: MegaDetector Cedar candidate. Check the photo before confirming.",
     "motion_restore_unavailable": "Photo no longer stored. It cannot return to review."
   }
 }

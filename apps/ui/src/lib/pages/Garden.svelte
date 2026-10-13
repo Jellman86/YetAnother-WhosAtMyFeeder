@@ -5,6 +5,7 @@
     import { withAuthParams } from '../api/core';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { fetchGardenMotion, installGardenMotion, type GardenMotionStatus } from '../api/garden';
+    import { gardenPhotoOutline } from '../utils/garden-photo';
 
     let { onNavigate }: { onNavigate: (path: string) => void } = $props();
     let status = $state<GardenCapture['status']>('pending');
@@ -14,7 +15,7 @@
     let loading = $state(true);
     let saving = $state<string | null>(null);
     let error = $state<string | null>(null);
-    let loadedImages = $state<Record<string, boolean>>({});
+    let loadedImages = $state<Record<string, readonly [number, number]>>({});
     let failedImages = $state<Record<string, boolean>>({});
     let identification = $state.raw<GardenIdentificationStatus | null>(null);
     let motion = $state.raw<GardenMotionStatus | null>(null);
@@ -31,6 +32,12 @@
         { id: 'confirmed' as const, name: $_('garden.confirmed', { default: 'Confirmed animals' }) },
         { id: 'dismissed' as const, name: $_('garden.dismissed', { default: 'Dismissed' }) }
     ]);
+
+    function photoLoaded(id: string, event: Event): void {
+        const image = event.currentTarget;
+        if (!(image instanceof HTMLImageElement) || image.naturalWidth <= 0 || image.naturalHeight <= 0) return;
+        loadedImages = { ...loadedImages, [id]: [image.naturalWidth, image.naturalHeight] };
+    }
 
     async function load(): Promise<void> {
         const request = ++generation;
@@ -226,17 +233,19 @@
         {:else}
             <div class="space-y-4">
                 {#each items as item (item.id)}
+                    {@const outline = gardenPhotoOutline(item, loadedImages[item.id])}
                     <article class="card-base overflow-hidden md:grid md:grid-cols-3" aria-label={item.camera}>
                         <div class="relative aspect-video min-w-0 bg-surface-raised md:col-span-2">
                             {#if item.snapshot_url && !failedImages[item.id]}
                                 <img class="absolute inset-0 h-full w-full object-contain" src={withAuthParams(item.snapshot_url)}
                                     alt={$_('garden.photo_alt', { default: 'Animal capture from {camera}', values: { camera: item.camera } })}
-                                    loading="lazy" onload={() => loadedImages = { ...loadedImages, [item.id]: true }}
+                                    loading="lazy" onload={(event) => photoLoaded(item.id, event)}
                                     onerror={() => failedImages = { ...failedImages, [item.id]: true }} />
-                                {#if loadedImages[item.id] && item.identification?.box_xywh && item.identification.review !== 'dismissed'}
-                                    {@const box = item.identification.box_xywh}
-                                    {@const size = item.identification.frame_size}
-                                    <svg class="pointer-events-none absolute inset-0 h-full w-full text-amber-400" viewBox={`0 0 ${size[0]} ${size[1]}`} preserveAspectRatio="xMidYMid meet" aria-hidden="true" data-garden-input>
+                                {#if outline}
+                                    {@const box = outline.box}
+                                    {@const size = outline.size}
+                                    <svg class="pointer-events-none absolute inset-0 h-full w-full text-amber-400" viewBox={`0 0 ${size[0]} ${size[1]}`} preserveAspectRatio="xMidYMid meet" aria-hidden="true" data-garden-presence={outline.kind === 'presence' ? '' : undefined} data-garden-input={outline.kind === 'identification' ? '' : undefined}>
+                                        <rect x={box[0] * size[0]} y={box[1] * size[1]} width={box[2] * size[0]} height={box[3] * size[1]} fill="none" stroke="black" stroke-width="4" vector-effect="non-scaling-stroke" />
                                         <rect x={box[0] * size[0]} y={box[1] * size[1]} width={box[2] * size[0]} height={box[3] * size[1]} fill="none" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke" />
                                     </svg>
                                 {/if}
@@ -249,6 +258,9 @@
                                 <h2 class="break-words font-semibold">{item.camera}</h2>
                                 <time class="block text-xs text-slate-600 dark:text-slate-400" datetime={item.observed_at}>{new Date(item.observed_at).toLocaleString()}</time>
                                 <p class="break-words text-sm">{item.source_kind === 'motion' ? $_('garden.motion_source', { default: 'Candidate from retained motion footage' }) : $_('garden.frigate_suggested', { default: 'Frigate suggested: {label}', values: { label: item.frigate_label } })}</p>
+                                {#if outline?.kind === 'presence' && !failedImages[item.id]}
+                                    <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.presence_box', { default: 'Box: MegaDetector Cedar candidate. Check the photo before confirming.' })}</p>
+                                {/if}
                                 <p class="text-xs text-slate-600 dark:text-slate-400">{views.find(view => view.id === item.status)?.name}</p>
                                 {#if item.identification && item.identification.review !== 'dismissed'}
                                     {#if item.identification.outcome === 'suggestion'}

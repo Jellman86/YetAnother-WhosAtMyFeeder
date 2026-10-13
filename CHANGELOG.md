@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Garden motion photos show MegaDetector Cedar's saved candidate box before
+  animal presence is confirmed. The outline follows the displayed photo, including
+  letterboxing, and remains separate from species identification and owner review.
+
 - New garden motion candidates can reclaim the oldest dismissed photos when the
   128-photo budget is full. Pending and confirmed photos stay protected. Dismissed
   captures remain restorable while their photo is stored; reclaimed photos show

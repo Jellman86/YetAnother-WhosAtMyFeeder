@@ -40,7 +40,8 @@ turning off Garden animals stops collection but preserves existing reviews.
 If Frigate does not track the animals you want, optionally enable **Collect motion review
 photos** for that garden camera in **Settings → Connection**, then save. Open **Garden
 animals → Motion collection** and **Download Cedar detector (101 MB)**. This separate
-detector uses the species catalogue for its three outputs; it needs no labels file.
+MegaDetector v1000 Cedar model uses the species catalogue for its three outputs;
+it needs no labels file.
 It does not replace Frigate's bird detector or change bird classification settings.
 
 Collection is off by default. It scans at most one completed recording every two
@@ -59,7 +60,12 @@ fall behind. One garden operation runs at a time, with a 45-second motion-worker
 deadline. Busy systems may collect no photos until pressure clears.
 
 Candidates appear in **Needs review**, labelled **Candidate from retained motion
-footage**. The generic animal class includes birds, and toys or shadows can trigger
+footage**. Each motion photo outlines the saved Cedar candidate before presence
+confirmation. The box marks the detector's proposal; it is not an animal count or
+proof that an animal is present. It stays visible if you dismiss a species suggestion.
+Frigate event captures use their separate tracked-event path; a recorded SpeciesNet
+crop is outlined after analysis when it matches the displayed photo dimensions.
+The generic animal class includes birds, and toys or shadows can trigger
 it. Confirm presence only after inspecting the photograph. A detected person in
 any sampled frame rejects the recording. Known overlapping Frigate person events
 also reject it, and later person updates erase overlapping motion evidence.

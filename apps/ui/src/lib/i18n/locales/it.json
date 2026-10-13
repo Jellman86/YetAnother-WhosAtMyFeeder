@@ -3621,6 +3621,7 @@
     "motion_last_scan": "Ultima analisi: {time}",
     "motion_download": "Scarica il rilevatore Cedar (101 MB)",
     "motion_source": "Candidato da una registrazione di movimento conservata",
+    "presence_box": "Riquadro: candidato di MegaDetector Cedar. Controlla la foto prima di confermare.",
     "motion_restore_unavailable": "La foto non è più conservata. L’acquisizione non può tornare in revisione."
   }
 }
