@@ -7,15 +7,21 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from typing_extensions import Self
 from typing import Literal
 
+MOTION_PADDING_SECONDS = 5
+
 
 class MotionSource(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", allow_inf_nan=False)
 
     camera: str = Field(pattern=r"^[A-Za-z0-9_-]{1,100}$")
-    clip_start: float = Field(gt=0, strict=True)
-    clip_end: float = Field(gt=0, strict=True)
+    clip_start: float = Field(gt=0, strict=True, description="Requested Frigate recording start, Unix UTC")
+    clip_end: float = Field(gt=0, strict=True, description="Requested Frigate recording end, Unix UTC")
     frame_index: int = Field(ge=0, le=1200, strict=True)
-    frame_offset: float = Field(ge=0, strict=True)
+    frame_offset: float = Field(
+        ge=0,
+        strict=True,
+        description="Decoded frame offset from the returned clip start; Frigate may include bounded keyframe padding",
+    )
     clip_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     image_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     detector_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
@@ -34,7 +40,9 @@ class MotionSource(BaseModel):
         duration = self.clip_end - self.clip_start
         x, y, width, height = self.box_xywh
         if not 0 < duration <= 10 or self.frame_offset > duration:
-            raise ValueError("Motion evidence must identify a frame in a clip of at most ten seconds")
+            raise ValueError(
+                "Motion evidence requires a request of at most ten seconds and a sample within that duration"
+            )
         if min(x, y) < 0 or min(width, height) <= 0 or x + width > 1 or y + height > 1:
             raise ValueError("Motion evidence crop must be inside its photo")
         return self

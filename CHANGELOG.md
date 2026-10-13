@@ -6,6 +6,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Garden motion scans accept bounded Frigate keyframe padding without sampling
+  beyond the requested duration. Person checks cover that padding, and source
+  metadata distinguishes requested recording windows from decoded frame offsets.
+
+- Unrelated Frigate false-positive events cannot erase independent garden motion
+  reviews. Person updates still revoke overlapping motion evidence; false-positive
+  cleanup remains scoped to its own Frigate event capture.
+
 - Garden cameras can opt in to bounded CPU scans of retained motion recordings using
   the separate Cedar detector. Private proposals retain exact frame and model evidence,
   need owner review, yield to bird work and camera pressure, and never change bird

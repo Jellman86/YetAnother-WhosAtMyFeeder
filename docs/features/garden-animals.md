@@ -24,7 +24,7 @@ history is not backfilled into this view.
 Garden visits never enter bird totals, personalization, bird notifications,
 BirdWeather, eBird or iNaturalist submissions. Bird labels, including custom bird
 ingest labels, take precedence. People and vehicles cannot be configured as garden
-labels. A later person or false-positive update removes the capture from all views
+labels. A later person or false-positive update removes its Frigate event capture from all views
 and prevents a delayed animal message from restoring it, even after capture is
 switched off. This relies on Frigate's labels; a missed person could still be in
 an animal photograph, so the view and its media are always owner-only.
@@ -44,6 +44,9 @@ It does not replace Frigate's bird detector or change bird classification settin
 
 Collection is off by default. It scans at most one completed recording every two
 minutes across all enabled cameras, sampling three frames from up to ten seconds.
+Frigate can include keyframe padding in the returned clip. Up to five extra seconds
+are tolerated, but samples stay within the first ten seconds. Recording windows
+and decoded frame offsets are retained separately; displayed visit times are approximate.
 Only motion recordings from the last ten minutes are considered, so Frigate must
 retain motion footage. This samples activity; it does not track animals or promise
 to find every visit. The panel reports waiting, failures and the last attempted scan.
@@ -58,8 +61,10 @@ Candidates appear in **Needs review**, labelled **Candidate from retained motion
 footage**. The generic animal class includes birds, and toys or shadows can trigger
 it. Confirm presence only after inspecting the photograph. A detected person in
 any sampled frame rejects the recording. Known overlapping Frigate person events
-also reject it, and later person or false-positive updates erase overlapping garden
-evidence. Missing or overfull person history stops that scan. Recognition can miss
+also reject it, and later person updates erase overlapping motion evidence.
+Person checks include the bounded padding around the requested recording window.
+An unrelated false-positive bird, animal or vehicle event cannot erase an independent
+motion review. Missing or overfull person history stops that scan. Recognition can miss
 people; these photographs remain owner-only.
 
 At most 128 motion photos of 512 KiB each are stored in the application database,

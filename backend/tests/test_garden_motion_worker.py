@@ -65,6 +65,14 @@ def test_candidate_binds_sample_rgb_tensor_and_stored_jpeg(scan, monkeypatch):
     reader.release.assert_called_once()
 
 
+def test_frigate_keyframe_padding_is_allowed_without_sampling_past_requested_window(scan, monkeypatch):
+    payload, reader, _, _, props = scan
+    props[worker.cv2.CAP_PROP_FRAME_COUNT] = 123
+    monkeypatch.setattr(worker, "decode_candidates", lambda *args: [("animal", 0.9, (0.1, 0.1, 0.5, 0.5))])
+    assert worker.scan_clip(payload)["outcome"] == "candidate"
+    assert [call.args[1] for call in reader.set.call_args_list] == [1000.0, 5000.0, 9000.0]
+
+
 @pytest.mark.parametrize("count", [0, 0.5, float("nan"), 10000])
 def test_invalid_or_too_short_recording_fails_before_inference(scan, count):
     payload, reader, runtime, photo, props = scan

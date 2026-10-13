@@ -42,7 +42,7 @@ class GardenCaptureService:
         if not settings.frigate.garden_cameras and not (rejected and self.has_history):
             return
         if rejected or (bird and camera in settings.frigate.garden_cameras):
-            if rejected:
+            if label in {"person", "human"}:
                 from app.services import garden_motion_privacy
 
                 # Invalid timestamps fail closed for existing media on this camera.

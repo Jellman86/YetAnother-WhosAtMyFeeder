@@ -154,6 +154,16 @@ async def test_verified_install_is_idempotent_and_returns_unlocked_status(collec
 
 
 @pytest.mark.asyncio
+async def test_person_history_check_includes_bounded_keyframe_padding(collector, monkeypatch):
+    from app.services.garden_motion import frigate_client
+
+    people = AsyncMock(return_value=[{"start_time": 96.0, "end_time": 98.0}])
+    monkeypatch.setattr(frigate_client, "list_events", people)
+    assert await collector._person_overlap("patio", 100.0, 110.0)
+    assert people.call_args.kwargs["before"] == 115.0
+
+
+@pytest.mark.asyncio
 async def test_camera_pressure_or_cleanup_quarantine_stops_collection(collector, monkeypatch):
     native = AsyncMock()
     monkeypatch.setattr(collector, "_native", native)
