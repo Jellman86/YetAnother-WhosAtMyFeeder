@@ -3564,7 +3564,7 @@
     "save_error": "Could not save your review. Try again.",
     "review_only": "Owner review prototype",
     "review_help": "Check the photo and confirm animal presence first. You can then request a species suggestion. Model scores can be confidently wrong; identification always needs your review.",
-    "retention_help": "Garden visits stay separate from bird totals and exports. Frigate event photos follow Frigate retention. Motion review photos expire after three days; unconfirmed motion captures are then removed.",
+    "retention_help": "Garden visits stay separate from bird totals and exports. Frigate event photos follow Frigate retention. Motion photos last up to three days; dismissed photos may make room for new captures sooner. Unconfirmed motion captures are removed on expiry.",
     "views": "Garden review views",
     "refresh": "Refresh",
     "loading": "Loading garden captures…",
@@ -3620,6 +3620,7 @@
     "motion_limits": "CPU only · One short recording every {seconds}s · Up to {limit} photos · {days}-day photo retention",
     "motion_last_scan": "Last scan: {time}",
     "motion_download": "Download Cedar detector (101 MB)",
-    "motion_source": "Candidate from retained motion footage"
+    "motion_source": "Candidate from retained motion footage",
+    "motion_restore_unavailable": "Photo no longer stored. It cannot return to review."
   }
 }

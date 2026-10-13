@@ -277,7 +277,7 @@ class GardenMotionService:
         try:
             async with get_db() as db:
                 if await GardenRepository(db).motion_storage_full():
-                    self.message = "Motion photo storage is full. Collection resumes after photos expire."
+                    self.message = "Motion photo storage is full. Dismiss a capture or wait for photos to expire."
                     self.last_outcome = "storage_full"
                     return
             bundle = await asyncio.to_thread(self.catalog.load)

@@ -3564,7 +3564,7 @@
     "save_error": "Impossibile salvare la revisione. Riprova.",
     "review_only": "Prototipo con revisione del proprietario",
     "review_help": "Controlla la foto e conferma prima la presenza di un animale. Poi puoi richiedere un suggerimento sulla specie. Anche un punteggio alto può essere sbagliato; verifica sempre l’identificazione.",
-    "retention_help": "Le visite in giardino restano separate dai totali e dalle esportazioni degli uccelli. Le foto degli eventi seguono la conservazione di Frigate. Le foto di movimento scadono dopo tre giorni; le catture non confermate vengono quindi rimosse.",
+    "retention_help": "Le visite in giardino restano separate dai totali degli uccelli e dalle esportazioni. Le foto degli eventi Frigate seguono la sua conservazione. Le foto di movimento vengono conservate fino a tre giorni; quelle scartate possono fare spazio prima a nuove acquisizioni. Le acquisizioni di movimento non confermate vengono rimosse alla scadenza.",
     "views": "Viste di revisione del giardino",
     "refresh": "Aggiorna",
     "loading": "Caricamento delle catture del giardino…",
@@ -3620,6 +3620,7 @@
     "motion_limits": "Solo CPU · Una breve registrazione ogni {seconds}s · Fino a {limit} foto · Foto conservate per {days} giorni",
     "motion_last_scan": "Ultima analisi: {time}",
     "motion_download": "Scarica il rilevatore Cedar (101 MB)",
-    "motion_source": "Candidato da una registrazione di movimento conservata"
+    "motion_source": "Candidato da una registrazione di movimento conservata",
+    "motion_restore_unavailable": "La foto non è più conservata. L’acquisizione non può tornare in revisione."
   }
 }

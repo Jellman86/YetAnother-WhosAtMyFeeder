@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- New garden motion candidates can reclaim the oldest dismissed photos when the
+  128-photo budget is full. Pending and confirmed photos stay protected. Dismissed
+  captures remain restorable while their photo is stored; reclaimed photos show
+  why Restore is unavailable. Failed or duplicate saves keep existing photos.
+
 - Garden motion scans accept bounded Frigate keyframe padding without sampling
   beyond the requested duration. Person checks cover that padding, and source
   metadata distinguishes requested recording windows from decoded frame offsets.

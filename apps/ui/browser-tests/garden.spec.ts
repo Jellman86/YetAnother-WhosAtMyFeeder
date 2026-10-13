@@ -7,6 +7,43 @@ const motionStatus = { cameras: [], installed: false, catalogue_ready: true, bus
 const id = 'a'.repeat(32);
 const row = { id, camera: 'patio', frigate_label: 'cat', observed_at: '2026-10-11T18:00:00Z', reviewed_at: null, status: 'pending', snapshot_url: `/api/garden/${id}/snapshot` };
 
+for (const photoAvailable of [true, false]) {
+    test(`dismissed motion photo ${photoAvailable ? 'can return to review' : 'explains why restoration is unavailable'}`, async ({ page }) => {
+        let status = 'dismissed';
+        let writes = 0;
+        await page.route('**/api/garden?**', route => {
+            const selected = new URL(route.request().url()).searchParams.get('status');
+            const items = selected === status ? [{ ...row, status, source_kind: 'motion', snapshot_url: photoAvailable ? row.snapshot_url : null }] : [];
+            return route.fulfill({ json: { items, total: items.length, limit: 8, offset: 0 } });
+        });
+        await page.route('**/api/garden/motion', route => route.fulfill({ json: motionStatus }));
+        await page.route('**/api/garden/identification', route => route.fulfill({ json: modelStatus }));
+        await page.route('**/api/garden/*/snapshot', route => route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"/>' }));
+        await page.route('**/api/garden/*/restore', route => {
+            writes++;
+            status = 'pending';
+            return route.fulfill({ json: { ...row, source_kind: 'motion', status } });
+        });
+        await page.goto('/browser-tests/garden.html');
+        await page.getByRole('button', { name: 'Dismissed', exact: true }).click();
+        const restore = page.getByRole('button', { name: 'Return to review' });
+        if (photoAvailable) {
+            await expect(restore).toBeEnabled();
+            await restore.click();
+            await page.getByRole('button', { name: 'Needs review', exact: true }).click();
+            await expect(page.getByText('Candidate from retained motion footage')).toBeVisible();
+            expect(writes).toBe(1);
+        } else {
+            await expect(restore).toBeDisabled();
+            await expect(page.getByText('Photo no longer stored. It cannot return to review.')).toBeVisible();
+            expect(writes).toBe(0);
+        }
+        await page.setViewportSize({ width: 320, height: 740 });
+        await page.evaluate(() => document.documentElement.style.fontSize = '200%');
+        await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    });
+}
+
 test('owner can dismiss a false capture, restore it and review at narrow widths', async ({ page }) => {
     let status = 'pending';
     await page.route(url => url.pathname.startsWith('/api/garden'), async route => {

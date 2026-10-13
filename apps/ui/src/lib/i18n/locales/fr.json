@@ -3564,7 +3564,7 @@
     "save_error": "Impossible d’enregistrer votre vérification. Réessayez.",
     "review_only": "Prototype réservé au propriétaire",
     "review_help": "Vérifiez la photo et confirmez d’abord la présence d’un animal. Vous pouvez ensuite demander une suggestion d’espèce. Un score élevé peut être erroné ; vérifiez toujours l’identification.",
-    "retention_help": "Les visites du jardin restent séparées des totaux et exports d’oiseaux. Les photos d’événements suivent la conservation de Frigate. Les photos de mouvement expirent après trois jours ; les captures non confirmées sont alors supprimées.",
+    "retention_help": "Les visites au jardin restent séparées des totaux d’oiseaux et des exports. Les photos des événements Frigate suivent sa durée de conservation. Les photos de mouvement sont conservées jusqu’à trois jours ; les photos écartées peuvent libérer de la place plus tôt pour de nouvelles captures. Les captures de mouvement non confirmées sont supprimées à expiration.",
     "views": "Vues de vérification du jardin",
     "refresh": "Actualiser",
     "loading": "Chargement des captures du jardin…",
@@ -3620,6 +3620,7 @@
     "motion_limits": "CPU uniquement · Un court enregistrement toutes les {seconds}s · Jusqu’à {limit} photos · Photos conservées {days} jours",
     "motion_last_scan": "Dernière analyse : {time}",
     "motion_download": "Télécharger le détecteur Cedar (101 Mo)",
-    "motion_source": "Candidat provenant d’un enregistrement de mouvement conservé"
+    "motion_source": "Candidat provenant d’un enregistrement de mouvement conservé",
+    "motion_restore_unavailable": "La photo n’est plus conservée. La capture ne peut pas revenir en vérification."
   }
 }
