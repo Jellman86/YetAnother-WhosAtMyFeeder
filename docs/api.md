@@ -342,11 +342,15 @@ All garden routes require owner access and use `private, no-store`. Presence and
 species identification have separate reviews; `frigate_label` remains an upstream suggestion.
 
 - `GET /api/garden` — `status=pending|confirmed|dismissed`, `limit=1..100` (default 20),
-  `offset>=0`; returns `items`, `total`, `limit`, `offset`.
+  `offset>=0`; returns `items`, `total`, `limit`, `offset`. Pending items and totals
+  omit captures whose photos are known to be unavailable, without changing their
+  stored reviews. Confirmed and dismissed history still include them.
 - `POST /api/garden/{capture_id}/confirm` — move to confirmed history; no body.
+  A known unavailable photo returns `409` without changing the review.
 - `POST /api/garden/{capture_id}/dismiss` — dismiss a false detection; no body.
 - `POST /api/garden/{capture_id}/restore` — return to pending review; no body.
-  Motion captures require an unexpired stored photo; unavailable photos return `409`.
+  Frigate captures require an advertised snapshot; motion captures require an
+  unexpired stored photo. Known unavailable photos return `409`.
 - `GET /api/garden/{capture_id}/snapshot` — owner-only Frigate or retained motion photograph, `404` when
   missing or rejected. The exact read-only route accepts the owner session cookie
   and uses `private, no-store`; review writes still require an authorization header.

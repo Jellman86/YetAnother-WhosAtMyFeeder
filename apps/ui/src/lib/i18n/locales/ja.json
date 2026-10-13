@@ -3622,7 +3622,7 @@
     "motion_download": "Cedar検出器をダウンロード (101 MB)",
     "motion_source": "保存された動体映像からの候補",
     "presence_box": "枠：MegaDetector Cedarが検出した候補です。確認する前に写真を確認してください。",
-    "motion_restore_unavailable": "写真は保存されていません。確認待ちに戻すことはできません。",
+    "photo_restore_unavailable": "写真を利用できません。確認待ちに戻すことはできません。",
     "motion_coverage": "過去{minutes}分の短い区間をカメラごとに最大{limit}件キューに入れます。鳥の処理やカメラの負荷により収集を一時停止するため、短い訪問を見逃すことがあります。",
     "motion_queue": "{camera}：{time}の確認時点で{count}区間が待機中。キュー上限に達している場合、ほかにも区間がある可能性があります。"
   }

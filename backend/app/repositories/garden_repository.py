@@ -40,11 +40,12 @@ class GardenCapture:
 
 
 class GardenRepository:
-    _COLUMNS = """id, frigate_event, camera, label, observed_at, status,
-        CASE WHEN EXISTS (SELECT 1 FROM garden_motion_sources WHERE capture_id=garden_captures.id)
+    _PHOTO_AVAILABLE = """CASE WHEN EXISTS (SELECT 1 FROM garden_motion_sources WHERE capture_id=garden_captures.id)
           THEN (SELECT image IS NOT NULL AND expires_at > strftime('%Y-%m-%dT%H:%M:%f','now')
                 FROM garden_motion_sources WHERE capture_id=garden_captures.id)
-          ELSE has_snapshot END, reviewed_at,
+          ELSE has_snapshot END"""
+    _COLUMNS = f"""id, frigate_event, camera, label, observed_at, status,
+        {_PHOTO_AVAILABLE}, reviewed_at,
         (SELECT result_json FROM garden_identifications WHERE capture_id = garden_captures.id),
         (SELECT source_json FROM garden_motion_sources WHERE capture_id=garden_captures.id)"""
 
@@ -105,40 +106,37 @@ class GardenRepository:
         return self._capture(row) if row else None
 
     async def list(self, status: GardenStatus, limit: int, offset: int) -> list[GardenCapture]:
+        available = f" AND ({self._PHOTO_AVAILABLE})" if status == "pending" else ""
         async with self.db.execute(
-            f"SELECT {self._COLUMNS} FROM garden_captures WHERE status = ? ORDER BY observed_at DESC, id DESC LIMIT ? OFFSET ?",
+            f"SELECT {self._COLUMNS} FROM garden_captures WHERE status = ?{available} ORDER BY observed_at DESC, id DESC LIMIT ? OFFSET ?",
             (status, limit, offset),
         ) as cursor:
             return [self._capture(row) for row in await cursor.fetchall()]
 
     async def count(self, status: GardenStatus) -> int:
-        async with self.db.execute("SELECT COUNT(*) FROM garden_captures WHERE status = ?", (status,)) as cursor:
+        available = f" AND ({self._PHOTO_AVAILABLE})" if status == "pending" else ""
+        async with self.db.execute(
+            f"SELECT COUNT(*) FROM garden_captures WHERE status = ?{available}", (status,)
+        ) as cursor:
             row = await cursor.fetchone()
         return int(row[0]) if row else 0
 
     async def review(self, capture_id: str, status: GardenStatus) -> GardenCapture | None:
         # The write lock checks photo availability against concurrent reclamation.
         updated = await self.db.execute(
-            """UPDATE garden_captures SET status = ?, reviewed_at = ?
-               WHERE id = ? AND status != 'blocked' AND (
-                 ? = 'dismissed'
-                 OR NOT EXISTS (SELECT 1 FROM garden_motion_sources WHERE capture_id=garden_captures.id)
-                 OR EXISTS (SELECT 1 FROM garden_motion_sources WHERE capture_id=garden_captures.id
-                            AND image IS NOT NULL AND expires_at > ?))""",
+            f"""UPDATE garden_captures SET status = ?, reviewed_at = ?
+               WHERE id = ? AND status != 'blocked' AND (? = 'dismissed' OR ({self._PHOTO_AVAILABLE}))""",
             (
                 status,
                 utc_naive_now().isoformat() if status != "pending" else None,
                 capture_id,
                 status,
-                utc_naive_now().isoformat(),
             ),
         )
         if not updated.rowcount:
             await self.db.rollback()
             if await self.get(capture_id):
-                raise GardenPhotoUnavailable(
-                    "This motion photo is no longer stored. Refresh to review a newer capture."
-                )
+                raise GardenPhotoUnavailable("This capture has no available photo. Refresh to review a newer capture.")
             return None
         if status != "confirmed":
             await self.db.execute(
