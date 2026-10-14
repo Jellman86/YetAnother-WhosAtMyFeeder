@@ -6,6 +6,7 @@
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { fetchGardenMotion, installGardenMotion, type GardenMotionStatus } from '../api/garden';
     import { gardenPhotoOutline } from '../utils/garden-photo';
+    import { gardenThresholdStep } from '../utils/garden-threshold';
     import { groupGardenReview, type GardenReviewGroup } from '../utils/garden-review-groups';
     import { updateSettings } from '../api/settings';
 
@@ -215,7 +216,7 @@
                     <p role="status" class="text-sm">{motion.message}</p>
                     <label class="block space-y-1 text-sm">
                         <span>{$_('garden.confidence', { default: 'Animal proposal threshold' })}</span>
-                        <input class="input-base w-full" type="number" min="0.5" max="0.95" step="0.05" bind:value={motionConfidence} disabled={saving !== null} />
+                        <input class="input-base w-full" type="number" min="0.5" max="0.95" step={gardenThresholdStep(motionConfidence, motion.animal_confidence)} bind:value={motionConfidence} disabled={saving !== null} />
                     </label>
                     <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.confidence_help', { default: 'Higher values reduce proposals but can miss animals. Applies to new motion photos only; bird detection and person privacy checks are unchanged.' })}</p>
                     <button class="btn btn-secondary min-h-11 px-4 py-2 whitespace-normal" disabled={saving !== null || !Number.isFinite(motionConfidence) || motionConfidence < 0.5 || motionConfidence > 0.95 || motionConfidence === (motion.animal_confidence ?? 0.5)} onclick={saveMotionConfidence}>{$_('garden.confidence_save', { default: 'Save animal threshold' })}</button>
