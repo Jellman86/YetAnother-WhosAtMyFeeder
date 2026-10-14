@@ -30,7 +30,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   caught up or paused. Both intervals include processing time.
   Long scans retain a short rest, failures back off for thirty seconds and work stays
   bounded to the last thirty minutes. Bird priority, camera-pressure guards, privacy
-  checks and photo limits remain in place. The panel shows the latest camera queue check.
+  checks and photo limits remain in place. The panel shows the latest camera queue check
+  and retains the selected interval while housekeeping and scanning are in progress.
 
 - **Fixed:** Mobile and page headers reflow at narrow widths with enlarged text, keeping menu, theme and page actions reachable (#703).
 
