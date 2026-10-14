@@ -66,8 +66,11 @@ export function buildReviewQueue(
     for (const detection of open) reasons.set(detection.frigate_event, 'low_score');
 
     const seen = new Set(open.map((detection) => detection.frigate_event));
+    const currentDetections = new Map(detections.map(detection => [detection.frigate_event, detection]));
     const newcomers: Detection[] = [];
-    for (const { detection, sightings } of newSpecies) {
+    for (const entry of newSpecies) {
+        const detection = currentDetections.get(entry.detection.frigate_event) ?? entry.detection;
+        const sightings = entry.sightings;
         if (detection.is_hidden || detection.manual_tagged) continue;
         // "First of its kind here" is the sharper question than "shaky score".
         reasons.set(detection.frigate_event, 'new_species');

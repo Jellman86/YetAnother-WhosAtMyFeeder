@@ -104,6 +104,14 @@ describe('buildReviewQueue', () => {
 });
 
 describe('buildReviewQueue with new-species candidates (#310)', () => {
+    it('does not requeue a saved owner choice from an older new-species response', () => {
+        const old = detection({ frigate_event: 'reviewed', score: 0.2 });
+        const reviewed = { ...old, manual_tagged: true, classification_input: { source: 'owner_species_choice' } };
+        const queue = buildQueue([reviewed], { reviewThreshold: 0.6, newSpecies: [{ detection: old, sightings: 2 }] });
+        expect(queue.total).toBe(0);
+        expect(queue.reasons.size).toBe(0);
+    });
+
     it('queues an unconfirmed newcomer with its reason and sighting count', () => {
         const newcomer = detection({ frigate_event: 'ibis', display_name: 'Hadeda Ibis', score: 0.34 });
         const queue = buildQueue([detection({ frigate_event: 'named', score: 0.98 })], {

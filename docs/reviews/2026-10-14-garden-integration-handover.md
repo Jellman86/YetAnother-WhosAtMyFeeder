@@ -21,6 +21,15 @@ that the main buttons review only the displayed photo. Group dismissal remains a
 separate explicit action; no owner decisions are changed by testing. Its deployment
 still needs published-build acceptance.
 
+The owner also reported that the dashboard's **Needs your call** count remained
+after finishing the queue, and offered the same detections again until refresh.
+Tests reproduced two browser-state defects: a saved manual choice retained the
+old whole-frame classification evidence locally, and a stale new-species entry
+could override the reviewed detection. The follow-up matches the server's
+`owner_species_choice` evidence after a successful save and prefers current
+detection state when merging new-species candidates. Initial model evidence is
+preserved; model confidence, crop selection and bird ingest are unchanged.
+
 Read-only photo history showed 226 retained model-crop candidates across 35 visits
 on 14 October. Six cached full views were replayed on Quark with the published
 strict CPU detector under the external resource guard. Inference completed without
