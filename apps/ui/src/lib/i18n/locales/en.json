@@ -3579,6 +3579,7 @@
     "restore": "Return to review",
     "previous": "Previous",
     "page_count": "{start}–{end} of {total}",
+    "review_page_count": "Photos {start}–{end} of {total} · {cards, plural, one {# review card} other {# review cards}}",
     "next": "Next",
     "settings_help": "Garden animals collects completed animal events for your review. Species suggestions run only when you ask.",
     "title": "Garden animals",

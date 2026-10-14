@@ -12,6 +12,20 @@ function capture(id: string, box: [number, number, number, number] = [0.78, 0.60
 }
 
 describe('Garden review groups describe position, never animal identity', () => {
+    it('groups repeated feeder proposals when the detector changes the box extent', () => {
+        const items = [
+            capture('anchor', [0.7787210464, 0.6029235840, 0.0294397354, 0.0996236165]),
+            capture('wider', [0.7807638645, 0.6024082184, 0.0539882183, 0.0722991943]),
+            capture('taller', [0.7797590256, 0.6019916534, 0.0315879822, 0.1271631241]),
+            capture('shorter', [0.7814696312, 0.6021912893, 0.0293195724, 0.0882186254])
+        ];
+        expect(groupGardenReview(items).map(group => group.items.map(item => item.id)))
+            .toEqual([['anchor', 'wider', 'taller', 'shorter']]);
+    });
+    it('does not merge a much larger proposal merely because it contains another', () => {
+        expect(groupGardenReview([capture('small', [0.1, 0.2, 0.03, 0.09]),
+            capture('large', [0.1, 0.2, 0.2, 0.3])])).toHaveLength(2);
+    });
     it('reduces 109 feeder proposals to one group while retaining every exact capture', () => {
         const items = Array.from({ length: 109 }, (_, index) => capture(String(index)));
         const groups = groupGardenReview(items);

@@ -34,6 +34,8 @@ async function open(page: Page, onPortrait: (route: Route) => Promise<void>) {
         throw new Error(`Unexpected About fixture API request: ${path}`);
     });
     await page.goto('/browser-tests/about-portrait.html');
+    // The fixture mounts after its asynchronous locale bundle is ready.
+    await expect(page.locator('main')).toBeVisible({ timeout: 15000 });
 }
 
 test('a public history change removes the old film and facts before the next portrait resolves', async ({ page }, testInfo) => {

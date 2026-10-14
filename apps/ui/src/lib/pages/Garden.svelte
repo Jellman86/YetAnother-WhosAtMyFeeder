@@ -398,7 +398,9 @@
     {#if !loading && !error && total > 0}
         <div class="flex flex-wrap items-center justify-between gap-3">
             <button class="btn btn-secondary min-h-11 px-4 py-2" disabled={offset === 0 || saving !== null} onclick={() => { offset = Math.max(0, offset - pageSize); void load(); }}>{$_('garden.previous', { default: 'Previous' })}</button>
-            <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.page_count', { default: '{start}–{end} of {total}', values: { start: offset + 1, end: Math.min(offset + pageSize, total), total } })}</p>
+            <p class="text-xs text-slate-600 dark:text-slate-400">{status === 'pending'
+                ? $_('garden.review_page_count', { default: 'Photos {start}–{end} of {total} · {cards, plural, one {# review card} other {# review cards}}', values: { start: offset + 1, end: offset + items.length, total, cards: groups.length } })
+                : $_('garden.page_count', { default: '{start}–{end} of {total}', values: { start: offset + 1, end: Math.min(offset + pageSize, total), total } })}</p>
             <button class="btn btn-secondary min-h-11 px-4 py-2" disabled={offset + pageSize >= total || saving !== null} onclick={() => { offset += pageSize; void load(); }}>{$_('garden.next', { default: 'Next' })}</button>
         </div>
     {/if}

@@ -101,11 +101,18 @@ people; these photographs remain owner-only.
 
 **Needs review** groups motion proposals around the same position on a camera into
 one card, within a page of up to 128 captures. The group compares each box with the
-first box, requiring at least 75% overlap by intersection over union and the same
-detector. This is a review aid, not animal tracking: different visitors can occupy
+first box and requires the same detector. Boxes group when intersection over union
+is at least 75%, or when their top-left corners closely align and their extents
+vary within bounded limits: at most twice the width or height, corner movement
+within 15% of the smaller dimension, and at least 80% overlap along each smaller
+dimension. This also groups repeated feeder proposals whose boxes alternate
+between wide and tall. Comparisons stay against the first photo, so movement
+cannot chain a group across the image. This is a review aid, not animal tracking: different visitors can occupy
 the same position. **Previous photo** and **Next photo** show the original photos,
 times and exact boxes; confirmation always applies only to the displayed photo.
-Frigate events and confirmed/dismissed history remain individual captures.
+Frigate events and confirmed/dismissed history remain individual captures. The
+**Needs review** footer counts original photos and review cards separately;
+pagination advances through photos, not groups.
 
 Open **Review this group** to dismiss only the listed photos together after inspecting
 them. Future captures, other camera regions and already-confirmed captures are

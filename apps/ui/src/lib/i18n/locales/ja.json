@@ -3579,6 +3579,7 @@
     "restore": "確認に戻す",
     "previous": "前へ",
     "page_count": "{total} 件中 {start}–{end} 件",
+    "review_page_count": "写真 {start}–{end} / {total} · {cards, plural, other {確認カード # 件}}",
     "next": "次へ",
     "settings_help": "庭の動物は、終了した動物イベントを確認用に収集します。種の識別はまだ有効ではありません。",
     "title": "庭の動物",

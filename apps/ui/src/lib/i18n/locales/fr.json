@@ -3579,6 +3579,7 @@
     "restore": "Renvoyer à la vérification",
     "previous": "Précédent",
     "page_count": "{start}–{end} sur {total}",
+    "review_page_count": "Photos {start}–{end} sur {total} · {cards, plural, one {# fiche à examiner} other {# fiches à examiner}}",
     "next": "Suivant",
     "settings_help": "Animaux du jardin recueille les événements animaux terminés pour votre vérification. L’identification des espèces n’est pas encore activée.",
     "title": "Animaux du jardin",

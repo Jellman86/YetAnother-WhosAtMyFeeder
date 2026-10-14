@@ -3579,6 +3579,7 @@
     "restore": "Rimanda alla revisione",
     "previous": "Precedente",
     "page_count": "{start}–{end} di {total}",
+    "review_page_count": "Foto {start}–{end} di {total} · {cards, plural, one {# scheda da esaminare} other {# schede da esaminare}}",
     "next": "Successivo",
     "settings_help": "Animali del giardino raccoglie gli eventi animali conclusi da controllare. L’identificazione delle specie non è ancora attiva.",
     "title": "Animali del giardino",
