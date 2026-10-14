@@ -3,7 +3,19 @@
 import math
 import re
 
-from app.models.garden_motion import MotionSource, MOTION_CATCHUP_SECONDS, MOTION_QUEUE_LIMIT
+from app.models.garden_motion import (
+    MotionSource,
+    MOTION_CATCHUP_SECONDS,
+    MOTION_QUEUE_LIMIT,
+    MOTION_INTERVAL_SECONDS,
+    MOTION_CATCHUP_INTERVAL_SECONDS,
+)
+
+
+def motion_scan_interval(outcome: str | None, queued_windows: int) -> int:
+    if outcome in {"candidate", "no_candidate", "person_rejected"} and queued_windows > 0:
+        return MOTION_CATCHUP_INTERVAL_SECONDS
+    return MOTION_INTERVAL_SECONDS
 
 
 def motion_key(source: MotionSource) -> str:

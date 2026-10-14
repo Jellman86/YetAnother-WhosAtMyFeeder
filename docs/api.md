@@ -362,9 +362,11 @@ species identification have separate reviews; `frigate_label` remains an upstrea
   and uses `private, no-store`; review writes still require an authorization header.
 
 - `GET /api/garden/motion` — enabled cameras, catalogue and detector availability,
-  shared busy state, `animal_confidence`, collection state/message, last attempted scan/outcome and fixed
-  minimum interval/photo limits. `interval_seconds` is the minimum spacing between scan starts,
-  not a promised capture rate. `catchup_seconds` bounds recording age; `queue_limit`
+  shared busy state, `animal_confidence`, collection state/message, last attempted scan/outcome and
+  interval/photo limits. `interval_seconds` reports the selected minimum spacing between scan starts:
+  five seconds after a completed window with more footage queued, otherwise ten seconds.
+  Processing is included, long scans leave at least one second of rest and failures back off
+  thirty seconds. This is not a promised capture rate. `catchup_seconds` bounds recording age; `queue_limit`
   caps each rebuilt camera queue. `queued_windows`, `queue_camera` and
   `queue_checked_at` describe the latest inspected camera, not a live total across
   all cameras. More footage may remain when the queue is full. Refresh to read

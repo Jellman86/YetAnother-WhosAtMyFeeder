@@ -43,7 +43,7 @@ from app.services.garden_identification import (
     MODEL_BASE_URL,
 )
 from app.services.garden_model_runtime import digest
-from app.services.garden_motion_policy import recording_queue, camera_pressure
+from app.services.garden_motion_policy import recording_queue, camera_pressure, motion_scan_interval
 from app.services.model_manager import MODELS_DIR
 from app.utils.api_datetime import utc_naive_now
 from app.utils.python_subprocess import python_subprocess_launch
@@ -61,6 +61,7 @@ class GardenMotionService:
         self.last_outcome: str | None = None
         self.message = "Enable a garden camera and download the motion detector to start."
         self.next_scan = 0.0
+        self.interval_seconds = MOTION_INTERVAL_SECONDS
         self.camera_index = 0
         self.queued_windows = 0
         self.queue_camera: str | None = None
@@ -110,6 +111,7 @@ class GardenMotionService:
             animal_confidence=settings.frigate.garden_motion_confidence,
             last_scan_at=self.last_scan_at,
             last_outcome=self.last_outcome,
+            interval_seconds=self.interval_seconds if self.queue_camera in cameras else MOTION_INTERVAL_SECONDS,
             queued_windows=self.queued_windows if self.queue_camera in cameras else 0,
             queue_camera=self.queue_camera if self.queue_camera in cameras else None,
             queue_checked_at=self.queue_checked_at if self.queue_camera in cameras else None,
@@ -176,6 +178,7 @@ class GardenMotionService:
     async def _run(self) -> None:
         while True:
             cycle_started = time.monotonic()
+            self.interval_seconds = MOTION_INTERVAL_SECONDS
             try:
                 async with get_db() as db:
                     await GardenRepository(db).expire_motion_photos()
@@ -185,7 +188,7 @@ class GardenMotionService:
             except Exception as error:
                 log.warning("garden_motion_cycle_failed", error_type=type(error).__name__)
                 self.message = "Motion collection could not finish. It will retry automatically."
-            next_cycle = max(cycle_started + MOTION_INTERVAL_SECONDS, self.next_scan)
+            next_cycle = max(cycle_started + self.interval_seconds, self.next_scan)
             await asyncio.sleep(max(1.0, next_cycle - time.monotonic()))
 
     async def _person_overlap(self, camera: str, start: float, end: float) -> bool:
@@ -250,6 +253,7 @@ class GardenMotionService:
         return result
 
     async def scan_once(self) -> None:
+        self.interval_seconds = MOTION_INTERVAL_SECONDS
         cameras = self.cameras()
         if (
             not cameras
@@ -433,10 +437,9 @@ class GardenMotionService:
             self.scanning = False
             garden_identification_service.busy = False
             finished = time.monotonic()
+            self.interval_seconds = motion_scan_interval(self.last_outcome, self.queued_windows)
             self.next_scan = (
-                finished + 30
-                if self.last_outcome == "failed"
-                else max(scan_started + MOTION_INTERVAL_SECONDS, finished)
+                finished + 30 if self.last_outcome == "failed" else max(scan_started + self.interval_seconds, finished)
             )
 
 

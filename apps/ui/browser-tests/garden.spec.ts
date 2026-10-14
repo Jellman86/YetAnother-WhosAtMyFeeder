@@ -406,3 +406,22 @@ test('confirmation in a position group applies only to the displayed original ph
     await page.getByRole('button', { name: 'Confirm animal present', exact: true }).click();
     expect(confirmed).toEqual([second]);
 });
+
+for (const seconds of [5, 10]) {
+    test(`motion panel displays the selected ${seconds}-second interval`, async ({ page }) => {
+        await page.route('**/api/garden?**', route => route.fulfill({ json: { items: [], total: 0, limit: 8, offset: 0 } }));
+        await page.route('**/api/garden/identification', route => route.fulfill({ json: modelStatus }));
+        await page.route('**/api/garden/motion', route => route.fulfill({ json: {
+            ...motionStatus, cameras: ['patio'], installed: true, state: 'waiting',
+            interval_seconds: seconds, queued_windows: seconds === 5 ? 23 : 0,
+            queue_camera: 'patio', queue_checked_at: '2026-10-14T13:00:00Z',
+            last_outcome: 'no_candidate', message: 'Recording scanned; no review photo retained.'
+        } }));
+        await page.goto('/browser-tests/garden.html');
+        await page.locator('[data-garden-motion] > summary').click();
+        await expect(page.getByText(`CPU only · At least ${seconds}s between scans · Up to 128 photos · 3-day photo retention`)).toBeVisible();
+        await page.setViewportSize({ width: 320, height: 740 });
+        await page.evaluate(() => document.documentElement.style.fontSize = '200%');
+        await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    });
+}

@@ -49,10 +49,11 @@ It does not replace Frigate's bird detector or change bird classification settin
 
 Collection is off by default. One worker drains up to 24 queued recording windows
 per camera, oldest first, taking turns between enabled cameras. Each window covers
-up to ten seconds and samples three frames. Scan starts are at least ten seconds
-apart, including processing time in that interval. Long scans finish and leave at
-least one second of rest before another starts; failed scans retry thirty seconds
-after failure. Queues refill from
+up to ten seconds and samples three frames. After a completed window, remaining
+queued footage allows scan starts five seconds apart to catch up. Collection
+returns to a ten-second interval when caught up or paused. Both intervals include
+processing time. Long scans finish and leave at least one second of rest before
+another starts; failed scans retry thirty seconds after failure. Queues refill from
 Frigate metadata and the saved completion cursor, so restarting does not replay
 completed windows. Longer recordings resume from the cursor instead of losing
 their remaining footage. Overlapping recording metadata is merged before sampling.
