@@ -3641,6 +3641,11 @@
     "group_dismiss": "Descartar estas {count} fotos",
     "confidence": "Umbral de propuestas de animales",
     "confidence_help": "Los valores altos reducen propuestas pero pueden omitir animales. Solo se aplica a nuevas fotos de movimiento; la detección de aves y la protección de personas no cambian.",
-    "confidence_save": "Guardar umbral de animales"
+    "confidence_save": "Guardar umbral de animales",
+    "photo_confirmed": "Foto confirmada.",
+    "photo_dismissed": "Foto descartada.",
+    "photo_restored": "Foto devuelta a revisión.",
+    "group_remaining": "Las demás fotos de este grupo aún necesitan revisión.",
+    "single_photo_help": "Confirmar y descartar solo se aplican a la foto mostrada."
   }
 }

@@ -3641,6 +3641,11 @@
     "group_dismiss": "Scarta queste {count} foto",
     "confidence": "Soglia delle proposte di animali",
     "confidence_help": "Valori più alti riducono le proposte ma possono perdere animali. Si applica solo alle nuove foto di movimento; il rilevamento degli uccelli e la tutela delle persone restano invariati.",
-    "confidence_save": "Salva soglia animali"
+    "confidence_save": "Salva soglia animali",
+    "photo_confirmed": "Foto confermata.",
+    "photo_dismissed": "Foto scartata.",
+    "photo_restored": "Foto rimessa in revisione.",
+    "group_remaining": "Le altre foto di questo gruppo devono ancora essere esaminate.",
+    "single_photo_help": "Conferma e scarta si applicano solo alla foto mostrata."
   }
 }

@@ -9,6 +9,7 @@
     import { gardenThresholdStep } from '../utils/garden-threshold';
     import { groupGardenReview, type GardenReviewGroup } from '../utils/garden-review-groups';
     import { updateSettings } from '../api/settings';
+    import { toastStore } from '../stores/toast.svelte';
 
     let { onNavigate }: { onNavigate: (path: string) => void } = $props();
     let status = $state<GardenCapture['status']>('pending');
@@ -100,13 +101,26 @@
 
     async function review(item: GardenCapture, action: 'confirm' | 'dismiss' | 'restore'): Promise<void> {
         if (saving) return;
+        const hasOtherPendingPhotos = groups.some(group => group.items.length > 1 && group.items.some(photo => photo.id === item.id));
         saving = item.id;
         error = null;
         try {
             await reviewGarden(item.id, action);
-            if (!destroyed) await load();
+            if (destroyed) return;
+            const message = action === 'confirm'
+                ? $_('garden.photo_confirmed', { default: 'Photo confirmed.' })
+                : action === 'dismiss'
+                    ? $_('garden.photo_dismissed', { default: 'Photo dismissed.' })
+                    : $_('garden.photo_restored', { default: 'Photo returned to review.' });
+            toastStore.success(hasOtherPendingPhotos
+                ? `${message} ${$_('garden.group_remaining', { default: 'Other photos in this group still need review.' })}`
+                : message);
+            await load();
         } catch (failure) {
-            if (!destroyed) error = failure instanceof Error ? failure.message : $_('garden.save_error', { default: 'Could not save your review. Try again.' });
+            if (!destroyed) {
+                error = failure instanceof Error ? failure.message : $_('garden.save_error', { default: 'Could not save your review. Try again.' });
+                toastStore.error(error);
+            }
         } finally {
             if (!destroyed) saving = null;
         }
@@ -359,6 +373,7 @@
                             </div>
                             <div class="flex flex-col gap-2">
                                 {#if group.items.length > 1}
+                                    <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.single_photo_help', { default: 'Confirm and dismiss apply only to the photo shown.' })}</p>
                                     <details class="group space-y-2">
                                         <summary class="min-h-11 list-none [&::-webkit-details-marker]:hidden cursor-pointer py-3 text-sm font-semibold focus-visible:ring-2 focus-visible:ring-brand"><span>{$_('garden.group_review', { default: 'Review this group' })}</span><span class="inline-block ml-2 transition-transform group-open:rotate-180" aria-hidden="true">⌄</span></summary>
                                         <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.group_dismiss_help', { default: 'Check the photos first. This dismisses only these photos, not future captures or this area of the camera.' })}</p>

@@ -6,6 +6,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Garden confirms saved photo reviews visibly and explains why similar photos
+  remain in a position group after confirming or dismissing the displayed photo.
+
 - Garden review keeps repeated proposals together when the detector varies a
   box's width or height around the same position. The page footer now distinguishes
   original photos from review cards, with individual photo decisions preserved.

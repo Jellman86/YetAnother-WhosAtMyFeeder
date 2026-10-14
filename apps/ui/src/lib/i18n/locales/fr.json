@@ -3641,6 +3641,11 @@
     "group_dismiss": "Écarter ces {count} photos",
     "confidence": "Seuil des propositions animales",
     "confidence_help": "Une valeur plus élevée réduit les propositions mais peut manquer des animaux. Concerne uniquement les nouvelles photos de mouvement ; la détection des oiseaux et la protection des personnes restent inchangées.",
-    "confidence_save": "Enregistrer le seuil animal"
+    "confidence_save": "Enregistrer le seuil animal",
+    "photo_confirmed": "Photo confirmée.",
+    "photo_dismissed": "Photo écartée.",
+    "photo_restored": "Photo remise à examiner.",
+    "group_remaining": "Les autres photos de ce groupe restent à examiner.",
+    "single_photo_help": "La confirmation et le rejet concernent uniquement la photo affichée."
   }
 }

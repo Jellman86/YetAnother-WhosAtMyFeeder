@@ -8,8 +8,18 @@ and fell below the 75% intersection-over-union rule. The browser grouped 119 pho
 into 15 cards, but three night feeder outliers remained separate. A test-first fix
 adds bounded extent tolerance against the fixed first photo, reducing this saved
 page to 12 cards while retaining all 119 originals. The footer also distinguishes
-photo counts from review-card counts. Publication and deployment must be verified
-before treating this change as live.
+photo counts from review-card counts. PR #714 is merged and published; Dockhand
+deployment and read-only browser acceptance on Quark verified 120 photos in 12
+review cards, including the repeated feeder outliers. Bird history and settings
+were preserved.
+
+The next owner report concerned confirmation and dismissal appearing ineffective.
+Read-only container logs and database checks proved the reported clicks had saved.
+After each single-photo decision, a group showed another similar photo without
+success feedback. The follow-up adds saved-review notifications and a reminder
+that the main buttons review only the displayed photo. Group dismissal remains a
+separate explicit action; no owner decisions are changed by testing. Its deployment
+still needs published-build acceptance.
 
 Read-only photo history showed 226 retained model-crop candidates across 35 visits
 on 14 October. Six cached full views were replayed on Quark with the published
