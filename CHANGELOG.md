@@ -15,7 +15,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   with every original photo available and an explicit group dismissal with limited
   Undo. Confirmation stays per photo; concurrent confirmed reviews stay protected.
   The separate animal proposal threshold is now adjustable without changing bird
-  detection or person privacy checks. Existing photo limits and history are preserved.
+  detection or person privacy checks. Fine-tuned values such as 0.63 remain valid in
+  the threshold control, with increment arrows that preserve their precision. Existing
+  photo limits and history are preserved.
 
 - Garden review skips Frigate events without an advertised snapshot and hides known
   unavailable photos from Needs review without deleting review metadata. Confirmed
