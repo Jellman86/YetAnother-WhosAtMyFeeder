@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Saved species choices now clear whole-frame guesses from the dashboard review
+  queue immediately. An older new-species response cannot reoffer the same
+  already-reviewed detection while the page stays open.
+
 - Garden confirms saved photo reviews visibly and explains why similar photos
   remain in a position group after confirming or dismissing the displayed photo.
 

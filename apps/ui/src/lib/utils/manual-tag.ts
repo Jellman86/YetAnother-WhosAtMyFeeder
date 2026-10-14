@@ -10,6 +10,9 @@ export function applyManualTagResult(detection: Detection, result: UpdateDetecti
         common_name: result.common_name,
         taxa_id: result.taxa_id,
         manual_tagged: result.manual_tagged,
+        // Both manual-tag API outcomes replace the current evidence on the server.
+        // Keeping the old whole-view evidence here reopens the local review queue.
+        classification_input: result.manual_tagged ? { source: 'owner_species_choice' } : detection.classification_input,
         ai_analysis: identificationChanged ? null : detection.ai_analysis,
         ai_analysis_timestamp: identificationChanged ? null : detection.ai_analysis_timestamp
     };

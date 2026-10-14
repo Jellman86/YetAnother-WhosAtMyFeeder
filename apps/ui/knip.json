@@ -4,6 +4,7 @@
     "public/sw.js",
     "browser-tests/fixture.ts",
     "browser-tests/garden.ts",
+    "browser-tests/dashboard-review.ts",
     "browser-tests/photo-fit.ts",
     "browser-tests/family-tree.ts",
     "browser-tests/audio-charts.ts",

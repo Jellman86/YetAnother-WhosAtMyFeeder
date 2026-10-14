@@ -398,6 +398,9 @@ Owner records and **Needs your call** show **Named from…** for new identificat
 Frigate’s sub-label, video frames, an owner choice, or the whole camera view. Whole-view names
 remain in review even at high confidence and never train or use personalization. Confirming the
 species records **Named by you**; the original input stays available on the record.
+A saved choice clears that detection from the dashboard review queue immediately,
+including while the separate new-species list refreshes. Skipped or failed choices
+remain for review.
 
 Changing the photograph does not change this evidence. The input records its crop coordinates,
 source frame dimensions and recording time when available. A counted bird can borrow a new
