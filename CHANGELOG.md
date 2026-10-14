@@ -23,8 +23,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   Thanks to @byrnes-patrick for the report and screenshots.
 
 - Garden motion collection drains bounded recording windows in order, resumes long
-  recordings and restarts from its saved cursor. The ten-second minimum between scan
-  starts includes processing time, preventing avoidable backlog on continuous recordings.
+  recordings and restarts from its saved cursor. While completed footage remains queued,
+  scan starts can be five seconds apart to catch up, returning to ten seconds when
+  caught up or paused. Both intervals include processing time.
   Long scans retain a short rest, failures back off for thirty seconds and work stays
   bounded to the last thirty minutes. Bird priority, camera-pressure guards, privacy
   checks and photo limits remain in place. The panel shows the latest camera queue check.

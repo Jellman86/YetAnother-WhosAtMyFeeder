@@ -218,7 +218,7 @@ async def test_queue_drains_long_recording_and_restart_resumes_durable_cursor(co
     native = AsyncMock(return_value={"outcome": "no_candidate"})
     monkeypatch.setattr(collector, "_native", native)
     await collector.scan_once()
-    assert collector.next_scan == 110
+    assert collector.next_scan == 105
     assert (await collector.status()).queued_windows == 2
     await collector.scan_once()
     assert native.await_count == 1
@@ -267,8 +267,9 @@ async def test_successful_scan_processing_time_does_not_add_to_the_minimum_start
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("processing_seconds", [1.5, 12])
+@pytest.mark.parametrize("interval", [5, 10])
 async def test_collector_loop_preserves_start_cadence_and_leaves_rest_after_slow_scans(
-    collector, monkeypatch, processing_seconds
+    collector, monkeypatch, processing_seconds, interval
 ):
     import asyncio
 
@@ -278,7 +279,8 @@ async def test_collector_loop_preserves_start_cadence_and_leaves_rest_after_slow
     async def scan():
         starts.append(clock[0])
         clock[0] += processing_seconds
-        collector.next_scan = max(starts[-1] + 10, clock[0])
+        collector.interval_seconds = interval
+        collector.next_scan = max(starts[-1] + interval, clock[0])
 
     async def sleep(delay):
         sleeps.append(delay)
@@ -292,7 +294,7 @@ async def test_collector_loop_preserves_start_cadence_and_leaves_rest_after_slow
     )
     with pytest.raises(asyncio.CancelledError):
         await collector._run()
-    rest = max(1, 10 - processing_seconds)
+    rest = max(1, interval - processing_seconds)
     spacing = processing_seconds + rest
     assert starts == [100, 100 + spacing, 100 + 2 * spacing]
     assert sleeps == [rest] * 3
@@ -442,3 +444,78 @@ async def test_threshold_change_during_scan_prevents_stale_proposal_or_cursor_wr
         repo = GardenRepository(db)
         assert await repo.count("pending") == 0
         assert await repo.motion_cursor("patio") is None
+
+
+@pytest.mark.asyncio
+async def test_loop_reduces_continuous_recording_backlog_and_returns_to_normal_polling(collector, monkeypatch):
+    import asyncio
+
+    clock, starts, sleeps = [100.0], [], []
+    monkeypatch.setattr("app.services.garden_motion.time.monotonic", lambda: clock[0])
+    monkeypatch.setattr("app.services.garden_motion.time.time", lambda: 1900 + clock[0])
+    monkeypatch.setattr(collector, "_camera_clear", AsyncMock(return_value=True))
+    monkeypatch.setattr(collector, "_person_overlap", AsyncMock(return_value=True))
+    monkeypatch.setattr(collector, "_native", AsyncMock(return_value={"outcome": "no_candidate"}))
+
+    async def get(path, **kwargs):
+        return httpx.Response(
+            200,
+            json=[{"start_time": 1950, "end_time": 1880 + clock[0], "motion": 10}],
+            request=httpx.Request("GET", "http://frigate/"),
+        )
+
+    async def sleep(delay):
+        starts.append(clock[0])
+        sleeps.append(delay)
+        clock[0] += delay
+        if len(sleeps) == 7:
+            raise asyncio.CancelledError
+
+    monkeypatch.setattr("app.services.garden_motion.frigate_client.get", get)
+    monkeypatch.setattr("app.services.garden_motion.asyncio", SimpleNamespace(**{**vars(asyncio), "sleep": sleep}))
+    with pytest.raises(asyncio.CancelledError):
+        await collector._run()
+    assert starts[:5] == [100, 105, 110, 115, 120]
+    assert sleeps == [5, 5, 5, 5, 10, 10, 10]
+    async with get_db() as db:
+        assert await GardenRepository(db).motion_cursor("patio") == 2020
+        assert await GardenRepository(db).count("pending") == 0
+    assert (await collector.status()).interval_seconds == 10
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("blocked_by", ["birds", "camera", "storage"])
+async def test_backlog_waits_for_pressure_without_fast_polling_or_cursor_advance(collector, monkeypatch, blocked_by):
+    clock = [100.0]
+    monkeypatch.setattr("app.services.garden_motion.time.monotonic", lambda: clock[0])
+    monkeypatch.setattr("app.services.garden_motion.time.time", lambda: 2000)
+    monkeypatch.setattr(collector, "_camera_clear", AsyncMock(return_value=True))
+    monkeypatch.setattr(
+        "app.services.garden_motion.frigate_client.get",
+        AsyncMock(
+            return_value=httpx.Response(
+                200,
+                json=[{"start_time": 1900, "end_time": 1930, "motion": 10}],
+                request=httpx.Request("GET", "http://frigate/"),
+            )
+        ),
+    )
+    native = AsyncMock(return_value={"outcome": "no_candidate"})
+    monkeypatch.setattr(collector, "_native", native)
+    await collector.scan_once()
+    assert collector.next_scan == 105
+    assert (await collector.status()).interval_seconds == 5
+    clock[0] = 105
+    if blocked_by == "birds":
+        monkeypatch.setattr(
+            "app.services.garden_motion.garden_inference_pressure", lambda: {"live": {"queued": 7}, "background": {}}
+        )
+    elif blocked_by == "camera":
+        monkeypatch.setattr(collector, "_camera_clear", AsyncMock(return_value=False))
+    else:
+        monkeypatch.setattr("app.repositories.garden_repository.MOTION_PHOTO_LIMIT", 0)
+    await collector.scan_once()
+    native.assert_awaited_once()
+    assert (await collector.status()).interval_seconds == 10
+    async with get_db() as db:
+        assert await GardenRepository(db).motion_cursor("patio") == 1910

@@ -113,3 +113,24 @@ def test_provenance_rejects_unsafe_or_unbound_evidence(change):
     values.update(change)
     with pytest.raises(ValueError):
         MotionSource.model_validate(values)
+
+
+@pytest.mark.parametrize("outcome", ["candidate", "no_candidate", "person_rejected"])
+@pytest.mark.parametrize("remaining", [1, 2, 24])
+def test_completed_windows_with_backlog_allow_bounded_five_second_catchup(outcome, remaining):
+    from app.services.garden_motion_policy import motion_scan_interval
+
+    assert motion_scan_interval(outcome, remaining) == 5
+
+
+@pytest.mark.parametrize("outcome", [None, "failed", "paused", "storage_full", "no_recording", "not_stored"])
+def test_incomplete_or_blocked_work_cannot_enable_fast_catchup(outcome):
+    from app.services.garden_motion_policy import motion_scan_interval
+
+    assert motion_scan_interval(outcome, 24) == 10
+
+
+def test_drained_queue_returns_to_normal_interval():
+    from app.services.garden_motion_policy import motion_scan_interval
+
+    assert motion_scan_interval("no_candidate", 0) == 10
