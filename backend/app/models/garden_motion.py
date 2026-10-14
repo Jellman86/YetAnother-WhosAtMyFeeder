@@ -31,6 +31,7 @@ class MotionSource(BaseModel):
     detector_input_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
     sampled_frame_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
     detector_score: float = Field(ge=0, le=1, strict=True)
+    animal_confidence: float = Field(default=0.5, ge=0.5, le=0.95, strict=True)
     box_xywh: tuple[float, float, float, float]
 
     @property
@@ -69,3 +70,4 @@ class GardenMotionStatus(BaseModel):
     queue_checked_at: str | None = None
     photo_retention_days: int = 3
     photo_limit: int = 128
+    animal_confidence: float = Field(default=0.5, ge=0.5, le=0.95)

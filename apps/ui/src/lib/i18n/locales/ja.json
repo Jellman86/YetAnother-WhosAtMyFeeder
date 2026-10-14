@@ -3624,6 +3624,22 @@
     "presence_box": "枠：MegaDetector Cedarが検出した候補です。確認する前に写真を確認してください。",
     "photo_restore_unavailable": "写真を利用できません。確認待ちに戻すことはできません。",
     "motion_coverage": "過去{minutes}分の短い区間をカメラごとに最大{limit}件キューに入れます。鳥の処理やカメラの負荷により収集を一時停止するため、短い訪問を見逃すことがあります。",
-    "motion_queue": "{camera}：{time}の確認時点で{count}区間が待機中。キュー上限に達している場合、ほかにも区間がある可能性があります。"
+    "motion_queue": "{camera}：{time}の確認時点で{count}区間が待機中。キュー上限に達している場合、ほかにも区間がある可能性があります。",
+    "batch_dismissed": "{count}枚の写真を除外しました。",
+    "batch_restored": "{count}枚の写真を確認待ちに戻しました。",
+    "batch_skipped": "確認状態または利用可否が変わったため、{count}枚の写真は変更していません。",
+    "batch_undo_help": "写真が残っている間は取り消せます。除外した写真は新しい撮影のために削除される場合があります。",
+    "batch_undo": "グループの除外を取り消す",
+    "group_count": "同じ位置付近の写真{count}枚",
+    "group_help": "位置だけでは動物を特定できません。このグループには異なる訪問者が含まれる場合があります。",
+    "previous_photo": "前の写真",
+    "photo_count": "写真{index} / {count}",
+    "next_photo": "次の写真",
+    "group_review": "このグループを確認",
+    "group_dismiss_help": "先に写真を確認してください。この写真だけを除外します。今後の撮影やカメラのこの領域は除外しません。",
+    "group_dismiss": "この{count}枚を除外",
+    "confidence": "動物候補のしきい値",
+    "confidence_help": "値を上げると候補は減りますが、動物を見逃す可能性があります。新しい動体写真だけに適用され、鳥の検出と人物のプライバシー確認は変わりません。",
+    "confidence_save": "動物のしきい値を保存"
   }
 }

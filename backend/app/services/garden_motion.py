@@ -107,6 +107,7 @@ class GardenMotionService:
             busy=garden_identification_service.busy,
             state=state,
             message=message,
+            animal_confidence=settings.frigate.garden_motion_confidence,
             last_scan_at=self.last_scan_at,
             last_outcome=self.last_outcome,
             queued_windows=self.queued_windows if self.queue_camera in cameras else 0,
@@ -267,6 +268,7 @@ class GardenMotionService:
         self.camera_index += 1
         guard_time, clear = time.monotonic(), False
         generation = garden_motion_privacy.generation
+        animal_confidence = settings.frigate.garden_motion_confidence
 
         def blocked() -> bool:
             return (
@@ -275,6 +277,7 @@ class GardenMotionService:
                 or not clear
                 or time.monotonic() - guard_time > 2
                 or generation != garden_motion_privacy.generation
+                or animal_confidence != settings.frigate.garden_motion_confidence
             )
 
         async def watch() -> None:
@@ -343,6 +346,7 @@ class GardenMotionService:
                 clip_sha256=await asyncio.to_thread(digest, clip),
                 model_sha256=bundle["model_sha256"],
                 names=bundle["names"],
+                animal_confidence=animal_confidence,
             )
             result = await self._native(payload, blocked)
             if blocked():
@@ -361,6 +365,7 @@ class GardenMotionService:
                             clip_end=end,
                             clip_sha256=payload["clip_sha256"],
                             detector_sha256=bundle["model_sha256"],
+                            animal_confidence=animal_confidence,
                             **{
                                 key: result[key]
                                 for key in (

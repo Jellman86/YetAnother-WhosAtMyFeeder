@@ -3624,6 +3624,22 @@
     "presence_box": "Caixa: candidato do MegaDetector Cedar. Verifique a foto antes de confirmar.",
     "photo_restore_unavailable": "A foto está indisponível. A captura não pode voltar à revisão.",
     "motion_coverage": "Até {limit} intervalos curtos em fila por câmara dos últimos {minutes} minutos. As aves e a carga das câmaras pausam a recolha; visitas breves podem não ser detetadas.",
-    "motion_queue": "{camera}: {count} intervalos em espera na verificação às {time}. Pode haver mais quando a fila atinge o limite."
+    "motion_queue": "{camera}: {count} intervalos em espera na verificação às {time}. Pode haver mais quando a fila atinge o limite.",
+    "batch_dismissed": "{count} fotos descartadas.",
+    "batch_restored": "{count} fotos devolvidas à revisão.",
+    "batch_skipped": "{count} fotos sem alterações porque a revisão ou disponibilidade mudou.",
+    "batch_undo_help": "Pode anular enquanto as fotos existirem. Fotos descartadas podem dar lugar a novas capturas.",
+    "batch_undo": "Anular descarte do grupo",
+    "group_count": "{count} fotos na mesma posição",
+    "group_help": "A posição não identifica um animal. Este grupo pode conter visitantes diferentes.",
+    "previous_photo": "Foto anterior",
+    "photo_count": "Foto {index} de {count}",
+    "next_photo": "Próxima foto",
+    "group_review": "Rever este grupo",
+    "group_dismiss_help": "Verifique primeiro as fotos. Apenas estas fotos são descartadas, não capturas futuras nem esta área da câmara.",
+    "group_dismiss": "Descartar estas {count} fotos",
+    "confidence": "Limiar de propostas de animais",
+    "confidence_help": "Valores mais altos reduzem propostas, mas podem perder animais. Aplica-se apenas a novas fotos de movimento; a deteção de aves e a proteção de pessoas não mudam.",
+    "confidence_save": "Guardar limiar de animais"
   }
 }

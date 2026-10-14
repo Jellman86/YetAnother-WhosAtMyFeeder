@@ -6,6 +6,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Repeated Garden motion proposals around the same position share a review card,
+  with every original photo available and an explicit group dismissal with limited
+  Undo. Confirmation stays per photo; concurrent confirmed reviews stay protected.
+  The separate animal proposal threshold is now adjustable without changing bird
+  detection or person privacy checks. Existing photo limits and history are preserved.
+
 - Garden review skips Frigate events without an advertised snapshot and hides known
   unavailable photos from Needs review without deleting review metadata. Confirmed
   history remains visible; stale confirmation and Restore requests require a photo (#698).

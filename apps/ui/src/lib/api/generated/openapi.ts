@@ -994,6 +994,14 @@ export interface components {
     status: string;
     version: string;
 };
+    GardenBatchReviewRequest: {
+    action: "dismiss" | "restore";
+    ids: Array<string>;
+};
+    GardenBatchReviewResponse: {
+    skipped_count: number;
+    updated_ids: Array<string>;
+};
     GardenCapturePage: {
     items: Array<components['schemas']['GardenCaptureResponse']>;
     limit: number;
@@ -1052,6 +1060,7 @@ export interface components {
     variant: "4.0.3a" | "4.0.3b";
 };
     GardenMotionStatus: {
+    animal_confidence?: number;
     busy: boolean;
     cameras: Array<string>;
     catalogue_ready: boolean;
@@ -1477,6 +1486,7 @@ export interface components {
     reason: string;
 };
     MotionSource: {
+    animal_confidence?: number;
     box_xywh: [number, number, number, number];
     camera: string;
     clip_end: number;
@@ -1679,6 +1689,7 @@ export interface components {
     garden_cameras: Array<string>;
     garden_labels: Array<string>;
     garden_motion_cameras: Array<string>;
+    garden_motion_confidence?: number;
     ha_weather_access_token?: string | null;
     ha_weather_base_url?: string | null;
     ha_weather_cloud_cover_entity?: string | null;
@@ -1887,6 +1898,7 @@ export interface components {
     garden_cameras?: Array<string>;
     garden_labels?: Array<string>;
     garden_motion_cameras?: Array<string>;
+    garden_motion_confidence?: number;
     ha_weather_access_token?: string | null;
     ha_weather_base_url?: string | null;
     ha_weather_cloud_cover_entity?: string | null;
@@ -3769,6 +3781,15 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: components['schemas']['GardenMotionStatus'];
+    };
+  };
+  "/api/garden/review-batch": {
+    post: {
+      operationId: "review_batch_api_garden_review_batch_post";
+      path: never;
+      query: never;
+      requestBody: components['schemas']['GardenBatchReviewRequest'];
+      response: components['schemas']['GardenBatchReviewResponse'];
     };
   };
   "/api/garden/{capture_id}/confirm": {

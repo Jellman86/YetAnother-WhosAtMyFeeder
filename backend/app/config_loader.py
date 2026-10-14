@@ -248,6 +248,7 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
         "birdnet_url": os.environ.get("FRIGATE__BIRDNET_URL", ""),
         "birdnet_external_url": os.environ.get("FRIGATE__BIRDNET_EXTERNAL_URL", ""),
         "camera_audio_mapping": {},
+        "garden_motion_confidence": float(os.environ.get("FRIGATE__GARDEN_MOTION_CONFIDENCE", "0.5")),
     }
 
     # Maintenance settings

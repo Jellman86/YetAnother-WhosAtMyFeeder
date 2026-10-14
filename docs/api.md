@@ -341,10 +341,16 @@ can change their framing. Full-frame Frigate coordinates must not be reapplied t
 All garden routes require owner access and use `private, no-store`. Presence and
 species identification have separate reviews; `frigate_label` remains an upstream suggestion.
 
-- `GET /api/garden` — `status=pending|confirmed|dismissed`, `limit=1..100` (default 20),
+- `GET /api/garden` — `status=pending|confirmed|dismissed`, `limit=1..128` (default 20),
   `offset>=0`; returns `items`, `total`, `limit`, `offset`. Pending items and totals
   omit captures whose photos are known to be unavailable, without changing their
   stored reviews. Confirmed and dismissed history still include them.
+- `POST /api/garden/review-batch` — explicit `ids` (1..128 hexadecimal capture IDs)
+  and `action` (`dismiss` or `restore`). Dismiss changes only pending captures;
+  Restore changes only dismissed captures with available photos. Returns `updated_ids`
+  in request order and `skipped_count` (unique IDs not changed). Confirmed, blocked,
+  missing or concurrently changed reviews are skipped. Never confirms presence or
+  identification, deletes photos, or applies to future captures.
 - `POST /api/garden/{capture_id}/confirm` — move to confirmed history; no body.
   A known unavailable photo returns `409` without changing the review.
 - `POST /api/garden/{capture_id}/dismiss` — dismiss a false detection; no body.
@@ -356,7 +362,7 @@ species identification have separate reviews; `frigate_label` remains an upstrea
   and uses `private, no-store`; review writes still require an authorization header.
 
 - `GET /api/garden/motion` — enabled cameras, catalogue and detector availability,
-  shared busy state, collection state/message, last attempted scan/outcome and fixed
+  shared busy state, `animal_confidence`, collection state/message, last attempted scan/outcome and fixed
   minimum interval/photo limits. `interval_seconds` is the cooldown after a scan,
   not a promised capture rate. `catchup_seconds` bounds recording age; `queue_limit`
   caps each rebuilt camera queue. `queued_windows`, `queue_camera` and
@@ -401,6 +407,13 @@ expiry and return `snapshot_url=null`; confirm and restore return `409` without
 changing the review or identification. Restore remains available while the photo is stored.
 The photo budget remains 64 MiB. Clips are temporary; photos expire after three
 days and unconfirmed motion captures are removed. Confirmed history survives photo expiry.
+
+`garden_motion_confidence` is a saved settings value from 0.5 to 0.95 (default 0.5).
+The equivalent environment override is `FRIGATE__GARDEN_MOTION_CONFIDENCE`.
+It affects new Cedar animal proposals only, leaving bird and person thresholds intact.
+`motion_source.animal_confidence` records the threshold used; legacy photos default
+this provenance value to the previous fixed 0.5. A changed threshold interrupts a
+pending scan before its proposal or completion cursor is saved.
 
 Settings use `garden_cameras` (default `[]`), `garden_motion_cameras` (default `[]`) and `garden_labels` (default
 `["cat", "dog"]`), persisted under `frigate` in the configuration. These are

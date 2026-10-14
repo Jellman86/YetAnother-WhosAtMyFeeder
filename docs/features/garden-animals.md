@@ -69,6 +69,13 @@ The panel reports waiting, failures, the last attempted scan and the latest chec
 camera's remaining queue count and check time. A full queue can have further footage
 waiting in Frigate. Refresh the page to read the latest state.
 
+In **Motion collection**, **Animal proposal threshold** adjusts Cedar's minimum animal
+score for new motion photos (0.5 by default, configurable from 0.5 to 0.95).
+A higher threshold reduces proposals but can miss small, distant or infrared animals;
+it cannot eliminate confident errors such as feeders and toys. **Save animal threshold**
+does not reclassify existing photos or change bird thresholds or the person privacy veto.
+Each new motion photo records the threshold used with its source evidence.
+
 Cedar runs on CPU with two inference threads and one video-decoding thread. It
 yields to queued or running bird inference and stops if active Frigate cameras
 fall behind. One garden operation runs at a time, with a 45-second motion-worker
@@ -88,6 +95,20 @@ Person checks include the bounded padding around the requested recording window.
 An unrelated false-positive bird, animal or vehicle event cannot erase an independent
 motion review. Missing or overfull person history stops that scan. Recognition can miss
 people; these photographs remain owner-only.
+
+**Needs review** groups motion proposals around the same position on a camera into
+one card, within a page of up to 128 captures. The group compares each box with the
+first box, requiring at least 75% overlap by intersection over union and the same
+detector. This is a review aid, not animal tracking: different visitors can occupy
+the same position. **Previous photo** and **Next photo** show the original photos,
+times and exact boxes; confirmation always applies only to the displayed photo.
+Frigate events and confirmed/dismissed history remain individual captures.
+
+Open **Review this group** to dismiss only the listed photos together after inspecting
+them. Future captures, other camera regions and already-confirmed captures are
+unaffected. **Undo group dismissal** restores still-available photos; changed reviews
+or unavailable photos are skipped and counted. No photographs are deleted by grouping.
+Dismissed motion photos can be reclaimed for new captures, so Undo is not permanent.
 
 At most 128 motion photos of 512 KiB each are stored in the application database,
 a 64 MiB photo budget. Clips are temporary and removed after each scan. Photos

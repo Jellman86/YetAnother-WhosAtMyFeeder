@@ -267,6 +267,14 @@ class FrigateSettings(BaseModel):
     garden_motion_cameras: list[str] = Field(
         default_factory=list, description="Opt-in garden cameras for bounded CPU scans of retained motion recordings"
     )
+    garden_motion_confidence: float = Field(
+        0.5,
+        ge=0.5,
+        le=0.95,
+        allow_inf_nan=False,
+        strict=True,
+        description="Minimum Cedar animal score for new motion proposals; person privacy threshold is unchanged",
+    )
 
     @field_validator("garden_motion_cameras", mode="before")
     @classmethod

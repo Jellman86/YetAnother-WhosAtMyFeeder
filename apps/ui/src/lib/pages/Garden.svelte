@@ -1,16 +1,23 @@
 <script lang="ts">
     import { onDestroy, onMount } from 'svelte';
     import { _ } from 'svelte-i18n';
-    import { fetchGarden, reviewGarden, fetchGardenIdentification, installGardenModel, identifyGarden, reviewGardenIdentification, type GardenCapture, type GardenIdentificationStatus, type GardenIdentifyRequest } from '../api/garden';
+    import { fetchGarden, reviewGarden, reviewGardenBatch, fetchGardenIdentification, installGardenModel, identifyGarden, reviewGardenIdentification, type GardenCapture, type GardenIdentificationStatus, type GardenIdentifyRequest } from '../api/garden';
     import { withAuthParams } from '../api/core';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { fetchGardenMotion, installGardenMotion, type GardenMotionStatus } from '../api/garden';
     import { gardenPhotoOutline } from '../utils/garden-photo';
+    import { groupGardenReview, type GardenReviewGroup } from '../utils/garden-review-groups';
+    import { updateSettings } from '../api/settings';
 
     let { onNavigate }: { onNavigate: (path: string) => void } = $props();
     let status = $state<GardenCapture['status']>('pending');
     let items = $state.raw<GardenCapture[]>([]);
     let total = $state(0);
+    const pageSize = $derived(status === 'pending' ? 128 : 8);
+    const groups = $derived(groupGardenReview(items));
+    let photoIndexes = $state<Record<string, number>>({});
+    let undoIds = $state.raw<string[]>([]);
+    let batchResult = $state<{ action: 'dismiss' | 'restore'; updated: number; skipped: number } | null>(null);
     let offset = $state(0);
     let loading = $state(true);
     let saving = $state<string | null>(null);
@@ -19,6 +26,7 @@
     let failedImages = $state<Record<string, boolean>>({});
     let identification = $state.raw<GardenIdentificationStatus | null>(null);
     let motion = $state.raw<GardenMotionStatus | null>(null);
+    let motionConfidence = $state(0.5);
     let variant = $state<NonNullable<GardenIdentifyRequest['variant']>>('4.0.3b');
     let provider = $state<NonNullable<GardenIdentifyRequest['provider']>>('cpu');
     const selectedModel = $derived(identification?.models.find(model => model.variant === variant));
@@ -48,6 +56,7 @@
         items = [];
         loadedImages = {};
         failedImages = {};
+        photoIndexes = {};
         try {
             const result = await fetchGarden(status, offset, controller.signal);
             if (destroyed || request !== generation) return;
@@ -62,13 +71,16 @@
             if (destroyed || request !== generation) return;
             try {
                 const motionStatus = await fetchGardenMotion(controller.signal);
-                if (!destroyed && request === generation) motion = motionStatus;
+                if (!destroyed && request === generation) {
+                    motion = motionStatus;
+                    motionConfidence = motionStatus.animal_confidence ?? 0.5;
+                }
             } catch {
                 if (!destroyed && request === generation) motion = null;
             }
             if (destroyed || request !== generation) return;
             if (offset > 0 && items.length === 0) {
-                offset = Math.max(0, offset - 8);
+                offset = Math.max(0, offset - pageSize);
                 await load();
             }
         } catch (failure) {
@@ -92,6 +104,26 @@
         try {
             await reviewGarden(item.id, action);
             if (!destroyed) await load();
+        } catch (failure) {
+            if (!destroyed) error = failure instanceof Error ? failure.message : $_('garden.save_error', { default: 'Could not save your review. Try again.' });
+        } finally {
+            if (!destroyed) saving = null;
+        }
+    }
+
+    async function reviewGroup(group: GardenReviewGroup | null): Promise<void> {
+        if (saving) return;
+        const ids = group ? group.items.map(item => item.id) : undoIds;
+        if (ids.length === 0) return;
+        const action = group ? 'dismiss' : 'restore';
+        saving = group?.id ?? 'undo';
+        error = null;
+        try {
+            const result = await reviewGardenBatch(ids, action);
+            if (destroyed) return;
+            undoIds = action === 'dismiss' ? result.updated_ids : [];
+            batchResult = { action, updated: result.updated_ids.length, skipped: result.skipped_count };
+            await load();
         } catch (failure) {
             if (!destroyed) error = failure instanceof Error ? failure.message : $_('garden.save_error', { default: 'Could not save your review. Try again.' });
         } finally {
@@ -142,6 +174,20 @@
         }
     }
 
+    async function saveMotionConfidence(): Promise<void> {
+        if (saving || !Number.isFinite(motionConfidence) || motionConfidence < 0.5 || motionConfidence > 0.95) return;
+        saving = 'confidence';
+        error = null;
+        try {
+            await updateSettings({ garden_motion_confidence: motionConfidence });
+            if (!destroyed) await load();
+        } catch (failure) {
+            if (!destroyed) error = failure instanceof Error ? failure.message : $_('garden.save_error', { default: 'Could not save your review. Try again.' });
+        } finally {
+            if (!destroyed) saving = null;
+        }
+    }
+
     onMount(() => {
         unregisterRefresh = pageRefreshAction.register(load);
         void load();
@@ -167,6 +213,12 @@
                     <p role="status" class="text-sm">{$_('garden.model_status_unavailable', { default: 'Model status unavailable. Refresh to try again.' })}</p>
                 {:else}
                     <p role="status" class="text-sm">{motion.message}</p>
+                    <label class="block space-y-1 text-sm">
+                        <span>{$_('garden.confidence', { default: 'Animal proposal threshold' })}</span>
+                        <input class="input-base w-full" type="number" min="0.5" max="0.95" step="0.05" bind:value={motionConfidence} disabled={saving !== null} />
+                    </label>
+                    <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.confidence_help', { default: 'Higher values reduce proposals but can miss animals. Applies to new motion photos only; bird detection and person privacy checks are unchanged.' })}</p>
+                    <button class="btn btn-secondary min-h-11 px-4 py-2 whitespace-normal" disabled={saving !== null || !Number.isFinite(motionConfidence) || motionConfidence < 0.5 || motionConfidence > 0.95 || motionConfidence === (motion.animal_confidence ?? 0.5)} onclick={saveMotionConfidence}>{$_('garden.confidence_save', { default: 'Save animal threshold' })}</button>
                     <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.motion_limits', { default: 'CPU only · At least {seconds}s between scans · Up to {limit} photos · {days}-day photo retention', values: { seconds: motion.interval_seconds, limit: motion.photo_limit, days: motion.photo_retention_days } })}</p>
                     {#if motion.queue_limit !== undefined && motion.catchup_seconds !== undefined}
                         <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.motion_coverage', { default: 'Up to {limit} short windows queued per camera from the last {minutes} minutes. Birds and camera pressure pause collection; brief visits can be missed.', values: { limit: motion.queue_limit, minutes: motion.catchup_seconds / 60 } })}</p>
@@ -227,6 +279,18 @@
     {#if error}
         <div class="rounded-xl border border-line bg-surface-raised p-4 text-sm" role="alert">{error}</div>
     {/if}
+    {#if batchResult}
+        <div class="card-base p-4 space-y-2" role="status">
+            <p class="text-sm">{batchResult.action === 'dismiss'
+                ? $_('garden.batch_dismissed', { default: '{count} photos dismissed.', values: { count: batchResult.updated } })
+                : $_('garden.batch_restored', { default: '{count} photos returned to review.', values: { count: batchResult.updated } })}</p>
+            {#if batchResult.skipped > 0}<p class="text-xs">{$_('garden.batch_skipped', { default: '{count} photos were unchanged because their review or availability changed.', values: { count: batchResult.skipped } })}</p>{/if}
+            {#if undoIds.length > 0}
+                <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.batch_undo_help', { default: 'Undo is available while photos remain. Dismissed photos may make room for new captures.' })}</p>
+                <button class="btn btn-secondary min-h-11 px-4 py-2 whitespace-normal" disabled={saving !== null} onclick={() => reviewGroup(null)}>{$_('garden.batch_undo', { default: 'Undo group dismissal' })}</button>
+            {/if}
+        </div>
+    {/if}
     <div aria-live="polite" aria-busy={loading}>
         {#if loading}
             <p class="p-6 text-sm text-slate-600 dark:text-slate-400" role="status">{$_('garden.loading', { default: 'Loading garden captures…' })}</p>
@@ -238,7 +302,9 @@
             </div>
         {:else}
             <div class="space-y-4">
-                {#each items as item (item.id)}
+                {#each groups as group (group.id)}
+                    {@const photoIndex = Math.min(photoIndexes[group.id] ?? 0, group.items.length - 1)}
+                    {@const item = group.items[photoIndex]}
                     {@const outline = gardenPhotoOutline(item, loadedImages[item.id])}
                     <article class="card-base overflow-hidden md:grid md:grid-cols-3" aria-label={item.camera}>
                         <div class="relative aspect-video min-w-0 bg-surface-raised md:col-span-2">
@@ -262,6 +328,16 @@
                         <div class="min-w-0 space-y-4 p-4">
                             <div class="space-y-1">
                                 <h2 class="break-words font-semibold">{item.camera}</h2>
+                                {#if group.items.length > 1}
+                                    <p class="font-semibold text-sm">{$_('garden.group_count', { default: '{count} photos around the same position', values: { count: group.items.length } })}</p>
+                                    <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.group_help', { default: 'Position does not identify an animal. This group can contain different visitors.' })}</p>
+                                    <p class="text-xs">{new Date(group.items[group.items.length - 1].observed_at).toLocaleString()} · {new Date(group.items[0].observed_at).toLocaleString()}</p>
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <button class="btn btn-secondary min-h-11 px-3 py-2 whitespace-normal" disabled={saving !== null || photoIndex === 0} onclick={() => photoIndexes = { ...photoIndexes, [group.id]: photoIndex - 1 }}>{$_('garden.previous_photo', { default: 'Previous photo' })}</button>
+                                        <span class="text-xs">{$_('garden.photo_count', { default: 'Photo {index} of {count}', values: { index: photoIndex + 1, count: group.items.length } })}</span>
+                                        <button class="btn btn-secondary min-h-11 px-3 py-2 whitespace-normal" disabled={saving !== null || photoIndex + 1 >= group.items.length} onclick={() => photoIndexes = { ...photoIndexes, [group.id]: photoIndex + 1 }}>{$_('garden.next_photo', { default: 'Next photo' })}</button>
+                                    </div>
+                                {/if}
                                 <time class="block text-xs text-slate-600 dark:text-slate-400" datetime={item.observed_at}>{new Date(item.observed_at).toLocaleString()}</time>
                                 <p class="break-words text-sm">{item.source_kind === 'motion' ? $_('garden.motion_source', { default: 'Candidate from retained motion footage' }) : $_('garden.frigate_suggested', { default: 'Frigate suggested: {label}', values: { label: item.frigate_label } })}</p>
                                 {#if outline?.kind === 'presence' && !failedImages[item.id]}
@@ -281,17 +357,24 @@
                                 {/if}
                             </div>
                             <div class="flex flex-col gap-2">
+                                {#if group.items.length > 1}
+                                    <details class="group space-y-2">
+                                        <summary class="min-h-11 list-none [&::-webkit-details-marker]:hidden cursor-pointer py-3 text-sm font-semibold focus-visible:ring-2 focus-visible:ring-brand"><span>{$_('garden.group_review', { default: 'Review this group' })}</span><span class="inline-block ml-2 transition-transform group-open:rotate-180" aria-hidden="true">⌄</span></summary>
+                                        <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.group_dismiss_help', { default: 'Check the photos first. This dismisses only these photos, not future captures or this area of the camera.' })}</p>
+                                        <button class="btn btn-secondary min-h-11 w-full px-4 py-2 whitespace-normal" disabled={saving !== null} onclick={() => reviewGroup(group)}>{$_('garden.group_dismiss', { default: 'Dismiss these {count} photos', values: { count: group.items.length } })}</button>
+                                    </details>
+                                {/if}
                                 {#if item.status === 'pending'}
-                                    <button class="btn btn-primary min-h-11 px-4 py-2 whitespace-normal" disabled={saving !== null || !loadedImages[item.id]} onclick={() => review(item, 'confirm')}>{$_('garden.confirm', { default: 'Confirm animal present' })}</button>
+                                    <button class="btn btn-primary min-h-11 px-4 py-2 whitespace-normal" disabled={saving !== null || (!loadedImages[item.id] || failedImages[item.id])} onclick={() => review(item, 'confirm')}>{$_('garden.confirm', { default: 'Confirm animal present' })}</button>
                                 {/if}
                                 {#if item.status === 'confirmed'}
                                     {#if item.identification?.review === 'accepted'}
                                         <button class="btn btn-secondary min-h-11 px-4 py-2 whitespace-normal" disabled={saving !== null} onclick={() => speciesAction(item, 'dismiss')}>{$_('garden.discard_identification', { default: 'Discard identification' })}</button>
                                     {:else}
-                                        <button class="btn btn-secondary min-h-11 px-4 py-2 whitespace-normal" disabled={saving !== null || !loadedImages[item.id] || !canIdentify} onclick={() => speciesAction(item, 'identify')}>{saving === item.id ? $_('garden.working', { default: 'Working…' }) : $_('garden.suggest_species', { default: 'Suggest species' })}</button>
+                                        <button class="btn btn-secondary min-h-11 px-4 py-2 whitespace-normal" disabled={saving !== null || (!loadedImages[item.id] || failedImages[item.id]) || !canIdentify} onclick={() => speciesAction(item, 'identify')}>{saving === item.id ? $_('garden.working', { default: 'Working…' }) : $_('garden.suggest_species', { default: 'Suggest species' })}</button>
                                         {#if !canIdentify}<p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.setup_needed', { default: 'Open Species suggestions above to check the model, country and availability.' })}</p>{/if}
                                         {#if item.identification?.outcome === 'suggestion' && item.identification.review === 'unreviewed'}
-                                            <button class="btn btn-primary min-h-11 px-4 py-2 whitespace-normal" disabled={saving !== null || !loadedImages[item.id]} onclick={() => speciesAction(item, 'accept')}>{$_('garden.accept_identification', { default: 'Confirm identification' })}</button>
+                                            <button class="btn btn-primary min-h-11 px-4 py-2 whitespace-normal" disabled={saving !== null || (!loadedImages[item.id] || failedImages[item.id])} onclick={() => speciesAction(item, 'accept')}>{$_('garden.accept_identification', { default: 'Confirm identification' })}</button>
                                             <button class="btn btn-secondary min-h-11 px-4 py-2 whitespace-normal" disabled={saving !== null} onclick={() => speciesAction(item, 'dismiss')}>{$_('garden.dismiss_suggestion', { default: 'Dismiss suggestion' })}</button>
                                         {/if}
                                     {/if}
@@ -313,9 +396,9 @@
     </div>
     {#if !loading && !error && total > 0}
         <div class="flex flex-wrap items-center justify-between gap-3">
-            <button class="btn btn-secondary min-h-11 px-4 py-2" disabled={offset === 0 || saving !== null} onclick={() => { offset = Math.max(0, offset - 8); void load(); }}>{$_('garden.previous', { default: 'Previous' })}</button>
-            <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.page_count', { default: '{start}–{end} of {total}', values: { start: offset + 1, end: Math.min(offset + 8, total), total } })}</p>
-            <button class="btn btn-secondary min-h-11 px-4 py-2" disabled={offset + 8 >= total || saving !== null} onclick={() => { offset += 8; void load(); }}>{$_('garden.next', { default: 'Next' })}</button>
+            <button class="btn btn-secondary min-h-11 px-4 py-2" disabled={offset === 0 || saving !== null} onclick={() => { offset = Math.max(0, offset - pageSize); void load(); }}>{$_('garden.previous', { default: 'Previous' })}</button>
+            <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.page_count', { default: '{start}–{end} of {total}', values: { start: offset + 1, end: Math.min(offset + pageSize, total), total } })}</p>
+            <button class="btn btn-secondary min-h-11 px-4 py-2" disabled={offset + pageSize >= total || saving !== null} onclick={() => { offset += pageSize; void load(); }}>{$_('garden.next', { default: 'Next' })}</button>
         </div>
     {/if}
 </div>

@@ -1,5 +1,7 @@
 """Garden review storage has no dependency on bird history or species totals."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from contextlib import suppress
 from datetime import datetime, timedelta, timezone
@@ -145,6 +147,30 @@ class GardenRepository:
             )
         await self.db.commit()
         return await self.get(capture_id)
+
+    async def review_batch(self, ids: list[str], action: Literal["dismiss", "restore"]) -> list[str]:
+        if not 1 <= len(ids) <= 128:
+            raise ValueError("Batch review requires 1 to 128 explicit capture IDs")
+        status, previous = ("dismissed", "pending") if action == "dismiss" else ("pending", "dismissed")
+        placeholders = ",".join("?" for _ in ids)
+        available = f" AND ({self._PHOTO_AVAILABLE})" if action == "restore" else ""
+        # The expected status protects another owner's review and the explicit
+        # ID set excludes captures collected after the page was loaded.
+        async with self.db.execute(
+            f"""UPDATE garden_captures SET status=?,reviewed_at=?
+                WHERE id IN ({placeholders}) AND status=?{available} RETURNING id""",
+            (status, utc_naive_now().isoformat() if action == "dismiss" else None, *ids, previous),
+        ) as cursor:
+            updated = {row[0] for row in await cursor.fetchall()}
+        if updated:
+            changed = ",".join("?" for _ in updated)
+            await self.db.execute(
+                f"""UPDATE garden_identifications SET result_json=json_set(result_json,'$.review','dismissed')
+                    WHERE capture_id IN ({changed})""",
+                list(updated),
+            )
+        await self.db.commit()
+        return [capture_id for capture_id in ids if capture_id in updated]
 
     async def delete_older_than(self, cutoff: datetime) -> None:
         await self.db.execute(

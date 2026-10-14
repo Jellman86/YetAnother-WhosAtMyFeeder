@@ -325,3 +325,84 @@ test('motion panel explains bounded catch-up and time of the last camera queue c
     await page.evaluate(() => document.documentElement.style.fontSize = '200%');
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
+
+test('109 repeated proposals become two position groups with exact photo review and bounded dismissal', async ({ page }) => {
+    const originals = Array.from({ length: 109 }, (_, index) => ({ ...row, id: index.toString(16).padStart(32, '0'),
+        snapshot_url: `/api/garden/${index.toString(16).padStart(32, '0')}/snapshot`, source_kind: 'motion',
+        observed_at: new Date(Date.UTC(2026, 9, 14, 1, 0, index)).toISOString(),
+        motion_source: { ...motionSource, box_xywh: index === 108 ? [0.7, 0.1, 0.2, 0.2] : motionSource.box_xywh } }));
+    let pending = [...originals];
+    const writes: { ids: string[]; action: string }[] = [];
+    await page.route('**/api/garden?**', route => route.fulfill({ json: { items: pending, total: pending.length, limit: 128, offset: 0 } }));
+    await page.route('**/api/garden/motion', route => route.fulfill({ json: { ...motionStatus, last_outcome: 'storage_full' } }));
+    await page.route('**/api/garden/identification', route => route.fulfill({ json: modelStatus }));
+    await page.route('**/api/garden/*/snapshot', route => route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720"/>' }));
+    await page.route('**/api/garden/review-batch', route => {
+        const body = route.request().postDataJSON() as { ids: string[]; action: string };
+        writes.push(body);
+        pending = body.action === 'dismiss' ? pending.filter(item => !body.ids.includes(item.id)) : [...originals];
+        return route.fulfill({ json: { updated_ids: body.ids, skipped_count: 0 } });
+    });
+    await page.goto('/browser-tests/garden.html');
+    await expect(page.locator('article')).toHaveCount(2);
+    const group = page.locator('article').first();
+    await expect(group.getByText('108 photos around the same position')).toBeVisible();
+    await expect(group.getByText('Position does not identify an animal. This group can contain different visitors.')).toBeVisible();
+    await group.getByRole('button', { name: 'Next photo', exact: true }).click();
+    await expect(group.locator('img')).toHaveAttribute('src', /00000000000000000000000000000001\/snapshot/);
+    await expect(group.getByRole('button', { name: 'Confirm animal present' })).toBeEnabled();
+    await page.setViewportSize({ width: 320, height: 900 });
+    await page.evaluate(() => document.documentElement.style.fontSize = '200%');
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await group.getByText('Review this group', { exact: true }).click();
+    await group.getByRole('button', { name: 'Dismiss these 108 photos', exact: true }).click();
+    expect(writes[0]).toEqual({ action: 'dismiss', ids: originals.slice(0, 108).map(item => item.id) });
+    await expect(page.locator('article')).toHaveCount(1);
+    await page.getByRole('button', { name: 'Undo group dismissal', exact: true }).click();
+    await expect(page.locator('article')).toHaveCount(2);
+    expect(writes[1]).toEqual({ action: 'restore', ids: writes[0].ids });
+});
+
+test('animal threshold saves only the independent Garden setting and reloads measured status', async ({ page }) => {
+    let confidence = 0.5;
+    let saved: unknown;
+    await page.route('**/api/garden?**', route => route.fulfill({ json: { items: [], total: 0, limit: 128, offset: 0 } }));
+    await page.route('**/api/garden/motion', route => route.fulfill({ json: { ...motionStatus, animal_confidence: confidence } }));
+    await page.route('**/api/garden/identification', route => route.fulfill({ json: modelStatus }));
+    await page.route('**/api/settings', route => {
+        saved = route.request().postDataJSON();
+        confidence = 0.6;
+        return route.fulfill({ json: { status: 'success' } });
+    });
+    await page.goto('/browser-tests/garden.html');
+    await page.getByText('Motion collection', { exact: true }).click();
+    const threshold = page.getByRole('spinbutton', { name: 'Animal proposal threshold' });
+    await expect(threshold).toHaveValue('0.5');
+    const save = page.getByRole('button', { name: 'Save animal threshold' });
+    await expect(save).toBeDisabled();
+    await threshold.fill('0.6');
+    await save.click();
+    await expect(threshold).toHaveValue('0.6');
+    await expect(save).toBeDisabled();
+    expect(saved).toEqual({ garden_motion_confidence: 0.6 });
+    await threshold.fill('0.2');
+    await expect(save).toBeDisabled();
+});
+
+test('confirmation in a position group applies only to the displayed original photo', async ({ page }) => {
+    const second = 'b'.repeat(32);
+    const captures = [row.id, second].map(id => ({ ...row, id, snapshot_url: `/api/garden/${id}/snapshot`, source_kind: 'motion', motion_source: motionSource }));
+    const confirmed: string[] = [];
+    await page.route('**/api/garden?**', route => route.fulfill({ json: { items: captures, total: 2, limit: 128, offset: 0 } }));
+    await page.route('**/api/garden/motion', route => route.fulfill({ json: motionStatus }));
+    await page.route('**/api/garden/identification', route => route.fulfill({ json: modelStatus }));
+    await page.route('**/api/garden/*/snapshot', route => route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720"/>' }));
+    await page.route('**/api/garden/*/confirm', route => {
+        confirmed.push(new URL(route.request().url()).pathname.split('/').at(-2) ?? '');
+        return route.fulfill({ json: { ...captures[1], status: 'confirmed' } });
+    });
+    await page.goto('/browser-tests/garden.html');
+    await page.getByRole('button', { name: 'Next photo', exact: true }).click();
+    await page.getByRole('button', { name: 'Confirm animal present', exact: true }).click();
+    expect(confirmed).toEqual([second]);
+});

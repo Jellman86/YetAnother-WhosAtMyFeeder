@@ -17,8 +17,15 @@ export async function installGardenMotion(): Promise<GardenMotionStatus> {
 }
 
 export async function fetchGarden(status: GardenStatus, offset: number, signal: AbortSignal): Promise<GardenPage> {
-    const response = await apiFetch(`${API_BASE}/garden?status=${status}&offset=${offset}&limit=8`, { signal, timeoutMs: 15000 });
+    const limit = status === 'pending' ? 128 : 8;
+    const response = await apiFetch(`${API_BASE}/garden?status=${status}&offset=${offset}&limit=${limit}`, { signal, timeoutMs: 15000 });
     return handleResponse<GardenPage>(response);
+}
+
+export async function reviewGardenBatch(ids: string[], action: 'dismiss' | 'restore'): Promise<components['schemas']['GardenBatchReviewResponse']> {
+    return handleResponse<components['schemas']['GardenBatchReviewResponse']>(await apiFetch(`${API_BASE}/garden/review-batch`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids, action }), timeoutMs: 15000
+    }));
 }
 
 export async function reviewGarden(id: string, action: 'confirm' | 'dismiss' | 'restore'): Promise<GardenCapture> {

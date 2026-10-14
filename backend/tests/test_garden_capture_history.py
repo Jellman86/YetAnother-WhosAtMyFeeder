@@ -242,6 +242,7 @@ async def test_guest_cannot_read_history_act_or_request_media():
             ("POST", f"/api/garden/{capture.id}/identification/dismiss"),
             ("GET", f"/api/garden/{capture.id}/snapshot"),
             ("POST", f"/api/garden/{capture.id}/confirm"),
+            ("POST", "/api/garden/review-batch"),
         ):
             assert (await client.request(method, path)).status_code == 403
 
@@ -287,6 +288,9 @@ async def test_cookie_can_load_owner_photo_but_cannot_authorize_a_review():
             assert response.status_code == 200
             assert response.headers["cache-control"] == "private, no-store"
         assert (await client.post(f"/api/garden/{capture.id}/confirm")).status_code in {401, 403}
+        assert (
+            await client.post("/api/garden/review-batch", json={"ids": [capture.id], "action": "dismiss"})
+        ).status_code in {401, 403}
 
 
 @pytest.mark.asyncio
@@ -619,3 +623,83 @@ async def test_dismissing_animal_presence_also_revokes_identification_confirmati
         assert await repository.review_identification(capture.id, "accepted")
         assert (await repository.review(capture.id, "dismissed")).identification.review == "dismissed"
         assert (await repository.review(capture.id, "pending")).identification.review == "dismissed"
+
+
+@pytest.mark.asyncio
+async def test_batch_dismiss_is_explicit_bounded_and_preserves_concurrent_owner_reviews_and_birds():
+    async with get_db() as db:
+        repo = GardenRepository(db)
+        for index in range(4):
+            await repo.capture(f"batch-{index}", "patio", "cat", f"2026-10-13T12:00:0{index}", True)
+        captures = await repo.list("pending", 10, 0)
+        await repo.review(captures[1].id, "confirmed")
+        await repo.block(captures[2].frigate_event, create=False)
+        bird_before = await (await db.execute("SELECT * FROM detections ORDER BY id")).fetchall()
+        ids = [capture.id for capture in captures[:3]]
+        untouched = captures[3].id
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post("/api/garden/review-batch", json={"ids": ids, "action": "dismiss"})
+        assert response.status_code == 200
+        assert response.json() == {"updated_ids": [ids[0]], "skipped_count": 2}
+        assert response.headers["cache-control"] == "private, no-store"
+        duplicate = await client.post("/api/garden/review-batch", json={"ids": ids, "action": "dismiss"})
+        assert duplicate.json() == {"updated_ids": [], "skipped_count": 3}
+        for body in (
+            {"ids": [], "action": "dismiss"},
+            {"ids": [ids[0]] * 129, "action": "dismiss"},
+            {"ids": ["../unsafe"], "action": "dismiss"},
+            {"ids": ids, "action": "confirm"},
+        ):
+            assert (await client.post("/api/garden/review-batch", json=body)).status_code == 422
+    async with get_db() as db:
+        repo = GardenRepository(db)
+        assert (await repo.get(ids[1])).status == "confirmed"
+        assert (await repo.get(untouched)).status == "pending"
+        assert await repo.get(ids[2]) is None
+        assert await (await db.execute("SELECT * FROM detections ORDER BY id")).fetchall() == bird_before
+
+
+@pytest.mark.asyncio
+async def test_batch_undo_restores_only_dismissed_available_photos_and_never_reaccepts_species():
+    async with get_db() as db:
+        repo = GardenRepository(db)
+        await repo.capture("available", "patio", "cat", "2026-10-13T12:00:00", True)
+        await repo.capture("unavailable", "patio", "cat", "2026-10-13T12:00:01", False)
+        ids = [
+            row[0]
+            for row in await (
+                await db.execute("SELECT id FROM garden_captures WHERE status='pending' ORDER BY observed_at")
+            ).fetchall()
+        ]
+        confirmed = await repo.review(ids[0], "confirmed")
+        assert await repo.save_identification(confirmed, identification())
+        assert await repo.review_identification(ids[0], "accepted")
+        for capture_id in ids:
+            await repo.review(capture_id, "dismissed")
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post("/api/garden/review-batch", json={"ids": ids, "action": "restore"})
+        assert response.status_code == 200
+        assert response.json() == {"updated_ids": [ids[0]], "skipped_count": 1}
+    async with get_db() as db:
+        repo = GardenRepository(db)
+        assert (await repo.get(ids[0])).status == "pending"
+        assert (await repo.get(ids[0])).identification.review == "dismissed"
+        assert (await repo.get(ids[1])).status == "dismissed"
+
+
+@pytest.mark.asyncio
+async def test_garden_confidence_setting_round_trips_without_changing_bird_thresholds():
+    original = (
+        settings.frigate.garden_motion_confidence if hasattr(settings.frigate, "garden_motion_confidence") else None
+    )
+    bird_threshold = settings.classification.threshold
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        assert (await client.post("/api/settings", json={"garden_motion_confidence": 0.6})).status_code == 200
+        result = (await client.get("/api/settings")).json()
+        assert result["garden_motion_confidence"] == 0.6
+        assert settings.classification.threshold == bird_threshold
+        for value in (0.49, 0.96, "not-a-number"):
+            assert (await client.post("/api/settings", json={"garden_motion_confidence": value})).status_code == 422
+        assert settings.frigate.garden_motion_confidence == 0.6
+    if original is not None:
+        settings.frigate.garden_motion_confidence = original
