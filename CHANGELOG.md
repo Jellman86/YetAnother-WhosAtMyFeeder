@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Developer replay can now exercise the current Cedar motion worker across a
+  complete bounded recording, verifying original pixels and timing before
+  comparing thresholds. It writes private diagnostics without changing history;
+  live sampling remains three frames per window.
+
 - Repeated Garden motion proposals around the same position share a review card,
   with every original photo available and an explicit group dismissal with limited
   Undo. Confirmation stays per photo; concurrent confirmed reviews stay protected.

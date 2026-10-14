@@ -1,4 +1,52 @@
-# Replay retained footage for the Garden animals prototype
+# Replay Garden recordings without changing history
+
+## Current motion collector
+
+Use `replay_garden_motion.py` to test the current Cedar CPU worker on a complete
+local recording. It covers every frame in consecutive windows of at most ten
+seconds, including a short final window. **Detection still samples three frames
+per window**, exactly as the worker does; this is not inference on every frame.
+Brief animals or people between those samples can be missed.
+
+Keep production settings unchanged. Run one native test at a time under an
+external deadline, memory monitor and bird/camera-pressure guard. The tool does
+not provide that supervisor. FFmpeg and the application's CPU dependencies must
+already be available. Record the source URL, licence and checksum separately;
+the tool accepts local files only and downloads nothing.
+
+```bash
+python backend/scripts/replay_garden_motion.py \
+  --source /private/camera-recording.mp4 \
+  --source-sha256 <verified-recording-sha256> \
+  --model /private/models/md1000-cedar.onnx \
+  --ffmpeg /usr/bin/ffmpeg \
+  --thresholds 0.5 0.6 \
+  --root /private/new-motion-report
+```
+
+The model must match the committed Cedar bundle. Sources are bounded to 256 MiB,
+ten minutes, 120 fps and 16 megapixels. Each window retains the live worker's
+16 MiB limit. FFmpeg copies video packets without scaling or re-encoding. Before
+inference, every requested frame must decode to the same pixels and constant
+frame-rate timing as the original. Unsupported seeks, variable timing, oversized
+windows or incomplete decoding fail the run; the tool does not silently lower
+quality or skip a tail. Bounded keyframe padding is allowed by the worker.
+
+The new owner-only directory contains per-window results and `complete.json`
+only after every window succeeds. A failed or interrupted run is incomplete.
+Candidate results bind the original frame index, RGB/tensor hashes, normalized
+box, threshold and actual CPU provider. Temporary clips/photos are removed on
+normal exit; after an external interruption, remove only this run's temporary
+files once its owned processes have stopped. Reports contain no retained photos.
+
+This qualifies the detector in isolation. It does not exercise Frigate's
+additional person-history veto, queue admission, review storage, species
+identification, the UI or visit counting. Check those separately in disposable
+state. Compare boxes to human annotations and review negatives; confidence is
+not measured accuracy. Public camera-trap results do not establish Patio recall,
+and repeated windows from one animal are correlated observations.
+
+## Earlier classifier prototype
 
 This developer tool evaluates local captures without connecting to MQTT, Frigate,
 the application database, notifications or external reporting. It produces a
@@ -6,7 +54,7 @@ private report of **candidates that all need review**. It does not write to the 
 or enable automatic species identification. Follow progress in
 [#641](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/641).
 
-## Prepare the inputs
+### Prepare the inputs
 
 Use a disposable working directory and the existing provider runtime. Keep the
 production bird detector and settings unchanged. Native inference needs an
@@ -51,7 +99,7 @@ their real `bird` label to verify they bypass garden inference. Do not relabel
 them as mammal ground truth. Paths cannot escape the input directory. Identical
 input IDs are deduplicated; conflicting metadata fails the replay.
 
-## Run and review
+### Run and review
 
 Inside the externally supervised test process, run:
 
