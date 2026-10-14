@@ -23,9 +23,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   Thanks to @byrnes-patrick for the report and screenshots.
 
 - Garden motion collection drains bounded recording windows in order, resumes long
-  recordings and restarts from its saved cursor. A ten-second cooldown and thirty-minute
-  catch-up window reduce sampling gaps while preserving bird priority, camera-pressure
-  guards, privacy checks and photo limits. The panel shows the latest camera queue check.
+  recordings and restarts from its saved cursor. The ten-second minimum between scan
+  starts includes processing time, preventing avoidable backlog on continuous recordings.
+  Long scans retain a short rest, failures back off for thirty seconds and work stays
+  bounded to the last thirty minutes. Bird priority, camera-pressure guards, privacy
+  checks and photo limits remain in place. The panel shows the latest camera queue check.
 
 - **Fixed:** Mobile and page headers reflow at narrow widths with enlarged text, keeping menu, theme and page actions reachable (#703).
 

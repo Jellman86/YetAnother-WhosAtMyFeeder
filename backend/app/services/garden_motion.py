@@ -175,6 +175,7 @@ class GardenMotionService:
 
     async def _run(self) -> None:
         while True:
+            cycle_started = time.monotonic()
             try:
                 async with get_db() as db:
                     await GardenRepository(db).expire_motion_photos()
@@ -184,7 +185,8 @@ class GardenMotionService:
             except Exception as error:
                 log.warning("garden_motion_cycle_failed", error_type=type(error).__name__)
                 self.message = "Motion collection could not finish. It will retry automatically."
-            await asyncio.sleep(MOTION_INTERVAL_SECONDS)
+            next_cycle = max(cycle_started + MOTION_INTERVAL_SECONDS, self.next_scan)
+            await asyncio.sleep(max(1.0, next_cycle - time.monotonic()))
 
     async def _person_overlap(self, camera: str, start: float, end: float) -> bool:
         start -= MOTION_PADDING_SECONDS
@@ -259,6 +261,7 @@ class GardenMotionService:
         if bird_work_pending(garden_inference_pressure()):
             self.message = "Waiting for bird inference to become idle."
             return
+        scan_started = time.monotonic()
         garden_identification_service.busy = True
         self.scanning = True
         self.last_outcome = None
@@ -429,8 +432,12 @@ class GardenMotionService:
                 await asyncio.to_thread(shutil.rmtree, temporary)
             self.scanning = False
             garden_identification_service.busy = False
-            cooldown = 30 if self.last_outcome == "failed" else MOTION_INTERVAL_SECONDS
-            self.next_scan = time.monotonic() + cooldown
+            finished = time.monotonic()
+            self.next_scan = (
+                finished + 30
+                if self.last_outcome == "failed"
+                else max(scan_started + MOTION_INTERVAL_SECONDS, finished)
+            )
 
 
 garden_motion_service = GardenMotionService()
