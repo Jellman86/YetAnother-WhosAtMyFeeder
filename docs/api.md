@@ -363,7 +363,7 @@ species identification have separate reviews; `frigate_label` remains an upstrea
 
 - `GET /api/garden/motion` — enabled cameras, catalogue and detector availability,
   shared busy state, `animal_confidence`, collection state/message, last attempted scan/outcome and fixed
-  minimum interval/photo limits. `interval_seconds` is the cooldown after a scan,
+  minimum interval/photo limits. `interval_seconds` is the minimum spacing between scan starts,
   not a promised capture rate. `catchup_seconds` bounds recording age; `queue_limit`
   caps each rebuilt camera queue. `queued_windows`, `queue_camera` and
   `queue_checked_at` describe the latest inspected camera, not a live total across

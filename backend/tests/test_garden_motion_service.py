@@ -2,6 +2,7 @@
 
 import hashlib
 import time
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import httpx
@@ -239,6 +240,77 @@ async def test_queue_drains_long_recording_and_restart_resumes_durable_cursor(co
         {"after": 1910, "before": 1980},
         {"after": 1920, "before": 1980},
     ]
+
+
+@pytest.mark.asyncio
+async def test_successful_scan_processing_time_does_not_add_to_the_minimum_start_interval(collector, monkeypatch):
+    clock = [100.0]
+    monkeypatch.setattr("app.services.garden_motion.time.monotonic", lambda: clock[0])
+
+    async def native(payload, blocked):
+        clock[0] += 1.5
+        return {"outcome": "no_candidate"}
+
+    monkeypatch.setattr(collector, "_native", native)
+    await collector.scan_once()
+    assert collector.last_outcome == "no_candidate"
+    assert collector.next_scan == 110
+    clock[0] = 109.9
+    collector.last_outcome = "unchanged"
+    await collector.scan_once()
+    assert collector.last_outcome == "unchanged"
+    clock[0] = 110
+    await collector.scan_once()
+    assert collector.last_outcome == "no_recording"
+    assert collector.next_scan == 120
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("processing_seconds", [1.5, 12])
+async def test_collector_loop_preserves_start_cadence_and_leaves_rest_after_slow_scans(
+    collector, monkeypatch, processing_seconds
+):
+    import asyncio
+
+    clock, starts, sleeps = [100.0], [], []
+    monkeypatch.setattr("app.services.garden_motion.time.monotonic", lambda: clock[0])
+
+    async def scan():
+        starts.append(clock[0])
+        clock[0] += processing_seconds
+        collector.next_scan = max(starts[-1] + 10, clock[0])
+
+    async def sleep(delay):
+        sleeps.append(delay)
+        clock[0] += delay
+        if len(sleeps) == 3:
+            raise asyncio.CancelledError
+
+    monkeypatch.setattr(collector, "scan_once", scan)
+    monkeypatch.setattr(
+        "app.services.garden_motion.asyncio", SimpleNamespace(sleep=sleep, CancelledError=asyncio.CancelledError)
+    )
+    with pytest.raises(asyncio.CancelledError):
+        await collector._run()
+    rest = max(1, 10 - processing_seconds)
+    spacing = processing_seconds + rest
+    assert starts == [100, 100 + spacing, 100 + 2 * spacing]
+    assert sleeps == [rest] * 3
+
+
+@pytest.mark.asyncio
+async def test_failed_scan_backoff_starts_after_processing_finishes(collector, monkeypatch):
+    clock = [100.0]
+    monkeypatch.setattr("app.services.garden_motion.time.monotonic", lambda: clock[0])
+
+    async def native(payload, blocked):
+        clock[0] += 1.5
+        raise ValueError("Invalid clip")
+
+    monkeypatch.setattr(collector, "_native", native)
+    await collector.scan_once()
+    assert collector.last_outcome == "failed"
+    assert collector.next_scan == 131.5
 
 
 @pytest.mark.asyncio
