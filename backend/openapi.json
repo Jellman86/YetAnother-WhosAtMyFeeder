@@ -6903,6 +6903,55 @@
         "title": "FrigateTestResponse",
         "type": "object"
       },
+      "GardenBatchReviewRequest": {
+        "properties": {
+          "action": {
+            "enum": [
+              "dismiss",
+              "restore"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "ids": {
+            "items": {
+              "pattern": "^[a-f0-9]{32}$",
+              "type": "string"
+            },
+            "maxItems": 128,
+            "minItems": 1,
+            "title": "Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ids",
+          "action"
+        ],
+        "title": "GardenBatchReviewRequest",
+        "type": "object"
+      },
+      "GardenBatchReviewResponse": {
+        "properties": {
+          "skipped_count": {
+            "title": "Skipped Count",
+            "type": "integer"
+          },
+          "updated_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Updated Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "updated_ids",
+          "skipped_count"
+        ],
+        "title": "GardenBatchReviewResponse",
+        "type": "object"
+      },
       "GardenCapturePage": {
         "properties": {
           "items": {
@@ -7335,6 +7384,13 @@
       },
       "GardenMotionStatus": {
         "properties": {
+          "animal_confidence": {
+            "default": 0.5,
+            "maximum": 0.95,
+            "minimum": 0.5,
+            "title": "Animal Confidence",
+            "type": "number"
+          },
           "busy": {
             "title": "Busy",
             "type": "boolean"
@@ -10317,6 +10373,13 @@
       "MotionSource": {
         "additionalProperties": false,
         "properties": {
+          "animal_confidence": {
+            "default": 0.5,
+            "maximum": 0.95,
+            "minimum": 0.5,
+            "title": "Animal Confidence",
+            "type": "number"
+          },
           "box_xywh": {
             "maxItems": 4,
             "minItems": 4,
@@ -11903,6 +11966,11 @@
             },
             "title": "Garden Motion Cameras",
             "type": "array"
+          },
+          "garden_motion_confidence": {
+            "default": 0.5,
+            "title": "Garden Motion Confidence",
+            "type": "number"
           },
           "ha_weather_access_token": {
             "anyOf": [
@@ -14089,6 +14157,14 @@
             },
             "title": "Garden Motion Cameras",
             "type": "array"
+          },
+          "garden_motion_confidence": {
+            "default": 0.5,
+            "description": "Minimum Cedar animal score for new motion proposals; does not change bird or person thresholds",
+            "maximum": 0.95,
+            "minimum": 0.5,
+            "title": "Garden Motion Confidence",
+            "type": "number"
           },
           "ha_weather_access_token": {
             "anyOf": [
@@ -25362,7 +25438,7 @@
             "required": false,
             "schema": {
               "default": 20,
-              "maximum": 100,
+              "maximum": 128,
               "minimum": 1,
               "title": "Limit",
               "type": "integer"
@@ -25567,6 +25643,58 @@
           }
         ],
         "summary": "Install Motion Detector",
+        "tags": [
+          "garden"
+        ]
+      }
+    },
+    "/api/garden/review-batch": {
+      "post": {
+        "operationId": "review_batch_api_garden_review_batch_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GardenBatchReviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GardenBatchReviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Review Batch",
         "tags": [
           "garden"
         ]

@@ -3,8 +3,8 @@
 import asyncio
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from pydantic import BaseModel
-from typing import Literal
+from pydantic import BaseModel, Field, StringConstraints
+from typing import Annotated, Literal
 
 from app.auth import AuthContext, require_owner
 from app.database import get_db
@@ -44,6 +44,16 @@ class GardenCapturePage(BaseModel):
     offset: int
 
 
+class GardenBatchReviewRequest(BaseModel):
+    ids: list[Annotated[str, StringConstraints(pattern=r"^[a-f0-9]{32}$")]] = Field(min_length=1, max_length=128)
+    action: Literal["dismiss", "restore"]
+
+
+class GardenBatchReviewResponse(BaseModel):
+    updated_ids: list[str]
+    skipped_count: int
+
+
 async def _response(capture: GardenCapture, names: dict[int, str] | None = None) -> GardenCaptureResponse:
     identification = capture.identification
     if identification and identification.species_id:
@@ -71,7 +81,7 @@ async def _response(capture: GardenCapture, names: dict[int, str] | None = None)
 async def list_captures(
     response: Response,
     status: GardenStatus = "pending",
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=128),
     offset: int = Query(0, ge=0),
 ) -> GardenCapturePage:
     response.headers["Cache-Control"] = "private, no-store"
@@ -87,6 +97,14 @@ async def list_captures(
     return GardenCapturePage(
         items=[await _response(item, names) for item in items], total=total, limit=limit, offset=offset
     )
+
+
+@router.post("/review-batch", response_model=GardenBatchReviewResponse)
+async def review_batch(request: GardenBatchReviewRequest) -> GardenBatchReviewResponse:
+    ids = list(dict.fromkeys(request.ids))
+    async with get_db() as db:
+        updated = await GardenRepository(db).review_batch(ids, request.action)
+    return GardenBatchReviewResponse(updated_ids=updated, skipped_count=len(ids) - len(updated))
 
 
 @router.get("/identification", response_model=GardenIdentificationStatus)

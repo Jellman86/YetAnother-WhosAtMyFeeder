@@ -4,6 +4,7 @@ Native inference belongs in the disposable motion worker, never the API process.
 """
 
 import cv2
+import math
 import numpy as np
 
 DetectorMeta = tuple[int, int, float, int, int]
@@ -33,7 +34,15 @@ def detector_input(image: np.ndarray) -> tuple[np.ndarray, DetectorMeta]:
     return value, (width, height, scale, left, top)
 
 
-def decode_candidates(output: np.ndarray, meta: DetectorMeta, names: list[str]) -> list[DetectorCandidate]:
+def decode_candidates(
+    output: np.ndarray, meta: DetectorMeta, names: list[str], animal_confidence: float = 0.5
+) -> list[DetectorCandidate]:
+    if (
+        type(animal_confidence) not in (float, int)
+        or not math.isfinite(animal_confidence)
+        or not 0.5 <= animal_confidence <= 0.95
+    ):
+        raise ValueError("Animal confidence must be between 0.5 and 0.95")
     if names != ["animal", "person", "vehicle"]:
         raise ValueError("Detector catalogue outputs differ from the qualified model contract")
     if output.ndim != 3 or output.shape[:2] != (1, 7) or not np.isfinite(output).all():
@@ -43,7 +52,7 @@ def decode_candidates(output: np.ndarray, meta: DetectorMeta, names: list[str]) 
         raise ValueError("Detector returned invalid probabilities or dimensions")
     width, height, scale, left, top = meta
     candidates: list[DetectorCandidate] = []
-    for index, (name, threshold) in enumerate(zip(names, (0.5, 0.2, 0.4))):
+    for index, (name, threshold) in enumerate(zip(names, (animal_confidence, 0.2, 0.4))):
         selected = raw[raw[:, 4 + index] >= threshold]
         if not len(selected):
             continue

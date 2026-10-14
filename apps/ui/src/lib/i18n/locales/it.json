@@ -3624,6 +3624,22 @@
     "presence_box": "Riquadro: candidato di MegaDetector Cedar. Controlla la foto prima di confermare.",
     "photo_restore_unavailable": "La foto non è disponibile. L’acquisizione non può tornare in revisione.",
     "motion_coverage": "Fino a {limit} brevi intervalli in coda per telecamera degli ultimi {minutes} minuti. Gli uccelli e il carico delle telecamere sospendono la raccolta; le visite brevi possono sfuggire.",
-    "motion_queue": "{camera}: {count} intervalli in attesa al controllo delle {time}. Al limite della coda potrebbero essercene altri."
+    "motion_queue": "{camera}: {count} intervalli in attesa al controllo delle {time}. Al limite della coda potrebbero essercene altri.",
+    "batch_dismissed": "{count} foto scartate.",
+    "batch_restored": "{count} foto riportate in revisione.",
+    "batch_skipped": "{count} foto invariate perché la revisione o la disponibilità è cambiata.",
+    "batch_undo_help": "Puoi annullare finché le foto sono disponibili. Le foto scartate possono lasciare spazio a nuove acquisizioni.",
+    "batch_undo": "Annulla lo scarto del gruppo",
+    "group_count": "{count} foto nella stessa posizione",
+    "group_help": "La posizione non identifica un animale. Questo gruppo può contenere visitatori diversi.",
+    "previous_photo": "Foto precedente",
+    "photo_count": "Foto {index} di {count}",
+    "next_photo": "Foto successiva",
+    "group_review": "Esamina questo gruppo",
+    "group_dismiss_help": "Controlla prima le foto. Vengono scartate solo queste foto, non le acquisizioni future o questa zona della telecamera.",
+    "group_dismiss": "Scarta queste {count} foto",
+    "confidence": "Soglia delle proposte di animali",
+    "confidence_help": "Valori più alti riducono le proposte ma possono perdere animali. Si applica solo alle nuove foto di movimento; il rilevamento degli uccelli e la tutela delle persone restano invariati.",
+    "confidence_save": "Salva soglia animali"
   }
 }

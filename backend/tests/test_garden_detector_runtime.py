@@ -51,3 +51,19 @@ def test_wrong_label_order_or_head_shape_is_rejected_before_admission():
         decode_candidates(np.zeros((1, 7, 3)), meta, ["person", "animal", "vehicle"])
     with pytest.raises(ValueError):
         decode_candidates(np.zeros((1, 300, 6)), meta, ["animal", "person", "vehicle"])
+
+
+@pytest.mark.parametrize("threshold,animal", [(0.5, True), (0.6, False), (0.95, False)])
+def test_animal_threshold_changes_do_not_weaken_person_privacy_veto(threshold, animal):
+    output = np.array([[[320], [320], [320], [160], [0.55], [0.3], [0.01]]], dtype=np.float32)
+    _, meta = detector_input(np.zeros((100, 200, 3), dtype=np.uint8))
+    names = {c[0] for c in decode_candidates(output, meta, ["animal", "person", "vehicle"], threshold)}
+    assert ("animal" in names) is animal
+    assert "person" in names
+
+
+@pytest.mark.parametrize("threshold", [float("nan"), float("inf"), 0.49, 0.96, True])
+def test_invalid_animal_threshold_is_rejected(threshold):
+    _, meta = detector_input(np.zeros((100, 200, 3), dtype=np.uint8))
+    with pytest.raises(ValueError):
+        decode_candidates(np.zeros((1, 7, 1)), meta, ["animal", "person", "vehicle"], threshold)

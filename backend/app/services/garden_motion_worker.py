@@ -48,7 +48,9 @@ def scan_clip(payload: dict[str, Any]) -> dict[str, Any]:
                 raise ValueError("Motion recording did not identify a bounded sample frame")
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             tensor, meta = detector_input(rgb)
-            candidates = decode_candidates(runtime.infer(tensor), meta, payload["names"])
+            candidates = decode_candidates(
+                runtime.infer(tensor), meta, payload["names"], payload.get("animal_confidence", 0.5)
+            )
             if any(label == "person" for label, _, _ in candidates):
                 # A later person sample revokes earlier animal proposals too.
                 return {"outcome": "person_rejected"}

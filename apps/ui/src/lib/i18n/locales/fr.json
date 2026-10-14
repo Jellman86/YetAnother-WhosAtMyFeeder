@@ -3624,6 +3624,22 @@
     "presence_box": "Cadre : proposition de MegaDetector Cedar. Vérifiez la photo avant de confirmer.",
     "photo_restore_unavailable": "La photo est indisponible. La capture ne peut pas revenir en vérification.",
     "motion_coverage": "Jusqu’à {limit} courts segments en attente par caméra sur les {minutes} dernières minutes. Les oiseaux et la charge des caméras suspendent la collecte ; les visites brèves peuvent être manquées.",
-    "motion_queue": "{camera} : {count} segments en attente lors de la vérification à {time}. D’autres peuvent être disponibles lorsque la limite est atteinte."
+    "motion_queue": "{camera} : {count} segments en attente lors de la vérification à {time}. D’autres peuvent être disponibles lorsque la limite est atteinte.",
+    "batch_dismissed": "{count} photos écartées.",
+    "batch_restored": "{count} photos remises à vérifier.",
+    "batch_skipped": "{count} photos inchangées car leur état de vérification ou leur disponibilité a changé.",
+    "batch_undo_help": "Annulation possible tant que les photos existent. Les photos écartées peuvent libérer de la place pour de nouvelles captures.",
+    "batch_undo": "Annuler le rejet du groupe",
+    "group_count": "{count} photos au même endroit",
+    "group_help": "La position ne permet pas d’identifier un animal. Ce groupe peut contenir différents visiteurs.",
+    "previous_photo": "Photo précédente",
+    "photo_count": "Photo {index} sur {count}",
+    "next_photo": "Photo suivante",
+    "group_review": "Vérifier ce groupe",
+    "group_dismiss_help": "Vérifiez d’abord les photos. Seules ces photos seront écartées, pas les captures futures ni cette zone de la caméra.",
+    "group_dismiss": "Écarter ces {count} photos",
+    "confidence": "Seuil des propositions animales",
+    "confidence_help": "Une valeur plus élevée réduit les propositions mais peut manquer des animaux. Concerne uniquement les nouvelles photos de mouvement ; la détection des oiseaux et la protection des personnes restent inchangées.",
+    "confidence_save": "Enregistrer le seuil animal"
   }
 }

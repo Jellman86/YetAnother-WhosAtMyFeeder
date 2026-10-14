@@ -3624,6 +3624,22 @@
     "presence_box": "Box: MegaDetector Cedar candidate. Check the photo before confirming.",
     "photo_restore_unavailable": "Photo unavailable. It cannot return to review.",
     "motion_coverage": "Up to {limit} short windows queued per camera from the last {minutes} minutes. Birds and camera pressure pause collection; brief visits can be missed.",
-    "motion_queue": "{camera}: {count} windows waiting when checked at {time}. More may be available at the queue limit."
+    "motion_queue": "{camera}: {count} windows waiting when checked at {time}. More may be available at the queue limit.",
+    "batch_dismissed": "{count} photos dismissed.",
+    "batch_restored": "{count} photos returned to review.",
+    "batch_skipped": "{count} photos were unchanged because their review or availability changed.",
+    "batch_undo_help": "Undo is available while photos remain. Dismissed photos may make room for new captures.",
+    "batch_undo": "Undo group dismissal",
+    "group_count": "{count} photos around the same position",
+    "group_help": "Position does not identify an animal. This group can contain different visitors.",
+    "previous_photo": "Previous photo",
+    "photo_count": "Photo {index} of {count}",
+    "next_photo": "Next photo",
+    "group_review": "Review this group",
+    "group_dismiss_help": "Check the photos first. This dismisses only these photos, not future captures or this area of the camera.",
+    "group_dismiss": "Dismiss these {count} photos",
+    "confidence": "Animal proposal threshold",
+    "confidence_help": "Higher values reduce proposals but can miss animals. Applies to new motion photos only; bird detection and person privacy checks are unchanged.",
+    "confidence_save": "Save animal threshold"
   }
 }

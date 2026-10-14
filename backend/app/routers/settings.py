@@ -795,6 +795,15 @@ class SettingsUpdate(BaseModel):
         default_factory=list, description="Garden cameras opted in to bounded motion review scans"
     )
 
+    garden_motion_confidence: float = Field(
+        0.5,
+        ge=0.5,
+        le=0.95,
+        allow_inf_nan=False,
+        strict=True,
+        description="Minimum Cedar animal score for new motion proposals; does not change bird or person thresholds",
+    )
+
     @field_validator("garden_motion_cameras", mode="before")
     @classmethod
     def validate_motion_cameras(cls, value: object) -> list[str]:
@@ -1471,6 +1480,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "garden_cameras": settings.frigate.garden_cameras,
         "garden_labels": settings.frigate.garden_labels,
         "garden_motion_cameras": settings.frigate.garden_motion_cameras,
+        "garden_motion_confidence": settings.frigate.garden_motion_confidence,
         "nest_dedupe_minutes": settings.frigate.nest_dedupe_minutes,
         "audio_buffer_hours": settings.frigate.audio_buffer_hours,
         "audio_correlation_window_seconds": settings.frigate.audio_correlation_window_seconds,
@@ -1802,6 +1812,8 @@ async def update_settings(
         settings.frigate.garden_labels = update.garden_labels
     if "garden_motion_cameras" in fields_set:
         settings.frigate.garden_motion_cameras = update.garden_motion_cameras
+    if "garden_motion_confidence" in fields_set:
+        settings.frigate.garden_motion_confidence = update.garden_motion_confidence
     if "nest_dedupe_minutes" in fields_set and update.nest_dedupe_minutes is not None:
         settings.frigate.nest_dedupe_minutes = update.nest_dedupe_minutes
     if "audio_buffer_hours" in fields_set:

@@ -3624,6 +3624,22 @@
     "presence_box": "边框：MegaDetector Cedar 检测的候选对象。请查看照片后再确认。",
     "photo_restore_unavailable": "照片不可用，无法将此记录重新提交审核。",
     "motion_coverage": "每台摄像头最多排队处理过去 {minutes} 分钟内的 {limit} 个短片段。鸟类处理和摄像头负载会暂停收集，可能错过短暂的到访。",
-    "motion_queue": "{camera}：在 {time} 检查时有 {count} 个片段等待处理。达到队列上限时，可能还有更多片段。"
+    "motion_queue": "{camera}：在 {time} 检查时有 {count} 个片段等待处理。达到队列上限时，可能还有更多片段。",
+    "batch_dismissed": "已忽略{count}张照片。",
+    "batch_restored": "已将{count}张照片退回待审核。",
+    "batch_skipped": "{count}张照片的审核状态或可用性已变化，因此未修改。",
+    "batch_undo_help": "照片仍保存时可以撤销。已忽略的照片可能会被清除以腾出新拍摄空间。",
+    "batch_undo": "撤销忽略此组",
+    "group_count": "同一位置附近的{count}张照片",
+    "group_help": "位置不能确定动物身份。此组可能包含不同访客。",
+    "previous_photo": "上一张照片",
+    "photo_count": "第{index}张，共{count}张",
+    "next_photo": "下一张照片",
+    "group_review": "审核此组",
+    "group_dismiss_help": "请先检查照片。仅忽略这些照片，不会忽略未来拍摄或此摄像头区域。",
+    "group_dismiss": "忽略这{count}张照片",
+    "confidence": "动物候选阈值",
+    "confidence_help": "较高的值会减少候选，但可能漏掉动物。仅适用于新的动态照片；鸟类检测和人物隐私检查不变。",
+    "confidence_save": "保存动物阈值"
   }
 }

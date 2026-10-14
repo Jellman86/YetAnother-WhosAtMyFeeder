@@ -331,3 +331,42 @@ async def test_bounded_queue_refills_without_duplicates_and_bird_arrival_preserv
     assert native.await_count == 30
     assert status.queued_windows == 0
     assert status.queue_camera == "patio"
+
+
+@pytest.mark.asyncio
+async def test_selected_animal_confidence_reaches_worker_and_saved_provenance(collector, monkeypatch):
+    monkeypatch.setattr(settings.frigate, "garden_motion_confidence", 0.6)
+    original = collector._native
+    seen = []
+
+    async def native(payload, blocked):
+        seen.append(payload["animal_confidence"])
+        return await original(payload, blocked)
+
+    monkeypatch.setattr(collector, "_native", native)
+    await collector.scan_once()
+    assert seen == [0.6]
+    assert (await collector.status()).animal_confidence == 0.6
+    async with get_db() as db:
+        capture = (await GardenRepository(db).list("pending", 10, 0))[0]
+        assert capture.motion_source.animal_confidence == 0.6
+
+
+@pytest.mark.asyncio
+async def test_threshold_change_during_scan_prevents_stale_proposal_or_cursor_write(collector, monkeypatch):
+    monkeypatch.setattr(settings.frigate, "garden_motion_confidence", 0.5)
+    original = collector._native
+
+    async def native(payload, blocked):
+        result = await original(payload, blocked)
+        settings.frigate.garden_motion_confidence = 0.6
+        assert blocked()
+        return result
+
+    monkeypatch.setattr(collector, "_native", native)
+    await collector.scan_once()
+    assert collector.last_outcome == "paused"
+    async with get_db() as db:
+        repo = GardenRepository(db)
+        assert await repo.count("pending") == 0
+        assert await repo.motion_cursor("patio") is None

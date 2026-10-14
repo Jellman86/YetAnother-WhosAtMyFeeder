@@ -638,3 +638,13 @@ def test_automatic_multi_bird_scan_saved_value_and_environment_precedence(
     if environment_value is not None:
         monkeypatch.setenv("MEDIA_CACHE__AUTOMATIC_MULTI_BIRD_SCAN", environment_value)
     assert Settings.load().media_cache.automatic_multi_bird_scan is expected
+
+
+def test_garden_animal_confidence_env_overrides_file_without_changing_bird_settings(monkeypatch, tmp_path):
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({"frigate": {"garden_motion_confidence": 0.55}, "classification": {"threshold": 0.73}}))
+    monkeypatch.setattr(config_module, "CONFIG_PATH", path)
+    monkeypatch.setenv("FRIGATE__GARDEN_MOTION_CONFIDENCE", "0.6")
+    loaded = Settings.load()
+    assert loaded.frigate.garden_motion_confidence == 0.6
+    assert loaded.classification.threshold == 0.73
