@@ -3579,6 +3579,7 @@
     "restore": "Devolver à revisão",
     "previous": "Anterior",
     "page_count": "{start}–{end} de {total}",
+    "review_page_count": "Fotos {start}–{end} de {total} · {cards, plural, one {# cartão de revisão} other {# cartões de revisão}}",
     "next": "Seguinte",
     "settings_help": "Animais do jardim recolhe eventos de animais concluídos para revisão. A identificação de espécies ainda não está ativa.",
     "title": "Animais do jardim",

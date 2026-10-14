@@ -326,6 +326,32 @@ test('motion panel explains bounded catch-up and time of the last camera queue c
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
+test('feeder box extent changes keep photos together with their original boxes', async ({ page }) => {
+    const boxes = [
+        [0.7787210464, 0.6029235840, 0.0294397354, 0.0996236165],
+        [0.7807638645, 0.6024082184, 0.0539882183, 0.0722991943],
+        [0.7797590256, 0.6019916534, 0.0315879822, 0.1271631241],
+        [0.7814696312, 0.6021912893, 0.0293195724, 0.0882186254]
+    ];
+    const captures = boxes.map((box, index) => ({ ...row, id: String(index),
+        snapshot_url: `/api/garden/${index}/snapshot`, source_kind: 'motion',
+        motion_source: { ...motionSource, box_xywh: box } }));
+    await page.route('**/api/garden?**', route => route.fulfill({ json: { items: captures, total: 4, limit: 128, offset: 0 } }));
+    await page.route('**/api/garden/motion', route => route.fulfill({ json: motionStatus }));
+    await page.route('**/api/garden/identification', route => route.fulfill({ json: modelStatus }));
+    await page.route('**/api/garden/*/snapshot', route => route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720"/>' }));
+    await page.goto('/browser-tests/garden.html');
+    await expect(page.locator('article')).toHaveCount(1);
+    await expect(page.getByText('Photos 1–4 of 4 · 1 review card', { exact: true })).toBeVisible();
+    for (let index = 0; index < captures.length; index++) {
+        await expect(page.locator('article img')).toHaveAttribute('src', `/api/garden/${index}/snapshot`);
+        const outline = page.locator('[data-garden-presence] rect').last();
+        await expect(outline).toHaveAttribute('width', String(boxes[index][2] * 1280));
+        await expect(page.getByText(`Photo ${index + 1} of 4`, { exact: true })).toBeVisible();
+        if (index + 1 < captures.length) await page.getByRole('button', { name: 'Next photo', exact: true }).click();
+    }
+});
+
 test('109 repeated proposals become two position groups with exact photo review and bounded dismissal', async ({ page }) => {
     const originals = Array.from({ length: 109 }, (_, index) => ({ ...row, id: index.toString(16).padStart(32, '0'),
         snapshot_url: `/api/garden/${index.toString(16).padStart(32, '0')}/snapshot`, source_kind: 'motion',
@@ -345,6 +371,7 @@ test('109 repeated proposals become two position groups with exact photo review 
     });
     await page.goto('/browser-tests/garden.html');
     await expect(page.locator('article')).toHaveCount(2);
+    await expect(page.getByText('Photos 1–109 of 109 · 2 review cards', { exact: true })).toBeVisible();
     const group = page.locator('article').first();
     await expect(group.getByText('108 photos around the same position')).toBeVisible();
     await expect(group.getByText('Position does not identify an animal. This group can contain different visitors.')).toBeVisible();
@@ -358,6 +385,7 @@ test('109 repeated proposals become two position groups with exact photo review 
     await group.getByRole('button', { name: 'Dismiss these 108 photos', exact: true }).click();
     expect(writes[0]).toEqual({ action: 'dismiss', ids: originals.slice(0, 108).map(item => item.id) });
     await expect(page.locator('article')).toHaveCount(1);
+    await expect(page.getByText('Photos 1–1 of 1 · 1 review card', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Undo group dismissal', exact: true }).click();
     await expect(page.locator('article')).toHaveCount(2);
     expect(writes[1]).toEqual({ action: 'restore', ids: writes[0].ids });

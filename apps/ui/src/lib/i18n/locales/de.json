@@ -3579,6 +3579,7 @@
     "restore": "Zur Prüfung zurückgeben",
     "previous": "Zurück",
     "page_count": "{start}–{end} von {total}",
+    "review_page_count": "Fotos {start}–{end} von {total} · {cards, plural, one {# Prüfkarte} other {# Prüfkarten}}",
     "next": "Weiter",
     "settings_help": "Gartentiere sammelt abgeschlossene Tierereignisse zur Prüfung. Eine Artbestimmung ist noch nicht aktiviert.",
     "title": "Gartentiere",

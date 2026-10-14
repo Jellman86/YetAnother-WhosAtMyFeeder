@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Garden review keeps repeated proposals together when the detector varies a
+  box's width or height around the same position. The page footer now distinguishes
+  original photos from review cards, with individual photo decisions preserved.
+
 - Developer replay can now exercise the current Cedar motion worker across a
   complete bounded recording, verifying original pixels and timing before
   comparing thresholds. It writes private diagnostics without changing history;

@@ -3579,6 +3579,7 @@
     "restore": "Volver a revisión",
     "previous": "Anterior",
     "page_count": "{start}–{end} de {total}",
+    "review_page_count": "Fotos {start}–{end} de {total} · {cards, plural, one {# tarjeta de revisión} other {# tarjetas de revisión}}",
     "next": "Siguiente",
     "settings_help": "Animales del jardín recoge eventos de animales finalizados para su revisión. La identificación de especies aún no está activada.",
     "title": "Animales del jardín",
