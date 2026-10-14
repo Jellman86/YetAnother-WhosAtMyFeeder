@@ -3641,6 +3641,11 @@
     "group_dismiss": "Descartar estas {count} fotos",
     "confidence": "Limiar de propostas de animais",
     "confidence_help": "Valores mais altos reduzem propostas, mas podem perder animais. Aplica-se apenas a novas fotos de movimento; a deteção de aves e a proteção de pessoas não mudam.",
-    "confidence_save": "Guardar limiar de animais"
+    "confidence_save": "Guardar limiar de animais",
+    "photo_confirmed": "Foto confirmada.",
+    "photo_dismissed": "Foto descartada.",
+    "photo_restored": "Foto devolvida para revisão.",
+    "group_remaining": "As outras fotos deste grupo ainda precisam de revisão.",
+    "single_photo_help": "Confirmar e descartar aplicam-se apenas à foto apresentada."
   }
 }

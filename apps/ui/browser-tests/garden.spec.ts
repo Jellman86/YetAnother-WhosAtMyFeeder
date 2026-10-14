@@ -81,6 +81,7 @@ for (const sourceKind of ['motion', 'frigate_event']) {
             if (photoAvailable) {
                 await expect(restore).toBeEnabled();
                 await restore.click();
+                await expect(page.locator('[data-toast-container]')).toContainText('Photo returned to review.');
                 await page.getByRole('button', { name: 'Needs review', exact: true }).click();
                 await expect(page.getByText(sourceKind === 'motion' ? 'Candidate from retained motion footage' : 'Frigate suggested: cat')).toBeVisible();
                 expect(writes).toBe(1);
@@ -415,6 +416,52 @@ test('animal threshold saves only the independent Garden setting and reloads mea
     expect(saved).toEqual({ garden_motion_confidence: 0.6 });
     await threshold.fill('0.2');
     await expect(save).toBeDisabled();
+});
+
+for (const action of ['confirm', 'dismiss'] as const) {
+    test(`${action} visibly saves only the displayed photo while similar photos remain`, async ({ page }) => {
+        const second = 'b'.repeat(32);
+        const captures = [row.id, second].map(id => ({ ...row, id, snapshot_url: `/api/garden/${id}/snapshot`, source_kind: 'motion', motion_source: motionSource }));
+        let pending = [...captures];
+        const writes: string[] = [];
+        await page.route('**/api/garden?**', route => route.fulfill({ json: { items: pending, total: pending.length, limit: 128, offset: 0 } }));
+        await page.route('**/api/garden/motion', route => route.fulfill({ json: motionStatus }));
+        await page.route('**/api/garden/identification', route => route.fulfill({ json: modelStatus }));
+        await page.route('**/api/garden/*/snapshot', route => route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720"/>' }));
+        await page.route(`**/api/garden/*/${action}`, route => {
+            const reviewed = new URL(route.request().url()).pathname.split('/').at(-2) ?? '';
+            writes.push(reviewed);
+            pending = pending.filter(item => item.id !== reviewed);
+            return route.fulfill({ json: { ...captures[1], status: action === 'confirm' ? 'confirmed' : 'dismissed' } });
+        });
+        await page.goto('/browser-tests/garden.html');
+        await expect(page.getByText('Confirm and dismiss apply only to the photo shown.')).toBeVisible();
+        await page.getByRole('button', { name: 'Next photo', exact: true }).click();
+        await page.getByRole('button', { name: action === 'confirm' ? 'Confirm animal present' : 'Dismiss capture', exact: true }).click();
+        await expect(page.locator('[data-toast-container]')).toContainText(action === 'confirm' ? 'Photo confirmed.' : 'Photo dismissed.');
+        await expect(page.locator('[data-toast-container]')).toContainText('Other photos in this group still need review.');
+        await expect(page.locator('article img')).toHaveAttribute('src', new RegExp(`${row.id}/snapshot$`));
+        await expect(page.getByText('Photos 1–1 of 1 · 1 review card', { exact: true })).toBeVisible();
+        expect(writes).toEqual([second]);
+        await page.setViewportSize({ width: 320, height: 740 });
+        await page.evaluate(() => document.documentElement.style.fontSize = '200%');
+        await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    });
+}
+
+test('failed review stays pending and never announces success', async ({ page }) => {
+    await page.route('**/api/garden?**', route => route.fulfill({ json: { items: [row], total: 1, limit: 128, offset: 0 } }));
+    await page.route('**/api/garden/motion', route => route.fulfill({ json: motionStatus }));
+    await page.route('**/api/garden/identification', route => route.fulfill({ json: modelStatus }));
+    await page.route('**/api/garden/*/snapshot', route => route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720"/>' }));
+    await page.route('**/api/garden/*/dismiss', route => route.fulfill({ status: 503, json: { detail: 'Review temporarily unavailable.' } }));
+    await page.goto('/browser-tests/garden.html');
+    await page.getByRole('button', { name: 'Dismiss capture', exact: true }).click();
+    await expect(page.getByRole('alert')).toContainText('Review temporarily unavailable.');
+    await expect(page.locator('[data-toast-container]')).toContainText('Review temporarily unavailable.');
+    await expect(page.locator('[data-toast-container]')).not.toContainText('Photo dismissed.');
+    await expect(page.locator('article')).toHaveCount(1);
+    await expect(page.getByRole('button', { name: 'Dismiss capture', exact: true })).toBeEnabled();
 });
 
 test('confirmation in a position group applies only to the displayed original photo', async ({ page }) => {

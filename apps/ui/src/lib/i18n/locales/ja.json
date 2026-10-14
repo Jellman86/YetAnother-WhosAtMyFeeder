@@ -3641,6 +3641,11 @@
     "group_dismiss": "この{count}枚を除外",
     "confidence": "動物候補のしきい値",
     "confidence_help": "値を上げると候補は減りますが、動物を見逃す可能性があります。新しい動体写真だけに適用され、鳥の検出と人物のプライバシー確認は変わりません。",
-    "confidence_save": "動物のしきい値を保存"
+    "confidence_save": "動物のしきい値を保存",
+    "photo_confirmed": "写真を確認しました。",
+    "photo_dismissed": "写真を却下しました。",
+    "photo_restored": "写真を確認待ちに戻しました。",
+    "group_remaining": "このグループの他の写真は引き続き確認が必要です。",
+    "single_photo_help": "確認と却下は表示中の写真にのみ適用されます。"
   }
 }

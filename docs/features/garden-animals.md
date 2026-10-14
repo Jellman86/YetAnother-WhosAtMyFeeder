@@ -110,6 +110,8 @@ between wide and tall. Comparisons stay against the first photo, so movement
 cannot chain a group across the image. This is a review aid, not animal tracking: different visitors can occupy
 the same position. **Previous photo** and **Next photo** show the original photos,
 times and exact boxes; confirmation always applies only to the displayed photo.
+**Dismiss capture** also applies only to that photo. A saved-review notification
+confirms the action; another similar photo can remain in the same review card.
 Frigate events and confirmed/dismissed history remain individual captures. The
 **Needs review** footer counts original photos and review cards separately;
 pagination advances through photos, not groups.

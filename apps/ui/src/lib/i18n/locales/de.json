@@ -3641,6 +3641,11 @@
     "group_dismiss": "Diese {count} Fotos verwerfen",
     "confidence": "Schwelle für Tiervorschläge",
     "confidence_help": "Höhere Werte reduzieren Vorschläge, können aber Tiere übersehen. Gilt nur für neue Bewegungsfotos; Vogelerkennung und Personenprüfung bleiben unverändert.",
-    "confidence_save": "Tierschwelle speichern"
+    "confidence_save": "Tierschwelle speichern",
+    "photo_confirmed": "Foto bestätigt.",
+    "photo_dismissed": "Foto verworfen.",
+    "photo_restored": "Foto wieder zur Prüfung vorgemerkt.",
+    "group_remaining": "Andere Fotos in dieser Gruppe müssen noch geprüft werden.",
+    "single_photo_help": "Bestätigen und Verwerfen gelten nur für das angezeigte Foto."
   }
 }
