@@ -519,3 +519,69 @@ async def test_backlog_waits_for_pressure_without_fast_polling_or_cursor_advance
     assert (await collector.status()).interval_seconds == 10
     async with get_db() as db:
         assert await GardenRepository(db).motion_cursor("patio") == 1910
+
+
+@pytest.mark.asyncio
+async def test_housekeeping_preserves_the_selected_catchup_interval(collector, monkeypatch):
+    import asyncio
+    from contextlib import suppress
+
+    collector.last_outcome = "no_candidate"
+    collector.queue_camera = "patio"
+    collector.queued_windows = 2
+    collector.interval_seconds = 5
+    entered = asyncio.Event()
+
+    async def expire(repo):
+        entered.set()
+        await asyncio.Future()
+
+    monkeypatch.setattr(GardenRepository, "expire_motion_photos", expire)
+    task = asyncio.create_task(collector._run())
+    try:
+        await asyncio.wait_for(entered.wait(), 2)
+        assert (await collector.status()).interval_seconds == 5
+    finally:
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
+
+
+@pytest.mark.asyncio
+async def test_scanning_more_backlog_keeps_the_selected_interval_until_the_outcome(collector, monkeypatch):
+    import asyncio
+
+    monkeypatch.setattr("app.services.garden_motion.time.time", lambda: 2000)
+    monkeypatch.setattr(collector, "_camera_clear", AsyncMock(return_value=True))
+    monkeypatch.setattr(
+        "app.services.garden_motion.frigate_client.get",
+        AsyncMock(
+            return_value=httpx.Response(
+                200,
+                json=[{"start_time": 1900, "end_time": 1930, "motion": 10}],
+                request=httpx.Request("GET", "http://frigate/"),
+            )
+        ),
+    )
+    monkeypatch.setattr(collector, "_native", AsyncMock(return_value={"outcome": "no_candidate"}))
+    await collector.scan_once()
+    assert (await collector.status()).interval_seconds == 5
+    collector.next_scan = 0
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    async def native(payload, blocked):
+        entered.set()
+        await release.wait()
+        return {"outcome": "no_candidate"}
+
+    monkeypatch.setattr(collector, "_native", native)
+    task = asyncio.create_task(collector.scan_once())
+    try:
+        await asyncio.wait_for(entered.wait(), 2)
+        status = await collector.status()
+        assert status.state == "scanning"
+        assert status.interval_seconds == 5
+    finally:
+        release.set()
+        await task
+    assert (await collector.status()).interval_seconds == 5

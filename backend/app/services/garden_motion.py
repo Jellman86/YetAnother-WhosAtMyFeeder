@@ -178,7 +178,6 @@ class GardenMotionService:
     async def _run(self) -> None:
         while True:
             cycle_started = time.monotonic()
-            self.interval_seconds = MOTION_INTERVAL_SECONDS
             try:
                 async with get_db() as db:
                     await GardenRepository(db).expire_motion_photos()
@@ -188,6 +187,7 @@ class GardenMotionService:
             except Exception as error:
                 log.warning("garden_motion_cycle_failed", error_type=type(error).__name__)
                 self.message = "Motion collection could not finish. It will retry automatically."
+                self.interval_seconds = MOTION_INTERVAL_SECONDS
             next_cycle = max(cycle_started + self.interval_seconds, self.next_scan)
             await asyncio.sleep(max(1.0, next_cycle - time.monotonic()))
 
@@ -253,16 +253,14 @@ class GardenMotionService:
         return result
 
     async def scan_once(self) -> None:
-        self.interval_seconds = MOTION_INTERVAL_SECONDS
         cameras = self.cameras()
-        if (
-            not cameras
-            or time.monotonic() < self.next_scan
-            or garden_identification_service.busy
-            or garden_identification_service.error
-        ):
+        if not cameras or garden_identification_service.busy or garden_identification_service.error:
+            self.interval_seconds = MOTION_INTERVAL_SECONDS
+            return
+        if time.monotonic() < self.next_scan:
             return
         if bird_work_pending(garden_inference_pressure()):
+            self.interval_seconds = MOTION_INTERVAL_SECONDS
             self.message = "Waiting for bird inference to become idle."
             return
         scan_started = time.monotonic()
