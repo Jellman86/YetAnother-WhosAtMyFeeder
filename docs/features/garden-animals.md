@@ -116,9 +116,11 @@ Frigate events and confirmed/dismissed history remain individual captures. The
 **Needs review** footer counts original photos and review cards separately;
 pagination advances through photos, not groups.
 
-Open **Review this group** to dismiss only the listed photos together after inspecting
-them. Future captures, other camera regions and already-confirmed captures are
-unaffected. **Undo group dismissal** restores still-available photos; changed reviews
+Use **Next photo** to scan a stack and **Confirm animal present** to keep individual
+animal photos. Confirmation advances to the next remaining photo. The visible
+**Dismiss remaining … photos** button dismisses the stack's remaining photos in
+one action, with a notification showing how many were dismissed. Future captures,
+other camera regions and already-confirmed captures are unaffected. **Undo group dismissal** restores still-available photos; changed reviews
 or unavailable photos are skipped and counted. No photographs are deleted by grouping.
 Dismissed motion photos can be reclaimed for new captures, so Undo is not permanent.
 

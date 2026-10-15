@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Garden stacks now show a direct **Dismiss remaining … photos** button. Scan with
+  Next and confirm individual animal photos, then dismiss the remaining stack in
+  one action. Confirmation advances to the next photo, saved feedback stays
+  visible, and Undo preserves confirmations and newly arriving captures.
+
 - Saved species choices now clear whole-frame guesses from the dashboard review
   queue immediately. An older new-species response cannot reoffer the same
   already-reviewed detection while the page stays open.

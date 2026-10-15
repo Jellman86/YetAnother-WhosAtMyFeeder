@@ -3636,9 +3636,9 @@
     "previous_photo": "Foto precedente",
     "photo_count": "Foto {index} di {count}",
     "next_photo": "Foto successiva",
-    "group_review": "Esamina questo gruppo",
-    "group_dismiss_help": "Controlla prima le foto. Vengono scartate solo queste foto, non le acquisizioni future o questa zona della telecamera.",
-    "group_dismiss": "Scarta queste {count} foto",
+    "group_review": "Esamina questa pila",
+    "group_dismiss_help": "Conferma prima le foto con animali, poi scarta le altre foto di questa pila. Le foto confermate vengono conservate; le acquisizioni future non cambiano.",
+    "group_dismiss": "Scarta le {count} foto rimanenti",
     "confidence": "Soglia delle proposte di animali",
     "confidence_help": "Valori più alti riducono le proposte ma possono perdere animali. Si applica solo alle nuove foto di movimento; il rilevamento degli uccelli e la tutela delle persone restano invariati.",
     "confidence_save": "Salva soglia animali",
@@ -3646,6 +3646,6 @@
     "photo_dismissed": "Foto scartata.",
     "photo_restored": "Foto rimessa in revisione.",
     "group_remaining": "Le altre foto di questo gruppo devono ancora essere esaminate.",
-    "single_photo_help": "Conferma e scarta si applicano solo alla foto mostrata."
+    "single_photo_help": "Esamina questa foto"
   }
 }
