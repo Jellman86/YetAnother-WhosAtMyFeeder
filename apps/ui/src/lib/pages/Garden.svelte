@@ -101,7 +101,10 @@
 
     async function review(item: GardenCapture, action: 'confirm' | 'dismiss' | 'restore'): Promise<void> {
         if (saving) return;
-        const hasOtherPendingPhotos = groups.some(group => group.items.length > 1 && group.items.some(photo => photo.id === item.id));
+        const group = groups.find(group => group.items.some(photo => photo.id === item.id));
+        const index = group?.items.findIndex(photo => photo.id === item.id) ?? -1;
+        const nextPhotoId = group?.items[index + 1]?.id ?? group?.items[index - 1]?.id;
+        const hasOtherPendingPhotos = Boolean(group && group.items.length > 1);
         saving = item.id;
         error = null;
         try {
@@ -116,6 +119,10 @@
                 ? `${message} ${$_('garden.group_remaining', { default: 'Other photos in this group still need review.' })}`
                 : message);
             await load();
+            if (!destroyed && nextPhotoId) {
+                const nextGroup = groupGardenReview(items).find(group => group.items.some(photo => photo.id === nextPhotoId));
+                if (nextGroup) photoIndexes = { ...photoIndexes, [nextGroup.id]: nextGroup.items.findIndex(photo => photo.id === nextPhotoId) };
+            }
         } catch (failure) {
             if (!destroyed) {
                 error = failure instanceof Error ? failure.message : $_('garden.save_error', { default: 'Could not save your review. Try again.' });
@@ -138,9 +145,18 @@
             if (destroyed) return;
             undoIds = action === 'dismiss' ? result.updated_ids : [];
             batchResult = { action, updated: result.updated_ids.length, skipped: result.skipped_count };
+            const message = action === 'dismiss'
+                ? $_('garden.batch_dismissed', { default: '{count} photos dismissed.', values: { count: result.updated_ids.length } })
+                : $_('garden.batch_restored', { default: '{count} photos returned to review.', values: { count: result.updated_ids.length } });
+            if (result.skipped_count > 0) {
+                toastStore.warning(`${message} ${$_('garden.batch_skipped', { default: '{count} photos were unchanged because their review or availability changed.', values: { count: result.skipped_count } })}`);
+            } else toastStore.success(message);
             await load();
         } catch (failure) {
-            if (!destroyed) error = failure instanceof Error ? failure.message : $_('garden.save_error', { default: 'Could not save your review. Try again.' });
+            if (!destroyed) {
+                error = failure instanceof Error ? failure.message : $_('garden.save_error', { default: 'Could not save your review. Try again.' });
+                toastStore.error(error);
+            }
         } finally {
             if (!destroyed) saving = null;
         }
@@ -373,12 +389,7 @@
                             </div>
                             <div class="flex flex-col gap-2">
                                 {#if group.items.length > 1}
-                                    <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.single_photo_help', { default: 'Confirm and dismiss apply only to the photo shown.' })}</p>
-                                    <details class="group space-y-2">
-                                        <summary class="min-h-11 list-none [&::-webkit-details-marker]:hidden cursor-pointer py-3 text-sm font-semibold focus-visible:ring-2 focus-visible:ring-brand"><span>{$_('garden.group_review', { default: 'Review this group' })}</span><span class="inline-block ml-2 transition-transform group-open:rotate-180" aria-hidden="true">⌄</span></summary>
-                                        <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.group_dismiss_help', { default: 'Check the photos first. This dismisses only these photos, not future captures or this area of the camera.' })}</p>
-                                        <button class="btn btn-secondary min-h-11 w-full px-4 py-2 whitespace-normal" disabled={saving !== null} onclick={() => reviewGroup(group)}>{$_('garden.group_dismiss', { default: 'Dismiss these {count} photos', values: { count: group.items.length } })}</button>
-                                    </details>
+                                    <p class="text-sm font-semibold">{$_('garden.single_photo_help', { default: 'Review this photo' })}</p>
                                 {/if}
                                 {#if item.status === 'pending'}
                                     <button class="btn btn-primary min-h-11 px-4 py-2 whitespace-normal" disabled={saving !== null || (!loadedImages[item.id] || failedImages[item.id])} onclick={() => review(item, 'confirm')}>{$_('garden.confirm', { default: 'Confirm animal present' })}</button>
@@ -402,6 +413,13 @@
                                     {#if !item.snapshot_url}
                                         <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.photo_restore_unavailable', { default: 'Photo unavailable. It cannot return to review.' })}</p>
                                     {/if}
+                                {/if}
+                                {#if group.items.length > 1}
+                                    <div class="space-y-2 border-t border-line-soft pt-3" data-garden-stack-review>
+                                        <p class="text-sm font-semibold">{$_('garden.group_review', { default: 'Review this stack' })}</p>
+                                        <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.group_dismiss_help', { default: 'Confirm any animal photos first, then dismiss the remaining photos in this stack. Confirmed photos are kept; future captures are unaffected.' })}</p>
+                                        <button class="btn btn-secondary min-h-11 w-full px-4 py-2 whitespace-normal" disabled={saving !== null} onclick={() => reviewGroup(group)}>{$_('garden.group_dismiss', { default: 'Dismiss remaining {count} photos', values: { count: group.items.length } })}</button>
+                                    </div>
                                 {/if}
                             </div>
                         </div>

@@ -382,14 +382,98 @@ test('109 repeated proposals become two position groups with exact photo review 
     await page.setViewportSize({ width: 320, height: 900 });
     await page.evaluate(() => document.documentElement.style.fontSize = '200%');
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await group.getByText('Review this group', { exact: true }).click();
-    await group.getByRole('button', { name: 'Dismiss these 108 photos', exact: true }).click();
+    await expect(group.getByRole('button', { name: 'Dismiss remaining 108 photos', exact: true })).toBeVisible();
+    await group.getByRole('button', { name: 'Dismiss remaining 108 photos', exact: true }).click();
     expect(writes[0]).toEqual({ action: 'dismiss', ids: originals.slice(0, 108).map(item => item.id) });
     await expect(page.locator('article')).toHaveCount(1);
     await expect(page.getByText('Photos 1–1 of 1 · 1 review card', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Undo group dismissal', exact: true }).click();
     await expect(page.locator('article')).toHaveCount(2);
     expect(writes[1]).toEqual({ action: 'restore', ids: writes[0].ids });
+});
+
+for (const concurrentReview of [false, true]) {
+    for (const keptIndex of [0, 1]) {
+        test(`scan an 80-photo stack, keep photo ${keptIndex + 1} and dismiss the rest${concurrentReview ? ' with another owner review and a new capture' : ''}`, async ({ page }) => {
+            const captures = Array.from({ length: 81 }, (_, index) => ({ ...row,
+                id: index.toString(16).padStart(32, '0'),
+                snapshot_url: `/api/garden/${index.toString(16).padStart(32, '0')}/snapshot`,
+                source_kind: 'motion', motion_source: { ...motionSource, box_xywh: index === 80 ? [0.7, 0.1, 0.2, 0.2] : motionSource.box_xywh }
+            }));
+            const states = new Map(captures.map(item => [item.id, 'pending']));
+            const writes: { ids: string[]; action: string }[] = [];
+            const animalId = captures[keptIndex].id;
+            const concurrentId = captures[keptIndex + 1].id;
+            await page.route('**/api/garden?**', route => {
+                const status = new URL(route.request().url()).searchParams.get('status');
+                const items = captures.filter(item => states.get(item.id) === status).map(item => ({ ...item, status }));
+                return route.fulfill({ json: { items, total: items.length, limit: 128, offset: 0 } });
+            });
+            await page.route('**/api/garden/motion', route => route.fulfill({ json: motionStatus }));
+            await page.route('**/api/garden/identification', route => route.fulfill({ json: modelStatus }));
+            await page.route('**/api/garden/*/snapshot', route => route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720"/>' }));
+            await page.route('**/api/garden/*/confirm', route => {
+                const id = new URL(route.request().url()).pathname.split('/').at(-2) ?? '';
+                states.set(id, 'confirmed');
+                return route.fulfill({ json: { ...captures.find(item => item.id === id), status: 'confirmed' } });
+            });
+            await page.route('**/api/garden/review-batch', route => {
+                const body = route.request().postDataJSON() as { ids: string[]; action: string };
+                writes.push(body);
+                if (concurrentReview && body.action === 'dismiss') {
+                    states.set(concurrentId, 'confirmed');
+                    const id = 'f'.repeat(32);
+                    captures.push({ ...captures[0], id, snapshot_url: `/api/garden/${id}/snapshot` });
+                    states.set(id, 'pending');
+                }
+                const updated = body.ids.filter(id => states.get(id) === (body.action === 'dismiss' ? 'pending' : 'dismissed'));
+                for (const id of updated) states.set(id, body.action === 'dismiss' ? 'dismissed' : 'pending');
+                return route.fulfill({ json: { updated_ids: updated, skipped_count: body.ids.length - updated.length } });
+            });
+            await page.goto('/browser-tests/garden.html');
+            const stack = page.locator('article').first();
+            await expect(stack.getByRole('button', { name: 'Dismiss remaining 80 photos', exact: true })).toBeVisible();
+            if (keptIndex > 0) await stack.getByRole('button', { name: 'Next photo', exact: true }).click();
+            await expect(stack.locator('img')).toHaveAttribute('src', new RegExp(`${animalId}/snapshot$`));
+            await stack.getByRole('button', { name: 'Confirm animal present', exact: true }).click();
+            await expect(stack.locator('img')).toHaveAttribute('src', new RegExp(`${captures[keptIndex + 1].id}/snapshot$`));
+            await expect(stack.getByText(`Photo ${keptIndex + 1} of 79`, { exact: true })).toBeVisible();
+            await stack.getByRole('button', { name: 'Dismiss remaining 79 photos', exact: true }).click();
+            await expect(page.locator('[data-toast-container]')).toContainText(`${concurrentReview ? 78 : 79} photos dismissed.`);
+            expect(writes[0]).toEqual({ action: 'dismiss', ids: captures.slice(0, 80).filter(item => item.id !== animalId).map(item => item.id) });
+            expect(states.get(animalId)).toBe('confirmed');
+            expect(states.get(captures[80].id)).toBe('pending');
+            if (concurrentReview) {
+                expect(states.get(concurrentId)).toBe('confirmed');
+                expect(states.get('f'.repeat(32))).toBe('pending');
+                await expect(page.locator('[data-toast-container]')).toContainText('1 photos were unchanged');
+            }
+            await page.getByRole('button', { name: 'Undo group dismissal', exact: true }).click();
+            await expect(page.locator('[data-toast-container]')).toContainText(`${concurrentReview ? 78 : 79} photos returned to review.`);
+            expect(writes[1].ids).not.toContain(animalId);
+            if (concurrentReview) expect(writes[1].ids).not.toContain(concurrentId);
+            expect(states.get(animalId)).toBe('confirmed');
+            await page.getByRole('button', { name: 'Confirmed animals', exact: true }).click();
+            await expect(page.locator('article')).toHaveCount(concurrentReview ? 2 : 1);
+            await expect(page.locator(`article img[src$="/${animalId}/snapshot"]`)).toBeVisible();
+        });
+    }
+}
+
+test('a failed stack dismissal keeps its photos reviewable and does not offer a false Undo', async ({ page }) => {
+    const captures = [row.id, 'b'.repeat(32)].map(id => ({ ...row, id, snapshot_url: `/api/garden/${id}/snapshot`, source_kind: 'motion', motion_source: motionSource }));
+    await page.route('**/api/garden?**', route => route.fulfill({ json: { items: captures, total: 2, limit: 128, offset: 0 } }));
+    await page.route('**/api/garden/motion', route => route.fulfill({ json: motionStatus }));
+    await page.route('**/api/garden/identification', route => route.fulfill({ json: modelStatus }));
+    await page.route('**/api/garden/*/snapshot', route => route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720"/>' }));
+    await page.route('**/api/garden/review-batch', route => route.fulfill({ status: 503, json: { detail: 'Stack review temporarily unavailable.' } }));
+    await page.goto('/browser-tests/garden.html');
+    await page.getByRole('button', { name: 'Dismiss remaining 2 photos', exact: true }).click();
+    await expect(page.locator('[data-toast-container]')).toContainText('Stack review temporarily unavailable.');
+    await expect(page.locator('[data-toast-container]')).not.toContainText('photos dismissed.');
+    await expect(page.getByRole('button', { name: 'Dismiss remaining 2 photos', exact: true })).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Undo group dismissal', exact: true })).toHaveCount(0);
+    await expect(page.getByText('2 photos around the same position', { exact: true })).toBeVisible();
 });
 
 test('animal threshold saves only the independent Garden setting and reloads measured status', async ({ page }) => {
@@ -435,7 +519,7 @@ for (const action of ['confirm', 'dismiss'] as const) {
             return route.fulfill({ json: { ...captures[1], status: action === 'confirm' ? 'confirmed' : 'dismissed' } });
         });
         await page.goto('/browser-tests/garden.html');
-        await expect(page.getByText('Confirm and dismiss apply only to the photo shown.')).toBeVisible();
+        await expect(page.getByText('Review this photo', { exact: true })).toBeVisible();
         await page.getByRole('button', { name: 'Next photo', exact: true }).click();
         await page.getByRole('button', { name: action === 'confirm' ? 'Confirm animal present' : 'Dismiss capture', exact: true }).click();
         await expect(page.locator('[data-toast-container]')).toContainText(action === 'confirm' ? 'Photo confirmed.' : 'Photo dismissed.');

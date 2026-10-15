@@ -3636,9 +3636,9 @@
     "previous_photo": "Vorheriges Foto",
     "photo_count": "Foto {index} von {count}",
     "next_photo": "Nächstes Foto",
-    "group_review": "Diese Gruppe prüfen",
-    "group_dismiss_help": "Prüfe zuerst die Fotos. Nur diese Fotos werden verworfen, keine zukünftigen Aufnahmen oder dieser Kamerabereich.",
-    "group_dismiss": "Diese {count} Fotos verwerfen",
+    "group_review": "Diesen Stapel prüfen",
+    "group_dismiss_help": "Bestätige zuerst Fotos mit Tieren und verwirf dann die übrigen Fotos dieses Stapels. Bestätigte Fotos bleiben erhalten; zukünftige Aufnahmen sind nicht betroffen.",
+    "group_dismiss": "Verbleibende {count} Fotos verwerfen",
     "confidence": "Schwelle für Tiervorschläge",
     "confidence_help": "Höhere Werte reduzieren Vorschläge, können aber Tiere übersehen. Gilt nur für neue Bewegungsfotos; Vogelerkennung und Personenprüfung bleiben unverändert.",
     "confidence_save": "Tierschwelle speichern",
@@ -3646,6 +3646,6 @@
     "photo_dismissed": "Foto verworfen.",
     "photo_restored": "Foto wieder zur Prüfung vorgemerkt.",
     "group_remaining": "Andere Fotos in dieser Gruppe müssen noch geprüft werden.",
-    "single_photo_help": "Bestätigen und Verwerfen gelten nur für das angezeigte Foto."
+    "single_photo_help": "Dieses Foto prüfen"
   }
 }

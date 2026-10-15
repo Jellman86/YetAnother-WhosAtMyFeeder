@@ -3636,9 +3636,9 @@
     "previous_photo": "Foto anterior",
     "photo_count": "Foto {index} de {count}",
     "next_photo": "Próxima foto",
-    "group_review": "Rever este grupo",
-    "group_dismiss_help": "Verifique primeiro as fotos. Apenas estas fotos são descartadas, não capturas futuras nem esta área da câmara.",
-    "group_dismiss": "Descartar estas {count} fotos",
+    "group_review": "Rever este conjunto",
+    "group_dismiss_help": "Confirme primeiro as fotos com animais e depois descarte as restantes deste conjunto. As fotos confirmadas são mantidas; as capturas futuras não são afetadas.",
+    "group_dismiss": "Descartar as {count} fotos restantes",
     "confidence": "Limiar de propostas de animais",
     "confidence_help": "Valores mais altos reduzem propostas, mas podem perder animais. Aplica-se apenas a novas fotos de movimento; a deteção de aves e a proteção de pessoas não mudam.",
     "confidence_save": "Guardar limiar de animais",
@@ -3646,6 +3646,6 @@
     "photo_dismissed": "Foto descartada.",
     "photo_restored": "Foto devolvida para revisão.",
     "group_remaining": "As outras fotos deste grupo ainda precisam de revisão.",
-    "single_photo_help": "Confirmar e descartar aplicam-se apenas à foto apresentada."
+    "single_photo_help": "Rever esta foto"
   }
 }

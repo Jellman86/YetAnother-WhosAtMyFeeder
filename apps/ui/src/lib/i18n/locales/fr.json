@@ -3636,9 +3636,9 @@
     "previous_photo": "Photo précédente",
     "photo_count": "Photo {index} sur {count}",
     "next_photo": "Photo suivante",
-    "group_review": "Vérifier ce groupe",
-    "group_dismiss_help": "Vérifiez d’abord les photos. Seules ces photos seront écartées, pas les captures futures ni cette zone de la caméra.",
-    "group_dismiss": "Écarter ces {count} photos",
+    "group_review": "Examiner cette pile",
+    "group_dismiss_help": "Confirmez les photos avec des animaux, puis écartez les autres photos de cette pile. Les photos confirmées sont conservées ; les captures futures restent inchangées.",
+    "group_dismiss": "Écarter les {count} photos restantes",
     "confidence": "Seuil des propositions animales",
     "confidence_help": "Une valeur plus élevée réduit les propositions mais peut manquer des animaux. Concerne uniquement les nouvelles photos de mouvement ; la détection des oiseaux et la protection des personnes restent inchangées.",
     "confidence_save": "Enregistrer le seuil animal",
@@ -3646,6 +3646,6 @@
     "photo_dismissed": "Photo écartée.",
     "photo_restored": "Photo remise à examiner.",
     "group_remaining": "Les autres photos de ce groupe restent à examiner.",
-    "single_photo_help": "La confirmation et le rejet concernent uniquement la photo affichée."
+    "single_photo_help": "Examiner cette photo"
   }
 }

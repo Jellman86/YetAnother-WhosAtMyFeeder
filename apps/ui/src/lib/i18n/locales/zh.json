@@ -3636,9 +3636,9 @@
     "previous_photo": "上一张照片",
     "photo_count": "第{index}张，共{count}张",
     "next_photo": "下一张照片",
-    "group_review": "审核此组",
-    "group_dismiss_help": "请先检查照片。仅忽略这些照片，不会忽略未来拍摄或此摄像头区域。",
-    "group_dismiss": "忽略这{count}张照片",
+    "group_review": "审核这组照片",
+    "group_dismiss_help": "先确认有动物的照片，再忽略本组剩余的照片。已确认的照片会保留，未来的抓拍不受影响。",
+    "group_dismiss": "忽略剩余的 {count} 张照片",
     "confidence": "动物候选阈值",
     "confidence_help": "较高的值会减少候选，但可能漏掉动物。仅适用于新的动态照片；鸟类检测和人物隐私检查不变。",
     "confidence_save": "保存动物阈值",
@@ -3646,6 +3646,6 @@
     "photo_dismissed": "照片已忽略。",
     "photo_restored": "照片已返回待审核。",
     "group_remaining": "此组中的其他照片仍需审核。",
-    "single_photo_help": "确认和忽略仅适用于当前显示的照片。"
+    "single_photo_help": "审核这张照片"
   }
 }
