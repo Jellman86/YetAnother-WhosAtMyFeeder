@@ -127,7 +127,7 @@
     async function identifyFromQueue(detection: Detection, species: string): Promise<void> {
         try {
             const result = await updateDetectionSpecies(detection.frigate_event, species);
-            detectionsStore.updateDetection(applyManualTagResult(detection, result));
+            detectionsStore.recordOwnerSpeciesChoice(applyManualTagResult(detection, result));
             toastStore.show($_('detection.species_updated', { default: 'Species updated' }), 'success');
             void refreshNewSpecies();
         } catch (e) {
@@ -211,7 +211,7 @@
     });
 
     // Detections still waiting on a person, oldest first.
-    let reviewQueue = $derived(buildReviewQueue(deskDetections, { reviewThreshold, newSpecies: newSpeciesEntries, knownDetections: detectionsStore.detections }));
+    let reviewQueue = $derived(buildReviewQueue(deskDetections, { reviewThreshold, newSpecies: newSpeciesEntries, knownDetections: detectionsStore.detections, localChoices: detectionsStore.patchMap }));
 
     // Derive reclassification progress for the modal
     let modalReclassifyProgress = $derived(
@@ -678,7 +678,8 @@
         reviewThreshold,
         limit: Number.MAX_SAFE_INTEGER,
         newSpecies: newSpeciesEntries,
-        knownDetections: detectionsStore.detections
+        knownDetections: detectionsStore.detections,
+        localChoices: detectionsStore.patchMap
     })}
     <ReviewQueueModal
         onbirdschanged={handleBirdsChanged}

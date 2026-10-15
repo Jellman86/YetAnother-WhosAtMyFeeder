@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Saved species choices stay cleared from the dashboard when an older history
+  request finishes late or the visit leaves the recent page. A later reanalysis
+  can still reopen the visit for review (#732).
+
 - Saved species choices also clear historical new-species entries from the
   dashboard queue when the visit falls outside its 24-hour window. Unreviewed
   historical newcomers remain available for review (#732).

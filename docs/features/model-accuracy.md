@@ -422,6 +422,9 @@ A saved choice clears that detection from the dashboard review queue immediately
 including while the separate new-species list refreshes. Skipped or failed choices
 remain for review. This also applies to new-species visits older than the
 dashboard's 24-hour window; unreviewed historical newcomers stay available.
+Delayed history responses cannot undo a successful choice, including when the
+visit has left the recent history page. A later reanalysis can reopen the visit
+for review; a failed background refresh keeps the saved choice visible.
 
 Changing the photograph does not change this evidence. The input records its crop coordinates,
 source frame dimensions and recording time when available. A counted bird can borrow a new

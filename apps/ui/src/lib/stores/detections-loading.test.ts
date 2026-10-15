@@ -1,3 +1,4 @@
+import { buildReviewQueue } from '../utils/review-queue';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const fetchEvents = vi.fn();
@@ -9,6 +10,71 @@ vi.mock('../api', () => ({
 }));
 
 beforeEach(() => vi.resetAllMocks());
+
+it('keeps an accepted species choice while an older list waits for its count', async () => {
+    const { DetectionsStore } = await import('./detections.svelte');
+    const store = new DetectionsStore();
+    const before = { frigate_event: 'older-choice', manual_tagged: false, display_name: 'Dunnock', classification_input: { source: 'full_frame', is_cropped: false } };
+    const after = { ...before, manual_tagged: true, classification_input: { source: 'owner_species_choice' } };
+    let releaseCount: (value: { count: number }) => void = () => undefined;
+    fetchEvents.mockResolvedValueOnce([before]).mockResolvedValueOnce([after]);
+    fetchEventsCount.mockImplementationOnce(() => new Promise(resolve => { releaseCount = resolve; })).mockResolvedValueOnce({ count: 1 });
+    store.historyStatus = 'ready';
+    store.detections = [before as never];
+    const olderRead = store.loadInitial();
+    await Promise.resolve();
+    store.recordOwnerSpeciesChoice(after as never);
+    releaseCount({ count: 1 });
+    await olderRead;
+    expect(store.detections[0].manual_tagged).toBe(true);
+    await vi.waitFor(() => expect(fetchEvents).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => expect(store.isLoading).toBe(false));
+    expect(store.detections[0].manual_tagged).toBe(true);
+});
+
+it('retains accepted owner evidence when fresh recent history omits that visit', async () => {
+    const { DetectionsStore } = await import('./detections.svelte');
+    const store = new DetectionsStore();
+    fetchEvents.mockResolvedValue([]);
+    fetchEventsCount.mockResolvedValue({ count: 0 });
+    store.recordOwnerSpeciesChoice({ frigate_event: 'outside-recent-page', manual_tagged: true, classification_input: { source: 'owner_species_choice' } } as never);
+    await vi.waitFor(() => expect(fetchEvents).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(store.isLoading).toBe(false));
+    expect(store.detections).toEqual([]);
+    expect(store.getDetectionPatch('outside-recent-page')).toMatchObject({ manual_tagged: true, classification_input: { source: 'owner_species_choice' } });
+});
+
+it('allows a later authoritative reanalysis to reopen a saved choice even after it leaves the page', async () => {
+    const { DetectionsStore } = await import('./detections.svelte');
+    const store = new DetectionsStore();
+    const chosen = { frigate_event: 'reopened', manual_tagged: true, classification_input: { source: 'owner_species_choice' } };
+    const reanalysed = { ...chosen, manual_tagged: false, classification_input: { source: 'full_frame', is_cropped: false } };
+    fetchEvents.mockResolvedValueOnce([chosen]).mockResolvedValueOnce([reanalysed]).mockResolvedValueOnce([]);
+    fetchEventsCount.mockResolvedValue({ count: 1 });
+    store.recordOwnerSpeciesChoice(chosen as never);
+    await vi.waitFor(() => expect(fetchEvents).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(store.isLoading).toBe(false));
+    const queue = () => buildReviewQueue([], { reviewThreshold: 0.6, knownDetections: store.detections, localChoices: store.patchMap, newSpecies: [{ detection: reanalysed as never, sightings: 1 }] });
+    expect(queue().total).toBe(0);
+    await store.loadInitial();
+    expect(queue().total).toBe(1);
+    await store.loadInitial();
+    expect(queue().total).toBe(1);
+});
+
+it('keeps a successfully saved species choice when its follow-up history request fails', async () => {
+    const { DetectionsStore } = await import('./detections.svelte');
+    const store = new DetectionsStore();
+    store.historyStatus = 'ready';
+    store.detections = [{ frigate_event: 'saved', manual_tagged: false } as never];
+    fetchEvents.mockRejectedValue(new Error('503'));
+    fetchEventsCount.mockResolvedValue({ count: 1 });
+    store.recordOwnerSpeciesChoice({ frigate_event: 'saved', manual_tagged: true, classification_input: { source: 'owner_species_choice' } } as never);
+    await vi.waitFor(() => expect(fetchEvents).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(store.isLoading).toBe(false));
+    expect(store.historyStatus).toBe('ready');
+    expect(store.detections[0].manual_tagged).toBe(true);
+});
 
 describe('DetectionsStore loading', () => {
     beforeEach(() => {
