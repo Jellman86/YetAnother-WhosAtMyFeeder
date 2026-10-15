@@ -527,6 +527,9 @@ and are excluded from personalization feedback and reranking.
   `retained_previous` and `updated_at`, with `event_id` and `candidate_id`. Reading status does
   not start inference. `completed` with `result_count: 0` means the scan finished without usable
   birds; `not_scanned` is not a zero count. Existing observations may remain after an empty retry.
+  Conflicting whole-bird and bird-part regions return `failed` with
+  `error: "ambiguous_localization"` and `result_count: null`, preserving all existing
+  observations. A species prediction from shared crop context does not resolve that count.
 - `POST /api/frigate/{event_id}/birds/scan` (owner) — body
   `{"candidate_id": "retained-whole-frame-id", "expected_media_version": "image-revision", "force": false}`. Returns 202 with the same
   status shape. `expected_media_version` is the `v` query value in that candidate's `image_url`;

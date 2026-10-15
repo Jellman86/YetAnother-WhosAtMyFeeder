@@ -2438,6 +2438,7 @@
     "search_species": "搜索物种",
     "species_updated": "物种已更新",
     "bird_scan": {
+      "ambiguous_localization": "无法在此画面中区分单独的鸟。已有结果将保留。请尝试另一张完整画面。",
       "action": "查找更多鸟类",
       "again": "重新扫描",
       "detector_unavailable": "安装裁剪检测模型以查找更多鸟类。",

@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Bird scans keep existing findings and explain when overlapping detector regions
+  cannot distinguish separate birds from parts of one bird, rather than publishing
+  a guessed count. Clear detections in another analyzed frame remain usable (#736).
+
 - Saved species choices stay cleared from the dashboard when an older history
   request finishes late or the visit leaves the recent page. A later reanalysis
   can still reopen the visit for review (#732).

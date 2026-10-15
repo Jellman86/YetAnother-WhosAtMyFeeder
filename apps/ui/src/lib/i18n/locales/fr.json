@@ -2438,6 +2438,7 @@
     "search_species": "Rechercher une espèce",
     "species_updated": "Espèce mise à jour",
     "bird_scan": {
+      "ambiguous_localization": "Impossible de distinguer les oiseaux individuellement dans cette image. Les résultats existants sont conservés. Essayez une autre image complète.",
       "action": "Chercher d’autres oiseaux",
       "again": "Relancer l’analyse",
       "detector_unavailable": "Installez un détecteur de recadrage pour trouver d’autres oiseaux.",

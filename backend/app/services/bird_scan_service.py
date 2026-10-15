@@ -271,23 +271,43 @@ class BirdScanService:
         return content
 
     async def _persist(self, job: BirdScanJob, selection: BirdObservationSelection) -> None:
+        if (selection.birds or selection.ambiguity_reason) and (
+            (selection.clip_variant, selection.frame_index) != (job.clip_variant, job.frame_index)
+            or selection.full_frame_candidate_id not in {None, job.candidate_id}
+        ):
+            raise BirdScanUnavailable("media_changed")
         async with get_db() as db:
             await db.execute("BEGIN IMMEDIATE")
             try:
                 observations = BirdObservationRepository(db)
                 existing = await observations.list_for_event(job.event_id)
-                changed = await BirdScanRepository(db).complete(
-                    job.event_id,
-                    job.revision,
-                    expected_generation=job.generation,
-                    result_count=len(selection.birds),
-                    retained_previous=bool(existing and not selection.birds),
-                    commit=False,
-                )
+                repository = BirdScanRepository(db)
+                if selection.ambiguity_reason:
+                    changed = await repository.fail(
+                        job.event_id,
+                        job.revision,
+                        expected_generation=job.generation,
+                        error=selection.ambiguity_reason,
+                        retained_previous=bool(existing),
+                        commit=False,
+                    )
+                else:
+                    changed = await repository.complete(
+                        job.event_id,
+                        job.revision,
+                        expected_generation=job.generation,
+                        result_count=len(selection.birds),
+                        retained_previous=bool(existing and not selection.birds),
+                        commit=False,
+                    )
                 if not changed:
                     await db.rollback()
                     return
-                if selection.birds and not await observations._replace_generated_locked(job.event_id, selection):
+                if (
+                    not selection.ambiguity_reason
+                    and selection.birds
+                    and not await observations._replace_generated_locked(job.event_id, selection)
+                ):
                     raise BirdScanUnavailable("reviewed_other_frame")
                 await db.commit()
             except BaseException:
@@ -380,7 +400,7 @@ class BirdScanService:
             selected = bundle.get("selected_candidate") or {}
             frame = (
                 (selection.clip_variant, selection.frame_index)
-                if selection.birds
+                if selection.birds or selection.ambiguity_reason
                 else (selected.get("clip_variant"), selected.get("frame_index"))
             )
             full = [
@@ -399,7 +419,7 @@ class BirdScanService:
         if not candidate or not _full_scene(candidate):
             await self._record_unretained_automatic(event_id, bundle, selection)
             return
-        if selection.birds and (selection.clip_variant, selection.frame_index) != (
+        if (selection.birds or selection.ambiguity_reason) and (selection.clip_variant, selection.frame_index) != (
             candidate["clip_variant"],
             candidate["frame_index"],
         ):
@@ -437,7 +457,7 @@ class BirdScanService:
             try:
                 observations = BirdObservationRepository(db)
                 existing = await observations.list_for_event(event_id)
-                changed = await BirdScanRepository(db).record_automatic_completed(
+                changed = await BirdScanRepository(db).record_automatic_outcome(
                     event_id,
                     candidate_id=scene_id,
                     image_ref=candidate["image_ref"],
@@ -447,14 +467,19 @@ class BirdScanService:
                     frame_index=candidate["frame_index"],
                     expected_revision=bundle.get("automatic_scan_expected_revision"),
                     expected_generation=bundle.get("automatic_scan_expected_generation"),
-                    result_count=len(selection.birds),
-                    retained_previous=bool(existing and not selection.birds),
+                    result_count=None if selection.ambiguity_reason else len(selection.birds),
+                    retained_previous=bool(existing and (not selection.birds or selection.ambiguity_reason)),
+                    error=selection.ambiguity_reason,
                     commit=False,
                 )
                 if not changed:
                     await db.rollback()
                     return
-                if selection.birds and not await observations._replace_generated_locked(event_id, selection):
+                if (
+                    not selection.ambiguity_reason
+                    and selection.birds
+                    and not await observations._replace_generated_locked(event_id, selection)
+                ):
                     await db.rollback()
                     return
                 await db.commit()
@@ -468,7 +493,8 @@ class BirdScanService:
         # Legacy observations without retained pixels remain useful, but cannot
         # supersede a durable scan whose status names different evidence.
         if (
-            bundle.get("automatic_scan_expected_revision") is not None
+            selection.ambiguity_reason
+            or bundle.get("automatic_scan_expected_revision") is not None
             or bundle.get("automatic_scan_expected_generation") is not None
         ):
             return

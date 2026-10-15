@@ -2448,6 +2448,7 @@
     "search_species": "Cerca specie",
     "species_updated": "Specie aggiornata",
     "bird_scan": {
+      "ambiguous_localization": "Non è possibile distinguere i singoli uccelli in questo fotogramma. I risultati esistenti vengono conservati. Prova un altro fotogramma completo.",
       "action": "Trova altri uccelli",
       "again": "Analizza di nuovo",
       "detector_unavailable": "Installa un rilevatore per i ritagli per trovare altri uccelli.",

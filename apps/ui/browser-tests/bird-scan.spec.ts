@@ -6,6 +6,17 @@ const environment = (globalThis as { process?: { env: Record<string, string | un
 function response(candidate: string, status: string, extras: Record<string, unknown> = {}) {
     return { event_id: 'fixture-event', candidate_id: candidate, status, available: true, unavailable_reason: null, error: null, result_count: status === 'completed' ? 0 : null, retained_previous: false, updated_at: null, ...extras };
 }
+
+test('ambiguous localization keeps previous findings without displaying a zero count', async ({ page }) => {
+    await page.route('**/api/frigate/fixture-event/birds/scan**', route => route.fulfill({
+        json: response('scene-1', 'failed', { error: 'ambiguous_localization', result_count: null, retained_previous: true })
+    }));
+    await page.goto('/browser-tests/bird-scan.html');
+    await expect(page.getByText('Could not distinguish separate birds in this frame. Existing findings are kept. Try another whole frame.')).toBeVisible();
+    await expect(page.getByText(/Scan complete\. Birds found/)).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Find more birds' })).toBeEnabled();
+    await expect(page.locator('[data-scan-completions]')).toHaveText('0');
+});
 test('keyboard scan shows queued and completed zero results with a 44px action', async ({ page }) => {
     let started = false;
     let polls = 0;

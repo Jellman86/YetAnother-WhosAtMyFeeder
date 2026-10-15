@@ -1091,7 +1091,10 @@ class HighQualitySnapshotService:
                 for item in scored + existing_observations + observations
                 if (item.get("clip_variant"), item.get("frame_index")) == frame
             ]
-            neighbors = select_bird_observations(same_frame, selected_candidate=None).birds
+            neighbor_selection = select_bird_observations(same_frame, selected_candidate=None)
+            if neighbor_selection.ambiguity_reason:
+                continue
+            neighbors = neighbor_selection.birds
             crop_box = contextual_recheck_box(seed, recovered["crop_box"], [bird.box for bird in neighbors])
             full = next((item for item in same_frame if item.get("source_mode") == "full_frame"), None)
             image = frames.get(str((full or {}).get("candidate_id") or ""))
@@ -2349,7 +2352,7 @@ class HighQualitySnapshotService:
             log.warning("Unable to publish automatic bird scan", event_id=event_id)
 
     async def _persist_bird_observations(self, event_id: str, selection: BirdObservationSelection | None) -> None:
-        if not isinstance(selection, BirdObservationSelection) or not selection.birds:
+        if not isinstance(selection, BirdObservationSelection) or selection.ambiguity_reason or not selection.birds:
             return
         try:
             async with get_db() as db:

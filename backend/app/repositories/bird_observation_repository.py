@@ -48,7 +48,12 @@ class BirdObservationRepository:
 
     async def replace_generated(self, frigate_event: str, selection: BirdObservationSelection) -> bool:
         """Replace one analyzed frame; an empty retry never erases counted history."""
-        if not selection.birds or selection.clip_variant is None or selection.frame_index is None:
+        if (
+            selection.ambiguity_reason
+            or not selection.birds
+            or selection.clip_variant is None
+            or selection.frame_index is None
+        ):
             return False
         try:
             if self.db.in_transaction:
@@ -65,6 +70,8 @@ class BirdObservationRepository:
             raise
 
     async def _replace_generated_locked(self, frigate_event: str, selection: BirdObservationSelection) -> bool:
+        if selection.ambiguity_reason:
+            return False
         existing = await self.list_for_event(frigate_event)
         manually_reviewed = [bird for bird in existing if bird["manual_species"] or bird["is_hidden"]]
         if manually_reviewed and any(

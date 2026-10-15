@@ -1,6 +1,7 @@
 """Manual scene scans own their media and never replace the primary identification."""
 
 from contextlib import asynccontextmanager
+from dataclasses import replace
 import hashlib
 import io
 import os
@@ -17,6 +18,102 @@ from app.repositories.bird_scan_repository import BirdScanRepository
 from app.services.bird_observation_selection import BirdObservation, BirdObservationSelection
 from app.services import bird_scan_service as scans
 from app.services import high_quality_snapshot_service as hq
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("automatic", [False, True])
+@pytest.mark.parametrize("previous", [False, True])
+async def test_ambiguous_scan_keeps_findings_without_publishing_zero_or_an_exact_count(scene, automatic, previous):
+    service, database, candidate = scene
+    if previous:
+        await service.enqueue("scan-event", "scan-scene")
+        await service.run_next()
+        async with database() as db:
+            repo = BirdObservationRepository(db)
+            bird = (await repo.list_for_event("scan-event"))[0]
+            await repo.set_species("scan-event", bird["id"], "Blue Jay")
+            await repo.set_hidden("scan-event", bird["id"], True)
+    async with database() as db:
+        before = await BirdObservationRepository(db).list_for_event("scan-event")
+        state = await BirdScanRepository(db).get("scan-event")
+    service._analyze_scene.return_value = replace(
+        service._analyze_scene.return_value, ambiguity_reason="ambiguous_localization"
+    )
+    if automatic:
+        await service.record_automatic("scan-event", _automatic_bundle(service, candidate, previous=state))
+    else:
+        await service.enqueue("scan-event", "scan-scene", force=True)
+        await service.run_next()
+    result = await service.get_status("scan-event", "scan-scene")
+    assert result["status"] == "failed" and result["error"] == "ambiguous_localization"
+    assert result["result_count"] is None and result["retained_previous"] is previous
+    async with database() as db:
+        assert await BirdObservationRepository(db).list_for_event("scan-event") == before
+
+
+@pytest.mark.asyncio
+async def test_manual_scan_cannot_publish_a_clear_result_from_another_scene(scene):
+    service, database, _ = scene
+    service._analyze_scene.return_value = replace(
+        service._analyze_scene.return_value, frame_index=5, full_frame_candidate_id="other"
+    )
+    await service.enqueue("scan-event", "scan-scene")
+    await service.run_next()
+    result = await service.get_status("scan-event", "scan-scene")
+    assert result["status"] == "failed" and result["result_count"] is None
+    async with database() as db:
+        assert await BirdObservationRepository(db).list_for_event("scan-event") == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("locked", [False, True])
+async def test_observation_repository_refuses_an_ambiguous_selection_even_with_proposed_birds(scene, locked):
+    service, database, _ = scene
+    selection = replace(service._analyze_scene.return_value, ambiguity_reason="ambiguous_localization")
+    async with database() as db:
+        repository = BirdObservationRepository(db)
+        write = repository._replace_generated_locked if locked else repository.replace_generated
+        assert await write("scan-event", selection) is False
+        assert await repository.list_for_event("scan-event") == []
+
+
+@pytest.mark.asyncio
+async def test_legacy_photo_count_path_does_not_publish_ambiguous_proposals(scene):
+    service, database, _ = scene
+    selection = replace(service._analyze_scene.return_value, ambiguity_reason="ambiguous_localization")
+    await hq.HighQualitySnapshotService()._persist_bird_observations("scan-event", selection)
+    async with database() as db:
+        assert await BirdObservationRepository(db).list_for_event("scan-event") == []
+
+
+@pytest.mark.asyncio
+async def test_empty_ambiguous_selection_keeps_its_frame_instead_of_borrowing_the_selected_photo(scene):
+    service, _, candidate = scene
+    bundle = _automatic_bundle(service, candidate)
+    bundle["bird_selection"] = BirdObservationSelection("event", 4, None, (), "ambiguous_localization")
+    bundle["selected_candidate"] = {**candidate, "frame_index": 99, "candidate_id": "other"}
+    await service.record_automatic("scan-event", bundle)
+    result = await service.get_status("scan-event", "scan-scene")
+    assert result["status"] == "failed" and result["error"] == "ambiguous_localization"
+    assert result["result_count"] is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("finish_manual", [False, True])
+async def test_stale_automatic_ambiguity_cannot_replace_newer_manual_work(scene, finish_manual):
+    service, database, candidate = scene
+    bundle = _automatic_bundle(service, candidate)
+    bundle["bird_selection"] = BirdObservationSelection("event", 4, "scan-scene", (), "ambiguous_localization")
+    await service.enqueue("scan-event", "scan-scene")
+    if finish_manual:
+        await service.run_next()
+    async with database() as db:
+        before = await BirdScanRepository(db).get("scan-event")
+        birds = await BirdObservationRepository(db).list_for_event("scan-event")
+    await service.record_automatic("scan-event", bundle)
+    async with database() as db:
+        assert await BirdScanRepository(db).get("scan-event") == before
+        assert await BirdObservationRepository(db).list_for_event("scan-event") == birds
 
 
 @pytest_asyncio.fixture

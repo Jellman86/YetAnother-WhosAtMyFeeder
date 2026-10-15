@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from app.services import high_quality_snapshot_service as hq
-from app.services.bird_observation_selection import select_bird_observations
+from app.services.bird_observation_selection import BirdObservationSelection, select_bird_observations
 from tests.test_hq_count_recheck import bundle
 
 
@@ -126,3 +126,34 @@ def test_count_context_cannot_replace_the_main_species_or_be_applied_as_a_photo(
         _pick_snapshot_candidate(rows, SnapshotApplyRequest(mode="candidate", candidate_id=rows[0]["candidate_id"]))
         is None
     )
+
+
+@pytest.mark.asyncio
+async def test_ambiguous_neighbors_do_not_look_like_an_empty_context_exclusion_list(monkeypatch):
+    service = hq.HighQualitySnapshotService()
+    monkeypatch.setattr(
+        hq.bird_crop_service,
+        "refine_observation_box",
+        Mock(
+            return_value={
+                "detector_box": (1239, 1261, 1370, 1431),
+                "confidence": 0.75,
+            }
+        ),
+    )
+    monkeypatch.setattr(
+        hq,
+        "select_bird_observations",
+        lambda *args, **kwargs: BirdObservationSelection(
+            "event",
+            150,
+            None,
+            (),
+            "ambiguous_localization",
+        ),
+    )
+    scorer = AsyncMock()
+    monkeypatch.setattr(service, "_score_snapshot_candidate", scorer)
+    recovered = await service._recheck_weak_count_candidates(bundle())
+    scorer.assert_not_awaited()
+    assert recovered[0]["classifier_score"] == 0.155

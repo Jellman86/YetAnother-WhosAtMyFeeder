@@ -59,7 +59,9 @@
           : unavailable === 'reviewed_other_frame'
           ? $_('detection.bird_scan.reviewed_other_frame', { default: 'Birds reviewed on another frame are kept. This frame cannot replace them.' })
           : $_('detection.bird_scan.scene_unavailable', { default: 'The whole frame for this photograph is unavailable.' }));
-    const errorText = $derived(view.response?.error === 'media_changed'
+    const errorText = $derived(view.response?.error === 'ambiguous_localization'
+        ? $_('detection.bird_scan.ambiguous_localization', { default: 'Could not distinguish separate birds in this frame. Existing findings are kept. Try another whole frame.' })
+        : view.response?.error === 'media_changed'
         ? $_('detection.bird_scan.media_changed', { default: 'The frame changed during the scan. Try again on the current frame.' })
         : view.response?.error === 'interrupted'
           ? $_('detection.bird_scan.interrupted', { default: 'The scan was interrupted. You can try again.' })
