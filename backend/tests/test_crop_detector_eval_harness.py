@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import hashlib
+from itertools import permutations
 from pathlib import Path
 
 import pytest
@@ -207,6 +208,8 @@ def test_negative_case_reports_false_positive_without_reducing_positive_recall()
         boxes=[],
         visit_id="empty-visit",
         tags=("foliage", "empty"),
+        annotation_scope="exhaustive",
+        annotation_verified=True,
     )
 
     result = evaluate_case(
@@ -239,6 +242,157 @@ def test_negative_case_reports_false_positive_without_reducing_positive_recall()
     assert summary["overall"]["recall_at_0_5"] == 1.0
     assert summary["overall"]["false_positive_rate"] == 1.0
     assert summary["by_tag"]["foliage"]["false_positive_rate"] == 1.0
+
+
+def _count_case(*, boxes=None, scope="exhaustive", verified=True):
+    return CropEvalCase(
+        case_id="synthetic-targets",
+        bucket="synthetic",
+        image_path=Path("unused.jpg"),
+        boxes=[(0, 0, 10, 10), (20, 0, 30, 10)] if boxes is None else boxes,
+        annotation_scope=scope,
+        annotation_verified=verified,
+    )
+
+
+def test_one_detected_bird_does_not_satisfy_two_annotated_targets():
+    result = evaluate_case(_count_case(), [DetectionCandidate((0, 0, 10, 10), 0.9)])
+    assert result["recall_at_0_5"] is True  # Existing best-crop image hit.
+    assert result["localization_at_0_5"] == {
+        "matched_targets": 1,
+        "missed_targets": 1,
+        "target_recall": 0.5,
+        "unmatched_candidates": 0,
+        "exact_localization": False,
+    }
+
+
+def test_extra_hardware_prevents_exact_exhaustive_localization():
+    result = evaluate_case(
+        _count_case(boxes=[(0, 0, 10, 10)]),
+        [DetectionCandidate((0, 0, 10, 10), 0.9), DetectionCandidate((40, 40, 50, 50), 0.8)],
+    )
+    metrics = result["localization_at_0_5"]
+    assert metrics["target_recall"] == 1.0
+    assert metrics["unmatched_candidates"] == 1
+    assert metrics["exact_localization"] is False
+
+
+def test_same_count_with_wrong_boxes_is_not_exact_localization():
+    result = evaluate_case(_count_case(), [DetectionCandidate((40, 40, 50, 50), 0.9)] * 2)
+    assert result["localization_at_0_5"]["exact_localization"] is False
+    assert result["localization_at_0_5"]["missed_targets"] == 2
+
+
+@pytest.mark.parametrize("scope,verified", [("unknown", True), ("target_only", True), ("exhaustive", False)])
+@pytest.mark.parametrize("candidates", [[], [DetectionCandidate((0, 0, 10, 10), 0.9)]])
+def test_absent_or_partial_annotations_cannot_establish_negative_truth(scope, verified, candidates):
+    result = evaluate_case(_count_case(boxes=[], scope=scope, verified=verified), candidates)
+    assert result["is_negative"] is False
+    assert result["false_positive"] is None
+    assert result["correct_negative"] is None
+    assert result["localization_at_0_5"] is None
+    summary = summarize_results([result])["overall"]
+    assert summary["positive_cases"] == 0
+    assert summary["negative_cases"] == 0
+    assert summary["unscored_cases"] == 1
+    assert summary["false_positive_rate"] is None
+
+
+def test_target_only_annotations_report_misses_but_do_not_label_extras_false():
+    result = evaluate_case(
+        _count_case(scope="target_only"),
+        [DetectionCandidate((0, 0, 10, 10), 0.9), DetectionCandidate((40, 40, 50, 50), 0.8)],
+    )
+    assert result["localization_at_0_5"] == {
+        "matched_targets": 1,
+        "missed_targets": 1,
+        "target_recall": 0.5,
+        "unmatched_candidates": None,
+        "exact_localization": None,
+    }
+
+
+def test_one_proposal_can_match_at_most_one_target():
+    result = evaluate_case(
+        _count_case(boxes=[(0, 0, 10, 10), (8, 0, 18, 10)]),
+        [DetectionCandidate((0, 0, 18, 10), 0.9)],
+    )
+    assert result["localization_at_0_5"]["matched_targets"] == 1
+
+
+def test_duplicate_proposals_cannot_hide_a_missed_target():
+    result = evaluate_case(_count_case(), [DetectionCandidate((0, 0, 10, 10), 0.9)] * 2)
+    assert result["localization_at_0_5"]["matched_targets"] == 1
+    assert result["localization_at_0_5"]["missed_targets"] == 1
+    assert result["localization_at_0_5"]["unmatched_candidates"] == 1
+    assert result["localization_at_0_5"]["exact_localization"] is False
+
+
+@pytest.mark.parametrize("scope,verified", [("unknown", True), ("target_only", False)])
+def test_unknown_or_unverified_target_scope_has_no_count_metrics(scope, verified):
+    result = evaluate_case(_count_case(scope=scope, verified=verified), [])
+    assert result["localization_at_0_5"] is None
+    assert summarize_results([result])["overall"]["localization_at_0_5"]["target_recall"] is None
+
+
+def test_target_matching_finds_maximum_cardinality_independent_of_order():
+    boxes = [(0, 0, 10, 10), (8, 0, 18, 10)]
+    proposals = [DetectionCandidate((0, 0, 18, 10), 0.9), DetectionCandidate((0, 0, 10, 10), 0.8)]
+    for target_order in permutations(boxes):
+        for proposal_order in permutations(proposals):
+            metrics = evaluate_case(_count_case(boxes=list(target_order)), list(proposal_order))["localization_at_0_5"]
+            assert metrics["matched_targets"] == 2
+            assert metrics["exact_localization"] is True
+
+
+def test_summary_weights_target_recall_by_targets_not_by_image_hits():
+    results = [
+        evaluate_case(_count_case(), [DetectionCandidate((0, 0, 10, 10), 0.9)]),
+        evaluate_case(_count_case(boxes=[(0, 0, 10, 10)]), [DetectionCandidate((0, 0, 10, 10), 0.9)]),
+        evaluate_case(_count_case(boxes=[]), []),
+        evaluate_case(_count_case(scope="target_only"), []),
+    ]
+    metrics = summarize_results(results)["overall"]["localization_at_0_5"]
+    assert metrics == {
+        "scored_cases": 4,
+        "matched_targets": 2,
+        "missed_targets": 3,
+        "target_recall": 0.4,
+        "exhaustive_cases": 3,
+        "unmatched_candidates": 0,
+        "exact_localization_rate": 2 / 3,
+    }
+
+
+@pytest.mark.parametrize("loader", [load_manifest, load_manifest_resolved])
+def test_annotation_scope_is_loaded_explicitly_and_legacy_defaults_to_unknown(tmp_path, loader):
+    path = tmp_path / "manifest.json"
+    path.write_text(
+        json.dumps(
+            {
+                "cases": [
+                    {"id": str(i), "bucket": "test", "image_path": "/unused.jpg", **fields}
+                    for i, fields in enumerate(
+                        [{}, {"annotation_scope": "target_only"}, {"annotation_scope": "exhaustive"}]
+                    )
+                ]
+            }
+        )
+    )
+    assert [case.annotation_scope for case in loader(path)] == ["unknown", "target_only", "exhaustive"]
+
+
+def test_invalid_annotation_scope_is_rejected():
+    with pytest.raises(ValueError, match="annotation_scope"):
+        _count_case(scope="all_probably")
+
+
+def test_committed_explored_controls_are_machine_readable_target_only_diagnostics():
+    path = Path(__file__).parent / "fixtures/crop_detector_manifest.json"
+    payload = json.loads(path.read_text())
+    assert payload["evaluation_role"] == "diagnostic"
+    assert all(case.annotation_scope == "target_only" for case in load_manifest_resolved(path))
 
 
 def test_summarize_results_aggregates_global_and_per_bucket() -> None:

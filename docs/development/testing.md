@@ -352,7 +352,36 @@ cache replacement cannot change the photograph between checking and inference.
 The committed eight-image panel contains corrected visible-bird boxes; these are
 previously explored diagnostic controls, not an independent accuracy holdout.
 
+Each case declares `annotation_scope`: `target_only` for reviewed targets without
+an exhaustive scene inventory, `exhaustive` after reviewing every visible bird
+(including an explicitly bird-free scene), or `unknown` when the scope is not
+established. Missing scope defaults to `unknown`; `annotation_verified` alone
+does not establish exhaustiveness. The committed panel is `target_only`, including
+the Mallard image's foreground-only annotation.
+
+Schema-3 results declare `evaluation_role: diagnostic`. The existing
+`recall_at_0_3` and `recall_at_0_5` keys retain their historical best-pair image-hit
+meaning: one matched target makes an image a hit. Use `localization_at_0_3` and
+`localization_at_0_5` for one-to-one matched/missed targets and target-weighted
+recall. A proposal can match at most one bird. Only verified exhaustive cases
+score unmatched candidates and `exact_localization`, which requires every target
+matched with no extras, not merely equal counts. The selected summary evaluates
+the single best crop, so cannot demonstrate multi-bird counting performance.
+
+Unknown scope and empty target-only annotations have no target/count score.
+Negative-scene rates require verified exhaustive empty annotations; missing
+denominators produce JSON `null` and console `unscored`, not a measured zero.
+Targets, boxes and unmatched candidates do not establish species identity. The
+harness does not run the bird-observation selector or interpret its abstentions.
+Case/visit counts describe the submitted panel, not statistical independence;
+correlated frames and regions must stay grouped by their actual source visit.
+An explored diagnostic panel cannot qualify a replacement model or threshold.
+
 `build_crop_field_manifest.py` records checksums but leaves annotations unverified.
 Inspect each positive box and negative region, correct them where needed, then
 mark the reviewed cases verified. A Frigate event box or a region outside that box
 alone does not establish bird presence or absence in the photograph.
+Also set the appropriate scope explicitly; use `exhaustive` only after reviewing
+all birds or confirming the entire submitted scene is bird-free.
+Generated full frames and regions from the same event share its `visit_id`;
+negative-region case IDs remain distinct without inventing an independent visit.

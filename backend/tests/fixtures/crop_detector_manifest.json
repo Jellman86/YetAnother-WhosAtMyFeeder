@@ -1,6 +1,6 @@
 {
   "_comment": "Diagnostic controls with visually reviewed visible-bird boxes bound to the exact committed JPEGs. Legacy event-coordinate boxes were corrected against these photos. Previously explored controls, not an independent accuracy holdout; foreground target only in the two-duck image.",
-  "version": "2",
+  "version": "3",
   "cases": [
     {
       "id": "feeder_bluetit_01",
@@ -18,7 +18,8 @@
       "notes": "Frigate event 1776276549.97826-8tf31f",
       "image_sha256": "9f659bc3a47011ef7a5410ffb8dfa5a3afd9a6b9bce7e902e92cc8362e66e57d",
       "annotation_verified": true,
-      "annotation_source": "visual_review_2026-10-15"
+      "annotation_source": "visual_review_2026-10-15",
+      "annotation_scope": "target_only"
     },
     {
       "id": "feeder_bluetit_02",
@@ -36,7 +37,8 @@
       "notes": "Frigate event 1776172158.477604-si5lts",
       "image_sha256": "f6ec4fe483299c58e1242802811425e1330905cb3b8ccd7a1f9c5a325088b141",
       "annotation_verified": true,
-      "annotation_source": "visual_review_2026-10-15"
+      "annotation_source": "visual_review_2026-10-15",
+      "annotation_scope": "target_only"
     },
     {
       "id": "feeder_pigeon_01",
@@ -54,7 +56,8 @@
       "notes": "Frigate event 1776234541.086325-0ev9fx",
       "image_sha256": "3e1df5e15c22da201dbb6f9abbabe5d153af0995fd7de83911d6485fc8522e90",
       "annotation_verified": true,
-      "annotation_source": "visual_review_2026-10-15"
+      "annotation_source": "visual_review_2026-10-15",
+      "annotation_scope": "target_only"
     },
     {
       "id": "feeder_robin_01",
@@ -72,7 +75,8 @@
       "notes": "Frigate event 1776062154.466315-wzh0rw",
       "image_sha256": "80d77f1c07bd1f5609bd38d004788db99d873d4096c923c7ef6838fbca82c179",
       "annotation_verified": true,
-      "annotation_source": "visual_review_2026-10-15"
+      "annotation_source": "visual_review_2026-10-15",
+      "annotation_scope": "target_only"
     },
     {
       "id": "reference_american_robin_01",
@@ -89,7 +93,8 @@
       ],
       "image_sha256": "9e5b72d4abc7525f2fe915d3e8cfe1669e85ce82d60b4dd2c33c0b6e8607c7ac",
       "annotation_verified": true,
-      "annotation_source": "visual_review_2026-10-15"
+      "annotation_source": "visual_review_2026-10-15",
+      "annotation_scope": "target_only"
     },
     {
       "id": "reference_blue_jay_01",
@@ -106,7 +111,8 @@
       ],
       "image_sha256": "376c0be31dd771690d08498ca61839ac75901ba9cbfeee32b609f3e0e2ea49f6",
       "annotation_verified": true,
-      "annotation_source": "visual_review_2026-10-15"
+      "annotation_source": "visual_review_2026-10-15",
+      "annotation_scope": "target_only"
     },
     {
       "id": "reference_mallard_01",
@@ -123,7 +129,8 @@
       ],
       "image_sha256": "df091ed26ba04201bd21ac6a2d8abdb1a188a50c8148beb4f0a4e97a4fd0cb25",
       "annotation_verified": true,
-      "annotation_source": "visual_review_2026-10-15"
+      "annotation_source": "visual_review_2026-10-15",
+      "annotation_scope": "target_only"
     },
     {
       "id": "reference_rock_pigeon_01",
@@ -140,7 +147,9 @@
       ],
       "image_sha256": "daafa125cdefcf159eebe9cd121ed2a89cad683294d08fe23fb2809fa98a344a",
       "annotation_verified": true,
-      "annotation_source": "visual_review_2026-10-15"
+      "annotation_source": "visual_review_2026-10-15",
+      "annotation_scope": "target_only"
     }
-  ]
+  ],
+  "evaluation_role": "diagnostic"
 }
