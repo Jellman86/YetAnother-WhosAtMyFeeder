@@ -6,6 +6,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Garden photo checks no longer fail on valid catalogue entries without an
+  English common name.
+
 - Garden's **Check photo** can offer a cautious bird or mammal suggestion for
   the displayed pending motion crop. It uses the installed crop model, keeps
   uncertainty visible and leaves every confirmation or dismissal to you (#726).

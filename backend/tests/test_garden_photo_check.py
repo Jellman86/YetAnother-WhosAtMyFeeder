@@ -25,6 +25,54 @@ def assess(scores, outputs=None):
     return coarse_prediction_mass(scores, outputs or taxonomy(), expected_width=7)
 
 
+@pytest.mark.parametrize("output_index,group", [(59, "mammal"), (345, "bird"), (1473, "bird"), (1953, "bird")])
+def test_shipped_output_mapping_preserves_taxa_without_english_common_names(output_index, group):
+    import json
+
+    from app.repositories.garden_catalog import read_shipped_package
+    from app.services.garden_visitors import coarse_prediction_mass
+
+    package = json.loads(read_shipped_package()[0])
+    outputs = [Taxon(item["id"], item["name"], tuple(item["ranks"])) for item in package["outputs"]]
+    assert outputs[output_index].name == ""
+    scores = [0.0] * len(outputs)
+    scores[output_index] = 1.0
+
+    result = coarse_prediction_mass(scores, outputs)
+
+    assert result.suggestion == group
+    assert result.mass[group] == 1.0
+    assert sum(result.mass.values()) == 1.0
+
+
+def test_human_taxonomic_ranks_withhold_advice_without_a_common_name():
+    outputs = taxonomy()
+    outputs[3] = Taxon("human", "", ("mammalia", "primates", "hominidae", "homo", "sapiens"))
+
+    result = assess([0.01, 0.01, 0.87, 0.1, 0.005, 0.003, 0.002], outputs)
+
+    assert result.suggestion == "human_rejected"
+    assert result.mass["human"] == 0.1
+    assert result.mass["mammal"] == 0.87
+
+
+def test_unnamed_unresolved_output_preserves_other_mass_without_claiming_presence():
+    outputs = taxonomy()
+    outputs[5] = Taxon("unresolved", "", ("", "", "", "", ""))
+
+    result = assess([0.01, 0.01, 0.01, 0.001, 0.005, 0.961, 0.003], outputs)
+
+    assert result.suggestion == "uncertain"
+    assert result.mass["other"] == pytest.approx(0.964)
+
+
+def test_non_string_common_name_remains_invalid():
+    outputs = taxonomy()
+    outputs[1] = Taxon("robin", None, outputs[1].ranks)
+    with pytest.raises(ValueError):
+        assess([0.5, 0.35, 0.04, 0.001, 0.1, 0.004, 0.005], outputs)
+
+
 def test_bird_outputs_contribute_once_and_scores_keep_complete_mass():
     result = assess([0.5, 0.35, 0.04, 0.001, 0.1, 0.004, 0.005])
     assert result.suggestion == "bird"
@@ -93,6 +141,62 @@ def test_duplicate_output_identity_cannot_double_count_a_class():
 def test_incomplete_taxonomy_never_normalizes_only_the_known_outputs():
     with pytest.raises(ValueError):
         assess([0.5, 0.35, 0.04, 0.001, 0.1, 0.004, 0.005], taxonomy()[:-1])
+
+
+@pytest.mark.parametrize(
+    "output_index,suggestion", [(345, "bird"), (59, "mammal"), (916, "human_rejected"), (2246, "uncertain")]
+)
+def test_preview_worker_uses_the_real_shipped_taxonomy(tmp_path, monkeypatch, output_index, suggestion):
+    import json
+    from types import SimpleNamespace
+
+    import numpy as np
+    from PIL import Image
+
+    from app.repositories.garden_catalog import read_shipped_package
+    from app.services import garden_worker as worker
+
+    encoded, package_sha = read_shipped_package()
+    package = json.loads(encoded)
+    model_sha = package["model_sha256"]["4.0.3a"]
+    model = tmp_path / "model.onnx"
+    model.write_bytes(b"runtime boundary fixture")
+    image = tmp_path / "photo.jpg"
+    Image.new("RGB", (10, 10), "blue").save(image)
+    monkeypatch.setattr(worker, "digest", lambda path: model_sha)
+
+    class Native:
+        actual = ["CPUExecutionProvider"]
+
+        def __init__(self, path, provider):
+            assert path == model and provider == "cpu"
+            self.session = SimpleNamespace(
+                get_inputs=lambda: [SimpleNamespace(shape=[1, 480, 480, 3], type="tensor(float)")]
+            )
+
+        def infer(self, value):
+            assert value.shape == (1, 480, 480, 3)
+            logits = np.full((1, 2498), -100.0, dtype=np.float32)
+            logits[0, output_index] = 10.0
+            return logits
+
+    monkeypatch.setattr(worker, "Runtime", Native)
+    result = worker.identify(
+        dict(
+            model=str(model),
+            model_sha256=model_sha,
+            image=str(image),
+            variant="4.0.3a",
+            provider="cpu",
+            box=[0, 0, 1, 1],
+            mode="preview",
+            package_sha256=package_sha,
+        )
+    )
+
+    assert result["preview"]["suggestion"] == suggestion
+    assert result["package_sha256"] == package_sha
+    assert sum(result["preview"]["mass"].values()) == pytest.approx(1)
 
 
 @pytest.mark.parametrize("variant", ["4.0.3b", "4.0.3a"])
