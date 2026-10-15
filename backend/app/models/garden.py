@@ -1,10 +1,47 @@
 """Private garden model contracts, distinct from bird classification DTOs."""
 
 from typing import Literal
-from pydantic import BaseModel, Field
+import math
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 GardenVariant = Literal["4.0.3a", "4.0.3b"]
 GardenProvider = Literal["cpu", "intel_cpu", "intel_gpu", "intel_npu", "cuda"]
+
+
+class GardenPhotoCheckRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    image_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    provider: GardenProvider = "cpu"
+
+
+class GardenPhotoMass(BaseModel):
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+    bird: float = Field(ge=0, le=1, strict=True)
+    mammal: float = Field(ge=0, le=1, strict=True)
+    human: float = Field(ge=0, le=1, strict=True)
+    blank: float = Field(ge=0, le=1, strict=True)
+    other: float = Field(ge=0, le=1, strict=True)
+
+    @model_validator(mode="after")
+    def complete_mass(self) -> "GardenPhotoMass":
+        if not math.isclose(math.fsum(self.model_dump().values()), 1, rel_tol=0, abs_tol=0.000001):
+            raise ValueError("Photo checks require complete probability mass")
+        return self
+
+
+class GardenPhotoCheck(BaseModel):
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+    capture_id: str = Field(pattern=r"^[a-f0-9]{32}$")
+    image_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    suggestion: Literal["bird", "mammal", "uncertain", "unavailable"]
+    mass: GardenPhotoMass | None
+    variant: Literal["4.0.3a"] = "4.0.3a"
+    provider: GardenProvider
+    devices: list[str] = Field(min_length=1, max_length=8)
+    model_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    package_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    box_xywh: tuple[float, float, float, float]
+    frame_size: tuple[int, int]
 
 
 class GardenIdentifyRequest(BaseModel):

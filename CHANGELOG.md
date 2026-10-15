@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Garden's **Check photo** can offer a cautious bird or mammal suggestion for
+  the displayed pending motion crop. It uses the installed crop model, keeps
+  uncertainty visible and leaves every confirmation or dismissal to you (#726).
+
 - Known non-bird outputs from wildlife models no longer enter automatic feeder
   bird history, including backfill and later photo/video reanalysis. This guard
   works with Garden animals disabled, preserves existing history and owner

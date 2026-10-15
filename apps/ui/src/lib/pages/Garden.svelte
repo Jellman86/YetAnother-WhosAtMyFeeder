@@ -10,6 +10,8 @@
     import { groupGardenReview, type GardenReviewGroup } from '../utils/garden-review-groups';
     import { updateSettings } from '../api/settings';
     import { toastStore } from '../stores/toast.svelte';
+    import { checkGardenPhoto, type GardenPhotoCheck } from '../api/garden';
+    import GardenPhotoCheckDialog from '../components/GardenPhotoCheckDialog.svelte';
 
     let { onNavigate }: { onNavigate: (path: string) => void } = $props();
     let status = $state<GardenCapture['status']>('pending');
@@ -33,6 +35,13 @@
     let provider = $state<NonNullable<GardenIdentifyRequest['provider']>>('cpu');
     const selectedModel = $derived(identification?.models.find(model => model.variant === variant));
     const canIdentify = $derived(Boolean(identification?.catalogue_ready && identification.country && !identification.error && selectedModel?.installed && !identification.busy));
+    const canCheckPhoto = $derived(Boolean(identification?.catalogue_ready && !identification.error && !identification.busy && identification.models.some(model => model.variant === '4.0.3a' && model.installed)));
+    let photoCheckTarget = $state.raw<GardenCapture | null>(null);
+    let photoAssessment = $state.raw<GardenPhotoCheck | null>(null);
+    let photoCheckBusy = $state(false);
+    let photoCheckError = $state<string | null>(null);
+    let photoCheckRun = $state(0);
+    let photoCheckController: AbortController | null = null;
     let controller: AbortController | null = null;
     let generation = 0;
     let destroyed = false;
@@ -49,7 +58,49 @@
         loadedImages = { ...loadedImages, [id]: [image.naturalWidth, image.naturalHeight] };
     }
 
+    function clearPhotoCheck(): void {
+        photoCheckRun++;
+        photoCheckController?.abort();
+        photoCheckController = null;
+        photoCheckTarget = null;
+        photoAssessment = null;
+        photoCheckError = null;
+        photoCheckBusy = false;
+    }
+
+    function selectPhoto(group: GardenReviewGroup, index: number): void {
+        clearPhotoCheck();
+        photoIndexes = { ...photoIndexes, [group.id]: index };
+    }
+
+    async function checkPhoto(item: GardenCapture): Promise<void> {
+        if (!canCheckPhoto || !item.motion_source || item.status !== 'pending' || !loadedImages[item.id] || failedImages[item.id]) return;
+        clearPhotoCheck();
+        const run = photoCheckRun;
+        const selectedProvider = provider;
+        const imageHash = item.motion_source.image_sha256;
+        const box = JSON.stringify(item.motion_source.box_xywh);
+        const dimensions = JSON.stringify(loadedImages[item.id]);
+        const requestController = new AbortController();
+        photoCheckController = requestController;
+        photoCheckTarget = item;
+        photoCheckBusy = true;
+        try {
+            const result = await checkGardenPhoto(item.id, { image_sha256: imageHash, provider: selectedProvider }, requestController.signal);
+            if (destroyed || run !== photoCheckRun || requestController.signal.aborted || provider !== selectedProvider) return;
+            if (result.capture_id !== item.id || result.image_sha256 !== imageHash || result.provider !== selectedProvider || result.variant !== '4.0.3a' || JSON.stringify(result.box_xywh) !== box || JSON.stringify(result.frame_size) !== dimensions) {
+                throw new Error($_('garden.check_changed', { default: 'The photo check does not match the displayed photo. Refresh before trying again.' }));
+            }
+            photoAssessment = result;
+        } catch (failure) {
+            if (!destroyed && run === photoCheckRun && !requestController.signal.aborted) photoCheckError = failure instanceof Error ? failure.message : $_('garden.check_unavailable', { default: 'Photo check unavailable. Review the photo yourself.' });
+        } finally {
+            if (!destroyed && run === photoCheckRun) photoCheckBusy = false;
+        }
+    }
+
     async function load(): Promise<void> {
+        clearPhotoCheck();
         const request = ++generation;
         controller?.abort();
         controller = new AbortController();
@@ -101,6 +152,7 @@
 
     async function review(item: GardenCapture, action: 'confirm' | 'dismiss' | 'restore'): Promise<void> {
         if (saving) return;
+        clearPhotoCheck();
         const group = groups.find(group => group.items.some(photo => photo.id === item.id));
         const index = group?.items.findIndex(photo => photo.id === item.id) ?? -1;
         const nextPhotoId = group?.items[index + 1]?.id ?? group?.items[index - 1]?.id;
@@ -135,6 +187,7 @@
 
     async function reviewGroup(group: GardenReviewGroup | null): Promise<void> {
         if (saving) return;
+        clearPhotoCheck();
         const ids = group ? group.items.map(item => item.id) : undoIds;
         if (ids.length === 0) return;
         const action = group ? 'dismiss' : 'restore';
@@ -225,6 +278,7 @@
     });
     onDestroy(() => {
         destroyed = true;
+        clearPhotoCheck();
         generation += 1;
         controller?.abort();
         unregisterRefresh?.();
@@ -284,7 +338,7 @@
                             </select>
                         </label>
                         <label class="space-y-1 text-sm"><span>{$_('garden.provider', { default: 'Run garden model on' })}</span>
-                            <select class="select-base w-full" bind:value={provider} disabled={saving !== null}>
+                            <select class="select-base w-full" bind:value={provider} onchange={clearPhotoCheck} disabled={saving !== null}>
                                 <option value="cpu">CPU</option><option value="intel_cpu">Intel CPU</option><option value="intel_gpu">Intel GPU</option><option value="intel_npu">Intel NPU</option><option value="cuda">NVIDIA GPU</option>
                             </select>
                         </label>
@@ -364,9 +418,9 @@
                                     <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.group_help', { default: 'Position does not identify an animal. This group can contain different visitors.' })}</p>
                                     <p class="text-xs">{new Date(group.items[group.items.length - 1].observed_at).toLocaleString()} · {new Date(group.items[0].observed_at).toLocaleString()}</p>
                                     <div class="flex flex-wrap items-center gap-2">
-                                        <button class="btn btn-secondary min-h-11 px-3 py-2 whitespace-normal" disabled={saving !== null || photoIndex === 0} onclick={() => photoIndexes = { ...photoIndexes, [group.id]: photoIndex - 1 }}>{$_('garden.previous_photo', { default: 'Previous photo' })}</button>
+                                        <button class="btn btn-secondary min-h-11 px-3 py-2 whitespace-normal" disabled={saving !== null || photoIndex === 0} onclick={() => selectPhoto(group, photoIndex - 1)}>{$_('garden.previous_photo', { default: 'Previous photo' })}</button>
                                         <span class="text-xs">{$_('garden.photo_count', { default: 'Photo {index} of {count}', values: { index: photoIndex + 1, count: group.items.length } })}</span>
-                                        <button class="btn btn-secondary min-h-11 px-3 py-2 whitespace-normal" disabled={saving !== null || photoIndex + 1 >= group.items.length} onclick={() => photoIndexes = { ...photoIndexes, [group.id]: photoIndex + 1 }}>{$_('garden.next_photo', { default: 'Next photo' })}</button>
+                                        <button class="btn btn-secondary min-h-11 px-3 py-2 whitespace-normal" disabled={saving !== null || photoIndex + 1 >= group.items.length} onclick={() => selectPhoto(group, photoIndex + 1)}>{$_('garden.next_photo', { default: 'Next photo' })}</button>
                                     </div>
                                 {/if}
                                 <time class="block text-xs text-slate-600 dark:text-slate-400" datetime={item.observed_at}>{new Date(item.observed_at).toLocaleString()}</time>
@@ -392,6 +446,10 @@
                                     <p class="text-sm font-semibold">{$_('garden.single_photo_help', { default: 'Review this photo' })}</p>
                                 {/if}
                                 {#if item.status === 'pending'}
+                                    {#if item.motion_source}
+                                        <button class="btn btn-secondary min-h-11 px-4 py-2 whitespace-normal" disabled={saving !== null || !canCheckPhoto || !loadedImages[item.id] || failedImages[item.id]} onclick={() => checkPhoto(item)}>{$_('garden.check_photo', { default: 'Check photo' })}</button>
+                                        {#if !canCheckPhoto}<p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.check_setup', { default: 'Open Species suggestions to download the tracked-crop model and choose a provider. Photo checks do not need a country.' })}</p>{/if}
+                                    {/if}
                                     <button class="btn btn-primary min-h-11 px-4 py-2 whitespace-normal" disabled={saving !== null || (!loadedImages[item.id] || failedImages[item.id])} onclick={() => review(item, 'confirm')}>{$_('garden.confirm', { default: 'Confirm animal present' })}</button>
                                 {/if}
                                 {#if item.status === 'confirmed'}
@@ -438,3 +496,7 @@
         </div>
     {/if}
 </div>
+
+{#if photoCheckTarget}
+    <GardenPhotoCheckDialog capture={photoCheckTarget} assessment={photoAssessment} busy={photoCheckBusy} error={photoCheckError} runId={photoCheckRun} size={loadedImages[photoCheckTarget.id]} onClose={clearPhotoCheck} />
+{/if}

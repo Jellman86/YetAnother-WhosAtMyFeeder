@@ -48,3 +48,12 @@ export async function identifyGarden(id: string, request: GardenIdentifyRequest)
 export async function reviewGardenIdentification(id: string, action: 'accept' | 'dismiss'): Promise<GardenCapture> {
     return handleResponse<GardenCapture>(await apiFetch(`${API_BASE}/garden/${encodeURIComponent(id)}/identification/${action}`, { method: 'POST' }));
 }
+
+export type GardenPhotoCheck = components['schemas']['GardenPhotoCheck'];
+export type GardenPhotoCheckRequest = components['schemas']['GardenPhotoCheckRequest'];
+
+export async function checkGardenPhoto(id: string, request: GardenPhotoCheckRequest, signal: AbortSignal): Promise<GardenPhotoCheck> {
+    return handleResponse<GardenPhotoCheck>(await apiFetch(`${API_BASE}/garden/${encodeURIComponent(id)}/check-photo`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(request), signal, timeoutMs: 160000
+    }));
+}

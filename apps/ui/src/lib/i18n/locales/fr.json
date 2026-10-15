@@ -3558,6 +3558,18 @@
     "group_summary": "{total} espèces dans le monde, {seen} vues ici"
   },
   "garden": {
+    "check_photo": "Vérifier la photo",
+    "check_help": "Avis sur la zone encadrée, sans confirmer la présence d’un animal.",
+    "check_running": "Vérification de cette zone. L’analyse des oiseaux est prioritaire.",
+    "check_bird": "Le modèle suggère un oiseau",
+    "check_mammal": "Le modèle suggère un mammifère non humain",
+    "check_uncertain": "Le modèle est incertain. Examinez vous-même la photo.",
+    "check_unavailable": "Vérification indisponible. Examinez vous-même la photo.",
+    "check_advisory": "Cette photo uniquement. Confirmez-la ou rejetez-la vous-même ; aucune décision n’a été enregistrée.",
+    "check_assessment": "Avis du modèle",
+    "check_scores": "Oiseau {bird} · Mammifère non humain {mammal} · Humain {human} · Vide {blank} · Autre {other}",
+    "check_changed": "La vérification ne correspond pas à la photo affichée. Actualisez avant de réessayer.",
+    "check_setup": "Ouvrez Suggestions d’espèces pour télécharger le modèle de zone suivie et choisir un fournisseur. Aucun pays n’est requis.",
     "pending": "À vérifier",
     "confirmed": "Animaux confirmés",
     "dismissed": "Écartées",

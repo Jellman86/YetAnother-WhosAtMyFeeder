@@ -238,6 +238,7 @@ async def test_guest_cannot_read_history_act_or_request_media():
             ("GET", "/api/garden/identification"),
             ("POST", "/api/garden/models/4.0.3b/install"),
             ("POST", f"/api/garden/{capture.id}/identify"),
+            ("POST", f"/api/garden/{capture.id}/check-photo"),
             ("POST", f"/api/garden/{capture.id}/identification/accept"),
             ("POST", f"/api/garden/{capture.id}/identification/dismiss"),
             ("GET", f"/api/garden/{capture.id}/snapshot"),
@@ -703,3 +704,60 @@ async def test_garden_confidence_setting_round_trips_without_changing_bird_thres
         assert settings.frigate.garden_motion_confidence == 0.6
     if original is not None:
         settings.frigate.garden_motion_confidence = original
+
+
+@pytest.mark.asyncio
+async def test_photo_check_endpoint_is_private_validated_and_does_not_review_or_save_birds():
+    from app.models.garden import GardenPhotoCheck
+    from app.services.garden_identification import garden_identification_service
+
+    await garden_capture_service.process(event())
+    async with get_db() as db:
+        capture = (await GardenRepository(db).list("pending", 20, 0))[0]
+        before = (await (await db.execute("SELECT count(*) FROM detections")).fetchone())[0]
+    result = GardenPhotoCheck(
+        capture_id=capture.id,
+        image_sha256="a" * 64,
+        suggestion="uncertain",
+        mass={"bird": 0.1, "mammal": 0.1, "human": 0.001, "blank": 0.5, "other": 0.299},
+        provider="intel_npu",
+        devices=["NPU"],
+        model_sha256="b" * 64,
+        package_sha256="c" * 64,
+        box_xywh=(0.1, 0.2, 0.3, 0.4),
+        frame_size=(640, 360),
+    )
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        with patch.object(garden_identification_service, "check_photo", new=AsyncMock(return_value=result)) as check:
+            response = await client.post(
+                f"/api/garden/{capture.id}/check-photo", json={"image_sha256": "a" * 64, "provider": "intel_npu"}
+            )
+            assert response.status_code == 200, response.text
+            assert response.json()["suggestion"] == "uncertain"
+            assert response.headers["cache-control"] == "private, no-store"
+            assert check.await_args.args[1].provider == "intel_npu"
+            for payload in ({}, {"image_sha256": "bad"}, {"image_sha256": "a" * 64, "decision": "confirm"}):
+                assert (await client.post(f"/api/garden/{capture.id}/check-photo", json=payload)).status_code == 422
+    async with get_db() as db:
+        current = await GardenRepository(db).get(capture.id)
+        assert current.status == "pending" and current.identification is None
+        assert (await (await db.execute("SELECT count(*) FROM detections")).fetchone())[0] == before
+
+
+@pytest.mark.asyncio
+async def test_each_owner_review_invalidates_inflight_photo_checks():
+    from app.services.garden_identification import garden_identification_service as service
+
+    await garden_capture_service.process(event())
+    async with get_db() as db:
+        capture = (await GardenRepository(db).list("pending", 20, 0))[0]
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        for action in ["dismiss", "restore", "confirm"]:
+            before = service._photo_review_generation
+            assert (await client.post(f"/api/garden/{capture.id}/{action}")).status_code == 200
+            assert service._photo_review_generation > before
+        before = service._photo_review_generation
+        assert (
+            await client.post("/api/garden/review-batch", json={"ids": [capture.id], "action": "dismiss"})
+        ).status_code == 200
+        assert service._photo_review_generation > before

@@ -10,7 +10,15 @@ from app.auth import AuthContext, require_owner
 from app.database import get_db
 from app.repositories.garden_repository import GardenCapture, GardenRepository, GardenStatus, GardenPhotoUnavailable
 from app.services.garden_capture_service import garden_capture_service
-from app.models.garden import GardenIdentification, GardenIdentificationStatus, GardenIdentifyRequest, GardenVariant
+from app.services import garden_motion_privacy
+from app.models.garden import (
+    GardenIdentification,
+    GardenIdentificationStatus,
+    GardenIdentifyRequest,
+    GardenVariant,
+    GardenPhotoCheck,
+    GardenPhotoCheckRequest,
+)
 from app.models.garden_motion import MotionSource, GardenMotionStatus
 from app.services.garden_motion import garden_motion_service
 from app.services.garden_identification import garden_identification_service
@@ -102,8 +110,10 @@ async def list_captures(
 @router.post("/review-batch", response_model=GardenBatchReviewResponse)
 async def review_batch(request: GardenBatchReviewRequest) -> GardenBatchReviewResponse:
     ids = list(dict.fromkeys(request.ids))
-    async with get_db() as db:
-        updated = await GardenRepository(db).review_batch(ids, request.action)
+    async with garden_motion_privacy.lock:
+        garden_identification_service.invalidate_photo_checks()
+        async with get_db() as db:
+            updated = await GardenRepository(db).review_batch(ids, request.action)
     return GardenBatchReviewResponse(updated_ids=updated, skipped_count=len(ids) - len(updated))
 
 
@@ -128,6 +138,11 @@ async def install_motion_detector() -> GardenMotionStatus:
     return await garden_motion_service.install()
 
 
+@router.post("/{capture_id}/check-photo", response_model=GardenPhotoCheck)
+async def check_photo(capture_id: str, request: GardenPhotoCheckRequest) -> GardenPhotoCheck:
+    return await garden_identification_service.check_photo(capture_id, request)
+
+
 @router.post("/{capture_id}/identify", response_model=GardenCaptureResponse)
 async def identify_capture(capture_id: str, request: GardenIdentifyRequest) -> GardenCaptureResponse:
     await garden_identification_service.identify(capture_id, request)
@@ -136,16 +151,20 @@ async def identify_capture(capture_id: str, request: GardenIdentifyRequest) -> G
 
 @router.post("/{capture_id}/identification/{action}", response_model=GardenCaptureResponse)
 async def review_identification(capture_id: str, action: Literal["accept", "dismiss"]) -> GardenCaptureResponse:
-    await garden_identification_service.review(capture_id, action)
+    async with garden_motion_privacy.lock:
+        garden_identification_service.invalidate_photo_checks()
+        await garden_identification_service.review(capture_id, action)
     return await _response(await garden_capture_service.get(capture_id))
 
 
 async def _review(capture_id: str, status: GardenStatus) -> GardenCaptureResponse:
-    async with get_db() as db:
-        try:
-            capture = await GardenRepository(db).review(capture_id, status)
-        except GardenPhotoUnavailable as error:
-            raise HTTPException(409, str(error)) from error
+    async with garden_motion_privacy.lock:
+        garden_identification_service.invalidate_photo_checks()
+        async with get_db() as db:
+            try:
+                capture = await GardenRepository(db).review(capture_id, status)
+            except GardenPhotoUnavailable as error:
+                raise HTTPException(409, str(error)) from error
     if capture is None:
         raise HTTPException(404, "Garden capture not found")
     return await _response(capture)

@@ -379,6 +379,16 @@ species identification have separate reviews; `frigate_label` remains an upstrea
   per-variant model download status, busy state and any worker cleanup error.
 - `POST /api/garden/models/{variant}/install` — atomically download and verify
   `4.0.3a` or `4.0.3b`; no body. Both files are about 224 MB.
+- `POST /api/garden/{capture_id}/check-photo` — body
+  `{"image_sha256":"<displayed motion photo SHA-256>","provider":"intel_npu"}`.
+  Uses installed `4.0.3a` on an enabled camera's pending retained motion photo;
+  no country is required and no download or review write is performed. Returns
+  a `bird`, `mammal`, `uncertain` or `unavailable` advisory bound to the photo,
+  normalized XYWH crop, model/package checksums, provider, actual devices and
+  frame size. Complete bird/non-human-mammal/human/blank/other probability mass
+  accompanies usable assessments; human evidence returns `unavailable` with
+  `mass: null`. Stale/reviewed/expired/disabled captures and bird priority return
+  `404` or `409`; model/provider/deadline/cleanup failures return `503`.
 - `POST /api/garden/{capture_id}/identify` — body `{"variant":"4.0.3b","provider":"cpu"}`.
   Providers: `cpu`, `intel_cpu`, `intel_gpu`, `intel_npu`, `cuda`. Requires confirmed
   animal presence, an enabled garden camera, installed model and recognised country.

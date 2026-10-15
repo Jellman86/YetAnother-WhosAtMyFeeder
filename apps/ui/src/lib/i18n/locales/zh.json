@@ -3558,6 +3558,18 @@
     "group_summary": "全球 {total} 个物种，此处已见 {seen} 个"
   },
   "garden": {
+    "check_photo": "检查照片",
+    "check_help": "对高亮裁剪区域的参考评估，不确认动物是否存在。",
+    "check_running": "正在检查此裁剪区域。鸟类处理优先。",
+    "check_bird": "模型提示可能是鸟类",
+    "check_mammal": "模型提示可能是非人类哺乳动物",
+    "check_uncertain": "模型无法确定，请自行查看照片。",
+    "check_unavailable": "照片检查不可用，请自行查看照片。",
+    "check_advisory": "仅限此照片。请自行确认或忽略，尚未保存任何审核决定。",
+    "check_assessment": "模型评估",
+    "check_scores": "鸟类 {bird} · 非人类哺乳动物 {mammal} · 人类 {human} · 空白 {blank} · 其他 {other}",
+    "check_changed": "检查结果与当前照片不匹配。请刷新后重试。",
+    "check_setup": "打开物种建议，下载跟踪裁剪模型并选择运行设备。照片检查无需设置国家。",
     "pending": "待审核",
     "confirmed": "已确认动物",
     "dismissed": "已忽略",
