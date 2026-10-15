@@ -1716,6 +1716,81 @@ def test_model_crop_can_win_after_material_classifier_improvement():
     assert selected["candidate_id"] == "model"
 
 
+@pytest.mark.parametrize("model_rank", [0.941735, 0.946735])
+def test_second_valid_crop_does_not_cancel_qualified_portrait_preference(model_rank):
+    service = hq_module.HighQualitySnapshotService()
+    common = {"clip_variant": "frigate_snapshot", "classifier_label": "Cyanistes caeruleus"}
+    full = {
+        **common,
+        "candidate_id": "full",
+        "source_mode": "full_frame",
+        "image_width": 2560,
+        "image_height": 1440,
+        "classifier_score": 0.940954,
+        "ranking_score": 0.945393,
+    }
+    model = {
+        **common,
+        "candidate_id": "model",
+        "source_mode": "model_crop",
+        "image_width": 188,
+        "image_height": 160,
+        "crop_confidence": 0.806097,
+        "classifier_score": 0.966824,
+        "ranking_score": model_rank,
+    }
+    hint = {
+        **common,
+        "candidate_id": "hint",
+        "source_mode": "frigate_hint_crop",
+        "image_width": 273,
+        "image_height": 200,
+        "crop_confidence": 0.806097,
+        "classifier_score": 0.957658,
+        "ranking_score": 0.940879,
+    }
+    for candidates, expected_id in [([full, model], "model"), ([full, hint], "hint"), ([full, model, hint], "hint")]:
+        selected = service._select_canonical_snapshot_candidate(candidates, expected_labels={"Cyanistes caeruleus"})
+        assert selected is not None
+        assert selected["candidate_id"] == expected_id
+
+
+@pytest.mark.parametrize("model_rank", [0.94, 0.996])
+def test_portrait_model_is_not_compared_against_hint_that_loses_too_much_species_confidence(model_rank):
+    service = hq_module.HighQualitySnapshotService()
+    common = {"image_width": 320, "image_height": 280, "classifier_label": "Cyanistes caeruleus"}
+    selected = service._select_best_trusted_candidate(
+        [
+            {
+                **common,
+                "candidate_id": "full",
+                "source_mode": "full_frame",
+                "classifier_score": 0.95,
+                "ranking_score": 0.99,
+            },
+            {
+                **common,
+                "candidate_id": "model",
+                "source_mode": "model_crop",
+                "crop_confidence": 0.8,
+                "classifier_score": 0.905,
+                "ranking_score": model_rank,
+            },
+            {
+                **common,
+                "candidate_id": "hint",
+                "source_mode": "frigate_hint_crop",
+                "crop_confidence": 0.8,
+                "classifier_score": 0.899,
+                "ranking_score": 0.93,
+            },
+        ],
+        expected_labels={"Cyanistes caeruleus"},
+    )
+    assert selected is not None
+    assert selected["candidate_id"] == "model"
+
+
 def test_final_frigate_snapshot_is_protected_from_marginal_clip_candidate():
     service = hq_module.HighQualitySnapshotService()
     common = {
@@ -4114,6 +4189,143 @@ def _incumbent_photo_bytes() -> bytes:
     output = BytesIO()
     Image.new("RGB", (320, 240), (90, 120, 80)).save(output, format="JPEG")
     return output.getvalue()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "scene",
+    [
+        "same",
+        "different_bytes",
+        "different_frame",
+        "different_variant",
+        "missing_peer",
+        "weak",
+        "tiny",
+        "wrong_species",
+        "manual",
+    ],
+)
+async def test_qualified_same_scene_portrait_replaces_automatic_full_photo_end_to_end(tmp_path, monkeypatch, scene):
+    event_id = "same-scene-portrait-" + scene
+    cache = _make_cache_service(tmp_path, monkeypatch)
+    original = _jpeg_bytes("blue", (640, 480))
+    reference = event_id + "__original__image"
+    await cache.cache_snapshot(event_id, original, source="hq_candidate_full_frame")
+    await cache.cache_snapshot(reference, original, source="snapshot_candidate")
+    await cache.cache_thumbnail(event_id, b"old-thumbnail")
+    common = {
+        "clip_variant": "frigate_snapshot",
+        "frame_index": 0,
+        "frame_width": 640,
+        "frame_height": 480,
+        "classifier_label": "Cyanistes caeruleus",
+        "crop_confidence": 0.806097,
+    }
+    full = {
+        **common,
+        "candidate_id": "original-full",
+        "source_mode": "full_frame",
+        "crop_strategy": "detector_supported",
+        "crop_box": None,
+        "image_ref": reference,
+        "selected": True,
+        "image_bytes": original,
+        "image_width": 640,
+        "image_height": 480,
+        "classifier_score": 0.940954,
+        "ranking_score": 0.945393,
+        "image_quality_score": 0.97054,
+    }
+    model = {
+        **common,
+        "candidate_id": "model-portrait",
+        "source_mode": "model_crop",
+        "crop_box": [100, 100, 288, 260],
+        "detector_box": [130, 130, 220, 220],
+        "image_width": 188,
+        "image_height": 160,
+        "image_bytes": _jpeg_bytes("purple", (188, 160)),
+        "classifier_score": 0.966824,
+        "ranking_score": 0.941735,
+        "image_quality_score": 0.79956,
+    }
+    hint = {
+        **common,
+        "candidate_id": "hint-portrait",
+        "source_mode": "frigate_hint_crop",
+        "crop_box": [90, 90, 363, 290],
+        "image_width": 273,
+        "image_height": 200,
+        "image_bytes": _jpeg_bytes("green", (273, 200)),
+        "classifier_score": 0.957658,
+        "ranking_score": 0.940879,
+        "image_quality_score": 0.84580,
+    }
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        await repo.create(
+            Detection(
+                detection_time=utc_naive_now(),
+                detection_index=0,
+                score=0.94,
+                display_name="Blue Tit",
+                category_name="Blue Tit",
+                scientific_name="Cyanistes caeruleus",
+                frigate_event=event_id,
+                camera_name="test",
+            )
+        )
+        await repo.replace_snapshot_candidates(event_id, [full])
+    peer = {**full, "candidate_id": "new-full", "selected": False}
+    if scene == "different_bytes":
+        peer["image_bytes"] = _jpeg_bytes("red", (640, 480))
+    elif scene == "different_frame":
+        peer["frame_index"] = 1
+    elif scene == "different_variant":
+        peer["clip_variant"] = "recording"
+    raw = [model, hint] if scene == "missing_peer" else [peer, model, hint]
+    if scene == "weak":
+        model["crop_confidence"] = 0.2
+    elif scene == "tiny":
+        model["image_width"] = hint["image_width"] = 96
+    elif scene == "wrong_species":
+        model["classifier_label"] = hint["classifier_label"] = "Erithacus rubecula"
+    elif scene == "manual":
+        await cache.replace_snapshot(
+            event_id, original, source="manual_photo", manual_selection=True, manual_candidate_id="original-full"
+        )
+        await cache.cache_thumbnail(event_id, b"old-thumbnail")
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True)
+    monkeypatch.setattr(settings.media_cache, "automatic_multi_bird_scan", False)
+    monkeypatch.setattr(settings.classification, "threshold", 0.6)
+    service = hq_module.HighQualitySnapshotService()
+    monkeypatch.setattr(service, "_load_event_data_for_crop", AsyncMock(return_value={}))
+    monkeypatch.setattr(service, "_persist_event_hints", AsyncMock())
+    monkeypatch.setattr(service, "_load_preferred_frame_indices", AsyncMock(return_value=[]))
+    monkeypatch.setattr(service, "_load_final_frigate_snapshot_candidates", AsyncMock(return_value=[]))
+    monkeypatch.setattr(service, "_extract_snapshot_candidate_payloads_from_clip_path", lambda *args, **kwargs: raw)
+    monkeypatch.setattr(service, "_score_snapshot_candidate", AsyncMock(side_effect=lambda item: dict(item)))
+    # These measured scalar scores reproduce the real visit; fixture pixels only
+    # establish byte identity and cache replacement without retaining private photos.
+    monkeypatch.setattr(hq_module, "image_quality_score", lambda image: 0.97054)
+    monkeypatch.setattr(service, "_apply_classification_refinement", AsyncMock(return_value=False))
+    outcome = await service.replace_from_clip_path(event_id, _clip_file(tmp_path))
+    async with get_db() as db:
+        rows = await DetectionRepository(db).list_snapshot_candidates(event_id)
+    selected = [row for row in rows if row["selected"]]
+    assert len(selected) == 1
+    if scene == "same":
+        assert outcome == "bird_crop_replaced"
+        assert selected[0]["candidate_id"] == "hint-portrait"
+        assert await cache.get_snapshot(event_id) == hint["image_bytes"]
+        assert (await cache.get_snapshot_metadata(event_id))["source"] == "high_quality_bird_crop"
+        assert await cache.get_thumbnail(event_id) is None
+    else:
+        assert outcome == ("manual_selection_preserved" if scene == "manual" else "existing_crop_preserved")
+        assert selected[0]["candidate_id"] == "original-full"
+        assert await cache.get_snapshot(event_id) == original
+        assert await cache.get_thumbnail(event_id) == b"old-thumbnail"
 
 
 def _incumbent_row(**changes):

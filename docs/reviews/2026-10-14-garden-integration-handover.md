@@ -1,5 +1,33 @@
 # Garden integration handover: 14 October 2026
 
+## Follow-through on 15 October
+
+The grouping, review feedback, stack dismissal and dashboard queue fixes are now
+deployed and verified in Chromium and WebKit without changing owner decisions.
+The pause and deployment sections below describe earlier checkpoints.
+
+The crop concern includes a reproduced photo-selection defect: adding a second
+valid portrait could restore the full frame, and incumbent protection could undo
+a framing improvement of that exact scene. Regression coverage now checks both
+ranking orders and the complete cache/database replacement path, including
+thumbnail invalidation and manual-choice protection. Different scenes and JPEG
+encodings retain the normal replacement margin.
+
+The latest four sampled visits also failed photo localization before ranking.
+Two useful bird crops were below even the former 0.08 gate; only one useful crop
+fell between 0.08 and 0.25. Lowering the gate alone cannot explain or repair the
+sequence. Investigate unguided video localization when normalized Frigate hints
+and original detect-stream dimensions are unavailable; never substitute recording
+dimensions for unknown detect dimensions.
+
+Actual Intel CPU/GPU/NPU and NVIDIA CUDA forwards passed on retained diagnostic
+controls. These establish execution compatibility, not unchanged field recall.
+The legacy eight-image benchmark annotations were corrected and bound to image
+checksums. They remain explored controls, not an independent accuracy holdout.
+Independent low-confidence positives and hard negatives remain required before
+changing photo thresholds. A separate observed cold-start admission loss also
+needs investigation; recovered queues do not establish loss-free startup.
+
 ## Resumed investigation
 
 The owner subsequently requested continuation. Their screenshot reproduced a

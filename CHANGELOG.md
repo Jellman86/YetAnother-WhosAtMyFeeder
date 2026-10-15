@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Useful bird portraits no longer fall back to a whole scene when a second crop
+  is available. A qualified portrait of the exact displayed scene can also
+  improve an automatic photo's framing; owner choices and uncertain crops stay protected.
+
 - Crop benchmarking now checks that reviewed boxes belong to the exact image
   bytes before running inference. The legacy eight-image diagnostic boxes are
   corrected; freshly generated field panels still require visual review.
