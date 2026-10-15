@@ -33,6 +33,8 @@ export interface ReviewQueueOptions {
     newSpecies?: readonly NewSpeciesEntry[];
     /** Known history can hold owner decisions outside the desk's time window. */
     knownDetections?: readonly Detection[];
+    /** Explicit saved owner choices can outlive the recent history page. */
+    localChoices?: ReadonlyMap<string, Partial<Detection>>;
 }
 
 function isOpen(detection: Detection, reviewThreshold: number | null): boolean {
@@ -59,7 +61,7 @@ function oldestFirst(left: Detection, right: Detection): number {
  */
 export function buildReviewQueue(
     detections: readonly Detection[],
-    { reviewThreshold, limit = REVIEW_QUEUE_PREVIEW_LIMIT, newSpecies = [], knownDetections = detections }: ReviewQueueOptions
+    { reviewThreshold, limit = REVIEW_QUEUE_PREVIEW_LIMIT, newSpecies = [], knownDetections = detections, localChoices }: ReviewQueueOptions
 ): ReviewQueue {
     const open = detections.filter((detection) => isOpen(detection, reviewThreshold)).sort(oldestFirst);
 
@@ -71,7 +73,11 @@ export function buildReviewQueue(
     const currentDetections = new Map(knownDetections.map(detection => [detection.frigate_event, detection]));
     const newcomers: Detection[] = [];
     for (const entry of newSpecies) {
-        const detection = currentDetections.get(entry.detection.frigate_event) ?? entry.detection;
+        const current = currentDetections.get(entry.detection.frigate_event) ?? entry.detection;
+        const choice = localChoices?.get(current.frigate_event);
+        const detection = choice?.manual_tagged === true && choice.classification_input?.source === 'owner_species_choice'
+            ? { ...current, ...choice }
+            : current;
         const sightings = entry.sightings;
         if (detection.is_hidden || detection.manual_tagged) continue;
         // "First of its kind here" is the sharper question than "shaky score".

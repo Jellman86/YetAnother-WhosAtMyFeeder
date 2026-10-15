@@ -18,6 +18,7 @@ authStore.isAuthenticated = true;
 settingsStore.settings = { classification_threshold: 0.6, birdnet_enabled: false } as Settings;
 detectionsStore.detections = await fetchEvents({ limit: 50 });
 detectionsStore.historyStatus = 'ready';
+window.addEventListener('test-history-refresh', () => { void detectionsStore.loadInitial(); });
 const target = document.getElementById('app');
 if (!target) throw new Error('Missing dashboard review fixture mount');
 mount(Dashboard, { target });

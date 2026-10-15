@@ -1,5 +1,49 @@
 import { expect, test } from '@playwright/test';
 
+test('accepted historical choice survives an older pending count and omission from fresh history', async ({ page }) => {
+    const record = { frigate_event: 'historical-choice', display_name: 'Dunnock', category_name: 'Dunnock', camera_name: 'birdcam',
+        detection_time: new Date(Date.now() - 48 * 3600000).toISOString(), score: .98, manual_tagged: false,
+        classification_input: { source: 'full_frame', is_cropped: false } };
+    let historyReads = 0;
+    let countWaiting = false;
+    let releaseCount: () => void = () => undefined;
+    await page.route(url => url.pathname.startsWith('/api/'), async route => {
+        const request = route.request(), path = new URL(request.url()).pathname;
+        if (path === '/api/events' && request.method() === 'GET') {
+            historyReads++;
+            return route.fulfill({ json: historyReads <= 2 ? [record] : [] });
+        }
+        if (path === '/api/events/count') {
+            if (!countWaiting) {
+                countWaiting = true;
+                await new Promise<void>(resolve => { releaseCount = resolve; });
+            }
+            return route.fulfill({ json: { count: 0 } });
+        }
+        if (path === '/api/events/historical-choice' && request.method() === 'PATCH') {
+            return route.fulfill({ json: { status: 'unchanged', event_id: record.frigate_event, new_species: 'Dunnock', category_name: 'Dunnock', manual_tagged: true } });
+        }
+        if (path === '/api/events/new-species') return route.fulfill({ json: { items: [{ ...record, species_sightings: 1 }] } });
+        if (path.endsWith('/snapshot/candidates')) return route.fulfill({ json: { candidates: [], birds: [] } });
+        if (/\/snapshot(?:\/thumbnail)?$/.test(path)) return route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"/>' });
+        return route.fulfill({ status: 503, json: { detail: 'Supporting fixture reading unavailable.' } });
+    });
+    await page.goto('/browser-tests/dashboard-review.html');
+    const card = page.locator('[data-dashboard-review-queue]');
+    await expect(card.locator('[data-review-queue-count]')).toHaveText('1');
+    await page.evaluate(() => window.dispatchEvent(new Event('test-history-refresh')));
+    await expect.poll(() => countWaiting).toBe(true);
+    await card.getByRole('button', { name: 'Work through the queue' }).click();
+    const modal = page.locator('[data-review-queue-modal]');
+    await modal.getByRole('button', { name: 'Confirm Dunnock', exact: true }).click();
+    await expect(modal.getByRole('heading', { name: 'Queue clear' })).toBeVisible();
+    await modal.getByRole('button', { name: 'Back to the dashboard' }).click();
+    releaseCount();
+    await expect.poll(() => historyReads).toBeGreaterThanOrEqual(3);
+    await expect(card.locator('[data-review-queue-count]')).toHaveCount(0);
+    await expect(card.getByText('Every visit today has a species. Nothing waiting on you.')).toBeVisible();
+});
+
 for (const { fails, ageHours } of [{ fails: false, ageHours: 0 }, { fails: true, ageHours: 0 }, { fails: false, ageHours: 48 }]) {
     test(`dashboard queue ${fails ? 'keeps a failed decision pending' : 'clears saved whole-view choices without refresh or SSE'} at ${ageHours} hours old`, async ({ page }) => {
         const records = ['Dunnock', 'European Robin'].map((name, index) => ({

@@ -206,6 +206,14 @@ export class DetectionsStore {
                 if (generation !== this.accessGeneration) return false;
                 // Read before an owner bird edit: the queued refresh supplies the current rows.
                 if (evidenceEpoch !== this.ownerEvidenceEpoch) return true;
+                // A newer authoritative read can reopen a choice (for example after reanalysis
+                // in another tab). Do not retain an older owner patch after that row leaves the page.
+                for (const detection of recent) {
+                    const patch = this.patchMap.get(detection.frigate_event);
+                    if (patch?.manual_tagged === true && patch.classification_input?.source === 'owner_species_choice') {
+                        this.rememberPatch(detection);
+                    }
+                }
                 this.detections = recent;
                 this.totalToday = countResult.count;
                 this.historyStatus = 'ready';
@@ -245,6 +253,11 @@ export class DetectionsStore {
             this.totalToday++;
             this.markMutated();
         }
+    }
+
+    recordOwnerSpeciesChoice(updated: Detection): void {
+        this.updateDetection(updated);
+        void this.refreshAfterOwnerEdit();
     }
 
     updateDetection(updated: Detection) {

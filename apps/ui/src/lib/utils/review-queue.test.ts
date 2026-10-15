@@ -104,6 +104,24 @@ describe('buildReviewQueue', () => {
 });
 
 describe('buildReviewQueue with new-species candidates (#310)', () => {
+    it('honors a saved choice after that event leaves the recent history page', () => {
+        const old = detection({ frigate_event: 'outside-page', score: 0.2 });
+        const localChoices = new Map([['outside-page', { manual_tagged: true, classification_input: { source: 'owner_species_choice' } }]]);
+        expect(buildQueue([], { reviewThreshold: 0.6, localChoices, newSpecies: [{ detection: old, sightings: 1 }] }).total).toBe(0);
+    });
+
+    it('does not treat an ordinary automatic patch as an owner decision', () => {
+        const old = detection({ frigate_event: 'automatic' });
+        const localChoices = new Map([['automatic', { score: 0.98, classification_input: { source: 'full_frame', is_cropped: false } }]]);
+        expect(buildQueue([], { reviewThreshold: 0.6, localChoices, newSpecies: [{ detection: old, sightings: 1 }] }).total).toBe(1);
+    });
+
+    it('allows review after an explicit new generation replaces the local choice', () => {
+        const old = detection({ frigate_event: 'reanalysed' });
+        const localChoices = new Map([['reanalysed', { manual_tagged: false, classification_input: { source: 'full_frame', is_cropped: false } }]]);
+        expect(buildQueue([], { reviewThreshold: 0.6, localChoices, newSpecies: [{ detection: old, sightings: 1 }] }).total).toBe(1);
+    });
+
     it('uses a saved owner decision outside the desk window over a stale newcomer', () => {
         const old = detection({ frigate_event: 'yesterday', score: 0.2, detection_time: '2026-08-10T08:00:00Z' });
         const reviewed = { ...old, manual_tagged: true, classification_input: { source: 'owner_species_choice' } };

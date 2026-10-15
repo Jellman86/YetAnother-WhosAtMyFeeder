@@ -1601,7 +1601,7 @@
             const result = await updateDetectionSpecies(detection.frigate_event, requestedSpecies);
             const nextDetection = applyManualTagResult(detection, result);
             Object.assign(detection, nextDetection);
-            detectionsStore.updateDetection(nextDetection);
+            detectionsStore.recordOwnerSpeciesChoice(nextDetection);
             if (result.photo_changed) detectionsStore.notePhotoChanged(detection.frigate_event);
             showTagDropdown = false;
             tagSearchQuery = '';
