@@ -938,7 +938,11 @@ class HighQualitySnapshotService:
         # winner (or a tiny weak crop that out-scores it by a hair) is churn, not an improvement.
         incumbent = await self._load_verified_incumbent_photo(event_id, expected_keys)
         if incumbent is not None and (
-            selected_candidate is None or not materially_improves_photo(selected_candidate, incumbent)
+            selected_candidate is None
+            or (
+                not materially_improves_photo(selected_candidate, incumbent)
+                and not self._is_qualified_same_scene_portrait(selected_candidate, incumbent, supported, expected_keys)
+            )
         ):
             selected_candidate = {**incumbent, "preserve_existing_photo": True}
             ranked = [item for item in ranked if item.get("candidate_id") != incumbent["candidate_id"]] + [
@@ -1145,6 +1149,42 @@ class HighQualitySnapshotService:
         if not await asyncio.to_thread(same_species):
             return None
         return scored
+
+    def _is_qualified_same_scene_portrait(
+        self,
+        challenger: dict[str, Any],
+        incumbent: dict[str, Any],
+        candidates: list[dict[str, Any]],
+        expected_keys: set[str],
+    ) -> bool:
+        """Framing the same verified scene is an improvement without a new moment's score gain."""
+        from app.services.photo_presence import has_reusable_bird_presence
+
+        if (
+            incumbent.get("source_mode") != "full_frame"
+            or incumbent.get("input_is_cropped") is True
+            or challenger.get("source_mode") not in {"model_crop", "frigate_hint_crop"}
+            or not has_reusable_bird_presence(challenger)
+            or not expected_keys
+            or not incumbent.get("image_bytes")
+            or not isinstance(challenger.get("clip_variant"), str)
+            or not challenger.get("clip_variant")
+            or type(challenger.get("frame_index")) is not int
+        ):
+            return False
+        same_scene = any(
+            peer.get("source_mode") == "full_frame"
+            and peer.get("input_is_cropped") is not True
+            and peer.get("clip_variant") == challenger["clip_variant"]
+            and peer.get("frame_index") == challenger["frame_index"]
+            and peer.get("image_bytes") == incumbent["image_bytes"]
+            for peer in candidates
+        )
+        if not same_scene:
+            return False
+        # Exact JPEG bytes, rather than moment IDs alone, prevent a changed final
+        # frame or another encoder's JPEG from bypassing normal replacement safety.
+        return self._select_best_trusted_candidate([incumbent, challenger], expected_labels=expected_keys) is challenger
 
     async def _load_verified_incumbent_photo(self, event_id: str, expected_keys: set[str]) -> dict[str, Any] | None:
         from app.services.photo_presence import has_reusable_bird_presence
@@ -1488,8 +1528,12 @@ class HighQualitySnapshotService:
             if not safe_full_frames:
                 return None
             pool = safe_full_frames
-        selected = max(pool, key=lambda item: float(item.get("ranking_score") or 0.0))
-        if normalized_expected and selected.get("source_mode") == "full_frame":
+        selection_pool = pool
+        selected = max(selection_pool, key=lambda item: float(item.get("ranking_score") or 0.0))
+        full_baseline = (
+            max(full_frames, key=lambda item: float(item.get("ranking_score") or 0.0)) if full_frames else None
+        )
+        if normalized_expected and full_baseline is not None:
             portraits = [
                 crop
                 for crop in usable_crops
@@ -1500,14 +1544,17 @@ class HighQualitySnapshotService:
                     or self._finite_candidate_score(crop.get("crop_confidence")) >= MIN_DETECTOR_CONFIDENCE
                 )
                 and self._finite_candidate_score(crop.get("classifier_score")) + HQ_PORTRAIT_MAX_CLASSIFIER_LOSS
-                >= self._finite_candidate_score(selected.get("classifier_score"))
+                >= self._finite_candidate_score(full_baseline.get("classifier_score"))
             ]
-            if portraits:
-                selected = max(portraits, key=lambda item: float(item.get("ranking_score") or 0.0))
+            if portraits and (
+                selected.get("source_mode") == "full_frame" or any(crop is selected for crop in portraits)
+            ):
+                selection_pool = portraits
+                selected = max(selection_pool, key=lambda item: float(item.get("ranking_score") or 0.0))
         if str(selected.get("source_mode") or "") != "model_crop":
             return selected
 
-        frigate_crops = [item for item in usable_crops if str(item.get("source_mode") or "") == "frigate_hint_crop"]
+        frigate_crops = [item for item in selection_pool if str(item.get("source_mode") or "") == "frigate_hint_crop"]
         if not frigate_crops:
             return selected
         best_frigate = max(
@@ -1525,7 +1572,11 @@ class HighQualitySnapshotService:
         if same_label and model_score + 1e-9 >= frigate_score + HQ_MODEL_CROP_MIN_CLASSIFIER_ADVANTAGE:
             return selected
 
-        baseline_pool = [item for item in pool if str(item.get("source_mode") or "") != "model_crop"]
+        baseline_pool = [item for item in selection_pool if str(item.get("source_mode") or "") != "model_crop"]
+        if normalized_expected:
+            # Rejecting a marginal model crop must not undo a qualifying hint
+            # portrait, including when the model initially ranked above the scene.
+            return self._select_best_trusted_candidate(baseline_pool, expected_labels=normalized_expected)
         return max(baseline_pool, key=lambda item: float(item.get("ranking_score") or 0.0))
 
     def _clip_candidate_materially_improves_final_snapshot(

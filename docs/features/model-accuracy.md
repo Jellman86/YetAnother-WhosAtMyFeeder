@@ -164,10 +164,15 @@ limit, in the scene with the most birds. They estimate birds in analyzed capture
 individuals across a visit or day. A low-confidence species is kept as Unknown Bird.
 
 Automatic portraits require usable image detail, matching species evidence and, for detector
-crops, at least 0.08 localization confidence. A matching portrait with species confidence at least
+crops, at least 0.25 localization confidence. A matching portrait with species confidence at least
 0.65 may be preferred when within 0.05 of the whole scene. This avoids leaving an old, contradictory
 portrait simply because the new correct scene is uncropped. An owner-selected photo is preserved
 through later automatic updates; explicit regeneration releases that choice.
+
+Adding another qualifying crop does not cancel the portrait preference. A qualifying crop of
+the exact displayed scene can improve an automatic photo's framing without a separate score
+gain. Replacing it with a different scene still requires a clear improvement. A full view stays
+when localization is uncertain, even if its species prediction is confident.
 
 The same correction fixes time-aligned event crops: Frigate `path_data` coordinates describe each
 tracked box's **bottom-centre**, not its geometric centre. YA-WAMF now reconstructs the box with
