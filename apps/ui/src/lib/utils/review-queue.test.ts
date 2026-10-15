@@ -104,6 +104,27 @@ describe('buildReviewQueue', () => {
 });
 
 describe('buildReviewQueue with new-species candidates (#310)', () => {
+    it('uses a saved owner decision outside the desk window over a stale newcomer', () => {
+        const old = detection({ frigate_event: 'yesterday', score: 0.2, detection_time: '2026-08-10T08:00:00Z' });
+        const reviewed = { ...old, manual_tagged: true, classification_input: { source: 'owner_species_choice' } };
+        const queue = buildQueue([], { reviewThreshold: 0.6, knownDetections: [reviewed], newSpecies: [{ detection: old, sightings: 2 }] });
+        expect(queue.total).toBe(0);
+    });
+
+    it('uses a hidden historical record over an older visible newcomer', () => {
+        const old = detection({ frigate_event: 'hidden-yesterday' });
+        const queue = buildQueue([], { reviewThreshold: 0.6, knownDetections: [{ ...old, is_hidden: true }], newSpecies: [{ detection: old, sightings: 2 }] });
+        expect(queue.total).toBe(0);
+    });
+
+    it('keeps an unreviewed historical newcomer without admitting other old low scores', () => {
+        const newcomer = detection({ frigate_event: 'yesterday-newcomer', score: 0.2 });
+        const oldLowScore = detection({ frigate_event: 'yesterday-low-score', score: 0.1 });
+        const queue = buildQueue([], { reviewThreshold: 0.6, knownDetections: [newcomer, oldLowScore], newSpecies: [{ detection: newcomer, sightings: 2 }] });
+        expect(queue.items.map(item => item.frigate_event)).toEqual(['yesterday-newcomer']);
+        expect(queue.reasons.get('yesterday-newcomer')).toBe('new_species');
+    });
+
     it('does not requeue a saved owner choice from an older new-species response', () => {
         const old = detection({ frigate_event: 'reviewed', score: 0.2 });
         const reviewed = { ...old, manual_tagged: true, classification_input: { source: 'owner_species_choice' } };

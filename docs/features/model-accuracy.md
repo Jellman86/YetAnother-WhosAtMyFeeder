@@ -420,7 +420,8 @@ remain in review even at high confidence and never train or use personalization.
 species records **Named by you**; the original input stays available on the record.
 A saved choice clears that detection from the dashboard review queue immediately,
 including while the separate new-species list refreshes. Skipped or failed choices
-remain for review.
+remain for review. This also applies to new-species visits older than the
+dashboard's 24-hour window; unreviewed historical newcomers stay available.
 
 Changing the photograph does not change this evidence. The input records its crop coordinates,
 source frame dimensions and recording time when available. A counted bird can borrow a new
