@@ -13,7 +13,7 @@ from io import BytesIO
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from PIL import Image, ImageDraw
 
@@ -21,6 +21,7 @@ from app.services.bird_crop_service import BirdCropService
 
 
 Box = tuple[int, int, int, int]
+AnnotationScope = Literal["unknown", "target_only", "exhaustive"]
 
 
 @dataclass(frozen=True)
@@ -35,6 +36,11 @@ class CropEvalCase:
     tags: tuple[str, ...] = ()
     image_sha256: str | None = None
     annotation_verified: bool = False
+    annotation_scope: AnnotationScope = "unknown"
+
+    def __post_init__(self) -> None:
+        if self.annotation_scope not in ("unknown", "target_only", "exhaustive"):
+            raise ValueError(f"Case '{self.case_id}' has an invalid annotation_scope")
 
 
 @dataclass(frozen=True)
@@ -67,6 +73,7 @@ def load_manifest(path: Path) -> list[CropEvalCase]:
                 tags=tuple(str(tag) for tag in (item.get("tags") or []) if str(tag).strip()),
                 image_sha256=item.get("image_sha256"),
                 annotation_verified=item.get("annotation_verified") is True,
+                annotation_scope=item.get("annotation_scope", "unknown"),
             )
         )
     return cases
@@ -96,6 +103,7 @@ def load_manifest_resolved(path: Path) -> list[CropEvalCase]:
                 tags=tuple(str(tag) for tag in (item.get("tags") or []) if str(tag).strip()),
                 image_sha256=item.get("image_sha256"),
                 annotation_verified=item.get("annotation_verified") is True,
+                annotation_scope=item.get("annotation_scope", "unknown"),
             )
         )
     return cases
@@ -141,6 +149,8 @@ def evaluate_case(
             best_iou = candidate_best_iou
         useful_crop = useful_crop or candidate_best_iou >= iou_thresholds[1]
 
+    exhaustive = case.annotation_verified and case.annotation_scope == "exhaustive"
+    is_negative = exhaustive and not case.boxes
     return {
         "case_id": case.case_id,
         "bucket": case.bucket,
@@ -152,9 +162,13 @@ def evaluate_case(
         "recall_at_0_3": best_iou >= iou_thresholds[0],
         "recall_at_0_5": best_iou >= iou_thresholds[1],
         "useful_crop": useful_crop,
-        "is_negative": not case.boxes,
-        "false_positive": bool(not case.boxes and candidates),
-        "correct_negative": bool(not case.boxes and not candidates),
+        "has_annotated_targets": bool(case.boxes),
+        "annotation_scope": case.annotation_scope,
+        "is_negative": is_negative,
+        "false_positive": bool(candidates) if is_negative else None,
+        "correct_negative": not candidates if is_negative else None,
+        "localization_at_0_3": _localization_metrics(case, candidates, iou_thresholds[0]),
+        "localization_at_0_5": _localization_metrics(case, candidates, iou_thresholds[1]),
         "visit_id": case.visit_id or case.case_id,
         "tags": list(case.tags),
         "image_sha256": case.image_sha256,
@@ -162,10 +176,70 @@ def evaluate_case(
     }
 
 
+def _matched_target_count(boxes: list[Box], candidates: list[DetectionCandidate], threshold: float) -> int:
+    edges = [
+        [i for i, candidate in enumerate(candidates) if compute_iou(box, candidate.box) >= threshold] for box in boxes
+    ]
+    target_by_candidate: dict[int, int] = {}
+
+    def augment(target: int, visited: set[int]) -> bool:
+        for candidate in edges[target]:
+            if candidate in visited:
+                continue
+            visited.add(candidate)
+            previous = target_by_candidate.get(candidate)
+            if previous is None or augment(previous, visited):
+                target_by_candidate[candidate] = target
+                return True
+        return False
+
+    # Reassign earlier matches when necessary: greedy highest-IoU matching can
+    # consume the only proposal available to another annotated bird.
+    for target in range(len(boxes)):
+        augment(target, set())
+    return len(target_by_candidate)
+
+
+def _localization_metrics(
+    case: CropEvalCase, candidates: list[DetectionCandidate], threshold: float
+) -> dict[str, Any] | None:
+    if not case.annotation_verified or case.annotation_scope == "unknown":
+        return None
+    if not case.boxes and case.annotation_scope != "exhaustive":
+        return None
+    matched = _matched_target_count(case.boxes, candidates, threshold)
+    exhaustive = case.annotation_scope == "exhaustive"
+    return {
+        "matched_targets": matched,
+        "missed_targets": len(case.boxes) - matched,
+        "target_recall": matched / len(case.boxes) if case.boxes else None,
+        "unmatched_candidates": len(candidates) - matched if exhaustive else None,
+        "exact_localization": matched == len(case.boxes) == len(candidates) if exhaustive else None,
+    }
+
+
+def _summarize_localization(rows: list[dict[str, Any]], key: str) -> dict[str, Any]:
+    scored = [row[key] for row in rows if row.get(key) is not None]
+    matched = sum(row["matched_targets"] for row in scored)
+    missed = sum(row["missed_targets"] for row in scored)
+    exhaustive = [row for row in scored if row["exact_localization"] is not None]
+    return {
+        "scored_cases": len(scored),
+        "matched_targets": matched,
+        "missed_targets": missed,
+        "target_recall": matched / (matched + missed) if matched + missed else None,
+        "exhaustive_cases": len(exhaustive),
+        "unmatched_candidates": sum(row["unmatched_candidates"] for row in exhaustive) if exhaustive else None,
+        "exact_localization_rate": sum(row["exact_localization"] for row in exhaustive) / len(exhaustive)
+        if exhaustive
+        else None,
+    }
+
+
 def summarize_results(results: list[dict[str, Any]]) -> dict[str, Any]:
     def _summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
         total = len(rows)
-        positive_rows = [row for row in rows if not row.get("is_negative", False)]
+        positive_rows = [row for row in rows if row.get("has_annotated_targets", not row.get("is_negative", False))]
         negative_rows = [row for row in rows if row.get("is_negative", False)]
         positive_total = len(positive_rows)
         negative_total = len(negative_rows)
@@ -175,6 +249,9 @@ def summarize_results(results: list[dict[str, Any]]) -> dict[str, Any]:
             "cases": total,
             "positive_cases": positive_total,
             "negative_cases": negative_total,
+            "unscored_cases": total - positive_total - negative_total,
+            "localization_at_0_3": _summarize_localization(rows, "localization_at_0_3"),
+            "localization_at_0_5": _summarize_localization(rows, "localization_at_0_5"),
             "visit_count": len({str(row.get("visit_id") or row.get("case_id") or "") for row in rows}),
             "any_detection_recall": (sum(1 for row in positive_rows if row.get("any_detection")) / positive_total)
             if positive_total
@@ -190,10 +267,10 @@ def summarize_results(results: list[dict[str, Any]]) -> dict[str, Any]:
             else 0.0,
             "false_positive_rate": (sum(1 for row in negative_rows if row.get("false_positive")) / negative_total)
             if negative_total
-            else 0.0,
+            else None,
             "true_negative_rate": (sum(1 for row in negative_rows if row.get("correct_negative")) / negative_total)
             if negative_total
-            else 0.0,
+            else None,
             "mean_best_confidence": (sum(confidences) / len(confidences)) if confidences else 0.0,
             "mean_best_iou": (sum(ious) / len(ious)) if ious else 0.0,
         }
@@ -289,6 +366,8 @@ def evaluate_cases_for_tier(
         selected_eval["selected_reason"] = selected.get("reason")
         selected_results.append(selected_eval)
     return {
+        "schema_version": 3,
+        "evaluation_role": "diagnostic",
         "tier": tier,
         "raw_summary": summarize_results(raw_results),
         "selected_summary": summarize_results(selected_results),
@@ -322,6 +401,9 @@ def write_overlays(cases: list[CropEvalCase], results_by_tier: dict[str, dict[st
 
 
 def _print_summary(results_by_tier: dict[str, dict[str, Any]]) -> None:
+    def rate(value: float | None) -> str:
+        return "unscored" if value is None else f"{value:.3f}"
+
     for tier, payload in results_by_tier.items():
         raw = payload["raw_summary"]["overall"]
         selected = payload["selected_summary"]["overall"]
@@ -332,21 +414,25 @@ def _print_summary(results_by_tier: dict[str, dict[str, Any]]) -> None:
             f"positive={raw['positive_cases']}",
             f"negative={raw['negative_cases']}",
             f"any={raw['any_detection_recall']:.3f}",
-            f"iou@0.3={raw['recall_at_0_3']:.3f}",
-            f"iou@0.5={raw['recall_at_0_5']:.3f}",
+            f"image_hit@0.3={raw['recall_at_0_3']:.3f}",
+            f"image_hit@0.5={raw['recall_at_0_5']:.3f}",
+            f"target_recall@0.5={rate(raw['localization_at_0_5']['target_recall'])}",
+            f"exact_localization@0.5={rate(raw['localization_at_0_5']['exact_localization_rate'])}",
             f"useful={raw['useful_crop_rate']:.3f}",
             f"mean_iou={raw['mean_best_iou']:.3f}",
-            f"false_positive={raw['false_positive_rate']:.3f}",
+            f"false_positive={rate(raw['false_positive_rate'])}",
         )
         print(
             "selected:",
             f"cases={selected['cases']}",
             f"any={selected['any_detection_recall']:.3f}",
-            f"iou@0.3={selected['recall_at_0_3']:.3f}",
-            f"iou@0.5={selected['recall_at_0_5']:.3f}",
+            f"image_hit@0.3={selected['recall_at_0_3']:.3f}",
+            f"image_hit@0.5={selected['recall_at_0_5']:.3f}",
+            f"target_recall@0.5={rate(selected['localization_at_0_5']['target_recall'])}",
+            f"exact_localization@0.5={rate(selected['localization_at_0_5']['exact_localization_rate'])}",
             f"useful={selected['useful_crop_rate']:.3f}",
             f"mean_iou={selected['mean_best_iou']:.3f}",
-            f"false_positive={selected['false_positive_rate']:.3f}",
+            f"false_positive={rate(selected['false_positive_rate'])}",
         )
 
 

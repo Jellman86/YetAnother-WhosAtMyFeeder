@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Crop-detector diagnostics now report individual annotated birds matched or
+  missed. Extra detections and exact scene localization are scored only against
+  explicitly exhaustive annotations; partial or unknown annotations cannot count
+  as verified empty scenes (#738).
+
 - Bird scans keep existing findings and explain when overlapping detector regions
   cannot distinguish separate birds from parts of one bird, rather than publishing
   a guessed count. Clear detections in another analyzed frame remain usable (#736).

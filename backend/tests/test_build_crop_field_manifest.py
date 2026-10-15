@@ -101,7 +101,10 @@ def test_build_manifest_joins_full_frame_to_same_frame_hint(tmp_path: Path):
         "classifier_score": 0.9,
     }
     assert Path(negative["image_path"]).is_file()
+    assert manifest["evaluation_role"] == "diagnostic"
+    assert negative["visit_id"] == positive["visit_id"]
     for case in (positive, negative):
         assert case["image_sha256"] == hashlib.sha256(Path(case["image_path"]).read_bytes()).hexdigest()
         assert case["annotation_verified"] is False
+        assert case["annotation_scope"] == "unknown"
     assert json.loads((output / "manifest.json").read_text()) == manifest

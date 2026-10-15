@@ -182,6 +182,7 @@ def build_manifest(
                 "image_path": str(item["image_path"]),
                 "image_sha256": hashlib.sha256(item["image_path"].read_bytes()).hexdigest(),
                 "annotation_verified": False,
+                "annotation_scope": "unknown",
                 "boxes": [item["box"]],
                 "frame_index": item["frame_index"],
                 "expected_labels": item["expected_labels"] if item["manual"] else [],
@@ -211,12 +212,13 @@ def build_manifest(
         cases.append(
             {
                 "id": f"quark_negative_{index:02d}",
-                "visit_id": f"negative-{item['event_id']}",
+                "visit_id": item["event_id"],
                 "bucket": "quark_hard_negative",
                 "source": "real_frame_region_excluding_frame_specific_hint",
                 "image_path": str(output_path),
                 "image_sha256": hashlib.sha256(output_path.read_bytes()).hexdigest(),
                 "annotation_verified": False,
+                "annotation_scope": "unknown",
                 "boxes": [],
                 "tags": ["hard_negative", "feeder_clutter", "foliage_or_hardware"],
                 "notes": (
@@ -228,11 +230,13 @@ def build_manifest(
 
     payload = {
         "version": "3",
+        "evaluation_role": "diagnostic",
         "private": True,
         "method": (
-            "One independent cached HQ full frame per event with its exact same-frame Frigate hint box and "
-            "structured downstream baseline. Owner-confirmed labels are promotion evidence; automatic labels are "
-            "context only. Hard negatives are non-overlapping real-frame regions."
+            "One cached HQ full frame per event with its exact same-frame Frigate hint box and "
+            "structured downstream baseline. Owner-confirmed labels provide identity evidence; automatic labels are "
+            "context only. Geometry and proposed negative regions remain unverified until visual review. "
+            "Frames and regions from the same event share a visit_id; event IDs alone do not prove independence."
         ),
         "cases": cases,
     }
