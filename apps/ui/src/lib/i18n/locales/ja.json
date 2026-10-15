@@ -3558,6 +3558,18 @@
     "group_summary": "世界で{total}種、ここで{seen}種を確認"
   },
   "garden": {
+    "check_photo": "写真を確認",
+    "check_help": "強調表示された切り抜きの参考評価です。動物の存在を確定するものではありません。",
+    "check_running": "この切り抜きを確認しています。鳥の処理が優先されます。",
+    "check_bird": "モデルは鳥の可能性を示しています",
+    "check_mammal": "モデルは人間以外の哺乳類の可能性を示しています",
+    "check_uncertain": "モデルは不確かです。写真を自分で確認してください。",
+    "check_unavailable": "写真確認を利用できません。写真を自分で確認してください。",
+    "check_advisory": "この写真のみの結果です。自分で確認または却下してください。判断は保存されていません。",
+    "check_assessment": "モデルの評価",
+    "check_scores": "鳥 {bird} · 人間以外の哺乳類 {mammal} · 人間 {human} · 空 {blank} · その他 {other}",
+    "check_changed": "確認結果が表示中の写真と一致しません。更新してから再試行してください。",
+    "check_setup": "種の候補を開き、追跡切り抜きモデルをダウンロードして実行先を選択してください。国の設定は不要です。",
     "pending": "要確認",
     "confirmed": "確認済みの動物",
     "dismissed": "除外済み",

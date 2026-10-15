@@ -3558,6 +3558,18 @@
     "group_summary": "{total} Arten weltweit, {seen} hier gesehen"
   },
   "garden": {
+    "check_photo": "Foto prüfen",
+    "check_help": "Hinweis zum markierten Ausschnitt, ohne die Anwesenheit eines Tieres zu bestätigen.",
+    "check_running": "Dieser Ausschnitt wird geprüft. Vogelanalysen haben Vorrang.",
+    "check_bird": "Das Modell vermutet einen Vogel",
+    "check_mammal": "Das Modell vermutet ein Säugetier, keinen Menschen",
+    "check_uncertain": "Das Modell ist unsicher. Prüfe das Foto selbst.",
+    "check_unavailable": "Fotoprüfung nicht verfügbar. Prüfe das Foto selbst.",
+    "check_advisory": "Nur dieses Foto. Bestätige oder verwirf es selbst; es wurde keine Entscheidung gespeichert.",
+    "check_assessment": "Modelleinschätzung",
+    "check_scores": "Vogel {bird} · Säugetier ohne Mensch {mammal} · Mensch {human} · Leer {blank} · Sonstiges {other}",
+    "check_changed": "Die Prüfung passt nicht zum angezeigten Foto. Aktualisiere vor einem neuen Versuch.",
+    "check_setup": "Öffne Artvorschläge, lade das Modell für verfolgte Ausschnitte herunter und wähle einen Anbieter. Fotoprüfungen benötigen kein Land.",
     "pending": "Zu prüfen",
     "confirmed": "Bestätigte Tiere",
     "dismissed": "Verworfen",

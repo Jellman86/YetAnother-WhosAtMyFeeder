@@ -75,6 +75,68 @@ class GardenDecision:
     needs_review: bool = False
 
 
+@dataclass(frozen=True)
+class GardenCoarsePrediction:
+    suggestion: Literal["bird", "mammal", "uncertain", "human_rejected"]
+    mass: dict[str, float]
+    human_winner: bool = False
+
+
+def coarse_prediction_mass(
+    probabilities: Sequence[float], outputs: Sequence[Taxon], *, expected_width: int = 2498
+) -> GardenCoarsePrediction:
+    """Preserve complete model uncertainty for an advisory check, never a review."""
+    if (
+        type(expected_width) is not int
+        or expected_width <= 0
+        or len(outputs) != expected_width
+        or len(probabilities) != expected_width
+        or any(
+            not isinstance(taxon, Taxon)
+            or not isinstance(taxon.id, str)
+            or not taxon.id
+            or not isinstance(taxon.name, str)
+            or not taxon.name
+            or not isinstance(taxon.ranks, tuple)
+            or len(taxon.ranks) != 5
+            or any(not isinstance(rank, str) for rank in taxon.ranks)
+            for taxon in outputs
+        )
+        or len({taxon.id for taxon in outputs}) != expected_width
+    ):
+        raise ValueError("Coarse assessment requires the complete unique output mapping")
+    if any(
+        type(score) not in (int, float) or not math.isfinite(score) or not 0 <= score <= 1 for score in probabilities
+    ):
+        raise ValueError("Coarse assessment requires finite probabilities")
+    if not math.isclose(math.fsum(probabilities), 1.0, rel_tol=0, abs_tol=0.000001):
+        raise ValueError("Coarse assessment requires complete probability mass")
+    groups: dict[str, list[float]] = {key: [] for key in ("bird", "mammal", "human", "blank", "other")}
+    for taxon, score in zip(outputs, probabilities):
+        if taxon.human:
+            group = "human"
+        elif taxon.bird:
+            group = "bird"
+        elif taxon.ranks[0] == "mammalia":
+            group = "mammal"
+        elif taxon.name == "blank":
+            group = "blank"
+        else:
+            group = "other"
+        groups[group].append(score)
+    mass = {key: math.fsum(values) for key, values in groups.items()}
+    maximum = max(probabilities)
+    human_winner = any(taxon.human and score == maximum for taxon, score in zip(outputs, probabilities))
+    if human_winner or mass["human"] >= GardenPolicy().human_threshold:
+        return GardenCoarsePrediction("human_rejected", mass, human_winner)
+    # An advisory gate does not establish presence, absence or calibrated accuracy.
+    if mass["bird"] >= 0.8:
+        return GardenCoarsePrediction("bird", mass)
+    if mass["mammal"] >= 0.8:
+        return GardenCoarsePrediction("mammal", mass)
+    return GardenCoarsePrediction("uncertain", mass)
+
+
 def _blocked(taxon: Taxon, country: str, geofence: Mapping[str, dict]) -> bool:
     rule = geofence.get(taxon.key, {})
     allowed = rule.get("allow")

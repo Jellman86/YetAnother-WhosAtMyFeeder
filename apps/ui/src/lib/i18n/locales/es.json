@@ -3558,6 +3558,18 @@
     "group_summary": "{total} especies en el mundo, {seen} vistas aquí"
   },
   "garden": {
+    "check_photo": "Comprobar foto",
+    "check_help": "Evaluación orientativa del recorte resaltado, sin confirmar la presencia de animales.",
+    "check_running": "Comprobando este recorte. El análisis de aves tiene prioridad.",
+    "check_bird": "El modelo sugiere un ave",
+    "check_mammal": "El modelo sugiere un mamífero no humano",
+    "check_uncertain": "El modelo tiene dudas. Revisa la foto personalmente.",
+    "check_unavailable": "Comprobación no disponible. Revisa la foto personalmente.",
+    "check_advisory": "Solo esta foto. Confírmala o descártala personalmente; no se ha guardado ninguna decisión.",
+    "check_assessment": "Evaluación del modelo",
+    "check_scores": "Ave {bird} · Mamífero no humano {mammal} · Humano {human} · Vacío {blank} · Otro {other}",
+    "check_changed": "La comprobación no corresponde a la foto mostrada. Actualiza antes de intentarlo de nuevo.",
+    "check_setup": "Abre Sugerencias de especies para descargar el modelo de recorte seguido y elegir un proveedor. No hace falta indicar un país.",
     "pending": "Por revisar",
     "confirmed": "Animales confirmados",
     "dismissed": "Descartadas",

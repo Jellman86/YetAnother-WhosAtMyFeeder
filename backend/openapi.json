@@ -7517,6 +7517,196 @@
         "title": "GardenMotionStatus",
         "type": "object"
       },
+      "GardenPhotoCheck": {
+        "additionalProperties": false,
+        "properties": {
+          "box_xywh": {
+            "maxItems": 4,
+            "minItems": 4,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Box Xywh",
+            "type": "array"
+          },
+          "capture_id": {
+            "pattern": "^[a-f0-9]{32}$",
+            "title": "Capture Id",
+            "type": "string"
+          },
+          "devices": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 8,
+            "minItems": 1,
+            "title": "Devices",
+            "type": "array"
+          },
+          "frame_size": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "title": "Frame Size",
+            "type": "array"
+          },
+          "image_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Image Sha256",
+            "type": "string"
+          },
+          "mass": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GardenPhotoMass"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "model_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Model Sha256",
+            "type": "string"
+          },
+          "package_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Package Sha256",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "cpu",
+              "intel_cpu",
+              "intel_gpu",
+              "intel_npu",
+              "cuda"
+            ],
+            "title": "Provider",
+            "type": "string"
+          },
+          "suggestion": {
+            "enum": [
+              "bird",
+              "mammal",
+              "uncertain",
+              "unavailable"
+            ],
+            "title": "Suggestion",
+            "type": "string"
+          },
+          "variant": {
+            "const": "4.0.3a",
+            "default": "4.0.3a",
+            "title": "Variant",
+            "type": "string"
+          }
+        },
+        "required": [
+          "capture_id",
+          "image_sha256",
+          "suggestion",
+          "mass",
+          "provider",
+          "devices",
+          "model_sha256",
+          "package_sha256",
+          "box_xywh",
+          "frame_size"
+        ],
+        "title": "GardenPhotoCheck",
+        "type": "object"
+      },
+      "GardenPhotoCheckRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "image_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Image Sha256",
+            "type": "string"
+          },
+          "provider": {
+            "default": "cpu",
+            "enum": [
+              "cpu",
+              "intel_cpu",
+              "intel_gpu",
+              "intel_npu",
+              "cuda"
+            ],
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "image_sha256"
+        ],
+        "title": "GardenPhotoCheckRequest",
+        "type": "object"
+      },
+      "GardenPhotoMass": {
+        "additionalProperties": false,
+        "properties": {
+          "bird": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Bird",
+            "type": "number"
+          },
+          "blank": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Blank",
+            "type": "number"
+          },
+          "human": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Human",
+            "type": "number"
+          },
+          "mammal": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Mammal",
+            "type": "number"
+          },
+          "other": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Other",
+            "type": "number"
+          }
+        },
+        "required": [
+          "bird",
+          "mammal",
+          "human",
+          "blank",
+          "other"
+        ],
+        "title": "GardenPhotoMass",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -25696,6 +25886,69 @@
           }
         ],
         "summary": "Review Batch",
+        "tags": [
+          "garden"
+        ]
+      }
+    },
+    "/api/garden/{capture_id}/check-photo": {
+      "post": {
+        "operationId": "check_photo_api_garden__capture_id__check_photo_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "capture_id",
+            "required": true,
+            "schema": {
+              "title": "Capture Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GardenPhotoCheckRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GardenPhotoCheck"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Check Photo",
         "tags": [
           "garden"
         ]

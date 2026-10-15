@@ -3558,6 +3558,18 @@
     "group_summary": "{total} species worldwide, {seen} seen here"
   },
   "garden": {
+    "check_photo": "Check photo",
+    "check_help": "An advisory assessment of the highlighted crop, without confirming animal presence.",
+    "check_running": "Checking this crop. Bird work takes priority.",
+    "check_bird": "Model suggests a bird",
+    "check_mammal": "Model suggests a non-human mammal",
+    "check_uncertain": "The model is uncertain. Review the photo yourself.",
+    "check_unavailable": "Photo check unavailable. Review the photo yourself.",
+    "check_advisory": "This photo only. Confirm or dismiss it yourself; no review decision has been saved.",
+    "check_assessment": "Model assessment",
+    "check_scores": "Bird {bird} · Non-human mammal {mammal} · Human {human} · Blank {blank} · Other {other}",
+    "check_changed": "The photo check does not match the displayed photo. Refresh before trying again.",
+    "check_setup": "Open Species suggestions to download the tracked-crop model and choose a provider. Photo checks do not need a country.",
     "pending": "Needs review",
     "confirmed": "Confirmed animals",
     "dismissed": "Dismissed",

@@ -3558,6 +3558,18 @@
     "group_summary": "{total} specie nel mondo, {seen} viste qui"
   },
   "garden": {
+    "check_photo": "Controlla foto",
+    "check_help": "Valutazione indicativa del ritaglio evidenziato, senza confermare la presenza di animali.",
+    "check_running": "Controllo del ritaglio. L’analisi degli uccelli ha la priorità.",
+    "check_bird": "Il modello suggerisce un uccello",
+    "check_mammal": "Il modello suggerisce un mammifero non umano",
+    "check_uncertain": "Il modello è incerto. Esamina la foto personalmente.",
+    "check_unavailable": "Controllo non disponibile. Esamina la foto personalmente.",
+    "check_advisory": "Solo questa foto. Confermala o scartala personalmente; non è stata salvata alcuna decisione.",
+    "check_assessment": "Valutazione del modello",
+    "check_scores": "Uccello {bird} · Mammifero non umano {mammal} · Umano {human} · Vuoto {blank} · Altro {other}",
+    "check_changed": "Il controllo non corrisponde alla foto visualizzata. Aggiorna prima di riprovare.",
+    "check_setup": "Apri Suggerimenti sulle specie per scaricare il modello di ritaglio tracciato e scegliere un fornitore. Non serve un paese.",
     "pending": "Da controllare",
     "confirmed": "Animali confermati",
     "dismissed": "Scartate",

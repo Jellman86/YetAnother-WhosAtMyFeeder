@@ -137,6 +137,15 @@ expiry, with Restore unavailable and an explanation. If all photo slots belong t
 pending or confirmed captures, collection waits for a dismissal or expiry.
 Turning collection off does not immediately erase photos.
 
+For a pending motion photo, **Check photo** offers an advisory assessment before
+presence review. Download **4.0.3a** and choose a provider under **Species
+suggestions**, then check the displayed photo. The dialog outlines the exact crop
+and may suggest a bird or a non-human mammal, or remain uncertain. It preserves
+blank and other probability mass; human evidence withholds the suggestion.
+No country is required. The result applies only to that photo and clears when
+you close it or change photos. It does not confirm, dismiss or save an identity;
+you still make the review decision. Bird work retains priority.
+
 To request a species suggestion, open **Species suggestions** above the history:
 
 1. Set a recognised country name or ISO code in **Settings → Location**. Filtering

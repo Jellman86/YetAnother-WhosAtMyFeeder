@@ -1079,6 +1079,30 @@ export interface components {
     queued_windows?: number;
     state: "disabled" | "waiting" | "scanning" | "unavailable";
 };
+    GardenPhotoCheck: {
+    box_xywh: [number, number, number, number];
+    capture_id: string;
+    devices: Array<string>;
+    frame_size: [number, number];
+    image_sha256: string;
+    mass: components['schemas']['GardenPhotoMass'] | null;
+    model_sha256: string;
+    package_sha256: string;
+    provider: "cpu" | "intel_cpu" | "intel_gpu" | "intel_npu" | "cuda";
+    suggestion: "bird" | "mammal" | "uncertain" | "unavailable";
+    variant?: "4.0.3a";
+};
+    GardenPhotoCheckRequest: {
+    image_sha256: string;
+    provider?: "cpu" | "intel_cpu" | "intel_gpu" | "intel_npu" | "cuda";
+};
+    GardenPhotoMass: {
+    bird: number;
+    blank: number;
+    human: number;
+    mammal: number;
+    other: number;
+};
     HTTPValidationError: {
     detail?: Array<components['schemas']['ValidationError']>;
 };
@@ -3790,6 +3814,17 @@ export interface paths {
       query: never;
       requestBody: components['schemas']['GardenBatchReviewRequest'];
       response: components['schemas']['GardenBatchReviewResponse'];
+    };
+  };
+  "/api/garden/{capture_id}/check-photo": {
+    post: {
+      operationId: "check_photo_api_garden__capture_id__check_photo_post";
+      path: {
+    capture_id: string;
+};
+      query: never;
+      requestBody: components['schemas']['GardenPhotoCheckRequest'];
+      response: components['schemas']['GardenPhotoCheck'];
     };
   };
   "/api/garden/{capture_id}/confirm": {

@@ -7,16 +7,29 @@ import sys
 import numpy as np
 from PIL import Image
 
+from app.repositories.garden_catalog import read_shipped_package
 from app.services.garden_model_runtime import Runtime, digest, preprocess
+from app.services.garden_visitors import Taxon, coarse_prediction_mass
 
 
 def identify(request: dict) -> dict:
+    mode = request.get("mode", "identify")
+    if mode not in {"identify", "preview"}:
+        raise ValueError("Unsupported garden worker operation")
     model = Path(request["model"])
     if digest(model) != request["model_sha256"]:
         raise ValueError("Model checksum mismatch")
     box = tuple(request["box"]) if request["box"] is not None else None
     if request["variant"] == "4.0.3a" and box is None:
         raise ValueError("Crop model requires a tracked snapshot box")
+    package, package_sha = None, None
+    if mode == "preview":
+        if request["variant"] != "4.0.3a":
+            raise ValueError("Photo checks require the tracked crop model")
+        encoded, package_sha = read_shipped_package()
+        package = json.loads(encoded)
+        if package_sha != request.get("package_sha256") or package["model_sha256"]["4.0.3a"] != request["model_sha256"]:
+            raise ValueError("Photo check mapping differs from its requested model/package")
     with Image.open(request["image"]) as source:
         frame_size = source.size
         value = preprocess(source, request["variant"], box)
@@ -34,6 +47,15 @@ def identify(request: dict) -> dict:
     logits = logits[0].astype(np.float64)
     probabilities = np.exp(logits - logits.max())
     probabilities /= probabilities.sum()
+    if package is not None:
+        outputs = [Taxon(item["id"], item["name"], tuple(item["ranks"])) for item in package["outputs"]]
+        coarse = coarse_prediction_mass(probabilities.tolist(), outputs)
+        return {
+            "preview": {"suggestion": coarse.suggestion, "mass": coarse.mass, "human_winner": coarse.human_winner},
+            "devices": runtime.actual,
+            "frame_size": frame_size,
+            "package_sha256": package_sha,
+        }
     indices = np.argsort(-probabilities)[:5]
     return {
         "predictions": [[int(i), float(probabilities[i])] for i in indices],
