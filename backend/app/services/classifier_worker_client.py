@@ -67,7 +67,7 @@ class ClassifierWorkerClient:
         kill_timeout_seconds: float = 5.0,
         inference_provider_override: str | None = None,
     ) -> None:
-        if inference_provider_override not in {None, "cpu"}:
+        if inference_provider_override not in {None, "cpu", "intel_cpu"}:
             raise ValueError("Only an explicit CPU recovery override is supported")
         self._inference_provider_override = inference_provider_override
         self.worker_name = str(worker_name)

@@ -9,7 +9,7 @@ from typing import Any, Callable
 
 from .classifier_worker_client import ClassifierWorkerClient
 from .classifier_worker_protocol import build_classify_request, build_classify_video_request
-from .native_crash_quarantine import NativeCrashQuarantine
+from .native_crash_quarantine import NativeCrashQuarantine, NativeCrashQuarantinedError
 
 
 # A request that reached the shared worker with less than this share of its
@@ -52,8 +52,27 @@ class NativeCpuRecovery:
             worker_name="native-cpu",
             worker_generation=self._generation,
             heartbeat_timeout_seconds=5,
-            inference_provider_override="cpu",
+            inference_provider_override=(self._profile or {}).get("provider", "cpu"),
         )
+
+    def _cpu_profile(self, source: dict[str, Any]) -> dict[str, Any]:
+        from .model_validation import host_eligible_providers
+
+        providers = ["cpu"]
+        model_id, digest = source.get("model_id"), source.get("model_sha256")
+        if source.get("model_runtime") == "onnx" and model_id and digest:
+            if "intel_cpu" in host_eligible_providers(model_id, artifact_sha256=digest):
+                providers.insert(0, "intel_cpu")
+        # Validation does not erase a later native fault. Keep the exact failed
+        # profile blocked while permitting a different isolated CPU runtime.
+        for provider in providers:
+            profile = source | {"provider": provider}
+            try:
+                self._quarantine.guard(profile)
+            except NativeCrashQuarantinedError:
+                continue
+            return profile
+        raise NativeCpuRecoveryUnavailable("All same-model CPU recovery profiles are quarantined")
 
     def snapshot(self) -> dict[str, dict[str, Any]]:
         return {key: dict(value) for key, value in self._states.items()}
@@ -189,7 +208,7 @@ class NativeCpuRecovery:
                 profile = await asyncio.to_thread(self._profile_getter)
                 if profile.get("provider") in {"cpu", "intel_cpu", "tflite"}:
                     raise NativeCpuRecoveryUnavailable("The failing profile already uses CPU")
-                cpu_profile = profile | {"provider": "cpu"}
+                cpu_profile = await asyncio.to_thread(self._cpu_profile, profile)
                 if cpu_profile != self._profile:
                     await self._close_worker()
                     self._profile = cpu_profile

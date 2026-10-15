@@ -5,7 +5,7 @@ import sys
 import pytest
 
 from app.services.native_cpu_recovery import NativeCpuRecovery, NativeCpuRecoveryUnavailable
-from app.services.native_crash_quarantine import NativeCrashQuarantine
+from app.services.native_crash_quarantine import NativeCrashQuarantine, NativeCrashQuarantinedError
 
 
 PROFILE = {
@@ -71,6 +71,89 @@ async def classify(recovery, priority="live", timeout=1):
         timeout_seconds=timeout,
         payload={"image_b64": "unused", "camera_name": None, "model_id": None},
     )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("validated,expected", [(["intel_cpu", "cpu"], "intel_cpu"), (["cpu"], "cpu"), ([], "cpu")])
+async def test_recovery_prefers_current_artifact_validated_intel_cpu(tmp_path, monkeypatch, validated, expected):
+    from app.services import model_validation
+
+    seen = []
+
+    def eligible(model_id, *, artifact_sha256):
+        seen.append((model_id, artifact_sha256))
+        return validated
+
+    monkeypatch.setattr(model_validation, "host_eligible_providers", eligible)
+    profile = PROFILE | {"model_runtime": "onnx"}
+    policy = NativeCrashQuarantine(lambda: profile, root=tmp_path)
+    policy.record(profile, -signal.SIGSEGV)
+    worker = Worker()
+    worker.runtime.update(
+        active_provider=expected, inference_backend="openvino" if expected == "intel_cpu" else "onnxruntime"
+    )
+    runner = NativeCpuRecovery(lambda: dict(profile), policy, worker_factory=lambda: worker)
+    try:
+        assert await classify(runner)
+        assert runner._profile["provider"] == expected
+        assert runner.snapshot()["live"]["runtime"]["active_provider"] == expected
+        assert seen == [(PROFILE["model_id"], PROFILE["model_sha256"])]
+        with pytest.raises(NativeCrashQuarantinedError):
+            policy.guard(profile)
+    finally:
+        await runner.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_recovery_skips_quarantined_intel_cpu_without_clearing_its_evidence(tmp_path, monkeypatch):
+    from app.services import model_validation
+    from app.services.native_crash_quarantine import NativeCrashQuarantinedError
+
+    monkeypatch.setattr(model_validation, "host_eligible_providers", lambda *_args, **_kwargs: ["intel_cpu", "cpu"])
+    profile = PROFILE | {"model_runtime": "onnx"}
+    policy = NativeCrashQuarantine(lambda: profile, root=tmp_path)
+    policy.record(profile | {"provider": "intel_cpu"}, -signal.SIGABRT)
+    worker = Worker()
+    runner = NativeCpuRecovery(lambda: dict(profile), policy, worker_factory=lambda: worker)
+    try:
+        assert await classify(runner)
+        assert runner._profile["provider"] == "cpu"
+        with pytest.raises(NativeCrashQuarantinedError):
+            policy.guard(profile | {"provider": "intel_cpu"})
+    finally:
+        await runner.shutdown()
+
+
+@pytest.mark.parametrize("change", [{"model_runtime": "tflite"}, {"model_id": None}, {"model_sha256": None}])
+def test_recovery_does_not_apply_intel_validation_to_unidentified_or_non_onnx_artifact(tmp_path, monkeypatch, change):
+    from app.services import model_validation
+
+    def unexpected_validation(*_args, **_kwargs):
+        pytest.fail("No artifact-specific Intel CPU lookup should be made")
+
+    monkeypatch.setattr(model_validation, "host_eligible_providers", unexpected_validation)
+    profile = PROFILE | {"model_runtime": "onnx"} | change
+    policy = NativeCrashQuarantine(lambda: profile, root=tmp_path)
+    runner = NativeCpuRecovery(lambda: profile, policy)
+    assert runner._cpu_profile(profile) == profile | {"provider": "cpu"}
+
+
+@pytest.mark.asyncio
+async def test_all_cpu_profiles_quarantined_never_starts_another_worker(tmp_path, monkeypatch):
+    from app.services import model_validation
+
+    monkeypatch.setattr(model_validation, "host_eligible_providers", lambda *_args, **_kwargs: ["intel_cpu", "cpu"])
+    profile = PROFILE | {"model_runtime": "onnx"}
+    policy = NativeCrashQuarantine(lambda: profile, root=tmp_path)
+    for provider in ["intel_cpu", "cpu"]:
+        policy.record(profile | {"provider": provider}, -signal.SIGABRT)
+    worker = Worker()
+    runner = NativeCpuRecovery(lambda: dict(profile), policy, worker_factory=lambda: worker)
+    with pytest.raises(NativeCpuRecoveryUnavailable):
+        await classify(runner)
+    assert runner._worker is None
+    assert not worker.sent
+    assert len(list(tmp_path.glob("*.json"))) == 2
 
 
 @pytest.mark.asyncio
