@@ -96,7 +96,6 @@ def coarse_prediction_mass(
             or not isinstance(taxon.id, str)
             or not taxon.id
             or not isinstance(taxon.name, str)
-            or not taxon.name
             or not isinstance(taxon.ranks, tuple)
             or len(taxon.ranks) != 5
             or any(not isinstance(rank, str) for rank in taxon.ranks)
