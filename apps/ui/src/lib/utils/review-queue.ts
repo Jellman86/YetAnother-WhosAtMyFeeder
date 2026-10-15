@@ -31,6 +31,8 @@ export interface ReviewQueueOptions {
     limit?: number;
     /** Latest sightings of species with no confirmed history here. */
     newSpecies?: readonly NewSpeciesEntry[];
+    /** Known history can hold owner decisions outside the desk's time window. */
+    knownDetections?: readonly Detection[];
 }
 
 function isOpen(detection: Detection, reviewThreshold: number | null): boolean {
@@ -57,7 +59,7 @@ function oldestFirst(left: Detection, right: Detection): number {
  */
 export function buildReviewQueue(
     detections: readonly Detection[],
-    { reviewThreshold, limit = REVIEW_QUEUE_PREVIEW_LIMIT, newSpecies = [] }: ReviewQueueOptions
+    { reviewThreshold, limit = REVIEW_QUEUE_PREVIEW_LIMIT, newSpecies = [], knownDetections = detections }: ReviewQueueOptions
 ): ReviewQueue {
     const open = detections.filter((detection) => isOpen(detection, reviewThreshold)).sort(oldestFirst);
 
@@ -66,7 +68,7 @@ export function buildReviewQueue(
     for (const detection of open) reasons.set(detection.frigate_event, 'low_score');
 
     const seen = new Set(open.map((detection) => detection.frigate_event));
-    const currentDetections = new Map(detections.map(detection => [detection.frigate_event, detection]));
+    const currentDetections = new Map(knownDetections.map(detection => [detection.frigate_event, detection]));
     const newcomers: Detection[] = [];
     for (const entry of newSpecies) {
         const detection = currentDetections.get(entry.detection.frigate_event) ?? entry.detection;

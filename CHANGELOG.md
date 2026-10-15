@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Saved species choices also clear historical new-species entries from the
+  dashboard queue when the visit falls outside its 24-hour window. Unreviewed
+  historical newcomers remain available for review (#732).
+
 - Garden photo checks no longer fail on valid catalogue entries without an
   English common name.
 

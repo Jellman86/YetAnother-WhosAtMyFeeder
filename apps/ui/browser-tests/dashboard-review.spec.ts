@@ -1,11 +1,11 @@
 import { expect, test } from '@playwright/test';
 
-for (const fails of [false, true]) {
-    test(`dashboard queue ${fails ? 'keeps a failed decision pending' : 'clears saved whole-view choices without refresh or SSE'}`, async ({ page }) => {
+for (const { fails, ageHours } of [{ fails: false, ageHours: 0 }, { fails: true, ageHours: 0 }, { fails: false, ageHours: 48 }]) {
+    test(`dashboard queue ${fails ? 'keeps a failed decision pending' : 'clears saved whole-view choices without refresh or SSE'} at ${ageHours} hours old`, async ({ page }) => {
         const records = ['Dunnock', 'European Robin'].map((name, index) => ({
             frigate_event: `review-${index}`, display_name: name, common_name: name,
             category_name: name, camera_name: 'birdcam',
-            detection_time: new Date(Date.now() - (index + 1) * 60000).toISOString(),
+            detection_time: new Date(Date.now() - ageHours * 3600000 - (index + 1) * 60000).toISOString(),
             score: 0.98, manual_tagged: false,
             classification_input: { source: 'recording_frame', is_cropped: false },
             initial_classification_input: { source: 'recording_frame', is_cropped: false }

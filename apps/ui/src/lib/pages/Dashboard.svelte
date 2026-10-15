@@ -211,7 +211,7 @@
     });
 
     // Detections still waiting on a person, oldest first.
-    let reviewQueue = $derived(buildReviewQueue(deskDetections, { reviewThreshold, newSpecies: newSpeciesEntries }));
+    let reviewQueue = $derived(buildReviewQueue(deskDetections, { reviewThreshold, newSpecies: newSpeciesEntries, knownDetections: detectionsStore.detections }));
 
     // Derive reclassification progress for the modal
     let modalReclassifyProgress = $derived(
@@ -677,7 +677,8 @@
     {@const fullQueue = buildReviewQueue(deskDetections, {
         reviewThreshold,
         limit: Number.MAX_SAFE_INTEGER,
-        newSpecies: newSpeciesEntries
+        newSpecies: newSpeciesEntries,
+        knownDetections: detectionsStore.detections
     })}
     <ReviewQueueModal
         onbirdschanged={handleBirdsChanged}
