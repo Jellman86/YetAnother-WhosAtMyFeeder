@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Garden developer comparisons now assess paired detector evidence against the
+  actual saved box, preserving whole-window person vetoes and distinguishing
+  unknown or ambiguous annotations from measured errors. The offline diagnostic
+  does not change the running detector or review history.
+
 - Useful bird portraits no longer fall back to a whole scene when a second crop
   is available. A qualified portrait of the exact displayed scene can also
   improve an automatic photo's framing; owner choices and uncertain crops stay protected.

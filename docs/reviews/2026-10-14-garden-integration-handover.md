@@ -2,6 +2,31 @@
 
 ## Follow-through on 15 October
 
+### Detector comparison
+
+A fresh paired CPU run on the exact nine sampled frames of one retained daytime
+squirrel visit confirmed Cedar's false person veto. Keeping Cedar animal boxes
+but substituting the fixed YOLOE26s person output would recover two of three
+windows; the first has no qualifying animal box. Both detectors reject the
+separate late-person video control. These are explored regression controls,
+not independent accuracy or local infrared privacy qualification.
+
+The eight current pending retained photos contain visible birds on the lawn.
+Full-frame YOLOE results on these downscaled photos do not support the proposed
+high-confidence bird filter. A fixed candidate-crop experiment also produces
+competing mammal labels on visible birds. Keep uncertain candidates for review;
+neither experiment qualifies a live filter or a person-detector replacement.
+Retained photos and original video frames are different input strata.
+
+The [paired evidence assessment tool](../development/garden-replay.md#compare-paired-detector-evidence)
+now checks saved-box outcomes, ambiguous annotations and physical split leakage
+without running inference or changing production. Next qualification needs
+independent small/distant birds, daytime/infrared mammals, mixed scenes and
+local person controls. Preserve the current whole-window privacy veto and bird
+priority while collecting that evidence; keep #641 open.
+
+### Accepted regression fixes
+
 The grouping, review feedback, stack dismissal and dashboard queue fixes are now
 deployed and verified in Chromium and WebKit without changing owner decisions.
 The pause and deployment sections below describe earlier checkpoints.
