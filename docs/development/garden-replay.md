@@ -46,6 +46,52 @@ state. Compare boxes to human annotations and review negatives; confidence is
 not measured accuracy. Public camera-trap results do not establish Patio recall,
 and repeated windows from one animal are correlated observations.
 
+## Compare paired detector evidence
+
+Use `assess_garden_detector_evidence.py` to assess frozen inference results before
+changing the motion collector. This offline tool runs no models, downloads nothing
+and cannot change settings, photos or review history.
+
+```bash
+python backend/scripts/assess_garden_detector_evidence.py \
+  --evidence /private/paired-evidence.json \
+  --output /private/new-comparison.json
+```
+
+The version-1 JSON input requires both model checksums, ordered labels and group
+mappings, reported providers, extraction score floors and the shared
+`rgb-f32-nchw-640-letterbox114` input contract. The head contract is
+`raw-bcn-classwise-nms-0.45`. Every window supplies all three chronological
+samples, binding each model result to the same source, RGB and tensor checksums.
+See the [small test fixture](../../backend/tests/test_garden_paired_evidence.py)
+for the complete schema. The baseline retains Cedar's animal/person/vehicle
+mapping; the alternative distinguishes birds, mammals and people.
+
+The report compares the baseline with an alternative whole-window person veto
+and an experimental per-candidate bird filter. Fixed research thresholds are
+0.63 for animals, 0.2 for people and 0.8 for birds, with 0.5 intersection-over-union
+for matching. Any alternative mammal score of at least 0.2 whose box intersects
+the candidate prevents bird suppression. These are replay policies, not new
+application settings or qualified defaults.
+
+Review annotations bind to each RGB checksum and declare whether they are
+complete. Missing evidence stays unknown; poor localization and mixed overlapping
+annotations stay ambiguous. The report scores the box that would be saved,
+separately records other localized mammals, and counts suppressed candidates by
+reviewed truth. A person in any sample vetoes the whole window before selection.
+
+Assign related windows to one visit group and one development/holdout split.
+Duplicate physical windows, conflicting frame identities and RGB evidence shared
+across splits are rejected. Declared visit groups do not prove independent visits.
+Provider strings are producer reports, not proof of device execution: retain
+separate native receipts. Keep source licences, weight provenance and independent
+daytime/infrared person and animal qualification alongside the private evidence.
+
+Inputs are limited to 16 MiB. A successful run creates a new mode-0600 report
+without photographs and hashes the exact input bytes; an existing report is never
+overwritten. It does not qualify Frigate vetoes, queues, storage, field accuracy
+or a production privacy-detector replacement.
+
 ## Earlier classifier prototype
 
 This developer tool evaluates local captures without connecting to MQTT, Frigate,
