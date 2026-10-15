@@ -363,6 +363,12 @@ cold load and inference must all fit the workload deadline. CPU may be unavailab
 too slow; a successful load alone is not recovery. Successful CPU inference leaves health degraded
 and preserves the original crash evidence. The saved accelerator preference is unchanged.
 
+For ONNX models, recovery prefers OpenVINO Intel CPU when the current host and
+packaged runtime have passing validation for that exact artifact. Otherwise it
+uses standard CPU recovery. A previously crashed Intel CPU configuration remains
+quarantined and is skipped. Recovery keeps crop detection on isolated standard
+CPU; it does not retry the failed accelerator or change its saved settings.
+
 Caller cancellation permits a later attempt; a completed failed attempt is not repeatedly retried
 for that workload until configuration changes or the process restarts. A native CPU crash is also
 quarantined. Selecting another independently validated provider can be a mitigation. Restarting or

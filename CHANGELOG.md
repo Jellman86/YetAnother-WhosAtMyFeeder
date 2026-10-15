@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Isolated recovery after an accelerator crash now prefers Intel CPU when this
+  host has validated that exact ONNX model. Other installations retain standard
+  CPU recovery. Crash quarantine, artifact checks and workload deadlines remain
+  enforced (#712). Thanks to @aav7fl for the diagnostic bundles.
+
 - Garden stacks now show a direct **Dismiss remaining … photos** button. Scan with
   Next and confirm individual animal photos, then dismiss the remaining stack in
   one action. Confirmation advances to the next photo, saved feedback stays
