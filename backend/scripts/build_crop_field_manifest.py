@@ -9,6 +9,7 @@ the only safe way to use a moving event box as a localisation reference.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sqlite3
 from collections import defaultdict
@@ -179,6 +180,8 @@ def build_manifest(
                 "bucket": "quark_feeder_real",
                 "source": "cached_hq_full_frame_with_frame_specific_frigate_hint",
                 "image_path": str(item["image_path"]),
+                "image_sha256": hashlib.sha256(item["image_path"].read_bytes()).hexdigest(),
+                "annotation_verified": False,
                 "boxes": [item["box"]],
                 "frame_index": item["frame_index"],
                 "expected_labels": item["expected_labels"] if item["manual"] else [],
@@ -212,6 +215,8 @@ def build_manifest(
                 "bucket": "quark_hard_negative",
                 "source": "real_frame_region_excluding_frame_specific_hint",
                 "image_path": str(output_path),
+                "image_sha256": hashlib.sha256(output_path.read_bytes()).hexdigest(),
+                "annotation_verified": False,
                 "boxes": [],
                 "tags": ["hard_negative", "feeder_clutter", "foliage_or_hardware"],
                 "notes": (

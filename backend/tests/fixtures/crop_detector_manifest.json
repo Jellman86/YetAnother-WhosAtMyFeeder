@@ -1,6 +1,6 @@
 {
-  "_comment": "Initial mixed crop-detector benchmark set. feeder_real boxes come from Frigate event metadata. reference_clean boxes are manually curated tight bird boxes.",
-  "version": "1",
+  "_comment": "Diagnostic controls with visually reviewed visible-bird boxes bound to the exact committed JPEGs. Legacy event-coordinate boxes were corrected against these photos. Previously explored controls, not an independent accuracy holdout; foreground target only in the two-duck image.",
+  "version": "2",
   "cases": [
     {
       "id": "feeder_bluetit_01",
@@ -8,9 +8,17 @@
       "source": "frigate_birdcam",
       "image_path": "backend/tests/fixtures/crop_detector_images/feeder_real/feeder_bluetit_01.jpg",
       "boxes": [
-        { "x1": 219, "y1": 316, "x2": 335, "y2": 410 }
+        {
+          "x1": 270,
+          "y1": 374,
+          "x2": 361,
+          "y2": 464
+        }
       ],
-      "notes": "Frigate event 1776276549.97826-8tf31f"
+      "notes": "Frigate event 1776276549.97826-8tf31f",
+      "image_sha256": "9f659bc3a47011ef7a5410ffb8dfa5a3afd9a6b9bce7e902e92cc8362e66e57d",
+      "annotation_verified": true,
+      "annotation_source": "visual_review_2026-10-15"
     },
     {
       "id": "feeder_bluetit_02",
@@ -18,9 +26,17 @@
       "source": "frigate_birdcam",
       "image_path": "backend/tests/fixtures/crop_detector_images/feeder_real/feeder_bluetit_02.jpg",
       "boxes": [
-        { "x1": 206, "y1": 350, "x2": 292, "y2": 417 }
+        {
+          "x1": 230,
+          "y1": 382,
+          "x2": 340,
+          "y2": 454
+        }
       ],
-      "notes": "Frigate event 1776172158.477604-si5lts"
+      "notes": "Frigate event 1776172158.477604-si5lts",
+      "image_sha256": "f6ec4fe483299c58e1242802811425e1330905cb3b8ccd7a1f9c5a325088b141",
+      "annotation_verified": true,
+      "annotation_source": "visual_review_2026-10-15"
     },
     {
       "id": "feeder_pigeon_01",
@@ -28,9 +44,17 @@
       "source": "frigate_birdcam",
       "image_path": "backend/tests/fixtures/crop_detector_images/feeder_real/feeder_pigeon_01.jpg",
       "boxes": [
-        { "x1": 475, "y1": 125, "x2": 554, "y2": 231 }
+        {
+          "x1": 514,
+          "y1": 187,
+          "x2": 592,
+          "y2": 288
+        }
       ],
-      "notes": "Frigate event 1776234541.086325-0ev9fx"
+      "notes": "Frigate event 1776234541.086325-0ev9fx",
+      "image_sha256": "3e1df5e15c22da201dbb6f9abbabe5d153af0995fd7de83911d6485fc8522e90",
+      "annotation_verified": true,
+      "annotation_source": "visual_review_2026-10-15"
     },
     {
       "id": "feeder_robin_01",
@@ -38,9 +62,17 @@
       "source": "frigate_birdcam",
       "image_path": "backend/tests/fixtures/crop_detector_images/feeder_real/feeder_robin_01.jpg",
       "boxes": [
-        { "x1": 190, "y1": 307, "x2": 321, "y2": 382 }
+        {
+          "x1": 248,
+          "y1": 342,
+          "x2": 387,
+          "y2": 424
+        }
       ],
-      "notes": "Frigate event 1776062154.466315-wzh0rw"
+      "notes": "Frigate event 1776062154.466315-wzh0rw",
+      "image_sha256": "80d77f1c07bd1f5609bd38d004788db99d873d4096c923c7ef6838fbca82c179",
+      "annotation_verified": true,
+      "annotation_source": "visual_review_2026-10-15"
     },
     {
       "id": "reference_american_robin_01",
@@ -48,8 +80,16 @@
       "source": "inat_fixture",
       "image_path": "backend/tests/fixtures/crop_detector_images/reference_clean/reference_american_robin_01.jpg",
       "boxes": [
-        { "x1": 58, "y1": 134, "x2": 142, "y2": 243 }
-      ]
+        {
+          "x1": 75,
+          "y1": 201,
+          "x2": 160,
+          "y2": 340
+        }
+      ],
+      "image_sha256": "9e5b72d4abc7525f2fe915d3e8cfe1669e85ce82d60b4dd2c33c0b6e8607c7ac",
+      "annotation_verified": true,
+      "annotation_source": "visual_review_2026-10-15"
     },
     {
       "id": "reference_blue_jay_01",
@@ -57,8 +97,16 @@
       "source": "inat_fixture",
       "image_path": "backend/tests/fixtures/crop_detector_images/reference_clean/reference_blue_jay_01.jpg",
       "boxes": [
-        { "x1": 133, "y1": 26, "x2": 500, "y2": 321 }
-      ]
+        {
+          "x1": 52,
+          "y1": 39,
+          "x2": 451,
+          "y2": 381
+        }
+      ],
+      "image_sha256": "376c0be31dd771690d08498ca61839ac75901ba9cbfeee32b609f3e0e2ea49f6",
+      "annotation_verified": true,
+      "annotation_source": "visual_review_2026-10-15"
     },
     {
       "id": "reference_mallard_01",
@@ -66,8 +114,16 @@
       "source": "inat_fixture",
       "image_path": "backend/tests/fixtures/crop_detector_images/reference_clean/reference_mallard_01.jpg",
       "boxes": [
-        { "x1": 52, "y1": 0, "x2": 390, "y2": 324 }
-      ]
+        {
+          "x1": 128,
+          "y1": 38,
+          "x2": 383,
+          "y2": 333
+        }
+      ],
+      "image_sha256": "df091ed26ba04201bd21ac6a2d8abdb1a188a50c8148beb4f0a4e97a4fd0cb25",
+      "annotation_verified": true,
+      "annotation_source": "visual_review_2026-10-15"
     },
     {
       "id": "reference_rock_pigeon_01",
@@ -75,8 +131,16 @@
       "source": "inat_fixture",
       "image_path": "backend/tests/fixtures/crop_detector_images/reference_clean/reference_rock_pigeon_01.jpg",
       "boxes": [
-        { "x1": 192, "y1": 216, "x2": 375, "y2": 499 }
-      ]
+        {
+          "x1": 122,
+          "y1": 251,
+          "x2": 362,
+          "y2": 402
+        }
+      ],
+      "image_sha256": "daafa125cdefcf159eebe9cd121ed2a89cad683294d08fe23fb2809fa98a344a",
+      "annotation_verified": true,
+      "annotation_source": "visual_review_2026-10-15"
     }
   ]
 }

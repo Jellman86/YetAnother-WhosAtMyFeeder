@@ -343,3 +343,16 @@ before a newly downloaded file is accepted. Do not run concurrent refresh writer
 This locks the local selection, not a release accuracy benchmark. Labels and image
 quality still need review, a portable curated manifest must be committed, and the
 same corpus must be compared against a previous release before setting thresholds.
+
+Crop localization evaluation also binds each annotation to `image_sha256` and
+requires `annotation_verified: true` after visual review of that exact image.
+`eval_crop_detector_accuracy.py` rejects missing checksums, changed bytes and
+out-of-frame boxes before loading a detector. It decodes the verified bytes so a
+cache replacement cannot change the photograph between checking and inference.
+The committed eight-image panel contains corrected visible-bird boxes; these are
+previously explored diagnostic controls, not an independent accuracy holdout.
+
+`build_crop_field_manifest.py` records checksums but leaves annotations unverified.
+Inspect each positive box and negative region, correct them where needed, then
+mark the reviewed cases verified. A Frigate event box or a region outside that box
+alone does not establish bird presence or absence in the photograph.

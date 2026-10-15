@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import sqlite3
 from pathlib import Path
 
@@ -100,4 +101,7 @@ def test_build_manifest_joins_full_frame_to_same_frame_hint(tmp_path: Path):
         "classifier_score": 0.9,
     }
     assert Path(negative["image_path"]).is_file()
+    for case in (positive, negative):
+        assert case["image_sha256"] == hashlib.sha256(Path(case["image_path"]).read_bytes()).hexdigest()
+        assert case["annotation_verified"] is False
     assert json.loads((output / "manifest.json").read_text()) == manifest
