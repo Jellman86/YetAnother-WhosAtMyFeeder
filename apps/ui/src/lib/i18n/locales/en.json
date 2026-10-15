@@ -2448,6 +2448,7 @@
     "search_species": "Search species",
     "species_updated": "Species updated",
     "bird_scan": {
+      "ambiguous_localization": "Could not distinguish separate birds in this frame. Existing findings are kept. Try another whole frame.",
       "action": "Find more birds",
       "again": "Scan again",
       "detector_unavailable": "Install a crop detector to find additional birds.",

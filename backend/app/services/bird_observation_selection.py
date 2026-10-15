@@ -29,6 +29,7 @@ class BirdObservationSelection:
     frame_index: int | None
     full_frame_candidate_id: str | None
     birds: tuple[BirdObservation, ...]
+    ambiguity_reason: str | None = None
 
 
 def _finite_score(value: Any) -> float | None:
@@ -116,9 +117,13 @@ def select_bird_observations(
         return BirdObservationSelection(None, None, None, ())
 
     distinct_by_frame: dict[tuple[str, int], list[tuple[dict[str, Any], tuple[float, float, float, float]]]] = {}
+    ambiguous_frames: set[tuple[str, int]] = set()
     for frame, items in by_frame.items():
         boxes = [box for _, box in items]
-        items = [(candidate, box) for candidate, box in items if not _encloses_distinct_birds(box, boxes)]
+        # The same geometry can be two birds inside a group box or two parts of
+        # one bird. Neither detector nor contextual species scores resolve it.
+        if any(_encloses_distinct_birds(box, boxes) for box in boxes):
+            ambiguous_frames.add(frame)
         distinct: list[tuple[dict[str, Any], tuple[float, float, float, float]]] = []
         for candidate, box in sorted(
             items, key=lambda pair: _finite_score(pair[0].get("crop_confidence")) or 0.0, reverse=True
@@ -130,8 +135,9 @@ def select_bird_observations(
         distinct_by_frame[frame] = distinct
 
     selected_frame = _frame_key(selected_candidate) if selected_candidate else None
+    clear_frames = [frame for frame, items in distinct_by_frame.items() if items and frame not in ambiguous_frames]
     anchor = max(
-        distinct_by_frame,
+        clear_frames or distinct_by_frame,
         key=lambda frame: (
             len(distinct_by_frame[frame]),
             frame == selected_frame,
@@ -143,6 +149,14 @@ def select_bird_observations(
         (item for item in candidates if item.get("source_mode") == "full_frame" and _frame_key(item) == anchor),
         None,
     )
+    if anchor in ambiguous_frames:
+        return BirdObservationSelection(
+            anchor[0],
+            anchor[1],
+            str(full_frame.get("candidate_id") or "") if full_frame else None,
+            (),
+            "ambiguous_localization",
+        )
     birds = []
     for candidate, box in sorted(distinct_by_frame[anchor], key=lambda pair: (pair[1][0], pair[1][1])):
         score = _finite_score(candidate.get("classifier_score")) or 0.0

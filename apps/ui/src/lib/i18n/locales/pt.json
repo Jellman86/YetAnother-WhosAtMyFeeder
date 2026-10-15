@@ -2448,6 +2448,7 @@
     "search_species": "Procurar espécie",
     "species_updated": "Espécie atualizada",
     "bird_scan": {
+      "ambiguous_localization": "Não foi possível distinguir aves individuais neste fotograma. Os resultados existentes são mantidos. Experimente outro fotograma completo.",
       "action": "Encontrar mais aves",
       "again": "Analisar novamente",
       "detector_unavailable": "Instale um detector de recortes para encontrar mais aves.",

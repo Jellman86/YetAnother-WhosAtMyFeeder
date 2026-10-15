@@ -8,7 +8,14 @@ import aiosqlite
 
 
 SAFE_SCAN_ERRORS = frozenset(
-    {"scan_failed", "media_changed", "reviewed_other_frame", "interrupted", "detection_removed"}
+    {
+        "scan_failed",
+        "media_changed",
+        "reviewed_other_frame",
+        "interrupted",
+        "detection_removed",
+        "ambiguous_localization",
+    }
 )
 _INPUT_COLUMNS = "candidate_id,image_ref,content_sha256,media_version,clip_variant,frame_index"
 
@@ -135,6 +142,8 @@ class BirdScanRepository:
         commit: bool = True,
     ) -> bool:
         _validate_count(result_count)
+        if error == "ambiguous_localization":
+            raise ValueError("An ambiguous localization cannot publish an exact count")
         return await self._finish(
             event_id,
             revision,
@@ -226,7 +235,7 @@ class BirdScanRepository:
         ) as cursor:
             return [_job(row, cursor.description) for row in await cursor.fetchall()]
 
-    async def record_automatic_completed(
+    async def record_automatic_outcome(
         self,
         event_id: str,
         *,
@@ -238,35 +247,45 @@ class BirdScanRepository:
         frame_index: int,
         expected_revision: int | None,
         expected_generation: str | None,
-        result_count: int,
+        result_count: int | None,
         retained_previous: bool,
         error: str | None = None,
         commit: bool = True,
     ) -> bool:
         """Publish automatic evidence only against state observed before its scan.
 
-        None means no job existed before scanning. Existing active work always
+        A null result with ambiguous_localization records uncertainty, never zero.
+        A null expected revision means no job existed before scanning. Active work always
         wins; every transition changes its revision, including manual completion.
         """
-        _validate_count(result_count)
+        if result_count is None:
+            if error != "ambiguous_localization":
+                raise ValueError("An uncertain automatic count needs a localization reason")
+            status = "failed"
+        else:
+            _validate_count(result_count)
+            if error == "ambiguous_localization":
+                raise ValueError("An ambiguous localization cannot publish an exact count")
+            status = "completed"
         if (expected_revision is None) != (expected_generation is None):
             raise ValueError("An existing scan needs both its generation and revision")
         inputs = (candidate_id, image_ref, content_sha256, media_version, clip_variant, frame_index)
         if expected_revision is None:
             query = f"""INSERT INTO bird_scan_jobs(frigate_event,generation,{_INPUT_COLUMNS},status,result_count,
                     retained_previous,error,completed_at)
-                SELECT frigate_event,?,?,?,?,?,?,?,'completed',?,?,?,CURRENT_TIMESTAMP
+                SELECT frigate_event,?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP
                 FROM detections WHERE frigate_event=? ON CONFLICT(frigate_event) DO NOTHING
                 RETURNING frigate_event"""
-            params = (uuid4().hex, *inputs, result_count, int(retained_previous), _safe_error(error), event_id)
+            params = (uuid4().hex, *inputs, status, result_count, int(retained_previous), _safe_error(error), event_id)
         else:
             assignments = ",".join(f"{column}=?" for column in _INPUT_COLUMNS.split(","))
-            query = f"""UPDATE bird_scan_jobs SET {assignments},status='completed',revision=revision+1,
+            query = f"""UPDATE bird_scan_jobs SET {assignments},status=?,revision=revision+1,
                 result_count=?,retained_previous=?,error=?,created_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP,
                 started_at=NULL,completed_at=CURRENT_TIMESTAMP
                 WHERE frigate_event=? AND revision=? AND generation=? AND status IN ('completed','failed') RETURNING frigate_event"""
             params = (
                 *inputs,
+                status,
                 result_count,
                 int(retained_previous),
                 _safe_error(error),

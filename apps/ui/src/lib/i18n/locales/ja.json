@@ -2438,6 +2438,7 @@
     "search_species": "種を検索",
     "species_updated": "種を更新しました",
     "bird_scan": {
+      "ambiguous_localization": "このフレームでは鳥を個別に区別できませんでした。既存の結果は保持されます。別の全体フレームを試してください。",
       "action": "ほかの鳥を探す",
       "again": "再スキャン",
       "detector_unavailable": "ほかの鳥を探すには、切り抜き用の検出モデルをインストールしてください。",

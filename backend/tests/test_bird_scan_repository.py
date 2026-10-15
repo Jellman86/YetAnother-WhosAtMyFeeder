@@ -19,6 +19,38 @@ INPUT = dict(
 )
 
 
+@pytest.mark.asyncio
+async def test_manual_completion_refuses_an_exact_count_with_an_ambiguity_error(repo):
+    await repo.enqueue("scan-test-one", **INPUT)
+    job = await repo.claim_next()
+    with pytest.raises(ValueError):
+        await repo.complete(
+            job.event_id,
+            job.revision,
+            expected_generation=job.generation,
+            result_count=0,
+            retained_previous=False,
+            error="ambiguous_localization",
+        )
+    assert (await repo.get(job.event_id)).status == "running"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("count,error", [(None, None), (0, "ambiguous_localization")])
+async def test_automatic_count_and_ambiguity_reason_cannot_contradict_each_other(repo, count, error):
+    with pytest.raises(ValueError):
+        await repo.record_automatic_outcome(
+            "scan-test-one",
+            **INPUT,
+            expected_revision=None,
+            expected_generation=None,
+            result_count=count,
+            retained_previous=False,
+            error=error,
+        )
+    assert await repo.get("scan-test-one") is None
+
+
 @pytest_asyncio.fixture
 async def repo():
     await init_db()
@@ -161,7 +193,7 @@ async def test_deleted_detection_cannot_be_enqueued_or_completed(repo):
 
 @pytest.mark.asyncio
 async def test_automatic_completion_cannot_replace_active_or_newer_revision(repo):
-    assert await repo.record_automatic_completed(
+    assert await repo.record_automatic_outcome(
         "scan-test-one",
         **INPUT,
         expected_revision=None,
@@ -171,7 +203,7 @@ async def test_automatic_completion_cannot_replace_active_or_newer_revision(repo
     )
     first = await repo.get("scan-test-one")
     assert first.status == "completed"
-    assert not await repo.record_automatic_completed(
+    assert not await repo.record_automatic_outcome(
         first.event_id,
         **INPUT,
         expected_revision=None,
@@ -180,7 +212,7 @@ async def test_automatic_completion_cannot_replace_active_or_newer_revision(repo
         retained_previous=False,
     )
     await repo.enqueue(first.event_id, **INPUT, force=True)
-    assert not await repo.record_automatic_completed(
+    assert not await repo.record_automatic_outcome(
         first.event_id,
         **INPUT,
         expected_revision=first.revision,
@@ -192,7 +224,7 @@ async def test_automatic_completion_cannot_replace_active_or_newer_revision(repo
     assert await repo.complete(
         manual.event_id, manual.revision, expected_generation=manual.generation, result_count=3, retained_previous=False
     )
-    assert not await repo.record_automatic_completed(
+    assert not await repo.record_automatic_outcome(
         first.event_id,
         **INPUT,
         expected_revision=first.revision,
@@ -201,7 +233,7 @@ async def test_automatic_completion_cannot_replace_active_or_newer_revision(repo
         retained_previous=False,
     )
     assert (await repo.get(first.event_id)).result_count == 3
-    assert await repo.record_automatic_completed(
+    assert await repo.record_automatic_outcome(
         first.event_id,
         **{**INPUT, "candidate_id": "frame-2"},
         expected_revision=(await repo.get(first.event_id)).revision,
@@ -252,7 +284,7 @@ async def test_automatic_scan_started_during_manual_work_cannot_overwrite_finish
     assert await repo.complete(
         manual.event_id, manual.revision, expected_generation=manual.generation, result_count=4, retained_previous=False
     )
-    assert not await repo.record_automatic_completed(
+    assert not await repo.record_automatic_outcome(
         manual.event_id,
         **INPUT,
         expected_revision=manual.revision,
@@ -267,7 +299,7 @@ async def test_automatic_scan_started_during_manual_work_cannot_overwrite_finish
 async def test_automatic_completion_cannot_resurrect_deleted_detection(repo):
     await repo.db.execute("DELETE FROM detections WHERE frigate_event='scan-test-one'")
     await repo.db.commit()
-    assert not await repo.record_automatic_completed(
+    assert not await repo.record_automatic_outcome(
         "scan-test-one",
         **INPUT,
         expected_revision=None,
@@ -300,7 +332,7 @@ async def test_deleted_and_recreated_event_cannot_accept_old_worker_with_equal_r
         new.event_id, new.revision, expected_generation=new.generation, result_count=2, retained_previous=False
     )
     done = await repo.get(new.event_id)
-    assert not await repo.record_automatic_completed(
+    assert not await repo.record_automatic_outcome(
         new.event_id,
         **INPUT,
         expected_revision=done.revision,
@@ -314,7 +346,7 @@ async def test_deleted_and_recreated_event_cannot_accept_old_worker_with_equal_r
 @pytest.mark.asyncio
 async def test_automatic_publication_requires_complete_expected_identity(repo):
     with pytest.raises(ValueError, match="generation and revision"):
-        await repo.record_automatic_completed(
+        await repo.record_automatic_outcome(
             "scan-test-one",
             **INPUT,
             expected_revision=None,
@@ -323,7 +355,7 @@ async def test_automatic_publication_requires_complete_expected_identity(repo):
             retained_previous=False,
         )
     with pytest.raises(ValueError, match="generation and revision"):
-        await repo.record_automatic_completed(
+        await repo.record_automatic_outcome(
             "scan-test-one",
             **INPUT,
             expected_revision=1,

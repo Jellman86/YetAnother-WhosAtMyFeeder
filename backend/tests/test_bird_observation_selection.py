@@ -1,3 +1,7 @@
+from itertools import permutations
+
+import pytest
+
 from app.services.bird_observation_selection import select_bird_observations
 
 
@@ -124,13 +128,14 @@ def test_combining_guided_and_whole_frame_detections_does_not_count_a_bird_twice
     assert selection.birds[0].candidate_id == "observed"
 
 
-def test_enclosing_group_box_does_not_suppress_two_separately_localized_birds():
+def test_enclosing_group_cannot_prove_two_individuals_from_geometry_alone():
     group = crop("group", (0, 0, 200, 100), confidence=0.95, score=0.2)
     first = crop("first", (10, 10, 60, 60), confidence=0.7)
     second = crop("second", (130, 10, 180, 60), confidence=0.6)
     duplicate = crop("duplicate", (12, 12, 62, 62), confidence=0.65)
     selection = select_bird_observations([group, first, duplicate, second], selected_candidate=group)
-    assert [bird.candidate_id for bird in selection.birds] == ["first", "second"]
+    assert selection.ambiguity_reason == "ambiguous_localization"
+    assert selection.birds == ()
 
 
 def test_overlapping_duplicates_inside_a_large_box_do_not_imply_two_birds():
@@ -141,10 +146,79 @@ def test_overlapping_duplicates_inside_a_large_box_do_not_imply_two_birds():
     assert len(selection.birds) == 1
 
 
-def test_bridging_duplicate_does_not_hide_two_disjoint_birds_inside_a_group():
+def test_bridging_duplicate_does_not_resolve_the_competing_group_hypothesis():
     group = crop("group", (0, 0, 300, 100), confidence=0.95)
     first = crop("first", (10, 10, 110, 90), confidence=0.7)
     second = crop("second", (120, 10, 220, 90), confidence=0.6)
     bridge = crop("bridge", (60, 10, 170, 50), confidence=0.1)
     selection = select_bird_observations([group, first, second, bridge], selected_candidate=group)
-    assert [bird.candidate_id for bird in selection.birds] == ["first", "second"]
+    assert selection.ambiguity_reason == "ambiguous_localization"
+    assert selection.birds == ()
+
+
+@pytest.mark.parametrize(
+    "whole,first,second",
+    [
+        (
+            (55.12, 50.61, 450.79, 376.58, 0.713209),
+            (268.40, 306.07, 322.81, 346.60, 0.087016),
+            (146.14, 99.18, 375.73, 279.19, 0.084251),
+        ),
+        (
+            (50.23, 42.44, 448.87, 377.29, 0.926572),
+            (132.17, 125.24, 204.33, 192.75, 0.230634),
+            (150.67, 43.54, 254.26, 123.31, 0.091085),
+        ),
+    ],
+)
+def test_recorded_parts_never_become_an_exact_multiple_count_in_any_order(whole, first, second):
+    proposals = [
+        crop(name, values[:4], confidence=values[4], label="Unknown Bird", score=0)
+        for name, values in zip(("whole", "part1", "part2"), (whole, first, second))
+    ]
+    full = {"candidate_id": "scene", "source_mode": "full_frame", "clip_variant": "event", "frame_index": 1}
+    for ordered in permutations(proposals):
+        selection = select_bird_observations([*ordered, full], selected_candidate=None)
+        assert selection.birds == ()
+        assert selection.ambiguity_reason == "ambiguous_localization"
+        assert (selection.clip_variant, selection.frame_index, selection.full_frame_candidate_id) == (
+            "event",
+            1,
+            "scene",
+        )
+
+
+def test_disjoint_unknown_birds_without_competing_whole_box_still_count_separately():
+    proposals = [
+        crop("a", (10, 10, 60, 60), label="Unknown Bird", score=0),
+        crop("b", (130, 10, 180, 60), label="Unknown Bird", score=0),
+    ]
+    selection = select_bird_observations(proposals, selected_candidate=None)
+    assert [bird.candidate_id for bird in selection.birds] == ["a", "b"]
+    assert selection.ambiguity_reason is None
+
+
+def test_clear_alternate_frame_supplies_only_its_own_count_and_scene():
+    proposals = [
+        crop("group", (0, 0, 200, 100)),
+        crop("a", (10, 10, 60, 60)),
+        crop("b", (130, 10, 180, 60)),
+        crop("clear", (30, 30, 70, 70), frame_index=2),
+    ]
+    full = {"candidate_id": "clear-scene", "source_mode": "full_frame", "clip_variant": "event", "frame_index": 2}
+    selection = select_bird_observations([*proposals, full], selected_candidate=proposals[0])
+    assert [bird.candidate_id for bird in selection.birds] == ["clear"]
+    assert selection.ambiguity_reason is None
+    assert (selection.clip_variant, selection.frame_index, selection.full_frame_candidate_id) == (
+        "event",
+        2,
+        "clear-scene",
+    )
+
+
+def test_empty_alternate_frame_cannot_turn_ambiguous_localization_into_zero():
+    proposals = [crop("group", (0, 0, 200, 100)), crop("a", (10, 10, 60, 60)), crop("b", (130, 10, 180, 60))]
+    empty = {"candidate_id": "empty-scene", "source_mode": "full_frame", "clip_variant": "event", "frame_index": 2}
+    selection = select_bird_observations([*proposals, empty], selected_candidate=empty)
+    assert selection.birds == () and selection.ambiguity_reason == "ambiguous_localization"
+    assert selection.frame_index == 1

@@ -2438,6 +2438,7 @@
     "search_species": "Art suchen",
     "species_updated": "Art aktualisiert",
     "bird_scan": {
+      "ambiguous_localization": "Die einzelnen Vögel lassen sich in diesem Bild nicht eindeutig unterscheiden. Vorhandene Ergebnisse bleiben erhalten. Versuche ein anderes vollständiges Bild.",
       "action": "Weitere Vögel suchen",
       "again": "Erneut scannen",
       "detector_unavailable": "Installiere einen Ausschnittdetektor, um weitere Vögel zu finden.",

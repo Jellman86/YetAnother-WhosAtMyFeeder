@@ -17,6 +17,11 @@ outcomes. A completed species analysis does not prove that a suitable new photog
 - **Find more birds** scans one retained whole frame. **Scan again** repeats a scan without changing
   the chosen photo or the capture's primary identification, and keeps corrections and exclusions.
   An empty retry preserves earlier counted-bird records.
+- When a large detector box encloses several smaller regions, those regions might
+  be separate birds or parts of one bird. The scan reports that it could not
+  distinguish them and keeps existing findings. This is not a zero count; try
+  another retained whole frame. Species confidence alone cannot resolve the count
+  because a crop can include a nearby bird.
 - The scan reports queued and running states separately, then **find**, **name**, **count** and
   **save** progress. A waiting scan shows how many scans are ahead; a running button says
   **Scanning…**. A failed scan is distinct from a photo that has never been scanned.
