@@ -10,6 +10,21 @@ measurements use [Model Evaluation](model-evaluation.md); for October public and
 comparisons use the [integration validation report](../reviews/2026-10-10-model-integration-validation.md).
 Compatibility results measure agreement with CPU, not agreement with the true bird species.
 
+## Wildlife models and feeder admission
+
+Wildlife-wide models can identify mammals, plants and other non-birds. A confident
+result whose producing model checksum, output index and matching source label are
+catalogued as non-bird is rejected from automatic feeder bird history. The same
+check applies to backfill and later automatic or owner-requested model reanalysis,
+independently of Garden animals being enabled. A rejected winner does not promote
+a lower-ranked bird or a Frigate sublabel instead.
+
+Unknown group evidence retains the existing confidence rules; absence of bird
+ancestry alone does not prove a non-bird. The low-confidence **Unknown Bird**
+catch-all is unchanged. Existing sightings and explicit owner species choices are
+preserved. This safeguard does not identify animals for Garden review or prove
+that a photograph contains a bird.
+
 ---
 
 ## Benchmark Results

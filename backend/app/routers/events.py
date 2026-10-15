@@ -1388,6 +1388,7 @@ class ReclassifyResponse(BaseModel):
             "blocked_label",
             "abstention_label",
             "invalid_score",
+            "non_bird",
         ]
         | None
     ) = None
@@ -1914,7 +1915,7 @@ async def reclassify_event(
                 updated=False,
                 actual_strategy=effective_strategy,
             )
-        await svc.apply_video_result(
+        applied = await svc.apply_video_result(
             frigate_event=event_id,
             video_label=top["label"],
             video_score=top["score"],
@@ -1926,7 +1927,24 @@ async def reclassify_event(
             video_model_sha256=top.get("model_sha256"),
             video_input_source=top.get("input_source"),
             input_evidence=classification_evidence(top),
+            **({"admission_candidates": top["admission_candidates"]} if top.get("admission_candidates") else {}),
         )
+
+        from app.services.detection_service import NonBirdSaveRejection
+
+        if applied is False or isinstance(applied, NonBirdSaveRejection):
+            rejection_reason = "non_bird" if isinstance(applied, NonBirdSaveRejection) else "no_confident_result"
+            await broadcast_reclassification_completed([], "no_result", rejection_reason)
+            return ReclassifyResponse(
+                status="no_result",
+                reason=rejection_reason,
+                event_id=event_id,
+                old_species=old_species,
+                new_species=detection.display_name,
+                new_score=detection.score,
+                updated=False,
+                actual_strategy=effective_strategy,
+            )
 
         # Re-fetch updated detection for the response
         async with get_db() as db:

@@ -2267,6 +2267,7 @@
       "closing_soon": "まもなく閉じます"
     },
     "reclassification": {
+      "unchanged_reason_non_bird": "モデルが鳥以外を識別したため、既存の識別結果を保持しました。",
       "analysis": "解析",
       "ai_analysis": "AI解析",
       "frame_grid": "フレーム一覧",

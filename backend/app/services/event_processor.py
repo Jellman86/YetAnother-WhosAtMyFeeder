@@ -28,7 +28,7 @@ from app.services.classifier_service import (  # type: ignore[attr-defined]
 from app.services.high_quality_snapshot_service import high_quality_snapshot_service
 from app.services.media_cache import media_cache
 from app.services.frigate_client import frigate_client
-from app.services.detection_service import DetectionService
+from app.services.detection_service import DetectionService, NonBirdSaveRejection
 from app.services.audio.audio_service import audio_service
 from app.services.weather_service import weather_service
 from app.services.notification_orchestrator import NotificationOrchestrator
@@ -1786,7 +1786,7 @@ class EventProcessor:
         weather_fields = self._extract_weather_fields(context)
 
         # Save detection (upsert)
-        changed, was_inserted = await self.detection_service.save_detection(
+        outcome = await self.detection_service.save_detection(
             frigate_event=event.frigate_event,
             camera=event.camera,
             start_time=event.start_time_ts,
@@ -1807,7 +1807,10 @@ class EventProcessor:
             weather_snowfall=weather_fields["weather_snowfall"],
         )
 
-        return changed, was_inserted
+        if isinstance(outcome, NonBirdSaveRejection):
+            self._record_drop(event.frigate_event, "filter_non_bird", camera=event.camera)
+            return None
+        return outcome
 
     async def _handle_detection_post_commit(
         self,

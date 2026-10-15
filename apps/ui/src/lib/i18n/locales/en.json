@@ -2282,6 +2282,7 @@
       "final_result": "Final Result",
       "complete": "Complete",
       "unchanged_title": "Identification unchanged",
+      "unchanged_reason_non_bird": "The model identified a non-bird, so the existing identification was kept.",
       "unchanged_description": "No result cleared the confidence rules, so the existing identification was kept.",
       "unchanged_reason_no_source_consensus": "The sampled frames did not agree on one species strongly enough.",
       "unchanged_evidence": "Best evidence: {confident} of {independent} independent moments could vote; the leading species matched {supporting} and needed {required}.",

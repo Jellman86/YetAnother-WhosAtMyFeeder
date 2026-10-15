@@ -110,7 +110,7 @@ def test_the_seed_is_a_migrated_catalogue_with_one_active_release(built):
     assert {"alembic_version", "catalogue_releases", "species", "species_concepts", "species_names"} <= tables
 
     releases = _query(built, "SELECT state, schema_version FROM catalogue_releases")
-    assert releases == [("active", 1)]
+    assert releases == [("active", 2)]
 
 
 def test_every_reference_taxon_becomes_a_species_with_a_concept(built):
@@ -348,3 +348,41 @@ def test_the_committed_reference_builds_a_complete_seed(tmp_path):
     # Every species in the committed list has an English name, and so does every family.
     assert names == 87656 + 11276 + 254
     assert _query(output, "SELECT COUNT(*) FROM species_names WHERE language_tag = 'zh'")[0][0] > 10000
+
+
+def test_seed_keeps_verified_output_group_without_inventing_a_species_identity(tmp_path):
+    pinned = hashlib.sha256(b"the ioc workbook the manifest froze").hexdigest()
+    reference = _fixture_reference(tmp_path, source_sha256=pinned)
+    manifest = _manifest(tmp_path, pinned_sha256=pinned)
+    labels = [
+        "00000_Animalia_Chordata_Mammalia_Rodentia_Sciuridae_Sciurus_carolinensis",
+        "00001_Animalia_Chordata_Aves_Passeriformes_Muscicapidae_Erithacus_rubecula",
+    ]
+    checksum = hashlib.sha256(("\n".join(labels) + "\n").encode()).hexdigest()
+    mappings = tmp_path / "groups.json"
+    mappings.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "label_files": {
+                    checksum: {
+                        "label_format": "scientific_hierarchy",
+                        "output_width": 2,
+                        "outputs": [
+                            {"index": i, "kind": "species", "label": label, "unresolved": "no catalogue identity"}
+                            for i, label in enumerate(labels)
+                        ],
+                    }
+                },
+                "artifacts": [
+                    {"artifact_id": "test", "model_sha256": "a" * 64, "labels_sha256": checksum, "runtime": "onnx"}
+                ],
+            }
+        )
+    )
+    path = tmp_path / "grouped-seed.db"
+    seed_builder.build(reference, path, manifest_path=manifest, model_mappings_path=mappings)
+    assert _query(
+        path, "SELECT output_index,class_kind,species_id,taxonomic_group FROM model_output_taxa ORDER BY output_index"
+    ) == [(0, "unknown", None, "nonbird"), (1, "unknown", None, "bird")]
+    assert _query(path, "SELECT schema_version FROM catalogue_releases") == [(2,)]

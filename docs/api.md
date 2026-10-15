@@ -297,7 +297,7 @@ ended-event API ignores crop query overrides, so YA-WAMF must not run localisati
 the selected result has been persisted. A snapshot strategy with no promotable species returns HTTP
 200 with `status: "no_result"`, `updated: false`, and a bounded reason such as
 `no_confident_result`, `below_threshold`, `low_confidence`, `blocked_label`, `abstention_label`, or
-`invalid_score`; the existing species and score are returned unchanged. Media-fetch, decode, and
+`invalid_score`, or `non_bird`; the existing species and score are returned unchanged. Media-fetch, decode, and
 inference faults remain non-2xx errors.
 
 With `strategy=video`, the request performs temporal analysis whenever a usable video exists. The

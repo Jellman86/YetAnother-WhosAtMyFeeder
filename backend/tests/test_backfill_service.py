@@ -515,3 +515,30 @@ async def test_fetch_frigate_events_rejects_partial_results_at_page_budget(monke
         await service.fetch_frigate_events(after_ts=1000.0, before_ts=3000.0, cameras=["front"])
 
     assert calls == 2
+
+
+@pytest.mark.asyncio
+async def test_freshly_rejected_nonbird_never_caches_backfill_media(monkeypatch):
+    from app.services import detection_service as detection_module
+
+    classifier = MagicMock()
+    classifier.classify_async_background = AsyncMock(
+        return_value=[{"label": "Sciurus carolinensis", "score": 0.99, "index": 4844, "model_sha256": "a" * 64}]
+    )
+    service = BackfillService(classifier)
+    monkeypatch.setattr(detection_module.species_catalog_resolver, "cached_output_group", lambda *args: "unknown")
+    fresh = MagicMock(side_effect=["nonbird", "unknown"])
+    monkeypatch.setattr(detection_module.species_catalog_resolver, "fresh_output_group", fresh)
+    image = BytesIO()
+    Image.new("RGB", (8, 8), "white").save(image, format="JPEG")
+    monkeypatch.setattr(backfill_module.frigate_client, "get_snapshot", AsyncMock(return_value=image.getvalue()))
+    cache = AsyncMock()
+    monkeypatch.setattr(
+        backfill_module, "media_cache", MagicMock(cache_snapshot=cache, has_snapshot=MagicMock(return_value=False))
+    )
+    status, reason = await service.process_historical_event(
+        {"id": "evt-nonbird", "camera": "birdcam", "start_time": 1700000000}
+    )
+    assert (status, reason) == ("skipped", "non_bird")
+    cache.assert_not_awaited()
+    fresh.assert_called_once()

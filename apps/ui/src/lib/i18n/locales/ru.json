@@ -2277,6 +2277,7 @@
       "closing_soon": "Скоро закроется"
     },
     "reclassification": {
+      "unchanged_reason_non_bird": "Модель определила объект, не являющийся птицей, поэтому прежнее определение сохранено.",
       "analysis": "Анализ",
       "ai_analysis": "ИИ Анализ",
       "frame_grid": "Сетка кадров",

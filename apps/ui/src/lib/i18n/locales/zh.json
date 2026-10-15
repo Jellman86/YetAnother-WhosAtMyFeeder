@@ -2267,6 +2267,7 @@
       "closing_soon": "即将关闭"
     },
     "reclassification": {
+      "unchanged_reason_non_bird": "模型识别到的不是鸟类，因此保留了原有识别结果。",
       "analysis": "分析",
       "ai_analysis": "AI 分析",
       "frame_grid": "帧网格",

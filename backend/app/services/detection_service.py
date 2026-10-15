@@ -3,6 +3,7 @@ from app.services.classification_input_provenance import classification_evidence
 import os
 import asyncio
 import math
+from typing import Literal, NamedTuple
 from app.config import settings
 from app.models.classification_evidence import ClassificationEvidence
 from app.repositories.detection_repository import INITIAL_LABEL_SOURCE_FRIGATE_SUBLABEL, Detection, DetectionRepository
@@ -95,6 +96,16 @@ def _reportable_species(scientific_name: str | None) -> bool:
     return bool(scientific_name) and scientific_name != "Unknown Bird"
 
 
+class NonBirdSaveRejection(NamedTuple):
+    """Carry the admission decision while preserving two-value save callers."""
+
+    changed: Literal[False] = False
+    was_inserted: Literal[False] = False
+
+    def __bool__(self) -> Literal[False]:
+        return False
+
+
 class DetectionService:
     """
     Centralized service for processing and saving detections.
@@ -107,6 +118,39 @@ class DetectionService:
     def __init__(self, classifier: ClassifierService):
         self.classifier = classifier
         self.broadcaster = broadcaster
+
+    async def is_known_nonbird(self, classification: dict) -> bool:
+        # Skipped confident outputs remain admission evidence, never the
+        # producer identity of a borrowed label or a lower-ranked bird.
+        candidates = classification.get("admission_candidates", [])
+        candidates = candidates if isinstance(candidates, list) else []
+        for candidate in [classification, *candidates]:
+            if not isinstance(candidate, dict):
+                continue
+            if (
+                await asyncio.to_thread(
+                    species_catalog_resolver.fresh_output_group,
+                    candidate.get("model_sha256"),
+                    candidate.get("index"),
+                    candidate.get("label"),
+                )
+                == "nonbird"
+            ):
+                return True
+        return False
+
+    @staticmethod
+    def _required_threshold(label: str, frigate_sub_label: str | None) -> tuple[float, str]:
+        threshold = float(settings.classification.threshold or 0.0)
+        sublabel = normalize_sub_label(frigate_sub_label)
+        if (
+            not settings.classification.trust_frigate_sublabel
+            and sublabel
+            and label
+            and sublabel.casefold() != label.strip().casefold()
+        ):
+            return max(threshold, min(0.95, threshold + 0.20)), "threshold_passed_with_sublabel_disagreement_guard"
+        return threshold, "threshold_passed"
 
     @staticmethod
     def _build_unknown_catchall(classification: dict, *, source: str) -> dict:
@@ -160,8 +204,6 @@ class DetectionService:
         label = normalize_classifier_label(top["label"])
         top = {**top, "label": label}
         original_label = label
-        normalized_label = str(label or "").strip().casefold()
-        normalized_frigate_sub_label = frigate_sub_label.casefold() if frigate_sub_label else None
 
         # Relabel unknown bird classifications
         if label in settings.classification.unknown_bird_labels:
@@ -172,6 +214,27 @@ class DetectionService:
         if should_hide_species_label(label, extra_unknown_labels=unknown_species_labels()):
             log.info("Discarding classifier abstention label", label=label, event_id=frigate_event)
             return None, "abstention_label"
+
+        # Determine effective minimum confidence (floor)
+        # If user sets threshold lower than min_confidence, use threshold as floor
+        effective_min = min(settings.classification.min_confidence, settings.classification.threshold)
+
+        # Check minimum confidence floor
+        below_min_confidence = score < effective_min
+
+        # Check primary threshold, with stricter guard when Frigate sublabel disagrees
+        # and Frigate trust is disabled.
+        required_threshold, threshold_reason = self._required_threshold(original_label, frigate_sub_label)
+        sublabel_disagrees = threshold_reason == "threshold_passed_with_sublabel_disagreement_guard"
+
+        below_threshold = score < required_threshold
+
+        if (
+            not below_threshold
+            and species_catalog_resolver.cached_output_group(top.get("model_sha256"), top.get("index"), top["label"])
+            == "nonbird"
+        ):
+            return None, "non_bird"
 
         # Filter out blocked labels (case-insensitive).
         # Also check the parenthetical-stripped label (e.g. "Cassin's Finch (Adult Male)" →
@@ -188,32 +251,6 @@ class DetectionService:
             log.debug("Filtered blocked label", label=label, event_id=frigate_event)
             return None, "blocked_label"
 
-        # Determine effective minimum confidence (floor)
-        # If user sets threshold lower than min_confidence, use threshold as floor
-        effective_min = min(settings.classification.min_confidence, settings.classification.threshold)
-
-        # Check minimum confidence floor
-        below_min_confidence = score < effective_min
-
-        # Check primary threshold, with stricter guard when Frigate sublabel disagrees
-        # and Frigate trust is disabled.
-        required_threshold = float(settings.classification.threshold or 0.0)
-        threshold_reason = "threshold_passed"
-        sublabel_disagrees = bool(
-            not settings.classification.trust_frigate_sublabel
-            and normalized_frigate_sub_label
-            and normalized_label
-            and normalized_frigate_sub_label != normalized_label
-        )
-        if sublabel_disagrees:
-            disagreement_min_score = min(0.95, required_threshold + 0.20)
-            required_threshold = max(required_threshold, disagreement_min_score)
-            threshold_reason = "threshold_passed_with_sublabel_disagreement_guard"
-
-        below_threshold = score < required_threshold
-
-        # If classification passes primary threshold, return it
-        # (Implicitly passes min_confidence because threshold >= effective_min)
         if not below_threshold:
             return top, threshold_reason
 
@@ -283,7 +320,9 @@ class DetectionService:
         labels, so lower-ranked concrete species should still get a chance.
         """
         last_reason: str | None = None
+        admission_candidates: list[dict] = []
         for classification in classifications or []:
+            classification = {key: value for key, value in classification.items() if key != "admission_candidates"}
             top, reason = self.filter_and_label(
                 classification,
                 frigate_event,
@@ -292,7 +331,22 @@ class DetectionService:
                 frigate_sub_label_score,
             )
             if top:
+                if admission_candidates:
+                    top = {**top, "admission_candidates": admission_candidates}
                 return top, reason
+            if reason == "blocked_label":
+                label = normalize_classifier_label(classification["label"])
+                threshold, _ = self._required_threshold(label, frigate_sub_label)
+                if float(classification["score"]) >= threshold:
+                    admission_candidates.append(
+                        {
+                            "model_sha256": classification.get("model_sha256"),
+                            "index": classification.get("index"),
+                            "label": label,
+                        }
+                    )
+            if reason == "non_bird":
+                return None, reason
             last_reason = reason
         fallback_label = normalize_sub_label(frigate_sub_label)
         if settings.classification.trust_frigate_sublabel and fallback_label:
@@ -307,6 +361,7 @@ class DetectionService:
                 "index": -1,
                 "source": "frigate_fallback",
                 "input_source": "frigate_sublabel",
+                **({"admission_candidates": admission_candidates} if admission_candidates else {}),
             }, "frigate_fallback"
         return None, last_reason
 
@@ -427,6 +482,9 @@ class DetectionService:
         if not math.isfinite(score) or not 0 <= score <= 1:
             log.warning("Refusing to save invalid probability", event_id=frigate_event, score=score)
             return False, False
+        if await self.is_known_nonbird(classification):
+            log.info("Rejected known non-bird model result", event_id=frigate_event)
+            return NonBirdSaveRejection()
         sub_label = normalize_sub_label(sub_label)
 
         # 1. Normalize names (Bidirectional Scientific <-> Common)
@@ -666,7 +724,8 @@ class DetectionService:
         persist_video_result: bool = True,
         video_model_sha256: str | None = None,
         input_evidence: ClassificationEvidence | None = None,
-    ):
+        admission_candidates: list[dict] | None = None,
+    ) -> bool | None | NonBirdSaveRejection:
         """
         Process a trustworthy asynchronous classification result.
 
@@ -678,6 +737,14 @@ class DetectionService:
         - the existing primary ID is an unknown-bird label, or
         - the video score clears a reliability gate for automated promotion.
         """
+        known_nonbird = await self.is_known_nonbird(
+            {
+                "model_sha256": video_model_sha256,
+                "index": video_index,
+                "label": video_label,
+                "admission_candidates": admission_candidates or [],
+            }
+        )
         async with get_db() as db:
             repo = DetectionRepository(db)
             existing = await repo.get_by_frigate_event(frigate_event)
@@ -690,7 +757,7 @@ class DetectionService:
             # caught when video analysis promotes it under a different name variant — the
             # raw label alone can't be bridged to the blocked entry. Parenthetical-stripped
             # forms (e.g. "Cassin's Finch (Adult Male)") are handled by the matcher.
-            is_blocked = await self._is_blocked_with_taxonomy(
+            is_blocked = known_nonbird or await self._is_blocked_with_taxonomy(
                 label=video_label,
                 extra_labels=[UNKNOWN_BIRD_DISPLAY_LABEL] if should_hide_species_label(video_label) else [],
                 repo=repo,
@@ -719,11 +786,11 @@ class DetectionService:
 
             if is_blocked:
                 log.debug(
-                    "Video result is a blocked species; recorded but not promoted",
+                    "Video result is ineligible for bird history; recorded but not promoted",
                     label=video_label,
                     event_id=frigate_event,
                 )
-                return False
+                return NonBirdSaveRejection() if known_nonbird else False
 
             if getattr(existing, "manual_tagged", False) is True and not manual_tagged:
                 log.info(

@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Known non-bird outputs from wildlife models no longer enter automatic feeder
+  bird history, including backfill and later photo/video reanalysis. This guard
+  works with Garden animals disabled, preserves existing history and owner
+  choices, and avoids substituting a lower-ranked bird result (#727).
+
 - Garden developer comparisons now assess paired detector evidence against the
   actual saved box, preserving whole-window person vetoes and distinguishing
   unknown or ambiguous annotations from measured errors. The offline diagnostic

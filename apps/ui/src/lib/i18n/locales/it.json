@@ -2277,6 +2277,7 @@
       "closing_soon": "Chiusura imminente"
     },
     "reclassification": {
+      "unchanged_reason_non_bird": "Il modello ha identificato un soggetto diverso da un uccello, quindi è stata mantenuta l’identificazione precedente.",
       "analysis": "Analisi",
       "ai_analysis": "Analisi IA",
       "frame_grid": "Griglia Frame",
