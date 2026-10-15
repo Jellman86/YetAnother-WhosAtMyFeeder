@@ -8,6 +8,8 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
+from io import BytesIO
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -31,6 +33,8 @@ class CropEvalCase:
     notes: str | None = None
     visit_id: str | None = None
     tags: tuple[str, ...] = ()
+    image_sha256: str | None = None
+    annotation_verified: bool = False
 
 
 @dataclass(frozen=True)
@@ -61,6 +65,8 @@ def load_manifest(path: Path) -> list[CropEvalCase]:
                 notes=item.get("notes"),
                 visit_id=item.get("visit_id"),
                 tags=tuple(str(tag) for tag in (item.get("tags") or []) if str(tag).strip()),
+                image_sha256=item.get("image_sha256"),
+                annotation_verified=item.get("annotation_verified") is True,
             )
         )
     return cases
@@ -88,6 +94,8 @@ def load_manifest_resolved(path: Path) -> list[CropEvalCase]:
                 notes=item.get("notes"),
                 visit_id=item.get("visit_id"),
                 tags=tuple(str(tag) for tag in (item.get("tags") or []) if str(tag).strip()),
+                image_sha256=item.get("image_sha256"),
+                annotation_verified=item.get("annotation_verified") is True,
             )
         )
     return cases
@@ -149,6 +157,8 @@ def evaluate_case(
         "correct_negative": bool(not case.boxes and not candidates),
         "visit_id": case.visit_id or case.case_id,
         "tags": list(case.tags),
+        "image_sha256": case.image_sha256,
+        "annotation_verified": case.annotation_verified,
     }
 
 
@@ -204,7 +214,24 @@ def summarize_results(results: list[dict[str, Any]]) -> dict[str, Any]:
 def _load_candidates_for_case(
     service: BirdCropService, case: CropEvalCase, *, tier: str
 ) -> tuple[list[DetectionCandidate], dict[str, Any]]:
-    image = Image.open(case.image_path).convert("RGB")
+    if case.annotation_verified is not True:
+        raise ValueError(f"Case '{case.case_id}' needs visual review of its same-image annotations")
+    checksum = case.image_sha256
+    if (
+        not isinstance(checksum, str)
+        or len(checksum) != 64
+        or any(c not in "0123456789abcdef" for c in checksum.lower())
+    ):
+        raise ValueError(f"Case '{case.case_id}' needs the reviewed image_sha256 checksum")
+    image_bytes = case.image_path.read_bytes()
+    if hashlib.sha256(image_bytes).hexdigest() != checksum.lower():
+        raise ValueError(f"Case '{case.case_id}' image checksum changed; review its annotations again")
+    # Decode the bytes just verified, so a replaced cache file cannot silently
+    # pair the reviewed boxes with a different photograph between reads.
+    with Image.open(BytesIO(image_bytes)) as source:
+        image = source.convert("RGB")
+    if any(not (0 <= box[0] < box[2] <= image.width and 0 <= box[1] < box[3] <= image.height) for box in case.boxes):
+        raise ValueError(f"Case '{case.case_id}' annotations are outside the reviewed image")
     model = service._ensure_model_for_tier(tier)
     if model is None:
         raise FileNotFoundError(f"Crop detector tier '{tier}' is not installed or could not be loaded")

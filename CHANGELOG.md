@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Crop benchmarking now checks that reviewed boxes belong to the exact image
+  bytes before running inference. The legacy eight-image diagnostic boxes are
+  corrected; freshly generated field panels still require visual review.
+
 - Isolated recovery after an accelerator crash now prefers Intel CPU when this
   host has validated that exact ONNX model. Other installations retain standard
   CPU recovery. Crash quarantine, artifact checks and workload deadlines remain

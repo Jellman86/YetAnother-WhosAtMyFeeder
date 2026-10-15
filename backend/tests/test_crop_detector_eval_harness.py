@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from pathlib import Path
+
+import pytest
+from PIL import Image
 
 from scripts.eval_crop_detector_accuracy import (
     CropEvalCase,
@@ -9,8 +13,106 @@ from scripts.eval_crop_detector_accuracy import (
     compute_iou,
     evaluate_case,
     load_manifest,
+    load_manifest_resolved,
     summarize_results,
+    _load_candidates_for_case,
 )
+
+
+@pytest.mark.parametrize("problem", ["unverified", "changed_image", "missing_checksum"])
+@pytest.mark.parametrize("loader", [load_manifest, load_manifest_resolved])
+def test_accuracy_rejects_unbound_annotations_before_loading_a_detector(tmp_path, problem, loader):
+    image_path = tmp_path / "sample.jpg"
+    Image.new("RGB", (100, 100)).save(image_path)
+    checksum = hashlib.sha256(image_path.read_bytes()).hexdigest()
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "cases": [
+                    {
+                        "id": "source-bound",
+                        "bucket": "feeder_real",
+                        "image_path": str(image_path),
+                        "boxes": [[10, 10, 90, 90]],
+                        "image_sha256": None if problem == "missing_checksum" else checksum,
+                        "annotation_verified": problem != "unverified",
+                    }
+                ]
+            }
+        )
+    )
+    case = loader(manifest)[0]
+    if problem == "changed_image":
+        Image.new("RGB", (100, 100), "white").save(image_path)
+
+    class NoInference:
+        def _ensure_model_for_tier(self, _tier):
+            pytest.fail("An invalid panel must not start native inference")
+
+    with pytest.raises(ValueError, match="annotation|checksum"):
+        _load_candidates_for_case(NoInference(), case, tier="accurate")
+
+
+@pytest.mark.parametrize("boxes", [[], [(10, 10, 90, 90)]])
+def test_verified_panel_decodes_the_verified_bytes_even_if_the_file_is_replaced(tmp_path, boxes):
+    image_path = tmp_path / "sample.jpg"
+    Image.new("RGB", (100, 100)).save(image_path)
+    case = CropEvalCase(
+        case_id="verified",
+        bucket="test",
+        image_path=image_path,
+        boxes=boxes,
+        image_sha256=hashlib.sha256(image_path.read_bytes()).hexdigest(),
+        annotation_verified=True,
+    )
+
+    class Detector:
+        def _ensure_model_for_tier(self, _tier):
+            Image.new("RGB", (100, 100), "white").save(image_path)
+            return object()
+
+        def _infer_candidates(self, _model, image):
+            assert image.getpixel((0, 0)) == (0, 0, 0)
+            return []
+
+        def _select_best_valid_candidate(self, _image, _candidates, **_kwargs):
+            return {"reason": "no_candidate"}
+
+    assert _load_candidates_for_case(Detector(), case, tier="accurate") == ([], {"reason": "no_candidate"})
+
+
+def test_accuracy_rejects_boxes_outside_the_verified_image(tmp_path):
+    image_path = tmp_path / "sample.jpg"
+    Image.new("RGB", (100, 100)).save(image_path)
+    case = CropEvalCase(
+        case_id="wrong-coordinate-system",
+        bucket="test",
+        image_path=image_path,
+        boxes=[(10, 10, 110, 110)],
+        image_sha256=hashlib.sha256(image_path.read_bytes()).hexdigest(),
+        annotation_verified=True,
+    )
+    with pytest.raises(ValueError, match="annotations are outside"):
+        _load_candidates_for_case(object(), case, tier="accurate")
+
+
+def test_committed_diagnostic_boxes_are_bound_to_the_reviewed_fixture_images():
+    cases = load_manifest_resolved(Path(__file__).parent / "fixtures/crop_detector_manifest.json")
+
+    class NoCandidates:
+        def _ensure_model_for_tier(self, _tier):
+            return object()
+
+        def _infer_candidates(self, _model, _image):
+            return []
+
+        def _select_best_valid_candidate(self, _image, _candidates, **_kwargs):
+            return {"reason": "no_candidate"}
+
+    assert len(cases) == 8
+    for case in cases:
+        assert _load_candidates_for_case(NoCandidates(), case, tier="accurate")[0] == []
 
 
 def test_load_manifest_reads_cases_and_boxes(tmp_path: Path) -> None:
