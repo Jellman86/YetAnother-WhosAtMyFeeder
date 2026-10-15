@@ -12,7 +12,7 @@ import structlog
 import time
 from collections import deque
 from datetime import datetime, timezone
-from typing import Optional, Dict, Literal, cast
+from typing import TYPE_CHECKING, Optional, Dict, Literal, cast
 from io import BytesIO
 from PIL import Image
 
@@ -42,6 +42,9 @@ from app.utils.system_stats import get_ram_usage_string
 from app.utils.canonical_species import should_hide_species_label, user_facing_species_fields
 from app.utils.api_datetime import serialize_api_datetime, utc_naive_now  # noqa: F401 - compatibility for tests
 from app.utils.video_analysis import rank_video_top_frames
+
+if TYPE_CHECKING:
+    from app.services.detection_service import NonBirdSaveRejection
 
 log = structlog.get_logger()
 
@@ -2169,6 +2172,11 @@ class AutoVideoClassifierService:
                         manual_tagged=(source == "manual" or frigate_event in self._manual_requested_ids),
                     )
                     self._record_success(frigate_event, source=source)
+                    from app.services.detection_service import NonBirdSaveRejection
+
+                    if isinstance(usable_result, NonBirdSaveRejection):
+                        await self._complete_nonbird_result(frigate_event)
+                        return
 
                     # Persist top video-analysis frames for HQ snapshot reuse
                     if _video_frame_scores or top.get("_video_snapshot_evidence"):
@@ -3088,7 +3096,7 @@ class AutoVideoClassifierService:
         video_diagnostics: dict | None = None,
         manual_tagged: bool = False,
         publish_completion: bool = True,
-    ) -> bool:
+    ) -> bool | None | NonBirdSaveRejection:
         """Save final results via DetectionService to handle intelligent overrides."""
         from app.services.detection_service import DetectionService
 
@@ -3105,6 +3113,7 @@ class AutoVideoClassifierService:
             video_model_sha256=result.get("model_sha256"),
             video_input_source=result.get("input_source"),
             input_evidence=classification_evidence(result),
+            **({"admission_candidates": result["admission_candidates"]} if result.get("admission_candidates") else {}),
             video_diagnostics=video_diagnostics,
             manual_tagged=manual_tagged,
         )
@@ -3120,6 +3129,21 @@ class AutoVideoClassifierService:
             )
         return usable_result
         # _record_success is already called on completion in _process_event.
+
+    async def _complete_nonbird_result(self, frigate_event: str) -> None:
+        await video_classification_waiter.publish(
+            frigate_event,
+            "completed",
+            label=None,
+            score=None,
+            error=None,
+        )
+        await self._broadcast_reclassification_completed(
+            frigate_event,
+            [],
+            outcome="no_result",
+            reason="non_bird",
+        )
 
     async def _classify_from_snapshot(
         self,
@@ -3274,6 +3298,11 @@ class AutoVideoClassifierService:
             manual_tagged=manual_tagged,
             publish_completion=False,
         )
+        from app.services.detection_service import NonBirdSaveRejection
+
+        if isinstance(usable_result, NonBirdSaveRejection):
+            await self._complete_nonbird_result(frigate_event)
+            return None
         photo_outcome = await reconcile_snapshot_identity(frigate_event, automatic=not manual_tagged)
         await video_classification_waiter.publish(
             frigate_event,

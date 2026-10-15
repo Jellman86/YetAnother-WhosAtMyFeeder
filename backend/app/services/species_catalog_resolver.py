@@ -16,15 +16,21 @@ pre-catalogue behaviour.
 
 from __future__ import annotations
 
+import re
+from contextlib import closing
 import sqlite3
 import threading
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional
+from types import MappingProxyType
+from typing import Any, Mapping, Optional
 
 import structlog
 
 from app.services.species_catalog_migrations import default_catalog_path
+from app.services.model_output_groups import OutputGroup
+from app.services.model_taxon_map import scientific_name_from_label
+from app.utils.classifier_labels import normalize_classifier_label
 
 log = structlog.get_logger()
 
@@ -43,6 +49,7 @@ class _OutputEntry:
     class_kind: str
     species_id: Optional[int]
     source_label: Optional[str] = None
+    taxonomic_group: OutputGroup = "unknown"
 
 
 class SpeciesCatalogResolver:
@@ -68,6 +75,7 @@ class SpeciesCatalogResolver:
         self._mismatches = 0
         self._unverified = 0
         self._last_mismatch: Optional[dict[str, Any]] = None
+        self._group_snapshot: Mapping[str, Mapping[int, _OutputEntry]] = MappingProxyType({})
 
     def _resolved_path(self) -> Path:
         return Path(self._path or default_catalog_path())
@@ -95,13 +103,21 @@ class SpeciesCatalogResolver:
         try:
             artifact_ids: dict[str, int] = {}
             artifact_sha_by_id: dict[int, str] = {}
-            for row_id, model_sha256 in connection.execute("SELECT id, model_sha256 FROM model_artifacts"):
+            widths = {}
+            for row_id, model_sha256, width in connection.execute(
+                "SELECT id, model_sha256, output_width FROM model_artifacts"
+            ):
                 artifact_ids[str(model_sha256)] = int(row_id)
                 artifact_sha_by_id[int(row_id)] = str(model_sha256)
+                widths[str(model_sha256)] = int(width)
 
             outputs: dict[str, dict[int, _OutputEntry]] = {sha: {} for sha in artifact_ids}
-            for artifact_row_id, output_index, class_kind, species_id, source_label in connection.execute(
-                "SELECT model_artifact_id, output_index, class_kind, species_id, source_label FROM model_output_taxa"
+            columns = {row[1] for row in connection.execute("PRAGMA table_info(model_output_taxa)")}
+            group_column = "taxonomic_group" if "taxonomic_group" in columns else "'unknown'"
+            for artifact_row_id, output_index, class_kind, species_id, source_label, group in connection.execute(
+                "SELECT model_artifact_id, output_index, class_kind, species_id, source_label, "
+                + group_column
+                + " FROM model_output_taxa"
             ):
                 sha = artifact_sha_by_id.get(int(artifact_row_id))
                 if sha is None:
@@ -111,6 +127,7 @@ class SpeciesCatalogResolver:
                     class_kind=str(class_kind),
                     species_id=int(species_id) if species_id is not None else None,
                     source_label=str(source_label) if source_label is not None else None,
+                    taxonomic_group=group if group in {"bird", "nonbird", "unknown"} else "unknown",
                 )
 
             accepted: dict[int, set[str]] = {}
@@ -141,6 +158,92 @@ class SpeciesCatalogResolver:
         self._outputs = outputs
         self._accepted_names = accepted
         self._name_to_species = name_to_species
+        self._group_snapshot = MappingProxyType(
+            {
+                sha: MappingProxyType(
+                    {
+                        index: entry
+                        for index, entry in entries.items()
+                        if 0 <= index < widths[sha] and entry.taxonomic_group != "unknown"
+                    }
+                )
+                for sha, entries in outputs.items()
+            }
+        )
+
+    def invalidate_output_groups(self) -> None:
+        """Discard cached admission evidence after an app-owned catalogue write."""
+        with self._lock:
+            self._group_snapshot = MappingProxyType({})
+            self._cache_key = None
+
+    def warm_output_groups(self) -> bool:
+        """Publish a complete fresh snapshot; callers run this off the event loop."""
+        self.invalidate_output_groups()
+        with self._lock:
+            try:
+                stat = self._resolved_path().stat()
+                self._load()
+                self._cache_key = (stat.st_mtime_ns, stat.st_size)
+                return True
+            except (OSError, ValueError, sqlite3.Error) as error:
+                log.warning("Catalogue output groups unavailable", error_type=type(error).__name__)
+                return False
+
+    def refresh_output_groups_for(self, path: Path) -> bool:
+        """Refresh only the singleton's own catalogue after a committed write."""
+        if Path(path).absolute() != self._resolved_path().absolute():
+            return False
+        return self.warm_output_groups()
+
+    @staticmethod
+    def _group_request(model_sha256: Optional[str], output_index: int, label: str) -> tuple[str, str] | None:
+        if (
+            not isinstance(model_sha256, str)
+            or not re.fullmatch(r"[a-f0-9]{64}", model_sha256.strip().lower())
+            or type(output_index) is not int
+            or output_index < 0
+            or not isinstance(label, str)
+            or not label.strip()
+        ):
+            return None
+        return model_sha256.strip().lower(), label.strip().casefold()
+
+    @staticmethod
+    def _bound_group(source_label: str | None, group: str, label: str) -> OutputGroup:
+        if group not in {"bird", "nonbird"} or not isinstance(source_label, str) or not source_label.strip():
+            return "unknown"
+        expected = {source_label.strip().casefold(), normalize_classifier_label(source_label).casefold()}
+        if scientific := scientific_name_from_label(source_label):
+            expected.add(scientific.casefold())
+        return group if label in expected else "unknown"
+
+    def cached_output_group(self, model_sha256: Optional[str], output_index: int, label: str) -> OutputGroup:
+        """Pure lookup for synchronous classification selection, with no I/O."""
+        request = self._group_request(model_sha256, output_index, label)
+        if request is None:
+            return "unknown"
+        checksum, normalized_label = request
+        entry = self._group_snapshot.get(checksum, {}).get(output_index)
+        return self._bound_group(entry.source_label, entry.taxonomic_group, normalized_label) if entry else "unknown"
+
+    def fresh_output_group(self, model_sha256: Optional[str], output_index: int, label: str) -> OutputGroup:
+        """Recheck durable evidence immediately before writes, without the cache."""
+        request = self._group_request(model_sha256, output_index, label)
+        if request is None:
+            return "unknown"
+        checksum, normalized_label = request
+        try:
+            with closing(sqlite3.connect(f"file:{self._resolved_path()}?mode=ro", uri=True)) as connection:
+                row = connection.execute(
+                    "SELECT t.source_label,t.taxonomic_group FROM model_output_taxa t "
+                    "JOIN model_artifacts a ON a.id=t.model_artifact_id "
+                    "WHERE a.model_sha256=? AND t.output_index=? AND t.output_index<a.output_width",
+                    (checksum, output_index),
+                ).fetchone()
+            return self._bound_group(row[0], row[1], normalized_label) if row else "unknown"
+        except (OSError, sqlite3.Error):
+            return "unknown"
 
     def shadow_resolve(
         self,

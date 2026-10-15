@@ -1490,12 +1490,13 @@ async def test_a_stopped_service_does_not_queue_a_lost_visit_again(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_localized_video_photo_is_available_before_hq_selection():
+@pytest.mark.parametrize("identification_promoted", [True, False])
+async def test_localized_video_photo_is_available_before_hq_selection(identification_promoted):
     service = AutoVideoClassifierService()
     service._classifier = MagicMock()
     service._classifier.classify_video_async = AsyncMock(return_value=[{"label": "Robin", "score": 0.92, "index": 1}])
     service._update_status = AsyncMock()
-    service._save_results = AsyncMock(return_value=True)
+    service._save_results = AsyncMock(return_value=identification_promoted)
     service._wait_for_clip = AsyncMock(return_value=(True, None))
     settings.media_cache.high_quality_event_snapshots = True
     order = []
@@ -1524,3 +1525,57 @@ async def test_localized_video_photo_is_available_before_hq_selection():
     ):
         await service._process_event("evt-photo-quality-order", "cam1", skip_delay=True)
     assert order == ["baseline", "hq"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("snapshot", [False, True])
+async def test_rejected_nonbird_reanalysis_does_not_promote_photos_or_claim_success(snapshot):
+    from io import BytesIO
+    from PIL import Image
+    from app.services.detection_service import NonBirdSaveRejection
+
+    service = AutoVideoClassifierService()
+    service._classifier = MagicMock()
+    top = {"label": "Sciurus carolinensis", "score": 0.99, "index": 4844}
+    service._classifier.classify_video_async = AsyncMock(return_value=[top])
+    service._classifier.classify_async_background = AsyncMock(return_value=[top])
+    service._update_status = AsyncMock()
+    service._wait_for_clip = AsyncMock(return_value=(True, None))
+    service._save_results = AsyncMock(return_value=NonBirdSaveRejection())
+    service._persist_video_top_frames = AsyncMock()
+    service._broadcast_reclassification_completed = AsyncMock()
+    settings.media_cache.high_quality_event_snapshots = True
+    with (
+        patch.object(
+            auto_video_classifier_module.frigate_client,
+            "get_event_with_error",
+            new=AsyncMock(return_value=({"has_clip": True}, None)),
+        ),
+        patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()),
+        patch.object(auto_video_classifier_module, "replace_video_snapshot", new=AsyncMock()) as replace_photo,
+        patch.object(auto_video_classifier_module, "reconcile_snapshot_identity", new=AsyncMock()) as reconcile,
+        patch.object(
+            auto_video_classifier_module.high_quality_snapshot_service, "replace_from_clip_path", new=AsyncMock()
+        ) as hq,
+        patch.object(auto_video_classifier_module.video_classification_waiter, "publish", new=AsyncMock()) as publish,
+    ):
+        if snapshot:
+            image = BytesIO()
+            Image.new("RGB", (8, 8), "white").save(image, format="JPEG")
+            await service._classify_from_snapshot(
+                "evt-rejected-photo",
+                "birdcam",
+                snapshot_input=(
+                    image.getvalue(),
+                    auto_video_classifier_module.ClassificationInputProvenance("frigate_snapshot", False),
+                ),
+            )
+        else:
+            await service._process_event("evt-rejected-photo", "birdcam", skip_delay=True)
+    replace_photo.assert_not_awaited()
+    reconcile.assert_not_awaited()
+    hq.assert_not_awaited()
+    service._persist_video_top_frames.assert_not_awaited()
+    assert service._broadcast_reclassification_completed.await_args.kwargs["outcome"] == "no_result"
+    assert service._broadcast_reclassification_completed.await_args.kwargs["reason"] == "non_bird"
+    assert publish.await_args.kwargs["label"] is None

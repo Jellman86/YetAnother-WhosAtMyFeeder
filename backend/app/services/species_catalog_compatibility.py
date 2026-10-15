@@ -312,6 +312,9 @@ def import_local_model_mapping(
     finally:
         connection.close()
 
+    from app.services.species_catalog_resolver import species_catalog_resolver
+
+    species_catalog_resolver.refresh_output_groups_for(Path(catalog_path or default_catalog_path()))
     report = LocalMappingReport(
         verdict="imported",
         model_sha256=checksum,

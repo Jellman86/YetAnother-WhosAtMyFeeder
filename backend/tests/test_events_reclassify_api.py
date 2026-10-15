@@ -484,3 +484,36 @@ async def test_reclassify_snapshot_forwards_the_producing_models_checksum(client
     finally:
         await _delete_detection(event_id)
         app.dependency_overrides.pop(require_owner, None)
+
+
+@pytest.mark.asyncio
+async def test_snapshot_reanalysis_does_not_claim_success_when_final_promotion_is_rejected(client):
+    event_id = "evt-fresh-rejection"
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    await _insert_detection(event_id, "Robin", "birdcam")
+    classifier = MagicMock()
+    classifier.classify_async = AsyncMock(
+        return_value=[{"label": "Sciurus carolinensis", "score": 0.99, "index": 4844}]
+    )
+    try:
+        with (
+            patch("app.routers.events.get_classifier", return_value=classifier),
+            patch("app.routers.events.frigate_client") as frigate,
+            patch.object(DetectionService, "apply_video_result", new=AsyncMock(return_value=False)),
+            patch("app.routers.events.broadcaster.broadcast", new=AsyncMock()) as broadcast,
+        ):
+            frigate.get_event_with_error = AsyncMock(return_value=({"has_clip": False}, None))
+            frigate.get_snapshot = AsyncMock(return_value=_image_bytes())
+            response = await client.post(f"/api/events/{event_id}/reclassify", params={"strategy": "snapshot"})
+        assert response.status_code == 200, response.text
+        assert response.json()["status"] == "no_result"
+        assert response.json()["updated"] is False
+        assert response.json()["new_species"] == "Robin"
+        assert all(
+            call.args[1].get("status") != "success"
+            for call in broadcast.await_args_list
+            if len(call.args) > 1 and isinstance(call.args[1], dict)
+        )
+    finally:
+        await _delete_detection(event_id)

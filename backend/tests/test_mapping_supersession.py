@@ -39,6 +39,7 @@ def live(tmp_path) -> Path:
         INSERT INTO model_output_taxa VALUES (1,1,'species',20,'Erithacus rubecula');
         """
     )
+    connection.execute("ALTER TABLE model_output_taxa ADD COLUMN taxonomic_group TEXT NOT NULL DEFAULT 'unknown'")
     connection.commit()
     connection.close()
     return path

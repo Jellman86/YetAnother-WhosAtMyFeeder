@@ -2011,3 +2011,32 @@ def test_expected_filtering_alone_leaves_the_pipeline_healthy():
     assert status["status"] == "ok"
     assert status["fault_drops"] == 0
     assert status["expected_drops"] == 12
+
+
+@pytest.mark.asyncio
+async def test_final_nonbird_save_rejection_is_an_expected_drop_without_post_commit_work():
+    from app.services.detection_service import NonBirdSaveRejection
+
+    processor = EventProcessor(MagicMock())
+    processor.detection_service.save_detection = AsyncMock(return_value=NonBirdSaveRejection())
+    processor.detection_service.is_known_nonbird = AsyncMock(
+        side_effect=AssertionError("Do not reconstruct a save decision")
+    )
+    event = SimpleNamespace(
+        frigate_event="evt-final-nonbird", camera="birdcam", start_time_ts=1700000000, frigate_score=0.9, sub_label=None
+    )
+    result = await processor._save_detection(
+        event,
+        {
+            "label": "Sciurus carolinensis",
+            "score": 0.99,
+            "audio_confirmed": False,
+            "audio_species": None,
+            "audio_score": None,
+        },
+        {"weather_data": {}, "audio_match": None},
+    )
+    assert result is None
+    assert processor.get_status()["expected_drop_reasons"]["filter_non_bird"] == 1
+    assert processor.get_status()["fault_drop_reasons"] == {}
+    processor.detection_service.is_known_nonbird.assert_not_awaited()

@@ -17,6 +17,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.catalog_mapping_fixture import rehash_mapping_fixture
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 import build_species_catalog_seed as seed_builder  # noqa: E402
@@ -426,6 +428,7 @@ def _build_mapped_seed(tmp_path, output_name, *, label):
         encoding="utf-8",
     )
     path = tmp_path / output_name
+    rehash_mapping_fixture(mappings)
     seed_builder.build(reference_path, path, manifest_path=manifest, model_mappings_path=mappings)
     return path
 
@@ -490,6 +493,7 @@ def _build_two_output_seed(
         encoding="utf-8",
     )
     path = tmp_path / output_name
+    rehash_mapping_fixture(mappings)
     seed_builder.build(reference_path, path, manifest_path=manifest, model_mappings_path=mappings)
     return path
 

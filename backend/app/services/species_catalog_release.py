@@ -10,16 +10,19 @@ a live catalogue as if it were the release it claims to be.
 from __future__ import annotations
 
 import hashlib
+import json
 import sqlite3
 
 
-def connection_content_digest(connection: sqlite3.Connection) -> str:
+def connection_content_digest(connection: sqlite3.Connection, *, schema_version: int = 1) -> str:
     """Digest the catalogue content reachable from one connection.
 
     Canonical order, not insertion order: species by id and concept identity,
     names by species, language, and name. Bundles hold exactly one release, so
     the whole file is the release's content.
     """
+    if schema_version not in (1, 2):
+        raise ValueError("Unsupported catalogue release digest version")
     digest = hashlib.sha256()
     for species_id, scientific_name in connection.execute(
         "SELECT species_id, scientific_name FROM species_concepts ORDER BY species_id, provider, provider_taxon_id"
@@ -58,6 +61,14 @@ def connection_content_digest(connection: sqlite3.Connection) -> str:
         digest.update(
             f"output|{model_sha256}|{output_index}|{class_kind}|{species_id if species_id is not None else ''}\n".encode()
         )
+    if schema_version == 2:
+        for row in connection.execute(
+            "SELECT a.model_sha256,t.output_index,t.source_label,t.taxonomic_group "
+            "FROM model_output_taxa t JOIN model_artifacts a ON a.id=t.model_artifact_id "
+            "ORDER BY a.model_sha256,t.output_index"
+        ):
+            digest.update(json.dumps(["output-group", *row], ensure_ascii=False, separators=(",", ":")).encode())
+            digest.update(b"\n")
     return digest.hexdigest()
 
 
@@ -76,5 +87,5 @@ def release_content_digest(
     """
     digest = hashlib.sha256()
     digest.update(f"release|{schema_version}|{generated_at}|{source_manifest}\n".encode())
-    digest.update(connection_content_digest(connection).encode())
+    digest.update(connection_content_digest(connection, schema_version=schema_version).encode())
     return digest.hexdigest()

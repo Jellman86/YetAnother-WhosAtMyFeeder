@@ -2277,6 +2277,7 @@
       "closing_soon": "Fechando em breve"
     },
     "reclassification": {
+      "unchanged_reason_non_bird": "O modelo identificou algo que não é uma ave, por isso a identificação anterior foi mantida.",
       "analysis": "Análise",
       "ai_analysis": "Análise de IA",
       "frame_grid": "Grade de Quadros",

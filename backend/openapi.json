@@ -11071,7 +11071,8 @@
                   "low_confidence",
                   "blocked_label",
                   "abstention_label",
-                  "invalid_score"
+                  "invalid_score",
+                  "non_bird"
                 ],
                 "type": "string"
               },

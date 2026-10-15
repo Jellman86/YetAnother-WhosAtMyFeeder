@@ -1588,7 +1588,7 @@ export interface components {
     new_species: string;
     old_species: string;
     queue_state?: "queued" | "duplicate" | null;
-    reason?: "no_confident_result" | "below_threshold" | "low_confidence" | "blocked_label" | "abstention_label" | "invalid_score" | null;
+    reason?: "no_confident_result" | "below_threshold" | "low_confidence" | "blocked_label" | "abstention_label" | "invalid_score" | "non_bird" | null;
     status: "queued" | "success" | "no_result";
     updated: boolean;
 };

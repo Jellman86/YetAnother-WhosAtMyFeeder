@@ -19,7 +19,7 @@ from app.services.frigate_client import frigate_client
 from app.services.recording_snapshot_input import prefer_recording_snapshot
 from app.services.high_quality_snapshot_service import high_quality_snapshot_service
 from app.services.media_cache import media_cache
-from app.services.detection_service import DetectionService
+from app.services.detection_service import DetectionService, NonBirdSaveRejection
 from app.services.error_diagnostics import error_diagnostics_history
 from app.utils.frigate import parse_sub_label
 from app.utils.image_io import decode_image_bytes
@@ -374,7 +374,7 @@ class BackfillService:
             start_time = event.get("start_time", datetime.now().timestamp())
 
             # Use upsert logic to ensure metadata is updated even if event exists
-            changed, was_inserted = await self.detection_service.save_detection(
+            outcome = await self.detection_service.save_detection(
                 frigate_event=frigate_event,
                 camera=camera_name,
                 start_time=start_time,
@@ -384,6 +384,10 @@ class BackfillService:
                 sub_label=sub_label,
                 report_to_birdweather=False,
             )
+
+            if isinstance(outcome, NonBirdSaveRejection):
+                return "skipped", "non_bird"
+            changed, was_inserted = outcome
 
             if snapshot_data:
                 try:

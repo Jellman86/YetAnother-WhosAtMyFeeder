@@ -558,6 +558,16 @@ async def lifespan(app: FastAPI):
             startup_phase="database",
             startup_progress=70,
         )
+        from app.services.species_catalog_resolver import species_catalog_resolver
+
+        await _run_lifecycle_phase(
+            app,
+            "bird_output_groups_init",
+            lambda: asyncio.to_thread(species_catalog_resolver.warm_output_groups),
+            fatal=False,
+            startup_phase="database",
+            startup_progress=70,
+        )
         from app.services.species_catalog_backfill import start_background_catalog_backfill
 
         create_background_task(start_background_catalog_backfill(), name="species_catalog_backfill")

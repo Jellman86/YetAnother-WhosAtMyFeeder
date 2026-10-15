@@ -87,6 +87,11 @@
                 default: 'The sampled frames did not agree on one species strongly enough.'
             });
         }
+        if (code === 'non_bird') {
+            return $_('detection.reclassification.unchanged_reason_non_bird', {
+                default: 'The model identified a non-bird, so the existing identification was kept.'
+            });
+        }
         if (progress.outcome === 'no_result') {
             return $_('detection.reclassification.unchanged_description', {
                 default: 'No result cleared the confidence rules, so the existing identification was kept.'
