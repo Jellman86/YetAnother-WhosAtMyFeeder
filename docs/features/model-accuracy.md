@@ -71,8 +71,8 @@ Each run tests two preprocessing modes — **raw** (image sent as-is) and **lett
   sets of feeder frames had every visible bird boxed by visual review and checked by the owner:
   52 birds in 58 frames, then a separate 64 birds in 59 frames selected partly for two-bird visits.
   With the full frame plus four 20%-overlapping tiles and a 0.3 floor fixed on the first set, it
-  found 42/52 and 59/64 birds; YOLOX-Tiny's production crop path found 12/52 and 16/64 at the 0.08
-  counting floor (21/52 and 30/64 at its 0.02 evidence floor). The installed classifier gave a
+  found 42/52 and 58/64 birds through the application path on CPU, Intel GPU and Intel NPU
+  alike; YOLOX-Tiny's production crop path found 12/52 and 16/64 at the 0.08 counting floor (21/52 and 30/64 at its 0.02 evidence floor). The installed classifier gave a
   confident species for 37 and 57 of the birds RF-DETR found, and agreed with the species from the
   hand-drawn box in every confident case on the second set. Most misses were birds partly hidden
   behind the fountain. Its extra boxes are feeder fixtures, squirrels and parts of real birds; the
