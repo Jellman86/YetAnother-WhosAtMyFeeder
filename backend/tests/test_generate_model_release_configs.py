@@ -10,7 +10,8 @@ ASSETS_DIR = Path(__file__).resolve().parents[1] / "app" / "assets"
 def test_release_model_configs_cover_every_registry_sidecar_once():
     configs = build_release_model_configs()
 
-    assert len(configs) == 20
+    assert len(configs) == 21
+    assert "bird_crop_detector_accurate_rfdetr_nano_model_config.json" in configs
     assert len(configs) == len(set(configs))
     assert "rope_vit_b14_inat21_model_config.json" in configs
     assert "small_birds_eu_mobilenet_v4_l_candidate_model_config.json" in configs

@@ -1780,7 +1780,15 @@
       "model_manager_location_title": "給餌台の位置情報を使用します",
       "model_manager_location_desc": "このモデルは、設定 → 統合 → 位置情報 に保存されている給餌台の座標も使用します。有効な座標が保存されていない場合は、位置情報なしで鳥を識別します。日付や位置の精度半径は使用しません。",
       "model_manager_location_link": "位置情報の設定を開く",
-      "provider_intel_npu": "Intel NPU (OpenVINO)"
+      "provider_intel_npu": "Intel NPU (OpenVINO)",
+      "bird_finder_title": "鳥の検出",
+      "bird_finder_desc": "識別と数え上げの前に、カメラの画面全体から一羽ずつ鳥を見つけます。",
+      "bird_finder_standard": "標準 (YOLOX-Tiny)",
+      "bird_finder_standard_desc": "軽量で高速。広い画面で小さく映る鳥の多くを見逃します。",
+      "bird_finder_wide": "広い画面向け (RF-DETR Nano)",
+      "bird_finder_wide_desc": "画面全体と重なり合う4つの区画を読み取り、小さな鳥や遠くの鳥をはるかに多く見つけます。103 MB のダウンロードが必要で、1フレームあたりの時間が長くなります。",
+      "bird_finder_fallback": "広い画面向けの検出器はまだダウンロードされていないため、標準の検出器を使用しています。切り替えるには下でダウンロードしてください。",
+      "bird_finder_save_failed": "鳥の検出の選択を保存できませんでした。変更はありません。"
     },
     "llm": {
       "title": "AI インサイト",

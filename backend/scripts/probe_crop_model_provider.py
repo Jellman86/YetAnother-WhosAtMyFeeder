@@ -136,7 +136,12 @@ def probe_provider(provider: str, model_id: str, image_paths: list[str]) -> dict
         return report
 
     tier = str(spec.get("resolved_tier") or "fast")
-    service = BirdCropService(detector_tier=tier, provider_override=provider, strict_provider=True)
+    service = BirdCropService(
+        detector_tier=tier,
+        accurate_model_id=model_id if tier == "accurate" else None,
+        provider_override=provider,
+        strict_provider=True,
+    )
     try:
         model = service._load_model_for_tier(tier)
         if not isinstance(model, dict):

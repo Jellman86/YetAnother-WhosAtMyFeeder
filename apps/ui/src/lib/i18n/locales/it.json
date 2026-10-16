@@ -1790,7 +1790,15 @@
       "model_manager_location_title": "Usa la posizione della tua mangiatoia",
       "model_manager_location_desc": "Questo modello usa anche le coordinate della mangiatoia salvate in Impostazioni → Integrazioni → Posizione. Se non sono salvate coordinate valide, identifica gli uccelli senza posizione. Non usa la data né un raggio di precisione della posizione.",
       "model_manager_location_link": "Apri le impostazioni della posizione",
-      "provider_intel_npu": "NPU Intel (OpenVINO)"
+      "provider_intel_npu": "NPU Intel (OpenVINO)",
+      "bird_finder_title": "Rilevatore di uccelli",
+      "bird_finder_desc": "Trova ogni uccello nell’intera inquadratura della telecamera prima che venga identificato e contato.",
+      "bird_finder_standard": "Rilevatore standard (YOLOX-Tiny)",
+      "bird_finder_standard_desc": "Leggero e veloce. Non vede molti uccelli che appaiono piccoli in un’inquadratura ampia.",
+      "bird_finder_wide": "Inquadratura ampia (RF-DETR Nano)",
+      "bird_finder_wide_desc": "Legge l’intera inquadratura e quattro riquadri sovrapposti, quindi trova molti più uccelli piccoli e lontani. Download da 103 MB, ogni fotogramma richiede più tempo.",
+      "bird_finder_fallback": "Il rilevatore per inquadrature ampie non è ancora scaricato, quindi resta in uso quello standard. Scaricalo qui sotto per passare.",
+      "bird_finder_save_failed": "Impossibile salvare la scelta del rilevatore di uccelli. Non è cambiato nulla."
     },
     "llm": {
       "title": "Analisi IA",

@@ -6,6 +6,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Models → Cropped thumbnails → Bird finder** offers a second accurate bird detector,
+  RF-DETR Nano. It reads the full frame plus four overlapping tiles, so it finds far more
+  birds that are small in a wide frame. On two owner-checked sets of feeder frames it found
+  42 of 52 and 58 of 64 birds, against 12 of 52 and 16 of 64 for YOLOX-Tiny at its counting
+  floor. It is a 103 MB download and costs about five detector passes per frame. YOLOX-Tiny
+  stays the default, and a chosen finder that is not downloaded yet falls back to it rather
+  than to the fast detector. Validated on CPU and Intel CPU, GPU and NPU; CUDA is not yet
+  validated, so it runs on CPU there (#734).
+
 - Crop-detector diagnostics now report individual annotated birds matched or
   missed. Extra detections and exact scene localization are scored only against
   explicitly exhaustive annotations; partial or unknown annotations cannot count

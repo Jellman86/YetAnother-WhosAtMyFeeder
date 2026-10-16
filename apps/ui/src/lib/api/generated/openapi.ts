@@ -1670,6 +1670,7 @@ export interface components {
     auto_purge_missing_snapshots?: boolean;
     auto_video_classification?: boolean | null;
     background_worker_count?: number | null;
+    bird_crop_accurate_detector?: "yolox_tiny" | "rfdetr_nano" | null;
     bird_crop_detector_tier?: "fast" | "accurate" | null;
     bird_crop_source_priority?: "frigate_hints_first" | "crop_model_first" | "crop_model_only" | "frigate_hints_only" | null;
     bird_model_region_override?: string | null;
@@ -1880,6 +1881,7 @@ export interface components {
     auto_purge_missing_snapshots?: boolean;
     auto_video_classification?: boolean | null;
     background_worker_count?: number | null;
+    bird_crop_accurate_detector?: "yolox_tiny" | "rfdetr_nano" | null;
     bird_crop_detector_tier?: "fast" | "accurate" | null;
     bird_crop_source_priority?: "frigate_hints_first" | "crop_model_first" | "crop_model_only" | "frigate_hints_only" | null;
     bird_model_region_override?: string | null;

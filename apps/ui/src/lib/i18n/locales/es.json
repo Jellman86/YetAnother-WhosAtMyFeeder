@@ -1780,7 +1780,15 @@
       "model_manager_location_title": "Usa la ubicación de tu comedero",
       "model_manager_location_desc": "Este modelo también usa las coordenadas del comedero guardadas en Ajustes → Integraciones → Ubicación. Si no hay coordenadas válidas guardadas, identifica las aves sin ubicación. No usa la fecha ni un radio de precisión de la ubicación.",
       "model_manager_location_link": "Abrir ajustes de ubicación",
-      "provider_intel_npu": "NPU Intel (OpenVINO)"
+      "provider_intel_npu": "NPU Intel (OpenVINO)",
+      "bird_finder_title": "Buscador de aves",
+      "bird_finder_desc": "Encuentra cada ave en el fotograma completo de la cámara antes de identificarla y contarla.",
+      "bird_finder_standard": "Estándar (YOLOX-Tiny)",
+      "bird_finder_standard_desc": "Pequeño y rápido. Pasa por alto muchas aves que se ven pequeñas en un plano amplio.",
+      "bird_finder_wide": "Plano amplio (RF-DETR Nano)",
+      "bird_finder_wide_desc": "Lee el fotograma completo y cuatro mosaicos superpuestos, así encuentra muchas más aves pequeñas y lejanas. Descarga de 103 MB y cada fotograma tarda más.",
+      "bird_finder_fallback": "El buscador de plano amplio aún no está descargado, así que se sigue usando el estándar. Descárgalo abajo para cambiar.",
+      "bird_finder_save_failed": "No se pudo guardar la elección del buscador de aves. No se cambió nada."
     },
     "llm": {
       "title": "Análisis de IA",

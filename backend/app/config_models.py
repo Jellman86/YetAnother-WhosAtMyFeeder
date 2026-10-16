@@ -330,6 +330,10 @@ class ClassificationSettings(BaseModel):
         default="fast",
         description="Deprecated compatibility field; crop generation automatically tries accurate then fast",
     )
+    bird_crop_accurate_detector: Literal["yolox_tiny", "rfdetr_nano"] = Field(
+        default="yolox_tiny",
+        description="Which accurate bird detector finds birds in full frames before identification",
+    )
     bird_crop_source_priority: Literal[
         "frigate_hints_first",
         "crop_model_first",

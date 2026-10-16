@@ -2,6 +2,7 @@
     import { get } from 'svelte/store';
     import { _ } from 'svelte-i18n';
     import { onMount, onDestroy } from 'svelte';
+    import { updateSettings } from '../../api/settings';
     import { fetchAvailableModels, fetchInstalledModels, downloadModel, fetchDownloadStatus, activateModel, deleteModel, validateModel, checkHealth, getVisibleTieredModelLineup, groupTieredModelLineup, categorizeModel, MODEL_CATEGORY_INFO, type ModelMetadata, type InstalledModel, type DownloadProgress, type ClassifierStatus, type HealthStatus } from '../../api';
     import { jobProgressStore } from '../../stores/job_progress.svelte';
     import { confirmAction } from '../../stores/confirm_dialog.svelte';
@@ -58,6 +59,34 @@
     let wizardDownload = $state(false);
     let showAdvancedModels = $state(false);
     const cropDetectorStatus = $derived(classifierStatus?.crop_detector ?? null);
+    type BirdFinderChoice = 'yolox_tiny' | 'rfdetr_nano';
+    const BIRD_FINDER_MODEL_IDS: Record<BirdFinderChoice, string> = {
+        yolox_tiny: 'bird_crop_detector_accurate_yolox_tiny',
+        rfdetr_nano: 'bird_crop_detector_accurate_rfdetr_nano',
+    };
+    // The pending choice shows immediately; otherwise the saved choice comes from the runtime status.
+    let pendingBirdFinder = $state<BirdFinderChoice | null>(null);
+    let savingBirdFinder = $state(false);
+    const savedBirdFinder = $derived<BirdFinderChoice>(
+        cropDetectorStatus?.chosen_model_id === BIRD_FINDER_MODEL_IDS.rfdetr_nano ? 'rfdetr_nano' : 'yolox_tiny'
+    );
+    const birdFinderChoice = $derived<BirdFinderChoice>(pendingBirdFinder ?? savedBirdFinder);
+
+    async function chooseBirdFinder(choice: BirdFinderChoice): Promise<void> {
+        if (savingBirdFinder || choice === birdFinderChoice) return;
+        pendingBirdFinder = choice;
+        savingBirdFinder = true;
+        try {
+            await updateSettings({ bird_crop_accurate_detector: choice });
+            await onruntimechange?.();
+        } catch (e) {
+            console.error(e);
+            toastStore.error(t('settings.detection.bird_finder_save_failed', 'The bird finder choice could not be saved. Nothing changed.'));
+        } finally {
+            pendingBirdFinder = null;
+            savingBirdFinder = false;
+        }
+    }
     // Until a worker reports what it loaded, the provider is the plan, not a fact.
     const runtimePlanned = $derived(classifierStatus?.runtime_source === 'planned');
 
@@ -631,8 +660,12 @@
         {@const modelGroups = groupTieredModelLineup(classifierModels, showAdvancedModels, selectedModelId)}
         {@const advancedCount = classifierModels.filter((model) => model.advanced_only).length}
         {@const maxLineupRam = lineupMaxRam(classifierModels)}
-        {@const selectedCropDetector = cropDetectorModels.find((model) => (model.tier || '').toLowerCase() === 'accurate')
+        {@const selectedCropDetector = cropDetectorModels.find((model) => model.id === BIRD_FINDER_MODEL_IDS[birdFinderChoice])
+            || cropDetectorModels.find((model) => (model.tier || '').toLowerCase() === 'accurate')
             || cropDetectorModels[0]}
+        {@const birdFinderOptions = (['yolox_tiny', 'rfdetr_nano'] as const)
+            .map((choice) => ({ choice, model: cropDetectorModels.find((model) => model.id === BIRD_FINDER_MODEL_IDS[choice]) }))
+            .filter((option) => option.model)}
         {@const selectedCropDetectorInstalled = selectedCropDetector ? isCropDetectorInstalled(selectedCropDetector.id) : false}
         {@const selectedCropDetectorDownload = selectedCropDetector ? downloadStatuses[selectedCropDetector.id] : undefined}
         {@const selectedCropDetectorRuntime = selectedCropDetector && cropDetectorStatus?.model_id === selectedCropDetector.id
@@ -1032,6 +1065,54 @@
                         </svg>
                     </summary>
                     <div class="space-y-5 py-4">
+                        {#if birdFinderOptions.length > 1}
+                            <fieldset class="space-y-3" aria-describedby="bird-finder-desc">
+                                <legend class="text-sm font-bold text-slate-900 dark:text-white">
+                                    {$_('settings.detection.bird_finder_title', { default: 'Bird finder' })}
+                                </legend>
+                                <p id="bird-finder-desc" class="max-w-3xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                                    {$_('settings.detection.bird_finder_desc', { default: 'Finds each bird in the full camera frame before it is identified and counted.' })}
+                                </p>
+                                <div class="grid gap-2 sm:grid-cols-2">
+                                    {#each birdFinderOptions as option (option.choice)}
+                                        {@const optionInstalled = option.model ? isCropDetectorInstalled(option.model.id) : false}
+                                        <label class="flex min-h-11 cursor-pointer gap-3 rounded-lg border p-3 text-sm {birdFinderChoice === option.choice ? 'border-brand-500 bg-brand-50 dark:border-brand-400 dark:bg-brand-900/20' : 'border-slate-200 dark:border-slate-700'}">
+                                            <input
+                                                type="radio"
+                                                name="bird-finder"
+                                                class="mt-0.5"
+                                                value={option.choice}
+                                                checked={birdFinderChoice === option.choice}
+                                                disabled={savingBirdFinder}
+                                                onchange={() => chooseBirdFinder(option.choice)}
+                                            />
+                                            <span>
+                                                <span class="block font-semibold text-slate-900 dark:text-white">
+                                                    {option.choice === 'rfdetr_nano'
+                                                        ? $_('settings.detection.bird_finder_wide', { default: 'Wide frame (RF-DETR Nano)' })
+                                                        : $_('settings.detection.bird_finder_standard', { default: 'Standard (YOLOX-Tiny)' })}
+                                                </span>
+                                                <span class="mt-0.5 block text-slate-600 dark:text-slate-300">
+                                                    {option.choice === 'rfdetr_nano'
+                                                        ? $_('settings.detection.bird_finder_wide_desc', { default: 'Reads the whole frame and four overlapping tiles, so it finds far more small and distant birds. A 103 MB download, and each frame takes longer.' })
+                                                        : $_('settings.detection.bird_finder_standard_desc', { default: 'Small and quick. Misses many birds that are small in a wide frame.' })}
+                                                </span>
+                                                <span class="mt-1 block text-xs font-semibold text-slate-500 dark:text-slate-400">
+                                                    {optionInstalled
+                                                        ? $_('settings.detection.model_manager_detector_ready', { default: 'Ready' })
+                                                        : $_('settings.detection.model_manager_detector_missing', { default: 'Download required' })}
+                                                </span>
+                                            </span>
+                                        </label>
+                                    {/each}
+                                </div>
+                                {#if cropDetectorStatus?.reason === 'fallback_default_accurate'}
+                                    <p class="text-sm font-semibold text-amber-700 dark:text-amber-300" role="status">
+                                        {$_('settings.detection.bird_finder_fallback', { default: 'The wide-frame finder is not downloaded yet, so the standard finder is still in use. Download it below to switch.' })}
+                                    </p>
+                                {/if}
+                            </fieldset>
+                        {/if}
                         <div class="grid gap-4">
                             <div>
                                 <p class="text-sm font-bold text-slate-900 dark:text-white">

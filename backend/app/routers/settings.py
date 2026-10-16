@@ -923,6 +923,10 @@ class SettingsUpdate(BaseModel):
         "fast",
         description="Deprecated compatibility field; crop generation automatically tries accurate then fast",
     )
+    bird_crop_accurate_detector: Optional[Literal["yolox_tiny", "rfdetr_nano"]] = Field(
+        "yolox_tiny",
+        description="Which accurate bird detector finds birds in full frames before identification",
+    )
     bird_crop_source_priority: Optional[
         Literal["frigate_hints_first", "crop_model_first", "crop_model_only", "frigate_hints_only"]
     ] = Field(
@@ -1521,6 +1525,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "strict_non_finite_output": settings.classification.strict_non_finite_output,
         "inference_provider": settings.classification.inference_provider,
         "bird_crop_detector_tier": settings.classification.bird_crop_detector_tier,
+        "bird_crop_accurate_detector": settings.classification.bird_crop_accurate_detector,
         "bird_crop_source_priority": settings.classification.bird_crop_source_priority,
         "bird_model_region_override": settings.classification.bird_model_region_override,
         "crop_model_overrides": settings.classification.crop_model_overrides,
@@ -1920,6 +1925,8 @@ async def update_settings(
         inference_provider_changed = previous_provider != update.inference_provider
     if "bird_crop_detector_tier" in fields_set and update.bird_crop_detector_tier is not None:
         settings.classification.bird_crop_detector_tier = update.bird_crop_detector_tier
+    if "bird_crop_accurate_detector" in fields_set and update.bird_crop_accurate_detector is not None:
+        settings.classification.bird_crop_accurate_detector = update.bird_crop_accurate_detector
     if "bird_crop_source_priority" in fields_set and update.bird_crop_source_priority is not None:
         settings.classification.bird_crop_source_priority = update.bird_crop_source_priority
     if "bird_model_region_override" in fields_set and update.bird_model_region_override is not None:

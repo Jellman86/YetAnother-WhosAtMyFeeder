@@ -49,6 +49,7 @@ Each run tests two preprocessing modes — **raw** (image sent as-is) and **lett
 | **FlexiViT Israel Birds** | small | birds_only (Israel checklist) | 33.3% | 31.7% | 40.0% | 38.3% | 199ms | intel_cpu |
 | **Bird Crop Detector (Fast)** | fast | system | n/a | n/a | n/a | n/a | 5ms | cpu |
 | **Bird Crop Detector Accurate (YOLOX-Tiny)** | accurate | system | n/a | n/a | n/a | n/a | 11–30ms provider sweep | host-validated |
+| **Bird Finder (RF-DETR Nano)** | accurate | system | n/a | n/a | n/a | n/a | 32ms GPU, 52ms CPU, 81ms NPU per view; 5 views per frame | host-validated |
 
 > **Birds-only model note:** `Small Birds` and `Medium Birds` are region-resolved family entries, `EU FocalNet-B` is Europe-specific, and `FlexiViT Israel Birds` trades coverage and size for speed. The shared fixture set is still weighted toward North American species, so these rows should be read as scope-mismatch diagnostics rather than direct leaderboard entries against the wildlife-wide models.
 
@@ -66,6 +67,20 @@ Each run tests two preprocessing modes — **raw** (image sent as-is) and **lett
 - **Legacy TFLite MobileNet V2** is fast (13ms) but has fewer labels and lower top-5 accuracy. Hidden in the UI by default and labelled as legacy.
 - **Bird Crop Detector (Fast)** remains the fail-soft cropped-thumbnail fallback because it is small,
   fast, and already validated for CPU use.
+- **Bird Finder (RF-DETR Nano)** is the optional wide-frame accurate detector (#734). Two private
+  sets of feeder frames had every visible bird boxed by visual review and checked by the owner:
+  52 birds in 58 frames, then a separate 64 birds in 59 frames selected partly for two-bird visits.
+  With the full frame plus four 20%-overlapping tiles and a 0.3 floor fixed on the first set, it
+  found 42/52 and 58/64 birds through the application path on CPU, Intel GPU and Intel NPU
+  alike; YOLOX-Tiny's production crop path found 12/52 and 16/64 at the 0.08 counting floor (21/52 and 30/64 at its 0.02 evidence floor). The installed classifier gave a
+  confident species for 37 and 57 of the birds RF-DETR found, and agreed with the species from the
+  hand-drawn box in every confident case on the second set. Most misses were birds partly hidden
+  behind the fountain. Its extra boxes are feeder fixtures, squirrels and parts of real birds; the
+  existing distinct-bird selection and species gates handle them, and a stricter rule for extra
+  boxes remains open in #734. Exported from the Apache-2.0 COCO weights at roboflow/rf-detr
+  7433d59 as a static 384x384 ONNX graph; final detections match PyTorch (IoU at least 0.955,
+  confidence within 0.007), and OpenVINO CPU, GPU and NPU give the same birds on both sets.
+  CUDA is not yet validated.
 - **Bird Crop Detector Accurate (YOLOX-Tiny)** is the optional experimental cropped-thumbnail tier.
   Its artifact is published and it retries with the fast detector whenever it is unavailable or
   returns no usable crop. A 21 July 2026 Quark provider sweep validated CPU and OpenVINO
