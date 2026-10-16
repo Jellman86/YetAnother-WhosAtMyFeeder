@@ -23,7 +23,13 @@ def scan(monkeypatch, tmp_path):
         worker.cv2.CAP_PROP_POS_FRAMES: 11,
     }
     reader.get.side_effect = lambda key: props[key]
-    reader.read.return_value = (True, np.full((100, 100, 3), [10, 20, 30], dtype=np.uint8))
+    still = np.full((100, 100, 3), [10, 20, 30], dtype=np.uint8)
+    reader.frames = [still]
+    for shade in (120, 230):
+        moved = still.copy()
+        moved[10:60, 10:60] = shade
+        reader.frames.append(moved)
+    reader.read.side_effect = lambda: (True, reader.frames[(reader.read.call_count - 1) % len(reader.frames)])
     monkeypatch.setattr(worker.cv2, "VideoCapture", lambda *args: reader)
     runtime = Mock(actual=["CPUExecutionProvider"])
     runtime.infer.return_value = np.zeros((1, 7, 1), dtype=np.float32)
@@ -82,3 +88,21 @@ def test_invalid_or_too_short_recording_fails_before_inference(scan, count):
     runtime.infer.assert_not_called()
     reader.release.assert_called_once()
     assert not photo.exists()
+
+
+def test_a_proposal_that_never_moves_is_rejected_without_a_photo(scan, monkeypatch):
+    payload, reader, _, photo, _ = scan
+    reader.frames = [np.full((100, 100, 3), [10, 20, 30], dtype=np.uint8)]
+    monkeypatch.setattr(worker, "decode_candidates", lambda *args: [("animal", 0.9, (0.1, 0.1, 0.5, 0.5))])
+    result = worker.scan_clip(payload)
+    assert result == {"outcome": "still_rejected", "detector_score": 0.9, "motion_ratio": 0.0}
+    assert not photo.exists()
+    reader.release.assert_called_once()
+
+
+def test_a_moving_proposal_reports_its_motion_ratio(scan, monkeypatch):
+    payload, *_ = scan
+    monkeypatch.setattr(worker, "decode_candidates", lambda *args: [("animal", 0.9, (0.1, 0.1, 0.5, 0.5))])
+    result = worker.scan_clip(payload)
+    assert result["outcome"] == "candidate"
+    assert result["motion_ratio"] >= worker.STILL_PROPOSAL_MOTION_RATIO

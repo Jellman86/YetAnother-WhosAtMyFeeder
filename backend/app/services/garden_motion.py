@@ -246,6 +246,7 @@ class GardenMotionService:
             "candidate",
             "person_rejected",
             "no_candidate",
+            "still_rejected",
         }:
             raise ValueError("Motion worker returned an invalid outcome")
         if result["outcome"] == "candidate" and result.get("devices") != ["CPUExecutionProvider"]:
@@ -397,11 +398,12 @@ class GardenMotionService:
             self.queued_windows -= 1
             self.queue_checked_at = utc_naive_now().isoformat() + "Z"
             self.last_outcome = result["outcome"]
-            self.message = (
-                "Review photo collected. Confirm animal presence before requesting a species suggestion."
-                if result["outcome"] == "candidate"
-                else "Recording scanned; no review photo retained."
-            )
+            if result["outcome"] == "candidate":
+                self.message = "Review photo collected. Confirm animal presence before requesting a species suggestion."
+            elif result["outcome"] == "still_rejected":
+                self.message = "Recording scanned; the detected shape did not move, so no review photo was retained."
+            else:
+                self.message = "Recording scanned; no review photo retained."
         except GardenBusy as error:
             self.message = str(error)
             self.last_outcome = "paused"

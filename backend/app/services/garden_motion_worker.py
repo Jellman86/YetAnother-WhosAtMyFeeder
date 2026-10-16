@@ -14,6 +14,7 @@ import cv2
 
 from app.services.garden_detector_runtime import detector_input, decode_candidates
 from app.services.garden_model_runtime import Runtime, digest
+from app.services.garden_motion_policy import STILL_PROPOSAL_MOTION_RATIO, box_motion_ratio
 from app.models.garden_motion import MOTION_PADDING_SECONDS
 
 
@@ -38,6 +39,7 @@ def scan_clip(payload: dict[str, Any]) -> dict[str, Any]:
             raise ValueError("Motion recording exceeds its pixel or duration limit")
         runtime = Runtime(model, "cpu")
         best = None
+        greys = []
         for fraction in (0.1, 0.5, 0.9):
             reader.set(cv2.CAP_PROP_POS_MSEC, min(duration - 0.1, duration_limit) * fraction * 1000)
             ok, frame = reader.read()
@@ -47,6 +49,7 @@ def scan_clip(payload: dict[str, Any]) -> dict[str, Any]:
             if not math.isfinite(index) or not 0 <= index <= 1200 or index / fps > duration_limit:
                 raise ValueError("Motion recording did not identify a bounded sample frame")
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            greys.append(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY))
             tensor, meta = detector_input(rgb)
             candidates = decode_candidates(
                 runtime.infer(tensor), meta, payload["names"], payload.get("animal_confidence", 0.5)
@@ -67,6 +70,10 @@ def scan_clip(payload: dict[str, Any]) -> dict[str, Any]:
         if best is None:
             return {"outcome": "no_candidate"}
         candidate, frame, frame_index, offset, frame_hash, tensor_hash = best
+        motion_ratio = box_motion_ratio(greys, candidate[2])
+        if motion_ratio is not None and motion_ratio < STILL_PROPOSAL_MOTION_RATIO:
+            # Fixtures get re-proposed every few minutes; a visitor changes its box.
+            return {"outcome": "still_rejected", "detector_score": candidate[1], "motion_ratio": round(motion_ratio, 3)}
         # Stored evidence is deliberately small; box coordinates are normalized.
         h, w = frame.shape[:2]
         scale = min(1.0, 1280 / max(w, h))
@@ -87,6 +94,7 @@ def scan_clip(payload: dict[str, Any]) -> dict[str, Any]:
                     "devices": runtime.actual,
                     "detector_input_sha256": tensor_hash,
                     "sampled_frame_sha256": frame_hash,
+                    "motion_ratio": None if motion_ratio is None else round(motion_ratio, 3),
                 }
         raise ValueError("Motion photo could not fit its byte limit")
     finally:

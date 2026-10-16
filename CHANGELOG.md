@@ -6,6 +6,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Garden motion collection no longer stores photos of fixtures that never move. A
+  proposal is dropped when its box changes no more than 1.4 times its surroundings
+  across the three sampled frames. Replaying the recordings behind owner-reviewed
+  photos, this kept all 28 confirmed visitors and rejected 97 of 104 dismissed
+  photos of a feeder, a lawn patch and a patio object. An animal that stays still
+  for the whole ten-second window can be missed (#641).
+
 - **Models → Cropped thumbnails → Bird finder** offers a second accurate bird detector,
   RF-DETR Nano. It reads the full frame plus four overlapping tiles, so it finds far more
   birds that are small in a wide frame. On two owner-checked sets of feeder frames it found

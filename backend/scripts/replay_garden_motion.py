@@ -126,7 +126,7 @@ def verify_result(result: dict[str, Any], hashes: list[str]) -> None:
             or result["sampled_frame_sha256"] != hashes[index]
         ):
             raise ValueError("Worker result does not bind the original source frame")
-    elif result["outcome"] not in {"no_candidate", "person_rejected"}:
+    elif result["outcome"] not in {"no_candidate", "person_rejected", "still_rejected"}:
         raise ValueError("Unexpected motion worker result")
 
 
