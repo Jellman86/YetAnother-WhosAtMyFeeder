@@ -79,6 +79,14 @@ it cannot eliminate confident errors such as feeders and toys. **Save animal thr
 does not reclassify existing photos or change bird thresholds or the person privacy veto.
 Each new motion photo records the threshold used with its source evidence.
 
+A proposal is dropped without a photo when the pixels inside its box change no more
+than 1.4 times the area around it across the three sampled frames. This stops
+fixtures such as feeders, ornaments and dark patches on the lawn, which Cedar can
+re-propose every few minutes, from filling the review queue; the panel reports that
+the detected shape did not move. On owner-reviewed footage this kept all 28 confirmed
+visitors and rejected 97 of 104 dismissed fixture photos. An animal that stays
+perfectly still for the whole window can be missed the same way.
+
 Cedar runs on CPU with two inference threads and one video-decoding thread. It
 yields to queued or running bird inference and stops if active Frigate cameras
 fall behind. One garden operation runs at a time, with a 45-second motion-worker

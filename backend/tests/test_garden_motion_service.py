@@ -585,3 +585,15 @@ async def test_scanning_more_backlog_keeps_the_selected_interval_until_the_outco
         release.set()
         await task
     assert (await collector.status()).interval_seconds == 5
+
+
+@pytest.mark.asyncio
+async def test_a_still_proposal_is_recorded_as_scanned_and_stores_nothing(collector, monkeypatch):
+    native = AsyncMock(return_value={"outcome": "still_rejected", "detector_score": 0.7, "motion_ratio": 0.8})
+    monkeypatch.setattr(collector, "_native", native)
+    await collector.scan_once()
+    assert native.await_count == 1
+    assert collector.last_outcome == "still_rejected"
+    assert "did not move" in collector.message
+    async with get_db() as db:
+        assert await GardenRepository(db).count("pending") == 0

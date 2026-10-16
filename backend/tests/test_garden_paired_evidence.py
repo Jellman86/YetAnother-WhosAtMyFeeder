@@ -397,6 +397,9 @@ def test_baseline_reducer_agrees_with_actual_worker_under_mocked_inference(candi
     runtime.infer.return_value = np.zeros((1, 7, 1), dtype=np.float32)
     monkeypatch.setattr(worker, "Runtime", lambda *args: runtime)
     monkeypatch.setattr(worker, "decode_candidates", Mock(side_effect=candidates))
+    # The reducer models detection choices only; the still-fixture gate is measured
+    # from pixels and covered by test_garden_still_proposals.
+    monkeypatch.setattr(worker, "box_motion_ratio", lambda *args: None)
     actual = worker.scan_clip(
         {
             "clip": str(clip),
