@@ -1,5 +1,5 @@
 <script lang="ts" module>
-    export type SettingsTab = 'connection' | 'detection' | 'notifications' | 'health' | 'enrichment' | 'ai' | 'data' | 'appearance' | 'accessibility' | 'security' | 'debug' | 'integrations';
+    export type SettingsTab = 'connection' | 'detection' | 'notifications' | 'health' | 'enrichment' | 'ai' | 'data' | 'appearance' | 'accessibility' | 'security' | 'debug' | 'integrations' | 'beta';
 </script>
 
 <script lang="ts">
@@ -144,6 +144,7 @@
         'data',
         'appearance',
         'accessibility',
+        'beta',
         'debug'
     ];
 
@@ -1306,6 +1307,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let timeFormat = $state('locale');
     let debugUiEnabled = $state(false);
     let strictNonFiniteOutput = $state(true);
+    let betaGardenAnimals = $state(false);
 
     // Notifications
     let discordEnabled = $state(false);
@@ -1792,6 +1794,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'videoClassificationFrames', val: videoClassificationFrames, store: s.video_classification_frames ?? 15 },
             { key: 'imageExecutionMode', val: imageExecutionMode, store: s.image_execution_mode ?? 'subprocess' },
             { key: 'strictNonFiniteOutput', val: strictNonFiniteOutput, store: s.strict_non_finite_output ?? true },
+            { key: 'betaGardenAnimals', val: betaGardenAnimals, store: s.beta_garden_animals ?? false },
             { key: 'inferenceProvider', val: inferenceProvider, store: parseInferenceProvider(s.inference_provider) ?? 'auto' },
             { key: 'selectedCameras', val: JSON.stringify(selectedCameras), store: JSON.stringify(s.cameras || []) },
             { key: 'retentionDays', val: retentionDays, store: s.retention_days || 0 },
@@ -2975,6 +2978,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             birdModelRegionOverride = resolveBirdModelRegionOverrideFromSettings(settings.bird_model_region_override);
             imageExecutionMode = settings.image_execution_mode ?? 'subprocess';
             strictNonFiniteOutput = settings.strict_non_finite_output ?? true;
+            betaGardenAnimals = settings.beta_garden_animals ?? false;
             inferenceProvider = parseInferenceProvider(settings.inference_provider) ?? 'auto';
             loadedInferenceProvider = settings.inference_provider;
             settingsFormLoads += 1;
@@ -3340,6 +3344,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 ...buildBirdModelRegionOverrideSettings(birdModelRegionOverride),
                 image_execution_mode: imageExecutionMode,
                 strict_non_finite_output: strictNonFiniteOutput,
+                beta_garden_animals: betaGardenAnimals,
                 inference_provider: inferenceProviderForSave(inferenceProvider, settingsStore.settings?.inference_provider),
                 cameras: selectedCameras,
                 retention_days: retentionDays,
@@ -3587,6 +3592,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:gardenMotionCameras
                     bind:gardenCameras
                     bind:gardenLabels
+                    {betaGardenAnimals}
                     bind:cameraRoles
                     bind:nestDedupeMinutes
                     bind:classificationImageSource
@@ -3940,6 +3946,30 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:liveAnnouncements
                     bind:reducedMotion
                 />
+            {/if}
+
+            {#if activeTab === 'beta'}
+                {#snippet betaIcon()}
+                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2v7.31L4.53 18.4A2.4 2.4 0 0 0 6.6 22h10.8a2.4 2.4 0 0 0 2.07-3.6L14 9.31V2M8.5 2h7M7 16h10" /></svg>
+                {/snippet}
+                <SettingsCard
+                    iconSnippet={betaIcon}
+                    title={$_('settings.beta.title', { default: 'Beta features' })}
+                    description={$_('settings.beta.subtitle', { default: 'Features that are still being tested. They are off unless you turn them on, and they may change or be removed.' })}
+                >
+                    <SettingsRow
+                        labelId="setting-beta-garden-animals"
+                        label={$_('settings.beta.garden_animals', { default: 'Garden animals' })}
+                        description={$_('settings.beta.garden_animals_desc', { default: 'Collects non-bird visitors such as cats, dogs and foxes from cameras you choose, for you to review. Turning it off stops new collection and hides Garden; saved captures are kept.' })}
+                    >
+                        <SettingsToggle
+                            checked={betaGardenAnimals}
+                            labelledBy="setting-beta-garden-animals"
+                            srLabel={$_('settings.beta.garden_animals', { default: 'Garden animals' })}
+                            onchange={(value) => (betaGardenAnimals = value)}
+                        />
+                    </SettingsRow>
+                </SettingsCard>
             {/if}
 
             {#if activeTab === 'debug'}

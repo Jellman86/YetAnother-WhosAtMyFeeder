@@ -60,6 +60,13 @@ def safe_event_id(value: object) -> str | None:
     return value if isinstance(value, str) and re.fullmatch(r"[A-Za-z0-9_.-]{1,128}", value) else None
 
 
+def garden_collection_cameras() -> list[str]:
+    """Cameras Garden may collect from: none while the beta feature is switched off."""
+    from app.config import settings
+
+    return list(settings.frigate.garden_cameras) if settings.system.beta_garden_animals else []
+
+
 def should_handle_garden(data: object, cameras: list[str], labels: list[str], *, has_history: bool = False) -> bool:
     if not isinstance(data, dict):
         return False

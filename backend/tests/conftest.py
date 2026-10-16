@@ -136,6 +136,15 @@ def isolate_config_hostname_resolution(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def enable_garden_beta_for_garden_tests(request, monkeypatch):
+    """Garden is a beta feature that defaults off; its own tests exercise it switched on."""
+    if "garden" in request.node.path.name:
+        from app.config import settings
+
+        monkeypatch.setattr(settings.system, "beta_garden_animals", True)
+
+
+@pytest.fixture(autouse=True)
 def disable_rate_limiting():
     """Disable rate limiting for all tests by default."""
     from app.ratelimit import limiter

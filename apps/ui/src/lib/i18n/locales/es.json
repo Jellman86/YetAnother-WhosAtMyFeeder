@@ -813,7 +813,8 @@
         "intelligence": "Análisis y difusión",
         "operations": "Operaciones",
         "interface": "Interfaz"
-      }
+      },
+      "beta": "Funciones beta"
     },
     "debug": {
       "title": "Herramientas de depuración",
@@ -1879,6 +1880,12 @@
       "larger": "Mayor",
       "extra_large": "Muy grande",
       "largest": "Máximo"
+    },
+    "beta": {
+      "title": "Funciones beta",
+      "subtitle": "Funciones que aún se están probando. Están desactivadas hasta que las actives y pueden cambiar o eliminarse.",
+      "garden_animals": "Animales del jardín",
+      "garden_animals_desc": "Recoge visitantes que no son aves, como gatos, perros y zorros, de las cámaras que elijas para que los revises. Al desactivarla se detiene la recogida y se oculta Jardín; las capturas guardadas se conservan."
     }
   },
   "auth": {
@@ -3668,6 +3675,9 @@
     "photo_dismissed": "Foto descartada.",
     "photo_restored": "Foto devuelta a revisión.",
     "group_remaining": "Las demás fotos de este grupo aún necesitan revisión.",
-    "single_photo_help": "Revisar esta foto"
+    "single_photo_help": "Revisar esta foto",
+    "beta_off_title": "Animales del jardín está desactivado",
+    "beta_off_desc": "Animales del jardín es una función beta. Actívala en Ajustes, Funciones beta, para recoger y revisar visitantes que no son aves. Las capturas guardadas se conservan mientras esté desactivada.",
+    "beta_off_action": "Abrir Funciones beta"
   }
 }

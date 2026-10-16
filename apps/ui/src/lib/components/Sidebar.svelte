@@ -4,6 +4,7 @@
     import { themeStore } from '../stores/theme.svelte';
     import { layoutStore } from '../stores/layout.svelte';
     import { authStore } from '../stores/auth.svelte';
+    import { settingsStore } from '../stores/settings.svelte';
     import { updateStatusStore } from '../stores/update_status.svelte';
     import { _ } from 'svelte-i18n';
     import BrandMark from './BrandMark.svelte';
@@ -56,7 +57,10 @@
     ]));
 
     const navSections = $derived.by((): NavGroup[] => {
-        const visibleItems = allNavItems.filter(item => !item.requiresAuth || authStore.showSettings);
+        const gardenEnabled = settingsStore.settings?.beta_garden_animals === true;
+        const visibleItems = allNavItems.filter(item =>
+            (!item.requiresAuth || authStore.showSettings) && (item.path !== '/garden' || gardenEnabled)
+        );
         return [
             { id: 'observe', label: $_('nav.observe'), items: visibleItems.filter(item => item.section === 'observe') },
             { id: 'manage', label: $_('nav.manage'), items: visibleItems.filter(item => item.section === 'manage') },

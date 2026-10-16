@@ -167,7 +167,8 @@ test('garden camera opt-in saves independently of a Nest bird role', async ({ pa
     let settings: Record<string, unknown> = {
         frigate_url: 'http://frigate:5000', mqtt_server: 'mqtt', mqtt_port: 1883,
         mqtt_auth: false, cameras: ['patio'], camera_roles: { patio: 'nest' },
-        garden_cameras: [], garden_labels: ['cat', 'dog'], classification_threshold: 0.7
+        garden_cameras: [], garden_labels: ['cat', 'dog'], classification_threshold: 0.7,
+        beta_garden_animals: true
     };
     let written: Record<string, unknown> | null = null;
     await page.route(url => url.pathname.startsWith('/api/'), route => {

@@ -1032,6 +1032,10 @@ class SystemSettings(BaseModel):
         description="Trusted proxy hosts for X-Forwarded-* headers",
     )
     debug_ui_enabled: bool = Field(default=False, description="Expose debug UI sections in the web app")
+    beta_garden_animals: bool = Field(
+        default=False,
+        description="Beta: collect and review non-bird garden visitors. Off unless the owner turns it on.",
+    )
     update_check_enabled: bool = Field(
         default=True,
         description=(

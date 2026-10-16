@@ -37,6 +37,7 @@
         gardenCameras = $bindable<string[]>([]),
         gardenMotionCameras = $bindable<string[]>([]),
         gardenLabels = $bindable('cat, dog'),
+        betaGardenAnimals = false,
         cameraRoles = $bindable<Record<string, 'feeder' | 'nest'>>({}),
         nestDedupeMinutes = $bindable(30),
         telemetryEnabled = $bindable(false),
@@ -70,6 +71,7 @@
         gardenCameras?: string[];
         gardenMotionCameras?: string[];
         gardenLabels?: string;
+        betaGardenAnimals?: boolean;
         cameraRoles: Record<string, 'feeder' | 'nest'>;
         nestDedupeMinutes: number;
         telemetryEnabled: boolean;
@@ -602,7 +604,9 @@
     <SettingsCard accent iconSnippet={camerasIcon} title={$_('settings.cameras.title')}>
         <!-- The page scrolls; a second scroller inside the card hid the first camera under the
              card header and cut off the nest window below the list. -->
+        {#if betaGardenAnimals}
         <p class="mb-3 text-sm text-slate-600 dark:text-slate-400">{$_('garden.settings_help', { default: 'Garden animals collects completed animal events for your review. Species suggestions run only when you ask.' })}</p>
+        {/if}
         <div class="space-y-3" data-camera-list>
             {#if availableCameras.length === 0}
                 <div class="p-8 text-center bg-slate-50 dark:bg-slate-900/30 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700">
@@ -676,6 +680,7 @@
                                     </div>
                                 </div>
                             {/if}
+                            {#if betaGardenAnimals}
                             <div class="flex flex-wrap items-center gap-3 border-t border-line-soft px-2 py-2">
                                 <button type="button" class="btn btn-secondary min-h-11 px-3 py-2"
                                     aria-pressed={gardenCameras.includes(camera)}
@@ -695,6 +700,7 @@
                                     </button>
                                     <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.motion_camera_help', { default: 'Optional CPU scans of retained motion footage. Download the detector on Garden animals; bird detection keeps its current settings.' })}</p>
                                 </div>
+                            {/if}
                             {/if}
                             {#if previewVisible && previewCamera === camera}
                                 <div class="rounded-2xl border border-slate-200/80 dark:border-slate-700/60 bg-white/95 dark:bg-slate-900/95 overflow-hidden shadow-lg shadow-slate-900/10 dark:shadow-black/30">
@@ -737,7 +743,7 @@
                     {/each}
                 </div>
             {/if}
-            {#if gardenCameras.length > 0}
+            {#if betaGardenAnimals && gardenCameras.length > 0}
             <div class="mt-4 space-y-2">
                 <label for="garden-labels" class="text-sm font-semibold">{$_('garden.labels', { default: 'Frigate animal labels' })}</label>
                 <input id="garden-labels" class="input-base w-full" bind:value={gardenLabels} aria-describedby="garden-label-help" />

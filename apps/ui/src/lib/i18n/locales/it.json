@@ -823,7 +823,8 @@
         "intelligence": "Analisi e condivisione",
         "operations": "Operazioni",
         "interface": "Interfaccia"
-      }
+      },
+      "beta": "Funzioni beta"
     },
     "debug": {
       "title": "Strumenti di debug",
@@ -1889,6 +1890,12 @@
       "larger": "Più grande",
       "extra_large": "Molto grande",
       "largest": "Massimo"
+    },
+    "beta": {
+      "title": "Funzioni beta",
+      "subtitle": "Funzioni ancora in prova. Restano disattivate finché non le attivi e possono cambiare o essere rimosse.",
+      "garden_animals": "Animali del giardino",
+      "garden_animals_desc": "Raccoglie visitatori che non sono uccelli, come gatti, cani e volpi, dalle telecamere scelte, perché tu li possa esaminare. Disattivarla interrompe la raccolta e nasconde Giardino; le catture salvate restano."
     }
   },
   "auth": {
@@ -3668,6 +3675,9 @@
     "photo_dismissed": "Foto scartata.",
     "photo_restored": "Foto rimessa in revisione.",
     "group_remaining": "Le altre foto di questo gruppo devono ancora essere esaminate.",
-    "single_photo_help": "Esamina questa foto"
+    "single_photo_help": "Esamina questa foto",
+    "beta_off_title": "Animali del giardino è disattivato",
+    "beta_off_desc": "Animali del giardino è una funzione beta. Attivala in Impostazioni, Funzioni beta, per raccogliere ed esaminare i visitatori che non sono uccelli. Le catture salvate restano mentre è disattivata.",
+    "beta_off_action": "Apri Funzioni beta"
   }
 }

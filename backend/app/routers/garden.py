@@ -25,11 +25,24 @@ from app.services.garden_identification import garden_identification_service
 from app.services.species_names import species_name_lookup
 
 
+def require_garden_beta() -> None:
+    from app.config import settings
+
+    if not settings.system.beta_garden_animals:
+        raise HTTPException(
+            404, "Garden animals is a beta feature that is switched off. Turn it on in Settings, Beta features."
+        )
+
+
 def private_response(response: Response) -> None:
     response.headers["Cache-Control"] = "private, no-store"
 
 
-router = APIRouter(prefix="/garden", tags=["garden"], dependencies=[Depends(require_owner), Depends(private_response)])
+router = APIRouter(
+    prefix="/garden",
+    tags=["garden"],
+    dependencies=[Depends(require_owner), Depends(require_garden_beta), Depends(private_response)],
+)
 
 
 class GardenCaptureResponse(BaseModel):

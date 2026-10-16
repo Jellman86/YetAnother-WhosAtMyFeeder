@@ -1,15 +1,22 @@
 # Review garden animals
 
-**Garden animals** is an owner-only review prototype in current `dev`. It collects
+**Garden animals** is an owner-only beta feature. It collects
 completed Frigate animal events separately from bird history. It offers optional, owner-requested SpeciesNet suggestions. It never saves a model
 guess as a confirmed identification automatically.
 
-1. Open **Settings → Connection**, sync the camera list, and enable **Garden animals**
+It is off unless you turn it on in **Settings → Beta features** (or set
+`SYSTEM__BETA_GARDEN_ANIMALS=true`). While it is off, Garden collects nothing new, the
+motion scanner does not run, the sidebar item and camera options are hidden, and the
+Garden API answers that the feature is switched off. Saved captures are kept, and a
+later person event still removes any stored photo it covers.
+
+1. Turn on **Garden animals** in **Settings → Beta features** and save.
+2. Open **Settings → Connection**, sync the camera list, and enable **Garden animals**
    for the camera you want to watch. Its **Feeder** or **Nest** bird role is independent.
-2. Set **Frigate animal labels** to labels your detector actually tracks. The default
+3. Set **Frigate animal labels** to labels your detector actually tracks. The default
    is `cat, dog`. Adding `squirrel` here cannot make a detector learn squirrels;
    Frigate must already track that label and publish completed events over MQTT.
-3. Save settings, then open **Garden animals** in the sidebar. Select **Needs review**,
+4. Save settings, then open **Garden animals** in the sidebar. Select **Needs review**,
    inspect the photograph, and choose **Confirm animal present** or **Dismiss capture**.
    **Return to review** restores a dismissed capture while its photo remains available.
 

@@ -14,7 +14,7 @@ from app.config import settings
 from app.database import get_db
 from app.repositories.garden_repository import GardenCapture, GardenRepository
 from app.services.frigate_client import frigate_client
-from app.services.garden_capture_policy import safe_event_id, observation_time
+from app.services.garden_capture_policy import garden_collection_cameras, safe_event_id, observation_time
 
 
 class GardenCaptureService:
@@ -39,9 +39,11 @@ class GardenCaptureService:
         label = str(after.get("label") or "").strip().lower()
         bird = label in {value.lower() for value in settings.frigate.ingest_labels}
         rejected = bool(after.get("false_positive")) or label in {"person", "human"}
-        if not settings.frigate.garden_cameras and not (rejected and self.has_history):
+        # Switched off, Garden collects nothing new but still honours privacy revocations.
+        cameras = garden_collection_cameras()
+        if not cameras and not (rejected and self.has_history):
             return
-        if rejected or (bird and camera in settings.frigate.garden_cameras):
+        if rejected or (bird and camera in cameras):
             if label in {"person", "human"}:
                 from app.services import garden_motion_privacy
 
@@ -58,11 +60,9 @@ class GardenCaptureService:
                     async with get_db() as db:
                         await GardenRepository(db).block_motion_overlap(camera, start, max(start, end))
             async with get_db() as db:
-                await GardenRepository(db).block(
-                    event_id, create=rejected and camera in settings.frigate.garden_cameras
-                )
+                await GardenRepository(db).block(event_id, create=rejected and camera in cameras)
             return
-        if camera not in settings.frigate.garden_cameras:
+        if camera not in cameras:
             return
         if label not in settings.frigate.garden_labels:
             if self.has_history:
