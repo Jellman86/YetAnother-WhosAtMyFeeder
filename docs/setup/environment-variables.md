@@ -284,6 +284,7 @@ Discord / Pushover / Telegram / Email:
 | Variable | Default | Description |
 | --- | --- | --- |
 | `SYSTEM__DEBUG_UI_ENABLED` | `false` | Show the Debug settings tab. |
+| `SYSTEM__BETA_GARDEN_ANIMALS` | `false` | Turn on the Garden animals beta feature. |
 | `SYSTEM__UPDATE_CHECK_ENABLED` | `true` | Check for new releases. |
 | `SYSTEM__TRUSTED_PROXY_HOSTS` | _(built-in list)_ | Comma-separated trusted reverse-proxy hosts. |
 | `SYSTEM__BROADCASTER_MAX_QUEUE_SIZE` | `100` | SSE broadcaster queue size. |

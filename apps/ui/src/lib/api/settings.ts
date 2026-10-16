@@ -204,6 +204,7 @@ export interface Settings {
     auth_password?: string;
     trusted_proxy_hosts?: string[];
     debug_ui_enabled?: boolean;
+    beta_garden_animals?: boolean;
     public_access_enabled: boolean;
     public_access_show_camera_names: boolean;
     public_access_show_ai_conversation?: boolean;

@@ -6,6 +6,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Garden animals is now a beta feature, off unless the owner turns it on in the new
+  **Settings → Beta features** tab (`SYSTEM__BETA_GARDEN_ANIMALS`). While it is off,
+  Garden collects nothing new, the motion scanner idles, the sidebar item and camera
+  options are hidden, and the Garden API answers that it is switched off. Saved
+  captures are kept, and later person events still remove stored photos they cover.
+
 - Garden motion collection no longer stores photos of fixtures that never move. A
   proposal is dropped when its box changes no more than 1.4 times its surroundings
   across the three sampled frames. Replaying the recordings behind owner-reviewed

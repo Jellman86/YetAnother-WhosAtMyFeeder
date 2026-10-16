@@ -11712,6 +11712,11 @@
             ],
             "title": "Background Worker Count"
           },
+          "beta_garden_animals": {
+            "default": false,
+            "title": "Beta Garden Animals",
+            "type": "boolean"
+          },
           "bird_crop_accurate_detector": {
             "anyOf": [
               {
@@ -13871,6 +13876,17 @@
             ],
             "description": "Background classifier worker processes; null follows the default (one)",
             "title": "Background Worker Count"
+          },
+          "beta_garden_animals": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Beta Garden Animals"
           },
           "bird_crop_accurate_detector": {
             "anyOf": [

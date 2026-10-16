@@ -813,7 +813,15 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
                       onLoadError={handleRouteLoadError}
                   />
               {:else if currentRoute.startsWith('/garden')}
-                  {#if authStore.showSettings}
+                  {#if authStore.showSettings && settingsStore.settings?.beta_garden_animals === false}
+                      <div class="card-base max-w-2xl space-y-3 p-6" role="status" data-garden-beta-off>
+                          <p class="text-base font-semibold text-slate-900 dark:text-white">{$_('garden.beta_off_title', { default: 'Garden animals is switched off' })}</p>
+                          <p class="text-sm text-slate-600 dark:text-slate-300">{$_('garden.beta_off_desc', { default: 'Garden animals is a beta feature. Turn it on in Settings, Beta features, to collect and review non-bird visitors. Saved captures are kept while it is off.' })}</p>
+                          <button type="button" class="btn btn-secondary min-h-11 px-4" onclick={() => navigate('/settings/beta')}>
+                              {$_('garden.beta_off_action', { default: 'Open Beta features' })}
+                          </button>
+                      </div>
+                  {:else if authStore.showSettings}
                       <LazyRoute loader={loadGardenPage} props={{ onNavigate: navigate }} label={pageTitle} onLoadError={handleRouteLoadError} />
                   {/if}
               {:else if currentRoute.startsWith('/observations/new')}

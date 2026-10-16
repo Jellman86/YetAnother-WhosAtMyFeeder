@@ -823,7 +823,8 @@
         "intelligence": "Intelligence & sharing",
         "operations": "Operations",
         "interface": "Interface"
-      }
+      },
+      "beta": "Beta features"
     },
     "debug": {
       "title": "Debug Tools",
@@ -1889,6 +1890,12 @@
       "larger": "Larger",
       "extra_large": "Extra large",
       "largest": "Largest"
+    },
+    "beta": {
+      "title": "Beta features",
+      "subtitle": "Features that are still being tested. They are off unless you turn them on, and they may change or be removed.",
+      "garden_animals": "Garden animals",
+      "garden_animals_desc": "Collects non-bird visitors such as cats, dogs and foxes from cameras you choose, for you to review. Turning it off stops new collection and hides Garden; saved captures are kept."
     }
   },
   "auth": {
@@ -3668,6 +3675,9 @@
     "photo_dismissed": "Photo dismissed.",
     "photo_restored": "Photo returned to review.",
     "group_remaining": "Other photos in this group still need review.",
-    "single_photo_help": "Review this photo"
+    "single_photo_help": "Review this photo",
+    "beta_off_title": "Garden animals is switched off",
+    "beta_off_desc": "Garden animals is a beta feature. Turn it on in Settings, Beta features, to collect and review non-bird visitors. Saved captures are kept while it is off.",
+    "beta_off_action": "Open Beta features"
   }
 }

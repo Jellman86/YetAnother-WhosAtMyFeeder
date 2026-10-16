@@ -68,9 +68,10 @@ class GardenMotionService:
         self.queue_checked_at: str | None = None
 
     def cameras(self) -> list[str]:
-        return [
-            camera for camera in settings.frigate.garden_motion_cameras if camera in settings.frigate.garden_cameras
-        ]
+        from app.services.garden_capture_policy import garden_collection_cameras
+
+        collecting = garden_collection_cameras()
+        return [camera for camera in settings.frigate.garden_motion_cameras if camera in collecting]
 
     async def status(self) -> GardenMotionStatus:
         ready, installed = False, False

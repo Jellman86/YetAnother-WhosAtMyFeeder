@@ -8,7 +8,7 @@ test('app headers fit 320px with 200% text after desktop resize', async ({ page 
         const path = new URL(route.request().url()).pathname;
         const responses: Record<string, unknown> = {
             '/api/auth/status': { auth_required: false, is_authenticated: true, needs_initial_setup: false },
-            '/api/settings': { cameras: ['patio'], garden_cameras: ['patio'] },
+            '/api/settings': { cameras: ['patio'], garden_cameras: ['patio'], beta_garden_animals: true },
             '/api/garden': { items: [], total: 0, limit: 8, offset: 0 },
             '/api/garden/identification': { models: [], busy: false, catalogue_ready: false },
             '/api/garden/motion': { cameras: [], installed: false, state: 'disabled', message: 'Off' },

@@ -823,7 +823,8 @@
         "intelligence": "Análise e compartilhamento",
         "operations": "Operações",
         "interface": "Interface"
-      }
+      },
+      "beta": "Funcionalidades beta"
     },
     "debug": {
       "title": "Ferramentas de debug",
@@ -1889,6 +1890,12 @@
       "larger": "Maior",
       "extra_large": "Muito grande",
       "largest": "Máximo"
+    },
+    "beta": {
+      "title": "Funcionalidades beta",
+      "subtitle": "Funcionalidades ainda em teste. Ficam desligadas até as ligar e podem mudar ou ser removidas.",
+      "garden_animals": "Animais do jardim",
+      "garden_animals_desc": "Recolhe visitantes que não são aves, como gatos, cães e raposas, das câmaras que escolher, para rever. Desligar pára a recolha e oculta Jardim; as capturas guardadas mantêm-se."
     }
   },
   "auth": {
@@ -3668,6 +3675,9 @@
     "photo_dismissed": "Foto descartada.",
     "photo_restored": "Foto devolvida para revisão.",
     "group_remaining": "As outras fotos deste grupo ainda precisam de revisão.",
-    "single_photo_help": "Rever esta foto"
+    "single_photo_help": "Rever esta foto",
+    "beta_off_title": "Animais do jardim está desligado",
+    "beta_off_desc": "Animais do jardim é uma funcionalidade beta. Ligue-a em Definições, Funcionalidades beta, para recolher e rever visitantes que não são aves. As capturas guardadas mantêm-se enquanto estiver desligada.",
+    "beta_off_action": "Abrir Funcionalidades beta"
   }
 }

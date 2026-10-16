@@ -1117,6 +1117,7 @@ class SettingsUpdate(BaseModel):
     )
     auth_session_expiry_hours: Optional[int] = Field(None, ge=1, le=720)
     trusted_proxy_hosts: Optional[List[str]] = None
+    beta_garden_animals: Optional[bool] = None
 
     @field_validator("auth_username")
     @classmethod
@@ -1285,6 +1286,7 @@ _settings_response_fields.update(
         "notifications_email_connected_email": (Optional[str], None),
         "auth_has_password": (bool, False),
         "debug_ui_enabled": (bool, False),
+        "beta_garden_animals": (bool, False),
         "update_check_enabled": (bool, True),
     }
 )
@@ -1677,6 +1679,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "auth_session_expiry_hours": settings.auth.session_expiry_hours,
         "trusted_proxy_hosts": settings.system.trusted_proxy_hosts,
         "debug_ui_enabled": settings.system.debug_ui_enabled,
+        "beta_garden_animals": settings.system.beta_garden_animals,
         "update_check_enabled": settings.system.update_check_enabled,
         # Public access
         "public_access_enabled": settings.public_access.enabled,
@@ -2133,6 +2136,8 @@ async def update_settings(
         settings.auth.session_expiry_hours = update.auth_session_expiry_hours
     if "trusted_proxy_hosts" in fields_set and update.trusted_proxy_hosts is not None:
         settings.system.trusted_proxy_hosts = update.trusted_proxy_hosts
+    if "beta_garden_animals" in fields_set and update.beta_garden_animals is not None:
+        settings.system.beta_garden_animals = update.beta_garden_animals
 
     # Public access
     if "public_access_enabled" in fields_set and update.public_access_enabled is not None:

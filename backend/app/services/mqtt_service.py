@@ -500,7 +500,7 @@ class MQTTService:
             label = str(after.get("label") or "").strip().lower()
             false_positive = bool(after.get("false_positive", False))
             event_id = str(after.get("id") or "").strip()
-            from app.services.garden_capture_policy import should_handle_garden
+            from app.services.garden_capture_policy import garden_collection_cameras, should_handle_garden
             from app.services.garden_capture_service import garden_capture_service
 
             should_process = bool(
@@ -508,7 +508,7 @@ class MQTTService:
                     is_ingest_label(label, settings.frigate.ingest_labels)
                     or should_handle_garden(
                         data,
-                        settings.frigate.garden_cameras,
+                        garden_collection_cameras(),
                         settings.frigate.garden_labels,
                         has_history=garden_capture_service.has_history,
                     )

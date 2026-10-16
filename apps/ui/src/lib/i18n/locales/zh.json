@@ -813,7 +813,8 @@
         "intelligence": "分析与共享",
         "operations": "运维",
         "interface": "界面"
-      }
+      },
+      "beta": "测试版功能"
     },
     "debug": {
       "title": "调试工具",
@@ -1879,6 +1880,12 @@
       "larger": "较大",
       "extra_large": "特大",
       "largest": "最大"
+    },
+    "beta": {
+      "title": "测试版功能",
+      "subtitle": "仍在测试中的功能。除非你开启，否则保持关闭，并且可能会更改或移除。",
+      "garden_animals": "庭院动物",
+      "garden_animals_desc": "从你选择的摄像头收集猫、狗、狐狸等非鸟类访客，供你审核。关闭后会停止新的收集并隐藏庭院页面；已保存的捕获会保留。"
     }
   },
   "auth": {
@@ -3668,6 +3675,9 @@
     "photo_dismissed": "照片已忽略。",
     "photo_restored": "照片已返回待审核。",
     "group_remaining": "此组中的其他照片仍需审核。",
-    "single_photo_help": "审核这张照片"
+    "single_photo_help": "审核这张照片",
+    "beta_off_title": "庭院动物已关闭",
+    "beta_off_desc": "庭院动物是测试版功能。请在设置的测试版功能中开启，以收集和审核非鸟类访客。关闭期间已保存的捕获会保留。",
+    "beta_off_action": "打开测试版功能"
   }
 }
