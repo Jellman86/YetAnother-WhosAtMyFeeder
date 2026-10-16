@@ -1780,7 +1780,15 @@
       "model_manager_location_title": "Nutzt den Standort Ihres Futterplatzes",
       "model_manager_location_desc": "Dieses Modell nutzt zusätzlich die Koordinaten des Futterplatzes, die unter Einstellungen → Integrationen → Standort gespeichert sind. Sind keine gültigen Koordinaten gespeichert, bestimmt es Vögel ohne Standort. Datum und Genauigkeitsradius des Standorts werden nicht verwendet.",
       "model_manager_location_link": "Standort-Einstellungen öffnen",
-      "provider_intel_npu": "Intel-NPU (OpenVINO)"
+      "provider_intel_npu": "Intel-NPU (OpenVINO)",
+      "bird_finder_title": "Vogelsuche",
+      "bird_finder_desc": "Findet jeden Vogel im vollständigen Kamerabild, bevor er bestimmt und gezählt wird.",
+      "bird_finder_standard": "Standardsuche (YOLOX-Tiny)",
+      "bird_finder_standard_desc": "Klein und schnell. Übersieht viele Vögel, die in einem weiten Bild klein sind.",
+      "bird_finder_wide": "Weites Bild (RF-DETR Nano)",
+      "bird_finder_wide_desc": "Liest das ganze Bild und vier überlappende Ausschnitte und findet so deutlich mehr kleine und entfernte Vögel. 103 MB Download, jedes Bild dauert länger.",
+      "bird_finder_fallback": "Die Weitbild-Suche ist noch nicht heruntergeladen, daher wird weiter die Standardsuche verwendet. Unten herunterladen, um zu wechseln.",
+      "bird_finder_save_failed": "Die Auswahl der Vogelsuche konnte nicht gespeichert werden. Es wurde nichts geändert."
     },
     "llm": {
       "title": "KI-Einblicke",

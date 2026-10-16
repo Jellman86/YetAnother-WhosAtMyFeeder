@@ -45,7 +45,11 @@ def test_classifiers_and_crop_detectors_are_told_apart():
     artifacts = registry_artifacts()
 
     detectors = {a.artifact_id for a in artifacts if a.artifact_kind == "crop_detector"}
-    assert detectors == {"bird_crop_detector", "bird_crop_detector_accurate_yolox_tiny"}
+    assert detectors == {
+        "bird_crop_detector",
+        "bird_crop_detector_accurate_yolox_tiny",
+        "bird_crop_detector_accurate_rfdetr_nano",
+    }
     for artifact in artifacts:
         expected = "detector_classes" if artifact.artifact_kind == "crop_detector" else None
         if expected:

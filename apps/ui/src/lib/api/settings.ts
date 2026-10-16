@@ -61,6 +61,7 @@ export interface Settings {
     video_classification_max_retries: number;
     video_classification_frames: number;
     bird_crop_detector_tier?: 'fast' | 'accurate' | string;
+    bird_crop_accurate_detector?: 'yolox_tiny' | 'rfdetr_nano' | string;
     bird_crop_source_priority?: 'frigate_hints_first' | 'crop_model_first' | 'crop_model_only' | 'frigate_hints_only' | string;
     bird_model_region_override?: BirdModelRegionOverride;
     crop_model_overrides?: Record<string, CropModelOverride>;

@@ -157,7 +157,16 @@ CPU-only, low-memory legacy option with 965 outputs. Hidden by default in Model 
 #### Crops, photographs and video
 
 **Cropped thumbnails** manages the separate bird detector. The CPU-friendly **Fast** detector is
-the fallback for the experimental **Accurate** YOLOX-Tiny tier. Classifier crop policy is automatic;
+the fallback for the experimental **Accurate** tier. **Bird finder** chooses which accurate detector
+finds birds in full frames before they are identified and counted:
+
+- **Standard (YOLOX-Tiny)** is the default. It is small and quick, but misses many birds that are
+  small in a wide frame.
+- **Wide frame (RF-DETR Nano)** reads the whole frame and four overlapping tiles. It finds far more
+  small and distant birds, at the cost of a 103 MB download and about five detector passes per
+  frame. Until it is downloaded, the standard finder stays in use.
+
+Classifier crop policy is automatic;
 a detector score is not a species confidence score. The hardware sweep checks detectors separately
 from classifiers. See [Model Evaluation](model-evaluation.md#provider-compatibility-and-the-post-install-gate).
 

@@ -1790,7 +1790,15 @@
       "model_manager_location_title": "Uses your feeder location",
       "model_manager_location_desc": "This model also uses the feeder coordinates saved in Settings → Integrations → Location. If no valid coordinates are saved, it identifies birds without location. It does not use the date or a location accuracy radius.",
       "model_manager_location_link": "Open Location settings",
-      "provider_intel_npu": "Intel NPU (OpenVINO)"
+      "provider_intel_npu": "Intel NPU (OpenVINO)",
+      "bird_finder_title": "Bird finder",
+      "bird_finder_desc": "Finds each bird in the full camera frame before it is identified and counted.",
+      "bird_finder_standard": "Standard (YOLOX-Tiny)",
+      "bird_finder_standard_desc": "Small and quick. Misses many birds that are small in a wide frame.",
+      "bird_finder_wide": "Wide frame (RF-DETR Nano)",
+      "bird_finder_wide_desc": "Reads the whole frame and four overlapping tiles, so it finds far more small and distant birds. A 103 MB download, and each frame takes longer.",
+      "bird_finder_fallback": "The wide-frame finder is not downloaded yet, so the standard finder is still in use. Download it below to switch.",
+      "bird_finder_save_failed": "The bird finder choice could not be saved. Nothing changed."
     },
     "llm": {
       "title": "AI Insights",

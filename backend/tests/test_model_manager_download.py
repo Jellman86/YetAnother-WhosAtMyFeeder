@@ -1024,6 +1024,7 @@ async def test_list_available_models_returns_models_sorted_by_sort_order(monkeyp
     assert [model.id for model in models] == [
         "bird_crop_detector",
         "bird_crop_detector_accurate_yolox_tiny",
+        "bird_crop_detector_accurate_rfdetr_nano",
         "mobilenet_v2_birds",
         "flexivit_il_all",
         "small_birds",
@@ -1044,6 +1045,7 @@ async def test_list_available_models_returns_models_sorted_by_sort_order(monkeyp
     assert [model.sort_order for model in models] == [
         5,
         6,
+        7,
         10,
         13,
         14,

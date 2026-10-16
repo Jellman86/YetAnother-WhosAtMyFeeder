@@ -11712,6 +11712,22 @@
             ],
             "title": "Background Worker Count"
           },
+          "bird_crop_accurate_detector": {
+            "anyOf": [
+              {
+                "enum": [
+                  "yolox_tiny",
+                  "rfdetr_nano"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": "yolox_tiny",
+            "title": "Bird Crop Accurate Detector"
+          },
           "bird_crop_detector_tier": {
             "anyOf": [
               {
@@ -13855,6 +13871,23 @@
             ],
             "description": "Background classifier worker processes; null follows the default (one)",
             "title": "Background Worker Count"
+          },
+          "bird_crop_accurate_detector": {
+            "anyOf": [
+              {
+                "enum": [
+                  "yolox_tiny",
+                  "rfdetr_nano"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": "yolox_tiny",
+            "description": "Which accurate bird detector finds birds in full frames before identification",
+            "title": "Bird Crop Accurate Detector"
           },
           "bird_crop_detector_tier": {
             "anyOf": [

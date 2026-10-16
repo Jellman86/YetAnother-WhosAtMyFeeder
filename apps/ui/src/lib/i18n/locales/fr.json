@@ -1780,7 +1780,15 @@
       "model_manager_location_title": "Utilise l’emplacement de votre mangeoire",
       "model_manager_location_desc": "Ce modèle utilise aussi les coordonnées de la mangeoire enregistrées dans Paramètres → Intégrations → Emplacement. Si aucune coordonnée valide n’est enregistrée, il identifie les oiseaux sans emplacement. Il n’utilise ni la date ni un rayon de précision de l’emplacement.",
       "model_manager_location_link": "Ouvrir les paramètres d’emplacement",
-      "provider_intel_npu": "NPU Intel (OpenVINO)"
+      "provider_intel_npu": "NPU Intel (OpenVINO)",
+      "bird_finder_title": "Détecteur d’oiseaux",
+      "bird_finder_desc": "Repère chaque oiseau dans l’image complète de la caméra avant son identification et son comptage.",
+      "bird_finder_standard": "Détecteur standard (YOLOX-Tiny)",
+      "bird_finder_standard_desc": "Léger et rapide. Manque beaucoup d’oiseaux qui paraissent petits dans un plan large.",
+      "bird_finder_wide": "Plan large (RF-DETR Nano)",
+      "bird_finder_wide_desc": "Lit l’image entière et quatre tuiles qui se chevauchent, et trouve ainsi bien plus d’oiseaux petits ou éloignés. Téléchargement de 103 Mo, chaque image prend plus de temps.",
+      "bird_finder_fallback": "Le détecteur plan large n’est pas encore téléchargé, le détecteur standard reste donc utilisé. Téléchargez-le ci-dessous pour changer.",
+      "bird_finder_save_failed": "Le choix du détecteur d’oiseaux n’a pas pu être enregistré. Rien n’a changé."
     },
     "llm": {
       "title": "Analyses IA",
