@@ -71,6 +71,11 @@ GPU_VALIDATED: set[str] = {
     # Accurate YOLOX-Tiny matched CPU detection presence and geometry on
     # OpenVINO 2026.2.1 across the current clean panel plus hard negatives.
     "bird_crop_detector_accurate_yolox_tiny",
+    # RF-DETR Nano wide-frame bird finder: OpenVINO 2026.4.1 on Arrow Lake-S,
+    # 2026-10-16. 300 views across two owner-checked feeder panels; the same
+    # birds as ONNX Runtime CPU at its 0.3 floor (42/52 and 58/64 through the
+    # application path), median confidence difference 0.003.
+    "bird_crop_detector_accurate_rfdetr_nano",
 }
 
 # GPU_CRASH_RISK: models that have caused an unrecoverable process crash

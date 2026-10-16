@@ -62,6 +62,10 @@ NPU_VALIDATED: set[str] = {
     # OpenVINO 2026.2.1 on Arrow Lake-S, 2026-07-21. Runtime-significant boxes
     # matched CPU on every case; sub-0.02 raw proposals are deliberately ignored.
     "bird_crop_detector_accurate_yolox_tiny",
+    # RF-DETR Nano wide-frame bird finder: OpenVINO 2026.4.1 on Arrow Lake-S,
+    # 2026-10-16. Same two owner-checked panels and the same birds as CPU at
+    # its 0.3 floor; median confidence difference 0.002.
+    "bird_crop_detector_accurate_rfdetr_nano",
     "convnext_large_inat21",
     "eu_medium_focalnet_b",
     "eva02_large_inat21",
