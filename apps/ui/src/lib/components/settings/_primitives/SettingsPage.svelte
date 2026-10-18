@@ -64,15 +64,15 @@
         >
             <div class="flex items-center gap-3">
                 {#if message.type === 'success'}
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
                     </svg>
                 {:else}
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                 {/if}
-                <span class="font-bold text-sm">{message.text}</span>
+                <span class="min-w-0 break-words font-bold text-sm">{message.text}</span>
             </div>
         </div>
     {/if}
@@ -94,10 +94,10 @@
 </div>
 
 {#if isDirty && !loading}
-    <div class="fixed bottom-0 left-0 right-0 z-40 border-t border-line-soft bg-surface/95 shadow-2xl backdrop-blur-lg animate-in slide-in-from-bottom-4 {layoutStore.sidebarCollapsed ? 'md:left-20' : 'md:left-64'}">
-        <div class="px-4 py-4 sm:px-6 lg:px-8 2xl:px-12 flex items-center justify-between gap-4">
-            <div class="flex items-center gap-3 text-slate-600 dark:text-slate-400">
-                <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <div class="save-footer fixed bottom-0 left-0 right-0 z-40 border-t border-line-soft bg-surface/95 shadow-2xl backdrop-blur-lg animate-in slide-in-from-bottom-4 {layoutStore.sidebarCollapsed ? 'md:left-20' : 'md:left-64'}">
+        <div class="save-footer-row px-4 py-4 sm:px-6 lg:px-8 2xl:px-12 flex items-center justify-between gap-4">
+            <div class="flex min-w-0 items-center gap-3 text-slate-600 dark:text-slate-400">
+                <svg class="w-5 h-5 shrink-0 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
                 <span class="text-sm font-bold">{$_('common.unsaved_changes')}</span>
@@ -106,10 +106,31 @@
                 type="button"
                 onclick={() => onSave?.()}
                 disabled={saving}
-                class="btn btn-primary min-h-11 px-8 py-3"
+                class="save-footer-apply btn btn-primary min-h-11 shrink-0 px-8 py-3 text-center"
             >
                 {saving ? $_('common.saving') : $_('common.apply_settings')}
             </button>
         </div>
     </div>
 {/if}
+
+<style>
+    /* Measured against the footer's own width in rem, so the row also stacks when
+       the reader's text size grows on a phone, not only when the screen narrows. */
+    .save-footer {
+        container-type: inline-size;
+    }
+
+    @container (max-width: 24rem) {
+        .save-footer-row {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 0.75rem;
+        }
+
+        .save-footer-apply {
+            width: 100%;
+            padding-inline: 1rem;
+        }
+    }
+</style>

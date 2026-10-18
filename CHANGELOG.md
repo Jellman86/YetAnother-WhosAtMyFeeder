@@ -6,6 +6,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- On a narrow phone with enlarged text, the Settings save bar now puts
+  **Apply Settings** on its own full-width row, and notifications put their words
+  under the icon and close button, so neither runs off the screen. Advanced
+  section titles in Settings wrap too. Checked at 320 and 393 pixels wide with
+  text at 200% in Chromium and WebKit (#744).
+
 - Recording-frame identification has a configurable 1 to 120 second initial delay
   (default 12), and uses newer tracked snapshot metadata received while waiting.
   Notification timing follows the delay; saved identifications and owner choices
