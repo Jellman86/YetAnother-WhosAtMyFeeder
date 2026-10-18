@@ -158,6 +158,10 @@ from app.services.native_crash_quarantine import (  # noqa: E402
     artifact_digest,
 )
 from app.services.native_cpu_recovery import NativeCpuRecovery, NativeCpuRecoveryUnavailable  # noqa: E402
+from app.services.classifier_worker_protocol import (  # noqa: E402
+    GPU_RUNTIME_FAILURE_CODES,
+    ClassifierWorkerRetirementError,
+)
 from app.models.ai_models import ClassificationInputContext, CropGeneratorConfig  # noqa: E402
 from app.services.bird_crop_service import bird_crop_service  # noqa: E402
 from app.services.crop_source_resolver import crop_source_resolver  # noqa: E402
@@ -1063,11 +1067,41 @@ def _summarize_numeric_array(values: np.ndarray, *, name: str) -> dict[str, Any]
     return summary
 
 
+def _gpu_runtime_failure_code(source: object) -> str | None:
+    """First device-level OpenCL failure code in an exception, its cause
+    chain, or a detail string. Recognition happens on the untruncated text:
+    a code buried past a summary limit still retires the worker (#721)."""
+    texts: list[str] = []
+    if isinstance(source, BaseException):
+        seen: set[int] = set()
+        current: BaseException | None = source
+        while current is not None and len(texts) < 6 and id(current) not in seen:
+            seen.add(id(current))
+            texts.append(str(current)[:20_000])
+            current = current.__cause__ or current.__context__
+    else:
+        texts.append(str(source)[:20_000])
+    joined = " ".join(texts)
+    found = [(joined.index(code), code) for code in GPU_RUNTIME_FAILURE_CODES if code in joined]
+    return min(found)[1] if found else None
+
+
+def _is_gpu_provider_name(provider: str) -> bool:
+    name = str(provider or "").strip().lower()
+    return name in {"gpu", "intel_gpu"} or name.startswith("gpu.")
+
+
 def _summarize_runtime_exception(exc: Exception, *, max_len: int = 280) -> str:
     message = f"{type(exc).__name__}: {exc}"
     message = " ".join(message.split())
+    code = _gpu_runtime_failure_code(exc)
+    if code and code not in message:
+        message = f"{code}: {message}"
     if len(message) > max_len:
-        return f"{message[: max_len - 1]}…"
+        truncated = f"{message[: max_len - 1]}…"
+        if code and code not in truncated:
+            truncated = f"{code}: {message}"[: max_len - 1] + "…"
+        return truncated
     return message
 
 
@@ -4080,6 +4114,27 @@ class ClassifierService:
                 return True
 
             self._runtime_invalid_output_failures += 1
+            if (
+                self._worker_process_mode
+                and error.backend.lower() == "openvino"
+                and _is_gpu_provider_name(error.provider)
+            ):
+                # A device-level GPU failure leaves native objects that must
+                # not be reloaded or even destroyed in this process: report
+                # the original code and retire the worker instead (#721).
+                # In-process mode keeps the existing fallback below, so the
+                # API parent is never retired by this rule.
+                failure_code = _gpu_runtime_failure_code(error) or _gpu_runtime_failure_code(error.detail)
+                if failure_code is not None:
+                    detail = " ".join(str(error.detail).split())[:280]
+                    log.error(
+                        "Classifier GPU runtime failed at device level; retiring worker process",
+                        failed_backend=error.backend,
+                        failed_provider=error.provider,
+                        error_code=failure_code,
+                        detail=detail,
+                    )
+                    raise ClassifierWorkerRetirementError(error_code=failure_code, detail=detail) from error
             if self._attempt_gpu_retry_after_invalid_output(failed_model, error):
                 return True
             replacement, backend, provider, reason = self._load_runtime_fallback_bird_model(
