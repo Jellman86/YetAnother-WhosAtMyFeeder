@@ -681,9 +681,13 @@ guest sees the window public access allows, as everywhere else.
 - `GET /api/classifier/wildlife/status`
 - `GET /api/classifier/wildlife/labels`
 - `GET /api/classifier/debug` (owner)
-- `POST /api/classifier/test` (owner)
+- `POST /api/classifier/test` (owner) — upload limits below apply
 - `POST /api/classifier/classify` (owner)
 - `POST /api/classifier/probe` (owner)
+
+Image uploads to the test, classify, probe and wildlife test endpoints are
+bounded: files over 25 MB, or images over 80 megapixels once decoded, are
+refused with `413` before any classification work runs.
 - `GET /api/classifier/wildlife/debug` (owner)
 - `POST /api/classifier/wildlife/test` (owner)
 - `POST /api/classifier/wildlife/download` (owner)
