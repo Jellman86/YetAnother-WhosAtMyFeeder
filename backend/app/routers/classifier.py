@@ -15,9 +15,29 @@ from app.config import settings
 from app.auth import require_owner, AuthContext
 from app.auth import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
-from app.utils.image_io import decode_image_bytes
+from app.utils.image_io import MAX_IMAGE_BYTES, decode_image_bytes
 
 router = APIRouter(prefix="/classifier", tags=["classifier"])
+
+
+async def _decode_upload(image: UploadFile, *, convert_rgb: bool = False):
+    """Read one uploaded image within the shared byte and pixel bounds.
+
+    Oversized uploads are refused with 413 before any classification work;
+    other decode failures propagate to the caller's existing error handling.
+    """
+    contents = await image.read(MAX_IMAGE_BYTES + 1)
+    if len(contents) > MAX_IMAGE_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Image exceeds the {MAX_IMAGE_BYTES // 1024 // 1024} MB limit.",
+        )
+    try:
+        return await asyncio.to_thread(decode_image_bytes, contents, convert_rgb=convert_rgb)
+    except ValueError as exc:
+        if "pixel limit" in str(exc):
+            raise HTTPException(status_code=413, detail=str(exc)) from exc
+        raise
 
 
 def _prepare_download_paths(models_dir: Path, *paths: Path, replace: bool = False) -> bool:
@@ -258,11 +278,12 @@ async def test_bird_classifier(
 ) -> dict[str, object]:
     """Test bird classifier with an uploaded image. Owner only."""
     try:
-        contents = await image.read()
-        pil_image = await asyncio.to_thread(decode_image_bytes, contents)
+        pil_image = await _decode_upload(image)
         results = await classifier_service.classify_async_background(pil_image, input_context={"is_cropped": False})
 
         return {"status": "ok", "image_size": pil_image.size, "image_mode": pil_image.mode, "results": results}
+    except HTTPException:
+        raise
     except Exception:
         log.exception("Bird classifier test failed")
         return {"error": "Bird classifier test failed. See server logs for details."}
@@ -283,8 +304,9 @@ async def classify_image(
     import time as _time
 
     try:
-        contents = await image.read()
-        pil_image = await asyncio.to_thread(decode_image_bytes, contents, convert_rgb=True)
+        pil_image = await _decode_upload(image, convert_rgb=True)
+    except HTTPException:
+        raise
     except Exception as e:
         return {"status": "error", "error": f"Failed to decode image: {e}"}
 
@@ -328,8 +350,7 @@ async def probe_bird_classifier_runtime(
 
     pil_image = None
     if image is not None:
-        contents = await image.read()
-        pil_image = await asyncio.to_thread(decode_image_bytes, contents)
+        pil_image = await _decode_upload(image)
 
     try:
         return await asyncio.to_thread(
@@ -408,12 +429,12 @@ async def test_wildlife_classifier(
 ) -> dict[str, object]:
     """Test wildlife classifier with an uploaded image. Owner only."""
     try:
-        contents = await image.read()
-        pil_image = await asyncio.to_thread(decode_image_bytes, contents)
-
+        pil_image = await _decode_upload(image)
         results = await classifier_service.classify_wildlife_async(pil_image, input_context={"is_cropped": False})
 
         return {"status": "ok", "image_size": pil_image.size, "image_mode": pil_image.mode, "results": results}
+    except HTTPException:
+        raise
     except Exception as e:
         log.exception("Validation inference failed")
         return {"error": str(e)}
