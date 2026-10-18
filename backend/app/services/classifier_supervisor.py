@@ -165,6 +165,12 @@ class ClassifierSupervisor:
         # queued request and dead to the watchdog, and both act on it again.
         self._replacing: set[str] = set()
         self._cleanup_pending: dict[str, Any] = {}
+        # Set exactly while no failed worker is awaiting reap. CPU recovery
+        # waits on this barrier so it cannot load a native model alongside
+        # a failed GPU child that has not been reaped yet.
+        self._cleanup_idle = asyncio.Event()
+        self._cleanup_idle.set()
+        self._cleanup_barrier_timeout_seconds = 30.0
         self._metrics = {
             "live": {
                 "workers": 0,
@@ -203,7 +209,6 @@ class ClassifierSupervisor:
         }
         for _priority in ("live", "background", "video"):
             self._metrics[_priority]["last_retirement"] = None
-        self._replacement_tasks: set[asyncio.Task[None]] = set()
         self._restart_history: dict[WorkPriority, deque[float]] = {
             "live": deque(),
             "background": deque(),
@@ -678,18 +683,32 @@ class ClassifierSupervisor:
             consumer_task=consumer_task,
         )
 
+    async def wait_for_cleanup(self, timeout_seconds: float | None = None) -> None:
+        """Wait until every failed worker has been reaped.
+
+        Raises ``TimeoutError`` rather than releasing the caller early: a
+        caller that times out must fail closed, not load another native
+        model beside an unreaped child."""
+        if not self._cleanup_pending:
+            return
+        timeout = self._cleanup_barrier_timeout_seconds if timeout_seconds is None else float(timeout_seconds)
+        await asyncio.wait_for(self._cleanup_idle.wait(), timeout)
+
     async def _close_failed_worker(self, worker: Any, *, kill: bool = False) -> None:
         if worker is None:
             return
         # Retain ownership until reaping is confirmed. Even a cleanup timeout
         # must not let a retry load another native model alongside this worker.
         self._cleanup_pending[worker.worker_name] = worker
+        self._cleanup_idle.clear()
         if kill:
             await worker.kill()
         else:
             await worker.terminate()
         await worker.wait_closed()
         self._cleanup_pending.pop(worker.worker_name, None)
+        if not self._cleanup_pending:
+            self._cleanup_idle.set()
         if self._crash_quarantine is not None and self._crash_quarantine.remember(
             getattr(worker, "_native_launch_profile", None), worker.get_status().get("exit_code")
         ):
@@ -846,6 +865,20 @@ class ClassifierSupervisor:
             self._metrics["late_results_ignored"] += 1
             return
 
+        # Claim the slot before the first await, so the watchdog cannot
+        # replace this worker (dropping the assignment and the retirement
+        # with it) while the record is being persisted.
+        if slot.worker_name in self._replacing:
+            return
+        self._replacing.add(slot.worker_name)
+        # Register cleanup ownership before the quarantine below becomes
+        # visible: from this moment wait_for_cleanup() blocks, so no other
+        # request can observe the quarantine and slip into CPU recovery
+        # while evidence is persisted and the child is still unreaped.
+        # _close_failed_worker re-registers the same entry when it reaps.
+        if slot.worker_name not in self._cleanup_pending:
+            self._cleanup_pending[slot.worker_name] = worker
+            self._cleanup_idle.clear()
         raw_code = str(message.get("error_code") or "")
         error_code = raw_code if raw_code in GPU_RUNTIME_FAILURE_CODES else "unknown_gpu_runtime_failure"
         detail = _sanitize_retirement_detail(message.get("error"))
@@ -861,19 +894,23 @@ class ClassifierSupervisor:
         # cancelled), so the replacement path below can never respawn the
         # same GPU profile; persistence follows off the event loop.
         profile = getattr(worker, "_native_launch_profile", None)
-        if self._crash_quarantine is not None and self._crash_quarantine.remember_retirement(profile):
-            await asyncio.to_thread(self._crash_quarantine.record_retirement, profile, error_code, detail)
+        try:
+            if self._crash_quarantine is not None and self._crash_quarantine.remember_retirement(profile):
+                await asyncio.to_thread(self._crash_quarantine.record_retirement, profile, error_code, detail)
+        except BaseException:
+            # Hand the worker back to the watchdog path, which registers
+            # cleanup again when it reaps.
+            self._replacing.discard(slot.worker_name)
+            self._cleanup_pending.pop(slot.worker_name, None)
+            if not self._cleanup_pending:
+                self._cleanup_idle.set()
+            raise
 
-        self._assignments.pop(slot.worker_name, None)
         retirement_error = NativeCrashQuarantinedError(
             f"Classifier GPU worker retired after {error_code}: {detail}"
             if detail
             else f"Classifier GPU worker retired after {error_code}"
         )
-        if not assignment.future.done():
-            assignment.future.set_exception(retirement_error)
-        async with self._condition:
-            self._condition.notify_all()
         log.error(
             "Classifier worker retired after GPU runtime failure",
             worker=slot.worker_name,
@@ -882,17 +919,19 @@ class ClassifierSupervisor:
             error_code=error_code,
             detail=detail,
         )
-        # Reap before any replacement: _replace_worker closes (waits for)
-        # the old child, then the quarantine guard stops a new GPU worker
-        # with the same launch profile instead of looping through PIDs.
-        task = asyncio.create_task(
-            self._replace_worker(
-                priority, slot.index, reason="gpu_worker_retired", assignment_error=retirement_error, kill=False
-            )
+        # Reap before the caller is released: _replace_worker closes (waits
+        # for) the old child and only then fails the assignment, so CPU
+        # recovery cannot start a second native model alongside the failed
+        # worker. The quarantine guard inside stops a new GPU worker with
+        # the same launch profile instead of looping through PIDs.
+        await self._replace_worker(
+            priority,
+            slot.index,
+            reason="gpu_worker_retired",
+            assignment_error=retirement_error,
+            kill=False,
+            already_claimed=True,
         )
-        self._replacement_tasks.add(task)
-        task.add_done_callback(self._replacement_tasks.discard)
-        task.add_done_callback(self._consume_progress_exception)
 
     async def _watchdog_loop(self) -> None:
         while True:
@@ -908,6 +947,13 @@ class ClassifierSupervisor:
                     if slot.worker is None or slot.worker_name in self._replacing:
                         continue
                     status = slot.worker.get_status()
+                    if status.get("pending_retirement"):
+                        # A retirement record is queued for the consumer,
+                        # which validates it against the live assignment and
+                        # drives replacement itself. Replacing from here
+                        # first would drop that assignment and discard the
+                        # record before it can quarantine anything.
+                        continue
                     exit_code = status.get("exit_code")
                     if exit_code is not None:
                         await self._replace_worker(
@@ -983,9 +1029,10 @@ class ClassifierSupervisor:
         reason: str,
         assignment_error: Exception,
         kill: bool,
+        already_claimed: bool = False,
     ) -> None:
         slot = self._slots[priority][index]
-        if slot.worker_name in self._replacing:
+        if slot.worker_name in self._replacing and not already_claimed:
             return
         self._replacing.add(slot.worker_name)
         try:
@@ -1004,7 +1051,11 @@ class ClassifierSupervisor:
                 try:
                     await self._guard_native_crash_quarantine(priority)
                 except NativeCrashQuarantinedError as exc:
-                    assignment_error = exc
+                    # Keep a more specific quarantine error (for example a
+                    # retirement carrying the original OpenCL code) over
+                    # the guard's generic message.
+                    if not isinstance(assignment_error, NativeCrashQuarantinedError):
+                        assignment_error = exc
                 assignment.future.set_exception(assignment_error)
             self._completed_once.discard((slot.worker_name, slot.worker_generation))
             self._metrics[priority]["restarts"] += 1

@@ -203,6 +203,7 @@ class _FakeWorker:
         self.current_request_id: str | None = None
         self.busy = False
         self.exit_code: int | None = None
+        self.pending_retirement = False
 
     async def start(self) -> None:
         return None
@@ -215,7 +216,10 @@ class _FakeWorker:
         self.busy = True
 
     async def next_event(self) -> dict:
-        return await self.events.get()
+        message = await self.events.get()
+        if message.get("type") == "retirement":
+            self.pending_retirement = False
+        return message
 
     async def terminate(self) -> None:
         return None
@@ -236,6 +240,7 @@ class _FakeWorker:
             "last_heartbeat_monotonic": time.monotonic(),
             "heartbeat_timeout_seconds": 5.0,
             "exit_code": self.exit_code,
+            "pending_retirement": self.pending_retirement,
             "recent_stderr_excerpt": "",
             "stderr_truncated_bytes": 0,
         }
@@ -354,3 +359,251 @@ async def test_supervisor_ignores_stale_retirement_with_wrong_lease(tmp_path):
         assert (await asyncio.wait_for(task, timeout=5))[0]["label"] == "Parus major"
     finally:
         await supervisor.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_retirement_request_completes_only_after_the_worker_is_reaped(tmp_path):
+    from app.services.classifier_worker_protocol import build_retirement_event
+
+    profile = {"provider": "intel_gpu", "model_id": "eva02_large"}
+    quarantine = NativeCrashQuarantine(lambda: dict(profile), root=tmp_path / "crashes")
+    created: list[_FakeWorker] = []
+    reap_gate = asyncio.Event()
+
+    async def factory(*, worker_name: str, worker_generation: int, **_kwargs):
+        worker = _FakeWorker(worker_name, worker_generation)
+
+        async def slow_terminate() -> None:
+            await reap_gate.wait()
+
+        worker.terminate = slow_terminate  # type: ignore[method-assign]
+        created.append(worker)
+        return worker
+
+    supervisor = _supervisor(factory, quarantine)
+    await supervisor.start("live")
+    try:
+        task = asyncio.create_task(
+            supervisor.classify(
+                priority="live", work_id="w1", lease_token=2, image_b64="payload", camera_name=None, model_id=None
+            )
+        )
+        await asyncio.sleep(0.05)
+        worker = next(w for w in created if w.worker_name == "live-0")
+        await worker.events.put(
+            build_retirement_event(
+                worker_generation=worker.worker_generation,
+                request_id=worker.current_request_id,
+                work_id="w1",
+                lease_token=2,
+                error_code="CL_INVALID_EVENT",
+                error="openvino GPU runtime failure: CL_INVALID_EVENT",
+            )
+        )
+        await asyncio.sleep(0.2)
+        # The caller must not be released into CPU recovery while the failed
+        # child is still unreaped: two native models would overlap.
+        assert not task.done()
+        reap_gate.set()
+        with pytest.raises(NativeCrashQuarantinedError):
+            await asyncio.wait_for(task, timeout=5)
+    finally:
+        reap_gate.set()
+        await supervisor.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_watchdog_leaves_a_pending_retirement_for_the_consumer(tmp_path):
+    from app.services.classifier_worker_protocol import build_retirement_event
+
+    profile = {"provider": "intel_gpu", "model_id": "eva02_large"}
+    quarantine = NativeCrashQuarantine(lambda: dict(profile), root=tmp_path / "crashes")
+    created: list[_FakeWorker] = []
+
+    async def factory(*, worker_name: str, worker_generation: int, **_kwargs):
+        worker = _FakeWorker(worker_name, worker_generation)
+        created.append(worker)
+        return worker
+
+    supervisor = _supervisor(factory, quarantine)
+    await supervisor.start("live")
+    try:
+        task = asyncio.create_task(
+            supervisor.classify(
+                priority="live", work_id="w1", lease_token=2, image_b64="payload", camera_name=None, model_id=None
+            )
+        )
+        await asyncio.sleep(0.05)
+        worker = next(w for w in created if w.worker_name == "live-0")
+        # The child has exited with the retirement code and its record is
+        # queued but unhandled. The watchdog must not replace the worker
+        # first: that would drop the assignment the record is validated
+        # against and respawn the same GPU profile.
+        worker.exit_code = 3
+        worker.pending_retirement = True
+        await asyncio.sleep(0.2)
+        assert not task.done()
+        assert len([w for w in created if w.worker_name == "live-0"]) == 1
+
+        await worker.events.put(
+            build_retirement_event(
+                worker_generation=worker.worker_generation,
+                request_id=worker.current_request_id,
+                work_id="w1",
+                lease_token=2,
+                error_code="CL_OUT_OF_RESOURCES",
+                error="openvino GPU runtime failure: CL_OUT_OF_RESOURCES",
+            )
+        )
+        with pytest.raises(NativeCrashQuarantinedError) as raised:
+            await asyncio.wait_for(task, timeout=5)
+        assert "CL_OUT_OF_RESOURCES" in str(raised.value)
+    finally:
+        await supervisor.shutdown()
+
+
+def test_native_abort_after_retirement_keeps_the_original_cause_on_disk(tmp_path):
+    import signal
+
+    profile = {"provider": "intel_gpu", "model_id": "eva02_large"}
+    quarantine = NativeCrashQuarantine(lambda: dict(profile), root=tmp_path)
+
+    assert quarantine.record_retirement(profile, "CL_OUT_OF_RESOURCES", "clFlush failed") is True
+    assert quarantine.record(profile, -int(signal.SIGABRT)) is True
+
+    evidence = json.loads(next(iter(tmp_path.glob("*.json"))).read_text())
+    assert evidence["retirement"]["error_code"] == "CL_OUT_OF_RESOURCES"
+    assert evidence["exit_code"] == -int(signal.SIGABRT)
+
+
+@pytest.mark.asyncio
+async def test_cleanup_barrier_closes_before_quarantine_persistence_finishes(tmp_path):
+    # Retirement publishes the quarantine, then persists evidence off-loop
+    # before reaping. Cleanup ownership must be registered before that
+    # window, or another request can see the quarantine, pass an empty
+    # barrier, and start CPU recovery beside the unreaped child.
+    import threading
+
+    from app.services.classifier_worker_protocol import build_retirement_event
+
+    profile = {"provider": "intel_gpu", "model_id": "eva02_large"}
+    quarantine = NativeCrashQuarantine(lambda: dict(profile), root=tmp_path / "crashes")
+    persistence_gate = threading.Event()
+    persistence_started = threading.Event()
+    real_record = quarantine.record_retirement
+
+    def slow_record(*args, **kwargs):
+        persistence_started.set()
+        persistence_gate.wait(timeout=10)
+        return real_record(*args, **kwargs)
+
+    quarantine.record_retirement = slow_record  # type: ignore[method-assign]
+    created: list[_FakeWorker] = []
+
+    async def factory(*, worker_name: str, worker_generation: int, **_kwargs):
+        worker = _FakeWorker(worker_name, worker_generation)
+        created.append(worker)
+        return worker
+
+    supervisor = _supervisor(factory, quarantine)
+    await supervisor.start("live")
+    try:
+        task = asyncio.create_task(
+            supervisor.classify(
+                priority="live", work_id="w1", lease_token=2, image_b64="payload", camera_name=None, model_id=None
+            )
+        )
+        await asyncio.sleep(0.05)
+        worker = next(w for w in created if w.worker_name == "live-0")
+        await worker.events.put(
+            build_retirement_event(
+                worker_generation=worker.worker_generation,
+                request_id=worker.current_request_id,
+                work_id="w1",
+                lease_token=2,
+                error_code="CL_OUT_OF_RESOURCES",
+                error="openvino GPU runtime failure: CL_OUT_OF_RESOURCES",
+            )
+        )
+        await asyncio.to_thread(persistence_started.wait, 5)
+        assert persistence_started.is_set()
+        with pytest.raises(TimeoutError):
+            await supervisor.wait_for_cleanup(timeout_seconds=0.1)
+        persistence_gate.set()
+        with pytest.raises(NativeCrashQuarantinedError):
+            await asyncio.wait_for(task, timeout=5)
+        await supervisor.wait_for_cleanup(timeout_seconds=1)
+    finally:
+        persistence_gate.set()
+        await supervisor.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_cleanup_barrier_waits_until_failed_worker_is_reaped(tmp_path):
+    profile = {"provider": "intel_gpu", "model_id": "eva02_large"}
+    quarantine = NativeCrashQuarantine(lambda: dict(profile), root=tmp_path / "crashes")
+    created: list[_FakeWorker] = []
+    reap_gate = asyncio.Event()
+
+    async def factory(*, worker_name: str, worker_generation: int, **_kwargs):
+        worker = _FakeWorker(worker_name, worker_generation)
+
+        async def slow_terminate() -> None:
+            await reap_gate.wait()
+
+        worker.terminate = slow_terminate  # type: ignore[method-assign]
+        created.append(worker)
+        return worker
+
+    supervisor = _supervisor(factory, quarantine)
+    await supervisor.start("live")
+    try:
+        worker = next(w for w in created if w.worker_name == "live-0")
+        close_task = asyncio.create_task(supervisor._close_failed_worker(worker))
+        await asyncio.sleep(0.05)
+        barrier = asyncio.create_task(supervisor.wait_for_cleanup())
+        await asyncio.sleep(0.1)
+        assert not barrier.done(), "cleanup barrier released before the child was reaped"
+        reap_gate.set()
+        await asyncio.wait_for(close_task, timeout=5)
+        await asyncio.wait_for(barrier, timeout=5)
+        # A timed-out barrier fails closed instead of releasing recovery.
+        supervisor._cleanup_pending[worker.worker_name] = worker
+        supervisor._cleanup_idle.clear()
+        with pytest.raises(TimeoutError):
+            await supervisor.wait_for_cleanup(timeout_seconds=0.05)
+    finally:
+        reap_gate.set()
+        supervisor._cleanup_pending.clear()
+        supervisor._cleanup_idle.set()
+        await supervisor.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_cpu_recovery_waits_for_supervisor_cleanup_before_starting():
+    from unittest.mock import AsyncMock
+
+    service = _service(worker_process_mode=False)
+    recovery = MagicMock()
+    recovery.run = AsyncMock(return_value=[{"label": "Parus major", "score": 0.9}])
+    recovery.shutdown = AsyncMock()
+    service._native_cpu_recovery = recovery
+    gate = asyncio.Event()
+
+    async def blocked_barrier(timeout_seconds=None):
+        await gate.wait()
+
+    supervisor = MagicMock()
+    supervisor.wait_for_cleanup = AsyncMock(side_effect=blocked_barrier)
+    service._classifier_supervisor = supervisor
+    service._video_supervisor = supervisor
+    try:
+        task = asyncio.create_task(service._run_native_cpu_recovery("live", {"image_b64": "x"}))
+        await asyncio.sleep(0.1)
+        recovery.run.assert_not_called()
+        gate.set()
+        assert (await asyncio.wait_for(task, timeout=5))[0]["label"] == "Parus major"
+        recovery.run.assert_awaited_once()
+    finally:
+        gate.set()
+        await service.shutdown()

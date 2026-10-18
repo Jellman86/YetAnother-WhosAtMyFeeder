@@ -223,7 +223,6 @@ def _is_exportable_ebird_detection(
     common_name: str | None,
     english_common_name: str | None,
     scientific_name: str | None,
-    manual_tagged: bool = False,
     producing_group: OutputGroup = "unknown",
     identity_group: OutputGroup = "unknown",
 ) -> bool:
@@ -241,7 +240,6 @@ def _is_exportable_ebird_detection(
     ):
         return False
     return is_bird_exportable(
-        manual_tagged=manual_tagged,
         producing_group=producing_group,
         identity_group=identity_group,
     )
@@ -310,7 +308,6 @@ async def export_ebird_csv(
                     common_name,
                     video_classification_provider,
                     video_classification_backend,
-                    manual_tagged,
                     model_artifact_id,
                     model_output_index,
                     english_common_name,
@@ -325,7 +322,6 @@ async def export_ebird_csv(
                     common_name=common_name,
                     english_common_name=english_common_name,
                     scientific_name=scientific_name,
-                    manual_tagged=bool(manual_tagged),
                     producing_group=producing_group,
                     identity_group=identity_group,
                 ):

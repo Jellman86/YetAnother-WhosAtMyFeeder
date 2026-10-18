@@ -6346,10 +6346,37 @@ class ClassifierService:
             ),
             "video": settings.classification.video_classification_timeout_seconds,
         }
+        budget = budgets[priority]
+        deadline = asyncio.get_running_loop().time() + budget
+        # Shared cleanup barrier: recovery loads a native model in a new
+        # process, so it must not start while a failed GPU child is still
+        # unreaped — whichever request path noticed the quarantine first.
+        # The wait shares this request's budget and fails closed on expiry.
+        supervisors = {
+            id(candidate): candidate
+            for candidate in (
+                getattr(self, "_classifier_supervisor", None),
+                getattr(self, "_video_supervisor", None),
+            )
+            if candidate is not None and hasattr(candidate, "wait_for_cleanup")
+        }
+        for supervisor in supervisors.values():
+            remaining = deadline - asyncio.get_running_loop().time()
+            if remaining <= 0:
+                self._raise_native_quarantine_error(priority)
+            try:
+                waiting = supervisor.wait_for_cleanup(timeout_seconds=remaining)
+                if inspect.isawaitable(waiting):
+                    await waiting
+            except TimeoutError:
+                self._raise_native_quarantine_error(priority)
+        remaining = deadline - asyncio.get_running_loop().time()
+        if remaining <= 0:
+            self._raise_native_quarantine_error(priority)
         try:
             return await recovery.run(
                 priority=priority,
-                timeout_seconds=budgets[priority],
+                timeout_seconds=remaining,
                 payload=payload,
                 progress_callback=progress_callback,
             )

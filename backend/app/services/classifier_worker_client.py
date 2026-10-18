@@ -91,6 +91,10 @@ class ClassifierWorkerClient:
         self._busy = False
         self._current_request_id: str | None = None
         self._exit_code: int | None = None
+        # A decoded retirement record the supervisor has not consumed yet.
+        # The watchdog leaves such a worker to the consumer: replacing it
+        # first would drop the assignment the record is validated against.
+        self._pending_retirement = False
         self._stderr_tail = bytearray()
         self._stderr_truncated_bytes = 0
         self._runtime: dict[str, Any] | None = None
@@ -140,7 +144,10 @@ class ClassifierWorkerClient:
         await self._process.stdin.drain()
 
     async def next_event(self) -> dict[str, Any]:
-        return await self._event_queue.get()
+        message = await self._event_queue.get()
+        if message.get("type") == "retirement":
+            self._pending_retirement = False
+        return message
 
     async def wait_closed(self) -> None:
         # Pipe EOF only closes the transport. Only Process.wait confirms that
@@ -208,6 +215,7 @@ class ClassifierWorkerClient:
             "last_stderr_monotonic": self._last_stderr_monotonic,
             "heartbeat_timeout_seconds": self.heartbeat_timeout_seconds,
             "exit_code": self._exit_code,
+            "pending_retirement": self._pending_retirement,
             "recent_stderr_excerpt": self._stderr_excerpt(),
             "stderr_truncated_bytes": self._stderr_truncated_bytes,
             "runtime": dict(self._runtime) if self._runtime else None,
@@ -238,6 +246,8 @@ class ClassifierWorkerClient:
                     self._busy = bool(message.get("busy"))
                     self._current_request_id = message.get("request_id")
                 else:
+                    if message_type == "retirement":
+                        self._pending_retirement = True
                     await self._event_queue.put(message)
         finally:
             self._mark_closed()
@@ -251,8 +261,13 @@ class ClassifierWorkerClient:
 
     async def _wait_loop(self) -> None:
         try:
-            self._exit_code = await self._process.wait()
+            returncode = await self._process.wait()
+            # Only publish the exit once the reader has drained the pipe:
+            # the watchdog keys replacement off exit_code, and a retirement
+            # record flushed just before exit must be queued (and flagged
+            # pending) before the exit can be acted on.
             await asyncio.gather(self._reader_task, self._stderr_task, return_exceptions=True)
+            self._exit_code = returncode
             self._busy = False
             self._current_request_id = None
         finally:

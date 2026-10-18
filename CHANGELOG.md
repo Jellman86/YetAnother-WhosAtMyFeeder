@@ -6,6 +6,17 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Hardening from review of the changes above: a retiring GPU worker's record
+  can no longer be overtaken by the watchdog or release any request into CPU
+  recovery before the old worker is reaped (recovery now waits on a shared
+  cleanup barrier within its time budget); a later native abort no longer
+  overwrites the retired worker's recorded cause, even when incidents are
+  recorded concurrently; rolled-back GPU counters keep their high-water mark
+  instead of recounting recovered work; a confirmed (not just uncorrected)
+  non-bird stays out of the eBird export; and ICO/CUR uploads are refused,
+  since that format decodes its embedded image before any size limit could
+  apply.
+
 - The eBird export now leaves out historical rows that catalogue evidence
   positively identifies as non-birds (for example squirrels a wildlife-capable
   model recorded before the non-bird admission guard existed). Evidence comes

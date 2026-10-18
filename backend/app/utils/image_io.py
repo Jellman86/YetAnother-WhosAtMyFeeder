@@ -18,8 +18,17 @@ def _reject_over_pixel_limit(image: Image.Image) -> None:
         raise ValueError(f"Image of {width}x{height} exceeds the {MAX_IMAGE_PIXELS // 1_000_000} megapixel pixel limit")
 
 
+# Pillow's ICO/CUR plugins decode the embedded image inside Image.open()
+# itself, before a size check could run, so their bytes are refused on the
+# magic header instead of being expanded in memory first. Photo uploads
+# are JPEG/PNG/WebP everywhere else in the app.
+_EAGER_DECODE_MAGICS = (b"\x00\x00\x01\x00", b"\x00\x00\x02\x00")
+
+
 def decode_image_bytes(contents: bytes, *, convert_rgb: bool = False) -> Image.Image:
     """Fully decode image bytes so later pixel access performs no file I/O."""
+    if contents[:4] in _EAGER_DECODE_MAGICS:
+        raise ValueError("ICO/CUR images are not supported")
     image = Image.open(BytesIO(contents))
     _reject_over_pixel_limit(image)
     image.load()
@@ -28,6 +37,9 @@ def decode_image_bytes(contents: bytes, *, convert_rgb: bool = False) -> Image.I
 
 def load_rgb_image(path: str | Path) -> Image.Image:
     """Load and detach an RGB image from its source file."""
+    with open(path, "rb") as header:
+        if header.read(4) in _EAGER_DECODE_MAGICS:
+            raise ValueError("ICO/CUR images are not supported")
     with Image.open(path) as image:
         _reject_over_pixel_limit(image)
         return image.convert("RGB")

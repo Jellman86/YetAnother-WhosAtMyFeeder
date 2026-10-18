@@ -28,6 +28,54 @@ def test_normal_errors_shutdown_and_oom_signals_do_not_claim_native_crashes(tmp_
     assert not list(tmp_path.glob("*.json"))
 
 
+def test_concurrent_incident_writers_keep_both_retirement_and_crash_evidence(tmp_path):
+    # Workers sharing one launch profile can record a retirement and a
+    # native abort at the same time; the merge must be one transaction,
+    # or whichever writer finishes last silently drops the other cause.
+    import threading
+
+    profile = {"model": "bird", "provider": "intel_gpu"}
+    policy = NativeCrashQuarantine(lambda: profile, root=tmp_path)
+    barrier = threading.Barrier(3)
+
+    def retire():
+        barrier.wait()
+        for _ in range(15):
+            policy.record_retirement(profile, "CL_OUT_OF_RESOURCES", "clFlush failed")
+
+    def crash():
+        barrier.wait()
+        for _ in range(15):
+            policy.record(profile, -signal.SIGABRT)
+
+    threads = [threading.Thread(target=retire), threading.Thread(target=crash)]
+    for thread in threads:
+        thread.start()
+    barrier.wait()
+    for thread in threads:
+        thread.join()
+
+    evidence = json.loads(next(tmp_path.glob("*.json")).read_text())
+    assert evidence["retirement"]["error_code"] == "CL_OUT_OF_RESOURCES"
+    assert evidence["exit_code"] == -signal.SIGABRT
+
+
+def test_remembering_a_retirement_never_waits_on_evidence_persistence(tmp_path):
+    # remember_retirement() runs on the supervisor's event loop; if it
+    # shared the persistence lock, a slow fsync in a writer thread would
+    # stall the loop (deadlines, watchdog, API) behind disk I/O.
+    profile = {"model": "bird", "provider": "intel_gpu"}
+    policy = NativeCrashQuarantine(lambda: profile, root=tmp_path)
+
+    policy._persist_lock.acquire()
+    try:
+        started = time.monotonic()
+        assert policy.remember_retirement(profile) is True
+        assert time.monotonic() - started < 0.5
+    finally:
+        policy._persist_lock.release()
+
+
 def test_corrupt_record_does_not_silently_unblock_the_profile(tmp_path):
     policy = NativeCrashQuarantine(lambda: {"model": "bird"}, root=tmp_path)
     profile = policy.guard()
