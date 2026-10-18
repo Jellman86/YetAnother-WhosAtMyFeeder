@@ -162,6 +162,64 @@ async def test_classifier_upload_endpoints_use_admission_even_in_process(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("endpoint", ["test", "classify", "probe", "wildlife/test"])
+async def test_classifier_upload_endpoints_reject_oversized_images_before_classifying(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch, endpoint
+):
+    classify_calls = []
+    monkeypatch.setattr(classifier_router, "MAX_IMAGE_BYTES", 10)
+    monkeypatch.setattr(
+        classifier_router.classifier_service,
+        "classify_async_background",
+        AsyncMock(side_effect=lambda *_a, **_k: classify_calls.append(1)),
+    )
+    app.dependency_overrides[require_owner] = lambda: AuthContext(auth_level=AuthLevel.OWNER, username="owner")
+
+    image_buffer = io.BytesIO()
+    Image.new("RGB", (8, 8), color="white").save(image_buffer, format="PNG")
+    assert len(image_buffer.getvalue()) > 10
+
+    response = await client.post(
+        f"/api/classifier/{endpoint}",
+        files={"image": ("bird.png", image_buffer.getvalue(), "image/png")},
+    )
+
+    assert response.status_code == 413, response.text
+    assert classify_calls == []
+
+
+@pytest.mark.asyncio
+async def test_classifier_upload_endpoints_reject_images_over_the_pixel_limit(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setattr("app.utils.image_io.MAX_IMAGE_PIXELS", 10)
+    app.dependency_overrides[require_owner] = lambda: AuthContext(auth_level=AuthLevel.OWNER, username="owner")
+
+    image_buffer = io.BytesIO()
+    Image.new("RGB", (8, 8), color="white").save(image_buffer, format="PNG")
+
+    response = await client.post(
+        "/api/classifier/classify",
+        files={"image": ("bird.png", image_buffer.getvalue(), "image/png")},
+    )
+
+    assert response.status_code == 413, response.text
+
+
+@pytest.mark.asyncio
+async def test_classifier_test_upload_reports_undecodable_images_without_erroring(client: httpx.AsyncClient):
+    app.dependency_overrides[require_owner] = lambda: AuthContext(auth_level=AuthLevel.OWNER, username="owner")
+
+    response = await client.post(
+        "/api/classifier/test",
+        files={"image": ("bird.png", b"not an image", "image/png")},
+    )
+
+    assert response.status_code == 200, response.text
+    assert "error" in response.json()
+
+
+@pytest.mark.asyncio
 async def test_default_model_download_reloads_through_supported_service_api(client, monkeypatch, tmp_path):
     async def upstream(request):
         content = b"\x00" * 2048 if request.url.path.endswith(".tflite") else b"0 bird (Robin)\n"

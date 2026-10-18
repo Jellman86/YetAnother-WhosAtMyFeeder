@@ -23,14 +23,12 @@ from app.repositories.manual_observation_repository import ManualObservationDraf
 from app.services.classifier_service import get_classifier
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.utils.api_datetime import utc_naive_datetime, utc_naive_now
-from app.utils.image_io import load_rgb_image
+from app.utils.image_io import MAX_IMAGE_BYTES, MAX_IMAGE_PIXELS, load_rgb_image
 from app.utils.tasks import create_background_task
 
 
 log = structlog.get_logger()
-MAX_IMAGE_BYTES = 25 * 1024 * 1024
 MAX_VIDEO_BYTES = 250 * 1024 * 1024
-MAX_IMAGE_PIXELS = 80_000_000
 DRAFT_RETENTION_DAYS = 7
 ALLOWED_MEDIA = {
     "image/jpeg": ("image", ".jpg"),

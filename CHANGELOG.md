@@ -16,6 +16,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   recovery path. Runtime error summaries keep the OpenCL code even when it
   sits deep inside a long nested exception (#721).
 
+- Classifier test uploads are now refused with `413` before any model work when
+  the file is over 25 MB or the image is over 80 megapixels, matching the bounds
+  manual observations already used. Decoding shared image bytes enforces the
+  same pixel bound, so an oversized or decompression-bomb image cannot be
+  expanded in memory by the test, classify, probe or wildlife endpoints.
+
 - The owner-only configuration dump (`GET /api/debug/config`) now also hides the
   session signing secret, the password hash, the OAuth token secret and
   long-lived access tokens. Redaction also fails closed for any future setting
