@@ -10,10 +10,13 @@ from PIL import Image
 
 from .classifier_worker_protocol import (
     WORKER_PROTOCOL_STREAM_LIMIT_BYTES,
+    WORKER_RETIREMENT_EXIT_CODE,
+    ClassifierWorkerRetirementError,
     build_error_event,
     build_heartbeat_event,
     build_progress_event,
     build_ready_event,
+    build_retirement_event,
     build_runtime_recovery_event,
     build_result_event,
     decode_protocol_message,
@@ -82,6 +85,10 @@ class ClassifierWorkerProcess:
         self._closed = False
         self._busy = False
         self._current_request_id: str | None = None
+        # Set when a classification reports a device-level GPU failure: the
+        # retirement record is flushed to the parent first, then the process
+        # exits without destroying the failed native objects (#721).
+        self.retirement_requested = False
 
     @staticmethod
     def encode_message(message: dict[str, Any]) -> bytes:
@@ -127,6 +134,22 @@ class ClassifierWorkerProcess:
     async def _emit(self, message: dict[str, Any]) -> None:
         self.writer.write(encode_protocol_message(message))
         await self.writer.drain()
+
+    async def _retire(self, message: dict[str, Any], exc: ClassifierWorkerRetirementError) -> None:
+        # The retirement record must reach the parent before any native
+        # teardown: it is the only trusted copy of the original GPU error.
+        await self._emit(
+            build_retirement_event(
+                worker_generation=self.worker_generation,
+                request_id=str(message["request_id"]),
+                work_id=str(message["work_id"]),
+                lease_token=int(message["lease_token"]),
+                error_code=exc.error_code,
+                error=exc.detail,
+            )
+        )
+        self.retirement_requested = True
+        self._closed = True
 
     async def _heartbeat_loop(self) -> None:
         while not self._closed:
@@ -177,6 +200,8 @@ class ClassifierWorkerProcess:
                     runtime=self._runtime_identity(),
                 )
             )
+        except ClassifierWorkerRetirementError as exc:
+            await self._retire(message, exc)
         except Exception as exc:
             await self._emit(
                 build_error_event(
@@ -283,6 +308,8 @@ class ClassifierWorkerProcess:
                     runtime=self._runtime_identity(),
                 )
             )
+        except ClassifierWorkerRetirementError as exc:
+            await self._retire(message, exc)
         except Exception as exc:
             await self._emit(
                 build_error_event(
@@ -390,7 +417,7 @@ async def run_worker_main(
     writer: Any | None = None,
     runtime_recovery_getter: Callable[[], dict[str, Any] | None] | None = None,
     runtime_identity_getter: Callable[[], dict[str, Any] | None] | None = None,
-) -> None:
+) -> ClassifierWorkerProcess:
     reader: asyncio.StreamReader | _WindowsStdinReader
     if sys.platform == "win32":
         reader = _WindowsStdinReader(sys.stdin.buffer)
@@ -413,6 +440,7 @@ async def run_worker_main(
         runtime_identity_getter=runtime_identity_getter,
     )
     await worker.run()
+    return worker
 
 
 def _build_default_classify_fn() -> Callable[..., list[dict[str, Any]]]:
@@ -453,7 +481,7 @@ def main() -> None:
     heartbeat_interval_seconds = float(os.getenv("CLASSIFIER_WORKER_HEARTBEAT_INTERVAL_SECONDS", "1.0"))
     protocol_stdout = os.fdopen(os.dup(sys.stdout.fileno()), "wb", closefd=True)
     os.dup2(sys.stderr.fileno(), sys.stdout.fileno())
-    asyncio.run(
+    worker = asyncio.run(
         run_worker_main(
             classify_fn=(classify_fn := _build_default_classify_fn()),
             classify_video_fn=getattr(classify_fn, "_video_classify_fn", None),
@@ -464,6 +492,12 @@ def main() -> None:
             runtime_identity_getter=getattr(classify_fn, "_runtime_identity_getter", None),
         )
     )
+    if worker.retirement_requested:
+        # The retirement record is already flushed to the parent (the worker
+        # closes its writer on the way out). Skip every interpreter teardown
+        # hook so the failed GPU objects are never destroyed in this
+        # process; the OS reclaims them (#721).
+        os._exit(WORKER_RETIREMENT_EXIT_CODE)
 
 
 if __name__ == "__main__":

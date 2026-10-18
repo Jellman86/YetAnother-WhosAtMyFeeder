@@ -9,10 +9,24 @@ from typing import Any, Awaitable, Callable, Literal
 import structlog
 
 from .classifier_worker_client import ClassifierWorkerClient
-from .classifier_worker_protocol import build_classify_request, build_classify_video_request
+from .classifier_worker_protocol import (
+    GPU_RUNTIME_FAILURE_CODES,
+    build_classify_request,
+    build_classify_video_request,
+)
 from .native_crash_quarantine import NativeCrashQuarantine, NativeCrashQuarantinedError
 
 log = structlog.get_logger()
+
+
+def _sanitize_retirement_detail(raw: object) -> str:
+    """Bound worker-reported detail before it reaches metrics or health.
+
+    The worker is our own child, but its error text originates in native
+    runtimes; keep it printable, single-line, and short so it can never
+    become trusted markup or unbounded log content."""
+    text = "".join(ch for ch in str(raw or "") if ch.isprintable())
+    return " ".join(text.split())[:280]
 
 
 WorkPriority = Literal["live", "background", "video"]
@@ -187,6 +201,9 @@ class ClassifierSupervisor:
             },
             "late_results_ignored": 0,
         }
+        for _priority in ("live", "background", "video"):
+            self._metrics[_priority]["last_retirement"] = None
+        self._replacement_tasks: set[asyncio.Task[None]] = set()
         self._restart_history: dict[WorkPriority, deque[float]] = {
             "live": deque(),
             "background": deque(),
@@ -751,6 +768,9 @@ class ClassifierSupervisor:
             if message["type"] == "runtime_recovery":
                 self._metrics[current_slot.priority]["last_runtime_recovery"] = dict(message.get("recovery") or {})
                 continue
+            if message["type"] == "retirement":
+                await self._handle_worker_retirement(current_slot, generation, worker, assignment, message)
+                continue
             if message["type"] == "progress":
                 if assignment is None:
                     self._metrics["late_results_ignored"] += 1
@@ -804,6 +824,75 @@ class ClassifierSupervisor:
                     assignment.future.set_exception(RuntimeError(str(message.get("error") or "worker_error")))
             async with self._condition:
                 self._condition.notify_all()
+
+    async def _handle_worker_retirement(
+        self,
+        slot: _WorkerSlot,
+        generation: int,
+        worker: Any,
+        assignment: _Assignment | None,
+        message: dict[str, Any],
+    ) -> None:
+        # A retirement only counts for the exact in-flight request that
+        # provoked it. Anything stale is ignored like a late result, so a
+        # dying worker cannot quarantine a profile on someone else's lease.
+        if (
+            assignment is None
+            or assignment.worker_generation != generation
+            or message.get("request_id") != assignment.request_id
+            or message.get("work_id") != assignment.work_id
+            or int(message.get("lease_token") or -1) != assignment.lease_token
+        ):
+            self._metrics["late_results_ignored"] += 1
+            return
+
+        raw_code = str(message.get("error_code") or "")
+        error_code = raw_code if raw_code in GPU_RUNTIME_FAILURE_CODES else "unknown_gpu_runtime_failure"
+        detail = _sanitize_retirement_detail(message.get("error"))
+        priority = slot.priority
+        self._metrics[priority]["last_retirement"] = {
+            "error_code": error_code,
+            "detail": detail,
+            "worker_name": slot.worker_name,
+            "worker_generation": generation,
+            "at": time.time(),
+        }
+        # Block the profile in memory first (synchronous, cannot be
+        # cancelled), so the replacement path below can never respawn the
+        # same GPU profile; persistence follows off the event loop.
+        profile = getattr(worker, "_native_launch_profile", None)
+        if self._crash_quarantine is not None and self._crash_quarantine.remember_retirement(profile):
+            await asyncio.to_thread(self._crash_quarantine.record_retirement, profile, error_code, detail)
+
+        self._assignments.pop(slot.worker_name, None)
+        retirement_error = NativeCrashQuarantinedError(
+            f"Classifier GPU worker retired after {error_code}: {detail}"
+            if detail
+            else f"Classifier GPU worker retired after {error_code}"
+        )
+        if not assignment.future.done():
+            assignment.future.set_exception(retirement_error)
+        async with self._condition:
+            self._condition.notify_all()
+        log.error(
+            "Classifier worker retired after GPU runtime failure",
+            worker=slot.worker_name,
+            pool=priority,
+            generation=generation,
+            error_code=error_code,
+            detail=detail,
+        )
+        # Reap before any replacement: _replace_worker closes (waits for)
+        # the old child, then the quarantine guard stops a new GPU worker
+        # with the same launch profile instead of looping through PIDs.
+        task = asyncio.create_task(
+            self._replace_worker(
+                priority, slot.index, reason="gpu_worker_retired", assignment_error=retirement_error, kill=False
+            )
+        )
+        self._replacement_tasks.add(task)
+        task.add_done_callback(self._replacement_tasks.discard)
+        task.add_done_callback(self._consume_progress_exception)
 
     async def _watchdog_loop(self) -> None:
         while True:

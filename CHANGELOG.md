@@ -6,6 +6,16 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- An isolated Intel GPU worker that hits a device-level OpenCL failure
+  (`CL_OUT_OF_RESOURCES`, `CL_INVALID_EVENT`, and the other resource codes) now
+  reports the original error and retires itself instead of compiling a
+  replacement model and tearing the failed one down in the same process,
+  which could abort natively and lose the cause. The launch profile is
+  quarantined from that retirement record, the old worker is reaped before
+  anything replaces it, and the request continues on the validated CPU
+  recovery path. Runtime error summaries keep the OpenCL code even when it
+  sits deep inside a long nested exception (#721).
+
 - The owner-only configuration dump (`GET /api/debug/config`) now also hides the
   session signing secret, the password hash, the OAuth token secret and
   long-lived access tokens. Redaction also fails closed for any future setting
