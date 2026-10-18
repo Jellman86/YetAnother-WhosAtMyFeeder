@@ -1175,14 +1175,17 @@
       "classification_image_snapshot": "Instantánea de detección",
       "classification_image_recording": "Fotograma de grabación",
       "classification_image_recording_cost": "Frigate decodifica un fotograma de grabación por cada detección, y YA-WAMF lo descarga y lo procesa.",
-      "classification_image_recording_fallback": "Requiere grabaciones conservadas y la copia limpia de la instantánea en Frigate ({setting}). Frigate solo puede servir un fotograma de grabación cuando esa parte de la grabación está escrita, unos 10 a 15 segundos después, así que las detecciones nuevas se identifican con ese retraso. Si el fotograma no llega en 30 segundos, o es más pequeño o tiene otra forma, se usa la instantánea de detección.",
+      "classification_image_recording_fallback": "Requiere grabaciones conservadas y la copia limpia de la instantánea en Frigate ({setting}). Los fotogramas suelen estar disponibles entre 10 y 15 segundos después. Tras el retraso elegido, se reintenta normalmente hasta 18 segundos antes de usar la instantánea de detección. También se usa esta si el fotograma es menor o tiene otra proporción.",
       "classification_image_recording_scope": "Se aplica a las detecciones nuevas, incluidos los eventos pasados obtenidos como detecciones perdidas. Guardar no obtiene eventos pasados ni cambia las fotos existentes; la reclasificación prefiere las fotos guardadas.",
       "stage_frigate": "API de Frigate",
       "stage_frigate_bad": "Frigate devolvió un estado inesperado.",
       "stage_frigate_ok": "Conectado a Frigate {version}",
       "stage_mqtt": "Publicación en el broker MQTT",
       "test_subtitle": "Comprueba que la API de Frigate responde y que el broker MQTT acepta una publicación.",
-      "test_title": "Prueba de conexión de Frigate y MQTT"
+      "test_title": "Prueba de conexión de Frigate y MQTT",
+      "recording_frame_delay": "Retraso de identificación inicial (segundos)",
+      "recording_frame_delay_desc": "Espera de 1 a 120 segundos desde la primera instantánea. Usa los metadatos más recientes recibidos durante la espera. La identificación y los avisos llegan más tarde. No espera al final de todos los eventos ni reclasifica detecciones guardadas.",
+      "recording_frame_delay_invalid": "Introduce un retraso del fotograma de grabación de 1 a 120 segundos."
     },
     "cameras": {
       "title": "Cámaras Activas",

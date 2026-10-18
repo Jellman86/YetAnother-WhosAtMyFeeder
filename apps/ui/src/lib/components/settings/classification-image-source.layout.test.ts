@@ -55,6 +55,27 @@ beforeAll(() => {
 });
 
 describe('initial classification image setting', () => {
+    it('shows an accessible editable delay only for recording frames', () => {
+        const body = render(ClassificationImageSourceSetting, { props: { value: 'recording_snapshot', delay: 45 } }).body;
+        const input = body.match(/<input\b[^>]*id="recording-frame-delay"[^>]*>/)?.[0] ?? '';
+        expect(attribute(input, 'type')).toBe('number');
+        expect(attribute(input, 'value')).toBe('45');
+        expect(attribute(input, 'min')).toBe('1');
+        expect(attribute(input, 'max')).toBe('120');
+        expect(attribute(input, 'step')).toBe('any');
+        expect(attribute(input, 'aria-labelledby')).toBe('recording-frame-delay-label');
+        expect(attribute(input, 'aria-describedby')).toBe('recording-frame-delay-desc');
+        expect(renderSetting('frigate_snapshot')).not.toContain('id="recording-frame-delay"');
+    });
+
+    it('loads, saves and tracks unsaved delay changes through the connection settings', () => {
+        expect(connectionSettingsSource).toContain('bind:delay={recordingFrameDelaySeconds}');
+        expect(settingsPageSource).toContain('bind:recordingFrameDelaySeconds');
+        expect(settingsPageSource).toContain('recordingFrameDelaySeconds = settings.recording_frame_delay_seconds ?? 12;');
+        expect(settingsPageSource).toContain('recording_frame_delay_seconds: recordingFrameDelaySeconds,');
+        expect(settingsPageSource).toContain("{ key: 'recordingFrameDelaySeconds', val: recordingFrameDelaySeconds, store: s.recording_frame_delay_seconds ?? 12 }");
+        expect(settingsApiSource).toContain("recording_frame_delay_seconds?: NonNullable<components['schemas']['SettingsResponse']['recording_frame_delay_seconds']>;");
+    });
     it('offers exactly the generated contract values with the snapshot first', () => {
         expect(OPTIONS_COVER_CONTRACT).toBe(true);
         expect(optionTags(renderSetting()).map((tag) => attribute(tag, 'value'))).toEqual([...OPTION_ORDER]);
@@ -171,7 +192,7 @@ describe('initial classification image wiring', () => {
         expect(settingsPageSource).toContain('bind:classificationImageSource');
 
         expect(connectionSettingsSource).toContain("classificationImageSource = $bindable<ClassificationImageSource>('frigate_snapshot')");
-        expect(connectionSettingsSource).toContain('<ClassificationImageSourceSetting bind:value={classificationImageSource} />');
+        expect(connectionSettingsSource).toContain('<ClassificationImageSourceSetting bind:value={classificationImageSource} bind:delay={recordingFrameDelaySeconds} />');
     });
 
     it('sits in the basic Frigate card beside clip fetching, not behind the full-visit disclosure', () => {
@@ -193,7 +214,9 @@ describe('initial classification image copy', () => {
         'classification_image_recording',
         'classification_image_recording_cost',
         'classification_image_recording_fallback',
-        'classification_image_recording_scope'
+        'classification_image_recording_scope',
+        'recording_frame_delay',
+        'recording_frame_delay_desc'
     ] as const;
     const LOCALES = { en, de, es, fr, it: itLocale, ja, pt, ru, zh };
 
@@ -213,7 +236,7 @@ describe('initial classification image copy', () => {
         for (const key of KEYS) {
             expect(componentSource, key).toContain(`{ default: '${strings[key]}'`);
         }
-        expect(strings.classification_image_recording_fallback).toContain('30 seconds');
+        expect(strings.classification_image_recording_fallback).toContain('18 seconds');
     });
 
     it('states that the recording frame needs retained recordings and the clean snapshot copy', () => {
@@ -222,7 +245,7 @@ describe('initial classification image copy', () => {
         expect(fallback).toContain('retained recordings');
         expect(fallback).toContain('clean snapshot copy');
         expect(fallback).toContain('10 to 15 seconds later');
-        expect(fallback).toContain('within 30 seconds');
+        expect(fallback).toContain('up to 18 seconds');
         expect(componentSource).toContain("const CLEAN_COPY_SETTING = 'snapshots.clean_copy';");
         expect(componentSource).toContain('values: { setting: CLEAN_COPY_SETTING }');
     });
@@ -233,21 +256,21 @@ describe('initial classification image copy', () => {
         expect(attribute(note, 'class')?.split(/\s+/)).toContain('break-words');
     });
 
-    // A live detection waits until its recording frame is written, and gives up after 30 seconds.
+    // Recording reads have a bounded retry grace after the configurable initial delay.
     const DEADLINE: Record<keyof typeof LOCALES, string> = {
-        en: '30 seconds',
-        de: '30 Sekunden',
-        es: '30 segundos',
-        fr: '30 secondes',
-        it: '30 secondi',
-        ja: '30 秒',
-        pt: '30 segundos',
-        ru: '30 секунд',
-        zh: '30 秒'
+        en: '18 seconds',
+        de: '18 Sekunden',
+        es: '18 segundos',
+        fr: '18 secondes',
+        it: '18 secondi',
+        ja: '18 秒',
+        pt: '18 segundos',
+        ru: '18 секунд',
+        zh: '18 秒'
     };
 
     for (const [name, locale] of Object.entries(LOCALES) as Array<[keyof typeof LOCALES, typeof en]>) {
-        it(`${name} names the clean copy requirement and the 30-second deadline`, () => {
+        it(`${name} names the clean copy requirement and the 18-second retry window`, () => {
             const fallback = String((locale.settings.frigate as Record<string, unknown>).classification_image_recording_fallback);
 
             expect(fallback, `${name} fallback names the Frigate setting through a placeholder`).toContain('({setting})');

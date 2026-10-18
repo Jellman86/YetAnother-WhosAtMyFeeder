@@ -102,9 +102,10 @@ EVENT_SNAPSHOT_RECOVERY_EXTRA_RETRIES = max(
 # Frigate's continuous recording when no snapshot/thumbnail is available.
 # Frigate serves a recording frame only once its stretch of recording is written: 11 to 13 seconds
 # after the moment on a live install. A live event identified from the recording frame waits this
-# long after Frigate's best snapshot before its first read.
+# long by default; owners can choose a different initial delay in settings.
 RECORDING_FRAME_READY_SECONDS = max(1.0, float(os.getenv("RECORDING_FRAME_READY_SECONDS", "12")))
-# From the snapshot moment, how long reads keep retrying before the detection snapshot is used.
+# The legacy total deadline minus readiness determines the bounded retry grace
+# after the first read, independently of the owner's initial delay.
 RECORDING_FRAME_DEADLINE_SECONDS = max(
     RECORDING_FRAME_READY_SECONDS, float(os.getenv("RECORDING_FRAME_DEADLINE_SECONDS", "30"))
 )
@@ -607,10 +608,16 @@ class EventProcessor:
         event_type = (event.type or "new").lower()
         waiting = self._recording_waits.get(event.frigate_event)
         if waiting is not None and not event.recording_wait_done:
-            # The event is identified once its recording frame exists. An end is kept and replayed
-            # after that, so its final media work still runs; updates add nothing until then.
+            # Refresh the paired best-frame hints without restarting the timer.
+            # An end is also replayed after identification for its final media work.
             if event_type == "end":
                 waiting["end_data"] = dict(data)
+            if event_type == "end" or waiting["end_data"] is None:
+                incoming = dict(data.get("after") or {})
+                latest_after = {**waiting["latest_after"], **incoming}
+                if not incoming.get("snapshot") and recording_frame_time(incoming) is not None:
+                    latest_after.pop("snapshot", None)
+                waiting["latest_after"] = latest_after
             self._record_completed(event.frigate_event, (time.monotonic() - started) * 1000.0)
             self._record_recent_outcome(event.frigate_event, f"{event_type}_held_for_recording_frame")
             return
@@ -887,7 +894,8 @@ class EventProcessor:
         frame_time = recording_frame_time(event.snapshot_context())
         if frame_time is None:
             return None
-        wait = frame_time + RECORDING_FRAME_READY_SECONDS - time.time()
+        delay = settings.frigate.recording_frame_delay_seconds
+        wait = min(delay, frame_time + delay - time.time())
         return wait if wait > 0 else None
 
     def _note_recording_frame_outcome(self, camera: str | None, reason: str) -> None:
@@ -901,7 +909,7 @@ class EventProcessor:
     def _schedule_recording_wait(self, event: EventData, data: Dict[str, Any], wait_seconds: float) -> None:
         rerun = dict(data)
         rerun["__recording_wait_done"] = True
-        entry: dict[str, Any] = {"end_data": None}
+        entry: dict[str, Any] = {"end_data": None, "latest_after": dict(data.get("after") or {})}
         entry["task"] = create_background_task(
             self._identify_after_recording_wait(event.frigate_event, rerun, wait_seconds),
             name=f"recording_frame_wait:{event.frigate_event}",
@@ -911,6 +919,9 @@ class EventProcessor:
     async def _identify_after_recording_wait(self, event_id: str, data: Dict[str, Any], wait_seconds: float) -> None:
         try:
             await self._sleep(wait_seconds)
+            pending = self._recording_waits.get(event_id)
+            if pending is not None:
+                data["after"] = dict(pending["latest_after"])
             # Fresh for the live checks: the wait was deliberate, not a backlog.
             data["__received_at_ts"] = time.time()
             await self._process_payload_durably(data)
@@ -1409,7 +1420,7 @@ class EventProcessor:
                 snapshot_provenance,
                 # Only an event that waited keeps retrying; any other read is one bounded attempt.
                 ready_by=(
-                    frame_time + RECORDING_FRAME_DEADLINE_SECONDS
+                    time.time() + max(0.0, RECORDING_FRAME_DEADLINE_SECONDS - RECORDING_FRAME_READY_SECONDS)
                     if waited_for_recording and frame_time is not None
                     else None
                 ),

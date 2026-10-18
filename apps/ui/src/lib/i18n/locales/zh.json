@@ -1175,14 +1175,17 @@
       "classification_image_snapshot": "检测快照",
       "classification_image_recording": "录像帧",
       "classification_image_recording_cost": "Frigate 会为每次检测解码一帧录像，YA-WAMF 会下载并处理它。",
-      "classification_image_recording_fallback": "需要保留录像以及 Frigate 的干净快照副本 ({setting})。Frigate 只能在该段录像写入后提供录像帧，大约晚 10 到 15 秒，因此新检测的识别也会相应延后。如果 30 秒内没有收到该帧，或者该帧更小、宽高比不同，则使用检测快照。",
+      "classification_image_recording_fallback": "需要保留录像和Frigate的干净快照副本({setting})。录像帧通常在10至15秒后可用。所选延迟后，通常最多重试18 秒，再使用检测快照。录像帧较小或宽高比不同时也使用检测快照。",
       "classification_image_recording_scope": "适用于新检测，包括作为漏检获取的过去事件。保存不会获取过去事件，也不会更改已有照片；重新分类优先使用已保存的照片。",
       "stage_frigate": "Frigate API",
       "stage_frigate_bad": "Frigate 返回了意外状态。",
       "stage_frigate_ok": "已连接到 Frigate {version}",
       "stage_mqtt": "MQTT 代理发布",
       "test_subtitle": "检查 Frigate API 是否响应，以及 MQTT 代理是否接受发布。",
-      "test_title": "Frigate 与 MQTT 连接测试"
+      "test_title": "Frigate 与 MQTT 连接测试",
+      "recording_frame_delay": "首次识别延迟（秒）",
+      "recording_frame_delay_desc": "从首张快照起等待1至120秒，并使用等待期间收到的最新跟踪快照元数据。识别和通知会延后。这不会等待每个事件结束，也不会重新分类已保存的检测。",
+      "recording_frame_delay_invalid": "请输入1至120秒的录像帧延迟。"
     },
     "cameras": {
       "title": "活动摄像头",

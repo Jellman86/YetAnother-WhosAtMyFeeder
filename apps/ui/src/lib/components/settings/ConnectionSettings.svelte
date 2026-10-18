@@ -29,6 +29,7 @@
         mqttPassword = $bindable(''),
         mqttPasswordSaved = $bindable(false),
         classificationImageSource = $bindable<ClassificationImageSource>('frigate_snapshot'),
+        recordingFrameDelaySeconds = $bindable(12),
         clipsEnabled = $bindable(true),
         recordingClipEnabled = $bindable(false),
         recordingClipBeforeSeconds = $bindable(30),
@@ -63,6 +64,7 @@
         mqttPassword: string;
         mqttPasswordSaved: boolean;
         classificationImageSource: ClassificationImageSource;
+        recordingFrameDelaySeconds?: number;
         clipsEnabled: boolean;
         recordingClipEnabled: boolean;
         recordingClipBeforeSeconds: number;
@@ -464,7 +466,7 @@
             </div>
         {/if}
 
-        <ClassificationImageSourceSetting bind:value={classificationImageSource} />
+        <ClassificationImageSourceSetting bind:value={classificationImageSource} bind:delay={recordingFrameDelaySeconds} />
 
         <SettingsRow
             labelId="setting-clips-enabled"

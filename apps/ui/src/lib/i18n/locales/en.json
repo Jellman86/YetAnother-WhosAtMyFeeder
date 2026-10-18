@@ -1185,14 +1185,17 @@
       "classification_image_snapshot": "Detection snapshot",
       "classification_image_recording": "Recording frame",
       "classification_image_recording_cost": "Frigate decodes one recording frame for each detection, and YA-WAMF downloads and processes it.",
-      "classification_image_recording_fallback": "Needs retained recordings and the clean snapshot copy in Frigate ({setting}). Frigate can only serve a recording frame once that part of the recording is written, about 10 to 15 seconds later, so new detections are identified that much later. If the frame has not arrived within 30 seconds, or it is smaller or a different shape, the detection snapshot is used.",
+      "classification_image_recording_fallback": "Needs retained recordings and the clean snapshot copy in Frigate ({setting}). Recording frames usually become available 10 to 15 seconds later. After the selected delay, unavailable frames are normally retried for up to 18 seconds before using the detection snapshot. Smaller or differently shaped recording frames also use the snapshot.",
       "classification_image_recording_scope": "Applies to new detections, including past events fetched as missed detections. Saving does not fetch past events or change existing photos; reclassification prefers saved photos.",
       "stage_frigate": "Frigate API",
       "stage_frigate_bad": "Frigate returned an unexpected status.",
       "stage_frigate_ok": "Connected to Frigate {version}",
       "stage_mqtt": "MQTT broker publish",
       "test_subtitle": "Checks that the Frigate API answers and that the MQTT broker accepts a publish.",
-      "test_title": "Frigate & MQTT connection test"
+      "test_title": "Frigate & MQTT connection test",
+      "recording_frame_delay": "Initial identification delay (seconds)",
+      "recording_frame_delay_desc": "Wait 1 to 120 seconds after the first snapshot moment. Use the latest tracked snapshot metadata received during that wait. Identification and notifications arrive later. This does not wait for every event to end or reclassify saved detections.",
+      "recording_frame_delay_invalid": "Enter a recording-frame delay between 1 and 120 seconds."
     },
     "cameras": {
       "title": "Active Cameras",

@@ -808,6 +808,12 @@ neutral metadata, including in subprocess workers. It receives no date or uncert
 Use `/api/classifier/status` after reload to distinguish saved preference from the
 worker-reported runtime.
 
+`recording_frame_delay_seconds` is an owner-only number from 1 to 120 (default 12).
+It controls the initial wait for new `classification_image_source: recording_snapshot`
+events, including when notifications can first be sent. Later tracked snapshot metadata
+received during the wait is used. Omitted values stay unchanged; invalid or null values
+return 422. It does not reclassify saved detections or wait indefinitely for an event end.
+
 - `POST /api/settings/birdnet/test` (owner) — synchronously proves a mock detection can
   enter the audio-correlation buffer and complete a database insert/delete; returns `502`
   rather than a false success when persistence or cleanup fails. The synthetic row and buffer

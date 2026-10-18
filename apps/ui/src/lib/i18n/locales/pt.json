@@ -1185,14 +1185,17 @@
       "classification_image_snapshot": "Snapshot da detecção",
       "classification_image_recording": "Quadro da gravação",
       "classification_image_recording_cost": "O Frigate decodifica um quadro da gravação para cada detecção, e o YA-WAMF o baixa e processa.",
-      "classification_image_recording_fallback": "Requer gravações retidas e a cópia limpa do snapshot no Frigate ({setting}). O Frigate só consegue fornecer um quadro da gravação depois de essa parte da gravação estar escrita, cerca de 10 a 15 segundos depois, por isso as novas detecções são identificadas com esse atraso. Se o quadro não chegar em 30 segundos, ou for menor ou tiver outro formato, é usado o snapshot da detecção.",
+      "classification_image_recording_fallback": "Requer gravações retidas e a cópia limpa da imagem no Frigate ({setting}). Os fotogramas ficam normalmente disponíveis 10 a 15 segundos depois. Após o atraso escolhido, tenta novamente normalmente durante até 18 segundos antes de usar a imagem de deteção. Também usa essa imagem se o fotograma for menor ou tiver proporções diferentes.",
       "classification_image_recording_scope": "Aplica-se a novas detecções, incluindo eventos passados obtidos como detecções perdidas. Salvar não obtém eventos passados nem altera fotos existentes; a reclassificação prefere fotos salvas.",
       "stage_frigate": "API do Frigate",
       "stage_frigate_bad": "O Frigate retornou um status inesperado.",
       "stage_frigate_ok": "Conectado ao Frigate {version}",
       "stage_mqtt": "Publicação no broker MQTT",
       "test_subtitle": "Verifica se a API do Frigate responde e se o broker MQTT aceita uma publicação.",
-      "test_title": "Teste de conexão Frigate e MQTT"
+      "test_title": "Teste de conexão Frigate e MQTT",
+      "recording_frame_delay": "Atraso da identificação inicial (segundos)",
+      "recording_frame_delay_desc": "Espera de 1 a 120 segundos após a primeira imagem. Usa os metadados de rastreamento mais recentes recebidos durante a espera. A identificação e as notificações chegam mais tarde. Não espera pelo fim de todos os eventos nem reclassifica deteções guardadas.",
+      "recording_frame_delay_invalid": "Introduza um atraso do fotograma de gravação entre 1 e 120 segundos."
     },
     "cameras": {
       "title": "Câmeras Ativas",

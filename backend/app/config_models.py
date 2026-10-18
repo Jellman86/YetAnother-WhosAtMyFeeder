@@ -227,6 +227,12 @@ class FrigateSettings(BaseModel):
         default="frigate_snapshot",
         description="Initial image source. Recording snapshots use a matching higher-resolution retained frame, with immediate snapshot fallback.",
     )
+    recording_frame_delay_seconds: float = Field(
+        default=12,
+        ge=1,
+        le=120,
+        description="Initial recording-frame identification delay from the snapshot moment, in seconds.",
+    )
     recording_frame_classification_fallback: bool = Field(
         default=True,
         description=(
