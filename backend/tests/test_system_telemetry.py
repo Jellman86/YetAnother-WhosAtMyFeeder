@@ -89,7 +89,7 @@ def test_sampler_reports_real_cpu_and_npu_utilization_from_counter_deltas(tmp_pa
 @pytest.mark.asyncio
 async def test_system_telemetry_endpoint_returns_live_sample_without_caching(monkeypatch: pytest.MonkeyPatch) -> None:
     class StubSampler:
-        def sample(self) -> SystemTelemetrySample:
+        def sample(self, pids=()) -> SystemTelemetrySample:
             return SystemTelemetrySample(cpu_percent=37.5, accelerators=_npu(18.2))
 
     monkeypatch.setattr(stats_router, "system_telemetry_sampler", StubSampler(), raising=False)
@@ -107,11 +107,69 @@ async def test_system_telemetry_endpoint_returns_live_sample_without_caching(mon
 
 
 @pytest.mark.asyncio
+async def test_system_telemetry_endpoint_supplies_app_pids_for_gpu_sampling(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: dict[str, list[int]] = {}
+
+    class StubSampler:
+        def sample(self, pids=()) -> SystemTelemetrySample:
+            seen["pids"] = list(pids)
+            return SystemTelemetrySample(cpu_percent=37.5, accelerators=_npu(18.2))
+
+    class StubProcessSampler:
+        def own_pids(self) -> list[int]:
+            return [4242, 4243]
+
+    monkeypatch.setattr(stats_router, "system_telemetry_sampler", StubSampler(), raising=False)
+    monkeypatch.setattr(stats_router, "process_load_sampler", StubProcessSampler(), raising=False)
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get("/api/system-telemetry")
+
+    assert response.status_code == 200
+    # DRM engine time is per client: without the app's pids the sidebar
+    # cannot measure GPU use at all. The pids only attribute counters;
+    # they are not part of the response.
+    assert seen["pids"] == [4242, 4243]
+    assert "4242" not in response.text
+
+
+def test_own_pids_lists_the_app_tree_without_consuming_cpu_baselines(tmp_path: Path) -> None:
+    from app.services.system_telemetry import ProcessLoadSampler
+
+    proc = tmp_path / "proc"
+    _write_process(proc, 100, ppid=1, comm="python", ticks=0, rss_pages=100, cmdline=["python", "-m", "uvicorn"])
+    _write_process(
+        proc,
+        101,
+        ppid=100,
+        comm="python",
+        ticks=0,
+        rss_pages=50,
+        cmdline=["python", "-m", "app.services.classifier_worker_process", "video-0", "3"],
+    )
+    _write_process(proc, 200, ppid=1, comm="frigate", ticks=0, rss_pages=999, cmdline=["frigate"])
+    clock_values = iter([0.0, 2.0])
+    sampler = ProcessLoadSampler(
+        proc_root=proc,
+        pid=100,
+        cpu_count=4,
+        clock_ticks_per_second=100,
+        page_size=4096,
+        clock=lambda: next(clock_values),
+    )
+
+    assert sampler.own_pids() == [100, 101]
+    # Listing pids for the sidebar must not consume the history sampler's
+    # CPU-delta baselines: the first real sample still has nothing to diff.
+    assert all(load.cpu_percent is None for load in sampler.sample())
+
+
+@pytest.mark.asyncio
 async def test_telemetry_device_reads_do_not_run_on_the_request_event_loop(monkeypatch) -> None:
     event_loop_thread = threading.get_ident()
 
     class DeviceSampler:
-        def sample(self) -> SystemTelemetrySample:
+        def sample(self, pids=()) -> SystemTelemetrySample:
             assert threading.get_ident() != event_loop_thread
             return SystemTelemetrySample(cpu_percent=12.5)
 
@@ -131,7 +189,7 @@ async def test_waiting_for_a_telemetry_device_keeps_other_requests_responsive(mo
     finished = threading.Event()
 
     class BlockedDeviceSampler:
-        def sample(self) -> SystemTelemetrySample:
+        def sample(self, pids=()) -> SystemTelemetrySample:
             entered.set()
             try:
                 # A watchdog keeps the broken implementation from hanging the test.

@@ -229,6 +229,14 @@ class ProcessLoadSampler:
             return "ffmpeg", "ffmpeg", None
         return "other_child", comm, None
 
+    def own_pids(self) -> list[int]:
+        """This app's process-tree pids, for DRM client attribution only.
+
+        Listing pids reads the tree without touching the CPU-delta
+        baselines, so the sidebar can attribute GPU counters on its own
+        cadence without consuming the history sampler's intervals."""
+        return self._descendants()
+
     def sample(self) -> list[ProcessLoad]:
         if self._clock_ticks is None or self._page_size is None:
             return []
