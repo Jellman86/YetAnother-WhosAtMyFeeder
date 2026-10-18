@@ -76,6 +76,7 @@ settings and do not follow the `SECTION__FIELD` precedence rules above.
 | `FRIGATE__FRIGATE_AUTH_TOKEN` | _(unset)_ | Bearer token if Frigate requires auth. |
 | `FRIGATE__MAIN_TOPIC` | `frigate` | Frigate MQTT base topic; events arrive on `<topic>/events`. |
 | `FRIGATE__CLASSIFICATION_IMAGE_SOURCE` | `frigate_snapshot` | Live input source: `frigate_snapshot` or `recording_snapshot`. Recording input requires retained recording coverage; see [Frigate setup](frigate-config.md). |
+| `FRIGATE__RECORDING_FRAME_DELAY_SECONDS` | `12` | Initial recording-frame identification delay, 1 to 120 seconds. Later tracked snapshot metadata received during the wait is used. No effect in detection-snapshot mode. |
 | `FRIGATE__MQTT_SERVER` | `mqtt` | MQTT broker host. |
 | `FRIGATE__MQTT_PORT` | `1883` | MQTT broker port. |
 | `FRIGATE__MQTT_AUTH` | `false` | Enable MQTT username/password auth. |

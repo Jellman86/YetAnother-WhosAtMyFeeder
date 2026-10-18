@@ -159,6 +159,132 @@ def test_the_wait_is_reported_in_health():
     assert status["recording_frame_waits"] == 0
 
 
+@pytest.mark.asyncio
+async def test_owner_selected_delay_is_applied_without_holding_live_inference(monkeypatch):
+    monkeypatch.setattr(settings.frigate, "recording_frame_delay_seconds", 45)
+    processor, slept, gate = _processor()
+    await processor.process_mqtt_message(_payload("new"))
+    await asyncio.sleep(0)
+    assert slept == [pytest.approx(44.5)]
+    processor._classify_snapshot.assert_not_awaited()
+    gate.set()
+    await _settle(processor)
+    processor._classify_snapshot.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("latest_type", ["update", "end"])
+async def test_deferred_identification_uses_latest_paired_snapshot_metadata(latest_type):
+    processor, _slept, gate = _processor()
+    await processor.process_mqtt_message(_payload("new"))
+    latest = json.loads(_payload(latest_type, frame_time=NOW))
+    latest["after"]["snapshot"]["box"] = [600, 200, 720, 320]
+    if latest_type == "end":
+        latest["after"]["end_time"] = NOW + 0.1
+    await processor.process_mqtt_message(json.dumps(latest).encode())
+    gate.set()
+    await _settle(processor)
+    deferred = processor._classify_snapshot.await_args_list[0].args[0]
+    assert deferred.type == "new"
+    assert deferred.recording_wait_done is True
+    assert deferred.snapshot == latest["after"]["snapshot"]
+    assert deferred.start_time_ts == NOW - 1.0
+
+
+@pytest.mark.asyncio
+async def test_late_update_cannot_replace_terminal_metadata_while_waiting():
+    processor, _slept, gate = _processor()
+    await processor.process_mqtt_message(_payload("new"))
+    await processor.process_mqtt_message(_payload("end", frame_time=NOW))
+    await processor.process_mqtt_message(_payload("update", frame_time=NOW - 0.25))
+    gate.set()
+    await _settle(processor)
+    assert processor._classify_snapshot.await_args_list[0].args[0].snapshot["frame_time"] == NOW
+
+
+@pytest.mark.asyncio
+async def test_update_without_snapshot_keeps_the_previous_timestamp_box_pair():
+    processor, _slept, gate = _processor()
+    await processor.process_mqtt_message(_payload("new"))
+    await processor.process_mqtt_message(_payload("update", frame_time=None))
+    gate.set()
+    await _settle(processor)
+    assert processor._classify_snapshot.await_args_list[0].args[0].snapshot == {
+        "frame_time": NOW - 0.5,
+        "box": [320, 144, 448, 252],
+    }
+
+
+@pytest.mark.asyncio
+async def test_later_rest_style_timestamp_box_pair_replaces_earlier_mqtt_pair():
+    processor, _slept, gate = _processor()
+    await processor.process_mqtt_message(_payload("new"))
+    latest = json.loads(_payload("update", frame_time=None))
+    latest["after"]["data"] = {"snapshot_frame_time": NOW, "box": [0.1, 0.2, 0.3, 0.4]}
+    await processor.process_mqtt_message(json.dumps(latest).encode())
+    gate.set()
+    await _settle(processor)
+    deferred = processor._classify_snapshot.await_args.args[0]
+    assert deferred.snapshot == {}
+    assert deferred.data == latest["after"]["data"]
+
+
+@pytest.mark.asyncio
+async def test_partial_update_keeps_initial_event_start_while_updating_the_snapshot():
+    processor, _slept, gate = _processor()
+    await processor.process_mqtt_message(_payload("new"))
+    latest = json.loads(_payload("update", frame_time=NOW))
+    del latest["after"]["start_time"]
+    await processor.process_mqtt_message(json.dumps(latest).encode())
+    gate.set()
+    await _settle(processor)
+    deferred = processor._classify_snapshot.await_args.args[0]
+    assert deferred.start_time_ts == NOW - 1
+    assert deferred.snapshot["frame_time"] == NOW
+
+
+@pytest.mark.asyncio
+async def test_future_snapshot_timestamp_cannot_extend_wait_beyond_selected_delay(monkeypatch):
+    monkeypatch.setattr(settings.frigate, "recording_frame_delay_seconds", 45)
+    processor, slept, gate = _processor()
+    await processor.process_mqtt_message(_payload("new", frame_time=NOW + 3600))
+    await asyncio.sleep(0)
+    assert slept == [45]
+    gate.set()
+    await _settle(processor)
+
+
+@pytest.mark.asyncio
+async def test_long_initial_delay_preserves_a_bounded_recording_retry_window(monkeypatch):
+    from app.services.event_processor import EventData
+    from app.services.frigate_client import frigate_client
+
+    monkeypatch.setattr(settings.frigate, "recording_frame_delay_seconds", 90)
+    snapshot = _image((1280, 720))
+    monkeypatch.setattr(frigate_client, "get_snapshot_with_error", AsyncMock(return_value=(snapshot, None)))
+    from app.services.recording_snapshot_input import RecordingRead
+    from app.services.classification_input_provenance import cached_snapshot_input_provenance
+
+    read = AsyncMock(
+        return_value=RecordingRead(
+            snapshot, cached_snapshot_input_provenance({"source": "frigate_snapshot"}), "recording_not_ready"
+        )
+    )
+    monkeypatch.setattr(module, "read_recording_snapshot", read)
+    classifier = MagicMock()
+    classifier.classify_async_live = AsyncMock(return_value=[{"label": "Bird", "score": 0.9, "index": 1}])
+    event = EventData(
+        {
+            "type": "new",
+            "__recording_wait_done": True,
+            "after": json.loads(_payload("new", frame_time=NOW - 90))["after"],
+        }
+    )
+    await EventProcessor(classifier)._classify_snapshot(event)
+    deadline = read.await_args.kwargs["ready_by"]
+    assert NOW < deadline <= NOW + 30
+
+
 def _image(size):
     import io
 

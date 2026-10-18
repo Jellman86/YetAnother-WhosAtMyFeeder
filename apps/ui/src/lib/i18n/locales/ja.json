@@ -1175,14 +1175,17 @@
       "classification_image_snapshot": "検出スナップショット",
       "classification_image_recording": "録画フレーム",
       "classification_image_recording_cost": "Frigate は検出ごとに録画フレームを 1 枚デコードし、YA-WAMF がそれをダウンロードして処理します。",
-      "classification_image_recording_fallback": "録画の保持と、Frigate のクリーンなスナップショットコピー ({setting}) が必要です。Frigate が録画フレームを提供できるのは、その部分の録画が書き込まれた後、約 10〜15 秒後です。そのため新しい検出の識別もその分遅れます。30 秒以内にフレームが届かない場合、またはフレームが小さい、縦横比が異なる場合は、検出スナップショットを使用します。",
+      "classification_image_recording_fallback": "保存された録画とFrigateのクリーンなスナップショットコピー({setting})が必要です。録画フレームは通常10～15秒後に利用できます。指定した待機時間の後、通常は最大18 秒再試行し、取得できなければ検出スナップショットを使います。録画フレームが小さい場合や縦横比が異なる場合も同様です。",
       "classification_image_recording_scope": "新しい検出に適用され、見逃した検出として取得した過去のイベントも含みます。保存しても過去のイベントは取得されず、既存の写真も変更されません。再分類では保存済みの写真が優先されます。",
       "stage_frigate": "Frigate API",
       "stage_frigate_bad": "Frigate が予期しないステータスを返しました。",
       "stage_frigate_ok": "Frigate {version} に接続しました",
       "stage_mqtt": "MQTT ブローカーへの送信",
       "test_subtitle": "Frigate API が応答し、MQTT ブローカーが送信を受け付けることを確認します。",
-      "test_title": "Frigate と MQTT の接続テスト"
+      "test_title": "Frigate と MQTT の接続テスト",
+      "recording_frame_delay": "初回識別の待機時間（秒）",
+      "recording_frame_delay_desc": "最初のスナップショットから1～120秒待ち、その間に受信した最新の追跡画像メタデータを使います。識別と通知が遅くなります。すべてのイベント終了を待つ設定ではなく、保存済みの検出を再識別するものでもありません。",
+      "recording_frame_delay_invalid": "録画フレームの待機時間を1～120秒で入力してください。"
     },
     "cameras": {
       "title": "アクティブなカメラ",

@@ -1835,6 +1835,7 @@ export interface components {
     recording_clip_after_seconds?: number;
     recording_clip_before_seconds?: number;
     recording_clip_enabled?: boolean;
+    recording_frame_delay_seconds?: number;
     retention_days?: number;
     scientific_name_primary?: boolean;
     species_info_source?: string | null;
@@ -2043,6 +2044,7 @@ export interface components {
     recording_clip_after_seconds?: number;
     recording_clip_before_seconds?: number;
     recording_clip_enabled?: boolean;
+    recording_frame_delay_seconds?: number;
     retention_days?: number;
     scientific_name_primary?: boolean;
     species_info_source?: string | null;

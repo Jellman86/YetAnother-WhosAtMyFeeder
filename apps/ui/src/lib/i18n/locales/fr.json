@@ -1175,14 +1175,17 @@
       "classification_image_snapshot": "Instantané de détection",
       "classification_image_recording": "Image d’enregistrement",
       "classification_image_recording_cost": "Frigate décode une image d’enregistrement par détection, et YA-WAMF la télécharge et la traite.",
-      "classification_image_recording_fallback": "Nécessite des enregistrements conservés et la copie propre de l’instantané dans Frigate ({setting}). Frigate ne peut fournir une image d’enregistrement qu’une fois cette partie de l’enregistrement écrite, environ 10 à 15 secondes plus tard, donc les nouvelles détections sont identifiées d’autant plus tard. Si l’image n’est pas arrivée en 30 secondes, ou si elle est plus petite ou d’un autre format, l’instantané de détection est utilisé.",
+      "classification_image_recording_fallback": "Nécessite des enregistrements conservés et la copie propre du cliché dans Frigate ({setting}). Les images sont généralement disponibles 10 à 15 secondes plus tard. Après le délai choisi, les tentatives durent normalement jusqu’à 18 secondes avant d’utiliser le cliché de détection. Une image plus petite ou de proportions différentes utilise aussi ce cliché.",
       "classification_image_recording_scope": "S’applique aux nouvelles détections, y compris aux événements passés récupérés comme détections manquées. Sauvegarder ce réglage ne récupère aucun événement passé et ne modifie pas les photos existantes. La reclassification privilégie les photos sauvegardées.",
       "stage_frigate": "API Frigate",
       "stage_frigate_bad": "Frigate a renvoyé un statut inattendu.",
       "stage_frigate_ok": "Connecté à Frigate {version}",
       "stage_mqtt": "Publication sur le courtier MQTT",
       "test_subtitle": "Vérifie que l’API Frigate répond et que le courtier MQTT accepte une publication.",
-      "test_title": "Test de connexion Frigate et MQTT"
+      "test_title": "Test de connexion Frigate et MQTT",
+      "recording_frame_delay": "Délai de première identification (secondes)",
+      "recording_frame_delay_desc": "Attend de 1 à 120 secondes après la première image. Utilise les dernières métadonnées de suivi reçues pendant ce délai. Identification et notifications arrivent plus tard. Cela ne fait pas attendre la fin de chaque événement et ne reclasse pas les détections enregistrées.",
+      "recording_frame_delay_invalid": "Saisissez un délai de 1 à 120 secondes pour l’image enregistrée."
     },
     "cameras": {
       "title": "Caméras actives",

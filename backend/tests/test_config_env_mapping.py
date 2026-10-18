@@ -7,6 +7,17 @@ from app.config import Settings
 from app.config_loader import CLASSIFICATION_ENV_OVERRIDES
 
 
+@pytest.mark.parametrize("value", [12, 45, 120])
+def test_recording_frame_delay_persists_and_environment_can_override(monkeypatch, tmp_path, value):
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({"frigate": {"recording_frame_delay_seconds": 24}}))
+    monkeypatch.setattr(config_module, "CONFIG_PATH", path)
+    monkeypatch.delenv("FRIGATE__RECORDING_FRAME_DELAY_SECONDS", raising=False)
+    assert Settings.load().frigate.recording_frame_delay_seconds == 24
+    monkeypatch.setenv("FRIGATE__RECORDING_FRAME_DELAY_SECONDS", str(value))
+    assert Settings.load().frigate.recording_frame_delay_seconds == value
+
+
 def test_llm_model_default_matches_current_ui_default(monkeypatch, tmp_path):
     config_path = tmp_path / "config.json"
     config_path.write_text("{}", encoding="utf-8")

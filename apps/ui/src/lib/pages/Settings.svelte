@@ -229,6 +229,7 @@
     let audioBufferHours = $state(24);
     let audioCorrelationWindowSeconds = $state(300);
     let classificationImageSource = $state<ClassificationImageSource>('frigate_snapshot');
+    let recordingFrameDelaySeconds = $state(12);
     let clipsEnabled = $state(true);
     let recordingClipEnabled = $state(false);
     let recordingClipBeforeSeconds = $state(30);
@@ -1775,6 +1776,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'birdnetUrl', val: birdnetUrl, store: s.birdnet_url || '' },
             { key: 'birdnetExternalUrl', val: birdnetExternalUrl, store: s.birdnet_external_url || '' },
             { key: 'classificationImageSource', val: classificationImageSource, store: s.classification_image_source ?? 'frigate_snapshot' },
+            { key: 'recordingFrameDelaySeconds', val: recordingFrameDelaySeconds, store: s.recording_frame_delay_seconds ?? 12 },
             { key: 'clipsEnabled', val: clipsEnabled, store: s.clips_enabled ?? true },
             { key: 'recordingClipEnabled', val: recordingClipEnabled, store: s.recording_clip_enabled ?? false },
             { key: 'recordingClipBeforeSeconds', val: recordingClipBeforeSeconds, store: s.recording_clip_before_seconds ?? 30 },
@@ -2957,6 +2959,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             audioBufferHours = settings.audio_buffer_hours ?? 24;
             audioCorrelationWindowSeconds = settings.audio_correlation_window_seconds ?? 300;
             classificationImageSource = settings.classification_image_source ?? 'frigate_snapshot';
+            recordingFrameDelaySeconds = settings.recording_frame_delay_seconds ?? 12;
             clipsEnabled = settings.clips_enabled ?? true;
             recordingClipEnabled = settings.recording_clip_enabled ?? false;
             recordingClipBeforeSeconds = settings.recording_clip_before_seconds ?? 30;
@@ -3289,6 +3292,11 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     async function saveSettings() {
         saving = true;
         message = null;
+        if (!Number.isFinite(recordingFrameDelaySeconds) || recordingFrameDelaySeconds < 1 || recordingFrameDelaySeconds > 120) {
+            message = { type: 'error', text: $_('settings.frigate.recording_frame_delay_invalid', { default: 'Enter a recording-frame delay between 1 and 120 seconds.' }) };
+            saving = false;
+            return;
+        }
         const authSettingsError = validateAuthSettingsSave({
             authEnabled,
             authHasPassword,
@@ -3323,6 +3331,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 audio_buffer_hours: audioBufferHours,
                 audio_correlation_window_seconds: audioCorrelationWindowSeconds,
                 classification_image_source: classificationImageSource,
+                recording_frame_delay_seconds: recordingFrameDelaySeconds,
                 clips_enabled: clipsEnabled,
                 recording_clip_enabled: recordingClipEnabled,
                 recording_clip_before_seconds: recordingClipBeforeSeconds,
@@ -3596,6 +3605,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:cameraRoles
                     bind:nestDedupeMinutes
                     bind:classificationImageSource
+                    bind:recordingFrameDelaySeconds
                     bind:clipsEnabled
                     bind:recordingClipEnabled
                     bind:recordingClipBeforeSeconds

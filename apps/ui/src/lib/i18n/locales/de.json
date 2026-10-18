@@ -1175,14 +1175,17 @@
       "classification_image_snapshot": "Erkennungs-Snapshot",
       "classification_image_recording": "Aufzeichnungs-Frame",
       "classification_image_recording_cost": "Frigate dekodiert pro Erkennung einen Aufzeichnungs-Frame, und YA-WAMF lädt ihn herunter und verarbeitet ihn.",
-      "classification_image_recording_fallback": "Erfordert aufbewahrte Aufzeichnungen und die saubere Snapshot-Kopie in Frigate ({setting}). Frigate kann einen Aufzeichnungs-Frame erst liefern, wenn dieser Teil der Aufzeichnung geschrieben ist, etwa 10 bis 15 Sekunden später, daher werden neue Erkennungen entsprechend später bestimmt. Ist der Frame nach 30 Sekunden nicht da oder ist er kleiner oder anders geformt, wird der Erkennungs-Snapshot verwendet.",
+      "classification_image_recording_fallback": "Benötigt aufbewahrte Aufnahmen und die saubere Schnappschusskopie in Frigate ({setting}). Aufnahmebilder sind meist 10 bis 15 Sekunden später verfügbar. Nach der gewählten Verzögerung wird normalerweise bis zu 18 Sekunden erneut versucht, bevor der Erkennungsschnappschuss verwendet wird. Kleinere Aufnahmebilder oder Bilder mit anderem Seitenverhältnis verwenden ebenfalls den Schnappschuss.",
       "classification_image_recording_scope": "Gilt für neue Erkennungen, auch für vergangene Ereignisse, die als verpasste Erkennungen abgerufen werden. Speichern ruft keine vergangenen Ereignisse ab und ändert keine vorhandenen Fotos; die Reklassifizierung bevorzugt gespeicherte Fotos.",
       "stage_frigate": "Frigate-API",
       "stage_frigate_bad": "Frigate hat einen unerwarteten Status zurückgegeben.",
       "stage_frigate_ok": "Mit Frigate {version} verbunden",
       "stage_mqtt": "Veröffentlichung am MQTT-Broker",
       "test_subtitle": "Prüft, ob die Frigate-API antwortet und der MQTT-Broker eine Veröffentlichung annimmt.",
-      "test_title": "Verbindungstest Frigate & MQTT"
+      "test_title": "Verbindungstest Frigate & MQTT",
+      "recording_frame_delay": "Verzögerung der ersten Bestimmung (Sekunden)",
+      "recording_frame_delay_desc": "1 bis 120 Sekunden nach dem ersten Schnappschuss warten. Die neuesten währenddessen empfangenen Metadaten des verfolgten Schnappschusses werden verwendet. Bestimmung und Benachrichtigungen erfolgen später. Dies wartet nicht auf jedes Ereignisende und bestimmt gespeicherte Erkennungen nicht neu.",
+      "recording_frame_delay_invalid": "Gib eine Aufnahmebild-Verzögerung zwischen 1 und 120 Sekunden ein."
     },
     "cameras": {
       "title": "Aktive Kameras",

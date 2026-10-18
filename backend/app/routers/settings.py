@@ -845,6 +845,12 @@ class SettingsUpdate(BaseModel):
         "frigate_snapshot",
         description="Initial classification image source; recordings fall back to the detection snapshot",
     )
+    recording_frame_delay_seconds: float = Field(
+        12,
+        ge=1,
+        le=120,
+        description="Initial recording-frame identification delay in seconds",
+    )
     clips_enabled: bool = Field(True, description="Enable fetching of video clips from Frigate")
     recording_clip_enabled: bool = Field(False, description="Enable full-visit recording clips")
     recording_clip_before_seconds: int = Field(
@@ -1492,6 +1498,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "audio_correlation_window_seconds": settings.frigate.audio_correlation_window_seconds,
         "audio_min_confidence": settings.frigate.audio_min_confidence,
         "classification_image_source": settings.frigate.classification_image_source,
+        "recording_frame_delay_seconds": settings.frigate.recording_frame_delay_seconds,
         "clips_enabled": settings.frigate.clips_enabled,
         "recording_clip_enabled": settings.frigate.recording_clip_enabled,
         "recording_clip_before_seconds": settings.frigate.recording_clip_before_seconds,
@@ -1833,6 +1840,8 @@ async def update_settings(
 
     if "classification_image_source" in fields_set:
         settings.frigate.classification_image_source = update.classification_image_source
+    if "recording_frame_delay_seconds" in fields_set:
+        settings.frigate.recording_frame_delay_seconds = update.recording_frame_delay_seconds
     if "clips_enabled" in fields_set:
         settings.frigate.clips_enabled = update.clips_enabled
     if "recording_clip_enabled" in fields_set:

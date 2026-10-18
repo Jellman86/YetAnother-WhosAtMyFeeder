@@ -34,6 +34,7 @@ export interface Settings {
     garden_labels: NonNullable<components['schemas']['SettingsResponse']['garden_labels']>;
     nest_dedupe_minutes: number;
     classification_image_source?: ClassificationImageSource;
+    recording_frame_delay_seconds?: NonNullable<components['schemas']['SettingsResponse']['recording_frame_delay_seconds']>;
     clips_enabled: boolean;
     recording_clip_enabled: boolean;
     recording_clip_before_seconds: number;

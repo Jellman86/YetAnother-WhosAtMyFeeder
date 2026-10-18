@@ -13417,6 +13417,11 @@
             "title": "Recording Clip Enabled",
             "type": "boolean"
           },
+          "recording_frame_delay_seconds": {
+            "default": 12,
+            "title": "Recording Frame Delay Seconds",
+            "type": "number"
+          },
           "retention_days": {
             "default": 0,
             "title": "Retention Days",
@@ -15707,6 +15712,14 @@
             "description": "Enable full-visit recording clips",
             "title": "Recording Clip Enabled",
             "type": "boolean"
+          },
+          "recording_frame_delay_seconds": {
+            "default": 12,
+            "description": "Initial recording-frame identification delay in seconds",
+            "maximum": 120.0,
+            "minimum": 1.0,
+            "title": "Recording Frame Delay Seconds",
+            "type": "number"
           },
           "retention_days": {
             "default": 0,

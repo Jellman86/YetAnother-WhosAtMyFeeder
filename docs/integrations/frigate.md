@@ -73,9 +73,13 @@ cannot correct different lenses, digital zoom or PTZ views. Frigate needs retain
 best-snapshot timestamp metadata; older events without that metadata use the snapshot.
 
 Frigate can serve a recording frame only once that stretch of recording is written, 10 to 15
-seconds after the moment (11 to 13 seconds measured on a live install). So a live detection waits:
-YA-WAMF identifies it 12 seconds after Frigate's best snapshot, then retries every three seconds
-until 30 seconds after it, and only then uses the detection snapshot. Each read keeps its
+seconds after the moment (11 to 13 seconds measured on a live install). **Initial identification
+delay (seconds)** controls the first read: 1 to 120 seconds after the initial snapshot moment,
+with a default of 12. Updates received during that wait supply the latest snapshot timestamp
+and its matching tracked box; an early end supplies terminal metadata. A later stale update
+cannot replace that terminal state. The delay runs without occupying an inference worker.
+Missing recording frames are then retried every three seconds for normally up to 18 seconds
+before using the detection snapshot. Each read keeps its
 five-second bound, and a read that runs past it is retried the same way: several birds arriving
 together make Frigate decode several 4K frames at once. Updates for the event wait with it, and an end that arrives meanwhile is
 handled once the detection exists. A camera whose recording frames did not arrive by the deadline
@@ -84,14 +88,20 @@ delayed for nothing. Every fallback is logged at info with its reason. Backfill 
 events read once, since their recordings already exist. Existing end-of-event photo refinement
 remains responsible for later photo improvements.
 
-New detections, and their notifications, therefore arrive about 12 seconds later with **Recording
-frame** than with **Detection snapshot**. Recording stills add decoding work on **Frigate**,
+New detections and notifications therefore arrive later with **Recording frame**, according to
+the chosen delay and any recording-read retries. This is not a wait for every event to end:
+a visit continuing beyond the delay can still acquire a better final photo later. Existing known
+species are not automatically replaced by a conflicting final-snapshot guess, and owner corrections
+remain protected. Recording stills add decoding work on **Frigate**,
 bandwidth and image decoding work on YA-WAMF.
 They can reveal more detail but do not guarantee a more accurate model prediction. This choice
 applies to new detections and backfill; reclassification prefers retained photos, including owner
 selections. Saving the setting does not start a backfill or replace past photographs.
 Configuration uses `frigate.classification_image_source` with `frigate_snapshot` or
 `recording_snapshot`; environment configuration uses `FRIGATE__CLASSIFICATION_IMAGE_SOURCE`.
+The delay uses `frigate.recording_frame_delay_seconds` or
+`FRIGATE__RECORDING_FRAME_DELAY_SECONDS`. Changing it affects newly scheduled waits;
+already waiting events keep their scheduled delay. It has no effect in **Detection snapshot** mode.
 
 ### Import retained event history
 

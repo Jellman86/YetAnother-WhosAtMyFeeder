@@ -1813,6 +1813,23 @@ async def test_settings_roundtrip_classification_image_source_and_rejects_unknow
 
 
 @pytest.mark.asyncio
+async def test_recording_frame_delay_roundtrips_and_survives_partial_updates(client, monkeypatch):
+    monkeypatch.setattr(settings.auth, "enabled", False)
+    monkeypatch.setattr(settings.public_access, "enabled", False)
+    monkeypatch.setattr(settings.frigate, "recording_frame_delay_seconds", 12)
+    monkeypatch.setattr(settings.frigate, "classification_image_source", "frigate_snapshot")
+    assert (await client.get("/api/settings")).json()["recording_frame_delay_seconds"] == 12
+    saved = await client.post("/api/settings", json={"recording_frame_delay_seconds": 45})
+    assert saved.status_code == 200
+    assert settings.frigate.recording_frame_delay_seconds == 45
+    await client.post("/api/settings", json={"classification_image_source": "recording_snapshot"})
+    assert (await client.get("/api/settings")).json()["recording_frame_delay_seconds"] == 45
+    for value in (0, -1, 121, "invalid"):
+        assert (await client.post("/api/settings", json={"recording_frame_delay_seconds": value})).status_code == 422
+    assert settings.frigate.recording_frame_delay_seconds == 45
+
+
+@pytest.mark.asyncio
 async def test_settings_roundtrip_automatic_multi_bird_scan_preserves_partial_updates(client: httpx.AsyncClient):
     settings.auth.enabled = False
     settings.public_access.enabled = False

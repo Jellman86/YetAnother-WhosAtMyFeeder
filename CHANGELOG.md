@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Recording-frame identification has a configurable 1 to 120 second initial delay
+  (default 12), and uses newer tracked snapshot metadata received while waiting.
+  Notification timing follows the delay; saved identifications and owner choices
+  are unchanged. This implements the delay alternative requested in #743.
+
 - Garden animals is now a beta feature, off unless the owner turns it on in the new
   **Settings → Beta features** tab (`SYSTEM__BETA_GARDEN_ANIMALS`). While it is off,
   Garden collects nothing new, the motion scanner idles, the sidebar item and camera
