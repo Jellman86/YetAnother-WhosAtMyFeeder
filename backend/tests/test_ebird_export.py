@@ -563,6 +563,97 @@ async def test_ebird_export_excludes_unknown_bird_rows(client: httpx.AsyncClient
     assert _read_csv_rows(response.text) == []
 
 
+class _ExportEvidenceResolver:
+    """Catalogue evidence: index 0 of artifact 7 is a bird, index 1 a squirrel."""
+
+    def ensure_loaded(self) -> bool:
+        return True
+
+    def model_sha256_for_artifact_id(self, artifact_id):
+        return "a" * 64 if artifact_id == 7 else None
+
+    def cached_output_group(self, model_sha256, output_index, label):
+        return {0: "bird", 1: "nonbird"}.get(output_index, "unknown")
+
+    def cached_species_group(self, scientific_name):
+        return {"Cyanistes caeruleus": "bird", "Sciurus carolinensis": "nonbird"}.get(
+            str(scientific_name or ""), "unknown"
+        )
+
+
+async def _set_export_provenance(frigate_event: str, *, manual_tagged: bool, artifact_id, output_index) -> None:
+    async with get_db() as db:
+        await db.execute(
+            "UPDATE detections SET manual_tagged = ?, model_artifact_id = ?, model_output_index = ? WHERE frigate_event = ?",
+            (1 if manual_tagged else 0, artifact_id, output_index, frigate_event),
+        )
+        await db.commit()
+
+
+@pytest.mark.asyncio
+async def test_ebird_export_excludes_positively_evidenced_nonbirds_but_keeps_owner_corrections(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+):
+    from app.routers import ebird as ebird_router
+
+    monkeypatch.setattr(ebird_router, "species_catalog_resolver", _ExportEvidenceResolver(), raising=False)
+    when = datetime(2026, 3, 12, 12, 30, 0)
+
+    bird = f"evt-{uuid.uuid4().hex[:8]}"
+    await _insert_detection(
+        frigate_event=bird,
+        detection_time=when,
+        score=0.9,
+        display_name="Blue Tit",
+        scientific_name="Cyanistes caeruleus",
+        common_name="Blue Tit",
+    )
+    await _set_export_provenance(bird, manual_tagged=False, artifact_id=7, output_index=0)
+
+    squirrel = f"evt-{uuid.uuid4().hex[:8]}"
+    await _insert_detection(
+        frigate_event=squirrel,
+        detection_time=when,
+        score=0.9,
+        display_name="Eastern Gray Squirrel",
+        scientific_name="Sciurus carolinensis",
+        common_name="Eastern Gray Squirrel",
+    )
+    await _set_export_provenance(squirrel, manual_tagged=False, artifact_id=7, output_index=1)
+
+    corrected = f"evt-{uuid.uuid4().hex[:8]}"
+    await _insert_detection(
+        frigate_event=corrected,
+        detection_time=when,
+        score=0.9,
+        display_name="Blue Tit",
+        scientific_name="Cyanistes caeruleus",
+        common_name="Blue Tit",
+    )
+    # The owner corrected what the squirrel output produced; the stale
+    # model index must not veto their current identity.
+    await _set_export_provenance(corrected, manual_tagged=True, artifact_id=7, output_index=1)
+
+    uncatalogued = f"evt-{uuid.uuid4().hex[:8]}"
+    await _insert_detection(
+        frigate_event=uncatalogued,
+        detection_time=when,
+        score=0.9,
+        display_name="House Sparrow",
+        scientific_name="Passer domesticus",
+        common_name="House Sparrow",
+    )
+
+    response = await client.get("/api/ebird/export")
+
+    assert response.status_code == 200, response.text
+    assert "Squirrel" not in response.text
+    assert "Sciurus" not in response.text
+    names = [row[0] for row in _read_csv_rows(response.text)]
+    assert sorted(names) == ["Blue Tit", "House Sparrow"], names
+    assert "House Sparrow" in names, "absent evidence must not prove a non-bird"
+
+
 @pytest.mark.asyncio
 async def test_ebird_export_falls_back_to_scientific_name_when_common_name_missing(client: httpx.AsyncClient):
     """When all stored names are non-ASCII and iNaturalist is unavailable,

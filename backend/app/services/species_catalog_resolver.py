@@ -76,6 +76,10 @@ class SpeciesCatalogResolver:
         self._unverified = 0
         self._last_mismatch: Optional[dict[str, Any]] = None
         self._group_snapshot: Mapping[str, Mapping[int, _OutputEntry]] = MappingProxyType({})
+        self._artifact_sha_by_id: dict[int, str] = {}
+        # species_id -> the one coarse group every mapped output agrees on;
+        # a species whose outputs disagree is absent, which reads unknown.
+        self._species_groups: dict[int, OutputGroup] = {}
 
     def _resolved_path(self) -> Path:
         return Path(self._path or default_catalog_path())
@@ -155,6 +159,15 @@ class SpeciesCatalogResolver:
                     name_to_species[name] = None
 
         self._artifact_ids = artifact_ids
+        self._artifact_sha_by_id = artifact_sha_by_id
+        species_group_sets: dict[int, set[str]] = {}
+        for entries in outputs.values():
+            for entry in entries.values():
+                if entry.species_id is not None and entry.taxonomic_group in {"bird", "nonbird"}:
+                    species_group_sets.setdefault(entry.species_id, set()).add(entry.taxonomic_group)
+        self._species_groups = {
+            species_id: next(iter(groups)) for species_id, groups in species_group_sets.items() if len(groups) == 1
+        }
         self._outputs = outputs
         self._accepted_names = accepted
         self._name_to_species = name_to_species
@@ -244,6 +257,33 @@ class SpeciesCatalogResolver:
             return self._bound_group(row[0], row[1], normalized_label) if row else "unknown"
         except (OSError, sqlite3.Error):
             return "unknown"
+
+    def ensure_loaded(self) -> bool:
+        """Load the catalogue snapshots if needed; safe to call off-thread."""
+        return self._ensure_loaded()
+
+    def model_sha256_for_artifact_id(self, artifact_id: Optional[int]) -> Optional[str]:
+        """The checksum a stored ``model_artifact_id`` refers to, if known.
+
+        Historical detections record the artifact row id, while output-group
+        evidence is keyed by checksum; this is the bridge between them."""
+        if type(artifact_id) is not int or not self._ensure_loaded():
+            return None
+        return self._artifact_sha_by_id.get(artifact_id)
+
+    def cached_species_group(self, scientific_name: Optional[str]) -> OutputGroup:
+        """Coarse group evidence for a scientific name itself.
+
+        Exact catalogue evidence only: a name held by several species, held
+        by none, or whose mapped outputs disagree is ``unknown`` — absent
+        ancestry never proves a non-bird."""
+        name = str(scientific_name or "").strip()
+        if not name or not self._ensure_loaded():
+            return "unknown"
+        species_id = self._name_to_species.get(name.casefold())
+        if species_id is None:
+            return "unknown"
+        return self._species_groups.get(species_id, "unknown")
 
     def shadow_resolve(
         self,

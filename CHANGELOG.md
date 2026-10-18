@@ -6,6 +6,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- The eBird export now leaves out historical rows that catalogue evidence
+  positively identifies as non-birds (for example squirrels a wildlife-capable
+  model recorded before the non-bird admission guard existed). Evidence comes
+  from the producing model output and the current identity's scientific name;
+  rows with no such evidence export exactly as before, owner corrections are
+  judged by the corrected identity rather than the old model output, and no
+  history is deleted or relabelled (#728).
+
 - GPU telemetry now reads on hosts using Intel's `xe` driver, whose
   cycle-based counters the collector used to discard, so the sidebar GPU line
   no longer goes missing after switching drivers. Counters are differenced
