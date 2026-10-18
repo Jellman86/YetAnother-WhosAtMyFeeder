@@ -6,6 +6,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- GPU telemetry now reads on hosts using Intel's `xe` driver, whose
+  cycle-based counters the collector used to discard, so the sidebar GPU line
+  no longer goes missing after switching drivers. Counters are differenced
+  per DRM client before aggregation, so a worker starting or stopping no
+  longer swings the reported percentage, and the sidebar sample now supplies
+  the app's own process pids so app-scoped GPU use can be measured there at
+  all. Unknown samples stay unknown rather than reading as 0% or 100% (#724).
+
 - Classifier test uploads are now refused with `413` before any model work when
   the file is over 25 MB or the image is over 80 megapixels, matching the bounds
   manual observations already used. Decoding shared image bytes enforces the

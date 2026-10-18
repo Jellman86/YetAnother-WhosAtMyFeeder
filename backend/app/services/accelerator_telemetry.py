@@ -125,13 +125,22 @@ class NpuBusyTimeProbe:
 
 @dataclass(frozen=True)
 class _DrmClient:
-    """One open DRM client: its card, and the nanoseconds each engine class has run."""
+    """One open DRM client: its card, and each engine class's cumulative work.
+
+    Drivers report that work in one of two units. i915 publishes engine
+    nanoseconds (``drm-engine-*``); xe publishes busy cycles against the
+    engine's total cycles (``drm-cycles-*`` / ``drm-total-cycles-*``). The two
+    are not interchangeable: cycles only mean something as a fraction of
+    their own total.
+    """
 
     pdev: str
     driver: str
     client_id: str
     engine_ns: dict[str, int]
     engine_capacity: dict[str, int]
+    engine_cycles: dict[str, int]
+    engine_total_cycles: dict[str, int]
 
 
 class DrmEngineTimeProbe:
@@ -147,7 +156,10 @@ class DrmEngineTimeProbe:
     def __init__(self, *, proc_root: Path | str = PROC_ROOT, drm_root: Path | str = DRM_ROOT) -> None:
         self._proc_root = Path(proc_root)
         self._drm_root = Path(drm_root)
-        self._previous: dict[str, tuple[dict[str, int], float]] = {}
+        # Baselines are per (card, client), never summed across clients first:
+        # a joining client's lifetime total is not this interval's work, and a
+        # departing client's total must not subtract from the rest.
+        self._previous: dict[tuple[str, str], tuple[_DrmClient, float]] = {}
 
     @staticmethod
     def _parse_fdinfo(raw: str) -> _DrmClient | None:
@@ -156,6 +168,8 @@ class DrmEngineTimeProbe:
         client_id = ""
         engine_ns: dict[str, int] = {}
         engine_capacity: dict[str, int] = {}
+        engine_cycles: dict[str, int] = {}
+        engine_total_cycles: dict[str, int] = {}
         for line in raw.splitlines():
             key, separator, value = line.partition(":")
             if not separator or not key.startswith("drm-"):
@@ -172,6 +186,16 @@ class DrmEngineTimeProbe:
                     engine_capacity[key[len("drm-engine-capacity-") :]] = max(1, int(value))
                 except ValueError:
                     continue
+            elif key.startswith("drm-total-cycles-"):
+                try:
+                    engine_total_cycles[key[len("drm-total-cycles-") :]] = int(value.split()[0])
+                except (ValueError, IndexError):
+                    continue
+            elif key.startswith("drm-cycles-"):
+                try:
+                    engine_cycles[key[len("drm-cycles-") :]] = int(value.split()[0])
+                except (ValueError, IndexError):
+                    continue
             elif key.startswith("drm-engine-"):
                 # "12345 ns". The unit is always nanoseconds in the spec, but it is
                 # written out, so take the number and ignore the rest.
@@ -179,7 +203,7 @@ class DrmEngineTimeProbe:
                     engine_ns[key[len("drm-engine-") :]] = int(value.split()[0])
                 except (ValueError, IndexError):
                     continue
-        if not driver or not engine_ns:
+        if not driver or not (engine_ns or engine_cycles):
             return None
         return _DrmClient(
             pdev=pdev or driver,
@@ -187,6 +211,8 @@ class DrmEngineTimeProbe:
             client_id=client_id,
             engine_ns=engine_ns,
             engine_capacity=engine_capacity,
+            engine_cycles=engine_cycles,
+            engine_total_cycles=engine_total_cycles,
         )
 
     def _clients(self, pids: Iterable[int]) -> list[_DrmClient]:
@@ -217,6 +243,57 @@ class DrmEngineTimeProbe:
         # One GPU needs no address to identify it; several do.
         return f"{label} {pdev}" if cards > 1 and pdev else label
 
+    def _engine_percents(self, clients: list[_DrmClient], now: float) -> dict[str, float]:
+        """This interval's busy percent per engine class, from per-client deltas.
+
+        Nanosecond engines sum each client's own share of its elapsed wall
+        time. Cycle engines sum busy-cycle deltas over the largest
+        total-cycle delta: clients on one card share the same engine clock,
+        so summing their totals would count the same denominator twice. A
+        client with no baseline, a rolled-back counter, or a total that did
+        not advance contributes nothing rather than an invented number.
+        Nanoseconds win when an engine reports both units."""
+        capacity: dict[str, int] = {}
+        for client in clients:
+            for engine, slots in client.engine_capacity.items():
+                capacity[engine] = max(capacity.get(engine, 1), slots)
+
+        ns_percent: dict[str, float] = {}
+        cycle_busy: dict[str, int] = {}
+        cycle_total: dict[str, int] = {}
+        for client in clients:
+            previous = self._previous.get((client.pdev, client.client_id))
+            if previous is None:
+                continue
+            before, before_at = previous
+            elapsed = now - before_at
+            for engine, nanoseconds in client.engine_ns.items():
+                if engine not in before.engine_ns or elapsed <= 0:
+                    continue
+                delta = nanoseconds - before.engine_ns[engine]
+                if delta < 0:
+                    continue
+                slots = capacity.get(engine, 1)
+                ns_percent[engine] = ns_percent.get(engine, 0.0) + delta / (elapsed * 1_000_000_000.0 * slots) * 100.0
+            for engine, cycles in client.engine_cycles.items():
+                if engine not in before.engine_cycles or engine not in before.engine_total_cycles:
+                    continue
+                if engine not in client.engine_total_cycles:
+                    continue
+                busy_delta = cycles - before.engine_cycles[engine]
+                total_delta = client.engine_total_cycles[engine] - before.engine_total_cycles[engine]
+                if busy_delta < 0 or total_delta <= 0:
+                    continue
+                cycle_busy[engine] = cycle_busy.get(engine, 0) + busy_delta
+                cycle_total[engine] = max(cycle_total.get(engine, 0), total_delta)
+
+        percents = dict(ns_percent)
+        for engine, busy in cycle_busy.items():
+            if engine in percents:
+                continue
+            percents[engine] = busy / (cycle_total[engine] * capacity.get(engine, 1)) * 100.0
+        return percents
+
     def read(self, now: float, pids: Iterable[int]) -> list[AcceleratorReading]:
         pid_list = list(pids)
         if not pid_list:
@@ -224,41 +301,37 @@ class DrmEngineTimeProbe:
             # same as "the GPU went idle". Keep the last counters so the next read
             # with a real process list still has something to diff against.
             return []
-        by_card: dict[str, tuple[str, dict[str, int], dict[str, int]]] = {}
-        for client in self._clients(pid_list):
-            driver, totals, capacity = by_card.setdefault(client.pdev, (client.driver, {}, {}))
-            for engine, nanoseconds in client.engine_ns.items():
-                totals[engine] = totals.get(engine, 0) + nanoseconds
-            for engine, slots in client.engine_capacity.items():
-                capacity[engine] = max(capacity.get(engine, 1), slots)
+        clients = self._clients(pid_list)
+        by_card: dict[str, list[_DrmClient]] = {}
+        for client in clients:
+            by_card.setdefault(client.pdev, []).append(client)
 
         readings: list[AcceleratorReading] = []
-        seen: dict[str, tuple[dict[str, int], float]] = {}
-        for pdev, (driver, totals, capacity) in sorted(by_card.items()):
-            seen[pdev] = (totals, now)
-            previous = self._previous.get(pdev)
-            utilization: float | None = None
-            if previous is not None:
-                elapsed = now - previous[1]
-                if elapsed > 0:
-                    busiest = 0.0
-                    for engine, nanoseconds in totals.items():
-                        delta = nanoseconds - previous[0].get(engine, nanoseconds)
-                        if delta < 0:
-                            continue
-                        slots = capacity.get(engine, 1)
-                        busiest = max(busiest, delta / (elapsed * 1_000_000_000.0 * slots) * 100.0)
-                    utilization = _percent(busiest)
+        for pdev, card_clients in sorted(by_card.items()):
+            percents = self._engine_percents(card_clients, now)
+            # A card whose clients all have baselines but no measurable delta
+            # (for example a restarted nanosecond counter) reports the work
+            # that was measured: none. A card with no baseline at all, or only
+            # cycle totals that never advanced, stays unknown.
+            had_ns_baseline = any(
+                client.engine_ns and (client.pdev, client.client_id) in self._previous for client in card_clients
+            )
+            if percents:
+                utilization: float | None = _percent(max(percents.values()))
+            elif had_ns_baseline:
+                utilization = 0.0
+            else:
+                utilization = None
             readings.append(
                 AcceleratorReading(
                     id=f"gpu-{pdev}",
                     kind="gpu",
-                    label=self._label_for(driver, pdev, len(by_card)),
+                    label=self._label_for(card_clients[0].driver, pdev, len(by_card)),
                     scope="app",
                     utilization_percent=utilization,
                 )
             )
-        self._previous = seen
+        self._previous = {(client.pdev, client.client_id): (client, now) for client in clients}
         return readings
 
 

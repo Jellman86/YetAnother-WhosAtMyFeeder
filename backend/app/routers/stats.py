@@ -13,7 +13,7 @@ from app.services.uptime import HEARTBEAT_INTERVAL_MINUTES, build_uptime_window
 from app.models import APIModel, DetectionResponse
 from app.config import settings
 from app.services.host_facts import collect_host_facts
-from app.services.system_telemetry import system_telemetry_history, system_telemetry_sampler
+from app.services.system_telemetry import process_load_sampler, system_telemetry_history, system_telemetry_sampler
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.weather_service import weather_service
 from app.auth import AuthContext, require_owner
@@ -51,7 +51,15 @@ class SystemTelemetryResponse(APIModel):
 @guest_rate_limit()
 async def get_system_telemetry(request: Request, response: Response) -> SystemTelemetryResponse:
     """Return one live host-utilization sample for the sidebar's rolling graph."""
-    sample = await asyncio.to_thread(system_telemetry_sampler.sample)
+
+    def _sample():
+        # GPU engine time is published per DRM client, so the sidebar needs
+        # the app's own pids to measure it at all. They only attribute
+        # counters and never reach the response. The sidebar sampler keeps
+        # its own baselines, separate from the history sampler's.
+        return system_telemetry_sampler.sample(process_load_sampler.own_pids())
+
+    sample = await asyncio.to_thread(_sample)
     response.headers["Cache-Control"] = "no-store"
     primary = sample.primary_accelerator
     accelerator = None
