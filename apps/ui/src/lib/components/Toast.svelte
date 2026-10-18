@@ -44,18 +44,18 @@
 >
     {#each toasts as toast (toast.id)}
         <div
-            class="pointer-events-auto w-full max-w-md {getColorClasses(toast.type)} text-white rounded-xl shadow-lg border-2 backdrop-blur-sm"
+            class="toast-card pointer-events-auto w-full max-w-md {getColorClasses(toast.type)} text-white rounded-xl shadow-lg border-2 backdrop-blur-sm"
             transition:fly={{ x: 300, duration: 300 }}
             aria-atomic="true"
         >
-            <div class="flex items-center gap-3 p-4">
+            <div class="toast-row flex items-center gap-3 p-4">
                 <!-- Icon -->
                 <div class="flex-shrink-0 w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-sm font-bold">
                     {getIcon(toast.type)}
                 </div>
 
                 <!-- Message -->
-                <div class="flex-1 text-sm font-medium">
+                <div class="toast-message min-w-0 flex-1 break-words text-sm font-medium">
                     {toast.message}
                 </div>
 
@@ -86,6 +86,28 @@
         .toast-container {
             top: 1rem;
             left: auto;
+        }
+    }
+
+    /* With enlarged text a phone has no room for icon, words and the close
+       button on one line, so the words take their own line under the other two.
+       Only below 640px, where the stack spans the screen: wider screens size it to
+       the toasts, which a size container would collapse. */
+    @media (max-width: 639px) {
+        .toast-card {
+            container-type: inline-size;
+        }
+    }
+
+    @container (max-width: 16rem) {
+        .toast-row {
+            flex-wrap: wrap;
+            justify-content: space-between;
+        }
+
+        .toast-message {
+            order: 1;
+            flex-basis: 100%;
         }
     }
 </style>
