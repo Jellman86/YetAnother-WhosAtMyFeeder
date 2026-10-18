@@ -60,6 +60,22 @@ def test_concurrent_incident_writers_keep_both_retirement_and_crash_evidence(tmp
     assert evidence["exit_code"] == -signal.SIGABRT
 
 
+def test_remembering_a_retirement_never_waits_on_evidence_persistence(tmp_path):
+    # remember_retirement() runs on the supervisor's event loop; if it
+    # shared the persistence lock, a slow fsync in a writer thread would
+    # stall the loop (deadlines, watchdog, API) behind disk I/O.
+    profile = {"model": "bird", "provider": "intel_gpu"}
+    policy = NativeCrashQuarantine(lambda: profile, root=tmp_path)
+
+    policy._persist_lock.acquire()
+    try:
+        started = time.monotonic()
+        assert policy.remember_retirement(profile) is True
+        assert time.monotonic() - started < 0.5
+    finally:
+        policy._persist_lock.release()
+
+
 def test_corrupt_record_does_not_silently_unblock_the_profile(tmp_path):
     policy = NativeCrashQuarantine(lambda: {"model": "bird"}, root=tmp_path)
     profile = policy.guard()

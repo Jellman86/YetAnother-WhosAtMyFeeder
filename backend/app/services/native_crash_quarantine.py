@@ -90,6 +90,11 @@ class NativeCrashQuarantine:
         self._blocked: set[str] = set()
         self._reported: set[str] = set()
         self._lock = threading.RLock()
+        # Persistence does filesystem reads, fsync and replace, always from
+        # worker threads. It gets its own mutex so remember()/guard() on
+        # the event loop only ever take the short in-memory lock above and
+        # can never stall behind disk I/O.
+        self._persist_lock = threading.Lock()
 
     @staticmethod
     def _key(profile: dict[str, Any]) -> str:
@@ -203,7 +208,7 @@ class NativeCrashQuarantine:
         # can record concurrently, so the whole read-merge-replace is one
         # transaction under the lock; otherwise the last writer wins and
         # silently drops the other incident.
-        with self._lock:
+        with self._persist_lock:
             self._persist_locked(key, evidence)
 
     def _persist_locked(self, key: str, evidence: dict[str, Any]) -> None:

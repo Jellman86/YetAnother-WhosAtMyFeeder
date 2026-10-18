@@ -871,6 +871,14 @@ class ClassifierSupervisor:
         if slot.worker_name in self._replacing:
             return
         self._replacing.add(slot.worker_name)
+        # Register cleanup ownership before the quarantine below becomes
+        # visible: from this moment wait_for_cleanup() blocks, so no other
+        # request can observe the quarantine and slip into CPU recovery
+        # while evidence is persisted and the child is still unreaped.
+        # _close_failed_worker re-registers the same entry when it reaps.
+        if slot.worker_name not in self._cleanup_pending:
+            self._cleanup_pending[slot.worker_name] = worker
+            self._cleanup_idle.clear()
         raw_code = str(message.get("error_code") or "")
         error_code = raw_code if raw_code in GPU_RUNTIME_FAILURE_CODES else "unknown_gpu_runtime_failure"
         detail = _sanitize_retirement_detail(message.get("error"))
@@ -890,7 +898,12 @@ class ClassifierSupervisor:
             if self._crash_quarantine is not None and self._crash_quarantine.remember_retirement(profile):
                 await asyncio.to_thread(self._crash_quarantine.record_retirement, profile, error_code, detail)
         except BaseException:
+            # Hand the worker back to the watchdog path, which registers
+            # cleanup again when it reaps.
             self._replacing.discard(slot.worker_name)
+            self._cleanup_pending.pop(slot.worker_name, None)
+            if not self._cleanup_pending:
+                self._cleanup_idle.set()
             raise
 
         retirement_error = NativeCrashQuarantinedError(
