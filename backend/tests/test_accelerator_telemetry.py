@@ -216,6 +216,52 @@ def test_gpu_probe_departing_client_does_not_subtract_from_the_rest(tmp_path: Pa
     assert probe.read(now=12.0, pids=[100])[0].utilization_percent == 10.0
 
 
+def test_gpu_probe_rolled_back_xe_counters_do_not_recount_recovered_work(tmp_path: Path) -> None:
+    # The DRM usage-stats spec permits counters to temporarily regress and
+    # requires keeping the previous larger value until they catch up.
+    proc = tmp_path / "proc"
+    _write_fdinfo(proc, 100, 9, _xe_client(1, cycles=1_000, total_cycles=2_000))
+    probe = DrmEngineTimeProbe(proc_root=proc, drm_root=tmp_path / "drm")
+    probe.read(now=10.0, pids=[100])
+
+    _write_fdinfo(proc, 100, 9, _xe_client(1, cycles=500, total_cycles=3_000))
+    assert probe.read(now=12.0, pids=[100])[0].utilization_percent is None
+
+    # Busy cycles recover to 1100: only 100 are new work above the retained
+    # high-water mark, over a further 1000 total cycles.
+    _write_fdinfo(proc, 100, 9, _xe_client(1, cycles=1_100, total_cycles=4_000))
+    assert probe.read(now=14.0, pids=[100])[0].utilization_percent == 10.0
+
+
+def test_gpu_probe_rolled_back_ns_counters_do_not_recount_recovered_work(tmp_path: Path) -> None:
+    proc = tmp_path / "proc"
+    _write_fdinfo(proc, 100, 9, _drm_client(1, render_ns=5_000_000_000, video_ns=0))
+    probe = DrmEngineTimeProbe(proc_root=proc, drm_root=tmp_path / "drm")
+    probe.read(now=10.0, pids=[100])
+
+    _write_fdinfo(proc, 100, 9, _drm_client(1, render_ns=0, video_ns=0))
+    assert probe.read(now=12.0, pids=[100])[0].utilization_percent == 0.0
+
+    # 0.2 s of genuinely new work above the high-water mark, over the four
+    # seconds since that mark was set.
+    _write_fdinfo(proc, 100, 9, _drm_client(1, render_ns=5_200_000_000, video_ns=0))
+    assert probe.read(now=14.0, pids=[100])[0].utilization_percent == 5.0
+
+
+def test_gpu_probe_idle_samples_refresh_the_time_baseline(tmp_path: Path) -> None:
+    # A counter sitting exactly at its high-water mark is caught up, so the
+    # next busy interval is measured from the last idle sample, not from
+    # whenever the mark was first set.
+    proc = tmp_path / "proc"
+    _write_fdinfo(proc, 100, 9, _drm_client(1, render_ns=0, video_ns=0))
+    probe = DrmEngineTimeProbe(proc_root=proc, drm_root=tmp_path / "drm")
+    probe.read(now=10.0, pids=[100])
+    probe.read(now=12.0, pids=[100])
+
+    _write_fdinfo(proc, 100, 9, _drm_client(1, render_ns=2_000_000_000, video_ns=0))
+    assert probe.read(now=14.0, pids=[100])[0].utilization_percent == 100.0
+
+
 def test_nvidia_gpu_is_named_and_declared_unreadable(tmp_path: Path) -> None:
     (tmp_path / "gpu0").mkdir(parents=True)
     reading = NvidiaPresenceProbe(gpu_root=tmp_path).read()[0]

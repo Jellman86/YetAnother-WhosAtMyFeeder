@@ -22,6 +22,17 @@ def test_decode_image_bytes_rejects_images_over_the_pixel_limit(monkeypatch):
         decode_image_bytes(_png_bytes())
 
 
+def test_decode_image_bytes_refuses_ico_before_decoding_embedded_pixels():
+    # Pillow's ICO plugin decodes the embedded image during Image.open()
+    # itself, before any size check could run, so the format is refused on
+    # its magic bytes instead of being expanded in memory first.
+    buffer = io.BytesIO()
+    Image.new("RGB", (16, 16), color="white").save(buffer, format="ICO")
+
+    with pytest.raises(ValueError, match="not supported"):
+        decode_image_bytes(buffer.getvalue())
+
+
 def test_decode_image_bytes_accepts_images_within_the_pixel_limit(monkeypatch):
     monkeypatch.setattr(image_io, "MAX_IMAGE_PIXELS", 100)
 

@@ -564,7 +564,13 @@ async def test_ebird_export_excludes_unknown_bird_rows(client: httpx.AsyncClient
 
 
 class _ExportEvidenceResolver:
-    """Catalogue evidence: index 0 of artifact 7 is a bird, index 1 a squirrel."""
+    """Catalogue evidence: index 0 of artifact 7 is a bird, index 1 a squirrel.
+
+    Like the real resolver, an output's group only counts when it binds to
+    the row's current scientific name; a corrected identity no longer
+    matches the output that produced the original name."""
+
+    _OUTPUT_NAMES = {0: "Cyanistes caeruleus", 1: "Sciurus carolinensis"}
 
     def ensure_loaded(self) -> bool:
         return True
@@ -573,6 +579,8 @@ class _ExportEvidenceResolver:
         return "a" * 64 if artifact_id == 7 else None
 
     def cached_output_group(self, model_sha256, output_index, label):
+        if self._OUTPUT_NAMES.get(output_index) != label:
+            return "unknown"
         return {0: "bird", 1: "nonbird"}.get(output_index, "unknown")
 
     def cached_species_group(self, scientific_name):
@@ -620,6 +628,20 @@ async def test_ebird_export_excludes_positively_evidenced_nonbirds_but_keeps_own
         common_name="Eastern Gray Squirrel",
     )
     await _set_export_provenance(squirrel, manual_tagged=False, artifact_id=7, output_index=1)
+
+    confirmed_squirrel = f"evt-{uuid.uuid4().hex[:8]}"
+    await _insert_detection(
+        frigate_event=confirmed_squirrel,
+        detection_time=when,
+        score=0.9,
+        display_name="Eastern Gray Squirrel",
+        scientific_name="Sciurus carolinensis",
+        common_name="Eastern Gray Squirrel",
+        camera_name="garden",
+    )
+    # Confirming an unchanged identity is also manual_tagged; the evidence
+    # still binds to the current name, so it stays out.
+    await _set_export_provenance(confirmed_squirrel, manual_tagged=True, artifact_id=7, output_index=1)
 
     corrected = f"evt-{uuid.uuid4().hex[:8]}"
     await _insert_detection(

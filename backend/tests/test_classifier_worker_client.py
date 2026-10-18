@@ -98,6 +98,44 @@ async def test_cpu_recovery_override_is_child_only_and_forces_crop_isolation(mon
 
 
 @pytest.mark.asyncio
+async def test_exit_code_is_reported_only_after_protocol_records_are_queued():
+    from app.services.classifier_worker_protocol import build_retirement_event
+
+    process = _FakeProcess()
+    client = await _client_for_process(process)
+    # The process has exited, but its pipes are still open: a retirement
+    # record flushed just before exit may not have been read yet. The
+    # supervisor's watchdog keys off exit_code, so reporting it now would
+    # let it replace the worker and discard that record.
+    process.returncode = 3
+    process._wait_event.set()
+    process.feed(
+        build_retirement_event(
+            worker_generation=1,
+            request_id="r1",
+            work_id="w1",
+            lease_token=1,
+            error_code="CL_OUT_OF_RESOURCES",
+            error="clFlush failed",
+        )
+    )
+    await asyncio.sleep(0.05)
+
+    status = client.get_status()
+    assert status["exit_code"] is None
+    assert status["pending_retirement"] is True
+
+    process.stdout.feed_eof()
+    process.stderr.feed_eof()
+    await asyncio.wait_for(client.wait_closed(), 1)
+    assert client.get_status()["exit_code"] == 3
+
+    event = await asyncio.wait_for(client.next_event(), 1)
+    assert event["type"] == "retirement"
+    assert client.get_status()["pending_retirement"] is False
+
+
+@pytest.mark.asyncio
 async def test_pipe_eof_does_not_report_process_exit():
     process = _FakeProcess()
     client = await _client_for_process(process)

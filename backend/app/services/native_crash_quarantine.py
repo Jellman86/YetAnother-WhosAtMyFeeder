@@ -197,6 +197,28 @@ class NativeCrashQuarantine:
         return True
 
     def _persist(self, key: str, evidence: dict[str, Any]) -> None:
+        # One file per launch profile holds every incident kind for it: a
+        # native abort recorded after a retirement must not erase the
+        # original OpenCL cause, and vice versa. Workers sharing a profile
+        # can record concurrently, so the whole read-merge-replace is one
+        # transaction under the lock; otherwise the last writer wins and
+        # silently drops the other incident.
+        with self._lock:
+            self._persist_locked(key, evidence)
+
+    def _persist_locked(self, key: str, evidence: dict[str, Any]) -> None:
+        existing_path = self._root / f"{key}.json"
+        try:
+            existing = json.loads(existing_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            existing = None
+        if isinstance(existing, dict):
+            merged = {**existing, **evidence}
+            if "retirement" in existing and "retirement" not in evidence:
+                merged["retirement"] = existing["retirement"]
+            if merged.get("exit_code") is None and existing.get("exit_code") is not None:
+                merged["exit_code"] = existing["exit_code"]
+            evidence = merged
         self._root.mkdir(parents=True, exist_ok=True)
         with tempfile.NamedTemporaryFile(mode="w", dir=self._root, prefix=".crash-", delete=False) as stream:
             temporary = Path(stream.name)

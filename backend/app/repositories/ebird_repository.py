@@ -30,7 +30,7 @@ class EbirdRepository:
             SELECT d.display_name, d.scientific_name, d.detection_time, d.score,
                    d.camera_name, d.common_name, d.video_classification_provider,
                    d.video_classification_backend,
-                   COALESCE(d.manual_tagged, 0), d.model_artifact_id, d.model_output_index,
+                   d.model_artifact_id, d.model_output_index,
                    COALESCE(
                      (SELECT tt.common_name FROM taxonomy_translations tt
                       WHERE d.taxa_id IS NOT NULL AND tt.taxa_id = d.taxa_id

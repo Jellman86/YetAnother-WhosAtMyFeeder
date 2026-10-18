@@ -156,10 +156,14 @@ class DrmEngineTimeProbe:
     def __init__(self, *, proc_root: Path | str = PROC_ROOT, drm_root: Path | str = DRM_ROOT) -> None:
         self._proc_root = Path(proc_root)
         self._drm_root = Path(drm_root)
-        # Baselines are per (card, client), never summed across clients first:
-        # a joining client's lifetime total is not this interval's work, and a
-        # departing client's total must not subtract from the rest.
-        self._previous: dict[tuple[str, str], tuple[_DrmClient, float]] = {}
+        # Baselines are per (card, client, unit, engine) high-water marks,
+        # never summed across clients first: a joining client's lifetime
+        # total is not this interval's work, and a departing client's total
+        # must not subtract from the rest. The DRM usage-stats spec permits
+        # counters to temporarily regress, so a rolled-back reading keeps
+        # the previous larger value as its baseline until it catches up,
+        # instead of recounting the recovery as new work.
+        self._high_water: dict[tuple[str, str, str, str], tuple[int, float]] = {}
 
     @staticmethod
     def _parse_fdinfo(raw: str) -> _DrmClient | None:
@@ -262,26 +266,26 @@ class DrmEngineTimeProbe:
         cycle_busy: dict[str, int] = {}
         cycle_total: dict[str, int] = {}
         for client in clients:
-            previous = self._previous.get((client.pdev, client.client_id))
-            if previous is None:
-                continue
-            before, before_at = previous
-            elapsed = now - before_at
             for engine, nanoseconds in client.engine_ns.items():
-                if engine not in before.engine_ns or elapsed <= 0:
+                mark = self._high_water.get((client.pdev, client.client_id, "ns", engine))
+                if mark is None:
                     continue
-                delta = nanoseconds - before.engine_ns[engine]
-                if delta < 0:
+                before, before_at = mark
+                elapsed = now - before_at
+                delta = nanoseconds - before
+                if delta < 0 or elapsed <= 0:
                     continue
                 slots = capacity.get(engine, 1)
                 ns_percent[engine] = ns_percent.get(engine, 0.0) + delta / (elapsed * 1_000_000_000.0 * slots) * 100.0
             for engine, cycles in client.engine_cycles.items():
-                if engine not in before.engine_cycles or engine not in before.engine_total_cycles:
-                    continue
                 if engine not in client.engine_total_cycles:
                     continue
-                busy_delta = cycles - before.engine_cycles[engine]
-                total_delta = client.engine_total_cycles[engine] - before.engine_total_cycles[engine]
+                busy_mark = self._high_water.get((client.pdev, client.client_id, "cycles", engine))
+                total_mark = self._high_water.get((client.pdev, client.client_id, "total_cycles", engine))
+                if busy_mark is None or total_mark is None:
+                    continue
+                busy_delta = cycles - busy_mark[0]
+                total_delta = client.engine_total_cycles[engine] - total_mark[0]
                 if busy_delta < 0 or total_delta <= 0:
                     continue
                 cycle_busy[engine] = cycle_busy.get(engine, 0) + busy_delta
@@ -314,7 +318,9 @@ class DrmEngineTimeProbe:
             # that was measured: none. A card with no baseline at all, or only
             # cycle totals that never advanced, stays unknown.
             had_ns_baseline = any(
-                client.engine_ns and (client.pdev, client.client_id) in self._previous for client in card_clients
+                (client.pdev, client.client_id, "ns", engine) in self._high_water
+                for client in card_clients
+                for engine in client.engine_ns
             )
             if percents:
                 utilization: float | None = _percent(max(percents.values()))
@@ -331,7 +337,22 @@ class DrmEngineTimeProbe:
                     utilization_percent=utilization,
                 )
             )
-        self._previous = {(client.pdev, client.client_id): (client, now) for client in clients}
+        seen_clients = {(client.pdev, client.client_id) for client in clients}
+        self._high_water = {key: mark for key, mark in self._high_water.items() if (key[0], key[1]) in seen_clients}
+        for client in clients:
+            for unit, counters in (
+                ("ns", client.engine_ns),
+                ("cycles", client.engine_cycles),
+                ("total_cycles", client.engine_total_cycles),
+            ):
+                for engine, value in counters.items():
+                    key = (client.pdev, client.client_id, unit, engine)
+                    mark = self._high_water.get(key)
+                    # Equal means caught up (or idle): refresh the time so
+                    # the next interval is measured from here. Only a
+                    # strictly smaller reading keeps the old mark and time.
+                    if mark is None or value >= mark[0]:
+                        self._high_water[key] = (value, now)
         return readings
 
 

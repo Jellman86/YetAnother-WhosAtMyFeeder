@@ -10,10 +10,12 @@ history, decided from durable positive evidence only:
 * the current identity's catalogue group, from its scientific name.
 
 Absent evidence proves nothing in either direction, so a row neither
-source knows keeps exporting exactly as before. An owner correction is
-the current identity: the old model index that produced the row no
-longer describes it and must not veto — or vouch for — the corrected
-name. This module is pure; gathering the evidence is the caller's job.
+source knows keeps exporting exactly as before. The producing evidence
+is bound to the row's *current* scientific name when it is gathered, so
+it already describes the current identity: after an owner correction to
+a different species it reads unknown, while merely confirming the
+existing identity leaves valid non-bird evidence in force. This module
+is pure; gathering the evidence is the caller's job.
 """
 
 from app.services.model_output_groups import OutputGroup
@@ -21,11 +23,8 @@ from app.services.model_output_groups import OutputGroup
 
 def is_bird_exportable(
     *,
-    manual_tagged: bool,
     producing_group: OutputGroup,
     identity_group: OutputGroup,
 ) -> bool:
     """True unless durable evidence positively identifies a non-bird."""
-    if manual_tagged:
-        return identity_group != "nonbird"
     return producing_group != "nonbird" and identity_group != "nonbird"

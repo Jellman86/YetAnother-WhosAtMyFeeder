@@ -16,41 +16,27 @@ from app.services.bird_export_eligibility import is_bird_exportable
 
 
 @pytest.mark.parametrize(
-    ("manual_tagged", "producing_group", "identity_group", "expected"),
+    ("producing_group", "identity_group", "expected"),
     [
-        # Positively evidenced non-birds stay out of bird exports.
-        (False, "nonbird", "unknown", False),
-        (False, "unknown", "nonbird", False),
-        (False, "nonbird", "nonbird", False),
-        # Conflicting evidence without an owner decision is not exported.
-        (False, "bird", "nonbird", False),
-        (False, "nonbird", "bird", False),
+        # Positively evidenced non-birds stay out of bird exports. The
+        # producing evidence is bound to the current scientific name when
+        # it is gathered, so a nonbird verdict here already describes the
+        # row's current identity — including one an owner merely confirmed.
+        ("nonbird", "unknown", False),
+        ("unknown", "nonbird", False),
+        ("nonbird", "nonbird", False),
+        # Conflicting positive evidence is not exported either.
+        ("bird", "nonbird", False),
+        ("nonbird", "bird", False),
         # Known birds, and rows with no evidence either way, keep exporting.
-        (False, "bird", "bird", True),
-        (False, "bird", "unknown", True),
-        (False, "unknown", "bird", True),
-        (False, "unknown", "unknown", True),
-        # An owner correction is the current identity: the producing model
-        # output no longer describes it, in either direction.
-        (True, "nonbird", "bird", True),
-        (True, "nonbird", "unknown", True),
-        (True, "bird", "nonbird", False),
-        (True, "unknown", "nonbird", False),
-        (True, "bird", "bird", True),
-        (True, "unknown", "unknown", True),
+        ("bird", "bird", True),
+        ("bird", "unknown", True),
+        ("unknown", "bird", True),
+        ("unknown", "unknown", True),
     ],
 )
-def test_eligibility_follows_positive_evidence_and_owner_decisions(
-    manual_tagged, producing_group, identity_group, expected
-):
-    assert (
-        is_bird_exportable(
-            manual_tagged=manual_tagged,
-            producing_group=producing_group,
-            identity_group=identity_group,
-        )
-        is expected
-    )
+def test_eligibility_follows_positive_evidence(producing_group, identity_group, expected):
+    assert is_bird_exportable(producing_group=producing_group, identity_group=identity_group) is expected
 
 
 def _minimal_catalog(path: Path) -> None:
