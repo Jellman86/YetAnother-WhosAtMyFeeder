@@ -6,6 +6,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- The eBird export now leaves out historical rows that catalogue evidence
+  positively identifies as non-birds (for example squirrels a wildlife-capable
+  model recorded before the non-bird admission guard existed). Evidence comes
+  from the producing model output and the current identity's scientific name;
+  rows with no such evidence export exactly as before, owner corrections are
+  judged by the corrected identity rather than the old model output, and no
+  history is deleted or relabelled (#728).
+
 - Classifier test uploads are now refused with `413` before any model work when
   the file is over 25 MB or the image is over 80 megapixels, matching the bounds
   manual observations already used. Decoding shared image bytes enforces the

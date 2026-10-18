@@ -14,7 +14,10 @@ from app.auth import get_auth_context_with_legacy
 from app.database import get_db
 from app.config import settings
 from app.utils.public_access import guest_location
+from app.services.bird_export_eligibility import is_bird_exportable
 from app.services.ebird_service import ebird_service
+from app.services.model_output_groups import OutputGroup
+from app.services.species_catalog_resolver import species_catalog_resolver
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.repositories.ebird_repository import EbirdRepository
 
@@ -193,12 +196,36 @@ def _resolve_export_common_name(
     return ""
 
 
+def _export_evidence_groups(
+    *,
+    scientific_name: str | None,
+    model_artifact_id: int | None,
+    model_output_index: int | None,
+) -> tuple[OutputGroup, OutputGroup]:
+    """Catalogue evidence for one row: (producing output group, identity group).
+
+    Either is ``unknown`` when the catalogue cannot positively bind it —
+    a missing artifact, an index with no mapped group, or a scientific
+    name the catalogue does not hold exactly. Unknown is not a verdict."""
+    producing_group: OutputGroup = "unknown"
+    if type(model_output_index) is int and scientific_name:
+        model_sha256 = species_catalog_resolver.model_sha256_for_artifact_id(model_artifact_id)
+        if model_sha256 is not None:
+            producing_group = species_catalog_resolver.cached_output_group(
+                model_sha256, model_output_index, str(scientific_name)
+            )
+    return producing_group, species_catalog_resolver.cached_species_group(scientific_name)
+
+
 def _is_exportable_ebird_detection(
     *,
     display_name: str | None,
     common_name: str | None,
     english_common_name: str | None,
     scientific_name: str | None,
+    manual_tagged: bool = False,
+    producing_group: OutputGroup = "unknown",
+    identity_group: OutputGroup = "unknown",
 ) -> bool:
     normalized_display = str(display_name or "").strip().lower()
     normalized_common = str(common_name or "").strip().lower()
@@ -213,7 +240,11 @@ def _is_exportable_ebird_detection(
         scientific_name=scientific_name,
     ):
         return False
-    return True
+    return is_bird_exportable(
+        manual_tagged=manual_tagged,
+        producing_group=producing_group,
+        identity_group=identity_group,
+    )
 
 
 def _parse_detection_time(value: object) -> datetime | None:
@@ -253,6 +284,11 @@ async def export_ebird_csv(
     start = datetime.combine(requested_from, time.min) if requested_from else None
     end_exclusive = datetime.combine(requested_to + timedelta(days=1), time.min) if requested_to else None
 
+    # Catalogue evidence loads once, off the event loop; per-row lookups
+    # afterwards are in-memory. Without a catalogue every group reads
+    # unknown and the export behaves exactly as it did before #728.
+    await asyncio.to_thread(species_catalog_resolver.ensure_loaded)
+
     async def iter_csv():
         f = io.StringIO()
         writer = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
@@ -274,13 +310,24 @@ async def export_ebird_csv(
                     common_name,
                     video_classification_provider,
                     video_classification_backend,
+                    manual_tagged,
+                    model_artifact_id,
+                    model_output_index,
                     english_common_name,
                 ) = row
+                producing_group, identity_group = _export_evidence_groups(
+                    scientific_name=scientific_name,
+                    model_artifact_id=model_artifact_id,
+                    model_output_index=model_output_index,
+                )
                 if not _is_exportable_ebird_detection(
                     display_name=display_name,
                     common_name=common_name,
                     english_common_name=english_common_name,
                     scientific_name=scientific_name,
+                    manual_tagged=bool(manual_tagged),
+                    producing_group=producing_group,
+                    identity_group=identity_group,
                 ):
                     continue
                 dt = _parse_detection_time(detection_time)
