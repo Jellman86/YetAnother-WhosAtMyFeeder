@@ -35,8 +35,15 @@ SENSITIVE_CONFIG_KEYS = frozenset(
         "oauth_client_secret",
         "token",
         "password",
+        "access_token",
+        "session_secret",
+        "password_hash",
+        "oauth_token_secret",
     }
 )
+# Fail closed for future secret-bearing settings: a new field whose name is
+# secret-shaped must not leak just because nobody updated the set above.
+SENSITIVE_KEY_SUFFIXES = ("_secret", "_token", "_password", "_hash")
 MODEL_DIRECTORY = Path("/data/models")
 
 
@@ -74,11 +81,15 @@ class SystemDebugResponse(BaseModel):
     disk_usage: tuple[int, int, int]
 
 
+def _is_sensitive_key(key: str) -> bool:
+    return key in SENSITIVE_CONFIG_KEYS or key.endswith(SENSITIVE_KEY_SUFFIXES)
+
+
 def redact_config(value: JsonValue) -> JsonValue:
     """Return a structurally equivalent copy with non-empty secrets redacted."""
     if isinstance(value, dict):
         return {
-            key: REDACTED_VALUE if key in SENSITIVE_CONFIG_KEYS and item else redact_config(item)
+            key: REDACTED_VALUE if _is_sensitive_key(key) and item else redact_config(item)
             for key, item in value.items()
         }
     if isinstance(value, list):

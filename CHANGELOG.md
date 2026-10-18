@@ -6,6 +6,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- The owner-only configuration dump (`GET /api/debug/config`) now also hides the
+  session signing secret, the password hash, the OAuth token secret and
+  long-lived access tokens. Redaction also fails closed for any future setting
+  whose name looks secret-bearing, so a newly added secret cannot slip through
+  the dump unredacted.
+
 - On a narrow phone with enlarged text, the Settings save bar now puts
   **Apply Settings** on its own full-width row, and notifications put their words
   under the icon and close button, so neither runs off the screen. Advanced
