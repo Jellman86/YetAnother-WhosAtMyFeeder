@@ -1030,7 +1030,10 @@ The callback exception grants no owner role and does not expand cookie authentic
 
 ### Debug (owner)
 
-- `GET /api/debug/config`
+- `GET /api/debug/config` — the full settings dump with secrets hidden. Passwords,
+  tokens, signing and encryption secrets and password hashes are replaced by
+  `***REDACTED***`; keys whose names look secret-bearing are hidden too, so a
+  newly added secret cannot appear in the dump.
 - `GET /api/debug/db/stats`
 - `GET /api/debug/connectivity`
 - `GET /api/debug/fs/models`
