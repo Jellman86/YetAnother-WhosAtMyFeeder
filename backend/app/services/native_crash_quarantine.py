@@ -151,6 +151,51 @@ class NativeCrashQuarantine:
                 )
         return True
 
+    def remember_retirement(self, profile: dict[str, Any] | None) -> bool:
+        """Block a profile whose worker retired itself after a GPU device
+        failure. Deliberate retirement is established by the worker's
+        retirement record, so unlike ``remember`` it needs no native-fault
+        exit code; the in-memory block lands before any respawn attempt."""
+        if profile is None:
+            return False
+        key = self._key(profile)
+        with self._lock:
+            self._blocked.add(key)
+        return True
+
+    def record_retirement(self, profile: dict[str, Any] | None, error_code: str, detail: str) -> bool:
+        if not self.remember_retirement(profile):
+            return False
+        key = self._key(profile)
+        retirement = {"error_code": str(error_code), "detail": str(detail)[:280]}
+        try:
+            self._persist(
+                key,
+                {"profile": profile, "exit_code": None, "retirement": retirement, "recorded_at": time.time()},
+            )
+        except OSError:
+            log.error("native_crash_quarantine_persistence_failed", fingerprint=key)
+        log.error("native_classifier_gpu_retirement_quarantined", fingerprint=key, error_code=retirement["error_code"])
+        with self._lock:
+            if key not in self._reported:
+                self._reported.add(key)
+                from .error_diagnostics import error_diagnostics_history
+
+                error_diagnostics_history.record(
+                    source="classifier",
+                    component="classifier_worker",
+                    severity="error",
+                    reason_code="gpu_worker_retired",
+                    message="A GPU classifier worker retired itself after a device failure; its launch profile is quarantined.",
+                    context={
+                        "error_type": retirement["error_code"],
+                        "configured_provider": profile.get("provider"),
+                        "model_id": profile.get("model_id"),
+                        "status": "quarantined",
+                    },
+                )
+        return True
+
     def _persist(self, key: str, evidence: dict[str, Any]) -> None:
         self._root.mkdir(parents=True, exist_ok=True)
         with tempfile.NamedTemporaryFile(mode="w", dir=self._root, prefix=".crash-", delete=False) as stream:

@@ -14,6 +14,16 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   the app's own process pids so app-scoped GPU use can be measured there at
   all. Unknown samples stay unknown rather than reading as 0% or 100% (#724).
 
+- An isolated Intel GPU worker that hits a device-level OpenCL failure
+  (`CL_OUT_OF_RESOURCES`, `CL_INVALID_EVENT`, and the other resource codes) now
+  reports the original error and retires itself instead of compiling a
+  replacement model and tearing the failed one down in the same process,
+  which could abort natively and lose the cause. The launch profile is
+  quarantined from that retirement record, the old worker is reaped before
+  anything replaces it, and the request continues on the validated CPU
+  recovery path. Runtime error summaries keep the OpenCL code even when it
+  sits deep inside a long nested exception (#721).
+
 - Classifier test uploads are now refused with `413` before any model work when
   the file is over 25 MB or the image is over 80 megapixels, matching the bounds
   manual observations already used. Decoding shared image bytes enforces the
