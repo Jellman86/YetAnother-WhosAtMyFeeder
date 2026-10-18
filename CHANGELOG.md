@@ -6,6 +6,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- GPU telemetry now reads on hosts using Intel's `xe` driver, whose
+  cycle-based counters the collector used to discard, so the sidebar GPU line
+  no longer goes missing after switching drivers. Counters are differenced
+  per DRM client before aggregation, so a worker starting or stopping no
+  longer swings the reported percentage, and the sidebar sample now supplies
+  the app's own process pids so app-scoped GPU use can be measured there at
+  all. Unknown samples stay unknown rather than reading as 0% or 100% (#724).
+
 - An isolated Intel GPU worker that hits a device-level OpenCL failure
   (`CL_OUT_OF_RESOURCES`, `CL_INVALID_EVENT`, and the other resource codes) now
   reports the original error and retires itself instead of compiling a

@@ -115,6 +115,107 @@ def test_gpu_probe_ignores_a_counter_that_went_backwards(tmp_path: Path) -> None
     assert probe.read(now=12.0, pids=[100])[0].utilization_percent == 0.0
 
 
+def _xe_client(client_id: int, *, cycles: int, total_cycles: int, capacity: int = 1) -> str:
+    return (
+        "pos:\t0\n"
+        "drm-driver:\txe\n"
+        f"drm-client-id:\t{client_id}\n"
+        "drm-pdev:\t0000:00:02.0\n"
+        f"drm-cycles-render:\t{cycles}\n"
+        f"drm-total-cycles-render:\t{total_cycles}\n"
+        f"drm-engine-capacity-render:\t{capacity}\n"
+    )
+
+
+def test_gpu_probe_reads_xe_cycle_counters_as_a_busy_fraction(tmp_path: Path) -> None:
+    proc = tmp_path / "proc"
+    _write_fdinfo(proc, 100, 9, _xe_client(1, cycles=0, total_cycles=1_000))
+    probe = DrmEngineTimeProbe(proc_root=proc, drm_root=tmp_path / "drm")
+
+    assert probe.read(now=10.0, pids=[100])[0].utilization_percent is None, "first cycle reading is a baseline"
+
+    _write_fdinfo(proc, 100, 9, _xe_client(1, cycles=500, total_cycles=3_000))
+    reading = probe.read(now=12.0, pids=[100])[0]
+    # 500 busy cycles of 2000 total. Read as nanoseconds over two seconds this
+    # would claim roughly 0%, which is why cycles must not take the ns path.
+    assert reading.utilization_percent == 25.0
+    assert reading.label == "Intel GPU"
+
+
+def test_gpu_probe_xe_cycles_respect_engine_capacity(tmp_path: Path) -> None:
+    proc = tmp_path / "proc"
+    _write_fdinfo(proc, 100, 9, _xe_client(1, cycles=0, total_cycles=0, capacity=2))
+    probe = DrmEngineTimeProbe(proc_root=proc, drm_root=tmp_path / "drm")
+    probe.read(now=10.0, pids=[100])
+
+    _write_fdinfo(proc, 100, 9, _xe_client(1, cycles=1_000, total_cycles=2_000, capacity=2))
+    assert probe.read(now=12.0, pids=[100])[0].utilization_percent == 25.0
+
+
+def test_gpu_probe_does_not_sum_shared_xe_total_cycle_denominators(tmp_path: Path) -> None:
+    proc = tmp_path / "proc"
+    _write_fdinfo(proc, 100, 9, _xe_client(1, cycles=0, total_cycles=0))
+    _write_fdinfo(proc, 200, 9, _xe_client(2, cycles=0, total_cycles=0))
+    probe = DrmEngineTimeProbe(proc_root=proc, drm_root=tmp_path / "drm")
+    probe.read(now=10.0, pids=[100, 200])
+
+    _write_fdinfo(proc, 100, 9, _xe_client(1, cycles=500, total_cycles=2_000))
+    _write_fdinfo(proc, 200, 9, _xe_client(2, cycles=500, total_cycles=2_000))
+    # Both clients share the same engine clock: 1000 busy of one 2000 total,
+    # not of two summed totals.
+    assert probe.read(now=12.0, pids=[100, 200])[0].utilization_percent == 50.0
+
+
+def test_gpu_probe_reports_unknown_when_xe_total_cycles_do_not_advance(tmp_path: Path) -> None:
+    proc = tmp_path / "proc"
+    _write_fdinfo(proc, 100, 9, _xe_client(1, cycles=10, total_cycles=1_000))
+    probe = DrmEngineTimeProbe(proc_root=proc, drm_root=tmp_path / "drm")
+    probe.read(now=10.0, pids=[100])
+
+    _write_fdinfo(proc, 100, 9, _xe_client(1, cycles=10, total_cycles=1_000))
+    assert probe.read(now=12.0, pids=[100])[0].utilization_percent is None
+
+
+def test_gpu_probe_ignores_malformed_cycle_values(tmp_path: Path) -> None:
+    proc = tmp_path / "proc"
+    body = (
+        "drm-driver:\txe\n"
+        "drm-client-id:\t1\n"
+        "drm-pdev:\t0000:00:02.0\n"
+        "drm-cycles-render:\tnotanumber\n"
+        "drm-total-cycles-render:\t1000\n"
+    )
+    _write_fdinfo(proc, 100, 9, body)
+    probe = DrmEngineTimeProbe(proc_root=proc, drm_root=tmp_path / "drm")
+
+    assert probe.read(now=10.0, pids=[100]) == []
+
+
+def test_gpu_probe_joining_client_only_establishes_a_baseline(tmp_path: Path) -> None:
+    proc = tmp_path / "proc"
+    _write_fdinfo(proc, 100, 9, _drm_client(1, render_ns=0, video_ns=0))
+    probe = DrmEngineTimeProbe(proc_root=proc, drm_root=tmp_path / "drm")
+    probe.read(now=10.0, pids=[100])
+
+    # The retained client did 0.2 s of render in two seconds (10%). A second
+    # client joins carrying 100 s of lifetime work; summing cumulative
+    # counters first would report its whole history as this interval.
+    _write_fdinfo(proc, 100, 9, _drm_client(1, render_ns=200_000_000, video_ns=0))
+    _write_fdinfo(proc, 200, 9, _drm_client(2, render_ns=100_000_000_000, video_ns=0))
+    assert probe.read(now=12.0, pids=[100, 200])[0].utilization_percent == 10.0
+
+
+def test_gpu_probe_departing_client_does_not_subtract_from_the_rest(tmp_path: Path) -> None:
+    proc = tmp_path / "proc"
+    _write_fdinfo(proc, 100, 9, _drm_client(1, render_ns=0, video_ns=0))
+    _write_fdinfo(proc, 200, 9, _drm_client(2, render_ns=100_000_000_000, video_ns=0))
+    probe = DrmEngineTimeProbe(proc_root=proc, drm_root=tmp_path / "drm")
+    probe.read(now=10.0, pids=[100, 200])
+
+    _write_fdinfo(proc, 100, 9, _drm_client(1, render_ns=200_000_000, video_ns=0))
+    assert probe.read(now=12.0, pids=[100])[0].utilization_percent == 10.0
+
+
 def test_nvidia_gpu_is_named_and_declared_unreadable(tmp_path: Path) -> None:
     (tmp_path / "gpu0").mkdir(parents=True)
     reading = NvidiaPresenceProbe(gpu_root=tmp_path).read()[0]
