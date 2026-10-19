@@ -393,6 +393,17 @@ An unavailable driver binding stays unknown. Runtime identities are cached for
 the process lifetime; restart through your deployment manager after a host driver
 change, then revalidate the accelerator.
 
+The binding identity conservatively includes every visible device in the relevant
+GPU or NPU category, so another card's binding change can also expire Intel
+qualification. If sysfs device information is not exposed inside the container,
+the binding remains unknown; this check cannot detect a driver change it cannot
+observe. Revalidate explicitly after a host change in that case.
+
+Automatic startup revalidation checks native crash quarantine before starting a
+probe. A blocked profile is skipped, including blocks retained from older
+versions; that skip preserves crash evidence and consumes no automatic attempt.
+It does not implement the explicit owner revalidation/release workflow.
+
 Older crash records remain blocking after this identity upgrade. They did not
 record a binding, so a driver change alone cannot establish that an old fault is
 resolved. Preserve that evidence and follow the exact-profile investigation

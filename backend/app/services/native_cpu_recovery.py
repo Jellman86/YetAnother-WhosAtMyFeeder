@@ -96,6 +96,7 @@ class NativeCpuRecovery:
                 component="classifier_worker",
                 severity="warning",
                 reason_code=f"native_cpu_recovery_{status}",
+                worker_pool=priority,
                 message="Same-model isolated CPU recovery completed."
                 if status == "degraded"
                 else "Same-model isolated CPU recovery did not meet the workload contract.",

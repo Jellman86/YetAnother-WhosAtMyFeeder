@@ -94,7 +94,8 @@ blocked; representative finite, nondegenerate inference; exact profile checked
 again before release; failure, cancellation or settings races retain the block;
 workers restored through serialized initialization. A ready handshake must never
 release a profile. Existing automatic stale-provider revalidation is a different,
-once-only mechanism and is not changed.
+once-only mechanism. Its attempt ledger is retained, and startup checks now
+skip a quarantined profile before native probing.
 
 ### #723: qualify Intel GPU FP16
 
@@ -245,8 +246,9 @@ recent retirement, export or upload fixes based only on theoretical possibilitie
 
 ## Verification
 
-- Full local backend gate: **5,965 passed, 54 skipped**, coverage **79%**;
-  successful process exit, 453.10 seconds for pytest. An initial invocation
+- Full local backend gate after the review corrections: **5,977 passed,
+  54 skipped**, coverage **79%**; successful process exit, 447.18 seconds for
+  pytest. The earlier published head passed 5,965 tests. An initial invocation
   omitted the virtualenv tools from PATH, so migration subprocesses could not
   find `alembic`. All twelve affected migration fixtures passed with the
   corrected PATH, followed by the complete successful gate above.
@@ -267,3 +269,41 @@ That fix has its own branch, failing request-level regression and validation;
 it does not establish the original GPU-reset cause. All eight upstream issues
 remain open for the requirements described above. Hardware skips and unavailable
 hosts do not establish inference support.
+
+
+## Independent review follow-up
+
+The first independent pass confirmed additional cases, each reproduced before
+its correction:
+
+- Automatic evidence refresh could probe a profile still blocked by a legacy
+  crash record. Startup validation now guards the matching current model,
+  artifact and configured-provider profile before recording an attempt or
+  starting a probe. Blocked records remain untouched; a changed configuration
+  marks the request superseded. Unblocked explicit and auto-provider paths are
+  covered as controls.
+- An older circuit context could override a newer failure. Failure attribution
+  now follows newest-first snapshot order while retaining the separate circuit
+  record for historical context.
+- CPU recovery recorded its pool only inside context. Its producer now also
+  emits the top-level pool consumed by focused diagnostics. Tests exercise the
+  actual producer for both successful degraded recovery and failed video work.
+- A recovered snapshot fallback warning was another successful-recovery path
+  mislabelled as failure. It remains recent activity but is excluded from failed
+  inference candidates when its recovery flag is explicitly true.
+
+The conservative category-wide device fingerprint is retained deliberately:
+changes to another visible card in the same category can expire Intel evidence.
+This fails closed rather than guessing device selection. Troubleshooting now
+also explains that hidden sysfs information cannot establish a binding change.
+The disclosed rollback limitation remains; neither it nor the priority lock was
+shown to corrupt data or silently release an existing upgrade-direction block.
+
+The separate priority branch adds real shutdown/profile-refresh ordering tests
+and strengthens its existing whole-request queue-timeout regression. The first
+pass found no demonstrated defect in the priority lock, including independent
+timeout/handoff and mixed cancellation probes. A second independent review was
+requested with the original brief, prior findings and responses, but terminated
+with a subscription-quota error before providing a verdict. The first pass is
+complete; independent approval of the follow-up corrections is not claimed.
+Follow-up verification results are recorded after the revised checks.

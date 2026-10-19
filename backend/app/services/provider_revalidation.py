@@ -12,6 +12,7 @@ import structlog
 
 from app.services import model_validation as validation
 from app.services.model_validation import sweep_model_devices
+from app.services.native_crash_quarantine import NativeCrashQuarantinedError
 
 log = structlog.get_logger()
 
@@ -29,6 +30,25 @@ def active_configuration() -> tuple[dict[str, Any], str]:
     from app.services.model_manager import model_manager
 
     return model_manager.get_active_model_spec(), settings.classification.inference_provider
+
+
+class _RevalidationProfileChanged(RuntimeError):
+    """The launch profile no longer matches the configuration being prepared."""
+
+
+def guard_revalidation_profile(spec: dict[str, Any], requested: str) -> None:
+    from app.services.classifier_service import get_classifier
+
+    classifier = get_classifier()
+    profile = classifier._native_launch_profile()
+    if (
+        profile.get("model_id") != spec.get("model_id")
+        or not spec.get("artifact_sha256")
+        or profile.get("model_sha256") != spec.get("artifact_sha256")
+        or profile.get("provider") != requested
+    ):
+        raise _RevalidationProfileChanged()
+    classifier._native_crash_quarantine.guard(profile)
 
 
 async def reload_active_classifier() -> None:
@@ -60,6 +80,7 @@ class ProviderRevalidation:
             return None
         if provider not in validation.packaged_inference_providers(validation.get_image_flavor()):
             return None
+        guard_revalidation_profile(spec, requested)
         key = validation._identity_digest(
             {
                 "model": model_id,
@@ -101,6 +122,8 @@ class ProviderRevalidation:
     async def run(self) -> None:
         async with self._lock:
             key: str | None = None
+            spec: dict[str, Any] = {}
+            requested = ""
             try:
                 spec, requested = await asyncio.to_thread(active_configuration)
                 prepared = await asyncio.to_thread(self._prepare, spec, requested)
@@ -146,6 +169,19 @@ class ProviderRevalidation:
                     await reload_active_classifier()
                     self._status.state = "succeeded"
                     self._status.reason = "The accelerator passed validation and the classifier was reloaded."
+            except NativeCrashQuarantinedError:
+                self._status = ProviderValidationStatus(
+                    state="failed",
+                    model_id=str(spec.get("model_id") or "") or None,
+                    provider=requested or None,
+                    reason="Automatic validation skipped: this model/provider is quarantined. Investigate the saved crash evidence; restarting does not clear the block.",
+                    checked_at=datetime.now(timezone.utc).isoformat(),
+                )
+            except _RevalidationProfileChanged:
+                self._status = ProviderValidationStatus(
+                    state="superseded",
+                    reason="Model or provider changed before validation; no native check was started.",
+                )
             except asyncio.CancelledError:
                 self._status.state = "interrupted"
                 self._status.reason = "Validation was interrupted. Retry from AI Models."
