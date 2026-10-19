@@ -539,6 +539,69 @@ async def test_cleanup_barrier_closes_before_quarantine_persistence_finishes(tmp
 
 
 @pytest.mark.asyncio
+async def test_cancelled_retirement_persistence_keeps_cleanup_ownership(tmp_path):
+    # If the consumer handling a retirement is cancelled (as shutdown does)
+    # while evidence persistence is blocked, cleanup ownership must stay
+    # registered: dropping it would let wait_for_cleanup() report the
+    # child reaped when nothing has been.
+    import threading
+
+    from app.services.classifier_worker_protocol import build_retirement_event
+
+    profile = {"provider": "intel_gpu", "model_id": "eva02_large"}
+    quarantine = NativeCrashQuarantine(lambda: dict(profile), root=tmp_path / "crashes")
+    persistence_gate = threading.Event()
+    persistence_started = threading.Event()
+    real_record = quarantine.record_retirement
+
+    def slow_record(*args, **kwargs):
+        persistence_started.set()
+        persistence_gate.wait(timeout=10)
+        return real_record(*args, **kwargs)
+
+    quarantine.record_retirement = slow_record  # type: ignore[method-assign]
+    created: list[_FakeWorker] = []
+
+    async def factory(*, worker_name: str, worker_generation: int, **_kwargs):
+        worker = _FakeWorker(worker_name, worker_generation)
+        created.append(worker)
+        return worker
+
+    supervisor = _supervisor(factory, quarantine)
+    await supervisor.start("live")
+    try:
+        task = asyncio.create_task(
+            supervisor.classify(
+                priority="live", work_id="w1", lease_token=2, image_b64="payload", camera_name=None, model_id=None
+            )
+        )
+        await asyncio.sleep(0.05)
+        worker = next(w for w in created if w.worker_name == "live-0")
+        await worker.events.put(
+            build_retirement_event(
+                worker_generation=worker.worker_generation,
+                request_id=worker.current_request_id,
+                work_id="w1",
+                lease_token=2,
+                error_code="CL_OUT_OF_RESOURCES",
+                error="openvino GPU runtime failure: CL_OUT_OF_RESOURCES",
+            )
+        )
+        await asyncio.to_thread(persistence_started.wait, 5)
+        assert persistence_started.is_set()
+        for consumer in list(supervisor._consumer_tasks):
+            consumer.cancel()
+        await asyncio.sleep(0.1)
+        assert worker.worker_name in supervisor._cleanup_pending
+        with pytest.raises(TimeoutError):
+            await supervisor.wait_for_cleanup(timeout_seconds=0.05)
+        task.cancel()
+    finally:
+        persistence_gate.set()
+        await supervisor.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_cleanup_barrier_waits_until_failed_worker_is_reaped(tmp_path):
     profile = {"provider": "intel_gpu", "model_id": "eva02_large"}
     quarantine = NativeCrashQuarantine(lambda: dict(profile), root=tmp_path / "crashes")
