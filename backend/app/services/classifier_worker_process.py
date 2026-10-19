@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 import inspect
 import sys
@@ -452,8 +453,17 @@ def _build_default_classify_fn() -> Callable[..., list[dict[str, Any]]]:
         return _test_classify_fn
 
     from .classifier_service import ClassifierService
+    from .native_crash_quarantine import NativeCrashQuarantine
 
-    service = ClassifierService(worker_process_mode=True)
+    raw_approval = os.environ.pop("YA_WAMF_NATIVE_APPROVAL", None)
+    approval = json.loads(raw_approval) if raw_approval else None
+    if approval is None:
+        service = ClassifierService(worker_process_mode=True)
+    else:
+        service = ClassifierService(
+            worker_process_mode=True,
+            crash_quarantine_factory=lambda getter: NativeCrashQuarantine(getter, inherited_approval=approval),
+        )
 
     def _classify_fn(
         *,

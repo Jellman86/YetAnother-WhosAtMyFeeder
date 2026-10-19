@@ -710,3 +710,21 @@ async def test_real_worker_keeps_idle_heartbeat_and_exits_on_parent_pipe_eof(mon
         assert client.get_status()["exit_code"] == 0
     finally:
         await client.kill()
+
+
+@pytest.mark.asyncio
+async def test_worker_launch_discards_inherited_approval_unless_parent_supplies_it(monkeypatch):
+    import json
+    from unittest.mock import AsyncMock
+
+    monkeypatch.setenv("YA_WAMF_NATIVE_APPROVAL", '{"untrusted":true}')
+    spawn = AsyncMock()
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", spawn)
+    client = ClassifierWorkerClient(worker_name="approval", worker_generation=1, heartbeat_timeout_seconds=5)
+    await client._spawn_process(worker_name="approval", worker_generation=1)
+    assert "YA_WAMF_NATIVE_APPROVAL" not in spawn.call_args.kwargs["env"]
+    approval = {"profile_key": "exact", "files": {}, "blocked_keys": ["exact"]}
+    client._native_worker_approval = approval
+    await client._spawn_process(worker_name="approval", worker_generation=1)
+    assert json.loads(spawn.call_args.kwargs["env"]["YA_WAMF_NATIVE_APPROVAL"]) == approval
+    assert os.environ["YA_WAMF_NATIVE_APPROVAL"] == '{"untrusted":true}'

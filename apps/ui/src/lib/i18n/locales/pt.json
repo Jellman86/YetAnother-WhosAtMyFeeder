@@ -1902,6 +1902,18 @@
       "subtitle": "Funcionalidades ainda em teste. Ficam desligadas até as ligar e podem mudar ou ser removidas.",
       "garden_animals": "Animais do jardim",
       "garden_animals_desc": "Recolhe visitantes que não são aves, como gatos, cães e raposas, das câmaras que escolher, para rever. Desligar pára a recolha e oculta Jardim; as capturas guardadas mantêm-se."
+    },
+    "native_revalidation": {
+      "title": "Verificar perfil em quarentena",
+      "description": "Verifique um perfil com falhas guardadas com as suas fotos e um vídeo de aves num processo temporário. O histórico permanece inalterado.",
+      "photos": "Três fotos de aves diferentes",
+      "clip": "Vídeo curto de aves",
+      "limits": "Escolha exatamente três fotos diferentes de até 25 MiB cada e um vídeo de até 32 MiB com pelo menos três fotogramas legíveis.",
+      "acknowledge": "Compreendo que será executado código nativo e que o processo temporário pode falhar.",
+      "run": "Verificar perfil em quarentena",
+      "status": "Ver estado da verificação",
+      "cancel": "Cancelar verificação",
+      "scope": "A autorização aplica-se apenas a este perfil exato até reiniciar a aplicação. As provas da falha são preservadas. Os ficheiros são eliminados após a limpeza do processo. Sair da página não cancela a verificação. Se a limpeza não puder ser confirmada, os ficheiros privados são preservados para o proprietário os eliminar após reiniciar."
     }
   },
   "auth": {

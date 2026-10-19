@@ -313,3 +313,19 @@ Repository tag instead.
 - See [`configuration.md`](configuration.md) for all detection settings and
   [`../troubleshooting/diagnostics.md`](../troubleshooting/diagnostics.md) if
   inference is falling back unexpectedly.
+
+## Check a quarantined native profile
+
+If saved native crash evidence blocks the selected model/provider, choose a
+concrete provider and subprocess image execution, save the settings, then open
+**Settings → Detection → Check quarantined profile**. On Linux, an owner can
+upload three different bird photos and a short clip, acknowledge the native
+execution risk and run a bounded disposable-worker check. Keep the host idle;
+classification demand aborts the check. Cancel waits for child cleanup.
+
+A pass permits only the exact checked isolated-worker profile until the next
+application restart. Saved crash evidence remains. This does not automatically
+qualify an excluded provider, reset circuit breakers, rewrite detections or prove
+species accuracy. An unavailable provider, failed output check, changed profile
+or incomplete cleanup keeps quarantine. See the
+[safety and resource limits](../reviews/2026-10-19-owner-native-profile-revalidation.md).

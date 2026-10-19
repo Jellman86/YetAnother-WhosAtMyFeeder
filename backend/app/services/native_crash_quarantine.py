@@ -13,6 +13,7 @@ import json
 import os
 from pathlib import Path
 import signal
+import stat
 import sys
 import tempfile
 import threading
@@ -84,11 +85,20 @@ class NativeCrashQuarantinedError(RuntimeError):
 
 
 class NativeCrashQuarantine:
-    def __init__(self, profile_getter: Callable[[], dict[str, Any]], *, root: Path | None = None) -> None:
+    def __init__(
+        self,
+        profile_getter: Callable[[], dict[str, Any]],
+        *,
+        root: Path | None = None,
+        inherited_approval: dict[str, Any] | None = None,
+    ) -> None:
         self._profile_getter = profile_getter
         self._root = root or Path(os.environ.get("CONFIG_DIR", "/config")) / "native-crashes"
         self._blocked: set[str] = set()
         self._reported: set[str] = set()
+        self._incident_revisions: dict[str, int] = {}
+        self._revalidated: dict[str, dict[str, Any]] = {}
+        self._inherited_approval = inherited_approval
         self._lock = threading.RLock()
         # Persistence does filesystem reads, fsync and replace, always from
         # worker threads. It gets its own mutex so remember()/guard() on
@@ -98,21 +108,35 @@ class NativeCrashQuarantine:
 
     @staticmethod
     def _key(profile: dict[str, Any]) -> str:
-        identity = {key: value for key, value in profile.items() if key != "legacy_runtime_signature"}
+        identity = {
+            key: value
+            for key, value in profile.items()
+            if key not in {"legacy_runtime_signature", "legacy_profile_keys"}
+        }
         return hashlib.sha256(json.dumps(identity, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
-    def guard(self, profile: dict[str, Any] | None = None) -> dict[str, Any]:
+    def guard(self, profile: dict[str, Any] | None = None, *, allow_revalidated: bool = True) -> dict[str, Any]:
         profile = json.loads(json.dumps(self._profile_getter() if profile is None else profile))
         key = self._key(profile)
-        keys = {key}
-        legacy_signature = profile.get("legacy_runtime_signature")
-        if legacy_signature:
-            # Adding driver identity must invalidate positive qualification,
-            # never silently release negative evidence from older versions.
-            keys.add(self._key(profile | {"runtime_signature": legacy_signature}))
         with self._lock:
             try:
-                blocked = any(key in self._blocked or (self._root / f"{key}.json").is_file() for key in keys)
+                incidents = self._incident_snapshot(profile)
+                approval, self._inherited_approval = self._inherited_approval, None
+                if allow_revalidated and isinstance(approval, dict) and approval.get("profile_key") == key:
+                    files = {k: v["file"] for k, v in incidents.items()}
+                    blocked_keys = approval.get("blocked_keys")
+                    if (
+                        approval.get("files") == files
+                        and isinstance(blocked_keys, list)
+                        and all(isinstance(value, str) for value in blocked_keys)
+                        and set(blocked_keys) <= set(incidents)
+                        and all(v["revision"] == 0 for v in incidents.values())
+                    ):
+                        self._blocked.update(blocked_keys)
+                        incidents = self._incident_snapshot(profile)
+                        self._revalidated[key] = incidents
+                blocked = any(value["blocked"] for value in incidents.values())
+                blocked = blocked and (not allow_revalidated or self._revalidated.get(key) != incidents)
             except OSError:
                 blocked = True
             if blocked:
@@ -123,6 +147,79 @@ class NativeCrashQuarantine:
                 )
         return profile
 
+    def guard_in_process(self, profile: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Owner diagnostics authorize isolated workers, never the API process."""
+        return self.guard(profile, allow_revalidated=False)
+
+    def worker_approval(self, profile: dict[str, Any]) -> dict[str, Any] | None:
+        """Export current authority only through the trusted worker launch path."""
+        with self._lock:
+            key = self._key(profile)
+            try:
+                incidents = self._incident_snapshot(profile)
+            except OSError:
+                return None
+            if self._revalidated.get(key) != incidents:
+                return None
+            return {
+                "profile_key": key,
+                "files": {k: v["file"] for k, v in incidents.items()},
+                "blocked_keys": [k for k, v in incidents.items() if v["blocked"]],
+            }
+
+    def _incident_snapshot(self, profile: dict[str, Any]) -> dict[str, Any]:
+        key = self._key(profile)
+        keys = {key}
+        for previous in profile.get("legacy_profile_keys") or []:
+            if isinstance(previous, str) and len(previous) == 64 and all(c in "0123456789abcdef" for c in previous):
+                keys.add(previous)
+        legacy_signature = profile.get("legacy_runtime_signature")
+        if legacy_signature:
+            # Adding driver identity must invalidate positive qualification,
+            # never silently release negative evidence from older versions.
+            keys.add(self._key(profile | {"runtime_signature": legacy_signature}))
+        incidents = {}
+        for incident_key in sorted(keys):
+            try:
+                metadata = (self._root / f"{incident_key}.json").stat()
+                if not stat.S_ISREG(metadata.st_mode):
+                    raise OSError("Quarantine evidence is not a regular file")
+                identity = [
+                    metadata.st_dev,
+                    metadata.st_ino,
+                    metadata.st_size,
+                    metadata.st_mtime_ns,
+                    metadata.st_ctime_ns,
+                ]
+            except FileNotFoundError:
+                identity = None
+            incidents[incident_key] = {
+                "blocked": incident_key in self._blocked or identity is not None,
+                "revision": self._incident_revisions.get(incident_key, 0),
+                "file": identity,
+            }
+        return incidents
+
+    def capture_revalidation(self, profile: dict[str, Any]) -> dict[str, Any]:
+        """Bind one explicit owner check to the exact incidents it observed."""
+        with self._lock:
+            incidents = self._incident_snapshot(profile)
+            key = self._key(profile)
+            if not any(value["blocked"] for value in incidents.values()) or self._revalidated.get(key) == incidents:
+                raise ValueError("The selected profile is not quarantined")
+            return {"profile_key": key, "incidents": incidents}
+
+    def release_after_revalidation(self, profile: dict[str, Any], token: dict[str, Any]) -> bool:
+        """Grant this process only; original evidence remains blocking on restart."""
+        with self._lock:
+            if self._key(profile) != token.get("profile_key"):
+                return False
+            incidents = self._incident_snapshot(profile)
+            if incidents != token.get("incidents"):
+                return False
+            self._revalidated[self._key(profile)] = incidents
+            return True
+
     def remember(self, profile: dict[str, Any] | None, exit_code: int | None) -> bool:
         """Block in memory before any cancellable persistence await."""
         # SIGKILL can mean our deadline or the OOM killer. SIGTERM is normal
@@ -132,6 +229,7 @@ class NativeCrashQuarantine:
         key = self._key(profile)
         with self._lock:
             self._blocked.add(key)
+            self._incident_revisions[key] = self._incident_revisions.get(key, 0) + 1
         return True
 
     def record(self, profile: dict[str, Any] | None, exit_code: int | None) -> bool:
@@ -173,6 +271,7 @@ class NativeCrashQuarantine:
         key = self._key(profile)
         with self._lock:
             self._blocked.add(key)
+            self._incident_revisions[key] = self._incident_revisions.get(key, 0) + 1
         return True
 
     def record_retirement(self, profile: dict[str, Any] | None, error_code: str, detail: str) -> bool:

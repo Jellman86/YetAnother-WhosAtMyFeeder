@@ -11,6 +11,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   connection. Retries reuse the pending scan, and missing results stay unknown
   instead of becoming zero (#755).
 
+- Owners can explicitly check a quarantined native model/provider with three
+  representative photos and a short clip on Linux. The bounded disposable-worker
+  check preserves crash evidence, yields to live work and grants only exact,
+  process-local isolated-worker approval. Cancel waits for child cleanup; restart
+  requires another explicit check (#722).
+
 - Leaderboard queries now use the existing taxonomy indexes instead of scanning
   the taxonomy cache for every capture. This reduces database connection holds
   on large histories without changing species identity or visit counts (#762).

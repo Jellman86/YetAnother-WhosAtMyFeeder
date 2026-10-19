@@ -2980,7 +2980,13 @@ class ClassifierService:
     # Union type for model instances
     ModelType = ModelInstance | ONNXModelInstance | OpenVINOModelInstance
 
-    def __init__(self, *, supervisor: Any | None = None, worker_process_mode: bool = False):
+    def __init__(
+        self,
+        *,
+        supervisor: Any | None = None,
+        worker_process_mode: bool = False,
+        crash_quarantine_factory: Callable[[Callable[[], dict[str, Any]]], NativeCrashQuarantine] | None = None,
+    ):
         self._models: dict[str, ClassifierService.ModelType] = {}
         self._models_lock = threading.Lock()
         self._worker_process_mode = bool(worker_process_mode)
@@ -2990,7 +2996,7 @@ class ClassifierService:
         self._image_execution_mode = "in_process" if self._worker_process_mode else configured_mode
         self._classifier_supervisor = supervisor
         self._video_supervisor = supervisor
-        self._native_crash_quarantine = NativeCrashQuarantine(self._native_launch_profile)
+        self._native_crash_quarantine = (crash_quarantine_factory or NativeCrashQuarantine)(self._native_launch_profile)
         self._native_cpu_recovery = NativeCpuRecovery(self._native_launch_profile, self._native_crash_quarantine)
         self._bird_crop_service = bird_crop_service
         if worker_process_mode and os.environ.get("YA_WAMF_NATIVE_CPU_RECOVERY") == "1":
@@ -3231,7 +3237,7 @@ class ClassifierService:
         model_path = str(spec.get("model_path") or "")
         # Record a launch configuration, not a claim about the faulting library.
         # Crop/video/wildlife work shares the same isolated process.
-        return {
+        profile = {
             "schema": 1,
             "model_id": spec.get("model_id"),
             "region": spec.get("resolved_region"),
@@ -3245,6 +3251,33 @@ class ClassifierService:
             "input_size": spec.get("input_size"),
             "preprocessing": spec.get("preprocessing"),
             "crop_generator": spec.get("crop_generator"),
+        }
+        # Preserve both earlier identities as negative evidence when expanding
+        # the profile to cover auxiliary native workloads.
+        previous = [NativeCrashQuarantine._key(profile)]
+        previous.append(
+            NativeCrashQuarantine._key(profile | {"runtime_signature": profile["legacy_runtime_signature"]})
+        )
+        profile["auxiliary_artifacts"] = self._native_auxiliary_artifacts()
+        profile["video_frames"] = settings.classification.video_classification_frames
+        profile["legacy_profile_keys"] = previous
+        return profile
+
+    def _native_auxiliary_artifacts(self) -> dict[str, Any]:
+        crops = {}
+        for tier in ("fast", "accurate"):
+            path = getattr(self, "_bird_crop_service", bird_crop_service)._resolve_model_path(tier)
+            crops[tier] = {
+                "weights": artifact_digest(str(path)) if path else None,
+                "external_weights": artifact_digest(f"{path}.data") if path else None,
+                "config": artifact_digest(str(path.with_name("model_config.json"))) if path else None,
+            }
+        model_path, labels_path = self._get_model_paths(
+            settings.classification.wildlife_model, settings.classification.wildlife_labels
+        )
+        return {
+            "crop": crops,
+            "wildlife": {"weights": artifact_digest(model_path), "labels": artifact_digest(labels_path)},
         }
 
     def _classify_model_artifact_type(self, model_path: str) -> str:
@@ -4210,7 +4243,10 @@ class ClassifierService:
         quarantine = getattr(self, "_native_crash_quarantine", None)
         if quarantine is not None:
             try:
-                quarantine.guard()
+                guard = (
+                    quarantine.guard if getattr(self, "_worker_process_mode", False) else quarantine.guard_in_process
+                )
+                guard()
             except NativeCrashQuarantinedError as exc:
                 log.error("classifier_model_load_quarantined", error=str(exc))
                 return
@@ -6417,7 +6453,7 @@ class ClassifierService:
         quarantine = getattr(self, "_native_crash_quarantine", None)
         if quarantine is not None:
             try:
-                await asyncio.to_thread(quarantine.guard)
+                await asyncio.to_thread(quarantine.guard_in_process)
             except NativeCrashQuarantinedError:
                 if model_kind != "bird":
                     self._raise_native_quarantine_error(priority)

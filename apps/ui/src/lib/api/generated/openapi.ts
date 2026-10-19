@@ -1585,6 +1585,10 @@ export interface components {
     scientific_name?: string | null;
     taxa_id?: number | null;
 };
+    PrepareRevalidationRequest: {
+    attempt_id: string;
+    profile_fingerprint: string;
+};
     ProviderValidationStatus: {
     checked_at?: string | null;
     model_id?: string | null;
@@ -1641,6 +1645,29 @@ export interface components {
     event_id: string;
     recording_state: "complete" | "partial";
     status: "ready" | "partial";
+};
+    RevalidationProfile: {
+    blocked: boolean;
+    eligible: boolean;
+    fingerprint: string;
+    model_id?: string | null;
+    provider?: string | null;
+    reason?: string | null;
+};
+    RevalidationStatus: {
+    approval_scope?: "process";
+    attempt_id?: string | null;
+    finished_at?: string | null;
+    message?: string;
+    model_id?: string | null;
+    profile_fingerprint?: string | null;
+    provider?: string | null;
+    started_at?: string | null;
+    state?: "idle" | "uploading" | "checking" | "running" | "restoring" | "succeeded" | "failed" | "cancelled" | "superseded";
+};
+    RevalidationView: {
+    attempt: components['schemas']['RevalidationStatus'];
+    profile?: components['schemas']['RevalidationProfile'] | null;
 };
     ReverseGeocodeResponse: {
     country?: string | null;
@@ -2950,6 +2977,46 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: components['schemas']['ProviderValidationStatus'];
+    };
+  };
+  "/api/classifier/quarantine/revalidation": {
+    get: {
+      operationId: "inspect_revalidation_api_classifier_quarantine_revalidation_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['RevalidationView'];
+    };
+  };
+  "/api/classifier/quarantine/revalidation/prepare": {
+    post: {
+      operationId: "prepare_revalidation_api_classifier_quarantine_revalidation_prepare_post";
+      path: never;
+      query: never;
+      requestBody: components['schemas']['PrepareRevalidationRequest'];
+      response: components['schemas']['RevalidationStatus'];
+    };
+  };
+  "/api/classifier/quarantine/revalidation/{attempt_id}/cancel": {
+    post: {
+      operationId: "cancel_revalidation_api_classifier_quarantine_revalidation__attempt_id__cancel_post";
+      path: {
+    attempt_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['RevalidationStatus'];
+    };
+  };
+  "/api/classifier/quarantine/revalidation/{attempt_id}/inputs": {
+    post: {
+      operationId: "upload_revalidation_api_classifier_quarantine_revalidation__attempt_id__inputs_post";
+      path: {
+    attempt_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['RevalidationStatus'];
     };
   };
   "/api/classifier/status": {

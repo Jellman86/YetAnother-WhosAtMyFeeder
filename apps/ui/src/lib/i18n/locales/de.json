@@ -1892,6 +1892,18 @@
       "subtitle": "Funktionen, die noch getestet werden. Sie sind aus, bis du sie einschaltest, und können sich ändern oder entfernt werden.",
       "garden_animals": "Gartentiere",
       "garden_animals_desc": "Sammelt Besucher, die keine Vögel sind, etwa Katzen, Hunde und Füchse, von Kameras deiner Wahl zur Prüfung. Ausschalten stoppt neue Aufnahmen und blendet den Garten aus; gespeicherte Aufnahmen bleiben erhalten."
+    },
+    "native_revalidation": {
+      "title": "Quarantänisiertes Profil prüfen",
+      "description": "Prüfen Sie ein gespeichertes Absturzprofil mit eigenen Vogelfotos und einem Clip in einem temporären Worker. Der Erkennungsverlauf bleibt unverändert.",
+      "photos": "Drei verschiedene Vogelfotos",
+      "clip": "Kurzer Vogelclip",
+      "limits": "Genau drei verschiedene Fotos bis je 25 MiB und einen Clip bis 32 MiB mit mindestens drei lesbaren Bildern wählen.",
+      "acknowledge": "Ich verstehe, dass nativer Code ausgeführt wird und der temporäre Worker abstürzen kann.",
+      "run": "Quarantänisiertes Profil prüfen",
+      "status": "Prüfstatus anzeigen",
+      "cancel": "Prüfung abbrechen",
+      "scope": "Die Freigabe gilt nur für dieses genaue Profil bis zum Anwendungsneustart. Absturzbelege bleiben erhalten. Eingaben werden nach der Prozessbereinigung gelöscht. Das Verlassen der Seite bricht die Prüfung nicht ab. Kann die Bereinigung nicht bestätigt werden, bleiben private Eingaben zur manuellen Bereinigung nach dem Neustart erhalten."
     }
   },
   "auth": {

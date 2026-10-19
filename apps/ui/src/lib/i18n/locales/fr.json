@@ -1892,6 +1892,18 @@
       "subtitle": "Des fonctions encore en test. Elles restent désactivées tant que vous ne les activez pas, et peuvent changer ou disparaître.",
       "garden_animals": "Animaux du jardin",
       "garden_animals_desc": "Collecte les visiteurs qui ne sont pas des oiseaux, comme les chats, les chiens et les renards, depuis les caméras choisies, pour que vous les examiniez. La désactiver arrête la collecte et masque Jardin ; les captures enregistrées sont conservées."
+    },
+    "native_revalidation": {
+      "title": "Vérifier le profil en quarantaine",
+      "description": "Vérifiez un profil ayant planté avec vos photos et une vidéo d’oiseaux dans un processus temporaire. L’historique reste inchangé.",
+      "photos": "Trois photos d’oiseaux différentes",
+      "clip": "Courte vidéo d’oiseaux",
+      "limits": "Choisissez exactement trois photos différentes de 25 Mio maximum chacune et une vidéo de 32 Mio maximum avec au moins trois images lisibles.",
+      "acknowledge": "Je comprends que du code natif sera exécuté et que le processus temporaire peut planter.",
+      "run": "Vérifier le profil en quarantaine",
+      "status": "Voir l’état de la vérification",
+      "cancel": "Annuler la vérification",
+      "scope": "L’autorisation concerne uniquement ce profil exact jusqu’au redémarrage. Les preuves du plantage sont conservées. Les fichiers sont supprimés après nettoyage du processus. Quitter cette page n’annule pas la vérification. Si le nettoyage ne peut pas être confirmé, les fichiers privés sont conservés pour être supprimés par le propriétaire après redémarrage."
     }
   },
   "auth": {

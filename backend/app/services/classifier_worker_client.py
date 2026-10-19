@@ -1,3 +1,4 @@
+import json
 import asyncio
 import os
 import time
@@ -335,6 +336,12 @@ class ClassifierWorkerClient:
                 "CLASSIFICATION__INFERENCE_PROVIDER": self._inference_provider_override,
                 "YA_WAMF_NATIVE_CPU_RECOVERY": "1",
             }
+        approval = getattr(self, "_native_worker_approval", None)
+        if approval is not None or "YA_WAMF_NATIVE_APPROVAL" in os.environ:
+            environment = dict(os.environ if environment is None else environment)
+            environment.pop("YA_WAMF_NATIVE_APPROVAL", None)
+            if approval is not None:
+                environment["YA_WAMF_NATIVE_APPROVAL"] = json.dumps(approval)
         executable, environment = python_subprocess_launch(environment)
         # The stream limit is the protocol's own: both ends read newline-framed
         # JSON, and a single high-quality frame is megabytes of base64.
