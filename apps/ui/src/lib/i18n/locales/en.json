@@ -632,6 +632,7 @@
       "cache_high_quality_event_snapshot_jpeg_quality": "HQ Snapshot JPEG Quality",
       "cache_high_quality_event_snapshot_jpeg_quality_help": "Higher values keep more detail but create larger derived snapshot files.",
       "cache_size": "Space used",
+      "cache_size_loading": "Measuring…",
       "cache_size_unavailable": "Couldn't load",
       "cache_size_retry": "Retry",
       "cache_clear_button": "Clear Cached Files",
