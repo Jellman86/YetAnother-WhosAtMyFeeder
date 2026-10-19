@@ -28,6 +28,7 @@ validated", never an exception.
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 import hashlib
 from importlib import metadata as importlib_metadata
 import json
@@ -46,6 +47,7 @@ import structlog
 
 from app.utils.python_subprocess import python_subprocess_launch
 from app.utils.runtime_flavor import get_image_flavor, packaged_inference_providers
+from app.services.native_crash_quarantine import NativeCrashQuarantinedError
 
 log = structlog.get_logger()
 
@@ -955,6 +957,7 @@ async def sweep_model_devices(
     image_paths: list[str] | None = None,
     discover_providers: bool = False,
     only_providers: set[str] | None = None,
+    provider_guard: Callable[[str], None] | None = None,
 ) -> dict:
     """Validate every relevant provider for the active ``model_id``.
 
@@ -994,6 +997,15 @@ async def sweep_model_devices(
 
     reports: dict[str, dict | None] = {}
     for candidate in candidates:
+        try:
+            if provider_guard is not None:
+                await asyncio.to_thread(provider_guard, candidate.provider)
+        except NativeCrashQuarantinedError:
+            reports[candidate.provider] = {
+                "provider": candidate.provider,
+                "compile": {"ok": False, "error": "Native crash quarantine: automatic provider probe skipped."},
+            }
+            continue
         reports[candidate.provider] = await _probe_one_provider(
             candidate.provider,
             model_id=model_id,
