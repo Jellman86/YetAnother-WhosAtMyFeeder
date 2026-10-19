@@ -78,13 +78,46 @@ export async function clearClassificationFeedback(): Promise<ClearFeedbackResult
     return handleResponse<ClearFeedbackResult>(response);
 }
 
-export async function fetchCacheStats(): Promise<CacheStats> {
-    // The backend stats every kept file; on a slow FUSE/network mount with
-    // tens of thousands of files that walk legitimately takes far longer
-    // than an ordinary request. Giving up at 10s left Settings showing the
-    // null fallback as "0 MB" while the disk was nearly full (#755).
-    const response = await apiFetch(`${API_BASE}/cache/stats`, { timeoutMs: 120_000 });
-    return handleResponse<CacheStats>(response);
+let cacheStatsRequest: Promise<CacheStats> | null = null;
+let pendingCacheMeasurementId: string | null = null;
+
+export function fetchCacheStats(): Promise<CacheStats> {
+    if (cacheStatsRequest === null) {
+        cacheStatsRequest = collectCacheStats().finally(() => { cacheStatsRequest = null; });
+    }
+    return cacheStatsRequest;
+}
+
+async function collectCacheStats(): Promise<CacheStats> {
+    const deadline = Date.now() + 10 * 60_000;
+    let restarted = false;
+    while (Date.now() < deadline) {
+        const query = pendingCacheMeasurementId === null ? '' : `?measurement_id=${encodeURIComponent(pendingCacheMeasurementId)}`;
+        const response = await apiFetch(`${API_BASE}/cache/measurement${query}`, { timeoutMs: 10_000, cache: 'no-store' });
+        if (response.status === 404 && pendingCacheMeasurementId !== null && !restarted) {
+            pendingCacheMeasurementId = null;
+            restarted = true;
+            continue;
+        }
+        const measurement = await handleResponse<paths['/api/cache/measurement']['get']['response']>(response);
+        if (measurement.status === 'completed' && measurement.stats) {
+            pendingCacheMeasurementId = null;
+            return measurement.stats;
+        }
+        if (measurement.status === 'failed') {
+            pendingCacheMeasurementId = null;
+            throw new Error('Storage measurement failed');
+        }
+        if (measurement.status !== 'running' || !measurement.id) {
+            pendingCacheMeasurementId = null;
+            throw new Error('Invalid storage measurement response');
+        }
+        pendingCacheMeasurementId = measurement.id;
+        // The filesystem scan continues independently. Each request stays well
+        // below ordinary proxy timeouts, and polling never starts another scan.
+        await new Promise<void>(resolve => setTimeout(resolve, 2000));
+    }
+    throw new Error('Storage measurement is still running. Retry to check its result.');
 }
 
 export async function runCacheCleanup(): Promise<CacheCleanupResult> {

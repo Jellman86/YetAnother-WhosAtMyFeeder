@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, create_model, field_validator
 import structlog
 
+from app.services.cache_stats_measurements import CacheStatsMeasurements
 from app.config import CONFIG_PATH, Settings as AppSettings, settings
 from app.config_loader import migrate_imported_media_controls
 from app.auth import (
@@ -483,6 +484,15 @@ class CacheStatsResponse(BaseModel):
     archive_unavailable: int = 0
     retention_days: int
     retention_source: str
+
+
+class CacheStatsMeasurementResponse(BaseModel):
+    id: str
+    status: Literal["running", "completed", "failed"]
+    started_at: datetime
+    completed_at: Optional[datetime] = None
+    stats: Optional[CacheStatsResponse] = None
+    error: Optional[str] = None
 
 
 class CacheCleanupResponse(BaseModel):
@@ -3048,9 +3058,8 @@ async def get_analysis_status(response: Response, auth: AuthContext = Depends(re
 # =============================================================================
 
 
-@router.get("/cache/stats", response_model=CacheStatsResponse)
-async def get_cache_stats(auth: AuthContext = Depends(require_owner)):
-    """Get media cache statistics. Owner only."""
+async def _collect_cache_stats() -> dict:
+    """Collect the completed measurement outside the polling request's lifetime."""
     # Archive use comes from the favourite rows, which record bytes as they are written: this
     # endpoint is polled every minute by every owner page and must not walk a directory tree.
     async with get_db() as db:
@@ -3080,6 +3089,29 @@ async def get_cache_stats(auth: AuthContext = Depends(require_owner)):
         "retention_days": retention,
         "retention_source": "media_cache" if settings.media_cache.retention_days > 0 else "detection",
     }
+
+
+cache_stats_measurements = CacheStatsMeasurements(_collect_cache_stats)
+
+
+@router.get("/cache/stats", response_model=CacheStatsResponse)
+async def get_cache_stats(auth: AuthContext = Depends(require_owner)):
+    """Get media cache statistics. Owner only; waits for the filesystem walk."""
+    return await _collect_cache_stats()
+
+
+@router.get("/cache/measurement", response_model=CacheStatsMeasurementResponse)
+async def get_cache_measurement(
+    response: Response,
+    measurement_id: Optional[str] = Query(None, max_length=36),
+    auth: AuthContext = Depends(require_owner),
+) -> dict:
+    """Start or poll a shared storage measurement without waiting for the walk."""
+    response.headers["Cache-Control"] = "no-store"
+    try:
+        return cache_stats_measurements.get(measurement_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Storage measurement expired. Start a new measurement.") from None
 
 
 @router.post("/cache/cleanup", response_model=CacheCleanupResponse)

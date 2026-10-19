@@ -443,6 +443,14 @@ export interface components {
     snapshots_deleted: number;
     status: string;
 };
+    CacheStatsMeasurementResponse: {
+    completed_at?: string | null;
+    error?: string | null;
+    id: string;
+    started_at: string;
+    stats?: components['schemas']['CacheStatsResponse'] | null;
+    status: "running" | "completed" | "failed";
+};
     CacheStatsResponse: {
     archive_count?: number;
     archive_durable?: number;
@@ -2863,6 +2871,17 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: components['schemas']['CacheCleanupResponse'];
+    };
+  };
+  "/api/cache/measurement": {
+    get: {
+      operationId: "get_cache_measurement_api_cache_measurement_get";
+      path: never;
+      query: {
+    measurement_id?: string | null;
+};
+      requestBody: unknown;
+      response: components['schemas']['CacheStatsMeasurementResponse'];
     };
   };
   "/api/cache/stats": {

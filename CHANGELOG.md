@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Storage-size measurements now use short progress requests while one shared
+  background scan runs, so slow folders no longer require a long-lived browser
+  connection. Retries reuse the pending scan, and missing results stay unknown
+  instead of becoming zero (#755).
+
 - Leaderboard queries now use the existing taxonomy indexes instead of scanning
   the taxonomy cache for every capture. This reduces database connection holds
   on large histories without changing species identity or visit counts (#762).
