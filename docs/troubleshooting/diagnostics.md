@@ -341,6 +341,14 @@ restart the container if an in-process runtime is still stalled, and rerun the s
 safely. Existing events are not duplicated; a better classification can update an existing
 detection.
 
+An individual event can still report `background_image_overloaded` after its
+bounded admission retries while other background work is completing normally.
+Check progress and competing work before treating that result as a native-runtime
+stall. Cancelling a caller removes its request if it is still waiting for a
+classification slot. Once admitted, the work keeps its slot until completion or
+the existing lease cleanup; cancellation does not interrupt native inference or
+make its capacity immediately available.
+
 After native-runtime recovery, **Settings → Detection** shows the actual execution mode and
 whether isolated workers have resumed classification. Restart advice remains visible because
 switching to workers cannot release a native thread that is still stalled in the parent process.

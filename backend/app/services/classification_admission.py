@@ -182,13 +182,39 @@ class ClassificationAdmissionCoordinator:
                     raise ClassificationAdmissionTimeoutError(priority, item.kind, queue_timeout) from exc
             # The item may have been admitted just as the queue timeout fired.
             # In that race, preserve the admitted work and await its real result.
+        except asyncio.CancelledError:
+            await self._cancel_submission(item)
+            raise
 
         try:
             return await asyncio.shield(item.result_future)
-        finally:
-            # If the caller is cancelled after admission, keep the coordinator state authoritative.
-            # Reaper or runner completion will settle the work item.
-            pass
+        except asyncio.CancelledError:
+            await self._cancel_submission(item)
+            raise
+
+    async def _cancel_submission(self, item: _WorkItem) -> None:
+        # Condition sections never await while holding the lock, so cancellation
+        # cleanup acquires it without suspending on another task.
+        async with self._condition:
+            if item.state == "queued":
+                self._remove_pending_locked(item)
+                item.state = "rejected"
+                self._rejected[item.priority] += 1
+                self._record_recent_outcome_locked(item, "rejected", reason="caller_cancelled")
+                item.admitted_future.cancel()
+                item.result_future.cancel()
+                self._schedule_locked()
+                self._condition.notify_all()
+            else:
+                # Native work may already own the slot, including when admission
+                # wins the cancellation race. Its completion or lease still owns
+                # cleanup; the cancelled caller cannot consume a later failure.
+                item.result_future.add_done_callback(self._consume_unclaimed_result)
+
+    @staticmethod
+    def _consume_unclaimed_result(result: asyncio.Future[Any]) -> None:
+        if not result.cancelled():
+            result.exception()
 
     async def shutdown(self) -> None:
         self._closed = True
