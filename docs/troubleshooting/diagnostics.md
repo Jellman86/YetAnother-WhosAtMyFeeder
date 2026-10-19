@@ -363,6 +363,12 @@ cold load and inference must all fit the workload deadline. CPU may be unavailab
 too slow; a successful load alone is not recovery. Successful CPU inference leaves health degraded
 and preserves the original crash evidence. The saved accelerator preference is unchanged.
 
+Queued live detections take the next available CPU recovery turn ahead of queued
+background or video work. An active native call is not interrupted for priority
+alone. Background and video requests retain arrival order with each other and
+can still expire while waiting during sustained live traffic; queueing remains
+inside each request's existing deadline. This does not increase CPU capacity.
+
 For ONNX models, recovery prefers OpenVINO Intel CPU when the current host and
 packaged runtime have passing validation for that exact artifact. Otherwise it
 uses standard CPU recovery. A previously crashed Intel CPU configuration remains

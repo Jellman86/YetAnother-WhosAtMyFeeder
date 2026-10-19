@@ -11,6 +11,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   storage legitimately takes to measure, and a failed load says so with a
   retry instead of showing zero. Visit films now count toward the figure.
 
+- After an accelerator fault, queued live detections now take the next turn on
+  the shared isolated CPU recovery worker ahead of waiting background/video
+  work. Active inference is allowed to finish; cancellation, shutdown, existing
+  workload deadlines and crash quarantine remain enforced (#712, #490).
+
 - Hardening from review of the changes above: a retiring GPU worker's record
   can no longer be overtaken by the watchdog or release any request into CPU
   recovery before the old worker is reaped (recovery now waits on a shared
