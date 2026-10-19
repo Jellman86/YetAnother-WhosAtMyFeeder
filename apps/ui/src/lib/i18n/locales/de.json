@@ -615,6 +615,8 @@
       "cache_high_quality_event_snapshot_jpeg_quality": "JPEG-Qualität für HQ-Schnappschüsse",
       "cache_high_quality_event_snapshot_jpeg_quality_help": "Höhere Werte bewahren mehr Details, erzeugen aber größere abgeleitete Schnappschussdateien.",
       "cache_size": "Belegter Speicher",
+      "cache_size_unavailable": "Konnte nicht geladen werden",
+      "cache_size_retry": "Erneut versuchen",
       "cache_clear_button": "Zwischengespeicherte Dateien löschen",
       "cache_cleanup_confirm": "Zwischengespeicherte Fotos und Clips löschen, die älter als die Aufbewahrungsdauer sind, sowie zwischengespeicherte Dateien, die zu keiner Erkennung mehr gehören? Favoriten und die neuesten behaltenen Besuche jeder Art bleiben erhalten. Dies kann nicht rückgängig gemacht werden.",
       "config_backup_title": "Konfigurationssicherung",

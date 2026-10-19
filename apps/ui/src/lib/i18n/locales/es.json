@@ -615,6 +615,8 @@
       "cache_high_quality_event_snapshot_jpeg_quality": "Calidad JPEG de instantánea HQ",
       "cache_high_quality_event_snapshot_jpeg_quality_help": "Valores más altos conservan más detalle, pero crean archivos de instantánea derivados más grandes.",
       "cache_size": "Espacio usado",
+      "cache_size_unavailable": "No se pudo cargar",
+      "cache_size_retry": "Reintentar",
       "cache_clear_button": "Borrar archivos en caché",
       "cache_cleanup_confirm": "¿Eliminar las fotos y clips en caché anteriores al periodo de retención y los archivos en caché que ya no pertenecen a ninguna detección? Se conservan los favoritos y las visitas más recientes guardadas de cada especie. Esta acción no se puede deshacer.",
       "config_backup_title": "Copia de seguridad de la configuración",

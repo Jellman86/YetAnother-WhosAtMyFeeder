@@ -615,6 +615,8 @@
       "cache_high_quality_event_snapshot_jpeg_quality": "HQ 快照 JPEG 质量",
       "cache_high_quality_event_snapshot_jpeg_quality_help": "值越高保留的细节越多，但生成的派生快照文件也会更大。",
       "cache_size": "已用空间",
+      "cache_size_unavailable": "无法加载",
+      "cache_size_retry": "重试",
       "cache_clear_button": "清除缓存文件",
       "cache_cleanup_confirm": "删除超过保留期限的缓存照片和片段，以及不再属于任何检测记录的缓存文件？收藏和每个物种保留的最新访问不受影响。此操作无法撤销。",
       "config_backup_title": "配置备份",

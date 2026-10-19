@@ -625,6 +625,8 @@
       "cache_high_quality_event_snapshot_jpeg_quality": "Qualidade JPEG da captura HQ",
       "cache_high_quality_event_snapshot_jpeg_quality_help": "Valores mais altos mantêm mais detalhes, mas geram arquivos de snapshot derivados maiores.",
       "cache_size": "Espaço usado",
+      "cache_size_unavailable": "Não foi possível carregar",
+      "cache_size_retry": "Tentar novamente",
       "cache_clear_button": "Limpar arquivos em cache",
       "cache_cleanup_confirm": "Excluir as fotos e clipes em cache mais antigos que o período de retenção e os arquivos em cache que não pertencem mais a nenhuma detecção? Os favoritos e as visitas mais recentes mantidas de cada espécie permanecem. Esta ação não pode ser desfeita.",
       "config_backup_title": "Cópia de segurança da configuração",

@@ -30,6 +30,9 @@ CACHE_BASE_DIR = Path(os.getenv("MEDIA_CACHE_DIR", "/config/media_cache"))
 SNAPSHOTS_DIR = CACHE_BASE_DIR / "snapshots"
 CLIPS_DIR = CACHE_BASE_DIR / "clips"
 PREVIEWS_DIR = CACHE_BASE_DIR / "previews"
+# Visit films are part of the same kept media (visit_film_service imports
+# this), so Space used and any other accounting share one definition.
+FILMS_DIR = Path(os.getenv("VISIT_FILMS_DIR", str(CACHE_BASE_DIR / "films")))
 
 # A cache walk that takes longer than this is worth a log line, because on a
 # slow filesystem it is the difference between a stat per file and a stall.
@@ -1457,6 +1460,8 @@ class MediaCacheService:
         clip_size = 0
         preview_count = 0
         preview_size = 0
+        film_count = 0
+        film_size = 0
         oldest_file = None
         newest_file = None
 
@@ -1514,6 +1519,21 @@ class MediaCacheService:
             except Exception:
                 pass
 
+        # Visit films are kept media under the same base directory; leaving
+        # them out understates the very figure Settings calls Space used.
+        for path in FILMS_DIR.glob("*.webm"):
+            try:
+                stat = path.stat()
+                film_count += 1
+                film_size += stat.st_size
+                mtime = datetime.fromtimestamp(stat.st_mtime)
+                if oldest_file is None or mtime < oldest_file:
+                    oldest_file = mtime
+                if newest_file is None or mtime > newest_file:
+                    newest_file = mtime
+            except Exception:
+                pass
+
         return {
             "snapshot_count": snapshot_count,
             "snapshot_size_bytes": snapshot_size,
@@ -1524,8 +1544,11 @@ class MediaCacheService:
             "preview_count": preview_count,
             "preview_size_bytes": preview_size,
             "preview_size_mb": round(preview_size / (1024 * 1024), 2),
-            "total_size_bytes": snapshot_size + clip_size + preview_size,
-            "total_size_mb": round((snapshot_size + clip_size + preview_size) / (1024 * 1024), 2),
+            "film_count": film_count,
+            "film_size_bytes": film_size,
+            "film_size_mb": round(film_size / (1024 * 1024), 2),
+            "total_size_bytes": snapshot_size + clip_size + preview_size + film_size,
+            "total_size_mb": round((snapshot_size + clip_size + preview_size + film_size) / (1024 * 1024), 2),
             "oldest_file": oldest_file.isoformat() if oldest_file else None,
             "newest_file": newest_file.isoformat() if newest_file else None,
         }
@@ -1559,7 +1582,10 @@ class MediaCacheService:
             log.warning(
                 "Slow media cache walk",
                 duration_ms=round(duration_ms, 1),
-                files=stats["snapshot_count"] + stats["clip_count"] + stats["preview_count"],
+                files=stats["snapshot_count"]
+                + stats["clip_count"]
+                + stats["preview_count"]
+                + stats.get("film_count", 0),
                 cache_dir=str(CACHE_BASE_DIR),
             )
         return stats

@@ -456,6 +456,9 @@ export interface components {
     clip_count: number;
     clip_size_bytes: number;
     clip_size_mb: number;
+    film_count?: number;
+    film_size_bytes?: number;
+    film_size_mb?: number;
     newest_file?: string | null;
     oldest_file?: string | null;
     preview_count: number;

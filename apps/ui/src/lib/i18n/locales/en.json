@@ -632,6 +632,8 @@
       "cache_high_quality_event_snapshot_jpeg_quality": "HQ Snapshot JPEG Quality",
       "cache_high_quality_event_snapshot_jpeg_quality_help": "Higher values keep more detail but create larger derived snapshot files.",
       "cache_size": "Space used",
+      "cache_size_unavailable": "Couldn't load",
+      "cache_size_retry": "Retry",
       "cache_clear_button": "Clear Cached Files",
       "cache_cleanup_confirm": "Delete cached photos and clips older than the retention period, and cached files that no longer belong to a detection? Favourites and each species' newest kept visits stay. This cannot be undone.",
       "config_backup_title": "Configuration Backup",

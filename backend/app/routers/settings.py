@@ -462,6 +462,9 @@ class CacheStatsResponse(BaseModel):
     preview_count: int
     preview_size_bytes: int
     preview_size_mb: float
+    film_count: int = 0
+    film_size_bytes: int = 0
+    film_size_mb: float = 0.0
     total_size_bytes: int
     total_size_mb: float
     oldest_file: Optional[str] = None

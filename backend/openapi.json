@@ -2935,6 +2935,21 @@
             "title": "Clip Size Mb",
             "type": "number"
           },
+          "film_count": {
+            "default": 0,
+            "title": "Film Count",
+            "type": "integer"
+          },
+          "film_size_bytes": {
+            "default": 0,
+            "title": "Film Size Bytes",
+            "type": "integer"
+          },
+          "film_size_mb": {
+            "default": 0.0,
+            "title": "Film Size Mb",
+            "type": "number"
+          },
           "newest_file": {
             "anyOf": [
               {

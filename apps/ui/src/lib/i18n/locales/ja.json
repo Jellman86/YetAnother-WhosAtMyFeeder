@@ -615,6 +615,8 @@
       "cache_high_quality_event_snapshot_jpeg_quality": "HQ スナップショット JPEG 品質",
       "cache_high_quality_event_snapshot_jpeg_quality_help": "値を高くすると詳細が保持されますが、生成されるスナップショットファイルは大きくなります。",
       "cache_size": "使用容量",
+      "cache_size_unavailable": "読み込めませんでした",
+      "cache_size_retry": "再試行",
       "cache_clear_button": "キャッシュ済みファイルを消去",
       "cache_cleanup_confirm": "保持期間を過ぎたキャッシュ済みの写真とクリップ、およびどの検出にも属さなくなったキャッシュファイルを削除しますか？お気に入りと各種の保持中の最新の訪問は残ります。この操作は元に戻せません。",
       "config_backup_title": "設定のバックアップ",
