@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Leaderboard queries now use the existing taxonomy indexes instead of scanning
+  the taxonomy cache for every capture. This reduces database connection holds
+  on large histories without changing species identity or visit counts (#762).
+
 - Automatic accelerator revalidation now checks OpenVINO CPU as well when the
   image packages it and the model permits it. A passing CPU route remains
   selectable and eligible for recovery instead of disappearing after a partial

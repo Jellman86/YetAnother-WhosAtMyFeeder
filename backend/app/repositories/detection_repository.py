@@ -1030,11 +1030,14 @@ class DetectionRepository:
         return (
             f"LEFT JOIN taxonomy_cache {taxonomy_alias} "
             f"ON ("
-            f"({detection_alias}.scientific_name IS NOT NULL AND LOWER({taxonomy_alias}.scientific_name) = LOWER({detection_alias}.scientific_name)) "
-            f"OR ({detection_alias}.scientific_name IS NULL AND ("
-            f"LOWER({taxonomy_alias}.scientific_name) = LOWER({detection_alias}.display_name) "
-            f"OR LOWER({taxonomy_alias}.common_name) = LOWER({detection_alias}.display_name)"
-            f")))"
+            # Keep each OR arm indexable. Nesting the scientific/common-name
+            # alternatives under a null check makes SQLite scan taxonomy_cache
+            # per capture, despite the existing lowercased-name indexes (#762).
+            f"LOWER({taxonomy_alias}.scientific_name) = "
+            f"LOWER(COALESCE({detection_alias}.scientific_name, {detection_alias}.display_name)) "
+            f"OR ({detection_alias}.scientific_name IS NULL AND "
+            f"LOWER({taxonomy_alias}.common_name) = LOWER({detection_alias}.display_name))"
+            f")"
         )
 
     async def _build_canonical_species_condition(
