@@ -32,6 +32,7 @@
         cacheHighQualityEventSnapshotJpegQuality = $bindable(95),
         cacheStats,
         cacheStatsError = false,
+        cacheStatsLoading = false,
         onRetryCacheStats,
         classifierStatus,
         cleaningCache,
@@ -94,6 +95,7 @@
         cacheHighQualityEventSnapshotJpegQuality: number;
         cacheStats: CacheStats | null;
         cacheStatsError?: boolean;
+        cacheStatsLoading?: boolean;
         onRetryCacheStats?: () => void;
         classifierStatus: ClassifierStatus | null;
         cleaningCache: boolean;
@@ -385,20 +387,27 @@
 
             <div class="p-4 rounded-xl bg-surface-raised/70 flex items-center justify-between gap-3">
                 <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">{$_('settings.data.cache_size')}</span>
-                {#if cacheStats}
-                    <span class="text-sm font-bold text-slate-900 dark:text-white" data-cache-size>{cacheStats.total_size_mb} MB</span>
-                {:else if cacheStatsError}
-                    <span class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300" data-cache-size-unavailable>
-                        {$_('settings.data.cache_size_unavailable', { default: "Couldn't load" })}
-                        {#if onRetryCacheStats}
-                            <button type="button" class="font-bold text-teal-700 dark:text-teal-300 hover:underline" onclick={onRetryCacheStats} data-cache-size-retry>
-                                {$_('settings.data.cache_size_retry', { default: 'Retry' })}
-                            </button>
-                        {/if}
-                    </span>
-                {:else}
-                    <span class="text-sm font-bold text-slate-900 dark:text-white" data-cache-size>…</span>
-                {/if}
+                <span class="flex flex-wrap items-center justify-end gap-2">
+                    {#if cacheStats}
+                        <span class="text-sm font-bold text-slate-900 dark:text-white" data-cache-size>{cacheStats.total_size_mb} MB</span>
+                    {/if}
+                    {#if cacheStatsLoading}
+                        <span class="text-sm text-slate-600 dark:text-slate-300" role="status" data-cache-size-loading>
+                            {$_('settings.data.cache_size_loading', { default: 'Measuring…' })}
+                        </span>
+                    {:else if cacheStatsError}
+                        <span class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300" data-cache-size-unavailable>
+                            {$_('settings.data.cache_size_unavailable', { default: "Couldn't load" })}
+                            {#if onRetryCacheStats}
+                                <button type="button" class="btn btn-ghost min-h-11 px-2 text-sm" onclick={onRetryCacheStats} data-cache-size-retry>
+                                    {$_('settings.data.cache_size_retry', { default: 'Retry' })}
+                                </button>
+                            {/if}
+                        </span>
+                    {:else if !cacheStats}
+                        <span class="text-sm font-bold text-slate-900 dark:text-white" data-cache-size>…</span>
+                    {/if}
+                </span>
             </div>
 
             <!-- The archive is not the cache: clearing the cache leaves it alone (#178). -->

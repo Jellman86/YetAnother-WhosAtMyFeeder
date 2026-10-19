@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Retrying the storage-size measurement immediately replaces the previous error
+  with “Measuring…”. An earlier figure stays visible, failed refreshes offer
+  Retry, and overlapping measurements are prevented (#755).
+
 - Automatic accelerator revalidation now checks OpenVINO CPU as well when the
   image packages it and the model permits it. A passing CPU route remains
   selectable and eligible for recovery instead of disappearing after a partial

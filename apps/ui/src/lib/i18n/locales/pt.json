@@ -625,6 +625,7 @@
       "cache_high_quality_event_snapshot_jpeg_quality": "Qualidade JPEG da captura HQ",
       "cache_high_quality_event_snapshot_jpeg_quality_help": "Valores mais altos mantêm mais detalhes, mas geram arquivos de snapshot derivados maiores.",
       "cache_size": "Espaço usado",
+      "cache_size_loading": "A medir…",
       "cache_size_unavailable": "Não foi possível carregar",
       "cache_size_retry": "Tentar novamente",
       "cache_clear_button": "Limpar arquivos em cache",
