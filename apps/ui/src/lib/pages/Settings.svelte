@@ -1992,6 +1992,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let cachePerSpeciesMinimum = $state(0);
     let cacheStats = $state<CacheStats | null>(null);
     let cacheStatsError = $state(false);
+    let cacheStatsLoading = $state(false);
     let cleaningCache = $state(false);
 
     // Backfill state
@@ -2506,6 +2507,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     }
 
     async function loadCacheStats() {
+        if (cacheStatsLoading) return;
+        cacheStatsLoading = true;
+        cacheStatsError = false;
         try {
             cacheStats = await fetchCacheStats();
             cacheStatsError = false;
@@ -2514,6 +2518,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             // DataSettings shows an honest unavailable state, never 0 MB.
             cacheStatsError = true;
             console.error('Failed to load cache stats', e);
+        } finally {
+            cacheStatsLoading = false;
         }
     }
 
@@ -3893,6 +3899,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     {maintenanceStats}
                     {cacheStats}
                     {cacheStatsError}
+                    {cacheStatsLoading}
                     onRetryCacheStats={loadCacheStats}
                     {classifierStatus}
                     {cleaningUp}
