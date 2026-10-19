@@ -490,3 +490,51 @@ async def test_published_image_without_a_candidate_fails_closed_and_clears_stale
     assert "no compatible provider runtime" in result["reason"]
     assert mv.host_eligible_providers("small_birds") == []
     assert mv.read_validation_record("small_birds")["validated"] is False
+
+
+@pytest.mark.asyncio
+async def test_provider_guard_prevents_quarantined_native_probe(monkeypatch):
+    from app.services import classifier_service
+    from app.services.model_manager import model_manager
+    from app.services.native_crash_quarantine import NativeCrashQuarantinedError
+
+    monkeypatch.setenv("YAWAMF_IMAGE_FLAVOR", "intel")
+    monkeypatch.setattr(
+        classifier_service,
+        "_detect_acceleration_capabilities",
+        lambda: {
+            "ort_available": True,
+            "openvino_available": True,
+            "intel_cpu_available": True,
+            "intel_gpu_available": True,
+        },
+    )
+    monkeypatch.setattr(
+        model_manager,
+        "get_active_model_spec",
+        lambda: {
+            "model_id": "bird",
+            "runtime": "onnx",
+            "supported_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
+        },
+    )
+    calls = []
+
+    def guard(provider):
+        if provider == "intel_cpu":
+            raise NativeCrashQuarantinedError("retained fault")
+
+    async def probe(provider, **_kwargs):
+        calls.append(provider)
+        return {
+            "compile": {"ok": True},
+            "output_summary": {"finite_count": 2, "element_count": 2},
+            "per_image_top_indices": [[1, 0]],
+            "inference_latency_ms": 10,
+        }
+
+    monkeypatch.setattr(mv, "_probe_one_provider", probe)
+    result = await mv.sweep_model_devices("bird", provider_guard=guard)
+    assert calls == ["cpu", "intel_gpu"]
+    assert result["eligible_providers"] == ["cpu", "intel_gpu"]
+    assert next(p for p in result["providers"] if p["provider"] == "intel_cpu")["ok"] is False

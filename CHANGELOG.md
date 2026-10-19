@@ -6,6 +6,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Automatic accelerator revalidation now checks OpenVINO CPU as well when the
+  image packages it and the model permits it. A passing CPU route remains
+  selectable and eligible for recovery instead of disappearing after a partial
+  startup check, including when the accelerator fails. Every automatic provider
+  probe checks its own native crash quarantine; failed or blocked routes stay
+  excluded, while current Intel CPU qualification is reused. Existing partial results still
+  require an owner-triggered compatibility check; upgrading does not retry them
+  or clear native crash quarantine (#712).
+
 - Cancelled image requests now leave the admission queue before they can consume
   a later worker slot. Work already admitted retains its slot until completion
   or the existing lease cleanup, including cancellation during handoff. Queue

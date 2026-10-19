@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock
+from unittest.mock import ANY, AsyncMock
 
 import pytest
 
@@ -36,7 +36,7 @@ async def test_stale_accelerator_is_revalidated_once_and_reloaded(environment):
     probe, reload = environment
     runner = recovery.ProviderRevalidation()
     await runner.run()
-    probe.assert_awaited_once_with("bird", only_providers={"cpu", "intel_gpu"})
+    probe.assert_awaited_once_with("bird", only_providers={"cpu", "intel_gpu"}, provider_guard=ANY)
     reload.assert_awaited_once()
     assert runner.status()["state"] == "succeeded"
     assert "intel_gpu" in validation.host_eligible_providers("bird", artifact_sha256="abc")
@@ -218,3 +218,265 @@ async def test_unblocked_matching_profile_can_still_be_automatically_revalidated
     probe.assert_awaited_once()
     reload.assert_awaited_once()
     assert runner.status()["state"] == "succeeded"
+
+
+@pytest.mark.asyncio
+async def test_runtime_refresh_checks_intel_cpu_before_narrowing_model_choices(environment, monkeypatch):
+    from app.services.classifier_service import _apply_host_validated_provider_policy, _provider_capability_contract
+
+    probe, _reload = environment
+    spec = {
+        "model_id": "bird",
+        "artifact_sha256": "abc",
+        "supported_inference_providers": ["cpu", "intel_cpu"],
+        "candidate_inference_providers": ["cpu", "intel_cpu", "intel_gpu", "intel_npu"],
+    }
+    monkeypatch.setattr(recovery, "active_configuration", lambda: (spec, "intel_gpu"))
+    probe.return_value["eligible_providers"] = ["cpu", "intel_cpu", "intel_gpu"]
+    probe.return_value["providers"] = [
+        {"provider": provider, "ok": True} for provider in ("cpu", "intel_cpu", "intel_gpu")
+    ]
+    await recovery.ProviderRevalidation().run()
+    probe.assert_awaited_once_with("bird", only_providers={"cpu", "intel_cpu", "intel_gpu"}, provider_guard=ANY)
+    resolved = _apply_host_validated_provider_policy(spec, model_id="bird")
+    assert "intel_cpu" in resolved["supported_inference_providers"]
+    caps = {"ort_available": True, "openvino_available": True, "intel_cpu_available": True, "intel_gpu_available": True}
+    contract = _provider_capability_contract(
+        caps=caps,
+        packaged_providers=("cpu", "intel_cpu", "intel_gpu"),
+        supported_providers=resolved["supported_inference_providers"],
+        active_backend="openvino",
+        active_provider="intel_gpu",
+        provider_order=resolved["host_provider_preference_order"],
+    )
+    assert "intel_cpu" in contract["available_providers"]
+    assert "intel_cpu" in contract["provider_preference_order"]
+
+
+@pytest.mark.asyncio
+async def test_failed_intel_cpu_check_does_not_block_passing_accelerator_or_become_eligible(environment, monkeypatch):
+    probe, reload = environment
+    spec = {
+        "model_id": "bird",
+        "artifact_sha256": "abc",
+        "candidate_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
+    }
+    monkeypatch.setattr(recovery, "active_configuration", lambda: (spec, "intel_gpu"))
+    probe.return_value["providers"] = [{"provider": "intel_cpu", "ok": False, "finite": False}]
+    runner = recovery.ProviderRevalidation()
+    await runner.run()
+    probe.assert_awaited_once_with("bird", only_providers={"cpu", "intel_cpu", "intel_gpu"}, provider_guard=ANY)
+    assert runner.status()["state"] == "succeeded"
+    assert "intel_cpu" not in validation.host_eligible_providers("bird", artifact_sha256="abc")
+    reload.assert_awaited_once()
+    await recovery.ProviderRevalidation().run()
+    assert probe.await_count == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "packaged,declared,expected",
+    [
+        (("cpu", "intel_gpu"), ["cpu", "intel_cpu", "intel_gpu"], {"cpu", "intel_gpu"}),
+        (("cpu", "intel_cpu", "intel_gpu"), ["cpu", "intel_gpu"], {"cpu", "intel_gpu"}),
+        (
+            ("cpu", "intel_cpu", "intel_gpu"),
+            ["cpu", "intel_cpu", "intel_gpu", "intel_npu", "cuda"],
+            {"cpu", "intel_cpu", "intel_gpu"},
+        ),
+    ],
+)
+async def test_startup_checks_only_packaged_declared_cpu_routes_and_selected_accelerator(
+    environment, monkeypatch, packaged, declared, expected
+):
+    probe, _reload = environment
+    monkeypatch.setattr(
+        recovery,
+        "active_configuration",
+        lambda: (
+            {"model_id": "bird", "artifact_sha256": "abc", "candidate_inference_providers": declared},
+            "intel_gpu",
+        ),
+    )
+    monkeypatch.setattr(validation, "packaged_inference_providers", lambda _flavor: packaged)
+    await recovery.ProviderRevalidation().run()
+    probe.assert_awaited_once_with("bird", only_providers=expected, provider_guard=ANY)
+
+
+@pytest.mark.asyncio
+async def test_new_failed_cpu_probe_overrides_passing_evidence_published_during_check(environment, monkeypatch):
+    probe, _reload = environment
+    spec = {
+        "model_id": "bird",
+        "artifact_sha256": "abc",
+        "candidate_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
+    }
+    monkeypatch.setattr(recovery, "active_configuration", lambda: (spec, "intel_gpu"))
+
+    async def probe_with_intervening_pass(*_args, **_kwargs):
+        data = validation._read_current_eligibility_payload()
+        data["models"]["bird"].append("intel_cpu")
+        data["model_provider_signatures"]["bird"]["intel_cpu"] = "new-intel_cpu"
+        validation._write_json_atomic(validation._eval_root() / validation.ELIGIBILITY_FILENAME, data)
+        assert "intel_cpu" in validation.host_eligible_providers("bird", artifact_sha256="abc")
+        return probe.return_value
+
+    probe.side_effect = probe_with_intervening_pass
+    probe.return_value["providers"] = [
+        {"provider": "cpu", "ok": True},
+        {"provider": "intel_cpu", "ok": False},
+        {"provider": "intel_gpu", "ok": True},
+    ]
+    await recovery.ProviderRevalidation().run()
+    probe.assert_awaited_once_with("bird", only_providers={"cpu", "intel_cpu", "intel_gpu"}, provider_guard=ANY)
+    assert "intel_cpu" not in validation.host_eligible_providers("bird", artifact_sha256="abc")
+
+
+@pytest.mark.asyncio
+async def test_current_intel_cpu_evidence_is_retained_without_extra_native_probe(environment, monkeypatch):
+    probe, _reload = environment
+    spec = {
+        "model_id": "bird",
+        "artifact_sha256": "abc",
+        "candidate_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
+    }
+    monkeypatch.setattr(recovery, "active_configuration", lambda: (spec, "intel_gpu"))
+    data = validation._read_current_eligibility_payload()
+    data["models"]["bird"].append("intel_cpu")
+    data["model_provider_signatures"]["bird"]["intel_cpu"] = "new-intel_cpu"
+    validation._write_json_atomic(validation._eval_root() / validation.ELIGIBILITY_FILENAME, data)
+    await recovery.ProviderRevalidation().run()
+    probe.assert_awaited_once_with("bird", only_providers={"cpu", "intel_gpu"}, provider_guard=ANY)
+    assert "intel_cpu" in validation.host_eligible_providers("bird", artifact_sha256="abc")
+
+
+@pytest.mark.asyncio
+async def test_failed_accelerator_still_retains_passing_cpu_routes_without_reloading(environment, monkeypatch):
+    probe, reload = environment
+    spec = {
+        "model_id": "bird",
+        "artifact_sha256": "abc",
+        "candidate_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
+    }
+    monkeypatch.setattr(recovery, "active_configuration", lambda: (spec, "intel_gpu"))
+    probe.return_value.update(
+        eligible_providers=["cpu", "intel_cpu"],
+        providers=[
+            {"provider": "cpu", "ok": True},
+            {"provider": "intel_cpu", "ok": True},
+            {"provider": "intel_gpu", "ok": False},
+        ],
+    )
+    runner = recovery.ProviderRevalidation()
+    await runner.run()
+    assert runner.status()["state"] == "failed"
+    assert set(validation.host_eligible_providers("bird", artifact_sha256="abc")) == {"cpu", "intel_cpu"}
+    reload.assert_not_awaited()
+    assert validation.read_validation_record("bird") is None
+    await recovery.ProviderRevalidation().run()
+    assert probe.await_count == 1
+
+
+@pytest.mark.parametrize("target", ["cpu", "intel_cpu"])
+def test_probe_guard_refuses_quarantined_cpu_target_without_mutating_crash_evidence(tmp_path, monkeypatch, target):
+    import signal
+    from types import SimpleNamespace
+    from app.services import classifier_service
+    from app.services.native_crash_quarantine import NativeCrashQuarantine, NativeCrashQuarantinedError
+
+    profile = {"model_id": "bird", "model_sha256": "abc", "provider": "intel_gpu", "runtime_signature": "current"}
+    policy = NativeCrashQuarantine(lambda: profile, root=tmp_path / "incidents")
+    policy.record(profile | {"provider": target}, -signal.SIGSEGV)
+    evidence = next((tmp_path / "incidents").glob("*.json"))
+    before = evidence.read_bytes()
+    monkeypatch.setattr(
+        classifier_service,
+        "get_classifier",
+        lambda: SimpleNamespace(_native_launch_profile=lambda: profile, _native_crash_quarantine=policy),
+    )
+    with pytest.raises(NativeCrashQuarantinedError):
+        guard_revalidation_profile({"model_id": "bird", "artifact_sha256": "abc"}, "intel_gpu", target)
+    assert evidence.read_bytes() == before
+
+
+@pytest.mark.asyncio
+async def test_malformed_optional_report_does_not_discard_valid_eligibility(environment):
+    probe, _reload = environment
+    probe.return_value["providers"] = [{}, None, {"provider": "cpu", "ok": True}]
+    runner = recovery.ProviderRevalidation()
+    await runner.run()
+    assert runner.status()["state"] == "succeeded"
+    assert "intel_gpu" in validation.host_eligible_providers("bird", artifact_sha256="abc")
+
+
+@pytest.mark.asyncio
+async def test_failed_accelerator_does_not_claim_cpu_results_retained_when_write_fails(environment, monkeypatch):
+    probe, _reload = environment
+    probe.return_value.update(
+        eligible_providers=["cpu"], providers=[{"provider": "cpu", "ok": True}, {"provider": "intel_gpu", "ok": False}]
+    )
+    monkeypatch.setattr(validation, "write_eligibility_entry", lambda *_args, **_kwargs: None)
+    runner = recovery.ProviderRevalidation()
+    await runner.run()
+    assert runner.status()["state"] == "failed"
+    assert "retained" not in runner.status()["reason"]
+
+
+@pytest.mark.asyncio
+async def test_automatic_sweep_never_spawns_quarantined_intel_cpu_probe(environment, tmp_path, monkeypatch):
+    import signal
+    from types import SimpleNamespace
+    from app.services import classifier_service
+    from app.services.model_manager import model_manager
+    from app.services.native_crash_quarantine import NativeCrashQuarantine
+
+    _mock_sweep, reload = environment
+    spec = {
+        "model_id": "bird",
+        "artifact_sha256": "abc",
+        "runtime": "onnx",
+        "candidate_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
+    }
+    profile = {"model_id": "bird", "model_sha256": "abc", "provider": "intel_gpu", "runtime_signature": "current"}
+    policy = NativeCrashQuarantine(lambda: profile, root=tmp_path / "incidents")
+    policy.record(profile | {"provider": "intel_cpu"}, -signal.SIGSEGV)
+    evidence = next((tmp_path / "incidents").glob("*.json"))
+    before = evidence.read_bytes()
+    monkeypatch.setattr(recovery, "active_configuration", lambda: (spec, "intel_gpu"))
+    monkeypatch.setattr(recovery, "guard_revalidation_profile", guard_revalidation_profile)
+    monkeypatch.setattr(recovery, "sweep_model_devices", validation.sweep_model_devices)
+    monkeypatch.setattr(
+        classifier_service,
+        "get_classifier",
+        lambda: SimpleNamespace(_native_launch_profile=lambda: profile, _native_crash_quarantine=policy),
+    )
+    monkeypatch.setattr(
+        classifier_service,
+        "_detect_acceleration_capabilities",
+        lambda: {
+            "ort_available": True,
+            "openvino_available": True,
+            "intel_cpu_available": True,
+            "intel_gpu_available": True,
+        },
+    )
+    monkeypatch.setattr(model_manager, "get_active_model_spec", lambda: spec)
+    calls = []
+
+    async def probe(provider, **_kwargs):
+        calls.append(provider)
+        return {
+            "compile": {"ok": True},
+            "output_summary": {"finite_count": 2, "element_count": 2},
+            "per_image_top_indices": [[1, 0]],
+            "inference_latency_ms": 10,
+        }
+
+    monkeypatch.setattr(validation, "_probe_one_provider", probe)
+    runner = recovery.ProviderRevalidation()
+    await runner.run()
+    assert runner.status()["state"] == "succeeded"
+    assert calls == ["cpu", "intel_gpu"]
+    assert set(validation.host_eligible_providers("bird", artifact_sha256="abc")) == {"cpu", "intel_gpu"}
+    assert evidence.read_bytes() == before
+    reload.assert_awaited_once()

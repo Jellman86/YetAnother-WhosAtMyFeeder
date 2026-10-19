@@ -418,6 +418,44 @@ probe. A blocked profile is skipped, including blocks retained from older
 versions; that skip preserves crash evidence and consumes no automatic attempt.
 It does not implement the explicit owner revalidation/release workflow.
 
+### Intel CPU is missing after switching image flavors
+
+The `intel` image includes OpenVINO CPU support. The provider selector also
+depends on detected hardware and the active model's current validation results.
+For example, `intel_cpu_available: true` and Intel CPU in
+`host_available_providers`, but not in `available_providers`, means hardware
+detection succeeded and the model's current provider list excludes it.
+
+Switching from `dev` to `dev-intel` expires validation tied to the old image.
+Earlier startup checks retested only ONNX CPU and the selected accelerator;
+that partial result could hide OpenVINO CPU without testing it. When a previously
+validated, selected accelerator needs its unused startup revalidation attempt,
+the check also tests OpenVINO CPU when qualification is missing or expired and the
+route is packaged, supported by the model and detected on the host. Current Intel CPU
+qualification is retained without another probe. Only passing results become
+selectable and eligible for recovery.
+
+Each automatic provider probe checks the current native crash quarantine before
+starting. Blocked targets are skipped without removing their evidence. Passing
+CPU results are kept even if the accelerator fails, but that failed accelerator
+is not selected or reloaded. A CPU-selected configuration, an already-current
+accelerator or a consumed attempt does not trigger this startup check.
+
+For an already-saved partial result, use **Settings → Detection → Run
+compatibility check** and inspect Intel CPU's result. Leave **test all models**
+off to avoid downloading and testing the entire registry. This check still tests
+installed models and temporarily changes the active model, so run it when the
+extra inference work is acceptable. See [Model Evaluation](../features/model-evaluation.md).
+An upgrade or restart does not repeat a consumed automatic attempt. A failed
+Intel CPU result remains excluded; preserve the diagnostics rather than editing
+validation files or clearing crash quarantine.
+
+This startup change adds at most one sequential provider probe to a previously
+eligible accelerator refresh. It uses the existing subprocess timeout (up to
+five minutes for that additional probe), so slow CPU compilation can delay
+accelerator revalidation. It does not validate sustained live/backfill capacity
+or establish the cause of an earlier GPU fault.
+
 Older crash records remain blocking after this identity upgrade. They did not
 record a binding, so a driver change alone cannot establish that an old fault is
 resolved. Preserve that evidence and follow the exact-profile investigation
