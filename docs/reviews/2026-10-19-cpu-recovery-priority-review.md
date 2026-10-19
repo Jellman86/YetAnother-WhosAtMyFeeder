@@ -96,9 +96,10 @@ background/video arrival order. Existing CPU recovery and GPU retirement tests
 exercise deadlines, cancellation, exact artifacts/providers, cleanup failure and
 quarantine.
 
-- Full local backend gate: **5,950 passed, 54 skipped**, **79% coverage**, successful
-  process exit; pytest took 460.14 seconds.
-- Targeted recovery suite: **46 passed**. Recovery plus retirement tests also pass.
+- Full local backend gate after the review follow-up: **5,952 passed, 54 skipped**,
+  **79% coverage**, successful process exit; pytest took 446.80 seconds. The
+  earlier published head passed 5,950 tests.
+- Targeted recovery suite: **48 passed**. Recovery plus retirement tests also pass.
 - Separate cancellation stress: **100 seeded runs / 10,000 mixed-priority tasks**,
   no concurrent owners or leaked locks. These are scheduler tests without native
   inference, not throughput or hardware qualification.
@@ -109,3 +110,22 @@ quarantine.
   and worker-liveness suites passed: **227 passed, 1 skipped**, 17.57 seconds.
   The temporary merge was aborted after verification; both PRs remain independent
   changes into `dev`. No combined commit or deployment was created.
+
+## Independent review follow-up
+
+The independent pass found no demonstrated priority-lock defect. It additionally
+exercised `asyncio.timeout` during queueing and handoff, 200 handoff/timeout races,
+and 3,000 mixed-priority tasks with random cancellation, reporting no leaked or
+double-owned lock and no remaining waiters.
+
+The existing request-level queue-timeout test already used the real recovery
+runner's `asyncio.timeout` path. It now explicitly verifies that the next live
+request succeeds on the same worker and that the lock remains usable. Two added
+real-runner regressions verify that shutdown reaps before queued work is rejected,
+and that profile refresh completes before queued live inference uses a new
+profile. These supplement the raw-lock precedence tests without changing the
+scheduling implementation. The focused recovery suite now passes 48 tests.
+
+A second independent review was requested with the original brief and all prior
+findings and responses. It terminated with a subscription-quota error before
+providing a verdict; independent approval of these follow-up tests is not claimed.
