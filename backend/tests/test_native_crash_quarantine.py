@@ -232,3 +232,52 @@ def test_native_windows_synthetic_fault_exit_is_retained_and_blocks_restart(tmp_
     assert policy.record(profile, child.returncode)
     with pytest.raises(NativeCrashQuarantinedError):
         NativeCrashQuarantine(lambda: profile, root=tmp_path).guard()
+
+
+def test_driver_identity_upgrade_preserves_legacy_quarantine_and_crash_file(tmp_path):
+    legacy = {"model_id": "bird", "provider": "intel_gpu", "runtime_signature": "old-runtime"}
+    NativeCrashQuarantine(lambda: legacy, root=tmp_path).record(legacy, -signal.SIGSEGV)
+    path = next(tmp_path.glob("*.json"))
+    evidence = path.read_bytes()
+    upgraded = legacy | {"runtime_signature": "bound-driver-runtime", "legacy_runtime_signature": "old-runtime"}
+
+    with pytest.raises(NativeCrashQuarantinedError):
+        NativeCrashQuarantine(lambda: upgraded, root=tmp_path).guard()
+    assert path.read_bytes() == evidence
+    assert len(list(tmp_path.glob("*.json"))) == 1
+    changed_model = upgraded | {"model_id": "other"}
+    assert NativeCrashQuarantine(lambda: changed_model, root=tmp_path).guard() == changed_model
+
+
+def test_legacy_runtime_alias_does_not_change_new_profile_quarantine_key(tmp_path):
+    profile = {"model_id": "bird", "provider": "intel_gpu", "runtime_signature": "bound-driver-runtime"}
+    aliased = profile | {"legacy_runtime_signature": "old-runtime"}
+    policy = NativeCrashQuarantine(lambda: aliased, root=tmp_path)
+    policy.record_retirement(aliased, "CL_OUT_OF_RESOURCES", "device failure")
+
+    with pytest.raises(NativeCrashQuarantinedError):
+        NativeCrashQuarantine(lambda: profile, root=tmp_path).guard()
+    assert NativeCrashQuarantine(lambda: profile | {"runtime_signature": "other-driver"}, root=tmp_path).guard()
+
+
+def test_classifier_launch_profile_keeps_pre_upgrade_crash_blocked(tmp_path, monkeypatch):
+    from app.config import settings
+    from app.services.classifier_service import ClassifierService
+
+    model = tmp_path / "bird.onnx"
+    model.write_bytes(b"fixture model identity only; never loaded")
+    service = ClassifierService.__new__(ClassifierService)
+    service._resolve_active_bird_model_spec = lambda: {
+        "model_id": "bird",
+        "model_path": str(model),
+        "runtime": "onnx",
+    }
+    monkeypatch.setattr(settings.classification, "inference_provider", "intel_gpu")
+    current = service._native_launch_profile()
+    legacy = dict(current)
+    legacy["runtime_signature"] = legacy.pop("legacy_runtime_signature")
+    evidence_root = tmp_path / "incidents"
+    NativeCrashQuarantine(lambda: legacy, root=evidence_root).record(legacy, -signal.SIGABRT)
+
+    with pytest.raises(NativeCrashQuarantinedError):
+        NativeCrashQuarantine(service._native_launch_profile, root=evidence_root).guard()

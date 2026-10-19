@@ -383,8 +383,31 @@ then start the service. The stop/start clears its in-memory block too. Follow yo
 deployment manager's lifecycle workflow. Never delete the config directory or
 detection database. If evidence cannot be persisted, the current process remains
 blocked and logs `native_crash_quarantine_persistence_failed`; fix config-volume
-permissions before relying on persistence across restarts. Driver-only changes
-not represented in the runtime signature also need explicit revalidation.
+permissions before relying on persistence across restarts.
+
+On Linux, current qualification records include the bound GPU or NPU driver,
+alongside the existing kernel, device and runtime context. Changing from `i915`
+to `xe` invalidates Intel GPU qualification even when optional module version
+files are absent. It does not invalidate current CPU or CUDA provider evidence.
+An unavailable driver binding stays unknown. Runtime identities are cached for
+the process lifetime; restart through your deployment manager after a host driver
+change, then revalidate the accelerator.
+
+The binding identity conservatively includes every visible device in the relevant
+GPU or NPU category, so another card's binding change can also expire Intel
+qualification. If sysfs device information is not exposed inside the container,
+the binding remains unknown; this check cannot detect a driver change it cannot
+observe. Revalidate explicitly after a host change in that case.
+
+Automatic startup revalidation checks native crash quarantine before starting a
+probe. A blocked profile is skipped, including blocks retained from older
+versions; that skip preserves crash evidence and consumes no automatic attempt.
+It does not implement the explicit owner revalidation/release workflow.
+
+Older crash records remain blocking after this identity upgrade. They did not
+record a binding, so a driver change alone cannot establish that an old fault is
+resolved. Preserve that evidence and follow the exact-profile investigation
+procedure above; there is no new quarantine-reset action.
 
 **Audio context note:** Backfill reprocesses **Frigate** events only. BirdNET-Go audio confirmations are not backfilled unless you have a separate historical audio source to import. After a database reset, audio context will only appear for new detections once BirdNET-Go is running again.
 

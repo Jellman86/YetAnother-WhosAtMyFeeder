@@ -147,6 +147,24 @@ def _is_video_diagnostic_event(event: dict[str, Any]) -> bool:
     return component in _VIDEO_DIAGNOSTIC_COMPONENTS or worker_pool == "video"
 
 
+def _video_failure_reason(event: dict[str, Any]) -> str | None:
+    if event.get("severity") not in {"warning", "error", "critical"}:
+        return None
+    context = event.get("context")
+    context = context if isinstance(context, dict) else {}
+    if context.get("snapshot_fallback_recovered") is True:
+        return None
+    reason = str(event.get("reason_code") or "").strip()
+    if reason.lower() == "video_circuit_opened":
+        cause = context.get("last_error")
+        if isinstance(cause, str):
+            return cause.strip() or None
+        return None
+    if reason.lower() in _VIDEO_BREAKER_REASON_CODES | {"native_cpu_recovery_degraded"}:
+        return None
+    return reason or None
+
+
 def _copy_event(event: dict[str, Any] | None) -> dict[str, Any] | None:
     return dict(event) if isinstance(event, dict) else None
 
@@ -159,34 +177,29 @@ def _build_video_classifier_focus(
     health_video = health.get("video_classifier") if isinstance(health, dict) else {}
     health_video = health_video if isinstance(health_video, dict) else {}
 
-    recent_events = [
+    video_events = [
         _copy_event(event) for event in events if isinstance(event, dict) and _is_video_diagnostic_event(event)
-    ][:8]
-    recent_events = [event for event in recent_events if event is not None]
+    ]
+    video_events = [event for event in video_events if event is not None]
+    recent_events = video_events[:8]
 
     latest_circuit_opened = next(
         (
             _copy_event(event)
-            for event in recent_events
+            for event in video_events
             if str(event.get("reason_code") or "").strip().lower() == "video_circuit_opened"
         ),
         None,
     )
     candidate_failure_events = [
         event
-        for event in recent_events
+        for event in video_events
         if str(event.get("reason_code") or "").strip().lower() not in _VIDEO_BREAKER_REASON_CODES
+        and _video_failure_reason(event) is not None
     ][:5]
-
-    likely_last_error = None
-    if latest_circuit_opened and isinstance(latest_circuit_opened.get("context"), dict):
-        last_error = latest_circuit_opened["context"].get("last_error")
-        if isinstance(last_error, str) and last_error.strip():
-            likely_last_error = last_error.strip()
-    if likely_last_error is None and candidate_failure_events:
-        candidate_reason = candidate_failure_events[0].get("reason_code")
-        if isinstance(candidate_reason, str) and candidate_reason.strip():
-            likely_last_error = candidate_reason.strip()
+    likely_last_error = next(
+        (reason for event in video_events if (reason := _video_failure_reason(event)) is not None), None
+    )
 
     return {
         "circuit_open": bool(health_video.get("circuit_open")),

@@ -4,6 +4,7 @@ import pytest
 
 from app.services import provider_revalidation as recovery
 from app.services import model_validation as validation
+from app.services.provider_revalidation import guard_revalidation_profile
 
 
 @pytest.fixture
@@ -26,6 +27,7 @@ def environment(tmp_path, monkeypatch):
     monkeypatch.setattr(recovery, "sweep_model_devices", probe)
     reload = AsyncMock()
     monkeypatch.setattr(recovery, "reload_active_classifier", reload)
+    monkeypatch.setattr(recovery, "guard_revalidation_profile", lambda *_args: None)
     return probe, reload
 
 
@@ -116,3 +118,103 @@ async def test_recovery_does_not_discard_other_current_provider_evidence(environ
     validation._write_json_atomic(validation._eval_root() / validation.ELIGIBILITY_FILENAME, data)
     await recovery.ProviderRevalidation().run()
     assert set(validation.host_eligible_providers("bird", artifact_sha256="abc")) == {"cpu", "intel_gpu", "intel_npu"}
+
+
+@pytest.mark.asyncio
+async def test_automatic_revalidation_never_probes_a_legacy_quarantined_profile(environment, tmp_path, monkeypatch):
+    import signal
+    from app.services.native_crash_quarantine import NativeCrashQuarantine
+
+    probe, reload = environment
+    legacy = {"model_id": "bird", "model_sha256": "abc", "provider": "intel_gpu", "runtime_signature": "old"}
+    profile = legacy | {"runtime_signature": "driver-aware", "legacy_runtime_signature": "old"}
+    policy = NativeCrashQuarantine(lambda: profile, root=tmp_path / "incidents")
+    policy.record(legacy, -signal.SIGSEGV)
+    evidence_path = next((tmp_path / "incidents").glob("*.json"))
+    evidence = evidence_path.read_bytes()
+    from types import SimpleNamespace
+    from app.services import classifier_service
+
+    classifier = SimpleNamespace(_native_launch_profile=lambda: profile, _native_crash_quarantine=policy)
+    monkeypatch.setattr(classifier_service, "get_classifier", lambda: classifier)
+    monkeypatch.setattr(recovery, "guard_revalidation_profile", guard_revalidation_profile)
+    runner = recovery.ProviderRevalidation()
+    await runner.run()
+    probe.assert_not_awaited()
+    reload.assert_not_awaited()
+    assert "quarantin" in runner.status()["reason"].lower()
+    assert evidence_path.read_bytes() == evidence
+    assert not (tmp_path / "provider_revalidation.json").exists()
+
+
+@pytest.mark.parametrize("change", [{"model_id": "other"}, {"model_sha256": "other"}, {"provider": "intel_npu"}])
+def test_revalidation_guard_rejects_a_different_active_profile(monkeypatch, change):
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+    from app.services import classifier_service
+
+    profile = {"model_id": "bird", "model_sha256": "abc", "provider": "intel_gpu"} | change
+    policy = Mock()
+    classifier = SimpleNamespace(_native_launch_profile=lambda: profile, _native_crash_quarantine=policy)
+    monkeypatch.setattr(classifier_service, "get_classifier", lambda: classifier)
+    with pytest.raises(recovery._RevalidationProfileChanged):
+        recovery.guard_revalidation_profile({"model_id": "bird", "artifact_sha256": "abc"}, "intel_gpu")
+    policy.guard.assert_not_called()
+
+
+def test_revalidation_guard_uses_real_legacy_quarantine_evidence(monkeypatch, tmp_path):
+    import signal
+    from types import SimpleNamespace
+    from app.services import classifier_service
+    from app.services.native_crash_quarantine import NativeCrashQuarantine, NativeCrashQuarantinedError
+
+    legacy = {"model_id": "bird", "model_sha256": "abc", "provider": "auto", "runtime_signature": "old"}
+    current = legacy | {"runtime_signature": "bound-driver", "legacy_runtime_signature": "old"}
+    policy = NativeCrashQuarantine(lambda: current, root=tmp_path)
+    policy.record(legacy, -signal.SIGSEGV)
+    classifier = SimpleNamespace(_native_launch_profile=lambda: current, _native_crash_quarantine=policy)
+    monkeypatch.setattr(classifier_service, "get_classifier", lambda: classifier)
+    with pytest.raises(NativeCrashQuarantinedError):
+        recovery.guard_revalidation_profile({"model_id": "bird", "artifact_sha256": "abc"}, "auto")
+
+
+@pytest.mark.asyncio
+async def test_profile_change_before_revalidation_does_not_probe_or_consume_attempt(environment, monkeypatch, tmp_path):
+    probe, reload = environment
+
+    def changed(*_args):
+        raise recovery._RevalidationProfileChanged()
+
+    monkeypatch.setattr(recovery, "guard_revalidation_profile", changed)
+    runner = recovery.ProviderRevalidation()
+    await runner.run()
+    assert runner.status()["state"] == "superseded"
+    probe.assert_not_awaited()
+    reload.assert_not_awaited()
+    assert not (tmp_path / "provider_revalidation.json").exists()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("requested", ["intel_gpu", "auto"])
+async def test_unblocked_matching_profile_can_still_be_automatically_revalidated(
+    environment, monkeypatch, tmp_path, requested
+):
+    from types import SimpleNamespace
+    from app.services import classifier_service
+    from app.services.native_crash_quarantine import NativeCrashQuarantine
+
+    probe, reload = environment
+    spec = {"model_id": "bird", "artifact_sha256": "abc"}
+    profile = {"model_id": "bird", "model_sha256": "abc", "provider": requested, "runtime_signature": "new"}
+    policy = NativeCrashQuarantine(lambda: profile, root=tmp_path / "incidents")
+    classifier = SimpleNamespace(_native_launch_profile=lambda: profile, _native_crash_quarantine=policy)
+    monkeypatch.setattr(classifier_service, "get_classifier", lambda: classifier)
+    monkeypatch.setattr(recovery, "active_configuration", lambda: (spec, requested))
+    monkeypatch.setattr(recovery, "guard_revalidation_profile", guard_revalidation_profile)
+    if requested == "auto":
+        monkeypatch.setattr(validation, "read_validation_record", lambda *_args: {"provider": "intel_gpu"})
+    runner = recovery.ProviderRevalidation()
+    await runner.run()
+    probe.assert_awaited_once()
+    reload.assert_awaited_once()
+    assert runner.status()["state"] == "succeeded"

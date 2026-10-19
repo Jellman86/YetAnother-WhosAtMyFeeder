@@ -78,6 +78,20 @@ def current_inference_runtime_signature() -> str:
     )
 
 
+def legacy_inference_runtime_signature() -> str:
+    """Match pre-binding crash records without reusing their validation evidence."""
+    return _legacy_runtime_signature_for(
+        get_image_flavor(), str(os.environ.get("YAWAMF_INFERENCE_RUNTIME_ID") or "").strip()
+    )
+
+
+@lru_cache(maxsize=16)
+def _legacy_runtime_signature_for(image_flavor: str, runtime_abi: str) -> str:
+    identity = _runtime_identity(image_flavor, runtime_abi)
+    identity.pop("device_drivers", None)
+    return _identity_digest(identity)
+
+
 def _write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
     """Replace an evidence document atomically so readers never see torn JSON."""
     temporary = path.with_name(f".{path.name}.{os.getpid()}.{threading.get_ident()}.tmp")
@@ -99,6 +113,24 @@ def _inference_runtime_signature_for(image_flavor: str, runtime_abi: str) -> str
 def _identity_digest(identity: dict[str, Any]) -> str:
     encoded = json.dumps(identity, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
+
+
+def _bound_device_drivers(sys_root: Path = Path("/sys")) -> dict[str, str | None]:
+    drivers: dict[str, str | None] = {}
+    for pattern, prefix in (("class/drm/card*/device", "card"), ("class/accel/accel*/device", "accel")):
+        try:
+            devices = sorted(sys_root.glob(pattern))
+        except OSError:
+            continue
+        for device in devices:
+            if not device.parent.name.removeprefix(prefix).isdigit():
+                continue
+            try:
+                driver = (device / "driver").resolve(strict=True).name
+            except (OSError, RuntimeError):
+                driver = None
+            drivers[str(device.relative_to(sys_root))] = driver
+    return drivers
 
 
 def _runtime_identity(image_flavor: str, runtime_abi: str) -> dict[str, Any]:
@@ -140,6 +172,7 @@ def _runtime_identity(image_flavor: str, runtime_abi: str) -> dict[str, Any]:
         "kernel": platform.release(),
         "packages": packages,
         "hardware": hardware,
+        "device_drivers": _bound_device_drivers(),
     }
     return identity
 
@@ -166,6 +199,13 @@ def _provider_runtime_signature_for(image_flavor: str, runtime_abi: str, provide
         for key, value in identity["hardware"].items()
         if ("nvidia" in key if provider == "cuda" else "nvidia" not in key)
     }
+    if provider not in {"intel_gpu", "intel_npu"}:
+        identity.pop("device_drivers", None)
+    else:
+        category = "class/drm/" if provider == "intel_gpu" else "class/accel/"
+        identity["device_drivers"] = {
+            key: value for key, value in identity["device_drivers"].items() if key.startswith(category)
+        }
     identity["provider"] = provider
     return _identity_digest(identity)
 

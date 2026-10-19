@@ -98,14 +98,21 @@ class NativeCrashQuarantine:
 
     @staticmethod
     def _key(profile: dict[str, Any]) -> str:
-        return hashlib.sha256(json.dumps(profile, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        identity = {key: value for key, value in profile.items() if key != "legacy_runtime_signature"}
+        return hashlib.sha256(json.dumps(identity, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
     def guard(self, profile: dict[str, Any] | None = None) -> dict[str, Any]:
         profile = json.loads(json.dumps(self._profile_getter() if profile is None else profile))
         key = self._key(profile)
+        keys = {key}
+        legacy_signature = profile.get("legacy_runtime_signature")
+        if legacy_signature:
+            # Adding driver identity must invalidate positive qualification,
+            # never silently release negative evidence from older versions.
+            keys.add(self._key(profile | {"runtime_signature": legacy_signature}))
         with self._lock:
             try:
-                blocked = key in self._blocked or (self._root / f"{key}.json").is_file()
+                blocked = any(key in self._blocked or (self._root / f"{key}.json").is_file() for key in keys)
             except OSError:
                 blocked = True
             if blocked:
