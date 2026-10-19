@@ -104,4 +104,8 @@ quarantine.
   inference, not throughput or hardware qualification.
 - Repository-wide Ruff lint/format, documentation consistency and whitespace checks
   pass. No frontend or API contract is changed by this branch.
-- Combined validation with #758 is recorded after the temporary integration check.
+- Temporary integration with #758 merged cleanly. The combined model-validation,
+  quarantine, CPU recovery, GPU retirement, diagnostics, supervisor, worker-client
+  and worker-liveness suites passed: **227 passed, 1 skipped**, 17.57 seconds.
+  The temporary merge was aborted after verification; both PRs remain independent
+  changes into `dev`. No combined commit or deployment was created.
