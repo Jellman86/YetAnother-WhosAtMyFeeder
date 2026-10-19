@@ -37,6 +37,7 @@ def _service_with_cache(tmp_path, monkeypatch, *, snapshots: int = 0, clips: int
     monkeypatch.setattr(media_cache_module, "SNAPSHOTS_DIR", snapshots_dir)
     monkeypatch.setattr(media_cache_module, "CLIPS_DIR", clips_dir)
     monkeypatch.setattr(media_cache_module, "PREVIEWS_DIR", previews_dir)
+    monkeypatch.setattr(media_cache_module, "FILMS_DIR", cache_base / "films")
     return media_cache_module.MediaCacheService()
 
 
@@ -200,6 +201,22 @@ async def test_the_cache_stats_route_walks_off_the_loop(owner_client, monkeypatc
     assert response.status_code == 200, response.text
     assert response.json()["snapshot_count"] == 1
     assert walk_threads and walk_threads[0] != loop_thread, "the route walked the cache on the event loop"
+
+
+def test_visit_films_count_towards_the_space_used(tmp_path, monkeypatch):
+    service = _service_with_cache(tmp_path, monkeypatch, snapshots=1, clips=1)
+    films_dir = media_cache_module.FILMS_DIR
+    films_dir.mkdir(parents=True, exist_ok=True)
+    (films_dir / "evt_0__abc.webm").write_bytes(b"f" * 1000)
+    (films_dir / "evt_1.webm").write_bytes(b"f" * 500)
+
+    stats = service._get_cache_stats_sync()
+
+    # Films live under the same media cache the Settings figure describes;
+    # omitting them understates the space the owner is being asked about.
+    assert stats["film_count"] == 2
+    assert stats["film_size_bytes"] == 1500
+    assert stats["total_size_bytes"] == 10 + 100 + 1500
 
 
 def test_the_sidecars_beside_each_photograph_and_clip_count_towards_the_size(tmp_path, monkeypatch):

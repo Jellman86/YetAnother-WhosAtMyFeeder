@@ -31,6 +31,8 @@
         cacheHighQualityEventSnapshots = $bindable(false),
         cacheHighQualityEventSnapshotJpegQuality = $bindable(95),
         cacheStats,
+        cacheStatsError = false,
+        onRetryCacheStats,
         classifierStatus,
         cleaningCache,
         taxonomyStatus,
@@ -91,6 +93,8 @@
         cacheHighQualityEventSnapshots: boolean;
         cacheHighQualityEventSnapshotJpegQuality: number;
         cacheStats: CacheStats | null;
+        cacheStatsError?: boolean;
+        onRetryCacheStats?: () => void;
         classifierStatus: ClassifierStatus | null;
         cleaningCache: boolean;
         taxonomyStatus: TaxonomySyncStatus | null;
@@ -379,9 +383,22 @@
                 />
             </SettingsRow>
 
-            <div class="p-4 rounded-xl bg-surface-raised/70 flex items-center justify-between">
+            <div class="p-4 rounded-xl bg-surface-raised/70 flex items-center justify-between gap-3">
                 <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">{$_('settings.data.cache_size')}</span>
-                <span class="text-sm font-bold text-slate-900 dark:text-white">{cacheStats?.total_size_mb ?? 0} MB</span>
+                {#if cacheStats}
+                    <span class="text-sm font-bold text-slate-900 dark:text-white" data-cache-size>{cacheStats.total_size_mb} MB</span>
+                {:else if cacheStatsError}
+                    <span class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300" data-cache-size-unavailable>
+                        {$_('settings.data.cache_size_unavailable', { default: "Couldn't load" })}
+                        {#if onRetryCacheStats}
+                            <button type="button" class="font-bold text-teal-700 dark:text-teal-300 hover:underline" onclick={onRetryCacheStats} data-cache-size-retry>
+                                {$_('settings.data.cache_size_retry', { default: 'Retry' })}
+                            </button>
+                        {/if}
+                    </span>
+                {:else}
+                    <span class="text-sm font-bold text-slate-900 dark:text-white" data-cache-size>…</span>
+                {/if}
             </div>
 
             <!-- The archive is not the cache: clearing the cache leaves it alone (#178). -->

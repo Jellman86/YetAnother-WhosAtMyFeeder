@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Settings' "Space used" figure no longer reads 0 MB when the measurement
+  could not load: the request now allows the time a large library on slow
+  storage legitimately takes to measure, and a failed load says so with a
+  retry instead of showing zero. Visit films now count toward the figure.
+
 - Hardening from review of the changes above: a retiring GPU worker's record
   can no longer be overtaken by the watchdog or release any request into CPU
   recovery before the old worker is reaped (recovery now waits on a shared

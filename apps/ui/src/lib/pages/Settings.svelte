@@ -1991,6 +1991,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let cacheBirdScanMode = $state<'standard' | 'intensive'>('intensive');
     let cachePerSpeciesMinimum = $state(0);
     let cacheStats = $state<CacheStats | null>(null);
+    let cacheStatsError = $state(false);
     let cleaningCache = $state(false);
 
     // Backfill state
@@ -2507,7 +2508,11 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     async function loadCacheStats() {
         try {
             cacheStats = await fetchCacheStats();
+            cacheStatsError = false;
         } catch (e) {
+            // Keep any earlier figure rather than replacing it with nothing;
+            // DataSettings shows an honest unavailable state, never 0 MB.
+            cacheStatsError = true;
             console.error('Failed to load cache stats', e);
         }
     }
@@ -3887,6 +3892,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     {backfillCustomValid}
                     {maintenanceStats}
                     {cacheStats}
+                    {cacheStatsError}
+                    onRetryCacheStats={loadCacheStats}
                     {classifierStatus}
                     {cleaningUp}
                     {clearingFavorites}

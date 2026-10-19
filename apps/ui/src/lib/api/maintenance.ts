@@ -79,7 +79,11 @@ export async function clearClassificationFeedback(): Promise<ClearFeedbackResult
 }
 
 export async function fetchCacheStats(): Promise<CacheStats> {
-    const response = await apiFetch(`${API_BASE}/cache/stats`, { timeoutMs: 10_000 });
+    // The backend stats every kept file; on a slow FUSE/network mount with
+    // tens of thousands of files that walk legitimately takes far longer
+    // than an ordinary request. Giving up at 10s left Settings showing the
+    // null fallback as "0 MB" while the disk was nearly full (#755).
+    const response = await apiFetch(`${API_BASE}/cache/stats`, { timeoutMs: 120_000 });
     return handleResponse<CacheStats>(response);
 }
 
