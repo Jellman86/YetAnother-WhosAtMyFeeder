@@ -898,12 +898,13 @@ class ClassifierSupervisor:
             if self._crash_quarantine is not None and self._crash_quarantine.remember_retirement(profile):
                 await asyncio.to_thread(self._crash_quarantine.record_retirement, profile, error_code, detail)
         except BaseException:
-            # Hand the worker back to the watchdog path, which registers
-            # cleanup again when it reaps.
+            # Release only the replacement claim. Cleanup ownership stays
+            # registered until reap actually succeeds: dropping it here
+            # (for example when shutdown cancels this consumer) would let
+            # wait_for_cleanup() report an unreaped child as cleaned up.
+            # The watchdog or shutdown close path reaps it from the same
+            # registry entry.
             self._replacing.discard(slot.worker_name)
-            self._cleanup_pending.pop(slot.worker_name, None)
-            if not self._cleanup_pending:
-                self._cleanup_idle.set()
             raise
 
         retirement_error = NativeCrashQuarantinedError(
