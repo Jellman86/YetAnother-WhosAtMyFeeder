@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Cancelled image requests now leave the admission queue before they can consume
+  a later worker slot. Work already admitted retains its slot until completion
+  or the existing lease cleanup, including cancellation during handoff. Queue
+  limits, live priority and backfill retry budgets are unchanged.
+
 - Video diagnostics no longer mistake routine photo updates, cached-clip reuse,
   successful CPU recovery or recovered snapshot fallbacks for failed inference.
   Real failures remain discoverable when progress fills recent activity; older

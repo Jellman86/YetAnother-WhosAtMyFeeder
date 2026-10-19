@@ -542,3 +542,62 @@ async def test_freshly_rejected_nonbird_never_caches_backfill_media(monkeypatch)
     assert (status, reason) == ("skipped", "non_bird")
     cache.assert_not_awaited()
     fresh.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_backfill_reports_bounded_overload_while_healthy_background_work_holds_capacity(monkeypatch):
+    from app.services import backfill_service as backfill_module
+    from app.services.classification_admission import (
+        ClassificationAdmissionCoordinator,
+        ClassificationAdmissionTimeoutError,
+    )
+
+    coordinator = ClassificationAdmissionCoordinator(
+        live_capacity=1,
+        background_capacity=1,
+        live_lease_timeout_seconds=5,
+        background_lease_timeout_seconds=5,
+    )
+    service = BackfillService(MagicMock())
+    started, release = asyncio.Event(), asyncio.Event()
+    attempts = []
+
+    async def healthy_runner():
+        started.set()
+        await release.wait()
+        return "healthy"
+
+    async def historical_runner():
+        return "classified"
+
+    async def process(_event):
+        attempts.append("attempt")
+        try:
+            await coordinator.submit(
+                priority="background", kind="backfill", runner=historical_runner, queue_timeout_seconds=0.01
+            )
+            return "new", None
+        except ClassificationAdmissionTimeoutError:
+            return "error", "background_image_overloaded"
+
+    monkeypatch.setattr(service, "process_historical_event", process)
+    monkeypatch.setattr(backfill_module, "BACKFILL_TRANSIENT_RETRY_BACKOFF_SECONDS", 0)
+    monkeypatch.setattr(backfill_module, "BACKFILL_TRANSIENT_RETRY_MIN_REMAINING_SECONDS", 0.01)
+    active = asyncio.create_task(coordinator.submit(priority="background", kind="refinement", runner=healthy_runner))
+    try:
+        await asyncio.wait_for(started.wait(), timeout=1)
+        assert await service.process_historical_event_with_timeout({"id": "fixture"}, timeout_seconds=1) == (
+            "error",
+            "background_image_overloaded",
+        )
+        assert attempts == ["attempt", "attempt"]
+        assert coordinator.get_metrics()["background"]["queued"] == 0
+        assert coordinator.get_metrics()["background"]["running"] == 1
+        assert coordinator.get_metrics()["background"]["rejected"] == 2
+        release.set()
+        assert await active == "healthy"
+        assert await coordinator.submit(priority="background", kind="next", runner=historical_runner) == "classified"
+    finally:
+        release.set()
+        await asyncio.gather(active, return_exceptions=True)
+        await coordinator.shutdown()

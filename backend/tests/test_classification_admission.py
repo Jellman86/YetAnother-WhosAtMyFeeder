@@ -1,4 +1,5 @@
 import asyncio
+import gc
 
 import pytest
 
@@ -351,3 +352,218 @@ async def test_an_abandoned_runner_is_cancelled_not_left_holding_its_work():
     await asyncio.wait_for(cancelled.wait(), timeout=1.0)
 
     await coordinator.shutdown()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("priority", ["live", "background"])
+@pytest.mark.parametrize("cancellation", ["explicit", "outer_timeout"])
+async def test_cancelled_queued_submission_is_removed_without_running(priority, cancellation):
+    coordinator = ClassificationAdmissionCoordinator(
+        live_capacity=1,
+        background_capacity=1,
+        live_lease_timeout_seconds=5,
+        background_lease_timeout_seconds=5,
+    )
+    active_started = asyncio.Event()
+    release_active = asyncio.Event()
+    cancelled_runner_started = asyncio.Event()
+
+    async def active_runner():
+        active_started.set()
+        await release_active.wait()
+        return "active"
+
+    async def cancelled_runner():
+        cancelled_runner_started.set()
+        return "unwanted"
+
+    async def queued_submission():
+        if cancellation == "outer_timeout":
+            async with asyncio.timeout(0.02):
+                return await coordinator.submit(
+                    priority=priority,
+                    kind="cancelled",
+                    runner=cancelled_runner,
+                    queue_timeout_seconds=2,
+                )
+        return await coordinator.submit(
+            priority=priority,
+            kind="cancelled",
+            runner=cancelled_runner,
+            queue_timeout_seconds=2,
+        )
+
+    active = asyncio.create_task(coordinator.submit(priority=priority, kind="active", runner=active_runner))
+    queued = None
+    try:
+        await asyncio.wait_for(active_started.wait(), timeout=1)
+        queued = asyncio.create_task(queued_submission())
+        async with asyncio.timeout(1):
+            while coordinator.get_metrics()[priority]["queued"] != 1:
+                await asyncio.sleep(0)
+        if cancellation == "explicit":
+            queued.cancel()
+        with pytest.raises(asyncio.CancelledError if cancellation == "explicit" else TimeoutError):
+            await queued
+        metrics = coordinator.get_metrics()
+        assert metrics[priority]["queued"] == 0
+        assert metrics[priority]["running"] == 1
+        assert metrics[priority]["rejected"] == 1
+        assert metrics["recent_outcomes"][-1]["reason"] == "caller_cancelled"
+        release_active.set()
+        assert await active == "active"
+        await asyncio.sleep(0)
+        assert not cancelled_runner_started.is_set()
+        assert coordinator.get_metrics()[priority]["running"] == 0
+    finally:
+        release_active.set()
+        if queued is not None:
+            queued.cancel()
+        await asyncio.gather(active, *([queued] if queued else []), return_exceptions=True)
+        await coordinator.shutdown()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("priority", ["live", "background"])
+async def test_cancelling_admitted_caller_keeps_capacity_until_runner_finishes(priority):
+    coordinator = ClassificationAdmissionCoordinator(
+        live_capacity=1,
+        background_capacity=1,
+        live_lease_timeout_seconds=5,
+        background_lease_timeout_seconds=5,
+    )
+    started = asyncio.Event()
+    release = asyncio.Event()
+    finished = asyncio.Event()
+
+    async def runner():
+        started.set()
+        await release.wait()
+        finished.set()
+        return "done"
+
+    task = asyncio.create_task(coordinator.submit(priority=priority, kind="active", runner=runner))
+    try:
+        await asyncio.wait_for(started.wait(), timeout=1)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        assert coordinator.get_metrics()[priority]["running"] == 1
+        assert not finished.is_set()
+        release.set()
+        await asyncio.wait_for(finished.wait(), timeout=1)
+        await asyncio.sleep(0)
+        assert coordinator.get_metrics()[priority]["running"] == 0
+        assert coordinator.get_metrics()[priority]["completed"] == 1
+        assert coordinator.get_metrics()[priority]["rejected"] == 0
+    finally:
+        release.set()
+        await asyncio.gather(task, return_exceptions=True)
+        await coordinator.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_cancellation_during_admission_handoff_preserves_granted_work():
+    coordinator = ClassificationAdmissionCoordinator(
+        live_capacity=1,
+        background_capacity=1,
+        live_lease_timeout_seconds=5,
+        background_lease_timeout_seconds=5,
+    )
+    first_started, release_first = asyncio.Event(), asyncio.Event()
+    next_started, release_next = asyncio.Event(), asyncio.Event()
+    next_task = None
+
+    async def first_runner():
+        first_started.set()
+        await release_first.wait()
+        asyncio.get_running_loop().call_soon(next_task.cancel)
+        return "first"
+
+    async def next_runner():
+        next_started.set()
+        await release_next.wait()
+        return "next"
+
+    first_task = asyncio.create_task(coordinator.submit(priority="background", kind="first", runner=first_runner))
+    try:
+        await asyncio.wait_for(first_started.wait(), timeout=1)
+        next_task = asyncio.create_task(
+            coordinator.submit(
+                priority="background",
+                kind="next",
+                runner=next_runner,
+                queue_timeout_seconds=2,
+            )
+        )
+        async with asyncio.timeout(1):
+            while coordinator.get_metrics()["background"]["queued"] != 1:
+                await asyncio.sleep(0)
+        release_first.set()
+        assert await first_task == "first"
+        with pytest.raises(asyncio.CancelledError):
+            await next_task
+        await asyncio.wait_for(next_started.wait(), timeout=1)
+        assert coordinator.get_metrics()["background"]["running"] == 1
+        assert coordinator.get_metrics()["background"]["rejected"] == 0
+        release_next.set()
+        async with asyncio.timeout(1):
+            while coordinator.get_metrics()["background"]["running"]:
+                await asyncio.sleep(0)
+        assert coordinator.get_metrics()["background"]["completed"] == 2
+    finally:
+        release_first.set()
+        release_next.set()
+        await asyncio.gather(first_task, *([next_task] if next_task else []), return_exceptions=True)
+        await coordinator.shutdown()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", ["runner_exception", "lease_expiry"])
+async def test_cancelled_admitted_caller_does_not_leave_unclaimed_failures_or_capacity(failure):
+    loop = asyncio.get_running_loop()
+    errors = []
+    previous_handler = loop.get_exception_handler()
+    loop.set_exception_handler(lambda _loop, context: errors.append(context))
+    coordinator = ClassificationAdmissionCoordinator(
+        live_capacity=1,
+        background_capacity=1,
+        live_lease_timeout_seconds=5,
+        background_lease_timeout_seconds=0.03 if failure == "lease_expiry" else 5,
+    )
+    started, release, finished = asyncio.Event(), asyncio.Event(), asyncio.Event()
+
+    async def failing_runner():
+        started.set()
+        try:
+            await release.wait()
+            raise RuntimeError("fixture runner failure")
+        finally:
+            finished.set()
+
+    async def next_runner():
+        return "next"
+
+    task = asyncio.create_task(coordinator.submit(priority="background", kind="failing", runner=failing_runner))
+    try:
+        await asyncio.wait_for(started.wait(), timeout=1)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        assert coordinator.get_metrics()["background"]["running"] == 1
+        if failure == "runner_exception":
+            release.set()
+        await asyncio.wait_for(finished.wait(), timeout=1)
+        async with asyncio.timeout(1):
+            while coordinator.get_metrics()["background"]["running"]:
+                await asyncio.sleep(0)
+        assert coordinator.get_metrics()["background"]["failed" if failure == "runner_exception" else "abandoned"] == 1
+        assert await coordinator.submit(priority="background", kind="next", runner=next_runner) == "next"
+        del task
+        gc.collect()
+        await asyncio.sleep(0)
+        assert errors == []
+    finally:
+        release.set()
+        await coordinator.shutdown()
+        loop.set_exception_handler(previous_handler)
