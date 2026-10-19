@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Leaderboard queries now use the existing taxonomy indexes instead of scanning
+  the taxonomy cache for every capture. This reduces database connection holds
+  on large histories without changing species identity or visit counts (#762).
+
 - Retrying the storage-size measurement immediately replaces the previous error
   with “Measuring…”. An earlier figure stays visible, failed refreshes offer
   Retry, and overlapping measurements are prevented (#755).
