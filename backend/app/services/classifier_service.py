@@ -3222,7 +3222,10 @@ class ClassifierService:
         }
 
     def _native_launch_profile(self) -> dict[str, Any]:
-        from app.services.model_validation import current_inference_runtime_signature
+        from app.services.model_validation import (
+            current_inference_runtime_signature,
+            legacy_inference_runtime_signature,
+        )
 
         spec = self._resolve_active_bird_model_spec()
         model_path = str(spec.get("model_path") or "")
@@ -3237,6 +3240,7 @@ class ClassifierService:
             "labels_sha256": artifact_digest(str(spec.get("labels_path") or "")),
             "provider": _normalize_inference_provider(settings.classification.inference_provider),
             "runtime_signature": current_inference_runtime_signature(),
+            "legacy_runtime_signature": legacy_inference_runtime_signature(),
             "model_runtime": spec.get("runtime"),
             "input_size": spec.get("input_size"),
             "preprocessing": spec.get("preprocessing"),

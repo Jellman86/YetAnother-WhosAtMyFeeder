@@ -1043,7 +1043,11 @@ The callback exception grants no owner role and does not expand cookie authentic
 - `GET /api/debug/fs/models`
 - `GET /api/debug/system`
 - `GET /api/diagnostics/errors`
-- `GET /api/diagnostics/workspace`
+- `GET /api/diagnostics/workspace` — focused video failure candidates include
+  warning, error and critical events, excluding circuit summaries and successful
+  CPU recovery. Routine photo updates and cache reuse remain in recent activity.
+  Failure candidates are selected from the bounded diagnostic snapshot before
+  recent activity is limited to eight events; an older failure can remain visible.
 - `GET /api/diagnostics/bundle` — the whole owner diagnostics bundle as one exportable JSON
   payload; this is what **Settings → Health → Diagnostics export** downloads. `limit` is `1`–`1000`
   (default `200`). Each request gathers fresh server health, classifier, queues and

@@ -159,23 +159,26 @@ def _build_video_classifier_focus(
     health_video = health.get("video_classifier") if isinstance(health, dict) else {}
     health_video = health_video if isinstance(health_video, dict) else {}
 
-    recent_events = [
+    video_events = [
         _copy_event(event) for event in events if isinstance(event, dict) and _is_video_diagnostic_event(event)
-    ][:8]
-    recent_events = [event for event in recent_events if event is not None]
+    ]
+    video_events = [event for event in video_events if event is not None]
+    recent_events = video_events[:8]
 
     latest_circuit_opened = next(
         (
             _copy_event(event)
-            for event in recent_events
+            for event in video_events
             if str(event.get("reason_code") or "").strip().lower() == "video_circuit_opened"
         ),
         None,
     )
     candidate_failure_events = [
         event
-        for event in recent_events
-        if str(event.get("reason_code") or "").strip().lower() not in _VIDEO_BREAKER_REASON_CODES
+        for event in video_events
+        if event.get("severity") in {"warning", "error", "critical"}
+        and str(event.get("reason_code") or "").strip().lower()
+        not in _VIDEO_BREAKER_REASON_CODES | {"native_cpu_recovery_degraded"}
     ][:5]
 
     likely_last_error = None

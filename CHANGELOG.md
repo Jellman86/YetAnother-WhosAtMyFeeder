@@ -6,6 +6,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Video diagnostics no longer mistake routine photo updates, cached-clip reuse or
+  successful CPU recovery for failed inference. Real failures remain discoverable
+  when newer progress messages fill the recent-activity list.
+- Linux accelerator qualification now includes the driver bound to the GPU or
+  NPU, so switching GPU drivers cannot reuse old Intel GPU evidence when module
+  version files are absent. Existing CPU/CUDA provider evidence and older native
+  crash blocks are preserved; this does not add a quarantine reset (#722).
+
 - Settings' "Space used" figure no longer reads 0 MB when the measurement
   could not load: the request now allows the time a large library on slow
   storage legitimately takes to measure, and a failed load says so with a

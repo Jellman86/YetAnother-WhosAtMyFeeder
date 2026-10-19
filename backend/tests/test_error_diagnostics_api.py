@@ -362,3 +362,69 @@ async def test_owner_can_clear_diagnostics_history(client: httpx.AsyncClient):
     snapshot = error_diagnostics_history.snapshot(limit=20)
     assert snapshot["total_events"] == 0
     assert snapshot["returned_events"] == 0
+
+
+def test_successful_video_photo_and_cache_events_are_not_reported_as_failures():
+    from app.routers.diagnostics import _build_video_classifier_focus
+
+    events = [
+        {"component": "auto_video_classifier", "severity": "info", "reason_code": reason}
+        for reason in ("video_photo_update", "precheck_cache_bypass", "video_result_not_promotable")
+    ]
+    focus = _build_video_classifier_focus({"events": events}, {})
+
+    assert focus["likely_last_error"] is None
+    assert focus["candidate_failure_events"] == []
+    assert focus["recent_events"] == events
+
+
+def test_video_failure_evidence_is_not_hidden_by_eight_newer_progress_events():
+    from app.routers.diagnostics import _build_video_classifier_focus
+
+    progress = {"component": "auto_video_classifier", "severity": "info", "reason_code": "video_photo_update"}
+    failure = {"component": "auto_video_classifier", "severity": "error", "reason_code": "video_timeout"}
+    focus = _build_video_classifier_focus({"events": [dict(progress) for _ in range(9)] + [failure]}, {})
+
+    assert focus["likely_last_error"] == "video_timeout"
+    assert focus["candidate_failure_events"] == [failure]
+    assert len(focus["recent_events"]) == 8
+
+
+@pytest.mark.parametrize("severity", ["warning", "error", "critical"])
+def test_video_failure_focus_keeps_actionable_severities(severity):
+    from app.routers.diagnostics import _build_video_classifier_focus
+
+    failure = {"worker_pool": "video", "severity": severity, "reason_code": "video_timeout"}
+    focus = _build_video_classifier_focus({"events": [failure]}, {})
+
+    assert focus["likely_last_error"] == "video_timeout"
+    assert focus["candidate_failure_events"] == [failure]
+
+
+def test_successful_cpu_video_recovery_is_degraded_status_not_a_failed_inference():
+    from app.routers.diagnostics import _build_video_classifier_focus
+
+    recovery = {"worker_pool": "video", "severity": "warning", "reason_code": "native_cpu_recovery_degraded"}
+    focus = _build_video_classifier_focus({"events": [recovery]}, {})
+
+    assert focus["likely_last_error"] is None
+    assert focus["candidate_failure_events"] == []
+    assert focus["recent_events"] == [recovery]
+
+
+def test_video_circuit_cause_remains_available_beyond_the_recent_activity_cap():
+    from app.routers.diagnostics import _build_video_classifier_focus
+
+    progress = {"worker_pool": "video", "severity": "info", "reason_code": "video_photo_update"}
+    circuit = {
+        "worker_pool": "video",
+        "severity": "error",
+        "reason_code": "video_circuit_opened",
+        "context": {"last_error": "video_worker_timed_out"},
+    }
+    focus = _build_video_classifier_focus({"events": [dict(progress) for _ in range(9)] + [circuit]}, {})
+
+    assert focus["likely_last_error"] == "video_worker_timed_out"
+    assert focus["latest_circuit_opened"] == circuit
+    assert focus["candidate_failure_events"] == []
+    assert len(focus["recent_events"]) == 8
