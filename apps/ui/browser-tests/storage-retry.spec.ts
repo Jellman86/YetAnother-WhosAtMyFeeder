@@ -3,19 +3,20 @@ import { test, expect } from '@playwright/test';
 for (const outcome of ['success', 'failure'] as const) {
     test(`storage retry shows progress immediately and handles ${outcome}`, async ({ page }) => {
         let reads = 0;
-        let completeRetry: (() => void) | undefined;
-        const waiting = new Promise<void>(resolve => { completeRetry = resolve; });
+        let completed = false;
         await page.route('https://fonts.googleapis.com/**', route => route.fulfill({ body: '' }));
         await page.route('https://fonts.gstatic.com/**', route => route.abort());
         await page.route(url => url.pathname.startsWith('/api/'), async route => {
             const path = new URL(route.request().url()).pathname;
-            if (path === '/api/cache/stats') {
-                reads++;
-                if (reads === 1) return route.fulfill({ status: 504, body: 'Gateway timeout' });
-                await waiting;
-                return outcome === 'success'
-                    ? route.fulfill({ json: { total_size_mb: 184320, storage_available: true } })
-                    : route.fulfill({ status: 503, body: 'Still unavailable' });
+            if (path === '/api/cache/measurement') {
+                if (!new URL(route.request().url()).searchParams.has('measurement_id')) {
+                    reads++;
+                    if (reads === 1) return route.fulfill({ status: 504, body: 'Gateway timeout' });
+                }
+                return route.fulfill({ json: {
+                    id: 'retry', status: completed ? (outcome === 'success' ? 'completed' : 'failed') : 'running',
+                    stats: completed && outcome === 'success' ? { total_size_mb: 184320, storage_available: true } : null
+                } });
             }
             if (path === '/api/settings') return route.fulfill({ json: { frigate_url: 'http://frigate:5000', mqtt_server: 'mqtt', mqtt_port: 1883, mqtt_auth: false, classification_threshold: 0.7 } });
             if (path.endsWith('/audio/sources')) return route.fulfill({ json: [] });
@@ -30,7 +31,7 @@ for (const outcome of ['success', 'failure'] as const) {
         await expect(page.locator('[data-cache-size-unavailable]')).toHaveCount(0);
         await expect(page.locator('[data-cache-size-loading]')).toHaveText('Measuring…');
         await expect(page.locator('[data-cache-size-retry]')).toHaveCount(0);
-        completeRetry?.();
+        completed = true;
         if (outcome === 'success') {
             await expect(page.locator('[data-cache-size]')).toHaveText('184320 MB');
         } else {

@@ -870,6 +870,15 @@ return 422. It does not reclassify saved detections or wait indefinitely for an 
 - `POST /api/maintenance/analyze-unknowns` (owner)
 - `GET /api/maintenance/analysis/status` (owner)
 - `DELETE /api/maintenance/feedback/clear` (owner)
+- `GET /api/cache/measurement` (owner, `no-store`). Without `measurement_id`,
+  starts a read-only storage measurement or joins the one already running.
+  Returns `id`, `status` (`running`, `completed`, `failed`), `started_at`,
+  `completed_at`, `stats` (the cache-stats shape only on success), and `error`.
+  Poll with the returned `measurement_id`; polling never starts a new scan.
+  Up to 16 process-local results are retained. A missing/expired id or restart
+  returns `404`; start a new measurement to recover. The UI bounds each request
+  to ten seconds and the polling session to ten minutes, retaining the pending
+  id for Retry. Slow filesystem I/O continues independently of the request.
 - `GET /api/cache/stats` (owner). Includes `storage_available` (false when the media folder cannot
   be written, so nothing is being kept), `archive_count`, `archive_size_bytes` and the favourite
   counts by archive state. `cache_enabled` and `cache_snapshots` were removed with their settings.

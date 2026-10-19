@@ -2877,6 +2877,68 @@
         "title": "CacheCleanupResponse",
         "type": "object"
       },
+      "CacheStatsMeasurementResponse": {
+        "properties": {
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "stats": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CacheStatsResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "enum": [
+              "running",
+              "completed",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "started_at"
+        ],
+        "title": "CacheStatsMeasurementResponse",
+        "type": "object"
+      },
       "CacheStatsResponse": {
         "properties": {
           "archive_count": {
@@ -20795,9 +20857,68 @@
         "summary": "Run Cache Cleanup"
       }
     },
+    "/api/cache/measurement": {
+      "get": {
+        "description": "Start or poll a shared storage measurement without waiting for the walk.",
+        "operationId": "get_cache_measurement_api_cache_measurement_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "measurement_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 36,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Measurement Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CacheStatsMeasurementResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Cache Measurement"
+      }
+    },
     "/api/cache/stats": {
       "get": {
-        "description": "Get media cache statistics. Owner only.",
+        "description": "Get media cache statistics. Owner only; waits for the filesystem walk.",
         "operationId": "get_cache_stats_api_cache_stats_get",
         "responses": {
           "200": {
