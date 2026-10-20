@@ -306,6 +306,23 @@ On Unraid, use the image-tag and NVIDIA Driver plugin workflow in the dedicated
 `YAWAMF_MONALITHIC_TAG` into a container environment variable; edit the Unraid
 Repository tag instead.
 
+### Optional RF-DETR bird finder
+
+RF-DETR Nano is a CUDA candidate in the `full` and `cuda` images. Under
+**Models → Cropped thumbnails → Bird finder**, install and select RF-DETR Nano,
+then run **Settings → Detection → Device compatibility** with it installed.
+The crop detector needs its own passing CPU/CUDA box comparison; selecting CUDA
+for the species classifier does not validate the bird finder.
+
+Before a passing result, the bird finder uses CPU. Failed checks and stale
+artifact, image or CUDA runtime/driver evidence cannot select CUDA. Existing
+downloads can keep their model sidecar; the running application's registry
+supplies the reviewed candidate list. YOLOX-Tiny remains the default bird finder.
+
+The reference RTX 4070 container passed real CUDA execution and CPU consistency
+checks. This does not qualify every NVIDIA host, sustained workload or two-bird
+counting accuracy. See the [validation evidence and limits](../reviews/2026-10-20-rfdetr-cuda-validation.md).
+
 ## Next steps
 
 - Confirm the active backend and per-device diagnostics under

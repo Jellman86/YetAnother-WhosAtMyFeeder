@@ -151,6 +151,7 @@ REMOTE_REGISTRY = [
         "inference_speed": "Slow",
         "runtime": "onnx",
         "supported_inference_providers": ["cpu", "intel_cpu", "intel_gpu", "intel_npu"],
+        "candidate_inference_providers": ["cpu", "intel_cpu", "cuda", "intel_gpu", "intel_npu"],
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/bird_crop_detector_accurate_rfdetr_nano.onnx",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/bird_crop_detector_accurate_rfdetr_nano_labels.txt",
         "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/bird_crop_detector_accurate_rfdetr_nano_model_config.json",
@@ -178,7 +179,7 @@ REMOTE_REGISTRY = [
         "advanced_only": True,
         "sort_order": 7,
         "status": "experimental",
-        "notes": "Apache-2.0 COCO weights from roboflow/rf-detr 7433d59, exported as a static 384x384 ONNX graph. Validated on Intel CPU, GPU and NPU; CUDA is not yet validated. Its 0.3 floor was set on owner-reviewed feeder frames and confirmed on a separate set.",
+        "notes": "Apache-2.0 COCO weights from roboflow/rf-detr 7433d59, exported as a static 384x384 ONNX graph. Validated on Intel CPU, GPU and NPU. CUDA is a host-gated candidate after CPU-agreeing RTX 4070 container checks; run compatibility validation on this host before use. Its 0.3 floor was set on owner-reviewed feeder frames and confirmed on a separate set.",
     },
     {
         "id": "mobilenet_v2_birds",
