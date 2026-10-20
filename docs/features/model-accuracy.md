@@ -80,7 +80,12 @@ Each run tests two preprocessing modes — **raw** (image sent as-is) and **lett
   boxes remains open in #734. Exported from the Apache-2.0 COCO weights at roboflow/rf-detr
   7433d59 as a static 384x384 ONNX graph; final detections match PyTorch (IoU at least 0.955,
   confidence within 0.007), and OpenVINO CPU, GPU and NPU give the same birds on both sets.
-  CUDA is not yet validated.
+  CUDA is a host-gated candidate after a separate CPU-agreeing container check on
+  an RTX 4070 under WSL, with ONNX Runtime 1.26.0 and driver 617.42. That check used
+  eight committed bird images, synthetic negatives and a derived 4K size probe;
+  it is not another accuracy panel or fresh two-bird counting validation. Run the
+  normal compatibility check on each installation before using CUDA. See the
+  [CUDA validation review](../reviews/2026-10-20-rfdetr-cuda-validation.md).
 - **Bird Crop Detector Accurate (YOLOX-Tiny)** is the optional experimental cropped-thumbnail tier.
   Its artifact is published and it retries with the fast detector whenever it is unavailable or
   returns no usable crop. A 21 July 2026 Quark provider sweep validated CPU and OpenVINO

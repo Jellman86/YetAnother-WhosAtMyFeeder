@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- The optional RF-DETR Nano bird finder now includes CUDA in normal per-host
+  compatibility validation. CUDA remains a candidate until it passes that
+  installation's CPU comparison; missing, failed or stale evidence keeps the
+  CPU route. The default bird finder and counting rules are unchanged (#734).
+
 - Storage-size measurements now use short progress requests while one shared
   background scan runs, so slow folders no longer require a long-lived browser
   connection. Retries reuse the pending scan, and missing results stay unknown
