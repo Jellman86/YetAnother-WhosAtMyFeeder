@@ -1902,6 +1902,18 @@
       "subtitle": "Funzioni ancora in prova. Restano disattivate finché non le attivi e possono cambiare o essere rimosse.",
       "garden_animals": "Animali del giardino",
       "garden_animals_desc": "Raccoglie visitatori che non sono uccelli, come gatti, cani e volpi, dalle telecamere scelte, perché tu li possa esaminare. Disattivarla interrompe la raccolta e nasconde Giardino; le catture salvate restano."
+    },
+    "native_revalidation": {
+      "title": "Verifica profilo in quarantena",
+      "description": "Verifica un profilo con arresti registrati usando foto e un video di uccelli in un processo temporaneo. La cronologia resta invariata.",
+      "photos": "Tre foto diverse di uccelli",
+      "clip": "Breve video di uccelli",
+      "limits": "Scegli esattamente tre foto diverse fino a 25 MiB ciascuna e un video fino a 32 MiB con almeno tre fotogrammi leggibili.",
+      "acknowledge": "Comprendo che verrà eseguito codice nativo e che il processo temporaneo potrebbe arrestarsi.",
+      "run": "Verifica profilo in quarantena",
+      "status": "Visualizza stato della verifica",
+      "cancel": "Annulla verifica",
+      "scope": "L’autorizzazione vale solo per questo profilo esatto fino al riavvio. Le prove degli arresti vengono conservate. I file vengono eliminati dopo la pulizia del processo. Uscire dalla pagina non annulla la verifica. Se la pulizia non può essere verificata, i file privati restano per la rimozione da parte del proprietario dopo il riavvio."
     }
   },
   "auth": {

@@ -25,6 +25,7 @@
     import SettingsSelect from './_primitives/SettingsSelect.svelte';
     import SettingsInput from './_primitives/SettingsInput.svelte';
     import AdvancedSection from './_primitives/AdvancedSection.svelte';
+    import NativeProfileRevalidation from './NativeProfileRevalidation.svelte';
     import DiagnosticDialog from '../DiagnosticDialog.svelte';
     import type { DiagnosticStage, DiagnosticStageState, DiagnosticResult } from '../../utils/diagnostic-runner';
 
@@ -491,6 +492,8 @@
     {#snippet blockedIcon()}
         <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="m5.6 5.6 12.8 12.8" /></svg>
     {/snippet}
+
+    <NativeProfileRevalidation />
 
     <SettingsCard
         accent

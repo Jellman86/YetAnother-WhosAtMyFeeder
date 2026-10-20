@@ -1902,6 +1902,18 @@
       "subtitle": "Features that are still being tested. They are off unless you turn them on, and they may change or be removed.",
       "garden_animals": "Garden animals",
       "garden_animals_desc": "Collects non-bird visitors such as cats, dogs and foxes from cameras you choose, for you to review. Turning it off stops new collection and hides Garden; saved captures are kept."
+    },
+    "native_revalidation": {
+      "title": "Check quarantined profile",
+      "description": "Check a saved crash profile with your own bird photos and clip in a disposable worker. This does not classify or alter detection history.",
+      "photos": "Three different bird photos",
+      "clip": "Short bird clip",
+      "limits": "Choose exactly three different photos, up to 25 MiB each, and one clip up to 32 MiB with at least three readable frames.",
+      "acknowledge": "I understand this runs native code and may crash the disposable worker.",
+      "run": "Check quarantined profile",
+      "status": "View check status",
+      "cancel": "Cancel check",
+      "scope": "Approval applies only to this exact profile until application restart. Saved crash evidence remains. Inputs are deleted after child cleanup. Leaving this page does not cancel a running check. If cleanup cannot be verified, private inputs remain for owner cleanup after restart."
     }
   },
   "auth": {

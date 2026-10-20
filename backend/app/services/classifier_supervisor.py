@@ -651,6 +651,10 @@ class ClassifierSupervisor:
             worker._native_launch_profile = profile
             async with self._global_init_lock:
                 await self._guard_native_crash_quarantine(priority, profile)
+                approval = getattr(self._crash_quarantine, "worker_approval", None)
+                worker._native_worker_approval = (
+                    await asyncio.to_thread(approval, profile) if callable(approval) else None
+                )
                 await worker.start()
                 await worker.wait_until_ready(timeout_seconds=ready_timeout_seconds)
             self._record_worker_runtime(priority, worker)

@@ -66,6 +66,7 @@ from app.routers import (
     species,
     backfill,
     classifier,
+    native_profile,
     models,
     ai,
     stats,
@@ -767,6 +768,9 @@ async def lifespan(app: FastAPI):
         )
         await _run_lifecycle_phase(app, "telemetry_stop", telemetry_service.stop, fatal=False)
         await _run_lifecycle_phase(app, "frigate_client_close", frigate_client.close, fatal=False)
+        from app.services.native_profile_revalidation import native_profile_revalidation
+
+        await _run_lifecycle_phase(app, "native_revalidation_stop", native_profile_revalidation.shutdown, fatal=False)
         await _run_lifecycle_phase(app, "classifier_shutdown", shutdown_classifier, fatal=False)
     await close_db()  # Close database connection pool
 
@@ -879,6 +883,7 @@ app.include_router(species.router, prefix="/api", dependencies=[Depends(get_auth
 app.include_router(
     taxonomy.router, prefix="/api", tags=["taxonomy"], dependencies=[Depends(get_auth_context_with_legacy)]
 )
+app.include_router(native_profile.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(classifier.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(ai.router, prefix="/api", tags=["ai"], dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(stats.router, prefix="/api", tags=["stats"], dependencies=[Depends(get_auth_context_with_legacy)])

@@ -11088,6 +11088,26 @@
         "title": "PortraitVisit",
         "type": "object"
       },
+      "PrepareRevalidationRequest": {
+        "properties": {
+          "attempt_id": {
+            "format": "uuid",
+            "title": "Attempt Id",
+            "type": "string"
+          },
+          "profile_fingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Profile Fingerprint",
+            "type": "string"
+          }
+        },
+        "required": [
+          "profile_fingerprint",
+          "attempt_id"
+        ],
+        "title": "PrepareRevalidationRequest",
+        "type": "object"
+      },
       "ProviderValidationStatus": {
         "properties": {
           "checked_at": {
@@ -11491,6 +11511,183 @@
           "cached"
         ],
         "title": "RecordingClipFetchResponse",
+        "type": "object"
+      },
+      "RevalidationProfile": {
+        "properties": {
+          "blocked": {
+            "title": "Blocked",
+            "type": "boolean"
+          },
+          "eligible": {
+            "title": "Eligible",
+            "type": "boolean"
+          },
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "model_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Id"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "fingerprint",
+          "blocked",
+          "eligible"
+        ],
+        "title": "RevalidationProfile",
+        "type": "object"
+      },
+      "RevalidationStatus": {
+        "properties": {
+          "approval_scope": {
+            "const": "process",
+            "default": "process",
+            "title": "Approval Scope",
+            "type": "string"
+          },
+          "attempt_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attempt Id"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "message": {
+            "default": "No owner revalidation has run in this process.",
+            "title": "Message",
+            "type": "string"
+          },
+          "model_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Id"
+          },
+          "profile_fingerprint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Fingerprint"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "state": {
+            "default": "idle",
+            "enum": [
+              "idle",
+              "uploading",
+              "checking",
+              "running",
+              "restoring",
+              "succeeded",
+              "failed",
+              "cancelled",
+              "superseded"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "title": "RevalidationStatus",
+        "type": "object"
+      },
+      "RevalidationView": {
+        "properties": {
+          "attempt": {
+            "$ref": "#/components/schemas/RevalidationStatus"
+          },
+          "profile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RevalidationProfile"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "attempt"
+        ],
+        "title": "RevalidationView",
         "type": "object"
       },
       "ReverseGeocodeResponse": {
@@ -21222,6 +21419,198 @@
           }
         ],
         "summary": "Provider Validation Status",
+        "tags": [
+          "classifier"
+        ]
+      }
+    },
+    "/api/classifier/quarantine/revalidation": {
+      "get": {
+        "operationId": "inspect_revalidation_api_classifier_quarantine_revalidation_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevalidationView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Inspect Revalidation",
+        "tags": [
+          "classifier"
+        ]
+      }
+    },
+    "/api/classifier/quarantine/revalidation/prepare": {
+      "post": {
+        "operationId": "prepare_revalidation_api_classifier_quarantine_revalidation_prepare_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrepareRevalidationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevalidationStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Prepare Revalidation",
+        "tags": [
+          "classifier"
+        ]
+      }
+    },
+    "/api/classifier/quarantine/revalidation/{attempt_id}/cancel": {
+      "post": {
+        "operationId": "cancel_revalidation_api_classifier_quarantine_revalidation__attempt_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "attempt_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Attempt Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevalidationStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Cancel Revalidation",
+        "tags": [
+          "classifier"
+        ]
+      }
+    },
+    "/api/classifier/quarantine/revalidation/{attempt_id}/inputs": {
+      "post": {
+        "operationId": "upload_revalidation_api_classifier_quarantine_revalidation__attempt_id__inputs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "attempt_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Attempt Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevalidationStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Upload Revalidation",
         "tags": [
           "classifier"
         ]
