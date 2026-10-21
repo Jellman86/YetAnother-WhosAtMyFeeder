@@ -24,6 +24,8 @@ import structlog
 
 log = structlog.get_logger()
 ARTIFACT_STAT_SETTLE_NS = 2_000_000_000
+_MAX_INCIDENT_FILES = 1024
+_MAX_INCIDENT_BYTES = 65536
 _WINDOWS_NATIVE_FAULTS = {
     0xC0000005: "STATUS_ACCESS_VIOLATION",
     0xC000001D: "STATUS_ILLEGAL_INSTRUCTION",
@@ -84,6 +86,15 @@ class NativeCrashQuarantinedError(RuntimeError):
     """The exact launch profile has retained evidence of a native process fault."""
 
 
+class NativeCrashEvidenceUnavailableError(NativeCrashQuarantinedError):
+    """Unknown evidence identity cannot be approved by a native probe."""
+
+
+_EVIDENCE_UNAVAILABLE = (
+    "Saved native crash evidence could not be verified. Inspect the saved incidents before retrying."
+)
+
+
 class NativeCrashQuarantine:
     def __init__(
         self,
@@ -100,11 +111,15 @@ class NativeCrashQuarantine:
         self._revalidated: dict[str, dict[str, Any]] = {}
         self._inherited_approval = inherited_approval
         self._lock = threading.RLock()
-        # Persistence does filesystem reads, fsync and replace, always from
-        # worker threads. It gets its own mutex so remember()/guard() on
-        # the event loop only ever take the short in-memory lock above and
-        # can never stall behind disk I/O.
+        # Persistence and compatibility scans have separate locks. Neither
+        # holds _lock, so event-loop remember() calls do not wait for those
+        # disk operations. File-based guard/approval lookups belong in worker
+        # threads; only the final grant uses a short existing-file snapshot.
         self._persist_lock = threading.Lock()
+        self._index_lock = threading.Lock()
+        self._index_identity: tuple[int, ...] | None = None
+        self._incident_index: dict[str, set[str]] = {}
+        self._index_files: dict[str, tuple[int, ...]] = {}
 
     @staticmethod
     def _key(profile: dict[str, Any]) -> str:
@@ -115,12 +130,90 @@ class NativeCrashQuarantine:
         }
         return hashlib.sha256(json.dumps(identity, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
+    @classmethod
+    def _negative_key(cls, profile: dict[str, Any]) -> str:
+        # Ordinary auxiliary changes must not authorize retries of a failed
+        # primary model/provider. Positive approval still uses the full _key.
+        return cls._key({k: v for k, v in profile.items() if k not in {"auxiliary_artifacts", "video_frames"}})
+
+    def _directory_identity(self) -> tuple[int, ...] | None:
+        try:
+            metadata = self._root.stat()
+        except FileNotFoundError:
+            return None
+        return metadata.st_dev, metadata.st_ino, metadata.st_mtime_ns, metadata.st_ctime_ns
+
+    def _persisted_incident_keys(self, profile: dict[str, Any]) -> tuple[set[str], tuple[int, ...] | None]:
+        # Releases predating the stable negative key wrote expanded-key files.
+        # Index their profiles without rewriting evidence. This I/O must stay
+        # outside _lock so remember() never waits for disk or compatibility reads.
+        with self._index_lock:
+            identity = self._directory_identity()
+            if identity is None:
+                self._index_identity = None
+                self._incident_index = {}
+                self._index_files = {}
+                return set(), None
+            paths = []
+            files = {}
+            for count, path in enumerate(self._root.iterdir(), start=1):
+                if count > _MAX_INCIDENT_FILES:
+                    raise OSError("Quarantine evidence index exceeded its bound")
+                if (
+                    path.suffix != ".json"
+                    or len(path.stem) != 64
+                    or any(c not in "0123456789abcdef" for c in path.stem)
+                ):
+                    continue
+                metadata = path.lstat()
+                if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > _MAX_INCIDENT_BYTES:
+                    raise OSError("Quarantine evidence cannot be safely indexed")
+                files[path.name] = (
+                    metadata.st_dev,
+                    metadata.st_ino,
+                    metadata.st_size,
+                    metadata.st_mtime_ns,
+                    metadata.st_ctime_ns,
+                )
+                paths.append(path)
+            if identity != self._index_identity or files != self._index_files:
+                index: dict[str, set[str]] = {}
+                for path in paths:
+                    with path.open("rb") as stream:
+                        raw = stream.read(_MAX_INCIDENT_BYTES + 1)
+                    try:
+                        record = json.loads(raw) if len(raw) <= _MAX_INCIDENT_BYTES else None
+                        recorded_profile = record.get("profile") if isinstance(record, dict) else None
+                        if not isinstance(recorded_profile, dict):
+                            raise ValueError
+                        negative_key = self._negative_key(recorded_profile)
+                        if path.stem not in {self._key(recorded_profile), negative_key}:
+                            raise ValueError
+                    except (ValueError, TypeError, RecursionError):
+                        raise OSError("Quarantine evidence cannot be safely indexed") from None
+                    index.setdefault(negative_key, set()).add(path.stem)
+                if self._directory_identity() != identity:
+                    raise OSError("Quarantine evidence changed during indexing")
+                self._incident_index = index
+                self._index_identity = identity
+                self._index_files = files
+            keys = {self._negative_key(profile)}
+            if legacy := profile.get("legacy_runtime_signature"):
+                keys.add(self._negative_key(profile | {"runtime_signature": legacy}))
+            return set().union(*(self._incident_index.get(key, set()) for key in keys)), identity
+
     def guard(self, profile: dict[str, Any] | None = None, *, allow_revalidated: bool = True) -> dict[str, Any]:
         profile = json.loads(json.dumps(self._profile_getter() if profile is None else profile))
         key = self._key(profile)
+        try:
+            persisted_keys, _ = self._persisted_incident_keys(profile)
+        except OSError:
+            with self._lock:
+                self._inherited_approval = None
+            raise NativeCrashEvidenceUnavailableError(_EVIDENCE_UNAVAILABLE) from None
         with self._lock:
             try:
-                incidents = self._incident_snapshot(profile)
+                incidents = self._incident_snapshot(profile, persisted_keys)
                 approval, self._inherited_approval = self._inherited_approval, None
                 if allow_revalidated and isinstance(approval, dict) and approval.get("profile_key") == key:
                     files = {k: v["file"] for k, v in incidents.items()}
@@ -133,7 +226,7 @@ class NativeCrashQuarantine:
                         and all(v["revision"] == 0 for v in incidents.values())
                     ):
                         self._blocked.update(blocked_keys)
-                        incidents = self._incident_snapshot(profile)
+                        incidents = self._incident_snapshot(profile, persisted_keys)
                         self._revalidated[key] = incidents
                 blocked = any(value["blocked"] for value in incidents.values())
                 blocked = blocked and (not allow_revalidated or self._revalidated.get(key) != incidents)
@@ -153,10 +246,14 @@ class NativeCrashQuarantine:
 
     def worker_approval(self, profile: dict[str, Any]) -> dict[str, Any] | None:
         """Export current authority only through the trusted worker launch path."""
+        try:
+            persisted_keys, _ = self._persisted_incident_keys(profile)
+        except OSError:
+            return None
         with self._lock:
             key = self._key(profile)
             try:
-                incidents = self._incident_snapshot(profile)
+                incidents = self._incident_snapshot(profile, persisted_keys)
             except OSError:
                 return None
             if self._revalidated.get(key) != incidents:
@@ -167,17 +264,16 @@ class NativeCrashQuarantine:
                 "blocked_keys": [k for k, v in incidents.items() if v["blocked"]],
             }
 
-    def _incident_snapshot(self, profile: dict[str, Any]) -> dict[str, Any]:
-        key = self._key(profile)
-        keys = {key}
-        for previous in profile.get("legacy_profile_keys") or []:
-            if isinstance(previous, str) and len(previous) == 64 and all(c in "0123456789abcdef" for c in previous):
-                keys.add(previous)
+    def _incident_snapshot(self, profile: dict[str, Any], persisted_keys: set[str]) -> dict[str, Any]:
+        keys = {self._key(profile), self._negative_key(profile), *persisted_keys}
+        # Derive old aliases from this primary identity: captured metadata may
+        # still contain GPU aliases after a CPU/provider/model override.
         legacy_signature = profile.get("legacy_runtime_signature")
         if legacy_signature:
             # Adding driver identity must invalidate positive qualification,
             # never silently release negative evidence from older versions.
             keys.add(self._key(profile | {"runtime_signature": legacy_signature}))
+            keys.add(self._negative_key(profile | {"runtime_signature": legacy_signature}))
         incidents = {}
         for incident_key in sorted(keys):
             try:
@@ -202,19 +298,28 @@ class NativeCrashQuarantine:
 
     def capture_revalidation(self, profile: dict[str, Any]) -> dict[str, Any]:
         """Bind one explicit owner check to the exact incidents it observed."""
+        try:
+            persisted_keys, directory = self._persisted_incident_keys(profile)
+        except OSError:
+            raise ValueError(_EVIDENCE_UNAVAILABLE) from None
         with self._lock:
-            incidents = self._incident_snapshot(profile)
+            incidents = self._incident_snapshot(profile, persisted_keys)
             key = self._key(profile)
             if not any(value["blocked"] for value in incidents.values()) or self._revalidated.get(key) == incidents:
                 raise ValueError("The selected profile is not quarantined")
-            return {"profile_key": key, "incidents": incidents}
+            return {"profile_key": key, "incidents": incidents, "evidence_directory": directory}
 
     def release_after_revalidation(self, profile: dict[str, Any], token: dict[str, Any]) -> bool:
         """Grant this process only; original evidence remains blocking on restart."""
+        # Never perform a compatibility scan in this final, non-yielding grant.
+        # A changed directory requires a fresh explicit check, even if its new
+        # file belongs to another profile. Existing files are checked by stat.
+        if self._directory_identity() != token.get("evidence_directory"):
+            return False
         with self._lock:
             if self._key(profile) != token.get("profile_key"):
                 return False
-            incidents = self._incident_snapshot(profile)
+            incidents = self._incident_snapshot(profile, set(token["incidents"]))
             if incidents != token.get("incidents"):
                 return False
             self._revalidated[self._key(profile)] = incidents
@@ -226,7 +331,7 @@ class NativeCrashQuarantine:
         # shutdown. Neither establishes a native memory/compiler fault.
         if profile is None or _native_fault_name(exit_code) is None:
             return False
-        key = self._key(profile)
+        key = self._negative_key(profile)
         with self._lock:
             self._blocked.add(key)
             self._incident_revisions[key] = self._incident_revisions.get(key, 0) + 1
@@ -235,11 +340,8 @@ class NativeCrashQuarantine:
     def record(self, profile: dict[str, Any] | None, exit_code: int | None) -> bool:
         if not self.remember(profile, exit_code):
             return False
-        key = self._key(profile)
-        try:
-            self._persist(key, {"profile": profile, "exit_code": exit_code, "recorded_at": time.time()})
-        except OSError:
-            log.error("native_crash_quarantine_persistence_failed", fingerprint=key)
+        key = self._negative_key(profile)
+        self._persist_incident(profile, {"profile": profile, "exit_code": exit_code, "recorded_at": time.time()})
         log.error("native_classifier_crash_quarantined", fingerprint=key, exit_code=exit_code)
         with self._lock:
             if key not in self._reported:
@@ -268,7 +370,7 @@ class NativeCrashQuarantine:
         exit code; the in-memory block lands before any respawn attempt."""
         if profile is None:
             return False
-        key = self._key(profile)
+        key = self._negative_key(profile)
         with self._lock:
             self._blocked.add(key)
             self._incident_revisions[key] = self._incident_revisions.get(key, 0) + 1
@@ -277,15 +379,11 @@ class NativeCrashQuarantine:
     def record_retirement(self, profile: dict[str, Any] | None, error_code: str, detail: str) -> bool:
         if not self.remember_retirement(profile):
             return False
-        key = self._key(profile)
+        key = self._negative_key(profile)
         retirement = {"error_code": str(error_code), "detail": str(detail)[:280]}
-        try:
-            self._persist(
-                key,
-                {"profile": profile, "exit_code": None, "retirement": retirement, "recorded_at": time.time()},
-            )
-        except OSError:
-            log.error("native_crash_quarantine_persistence_failed", fingerprint=key)
+        self._persist_incident(
+            profile, {"profile": profile, "exit_code": None, "retirement": retirement, "recorded_at": time.time()}
+        )
         log.error("native_classifier_gpu_retirement_quarantined", fingerprint=key, error_code=retirement["error_code"])
         with self._lock:
             if key not in self._reported:
@@ -306,6 +404,15 @@ class NativeCrashQuarantine:
                     },
                 )
         return True
+
+    def _persist_incident(self, profile: dict[str, Any], evidence: dict[str, Any]) -> None:
+        # Retain the full incident identity as well as its conservative base
+        # alias; a later sibling fault must not overwrite the original profile.
+        for key in dict.fromkeys((self._key(profile), self._negative_key(profile))):
+            try:
+                self._persist(key, evidence)
+            except OSError:
+                log.error("native_crash_quarantine_persistence_failed", fingerprint=key)
 
     def _persist(self, key: str, evidence: dict[str, Any]) -> None:
         # One file per launch profile holds every incident kind for it: a

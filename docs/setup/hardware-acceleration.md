@@ -341,7 +341,19 @@ execution risk and run a bounded disposable-worker check. Keep the host idle;
 classification demand aborts the check. Cancel waits for child cleanup.
 
 A pass permits only the exact checked isolated-worker profile until the next
-application restart. Saved crash evidence remains. This does not automatically
+application restart. Saved crash evidence remains. Changing the video frame count
+or crop/wildlife weights does not release a failed primary model/provider; the
+changed full configuration needs its own successful owner check. Earlier incident
+files remain intact and are checked for the same conservative block. Unreadable,
+malformed or excessive incident records prevent launch until the evidence can be
+verified; inspect `/config/native-crashes` without deleting records to force a retry.
+
+If the check fails, its message identifies a safe cause where available: unreadable
+inputs, indistinguishable outputs, a failed crop check, provider/artifact mismatch
+or a recognised GPU device failure code. Unexpected/native exits retain a generic
+failure message. Raw runtime exceptions, uploaded file paths and stderr are not
+returned. Correct the stated input/runtime issue before explicitly trying again.
+This does not automatically
 qualify an excluded provider, reset circuit breakers, rewrite detections or prove
 species accuracy. An unavailable provider, failed output check, changed profile
 or incomplete cleanup keeps quarantine. See the

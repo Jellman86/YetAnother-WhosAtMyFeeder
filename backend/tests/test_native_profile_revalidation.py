@@ -322,3 +322,52 @@ async def test_only_one_upload_stream_can_claim_a_reserved_attempt(environment):
     with pytest.raises(ValueError, match="no longer current"):
         e.runner.claim_upload(attempt.attempt_id)
     e.probe.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_safe_probe_failure_reaches_owner_status_and_audit_without_releasing_profile(environment):
+    import json
+    from app.services.native_profile_probe_result import failure_message
+
+    e = environment
+    message = failure_message({"reason": "device_failure", "device_code": "CL_OUT_OF_RESOURCES"})
+    e.probe.side_effect = ValueError(message)
+    await start(e)
+    status = await finish(e)
+    assert status.state == "failed" and status.message == message
+    assert "CL_OUT_OF_RESOURCES" in status.message
+    e.restore.assert_not_awaited()
+    with pytest.raises(NativeCrashQuarantinedError):
+        e.policy.guard()
+    audit = json.loads(next((e.root / "audit").glob("*.json")).read_text())
+    assert audit["message"] == message and audit["state"] == "failed"
+
+
+@pytest.mark.asyncio
+async def test_unverifiable_incident_evidence_disables_check_and_refuses_upload(environment):
+    e = environment
+    next((e.root / "incidents").glob("*.json")).write_text("DUMMY-corrupt-incident")
+    view = await e.runner.inspect()
+    assert view.profile.blocked and not view.profile.eligible
+    assert "could not be verified" in view.profile.reason
+    with pytest.raises(ValueError, match="could not be verified"):
+        await start(e)
+    e.probe.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_owner_inspection_checks_worker_approval_off_the_event_loop(environment, monkeypatch):
+    import threading
+
+    e = environment
+    loop_thread = threading.get_ident()
+    threads = []
+    original = e.policy.worker_approval
+
+    def inspect_approval(profile):
+        threads.append(threading.get_ident())
+        return original(profile)
+
+    monkeypatch.setattr(e.policy, "worker_approval", inspect_approval)
+    await e.runner.inspect()
+    assert threads and all(thread != loop_thread for thread in threads)
