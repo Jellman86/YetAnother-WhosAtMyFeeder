@@ -2321,7 +2321,6 @@
       "unchanged_evidence": "Best evidence: {confident} of {independent} independent moments could vote; the leading species matched {supporting} and needed {required}.",
       "failed_title": "Reclassification could not finish",
       "failed_description": "The analysis ended before a usable result was produced. Technical reason: {reason}.",
-      "frame_grid": "Frame Grid",
       "frame_progress": "Frame {current}/{total}",
       "model": "Model: {name}",
       "done": "Done",
@@ -2525,6 +2524,18 @@
       "crop": "Named from a bird crop",
       "unknown": "The identification source was not recorded",
       "original": "Original identification"
+    },
+    "frame_scan": {
+      "title": "Video frames read",
+      "value_text": "{read} of {total} frames read",
+      "complete": "All {total} frames read",
+      "bar_read": "Frame {position}: {label} {score}%",
+      "bar_waiting": "Frame {position}: not read yet",
+      "waiting": "Waiting for the first frame",
+      "best": "Clearest so far: frame {position}, {label} {score}%",
+      "legend_strong": "80% and over",
+      "legend_moderate": "50 to 79%",
+      "legend_weak": "Under 50%"
     }
   },
   "events": {

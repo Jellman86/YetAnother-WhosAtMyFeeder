@@ -6,6 +6,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Video reclassification now shows its progress as a frame ribbon instead of the
+  sliding film strip, which could drift away from the frame being read. Each sampled
+  frame keeps its place as a bar whose height is the model's confidence, with a marker
+  on the frame being read, the clearest frame so far and a legend. The same ribbon
+  appears in Explorer cards, the detection view and the full-screen analysis overlay.
+
 - Garden checks new detector candidates with SpeciesNet automatically, using the
   exact detector crop. Confident bird-only, blank or vehicle results go to
   **Dismissed** with an explanation and **Return to review**; animals, uncertainty

@@ -2313,7 +2313,6 @@
       "unchanged_reason_non_bird": "Il modello ha identificato un soggetto diverso da un uccello, quindi è stata mantenuta l’identificazione precedente.",
       "analysis": "Analisi",
       "ai_analysis": "Analisi IA",
-      "frame_grid": "Griglia Frame",
       "frame_progress": "Fotogramma {current}/{total}",
       "model": "Modello: {name}",
       "done": "Fatto",
@@ -2525,6 +2524,18 @@
       "crop": "Identificato da un ritaglio dell’uccello",
       "unknown": "La fonte dell’identificazione non è stata registrata",
       "original": "Identificazione originale"
+    },
+    "frame_scan": {
+      "title": "Fotogrammi video letti",
+      "value_text": "{read} di {total} fotogrammi letti",
+      "complete": "Tutti i {total} fotogrammi letti",
+      "bar_read": "Fotogramma {position}: {label} {score}%",
+      "bar_waiting": "Fotogramma {position}: non ancora letto",
+      "waiting": "In attesa del primo fotogramma",
+      "best": "Il più nitido finora: fotogramma {position}, {label} {score}%",
+      "legend_strong": "80% e oltre",
+      "legend_moderate": "Da 50 a 79%",
+      "legend_weak": "Sotto il 50%"
     }
   },
   "events": {

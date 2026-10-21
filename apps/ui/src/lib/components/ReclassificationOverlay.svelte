@@ -5,7 +5,7 @@
     import type { VideoClassificationSourceEvidence } from '../api';
     import type { ReclassificationProgress } from '../stores/detections.svelte';
     import SnapshotAnalysisScanner from './SnapshotAnalysisScanner.svelte';
-    import VideoAnalysisFilmReel from './VideoAnalysisFilmReel.svelte';
+    import FrameScanRibbon from './FrameScanRibbon.svelte';
 
     import { detectionsStore } from '../stores/detections.svelte';
 
@@ -493,11 +493,7 @@
                         showFooter={false}
                     />
                 {:else}
-                    <VideoAnalysisFilmReel
-                        {progress}
-                        variant="overlay"
-                        showFooter={false}
-                    />
+                    <FrameScanRibbon {progress} variant="overlay" />
                 {/if}
             </div>
         {:else}
@@ -509,11 +505,7 @@
                     showFooter={false}
                 />
             {:else}
-                <VideoAnalysisFilmReel
-                    {progress}
-                    variant="compact"
-                    showFooter={false}
-                />
+                <FrameScanRibbon {progress} variant="compact" />
             {/if}
         {/if}
     </div>
