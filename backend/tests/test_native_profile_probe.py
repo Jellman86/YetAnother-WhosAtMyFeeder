@@ -166,3 +166,72 @@ async def test_unverifiable_reaping_requires_cleanup_lockout(monkeypatch, failur
     monkeypatch.setattr(probe, "group_usage", Mock(side_effect=ValueError("unobservable")))
     with pytest.raises(probe.ProbeCleanupFailed):
         await probe.reap(child)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "failure,message",
+    [
+        ({"reason": "invalid_clip"}, "readable short clip"),
+        ({"reason": "crop_check_failed"}, "crop detector"),
+        ({"reason": "device_failure", "device_code": "CL_OUT_OF_RESOURCES"}, "CL_OUT_OF_RESOURCES"),
+    ],
+)
+async def test_failed_child_reports_only_allow_listed_actionable_causes(
+    monkeypatch, guarded_environment, failure, message
+):
+    child = AsyncMock(pid=123456, returncode=1)
+
+    async def communicate(payload):
+        Path(json.loads(payload)["result"]).write_text(json.dumps({"failure": failure}))
+
+    child.communicate.side_effect = communicate
+    monkeypatch.setattr(probe.asyncio, "create_subprocess_exec", AsyncMock(return_value=child))
+    with pytest.raises(ValueError, match=message):
+        await probe.run_profile_probe({}, [b"one", b"two", b"three"], b"clip", lambda: None)
+    probe.reap.assert_awaited_once_with(child)
+    assert not list(guarded_environment.rglob("photo-*.image"))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "report",
+    [
+        None,
+        "broken json",
+        "x" * 65537,
+        "[]",
+        '{"failure":{"reason":"DUMMY-private-detail"}}',
+        '{"failure":{"reason":"device_failure","device_code":"DUMMY-private-detail"}}',
+        '{"failure":{"reason":"invalid_clip","message":"DUMMY-private-detail"}}',
+        '{"finite":true,"pipeline_checked":true}',
+    ],
+)
+async def test_unknown_or_missing_failure_report_never_exposes_child_details(monkeypatch, guarded_environment, report):
+    child = AsyncMock(pid=123456, returncode=1)
+
+    async def communicate(payload):
+        if report is not None:
+            Path(json.loads(payload)["result"]).write_text(report)
+
+    child.communicate.side_effect = communicate
+    monkeypatch.setattr(probe.asyncio, "create_subprocess_exec", AsyncMock(return_value=child))
+    with pytest.raises(ValueError) as error:
+        await probe.run_profile_probe({}, [b"one", b"two", b"three"], b"clip", lambda: None)
+    assert "DUMMY" not in str(error.value)
+    assert "remains blocked" in str(error.value)
+    assert not list(guarded_environment.rglob("photo-*.image"))
+
+
+@pytest.mark.asyncio
+async def test_a_failure_report_cannot_be_treated_as_success_on_zero_exit(monkeypatch, guarded_environment):
+    child = AsyncMock(pid=123456, returncode=0)
+
+    async def communicate(payload):
+        Path(json.loads(payload)["result"]).write_text('{"finite":true,"failure":{"reason":"invalid_clip"}}')
+
+    child.communicate.side_effect = communicate
+    monkeypatch.setattr(probe.asyncio, "create_subprocess_exec", AsyncMock(return_value=child))
+    with pytest.raises(ValueError, match="invalid report"):
+        await probe.run_profile_probe({}, [b"one", b"two", b"three"], b"clip", lambda: None)
+    probe.reap.assert_awaited_once_with(child)

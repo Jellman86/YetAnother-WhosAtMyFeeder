@@ -10,6 +10,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   no longer be bypassed through an export; owner offline exports still work
   without an eBird API key or enabled integration (#769).
 
+- Native crash quarantine now survives video-frame and auxiliary-weight changes,
+  including incidents saved by earlier releases. Owner checks retain exact-profile
+  approval and show safe, actionable failure causes without exposing raw errors (#722).
+
 - Garden checks new detector candidates with SpeciesNet automatically, using the
   exact detector crop. Confident bird-only, blank or vehicle results go to
   **Dismissed** with an explanation and **Return to review**; animals, uncertainty

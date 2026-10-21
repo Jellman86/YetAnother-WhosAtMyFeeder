@@ -14,6 +14,7 @@ import tempfile
 import time
 from typing import Any
 
+from app.services.native_profile_probe_result import failure_message
 from app.utils.image_io import MAX_IMAGE_BYTES
 from app.utils.python_subprocess import python_subprocess_launch
 
@@ -204,18 +205,26 @@ async def run_profile_probe(
                 raise ValueError("The isolated diagnostic exceeded its deadline.")
             await asyncio.wait({completion}, timeout=_POLL_SECONDS)
         completion.result()
+
+        def read_result() -> dict[str, Any] | None:
+            try:
+                with (root / "result.json").open("rb") as stream:
+                    raw = stream.read(65537)
+                report = json.loads(raw) if len(raw) <= 65536 else None
+                return report if isinstance(report, dict) else None
+            except (OSError, ValueError, RecursionError):
+                return None
+
+        report = await asyncio.to_thread(read_result)
         if process.returncode != 0:
+            message = failure_message(report.get("failure")) if report else None
             raise ValueError(
-                f"The isolated diagnostic exited with code {process.returncode}. The profile remains blocked."
+                message
+                or f"The isolated diagnostic exited with code {process.returncode}. The profile remains blocked."
             )
-
-        def read_result() -> dict[str, Any]:
-            path = root / "result.json"
-            if path.stat().st_size > 65536:
-                raise ValueError("The diagnostic report exceeded its size limit.")
-            return json.loads(path.read_text())
-
-        return await asyncio.to_thread(read_result)
+        if report is None or "failure" in report:
+            raise ValueError("The isolated diagnostic returned an invalid report. The profile remains blocked.")
+        return report
     finally:
 
         async def cleanup() -> None:
