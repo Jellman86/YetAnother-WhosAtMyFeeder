@@ -19,6 +19,9 @@ Enable eBird for nearby sightings and notable reports. Species identities and mo
 4. Set a complete latitude/longitude pair under **Settings → Integrations → Location**, then set your search radius and history limit (days).
    *   The radius field uses the unit system chosen in **Settings → Integrations → Location → Display Units**: kilometres for Metric, miles for Imperial and British. eBird accepts 1-50 km (1-31 miles), and YA-WAMF stores the value in kilometres whichever unit you type.
 
+Map popups display externally supplied place names and observation details as
+text, preserving their content without interpreting it as HTML.
+
 ## Enrichment Behavior
 Choose enrichment sources separately under **Settings → Enrichment**. The eBird integration supplies nearby context when configured; it does not automatically override every naming, description or image source. See [Taxonomy & Naming](../features/taxonomy.md).
 

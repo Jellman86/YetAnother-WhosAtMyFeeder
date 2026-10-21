@@ -6,6 +6,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Map popups now display external place names, dates and species titles as text,
+  preventing those values from injecting HTML into the application (#769).
+
 - Precise eBird CSV exports now require owner access. Guest privacy settings can
   no longer be bypassed through an export; owner offline exports still work
   without an eBird API key or enabled integration (#769).

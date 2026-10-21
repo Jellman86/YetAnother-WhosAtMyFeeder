@@ -3600,10 +3600,10 @@
                                                     lat: r.lat!,
                                                     lng: r.lng!,
                                                     title: r.location_name || 'Unknown Location',
-                                                    popupText: (() => {
+                                                    popupLines: (() => {
                                                         const t = get(_);
                                                         const countLabel = t('species_detail.count_label', { default: 'Count' });
-                                                        return `<div class="font-sans"><p class="font-bold text-sm mb-1">${r.location_name}</p><p class="text-xs opacity-75">${formatEbirdDate(r.observed_at)}</p><p class="text-xs font-bold mt-1">${countLabel}: ${r.how_many ?? '?'}</p></div>`;
+                                                        return [formatEbirdDate(r.observed_at), `${countLabel}: ${r.how_many ?? '?'}`];
                                                     })()
                                                 }))}
                                             userLocation={authStore.canModify && settingsStore.settings?.location_latitude && settingsStore.settings?.location_longitude ? [settingsStore.settings.location_latitude, settingsStore.settings.location_longitude] : null}
