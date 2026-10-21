@@ -2,7 +2,7 @@ import csv
 import io
 import uuid
 from datetime import datetime
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import httpx
 import pytest
@@ -916,3 +916,73 @@ async def test_ebird_export_uses_taxonomy_translations_english_via_scientific_na
     rows = _read_csv_rows(response.text)
     assert len(rows) == 1
     assert rows[0][0] == "Eurasian Blue Tit"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("guest_token", [False, True])
+async def test_precise_export_rejects_guests_before_reading_private_history(client, monkeypatch, guest_token):
+    from app.auth import AuthLevel, create_access_token
+    from app.routers import ebird
+
+    monkeypatch.setattr(settings.auth, "enabled", True)
+    monkeypatch.setattr(settings.public_access, "enabled", True)
+    monkeypatch.setattr(settings.public_access, "show_camera_names", False)
+    monkeypatch.setattr(settings.public_access, "show_historical_days", 1)
+    monkeypatch.setattr(settings.public_access, "location_precision", "approximate")
+    await _insert_detection(
+        frigate_event="private-export-fixture",
+        detection_time=datetime(2020, 1, 1),
+        score=0.9,
+        display_name="European Robin",
+        scientific_name="Erithacus rubecula",
+        common_name="European Robin",
+        camera_name="private-fixture-camera",
+    )
+    load = Mock()
+    monkeypatch.setattr(ebird.species_catalog_resolver, "ensure_loaded", load)
+    headers = (
+        {"Authorization": f"Bearer {create_access_token('guest', auth_level=AuthLevel.GUEST)}"} if guest_token else {}
+    )
+    response = await client.get("/api/ebird/export", headers=headers)
+    assert response.status_code == 403
+    assert "private-fixture-camera" not in response.text
+    assert "51.501" not in response.text
+    load.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mode", ["owner", "legacy_header", "legacy_query", "auth_disabled"])
+async def test_precise_export_preserves_authorized_offline_access(client, monkeypatch, mode):
+    from app.auth import create_access_token
+
+    monkeypatch.setattr(settings.auth, "enabled", mode != "auth_disabled")
+    monkeypatch.setattr(settings.public_access, "enabled", mode in {"owner", "auth_disabled"})
+    monkeypatch.setattr(settings, "api_key", "DUMMY-EXPORT-LEGACY-KEY")
+    monkeypatch.setattr(settings.ebird, "enabled", False)
+    monkeypatch.setattr(settings.ebird, "api_key", None)
+    await _insert_detection(
+        frigate_event="owner-export-fixture",
+        detection_time=datetime(2020, 1, 1),
+        score=0.9,
+        display_name="European Robin",
+        scientific_name="Erithacus rubecula",
+        common_name="European Robin",
+        camera_name="private-fixture-camera",
+    )
+    headers = {"Authorization": f"Bearer {create_access_token('owner')}"} if mode == "owner" else {}
+    if mode == "legacy_header":
+        headers["X-API-Key"] = "DUMMY-EXPORT-LEGACY-KEY"
+    params = {"api_key": "DUMMY-EXPORT-LEGACY-KEY"} if mode == "legacy_query" else {}
+    response = await client.get("/api/ebird/export", headers=headers, params=params)
+    assert response.status_code == 200
+    assert "private-fixture-camera" in response.text
+    assert "51.501" in response.text
+    assert "01/01/2020" in response.text
+
+
+@pytest.mark.asyncio
+async def test_precise_export_requires_authentication_when_private(client, monkeypatch):
+    monkeypatch.setattr(settings.auth, "enabled", True)
+    monkeypatch.setattr(settings.public_access, "enabled", False)
+    response = await client.get("/api/ebird/export")
+    assert response.status_code == 401

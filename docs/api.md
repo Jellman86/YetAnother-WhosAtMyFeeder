@@ -1038,7 +1038,7 @@ snapshot, not a destructive queue-control API.
 `GET /api/events` accepts `event_id` for an exact Frigate event lookup. It retains the same guest
 history, hidden-event, and camera-privacy restrictions as the paginated event list.
 - eBird:
-  - `GET /api/ebird/export`
+  - `GET /api/ebird/export` (owner only; guests receive `403`). Exports precise configured location, camera names and non-hidden history in the selected date range. Local CSV export does not require enabling eBird or configuring its API key. Supported legacy owner authentication and auth-disabled owner-equivalent access are preserved.
   - `GET /api/ebird/nearby`
   - `GET /api/ebird/notable`
 - iNaturalist:
