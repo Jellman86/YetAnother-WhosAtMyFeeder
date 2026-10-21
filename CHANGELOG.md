@@ -6,6 +6,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Map popups now display external place names, dates and species titles as text,
+  preventing those values from injecting HTML into the application (#769).
+
 - Garden checks new detector candidates with SpeciesNet automatically, using the
   exact detector crop. Confident bird-only, blank or vehicle results go to
   **Dismissed** with an explanation and **Return to review**; animals, uncertainty

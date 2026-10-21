@@ -30,6 +30,7 @@
     "browser-tests/species-check.ts",
     "browser-tests/settings-backfill.ts",
     "browser-tests/setup-wizard.ts",
-    "browser-tests/documentation.ts"
+    "browser-tests/documentation.ts",
+    "browser-tests/map-popup.ts"
   ]
 }
