@@ -15,6 +15,23 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   existing loggers or replaces its log handlers, so the now-redacted HTTP transport
   logs are no longer switched off (#769).
 
+- Video reclassification now shows its progress as a frame ribbon instead of the
+  sliding film strip, which could drift away from the frame being read. Each sampled
+  frame keeps its place as a bar whose height is the model's confidence, with a marker
+  on the frame being read, the clearest frame so far and a legend. The same ribbon
+  appears in Explorer cards, the detection view and the full-screen analysis overlay.
+
+- Map popups now display external place names, dates and species titles as text,
+  preventing those values from injecting HTML into the application (#769).
+
+- Precise eBird CSV exports now require owner access. Guest privacy settings can
+  no longer be bypassed through an export; owner offline exports still work
+  without an eBird API key or enabled integration (#769).
+
+- Native crash quarantine now survives video-frame and auxiliary-weight changes,
+  including incidents saved by earlier releases. Owner checks retain exact-profile
+  approval and show safe, actionable failure causes without exposing raw errors (#722).
+
 - Garden checks new detector candidates with SpeciesNet automatically, using the
   exact detector crop. Confident bird-only, blank or vehicle results go to
   **Dismissed** with an explanation and **Return to review**; animals, uncertainty

@@ -2303,7 +2303,6 @@
       "unchanged_reason_non_bird": "模型识别到的不是鸟类，因此保留了原有识别结果。",
       "analysis": "分析",
       "ai_analysis": "AI 分析",
-      "frame_grid": "帧网格",
       "frame_progress": "帧 {current}/{total}",
       "model": "模型：{name}",
       "done": "完成",
@@ -2515,6 +2514,18 @@
       "crop": "根据鸟类裁剪图像识别",
       "unknown": "未记录识别来源",
       "original": "最初识别"
+    },
+    "frame_scan": {
+      "title": "已读取的视频帧",
+      "value_text": "已读取 {read}/{total} 帧",
+      "complete": "已读取全部 {total} 帧",
+      "bar_read": "第 {position} 帧：{label} {score}%",
+      "bar_waiting": "第 {position} 帧：尚未读取",
+      "waiting": "正在等待第一帧",
+      "best": "目前最清晰：第 {position} 帧，{label} {score}%",
+      "legend_strong": "80% 及以上",
+      "legend_moderate": "50% 至 79%",
+      "legend_weak": "低于 50%"
     }
   },
   "events": {

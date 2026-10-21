@@ -1,6 +1,7 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
     import type { ReclassificationProgress } from '../stores/detections.svelte';
+    import FrameScanRibbon from './FrameScanRibbon.svelte';
 
     let { progress } = $props<{
         progress: ReclassificationProgress;
@@ -95,12 +96,16 @@
     </div>
 
     <div class="relative space-y-3">
-        <div class="overflow-hidden rounded-full bg-slate-950/12 dark:bg-white/12">
-            <div
-                class="h-2 rounded-full bg-brand-400 transition-all duration-500"
-                style={`width: ${progressPercent}%`}
-            ></div>
-        </div>
+        {#if hasFallenBackToSnapshot}
+            <div class="overflow-hidden rounded-full bg-slate-950/12 dark:bg-white/12">
+                <div
+                    class="h-2 rounded-full bg-brand-400 transition-all duration-500"
+                    style={`width: ${progressPercent}%`}
+                ></div>
+            </div>
+        {:else}
+            <FrameScanRibbon {progress} variant="card" />
+        {/if}
 
         <div class="rounded-xl border border-white/10 bg-black/18 p-2.5 dark:border-white/10 dark:bg-black/18">
             <div class="flex items-center justify-between gap-3 text-3xs font-bold uppercase tracking-widest text-slate-600 dark:text-slate-300">

@@ -2303,7 +2303,6 @@
       "unchanged_reason_non_bird": "Das Modell hat ein anderes Lebewesen als einen Vogel erkannt. Die bisherige Bestimmung wurde beibehalten.",
       "analysis": "Analyse",
       "ai_analysis": "KI-Analyse",
-      "frame_grid": "Bildraster",
       "frame_progress": "Bild {current}/{total}",
       "model": "Modell: {name}",
       "done": "Fertig",
@@ -2515,6 +2514,18 @@
       "crop": "Aus einem Vogelausschnitt bestimmt",
       "unknown": "Die Quelle der Bestimmung wurde nicht gespeichert",
       "original": "Ursprüngliche Bestimmung"
+    },
+    "frame_scan": {
+      "title": "Gelesene Videobilder",
+      "value_text": "{read} von {total} Bildern gelesen",
+      "complete": "Alle {total} Bilder gelesen",
+      "bar_read": "Bild {position}: {label} {score}%",
+      "bar_waiting": "Bild {position}: noch nicht gelesen",
+      "waiting": "Warte auf das erste Bild",
+      "best": "Bisher am deutlichsten: Bild {position}, {label} {score}%",
+      "legend_strong": "80% und mehr",
+      "legend_moderate": "50 bis 79%",
+      "legend_weak": "Unter 50%"
     }
   },
   "events": {

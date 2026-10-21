@@ -56,7 +56,7 @@
     import { WholeScenePeek } from '../utils/whole-scene-peek.svelte';
     import { photoFitFor, type PhotoFit } from '../utils/photo-fit';
     import { speciesPickerNames } from '../utils/species-picker';
-    import VideoAnalysisFilmReel from './VideoAnalysisFilmReel.svelte';
+    import FrameScanRibbon from './FrameScanRibbon.svelte';
     import { detectionsStore, type ReclassificationProgress } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { publicSettingsStore } from '../stores/public_settings.svelte';
@@ -2467,7 +2467,7 @@
                             </div>
 
                             <div class="my-3 sm:my-4">
-                                <VideoAnalysisFilmReel progress={modalVideoAnalysisProgress} variant="detail" />
+                                <FrameScanRibbon progress={modalVideoAnalysisProgress} variant="detail" />
                             </div>
 
                             <div class="flex items-center justify-between gap-3 text-3xs font-semibold text-slate-500 dark:text-slate-400">
@@ -3600,10 +3600,10 @@
                                                     lat: r.lat!,
                                                     lng: r.lng!,
                                                     title: r.location_name || 'Unknown Location',
-                                                    popupText: (() => {
+                                                    popupLines: (() => {
                                                         const t = get(_);
                                                         const countLabel = t('species_detail.count_label', { default: 'Count' });
-                                                        return `<div class="font-sans"><p class="font-bold text-sm mb-1">${r.location_name}</p><p class="text-xs opacity-75">${formatEbirdDate(r.observed_at)}</p><p class="text-xs font-bold mt-1">${countLabel}: ${r.how_many ?? '?'}</p></div>`;
+                                                        return [formatEbirdDate(r.observed_at), `${countLabel}: ${r.how_many ?? '?'}`];
                                                     })()
                                                 }))}
                                             userLocation={authStore.canModify && settingsStore.settings?.location_latitude && settingsStore.settings?.location_longitude ? [settingsStore.settings.location_latitude, settingsStore.settings.location_longitude] : null}

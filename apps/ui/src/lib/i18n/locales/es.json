@@ -2303,7 +2303,6 @@
       "unchanged_reason_non_bird": "El modelo identificó algo que no es un ave, por lo que se conservó la identificación anterior.",
       "analysis": "Análisis",
       "ai_analysis": "Análisis de IA",
-      "frame_grid": "Cuadrícula de fotogramas",
       "frame_progress": "Fotograma {current}/{total}",
       "model": "Modelo: {name}",
       "done": "Listo",
@@ -2515,6 +2514,18 @@
       "crop": "Identificado a partir de un recorte del ave",
       "unknown": "No se registró la fuente de la identificación",
       "original": "Identificación original"
+    },
+    "frame_scan": {
+      "title": "Fotogramas de vídeo leídos",
+      "value_text": "{read} de {total} fotogramas leídos",
+      "complete": "Los {total} fotogramas leídos",
+      "bar_read": "Fotograma {position}: {label} {score}%",
+      "bar_waiting": "Fotograma {position}: aún sin leer",
+      "waiting": "Esperando el primer fotograma",
+      "best": "Más claro hasta ahora: fotograma {position}, {label} {score}%",
+      "legend_strong": "80% o más",
+      "legend_moderate": "50 a 79%",
+      "legend_weak": "Menos del 50%"
     }
   },
   "events": {

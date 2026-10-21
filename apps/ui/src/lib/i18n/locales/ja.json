@@ -2303,7 +2303,6 @@
       "unchanged_reason_non_bird": "モデルが鳥以外を識別したため、既存の識別結果を保持しました。",
       "analysis": "解析",
       "ai_analysis": "AI解析",
-      "frame_grid": "フレーム一覧",
       "frame_progress": "フレーム {current}/{total}",
       "model": "モデル: {name}",
       "done": "完了",
@@ -2515,6 +2514,18 @@
       "crop": "鳥の切り抜き画像から識別",
       "unknown": "識別元は記録されていません",
       "original": "最初の識別"
+    },
+    "frame_scan": {
+      "title": "読み取った動画フレーム",
+      "value_text": "{total} フレーム中 {read} フレームを読み取り済み",
+      "complete": "全 {total} フレームを読み取りました",
+      "bar_read": "フレーム {position}: {label} {score}%",
+      "bar_waiting": "フレーム {position}: 未読み取り",
+      "waiting": "最初のフレームを待っています",
+      "best": "これまでで最も鮮明: フレーム {position}、{label} {score}%",
+      "legend_strong": "80%以上",
+      "legend_moderate": "50〜79%",
+      "legend_weak": "50%未満"
     }
   },
   "events": {

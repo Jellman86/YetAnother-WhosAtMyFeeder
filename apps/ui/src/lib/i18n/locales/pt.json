@@ -2313,7 +2313,6 @@
       "unchanged_reason_non_bird": "O modelo identificou algo que não é uma ave, por isso a identificação anterior foi mantida.",
       "analysis": "Análise",
       "ai_analysis": "Análise de IA",
-      "frame_grid": "Grade de Quadros",
       "frame_progress": "Quadro {current}/{total}",
       "model": "Modelo: {name}",
       "done": "Pronto",
@@ -2525,6 +2524,18 @@
       "crop": "Identificado a partir de um recorte da ave",
       "unknown": "A origem da identificação não foi registada",
       "original": "Identificação original"
+    },
+    "frame_scan": {
+      "title": "Quadros de vídeo lidos",
+      "value_text": "{read} de {total} quadros lidos",
+      "complete": "Todos os {total} quadros lidos",
+      "bar_read": "Quadro {position}: {label} {score}%",
+      "bar_waiting": "Quadro {position}: ainda não lido",
+      "waiting": "Aguardando o primeiro quadro",
+      "best": "Mais nítido até agora: quadro {position}, {label} {score}%",
+      "legend_strong": "80% ou mais",
+      "legend_moderate": "50 a 79%",
+      "legend_weak": "Abaixo de 50%"
     }
   },
   "events": {

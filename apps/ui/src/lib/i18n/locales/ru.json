@@ -2313,7 +2313,6 @@
       "unchanged_reason_non_bird": "Модель определила объект, не являющийся птицей, поэтому прежнее определение сохранено.",
       "analysis": "Анализ",
       "ai_analysis": "ИИ Анализ",
-      "frame_grid": "Сетка кадров",
       "frame_progress": "Кадр {current}/{total}",
       "model": "Модель: {name}",
       "done": "Готово",
@@ -2525,6 +2524,18 @@
       "crop": "Определено по фрагменту изображения птицы",
       "unknown": "Источник определения не был сохранён",
       "original": "Первоначальное определение"
+    },
+    "frame_scan": {
+      "title": "Прочитанные кадры видео",
+      "value_text": "Прочитано кадров: {read} из {total}",
+      "complete": "Прочитаны все кадры ({total})",
+      "bar_read": "Кадр {position}: {label} {score}%",
+      "bar_waiting": "Кадр {position}: ещё не прочитан",
+      "waiting": "Ожидание первого кадра",
+      "best": "Самый чёткий пока: кадр {position}, {label} {score}%",
+      "legend_strong": "80% и выше",
+      "legend_moderate": "От 50 до 79%",
+      "legend_weak": "Ниже 50%"
     }
   },
   "events": {
