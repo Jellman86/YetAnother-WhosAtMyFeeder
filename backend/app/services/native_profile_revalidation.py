@@ -17,7 +17,11 @@ from uuid import uuid4
 from pydantic import BaseModel
 import structlog
 
-from app.services.native_crash_quarantine import NativeCrashQuarantine, NativeCrashQuarantinedError
+from app.services.native_crash_quarantine import (
+    NativeCrashQuarantine,
+    NativeCrashQuarantinedError,
+    NativeCrashEvidenceUnavailableError,
+)
 
 logger = structlog.get_logger()
 _BUSY = {"uploading", "checking", "running", "restoring"}
@@ -175,12 +179,19 @@ class NativeProfileRevalidation:
         self._expire_upload()
         context = await asyncio.to_thread(self._context_getter)
         blocked = False
+        evidence_reason = None
         try:
             await asyncio.to_thread(context.policy.guard, context.profile)
+        except NativeCrashEvidenceUnavailableError as error:
+            blocked = True
+            evidence_reason = str(error)
         except NativeCrashQuarantinedError:
             blocked = True
-        reason = _profile_reason(context) if blocked else "This profile is not quarantined."
-        if context.policy.worker_approval(context.profile) is not None:
+        reason = evidence_reason or (_profile_reason(context) if blocked else "This profile is not quarantined.")
+        if (
+            evidence_reason is None
+            and await asyncio.to_thread(context.policy.worker_approval, context.profile) is not None
+        ):
             reason = "This exact profile is approved in this process. Restart requires another explicit check."
         if self._status.state == "succeeded" and (
             blocked or self._status.profile_fingerprint != context.policy._key(context.profile)
