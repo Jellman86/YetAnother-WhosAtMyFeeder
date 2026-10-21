@@ -7,6 +7,7 @@ history. The same §3 bar applies: reversible, idempotent, one head, and
 constraints in the schema rather than in application code.
 """
 
+import logging
 import sqlite3
 
 import pytest
@@ -284,3 +285,19 @@ class TestSchemaConstraints:
                 )
         finally:
             connection.close()
+
+
+def test_in_process_upgrade_leaves_the_application_logging_untouched(catalog_path):
+    # The application upgrades the catalogue at startup inside its own process. Alembic's
+    # CLI logging setup there would silence every logger already created, including the
+    # redacted HTTP transport logs, and replace the application's root handlers.
+    transport = logging.getLogger("httpcore.connection")
+    root = logging.getLogger()
+    handlers_before = list(root.handlers)
+    level_before = root.level
+
+    upgrade_catalog(catalog_path)
+
+    assert transport.disabled is False
+    assert root.handlers == handlers_before
+    assert root.level == level_before

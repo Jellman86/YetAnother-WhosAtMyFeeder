@@ -11,6 +11,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   exports redact configured credentials and credential URLs, bound payloads,
   and keep private copies of retained context (#769).
 
+- Upgrading the species catalogue at startup no longer silences the application's
+  existing loggers or replaces its log handlers, so the now-redacted HTTP transport
+  logs are no longer switched off (#769).
+
 - Garden checks new detector candidates with SpeciesNet automatically, using the
   exact detector crop. Confident bird-only, blank or vehicle results go to
   **Dismissed** with an explanation and **Return to review**; animals, uncertainty
