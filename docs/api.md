@@ -692,6 +692,16 @@ guest sees the window public access allows, as everywhere else.
 - `POST /api/classifier/quarantine/revalidation/prepare` (owner only): reserve a client UUID `attempt_id` with a current 64-character `profile_fingerprint`. No native work starts; the upload reservation expires after five minutes.
 - `POST /api/classifier/quarantine/revalidation/{attempt_id}/inputs` (owner only): multipart `images` (exactly three distinct photos, each up to 25 MiB) and `video` (one clip up to 32 MiB). Total stream limit includes 1 MiB multipart overhead. A current reservation, unchanged profile and unchanged incidents are required. Starts one bounded disposable-process diagnostic; returns status immediately after input acceptance.
 - `POST /api/classifier/quarantine/revalidation/{attempt_id}/cancel` (owner only): cancels a reservation or waits for diagnostic child cleanup. Never clears retained crash evidence. States are `idle`, `uploading`, `checking`, `running`, `restoring`, `succeeded`, `failed`, `cancelled`, `superseded`. Approval lasts only in the current application process and only for matching isolated workers; restart requires explicit revalidation again. See [the safety contract](reviews/2026-10-19-owner-native-profile-revalidation.md).
+
+Native quarantine retains a stable primary model/provider/runtime block across
+video-frame and crop/wildlife artifact changes; process-local approval remains
+bound to the full checked profile. Existing incident files are retained. Failure
+status/audit messages use allow-listed input, output, crop, provider or device
+causes where available, with recognised GPU device codes only. Raw child stderr,
+exception details and uploaded paths are not returned. Unreadable/malformed or
+excessive saved evidence makes the profile ineligible for owner revalidation.
+See the [evidence identity and failure-report contract](reviews/2026-10-21-native-quarantine-evidence-and-failure-reports.md).
+
 - `GET /api/classifier/provider-validation` (owner only): automatic accelerator recovery state, model, provider, reason and check time. States are `idle`, `running`, `succeeded`, `failed`, `interrupted` and `superseded`.
 - `GET /api/classifier/status`
 - `GET /api/classifier/labels`

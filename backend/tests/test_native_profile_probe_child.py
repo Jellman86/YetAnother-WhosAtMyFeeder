@@ -110,3 +110,43 @@ def test_successful_crop_check_releases_its_temporary_crop():
     )
     check_crop_tier(crop, object(), "accurate")
     selected.close.assert_called_once()
+
+
+@pytest.mark.parametrize("failure", ["indistinguishable", "unexpected", "device"])
+def test_child_persists_a_safe_failure_report_and_exits_unsuccessfully(monkeypatch, tmp_path, failure):
+    import ctypes
+    import io
+    import json
+    import resource
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+    from scripts import probe_native_profile as child
+    from app.services.classifier_worker_protocol import ClassifierWorkerRetirementError
+
+    result = tmp_path / "result.json"
+    payload = {"result": str(result)}
+    monkeypatch.setattr(child.sys, "stdin", SimpleNamespace(buffer=io.BytesIO(json.dumps(payload).encode())))
+    monkeypatch.setattr(resource, "setrlimit", Mock())
+    monkeypatch.setattr(ctypes, "CDLL", lambda *_args, **_kwargs: SimpleNamespace(prctl=lambda *_args: 0))
+
+    def fail(_payload):
+        if failure == "indistinguishable":
+            child.validate_vectors([np.array([0.1, 0.9])] * 3)
+        if failure == "device":
+            raise ClassifierWorkerRetirementError(error_code="CL_OUT_OF_RESOURCES", detail="DUMMY-private-token/path")
+        raise RuntimeError("DUMMY-private-token/path")
+
+    monkeypatch.setattr(child, "run", fail)
+    assert child.main() == 1
+    report = json.loads(result.read_text())
+    assert "DUMMY" not in result.read_text()
+    assert (
+        report["failure"]["reason"]
+        == {
+            "indistinguishable": "indistinguishable_photos",
+            "unexpected": "unexpected_failure",
+            "device": "device_failure",
+        }[failure]
+    )
+    if failure == "device":
+        assert report["failure"]["device_code"] == "CL_OUT_OF_RESOURCES"
