@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
 
 from app.services.native_crash_quarantine import NativeCrashQuarantine, NativeCrashQuarantinedError
+from app.services.native_profile_probe_result import ProfileProbeFailure, failure_details
 
 if TYPE_CHECKING:
     import numpy as np
@@ -23,23 +24,23 @@ def validate_vectors(vectors: list[np.ndarray], *, require_variation: bool = Tru
     import numpy as np
 
     if len(vectors) < 3:
-        raise ValueError("At least three representative inference outputs are required")
+        raise ProfileProbeFailure("missing_outputs")
     rows = [np.asarray(vector, dtype=np.float64).reshape(-1) for vector in vectors]
     if any(row.size < 2 or not np.isfinite(row).all() or float(np.ptp(row)) < 1e-8 for row in rows):
-        raise ValueError("The diagnostic produced missing, nonfinite or uniform output")
+        raise ProfileProbeFailure("invalid_outputs")
     if len({row.size for row in rows}) != 1:
-        raise ValueError("The diagnostic output dimensions changed")
+        raise ProfileProbeFailure("output_dimensions_changed")
     if require_variation and all(np.allclose(rows[0], row, rtol=1e-5, atol=1e-7) for row in rows[1:]):
-        raise ValueError("Different representative photos produced indistinguishable output")
+        raise ProfileProbeFailure("indistinguishable_photos")
 
 
 def validate_predictions(predictions: list[dict[str, Any]]) -> None:
     if not predictions:
-        raise ValueError("The normal classification pipeline returned no result")
+        raise ProfileProbeFailure("no_pipeline_result")
     for prediction in predictions:
         score = prediction.get("score")
         if not isinstance(score, (float, int)) or not math.isfinite(score) or not 0 < score <= 1:
-            raise ValueError("The normal classification pipeline produced invalid scores")
+            raise ProfileProbeFailure("invalid_scores")
 
 
 class ExactProfileProbePolicy(NativeCrashQuarantine):
@@ -72,7 +73,7 @@ def _assert_identity(service: ClassifierService, profile: dict[str, Any]) -> Non
         or service.latest_runtime_recovery() is not None
         or NativeCrashQuarantine._key(service._native_launch_profile()) != NativeCrashQuarantine._key(profile)
     ):
-        raise ValueError("The probe did not keep the exact requested provider and artifact")
+        raise ProfileProbeFailure("profile_changed")
 
 
 def _video_frames(path: str) -> list[Image.Image]:
@@ -86,13 +87,13 @@ def _video_frames(path: str) -> list[Image.Image]:
         width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
         if not capture.isOpened() or count < 3 or min(width, height) < 1 or width * height > MAX_IMAGE_PIXELS:
-            raise ValueError("Choose a readable short clip with at least three bounded frames")
+            raise ProfileProbeFailure("invalid_clip")
         frames = []
         for index in (0, (count - 1) // 2, min(count - 1, int(count * 0.9))):
             capture.set(cv2.CAP_PROP_POS_FRAMES, index)
             ok, frame = capture.read()
             if not ok or frame is None or frame.shape[0] * frame.shape[1] > MAX_IMAGE_PIXELS:
-                raise ValueError("The representative video frames could not be decoded")
+                raise ProfileProbeFailure("video_decode_failed")
             frames.append(Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)))
         return frames
     finally:
@@ -105,7 +106,7 @@ def check_crop_tier(crop: BirdCropService, image: Image.Image, tier: str) -> Non
     result, available = crop._generate_crop_for_tier(image, tier)
     try:
         if not available or detector_scan_failed(result):
-            raise ValueError("A configured crop detector failed its representative check")
+            raise ProfileProbeFailure("crop_check_failed")
     finally:
         selected = result.get("crop_image")
         if selected is not None and selected is not image:
@@ -127,7 +128,10 @@ def run(payload: dict[str, Any]) -> dict[str, Any]:
     vectors = []
     checked = set()
     for path in payload["images"]:
-        image = load_rgb_image(path)
+        try:
+            image = load_rgb_image(path)
+        except (OSError, ValueError):
+            raise ProfileProbeFailure("invalid_photo") from None
         try:
             validate_predictions(service.classify(image))
             vector, _ = service._classify_raw_with_runtime_recovery(image)
@@ -166,7 +170,7 @@ def run(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def main() -> None:
+def main() -> int:
     import ctypes
     import resource
 
@@ -179,9 +183,18 @@ def main() -> None:
     if len(raw) > 65536:
         raise ValueError("The diagnostic launch manifest exceeded its bound")
     payload = json.loads(raw)
-    result = run(payload)
+    try:
+        result = run(payload)
+        exit_code = 0
+    except NativeCrashQuarantinedError:
+        result = {"failure": {"reason": "profile_changed"}}
+        exit_code = 1
+    except Exception as error:
+        result = {"failure": failure_details(error)}
+        exit_code = 1
     Path(payload["result"]).write_text(json.dumps(result))
+    return exit_code
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

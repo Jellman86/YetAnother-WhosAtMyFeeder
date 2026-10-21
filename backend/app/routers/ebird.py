@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from app.auth import get_auth_context_with_legacy
+from app.auth import AuthContext, get_auth_context_with_legacy, require_owner
 from app.database import get_db
 from app.config import settings
 from app.utils.public_access import guest_location
@@ -259,13 +259,18 @@ def _parse_detection_time(value: object) -> datetime | None:
     return None
 
 
+def require_export_owner(auth: AuthContext = Depends(get_auth_context_with_legacy)) -> AuthContext:
+    # Keep supported legacy owner access while rejecting public/guest contexts.
+    return require_owner(auth)
+
+
 @router.get("/export", response_class=StreamingResponse)
 async def export_ebird_csv(
     from_date: Optional[str] = Query(
         None, alias="from", description="Optional inclusive export start date in YYYY-MM-DD"
     ),
     to_date: Optional[str] = Query(None, alias="to", description="Optional inclusive export end date in YYYY-MM-DD"),
-    auth=Depends(get_auth_context_with_legacy),
+    _auth: AuthContext = Depends(require_export_owner),
 ):
     """
     Export all non-hidden detections in eBird Record Format CSV.

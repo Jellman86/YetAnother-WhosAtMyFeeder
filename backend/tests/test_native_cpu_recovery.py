@@ -909,3 +909,25 @@ async def test_real_profile_refresh_finishes_before_queued_live_inference(tmp_pa
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
         await runner.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_expanded_gpu_incident_preserves_cpu_recovery_but_not_a_failed_cpu_profile(tmp_path):
+    source = PROFILE | {
+        "auxiliary_artifacts": {"crop": {"fast": {"weights": "fixture"}}},
+        "video_frames": 15,
+        "legacy_profile_keys": [NativeCrashQuarantine._key(PROFILE)],
+    }
+    policy = NativeCrashQuarantine(lambda: source, root=tmp_path)
+    policy.record(source, -signal.SIGSEGV)
+    worker = Worker()
+    instance = NativeCpuRecovery(lambda: source, policy, worker_factory=lambda: worker)
+    try:
+        result = await classify(instance)
+        assert result[0]["label"] == "bird"
+        assert instance._profile["provider"] == "cpu"
+    finally:
+        await instance.shutdown()
+    policy.remember_retirement(source | {"provider": "cpu"})
+    with pytest.raises(NativeCpuRecoveryUnavailable):
+        instance._cpu_profile(source)

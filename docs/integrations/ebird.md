@@ -27,6 +27,11 @@ Choose enrichment sources separately under **Settings → Enrichment**. The eBir
 
 ## Exporting to eBird
 YA-WAMF exports a CSV for owner-reviewed import; it does not automatically submit checklists.
+Sign in as an owner to export. The file contains precise configured coordinates,
+camera names and non-hidden history within your selected date range, so guests
+cannot download it. Local CSV export also works with the eBird integration
+switched off or without an eBird API key. With application authentication switched
+off, requests retain the existing owner-equivalent access.
 
 1. Go to **Settings → Integrations → eBird**.
 2. Optionally choose inclusive `From` / `To` dates if you want a bounded checklist range. Leave both blank to export all detections.
