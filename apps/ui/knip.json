@@ -31,6 +31,7 @@
     "browser-tests/settings-backfill.ts",
     "browser-tests/setup-wizard.ts",
     "browser-tests/documentation.ts",
+    "browser-tests/frame-scan.ts",
     "browser-tests/map-popup.ts"
   ]
 }

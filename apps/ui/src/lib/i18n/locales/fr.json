@@ -2303,7 +2303,6 @@
       "unchanged_reason_non_bird": "Le modèle a identifié autre chose qu’un oiseau. L’identification existante a été conservée.",
       "analysis": "Analyse",
       "ai_analysis": "Analyse IA",
-      "frame_grid": "Grille des images",
       "frame_progress": "Image {current}/{total}",
       "model": "Modèle : {name}",
       "done": "Terminé",
@@ -2515,6 +2514,18 @@
       "crop": "Identifié à partir d’un recadrage de l’oiseau",
       "unknown": "La source de l’identification n’a pas été enregistrée",
       "original": "Identification initiale"
+    },
+    "frame_scan": {
+      "title": "Images vidéo lues",
+      "value_text": "{read} images lues sur {total}",
+      "complete": "Les {total} images ont été lues",
+      "bar_read": "Image {position} : {label} {score}%",
+      "bar_waiting": "Image {position} : pas encore lue",
+      "waiting": "En attente de la première image",
+      "best": "La plus nette jusqu'ici : image {position}, {label} {score}%",
+      "legend_strong": "80% et plus",
+      "legend_moderate": "50 à 79%",
+      "legend_weak": "Moins de 50%"
     }
   },
   "events": {

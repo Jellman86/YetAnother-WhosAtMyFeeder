@@ -56,7 +56,7 @@
     import { WholeScenePeek } from '../utils/whole-scene-peek.svelte';
     import { photoFitFor, type PhotoFit } from '../utils/photo-fit';
     import { speciesPickerNames } from '../utils/species-picker';
-    import VideoAnalysisFilmReel from './VideoAnalysisFilmReel.svelte';
+    import FrameScanRibbon from './FrameScanRibbon.svelte';
     import { detectionsStore, type ReclassificationProgress } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { publicSettingsStore } from '../stores/public_settings.svelte';
@@ -2467,7 +2467,7 @@
                             </div>
 
                             <div class="my-3 sm:my-4">
-                                <VideoAnalysisFilmReel progress={modalVideoAnalysisProgress} variant="detail" />
+                                <FrameScanRibbon progress={modalVideoAnalysisProgress} variant="detail" />
                             </div>
 
                             <div class="flex items-center justify-between gap-3 text-3xs font-semibold text-slate-500 dark:text-slate-400">

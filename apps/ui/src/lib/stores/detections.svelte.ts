@@ -37,7 +37,7 @@ export interface ReclassificationProgress {
     diagnostics?: VideoClassificationDiagnostics | null;
     // Set when the backend downgrades a video run to snapshot mid-flight (e.g.
     // clip_not_retained, event_not_found with no cached clip).  The UI uses
-    // this to swap the film-reel "video analysis" framing for a "snapshot
+    // this to swap the frame-ribbon "video analysis" framing for a "snapshot
     // fallback" state instead of silently carrying on.
     fallbackFrom?: string | null;
     fallbackReason?: string | null;
