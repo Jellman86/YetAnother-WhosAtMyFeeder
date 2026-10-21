@@ -1069,6 +1069,12 @@ The callback exception grants no owner role and does not expand cookie authentic
 - `GET /api/debug/fs/models`
 - `GET /api/debug/system`
 - `GET /api/diagnostics/errors`
+  Diagnostic entries redact credential-shaped fields, known configured secret values
+  and common credential URLs at collection and export. Context is copied and bounded
+  (2,048 characters per string, 64 items per collection, depth eight and 512 nodes
+  per payload field); truncation is marked. Source/correlation fields remain present.
+  Failed redaction-context lookup drops details rather than interrupting ingestion.
+
 - `GET /api/diagnostics/workspace` — focused video failure candidates include
   warning, error and critical events, excluding circuit summaries and successful
   CPU recovery or successful snapshot fallback. Routine photo updates and cache

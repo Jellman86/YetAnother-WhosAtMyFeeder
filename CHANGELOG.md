@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Telegram and notification-job errors retain safe error types/status codes
+  without logging raw credential-bearing exceptions. Diagnostic history and
+  exports redact configured credentials and credential URLs, bound payloads,
+  and keep private copies of retained context (#769).
+
 - Garden checks new detector candidates with SpeciesNet automatically, using the
   exact detector crop. Confident bird-only, blank or vehicle results go to
   **Dismissed** with an explanation and **Return to review**; animals, uncertainty

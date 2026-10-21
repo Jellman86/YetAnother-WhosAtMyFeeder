@@ -1,3 +1,5 @@
+import logging
+import traceback
 import structlog
 import asyncio
 import httpx
@@ -11,6 +13,34 @@ from app.config import settings
 from app.services.i18n_service import i18n_service
 from app.services.notification_links import notification_link
 from app.utils.blocked_species import matches_species_filter
+from app.utils.diagnostic_redaction import redact_text
+
+
+class _TelegramCredentialLogFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        message = record.getMessage()
+        secrets = (settings.notifications.telegram.bot_token or "",)
+        sanitized = redact_text(message, secrets)
+        if sanitized != message:
+            record.msg, record.args = sanitized, ()
+        if record.exc_info:
+            record.exc_text = redact_text("".join(traceback.format_exception(*record.exc_info)), secrets)
+            record.exc_info = None
+        elif record.exc_text:
+            record.exc_text = redact_text(record.exc_text, secrets)
+        return True
+
+
+for _logger in (
+    "httpx",
+    "httpcore",
+    "httpcore.connection",
+    "httpcore.http11",
+    "httpcore.http2",
+    "httpcore.proxy",
+    "httpcore.socks",
+):
+    logging.getLogger(_logger).addFilter(_TelegramCredentialLogFilter())
 
 log = structlog.get_logger()
 
@@ -481,7 +511,11 @@ class NotificationService:
             resp.raise_for_status()
             return True
         except Exception as e:
-            log.error("Telegram notification failed", error=str(e))
+            log.error(
+                "Telegram notification failed",
+                error_type=type(e).__name__,
+                status_code=e.response.status_code if isinstance(e, httpx.HTTPStatusError) else None,
+            )
             return False
 
     async def _send_email(
