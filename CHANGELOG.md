@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Precise eBird CSV exports now require owner access. Guest privacy settings can
+  no longer be bypassed through an export; owner offline exports still work
+  without an eBird API key or enabled integration (#769).
+
 - Garden checks new detector candidates with SpeciesNet automatically, using the
   exact detector crop. Confident bird-only, blank or vehicle results go to
   **Dismissed** with an explanation and **Return to review**; animals, uncertainty
