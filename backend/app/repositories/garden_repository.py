@@ -13,7 +13,7 @@ import uuid
 import aiosqlite
 
 from app.utils.api_datetime import utc_naive_now
-from app.models.garden import GardenIdentification
+from app.models.garden import GardenIdentification, GardenAutomaticCheck
 from app.models.garden_motion import MotionSource, MOTION_PADDING_SECONDS
 
 MOTION_PHOTO_LIMIT = 128
@@ -39,6 +39,8 @@ class GardenCapture:
     reviewed_at: str | None
     identification: GardenIdentification | None = None
     motion_source: MotionSource | None = None
+    automatic_check: GardenAutomaticCheck | None = None
+    automation_overridden: bool = False
 
 
 class GardenRepository:
@@ -49,7 +51,9 @@ class GardenRepository:
     _COLUMNS = f"""id, frigate_event, camera, label, observed_at, status,
         {_PHOTO_AVAILABLE}, reviewed_at,
         (SELECT result_json FROM garden_identifications WHERE capture_id = garden_captures.id),
-        (SELECT source_json FROM garden_motion_sources WHERE capture_id=garden_captures.id)"""
+        (SELECT source_json FROM garden_motion_sources WHERE capture_id=garden_captures.id),
+        (SELECT result_json FROM garden_automatic_checks WHERE capture_id=garden_captures.id),
+        automation_overridden"""
 
     def __init__(self, db: aiosqlite.Connection) -> None:
         self.db = db
@@ -66,6 +70,8 @@ class GardenRepository:
             row[7],
             GardenIdentification.model_validate_json(row[8]) if row[8] else None,
             MotionSource.model_validate_json(row[9]) if row[9] else None,
+            GardenAutomaticCheck.model_validate_json(row[10]) if row[10] else None,
+            bool(row[11]),
         )
 
     async def has_history(self) -> bool:
@@ -81,6 +87,10 @@ class GardenRepository:
         await self.db.commit()
 
     async def block(self, event_id: str, *, create: bool) -> None:
+        await self.db.execute(
+            "DELETE FROM garden_automatic_checks WHERE capture_id IN (SELECT id FROM garden_captures WHERE event_key=?)",
+            (self._key(event_id),),
+        )
         await self.db.execute(
             "DELETE FROM garden_identifications WHERE capture_id IN (SELECT id FROM garden_captures WHERE event_key=?)",
             (self._key(event_id),),
@@ -126,7 +136,7 @@ class GardenRepository:
     async def review(self, capture_id: str, status: GardenStatus) -> GardenCapture | None:
         # The write lock checks photo availability against concurrent reclamation.
         updated = await self.db.execute(
-            f"""UPDATE garden_captures SET status = ?, reviewed_at = ?
+            f"""UPDATE garden_captures SET status = ?, reviewed_at = ?, automation_overridden=1
                WHERE id = ? AND status != 'blocked' AND (? = 'dismissed' OR ({self._PHOTO_AVAILABLE}))""",
             (
                 status,
@@ -157,7 +167,7 @@ class GardenRepository:
         # The expected status protects another owner's review and the explicit
         # ID set excludes captures collected after the page was loaded.
         async with self.db.execute(
-            f"""UPDATE garden_captures SET status=?,reviewed_at=?
+            f"""UPDATE garden_captures SET status=?,reviewed_at=?,automation_overridden=1
                 WHERE id IN ({placeholders}) AND status=?{available} RETURNING id""",
             (status, utc_naive_now().isoformat() if action == "dismiss" else None, *ids, previous),
         ) as cursor:
@@ -173,6 +183,10 @@ class GardenRepository:
         return [capture_id for capture_id in ids if capture_id in updated]
 
     async def delete_older_than(self, cutoff: datetime) -> None:
+        await self.db.execute(
+            "DELETE FROM garden_automatic_checks WHERE capture_id IN (SELECT id FROM garden_captures WHERE observed_at < ?)",
+            (cutoff.replace(tzinfo=None).isoformat(),),
+        )
         await self.db.execute(
             "DELETE FROM garden_motion_sources WHERE capture_id IN (SELECT id FROM garden_captures WHERE observed_at < ?)",
             (cutoff.replace(tzinfo=None).isoformat(),),
@@ -272,7 +286,7 @@ class GardenRepository:
                has_snapshot=0,reviewed_at=NULL WHERE id IN ({placeholders}) AND status!='confirmed'""",
             ids,
         )
-        for table in ("garden_identifications", "garden_motion_sources"):
+        for table in ("garden_identifications", "garden_motion_sources", "garden_automatic_checks"):
             await self.db.execute(
                 f"DELETE FROM {table} WHERE capture_id IN ({placeholders}) AND capture_id IN (SELECT id FROM garden_captures WHERE status='blocked')",
                 ids,
@@ -307,6 +321,7 @@ class GardenRepository:
             await self.db.commit()
 
     async def block_capture(self, capture_id: str) -> None:
+        await self.db.execute("DELETE FROM garden_automatic_checks WHERE capture_id=?", (capture_id,))
         await self.db.execute("DELETE FROM garden_identifications WHERE capture_id=?", (capture_id,))
         await self.db.execute("DELETE FROM garden_motion_sources WHERE capture_id=?", (capture_id,))
         await self.db.execute(
@@ -315,6 +330,48 @@ class GardenRepository:
             (capture_id,),
         )
         await self.db.commit()
+
+    async def next_automatic_check(self, cameras: list[str], retry_before: str) -> GardenCapture | None:
+        if not cameras:
+            return None
+        placeholders = ",".join("?" for _ in cameras)
+        async with self.db.execute(
+            f"""SELECT {self._COLUMNS} FROM garden_captures
+                WHERE status='pending' AND automation_overridden=0 AND ({self._PHOTO_AVAILABLE})
+                AND camera IN ({placeholders}) AND (
+                  NOT EXISTS (SELECT 1 FROM garden_automatic_checks WHERE capture_id=id)
+                  OR EXISTS (SELECT 1 FROM garden_automatic_checks WHERE capture_id=id
+                    AND json_extract(result_json,'$.outcome')='unavailable'
+                    AND json_extract(result_json,'$.checked_at') < ?))
+                ORDER BY EXISTS (SELECT 1 FROM garden_automatic_checks WHERE capture_id=id), observed_at, id LIMIT 1""",
+            (*cameras, retry_before),
+        ) as cursor:
+            row = await cursor.fetchone()
+        return self._capture(row) if row else None
+
+    async def save_automatic_check(self, original: GardenCapture, result: GardenAutomaticCheck) -> bool:
+        # A single write transaction compares both the previous assessment and
+        # the owner-override bit. A dismiss/restore cycle must win over inference.
+        cursor = await self.db.execute(
+            f"""INSERT INTO garden_automatic_checks(capture_id,result_json)
+                SELECT id,? FROM garden_captures WHERE id=? AND status='pending'
+                AND automation_overridden=0 AND ({self._PHOTO_AVAILABLE})
+                AND json((SELECT result_json FROM garden_automatic_checks WHERE capture_id=id)) IS json(?)
+                ON CONFLICT(capture_id) DO UPDATE SET result_json=excluded.result_json""",
+            (
+                result.model_dump_json(),
+                original.id,
+                original.automatic_check.model_dump_json() if original.automatic_check else None,
+            ),
+        )
+        changed = cursor.rowcount > 0
+        if changed and result.outcome in {"bird", "non_animal"}:
+            await self.db.execute(
+                "UPDATE garden_captures SET status='dismissed' WHERE id=? AND status='pending' AND automation_overridden=0",
+                (original.id,),
+            )
+        await self.db.commit()
+        return changed
 
     async def save_identification(self, original: GardenCapture, result: GardenIdentification) -> bool:
         cursor = await self.db.execute(

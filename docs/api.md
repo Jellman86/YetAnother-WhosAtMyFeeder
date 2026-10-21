@@ -345,6 +345,15 @@ species identification have separate reviews; `frigate_label` remains an upstrea
   `offset>=0`; returns `items`, `total`, `limit`, `offset`. Pending items and totals
   omit captures whose photos are known to be unavailable, without changing their
   stored reviews. Confirmed and dismissed history still include them.
+  `automatic_check` records a new capture's automatic SpeciesNet assessment:
+  `animal|bird|non_animal|uncertain|unavailable`, check time, model/package/photo
+  checksums, exact normalized crop, actual CPU device and complete probability
+  mass for birds, non-human/non-bird animals, humans, blank/vehicle and other.
+  Confident bird or blank/vehicle checks move an untouched pending capture to
+  dismissed; person evidence removes it under the existing privacy rules.
+  Unknown results and failures stay pending. Owner review/restore overrides
+  automation permanently for that capture (`automatic_check_overridden=true`).
+  Pre-update captures are not rechecked.
 - `POST /api/garden/review-batch` — explicit `ids` (1..128 hexadecimal capture IDs)
   and `action` (`dismiss` or `restore`). Dismiss changes only pending captures;
   Restore changes only dismissed captures with available photos. Returns `updated_ids`
@@ -376,7 +385,10 @@ species identification have separate reviews; `frigate_label` remains an upstrea
   `503` if the catalogue, download or worker cleanup is unavailable.
 
 - `GET /api/garden/identification` — catalogue availability, normalised ISO-3 country,
-  per-variant model download status, busy state and any worker cleanup error.
+  per-variant model download status, busy state, `automatic_message` and any worker cleanup error.
+  Automatic checks download/verify the tracked-crop model when needed and run
+  on CPU with bird/camera priority. Missing boxes never use whole-image inference
+  to reject a capture. Unavailable checks retry no sooner than five minutes later.
 - `POST /api/garden/models/{variant}/install` — atomically download and verify
   `4.0.3a` or `4.0.3b`; no body. Both files are about 224 MB.
 - `POST /api/garden/{capture_id}/check-photo` — body
@@ -402,7 +414,8 @@ species identification have separate reviews; `frigate_label` remains an upstrea
 Identification metadata includes the canonical `species_id`, model/package/photo
 checksums, raw winning `output_index`, country, requested provider, actual devices,
 input kind, optional normalized XYWH box, frame size and review state. This belongs
-only to garden history. No automatic inference or model switch is performed.
+only to garden history. Species suggestions and their acceptance remain explicit;
+automatic presence checks do not confirm a species or change the owner's provider.
 
 Captures include `source_kind=frigate_event|motion`. Motion captures have no Frigate
 event ID. Their `motion_source` binds the requested recording window, returned frame

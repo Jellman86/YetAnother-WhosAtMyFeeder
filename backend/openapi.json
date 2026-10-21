@@ -6980,6 +6980,127 @@
         "title": "FrigateTestResponse",
         "type": "object"
       },
+      "GardenAutomaticCheck": {
+        "additionalProperties": false,
+        "properties": {
+          "box_xywh": {
+            "anyOf": [
+              {
+                "maxItems": 4,
+                "minItems": 4,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Box Xywh"
+          },
+          "checked_at": {
+            "title": "Checked At",
+            "type": "string"
+          },
+          "devices": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Devices",
+            "type": "array"
+          },
+          "image_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Sha256"
+          },
+          "mass": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GardenPresenceMass"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "model_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Sha256"
+          },
+          "outcome": {
+            "enum": [
+              "animal",
+              "bird",
+              "non_animal",
+              "uncertain",
+              "unavailable"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "package_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Package Sha256"
+          },
+          "variant": {
+            "anyOf": [
+              {
+                "enum": [
+                  "4.0.3a",
+                  "4.0.3b"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Variant"
+          }
+        },
+        "required": [
+          "outcome",
+          "checked_at"
+        ],
+        "title": "GardenAutomaticCheck",
+        "type": "object"
+      },
       "GardenBatchReviewRequest": {
         "properties": {
           "action": {
@@ -7062,6 +7183,21 @@
       },
       "GardenCaptureResponse": {
         "properties": {
+          "automatic_check": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GardenAutomaticCheck"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "automatic_check_overridden": {
+            "default": false,
+            "title": "Automatic Check Overridden",
+            "type": "boolean"
+          },
           "camera": {
             "title": "Camera",
             "type": "string"
@@ -7358,6 +7494,11 @@
       },
       "GardenIdentificationStatus": {
         "properties": {
+          "automatic_message": {
+            "default": "Automatic checks wait for an enabled Garden camera and idle bird inference.",
+            "title": "Automatic Message",
+            "type": "string"
+          },
           "busy": {
             "title": "Busy",
             "type": "boolean"
@@ -7782,6 +7923,50 @@
           "other"
         ],
         "title": "GardenPhotoMass",
+        "type": "object"
+      },
+      "GardenPresenceMass": {
+        "additionalProperties": false,
+        "properties": {
+          "animal": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Animal",
+            "type": "number"
+          },
+          "bird": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Bird",
+            "type": "number"
+          },
+          "human": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Human",
+            "type": "number"
+          },
+          "non_animal": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Non Animal",
+            "type": "number"
+          },
+          "other": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Other",
+            "type": "number"
+          }
+        },
+        "required": [
+          "bird",
+          "animal",
+          "human",
+          "non_animal",
+          "other"
+        ],
+        "title": "GardenPresenceMass",
         "type": "object"
       },
       "HTTPValidationError": {

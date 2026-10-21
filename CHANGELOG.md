@@ -6,6 +6,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Garden checks new detector candidates with SpeciesNet automatically, using the
+  exact detector crop. Confident bird-only, blank or vehicle results go to
+  **Dismissed** with an explanation and **Return to review**; animals, uncertainty
+  and unavailable checks stay in **Needs review**. The tracked-crop model downloads
+  automatically, checks yield to birds and camera pressure, and owner reviews
+  always override automation. Existing captures keep their reviews. Species
+  confirmation remains manual; Garden stays an off-by-default beta (#641).
+
 - The optional RF-DETR Nano bird finder now includes CUDA in normal per-host
   compatibility validation. CUDA remains a candidate until it passes that
   installation's CPU comparison; missing, failed or stale evidence keeps the

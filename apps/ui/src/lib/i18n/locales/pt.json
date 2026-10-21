@@ -3610,7 +3610,7 @@
     "load_error": "Não foi possível carregar as capturas do jardim. Atualize para tentar novamente.",
     "save_error": "Não foi possível guardar a revisão. Tente novamente.",
     "review_only": "Protótipo para revisão pelo proprietário",
-    "review_help": "Verifique a fotografia e confirme primeiro a presença de um animal. Depois pode pedir uma sugestão de espécie. Mesmo uma pontuação elevada pode estar errada; verifique sempre a identificação.",
+    "review_help": "As novas capturas são verificadas automaticamente. Resultados claros de aves, cenas vazias ou veículos passam para Descartadas e podem ser restaurados. Animais e resultados incertos precisam da sua revisão. A espécie é sempre confirmada por si.",
     "retention_help": "As visitas ao jardim ficam separadas dos totais de aves e das exportações. As fotos de eventos do Frigate seguem a retenção do Frigate. As fotos de movimento são guardadas até três dias; as descartadas podem abrir espaço para novas capturas antes. As capturas de movimento não confirmadas são removidas ao expirar.",
     "views": "Vistas de revisão do jardim",
     "refresh": "Atualizar",
@@ -3655,7 +3655,7 @@
     "model_whole": "SpeciesNet 4.0.3b · Imagem completa",
     "provider": "Executar modelo do jardim em",
     "setup_needed": "Abra Sugestões de espécies para verificar modelo, país e disponibilidade.",
-    "species_help": "SpeciesNet só funciona quando solicitado. A identificação de aves tem prioridade e pode interrompê-lo. Não são ativadas identificações nem notificações automáticas.",
+    "species_help": "As verificações automáticas usam SpeciesNet no recorte, na CPU, quando as aves e câmaras estão livres. O modelo é descarregado automaticamente. O dispositivo escolhido aplica-se às verificações manuais e sugestões de espécie. Confirmações e notificações não são automáticas.",
     "species_settings": "Sugestões de espécies",
     "suggest_species": "Sugerir espécie",
     "tracked_crop": "Recorte da fotografia do objeto seguido",
@@ -3696,6 +3696,13 @@
     "single_photo_help": "Rever esta foto",
     "beta_off_title": "Animais do jardim está desligado",
     "beta_off_desc": "Animais do jardim é uma funcionalidade beta. Ligue-a em Definições, Funcionalidades beta, para recolher e rever visitantes que não são aves. As capturas guardadas mantêm-se enquanto estiver desligada.",
-    "beta_off_action": "Abrir Funcionalidades beta"
+    "beta_off_action": "Abrir Funcionalidades beta",
+    "automatic_check": "Verificação automática SpeciesNet",
+    "automatic_bird": "Ave sugerida. Capturas apenas com aves passam para Descartadas; devolva a foto à revisão se o resultado estiver errado.",
+    "automatic_non_animal": "Cena vazia ou veículo sugerido. Estas capturas passam para Descartadas; devolva a foto à revisão se o resultado estiver errado.",
+    "automatic_animal": "Sugerido um animal que não é uma ave. Verifique a foto e confirme pessoalmente a presença do animal.",
+    "automatic_uncertain": "Resultado incerto. Esta foto ainda precisa da sua revisão.",
+    "automatic_unavailable": "A verificação automática estava indisponível. A foto continua pendente; haverá nova tentativa após cinco minutos enquanto Jardim estiver ativo.",
+    "automatic_overridden": "A sua revisão prevalece sobre este resultado. Esta captura não voltará a ser verificada automaticamente."
   }
 }

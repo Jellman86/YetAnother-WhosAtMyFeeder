@@ -1005,6 +1005,17 @@ export interface components {
     status: string;
     version: string;
 };
+    GardenAutomaticCheck: {
+    box_xywh?: [number, number, number, number] | null;
+    checked_at: string;
+    devices?: Array<string>;
+    image_sha256?: string | null;
+    mass?: components['schemas']['GardenPresenceMass'] | null;
+    model_sha256?: string | null;
+    outcome: "animal" | "bird" | "non_animal" | "uncertain" | "unavailable";
+    package_sha256?: string | null;
+    variant?: "4.0.3a" | "4.0.3b" | null;
+};
     GardenBatchReviewRequest: {
     action: "dismiss" | "restore";
     ids: Array<string>;
@@ -1020,6 +1031,8 @@ export interface components {
     total: number;
 };
     GardenCaptureResponse: {
+    automatic_check?: components['schemas']['GardenAutomaticCheck'] | null;
+    automatic_check_overridden?: boolean;
     camera: string;
     frigate_label: string;
     id: string;
@@ -1055,6 +1068,7 @@ export interface components {
     variant: "4.0.3a" | "4.0.3b";
 };
     GardenIdentificationStatus: {
+    automatic_message?: string;
     busy: boolean;
     catalogue_ready: boolean;
     country: string | null;
@@ -1112,6 +1126,13 @@ export interface components {
     blank: number;
     human: number;
     mammal: number;
+    other: number;
+};
+    GardenPresenceMass: {
+    animal: number;
+    bird: number;
+    human: number;
+    non_animal: number;
     other: number;
 };
     HTTPValidationError: {

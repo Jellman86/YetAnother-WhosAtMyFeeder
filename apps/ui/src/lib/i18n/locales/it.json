@@ -3610,7 +3610,7 @@
     "load_error": "Impossibile caricare le catture del giardino. Aggiorna per riprovare.",
     "save_error": "Impossibile salvare la revisione. Riprova.",
     "review_only": "Prototipo con revisione del proprietario",
-    "review_help": "Controlla la foto e conferma prima la presenza di un animale. Poi puoi richiedere un suggerimento sulla specie. Anche un punteggio alto può essere sbagliato; verifica sempre l’identificazione.",
+    "review_help": "Le nuove acquisizioni vengono controllate automaticamente. Risultati chiari di soli uccelli, scene vuote o veicoli passano a Scartate e possono essere ripristinati. Animali e risultati incerti richiedono la tua revisione. Confermi sempre tu la specie.",
     "retention_help": "Le visite in giardino restano separate dai totali degli uccelli e dalle esportazioni. Le foto degli eventi Frigate seguono la sua conservazione. Le foto di movimento vengono conservate fino a tre giorni; quelle scartate possono fare spazio prima a nuove acquisizioni. Le acquisizioni di movimento non confermate vengono rimosse alla scadenza.",
     "views": "Viste di revisione del giardino",
     "refresh": "Aggiorna",
@@ -3655,7 +3655,7 @@
     "model_whole": "SpeciesNet 4.0.3b · Immagine intera",
     "provider": "Esegui il modello del giardino su",
     "setup_needed": "Apri Suggerimenti sulle specie per verificare modello, paese e disponibilità.",
-    "species_help": "SpeciesNet funziona solo su richiesta. L’identificazione degli uccelli ha priorità e può interromperlo. Identificazioni e notifiche automatiche non sono attivate.",
+    "species_help": "I controlli automatici usano SpeciesNet sul ritaglio in CPU quando uccelli e telecamere sono liberi. Il modello viene scaricato automaticamente. Il dispositivo scelto vale per controlli manuali e suggerimenti di specie. Conferme e notifiche non sono automatiche.",
     "species_settings": "Suggerimenti sulle specie",
     "suggest_species": "Suggerisci specie",
     "tracked_crop": "Ritaglio della foto dell’oggetto seguito",
@@ -3696,6 +3696,13 @@
     "single_photo_help": "Esamina questa foto",
     "beta_off_title": "Animali del giardino è disattivato",
     "beta_off_desc": "Animali del giardino è una funzione beta. Attivala in Impostazioni, Funzioni beta, per raccogliere ed esaminare i visitatori che non sono uccelli. Le catture salvate restano mentre è disattivata.",
-    "beta_off_action": "Apri Funzioni beta"
+    "beta_off_action": "Apri Funzioni beta",
+    "automatic_check": "Controllo automatico SpeciesNet",
+    "automatic_bird": "Uccello suggerito. Le acquisizioni con soli uccelli passano a Scartate; rimetti la foto in revisione se il risultato è sbagliato.",
+    "automatic_non_animal": "Scena vuota o veicolo suggerito. Queste acquisizioni passano a Scartate; rimetti la foto in revisione se il risultato è sbagliato.",
+    "automatic_animal": "Suggerito un animale diverso da un uccello. Controlla la foto e conferma tu la sua presenza.",
+    "automatic_uncertain": "Risultato incerto. Questa foto richiede ancora la tua revisione.",
+    "automatic_unavailable": "Il controllo automatico non era disponibile. La foto resta da rivedere; verrà riprovato dopo cinque minuti se Giardino è attivo.",
+    "automatic_overridden": "La tua revisione prevale su questo risultato. Questa acquisizione non verrà ricontrollata automaticamente."
   }
 }

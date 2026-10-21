@@ -3610,7 +3610,7 @@
     "load_error": "Could not load garden captures. Refresh to try again.",
     "save_error": "Could not save your review. Try again.",
     "review_only": "Owner review prototype",
-    "review_help": "Check the photo and confirm animal presence first. You can then request a species suggestion. Model scores can be confidently wrong; identification always needs your review.",
+    "review_help": "New captures are checked automatically. Confident bird-only, blank or vehicle results go to Dismissed, where you can restore mistakes. Animals and uncertain results need your review; species confirmation is always yours.",
     "retention_help": "Garden visits stay separate from bird totals and exports. Frigate event photos follow Frigate retention. Motion photos last up to three days; dismissed photos may make room for new captures sooner. Unconfirmed motion captures are removed on expiry.",
     "views": "Garden review views",
     "refresh": "Refresh",
@@ -3636,7 +3636,7 @@
     "subtitle": "Review animal captures separately from your bird history.",
     "model_error": "Could not download the garden model. Try again.",
     "species_settings": "Species suggestions",
-    "species_help": "SpeciesNet runs only when you ask. Bird inference takes priority and can interrupt it. No automatic identification or notifications are enabled.",
+    "species_help": "Automatic presence checks use cropped SpeciesNet on CPU when birds and cameras are idle. The tracked-crop model downloads automatically. Your provider choice below applies to manual checks and species suggestions. Species confirmation and notifications are not automatic.",
     "model_status_unavailable": "Model status unavailable. Refresh to try again.",
     "catalogue_unavailable": "Garden species data is unavailable. Check the application startup diagnostics.",
     "model": "Garden model",
@@ -3696,6 +3696,13 @@
     "single_photo_help": "Review this photo",
     "beta_off_title": "Garden animals is switched off",
     "beta_off_desc": "Garden animals is a beta feature. Turn it on in Settings, Beta features, to collect and review non-bird visitors. Saved captures are kept while it is off.",
-    "beta_off_action": "Open Beta features"
+    "beta_off_action": "Open Beta features",
+    "automatic_check": "Automatic SpeciesNet check",
+    "automatic_bird": "Bird suggested. Bird-only captures go to Dismissed; return this photo to review if the check is wrong.",
+    "automatic_non_animal": "Blank scene or vehicle suggested. These captures go to Dismissed; return this photo to review if the check is wrong.",
+    "automatic_animal": "Non-bird animal suggested. Check the photo and confirm animal presence yourself.",
+    "automatic_uncertain": "Uncertain result. This photo still needs your review.",
+    "automatic_unavailable": "The automatic check was unavailable. This photo stays in Needs review; checks retry after five minutes while Garden is enabled.",
+    "automatic_overridden": "Your review overrides this automatic result. This capture will not be checked again automatically."
   }
 }

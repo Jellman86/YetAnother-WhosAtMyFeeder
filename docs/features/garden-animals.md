@@ -4,6 +4,26 @@
 completed Frigate animal events separately from bird history. It offers optional, owner-requested SpeciesNet suggestions. It never saves a model
 guess as a confirmed identification automatically.
 
+New captures are checked automatically with the SpeciesNet tracked-crop model.
+Confident bird-only, blank-scene or vehicle results move to **Dismissed** with
+the automatic result shown on the capture. Open that view and choose **Return to
+review** if the check is wrong. Restoring, confirming or dismissing a capture
+overrides automatic checks for that capture, including after restart.
+Existing captures from before this update keep their reviews and are not rechecked.
+
+The required 224 MB tracked-crop model downloads and verifies automatically when
+an enabled Garden camera has a new photo to check. Checks use CPU, one photo at a
+time, while birds and Frigate cameras are idle. They use the detector's exact box;
+missing boxes, mixed evidence and uncertain results stay in **Needs review**.
+Model, download or runtime failures also stay there and retry no sooner than five
+minutes later. The status under **Species suggestions** describes automatic work;
+refresh to read updated results. No **Check photo** click is needed.
+
+A model result is not proof of absence. Automatic dismissal is reversible while
+the photo remains available, under the same retention and photo-reclamation rules
+as other dismissed captures. Recognised person evidence removes the capture and
+its photo instead of placing it in Dismissed, preserving the privacy rules below.
+
 It is off unless you turn it on in **Settings → Beta features** (or set
 `SYSTEM__BETA_GARDEN_ANIMALS=true`). While it is off, Garden collects nothing new, the
 motion scanner does not run, the sidebar item and camera options are hidden, and the
@@ -39,8 +59,8 @@ an animal photograph, so the view and its media are always owner-only.
 Frigate events without an advertised snapshot are skipped. **Needs review** omits
 captures whose photo is known to be unavailable, without deleting or changing
 their review metadata. Confirmed history remains visible after photo loss.
-Frigate event photographs are requested only when viewed and can expire before
-their metadata. A failed download disables confirmation but does not discard the
+Frigate event photographs are requested for automatic checks and when viewed;
+they can expire before their metadata. A failed download disables confirmation but does not discard the
 capture: a network error is not proof that the photo is gone. Review metadata follows
 **Settings → Data → Detection Retention** when automatic cleanup is enabled;
 turning off Garden animals stops collection but preserves existing reviews.
@@ -157,8 +177,8 @@ presence review. Download **4.0.3a** and choose a provider under **Species
 suggestions**, then check the displayed photo. The dialog outlines the exact crop
 and may suggest a bird or a non-human mammal, or remain uncertain. It preserves
 blank and other probability mass; human evidence withholds the suggestion.
-No country is required. The result applies only to that photo and clears when
-you close it or change photos. It does not confirm, dismiss or save an identity;
+No country is required. The manual result applies only to that photo and clears when
+you close it or change photos. The manual check does not confirm, dismiss or save an identity;
 you still make the review decision. Bird work retains priority.
 
 To request a species suggestion, open **Species suggestions** above the history:
@@ -199,7 +219,7 @@ An expired or changed photograph cannot be used to confirm an old suggestion.
 **Discard identification** revokes your identification confirmation without changing
 animal presence. Dismissing animal presence also revokes its identification confirmation. No garden suggestions enable notifications or bird exports.
 
-Automatic species identification still needs reviewed daytime and infrared animal
+Automatic species confirmation still needs reviewed daytime and infrared animal
 captures and hard negatives. The [developer replay](../development/garden-replay.md)
 records the model checks and limitations tracked in
 [#641](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/641).

@@ -3610,7 +3610,7 @@
     "load_error": "Gartenaufnahmen konnten nicht geladen werden. Bitte aktualisieren.",
     "save_error": "Prüfung konnte nicht gespeichert werden. Bitte erneut versuchen.",
     "review_only": "Prototyp zur Prüfung durch den Eigentümer",
-    "review_help": "Prüfe das Foto und bestätige zuerst die Anwesenheit eines Tieres. Danach kannst du einen Artenvorschlag anfordern. Auch hohe Modellwerte können falsch sein; jede Bestimmung muss von dir geprüft werden.",
+    "review_help": "Neue Aufnahmen werden automatisch geprüft. Klare Vogel-, Leerbild- oder Fahrzeugergebnisse landen unter Verworfen und können zurückgestellt werden. Tiere und unklare Ergebnisse benötigen deine Prüfung. Arten bestätigst du selbst.",
     "retention_help": "Gartenbesuche bleiben von Vogelstatistiken und Exporten getrennt. Fotos von Frigate-Ereignissen folgen der Frigate-Aufbewahrung. Bewegungsfotos werden bis zu drei Tage gespeichert; verworfene Fotos können früher Platz für neue Aufnahmen machen. Unbestätigte Bewegungsaufnahmen werden nach Ablauf entfernt.",
     "views": "Ansichten der Gartenprüfung",
     "refresh": "Aktualisieren",
@@ -3655,7 +3655,7 @@
     "model_whole": "SpeciesNet 4.0.3b · Ganzes Bild",
     "provider": "Gartenmodell ausführen auf",
     "setup_needed": "Öffne oben die Artenvorschläge, um Modell, Land und Verfügbarkeit zu prüfen.",
-    "species_help": "SpeciesNet läuft nur auf Anfrage. Vogelbestimmungen haben Vorrang und können es unterbrechen. Automatische Bestimmungen und Benachrichtigungen sind nicht aktiviert.",
+    "species_help": "Automatische Prüfungen nutzen das zugeschnittene SpeciesNet-Modell auf der CPU, wenn Vögel und Kameras nicht beschäftigt sind. Das Modell wird automatisch heruntergeladen. Die Gerätewahl gilt für manuelle Prüfungen und Artenvorschläge. Artenbestätigung und Benachrichtigungen sind nicht automatisch.",
     "species_settings": "Artenvorschläge",
     "suggest_species": "Art vorschlagen",
     "tracked_crop": "Verfolgter Fotoausschnitt",
@@ -3696,6 +3696,13 @@
     "single_photo_help": "Dieses Foto prüfen",
     "beta_off_title": "Gartentiere ist ausgeschaltet",
     "beta_off_desc": "Gartentiere ist eine Beta-Funktion. Schalte sie unter Einstellungen, Beta-Funktionen ein, um Besucher zu sammeln und zu prüfen, die keine Vögel sind. Gespeicherte Aufnahmen bleiben erhalten, solange sie aus ist.",
-    "beta_off_action": "Beta-Funktionen öffnen"
+    "beta_off_action": "Beta-Funktionen öffnen",
+    "automatic_check": "Automatische SpeciesNet-Prüfung",
+    "automatic_bird": "Vogel vermutet. Reine Vogelaufnahmen landen unter Verworfen. Stelle das Foto zur Prüfung zurück, falls das falsch ist.",
+    "automatic_non_animal": "Leere Szene oder Fahrzeug vermutet. Diese Aufnahmen landen unter Verworfen. Stelle das Foto zur Prüfung zurück, falls das falsch ist.",
+    "automatic_animal": "Anderes Tier als ein Vogel vermutet. Prüfe das Foto und bestätige selbst die Anwesenheit eines Tieres.",
+    "automatic_uncertain": "Unklares Ergebnis. Dieses Foto benötigt weiterhin deine Prüfung.",
+    "automatic_unavailable": "Die automatische Prüfung war nicht verfügbar. Das Foto bleibt zur Prüfung stehen. Bei aktiviertem Garten wird nach fünf Minuten erneut geprüft.",
+    "automatic_overridden": "Deine Prüfung ersetzt dieses automatische Ergebnis. Diese Aufnahme wird nicht erneut automatisch geprüft."
   }
 }

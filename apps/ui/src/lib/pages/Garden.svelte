@@ -1,4 +1,5 @@
 <script lang="ts">
+    import GardenAutomaticAssessment from '../components/GardenAutomaticAssessment.svelte';
     import { onDestroy, onMount } from 'svelte';
     import { _ } from 'svelte-i18n';
     import { fetchGarden, reviewGarden, reviewGardenBatch, fetchGardenIdentification, installGardenModel, identifyGarden, reviewGardenIdentification, type GardenCapture, type GardenIdentificationStatus, type GardenIdentifyRequest } from '../api/garden';
@@ -288,7 +289,7 @@
 <div class="space-y-5" data-garden-history>
     <div class="card-base p-4 space-y-2">
         <p class="eyebrow">{$_('garden.review_only', { default: 'Owner review prototype' })}</p>
-        <p class="text-sm text-slate-600 dark:text-slate-400">{$_('garden.review_help', { default: 'Check the photo and confirm animal presence first. You can then request a species suggestion. Model scores can be confidently wrong; identification always needs your review.' })}</p>
+        <p class="text-sm text-slate-600 dark:text-slate-400">{$_('garden.review_help', { default: 'New captures are checked automatically. Confident bird-only, blank or vehicle results go to Dismissed, where you can restore mistakes. Animals and uncertain results need your review; species confirmation is always yours.' })}</p>
         <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.retention_help', { default: 'Garden visits stay separate from bird totals and exports. Frigate event photos follow Frigate retention. Motion photos last up to three days; dismissed photos may make room for new captures sooner. Unconfirmed motion captures are removed on expiry.' })}</p>
         <details class="group" data-garden-motion>
             <summary class="min-h-11 list-none [&::-webkit-details-marker]:hidden cursor-pointer py-3 text-sm font-semibold focus-visible:ring-2 focus-visible:ring-brand"><span>{$_('garden.motion_title', { default: 'Motion collection' })}</span><span class="inline-block ml-2 transition-transform group-open:rotate-180" aria-hidden="true">⌄</span></summary>
@@ -322,7 +323,8 @@
         <details class="group">
             <summary class="min-h-11 list-none [&::-webkit-details-marker]:hidden cursor-pointer py-3 text-sm font-semibold focus-visible:ring-2 focus-visible:ring-brand"><span>{$_('garden.species_settings', { default: 'Species suggestions' })}</span><span class="inline-block ml-2 transition-transform group-open:rotate-180" aria-hidden="true">⌄</span></summary>
             <div class="space-y-3 pt-2">
-                <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.species_help', { default: 'SpeciesNet runs only when you ask. Bird inference takes priority and can interrupt it. No automatic identification or notifications are enabled.' })}</p>
+                <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.species_help', { default: 'Automatic presence checks use cropped SpeciesNet on CPU when birds and cameras are idle. The tracked-crop model downloads automatically. Your provider choice below applies to manual checks and species suggestions. Species confirmation and notifications are not automatic.' })}</p>
+                {#if identification}<p class="text-sm" role="status">{identification.automatic_message}</p>{/if}
                 {#if !identification}
                     <p role="status" class="text-sm">{$_('garden.model_status_unavailable', { default: 'Model status unavailable. Refresh to try again.' })}</p>
                 {:else if identification.error}
@@ -429,6 +431,9 @@
                                     <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.presence_box', { default: 'Box: MegaDetector Cedar candidate. Check the photo before confirming.' })}</p>
                                 {/if}
                                 <p class="text-xs text-slate-600 dark:text-slate-400">{views.find(view => view.id === item.status)?.name}</p>
+                                {#if item.automatic_check}
+                                    <GardenAutomaticAssessment assessment={item.automatic_check} overridden={item.automatic_check_overridden} />
+                                {/if}
                                 {#if item.identification && item.identification.review !== 'dismissed'}
                                     {#if item.identification.outcome === 'suggestion'}
                                         <p class="break-words font-semibold">{item.identification.name}</p>

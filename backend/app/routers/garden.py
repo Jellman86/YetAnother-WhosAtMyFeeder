@@ -18,6 +18,7 @@ from app.models.garden import (
     GardenVariant,
     GardenPhotoCheck,
     GardenPhotoCheckRequest,
+    GardenAutomaticCheck,
 )
 from app.models.garden_motion import MotionSource, GardenMotionStatus
 from app.services.garden_motion import garden_motion_service
@@ -56,6 +57,8 @@ class GardenCaptureResponse(BaseModel):
     identification: GardenIdentification | None = None
     source_kind: Literal["frigate_event", "motion"] = "frigate_event"
     motion_source: MotionSource | None = None
+    automatic_check: GardenAutomaticCheck | None = None
+    automatic_check_overridden: bool = False
 
 
 class GardenCapturePage(BaseModel):
@@ -95,6 +98,8 @@ async def _response(capture: GardenCapture, names: dict[int, str] | None = None)
         identification=identification,
         source_kind="motion" if capture.motion_source else "frigate_event",
         motion_source=capture.motion_source,
+        automatic_check=capture.automatic_check,
+        automatic_check_overridden=capture.automation_overridden,
     )
 
 
