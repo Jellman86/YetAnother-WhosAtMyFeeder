@@ -82,6 +82,46 @@ class GardenCoarsePrediction:
     human_winner: bool = False
 
 
+@dataclass(frozen=True)
+class GardenPresencePrediction:
+    outcome: Literal["animal", "bird", "non_animal", "uncertain", "human_rejected"]
+    mass: dict[str, float]
+    human_winner: bool = False
+
+
+def presence_outcome(mass: Mapping[str, float], human_winner: bool = False) -> str:
+    if human_winner or mass["human"] >= GardenPolicy().human_threshold:
+        return "human_rejected"
+    for key in ("animal", "bird", "non_animal"):
+        if mass[key] >= 0.8:
+            return key
+    return "uncertain"
+
+
+def animal_presence_prediction(
+    probabilities: Sequence[float], outputs: Sequence[Taxon], *, expected_width: int = 2498
+) -> GardenPresencePrediction:
+    # Validate the entire ordered mapping and probability mass, never a top-five
+    # list normalized after removing blank/human/unknown outcomes.
+    coarse = coarse_prediction_mass(probabilities, outputs, expected_width=expected_width)
+    groups: dict[str, list[float]] = {key: [] for key in ("bird", "animal", "human", "non_animal", "other")}
+    for taxon, score in zip(outputs, probabilities):
+        key = (
+            "human"
+            if taxon.human
+            else "bird"
+            if taxon.bird
+            else "animal"
+            if taxon.animal
+            else "non_animal"
+            if taxon.name in {"blank", "vehicle"}
+            else "other"
+        )
+        groups[key].append(score)
+    mass = {key: math.fsum(values) for key, values in groups.items()}
+    return GardenPresencePrediction(presence_outcome(mass, coarse.human_winner), mass, coarse.human_winner)
+
+
 def coarse_prediction_mass(
     probabilities: Sequence[float], outputs: Sequence[Taxon], *, expected_width: int = 2498
 ) -> GardenCoarsePrediction:

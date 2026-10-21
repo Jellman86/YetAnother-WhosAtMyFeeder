@@ -3610,7 +3610,7 @@
     "load_error": "无法加载花园抓拍，请刷新重试。",
     "save_error": "无法保存审核结果，请重试。",
     "review_only": "由所有者审核的原型",
-    "review_help": "请先查看照片并确认有动物，然后可以请求物种建议。即使模型评分很高，也可能判断错误；请务必审核识别结果。",
+    "review_help": "新照片会自动检查。高置信度的仅鸟类、空场景或车辆结果会移至已忽略，可恢复查看。动物和不确定结果仍需您审核，物种始终由您确认。",
     "retention_help": "庭院访问记录与鸟类统计和导出分开保存。Frigate事件照片遵循Frigate的保留期限。移动照片最多保留三天；已忽略的照片可能提前为新记录腾出空间。未确认的移动记录会在到期后删除。",
     "views": "花园审核视图",
     "refresh": "刷新",
@@ -3655,7 +3655,7 @@
     "model_whole": "SpeciesNet 4.0.3b · 完整图像",
     "provider": "庭院模型运行设备",
     "setup_needed": "请打开上方的物种建议，检查模型、国家和可用状态。",
-    "species_help": "SpeciesNet仅在你请求时运行。鸟类识别具有优先权，可能中断此任务。不会启用自动识别或通知。",
+    "species_help": "自动检查会在鸟类处理和摄像头空闲时，用CPU运行检测区域裁剪后的SpeciesNet。模型会自动下载。您选择的设备用于手动检查和物种建议，不会自动确认物种或发送通知。",
     "species_settings": "物种建议",
     "suggest_species": "请求物种建议",
     "tracked_crop": "跟踪对象的照片裁剪",
@@ -3696,6 +3696,13 @@
     "single_photo_help": "审核这张照片",
     "beta_off_title": "庭院动物已关闭",
     "beta_off_desc": "庭院动物是测试版功能。请在设置的测试版功能中开启，以收集和审核非鸟类访客。关闭期间已保存的捕获会保留。",
-    "beta_off_action": "打开测试版功能"
+    "beta_off_action": "打开测试版功能",
+    "automatic_check": "SpeciesNet自动检查",
+    "automatic_bird": "结果提示为鸟类。仅含鸟类的照片会移至已忽略；如果有误，请将照片恢复为待审核。",
+    "automatic_non_animal": "结果提示为空场景或车辆。这些照片会移至已忽略；如果有误，请将照片恢复为待审核。",
+    "automatic_animal": "结果提示有非鸟类动物。请查看照片并亲自确认动物存在。",
+    "automatic_uncertain": "结果不确定。这张照片仍需您审核。",
+    "automatic_unavailable": "自动检查暂不可用。照片保持待审核；花园功能开启时，将在五分钟后重试。",
+    "automatic_overridden": "您的审核决定优先于自动结果。这张照片不会再次自动检查。"
   }
 }

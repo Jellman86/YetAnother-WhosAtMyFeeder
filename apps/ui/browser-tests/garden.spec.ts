@@ -12,6 +12,38 @@ const motionSource = {
     detector_score: 0.8, box_xywh: [0.1, 0.2, 0.3, 0.4]
 };
 
+test('automatic rejections explain the result and can return to review without another photo check', async ({ page }) => {
+    let status = 'dismissed';
+    let photoChecks = 0;
+    const automatic = {
+        outcome: 'non_animal', checked_at: '2026-10-20T19:00:00', variant: '4.0.3a',
+        image_sha256: 'b'.repeat(64), model_sha256: 'c'.repeat(64), package_sha256: 'd'.repeat(64),
+        mass: { bird: 0.01, animal: 0.01, human: 0.001, non_animal: 0.97, other: 0.009 },
+        box_xywh: [0.1, 0.2, 0.3, 0.4], devices: ['CPUExecutionProvider']
+    };
+    await page.route('**/api/garden?**', route => {
+        const requested = new URL(route.request().url()).searchParams.get('status');
+        return route.fulfill({ json: { items: requested === status ? [{ ...row, status, automatic_check: automatic, automatic_check_overridden: status === 'pending' }] : [], total: requested === status ? 1 : 0, limit: 8, offset: 0 } });
+    });
+    await page.route('**/api/garden/motion', route => route.fulfill({ json: motionStatus }));
+    await page.route('**/api/garden/identification', route => route.fulfill({ json: { ...modelStatus, automatic_message: 'Automatic checks are up to date.' } }));
+    await page.route('**/api/garden/*/snapshot', route => route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480"/>' }));
+    await page.route('**/api/garden/*/check-photo', route => { photoChecks++; return route.abort(); });
+    await page.route('**/api/garden/*/restore', route => { status = 'pending'; return route.fulfill({ json: { ...row, status, automatic_check: automatic } }); });
+    await page.goto('/browser-tests/garden.html');
+    await page.getByRole('button', { name: 'Dismissed', exact: true }).click();
+    await expect(page.locator('[data-garden-automatic-check]')).toContainText('Blank scene or vehicle suggested.');
+    await page.setViewportSize({ width: 320, height: 740 });
+    await page.evaluate(() => document.documentElement.style.fontSize = '200%');
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.getByRole('button', { name: 'Return to review' }).click();
+    await page.getByRole('button', { name: 'Needs review', exact: true }).click();
+    await expect(page.locator('[data-garden-automatic-check]')).toBeVisible();
+    await expect(page.locator('[data-garden-automatic-check]')).toContainText('Your review overrides this automatic result.');
+    await expect(page.getByRole('button', { name: 'Confirm animal present' })).toBeEnabled();
+    expect(photoChecks).toBe(0);
+});
+
 for (const size of [[640, 1000], [1280, 720], [1600, 400]]) {
     test(`presence proposal aligns with the ${size.join('x')} photo before species analysis`, async ({ page }) => {
         await page.route('**/api/garden?**', route => route.fulfill({ json: { items: [{ ...row, source_kind: 'motion', motion_source: motionSource }], total: 1, limit: 8, offset: 0 } }));

@@ -1,7 +1,7 @@
 """Collect terminal Frigate animal events for explicit owner review only.
 
-No classifier, bird repository, notification or external submission is used.
-Snapshots remain with Frigate and are fetched only when an owner opens them.
+Intake uses no classifier, bird repository, notification or external submission.
+Snapshots remain with Frigate; automatic review and owner reads fetch them later.
 """
 
 from datetime import datetime, timezone

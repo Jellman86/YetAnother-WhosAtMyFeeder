@@ -148,6 +148,7 @@ class GardenIdentificationService:
         self.busy = False
         self.error: str | None = None
         self._photo_review_generation = 0
+        self.automatic_message = "Automatic checks wait for an enabled Garden camera and idle bird inference."
 
     async def initialize(self) -> None:
         try:
@@ -186,13 +187,22 @@ class GardenIdentificationService:
             busy=self.busy,
             models=models,
             error=self.error,
+            automatic_message=self.automatic_message,
         )
 
     async def install(self, variant: str) -> GardenIdentificationStatus:
-        path = self.model_path(variant)
         if self.busy:
             raise HTTPException(409, "Another garden operation is running")
         self.busy = True
+        try:
+            await self.ensure_model(variant)
+        finally:
+            self.busy = False
+        return await self.status()
+
+    async def ensure_model(self, variant: str) -> None:
+        """Install under the caller's shared Garden admission slot."""
+        path = self.model_path(variant)
         staging: Path | None = None
         try:
             bundle = await asyncio.to_thread(self.catalog.load)
@@ -224,8 +234,6 @@ class GardenIdentificationService:
         finally:
             if staging is not None:
                 await asyncio.to_thread(staging.unlink, missing_ok=True)
-            self.busy = False
-        return await self.status()
 
     async def review(self, capture_id: str, action: str) -> None:
         capture = await garden_capture_service.get(capture_id)

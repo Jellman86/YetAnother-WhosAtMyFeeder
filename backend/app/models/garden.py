@@ -8,6 +8,49 @@ GardenVariant = Literal["4.0.3a", "4.0.3b"]
 GardenProvider = Literal["cpu", "intel_cpu", "intel_gpu", "intel_npu", "cuda"]
 
 
+class GardenPresenceMass(BaseModel):
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+    bird: float = Field(ge=0, le=1, strict=True)
+    animal: float = Field(ge=0, le=1, strict=True)
+    human: float = Field(ge=0, le=1, strict=True)
+    non_animal: float = Field(ge=0, le=1, strict=True)
+    other: float = Field(ge=0, le=1, strict=True)
+
+    @model_validator(mode="after")
+    def complete_mass(self) -> "GardenPresenceMass":
+        if not math.isclose(math.fsum(self.model_dump().values()), 1, rel_tol=0, abs_tol=0.000001):
+            raise ValueError("Automatic checks require complete probability mass")
+        return self
+
+
+class GardenAutomaticCheck(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    outcome: Literal["animal", "bird", "non_animal", "uncertain", "unavailable"]
+    checked_at: str
+    image_sha256: str | None = Field(None, pattern=r"^[a-f0-9]{64}$")
+    variant: GardenVariant | None = None
+    model_sha256: str | None = Field(None, pattern=r"^[a-f0-9]{64}$")
+    package_sha256: str | None = Field(None, pattern=r"^[a-f0-9]{64}$")
+    mass: GardenPresenceMass | None = None
+    box_xywh: tuple[float, float, float, float] | None = None
+    devices: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def evidence_required(self) -> "GardenAutomaticCheck":
+        if self.outcome != "unavailable" and not all(
+            [
+                self.mass is not None,
+                self.image_sha256,
+                self.variant,
+                self.model_sha256,
+                self.package_sha256,
+                self.devices,
+            ]
+        ):
+            raise ValueError("Automatic decisions require model and photo evidence")
+        return self
+
+
 class GardenPhotoCheckRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     image_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
@@ -85,3 +128,4 @@ class GardenIdentificationStatus(BaseModel):
     busy: bool
     error: str | None = None
     models: list[GardenModelStatus]
+    automatic_message: str = "Automatic checks wait for an enabled Garden camera and idle bird inference."

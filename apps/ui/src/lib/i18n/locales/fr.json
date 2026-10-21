@@ -3610,7 +3610,7 @@
     "load_error": "Impossible de charger les captures du jardin. Actualisez pour réessayer.",
     "save_error": "Impossible d’enregistrer votre vérification. Réessayez.",
     "review_only": "Prototype réservé au propriétaire",
-    "review_help": "Vérifiez la photo et confirmez d’abord la présence d’un animal. Vous pouvez ensuite demander une suggestion d’espèce. Un score élevé peut être erroné ; vérifiez toujours l’identification.",
+    "review_help": "Les nouvelles captures sont vérifiées automatiquement. Les résultats certains indiquant un oiseau, une scène vide ou un véhicule sont classés dans Rejetées et peuvent être rétablis. Les animaux et les résultats incertains restent à vérifier. Vous confirmez toujours les espèces.",
     "retention_help": "Les visites au jardin restent séparées des totaux d’oiseaux et des exports. Les photos des événements Frigate suivent sa durée de conservation. Les photos de mouvement sont conservées jusqu’à trois jours ; les photos écartées peuvent libérer de la place plus tôt pour de nouvelles captures. Les captures de mouvement non confirmées sont supprimées à expiration.",
     "views": "Vues de vérification du jardin",
     "refresh": "Actualiser",
@@ -3655,7 +3655,7 @@
     "model_whole": "SpeciesNet 4.0.3b · Image entière",
     "provider": "Exécuter le modèle du jardin sur",
     "setup_needed": "Ouvrez Suggestions d’espèces pour vérifier le modèle, le pays et la disponibilité.",
-    "species_help": "SpeciesNet fonctionne uniquement sur demande. L’identification des oiseaux est prioritaire et peut l’interrompre. Aucune identification ni notification automatique n’est activée.",
+    "species_help": "Les vérifications automatiques utilisent SpeciesNet sur le recadrage, sur CPU, lorsque les oiseaux et les caméras sont disponibles. Le modèle est téléchargé automatiquement. Le périphérique choisi concerne les vérifications manuelles et les suggestions. La confirmation et les notifications ne sont pas automatiques.",
     "species_settings": "Suggestions d’espèces",
     "suggest_species": "Suggérer une espèce",
     "tracked_crop": "Recadrage de la photo de l’objet suivi",
@@ -3696,6 +3696,13 @@
     "single_photo_help": "Examiner cette photo",
     "beta_off_title": "Animaux du jardin est désactivé",
     "beta_off_desc": "Animaux du jardin est une fonction bêta. Activez-la dans Paramètres, Fonctions bêta, pour collecter et examiner les visiteurs qui ne sont pas des oiseaux. Les captures enregistrées sont conservées tant qu’elle est désactivée.",
-    "beta_off_action": "Ouvrir Fonctions bêta"
+    "beta_off_action": "Ouvrir Fonctions bêta",
+    "automatic_check": "Vérification automatique SpeciesNet",
+    "automatic_bird": "Oiseau suggéré. Les captures avec seulement des oiseaux vont dans Rejetées ; remettez la photo à vérifier si ce résultat est faux.",
+    "automatic_non_animal": "Scène vide ou véhicule suggéré. Ces captures vont dans Rejetées ; remettez la photo à vérifier si ce résultat est faux.",
+    "automatic_animal": "Animal autre qu’un oiseau suggéré. Vérifiez la photo et confirmez vous-même sa présence.",
+    "automatic_uncertain": "Résultat incertain. Cette photo nécessite toujours votre vérification.",
+    "automatic_unavailable": "La vérification automatique était indisponible. La photo reste à vérifier ; une nouvelle tentative aura lieu après cinq minutes si Jardin est activé.",
+    "automatic_overridden": "Votre décision remplace ce résultat. Cette capture ne sera plus vérifiée automatiquement."
   }
 }

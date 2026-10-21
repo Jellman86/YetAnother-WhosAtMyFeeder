@@ -200,7 +200,8 @@ def test_preview_worker_uses_the_real_shipped_taxonomy(tmp_path, monkeypatch, ou
 
 
 @pytest.mark.parametrize("variant", ["4.0.3b", "4.0.3a"])
-def test_native_preview_is_an_explicit_checksum_bound_crop_mode(tmp_path, monkeypatch, variant):
+@pytest.mark.parametrize("mode", ["preview", "automatic"])
+def test_native_preview_is_an_explicit_checksum_bound_crop_mode(tmp_path, monkeypatch, variant, mode):
     import hashlib
     import json
     import numpy as np
@@ -242,7 +243,7 @@ def test_native_preview_is_an_explicit_checksum_bound_crop_mode(tmp_path, monkey
         variant=variant,
         provider="cpu",
         box=[0, 0, 1, 1],
-        mode="preview",
+        mode=mode,
         package_sha256=package_sha,
     )
     if variant == "4.0.3b":
@@ -251,8 +252,12 @@ def test_native_preview_is_an_explicit_checksum_bound_crop_mode(tmp_path, monkey
     else:
         result = worker.identify(request)
         assert "predictions" not in result
-        assert result["preview"]["suggestion"] == "bird"
-        assert result["preview"]["mass"]["bird"] > 0.99
+        if mode == "preview":
+            assert result["preview"]["suggestion"] == "bird"
+            assert result["preview"]["mass"]["bird"] > 0.99
+        else:
+            assert result["assessment"]["mass"]["bird"] > 0.99
+            assert sum(result["assessment"]["mass"].values()) == pytest.approx(1)
         assert result["package_sha256"] == package_sha
         assert result["devices"] == ["CPUExecutionProvider"]
         request["package_sha256"] = "0" * 64
