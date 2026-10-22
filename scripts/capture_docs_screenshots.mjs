@@ -21,7 +21,8 @@ const DINO = 'dinov2_b14_inat21_metadata_336';
 const runId = 'example-compatibility';
 const settings = {
     garden_cameras: gardenOnly ? ['feeder'] : [], garden_motion_cameras: [], garden_labels: ['cat', 'dog'],
-    garden_motion_confidence: 0.5, beta_garden_animals: gardenOnly,
+    garden_motion_confidence: 0.5, garden_automatic_naming: true, garden_naming_threshold: 0.8,
+    beta_garden_animals: gardenOnly,
     frigate_url: 'http://frigate:5000', mqtt_server: 'mqtt', mqtt_port: 1883,
     mqtt_auth: true, mqtt_username: 'feeder', mqtt_password: '***REDACTED***',
     cameras: ['feeder'], classification_threshold: 0.6, classification_min_confidence: 0.6,

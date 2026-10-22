@@ -13,7 +13,7 @@ import structlog
 
 from app.config import settings
 from app.database import get_db
-from app.models.garden import GardenAutomaticCheck, GardenPresenceMass
+from app.models.garden import GardenAutomaticCheck, GardenIdentification, GardenPresenceMass
 from app.repositories.garden_repository import GardenCapture, GardenRepository
 from app.services import garden_motion_privacy
 from app.services.classifier_service import garden_inference_pressure
@@ -25,9 +25,11 @@ from app.services.garden_identification import (
     GardenCleanupFailed,
     bird_work_pending,
     garden_identification_service,
+    identification_from_predictions,
+    normalize_country,
 )
 from app.services.garden_motion import garden_motion_service
-from app.services.garden_visitors import presence_outcome
+from app.services.garden_visitors import GardenPolicy, presence_outcome
 from app.utils.api_datetime import utc_naive_now
 from app.utils.frigate_coordinates import normalized_frigate_video_hint
 
@@ -152,6 +154,30 @@ class GardenAutomaticReviewService:
             if native.get("package_sha256") != bundle["package_sha256"]:
                 raise ValueError("Automatic check mapping changed")
             outcome = presence_outcome(mass.model_dump(), human_winner)
+            named: GardenIdentification | None = None
+            country = normalize_country(settings.location.country)
+            if outcome == "animal" and settings.frigate.garden_automatic_naming and country:
+                # The owner's threshold is the suggestion floor here, so anything below it stays
+                # unnamed and in Needs review, as a bird below the naming threshold does.
+                suggestion = identification_from_predictions(
+                    native.get("predictions"),
+                    bundle,
+                    policy=GardenPolicy(min_confidence=settings.frigate.garden_naming_threshold),
+                    country=country,
+                    variant=variant,
+                    provider="cpu",
+                    devices=native["devices"],
+                    model_sha256=payload["model_sha256"],
+                    image_sha256=image_sha,
+                    box=box,
+                    frame_size=tuple(native["frame_size"]),
+                    review="accepted",
+                    automatic=True,
+                )
+                if suggestion is None:
+                    outcome = "human_rejected"
+                elif suggestion.automatic:
+                    named = suggestion
             if await self._input_box(original) != box:
                 raise GardenBusy("The detector crop changed during the check")
             current_image = await garden_capture_service.snapshot(original.id)
@@ -181,12 +207,18 @@ class GardenAutomaticReviewService:
                             box_xywh=box,
                             devices=native["devices"],
                         )
-                        await repo.save_automatic_check(original, result)
-                        service.automatic_message = (
-                            "Automatic check suggested a bird or non-animal; the capture is in Dismissed for review."
-                            if outcome in {"bird", "non_animal"}
-                            else "Automatic check finished. The capture remains in Needs review."
-                        )
+                        if named is not None:
+                            await repo.save_automatic_naming(original, result, named)
+                            service.automatic_message = (
+                                "Automatic check named an animal; it is in Confirmed animals, where you can correct it."
+                            )
+                        else:
+                            await repo.save_automatic_check(original, result)
+                            service.automatic_message = (
+                                "Automatic check suggested a bird or non-animal; the capture is in Dismissed for review."
+                                if outcome in {"bird", "non_animal"}
+                                else "Automatic check finished. The capture remains in Needs review."
+                            )
         except GardenBusy:
             service.automatic_message = "Automatic check paused. It will resume when birds and cameras are idle."
         except GardenCleanupFailed:

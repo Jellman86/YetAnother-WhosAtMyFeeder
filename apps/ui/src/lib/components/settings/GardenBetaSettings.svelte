@@ -1,8 +1,9 @@
 <script lang="ts">
     /**
      * Garden visitors are a beta, so everything that configures them sits with the switch that
-     * turns them on: which cameras are watched, which Frigate labels count, and how confident
-     * the motion detector must be. A camera's Garden role is independent of its bird role.
+     * turns them on: which cameras are watched, which Frigate labels count, how confident the
+     * motion detector must be, and when an animal is named without a review, as a bird above the
+     * naming threshold is. A camera's Garden role is independent of its bird role.
      */
     import { _ } from 'svelte-i18n';
     import SettingsRow from './_primitives/SettingsRow.svelte';
@@ -15,6 +16,8 @@
         motionCameras: string[];
         labels: string;
         motionConfidence: number;
+        automaticNaming: boolean;
+        namingThreshold: number;
         /** The saved threshold, so a calibrated value keeps its own precision while edited. */
         savedMotionConfidence?: number;
         availableCameras: string[];
@@ -27,6 +30,8 @@
         motionCameras = $bindable<string[]>([]),
         labels = $bindable('cat, dog'),
         motionConfidence = $bindable(0.5),
+        automaticNaming = $bindable(true),
+        namingThreshold = $bindable(0.8),
         savedMotionConfidence,
         availableCameras,
         onNavigate
@@ -126,6 +131,39 @@
             />
             <p id="garden-motion-confidence-help" class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.confidence_help', { default: 'Higher values reduce proposals but can miss animals. Applies to new motion photos only; bird detection and person privacy checks are unchanged.' })}</p>
         </div>
+
+        <section class="space-y-2" aria-labelledby="garden-beta-naming">
+            <div class="flex items-start justify-between gap-4">
+                <div class="min-w-0">
+                    <h4 id="garden-beta-naming" class="text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.beta.garden_naming', { default: 'Name animals automatically' })}</h4>
+                    <p class="text-xs text-slate-600 dark:text-slate-400">{$_('settings.beta.garden_naming_help', { default: 'When the automatic check is at least this sure of an animal, it is confirmed and named for you, marked as automatic. You can discard the name or dismiss the capture. Below the threshold it waits in Needs review.' })}</p>
+                </div>
+                <SettingsToggle
+                    checked={automaticNaming}
+                    labelledBy="garden-beta-naming"
+                    srLabel={$_('settings.beta.garden_naming', { default: 'Name animals automatically' })}
+                    onchange={(value) => (automaticNaming = value)}
+                />
+            </div>
+            {#if automaticNaming}
+                <div class="space-y-1">
+                    <label for="garden-naming-threshold" class="text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.beta.garden_naming_threshold', { default: 'Naming threshold' })}</label>
+                    <input
+                        id="garden-naming-threshold"
+                        class="input-base w-full"
+                        type="number"
+                        min="0.7"
+                        max="0.99"
+                        step="0.01"
+                        bind:value={namingThreshold}
+                        aria-describedby="garden-naming-threshold-help"
+                    />
+                    <p id="garden-naming-threshold-help" class="text-xs text-slate-600 dark:text-slate-400">{$_('settings.beta.garden_naming_threshold_help', { default: 'From 0.7 to 0.99. Higher values name fewer animals and leave more for you. Person and bird checks are unchanged.' })}</p>
+                </div>
+            {:else}
+                <p class="text-xs text-slate-600 dark:text-slate-400">{$_('settings.beta.garden_naming_off', { default: 'Every animal waits in Needs review for you to confirm and name it.' })}</p>
+            {/if}
+        </section>
 
         <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line-soft p-3">
             <p class="min-w-0 flex-1 text-xs text-slate-600 dark:text-slate-400">{$_('settings.beta.garden_page_help', { default: 'Models, collection status and reviews are on the Garden animals page.' })}</p>

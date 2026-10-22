@@ -349,7 +349,7 @@ class GardenRepository:
             row = await cursor.fetchone()
         return self._capture(row) if row else None
 
-    async def save_automatic_check(self, original: GardenCapture, result: GardenAutomaticCheck) -> bool:
+    async def _write_automatic_check(self, original: GardenCapture, result: GardenAutomaticCheck) -> bool:
         # A single write transaction compares both the previous assessment and
         # the owner-override bit. A dismiss/restore cycle must win over inference.
         cursor = await self.db.execute(
@@ -364,7 +364,37 @@ class GardenRepository:
                 original.automatic_check.model_dump_json() if original.automatic_check else None,
             ),
         )
-        changed = cursor.rowcount > 0
+        return cursor.rowcount > 0
+
+    async def save_automatic_naming(
+        self, original: GardenCapture, result: GardenAutomaticCheck, named: GardenIdentification
+    ) -> bool:
+        """Record the check, confirm presence and name the animal together, or change nothing."""
+        if result.outcome != "animal" or not named.automatic or named.review != "accepted":
+            raise ValueError("Automatic naming needs an accepted automatic suggestion for an animal")
+        if not await self._write_automatic_check(original, result):
+            await self.db.rollback()
+            return False
+        # reviewed_at stays empty and the override bit stays clear: no owner has reviewed it,
+        # so any later owner action still takes precedence.
+        confirmed = await self.db.execute(
+            "UPDATE garden_captures SET status='confirmed' WHERE id=? AND status='pending' AND automation_overridden=0",
+            (original.id,),
+        )
+        if not confirmed.rowcount:
+            await self.db.rollback()
+            return False
+        await self.db.execute(
+            """INSERT INTO garden_identifications(capture_id,result_json) VALUES(?,?)
+               ON CONFLICT(capture_id) DO UPDATE SET result_json=excluded.result_json
+               WHERE json_extract(garden_identifications.result_json,'$.review') != 'accepted'""",
+            (original.id, named.model_dump_json()),
+        )
+        await self.db.commit()
+        return True
+
+    async def save_automatic_check(self, original: GardenCapture, result: GardenAutomaticCheck) -> bool:
+        changed = await self._write_automatic_check(original, result)
         if changed and result.outcome in {"bird", "non_animal"}:
             await self.db.execute(
                 "UPDATE garden_captures SET status='dismissed' WHERE id=? AND status='pending' AND automation_overridden=0",

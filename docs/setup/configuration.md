@@ -246,6 +246,8 @@ or be removed.
 | **Collect motion review photos** | Additional opt-in for a watched camera, off by default (`frigate.garden_motion_cameras: []`). Requires retained motion recordings and the Cedar download. Bounded CPU scans create private review candidates. |
 | **Frigate animal labels** | Defaults to `cat, dog`. Animal labels for Garden review; the Frigate detector must already track them. Birds, people and vehicles are excluded. |
 | **Animal proposal threshold** | Cedar's minimum animal score for new motion photos, 0.5 to 0.95 (default 0.5, `FRIGATE__GARDEN_MOTION_CONFIDENCE`). Higher values reduce proposals but can miss animals. Existing photos are not reclassified. |
+| **Name animals automatically** | On by default (`FRIGATE__GARDEN_AUTOMATIC_NAMING`). Confirms and names an animal when the automatic check's species score reaches the naming threshold, marked as automatic. Off: every animal waits for your review. |
+| **Naming threshold** | 0.7 to 0.99 (default 0.8, `FRIGATE__GARDEN_NAMING_THRESHOLD`). Higher values name fewer animals and leave more for you. Existing captures are not renamed. |
 
 ## Data
 

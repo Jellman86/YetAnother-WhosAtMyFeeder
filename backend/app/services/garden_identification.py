@@ -11,7 +11,7 @@ import tempfile
 import time
 import sqlite3
 import sys
-from typing import Any
+from typing import Any, Literal
 
 import aiofiles
 from fastapi import HTTPException
@@ -29,6 +29,8 @@ from app.models.garden import (
     GardenPhotoCheckRequest,
     GardenPhotoCheck,
     GardenPhotoMass,
+    GardenProvider,
+    GardenVariant,
 )
 from app.repositories.garden_catalog import GardenCatalog, taxon_identity
 from app.repositories.garden_repository import GardenRepository
@@ -523,50 +525,23 @@ class GardenIdentificationService:
             "box": box,
         }
         native = await self._run_photo_worker(image, payload, blocked)
-        outputs = [Taxon(v["id"], v["name"], tuple(v["ranks"])) for v in bundle["outputs"]]
-        predictions = native["predictions"]
-        if (
-            len(predictions) != 5
-            or len({i for i, _ in predictions}) != 5
-            or any(type(i) is not int or not 0 <= i < len(outputs) for i, _ in predictions)
-        ):
-            raise ValueError("Invalid garden worker output indices")
-        decision = decide_prediction(
-            [(outputs[i], score) for i, score in predictions],
-            GardenPolicy(),
-            country=country,
-            taxonomy=[Taxon(v["id"], v["name"], tuple(v["ranks"])) for v in bundle["taxonomy"]],
-            geofence=bundle["geofence"],
-        )
-        if decision.reason == "human_rejected":
-            async with get_db() as db:
-                await GardenRepository(db).block_capture(capture.id)
-            raise HTTPException(404, "Garden capture no longer available")
-        taxon = decision.taxon
-        binding = bundle["bindings"].get(taxon.id) if taxon else None
-        identity = taxon_identity({"name": taxon.name, "ranks": taxon.ranks}) if taxon else None
-        result = GardenIdentification(
-            outcome="suggestion" if taxon and binding else "unknown",
-            reason=decision.reason if not taxon or binding else "unresolved_identity",
-            taxon_id=taxon.id if taxon else None,
-            species_id=binding,
-            name=taxon.name if taxon else None,
-            rank=identity[1] if identity else None,
-            score=decision.score if taxon else predictions[0][1],
-            geofenced=decision.geofenced,
+        result = identification_from_predictions(
+            native["predictions"],
+            bundle,
+            policy=GardenPolicy(),
             country=country,
             variant=request.variant,
             provider=request.provider,
             devices=native["devices"],
             model_sha256=payload["model_sha256"],
-            package_sha256=bundle["package_sha256"],
             image_sha256=hashlib.sha256(image).hexdigest(),
-            output_index=predictions[0][0],
-            input_kind="tracked_crop" if box else "whole_image",
-            box_xywh=box,
+            box=box,
             frame_size=native["frame_size"],
-            identified_at=utc_naive_now().isoformat() + "Z",
         )
+        if result is None:
+            async with get_db() as db:
+                await GardenRepository(db).block_capture(capture.id)
+            raise HTTPException(404, "Garden capture no longer available")
         if (
             normalize_country(settings.location.country) != country
             or capture.camera not in settings.frigate.garden_cameras
@@ -577,6 +552,70 @@ class GardenIdentificationService:
             saved = await GardenRepository(db).save_identification(capture, result)
         if not saved:
             raise HTTPException(409, "The capture changed during identification. Refresh before trying again.")
+
+
+def identification_from_predictions(
+    predictions: list,
+    bundle: dict,
+    *,
+    policy: GardenPolicy,
+    country: str,
+    variant: GardenVariant,
+    provider: GardenProvider,
+    devices: list[str],
+    model_sha256: str,
+    image_sha256: str,
+    box: tuple[float, float, float, float] | None,
+    frame_size: tuple[int, int],
+    review: Literal["unreviewed", "accepted"] = "unreviewed",
+    automatic: bool = False,
+) -> GardenIdentification | None:
+    """Turn a worker's top five into a suggestion. None means person evidence: remove the capture."""
+    outputs = [Taxon(v["id"], v["name"], tuple(v["ranks"])) for v in bundle["outputs"]]
+    if (
+        not isinstance(predictions, list)
+        or len(predictions) != 5
+        or any(not isinstance(item, list) or len(item) != 2 for item in predictions)
+        or len({i for i, _ in predictions}) != 5
+        or any(type(i) is not int or not 0 <= i < len(outputs) for i, _ in predictions)
+    ):
+        raise ValueError("Invalid garden worker output indices")
+    decision = decide_prediction(
+        [(outputs[i], score) for i, score in predictions],
+        policy,
+        country=country,
+        taxonomy=[Taxon(v["id"], v["name"], tuple(v["ranks"])) for v in bundle["taxonomy"]],
+        geofence=bundle["geofence"],
+    )
+    if decision.reason == "human_rejected":
+        return None
+    taxon = decision.taxon
+    binding = bundle["bindings"].get(taxon.id) if taxon else None
+    identity = taxon_identity({"name": taxon.name, "ranks": taxon.ranks}) if taxon else None
+    return GardenIdentification(
+        outcome="suggestion" if taxon and binding else "unknown",
+        reason=decision.reason if not taxon or binding else "unresolved_identity",
+        review=review if taxon and binding else "unreviewed",
+        automatic=automatic and bool(taxon and binding),
+        taxon_id=taxon.id if taxon else None,
+        species_id=binding,
+        name=taxon.name if taxon else None,
+        rank=identity[1] if identity else None,
+        score=decision.score if taxon else predictions[0][1],
+        geofenced=decision.geofenced,
+        country=country,
+        variant=variant,
+        provider=provider,
+        devices=devices,
+        model_sha256=model_sha256,
+        package_sha256=bundle["package_sha256"],
+        image_sha256=image_sha256,
+        output_index=predictions[0][0],
+        input_kind="tracked_crop" if box else "whole_image",
+        box_xywh=box,
+        frame_size=frame_size,
+        identified_at=utc_naive_now().isoformat() + "Z",
+    )
 
 
 garden_identification_service = GardenIdentificationService()

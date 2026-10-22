@@ -409,12 +409,12 @@
                                 {/if}
                                 <p class="text-xs text-slate-600 dark:text-slate-400">{views.find(view => view.id === item.status)?.name}</p>
                                 {#if item.automatic_check}
-                                    <GardenAutomaticAssessment assessment={item.automatic_check} overridden={item.automatic_check_overridden} />
+                                    <GardenAutomaticAssessment assessment={item.automatic_check} overridden={item.automatic_check_overridden} named={item.status === 'confirmed' && item.identification?.automatic === true && item.identification.review === 'accepted'} />
                                 {/if}
                                 {#if item.identification && item.identification.review !== 'dismissed'}
                                     {#if item.identification.outcome === 'suggestion'}
                                         <p class="break-words font-semibold">{item.identification.name}</p>
-                                        <p class="text-xs text-slate-600 dark:text-slate-400">{item.identification.review === 'accepted' ? $_('garden.identification_confirmed', { default: 'Identification confirmed by you' }) : $_('garden.identification_needs_review', { default: 'Suggested identification · Needs your review' })}</p>
+                                        <p class="text-xs text-slate-600 dark:text-slate-400">{item.identification.review === 'accepted' ? (item.identification.automatic ? $_('garden.identification_automatic', { default: 'Named automatically. Discard the name if it is wrong.' }) : $_('garden.identification_confirmed', { default: 'Identification confirmed by you' })) : $_('garden.identification_needs_review', { default: 'Suggested identification · Needs your review' })}</p>
                                         {#if item.identification.rank !== 'species'}<p class="text-xs">{$_('garden.group_only', { default: 'Animal group only; species is unresolved.' })}</p>{/if}
                                         <p class="text-xs">{$_('garden.model_score', { default: 'Model score: {score}%', values: { score: ((item.identification.score ?? 0) * 100).toFixed(1) } })}</p>
                                     {:else}

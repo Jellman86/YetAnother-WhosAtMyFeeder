@@ -816,6 +816,17 @@ class SettingsUpdate(BaseModel):
         strict=True,
         description="Minimum Cedar animal score for new motion proposals; does not change bird or person thresholds",
     )
+    garden_automatic_naming: bool = Field(
+        True, description="Confirm and name a Garden animal automatically at or above the naming threshold"
+    )
+    garden_naming_threshold: float = Field(
+        0.8,
+        ge=0.7,
+        le=0.99,
+        allow_inf_nan=False,
+        strict=True,
+        description="Minimum SpeciesNet score to name a Garden animal automatically; does not change bird thresholds",
+    )
 
     @field_validator("garden_motion_cameras", mode="before")
     @classmethod
@@ -1506,6 +1517,8 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "garden_labels": settings.frigate.garden_labels,
         "garden_motion_cameras": settings.frigate.garden_motion_cameras,
         "garden_motion_confidence": settings.frigate.garden_motion_confidence,
+        "garden_automatic_naming": settings.frigate.garden_automatic_naming,
+        "garden_naming_threshold": settings.frigate.garden_naming_threshold,
         "nest_dedupe_minutes": settings.frigate.nest_dedupe_minutes,
         "audio_buffer_hours": settings.frigate.audio_buffer_hours,
         "audio_correlation_window_seconds": settings.frigate.audio_correlation_window_seconds,
@@ -1842,6 +1855,10 @@ async def update_settings(
         settings.frigate.garden_motion_cameras = update.garden_motion_cameras
     if "garden_motion_confidence" in fields_set:
         settings.frigate.garden_motion_confidence = update.garden_motion_confidence
+    if "garden_automatic_naming" in fields_set:
+        settings.frigate.garden_automatic_naming = update.garden_automatic_naming
+    if "garden_naming_threshold" in fields_set:
+        settings.frigate.garden_naming_threshold = update.garden_naming_threshold
     if "nest_dedupe_minutes" in fields_set and update.nest_dedupe_minutes is not None:
         settings.frigate.nest_dedupe_minutes = update.nest_dedupe_minutes
     if "audio_buffer_hours" in fields_set:

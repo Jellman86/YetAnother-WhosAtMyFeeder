@@ -281,6 +281,18 @@ class FrigateSettings(BaseModel):
         strict=True,
         description="Minimum Cedar animal score for new motion proposals; person privacy threshold is unchanged",
     )
+    garden_automatic_naming: bool = Field(
+        True,
+        description="Confirm and name a Garden animal automatically when its species score reaches the naming threshold",
+    )
+    garden_naming_threshold: float = Field(
+        0.8,
+        ge=0.7,
+        le=0.99,
+        allow_inf_nan=False,
+        strict=True,
+        description="Minimum SpeciesNet score to name a Garden animal automatically; below it the capture needs review",
+    )
 
     @field_validator("garden_motion_cameras", mode="before")
     @classmethod

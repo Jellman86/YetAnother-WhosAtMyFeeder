@@ -353,7 +353,10 @@ species identification have separate reviews; `frigate_label` remains an upstrea
   dismissed; person evidence removes it under the existing privacy rules.
   Unknown results and failures stay pending. Owner review/restore overrides
   automation permanently for that capture (`automatic_check_overridden=true`).
-  Pre-update captures are not rechecked.
+  Pre-update captures are not rechecked. With `garden_automatic_naming` on, an
+  `animal` check whose top crop prediction reaches `garden_naming_threshold` also
+  confirms the capture and saves an accepted `identification` with `automatic=true`,
+  in one transaction. `reviewed_at` stays `null` because no owner reviewed it.
 - `POST /api/garden/review-batch` — explicit `ids` (1..128 hexadecimal capture IDs)
   and `action` (`dismiss` or `restore`). Dismiss changes only pending captures;
   Restore changes only dismissed captures with available photos. Returns `updated_ids`
@@ -435,6 +438,9 @@ days and unconfirmed motion captures are removed. Confirmed history survives pho
 
 `garden_motion_confidence` is a saved settings value from 0.5 to 0.95 (default 0.5).
 The equivalent environment override is `FRIGATE__GARDEN_MOTION_CONFIDENCE`.
+`garden_automatic_naming` (default `true`, `FRIGATE__GARDEN_AUTOMATIC_NAMING`) and
+`garden_naming_threshold` (0.7 to 0.99, default 0.8, `FRIGATE__GARDEN_NAMING_THRESHOLD`)
+control automatic naming. They do not change bird or person thresholds.
 It affects new Cedar animal proposals only, leaving bird and person thresholds intact.
 `motion_source.animal_confidence` records the threshold used; legacy photos default
 this provenance value to the previous fixed 0.5. A changed threshold interrupts a

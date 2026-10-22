@@ -1045,6 +1045,7 @@ export interface components {
     status: "pending" | "confirmed" | "dismissed";
 };
     GardenIdentification: {
+    automatic?: boolean;
     box_xywh?: [number, number, number, number] | null;
     country: string;
     devices: Array<string>;
@@ -1771,10 +1772,12 @@ export interface components {
     frigate_ingest_labels?: Array<string> | null;
     frigate_missing_behavior?: "mark_missing" | "keep" | "delete";
     frigate_url?: string | null;
+    garden_automatic_naming?: boolean;
     garden_cameras: Array<string>;
     garden_labels: Array<string>;
     garden_motion_cameras: Array<string>;
     garden_motion_confidence?: number;
+    garden_naming_threshold?: number;
     ha_weather_access_token?: string | null;
     ha_weather_base_url?: string | null;
     ha_weather_cloud_cover_entity?: string | null;
@@ -1983,10 +1986,12 @@ export interface components {
     frigate_ingest_labels?: Array<string> | null;
     frigate_missing_behavior?: "mark_missing" | "keep" | "delete";
     frigate_url?: string | null;
+    garden_automatic_naming?: boolean;
     garden_cameras?: Array<string>;
     garden_labels?: Array<string>;
     garden_motion_cameras?: Array<string>;
     garden_motion_confidence?: number;
+    garden_naming_threshold?: number;
     ha_weather_access_token?: string | null;
     ha_weather_base_url?: string | null;
     ha_weather_cloud_cover_entity?: string | null;

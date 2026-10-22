@@ -6,6 +6,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Garden animals can now be named automatically, as birds above the naming threshold
+  are. When the automatic check finds an animal and SpeciesNet's species score from the
+  same detector-crop pass reaches the owner's **Naming threshold** (default 0.80, under
+  **Settings → Beta features**), the capture is confirmed and named, marked **Named
+  automatically**. Below the threshold, or without a country, it waits in **Needs
+  review**. Country filtering and person rules match owner suggestions. Discarding the
+  name or dismissing the capture is final for that capture. Existing captures are not
+  renamed (#641).
+
 - Every Garden animals setting now lives under **Settings → Beta features**, with the
   switch that turns it on: cameras to watch, motion review collection, Frigate animal
   labels and the animal proposal threshold. Connection keeps each camera's bird role

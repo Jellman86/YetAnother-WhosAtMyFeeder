@@ -1,8 +1,10 @@
 # Review garden animals
 
 **Garden animals** is an owner-only beta feature. It collects
-completed Frigate animal events separately from bird history. It offers optional, owner-requested SpeciesNet suggestions. It never saves a model
-guess as a confirmed identification automatically.
+completed Frigate animal events separately from bird history. Confident animals are
+confirmed and named automatically, as a bird above the naming threshold is; every
+automatic name is marked as automatic and can be discarded. Owner-requested SpeciesNet
+suggestions remain available for everything else.
 
 New captures are checked automatically with the SpeciesNet tracked-crop model.
 Confident bird-only, blank-scene or vehicle results move to **Dismissed** with
@@ -43,7 +45,7 @@ Every Garden setting lives under **Settings → Beta features**, with the switch
    inspect the photograph, and choose **Confirm animal present** or **Dismiss capture**.
    **Return to review** restores a dismissed capture while its photo remains available.
 
-![Garden animal settings under Beta features: cameras to watch, motion collection, Frigate animal labels and the animal proposal threshold](../images/settings-garden-cameras.png)
+![Garden animal settings under Beta features: cameras to watch, motion collection, Frigate animal labels, the animal proposal threshold and automatic naming](../images/settings-garden-cameras.png)
 
 ![Owner-only Garden animals review with model download, country filtering and camera setup instructions](../images/garden-review.png)
 
@@ -222,7 +224,27 @@ An expired or changed photograph cannot be used to confirm an old suggestion.
 **Discard identification** revokes your identification confirmation without changing
 animal presence. Dismissing animal presence also revokes its identification confirmation. No garden suggestions enable notifications or bird exports.
 
-Automatic species confirmation still needs reviewed daytime and infrared animal
-captures and hard negatives. The [developer replay](../development/garden-replay.md)
+## Automatic naming
+
+**Name animals automatically** in **Settings → Beta features** is on by default, with a
+**Naming threshold** of 0.80 (from 0.7 to 0.99). When the automatic check finds an animal,
+it reads SpeciesNet's top result from the same detector-crop pass; no second model run is
+needed. If that result is a non-bird animal scoring at or above the threshold, after the
+same country filtering and person rules as a suggestion, the capture moves to **Confirmed
+animals** with the name **Named automatically**. A result filtered by country is named by
+its plausible group, for example *cat family*.
+
+Below the threshold, or without a recognised country in **Settings → Location**, the
+capture stays in **Needs review** unnamed. Person evidence anywhere in the top results
+removes the capture. Turn automatic naming off to review and name every animal yourself.
+
+An automatic name is not an owner review. **Discard identification** removes the name
+and keeps presence; **Dismiss capture** removes both. Either is final for that capture:
+automatic checks never run on it again. Changing the threshold does not rename existing
+captures. Automatic names never reach bird totals, notifications or bird exports.
+
+A model score is not measured accuracy. The first night of automatic checks on one
+camera was correct for all eight captures, but recall at night, on other cameras and
+for other species is still being measured. The [developer replay](../development/garden-replay.md)
 records the model checks and limitations tracked in
 [#641](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/641).

@@ -149,8 +149,10 @@ async def test_pending_detector_crop_is_checked_without_an_owner_click_and_rejec
         {"bird": 0, "animal": 0, "non_animal": 0, "human": 0, "other": 1},
     ],
 )
-async def test_animals_and_uncertain_checks_remain_pending_without_species_confirmation(context, mass):
+async def test_animals_and_uncertain_checks_remain_pending_without_species_confirmation(context, monkeypatch, mass):
     c = context
+    # Naming is covered with the real catalogue below; this keeps presence-only behaviour pinned.
+    monkeypatch.setattr(settings.frigate, "garden_automatic_naming", False)
     c.native.return_value["assessment"]["mass"] = mass
     await c.service.process_once()
     result = await capture(c.capture_id)
@@ -415,3 +417,142 @@ async def test_automatic_result_is_visible_only_in_private_garden_api(context, m
         monkeypatch.setattr(settings.public_access, "enabled", True)
         monkeypatch.setattr(settings.auth, "enabled", True)
         assert (await client.get("/api/garden", params={"status": "dismissed"})).status_code in {401, 403}
+
+
+DOMESTIC_CAT = 1806
+JUNGLE_CAT = 893
+HUMAN = 916
+
+
+@pytest_asyncio.fixture
+async def naming(context, monkeypatch):
+    """The automatic check names a confident animal from the same crop pass, with the real catalogue."""
+    import json
+
+    from app.repositories.garden_catalog import read_shipped_package
+
+    raw, checksum = read_shipped_package()
+    bundle = json.loads(raw)
+    bundle.update(
+        package_sha256=checksum,
+        model_sha256={v: hashlib.sha256(b"model").hexdigest() for v in ["4.0.3a", "4.0.3b"]},
+        bindings={t["id"]: i + 1 for i, t in enumerate(bundle["outputs"])},
+    )
+    monkeypatch.setattr(context.identification.catalog, "load", lambda: bundle)
+    monkeypatch.setattr(settings.location, "country", "GB")
+    monkeypatch.setattr(settings.frigate, "garden_automatic_naming", True)
+    monkeypatch.setattr(settings.frigate, "garden_naming_threshold", 0.8)
+    context.native.return_value = {
+        "assessment": {
+            "mass": {"bird": 0.0, "animal": 0.97, "non_animal": 0.01, "human": 0.001, "other": 0.019},
+            "human_winner": False,
+        },
+        "predictions": [[DOMESTIC_CAT, 0.93], [JUNGLE_CAT, 0.02], [1, 0.01], [2, 0.01], [3, 0.005]],
+        "devices": ["CPUExecutionProvider"],
+        "frame_size": [640, 480],
+        "package_sha256": checksum,
+    }
+    context.bundle = bundle
+    return context
+
+
+@pytest.mark.asyncio
+async def test_confident_animal_is_confirmed_and_named_automatically_from_the_same_crop(naming):
+    c = naming
+    async with get_db() as db:
+        birds_before = await (await db.execute("SELECT COUNT(*) FROM detections")).fetchone()
+    await c.service.process_once()
+    result = await capture(c.capture_id)
+    assert result.status == "confirmed"
+    assert result.reviewed_at is None and not result.automation_overridden
+    assert result.automatic_check.outcome == "animal"
+    named = result.identification
+    assert named.automatic and named.review == "accepted" and named.outcome == "suggestion"
+    assert named.name == "domestic cat" and named.species_id == DOMESTIC_CAT + 1
+    assert named.score == pytest.approx(0.93) and named.country == "GBR"
+    assert named.input_kind == "tracked_crop" and named.box_xywh == c.source.box_xywh
+    assert named.image_sha256 == c.source.image_sha256 and named.variant == "4.0.3a"
+    # One native pass: naming reuses the presence check's output.
+    assert c.native.await_count == 1
+    async with get_db() as db:
+        assert await (await db.execute("SELECT COUNT(*) FROM detections")).fetchone() == birds_before
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("reason", ["below_threshold", "naming_off", "no_country", "unbound"])
+async def test_animal_stays_in_review_when_it_cannot_be_named_honestly(naming, monkeypatch, reason):
+    c = naming
+    if reason == "below_threshold":
+        c.native.return_value["predictions"][0][1] = 0.79
+    elif reason == "naming_off":
+        monkeypatch.setattr(settings.frigate, "garden_automatic_naming", False)
+    elif reason == "no_country":
+        monkeypatch.setattr(settings.location, "country", None)
+    else:
+        c.bundle["bindings"][c.bundle["outputs"][DOMESTIC_CAT]["id"]] = None
+    await c.service.process_once()
+    result = await capture(c.capture_id)
+    assert result.status == "pending" and result.identification is None
+    assert result.automatic_check.outcome == "animal"
+
+
+@pytest.mark.asyncio
+async def test_a_species_outside_the_country_is_named_by_its_plausible_group(naming):
+    c = naming
+    c.native.return_value["predictions"] = [[JUNGLE_CAT, 0.9], [DOMESTIC_CAT, 0.05], [1, 0.01], [2, 0.01], [3, 0.005]]
+    await c.service.process_once()
+    named = (await capture(c.capture_id)).identification
+    assert named.automatic and named.geofenced
+    # Jungle cat is not plausible in Great Britain; only its own ancestry may stand in.
+    assert named.name == "cat family" and named.rank != "species"
+
+
+@pytest.mark.asyncio
+async def test_person_evidence_in_the_naming_output_removes_the_capture(naming):
+    c = naming
+    c.native.return_value["predictions"] = [[DOMESTIC_CAT, 0.85], [HUMAN, 0.12], [1, 0.01], [2, 0.01], [3, 0.005]]
+    await c.service.process_once()
+    assert await capture(c.capture_id) is None
+    async with get_db() as db:
+        assert await GardenRepository(db).motion_photo(c.capture_id) is None
+        assert await (await db.execute("SELECT COUNT(*) FROM garden_identifications")).fetchone() == (0,)
+
+
+@pytest.mark.asyncio
+async def test_owner_review_during_naming_wins_and_later_dismissal_sticks(naming, monkeypatch):
+    c = naming
+    original = c.native.side_effect
+
+    async def owner_dismisses_mid_check(*args):
+        async with get_db() as db:
+            await GardenRepository(db).review(c.capture_id, "dismissed")
+        return c.native.return_value
+
+    c.native.side_effect = owner_dismisses_mid_check
+    await c.service.process_once()
+    result = await capture(c.capture_id)
+    assert result.status == "dismissed" and result.identification is None
+    c.native.side_effect = original
+
+
+@pytest.mark.asyncio
+async def test_dismissing_an_automatically_named_capture_is_final(naming):
+    c = naming
+    await c.service.process_once()
+    async with get_db() as db:
+        await GardenRepository(db).review(c.capture_id, "dismissed")
+    await c.service.process_once()
+    result = await capture(c.capture_id)
+    assert result.status == "dismissed" and result.automation_overridden
+    assert result.identification.review == "dismissed"
+    assert c.native.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_malformed_naming_output_never_confirms_or_names(naming):
+    c = naming
+    c.native.return_value["predictions"] = [[DOMESTIC_CAT, 0.93]]
+    await c.service.process_once()
+    result = await capture(c.capture_id)
+    assert result.status == "pending" and result.identification is None
+    assert result.automatic_check.outcome == "unavailable"
