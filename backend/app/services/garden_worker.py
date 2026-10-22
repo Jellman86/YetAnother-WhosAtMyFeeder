@@ -56,8 +56,10 @@ def identify(request: dict) -> dict:
         outputs = [Taxon(item["id"], item["name"], tuple(item["ranks"])) for item in package["outputs"]]
         if mode == "automatic":
             assessment = animal_presence_prediction(probabilities.tolist(), outputs)
+            # The same pass names a confident animal, so naming never needs a second inference.
             return {
                 "assessment": {"mass": assessment.mass, "human_winner": assessment.human_winner},
+                "predictions": _top_predictions(probabilities),
                 "devices": runtime.actual,
                 "frame_size": frame_size,
                 "package_sha256": package_sha,
@@ -69,12 +71,15 @@ def identify(request: dict) -> dict:
             "frame_size": frame_size,
             "package_sha256": package_sha,
         }
-    indices = np.argsort(-probabilities)[:5]
     return {
-        "predictions": [[int(i), float(probabilities[i])] for i in indices],
+        "predictions": _top_predictions(probabilities),
         "devices": runtime.actual,
         "frame_size": frame_size,
     }
+
+
+def _top_predictions(probabilities: np.ndarray) -> list[list[float]]:
+    return [[int(i), float(probabilities[i])] for i in np.argsort(-probabilities)[:5]]
 
 
 def main() -> None:

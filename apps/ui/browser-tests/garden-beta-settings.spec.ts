@@ -10,7 +10,8 @@ async function openSettings(page: Page, overrides: Settings = {}, frigateCameras
         frigate_url: 'http://frigate:5000', mqtt_server: 'mqtt', mqtt_port: 1883,
         mqtt_auth: false, cameras: ['patio', 'front'], camera_roles: { patio: 'nest' },
         garden_cameras: [], garden_motion_cameras: [], garden_labels: ['cat', 'dog'],
-        garden_motion_confidence: 0.5, classification_threshold: 0.7,
+        garden_motion_confidence: 0.5, garden_automatic_naming: true, garden_naming_threshold: 0.8,
+        classification_threshold: 0.7,
         beta_garden_animals: true,
         ...overrides
     };
@@ -116,6 +117,38 @@ for (const outside of ['0.49', '0.96']) {
         await page.getByRole('spinbutton', { name: 'Animal proposal threshold' }).fill(outside);
         await page.getByRole('button', { name: /Apply Settings/i }).click();
         await expect(page.getByRole('status').filter({ hasText: 'Enter an animal proposal threshold between 0.5 and 0.95.' })).toBeVisible();
+        expect(writes).toEqual([]);
+    });
+}
+
+test('automatic naming is on at 0.80 by default and both choices save with the page', async ({ page }) => {
+    const { writes } = await openSettings(page);
+    await openBeta(page);
+    const garden = page.locator('[data-garden-beta-settings]');
+    const naming = garden.getByRole('switch', { name: 'Name animals automatically' });
+    const threshold = garden.getByRole('spinbutton', { name: 'Naming threshold' });
+    await expect(naming).toHaveAttribute('aria-checked', 'true');
+    await expect(threshold).toHaveValue('0.8');
+    await threshold.fill('0.9');
+    await page.getByRole('button', { name: /Apply Settings/i }).click();
+    await expect.poll(() => writes.length).toBe(1);
+    expect(writes[0]).toMatchObject({ garden_automatic_naming: true, garden_naming_threshold: 0.9 });
+
+    await naming.click();
+    await expect(threshold).toHaveCount(0);
+    await expect(garden.getByText('Every animal waits in Needs review for you to confirm and name it.')).toBeVisible();
+    await page.getByRole('button', { name: /Apply Settings/i }).click();
+    await expect.poll(() => writes.length).toBe(2);
+    expect(writes[1]).toMatchObject({ garden_automatic_naming: false, garden_naming_threshold: 0.9 });
+});
+
+for (const outside of ['0.69', '1']) {
+    test(`a naming threshold of ${outside} is explained and nothing is saved`, async ({ page }) => {
+        const { writes } = await openSettings(page);
+        await openBeta(page);
+        await page.getByRole('spinbutton', { name: 'Naming threshold' }).fill(outside);
+        await page.getByRole('button', { name: /Apply Settings/i }).click();
+        await expect(page.getByRole('status').filter({ hasText: 'Enter a naming threshold between 0.7 and 0.99.' })).toBeVisible();
         expect(writes).toEqual([]);
     });
 }

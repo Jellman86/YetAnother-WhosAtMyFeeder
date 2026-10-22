@@ -44,6 +44,42 @@ test('automatic rejections explain the result and can return to review without a
     expect(photoChecks).toBe(0);
 });
 
+test('an automatically named animal says so, and its name and presence can each be undone', async ({ page }) => {
+    const actions: string[] = [];
+    const automatic = {
+        outcome: 'animal', checked_at: '2026-10-21T23:46:45', variant: '4.0.3a',
+        image_sha256: 'b'.repeat(64), model_sha256: 'c'.repeat(64), package_sha256: 'd'.repeat(64),
+        mass: { bird: 0, animal: 0.97, human: 0.001, non_animal: 0.01, other: 0.019 },
+        box_xywh: [0.1, 0.2, 0.3, 0.4], devices: ['CPUExecutionProvider']
+    };
+    const named = {
+        outcome: 'suggestion', reason: 'garden', review: 'accepted', automatic: true, taxon_id: 'cat', species_id: 1807,
+        name: 'domestic cat', rank: 'species', score: 0.93, geofenced: false, country: 'GBR', variant: '4.0.3a',
+        provider: 'cpu', devices: ['CPUExecutionProvider'], model_sha256: 'c'.repeat(64), package_sha256: 'd'.repeat(64),
+        image_sha256: 'b'.repeat(64), output_index: 1806, input_kind: 'tracked_crop', box_xywh: [0.1, 0.2, 0.3, 0.4],
+        frame_size: [640, 480], identified_at: '2026-10-21T23:46:45Z'
+    };
+    const confirmed = { ...row, status: 'confirmed', automatic_check: automatic, identification: named };
+    await page.route('**/api/garden?**', route => {
+        const requested = new URL(route.request().url()).searchParams.get('status');
+        const items = requested === 'confirmed' ? [confirmed] : [];
+        return route.fulfill({ json: { items, total: items.length, limit: 8, offset: 0 } });
+    });
+    await page.route('**/api/garden/motion', route => route.fulfill({ json: motionStatus }));
+    await page.route('**/api/garden/identification', route => route.fulfill({ json: modelStatus }));
+    await page.route('**/api/garden/*/snapshot', route => route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480"/>' }));
+    await page.route('**/api/garden/*/identification/*', route => { actions.push(new URL(route.request().url()).pathname.split('/').pop() ?? ''); return route.fulfill({ json: { ...confirmed, identification: { ...named, review: 'dismissed' } } }); });
+    await page.goto('/browser-tests/garden.html');
+    await page.getByRole('button', { name: 'Confirmed animals', exact: true }).click();
+    await expect(page.getByText('domestic cat', { exact: true })).toBeVisible();
+    await expect(page.getByText('Named automatically. Discard the name if it is wrong.')).toBeVisible();
+    await expect(page.getByText('Identification confirmed by you')).toHaveCount(0);
+    await expect(page.locator('[data-garden-automatic-check]')).toContainText('Confident animal. Confirmed and named automatically');
+    await expect(page.getByRole('button', { name: 'Dismiss capture' })).toBeEnabled();
+    await page.getByRole('button', { name: 'Discard identification' }).click();
+    await expect.poll(() => actions).toEqual(['dismiss']);
+});
+
 for (const size of [[640, 1000], [1280, 720], [1600, 400]]) {
     test(`presence proposal aligns with the ${size.join('x')} photo before species analysis`, async ({ page }) => {
         await page.route('**/api/garden?**', route => route.fulfill({ json: { items: [{ ...row, source_kind: 'motion', motion_source: motionSource }], total: 1, limit: 8, offset: 0 } }));

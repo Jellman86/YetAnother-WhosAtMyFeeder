@@ -224,6 +224,8 @@
     let gardenLabels = $state('cat, dog');
     let gardenMotionCameras = $state<string[]>([]);
     let gardenMotionConfidence = $state(0.5);
+    let gardenAutomaticNaming = $state(true);
+    let gardenNamingThreshold = $state(0.8);
     let nestDedupeMinutes = $state(30);
     let birdnetSourceOptions = $state<AudioSourceOption[]>([]);
     let loadingBirdnetSources = $state(false);
@@ -1866,6 +1868,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'gardenMotionCameras', val: JSON.stringify(gardenMotionCameras), store: JSON.stringify(s.garden_motion_cameras || []) },
             { key: 'gardenCameras', val: JSON.stringify(gardenCameras), store: JSON.stringify(s.garden_cameras || []) },
             { key: 'gardenMotionConfidence', val: gardenMotionConfidence, store: s.garden_motion_confidence ?? 0.5 },
+            { key: 'gardenAutomaticNaming', val: gardenAutomaticNaming, store: s.garden_automatic_naming ?? true },
+            { key: 'gardenNamingThreshold', val: gardenNamingThreshold, store: s.garden_naming_threshold ?? 0.8 },
             { key: 'gardenLabels', val: JSON.stringify(gardenLabels.split(/[,;\n]+/).map(label => label.trim().toLowerCase()).filter(Boolean)), store: JSON.stringify(s.garden_labels || ['cat', 'dog']) },
             { key: 'cameraRoles', val: JSON.stringify(cameraRoles), store: JSON.stringify(s.camera_roles || {}) },
             { key: 'nestDedupeMinutes', val: nestDedupeMinutes, store: s.nest_dedupe_minutes ?? 30 },
@@ -2959,6 +2963,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             gardenMotionCameras = settings.garden_motion_cameras || [];
             gardenLabels = (settings.garden_labels || ['cat', 'dog']).join(', ');
             gardenMotionConfidence = settings.garden_motion_confidence ?? 0.5;
+            gardenAutomaticNaming = settings.garden_automatic_naming ?? true;
+            gardenNamingThreshold = settings.garden_naming_threshold ?? 0.8;
             nestDedupeMinutes = typeof settings.nest_dedupe_minutes === 'number' && settings.nest_dedupe_minutes > 0
                 ? settings.nest_dedupe_minutes
                 : 30;
@@ -3317,6 +3323,11 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             saving = false;
             return;
         }
+        if (!Number.isFinite(gardenNamingThreshold) || gardenNamingThreshold < 0.7 || gardenNamingThreshold > 0.99) {
+            message = { type: 'error', text: $_('settings.beta.garden_naming_threshold_invalid', { default: 'Enter a naming threshold between 0.7 and 0.99.' }) };
+            saving = false;
+            return;
+        }
         const authSettingsError = validateAuthSettingsSave({
             authEnabled,
             authHasPassword,
@@ -3348,6 +3359,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 garden_motion_cameras: gardenMotionCameras,
                 garden_labels: gardenLabels.split(/[,;\n]+/).map(label => label.trim().toLowerCase()).filter(Boolean),
                 garden_motion_confidence: gardenMotionConfidence,
+                garden_automatic_naming: gardenAutomaticNaming,
+                garden_naming_threshold: gardenNamingThreshold,
                 nest_dedupe_minutes: nestDedupeMinutes,
                 audio_buffer_hours: audioBufferHours,
                 audio_correlation_window_seconds: audioCorrelationWindowSeconds,
@@ -3994,6 +4007,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                         bind:motionCameras={gardenMotionCameras}
                         bind:labels={gardenLabels}
                         bind:motionConfidence={gardenMotionConfidence}
+                        bind:automaticNaming={gardenAutomaticNaming}
+                        bind:namingThreshold={gardenNamingThreshold}
                         savedMotionConfidence={settingsStore.settings?.garden_motion_confidence}
                         {availableCameras}
                         onNavigate={onNavigate ? (path) => onNavigate(path) : undefined}

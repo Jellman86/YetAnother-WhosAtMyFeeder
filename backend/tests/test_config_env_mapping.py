@@ -659,3 +659,20 @@ def test_garden_animal_confidence_env_overrides_file_without_changing_bird_setti
     loaded = Settings.load()
     assert loaded.frigate.garden_motion_confidence == 0.6
     assert loaded.classification.threshold == 0.73
+
+
+def test_garden_naming_defaults_on_at_080_and_env_overrides_file(monkeypatch, tmp_path):
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({"frigate": {}}))
+    monkeypatch.setattr(config_module, "CONFIG_PATH", path)
+    monkeypatch.delenv("FRIGATE__GARDEN_AUTOMATIC_NAMING", raising=False)
+    monkeypatch.delenv("FRIGATE__GARDEN_NAMING_THRESHOLD", raising=False)
+    loaded = Settings.load()
+    assert loaded.frigate.garden_automatic_naming is True
+    assert loaded.frigate.garden_naming_threshold == 0.8
+    path.write_text(json.dumps({"frigate": {"garden_automatic_naming": True, "garden_naming_threshold": 0.85}}))
+    monkeypatch.setenv("FRIGATE__GARDEN_AUTOMATIC_NAMING", "false")
+    monkeypatch.setenv("FRIGATE__GARDEN_NAMING_THRESHOLD", "0.9")
+    loaded = Settings.load()
+    assert loaded.frigate.garden_automatic_naming is False
+    assert loaded.frigate.garden_naming_threshold == 0.9

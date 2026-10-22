@@ -7289,6 +7289,11 @@
       },
       "GardenIdentification": {
         "properties": {
+          "automatic": {
+            "default": false,
+            "title": "Automatic",
+            "type": "boolean"
+          },
           "box_xywh": {
             "anyOf": [
               {
@@ -12617,6 +12622,11 @@
             ],
             "title": "Frigate Url"
           },
+          "garden_automatic_naming": {
+            "default": true,
+            "title": "Garden Automatic Naming",
+            "type": "boolean"
+          },
           "garden_cameras": {
             "items": {
               "type": "string"
@@ -12641,6 +12651,11 @@
           "garden_motion_confidence": {
             "default": 0.5,
             "title": "Garden Motion Confidence",
+            "type": "number"
+          },
+          "garden_naming_threshold": {
+            "default": 0.8,
+            "title": "Garden Naming Threshold",
             "type": "number"
           },
           "ha_weather_access_token": {
@@ -14838,6 +14853,12 @@
             "description": "Frigate instance URL",
             "title": "Frigate Url"
           },
+          "garden_automatic_naming": {
+            "default": true,
+            "description": "Confirm and name a Garden animal automatically at or above the naming threshold",
+            "title": "Garden Automatic Naming",
+            "type": "boolean"
+          },
           "garden_cameras": {
             "description": "Cameras opted in to owner-reviewed garden captures",
             "items": {
@@ -14868,6 +14889,14 @@
             "maximum": 0.95,
             "minimum": 0.5,
             "title": "Garden Motion Confidence",
+            "type": "number"
+          },
+          "garden_naming_threshold": {
+            "default": 0.8,
+            "description": "Minimum SpeciesNet score to name a Garden animal automatically; does not change bird thresholds",
+            "maximum": 0.99,
+            "minimum": 0.7,
+            "title": "Garden Naming Threshold",
             "type": "number"
           },
           "ha_weather_access_token": {

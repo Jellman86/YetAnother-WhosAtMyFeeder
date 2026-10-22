@@ -96,6 +96,8 @@ class GardenIdentification(BaseModel):
     outcome: Literal["suggestion", "unknown"]
     reason: str
     review: Literal["unreviewed", "accepted", "dismissed"] = "unreviewed"
+    # True when the automatic check confirmed and named the capture without an owner action.
+    automatic: bool = False
     taxon_id: str | None = None
     species_id: int | None = None
     name: str | None = None

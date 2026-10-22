@@ -251,13 +251,16 @@ def test_native_preview_is_an_explicit_checksum_bound_crop_mode(tmp_path, monkey
             worker.identify(request)
     else:
         result = worker.identify(request)
-        assert "predictions" not in result
         if mode == "preview":
+            assert "predictions" not in result
             assert result["preview"]["suggestion"] == "bird"
             assert result["preview"]["mass"]["bird"] > 0.99
         else:
             assert result["assessment"]["mass"]["bird"] > 0.99
             assert sum(result["assessment"]["mass"].values()) == pytest.approx(1)
+            # Automatic naming reads the same pass's top five, highest first.
+            scores = [score for _, score in result["predictions"]]
+            assert len(result["predictions"]) == 5 and scores == sorted(scores, reverse=True)
         assert result["package_sha256"] == package_sha
         assert result["devices"] == ["CPUExecutionProvider"]
         request["package_sha256"] = "0" * 64

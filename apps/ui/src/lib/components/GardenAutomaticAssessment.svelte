@@ -2,7 +2,7 @@
     import { _ } from 'svelte-i18n';
     import type { GardenCapture } from '../api/garden';
 
-    let { assessment, overridden = false }: { assessment: NonNullable<GardenCapture['automatic_check']>; overridden?: boolean } = $props();
+    let { assessment, overridden = false, named = false }: { assessment: NonNullable<GardenCapture['automatic_check']>; overridden?: boolean; named?: boolean } = $props();
 </script>
 
 <div class="space-y-1 border-t border-line-soft pt-3 text-sm" data-garden-automatic-check>
@@ -13,6 +13,8 @@
         <p>{$_('garden.automatic_bird', { default: 'Bird suggested. Bird-only captures go to Dismissed; return this photo to review if the check is wrong.' })}</p>
     {:else if assessment.outcome === 'non_animal'}
         <p>{$_('garden.automatic_non_animal', { default: 'Blank scene or vehicle suggested. These captures go to Dismissed; return this photo to review if the check is wrong.' })}</p>
+    {:else if assessment.outcome === 'animal' && named}
+        <p>{$_('garden.automatic_named', { default: 'Confident animal. Confirmed and named automatically; dismiss the capture or discard the name if either is wrong.' })}</p>
     {:else if assessment.outcome === 'animal'}
         <p>{$_('garden.automatic_animal', { default: 'Non-bird animal suggested. Check the photo and confirm animal presence yourself.' })}</p>
     {:else if assessment.outcome === 'uncertain'}

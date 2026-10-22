@@ -761,3 +761,22 @@ async def test_each_owner_review_invalidates_inflight_photo_checks():
             await client.post("/api/garden/review-batch", json={"ids": [capture.id], "action": "dismiss"})
         ).status_code == 200
         assert service._photo_review_generation > before
+
+
+@pytest.mark.asyncio
+async def test_garden_naming_settings_round_trip_and_reject_thresholds_below_the_suggestion_floor():
+    original = (settings.frigate.garden_automatic_naming, settings.frigate.garden_naming_threshold)
+    bird_threshold = settings.classification.threshold
+    try:
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            update = {"garden_automatic_naming": False, "garden_naming_threshold": 0.9}
+            assert (await client.post("/api/settings", json=update)).status_code == 200
+            result = (await client.get("/api/settings")).json()
+            assert result["garden_automatic_naming"] is False and result["garden_naming_threshold"] == 0.9
+            assert settings.classification.threshold == bird_threshold
+            # Below 0.7 the model only offers a broader group, so a lower bar could never name.
+            for value in (0.69, 1.01, "not-a-number"):
+                assert (await client.post("/api/settings", json={"garden_naming_threshold": value})).status_code == 422
+            assert settings.frigate.garden_naming_threshold == 0.9
+    finally:
+        settings.frigate.garden_automatic_naming, settings.frigate.garden_naming_threshold = original
