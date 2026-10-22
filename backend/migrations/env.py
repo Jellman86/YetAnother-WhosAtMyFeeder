@@ -15,9 +15,10 @@ sys.path.append(os.getcwd())
 # access to the values within the .ini file in use.
 config = context.config
 
-# Interpret the config file for Python logging.
-if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+# The ini logging setup is for the alembic CLI. Programmatic callers run inside the
+# application, where it would replace its handlers and silence loggers it already made.
+if config.config_file_name is not None and config.attributes.get("configure_logger", True):
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # YA-WAMF doesn't use SQLAlchemy models for metadata, so we leave this as None
 # or we could manually define it if we wanted autogenerate.

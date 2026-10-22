@@ -476,3 +476,24 @@ def test_successful_snapshot_fallback_is_activity_rather_than_failure():
     assert focus["likely_last_error"] is None
     assert focus["candidate_failure_events"] == []
     assert focus["recent_events"] == [event]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("endpoint", ["errors", "workspace", "bundle"])
+async def test_diagnostic_exports_do_not_disclose_configured_credentials(client, monkeypatch, endpoint):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    token = "DUMMY-EXPORT-DIAGNOSTIC-CREDENTIAL"
+    monkeypatch.setattr(settings.notifications.telegram, "bot_token", token)
+    error_diagnostics_history.record(
+        source="fixture",
+        component="fixture",
+        reason_code="fixture_failure",
+        message=f"Unstructured provider text {token}",
+        context={"nested": {"api_key": token}},
+    )
+    response = await client.get(f"/api/diagnostics/{endpoint}")
+    assert response.status_code == 200
+    assert token not in response.text
+    assert "fixture_failure" in response.text
+    assert "REDACTED" in response.text
