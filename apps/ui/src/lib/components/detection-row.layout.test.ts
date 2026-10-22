@@ -72,6 +72,14 @@ describe('the Explorer list row', () => {
         expect(detectionRowSource).toContain('<DetectionPreview');
         expect(previewSource).toContain('alt=""');
     });
+
+    it('draws a running scan behind the row and states it in words', () => {
+        // The bars are faint enough to read text over, so they cannot carry meaning alone.
+        expect(detectionRowSource).toContain('variant="backdrop"');
+        expect(detectionRowSource).toContain('role="progressbar"');
+        expect(detectionRowSource).toContain('detection.frame_scan.frames_unit');
+        expect(eventsPageSource).toMatch(/<DetectionRow[\s\S]*?hideProgress=\{selectedEvent\?\.frigate_event === event\.frigate_event\}/);
+    });
 });
 
 describe('choosing the Explorer layout', () => {

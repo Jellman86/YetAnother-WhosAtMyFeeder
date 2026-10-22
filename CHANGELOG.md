@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- The Explorer list now shows a running video reclassification in the row itself.
+  The frame ribbon is drawn faintly behind the species and score, and the score
+  column reads frames done, such as 4/12, until the result lands. The row keeps
+  its height and its time column.
+
 - Telegram and notification-job errors retain safe error types/status codes
   without logging raw credential-bearing exceptions. Diagnostic history and
   exports redact configured credentials and credential URLs, bound payloads,

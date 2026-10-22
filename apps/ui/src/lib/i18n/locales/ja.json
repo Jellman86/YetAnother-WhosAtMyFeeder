@@ -2525,7 +2525,8 @@
       "best": "これまでで最も鮮明: フレーム {position}、{label} {score}%",
       "legend_strong": "80%以上",
       "legend_moderate": "50〜79%",
-      "legend_weak": "50%未満"
+      "legend_weak": "50%未満",
+      "frames_unit": "フレーム"
     }
   },
   "events": {

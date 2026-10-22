@@ -2535,7 +2535,8 @@
       "best": "Самый чёткий пока: кадр {position}, {label} {score}%",
       "legend_strong": "80% и выше",
       "legend_moderate": "От 50 до 79%",
-      "legend_weak": "Ниже 50%"
+      "legend_weak": "Ниже 50%",
+      "frames_unit": "кадров"
     }
   },
   "events": {

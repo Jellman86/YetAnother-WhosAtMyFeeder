@@ -7,16 +7,24 @@
      * A clip scan drawn like the audio sonograms: one bar per sampled frame, its height the
      * model's confidence, a playhead on the frame being read. Every frame keeps its place from the
      * first update, so nothing slides and the layout never moves as results arrive.
+     *
+     * `backdrop` fills whatever it is placed in and is drawn behind text, so it is decorative:
+     * the surface that uses it states the progress in words.
      */
-    type RibbonVariant = 'card' | 'compact' | 'detail' | 'overlay';
+    type RibbonVariant = 'backdrop' | 'card' | 'compact' | 'detail' | 'overlay';
 
     let { progress, variant = 'overlay' }: { progress: ReclassificationProgress; variant?: RibbonVariant } = $props();
 
     let scan = $derived(frameScan(progress));
     let roomy = $derived(variant === 'detail' || variant === 'overlay');
-    let barsHeightClass = $derived(roomy ? 'h-20' : variant === 'compact' ? 'h-12' : 'h-10');
+    let decorative = $derived(variant === 'backdrop');
+    let barsHeightClass = $derived(
+        decorative ? 'h-full' : roomy ? 'h-20' : variant === 'compact' ? 'h-12' : 'h-10'
+    );
     let panelClass = $derived(
-        variant === 'card'
+        variant === 'backdrop'
+            ? 'h-full'
+            : variant === 'card'
             ? ''
             : variant === 'compact'
                 ? 'rounded-lg border border-line-soft bg-surface/90 p-2'
@@ -55,16 +63,17 @@
     }
 </script>
 
-<div class="frame-scan-ribbon w-full {panelClass}" data-frame-scan-variant={variant}>
+<div class="frame-scan-ribbon w-full {panelClass}" data-frame-scan-variant={variant} aria-hidden={decorative ? 'true' : undefined}>
     <div
-        role="progressbar"
-        aria-label={$_('detection.frame_scan.title', { default: 'Video frames read' })}
-        aria-valuemin={0}
-        aria-valuemax={scan.total}
-        aria-valuenow={scan.readCount}
-        aria-valuetext={valueText}
+        class={decorative ? 'h-full' : undefined}
+        role={decorative ? undefined : 'progressbar'}
+        aria-label={decorative ? undefined : $_('detection.frame_scan.title', { default: 'Video frames read' })}
+        aria-valuemin={decorative ? undefined : 0}
+        aria-valuemax={decorative ? undefined : scan.total}
+        aria-valuenow={decorative ? undefined : scan.readCount}
+        aria-valuetext={decorative ? undefined : valueText}
     >
-        <div class="relative flex {barsHeightClass} items-end gap-px border-b border-line" aria-hidden="true">
+        <div class="relative flex {barsHeightClass} items-end gap-px {decorative ? '' : 'border-b border-line'}" aria-hidden="true">
             {#each scan.bars as bar (bar.position)}
                 <div class="flex h-full min-w-0 flex-1 items-end" title={barTitle(bar)}>
                     <div

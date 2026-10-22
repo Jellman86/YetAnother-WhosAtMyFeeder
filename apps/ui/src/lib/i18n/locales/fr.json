@@ -2525,7 +2525,8 @@
       "best": "La plus nette jusqu'ici : image {position}, {label} {score}%",
       "legend_strong": "80% et plus",
       "legend_moderate": "50 à 79%",
-      "legend_weak": "Moins de 50%"
+      "legend_weak": "Moins de 50%",
+      "frames_unit": "images"
     }
   },
   "events": {

@@ -2535,7 +2535,8 @@
       "best": "Clearest so far: frame {position}, {label} {score}%",
       "legend_strong": "80% and over",
       "legend_moderate": "50 to 79%",
-      "legend_weak": "Under 50%"
+      "legend_weak": "Under 50%",
+      "frames_unit": "frames"
     }
   },
   "events": {
