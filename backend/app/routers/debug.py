@@ -13,37 +13,10 @@ from app.auth import AuthContext, require_owner
 from app.config import settings
 from app.database import get_db
 from app.repositories.debug_repository import DebugRepository
+from app.utils.diagnostic_redaction import REDACTED_VALUE, sensitive_key
 
 router = APIRouter()
 
-REDACTED_VALUE = "***REDACTED***"
-SENSITIVE_CONFIG_KEYS = frozenset(
-    {
-        "api_key",
-        "frigate_auth_token",
-        "mqtt_password",
-        "station_token",
-        "webhook_url",
-        "user_key",
-        "api_token",
-        "bot_token",
-        "chat_id",
-        "smtp_password",
-        "gmail_client_secret",
-        "outlook_client_secret",
-        "client_secret",
-        "oauth_client_secret",
-        "token",
-        "password",
-        "access_token",
-        "session_secret",
-        "password_hash",
-        "oauth_token_secret",
-    }
-)
-# Fail closed for future secret-bearing settings: a new field whose name is
-# secret-shaped must not leak just because nobody updated the set above.
-SENSITIVE_KEY_SUFFIXES = ("_secret", "_token", "_password", "_hash")
 MODEL_DIRECTORY = Path("/data/models")
 
 
@@ -82,7 +55,7 @@ class SystemDebugResponse(BaseModel):
 
 
 def _is_sensitive_key(key: str) -> bool:
-    return key in SENSITIVE_CONFIG_KEYS or key.endswith(SENSITIVE_KEY_SUFFIXES)
+    return sensitive_key(key)
 
 
 def redact_config(value: JsonValue) -> JsonValue:

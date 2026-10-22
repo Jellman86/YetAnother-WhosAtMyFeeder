@@ -11,6 +11,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   column reads frames done, such as 4/12, until the result lands. The row keeps
   its height and its time column.
 
+- Telegram and notification-job errors retain safe error types/status codes
+  without logging raw credential-bearing exceptions. Diagnostic history and
+  exports redact configured credentials and credential URLs, bound payloads,
+  and keep private copies of retained context (#769).
+
+- Upgrading the species catalogue at startup no longer silences the application's
+  existing loggers or replaces its log handlers, so the now-redacted HTTP transport
+  logs are no longer switched off (#769).
+
 - Video reclassification now shows its progress as a frame ribbon instead of the
   sliding film strip, which could drift away from the frame being read. Each sampled
   frame keeps its place as a bar whose height is the model's confidence, with a marker
