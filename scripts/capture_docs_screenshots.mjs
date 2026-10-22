@@ -20,7 +20,8 @@ const catalog = JSON.parse(await readFile('scripts/fixtures/documentation-models
 const DINO = 'dinov2_b14_inat21_metadata_336';
 const runId = 'example-compatibility';
 const settings = {
-    garden_cameras: gardenOnly ? ['feeder'] : [], garden_labels: ['cat', 'dog'],
+    garden_cameras: gardenOnly ? ['feeder'] : [], garden_motion_cameras: [], garden_labels: ['cat', 'dog'],
+    garden_motion_confidence: 0.5, beta_garden_animals: gardenOnly,
     frigate_url: 'http://frigate:5000', mqtt_server: 'mqtt', mqtt_port: 1883,
     mqtt_auth: true, mqtt_username: 'feeder', mqtt_password: '***REDACTED***',
     cameras: ['feeder'], classification_threshold: 0.6, classification_min_confidence: 0.6,
@@ -174,8 +175,8 @@ async function openSettings(tab) {
 await mkdir(images, { recursive: true });
 try {
     if (gardenOnly) {
-        await openSettings('Connection');
-        await shot('settings-garden-cameras', page.locator('[data-camera-list]'));
+        await openSettings('Beta features');
+        await shot('settings-garden-cameras', page.locator('[data-garden-beta-settings]'));
         await page.goto(`${base}/browser-tests/garden.html`);
         await page.getByText('No captures in this view').waitFor();
         await page.getByText('Species suggestions', { exact: true }).click();

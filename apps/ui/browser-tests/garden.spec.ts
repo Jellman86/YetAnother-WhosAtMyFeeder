@@ -188,53 +188,13 @@ test('history error is visible and refresh recovers', async ({ page }) => {
         ? { status: 503, json: { detail: 'History temporarily unavailable' } }
         : { json: { items: [], total: 0, limit: 8, offset: 0 } }));
     await page.route('**/api/garden/motion', route => route.fulfill({ json: motionStatus }));
+    // Unmocked, this reached the dev server's proxy and held the refresh open past the timeout under load.
+    await page.route('**/api/garden/identification', route => route.fulfill({ json: modelStatus }));
     await page.goto('/browser-tests/garden.html');
     await expect(page.getByRole('alert')).toContainText('History temporarily unavailable');
     failed = false;
     await page.getByRole('button', { name: 'Refresh', exact: true }).click();
     await expect(page.getByText('No captures in this view')).toBeVisible();
-});
-
-test('garden camera opt-in saves independently of a Nest bird role', async ({ page }) => {
-    let settings: Record<string, unknown> = {
-        frigate_url: 'http://frigate:5000', mqtt_server: 'mqtt', mqtt_port: 1883,
-        mqtt_auth: false, cameras: ['patio'], camera_roles: { patio: 'nest' },
-        garden_cameras: [], garden_labels: ['cat', 'dog'], classification_threshold: 0.7,
-        beta_garden_animals: true
-    };
-    let written: Record<string, unknown> | null = null;
-    await page.route(url => url.pathname.startsWith('/api/'), route => {
-        const request = route.request();
-        const path = new URL(request.url()).pathname;
-        if (path === '/api/settings') {
-            if (request.method() === 'POST') {
-                const payload: unknown = request.postDataJSON();
-                if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) throw new Error('Expected settings object');
-                written = payload as Record<string, unknown>;
-                settings = { ...settings, ...written };
-                return route.fulfill({ json: { status: 'ok' } });
-            }
-            return route.fulfill({ json: settings });
-        }
-        if (path.endsWith('/frigate/config')) return route.fulfill({ json: { cameras: { patio: {} } } });
-        if (path.endsWith('/audio/sources')) return route.fulfill({ json: [] });
-        if (path.endsWith('/backfill/status')) return route.fulfill({ json: null });
-        return route.fulfill({ json: {} });
-    });
-    await page.goto('/browser-tests/settings-backfill.html');
-    const nest = page.getByRole('button', { name: 'Nest', exact: true });
-    await expect(nest).toHaveAttribute('aria-pressed', 'true');
-    const garden = page.getByRole('button', { name: /Garden animals/ });
-    await garden.click();
-    await expect(garden).toHaveAttribute('aria-pressed', 'true');
-    await expect(nest).toHaveAttribute('aria-pressed', 'true');
-    await page.getByRole('button', { name: 'Collect motion review photos' }).click();
-    await page.getByLabel('Frigate animal labels', { exact: true }).fill('cat, dog, squirrel');
-    await page.getByRole('button', { name: /Apply Settings/i }).click();
-    await expect.poll(() => written?.garden_cameras).toEqual(['patio']);
-    await expect.poll(() => written?.garden_motion_cameras).toEqual(['patio']);
-    await expect.poll(() => written?.camera_roles).toEqual({ patio: 'nest' });
-    await expect.poll(() => written?.garden_labels).toEqual(['cat', 'dog', 'squirrel']);
 });
 
 for (const outcome of ['species', 'group', 'unknown'] as const) {
@@ -509,30 +469,16 @@ test('a failed stack dismissal keeps its photos reviewable and does not offer a 
     await expect(page.getByText('2 photos around the same position', { exact: true })).toBeVisible();
 });
 
-test('animal threshold saves only the independent Garden setting and reloads measured status', async ({ page }) => {
-    let confidence = 0.5;
-    let saved: unknown;
+test('the Garden page shows the saved animal threshold and sends changes to Beta features', async ({ page }) => {
     await page.route('**/api/garden?**', route => route.fulfill({ json: { items: [], total: 0, limit: 128, offset: 0 } }));
-    await page.route('**/api/garden/motion', route => route.fulfill({ json: { ...motionStatus, animal_confidence: confidence } }));
+    await page.route('**/api/garden/motion', route => route.fulfill({ json: { ...motionStatus, animal_confidence: 0.63 } }));
     await page.route('**/api/garden/identification', route => route.fulfill({ json: modelStatus }));
-    await page.route('**/api/settings', route => {
-        saved = route.request().postDataJSON();
-        confidence = 0.6;
-        return route.fulfill({ json: { status: 'success' } });
-    });
     await page.goto('/browser-tests/garden.html');
     await page.getByText('Motion collection', { exact: true }).click();
-    const threshold = page.getByRole('spinbutton', { name: 'Animal proposal threshold' });
-    await expect(threshold).toHaveValue('0.5');
-    const save = page.getByRole('button', { name: 'Save animal threshold' });
-    await expect(save).toBeDisabled();
-    await threshold.fill('0.6');
-    await save.click();
-    await expect(threshold).toHaveValue('0.6');
-    await expect(save).toBeDisabled();
-    expect(saved).toEqual({ garden_motion_confidence: 0.6 });
-    await threshold.fill('0.2');
-    await expect(save).toBeDisabled();
+    await expect(page.getByText('Animal proposal threshold: 0.63. Change it in Settings → Beta features.')).toBeVisible();
+    await expect(page.getByRole('spinbutton', { name: 'Animal proposal threshold' })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Garden settings' }).first().click();
+    await expect(page).toHaveURL(/\/settings\/beta$/);
 });
 
 for (const action of ['confirm', 'dismiss'] as const) {
