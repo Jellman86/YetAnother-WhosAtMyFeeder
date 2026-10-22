@@ -87,6 +87,7 @@
     import SettingsCard from '../components/settings/_primitives/SettingsCard.svelte';
     import SettingsRow from '../components/settings/_primitives/SettingsRow.svelte';
     import SettingsToggle from '../components/settings/_primitives/SettingsToggle.svelte';
+    import GardenBetaSettings from '../components/settings/GardenBetaSettings.svelte';
     import { locationSettingsDirty } from '../settings/location-dirty';
     import {
         inferenceProviderForSave,
@@ -222,6 +223,7 @@
     let gardenCameras = $state<string[]>([]);
     let gardenLabels = $state('cat, dog');
     let gardenMotionCameras = $state<string[]>([]);
+    let gardenMotionConfidence = $state(0.5);
     let nestDedupeMinutes = $state(30);
     let birdnetSourceOptions = $state<AudioSourceOption[]>([]);
     let loadingBirdnetSources = $state(false);
@@ -1863,6 +1865,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'cameraAudioMapping', val: JSON.stringify(cameraAudioMapping), store: JSON.stringify(s.camera_audio_mapping || {}) },
             { key: 'gardenMotionCameras', val: JSON.stringify(gardenMotionCameras), store: JSON.stringify(s.garden_motion_cameras || []) },
             { key: 'gardenCameras', val: JSON.stringify(gardenCameras), store: JSON.stringify(s.garden_cameras || []) },
+            { key: 'gardenMotionConfidence', val: gardenMotionConfidence, store: s.garden_motion_confidence ?? 0.5 },
             { key: 'gardenLabels', val: JSON.stringify(gardenLabels.split(/[,;\n]+/).map(label => label.trim().toLowerCase()).filter(Boolean)), store: JSON.stringify(s.garden_labels || ['cat', 'dog']) },
             { key: 'cameraRoles', val: JSON.stringify(cameraRoles), store: JSON.stringify(s.camera_roles || {}) },
             { key: 'nestDedupeMinutes', val: nestDedupeMinutes, store: s.nest_dedupe_minutes ?? 30 },
@@ -2955,6 +2958,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             gardenCameras = settings.garden_cameras || [];
             gardenMotionCameras = settings.garden_motion_cameras || [];
             gardenLabels = (settings.garden_labels || ['cat', 'dog']).join(', ');
+            gardenMotionConfidence = settings.garden_motion_confidence ?? 0.5;
             nestDedupeMinutes = typeof settings.nest_dedupe_minutes === 'number' && settings.nest_dedupe_minutes > 0
                 ? settings.nest_dedupe_minutes
                 : 30;
@@ -3308,6 +3312,11 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             saving = false;
             return;
         }
+        if (!Number.isFinite(gardenMotionConfidence) || gardenMotionConfidence < 0.5 || gardenMotionConfidence > 0.95) {
+            message = { type: 'error', text: $_('settings.beta.garden_motion_confidence_invalid', { default: 'Enter an animal proposal threshold between 0.5 and 0.95.' }) };
+            saving = false;
+            return;
+        }
         const authSettingsError = validateAuthSettingsSave({
             authEnabled,
             authHasPassword,
@@ -3338,6 +3347,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 garden_cameras: gardenCameras,
                 garden_motion_cameras: gardenMotionCameras,
                 garden_labels: gardenLabels.split(/[,;\n]+/).map(label => label.trim().toLowerCase()).filter(Boolean),
+                garden_motion_confidence: gardenMotionConfidence,
                 nest_dedupe_minutes: nestDedupeMinutes,
                 audio_buffer_hours: audioBufferHours,
                 audio_correlation_window_seconds: audioCorrelationWindowSeconds,
@@ -3609,9 +3619,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:mqttPassword
                     bind:mqttPasswordSaved
                     bind:selectedCameras
-                    bind:gardenMotionCameras
-                    bind:gardenCameras
-                    bind:gardenLabels
                     {betaGardenAnimals}
                     bind:cameraRoles
                     bind:nestDedupeMinutes
@@ -3981,18 +3988,16 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     title={$_('settings.beta.title', { default: 'Beta features' })}
                     description={$_('settings.beta.subtitle', { default: 'Features that are still being tested. They are off unless you turn them on, and they may change or be removed.' })}
                 >
-                    <SettingsRow
-                        labelId="setting-beta-garden-animals"
-                        label={$_('settings.beta.garden_animals', { default: 'Garden animals' })}
-                        description={$_('settings.beta.garden_animals_desc', { default: 'Collects non-bird visitors such as cats, dogs and foxes from cameras you choose, for you to review. Turning it off stops new collection and hides Garden; saved captures are kept.' })}
-                    >
-                        <SettingsToggle
-                            checked={betaGardenAnimals}
-                            labelledBy="setting-beta-garden-animals"
-                            srLabel={$_('settings.beta.garden_animals', { default: 'Garden animals' })}
-                            onchange={(value) => (betaGardenAnimals = value)}
-                        />
-                    </SettingsRow>
+                    <GardenBetaSettings
+                        bind:enabled={betaGardenAnimals}
+                        bind:cameras={gardenCameras}
+                        bind:motionCameras={gardenMotionCameras}
+                        bind:labels={gardenLabels}
+                        bind:motionConfidence={gardenMotionConfidence}
+                        savedMotionConfidence={settingsStore.settings?.garden_motion_confidence}
+                        {availableCameras}
+                        onNavigate={onNavigate ? (path) => onNavigate(path) : undefined}
+                    />
                 </SettingsCard>
             {/if}
 

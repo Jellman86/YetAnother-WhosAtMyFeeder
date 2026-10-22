@@ -6,6 +6,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Every Garden animals setting now lives under **Settings → Beta features**, with the
+  switch that turns it on: cameras to watch, motion review collection, Frigate animal
+  labels and the animal proposal threshold. Connection keeps each camera's bird role
+  and points to the new location. The Garden page shows the saved threshold and links
+  to it. Saved values are unchanged.
+
 - The Explorer list now shows a running video reclassification in the row itself.
   The frame ribbon is drawn faintly behind the species and score, and the score
   column reads frames done, such as 4/12, until the result lands. The row keeps

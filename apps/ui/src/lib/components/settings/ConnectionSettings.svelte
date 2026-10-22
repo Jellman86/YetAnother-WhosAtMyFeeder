@@ -35,9 +35,6 @@
         recordingClipBeforeSeconds = $bindable(30),
         recordingClipAfterSeconds = $bindable(90),
         selectedCameras = $bindable<string[]>([]),
-        gardenCameras = $bindable<string[]>([]),
-        gardenMotionCameras = $bindable<string[]>([]),
-        gardenLabels = $bindable('cat, dog'),
         betaGardenAnimals = false,
         cameraRoles = $bindable<Record<string, 'feeder' | 'nest'>>({}),
         nestDedupeMinutes = $bindable(30),
@@ -70,9 +67,6 @@
         recordingClipBeforeSeconds: number;
         recordingClipAfterSeconds: number;
         selectedCameras: string[];
-        gardenCameras?: string[];
-        gardenMotionCameras?: string[];
-        gardenLabels?: string;
         betaGardenAnimals?: boolean;
         cameraRoles: Record<string, 'feeder' | 'nest'>;
         nestDedupeMinutes: number;
@@ -607,7 +601,7 @@
         <!-- The page scrolls; a second scroller inside the card hid the first camera under the
              card header and cut off the nest window below the list. -->
         {#if betaGardenAnimals}
-        <p class="mb-3 text-sm text-slate-600 dark:text-slate-400">{$_('garden.settings_help', { default: 'Garden animals collects completed animal events for your review. Species suggestions run only when you ask.' })}</p>
+        <p class="mb-3 text-sm text-slate-600 dark:text-slate-400">{$_('settings.cameras.garden_moved', { default: 'Garden animal cameras are set in Settings → Beta features.' })}</p>
         {/if}
         <div class="space-y-3" data-camera-list>
             {#if availableCameras.length === 0}
@@ -682,28 +676,6 @@
                                     </div>
                                 </div>
                             {/if}
-                            {#if betaGardenAnimals}
-                            <div class="flex flex-wrap items-center gap-3 border-t border-line-soft px-2 py-2">
-                                <button type="button" class="btn btn-secondary min-h-11 px-3 py-2"
-                                    aria-pressed={gardenCameras.includes(camera)}
-                                    onclick={() => gardenCameras = gardenCameras.includes(camera) ? gardenCameras.filter(name => name !== camera) : [...gardenCameras, camera]}>
-                                    {$_('garden.title', { default: 'Garden animals' })}
-                                    <span aria-hidden="true">{gardenCameras.includes(camera) ? '✓' : '+'}</span>
-                                </button>
-                                <span class="min-w-0 flex-1 text-xs text-slate-600 dark:text-slate-400">{$_('garden.camera_help', { default: 'Independent animal review. Keeps this camera’s bird role.' })}</span>
-                            </div>
-                            {#if gardenCameras.includes(camera)}
-                                <div class="px-2 pb-3 space-y-2">
-                                    <button type="button" class="btn btn-secondary min-h-11 px-3 py-2"
-                                        aria-pressed={gardenMotionCameras.includes(camera)}
-                                        onclick={() => gardenMotionCameras = gardenMotionCameras.includes(camera) ? gardenMotionCameras.filter(name => name !== camera) : [...gardenMotionCameras, camera]}>
-                                        {$_('garden.motion_toggle', { default: 'Collect motion review photos' })}
-                                        <span aria-hidden="true">{gardenMotionCameras.includes(camera) ? '✓' : '+'}</span>
-                                    </button>
-                                    <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.motion_camera_help', { default: 'Optional CPU scans of retained motion footage. Download the detector on Garden animals; bird detection keeps its current settings.' })}</p>
-                                </div>
-                            {/if}
-                            {/if}
                             {#if previewVisible && previewCamera === camera}
                                 <div class="rounded-2xl border border-slate-200/80 dark:border-slate-700/60 bg-white/95 dark:bg-slate-900/95 overflow-hidden shadow-lg shadow-slate-900/10 dark:shadow-black/30">
                                     <div class="px-4 py-2 flex items-center justify-between gap-2">
@@ -745,13 +717,6 @@
                     {/each}
                 </div>
             {/if}
-            {#if betaGardenAnimals && gardenCameras.length > 0}
-            <div class="mt-4 space-y-2">
-                <label for="garden-labels" class="text-sm font-semibold">{$_('garden.labels', { default: 'Frigate animal labels' })}</label>
-                <input id="garden-labels" class="input-base w-full" bind:value={gardenLabels} aria-describedby="garden-label-help" />
-                <p id="garden-label-help" class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.labels_help', { default: 'Comma-separated animal labels tracked by Frigate, for example cat, dog or squirrel. Birds, people and vehicles are excluded.' })}</p>
-            </div>
-        {/if}
         {#if Object.values(cameraRoles).includes('nest')}
                 <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line-soft bg-surface-raised/60 p-3" data-nest-dedupe>
                     <div class="min-w-0 flex-1">

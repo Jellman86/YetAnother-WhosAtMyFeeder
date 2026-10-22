@@ -7,9 +7,7 @@
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { fetchGardenMotion, installGardenMotion, type GardenMotionStatus } from '../api/garden';
     import { gardenPhotoOutline } from '../utils/garden-photo';
-    import { gardenThresholdStep } from '../utils/garden-threshold';
     import { groupGardenReview, type GardenReviewGroup } from '../utils/garden-review-groups';
-    import { updateSettings } from '../api/settings';
     import { toastStore } from '../stores/toast.svelte';
     import { checkGardenPhoto, type GardenPhotoCheck } from '../api/garden';
     import GardenPhotoCheckDialog from '../components/GardenPhotoCheckDialog.svelte';
@@ -31,7 +29,6 @@
     let failedImages = $state<Record<string, boolean>>({});
     let identification = $state.raw<GardenIdentificationStatus | null>(null);
     let motion = $state.raw<GardenMotionStatus | null>(null);
-    let motionConfidence = $state(0.5);
     let variant = $state<NonNullable<GardenIdentifyRequest['variant']>>('4.0.3b');
     let provider = $state<NonNullable<GardenIdentifyRequest['provider']>>('cpu');
     const selectedModel = $derived(identification?.models.find(model => model.variant === variant));
@@ -127,7 +124,6 @@
                 const motionStatus = await fetchGardenMotion(controller.signal);
                 if (!destroyed && request === generation) {
                     motion = motionStatus;
-                    motionConfidence = motionStatus.animal_confidence ?? 0.5;
                 }
             } catch {
                 if (!destroyed && request === generation) motion = null;
@@ -259,20 +255,6 @@
         }
     }
 
-    async function saveMotionConfidence(): Promise<void> {
-        if (saving || !Number.isFinite(motionConfidence) || motionConfidence < 0.5 || motionConfidence > 0.95) return;
-        saving = 'confidence';
-        error = null;
-        try {
-            await updateSettings({ garden_motion_confidence: motionConfidence });
-            if (!destroyed) await load();
-        } catch (failure) {
-            if (!destroyed) error = failure instanceof Error ? failure.message : $_('garden.save_error', { default: 'Could not save your review. Try again.' });
-        } finally {
-            if (!destroyed) saving = null;
-        }
-    }
-
     onMount(() => {
         unregisterRefresh = pageRefreshAction.register(load);
         void load();
@@ -299,12 +281,7 @@
                     <p role="status" class="text-sm">{$_('garden.model_status_unavailable', { default: 'Model status unavailable. Refresh to try again.' })}</p>
                 {:else}
                     <p role="status" class="text-sm">{motion.message}</p>
-                    <label class="block space-y-1 text-sm">
-                        <span>{$_('garden.confidence', { default: 'Animal proposal threshold' })}</span>
-                        <input class="input-base w-full" type="number" min="0.5" max="0.95" step={gardenThresholdStep(motionConfidence, motion.animal_confidence)} bind:value={motionConfidence} disabled={saving !== null} />
-                    </label>
-                    <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.confidence_help', { default: 'Higher values reduce proposals but can miss animals. Applies to new motion photos only; bird detection and person privacy checks are unchanged.' })}</p>
-                    <button class="btn btn-secondary min-h-11 px-4 py-2 whitespace-normal" disabled={saving !== null || !Number.isFinite(motionConfidence) || motionConfidence < 0.5 || motionConfidence > 0.95 || motionConfidence === (motion.animal_confidence ?? 0.5)} onclick={saveMotionConfidence}>{$_('garden.confidence_save', { default: 'Save animal threshold' })}</button>
+                    <p class="text-sm" data-garden-motion-confidence>{$_('garden.confidence_current', { values: { value: motion.animal_confidence ?? 0.5 }, default: 'Animal proposal threshold: {value}. Change it in Settings → Beta features.' })}</p>
                     <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.motion_limits', { default: 'CPU only · At least {seconds}s between scans · Up to {limit} photos · {days}-day photo retention', values: { seconds: motion.interval_seconds, limit: motion.photo_limit, days: motion.photo_retention_days } })}</p>
                     {#if motion.queue_limit !== undefined && motion.catchup_seconds !== undefined}
                         <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.motion_coverage', { default: 'Up to {limit} short windows queued per camera from the last {minutes} minutes. Birds and camera pressure pause collection; brief visits can be missed.', values: { limit: motion.queue_limit, minutes: motion.catchup_seconds / 60 } })}</p>
@@ -316,7 +293,7 @@
                     {#if !motion.installed}
                         <button class="btn btn-secondary min-h-11 px-4 py-2 whitespace-normal" disabled={saving !== null || motion.busy || !motion.catalogue_ready} onclick={downloadMotionDetector}>{saving === 'motion-model' ? $_('garden.downloading', { default: 'Downloading and verifying…' }) : $_('garden.motion_download', { default: 'Download Cedar detector (101 MB)' })}</button>
                     {/if}
-                    <button class="btn btn-secondary min-h-11 px-4 py-2" onclick={() => onNavigate('/settings/connection')}>{$_('garden.camera_settings', { default: 'Camera settings' })}</button>
+                    <button class="btn btn-secondary min-h-11 px-4 py-2" onclick={() => onNavigate('/settings/beta')}>{$_('garden.open_settings', { default: 'Garden settings' })}</button>
                 {/if}
             </div>
         </details>
@@ -385,7 +362,7 @@
             <div class="card-base space-y-3 p-6">
                 <h2 class="font-semibold">{$_('garden.empty', { default: 'No captures in this view' })}</h2>
                 <p class="text-sm text-slate-600 dark:text-slate-400">{$_('garden.empty_help', { default: 'Enable Garden animals for a camera in Settings. Completed animal events will appear here for review; birds keep their existing Feeder or Nest role.' })}</p>
-                <button class="btn btn-secondary min-h-11 px-4 py-2" onclick={() => onNavigate('/settings/connection')}>{$_('garden.camera_settings', { default: 'Camera settings' })}</button>
+                <button class="btn btn-secondary min-h-11 px-4 py-2" onclick={() => onNavigate('/settings/beta')}>{$_('garden.open_settings', { default: 'Garden settings' })}</button>
             </div>
         {:else}
             <div class="space-y-4">

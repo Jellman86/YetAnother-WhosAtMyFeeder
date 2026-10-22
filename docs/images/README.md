@@ -93,7 +93,7 @@ example counts or runtime values into product guarantees.
 | `detection-detail.png` | Dunnock photograph, identification and record controls |
 | `detection-photo-review.png` | Review sheet with photograph choices and feeder species |
 | `add-observation.png` | Upload, Analyse, Review and Save flow before anything is added |
-| `settings-garden-cameras.png` | Independent animal capture opt-in alongside the bird role |
+| `settings-garden-cameras.png` | Garden animal settings under Beta features: cameras, motion collection, labels and threshold |
 | `garden-review.png` | Owner review prototype, separate views and first-capture guidance |
 | `settings-map.png` | Grouped Settings navigation and setup-wizard entry point |
 | `settings-connection.png` | Frigate, MQTT and selected camera controls |

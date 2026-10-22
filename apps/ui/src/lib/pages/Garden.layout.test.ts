@@ -1,19 +1,30 @@
 import { describe, expect, it } from 'vitest';
 import settings from './Settings.svelte?raw';
 import connection from '../components/settings/ConnectionSettings.svelte?raw';
+import gardenBeta from '../components/settings/GardenBetaSettings.svelte?raw';
 import app from '../../App.svelte?raw';
 import sidebar from '../components/Sidebar.svelte?raw';
 import garden from './Garden.svelte?raw';
 
 describe('independent garden camera option', () => {
-    it('loads, checks dirty state, saves and binds the camera and label settings', () => {
-        for (const name of ['gardenCameras', 'gardenLabels', 'gardenMotionCameras']) expect(settings).toContain(`bind:${name}`);
+    it('loads, checks dirty state, saves and binds every Garden setting from Beta features', () => {
+        for (const [prop, state] of [['cameras', 'gardenCameras'], ['motionCameras', 'gardenMotionCameras'], ['labels', 'gardenLabels'], ['motionConfidence', 'gardenMotionConfidence']]) {
+            expect(settings).toContain(`bind:${prop}={${state}}`);
+        }
         expect(settings).toContain('garden_cameras: gardenCameras');
         expect(settings).toContain('garden_labels: gardenLabels');
-        expect(connection).toContain('aria-pressed={gardenCameras.includes(camera)}');
-        expect(connection).not.toContain("[camera]: 'garden'");
         expect(settings).toContain('garden_motion_cameras: gardenMotionCameras');
-        expect(connection).toContain('aria-pressed={gardenMotionCameras.includes(camera)}');
+        expect(settings).toContain('garden_motion_confidence: gardenMotionConfidence');
+        expect(settings).toContain("key: 'gardenMotionConfidence'");
+        expect(gardenBeta).toContain('aria-pressed={watched}');
+        expect(gardenBeta).toContain('aria-pressed={motionCameras.includes(camera)}');
+        expect(connection).not.toContain('gardenCameras');
+        expect(connection).not.toContain("[camera]: 'garden'");
+    });
+    it('shows the motion threshold on the Garden page and sends changes to Beta features', () => {
+        expect(garden).not.toContain('updateSettings');
+        expect(garden).toContain("garden.confidence_current");
+        expect(garden).toContain("onNavigate('/settings/beta')");
     });
     it('shows measured collection status and distinguishes motion evidence from Frigate labels', () => {
         expect(garden).toContain('motion.message');

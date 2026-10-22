@@ -13,7 +13,7 @@ Use the navigation grid to switch sections:
 |---|---|---|
 | **Feeder pipeline** | Connection, Detection | Where events come from, and how they are identified. |
 | **Intelligence & sharing** | Integrations, Enrichment, AI, Notifications | Other services YA-WAMF talks to, and what it sends out. |
-| **Operations** | Health, Security, Data, Setup wizard | Running it: diagnostics, access, retention, and re-running setup. |
+| **Operations** | Health, Security, Beta features, Data, Setup wizard | Running it: diagnostics, access, features still being tested, retention, and re-running setup. |
 | **Interface** | Appearance, Accessibility | How the app looks and reads for you. |
 
 A **Debug** section appears alongside them when debug UI is enabled (see
@@ -40,9 +40,6 @@ Where bird events come from.
 | **Initial identification delay (seconds)** | Shown for **Recording frame**. Wait 1 to 120 seconds (default 12) before the first read, using the latest tracked snapshot metadata received during the wait. Notifications arrive later too; saved detections are unchanged. |
 | **Public Frigate URL** | The address *your browser* uses to open Frigate, when it differs from the server address above. Used for the "open in Frigate" link on a detection. |
 | **Active Cameras** | Which Frigate cameras YA-WAMF monitors. **Sync Cameras** pulls the list from Frigate; **Preview** shows a live snapshot through the Frigate proxy. |
-| **Garden animals** | Independent per-camera opt-in, off by default. Collects completed animal events for owner review without changing the bird role. See [Garden animals](../features/garden-animals.md). |
-| **Collect motion review photos** | Additional opt-in for garden cameras, off by default (`frigate.garden_motion_cameras: []`). Requires retained motion recordings and the Cedar download. Bounded CPU scans create private review candidates; no automatic species identification. |
-| **Frigate animal labels** | Defaults to `cat, dog`. Supported animal labels for garden review; the Frigate detector must already track them. Birds, people and vehicles are excluded. |
 | **Camera role** | Mark each camera as a **feeder** or a **nest** camera. Nest cameras use their own de-duplication window. |
 | **MQTT Broker** / **Port** / **Use Authentication** | Under **MQTT Settings (Frigate Events)**: your broker's hostname, its port (default `1883`), and optional user and pass. |
 | **Fetch video clips** | Whether YA-WAMF caches Frigate's short event clip. Turn it off on a metered link. |
@@ -236,6 +233,19 @@ Who can reach YA-WAMF, and what a visitor can see.
 > are administrative surfaces. See [Authentication & Access](../features/authentication.md).
 
 See [Reverse Proxy](reverse-proxy.md) for routing, HTTPS headers and live-stream requirements.
+
+## Beta features
+
+Features that are still being tested. Each is off until you turn it on, and may change
+or be removed.
+
+| Setting | What it does |
+|---------|-------------|
+| **Garden animals** | Off by default (`SYSTEM__BETA_GARDEN_ANIMALS`). Collects non-bird visitors for owner review, separately from bird history. Turning it off stops collection and hides Garden; saved captures and the settings below are kept. See [Garden animals](../features/garden-animals.md). |
+| **Cameras to watch** | Per-camera opt-in, none by default (`frigate.garden_cameras: []`). Independent of the camera's Feeder or Nest bird role, which stays in Connection. The camera list comes from **Connection → Sync Cameras**. |
+| **Collect motion review photos** | Additional opt-in for a watched camera, off by default (`frigate.garden_motion_cameras: []`). Requires retained motion recordings and the Cedar download. Bounded CPU scans create private review candidates. |
+| **Frigate animal labels** | Defaults to `cat, dog`. Animal labels for Garden review; the Frigate detector must already track them. Birds, people and vehicles are excluded. |
+| **Animal proposal threshold** | Cedar's minimum animal score for new motion photos, 0.5 to 0.95 (default 0.5, `FRIGATE__GARDEN_MOTION_CONFIDENCE`). Higher values reduce proposals but can miss animals. Existing photos are not reclassified. |
 
 ## Data
 
