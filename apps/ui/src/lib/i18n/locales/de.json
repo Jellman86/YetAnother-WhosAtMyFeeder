@@ -2525,7 +2525,8 @@
       "best": "Bisher am deutlichsten: Bild {position}, {label} {score}%",
       "legend_strong": "80% und mehr",
       "legend_moderate": "50 bis 79%",
-      "legend_weak": "Unter 50%"
+      "legend_weak": "Unter 50%",
+      "frames_unit": "Bilder"
     }
   },
   "events": {

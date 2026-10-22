@@ -2535,7 +2535,8 @@
       "best": "Mais nítido até agora: quadro {position}, {label} {score}%",
       "legend_strong": "80% ou mais",
       "legend_moderate": "50 a 79%",
-      "legend_weak": "Abaixo de 50%"
+      "legend_weak": "Abaixo de 50%",
+      "frames_unit": "quadros"
     }
   },
   "events": {

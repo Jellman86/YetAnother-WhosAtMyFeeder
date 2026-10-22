@@ -2525,7 +2525,8 @@
       "best": "Más claro hasta ahora: fotograma {position}, {label} {score}%",
       "legend_strong": "80% o más",
       "legend_moderate": "50 a 79%",
-      "legend_weak": "Menos del 50%"
+      "legend_weak": "Menos del 50%",
+      "frames_unit": "fotogramas"
     }
   },
   "events": {

@@ -1707,6 +1707,7 @@
                             speciesMix={visitSpeciesMix(visit)}
                             matchedCalls={entry.matchedCalls}
                             onopenCapture={openPeakCapture(visit)}
+                            hideProgress={selectedEvent?.frigate_event === event.frigate_event}
                         />
                         {#if visit}<VisitCaptures {visit} window={captureWindow} onselect={handleEventCardClick} onplay={playClip} />{/if}
                         </div>

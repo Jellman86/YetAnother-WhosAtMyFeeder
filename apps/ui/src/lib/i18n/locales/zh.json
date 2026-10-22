@@ -2525,7 +2525,8 @@
       "best": "目前最清晰：第 {position} 帧，{label} {score}%",
       "legend_strong": "80% 及以上",
       "legend_moderate": "50% 至 79%",
-      "legend_weak": "低于 50%"
+      "legend_weak": "低于 50%",
+      "frames_unit": "帧"
     }
   },
   "events": {

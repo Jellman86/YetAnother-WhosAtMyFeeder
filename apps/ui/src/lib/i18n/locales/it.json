@@ -2535,7 +2535,8 @@
       "best": "Il più nitido finora: fotogramma {position}, {label} {score}%",
       "legend_strong": "80% e oltre",
       "legend_moderate": "Da 50 a 79%",
-      "legend_weak": "Sotto il 50%"
+      "legend_weak": "Sotto il 50%",
+      "frames_unit": "fotogrammi"
     }
   },
   "events": {

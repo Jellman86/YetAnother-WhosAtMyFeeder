@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- The Explorer list now shows a running video reclassification in the row itself.
+  The frame ribbon is drawn faintly behind the species and score, and the score
+  column reads frames done, such as 4/12, until the result lands. The row keeps
+  its height and its time column.
+
 - Video reclassification now shows its progress as a frame ribbon instead of the
   sliding film strip, which could drift away from the frame being read. Each sampled
   frame keeps its place as a bar whose height is the model's confidence, with a marker

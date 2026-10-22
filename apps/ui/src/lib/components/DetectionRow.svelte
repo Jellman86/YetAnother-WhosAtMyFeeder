@@ -22,7 +22,10 @@
     import { settingsStore } from '../stores/settings.svelte';
     import { publicSettingsStore } from '../stores/public_settings.svelte';
     import { authStore } from '../stores/auth.svelte';
+    import { detectionsStore } from '../stores/detections.svelte';
     import type { SpeciesInCapture } from '../utils/visit-captures';
+    import { frameScan } from '../utils/frame-scan';
+    import FrameScanRibbon from './FrameScanRibbon.svelte';
 
     interface Props {
         detection: Detection;
@@ -36,9 +39,11 @@
         matchedCalls?: number;
         /** Opens the capture the species were counted in. */
         onopenCapture?: () => void;
+        /** The open detail view already shows this detection's scan. */
+        hideProgress?: boolean;
     }
 
-    let { detection, onclick, onPlay, selectionMode = false, selected = false, speciesMix = null, matchedCalls = 0, onopenCapture }: Props = $props();
+    let { detection, onclick, onPlay, selectionMode = false, selected = false, speciesMix = null, matchedCalls = 0, onopenCapture, hideProgress = false }: Props = $props();
     const uid = $props.id();
     let speciesOpen = $state(false);
     const mixed = $derived((speciesMix?.length ?? 0) >= 2);
@@ -83,6 +88,41 @@
     const score = $derived(Math.round((detection.score ?? 0) * 100));
 
     /**
+     * A running reclassification is drawn faintly behind the row, like a sonogram under a field
+     * note, so the row keeps its height and its time column. The bars are too faint to carry
+     * meaning, so the score column states the progress in words while the scan runs, and the
+     * row's small text steps one shade darker to stay at AA contrast over the strongest bars.
+     */
+    const scanProgress = $derived(
+        hideProgress ? null : (detectionsStore.getReclassificationProgress(detection.frigate_event) ?? null)
+    );
+    const scan = $derived(scanProgress ? frameScan(scanProgress) : null);
+    // A snapshot fallback has no frames to draw, only a share of the work done.
+    const scanFromSnapshot = $derived((scanProgress?.fallbackFrom ?? '').toLowerCase() === 'video');
+    const snapshotPercent = $derived(
+        scanProgress && scan ? Math.round((Math.min(scan.total, Math.max(0, scanProgress.currentFrame || 0)) / scan.total) * 100) : 0
+    );
+    const scanStatus = $derived(
+        scan?.complete
+            ? $_('detection.card_analysis.finalizing_subtitle', { default: 'Applying the best match' })
+            : scanFromSnapshot
+              ? $_('detection.card_analysis.snapshot_subtitle', { default: 'Using the best available snapshot' })
+              : $_('detection.card_analysis.video_subtitle', { default: 'Scanning video frames' })
+    );
+    const scanValueText = $derived(
+        !scan
+            ? ''
+            : scanFromSnapshot
+              ? `${snapshotPercent}%`
+              : scan.complete
+                ? $_('detection.frame_scan.complete', { values: { total: scan.total }, default: 'All {total} frames read' })
+                : $_('detection.frame_scan.value_text', {
+                      values: { read: scan.readCount, total: scan.total },
+                      default: '{read} of {total} frames read'
+                  })
+    );
+
+    /**
      * Amber is reserved for "this needs a person", and what counts as needing
      * one is the owner's own classification threshold — the same rule the
      * dashboard's review queue and field log already apply. Inventing a number
@@ -114,6 +154,13 @@
 >
     {#if needsAttention}
         <span class="absolute inset-y-0 left-0 w-[3px] bg-accent-500" aria-hidden="true"></span>
+    {/if}
+
+    {#if scanProgress && !scanFromSnapshot}
+        <!-- Under the subject and score columns only: the time and photo stay clear to scan. -->
+        <div class="pointer-events-none absolute bottom-0 left-36 right-3 top-1.5 z-0 opacity-25">
+            <FrameScanRibbon progress={scanProgress} variant="backdrop" />
+        </div>
     {/if}
 
     <!-- The whole row is the control, so a thumb lands anywhere along it. -->
@@ -161,8 +208,10 @@
             {/if}
             <span class="truncate text-sm font-bold text-slate-900 dark:text-white">{primaryName}</span>
         </div>
-        <div class="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap text-2xs font-semibold text-slate-500 dark:text-slate-400">
-            {#if needsAttention}
+        <div class="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap text-2xs font-semibold {scan ? 'text-slate-600 dark:text-slate-300' : 'text-slate-500 dark:text-slate-400'}">
+            {#if scan}
+                <span class="shrink-0 text-brand-800 dark:text-brand-200">{scanStatus}</span>
+            {:else if needsAttention}
                 <BadgeHint text={$_('dashboard.review_session.threshold_note')} class="shrink-0 text-accent-700 dark:text-accent-300">
                     {$_('events.row_below_threshold', { default: 'Below the naming threshold' })}
                 </BadgeHint>
@@ -211,7 +260,26 @@
                 </svg>
             </button>
         {/if}
-        {#if mixed && !selectionMode}
+        {#if scan}
+            <div
+                class="pointer-events-none min-w-[2.75rem] text-right"
+                role="progressbar"
+                aria-label={$_('detection.frame_scan.title', { default: 'Video frames read' })}
+                aria-valuemin={0}
+                aria-valuemax={scanFromSnapshot ? 100 : scan.total}
+                aria-valuenow={scanFromSnapshot ? snapshotPercent : scan.readCount}
+                aria-valuetext={scanValueText}
+            >
+                <span class="block font-display text-sm font-bold tabular-nums leading-tight text-brand-800 dark:text-brand-300">
+                    {scanFromSnapshot ? `${snapshotPercent}%` : `${scan.readCount}/${scan.total}`}
+                </span>
+                <span class="block text-3xs font-semibold text-slate-600 dark:text-slate-300">
+                    {scanFromSnapshot
+                        ? $_('detection.reclassification.analysis', { default: 'Analysis' })
+                        : $_('detection.frame_scan.frames_unit', { default: 'frames' })}
+                </span>
+            </div>
+        {:else if mixed && !selectionMode}
             <!-- One score cannot speak for several species, so the row offers the species instead. -->
             <button
                 type="button"
