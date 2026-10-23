@@ -1874,6 +1874,8 @@
       "scope_app": "solo esta aplicación",
       "unmeasured": "sin medir",
       "app_scope_note": "El tiempo de GPU se publica por proceso, así que esa línea es el trabajo que YA-WAMF envió a la GPU. Otro contenedor que comparta la misma GPU no se ve aquí.",
+      "not_measured": "Sin medición",
+      "measurement_gap": "No hay una lectura de uso para esta muestra. Las filas de procesos de abajo muestran el acelerador cargado; este vacío no demuestra un cambio a la CPU.",
       "unreadable_nvidia": "{label} está presente, pero su controlador no publica ningún contador de uso que un contenedor pueda leer.",
       "unreadable_accelerator": "{label} está presente, pero su contador no se puede leer desde dentro del contenedor."
     },

@@ -1874,6 +1874,8 @@
       "scope_app": "仅本应用",
       "unmeasured": "未测量",
       "app_scope_note": "GPU 时间按进程公布，因此该线条表示 YA-WAMF 发送给 GPU 的工作。共用同一块 GPU 的其他容器在这里看不到。",
+      "not_measured": "未测量",
+      "measurement_gap": "此采样没有利用率读数。下方的工作进程行显示已加载的加速器；缺少读数并不代表已回退到 CPU。",
       "unreadable_nvidia": "检测到 {label}，但其驱动不公布容器可读取的利用率计数器。",
       "unreadable_accelerator": "检测到 {label}，但无法从容器内部读取其计数器。"
     },

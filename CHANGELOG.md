@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Health distinguishes unavailable accelerator measurements from measured idle usage,
+  and owner diagnostic exports include the bounded CPU/GPU history and worker
+  attribution. A missing GPU counter is not treated as proof of CPU fallback (#778).
+
 - Garden animals can now be named automatically, as birds above the naming threshold
   are. When the automatic check finds an animal and SpeciesNet's species score from the
   same detector-crop pass reaches the owner's **Naming threshold** (default 0.80, under

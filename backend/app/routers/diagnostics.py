@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from app.auth import AuthContext, require_owner
+from app.routers.stats import SystemTelemetryHistoryResponse, build_system_telemetry_history
 from app.services.error_diagnostics import error_diagnostics_history
 from app.services.media_probe import collect_video_sample_diagnostic
 
@@ -76,6 +77,7 @@ class FocusedDiagnosticsResponse(BaseModel):
 
 
 class DiagnosticsWorkspaceResponse(BaseModel):
+    system_telemetry: SystemTelemetryHistoryResponse | None = None
     workspace_schema_version: str
     backend_diagnostics: BackendDiagnosticsSnapshotResponse
     focused_diagnostics: FocusedDiagnosticsResponse
@@ -121,6 +123,7 @@ class MediaSampleResponse(BaseModel):
 
 
 class DiagnosticsBundleResponse(BaseModel):
+    system_telemetry: SystemTelemetryHistoryResponse | None = None
     schema_version: str
     generated_at: str
     summary: DiagnosticsBundleSummaryResponse
@@ -273,6 +276,7 @@ async def _collect_workspace_payload(limit: int) -> dict[str, Any]:
     maintenance_status = await maintenance_coordinator.get_status()
     return {
         "workspace_schema_version": WORKSPACE_SCHEMA_VERSION,
+        "system_telemetry": build_system_telemetry_history().model_dump(),
         "backend_diagnostics": backend_diagnostics,
         "focused_diagnostics": {
             "video_classifier": _build_video_classifier_focus(backend_diagnostics, health),
@@ -325,6 +329,7 @@ async def _collect_bundle_payload(limit: int) -> dict[str, Any]:
             "startup_instance_id": health.get("startup_instance_id") or "unknown",
         },
         "workspace": workspace,
+        "system_telemetry": workspace.get("system_telemetry"),
         "health": health,
         "classifier": classifier,
         "taxonomy_repair": taxonomy_repair,

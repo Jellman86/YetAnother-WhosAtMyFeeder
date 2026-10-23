@@ -1884,6 +1884,8 @@
       "scope_app": "this app only",
       "unmeasured": "not measured",
       "app_scope_note": "GPU time is published per process, so that line is the work YA-WAMF sent to the GPU. Another container sharing the same GPU is not visible here.",
+      "not_measured": "Not measured",
+      "measurement_gap": "No utilisation reading for this sample. The worker rows below show their loaded accelerator; this gap does not establish a CPU fallback.",
       "unreadable_nvidia": "{label} is present, but its driver publishes no utilisation counter a container can read.",
       "unreadable_accelerator": "{label} is present, but its counter cannot be read from inside the container."
     },

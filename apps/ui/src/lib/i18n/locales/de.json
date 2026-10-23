@@ -1874,6 +1874,8 @@
       "scope_app": "nur diese App",
       "unmeasured": "nicht gemessen",
       "app_scope_note": "GPU-Zeit wird pro Prozess veröffentlicht, diese Linie zeigt also die Arbeit, die YA-WAMF an die GPU geschickt hat. Ein anderer Container an derselben GPU ist hier nicht sichtbar.",
+      "not_measured": "Nicht gemessen",
+      "measurement_gap": "Für diese Probe liegt kein Auslastungswert vor. Die Worker-Zeilen unten zeigen den geladenen Beschleuniger; diese Lücke belegt keinen Rückfall auf die CPU.",
       "unreadable_nvidia": "{label} ist vorhanden, aber ihr Treiber veröffentlicht keinen Auslastungszähler, den ein Container lesen kann.",
       "unreadable_accelerator": "{label} ist vorhanden, aber der Zähler ist aus dem Container heraus nicht lesbar."
     },

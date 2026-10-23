@@ -483,3 +483,21 @@ Look for lines like:
 - `Processing MQTT event`: Backend saw a bird event.
 - `Saved detection`: A bird was successfully identified and stored.
 - `Taxonomy lookup`: The system is fetching names from iNaturalist.
+
+
+## GPU graph gaps and CPU activity
+
+**Not measured** means no utilisation value was available for that sample. A
+measured idle device shows **0.0%**. Neither CPU activity nor a missing GPU counter
+establishes a classifier fallback: video decoding, crop detection and other work
+can also use CPU. Check the worker rows for the loaded accelerator and the model
+runtime diagnostics for fallback, restart and quarantine evidence.
+
+Owner diagnostic exports include the existing bounded System history (normally
+30 minutes at five-second intervals), process CPU/memory attribution and loaded
+worker accelerator names alongside classifier diagnostics. Missing measurements
+stay null; they are not converted to zero. Export while the symptom is visible,
+and record the approximate time it began. The graph history resets on restart.
+Exporting reads that history without starting a classification or a new sample.
+The bundle is owner-only and can contain private operational details; review it
+before sharing.
