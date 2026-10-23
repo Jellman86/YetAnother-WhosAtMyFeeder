@@ -21,6 +21,10 @@ Model, download or runtime failures also stay there and retry no sooner than fiv
 minutes later. The status under **Species suggestions** describes automatic work;
 refresh to read updated results. No **Check photo** click is needed.
 
+The [labelled pipeline comparison](../reviews/2026-10-23-garden-labelled-pipeline-validation.md)
+records a small crop-versus-whole-image evaluation, including detector misses,
+person false positives and the limits of the naming evidence.
+
 A model result is not proof of absence. Automatic dismissal is reversible while
 the photo remains available, under the same retention and photo-reclamation rules
 as other dismissed captures. Recognised person evidence removes the capture and
