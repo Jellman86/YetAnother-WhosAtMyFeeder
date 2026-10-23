@@ -2213,6 +2213,8 @@
     "birdnet_confirmed": "BirdNET 确认",
     "frigate_verified": "Frigate 验证",
     "video_analysis": {
+      "queued": "视频分析已排队",
+      "preparing": "正在准备视频分析",
       "title": "深度视频分析",
       "match": "{score}% 匹配",
       "verified_desc": "由视频中的多次观察支持。",

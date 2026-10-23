@@ -2213,6 +2213,8 @@
     "birdnet_confirmed": "BirdNETで確認済み",
     "frigate_verified": "Frigateで確認済み",
     "video_analysis": {
+      "queued": "動画解析は待機中です",
+      "preparing": "動画解析を準備しています",
       "title": "詳細なビデオ分析",
       "match": "{score}% 一致",
       "verified_desc": "動画内の観察に基づく結果です。",

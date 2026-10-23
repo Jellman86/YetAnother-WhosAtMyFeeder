@@ -2223,6 +2223,8 @@
     "birdnet_confirmed": "BirdNET Подтверждено",
     "frigate_verified": "Frigate Проверено",
     "video_analysis": {
+      "queued": "Анализ видео в очереди",
+      "preparing": "Подготовка анализа видео",
       "title": "Глубокий видеоанализ",
       "match": "{score}% Совпадение",
       "verified_desc": "Подтверждено наблюдениями в видео.",

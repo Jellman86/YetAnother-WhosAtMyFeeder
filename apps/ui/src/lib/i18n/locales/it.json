@@ -2223,6 +2223,8 @@
     "birdnet_confirmed": "Confermato BirdNET",
     "frigate_verified": "Verificato Frigate",
     "video_analysis": {
+      "queued": "Analisi video in coda",
+      "preparing": "Preparazione dell’analisi video",
       "title": "Analisi Video Profonda",
       "match": "{score}% Corrispondenza",
       "verified_desc": "Supportato da osservazioni nel video.",

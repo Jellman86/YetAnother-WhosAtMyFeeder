@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Queued video analysis keeps the capture photograph visible and states that it is
+  waiting. Preparing work no longer shows an invented “0 of 15 frames” scan or a
+  device inferred from another worker. Live frame progress still appears when received.
+
 - Garden animals can now be named automatically, as birds above the naming threshold
   are. When the automatic check finds an animal and SpeciesNet's species score from the
   same detector-crop pass reaches the owner's **Naming threshold** (default 0.80, under
