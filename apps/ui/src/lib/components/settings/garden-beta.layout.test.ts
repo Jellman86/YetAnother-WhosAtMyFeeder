@@ -5,6 +5,8 @@ import settingsSource from '../../pages/Settings.svelte?raw';
 import tabsSource from './SettingsTabs.svelte?raw';
 import connectionSource from './ConnectionSettings.svelte?raw';
 import gardenBetaSource from './GardenBetaSettings.svelte?raw';
+import gardenModelsSource from './GardenModelSetup.svelte?raw';
+import detectionSource from './DetectionSettings.svelte?raw';
 import en from '../../i18n/locales/en.json';
 
 describe('Garden animals is a beta feature', () => {
@@ -28,9 +30,25 @@ describe('Garden animals is a beta feature', () => {
     });
 
     it('keeps every Garden setting with its switch, hidden until the beta is on', () => {
-        expect(gardenBetaSource).toContain('{#if enabled}');
+        expect(gardenBetaSource).toContain('{#if !enabled}');
+        expect(gardenBetaSource).toContain('{:else}');
         expect(gardenBetaSource).toContain('data-garden-beta-settings');
         expect(connectionSource).toContain('settings.cameras.garden_moved');
+    });
+
+    it('sets up Garden models here, from saved state only, without touching bird models or settings', () => {
+        expect(gardenBetaSource).toContain('<GardenModelSetup {motionCameras} />');
+        expect(gardenModelsSource).toContain("settingsStore.settings?.beta_garden_animals === true");
+        expect(gardenModelsSource).toContain('installGardenModel(row.install.variant)');
+        expect(gardenModelsSource).toContain('installGardenMotion()');
+        expect(gardenModelsSource).not.toMatch(/updateSettings|activateModel|\/api\/models|uploadDiagnostic/);
+        expect(gardenModelsSource).not.toContain('settingsStore.update');
+    });
+
+    it('leaves Garden controls out of Detection and links daily review instead of duplicating it', () => {
+        expect(detectionSource).not.toMatch(/garden/i);
+        expect(gardenBetaSource).not.toContain('fetchGarden(');
+        expect(gardenBetaSource).toContain("onNavigate?.('/garden')");
     });
 
     it('says what turning it off does to saved captures', () => {

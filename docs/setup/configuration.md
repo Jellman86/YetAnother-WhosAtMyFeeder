@@ -54,9 +54,21 @@ Where bird events come from.
 
 ## Detection
 
-How a snapshot becomes a species. This is the section that balances accuracy against noise.
+How a snapshot becomes a species. The page opens with a status line (model, runtime, workers,
+health), then groups the settings by the decision they make:
 
-![Settings → Detection: a Classification Engine card showing the active model, runtime, worker plan and health, with a Confidence Threshold slider and an Inference Provider selector](../images/settings-detection.png)
+- **Models**: the **Identification model**, which names the species, and the **Bird finder**,
+  which locates birds in the frame so YA-WAMF can crop and count them. Each model card shows
+  its download size, an estimated RAM figure and whether it covers birds only or wider wildlife.
+- **Accepting an identification**: the two confidence sliders, **Bird model region** and
+  **Personalized re-ranking**.
+- **Hardware**: **Inference Provider**, **Check devices on this host**, and the folded
+  **Memory and isolation** and **Runtime report** sections. **Memory and isolation** opens on
+  its own when you have changed its defaults.
+- **Frigate and video**: sublabel trust, sublabel write-back and **Auto Video Analysis**.
+- **Blocked Labels**.
+
+![Settings → Detection: the status line, then the Models card with the identification model lineup and the two bird finder choices, each showing download size, estimated RAM and the device it runs on](../images/settings-detection.png)
 
 | Setting | Default | Description |
 |---------|---------|-------------|
@@ -66,9 +78,10 @@ How a snapshot becomes a species. This is the section that balances accuracy aga
 | **Write Frigate Sublabel** | Enabled | Push YA-WAMF's own identification back to the Frigate event as a sublabel. |
 | **Bird Model Region** | `Auto` | Override regional model selection (`Auto`, `Europe`, `North America`) for birds-only model families. |
 | **Inference Provider** | `Auto` | `Auto`, `CPU`, `NVIDIA CUDA`, `Intel GPU (OpenVINO)`, `Intel CPU (OpenVINO)`, or `Intel NPU (OpenVINO)`. Only providers your image packages, your host exposes, and the active model supports are listed. |
+| **Bird finder** | `Standard (YOLOX-Tiny)` | Which detector locates birds before they are identified and counted. **Wide frame (RF-DETR Nano)** is optional. Like every other field on the page, a change is saved by **Apply Settings**. |
 | **Execution Mode** | `Subprocess` | `Subprocess` runs inference in isolated workers the app can restart, so a stalled or crashed classification cannot take the interface with it. `In-process` shares one model copy with the app: less memory, but heavy inference competes with the UI. |
-| **Model Manager** | — | Download, validate, and activate classifier models, and the separate cropped-thumbnail detectors. |
-| **Runtime diagnostics** | — | **Image**, **Packaged**, **Selected**, **Active**, device probes, backend, and any fallback reason. |
+| **Models** | — | Download, validate, and activate identification models, and download the bird finders. Activating a model takes effect at once; it is not part of **Apply Settings**. |
+| **Runtime report** | — | **Image**, **Packaged**, **Selected**, **Active**, device probes, backend, and any fallback reason. |
 | **Auto Video Analysis** | Disabled | Analyse the clip across multiple frames after the event ends. Frame count defaults to `15`. |
 | **Personalized Re-ranking** | Disabled | Use your manual corrections to re-rank future predictions for the same camera and model. |
 
@@ -242,8 +255,9 @@ or be removed.
 | Setting | What it does |
 |---------|-------------|
 | **Garden animals** | Off by default (`SYSTEM__BETA_GARDEN_ANIMALS`). Collects non-bird visitors for owner review, separately from bird history. Turning it off stops collection and hides Garden; saved captures and the settings below are kept. See [Garden animals](../features/garden-animals.md). |
+| **Garden models** | Status and explicit downloads for Garden's own models: the required 224 MB automatic check model (SpeciesNet 4.0.3a), an optional 224 MB species suggestion model (4.0.3b) and the 101 MB motion detector (MegaDetector v1000 Cedar), required only for motion review photos. Shown after **Apply Settings** has switched Garden on. A download saves no settings and does not change the bird model. Not a saved setting. |
 | **Cameras to watch** | Per-camera opt-in, none by default (`frigate.garden_cameras: []`). Independent of the camera's Feeder or Nest bird role, which stays in Connection. The camera list comes from **Connection → Sync Cameras**. |
-| **Collect motion review photos** | Additional opt-in for a watched camera, off by default (`frigate.garden_motion_cameras: []`). Requires retained motion recordings and the Cedar download. Bounded CPU scans create private review candidates. |
+| **Collect motion review photos** | Additional opt-in for a watched camera, off by default (`frigate.garden_motion_cameras: []`). Requires retained motion recordings and the **Motion detector** under **Garden models**. Bounded CPU scans create private review candidates. |
 | **Frigate animal labels** | Defaults to `cat, dog`. Animal labels for Garden review; the Frigate detector must already track them. Birds, people and vehicles are excluded. |
 | **Animal proposal threshold** | Cedar's minimum animal score for new motion photos, 0.5 to 0.95 (default 0.5, `FRIGATE__GARDEN_MOTION_CONFIDENCE`). Higher values reduce proposals but can miss animals. Existing photos are not reclassified. |
 | **Name animals automatically** | On by default (`FRIGATE__GARDEN_AUTOMATIC_NAMING`). Confirms and names an animal when the automatic check's species score reaches the naming threshold, marked as automatic. Off: every animal waits for your review. |

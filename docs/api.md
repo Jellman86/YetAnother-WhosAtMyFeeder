@@ -1106,13 +1106,19 @@ The callback exception grants no owner role and does not expand cookie authentic
   bounded recent diagnostics even when no local UI error exists. The response includes
   `generated_at`, `schema_version` and `server.startup_instance_id` to identify its capture.
   It is a support snapshot, not a restorable configuration/history backup.
+  Workspace and bundle responses also include optional `system_telemetry` evidence
+  in the `/api/system-telemetry/history` response shape. It reads the existing bounded
+  history without sampling or inference; unmeasured accelerator values remain null.
 - `POST /api/diagnostics/clear`
 
 ### Model evaluation (owner)
 
 Runs labelled-image accuracy evaluation or a compatibility-only device sweep.
-Installed classifiers are the default scope; `model_ids` narrows it and
-`sweep_all_models=true` can download the registry. Evaluation temporarily switches the
+Installed classifiers are the default accuracy scope. A compatibility run also
+checks installed crop detectors. `model_ids` narrows both groups to the requested
+installed, ready artifacts; crop-only requests require both `compat_only=true`
+and `sweep_devices=true`. A missing requested artifact fails rather than checking
+an unrelated model. `sweep_all_models=true` can download the registry. Evaluation temporarily switches the
 active model and attempts to restore it afterwards. Avoid competing model changes
 during a run and verify the selected model/provider when it finishes.
 See [Model evaluation](features/model-evaluation.md).
@@ -1146,6 +1152,21 @@ The response is `{"run_id": "<run-id>"}`. Poll that run's status, then fetch the
 artifacts appropriate to its mode. A successful sweep proves compatible execution on the tested
 inputs, not accuracy at a new feeder. Deleting a run permanently removes its evidence
 and files; download evidence you need before deleting it.
+
+To check only RF-DETR Nano without activating an identification model, use:
+
+```json
+{
+  "sweep_devices": true,
+  "compat_only": true,
+  "model_ids": ["bird_crop_detector_accurate_rfdetr_nano"]
+}
+```
+
+This still fetches the evaluation image panel and runs disposable native probes.
+It records host-specific crop eligibility and recommendations. Loaded crop
+sessions adopt a changed recommendation on their next use; an unchanged failed
+accelerator keeps its CPU fallback rather than retrying every frame.
 
 ### AI Usage Stats (owner)
 

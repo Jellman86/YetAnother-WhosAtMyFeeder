@@ -884,6 +884,7 @@ export interface components {
     server: components['schemas']['DiagnosticsBundleServerResponse'];
     startup_warnings: Array<Record<string, unknown>>;
     summary: components['schemas']['DiagnosticsBundleSummaryResponse'];
+    system_telemetry?: components['schemas']['SystemTelemetryHistoryResponse'] | null;
     taxonomy_repair: Record<string, unknown>;
     workspace: components['schemas']['DiagnosticsWorkspaceResponse'];
 };
@@ -908,6 +909,7 @@ export interface components {
     health: Record<string, unknown>;
     maintenance_coordinator: Record<string, unknown>;
     startup_warnings: Array<Record<string, unknown>>;
+    system_telemetry?: components['schemas']['SystemTelemetryHistoryResponse'] | null;
     taxonomy_repair: Record<string, unknown>;
     workspace_schema_version: string;
 };

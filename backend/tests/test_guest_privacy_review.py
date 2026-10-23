@@ -2,7 +2,7 @@
 
 import asyncio
 from contextlib import asynccontextmanager, closing
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 import json
 import os
 import sqlite3
@@ -23,7 +23,7 @@ from app.services.broadcaster import broadcaster
 @pytest.fixture
 def private_history(monkeypatch, tmp_path):
     path = tmp_path / "history.db"
-    today = datetime.combine(date.today(), datetime.min.time(), tzinfo=timezone.utc)
+    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     with closing(sqlite3.connect(os.environ["DB_PATH"])) as source, closing(sqlite3.connect(path)) as db:
         source.backup(db)
         db.execute("PRAGMA foreign_keys=ON")

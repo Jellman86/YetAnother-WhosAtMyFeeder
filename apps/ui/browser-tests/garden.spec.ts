@@ -599,3 +599,18 @@ for (const seconds of [5, 10]) {
         await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     });
 }
+
+test('missing Garden models point to Settings instead of downloading from the review page', async ({ page }) => {
+    const posts: string[] = [];
+    await page.route('**/api/garden?**', route => route.fulfill({ json: { items: [], total: 0, limit: 8, offset: 0 } }));
+    await page.route('**/api/garden/identification', route => route.fulfill({ json: { ...modelStatus, models: [{ ...modelStatus.models[0], installed: false }] } }));
+    await page.route('**/api/garden/motion', route => route.fulfill({ json: { ...motionStatus, cameras: ['patio'], state: 'waiting' } }));
+    page.on('request', request => { if (request.method() === 'POST') posts.push(new URL(request.url()).pathname); });
+    await page.goto('/browser-tests/garden.html');
+    await page.locator('[data-garden-motion] summary').click();
+    await expect(page.locator('[data-garden-motion-setup]')).toHaveText('The motion detector is not downloaded. Download it under Garden models in Settings → Beta features.');
+    await page.locator('summary', { hasText: 'Species suggestions' }).click();
+    await expect(page.locator('[data-garden-model-setup]')).toHaveText('This model is not downloaded. Download it under Garden models in Settings → Beta features.');
+    await expect(page.getByRole('button', { name: /^Download/ })).toHaveCount(0);
+    expect(posts).toEqual([]);
+});

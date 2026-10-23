@@ -77,7 +77,7 @@ const audioSummary = { total: 3, species_count: 1, source_count: 1, top_species:
 const captured = [];
 const errors = [];
 const browser = await chromium.launch();
-const context = await browser.newContext({ viewport: { width: 1280, height: 1800 }, locale: 'en-GB', timezoneId: 'Europe/London', deviceScaleFactor: 1, reducedMotion: 'reduce', serviceWorkers: 'block' });
+const context = await browser.newContext({ viewport: { width: 1280, height: gardenOnly ? 2400 : 1800 }, locale: 'en-GB', timezoneId: 'Europe/London', deviceScaleFactor: 1, reducedMotion: 'reduce', serviceWorkers: 'block' });
 await context.addInitScript(() => {
     document.addEventListener('DOMContentLoaded', () => document.documentElement.classList.add('dark', 'theme-bluetit'));
 });
@@ -105,6 +105,7 @@ await context.route(url => url.origin === baseUrl.origin && (url.pathname === '/
     if (path === '/api/auth/status') return json({ auth_required: true, public_access_enabled: false, is_authenticated: true, needs_initial_setup: firstRun, username: 'admin', show_camera_names: true, share_audio: true, share_photos: true });
     if (path === '/api/settings') return json(settings);
     if (path === '/api/garden/identification') return json({ country: 'GBR', catalogue_ready: true, busy: false, error: null, models: [{ variant: '4.0.3a', installed: false, size_bytes: 223998782 }, { variant: '4.0.3b', installed: false, size_bytes: 223999179 }] });
+    if (path === '/api/garden/motion') return json({ cameras: [], installed: false, model_bytes: 101228666, catalogue_ready: true, busy: false, state: 'disabled', message: 'Motion collection is off. Enable it for a garden camera to collect review photos.', interval_seconds: 10, catchup_seconds: 1800, queue_limit: 24, photo_limit: 128, photo_retention_days: 3, animal_confidence: 0.5 });
     if (path === '/api/garden') return json({ items: [], total: 0, offset: 0, limit: 8 });
     if (path === '/api/classifier/status') return json(status);
     if (path === '/api/models/available') return json(catalog.available);
@@ -177,6 +178,7 @@ await mkdir(images, { recursive: true });
 try {
     if (gardenOnly) {
         await openSettings('Beta features');
+        await page.locator('[data-garden-model="automatic_check"]').getByText('Required · Not downloaded').waitFor();
         await shot('settings-garden-cameras', page.locator('[data-garden-beta-settings]'));
         await page.goto(`${base}/browser-tests/garden.html`);
         await page.getByText('No captures in this view').waitFor();

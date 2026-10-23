@@ -188,12 +188,17 @@ async def get_system_telemetry_history(
     Owner only: it names this container's processes. Anything else on the host is
     the remainder and is never identified.
     """
+    response.headers["Cache-Control"] = "no-store"
+    return build_system_telemetry_history()
+
+
+def build_system_telemetry_history() -> SystemTelemetryHistoryResponse:
+    """Serialize the existing bounded history without sampling or native work."""
     snapshot = system_telemetry_history.snapshot()
     facts = collect_host_facts()
     worker_accelerators = (
         _active_worker_accelerators() if any(load.role in _WORKER_ROLE_TO_POOL for load in snapshot.processes) else {}
     )
-    response.headers["Cache-Control"] = "no-store"
     accelerator = None
     if snapshot.accelerator_kind in ("npu", "gpu") and snapshot.accelerator_label:
         accelerator = SystemAcceleratorIdentity(kind=snapshot.accelerator_kind, label=snapshot.accelerator_label)

@@ -29,7 +29,9 @@ describe('independent garden camera option', () => {
     it('shows measured collection status and distinguishes motion evidence from Frigate labels', () => {
         expect(garden).toContain('motion.message');
         expect(garden).toContain("item.source_kind === 'motion'");
-        expect(garden).toContain('downloadMotionDetector');
+        expect(garden).not.toMatch(/installGarden(Model|Motion)/);
+        expect(garden).toContain('garden.motion_download_in_settings');
+        expect(garden).toContain('garden.model_download_in_settings');
         expect(garden).toContain('motion.photo_retention_days');
     });
     it('gates navigation and direct route access to the owner', () => {

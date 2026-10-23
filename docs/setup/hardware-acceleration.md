@@ -158,8 +158,8 @@ selected again.
 
 ## Validate this host
 
-The **Setup wizard**, guided Model Manager flow, and **Settings → Detection → Device
-compatibility** use the same provider-validation engine. Candidates are the exact
+The **Setup wizard**, guided Model Manager flow, and **Settings → Detection → Hardware →
+Check devices on this host** use the same provider-validation engine. Candidates are the exact
 intersection of:
 
 1. providers packaged by the running image;
@@ -242,12 +242,12 @@ fallback cannot be mistaken for successful validation of the selected ONNX model
 
 ## Expected result
 
-Under **Settings → Detection**, the accelerator status pills reflect what YA-WAMF
+Under **Settings → Detection → Hardware → Runtime report**, the accelerator status pills reflect what YA-WAMF
 found. For example **Intel NPU: Auto-detected · verified ✓** means the NPU was
 detected and has passed validation for the loaded model. A device that is present
 but not yet proven for the current model shows **unverified**.
 
-Open **Advanced model manager** to inspect the active model. **Current runtime**
+Select the active model under **Settings → Detection → Models** to inspect it. **Current runtime**
 shows the provider that is running now, and **Automatic order** lists its verified
 fallbacks in the order YA-WAMF will try them. **Best fit** describes the model's
 accuracy and use case; it does not claim which device is active.
@@ -309,8 +309,8 @@ Repository tag instead.
 ### Optional RF-DETR bird finder
 
 RF-DETR Nano is a CUDA candidate in the `full` and `cuda` images. Under
-**Models → Cropped thumbnails → Bird finder**, install and select RF-DETR Nano,
-then run **Settings → Detection → Device compatibility** with it installed.
+**Settings → Detection → Models → Bird finder**, select RF-DETR Nano, download it and
+select **Apply Settings**, then run **Hardware → Check devices on this host** with it installed.
 The crop detector needs its own passing CPU/CUDA box comparison; selecting CUDA
 for the species classifier does not validate the bird finder.
 
@@ -318,6 +318,17 @@ Before a passing result, the bird finder uses CPU. Failed checks and stale
 artifact, image or CUDA runtime/driver evidence cannot select CUDA. Existing
 downloads can keep their model sidecar; the running application's registry
 supplies the reviewed candidate list. YOLOX-Tiny remains the default bird finder.
+
+RF-DETR also has Intel GPU and NPU routes in the Intel-capable images. Each needs
+its own current host validation; the species classifier's selected device does
+not choose the crop detector's device. The compatibility API can check only the
+installed RF-DETR artifact using `compat_only`, `sweep_devices` and its `model_ids`
+entry, as shown in the [API reference](../api.md#model-evaluation-owner).
+The fastest passing crop provider is recommended. Existing worker crop sessions
+adopt a changed recommendation on their next use without restarting the worker.
+If an accelerator fails at runtime, CPU fallback remains in place while its
+recommendation is unchanged. Checks consume compute and may compete with video
+processing; a model-forward benchmark does not predict full video throughput.
 
 The reference RTX 4070 container passed real CUDA execution and CPU consistency
 checks. This does not qualify every NVIDIA host, sustained workload or two-bird

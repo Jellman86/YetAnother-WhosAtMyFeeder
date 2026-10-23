@@ -1,11 +1,32 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page, type Route } from '@playwright/test';
 
-// Every Garden visitor setting lives with its switch in Settings → Beta features, and saves with
-// the rest of the settings page.
+// Every Garden visitor setting, including its own models, lives with its switch in Settings → Beta
+// features. Settings save with the rest of the page; model downloads are separate explicit actions.
 
 type Settings = Record<string, unknown>;
 
-async function openSettings(page: Page, overrides: Settings = {}, frigateCameras: string[] = ['patio', 'front']): Promise<{ writes: Settings[] }> {
+const identificationStatus = {
+    country: 'GBR', catalogue_ready: true, busy: false, error: null,
+    models: [
+        { variant: '4.0.3a', installed: false, size_bytes: 223998782 },
+        { variant: '4.0.3b', installed: false, size_bytes: 223999179 }
+    ],
+    automatic_message: 'No automatic check is due.'
+};
+const motionStatus = {
+    cameras: [], installed: false, model_bytes: 101228666, catalogue_ready: true, busy: false,
+    state: 'disabled', message: 'Motion collection is off.'
+};
+
+type GardenHandler = (route: Route, path: string, method: string) => Promise<void> | undefined;
+
+interface Harness {
+    writes: Settings[];
+    gardenRequests: string[];
+    otherWrites: string[];
+}
+
+async function openSettings(page: Page, overrides: Settings = {}, frigateCameras: string[] = ['patio', 'front'], garden?: GardenHandler): Promise<Harness> {
     let settings: Settings = {
         frigate_url: 'http://frigate:5000', mqtt_server: 'mqtt', mqtt_port: 1883,
         mqtt_auth: false, cameras: ['patio', 'front'], camera_roles: { patio: 'nest' },
@@ -15,20 +36,29 @@ async function openSettings(page: Page, overrides: Settings = {}, frigateCameras
         beta_garden_animals: true,
         ...overrides
     };
-    const writes: Settings[] = [];
-    await page.route(url => url.pathname.startsWith('/api/'), route => {
+    const harness: Harness = { writes: [], gardenRequests: [], otherWrites: [] };
+    await page.route(url => url.pathname.startsWith('/api/'), async route => {
         const request = route.request();
         const path = new URL(request.url()).pathname;
         if (path === '/api/settings') {
             if (request.method() === 'POST') {
                 const payload: unknown = request.postDataJSON();
                 if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) throw new Error('Expected settings object');
-                writes.push(payload as Settings);
+                harness.writes.push(payload as Settings);
                 settings = { ...settings, ...(payload as Settings) };
                 return route.fulfill({ json: { status: 'ok' } });
             }
             return route.fulfill({ json: settings });
         }
+        if (path.startsWith('/api/garden')) {
+            harness.gardenRequests.push(`${request.method()} ${path}`);
+            const handled = garden?.(route, path, request.method());
+            if (handled) return handled;
+            if (path === '/api/garden/identification') return route.fulfill({ json: identificationStatus });
+            if (path === '/api/garden/motion') return route.fulfill({ json: motionStatus });
+            return route.fulfill({ status: 500, json: { detail: 'Unexpected Garden request' } });
+        }
+        if (request.method() !== 'GET') harness.otherWrites.push(`${request.method()} ${path}`);
         if (path.endsWith('/frigate/config')) return route.fulfill({ json: { cameras: Object.fromEntries(frigateCameras.map(name => [name, {}])) } });
         if (path.endsWith('/audio/sources')) return route.fulfill({ json: [] });
         if (path.endsWith('/backfill/status')) return route.fulfill({ json: null });
@@ -36,7 +66,7 @@ async function openSettings(page: Page, overrides: Settings = {}, frigateCameras
     });
     await page.goto('/browser-tests/settings-backfill.html');
     await expect(page.getByRole('link', { name: 'Beta features' })).toBeVisible();
-    return { writes };
+    return harness;
 }
 
 async function openBeta(page: Page): Promise<void> {
@@ -150,5 +180,188 @@ for (const outside of ['0.69', '1']) {
         await page.getByRole('button', { name: /Apply Settings/i }).click();
         await expect(page.getByRole('status').filter({ hasText: 'Enter a naming threshold between 0.7 and 0.99.' })).toBeVisible();
         expect(writes).toEqual([]);
+    });
+}
+
+test('a switched-off Garden states what it needs without asking the Garden API or offering downloads', async ({ page }) => {
+    const { gardenRequests } = await openSettings(page, { beta_garden_animals: false });
+    await openBeta(page);
+    await expect(page.locator('[data-garden-beta-requirements]')).toContainText('224 MB for automatic checks');
+    await expect(page.locator('[data-garden-beta-requirements]')).toContainText('Your bird model is not changed.');
+    await expect(page.getByRole('button', { name: /^Download/ })).toHaveCount(0);
+
+    await page.getByRole('switch', { name: 'Garden animals' }).click();
+    await expect(page.locator('[data-garden-models-apply]')).toContainText('Choose Apply Settings to switch Garden on');
+    await expect(page.getByRole('button', { name: /^Download/ })).toHaveCount(0);
+    expect(gardenRequests).toEqual([]);
+});
+
+test('model status appears once Apply Settings has switched Garden on', async ({ page }) => {
+    const { writes } = await openSettings(page, { beta_garden_animals: false });
+    await openBeta(page);
+    await page.getByRole('switch', { name: 'Garden animals' }).click();
+    await page.getByRole('button', { name: /Apply Settings/i }).click();
+    await expect.poll(() => writes.length).toBe(1);
+    await expect(page.locator('[data-garden-model="automatic_check"]')).toContainText('Required · Not downloaded');
+});
+
+test('Garden models lists its three own models with measured state, size and requirement', async ({ page }) => {
+    await openSettings(page, { garden_cameras: ['patio'] }, ['patio', 'front'], (route, path) =>
+        path === '/api/garden/identification'
+            ? route.fulfill({ json: { ...identificationStatus, models: [{ ...identificationStatus.models[0], installed: true }, identificationStatus.models[1]] } })
+            : undefined);
+    await openBeta(page);
+    const check = page.locator('[data-garden-model="automatic_check"]');
+    await expect(check).toContainText('SpeciesNet 4.0.3a · Tracked crop · 224 MB');
+    await expect(check).toContainText('Required · Downloaded');
+    await expect(check.getByRole('button')).toHaveCount(0);
+    await expect(page.locator('[data-garden-model="species_suggestions"]')).toContainText('Optional · Not downloaded');
+    const detector = page.locator('[data-garden-model="motion_detector"]');
+    await expect(detector).toContainText('MegaDetector v1000 Cedar · 101 MB');
+    await expect(detector).toContainText('Optional · Not downloaded');
+    await expect(page.locator('[data-garden-country]')).toHaveText('Animal names are filtered for GBR.');
+
+    await page.getByRole('button', { name: 'Collect motion review photos on patio' }).click();
+    await expect(detector).toContainText('Required · Not downloaded');
+});
+
+test('downloading a model shows its own progress, saves nothing and changes no bird model', async ({ page }) => {
+    let release: () => void = () => undefined;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    let installed = false;
+    const harness = await openSettings(page, {}, ['patio', 'front'], (route, path, method) => {
+        if (method === 'POST' && path === '/api/garden/models/4.0.3a/install') {
+            return held.then(() => {
+                installed = true;
+                return route.fulfill({ json: { ...identificationStatus, models: [{ ...identificationStatus.models[0], installed: true }, identificationStatus.models[1]] } });
+            });
+        }
+        if (path === '/api/garden/identification' && installed) {
+            return route.fulfill({ json: { ...identificationStatus, models: [{ ...identificationStatus.models[0], installed: true }, identificationStatus.models[1]] } });
+        }
+        return undefined;
+    });
+    await openBeta(page);
+    await page.getByLabel('Frigate animal labels', { exact: true }).fill('cat, dog, fox');
+
+    const check = page.locator('[data-garden-model="automatic_check"]');
+    await check.getByRole('button', { name: 'Download 224 MB' }).click();
+    await expect(check.getByRole('progressbar', { name: 'Downloading Automatic check model' })).toBeVisible();
+    await expect(check.getByRole('status')).toContainText('Downloading and verifying');
+    await expect(page.locator('[data-garden-model="motion_detector"]').getByRole('button', { name: 'Download 101 MB' })).toBeDisabled();
+    await expect(page.locator('[data-garden-model="species_suggestions"]').getByRole('progressbar')).toHaveCount(0);
+
+    release();
+    await expect(check).toContainText('Required · Downloaded');
+    await expect(check.getByRole('status')).toHaveText('Downloaded and checksum verified.');
+    await expect(page.getByLabel('Frigate animal labels', { exact: true })).toHaveValue('cat, dog, fox');
+    expect(harness.writes).toEqual([]);
+    expect(harness.otherWrites).toEqual([]);
+    expect(harness.gardenRequests.filter(request => request.startsWith('POST'))).toEqual(['POST /api/garden/models/4.0.3a/install']);
+});
+
+test('a failed download says nothing changed and can be retried', async ({ page }) => {
+    let attempts = 0;
+    await openSettings(page, {}, ['patio', 'front'], (route, path, method) => {
+        if (method !== 'POST' || path !== '/api/garden/motion/install') return undefined;
+        attempts += 1;
+        return attempts === 1
+            ? route.fulfill({ status: 503, json: { detail: 'Motion detector could not be downloaded and verified. Try again.' } })
+            : route.fulfill({ json: { ...motionStatus, installed: true } });
+    });
+    await openBeta(page);
+    const detector = page.locator('[data-garden-model="motion_detector"]');
+    await detector.getByRole('button', { name: 'Download 101 MB' }).click();
+    await expect(detector.getByRole('alert')).toHaveText('Motion detector could not be downloaded and verified. Try again.');
+    await expect(detector).toContainText('Optional · Not downloaded');
+    await detector.getByRole('button', { name: 'Retry download' }).click();
+    await expect.poll(() => attempts).toBe(2);
+    await expect(detector.getByRole('alert')).toHaveCount(0);
+});
+
+test('a busy Garden explains why downloads wait', async ({ page }) => {
+    await openSettings(page, {}, ['patio', 'front'], (route, path) =>
+        path === '/api/garden/identification' ? route.fulfill({ json: { ...identificationStatus, busy: true } }) : undefined);
+    await openBeta(page);
+    await expect(page.locator('[data-garden-model="automatic_check"]').getByRole('button', { name: 'Download 224 MB' })).toBeDisabled();
+    await expect(page.locator('#garden-models-block')).toHaveText('Garden is busy with a check, scan or download. Refresh the status in a minute.');
+});
+
+test('unavailable Garden data is reported and never offered as a download', async ({ page }) => {
+    await openSettings(page, {}, ['patio', 'front'], (route, path) => {
+        if (path === '/api/garden/identification') return route.fulfill({ json: { ...identificationStatus, catalogue_ready: false } });
+        if (path === '/api/garden/motion') return route.fulfill({ json: { ...motionStatus, catalogue_ready: false } });
+        return undefined;
+    });
+    await openBeta(page);
+    await expect(page.locator('[data-garden-models]').getByRole('alert')).toContainText('Garden species data is unavailable');
+    await expect(page.locator('[data-garden-model] [data-garden-model-state]')).toHaveText(Array(3).fill(/Unavailable/));
+    await expect(page.locator('[data-garden-models]').getByRole('button', { name: /^Download/ })).toHaveCount(0);
+});
+
+for (const [status, detail] of [[500, 'Internal Server Error'], [403, 'Owner access is required.']] as const) {
+    test(`an unreadable model status (${status}) is unknown, never ready, and refresh recovers`, async ({ page }) => {
+        let failing = true;
+        await openSettings(page, {}, ['patio', 'front'], (route, path) =>
+            failing && path === '/api/garden/identification' ? route.fulfill({ status, json: { detail } }) : undefined);
+        await openBeta(page);
+        await expect(page.locator('[data-garden-models]').getByRole('alert')).toHaveText(detail);
+        await expect(page.locator('[data-garden-model="automatic_check"]')).toContainText('Status unknown');
+        await expect(page.locator('[data-garden-model="automatic_check"]').getByRole('button')).toHaveCount(0);
+        failing = false;
+        await page.getByRole('button', { name: 'Refresh model status' }).click();
+        await expect(page.locator('[data-garden-model="automatic_check"]')).toContainText('Required · Not downloaded');
+        await expect(page.locator('[data-garden-models]').getByRole('alert')).toHaveCount(0);
+    });
+}
+
+test('without a country, the view says naming and suggestions wait for one', async ({ page }) => {
+    await openSettings(page, {}, ['patio', 'front'], (route, path) =>
+        path === '/api/garden/identification' ? route.fulfill({ json: { ...identificationStatus, country: null } }) : undefined);
+    await openBeta(page);
+    await expect(page.locator('[data-garden-country]')).toContainText('Set a country in Settings → Location.');
+});
+
+test('the view explains each capture outcome and links daily review to the Garden page', async ({ page }) => {
+    await openSettings(page);
+    await openBeta(page);
+    const outcomes = page.locator('[data-garden-outcomes]');
+    await expect(outcomes.getByRole('term')).toHaveText(['Needs review', 'Confirmed animals', 'Dismissed']);
+    await expect(outcomes).toContainText('only a bird, nothing or a vehicle');
+    await expect(outcomes).toContainText('person evidence is removed');
+    await expect(page.getByRole('button', { name: 'Open Garden animals' })).toBeVisible();
+});
+
+test('a model downloads from the keyboard', async ({ page }) => {
+    let requested = false;
+    await openSettings(page, {}, ['patio', 'front'], (route, path, method) => {
+        if (method === 'POST' && path === '/api/garden/models/4.0.3b/install') {
+            requested = true;
+            return route.fulfill({ json: { ...identificationStatus, models: [identificationStatus.models[0], { ...identificationStatus.models[1], installed: true }] } });
+        }
+        return undefined;
+    });
+    await openBeta(page);
+    const button = page.locator('[data-garden-model="species_suggestions"]').getByRole('button', { name: 'Download 224 MB' });
+    await button.focus();
+    await expect(button).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect.poll(() => requested).toBe(true);
+});
+
+for (const width of [320, 393]) {
+    test(`Garden setup fits ${width}px with 200% text`, async ({ page }) => {
+        await openSettings(page, { garden_cameras: ['patio'] });
+        await openBeta(page);
+        await page.setViewportSize({ width, height: 900 });
+        await page.addStyleTag({ content: 'html{font-size:200%!important}' });
+        const garden = page.locator('[data-garden-beta-settings]');
+        await expect(garden.locator('[data-garden-model="motion_detector"]')).toBeVisible();
+        expect(await garden.evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+        for (const row of await garden.locator('[data-garden-model]').all()) {
+            expect(await row.evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+        }
+        const download = await garden.locator('[data-garden-model="automatic_check"]').getByRole('button', { name: 'Download 224 MB' }).boundingBox();
+        expect(download && download.x >= 0 && download.x + download.width <= width).toBe(true);
     });
 }
