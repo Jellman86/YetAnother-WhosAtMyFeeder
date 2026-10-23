@@ -54,9 +54,21 @@ Where bird events come from.
 
 ## Detection
 
-How a snapshot becomes a species. This is the section that balances accuracy against noise.
+How a snapshot becomes a species. The page opens with a status line (model, runtime, workers,
+health), then groups the settings by the decision they make:
 
-![Settings → Detection: a Classification Engine card showing the active model, runtime, worker plan and health, with a Confidence Threshold slider and an Inference Provider selector](../images/settings-detection.png)
+- **Models**: the **Identification model**, which names the species, and the **Bird finder**,
+  which locates birds in the frame so YA-WAMF can crop and count them. Each model card shows
+  its download size, an estimated RAM figure and whether it covers birds only or wider wildlife.
+- **Accepting an identification**: the two confidence sliders, **Bird model region** and
+  **Personalized re-ranking**.
+- **Hardware**: **Inference Provider**, **Check devices on this host**, and the folded
+  **Memory and isolation** and **Runtime report** sections. **Memory and isolation** opens on
+  its own when you have changed its defaults.
+- **Frigate and video**: sublabel trust, sublabel write-back and **Auto Video Analysis**.
+- **Blocked Labels**.
+
+![Settings → Detection: the status line, then the Models card with the identification model lineup and the two bird finder choices, each showing download size, estimated RAM and the device it runs on](../images/settings-detection.png)
 
 | Setting | Default | Description |
 |---------|---------|-------------|
@@ -66,9 +78,10 @@ How a snapshot becomes a species. This is the section that balances accuracy aga
 | **Write Frigate Sublabel** | Enabled | Push YA-WAMF's own identification back to the Frigate event as a sublabel. |
 | **Bird Model Region** | `Auto` | Override regional model selection (`Auto`, `Europe`, `North America`) for birds-only model families. |
 | **Inference Provider** | `Auto` | `Auto`, `CPU`, `NVIDIA CUDA`, `Intel GPU (OpenVINO)`, `Intel CPU (OpenVINO)`, or `Intel NPU (OpenVINO)`. Only providers your image packages, your host exposes, and the active model supports are listed. |
+| **Bird finder** | `Standard (YOLOX-Tiny)` | Which detector locates birds before they are identified and counted. **Wide frame (RF-DETR Nano)** is optional. Like every other field on the page, a change is saved by **Apply Settings**. |
 | **Execution Mode** | `Subprocess` | `Subprocess` runs inference in isolated workers the app can restart, so a stalled or crashed classification cannot take the interface with it. `In-process` shares one model copy with the app: less memory, but heavy inference competes with the UI. |
-| **Model Manager** | — | Download, validate, and activate classifier models, and the separate cropped-thumbnail detectors. |
-| **Runtime diagnostics** | — | **Image**, **Packaged**, **Selected**, **Active**, device probes, backend, and any fallback reason. |
+| **Models** | — | Download, validate, and activate identification models, and download the bird finders. Activating a model takes effect at once; it is not part of **Apply Settings**. |
+| **Runtime report** | — | **Image**, **Packaged**, **Selected**, **Active**, device probes, backend, and any fallback reason. |
 | **Auto Video Analysis** | Disabled | Analyse the clip across multiple frames after the event ends. Frame count defaults to `15`. |
 | **Personalized Re-ranking** | Disabled | Use your manual corrections to re-rank future predictions for the same camera and model. |
 

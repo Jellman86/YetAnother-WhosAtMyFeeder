@@ -8,6 +8,7 @@
     import type { BlockedSpeciesEntry } from '../../api/settings';
     import { getManualTagSearchOptions } from '../../search/manual-tag-search';
     import { BIRD_MODEL_REGION_OVERRIDE_VALUES, type BirdModelRegionOverride } from '../../settings/bird-model-region-override';
+    import type { BirdFinder } from '../../settings/bird-finder';
     import {
         buildInferenceProviderChoices,
         getProviderPreferenceOrder,
@@ -44,6 +45,7 @@
         videoClassificationMaxRetries = $bindable(3),
         videoClassificationFrames = $bindable(15),
         birdModelRegionOverride = $bindable<BirdModelRegionOverride>('auto'),
+        birdFinder = $bindable<BirdFinder>('yolox_tiny'),
         imageExecutionMode = $bindable<'in_process' | 'subprocess' | string>('subprocess'),
         inferenceProvider = $bindable<'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu' | 'intel_npu'>('auto'),
         classifierStatus = null,
@@ -67,6 +69,7 @@
         videoClassificationMaxRetries: number;
         videoClassificationFrames: number;
         birdModelRegionOverride: BirdModelRegionOverride;
+        birdFinder: BirdFinder;
         imageExecutionMode: 'in_process' | 'subprocess' | string;
         inferenceProvider: 'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu' | 'intel_npu';
         classifierStatus: ClassifierStatus | null;
@@ -79,6 +82,12 @@
         blockedSpecies: BlockedSpeciesEntry[];
         onopenlocationsettings?: () => void;
     } = $props();
+
+    // Memory and isolation stay folded away until the owner has changed them,
+    // so a customised value is never hidden behind a closed disclosure.
+    const memoryCustomised = $derived(
+        imageExecutionMode !== 'subprocess' || liveWorkerCount !== null || backgroundWorkerCount !== null
+    );
 
     const circuitUntil = $derived(videoCircuitUntil ? formatDateTime(videoCircuitUntil) : null);
 
@@ -493,14 +502,16 @@
         <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="m5.6 5.6 12.8 12.8" /></svg>
     {/snippet}
 
+    {#snippet acceptIcon()}
+        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h10M4 12h7M4 18h4" /><path d="m14 15 2.5 2.5L21 13" /></svg>
+    {/snippet}
+    {#snippet frigateIcon()}
+        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="13" height="12" rx="2" /><path d="m16 10 5-3v10l-5-3" /></svg>
+    {/snippet}
+
     <NativeProfileRevalidation />
 
-    <SettingsCard
-        accent
-        iconSnippet={engineIcon}
-        title={$_('settings.detection.classification_engine')}
-        description={$_('settings.detection.classification_engine_desc', { default: 'How feeder snapshots are classified: confidence, model, and hardware acceleration.' })}
-    >
+    <div class="space-y-3">
         <DetectionStatusBand
             {classifierStatus}
             {imageExecutionMode}
@@ -534,218 +545,221 @@
                 {/if}
             </div>
         {/if}
+    </div>
 
-        <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <div class="space-y-4">
-                <h4 class="text-xs font-bold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">{$_('settings.detection.tuning_column', { default: 'Tuning' })}</h4>
+    <SettingsCard
+        accent
+        iconSnippet={modelsIcon}
+        title={$_('settings.detection.models_card_title', { default: 'Models' })}
+        description={$_('settings.detection.models_card_desc', { default: 'Two models work in turn. The bird finder locates each bird in the camera frame; the identification model names its species.' })}
+    >
+        <div id={MODELS_CARD_ID} class="scroll-mt-24">
+            <ModelManager
+                executionMode={imageExecutionMode}
+                autoVideoEnabled={autoVideoClassification}
+                bind:birdFinder
+                {classifierStatus}
+                onruntimechange={onrefreshclassifierstatus}
+                {onopenlocationsettings}
+            />
+        </div>
+    </SettingsCard>
 
-                <SettingsRow
-                    labelId="setting-confidence-threshold"
-                    label={$_('settings.detection.confidence_threshold')}
-                    layout="stacked"
-                >
-                    <div class="space-y-2">
-                        <div class="flex justify-end">
-                            <output for="confidence-threshold-slider" class="rounded-lg bg-brand-500 px-2 py-1 text-xs font-bold text-white">{(threshold * 100).toFixed(0)}%</output>
-                        </div>
-                        <input
-                            id="confidence-threshold-slider"
-                            type="range"
-                            min="0"
-                            max="1"
-                            step="0.05"
-                            bind:value={threshold}
-                            aria-valuemin="0"
-                            aria-valuemax="100"
-                            aria-valuenow={Math.round(threshold * 100)}
-                            aria-valuetext="{(threshold * 100).toFixed(0)} percent"
-                            aria-label="{$_('settings.detection.confidence_threshold')}: {(threshold * 100).toFixed(0)}%"
-                            class="h-11 w-full cursor-pointer accent-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950"
-                        />
-                        <div class="flex justify-between gap-4">
-                            <span class="text-xs font-bold text-slate-500 dark:text-slate-400">{$_('settings.detection.threshold_loose')}</span>
-                            <span class="text-right text-xs font-bold text-slate-500 dark:text-slate-400">{$_('settings.detection.threshold_strict')}</span>
-                        </div>
+    <SettingsCard
+        iconSnippet={acceptIcon}
+        title={$_('settings.detection.acceptance_title', { default: 'Accepting an identification' })}
+        description={$_('settings.detection.acceptance_desc', { default: 'How sure the identification model must be before a visit is saved under a species name.' })}
+    >
+        <div class="grid grid-cols-1 gap-4 *:min-w-0 lg:grid-cols-2">
+            <SettingsRow
+                labelId="setting-confidence-threshold"
+                label={$_('settings.detection.confidence_threshold')}
+                layout="stacked"
+            >
+                <div class="space-y-2">
+                    <div class="flex justify-end">
+                        <output for="confidence-threshold-slider" class="rounded-lg bg-brand-500 px-2 py-1 text-xs font-bold text-white">{(threshold * 100).toFixed(0)}%</output>
                     </div>
-                </SettingsRow>
-
-                <SettingsRow
-                    labelId="setting-min-confidence"
-                    label={$_('settings.detection.min_confidence_floor')}
-                    description={$_('settings.detection.floor_help')}
-                    layout="stacked"
-                >
-                    <div class="space-y-2">
-                        <div class="flex justify-end">
-                            <output for="min-confidence-slider" class="rounded-lg bg-amber-500 px-2 py-1 text-xs font-bold text-white">{(minConfidence * 100).toFixed(0)}%</output>
-                        </div>
-                        <input
-                            id="min-confidence-slider"
-                            type="range"
-                            min="0"
-                            max="1"
-                            step="0.05"
-                            bind:value={minConfidence}
-                            aria-valuemin="0"
-                            aria-valuemax="100"
-                            aria-valuenow={Math.round(minConfidence * 100)}
-                            aria-valuetext="{(minConfidence * 100).toFixed(0)} percent"
-                            aria-label="{$_('settings.detection.min_confidence_floor')}: {(minConfidence * 100).toFixed(0)}%"
-                            class="h-11 w-full cursor-pointer accent-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950"
-                        />
-                        <div class="flex justify-between gap-4">
-                            <span class="text-xs font-bold text-slate-500 dark:text-slate-400">{$_('settings.detection.floor_capture_all')}</span>
-                            <span class="text-right text-xs font-bold text-slate-500 dark:text-slate-400">{$_('settings.detection.floor_reject_unsure')}</span>
-                        </div>
+                    <input
+                        id="confidence-threshold-slider"
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        bind:value={threshold}
+                        aria-valuemin="0"
+                        aria-valuemax="100"
+                        aria-valuenow={Math.round(threshold * 100)}
+                        aria-valuetext="{(threshold * 100).toFixed(0)} percent"
+                        aria-label="{$_('settings.detection.confidence_threshold')}: {(threshold * 100).toFixed(0)}%"
+                        class="h-11 w-full cursor-pointer accent-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950"
+                    />
+                    <div class="flex flex-wrap justify-between gap-x-4">
+                        <span class="text-xs font-bold text-slate-500 dark:text-slate-400">{$_('settings.detection.threshold_loose')}</span>
+                        <span class="text-right text-xs font-bold text-slate-500 dark:text-slate-400">{$_('settings.detection.threshold_strict')}</span>
                     </div>
-                </SettingsRow>
+                </div>
+            </SettingsRow>
 
-                <SettingsRow
-                    labelId="setting-personalized-rerank"
-                    label={$_('settings.detection.personalized_rerank', { default: 'Personalized re-ranking' })}
-                    description={$_('settings.detection.personalized_rerank_desc', { default: 'Use manual tags to adapt ranking per camera and model. Disable to use base model scores only.' })}
-                >
-                    <SettingsToggle
-                        checked={personalizedRerankEnabled}
-                        labelledBy="setting-personalized-rerank"
-                        srLabel={$_('settings.detection.personalized_rerank', { default: 'Personalized re-ranking' })}
-                        onchange={(v) => (personalizedRerankEnabled = v)}
+            <SettingsRow
+                labelId="setting-min-confidence"
+                label={$_('settings.detection.min_confidence_floor')}
+                description={$_('settings.detection.floor_help')}
+                layout="stacked"
+            >
+                <div class="space-y-2">
+                    <div class="flex justify-end">
+                        <output for="min-confidence-slider" class="rounded-lg bg-amber-500 px-2 py-1 text-xs font-bold text-white">{(minConfidence * 100).toFixed(0)}%</output>
+                    </div>
+                    <input
+                        id="min-confidence-slider"
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        bind:value={minConfidence}
+                        aria-valuemin="0"
+                        aria-valuemax="100"
+                        aria-valuenow={Math.round(minConfidence * 100)}
+                        aria-valuetext="{(minConfidence * 100).toFixed(0)} percent"
+                        aria-label="{$_('settings.detection.min_confidence_floor')}: {(minConfidence * 100).toFixed(0)}%"
+                        class="h-11 w-full cursor-pointer accent-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950"
                     />
-                </SettingsRow>
+                    <div class="flex flex-wrap justify-between gap-x-4">
+                        <span class="text-xs font-bold text-slate-500 dark:text-slate-400">{$_('settings.detection.floor_capture_all')}</span>
+                        <span class="text-right text-xs font-bold text-slate-500 dark:text-slate-400">{$_('settings.detection.floor_reject_unsure')}</span>
+                    </div>
+                </div>
+            </SettingsRow>
+        </div>
+        <div class="grid grid-cols-1 gap-4 *:min-w-0 lg:grid-cols-2">
+            <SettingsRow
+                labelId="setting-region-override"
+                label={$_('settings.detection.region_override_title', { default: 'Bird model region' })}
+                description={$_('settings.detection.region_override_desc', { default: 'Auto uses your configured country. Manual override always wins.' })}
+                layout="stacked"
+            >
+                <SettingsSelect
+                    id="bird-model-region-override"
+                    value={birdModelRegionOverride}
+                    ariaLabel={$_('settings.detection.region_override_title', { default: 'Bird model region' })}
+                    options={BIRD_MODEL_REGION_OVERRIDE_VALUES.map((option) => ({
+                        value: option,
+                        label: option === 'auto'
+                            ? $_('settings.detection.region_override_auto', { default: 'Auto' })
+                            : option === 'eu'
+                                ? $_('settings.detection.region_override_eu', { default: 'Europe' })
+                                : $_('settings.detection.region_override_na', { default: 'North America' })
+                    }))}
+                    onchange={(v) => (birdModelRegionOverride = v as BirdModelRegionOverride)}
+                />
+            </SettingsRow>
 
-                <SettingsRow
-                    labelId="setting-auto-video"
-                    label={$_('settings.detection.auto_video')}
-                    description={$_('settings.detection.auto_video_desc')}
-                >
-                    <SettingsToggle
-                        checked={autoVideoClassification}
-                        labelledBy="setting-auto-video"
-                        srLabel={$_('settings.detection.auto_video')}
-                        onchange={(v) => (autoVideoClassification = v)}
+            <SettingsRow
+                labelId="setting-personalized-rerank"
+                label={$_('settings.detection.personalized_rerank', { default: 'Personalized re-ranking' })}
+                description={$_('settings.detection.personalized_rerank_desc', { default: 'Use manual tags to adapt ranking per camera and model. Disable to use base model scores only.' })}
+            >
+                <SettingsToggle
+                    checked={personalizedRerankEnabled}
+                    labelledBy="setting-personalized-rerank"
+                    srLabel={$_('settings.detection.personalized_rerank', { default: 'Personalized re-ranking' })}
+                    onchange={(v) => (personalizedRerankEnabled = v)}
+                />
+            </SettingsRow>
+        </div>
+    </SettingsCard>
+
+    <SettingsCard
+        iconSnippet={engineIcon}
+        title={$_('settings.detection.hardware_title', { default: 'Hardware' })}
+        description={$_('settings.detection.hardware_desc', { default: 'Which device runs the models, and how much memory they may use. Auto picks the fastest device that passed the check on this host.' })}
+    >
+        <div class="grid grid-cols-1 gap-4 *:min-w-0 lg:grid-cols-2">
+            <SettingsRow
+                labelId="setting-inference-provider"
+                label={$_('settings.detection.inference_provider', { default: 'Inference Provider' })}
+                description={$_('settings.detection.inference_provider_desc', { default: 'Only providers included in this image, detected on this host, and supported by the active model are shown.' })}
+                layout="stacked"
+            >
+                <div class="space-y-2">
+                    <SettingsSelect
+                        id="inference-provider"
+                        value={inferenceProvider}
+                        ariaLabel={$_('settings.detection.inference_provider', { default: 'Inference Provider' })}
+                        options={inferenceProviderOptions}
+                        onchange={(v) => (inferenceProvider = v as InferenceProvider)}
                     />
-                </SettingsRow>
-
-                <SettingsRow
-                    labelId="setting-trust-frigate"
-                    label={$_('settings.detection.trust_frigate')}
-                    description={$_('settings.detection.trust_frigate_desc')}
-                >
-                    <SettingsToggle
-                        checked={trustFrigateSublabel}
-                        labelledBy="setting-trust-frigate"
-                        srLabel={$_('settings.detection.trust_frigate')}
-                        onchange={(v) => (trustFrigateSublabel = v)}
-                    />
-                </SettingsRow>
-
-                <SettingsRow
-                    labelId="setting-write-frigate"
-                    label={$_('settings.detection.write_frigate_sublabel')}
-                    description={$_('settings.detection.write_frigate_sublabel_desc')}
-                >
-                    <SettingsToggle
-                        checked={writeFrigateSublabel}
-                        labelledBy="setting-write-frigate"
-                        srLabel={$_('settings.detection.write_frigate_sublabel')}
-                        onchange={(v) => (writeFrigateSublabel = v)}
-                    />
-                </SettingsRow>
-
-                {#if autoVideoClassification}
-                    <div class="pt-2 border-t border-dashed border-slate-200/70 dark:border-slate-700/60">
-                        <p class="mb-3 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                            {$_('settings.detection.auto_video_advanced_title', { default: 'Auto-video tuning' })}
+                    {#if providerPreferenceLabel}
+                        <p aria-live="polite" class="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                            {$_('settings.detection.provider_runtime_order', {
+                                values: { order: providerPreferenceLabel },
+                                default: `Current runtime order: ${providerPreferenceLabel}`
+                            })}
                         </p>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <SettingsRow
-                                labelId="setting-video-delay"
-                                label={$_('settings.detection.video_delay')}
-                                layout="stacked"
-                            >
-                                <SettingsInput
-                                    id="video-delay"
-                                    type="number"
-                                    min={0}
-                                    value={videoClassificationDelay}
-                                    ariaLabel={$_('settings.detection.video_delay')}
-                                    oninput={(v) => (videoClassificationDelay = Number(v) || 0)}
-                                />
-                            </SettingsRow>
-                            <SettingsRow
-                                labelId="setting-video-retries"
-                                label={$_('settings.detection.video_retries')}
-                                layout="stacked"
-                            >
-                                <SettingsInput
-                                    id="video-retries"
-                                    type="number"
-                                    min={0}
-                                    value={videoClassificationMaxRetries}
-                                    ariaLabel={$_('settings.detection.video_retries')}
-                                    oninput={(v) => (videoClassificationMaxRetries = Number(v) || 0)}
-                                />
-                            </SettingsRow>
-                            <SettingsRow
-                                labelId="setting-video-frames"
-                                label={$_('settings.detection.video_frames', { default: 'Frames' })}
-                                layout="stacked"
-                            >
-                                <SettingsInput
-                                    id="video-frames"
-                                    type="number"
-                                    min={5}
-                                    max={100}
-                                    value={videoClassificationFrames}
-                                    ariaLabel={$_('settings.detection.video_frames', { default: 'Video Frames' })}
-                                    oninput={(v) => (videoClassificationFrames = Number(v) || 5)}
-                                />
-                            </SettingsRow>
-                        </div>
-                        <p class="mt-2 text-xs italic text-slate-500 dark:text-slate-400">{$_('settings.detection.video_retry_note')}</p>
-                        <p class="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-                            {$_('settings.detection.video_concurrency_follows_workers', { default: 'Clips are analysed as many at a time as there are background workers. The models classify one image per worker, so a separate concurrency setting could only queue jobs or starve workers.' })}
+                    {/if}
+                    {#if configuredProviderUnavailable}
+                        <p role="status" class="border-l-2 border-amber-400 py-1 pl-3 text-xs font-semibold leading-relaxed text-amber-800 dark:border-amber-500 dark:text-amber-200">
+                            {$_('settings.detection.provider_saved_unavailable', {
+                                values: { provider: providerLabel(inferenceProvider as InferenceProvider) },
+                                default: `${providerLabel(inferenceProvider as InferenceProvider)} is saved but is not available in this image, on this host, or for the active model. Choose an available provider or Auto.`
+                            })}
                         </p>
-                    </div>
-                {/if}
-            </div>
+                    {/if}
+                </div>
+            </SettingsRow>
 
+            {#if classifierStatus && ((classifierStatus.host_available_providers?.length ?? classifierStatus.available_providers?.length ?? 0) > 0)}
+                <div class="space-y-3 rounded-2xl border border-line-soft bg-surface-raised px-4 py-3">
+                    <p class="text-sm font-bold text-slate-900 dark:text-white">{$_('settings.detection.compat_panel_title', { default: 'Check devices on this host' })}</p>
+                    <p class="text-xs leading-relaxed text-slate-600 dark:text-slate-400">{$_('settings.detection.compat_panel_desc', { default: 'Runs the installed models on each device this image can use and compares the results with the CPU. Graphics and NPU devices are used only after they pass here.' })}</p>
+                    <p class="text-xs text-slate-600 dark:text-slate-400 leading-snug">
+                        {#if verifiedProviders.length}
+                            {$_('settings.detection.compat_verified', { default: 'Verified on this host:' })} <span class="font-bold">{verifiedProviders.join(', ')}</span>{#if classifierStatus.host_device_eligibility?.generated_at} · {formatDateTime(classifierStatus.host_device_eligibility.generated_at)}{/if}
+                        {:else}
+                            {$_('settings.detection.compat_unverified', { default: 'Not yet run on this host. Run the check to verify the providers available in this image.' })}
+                        {/if}
+                    </p>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-400" title={$_('settings.detection.compat_all_hint', { default: 'Download and test every registry model, not just installed ones (slower).' })}>
+                            <input type="checkbox" bind:checked={compatAllModels} disabled={compatRunning} class="rounded" />
+                            {$_('settings.detection.compat_all_models', { default: 'test all models' })}
+                        </label>
+                        <button type="button" onclick={runCompatCheck} disabled={compatRunning} class="btn btn-primary min-h-11 max-w-full px-4 py-2">
+                            {compatRunning ? $_('settings.detection.compat_running', { default: 'Running…' }) : $_('settings.detection.compat_run', { default: 'Run compatibility check' })}
+                        </button>
+                    </div>
+                    {#if compatError}<p role="alert" class="text-xs font-bold text-red-600 dark:text-red-400">{compatError}</p>{/if}
+                    {#if runtimeRefreshFailed}
+                        <p role="alert" class="text-xs font-bold text-amber-700 dark:text-amber-300">
+                            {$_('settings.detection.runtime_refresh_failed', { default: 'The check finished, but YA-WAMF could not read the runtime it is now using. Reload the page to see the current provider.' })}
+                        </p>
+                    {/if}
+                    {#if compatRunning && compatProgress}
+                        <p role="status" class="text-xs text-slate-600 dark:text-slate-400">{compatPhase}: {compatProgress.done}/{compatProgress.total} {compatProgress.label}</p>
+                    {/if}
+                </div>
+            {/if}
+        </div>
+        <a
+            href={GPU_DOCS_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex min-h-11 items-center gap-1.5 text-xs font-bold text-brand-700 hover:underline dark:text-brand-300"
+        >
+            {$_('settings.detection.gpu_setup_docs', { default: 'GPU setup & diagnostics guide' })}
+            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h4m0 0v4m0-4L10 14" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 9v10h10" />
+            </svg>
+        </a>
+
+        <AdvancedSection
+            id="detection-memory-advanced"
+            title={$_('settings.detection.memory_title', { default: 'Memory and isolation' })}
+            openByDefault={memoryCustomised}
+        >
             <div class="space-y-4">
-                <h4 class="text-xs font-bold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">{$_('settings.detection.runtime_column', { default: 'Runtime' })}</h4>
-
-                <SettingsRow
-                    labelId="setting-inference-provider"
-                    label={$_('settings.detection.inference_provider', { default: 'Inference Provider' })}
-                    description={$_('settings.detection.inference_provider_desc', { default: 'Only providers included in this image, detected on this host, and supported by the active model are shown.' })}
-                    layout="stacked"
-                >
-                    <div class="space-y-2">
-                        <SettingsSelect
-                            id="inference-provider"
-                            value={inferenceProvider}
-                            ariaLabel={$_('settings.detection.inference_provider', { default: 'Inference Provider' })}
-                            options={inferenceProviderOptions}
-                            onchange={(v) => (inferenceProvider = v as InferenceProvider)}
-                        />
-                        {#if providerPreferenceLabel}
-                            <p aria-live="polite" class="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                                {$_('settings.detection.provider_runtime_order', {
-                                    values: { order: providerPreferenceLabel },
-                                    default: `Current runtime order: ${providerPreferenceLabel}`
-                                })}
-                            </p>
-                        {/if}
-                        {#if configuredProviderUnavailable}
-                            <p role="status" class="border-l-2 border-amber-400 py-1 pl-3 text-xs font-semibold leading-relaxed text-amber-800 dark:border-amber-500 dark:text-amber-200">
-                                {$_('settings.detection.provider_saved_unavailable', {
-                                    values: { provider: providerLabel(inferenceProvider as InferenceProvider) },
-                                    default: `${providerLabel(inferenceProvider as InferenceProvider)} is saved but is not available in this image, on this host, or for the active model. Choose an available provider or Auto.`
-                                })}
-                            </p>
-                        {/if}
-                    </div>
-                </SettingsRow>
-
                 <SettingsRow
                     labelId="setting-execution-mode"
                     label={$_('settings.detection.execution_mode', { default: 'Execution Mode' })}
@@ -835,74 +849,8 @@
                         </div>
                     </SettingsRow>
                 {/if}
-
-                <SettingsRow
-                    labelId="setting-region-override"
-                    label={$_('settings.detection.region_override_title', { default: 'Bird model region' })}
-                    description={$_('settings.detection.region_override_desc', { default: 'Auto uses your configured country. Manual override always wins.' })}
-                    layout="stacked"
-                >
-                    <SettingsSelect
-                        id="bird-model-region-override"
-                        value={birdModelRegionOverride}
-                        ariaLabel={$_('settings.detection.region_override_title', { default: 'Bird model region' })}
-                        options={BIRD_MODEL_REGION_OVERRIDE_VALUES.map((option) => ({
-                            value: option,
-                            label: option === 'auto'
-                                ? $_('settings.detection.region_override_auto', { default: 'Auto' })
-                                : option === 'eu'
-                                    ? $_('settings.detection.region_override_eu', { default: 'Europe' })
-                                    : $_('settings.detection.region_override_na', { default: 'North America' })
-                        }))}
-                        onchange={(v) => (birdModelRegionOverride = v as BirdModelRegionOverride)}
-                    />
-                </SettingsRow>
-
-                <a
-                    href={GPU_DOCS_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="inline-flex min-h-11 items-center gap-1.5 text-xs font-bold text-brand-700 hover:underline dark:text-brand-300"
-                >
-                    {$_('settings.detection.gpu_setup_docs', { default: 'GPU setup & diagnostics guide' })}
-                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h4m0 0v4m0-4L10 14" />
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 9v10h10" />
-                    </svg>
-                </a>
-
-                {#if classifierStatus && ((classifierStatus.host_available_providers?.length ?? classifierStatus.available_providers?.length ?? 0) > 0)}
-                    <div class="space-y-3 rounded-2xl border border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-900/50 px-4 py-3">
-                        <p class="text-xs text-slate-600 dark:text-slate-400 leading-snug">
-                            {#if verifiedProviders.length}
-                                {$_('settings.detection.compat_verified', { default: 'Verified on this host:' })} <span class="font-bold">{verifiedProviders.join(', ')}</span>{#if classifierStatus.host_device_eligibility?.generated_at} · {formatDateTime(classifierStatus.host_device_eligibility.generated_at)}{/if}
-                            {:else}
-                                {$_('settings.detection.compat_unverified', { default: 'Not yet run on this host. Run the check to verify the providers available in this image.' })}
-                            {/if}
-                        </p>
-                        <div class="flex flex-wrap items-center gap-2">
-                            <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-400" title={$_('settings.detection.compat_all_hint', { default: 'Download and test every registry model, not just installed ones (slower).' })}>
-                                <input type="checkbox" bind:checked={compatAllModels} disabled={compatRunning} class="rounded" />
-                                {$_('settings.detection.compat_all_models', { default: 'test all models' })}
-                            </label>
-                            <button type="button" onclick={runCompatCheck} disabled={compatRunning}
-                                class="min-h-11 cursor-pointer rounded-xl bg-brand-600 px-4 py-2 text-xs font-bold text-white hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-400 dark:focus-visible:ring-offset-slate-950 dark:disabled:bg-slate-700">
-                                {compatRunning ? $_('settings.detection.compat_running', { default: 'Running…' }) : $_('settings.detection.compat_run', { default: 'Run compatibility check' })}
-                            </button>
-                        </div>
-                        {#if compatError}<p role="alert" class="text-xs font-bold text-red-600 dark:text-red-400">{compatError}</p>{/if}
-                        {#if runtimeRefreshFailed}
-                            <p role="alert" class="text-xs font-bold text-amber-700 dark:text-amber-300">
-                                {$_('settings.detection.runtime_refresh_failed', { default: 'The check finished, but YA-WAMF could not read the runtime it is now using. Reload the page to see the current provider.' })}
-                            </p>
-                        {/if}
-                        {#if compatRunning && compatProgress}
-                            <p role="status" class="text-xs text-slate-600 dark:text-slate-400">{compatPhase}: {compatProgress.done}/{compatProgress.total} {compatProgress.label}</p>
-                        {/if}
-                    </div>
-                {/if}
             </div>
-        </div>
+        </AdvancedSection>
 
         <div id={RUNTIME_REPORT_ID} class="scroll-mt-24">
             <AdvancedSection
@@ -1078,18 +1026,105 @@
     </SettingsCard>
 
     <SettingsCard
-        iconSnippet={modelsIcon}
-        title={$_('settings.detection.models_card_title', { default: 'Models' })}
+        iconSnippet={frigateIcon}
+        title={$_('settings.detection.frigate_video_title', { default: 'Frigate and video' })}
+        description={$_('settings.detection.frigate_video_desc', { default: 'Whether to use labels Frigate already has, write YA-WAMF species back to Frigate, and check recorded clips after the snapshot.' })}
     >
-        <div id={MODELS_CARD_ID} class="scroll-mt-24">
-            <ModelManager
-                executionMode={imageExecutionMode}
-                autoVideoEnabled={autoVideoClassification}
-                {classifierStatus}
-                onruntimechange={onrefreshclassifierstatus}
-                {onopenlocationsettings}
+        <SettingsRow
+            labelId="setting-trust-frigate"
+            label={$_('settings.detection.trust_frigate')}
+            description={$_('settings.detection.trust_frigate_desc')}
+        >
+            <SettingsToggle
+                checked={trustFrigateSublabel}
+                labelledBy="setting-trust-frigate"
+                srLabel={$_('settings.detection.trust_frigate')}
+                onchange={(v) => (trustFrigateSublabel = v)}
             />
-        </div>
+        </SettingsRow>
+
+        <SettingsRow
+            labelId="setting-write-frigate"
+            label={$_('settings.detection.write_frigate_sublabel')}
+            description={$_('settings.detection.write_frigate_sublabel_desc')}
+        >
+            <SettingsToggle
+                checked={writeFrigateSublabel}
+                labelledBy="setting-write-frigate"
+                srLabel={$_('settings.detection.write_frigate_sublabel')}
+                onchange={(v) => (writeFrigateSublabel = v)}
+            />
+        </SettingsRow>
+
+        <SettingsRow
+            labelId="setting-auto-video"
+            label={$_('settings.detection.auto_video')}
+            description={$_('settings.detection.auto_video_desc')}
+        >
+            <SettingsToggle
+                checked={autoVideoClassification}
+                labelledBy="setting-auto-video"
+                srLabel={$_('settings.detection.auto_video')}
+                onchange={(v) => (autoVideoClassification = v)}
+            />
+        </SettingsRow>
+
+        {#if autoVideoClassification}
+            <div class="pt-2 border-t border-dashed border-slate-200/70 dark:border-slate-700/60">
+                <p class="mb-3 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    {$_('settings.detection.auto_video_advanced_title', { default: 'Auto-video tuning' })}
+                </p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <SettingsRow
+                        labelId="setting-video-delay"
+                        label={$_('settings.detection.video_delay')}
+                        layout="stacked"
+                    >
+                        <SettingsInput
+                            id="video-delay"
+                            type="number"
+                            min={0}
+                            value={videoClassificationDelay}
+                            ariaLabel={$_('settings.detection.video_delay')}
+                            oninput={(v) => (videoClassificationDelay = Number(v) || 0)}
+                        />
+                    </SettingsRow>
+                    <SettingsRow
+                        labelId="setting-video-retries"
+                        label={$_('settings.detection.video_retries')}
+                        layout="stacked"
+                    >
+                        <SettingsInput
+                            id="video-retries"
+                            type="number"
+                            min={0}
+                            value={videoClassificationMaxRetries}
+                            ariaLabel={$_('settings.detection.video_retries')}
+                            oninput={(v) => (videoClassificationMaxRetries = Number(v) || 0)}
+                        />
+                    </SettingsRow>
+                    <SettingsRow
+                        labelId="setting-video-frames"
+                        label={$_('settings.detection.video_frames', { default: 'Frames' })}
+                        layout="stacked"
+                    >
+                        <SettingsInput
+                            id="video-frames"
+                            type="number"
+                            min={5}
+                            max={100}
+                            value={videoClassificationFrames}
+                            ariaLabel={$_('settings.detection.video_frames', { default: 'Video Frames' })}
+                            oninput={(v) => (videoClassificationFrames = Number(v) || 5)}
+                        />
+                    </SettingsRow>
+                </div>
+                <p class="mt-2 text-xs italic text-slate-500 dark:text-slate-400">{$_('settings.detection.video_retry_note')}</p>
+                <p class="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                    {$_('settings.detection.video_concurrency_follows_workers', { default: 'Clips are analysed as many at a time as there are background workers. The models classify one image per worker, so a separate concurrency setting could only queue jobs or starve workers.' })}
+                </p>
+            </div>
+        {/if}
     </SettingsCard>
 
     <SettingsCard accent iconSnippet={blockedIcon} title={$_('settings.detection.blocked_labels')}>
