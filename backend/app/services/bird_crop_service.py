@@ -215,6 +215,7 @@ class BirdCropService:
         self._active_providers: dict[str, str] = {}
         self._provider_fallbacks: dict[str, str | None] = {}
         self._loaded_model_ids: dict[str, str] = {}
+        self._loaded_provider_preferences: dict[str, str] = {}
 
     def generate_crop(self, image: Image.Image, *, detector_tier: str | None = None) -> dict[str, Any]:
         """Return the best crop candidate, failing from accurate to fast on any miss."""
@@ -953,7 +954,11 @@ class BirdCropService:
     def _ensure_model_for_tier(self, tier: str) -> Any | None:
         normalized_tier = "accurate" if str(tier or "").strip().lower() == "accurate" else "fast"
         wanted_model_id = self._registry_model_id_for_tier(normalized_tier)
-        if self._loaded_model_ids.get(normalized_tier, wanted_model_id) != wanted_model_id:
+        wanted_provider = self._provider_for_tier(normalized_tier)
+        if (
+            self._loaded_model_ids.get(normalized_tier, wanted_model_id) != wanted_model_id
+            or self._loaded_provider_preferences.get(normalized_tier, wanted_provider) != wanted_provider
+        ):
             with self._model_lock:
                 self._models.pop(normalized_tier, None)
                 self._models_loaded.pop(normalized_tier, None)
@@ -970,6 +975,9 @@ class BirdCropService:
             self._models[normalized_tier] = model
             self._models_loaded[normalized_tier] = model is not None
             self._loaded_model_ids[normalized_tier] = wanted_model_id
+            # Track the recommendation, not the active device: a failed GPU may
+            # legitimately stay on CPU without retrying the GPU on every frame.
+            self._loaded_provider_preferences[normalized_tier] = wanted_provider
             return model
 
     def _load_model(self) -> Any | None:
@@ -1102,6 +1110,8 @@ class BirdCropService:
         with self._model_lock:
             self._models.clear()
             self._models_loaded.clear()
+            self._loaded_model_ids.clear()
+            self._loaded_provider_preferences.clear()
             self._active_providers.clear()
             self._provider_fallbacks.clear()
             self._model_error = None

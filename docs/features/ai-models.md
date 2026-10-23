@@ -156,9 +156,11 @@ CPU-only, low-memory legacy option with 965 outputs. Hidden by default in Model 
 
 #### Crops, photographs and video
 
-**Cropped thumbnails** manages the separate bird detector. The CPU-friendly **Fast** detector is
-the fallback for the experimental **Accurate** tier. **Bird finder** chooses which accurate detector
-finds birds in full frames before they are identified and counted:
+**Settings → Detection → Models → Bird finder** chooses which detector locates birds in full
+frames before they are identified and counted. It does not name species. The choice is saved by
+**Apply Settings** with the rest of the page. The CPU-friendly **Fast** detector remains the
+automatic fallback. Each option shows its download size, estimated RAM, and the device it runs on:
+a graphics or NPU device only after it passed **Check devices on this host**, otherwise the CPU.
 
 - **Standard (YOLOX-Tiny)** is the default. It is small and quick, but misses many birds that are
   small in a wide frame.

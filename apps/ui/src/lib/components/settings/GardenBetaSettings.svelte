@@ -1,13 +1,15 @@
 <script lang="ts">
     /**
-     * Garden visitors are a beta, so everything that configures them sits with the switch that
-     * turns them on: which cameras are watched, which Frigate labels count, how confident the
-     * motion detector must be, and when an animal is named without a review, as a bird above the
-     * naming threshold is. A camera's Garden role is independent of its bird role.
+     * Garden visitors are a beta, so everything that sets them up sits with the switch that turns
+     * them on: its own models, which cameras are watched, which Frigate labels count, how confident
+     * the motion detector must be, and when an animal is named without a review, as a bird above
+     * the naming threshold is. A camera's Garden role is independent of its bird role. Daily review
+     * stays on the Garden animals page.
      */
     import { _ } from 'svelte-i18n';
     import SettingsRow from './_primitives/SettingsRow.svelte';
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
+    import GardenModelSetup from './GardenModelSetup.svelte';
     import { gardenThresholdStep } from '../../utils/garden-threshold';
 
     interface Props {
@@ -61,8 +63,23 @@
     />
 </SettingsRow>
 
-{#if enabled}
-    <div class="space-y-5 border-t border-line-soft pt-4" data-garden-beta-settings>
+{#if !enabled}
+    <p class="px-4 pt-3 text-xs text-slate-600 dark:text-slate-400" data-garden-beta-requirements>
+        {$_('settings.beta.garden_requirements', { default: 'Needs Frigate cameras that track animals or keep motion recordings. Garden downloads its own models when you ask: 224 MB for automatic checks, plus an optional 224 MB species suggestion model and an optional 101 MB motion detector. Your bird model is not changed.' })}
+    </p>
+{:else}
+    <div class="space-y-5 break-words border-t border-line-soft pt-4" data-garden-beta-settings>
+        <section class="space-y-2" aria-labelledby="garden-beta-setup">
+            <h4 id="garden-beta-setup" class="text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.beta.garden_setup', { default: 'Set up Garden animals' })}</h4>
+            <ol class="list-decimal space-y-1 pl-5 text-xs text-slate-600 dark:text-slate-400">
+                <li>{$_('settings.beta.garden_setup_apply', { default: 'Choose cameras and labels below, then Apply Settings.' })}</li>
+                <li>{$_('settings.beta.garden_setup_models', { default: 'Download the automatic check model, and the motion detector if a camera collects motion photos.' })}</li>
+                <li>{$_('settings.beta.garden_setup_review', { default: 'Review new captures on the Garden animals page.' })}</li>
+            </ol>
+        </section>
+
+        <GardenModelSetup {motionCameras} />
+
         <section class="space-y-2" aria-labelledby="garden-beta-cameras">
             <h4 id="garden-beta-cameras" class="text-sm font-semibold text-slate-900 dark:text-white">
                 {$_('settings.beta.garden_cameras', { default: 'Cameras to watch' })}
@@ -81,7 +98,7 @@
                                 <span class="min-w-0 truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{camera}</span>
                                 <button
                                     type="button"
-                                    class="btn btn-secondary min-h-11 px-3 py-2"
+                                    class="btn btn-secondary min-h-11 max-w-full px-3 py-2 whitespace-normal"
                                     aria-pressed={watched}
                                     aria-label={$_('settings.beta.garden_camera_toggle', { values: { camera }, default: 'Garden animals on {camera}' })}
                                     onclick={() => toggleCamera(camera)}
@@ -94,7 +111,7 @@
                                 <div class="space-y-1 border-t border-line-soft pt-2">
                                     <button
                                         type="button"
-                                        class="btn btn-secondary min-h-11 px-3 py-2"
+                                        class="btn btn-secondary min-h-11 max-w-full px-3 py-2 whitespace-normal"
                                         aria-pressed={motionCameras.includes(camera)}
                                         aria-label={$_('settings.beta.garden_motion_toggle', { values: { camera }, default: 'Collect motion review photos on {camera}' })}
                                         onclick={() => toggleMotion(camera)}
@@ -102,7 +119,7 @@
                                         {$_('garden.motion_toggle', { default: 'Collect motion review photos' })}
                                         <span aria-hidden="true">{motionCameras.includes(camera) ? '✓' : '+'}</span>
                                     </button>
-                                    <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.motion_camera_help', { default: 'Optional CPU scans of retained motion footage. Download the detector on Garden animals; bird detection keeps its current settings.' })}</p>
+                                    <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.motion_camera_help', { default: 'Optional CPU scans of retained motion footage. Needs the motion detector under Garden models; bird detection keeps its current settings.' })}</p>
                                 </div>
                             {/if}
                         </li>
@@ -133,7 +150,7 @@
         </div>
 
         <section class="space-y-2" aria-labelledby="garden-beta-naming">
-            <div class="flex items-start justify-between gap-4">
+            <div class="flex flex-wrap items-start justify-between gap-4">
                 <div class="min-w-0">
                     <h4 id="garden-beta-naming" class="text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.beta.garden_naming', { default: 'Name animals automatically' })}</h4>
                     <p class="text-xs text-slate-600 dark:text-slate-400">{$_('settings.beta.garden_naming_help', { default: 'When the automatic check is at least this sure of an animal, it is confirmed and named for you, marked as automatic. You can discard the name or dismiss the capture. Below the threshold it waits in Needs review.' })}</p>
@@ -165,10 +182,29 @@
             {/if}
         </section>
 
+        <section class="space-y-2" aria-labelledby="garden-beta-outcomes" data-garden-outcomes>
+            <h4 id="garden-beta-outcomes" class="text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.beta.garden_outcomes', { default: 'Where captures go' })}</h4>
+            <dl class="space-y-2 text-xs text-slate-600 dark:text-slate-400">
+                <div>
+                    <dt class="font-semibold text-slate-800 dark:text-slate-100">{$_('garden.pending', { default: 'Needs review' })}</dt>
+                    <dd>{$_('settings.beta.garden_outcome_pending', { default: 'Animals that were not named automatically, uncertain or mixed results, and checks that could not run. Failed checks retry after five minutes.' })}</dd>
+                </div>
+                <div>
+                    <dt class="font-semibold text-slate-800 dark:text-slate-100">{$_('garden.confirmed', { default: 'Confirmed animals' })}</dt>
+                    <dd>{$_('settings.beta.garden_outcome_confirmed', { default: 'Animals you confirm, and confident animals named automatically. An automatic name is marked as automatic and can be discarded.' })}</dd>
+                </div>
+                <div>
+                    <dt class="font-semibold text-slate-800 dark:text-slate-100">{$_('garden.dismissed', { default: 'Dismissed' })}</dt>
+                    <dd>{$_('settings.beta.garden_outcome_dismissed', { default: 'Captures you dismiss, and photos the check is confident show only a bird, nothing or a vehicle. Return to review restores one while its photo remains.' })}</dd>
+                </div>
+            </dl>
+            <p class="text-xs text-slate-600 dark:text-slate-400">{$_('settings.beta.garden_outcome_person', { default: 'A capture with person evidence is removed with its photo. Garden visits never count as birds or reach bird notifications and exports.' })}</p>
+        </section>
+
         <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line-soft p-3">
-            <p class="min-w-0 flex-1 text-xs text-slate-600 dark:text-slate-400">{$_('settings.beta.garden_page_help', { default: 'Models, collection status and reviews are on the Garden animals page.' })}</p>
+            <p class="min-w-0 flex-1 text-xs text-slate-600 dark:text-slate-400">{$_('settings.beta.garden_page_help', { default: 'Review captures, ask for species suggestions and see collection status on the Garden animals page.' })}</p>
             {#if onNavigate}
-                <button type="button" class="btn btn-secondary min-h-11 px-3 py-2" onclick={() => onNavigate?.('/garden')}>
+                <button type="button" class="btn btn-secondary min-h-11 max-w-full px-3 py-2 whitespace-normal" onclick={() => onNavigate?.('/garden')}>
                     {$_('settings.beta.garden_page_open', { default: 'Open Garden animals' })}
                 </button>
             {/if}

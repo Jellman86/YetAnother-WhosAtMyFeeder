@@ -1,7 +1,7 @@
 """Owner-only per-capture bird summaries on the event list, through real routes and migrated history."""
 
 from contextlib import asynccontextmanager, closing
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 import json
 import os
 import sqlite3
@@ -44,7 +44,7 @@ def _bird(db, event, index, species, *, hidden=False, manual=False, detector=0.8
 @pytest.fixture
 def history(monkeypatch, tmp_path):
     path = tmp_path / "history.db"
-    today = datetime.combine(date.today(), datetime.min.time(), tzinfo=timezone.utc)
+    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     with closing(sqlite3.connect(os.environ["DB_PATH"])) as source, closing(sqlite3.connect(path)) as db:
         source.backup(db)
         db.execute("PRAGMA foreign_keys=ON")
@@ -171,7 +171,7 @@ async def test_guest_projection_never_reads_or_returns_bird_summary(history, mon
 @pytest.mark.asyncio
 async def test_page_reads_bird_evidence_in_bounded_batches_not_once_per_capture(history):
     path, _, statements = history
-    today = datetime.combine(date.today(), datetime.min.time())
+    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=None)
     with closing(sqlite3.connect(path)) as db:
         db.executemany(
             """INSERT INTO detections (frigate_event, camera_name, detection_time,

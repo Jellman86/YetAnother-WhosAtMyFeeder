@@ -6,6 +6,52 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Guest-privacy regression fixtures now use UTC calendar dates consistently, with
+  checks across host timezones so local midnight cannot invert their test evidence.
+
+- Queued video analysis keeps the capture photograph visible and states that it is
+  waiting. Preparing work no longer shows an invented “0 of 15 frames” scan or a
+  device inferred from another worker. Live frame progress still appears when received.
+
+- Crop detectors can now be targeted individually through the device compatibility
+  API without requiring or selecting an identification model. Loaded crop sessions
+  adopt changed host-validated device recommendations on their next use, including
+  returning to CPU when evidence is no longer current. A runtime CPU fallback is
+  preserved while the recommendation is unchanged, avoiding per-frame accelerator
+  retries. RF-DETR remains opt-in and YOLOX-Tiny remains the default.
+
+- **Settings → Beta features → Garden animals** now holds the complete Garden setup.
+  A new **Garden models** section shows the status of Garden's three own models (the
+  required SpeciesNet 4.0.3a automatic check model, the optional 4.0.3b species
+  suggestion model, and the MegaDetector Cedar motion detector, required once a camera
+  collects motion photos) with size, **Downloaded**, **Not downloaded**, **Unavailable**
+  or **Status unknown**. Each download is an explicit action with its own progress and
+  error, uses the existing checksum-verified install endpoints, and saves no settings,
+  changes no bird model and starts no checks. The view also lists setup steps, CPU and
+  memory limits, the country needed for naming, and where captures go (**Needs review**,
+  **Confirmed animals**, **Dismissed**, person removal). While Garden is off it lists what
+  Garden needs and offers no downloads. The Garden page keeps daily review and points
+  missing models to Settings instead of downloading them itself. No backend, setting or
+  default changes.
+
+- **Settings → Detection** is reorganised around the choices it asks for. The status line
+  stays on top, followed by **Models**, **Accepting an identification**, **Hardware**,
+  **Frigate and video** and **Blocked Labels**. **Models** explains the two models in plain
+  words: the **Bird finder** locates birds in the frame, the **Identification model** names
+  the species. The bird finder moves out of the **Cropped thumbnails** disclosure; each
+  option shows its download size, estimated RAM and the device it runs on, which is a
+  graphics or NPU device only after a passing device check on this host, otherwise the CPU.
+  Identification model cards also show whether a model covers birds only or wider wildlife.
+  The bird finder choice is now saved by **Apply Settings** like the rest of the page,
+  instead of instantly on click, and an unrelated save keeps the saved finder. **Execution
+  Mode** and **Worker processes** move under a **Memory and isolation** disclosure that opens
+  on its own when either is customised. No defaults, saved values or inference behaviour
+  change; YOLOX-Tiny stays the default finder and RF-DETR Nano stays optional.
+
+- Health distinguishes unavailable accelerator measurements from measured idle usage,
+  and owner diagnostic exports include the bounded CPU/GPU history and worker
+  attribution. A missing GPU counter is not treated as proof of CPU fallback (#778).
+
 - Garden animals can now be named automatically, as birds above the naming threshold
   are. When the automatic check finds an animal and SpeciesNet's species score from the
   same detector-crop pass reaches the owner's **Naming threshold** (default 0.80, under

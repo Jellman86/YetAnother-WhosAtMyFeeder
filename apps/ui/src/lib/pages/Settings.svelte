@@ -114,6 +114,7 @@
         buildBirdModelRegionOverrideSettings,
         resolveBirdModelRegionOverrideFromSettings,
     } from '../settings/bird-model-region-override';
+    import { parseBirdFinder, type BirdFinder } from '../settings/bird-finder';
     import {
         mergeBlockedSpeciesEntries,
         migrateLegacyBlockedLabels,
@@ -255,6 +256,7 @@
     let videoClassificationMaxRetries = $state(3);
     let videoClassificationFrames = $state(15);
     let birdModelRegionOverride = $state<'auto' | 'eu' | 'na'>('auto');
+    let birdFinder = $state<BirdFinder>('yolox_tiny');
     let imageExecutionMode = $state<'in_process' | 'subprocess' | string>('subprocess');
     let inferenceProvider = $state<InferenceProvider>('auto');
     let videoCircuitOpen = $state(false);
@@ -1948,6 +1950,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'notifyCooldownMinutes', val: notifyCooldownMinutes, store: s.notifications_notification_cooldown_minutes ?? 0 },
 
             { key: 'birdModelRegionOverride', val: birdModelRegionOverride, store: resolveBirdModelRegionOverrideFromSettings(s.bird_model_region_override) },
+            { key: 'birdFinder', val: birdFinder, store: parseBirdFinder(s.bird_crop_accurate_detector) },
 
             // Accessibility
             { key: 'highContrast', val: highContrast, store: s.accessibility_high_contrast ?? false },
@@ -3000,6 +3003,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             videoClassificationMaxRetries = settings.video_classification_max_retries ?? 3;
             videoClassificationFrames = settings.video_classification_frames ?? 15;
             birdModelRegionOverride = resolveBirdModelRegionOverrideFromSettings(settings.bird_model_region_override);
+            birdFinder = parseBirdFinder(settings.bird_crop_accurate_detector);
             imageExecutionMode = settings.image_execution_mode ?? 'subprocess';
             strictNonFiniteOutput = settings.strict_non_finite_output ?? true;
             betaGardenAnimals = settings.beta_garden_animals ?? false;
@@ -3385,6 +3389,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 video_classification_max_retries: videoClassificationMaxRetries,
                 video_classification_frames: videoClassificationFrames,
                 ...buildBirdModelRegionOverrideSettings(birdModelRegionOverride),
+                bird_crop_accurate_detector: birdFinder,
                 image_execution_mode: imageExecutionMode,
                 strict_non_finite_output: strictNonFiniteOutput,
                 beta_garden_animals: betaGardenAnimals,
@@ -3671,6 +3676,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:videoClassificationMaxRetries
                     bind:videoClassificationFrames
                     bind:birdModelRegionOverride
+                    bind:birdFinder
                     bind:imageExecutionMode
                     bind:inferenceProvider
                     {classifierStatus}

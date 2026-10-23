@@ -87,7 +87,11 @@ with the result of the new attempt.
 
 ## Visual Feedback
 
-During analysis, a real-time **progress overlay** appears on the detection card. It shows:
+A queued capture keeps its photograph and says **Video analysis queued**. When a worker has
+started but frame progress has not arrived, the record says **Preparing video analysis**.
+Neither state reports an estimated frame count or an execution device.
+
+Once live frame progress arrives, a real-time **progress overlay** appears. It shows:
 
 - How many frames have been processed so far
 - The current leading species based on frames analyzed so far

@@ -497,3 +497,44 @@ async def test_diagnostic_exports_do_not_disclose_configured_credentials(client,
     assert token not in response.text
     assert "fixture_failure" in response.text
     assert "REDACTED" in response.text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("endpoint", ["workspace", "bundle"])
+async def test_diagnostics_preserves_gpu_measurement_gaps_and_worker_attribution(client, monkeypatch, endpoint):
+    from app.routers import stats
+    from app.services.accelerator_telemetry import AcceleratorReading
+    from app.services.system_telemetry import ProcessLoad, SystemTelemetryHistory, SystemTelemetrySample
+
+    settings.auth.enabled = False
+    history = SystemTelemetryHistory()
+    for at, percent in ((10.0, 42.0), (15.0, None)):
+        history.record(
+            SystemTelemetrySample(
+                cpu_percent=25.0,
+                accelerators=(
+                    AcceleratorReading(
+                        id="gpu-test", kind="gpu", label="Intel GPU", scope="app", utilization_percent=percent
+                    ),
+                ),
+            ),
+            [ProcessLoad(pid=123, role="video_worker", label="video-0", detail=None, cpu_percent=8.0, rss_bytes=1024)],
+            at=at,
+        )
+    monkeypatch.setattr(stats, "system_telemetry_history", history)
+    monkeypatch.setattr(
+        stats,
+        "_active_worker_accelerators",
+        lambda: {"video_worker": stats.SystemAcceleratorIdentity(kind="gpu", label="Intel GPU")},
+    )
+    # Export reads the bounded in-memory history; it must not start a fresh sample.
+    monkeypatch.setattr(stats.system_telemetry_sampler, "sample", lambda *a, **k: pytest.fail("unexpected live sample"))
+    response = await client.get(f"/api/diagnostics/{endpoint}")
+    assert response.status_code == 200
+    telemetry = response.json()["system_telemetry"]
+    assert [point["accelerators"]["gpu-test"] for point in telemetry["points"]] == [42.0, None]
+    assert telemetry["processes"][0]["accelerator"] == {"kind": "gpu", "label": "Intel GPU"}
+    assert telemetry["processes"][0]["cpu_percent"] == 8.0
+    assert "cmdline" not in telemetry["processes"][0]
+    if endpoint == "bundle":
+        assert response.json()["workspace"]["system_telemetry"] == telemetry

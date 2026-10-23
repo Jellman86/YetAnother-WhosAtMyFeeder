@@ -2,10 +2,10 @@
     import GardenAutomaticAssessment from '../components/GardenAutomaticAssessment.svelte';
     import { onDestroy, onMount } from 'svelte';
     import { _ } from 'svelte-i18n';
-    import { fetchGarden, reviewGarden, reviewGardenBatch, fetchGardenIdentification, installGardenModel, identifyGarden, reviewGardenIdentification, type GardenCapture, type GardenIdentificationStatus, type GardenIdentifyRequest } from '../api/garden';
+    import { fetchGarden, reviewGarden, reviewGardenBatch, fetchGardenIdentification, identifyGarden, reviewGardenIdentification, type GardenCapture, type GardenIdentificationStatus, type GardenIdentifyRequest } from '../api/garden';
     import { withAuthParams } from '../api/core';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
-    import { fetchGardenMotion, installGardenMotion, type GardenMotionStatus } from '../api/garden';
+    import { fetchGardenMotion, type GardenMotionStatus } from '../api/garden';
     import { gardenPhotoOutline } from '../utils/garden-photo';
     import { groupGardenReview, type GardenReviewGroup } from '../utils/garden-review-groups';
     import { toastStore } from '../stores/toast.svelte';
@@ -227,34 +227,6 @@
         }
     }
 
-    async function downloadModel(): Promise<void> {
-        if (saving) return;
-        saving = 'model';
-        error = null;
-        try {
-            const result = await installGardenModel(variant);
-            if (!destroyed) identification = result;
-        } catch (failure) {
-            if (!destroyed) error = failure instanceof Error ? failure.message : $_('garden.model_error', { default: 'Could not download the garden model. Try again.' });
-        } finally {
-            if (!destroyed) saving = null;
-        }
-    }
-
-    async function downloadMotionDetector(): Promise<void> {
-        if (saving) return;
-        saving = 'motion-model';
-        error = null;
-        try {
-            const result = await installGardenMotion();
-            if (!destroyed) motion = result;
-        } catch (failure) {
-            if (!destroyed) error = failure instanceof Error ? failure.message : $_('garden.model_error', { default: 'Could not download the garden model. Try again.' });
-        } finally {
-            if (!destroyed) saving = null;
-        }
-    }
-
     onMount(() => {
         unregisterRefresh = pageRefreshAction.register(load);
         void load();
@@ -291,7 +263,7 @@
                     {/if}
                     {#if motion.last_scan_at}<p class="text-xs">{$_('garden.motion_last_scan', { default: 'Last scan: {time}', values: { time: new Date(motion.last_scan_at).toLocaleString() } })}</p>{/if}
                     {#if !motion.installed}
-                        <button class="btn btn-secondary min-h-11 px-4 py-2 whitespace-normal" disabled={saving !== null || motion.busy || !motion.catalogue_ready} onclick={downloadMotionDetector}>{saving === 'motion-model' ? $_('garden.downloading', { default: 'Downloading and verifying…' }) : $_('garden.motion_download', { default: 'Download Cedar detector (101 MB)' })}</button>
+                        <p class="text-xs" data-garden-motion-setup>{$_('garden.motion_download_in_settings', { default: 'The motion detector is not downloaded. Download it under Garden models in Settings → Beta features.' })}</p>
                     {/if}
                     <button class="btn btn-secondary min-h-11 px-4 py-2" onclick={() => onNavigate('/settings/beta')}>{$_('garden.open_settings', { default: 'Garden settings' })}</button>
                 {/if}
@@ -326,7 +298,8 @@
                     {#if selectedModel?.installed}
                         <p class="text-xs">{$_('garden.model_downloaded', { default: 'Model downloaded. The checksum and selected provider are checked on each identification; unavailable hardware does not fall back to CPU.' })}</p>
                     {:else}
-                        <button class="btn btn-secondary min-h-11 px-4 py-2 whitespace-normal" disabled={saving !== null || identification.busy} onclick={downloadModel}>{saving === 'model' ? $_('garden.downloading', { default: 'Downloading and verifying…' }) : $_('garden.download_model', { default: 'Download selected model (224 MB)' })}</button>
+                        <p class="text-xs" data-garden-model-setup>{$_('garden.model_download_in_settings', { default: 'This model is not downloaded. Download it under Garden models in Settings → Beta features.' })}</p>
+                        <button class="btn btn-secondary min-h-11 px-4 py-2" onclick={() => onNavigate('/settings/beta')}>{$_('garden.open_settings', { default: 'Garden settings' })}</button>
                     {/if}
                 {/if}
             </div>
@@ -430,7 +403,7 @@
                                 {#if item.status === 'pending'}
                                     {#if item.motion_source}
                                         <button class="btn btn-secondary min-h-11 px-4 py-2 whitespace-normal" disabled={saving !== null || !canCheckPhoto || !loadedImages[item.id] || failedImages[item.id]} onclick={() => checkPhoto(item)}>{$_('garden.check_photo', { default: 'Check photo' })}</button>
-                                        {#if !canCheckPhoto}<p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.check_setup', { default: 'Open Species suggestions to download the tracked-crop model and choose a provider. Photo checks do not need a country.' })}</p>{/if}
+                                        {#if !canCheckPhoto}<p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.check_setup', { default: 'Download the automatic check model in Settings → Beta features, then choose a provider under Species suggestions. Photo checks do not need a country.' })}</p>{/if}
                                     {/if}
                                     <button class="btn btn-primary min-h-11 px-4 py-2 whitespace-normal" disabled={saving !== null || (!loadedImages[item.id] || failedImages[item.id])} onclick={() => review(item, 'confirm')}>{$_('garden.confirm', { default: 'Confirm animal present' })}</button>
                                 {/if}

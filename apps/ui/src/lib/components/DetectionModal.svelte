@@ -31,7 +31,6 @@
         setCommonNameOverride,
         clearCommonNameOverride,
         fetchEbirdNearby,
-        fetchClassifierStatus,
         fetchDetectionConversation,
         sendDetectionConversationMessage,
         type SearchResult,
@@ -56,7 +55,6 @@
     import { WholeScenePeek } from '../utils/whole-scene-peek.svelte';
     import { photoFitFor, type PhotoFit } from '../utils/photo-fit';
     import { speciesPickerNames } from '../utils/species-picker';
-    import FrameScanRibbon from './FrameScanRibbon.svelte';
     import { detectionsStore, type ReclassificationProgress } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { publicSettingsStore } from '../stores/public_settings.svelte';
@@ -630,26 +628,6 @@
     let awaitingReclassifyOverlay = $state(false);
     let videoAnalysisStatus = $derived(detection.video_classification_status ?? null);
     let videoAnalysisActive = $derived(videoAnalysisStatus === 'processing' || videoAnalysisStatus === 'pending');
-    let placeholderVideoAnalysisProgress = $derived.by(() => ({
-        eventId: detection.frigate_event,
-        currentFrame: 0,
-        totalFrames: Math.max(1, Math.floor(settingsStore.settings?.video_classification_frames ?? 15)),
-        frameIndex: 0,
-        clipTotal: Math.max(1, Math.floor(settingsStore.settings?.video_classification_frames ?? 15)),
-        modelName: null,
-        frameResults: [],
-        status: 'running' as const,
-        startedAt: 0,
-        lastUpdateAt: 0,
-        results: []
-    }));
-    let modalVideoAnalysisProgress = $derived(reclassifyProgress ?? placeholderVideoAnalysisProgress);
-    let showMediaSlotVideoAnalysis = $derived(!reclassifyProgress && videoAnalysisActive && !awaitingReclassifyOverlay);
-    let videoInferenceProvider = $state<string | null>(null);
-    let videoInferenceBackend = $state<string | null>(null);
-    let videoInferenceBadge = $derived(
-        classifyInferenceProvider(videoInferenceProvider, videoInferenceBackend)
-    );
     let completedVideoInferenceBadge = $derived(
         classifyInferenceProvider(
             detection.video_classification_provider ?? null,
@@ -852,7 +830,6 @@
     let canShowFavoriteAction = $derived(
         authStore.canModify
         && !readOnly
-        && !showMediaSlotVideoAnalysis
         && !reclassifyProgress
     );
     const originalFrigateSnapshotAvailable = $derived(snapshotStatus?.original_frigate_snapshot_available === true);
@@ -1023,7 +1000,6 @@
     const showInlineFramePicker = $derived(
         hasOwnerDetectionActions
         && hasFrameSource
-        && !showMediaSlotVideoAnalysis
         && !reclassifyProgress
         && (
             snapshotCandidatesLoading
@@ -1848,48 +1824,6 @@
         }
     });
 
-    async function refreshVideoInferenceProvider() {
-        const persistedProvider = detection.video_classification_provider ?? null;
-        const persistedBackend = detection.video_classification_backend ?? null;
-        if (persistedProvider || persistedBackend) {
-            videoInferenceProvider = persistedProvider;
-            videoInferenceBackend = persistedBackend;
-            return;
-        }
-        try {
-            const status = await fetchClassifierStatus();
-            videoInferenceProvider = status.active_provider ?? null;
-            videoInferenceBackend = status.inference_backend ?? null;
-        } catch {
-            videoInferenceProvider = null;
-            videoInferenceBackend = null;
-        }
-    }
-
-    $effect(() => {
-        void refreshVideoInferenceProvider();
-    });
-
-    $effect(() => {
-        const shouldPoll = Boolean(showMediaSlotVideoAnalysis || reclassifyProgress);
-        if (!shouldPoll) return;
-
-        let cancelled = false;
-        const poll = async () => {
-            if (cancelled) return;
-            await refreshVideoInferenceProvider();
-        };
-        void poll();
-        const handle = setInterval(() => {
-            void poll();
-        }, 5000);
-
-        return () => {
-            cancelled = true;
-            clearInterval(handle);
-        };
-    });
-
     function handleSpeciesInfo() {
         onViewSpecies(detection.display_name);
         onClose();
@@ -2424,58 +2358,6 @@
         <div class="flex-1 overflow-y-auto flex flex-col lg:overflow-hidden lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
                 <div class="flex min-h-0 shrink-0 flex-col bg-slate-950 lg:shrink lg:overflow-y-auto lg:border-r lg:border-slate-200/70 dark:lg:border-slate-700/60">
                     <div class="relative min-w-0 aspect-[4/3] min-h-72 shrink-0 overflow-hidden bg-slate-950 sm:aspect-video lg:flex-1" data-detection-photograph>
-                    {#if showMediaSlotVideoAnalysis}
-                        <div class="absolute inset-0 bg-surface-raised"></div>
-                        <div class="relative z-10 h-full flex flex-col justify-between p-4 sm:p-5">
-                            <div class="flex items-start justify-between gap-3">
-                                <div class="min-w-0">
-                                    <p class="text-3xs font-semibold text-indigo-600 dark:text-indigo-400">
-                                        {$_('detection.video_analysis.title')}
-                                    </p>
-                                    <p id="detection-modal-title" class="truncate text-sm font-bold text-slate-900 dark:text-white sm:text-base">
-                                        {primaryName}
-                                    </p>
-                                    {#if subName && subName !== primaryName}
-                                        <p class="text-2xs italic text-slate-500 dark:text-slate-400 truncate">{subName}</p>
-                                    {/if}
-                                </div>
-                                <div class="shrink-0 flex items-center gap-2 rounded-full px-2.5 py-1 bg-white/85 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-700/70">
-                                    <span class="inline-block h-2 w-2 rounded-full bg-indigo-500 motion-safe:animate-pulse"></span>
-                                    <span class="text-3xs font-semibold text-slate-600 dark:text-slate-300">
-                                        {$_('detection.video_analysis.in_progress')}
-                                    </span>
-                                </div>
-                                {#if videoInferenceBadge.kind}
-                                    <div class="shrink-0 flex items-center gap-1.5 rounded-full px-2.5 py-1 bg-white/85 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-700/70">
-                                        <span class="{videoInferenceBadge.kind === 'gpu' ? 'text-accent-600 dark:text-accent-300' : 'text-sky-600 dark:text-sky-300'}" aria-hidden="true">
-                                            {#if videoInferenceBadge.kind === 'gpu'}
-                                                <svg class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-                                                    <path d="M10 2.5 16.5 9 10 15.5 3.5 9 10 2.5Zm0 2.12L5.62 9 10 13.38 14.38 9 10 4.62Z" />
-                                                </svg>
-                                            {:else}
-                                                <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6">
-                                                    <rect x="4.5" y="5.5" width="11" height="9" rx="1.5" />
-                                                    <path d="M8 2.75v2M12 2.75v2M8 15.25v2M12 15.25v2M2.75 8h2M2.75 12h2M15.25 8h2M15.25 12h2" stroke-linecap="round" />
-                                                </svg>
-                                            {/if}
-                                        </span>
-                                        <span class="text-3xs font-semibold text-slate-700 dark:text-slate-200">
-                                            {videoInferenceBadge.label}
-                                        </span>
-                                    </div>
-                                {/if}
-                            </div>
-
-                            <div class="my-3 sm:my-4">
-                                <FrameScanRibbon progress={modalVideoAnalysisProgress} variant="detail" />
-                            </div>
-
-                            <div class="flex items-center justify-between gap-3 text-3xs font-semibold text-slate-500 dark:text-slate-400">
-                                <span>{formatDateTime(detection.detection_time)}</span>
-                                <span>{detection.camera_name}</span>
-                            </div>
-                        </div>
-                    {:else}
                         {#if photographDrawnUrl}
                             <img data-detection-media-ambient src={photographDrawnUrl} alt="" aria-hidden="true" class="absolute inset-0 h-full w-full scale-110 object-cover opacity-25 blur-2xl" />
                         {/if}
@@ -2552,9 +2434,7 @@
                                 </span>
                             {/if}
                         {/if}
-                    {/if}
                     </div>
-                    {#if !showMediaSlotVideoAnalysis}
                         <div
                             class="relative flex shrink-0 flex-col bg-slate-950 pt-4"
                             data-detection-media-footer
@@ -2745,7 +2625,6 @@
                     </div>
                             {/if}
                         </div>
-                    {/if}
                 </div>
 
             <div class="flex min-w-0 flex-1 flex-col gap-5 break-words lg:overflow-y-auto p-5 sm:p-6 {showTagDropdown ? 'blur-sm pointer-events-none select-none' : ''}">
@@ -3059,11 +2938,15 @@
                         {/if}
                     </div>
                 </div>
-            {:else if (detection.video_classification_status === 'processing' || detection.video_classification_status === 'pending') && !showMediaSlotVideoAnalysis}
-                 <div class="p-4 rounded-2xl bg-white/80 dark:bg-slate-900/40 border border-slate-200/70 dark:border-slate-700/50 flex items-center gap-3 animate-pulse">
-                    <div class="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-                    <span class="text-xs font-bold text-slate-500">{$_('detection.video_analysis.in_progress')}</span>
-                 </div>
+            {/if}
+            {#if videoAnalysisActive && !reclassifyProgress}
+                <div class="p-4 rounded-2xl bg-white/80 dark:bg-slate-900/40 border border-slate-200/70 dark:border-slate-700/50" role="status">
+                    <p class="text-xs font-bold text-slate-600 dark:text-slate-300">
+                        {videoAnalysisStatus === 'pending'
+                            ? $_('detection.video_analysis.queued', { default: 'Video analysis queued' })
+                            : $_('detection.video_analysis.preparing', { default: 'Preparing video analysis' })}
+                    </p>
+                </div>
             {/if}
             <!-- The standalone "Video Analysis Failed" red card has been folded
                  into the consolidated video-status notice above. -->

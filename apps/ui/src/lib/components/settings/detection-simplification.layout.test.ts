@@ -18,9 +18,9 @@ const appCss = readFileSync(resolve(__dirname, '../../../app.css'), 'utf-8');
 describe('Detection settings, status first', () => {
     it('opens with the status band: model, runtime, workers, health', () => {
         const band = detectionSettingsSource.indexOf('<DetectionStatusBand');
-        const grid = detectionSettingsSource.indexOf('grid grid-cols-1 gap-6 lg:grid-cols-2');
+        const firstCard = detectionSettingsSource.indexOf('<SettingsCard');
         expect(band).toBeGreaterThan(-1);
-        expect(grid).toBeGreaterThan(band);
+        expect(firstCard).toBeGreaterThan(band);
         expect(statusBandSource).toContain('band_model');
         expect(statusBandSource).toContain('band_runtime');
         expect(statusBandSource).toContain('band_workers');
@@ -39,30 +39,56 @@ describe('Detection settings, status first', () => {
         expect(statusBandSource).toContain('scrollIntoView');
     });
 
-    it('surfaces both thresholds and the runtime choices without a disclosure', () => {
+    it('orders the page by decision: models, acceptance, hardware, Frigate and video, then blocking', () => {
+        const order = [
+            'models_card_title',
+            'acceptance_title',
+            'hardware_title',
+            'frigate_video_title',
+            "settings.detection.blocked_labels'",
+        ].map((key) => detectionSettingsSource.indexOf(key));
+        for (const at of order) expect(at).toBeGreaterThan(-1);
+        expect([...order].sort((a, b) => a - b)).toEqual(order);
+        expect(detectionSettingsSource.match(/<SettingsCard/g)).toHaveLength(5);
+        expect(detectionSettingsSource).not.toContain('tuning_column');
+        expect(detectionSettingsSource).not.toContain('runtime_column');
+    });
+
+    it('keeps everyday choices visible and puts memory and isolation behind a disclosure that opens when customised', () => {
+        const memory = detectionSettingsSource.indexOf('id="detection-memory-advanced"');
         const report = detectionSettingsSource.indexOf('id="detection-inference-advanced"');
+        expect(memory).toBeGreaterThan(-1);
         for (const id of [
             'id="confidence-threshold-slider"',
             'id="min-confidence-slider"',
             'id="inference-provider"',
-            'id="image-execution-mode"',
             'id="bird-model-region-override"',
             'onclick={runCompatCheck}',
         ]) {
             const at = detectionSettingsSource.indexOf(id);
             expect(at, id).toBeGreaterThan(-1);
-            expect(at, `${id} must sit on the default surface, before the runtime report`).toBeLessThan(report);
+            expect(at, `${id} must sit on the default surface`).toBeLessThan(memory);
         }
-        expect(detectionSettingsSource).not.toContain('id="detection-fine-tuning-advanced"');
-        expect(detectionSettingsSource).not.toContain('id="detection-classification-advanced"');
+        for (const id of ['id="image-execution-mode"', 'id="live-worker-count"', 'id="background-worker-count"']) {
+            const at = detectionSettingsSource.indexOf(id);
+            expect(at, id).toBeGreaterThan(memory);
+            expect(at, id).toBeLessThan(report);
+        }
+        expect(detectionSettingsSource).toContain('openByDefault={memoryCustomised}');
+        expect(detectionSettingsSource).toContain("imageExecutionMode !== 'subprocess'");
     });
 
-    it('gives models their own card instead of a disclosure', () => {
-        expect(detectionSettingsSource.match(/<SettingsCard/g)).toHaveLength(3);
+    it('gives models their own card, carrying the bird finder choice through the settings form', () => {
         expect(detectionSettingsSource).toContain('models_card_title');
         const modelsCard = detectionSettingsSource.indexOf('id={MODELS_CARD_ID}');
         const modelManager = detectionSettingsSource.indexOf('<ModelManager');
         expect(modelManager).toBeGreaterThan(modelsCard);
+        expect(detectionSettingsSource).toContain('bind:birdFinder');
+        expect(settingsPageSource).toContain('bind:birdFinder');
+        expect(settingsPageSource).toContain(
+            "{ key: 'birdFinder', val: birdFinder, store: parseBirdFinder(s.bird_crop_accurate_detector) }"
+        );
+        expect(settingsPageSource).toContain('bird_crop_accurate_detector: birdFinder,');
     });
 
     it('picks the model from cards with one honest state chip, not a select', () => {
@@ -77,6 +103,8 @@ describe('Detection settings, status first', () => {
         expect(modelManagerSource).toContain('model-ram-meter');
         expect(modelManagerSource).toContain('ramShortLabel(modelOption.estimated_ram_mb)');
         expect(modelManagerSource).toContain('lineupMaxRam(classifierModels)');
+        // Coverage is the other everyday question: birds only, or wider wildlife.
+        expect(modelManagerSource).toContain('scopeLabel(modelOption.taxonomy_scope)');
         // The flat look marks the selected card with its border, a brand tint and
         // aria-pressed; no decorative animated gradient behind either surface.
         expect(modelManagerSource).not.toContain('card-aurora');

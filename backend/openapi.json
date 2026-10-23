@@ -6173,6 +6173,16 @@
           "summary": {
             "$ref": "#/components/schemas/DiagnosticsBundleSummaryResponse"
           },
+          "system_telemetry": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SystemTelemetryHistoryResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "taxonomy_repair": {
             "additionalProperties": true,
             "title": "Taxonomy Repair",
@@ -6296,6 +6306,16 @@
             },
             "title": "Startup Warnings",
             "type": "array"
+          },
+          "system_telemetry": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SystemTelemetryHistoryResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "taxonomy_repair": {
             "additionalProperties": true,
