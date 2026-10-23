@@ -31,6 +31,7 @@ import structlog
 from app.utils.image_io import load_rgb_image
 
 from app.config import settings
+from app.models.ai_models import InstalledModel
 from app.services.broadcaster import broadcaster
 from app.services.eval import sanity_checks
 from app.services.eval.species_scoring import AccuracyTally, ModelVocabulary
@@ -63,6 +64,37 @@ IMAGES_SUBDIR = "images"
 
 class ModelEvalAlreadyRunning(RuntimeError):
     pass
+
+
+def select_evaluation_models(
+    installed: list[InstalledModel],
+    *,
+    model_ids: list[str],
+    compat_only: bool,
+    sweep_devices: bool,
+) -> tuple[list[InstalledModel], list[InstalledModel]]:
+    classifiers = [
+        model
+        for model in installed
+        if model.ready and (model.metadata is None or (model.metadata.artifact_kind or "classifier") == "classifier")
+    ]
+    crop_detectors = [
+        model
+        for model in installed
+        if model.ready and model.metadata is not None and model.metadata.artifact_kind == "crop_detector"
+    ]
+    requested = {model_id.strip() for model_id in model_ids if model_id.strip()}
+    if requested:
+        classifiers = [model for model in classifiers if model.id in requested]
+        crop_detectors = [model for model in crop_detectors if model.id in requested]
+        found = {model.id for model in [*classifiers, *crop_detectors]}
+        if missing := sorted(requested - found):
+            raise RuntimeError(f"requested models are not installed and ready: {', '.join(missing)}")
+        if crop_detectors and not (compat_only and sweep_devices):
+            raise RuntimeError("crop detectors require a device compatibility run")
+    if not classifiers and not (compat_only and sweep_devices and crop_detectors):
+        raise RuntimeError("no installed classifier models found")
+    return classifiers, crop_detectors
 
 
 class ModelEvalRunner:
@@ -357,29 +389,13 @@ class ModelEvalRunner:
         if sweep_devices and (sweep_all_models or not compat_only):
             await self._download_all_validation_models(run_id)
 
-        # Discover classifier models
         installed = await model_manager.list_installed_models()
-        classifiers = [
-            m
-            for m in installed
-            if m.ready and (m.metadata is None or (m.metadata.artifact_kind or "classifier") == "classifier")
-        ]
-        crop_detectors = [
-            m
-            for m in installed
-            if m.ready and m.metadata is not None and (m.metadata.artifact_kind or "classifier") == "crop_detector"
-        ]
-        requested_model_ids = {str(model_id).strip() for model_id in (model_ids or []) if str(model_id).strip()}
-        if requested_model_ids:
-            classifiers = [model for model in classifiers if model.id in requested_model_ids]
-            found_model_ids = {model.id for model in classifiers}
-            missing_model_ids = sorted(requested_model_ids - found_model_ids)
-            if missing_model_ids:
-                raise RuntimeError(
-                    f"requested classifier models are not installed and ready: {', '.join(missing_model_ids)}"
-                )
-        if not classifiers:
-            raise RuntimeError("no installed classifier models found")
+        classifiers, crop_detectors = select_evaluation_models(
+            installed,
+            model_ids=model_ids or [],
+            compat_only=compat_only,
+            sweep_devices=sweep_devices,
+        )
         validation_model_count = len(classifiers) + (len(crop_detectors) if sweep_devices else 0)
 
         original_active = model_manager.active_model_id
@@ -1107,7 +1123,8 @@ def _compatibility_model_summaries(payload: dict[str, Any] | None) -> list[dict[
     """
 
     summaries: list[dict[str, Any]] = []
-    for model_id, row in ((payload or {}).get("models") or {}).items():
+    model_rows = {**((payload or {}).get("models") or {}), **((payload or {}).get("crop_detectors") or {})}
+    for model_id, row in model_rows.items():
         provider_rows = (row or {}).get("providers") or (row or {}).get("devices") or {}
         best_provider = (row or {}).get("best_provider")
         best = provider_rows.get(best_provider) or {}

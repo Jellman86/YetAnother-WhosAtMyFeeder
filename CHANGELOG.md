@@ -6,6 +6,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Crop detectors can now be targeted individually through the device compatibility
+  API without requiring or selecting an identification model. Loaded crop sessions
+  adopt changed host-validated device recommendations on their next use, including
+  returning to CPU when evidence is no longer current. A runtime CPU fallback is
+  preserved while the recommendation is unchanged, avoiding per-frame accelerator
+  retries. RF-DETR remains opt-in and YOLOX-Tiny remains the default.
+
 - Garden animals can now be named automatically, as birds above the naming threshold
   are. When the automatic check finds an animal and SpeciesNet's species score from the
   same detector-crop pass reaches the owner's **Naming threshold** (default 0.80, under

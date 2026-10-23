@@ -319,6 +319,17 @@ artifact, image or CUDA runtime/driver evidence cannot select CUDA. Existing
 downloads can keep their model sidecar; the running application's registry
 supplies the reviewed candidate list. YOLOX-Tiny remains the default bird finder.
 
+RF-DETR also has Intel GPU and NPU routes in the Intel-capable images. Each needs
+its own current host validation; the species classifier's selected device does
+not choose the crop detector's device. The compatibility API can check only the
+installed RF-DETR artifact using `compat_only`, `sweep_devices` and its `model_ids`
+entry, as shown in the [API reference](../api.md#model-evaluation-owner).
+The fastest passing crop provider is recommended. Existing worker crop sessions
+adopt a changed recommendation on their next use without restarting the worker.
+If an accelerator fails at runtime, CPU fallback remains in place while its
+recommendation is unchanged. Checks consume compute and may compete with video
+processing; a model-forward benchmark does not predict full video throughput.
+
 The reference RTX 4070 container passed real CUDA execution and CPU consistency
 checks. This does not qualify every NVIDIA host, sustained workload or two-bird
 counting accuracy. See the [validation evidence and limits](../reviews/2026-10-20-rfdetr-cuda-validation.md).
