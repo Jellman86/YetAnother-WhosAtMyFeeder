@@ -6,6 +6,20 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Settings → Beta features → Garden animals** now holds the complete Garden setup.
+  A new **Garden models** section shows the status of Garden's three own models (the
+  required SpeciesNet 4.0.3a automatic check model, the optional 4.0.3b species
+  suggestion model, and the MegaDetector Cedar motion detector, required once a camera
+  collects motion photos) with size, **Downloaded**, **Not downloaded**, **Unavailable**
+  or **Status unknown**. Each download is an explicit action with its own progress and
+  error, uses the existing checksum-verified install endpoints, and saves no settings,
+  changes no bird model and starts no checks. The view also lists setup steps, CPU and
+  memory limits, the country needed for naming, and where captures go (**Needs review**,
+  **Confirmed animals**, **Dismissed**, person removal). While Garden is off it lists what
+  Garden needs and offers no downloads. The Garden page keeps daily review and points
+  missing models to Settings instead of downloading them itself. No backend, setting or
+  default changes.
+
 - Garden animals can now be named automatically, as birds above the naming threshold
   are. When the automatic check finds an animal and SpeciesNet's species score from the
   same detector-crop pass reaches the owner's **Naming threshold** (default 0.80, under

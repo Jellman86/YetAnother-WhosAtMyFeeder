@@ -13,12 +13,14 @@ review** if the check is wrong. Restoring, confirming or dismissing a capture
 overrides automatic checks for that capture, including after restart.
 Existing captures from before this update keep their reviews and are not rechecked.
 
-The required 224 MB tracked-crop model downloads and verifies automatically when
-an enabled Garden camera has a new photo to check. Checks use CPU, one photo at a
+The required 224 MB tracked-crop model is the **Automatic check model** under
+**Settings → Beta features → Garden models**. Download it there before your first
+captures arrive; if you have not, it downloads and verifies automatically when an
+enabled Garden camera has a new photo to check. Checks use CPU, one photo at a
 time, while birds and Frigate cameras are idle. They use the detector's exact box;
 missing boxes, mixed evidence and uncertain results stay in **Needs review**.
 Model, download or runtime failures also stay there and retry no sooner than five
-minutes later. The status under **Species suggestions** describes automatic work;
+minutes later. The status under **Species suggestions** on the Garden page describes automatic work;
 refresh to read updated results. No **Check photo** click is needed.
 
 A model result is not proof of absence. Automatic dismissal is reversible while
@@ -32,7 +34,9 @@ motion scanner does not run, the sidebar item and camera options are hidden, and
 Garden API answers that the feature is switched off. Saved captures are kept, and a
 later person event still removes any stored photo it covers.
 
-Every Garden setting lives under **Settings → Beta features**, with the switch that turns it on.
+Every Garden setting and model download lives under **Settings → Beta features**, with the
+switch that turns it on. While it is off, that view lists what Garden needs and offers no
+downloads. The **Garden animals** page is for daily review.
 
 1. Turn on **Garden animals** in **Settings → Beta features**.
 2. Under **Cameras to watch**, choose **Garden animals** for each camera you want to watch.
@@ -41,13 +45,53 @@ Every Garden setting lives under **Settings → Beta features**, with the switch
 3. Set **Frigate animal labels** to labels your detector actually tracks. The default
    is `cat, dog`. Adding `squirrel` here cannot make a detector learn squirrels;
    Frigate must already track that label and publish completed events over MQTT.
-4. Choose **Apply Settings**, then open **Garden animals** in the sidebar. Select **Needs review**,
-   inspect the photograph, and choose **Confirm animal present** or **Dismiss capture**.
+4. Choose **Apply Settings**. **Garden models** then shows each Garden model's status.
+   Choose **Download** for the **Automatic check model**, and for the **Motion detector**
+   if a camera collects motion review photos.
+5. Open **Garden animals** in the sidebar. Select **Needs review**, inspect the
+   photograph, and choose **Confirm animal present** or **Dismiss capture**.
    **Return to review** restores a dismissed capture while its photo remains available.
 
-![Garden animal settings under Beta features: cameras to watch, motion collection, Frigate animal labels, the animal proposal threshold and automatic naming](../images/settings-garden-cameras.png)
+### Garden models
 
-![Owner-only Garden animals review with model download, country filtering and camera setup instructions](../images/garden-review.png)
+Garden uses three models of its own. None of them is your bird classifier, and none is
+listed as a bird model.
+
+| Model | File | Size | Needed for |
+|---|---|---|---|
+| **Automatic check model** | SpeciesNet 4.0.3a, tracked crop | 224 MB | Required. Checks every new capture and names confident animals. |
+| **Species suggestion model** | SpeciesNet 4.0.3b, whole image | 224 MB | Optional. **Suggest species** on a confirmed animal. |
+| **Motion detector** | MegaDetector v1000 Cedar | 101 MB | Required only when a camera collects motion review photos. |
+
+Each row shows **Downloaded**, **Not downloaded**, **Unavailable** (Garden data or the
+Garden worker has failed) or **Status unknown** (the status could not be read). A
+download is an explicit action with its own progress. It fetches the file, checks its
+size and checksum, then replaces it atomically. It does not save other settings
+changes, change the bird model or provider, switch the beta on or start any checks.
+A failed download leaves nothing changed and offers **Retry download**. Garden runs
+one operation at a time, so downloads wait while a check, scan or other download is
+running; the view says so. There is no percentage progress: the server reports only
+when the download has finished, which can take up to three minutes.
+
+Automatic checks and motion scans run on CPU. Each check loads its model in a separate
+process and releases the memory afterwards; memory use has not been measured for this
+beta. Other processors are offered only for checks you start on the Garden page, and
+fail rather than fall back to CPU. Automatic naming and species suggestions need a
+country in **Settings → Location**; the view says when it is missing.
+
+**Where captures go** in the same view summarises the outcomes:
+
+- **Needs review**: animals that were not named automatically, uncertain or mixed
+  results, and checks that could not run.
+- **Confirmed animals**: animals you confirm, and confident animals named automatically.
+- **Dismissed**: captures you dismiss, and photos the check is confident show only a
+  bird, nothing or a vehicle.
+
+Recognised person evidence removes a capture and its photo instead.
+
+![Garden animal settings under Beta features: setup steps, Garden models with download buttons and status, cameras to watch, motion collection, Frigate animal labels, the animal proposal threshold, automatic naming and where captures go](../images/settings-garden-cameras.png)
+
+![Owner-only Garden animals review: Species suggestions shows the country filter and sends a missing model to Garden settings, above the Needs review, Confirmed animals and Dismissed views](../images/garden-review.png)
 
 The first confirmation records animal presence. Species identification has a separate review. Repeated MQTT
 messages cannot create duplicate visits or undo your decision. Existing Frigate
@@ -73,8 +117,8 @@ turning off Garden animals stops collection but preserves existing reviews.
 ## Collect candidates from motion recordings
 
 If Frigate does not track the animals you want, optionally enable **Collect motion review
-photos** for that camera under **Settings → Beta features**, then apply settings. Open **Garden
-animals → Motion collection** and **Download Cedar detector (101 MB)**. This separate
+photos** for that camera under **Settings → Beta features**, then apply settings and
+download the **Motion detector** under **Garden models** in the same view. This separate
 MegaDetector v1000 Cedar model uses the species catalogue for its three outputs;
 it needs no labels file.
 It does not replace Frigate's bird detector or change bird classification settings.
@@ -178,8 +222,9 @@ pending or confirmed captures, collection waits for a dismissal or expiry.
 Turning collection off does not immediately erase photos.
 
 For a pending motion photo, **Check photo** offers an advisory assessment before
-presence review. Download **4.0.3a** and choose a provider under **Species
-suggestions**, then check the displayed photo. The dialog outlines the exact crop
+presence review. Download the **Automatic check model** (4.0.3a) under **Garden models**,
+choose a provider under **Species suggestions** on the Garden page, then check the
+displayed photo. The dialog outlines the exact crop
 and may suggest a bird or a non-human mammal, or remain uncertain. It preserves
 blank and other probability mass; human evidence withholds the suggestion.
 No country is required. The manual result applies only to that photo and clears when
@@ -190,7 +235,8 @@ To request a species suggestion, open **Species suggestions** above the history:
 
 1. Set a recognised country name or ISO code in **Settings → Location**. Filtering
    runs locally; coordinates are not sent to the model.
-2. Choose and download a garden model, about **224 MB** per variant. The default
+2. Choose a garden model, about **224 MB** per variant, and download it under
+   **Settings → Beta features → Garden models** if the Garden page says it is missing. The default
    **4.0.3b** uses the whole photograph with the model’s vertical border trim.
    **4.0.3a** requires Frigate’s tracked snapshot box or the retained motion detector
    box; it never guesses a crop.
