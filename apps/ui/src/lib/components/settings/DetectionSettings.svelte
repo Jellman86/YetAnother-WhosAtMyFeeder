@@ -161,6 +161,9 @@
     let compatPollInFlight = false;
     // Identifies the newest check so a superseded poll's late reply is ignored.
     let compatCheck = 0;
+    // Models the latest check covered, so Retry repeats the same scope. Empty means every installed model.
+    let compatModelIds: string[] = [];
+    let settleCompat: () => void = () => {};
     let runtimeRefreshFailed = $state(false);
 
     // A check can move classification onto a newly validated provider, so the
@@ -171,9 +174,13 @@
         runtimeRefreshFailed = !(await onrefreshclassifierstatus());
     }
 
-    async function runCompatCheck() {
+    /** Starts a device check and resolves once it has finished, failed or been superseded. */
+    async function runCompatCheck(modelIds: string[] = []): Promise<void> {
         if (compatPoll) clearInterval(compatPoll);
         compatPoll = null;
+        settleCompat();
+        const settled = new Promise<void>((resolve) => (settleCompat = resolve));
+        compatModelIds = modelIds;
         cdOpen = true;
         cdRunId += 1;
         runtimeRefreshFailed = false;
@@ -188,7 +195,8 @@
             const { run_id } = await startModelEvalRun({
                 sweep_devices: true,
                 compat_only: true,
-                sweep_all_models: compatAllModels,
+                sweep_all_models: modelIds.length === 0 && compatAllModels,
+                model_ids: modelIds,
             });
             if (check !== compatCheck) return;
             compatPoll = window.setInterval(async () => {
@@ -214,6 +222,7 @@
                                 compatError = summary.error;
                                 cdRunId += 1;
                                 await refreshRuntimeAfterCheck();
+                                settleCompat();
                                 return;
                             }
                         }
@@ -244,6 +253,7 @@
                             cdRunId += 1;
                         }
                         if (check === compatCheck) await refreshRuntimeAfterCheck();
+                        settleCompat();
                     }
                 } catch {
                     /* transient — keep polling */
@@ -255,7 +265,14 @@
             if (check !== compatCheck) return;
             compatRunning = false;
             compatError = (e as Error).message;
+            settleCompat();
         }
+        return settled;
+    }
+
+    // Scoped to one finder, so the run never swaps the active identification model.
+    function checkFinderDevices(modelId: string): Promise<void> {
+        return runCompatCheck([modelId]);
     }
 
     function compatProviders(matrix: DeviceMatrix): string[] {
@@ -372,6 +389,7 @@
     onDestroy(() => {
         compatCheck += 1;
         if (compatPoll) clearInterval(compatPoll);
+        settleCompat();
     });
 
     let blockedSpeciesSearchQuery = $state('');
@@ -559,7 +577,9 @@
                 autoVideoEnabled={autoVideoClassification}
                 bind:birdFinder
                 {classifierStatus}
+                deviceCheckRunning={compatRunning}
                 onruntimechange={onrefreshclassifierstatus}
+                oncheckfinderdevices={checkFinderDevices}
                 {onopenlocationsettings}
             />
         </div>
@@ -725,7 +745,7 @@
                             <input type="checkbox" bind:checked={compatAllModels} disabled={compatRunning} class="rounded" />
                             {$_('settings.detection.compat_all_models', { default: 'test all models' })}
                         </label>
-                        <button type="button" onclick={runCompatCheck} disabled={compatRunning} class="btn btn-primary min-h-11 max-w-full px-4 py-2">
+                        <button type="button" onclick={() => runCompatCheck()} disabled={compatRunning} class="btn btn-primary min-h-11 max-w-full px-4 py-2">
                             {compatRunning ? $_('settings.detection.compat_running', { default: 'Running…' }) : $_('settings.detection.compat_run', { default: 'Run compatibility check' })}
                         </button>
                     </div>
@@ -1257,6 +1277,6 @@
         runId={cdRunId}
         retryLabel={$_('settings.detection.compat_run', { default: 'Run compatibility check' })}
         onClose={() => (cdOpen = false)}
-        onRetry={runCompatCheck}
+        onRetry={() => runCompatCheck(compatModelIds)}
     />
 {/if}

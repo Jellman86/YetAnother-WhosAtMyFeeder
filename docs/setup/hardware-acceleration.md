@@ -324,8 +324,11 @@ its own current host validation; the species classifier's selected device does
 not choose the crop detector's device. The compatibility API can check only the
 installed RF-DETR artifact using `compat_only`, `sweep_devices` and its `model_ids`
 entry, as shown in the [API reference](../api.md#model-evaluation-owner).
+The bird finder card's **Check *devices* for *finder*** button runs that scoped check.
 The fastest passing crop provider is recommended. Existing worker crop sessions
 adopt a changed recommendation on their next use without restarting the worker.
+After a kernel, driver or image update, startup re-checks the chosen finder once on
+its previously passing accelerators, using the newest saved bird snapshots.
 If an accelerator fails at runtime, CPU fallback remains in place while its
 recommendation is unchanged. Checks consume compute and may compete with video
 processing; a model-forward benchmark does not predict full video throughput.

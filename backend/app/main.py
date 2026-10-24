@@ -435,6 +435,15 @@ def _log_startup_diagnostics(test_mode: bool) -> None:
     )
 
 
+async def _revalidate_stale_accelerators() -> None:
+    """Identification model first, so the bird finder's check never delays it."""
+    from app.services.bird_finder_revalidation import bird_finder_revalidation
+    from app.services.provider_revalidation import provider_revalidation
+
+    await provider_revalidation.run()
+    await bird_finder_revalidation.run()
+
+
 async def _start_mqtt_service_task() -> None:
     global event_processor
     if event_processor is None:
@@ -672,9 +681,7 @@ async def lifespan(app: FastAPI):
             startup_phase="starting_services",
             startup_progress=93,
         )
-        from app.services.provider_revalidation import provider_revalidation
-
-        revalidation_task = create_background_task(provider_revalidation.run(), name="provider_revalidation")
+        revalidation_task = create_background_task(_revalidate_stale_accelerators(), name="provider_revalidation")
         # Intake opens only after every downstream worker can accept work.
         await _run_lifecycle_phase(
             app,
