@@ -369,3 +369,12 @@ qualify an excluded provider, reset circuit breakers, rewrite detections or prov
 species accuracy. An unavailable provider, failed output check, changed profile
 or incomplete cleanup keeps quarantine. See the
 [safety and resource limits](../reviews/2026-10-19-owner-native-profile-revalidation.md).
+
+
+## Automatic Garden checks
+
+Garden's automatic SpeciesNet crop checks follow the Detection device preference, with a separate
+CPU-agreement check bound to the Garden model and this host. A bird model's validation does not
+qualify SpeciesNet. Auto considers packaged NPU, Intel GPU and CUDA routes; unavailable or failed
+routes use CPU and retain their negative evidence. Motion scans remain on CPU. These checks do
+not change bird runtime validation or qualify accuracy and sustained live concurrency.

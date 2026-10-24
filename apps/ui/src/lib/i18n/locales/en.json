@@ -1962,7 +1962,7 @@
       "garden_models_status_needed": "Downloads are available once the model status loads.",
       "garden_country": "Animal names are filtered for {country}.",
       "garden_country_missing": "Set a country in Settings → Location. Without one, animals are not named automatically and species suggestions are unavailable.",
-      "garden_models_limits": "Automatic checks and motion scans run on CPU, one at a time, while bird inference and cameras are idle. Each check loads its model in a separate process and releases the memory afterwards; memory use has not been measured for this beta. Other processors are only offered for checks you start on the Garden animals page, and fail rather than fall back to CPU.",
+      "garden_models_limits": "Automatic checks follow your Detection device preference after a local CPU comparison, with CPU fallback if the device check fails. Motion scans still use CPU. Garden work runs one at a time while birds and cameras are idle; each worker releases its model memory when it stops. Checks you start on the Garden animals page use the processor you request and fail rather than silently switch devices.",
       "garden_models_refresh": "Refresh model status",
       "garden_outcomes": "Where captures go",
       "garden_outcome_pending": "Animals that were not named automatically, uncertain or mixed results, and checks that could not run. Failed checks retry after five minutes.",

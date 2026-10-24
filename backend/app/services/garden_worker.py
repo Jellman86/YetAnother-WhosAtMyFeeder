@@ -59,6 +59,7 @@ def identify(request: dict) -> dict:
             # The same pass names a confident animal, so naming never needs a second inference.
             return {
                 "assessment": {"mass": assessment.mass, "human_winner": assessment.human_winner},
+                **({"probabilities": probabilities.tolist()} if request.get("validation_probe") is True else {}),
                 "predictions": _top_predictions(probabilities),
                 "devices": runtime.actual,
                 "frame_size": frame_size,

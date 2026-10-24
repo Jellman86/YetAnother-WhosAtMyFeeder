@@ -29,6 +29,7 @@ from app.services.garden_identification import (
     normalize_country,
 )
 from app.services.garden_motion import garden_motion_service
+from app.services.garden_automatic_runtime import GardenAutomaticRuntime, candidate_providers
 from app.services.garden_visitors import GardenPolicy, presence_outcome
 from app.utils.api_datetime import utc_naive_now
 from app.utils.frigate_coordinates import normalized_frigate_video_hint
@@ -39,6 +40,7 @@ log = structlog.get_logger()
 class GardenAutomaticReviewService:
     def __init__(self) -> None:
         self.task: asyncio.Task | None = None
+        self.runtime = GardenAutomaticRuntime()
 
     async def start(self) -> None:
         if self.task is None:
@@ -126,7 +128,10 @@ class GardenAutomaticReviewService:
 
         try:
             watcher = asyncio.create_task(watch())
-            service.automatic_message = "Checking a Garden candidate with SpeciesNet. Bird inference takes priority."
+            service.automatic_message = (
+                "Checking a Garden candidate with SpeciesNet. New devices are compared with CPU first; "
+                "bird inference takes priority."
+            )
             box = await self._input_box(original)
             if box is None:
                 raise HTTPException(409, "A tracked snapshot crop is unavailable")
@@ -146,10 +151,10 @@ class GardenAutomaticReviewService:
                 "package_sha256": bundle["package_sha256"],
                 "box": list(box) if box else None,
             }
-            native = await service._run_photo_worker(image, payload, blocked)
+            native, provider = await self.runtime.run(image, payload, blocked, service._run_photo_worker)
             mass = GardenPresenceMass.model_validate(native["assessment"]["mass"])
             human_winner = native["assessment"]["human_winner"]
-            if type(human_winner) is not bool or native.get("devices") != ["CPUExecutionProvider"]:
+            if type(human_winner) is not bool:
                 raise ValueError("Automatic check did not meet its runtime contract")
             if native.get("package_sha256") != bundle["package_sha256"]:
                 raise ValueError("Automatic check mapping changed")
@@ -165,7 +170,7 @@ class GardenAutomaticReviewService:
                     policy=GardenPolicy(min_confidence=settings.frigate.garden_naming_threshold),
                     country=country,
                     variant=variant,
-                    provider="cpu",
+                    provider=provider,
                     devices=native["devices"],
                     model_sha256=payload["model_sha256"],
                     image_sha256=image_sha,
@@ -219,6 +224,10 @@ class GardenAutomaticReviewService:
                                 if outcome in {"bird", "non_animal"}
                                 else "Automatic check finished. The capture remains in Needs review."
                             )
+            if provider == "cpu" and candidate_providers()[0] != "cpu":
+                service.automatic_message += (
+                    " CPU fallback was used; the preferred accelerator has not passed its current Garden check."
+                )
         except GardenBusy:
             service.automatic_message = "Automatic check paused. It will resume when birds and cameras are idle."
         except GardenCleanupFailed:

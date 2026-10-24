@@ -1951,7 +1951,7 @@
       "garden_models_status_needed": "Downloads sind verfügbar, sobald der Modellstatus geladen ist.",
       "garden_country": "Tiernamen werden für {country} gefiltert.",
       "garden_country_missing": "Lege unter Einstellungen → Standort ein Land fest. Ohne Land werden Tiere nicht automatisch benannt und Artvorschläge sind nicht verfügbar.",
-      "garden_models_limits": "Automatische Prüfungen und Bewegungsscans laufen auf der CPU, nacheinander, während Vogelerkennung und Kameras ruhen. Jede Prüfung lädt ihr Modell in einem eigenen Prozess und gibt den Speicher danach frei; der Speicherbedarf wurde für diese Beta noch nicht gemessen. Andere Prozessoren werden nur für Prüfungen angeboten, die du auf der Seite Gartentiere startest, und schlagen fehl, statt auf die CPU auszuweichen.",
+      "garden_models_limits": "Automatische Prüfungen folgen deiner Geräteauswahl unter Erkennung, nachdem ein lokaler CPU-Vergleich bestanden wurde. Schlägt die Geräteprüfung fehl, wird die CPU verwendet. Bewegungsscans nutzen weiterhin die CPU. Gartenaufgaben laufen nacheinander, wenn Vögel und Kameras ruhen; jeder Prozess gibt seinen Modellspeicher nach dem Ende frei. Prüfungen, die du auf der Seite Gartentiere startest, verwenden das angeforderte Gerät und schlagen fehl, statt unbemerkt das Gerät zu wechseln.",
       "garden_models_refresh": "Modellstatus aktualisieren",
       "garden_outcomes": "Wohin Aufnahmen gelangen",
       "garden_outcome_pending": "Tiere, die nicht automatisch benannt wurden, unsichere oder gemischte Ergebnisse und Prüfungen, die nicht laufen konnten. Fehlgeschlagene Prüfungen werden nach fünf Minuten wiederholt.",

@@ -1951,7 +1951,7 @@
       "garden_models_status_needed": "Las descargas estarán disponibles cuando se cargue el estado de los modelos.",
       "garden_country": "Los nombres de animales se filtran para {country}.",
       "garden_country_missing": "Indica un país en Ajustes → Ubicación. Sin país, los animales no se nombran automáticamente y las sugerencias de especies no están disponibles.",
-      "garden_models_limits": "Las comprobaciones automáticas y los análisis de movimiento se ejecutan en la CPU, de uno en uno, mientras la inferencia de aves y las cámaras están inactivas. Cada comprobación carga su modelo en un proceso aparte y libera la memoria después; el uso de memoria aún no se ha medido en esta beta. Otros procesadores solo se ofrecen para comprobaciones que inicias en la página Animales del jardín, y fallan en lugar de recurrir a la CPU.",
+      "garden_models_limits": "Las comprobaciones automáticas siguen el dispositivo elegido en Detección tras compararlo localmente con la CPU, y recurren a la CPU si la comprobación falla. Los análisis de movimiento siguen usando la CPU. Las tareas del jardín se ejecutan de una en una cuando las aves y las cámaras están inactivas; cada proceso libera la memoria del modelo al terminar. Las comprobaciones que inicias en Animales del jardín usan el procesador solicitado y fallan en lugar de cambiarlo sin avisar.",
       "garden_models_refresh": "Actualizar estado de los modelos",
       "garden_outcomes": "Adónde van las capturas",
       "garden_outcome_pending": "Animales que no se nombraron automáticamente, resultados inciertos o mixtos y comprobaciones que no pudieron ejecutarse. Las comprobaciones fallidas se reintentan a los cinco minutos.",

@@ -77,10 +77,10 @@ one operation at a time, so downloads wait while a check, scan or other download
 running; the view says so. There is no percentage progress: the server reports only
 when the download has finished, which can take up to three minutes.
 
-Automatic checks and motion scans run on CPU. Each check loads its model in a separate
+Automatic checks follow the device preference in **Settings → Detection**. Before an accelerator is used, its isolated result must agree with a CPU reference on this host. In **Auto**, Garden considers the NPU, Intel GPU and CUDA providers packaged by the image; a failed profile is skipped on later captures. An explicit unavailable or failed preference uses CPU. Motion scans still run on CPU. Each check loads its model in a separate
 process and releases the memory afterwards; memory use has not been measured for this
-beta. Other processors are offered only for checks you start on the Garden page, and
-fail rather than fall back to CPU. Automatic naming and species suggestions need a
+beta. Checks you start on the Garden page use your requested processor and
+fail rather than silently switch devices. Automatic naming and species suggestions need a
 country in **Settings → Location**; the view says when it is missing.
 
 **Where captures go** in the same view summarises the outcomes:
@@ -298,3 +298,18 @@ camera was correct for all eight captures, but recall at night, on other cameras
 for other species is still being measured. The [developer replay](../development/garden-replay.md)
 records the model checks and limitations tracked in
 [#641](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/641).
+
+
+Automatic Garden device checks bind the installed crop weights, taxonomy package, image flavor,
+and host/runtime/driver signature. Positive evidence is held only for the running application;
+restart requires a fresh CPU comparison. Failed provider profiles are saved under native quarantine
+and are not retried after restart or an unrelated taxonomy update. New model weights or runtime
+identity permit another check. Never copy validation or quarantine records between hosts.
+
+The first check can load the model twice, once for CPU and once for the candidate device.
+Compilation can take longer than inference, and accelerators share memory and capacity with bird
+work. Bird or camera activity interrupts the disposable worker before other Garden work starts.
+If worker cleanup fails, Garden stops rather than starting a CPU fallback beside it. CPU fallback
+preserves the same thresholds, person veto, naming policy and owner-review protections.
+
+The [accelerator validation and hedgehog follow-up](../reviews/2026-10-24-garden-automatic-accelerators.md) records the tested hardware, numerical limits and remaining accuracy gaps.
