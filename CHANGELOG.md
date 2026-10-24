@@ -15,6 +15,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   captures stay stored apart, so no bird total, export or notification counts them. New
   owner-only read endpoint: `GET /api/garden/timeline`.
 
+- The bird finder no longer drops to the CPU for good after a host kernel, driver or
+  image update. After startup, YA-WAMF re-checks the chosen finder once on the graphics
+  or NPU devices it passed before, using this host's newest saved bird snapshots, and
+  workers move back to the fastest matching device on their next crop. A finder that
+  never passed an accelerator here is not checked automatically. Each finder card now
+  names the devices it could use on this host and the state of that re-check, and the
+  chosen finder offers a device check scoped to it, which leaves the identification
+  model untouched.
+
 - Automatic Garden checks can use the Detection device preference after a host-bound CPU comparison, with safe CPU fallback and persistent blocking of failed provider profiles.
 
 

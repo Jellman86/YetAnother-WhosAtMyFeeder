@@ -61,10 +61,28 @@ test('each finder states its device on this host without claiming an unchecked a
     const standard = page.locator('label').filter({ has: page.getByRole('radio', { name: /Standard/ }) });
     const wide = page.locator('label').filter({ has: page.getByRole('radio', { name: /Wide frame/ }) });
     await expect(wide).toContainText('Runs on Intel GPU (OpenVINO), passed the device check on this host');
-    await expect(standard).toContainText('Runs on the CPU. No current device check on this host for this finder.');
+    // Unchecked here, so it says which devices it could use and that they need a check first.
+    await expect(standard).toContainText('Runs on the CPU until Intel GPU (OpenVINO) and Intel NPU (OpenVINO) pass a device check on this host.');
     await expect(standard).not.toContainText('passed the device check');
     await expect(finder(page)).toContainText('19.3 MB download · ~512 MB RAM');
     await expect(finder(page)).toContainText('102.8 MB download');
+});
+
+test('the chosen unchecked finder offers a device check scoped to it alone', async ({ page }) => {
+    const runs: unknown[] = [];
+    await openDetectionSettings(page);
+    await page.route('**/api/diagnostics/model-eval/runs', route => {
+        if (route.request().method() !== 'POST') return route.fallback();
+        runs.push(route.request().postDataJSON());
+        return route.fulfill({ json: { run_id: 'finder-check' } });
+    });
+    const check = finder(page).getByRole('button', { name: 'Check Intel GPU (OpenVINO) and Intel NPU (OpenVINO) for YOLOX-Tiny' });
+    await expect(check).toBeVisible();
+    await expect(finder(page)).toContainText('The identification model is not changed.');
+    await check.click();
+    await expect.poll(() => runs.length).toBe(1);
+    // Scoped to the finder: no identification model is activated or downloaded for it.
+    expect(runs[0]).toMatchObject({ sweep_devices: true, compat_only: true, sweep_all_models: false, model_ids: ['bird_crop_detector_accurate_yolox_tiny'] });
 });
 
 test('a saved provider this host cannot use is flagged in words beside the choice', async ({ page }) => {
