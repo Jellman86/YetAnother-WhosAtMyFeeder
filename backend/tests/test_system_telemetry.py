@@ -43,6 +43,10 @@ def _npu(percent: float | None) -> tuple[AcceleratorReading, ...]:
 
 
 class _NoDrm:
+    from app.services.accelerator_telemetry import DrmProbeDiagnostics
+
+    diagnostics = DrmProbeDiagnostics()
+
     def read(self, now: float, pids: object) -> list[AcceleratorReading]:
         return []
 
@@ -462,3 +466,21 @@ async def test_history_service_records_a_sample_each_tick() -> None:
     points = history.snapshot().points
     assert len(points) >= 3
     assert points[0].other_cpu_percent == 8.0
+
+
+def test_history_exports_only_the_last_two_drm_samples(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.services.accelerator_telemetry import DrmProbeDiagnostics
+    from app.services.system_telemetry import SystemTelemetryHistory
+
+    history = SystemTelemetryHistory()
+    for at in (10.0, 15.0, 20.0):
+        history.record(
+            SystemTelemetrySample(cpu_percent=None, drm_diagnostics=DrmProbeDiagnostics(permission_denied=2)), [], at=at
+        )
+    monkeypatch.setattr(stats_router, "system_telemetry_history", history)
+    body = stats_router.build_system_telemetry_history().model_dump(mode="json")
+    assert [sample["at"] for sample in body["drm_diagnostics"]] == [15.0, 20.0]
+    assert body["drm_diagnostics"][1]["diagnostic"]["permission_denied"] == 2
+    history.record(SystemTelemetrySample(cpu_percent=None, drm_diagnostics=DrmProbeDiagnostics()), [], at=25.0)
+    assert [sample.at for sample in history.snapshot().drm_diagnostics] == [20.0, 25.0]
+    assert body["drm_diagnostics"][1]["at"] == 20.0

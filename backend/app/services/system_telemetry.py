@@ -9,7 +9,12 @@ from typing import Callable, Iterable, Literal
 
 import structlog
 
-from app.services.accelerator_telemetry import AcceleratorReading, AcceleratorSampler
+from app.services.accelerator_telemetry import (
+    AcceleratorReading,
+    AcceleratorSampler,
+    DrmProbeDiagnostics,
+    DrmProbeSnapshot,
+)
 
 log = structlog.get_logger()
 
@@ -18,6 +23,7 @@ log = structlog.get_logger()
 class SystemTelemetrySample:
     cpu_percent: float | None
     accelerators: tuple[AcceleratorReading, ...] = ()
+    drm_diagnostics: DrmProbeDiagnostics | None = None
 
     @property
     def primary_accelerator(self) -> AcceleratorReading | None:
@@ -89,6 +95,7 @@ class SystemTelemetrySampler:
             return SystemTelemetrySample(
                 cpu_percent=self._sample_cpu(),
                 accelerators=tuple(self._accelerators.sample(pids)),
+                drm_diagnostics=self._accelerators.drm_diagnostics,
             )
 
 
@@ -296,6 +303,7 @@ class SystemHistorySnapshot:
     accelerators: list[AcceleratorReading]
     points: list[SystemHistoryPoint]
     processes: list[ProcessLoad]
+    drm_diagnostics: list[DrmProbeSnapshot] = field(default_factory=list)
 
 
 class SystemTelemetryHistory:
@@ -305,6 +313,7 @@ class SystemTelemetryHistory:
         self.window_seconds = int(window_seconds)
         self.interval_seconds = float(interval_seconds)
         self._points: deque[SystemHistoryPoint] = deque(maxlen=max(1, int(window_seconds / interval_seconds)))
+        self._drm_diagnostics: deque[DrmProbeSnapshot] = deque(maxlen=2)
         self._processes: list[ProcessLoad] = []
         self._accelerator: tuple[str | None, str | None] = (None, None)
         self._accelerators: list[AcceleratorReading] = []
@@ -329,6 +338,8 @@ class SystemTelemetryHistory:
                     accelerators={reading.id: reading.utilization_percent for reading in sample.accelerators},
                 )
             )
+            if sample.drm_diagnostics is not None:
+                self._drm_diagnostics.append(DrmProbeSnapshot(at=at, diagnostic=sample.drm_diagnostics))
             self._processes = process_list
             self._accelerators = list(sample.accelerators)
             self._accelerator = (primary.kind, primary.label) if primary else (None, None)
@@ -343,6 +354,7 @@ class SystemTelemetryHistory:
                 accelerators=list(self._accelerators),
                 points=list(self._points),
                 processes=list(self._processes),
+                drm_diagnostics=list(self._drm_diagnostics),
             )
 
 
