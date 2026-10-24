@@ -12,8 +12,10 @@
     authStore.statusHealthy = true;
     authStore.authRequired = true;
     authStore.isAuthenticated = true;
-    settingsStore.settings = { enrichment_summary_provider: 'disabled' } as unknown as NonNullable<typeof settingsStore.settings>;
     const params = new URLSearchParams(location.search);
+    // garden=1: the owner has the Garden beta on for one camera.
+    const garden = params.get('garden') === '1' ? { beta_garden_animals: true, garden_cameras: ['patio'] } : {};
+    settingsStore.settings = { enrichment_summary_provider: 'disabled', ...garden } as unknown as NonNullable<typeof settingsStore.settings>;
     const surface = params.get('surface');
     // The app's global Escape handler must not consume native capture-panel dismissal.
     onMount(() => initKeyboardShortcuts({ Escape: () => {} }));

@@ -49,7 +49,7 @@ describe('Explorer page layout', () => {
     });
 
     it('labels the page-level selection toggle as Multi Select', () => {
-        expect(eventsSource).toContain('{#if authStore.hasOwnerAccess}');
+        expect(eventsSource).toContain('{#if authStore.hasOwnerAccess && !gardenOnly}');
         expect(eventsSource).toContain("$_('common.multi_select', { default: 'Multi Select' })");
         expect(eventsSource).not.toContain("selectionMode ? $_('common.cancel') : $_('common.select', { default: 'Select' })");
     });

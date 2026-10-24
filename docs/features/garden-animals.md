@@ -56,6 +56,34 @@ downloads. The **Garden animals** page is for daily review.
    photograph, and choose **Confirm animal present** or **Dismiss capture**.
    **Return to review** restores a dismissed capture while its photo remains available.
 
+## Garden animals in the Explorer
+
+With Garden on, the **Explorer** shows each opted-in camera's animals beside its birds, placed by
+time between the visits they fell between. A **Show** control chooses **Birds**, **Garden** or
+**All**; **All** is the default, and this device remembers the choice like **Cards** and **List**.
+
+- The Explorer shows confirmed animals and captures still waiting for review. Dismissed captures,
+  whether you or the automatic check dismissed them, stay on the Garden page.
+- Every Garden card and row says **Garden** in words, so an animal is never read as a bird. A
+  capture that needs you is flagged in amber with its reason: whether an animal is there, or a
+  suggested species that nobody has confirmed. The score is the species model's, and only appears
+  once a species is named.
+- Opening one shows its record: the photograph with the detector's box, the automatic check and
+  its result, and the presence and species decisions. **Suggest species** runs the installed
+  SpeciesNet model on the CPU; the Garden page still offers other models and devices. Bird actions
+  such as scoring again, video scans and audio matching do not apply.
+- Garden captures are stored apart from birds. Bird totals, leaderboards, notifications, exports
+  and BirdWeather, eBird and iNaturalist reporting never count them.
+- Under **All**, filters that only describe bird visits (a species, **Favourites**, **Hidden**,
+  **Multiple species**, **Matching call**, confidence order, individual captures or multi-select)
+  hide the Garden captures and the page says why. The date range, days on the page and camera
+  filters apply to both. Under **Garden**, the bird filters are left out and the page says so.
+- Like heard calls, each Explorer page owns the time between its visits, so no capture shows on
+  two pages. When one page spans more than 200 captures, the page says so; choose **Garden** to
+  page through them all.
+- Garden photos stay owner-only, because Frigate can miss a person in an animal photograph. Guests
+  see birds only.
+
 ### Garden models
 
 Garden uses three models of its own. None of them is your bird classifier, and none is

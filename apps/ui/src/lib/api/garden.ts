@@ -22,6 +22,24 @@ export async function fetchGarden(status: GardenStatus, offset: number, signal: 
     return handleResponse<GardenPage>(response);
 }
 
+export interface GardenTimelineQuery {
+    start?: string | null;
+    end?: string;
+    camera?: string;
+    order: 'newest' | 'oldest';
+    limit: number;
+    offset?: number;
+}
+
+/** Confirmed animals and captures awaiting review, by time, for the Explorer. */
+export async function fetchGardenTimeline(query: GardenTimelineQuery, signal?: AbortSignal): Promise<GardenPage> {
+    const params = new URLSearchParams({ order: query.order, limit: String(query.limit), offset: String(query.offset ?? 0) });
+    if (query.start) params.set('start', query.start);
+    if (query.end) params.set('end', query.end);
+    if (query.camera) params.set('camera', query.camera);
+    return handleResponse<GardenPage>(await apiFetch(`${API_BASE}/garden/timeline?${params}`, { signal, timeoutMs: 15000 }));
+}
+
 export async function reviewGardenBatch(ids: string[], action: 'dismiss' | 'restore'): Promise<components['schemas']['GardenBatchReviewResponse']> {
     return handleResponse<components['schemas']['GardenBatchReviewResponse']>(await apiFetch(`${API_BASE}/garden/review-batch`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids, action }), timeoutMs: 15000
