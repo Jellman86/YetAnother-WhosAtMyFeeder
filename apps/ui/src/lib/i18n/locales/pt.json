@@ -1961,7 +1961,7 @@
       "garden_models_status_needed": "As transferências ficam disponíveis quando o estado dos modelos carregar.",
       "garden_country": "Os nomes de animais são filtrados para {country}.",
       "garden_country_missing": "Defina um país em Definições → Localização. Sem país, os animais não recebem nome automático e as sugestões de espécies ficam indisponíveis.",
-      "garden_models_limits": "As verificações automáticas e as análises de movimento correm na CPU, uma de cada vez, enquanto a inferência de aves e as câmaras estão inativas. Cada verificação carrega o modelo num processo separado e liberta a memória depois; o uso de memória ainda não foi medido nesta beta. Outros processadores só são oferecidos para verificações que inicia na página Animais do jardim, e falham em vez de recorrer à CPU.",
+      "garden_models_limits": "As verificações automáticas seguem o dispositivo escolhido em Deteção após uma comparação local com a CPU e recorrem à CPU se a verificação falhar. As análises de movimento continuam na CPU. As tarefas do jardim correm uma de cada vez quando as aves e as câmaras estão inativas; cada processo liberta a memória do modelo ao terminar. As verificações iniciadas na página Animais do jardim usam o processador pedido e falham em vez de mudar de dispositivo sem aviso.",
       "garden_models_refresh": "Atualizar estado dos modelos",
       "garden_outcomes": "Para onde vão as capturas",
       "garden_outcome_pending": "Animais que não receberam nome automático, resultados incertos ou mistos e verificações que não puderam correr. As verificações falhadas repetem-se após cinco minutos.",

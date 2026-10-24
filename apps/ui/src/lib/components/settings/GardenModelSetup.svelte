@@ -209,7 +209,7 @@
             {/if}
         {/if}
 
-        <p class="text-xs text-slate-600 dark:text-slate-400">{$_('settings.beta.garden_models_limits', { default: 'Automatic checks and motion scans run on CPU, one at a time, while bird inference and cameras are idle. Each check loads its model in a separate process and releases the memory afterwards; memory use has not been measured for this beta. Other processors are only offered for checks you start on the Garden animals page, and fail rather than fall back to CPU.' })}</p>
+        <p class="text-xs text-slate-600 dark:text-slate-400">{$_('settings.beta.garden_models_limits', { default: 'Automatic checks follow your Detection device preference after a local CPU comparison, with CPU fallback if the device check fails. Motion scans still use CPU. Garden work runs one at a time while birds and cameras are idle; each worker releases its model memory when it stops. Checks you start on the Garden animals page use the processor you request and fail rather than silently switch devices.' })}</p>
 
         <button type="button" class="btn btn-ghost min-h-11 max-w-full px-3 py-2 whitespace-normal" disabled={loading || downloading !== null} onclick={() => refresh()}>
             {$_('settings.beta.garden_models_refresh', { default: 'Refresh model status' })}

@@ -556,3 +556,32 @@ async def test_malformed_naming_output_never_confirms_or_names(naming):
     result = await capture(c.capture_id)
     assert result.status == "pending" and result.identification is None
     assert result.automatic_check.outcome == "unavailable"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "provider,devices",
+    [("intel_npu", ["NPU"]), ("intel_gpu", ["GPU.0"]), ("cuda", ["CUDAExecutionProvider", "CPUExecutionProvider"])],
+)
+async def test_automatic_review_persists_the_qualified_execution_device(context, monkeypatch, provider, devices):
+    c = context
+    native = dict(c.native.return_value, devices=devices)
+    runtime = AsyncMock()
+    runtime.run.return_value = (native, provider)
+    monkeypatch.setattr(c.service, "runtime", runtime, raising=False)
+    await c.service.process_once()
+    result = await capture(c.capture_id)
+    assert result.automatic_check.devices == devices
+    assert result.status == "dismissed"
+    runtime.run.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_automatic_check_explains_actual_cpu_fallback(context, monkeypatch):
+    c = context
+    runtime = AsyncMock()
+    runtime.run.return_value = (dict(c.native.return_value), "cpu")
+    monkeypatch.setattr(c.service, "runtime", runtime)
+    monkeypatch.setattr(c.module, "candidate_providers", lambda: ("intel_npu", "cpu"), raising=False)
+    await c.service.process_once()
+    assert "CPU fallback" in c.identification.automatic_message

@@ -6,6 +6,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Automatic Garden checks can use the Detection device preference after a host-bound CPU comparison, with safe CPU fallback and persistent blocking of failed provider profiles.
+
+
 - Guest-privacy regression fixtures now use UTC calendar dates consistently, with
   checks across host timezones so local midnight cannot invert their test evidence.
 

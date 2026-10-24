@@ -86,6 +86,12 @@ class GardenBusy(RuntimeError):
     pass
 
 
+class GardenNativeWorkerFailed(ValueError):
+    def __init__(self, exit_code: int) -> None:
+        super().__init__("Requested garden runtime failed")
+        self.exit_code = exit_code
+
+
 class GardenCleanupFailed(RuntimeError):
     pass
 
@@ -125,8 +131,10 @@ async def supervise_worker(
             done, _ = await asyncio.wait({completion}, timeout=min(poll_seconds, remaining))
             if done:
                 output, _ = completion.result()
-                if process.returncode != 0 or len(output) > 65536:
-                    raise ValueError("Requested garden runtime failed")
+                if process.returncode != 0:
+                    raise GardenNativeWorkerFailed(process.returncode)
+                if len(output) > 65536:
+                    raise ValueError("Garden worker output exceeded its bound")
                 return output
     finally:
         # Request cancellation cannot leave a native call using the device.
