@@ -25,7 +25,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Garden animals in the Explorer** (beta, owner only). Confirmed animals and captures
   waiting for review now appear between the bird visits they fell between, in cards and
   in the list, each marked **Garden** in words. A capture that needs you is flagged in
-  amber with its reason. A **Show** control chooses Birds, Garden or All. Opening a
+  amber with its reason. The **Visitors** filter chooses birds, Garden visitors or both. Opening a
   capture shows a Garden record with its photograph and detector box, the automatic
   check, and the presence and species decisions, with no bird-only actions. Garden
   captures stay stored apart, so no bird total, export or notification counts them. New
