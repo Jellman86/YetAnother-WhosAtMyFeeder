@@ -27,17 +27,22 @@ const ACCELERATORS = ['intel_gpu', 'intel_npu', 'cuda'] as const;
  * the first provider in the host's current preference order, and CPU when the
  * host has no current evidence for that finder.
  */
+type DeclaredProviders = Pick<NonNullable<InstalledModel['metadata']>, 'supported_inference_providers' | 'candidate_inference_providers'>;
+
 type FinderEvidence = Pick<InstalledModel, 'provider_preference_order' | 'preferred_inference_provider'> & {
-    metadata?: Pick<NonNullable<InstalledModel['metadata']>, 'supported_inference_providers' | 'candidate_inference_providers'> | null;
+    metadata?: DeclaredProviders | null;
 };
 
 export function birdFinderDevice(
     installed: FinderEvidence | undefined,
     hostProviders: readonly string[] = [],
+    /** The registry's entry for the finder, which declares its devices even before a download. */
+    registry?: DeclaredProviders,
 ): BirdFinderDevice {
+    const source = registry ?? installed?.metadata;
     const declared = new Set([
-        ...(installed?.metadata?.supported_inference_providers ?? []),
-        ...(installed?.metadata?.candidate_inference_providers ?? []),
+        ...(source?.supported_inference_providers ?? []),
+        ...(source?.candidate_inference_providers ?? []),
     ]);
     const accelerators = ACCELERATORS.filter((provider) => declared.has(provider) && hostProviders.includes(provider));
     const preferred = installed?.provider_preference_order?.[0];

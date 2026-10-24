@@ -1079,7 +1079,7 @@
                         <div class="grid grid-cols-1 gap-3 *:min-w-0 sm:grid-cols-2">
                             {#each birdFinderOptions as option (option.choice)}
                                 {@const optionInstalled = isCropDetectorInstalled(option.model.id)}
-                                {@const device = birdFinderDevice(getInstalledModel(option.model.id), hostProviders)}
+                                {@const device = birdFinderDevice(getInstalledModel(option.model.id), hostProviders, option.model)}
                                 {@const deviceNote = birdFinderDeviceNote(device, cropDetectorStatus?.device_check, option.model.id)}
                                 {@const devices = deviceList(device.accelerators)}
                                 {@const optionChosen = birdFinder === option.choice}
@@ -1146,7 +1146,7 @@
                         {#if chosenFinder}
                             {@const chosenInstalled = isCropDetectorInstalled(chosenFinder.model.id)}
                             {@const chosenShortName = chosenFinder.choice === 'rfdetr_nano' ? 'RF-DETR Nano' : 'YOLOX-Tiny'}
-                            {@const chosenDevice = birdFinderDevice(getInstalledModel(chosenFinder.model.id), hostProviders)}
+                            {@const chosenDevice = birdFinderDevice(getInstalledModel(chosenFinder.model.id), hostProviders, chosenFinder.model)}
                             {@const chosenDeviceNote = birdFinderDeviceNote(chosenDevice, cropDetectorStatus?.device_check, chosenFinder.model.id)}
                             {@const canCheckChosen = chosenInstalled && oncheckfinderdevices !== undefined && ['until_checked', 'check_failed', 'check_waiting'].includes(chosenDeviceNote)}
                             <div class="flex flex-wrap items-center gap-3">

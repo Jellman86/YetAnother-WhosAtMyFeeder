@@ -24,7 +24,7 @@ describe('bird finder choice', () => {
     it("states each finder's costs and the device it will use on this host", () => {
         expect(modelManagerSource).toContain('ramShortLabel(option.model.estimated_ram_mb)');
         expect(modelManagerSource).toContain('option.model.file_size_mb');
-        expect(modelManagerSource).toContain('birdFinderDevice(getInstalledModel(option.model.id), hostProviders)');
+        expect(modelManagerSource).toContain('birdFinderDevice(getInstalledModel(option.model.id), hostProviders, option.model)');
         expect(en.settings.detection.bird_finder_device_until_checked).toMatch(/CPU until \{devices\}/);
         expect(en.settings.detection.bird_finder_default_badge).toBe('Default');
     });

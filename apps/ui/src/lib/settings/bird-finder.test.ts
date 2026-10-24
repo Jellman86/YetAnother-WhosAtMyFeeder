@@ -47,6 +47,12 @@ describe('birdFinderDevice', () => {
         expect(birdFinderDevice(finder, ['cpu']).accelerators).toEqual([]);
         expect(birdFinderDevice(finder).accelerators).toEqual([]);
     });
+
+    it("reads the finder's devices from the registry when the installed record carries none", () => {
+        const registry = { supported_inference_providers: ['cpu', 'intel_gpu', 'intel_npu'], candidate_inference_providers: null };
+        expect(birdFinderDevice({ provider_preference_order: [] }, ['cpu', 'intel_gpu', 'intel_npu'], registry).accelerators)
+            .toEqual(['intel_gpu', 'intel_npu']);
+    });
 });
 
 describe('birdFinderDeviceNote', () => {
