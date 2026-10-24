@@ -16,16 +16,61 @@ export interface BirdFinderDevice {
     provider: string;
     /** True only when this host holds current device-check evidence for the finder. */
     checked: boolean;
+    /** Graphics and NPU devices the finder declares that this host offers; each still needs a passing check. */
+    accelerators: string[];
 }
+
+const ACCELERATORS = ['intel_gpu', 'intel_npu', 'cuda'] as const;
 
 /**
  * The device a bird finder loads on. Like the backend's crop service, this is
  * the first provider in the host's current preference order, and CPU when the
  * host has no current evidence for that finder.
  */
+type DeclaredProviders = Pick<NonNullable<InstalledModel['metadata']>, 'supported_inference_providers' | 'candidate_inference_providers'>;
+
+type FinderEvidence = Pick<InstalledModel, 'provider_preference_order' | 'preferred_inference_provider'> & {
+    metadata?: DeclaredProviders | null;
+};
+
 export function birdFinderDevice(
-    installed: Pick<InstalledModel, 'provider_preference_order' | 'preferred_inference_provider'> | undefined,
+    installed: FinderEvidence | undefined,
+    hostProviders: readonly string[] = [],
+    /** The registry's entry for the finder, which declares its devices even before a download. */
+    registry?: DeclaredProviders,
 ): BirdFinderDevice {
+    const source = registry ?? installed?.metadata;
+    const declared = new Set([
+        ...(source?.supported_inference_providers ?? []),
+        ...(source?.candidate_inference_providers ?? []),
+    ]);
+    const accelerators = ACCELERATORS.filter((provider) => declared.has(provider) && hostProviders.includes(provider));
     const preferred = installed?.provider_preference_order?.[0];
-    return preferred ? { provider: preferred, checked: true } : { provider: 'cpu', checked: false };
+    return preferred
+        ? { provider: preferred, checked: true, accelerators }
+        : { provider: 'cpu', checked: false, accelerators };
+}
+
+export type BirdFinderDeviceNote = 'checked' | 'cpu_only' | 'until_checked' | 'check_running' | 'check_failed' | 'check_waiting';
+
+/** The startup re-check of a finder's previously passed accelerators, as the classifier status reports it. */
+export interface BirdFinderDeviceCheck {
+    state: string;
+    model_id: string | null;
+}
+
+/** Which sentence describes where a finder runs, given its evidence and the automatic re-check. */
+export function birdFinderDeviceNote(
+    device: BirdFinderDevice,
+    check: BirdFinderDeviceCheck | null | undefined,
+    modelId: string,
+): BirdFinderDeviceNote {
+    if (device.checked) return 'checked';
+    if (device.accelerators.length === 0) return 'cpu_only';
+    if (check?.model_id === modelId) {
+        if (check.state === 'running') return 'check_running';
+        if (check.state === 'failed') return 'check_failed';
+        if (check.state === 'waiting') return 'check_waiting';
+    }
+    return 'until_checked';
 }
