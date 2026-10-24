@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Support bundles include the last two bounded DRM counter diagnostics, distinguishing unreadable counters, missing or frozen cycle totals, and GPU client turnover without exporting raw process files.
+
 - Automatic Garden checks can use the Detection device preference after a host-bound CPU comparison, with safe CPU fallback and persistent blocking of failed provider profiles.
 
 

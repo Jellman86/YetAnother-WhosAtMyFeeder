@@ -20,6 +20,7 @@ number: an unknown is reported as unknown (CLAUDE.md section 5).
 
 from __future__ import annotations
 
+import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -143,6 +144,46 @@ class _DrmClient:
     engine_total_cycles: dict[str, int]
 
 
+@dataclass(frozen=True)
+class DrmCounterDiagnostic:
+    """Allow-listed counter evidence; never raw fdinfo or process identifiers."""
+
+    device: str
+    driver: str
+    engine: str
+    unit: Literal["ns", "cycles"]
+    value: int
+    previous: int | None
+    elapsed_seconds: float | None
+    total: int | None
+    previous_total: int | None
+    state: Literal[
+        "baseline", "measured", "counter_regressed", "missing_total", "total_not_advancing", "invalid_interval"
+    ]
+
+
+@dataclass(frozen=True)
+class DrmProbeDiagnostics:
+    process_count: int = 0
+    fdinfo_reads: int = 0
+    permission_denied: int = 0
+    missing_processes: int = 0
+    read_errors: int = 0
+    unsupported_fdinfo: int = 0
+    drivers: tuple[str, ...] = ()
+    parsed_clients: int = 0
+    new_clients: int = 0
+    departed_clients: int = 0
+    omitted_counters: int = 0
+    counters: tuple[DrmCounterDiagnostic, ...] = ()
+
+
+@dataclass(frozen=True)
+class DrmProbeSnapshot:
+    at: float
+    diagnostic: DrmProbeDiagnostics
+
+
 class DrmEngineTimeProbe:
     """GPU engine time this app's processes have used, from the DRM fdinfo spec.
 
@@ -164,6 +205,9 @@ class DrmEngineTimeProbe:
         # the previous larger value as its baseline until it catches up,
         # instead of recounting the recovery as new work.
         self._high_water: dict[tuple[str, str, str, str], tuple[int, float]] = {}
+        self.diagnostics = DrmProbeDiagnostics()
+        self._read_counts: dict[str, int] = {}
+        self._drivers: set[str] = set()
 
     @staticmethod
     def _parse_fdinfo(raw: str) -> _DrmClient | None:
@@ -227,20 +271,88 @@ class DrmEngineTimeProbe:
         for pid in pids:
             try:
                 entries = list((self._proc_root / str(pid) / "fdinfo").iterdir())
-            except OSError:
+            except OSError as exc:
+                self._count_read_error(exc, process=True)
                 continue
             for entry in entries:
                 try:
                     raw = entry.read_text(encoding="utf-8")
-                except OSError:
+                except OSError as exc:
+                    self._count_read_error(exc)
                     continue
+                self._read_counts["fdinfo_reads"] += 1
                 if "drm-driver" not in raw:
                     continue
+                for line in raw.splitlines():
+                    key, _, value = line.partition(":")
+                    if key == "drm-driver":
+                        driver = value.strip()
+                        self._drivers.add(driver if driver in _DRIVER_LABELS or driver == "intel_vpu" else "other")
                 client = self._parse_fdinfo(raw)
                 if client is None:
+                    self._read_counts["unsupported_fdinfo"] += 1
                     continue
                 unique[(client.pdev, client.client_id)] = client
         return list(unique.values())
+
+    def _count_read_error(self, exc: OSError, *, process: bool = False) -> None:
+        if isinstance(exc, PermissionError):
+            key = "permission_denied"
+        elif process and isinstance(exc, FileNotFoundError):
+            key = "missing_processes"
+        else:
+            key = "read_errors"
+        self._read_counts[key] += 1
+
+    def _counter_diagnostics(
+        self, clients: list[_DrmClient], now: float
+    ) -> tuple[tuple[DrmCounterDiagnostic, ...], int]:
+        counters: list[DrmCounterDiagnostic] = []
+        omitted = 0
+        for client in clients:
+            for unit, values in (("ns", client.engine_ns), ("cycles", client.engine_cycles)):
+                for engine, value in values.items():
+                    if len(counters) >= 64:
+                        omitted += 1
+                        continue
+                    mark = self._high_water.get((client.pdev, client.client_id, unit, engine))
+                    total = client.engine_total_cycles.get(engine) if unit == "cycles" else None
+                    total_mark = self._high_water.get((client.pdev, client.client_id, "total_cycles", engine))
+                    state = "measured"
+                    if unit == "cycles" and total is None:
+                        state = "missing_total"
+                    elif mark is None or (unit == "cycles" and total_mark is None):
+                        state = "baseline"
+                    elif value < mark[0] or (total is not None and total_mark is not None and total < total_mark[0]):
+                        state = "counter_regressed"
+                    elif now <= mark[1]:
+                        state = "invalid_interval"
+                    elif total is not None and total_mark is not None and total == total_mark[0]:
+                        state = "total_not_advancing"
+
+                    def bounded(number: int | None) -> int | None:
+                        return min(max(number, 0), 2**64 - 1) if number is not None else None
+
+                    counters.append(
+                        DrmCounterDiagnostic(
+                            device=client.pdev
+                            if re.fullmatch(r"[0-9a-fA-F]{4}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}\.[0-7]", client.pdev)
+                            else "unknown",
+                            driver=client.driver if client.driver in _DRIVER_LABELS else "other",
+                            engine=engine
+                            if engine
+                            in {"render", "copy", "video", "video-enhance", "compute", "gfx", "dma", "decode", "encode"}
+                            else "other",
+                            unit=unit,
+                            value=bounded(value),
+                            previous=bounded(mark[0]) if mark else None,
+                            elapsed_seconds=round(max(0.0, now - mark[1]), 6) if mark else None,
+                            total=bounded(total),
+                            previous_total=bounded(total_mark[0]) if total_mark and unit == "cycles" else None,
+                            state=state,
+                        )
+                    )
+        return tuple(counters), omitted
 
     def _label_for(self, driver: str, pdev: str, cards: int) -> str:
         label = _DRIVER_LABELS.get(driver, "GPU")
@@ -300,12 +412,30 @@ class DrmEngineTimeProbe:
 
     def read(self, now: float, pids: Iterable[int]) -> list[AcceleratorReading]:
         pid_list = list(pids)
+        self._read_counts = dict.fromkeys(
+            ("fdinfo_reads", "permission_denied", "missing_processes", "read_errors", "unsupported_fdinfo"), 0
+        )
+        self._drivers = set()
         if not pid_list:
+            self.diagnostics = DrmProbeDiagnostics()
             # No processes to attribute means nothing was measured, which is not the
             # same as "the GPU went idle". Keep the last counters so the next read
             # with a real process list still has something to diff against.
             return []
         clients = self._clients(pid_list)
+        current_clients = {(client.pdev, client.client_id) for client in clients}
+        previous_clients = {(key[0], key[1]) for key in self._high_water}
+        counters, omitted = self._counter_diagnostics(clients, now)
+        self.diagnostics = DrmProbeDiagnostics(
+            process_count=len(pid_list),
+            **self._read_counts,
+            drivers=tuple(sorted(self._drivers)),
+            parsed_clients=len(current_clients),
+            new_clients=len(current_clients - previous_clients),
+            departed_clients=len(previous_clients - current_clients),
+            counters=counters,
+            omitted_counters=omitted,
+        )
         by_card: dict[str, list[_DrmClient]] = {}
         for client in clients:
             by_card.setdefault(client.pdev, []).append(client)
@@ -401,6 +531,10 @@ class AcceleratorSampler:
         self._drm = drm_probe if drm_probe is not None else DrmEngineTimeProbe()
         self._nvidia = nvidia_probe if nvidia_probe is not None else NvidiaPresenceProbe()
         self._clock = clock
+
+    @property
+    def drm_diagnostics(self) -> DrmProbeDiagnostics:
+        return self._drm.diagnostics
 
     def sample(self, pids: Iterable[int] = ()) -> list[AcceleratorReading]:
         now = self._clock()
