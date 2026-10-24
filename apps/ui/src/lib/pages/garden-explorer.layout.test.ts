@@ -23,12 +23,12 @@ describe('Garden captures in the Explorer', () => {
 
     it('places captures between visits in both layouts and opens the Garden record, not the bird one', () => {
         expect(eventsSource).toContain('placeGardenCaptures(birdEntries, entryTime, leads');
-        // Repeated motion proposals open as one entry, as the Garden review grouped them.
-        expect(eventsSource).toContain('groupGardenReview(shownGarden)');
+        // One animal's stay is one entry, as a bird's is; unconfirmed motion proposals stack by position.
+        expect(eventsSource).toContain('groupGardenVisits(shownGarden)');
         expect(eventsSource).toContain('<GardenExplorerRow capture={entry.capture}');
         expect(eventsSource).toContain('<GardenExplorerCard capture={entry.capture}');
         expect(eventsSource).toContain('<GardenCaptureModal\n        capture={selectedGarden}');
-        expect(eventsSource).toContain('group={selectedGardenGroup}');
+        expect(eventsSource).toContain('group={selectedGardenVisit?.items ?? [selectedGarden]}');
     });
 
     it('says in words why captures are hidden, instead of mixing filtered visits with unfiltered animals', () => {
@@ -61,6 +61,16 @@ describe('Garden captures in the Explorer', () => {
         expect(modalSource).toContain("event.key === 'Escape'");
         expect(en.garden.explorer.confirm_name).toBe('Confirm {name}');
         expect(en.garden.explorer.dismiss_effect).toMatch(/removes it from the animals/);
+    });
+
+    it("follows the bird record's shape and the bird row's alignment", () => {
+        // Photograph full-bleed on a dark column with the subject over it, close floating, facts in rows.
+        expect(modalSource).toContain('data-garden-capture-media');
+        expect(modalSource).toContain('lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]');
+        expect(modalSource).toContain('data-garden-capture-facts');
+        expect(modalSource).toContain("detection.fact_species_match");
+        // A row's name starts where a bird's does; the marker leads the line beneath it.
+        expect(rowSource.indexOf('{text.title}')).toBeLessThan(rowSource.indexOf('<GardenExplorerMarker compact />'));
     });
 
     it('writes its copy without em dashes', () => {

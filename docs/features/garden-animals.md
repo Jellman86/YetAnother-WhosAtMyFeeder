@@ -73,8 +73,14 @@ removable filters, and bird-only filters step aside while Garden visitors is cho
   capture that needs you is flagged in amber with its reason: whether an animal is there, or a
   suggested species that nobody has confirmed. The score is the species model's, and only appears
   once a species is named.
-- Opening one shows its record: the photograph with the detector's box, the automatic check and
-  its result, and the presence and species decisions. **Suggest species** runs the installed
+- An animal's stay is one entry, as a bird's visit is: captures on the same camera, of the same
+  animal (the same name, or both unnamed in the same review state), less than a minute apart, open
+  together as **N captures in this visit**. Unconfirmed motion proposals instead stack by position
+  and never merge by time, so a real animal is not hidden inside a stack of repeated feeder
+  proposals. Every capture is still stored and reviewed on its own; grouping only changes how they
+  are shown. There is no capture cooldown, which matches birds.
+- Opening one shows its record, in the bird record's shape: the photograph with the detector's box,
+  the automatic check and its result, and the presence and species decisions. **Suggest species** runs the installed
   SpeciesNet model on the CPU unless you choose another model or device under **Model and device**. Bird actions
   such as scoring again, video scans and audio matching do not apply.
 - Garden captures are stored apart from birds. Bird totals, leaderboards, notifications, exports

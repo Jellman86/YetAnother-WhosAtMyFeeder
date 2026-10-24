@@ -11,8 +11,7 @@
     import GardenCaptureModal from '../components/GardenCaptureModal.svelte';
     import { fetchGardenTimeline, type GardenCapture } from '../api/garden';
     import { explorerSubjectsStore } from '../stores/explorer_subjects.svelte';
-    import { gardenBelongs, gardenBlocker, gardenWindow, placeGardenCaptures, type ExplorerSubjects, type GardenBlocker, type GardenReview } from '../utils/garden-explorer';
-    import { groupGardenReview } from '../utils/garden-review-groups';
+    import { gardenBelongs, gardenBlocker, gardenWindow, groupGardenVisits, placeGardenCaptures, type GardenVisit, type ExplorerSubjects, type GardenBlocker, type GardenReview } from '../utils/garden-explorer';
     import { reviewGardenBatch } from '../api/garden';
     import type { DetectionVisit } from '../api/visits';
     import { onDestroy, onMount, untrack } from 'svelte';
@@ -1456,12 +1455,13 @@
     );
 
     /** Motion proposals around one position open as one entry, as the Garden review grouped them. */
-    const gardenGroups = $derived(groupGardenReview(shownGarden));
+    /** One animal's stay is one entry, as a bird's is; unconfirmed motion proposals stack by position. */
+    const gardenGroups = $derived(groupGardenVisits(shownGarden));
 
     type ExplorerEntry =
         | { kind: 'visit'; event: Detection; visit: DetectionVisit | undefined; matchedCalls: number }
         | { kind: 'band'; band: HeardBand }
-        | { kind: 'garden'; capture: GardenCapture; group?: GardenCapture[] };
+        | { kind: 'garden'; capture: GardenCapture; visit?: GardenVisit };
 
     const eventsByKey = $derived(new Map(events.map((event) => [event.frigate_event, event])));
 
@@ -1496,8 +1496,8 @@
         return shown;
     });
 
-    const selectedGardenGroup = $derived(
-        selectedGarden ? (gardenGroups.find((group) => group.items.some((item) => item.id === selectedGarden?.id))?.items ?? [selectedGarden]) : []
+    const selectedGardenVisit = $derived(
+        selectedGarden ? gardenGroups.find((group) => group.items.some((item) => item.id === selectedGarden?.id)) ?? null : null
     );
 
     function entryTime(entry: ExplorerEntry): number {
@@ -1507,9 +1507,9 @@
     }
 
     const entries = $derived.by((): ExplorerEntry[] => {
-        const groups = new Map(gardenGroups.map((group) => [group.items[0].id, group.items]));
+        const groups = new Map(gardenGroups.map((group) => [group.items[0].id, group]));
         const withGroup = (entry: ExplorerEntry): ExplorerEntry =>
-            entry.kind === 'garden' ? { ...entry, group: groups.get(entry.capture.id) ?? [entry.capture] } : entry;
+            entry.kind === 'garden' ? { ...entry, visit: groups.get(entry.capture.id) } : entry;
         const leads = gardenGroups.map((group) => group.items[0]);
         if (gardenOnly) return leads.map((capture) => withGroup({ kind: 'garden', capture }));
         if (!leads.length) return birdEntries;
@@ -1974,7 +1974,7 @@
                     {#if entry.kind === 'band'}
                         <HeardBandRow band={entry.band} />
                     {:else if entry.kind === 'garden'}
-                        <GardenExplorerRow capture={entry.capture} groupSize={entry.group?.length ?? 1} onopen={(capture) => (selectedGarden = capture)} />
+                        <GardenExplorerRow capture={entry.capture} visit={entry.visit} onopen={(capture) => (selectedGarden = capture)} />
                     {:else}
                         {@const event = entry.event}
                         {@const visit = entry.visit}
@@ -2005,7 +2005,7 @@
                     {#if entry.kind === 'band'}
                         <div class="min-w-0"><HeardBandCard band={entry.band} /></div>
                     {:else if entry.kind === 'garden'}
-                        <div class="min-w-0"><GardenExplorerCard capture={entry.capture} groupSize={entry.group?.length ?? 1} onopen={(capture) => (selectedGarden = capture)} /></div>
+                        <div class="min-w-0"><GardenExplorerCard capture={entry.capture} visit={entry.visit} onopen={(capture) => (selectedGarden = capture)} /></div>
                     {:else}
                     {@const event = entry.event}
                     {@const visit = entry.visit}
@@ -2101,7 +2101,8 @@
 {#if selectedGarden && gardenAvailable}
     <GardenCaptureModal
         capture={selectedGarden}
-        group={selectedGardenGroup}
+        group={selectedGardenVisit?.items ?? [selectedGarden]}
+        groupKind={selectedGardenVisit?.kind ?? 'visit'}
         onclose={() => (selectedGarden = null)}
         onchanged={gardenChanged}
         onselect={(capture) => (selectedGarden = capture)}

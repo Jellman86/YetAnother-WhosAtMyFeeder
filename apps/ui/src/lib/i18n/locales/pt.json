@@ -3710,7 +3710,6 @@
     "identification_unknown": "Sem identificação fiável. Deixe este animal sem identificação ou experimente outro modelo.",
     "model": "Modelo do jardim",
     "model_crop": "SpeciesNet 4.0.3a · Recorte do objeto seguido",
-    "model_score": "Pontuação do modelo: {score}%",
     "model_status_unavailable": "Estado do modelo indisponível. Atualize para tentar novamente.",
     "model_whole": "SpeciesNet 4.0.3b · Imagem completa",
     "provider": "Executar modelo do jardim em",
@@ -3812,7 +3811,13 @@
       "device_note": "Usado nas sugestões de espécie e nas verificações de fotos. Um dispositivo indisponível aqui falha em vez de recorrer à CPU.",
       "empty_pending": "Nenhuma captura do jardim precisa de revisão",
       "empty_confirmed": "Ainda não há animais confirmados",
-      "empty_dismissed": "Não há capturas do jardim descartadas"
+      "empty_dismissed": "Não há capturas do jardim descartadas",
+      "visit_captures": "{count} capturas nesta visita",
+      "visit_heading": "{count} capturas nesta visita",
+      "visit_help": "Mesma câmara e mesmo animal, capturas com menos de um minuto de intervalo, tal como as visitas de aves são agrupadas. Ainda assim pode ser mais de um animal.",
+      "suggested_as": "Sugerido como",
+      "eyebrow_capture": "Captura do jardim",
+      "fact_source": "Proposto por"
     }
   }
 }

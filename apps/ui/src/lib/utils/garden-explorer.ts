@@ -1,6 +1,7 @@
 import type { GardenCapture } from '../api/garden';
 import type { DetectionVisit } from '../api/visits';
 import { heardWindow } from './heard-timeline';
+import { groupGardenReview } from './garden-review-groups';
 
 /**
  * Where Garden captures sit in the Explorer.
@@ -148,4 +149,67 @@ export type GardenReview = 'reviewable' | 'pending' | 'confirmed' | 'dismissed';
 /** Whether a capture, after a review, still belongs to the Garden view it was opened from. */
 export function gardenBelongs(capture: GardenCapture, review: GardenReview): boolean {
     return review === 'reviewable' ? capture.status === 'pending' || capture.status === 'confirmed' : capture.status === review;
+}
+
+/** The bird visit rule's gap: captures less than a minute apart are one stay. */
+const GARDEN_VISIT_GAP_MS = 60_000;
+
+export interface GardenVisit {
+    id: string;
+    /** `position`: unconfirmed motion proposals around one spot. `visit`: one animal's stay, by time. */
+    kind: 'position' | 'visit';
+    /** In the order they were given, which is the page's display order. */
+    items: GardenCapture[];
+}
+
+/** What a capture is, for visit grouping: its name, or what is known before one is given. */
+function identity(capture: GardenCapture): string {
+    const view = gardenEntryView(capture);
+    if (view.name) return `name:${view.name.trim().toLocaleLowerCase()}`;
+    return capture.status === 'confirmed' ? 'animal' : `${capture.status}:${capture.frigate_label}`;
+}
+
+/**
+ * Folds Garden captures into visits, as bird captures are: one camera, one animal, captures less
+ * than a minute apart. Unconfirmed motion proposals keep their position stacks instead and never
+ * merge by time, because a stationary false proposal at the feeder can run for hours and would
+ * otherwise swallow a real animal passing through.
+ */
+export function groupGardenVisits(captures: readonly GardenCapture[]): GardenVisit[] {
+    const order = new Map(captures.map((capture, index) => [capture.id, index]));
+    const time = (capture: GardenCapture): number => Date.parse(capture.observed_at);
+    const units = groupGardenReview(captures);
+    const visits: GardenVisit[] = [];
+    const open = new Map<string, { visit: GardenVisit; latest: number }>();
+    const chronological = [...units].sort((a, b) => Math.min(...a.items.map(time)) - Math.min(...b.items.map(time)));
+    for (const unit of chronological) {
+        const first = unit.items[0];
+        if (first.status === 'pending' && first.source_kind === 'motion') {
+            visits.push({ id: `position:${unit.id}`, kind: unit.items.length > 1 ? 'position' : 'visit', items: unit.items });
+            continue;
+        }
+        const key = `${first.camera}\u0000${identity(first)}`;
+        const at = time(first);
+        const current = open.get(key);
+        if (current && at - current.latest <= GARDEN_VISIT_GAP_MS) {
+            current.visit.items.push(first);
+            current.latest = Math.max(current.latest, at);
+        } else {
+            const visit: GardenVisit = { id: `visit:${first.id}`, kind: 'visit', items: [first] };
+            visits.push(visit);
+            open.set(key, { visit, latest: at });
+        }
+    }
+    const position = (capture: GardenCapture): number => order.get(capture.id) ?? 0;
+    for (const visit of visits) visit.items.sort((a, b) => position(a) - position(b));
+    return visits.sort((a, b) => position(a.items[0]) - position(b.items[0]));
+}
+
+/** How a grouped entry says what it holds, or null for a single capture. */
+export function gardenVisitLabel(visit: GardenVisit | undefined, t: Translate): string | null {
+    if (!visit || visit.items.length < 2) return null;
+    const count = String(visit.items.length);
+    return visit.kind === 'position'
+        ? t('garden.explorer.group_photos', '{count} photos, same position', { count })
+        : t('garden.explorer.visit_captures', '{count} captures in this visit', { count });
 }

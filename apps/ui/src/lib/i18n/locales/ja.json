@@ -3710,7 +3710,6 @@
     "identification_unknown": "信頼できる識別結果がありません。未識別のままにするか、別のモデルを試してください。",
     "model": "庭用モデル",
     "model_crop": "SpeciesNet 4.0.3a · 追跡対象の切り抜き",
-    "model_score": "モデルのスコア: {score}%",
     "model_status_unavailable": "モデルの状態を取得できません。更新して再試行してください。",
     "model_whole": "SpeciesNet 4.0.3b · 画像全体",
     "provider": "庭用モデルの実行デバイス",
@@ -3812,7 +3811,13 @@
       "device_note": "種の提案と写真チェックに使います。ここで使えないデバイスは CPU に切り替えず、失敗します。",
       "empty_pending": "確認が必要な庭の撮影はありません",
       "empty_confirmed": "確認済みの動物はまだいません",
-      "empty_dismissed": "却下した庭の撮影はありません"
+      "empty_dismissed": "却下した庭の撮影はありません",
+      "visit_captures": "この訪問の撮影 {count} 件",
+      "visit_heading": "この訪問の撮影 {count} 件",
+      "visit_help": "同じカメラ・同じ動物で、1分未満の間隔の撮影を、鳥の訪問と同じようにまとめています。複数の動物である可能性もあります。",
+      "suggested_as": "提案された種",
+      "eyebrow_capture": "庭の撮影",
+      "fact_source": "検出元"
     }
   }
 }

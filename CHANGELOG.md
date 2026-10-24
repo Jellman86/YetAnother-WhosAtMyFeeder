@@ -17,6 +17,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   links open the Explorer's Garden review, and say so when Garden is switched off. The
   timeline endpoint gains `status`. The Explorer's Cards/List switch now wraps instead
   of running off a 320px screen at the largest text size.
+- Garden captures are grouped into visits in the Explorer, as birds are: one camera, one
+  animal, captures less than a minute apart. Unconfirmed motion proposals keep their
+  position stacks. Garden cards, list rows and the Garden record now follow the bird
+  card, row and record layouts, and a row's name lines up with bird names.
 
 - **Garden animals in the Explorer** (beta, owner only). Confirmed animals and captures
   waiting for review now appear between the bird visits they fell between, in cards and

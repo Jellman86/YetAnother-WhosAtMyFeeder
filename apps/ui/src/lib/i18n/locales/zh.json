@@ -3710,7 +3710,6 @@
     "identification_unknown": "没有可靠的识别结果。请保留为未识别，或尝试其他模型。",
     "model": "庭院模型",
     "model_crop": "SpeciesNet 4.0.3a · 跟踪对象裁剪",
-    "model_score": "模型评分：{score}%",
     "model_status_unavailable": "模型状态不可用。请刷新后重试。",
     "model_whole": "SpeciesNet 4.0.3b · 完整图像",
     "provider": "庭院模型运行设备",
@@ -3812,7 +3811,13 @@
       "device_note": "用于物种建议和照片检查。此处不可用的设备会直接失败，而不会改用 CPU。",
       "empty_pending": "没有需要审核的花园拍摄",
       "empty_confirmed": "还没有已确认的动物",
-      "empty_dismissed": "没有已驳回的花园拍摄"
+      "empty_dismissed": "没有已驳回的花园拍摄",
+      "visit_captures": "本次到访 {count} 条拍摄",
+      "visit_heading": "本次到访 {count} 条拍摄",
+      "visit_help": "同一摄像头、同一动物、间隔不到一分钟的拍摄，按鸟类到访的方式归组。仍可能不止一只动物。",
+      "suggested_as": "建议为",
+      "eyebrow_capture": "花园拍摄",
+      "fact_source": "提出者"
     }
   }
 }

@@ -5,11 +5,12 @@
      */
     import { _ } from 'svelte-i18n';
 
-    let { overlay = false }: { overlay?: boolean } = $props();
+    /** `compact` sits in a line of small text, as a row's second line. */
+    let { overlay = false, compact = false }: { overlay?: boolean; compact?: boolean } = $props();
 </script>
 
 <span
-    class="inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-2xs font-bold {overlay
+    class="inline-flex shrink-0 items-center gap-1 rounded-full border font-bold {compact ? 'px-1.5 text-3xs' : 'px-2 py-0.5 text-2xs'} {overlay
         ? 'border-white/10 bg-black/60 text-white backdrop-blur-md'
         : 'border-line bg-surface-raised text-slate-700 dark:text-slate-200'}"
     data-garden-marker

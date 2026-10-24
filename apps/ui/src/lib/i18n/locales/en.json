@@ -3710,7 +3710,6 @@
     "identification_confirmed": "Identification confirmed by you",
     "identification_needs_review": "Suggested identification · Needs your review",
     "group_only": "Animal group only; species is unresolved.",
-    "model_score": "Model score: {score}%",
     "identification_unknown": "No reliable identification. Leave this animal unidentified or try another model.",
     "tracked_crop": "Tracked snapshot crop",
     "whole_image": "Whole image with model border trim",
@@ -3812,7 +3811,13 @@
       "device_note": "Used for species suggestions and photo checks. A device that is not available here fails instead of falling back to the CPU.",
       "empty_pending": "No Garden captures need review",
       "empty_confirmed": "No confirmed animals yet",
-      "empty_dismissed": "No dismissed Garden captures"
+      "empty_dismissed": "No dismissed Garden captures",
+      "visit_captures": "{count} captures in this visit",
+      "visit_heading": "{count} captures in this visit",
+      "visit_help": "Same camera and same animal, captures less than a minute apart, as bird visits are grouped. It can still be more than one animal.",
+      "suggested_as": "Suggested as",
+      "eyebrow_capture": "Garden capture",
+      "fact_source": "Proposed by"
     }
   }
 }

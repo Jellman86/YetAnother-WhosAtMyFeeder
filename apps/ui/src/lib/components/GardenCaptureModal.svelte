@@ -39,8 +39,10 @@
 
     interface Props {
         capture: GardenCapture;
-        /** Photos proposed around the same position, in display order, including this one. */
+        /** Photos opened together, in display order, including this one. */
         group?: GardenCapture[];
+        /** `position`: motion proposals around one spot. `visit`: one animal's stay. */
+        groupKind?: 'position' | 'visit';
         onclose: () => void;
         /** The capture after any saved review; the Explorer decides whether it still belongs. */
         onchanged: (capture: GardenCapture) => void;
@@ -48,7 +50,7 @@
         /** Photos dismissed together, for the page to offer Undo. */
         ongroupdismissed?: (ids: string[], skipped: number) => void;
     }
-    let { capture, group = [capture], onclose, onchanged, onselect, ongroupdismissed }: Props = $props();
+    let { capture, group = [capture], groupKind = 'position', onclose, onchanged, onselect, ongroupdismissed }: Props = $props();
 
     let dialog = $state<HTMLElement | null>(null);
     let size = $state<readonly [number, number] | undefined>(undefined);
@@ -238,9 +240,11 @@
     role="presentation"
     onclick={(event) => { if (event.target === event.currentTarget && !saving) onclose(); }}
 >
+    <!-- The bird record's shape: the photograph full-bleed on the left with its subject over it,
+         the decisions on the right, and the close control floating over both. -->
     <div
         bind:this={dialog}
-        class="flex h-[100dvh] w-full max-w-6xl flex-col overflow-hidden bg-surface shadow-2xl sm:h-auto sm:max-h-[92dvh] sm:rounded-2xl sm:border sm:border-line"
+        class="relative flex max-h-[100dvh] w-full max-w-5xl flex-col overflow-hidden rounded-none border border-white/20 bg-surface shadow-2xl sm:max-h-[92vh] sm:rounded-2xl"
         role="dialog"
         aria-modal="true"
         aria-labelledby="garden-capture-title"
@@ -248,38 +252,30 @@
         tabindex="-1"
         data-garden-capture-modal
     >
-        <header class="flex items-center justify-between gap-3 border-b border-line-soft px-4 py-3 sm:px-6">
-            <div class="min-w-0">
-                <div class="flex flex-wrap items-center gap-2">
-                    <GardenExplorerMarker />
-                    <h2 id="garden-capture-title" class="break-words text-lg font-bold text-slate-900 dark:text-white">{title}</h2>
-                </div>
-                <p class="mt-0.5 break-words text-xs text-slate-600 dark:text-slate-400">
-                    {capture.camera} · <time datetime={capture.observed_at}>{formatDateTime(capture.observed_at)}</time>
-                </p>
-            </div>
-            <button
-                type="button"
-                class="btn btn-ghost min-h-11 min-w-11 shrink-0 px-2"
-                onclick={onclose}
-                disabled={saving}
-                aria-label={$_('common.close', { default: 'Close' })}
-            >
-                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
-        </header>
+        <button
+            type="button"
+            class="absolute right-4 top-4 z-40 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/45 text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-black/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+            onclick={onclose}
+            disabled={saving}
+            aria-label={$_('common.close', { default: 'Close' })}
+        >
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
 
-        <div class="grid min-h-0 flex-1 content-start overflow-y-auto overscroll-contain md:grid-cols-[1.1fr_1fr]">
-            <div class="min-w-0 border-b border-line-soft p-4 md:border-b-0 md:border-r">
-                <div class="relative aspect-video w-full overflow-hidden rounded-xl bg-surface-raised">
+        <div class="flex flex-1 flex-col overflow-y-auto overscroll-contain lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:overflow-hidden">
+            <div class="flex min-h-0 shrink-0 flex-col bg-slate-950 lg:shrink lg:overflow-y-auto lg:border-r lg:border-slate-200/70 dark:lg:border-slate-700/60" data-garden-capture-media>
+                <div class="relative aspect-[4/3] min-h-72 min-w-0 shrink-0 overflow-hidden bg-slate-950 sm:aspect-video lg:flex-1">
                     {#if capture.snapshot_url && !photoFailed}
                         {#key capture.id}
+                            <img src={withAuthParams(capture.snapshot_url)} alt="" aria-hidden="true" class="absolute inset-0 h-full w-full scale-110 object-cover opacity-25 blur-2xl" />
+                            <div class="absolute inset-0 bg-slate-950/55" aria-hidden="true"></div>
                             <img
                                 class="absolute inset-0 h-full w-full object-contain"
                                 src={withAuthParams(capture.snapshot_url)}
                                 alt={$_('garden.photo_alt', { default: 'Animal capture from {camera}', values: { camera: capture.camera } })}
                                 onload={photoLoaded}
                                 onerror={() => (failedPhoto = capture.id)}
+                                data-garden-capture-photo
                             />
                         {/key}
                         {#if outline}
@@ -291,37 +287,72 @@
                             </svg>
                         {/if}
                     {:else}
-                        <p class="absolute inset-0 flex items-center justify-center p-4 text-center text-sm text-slate-600 dark:text-slate-400">
+                        <p class="absolute inset-0 flex items-center justify-center p-4 text-center text-sm text-white/70">
                             {capture.status !== 'pending'
                                 ? $_('garden.explorer.photo_expired', { default: 'The photo has expired. The confirmed record is kept.' })
                                 : $_('garden.snapshot_unavailable', { default: 'Snapshot unavailable' })}
                         </p>
                     {/if}
+                    <div class="absolute left-3 top-3 z-30"><GardenExplorerMarker overlay /></div>
                 </div>
-                {#if group.length > 1}
-                    <div class="mt-3 space-y-2" data-garden-capture-group>
-                        <p class="text-sm font-semibold">{$_('garden.group_count', { default: '{count} photos around the same position', values: { count: group.length } })}</p>
-                        <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.group_help', { default: 'Position does not identify an animal. This group can contain different visitors.' })}</p>
-                        <div class="flex flex-wrap items-center gap-2">
-                            <button type="button" class="btn btn-secondary min-h-11 whitespace-normal px-3 py-2" disabled={saving || index === 0} onclick={() => select(group[index - 1])}>{$_('garden.previous_photo', { default: 'Previous photo' })}</button>
-                            <span class="text-xs tabular-nums" aria-live="polite">{$_('garden.photo_count', { default: 'Photo {index} of {count}', values: { index: index + 1, count: group.length } })}</span>
-                            <button type="button" class="btn btn-secondary min-h-11 whitespace-normal px-3 py-2" disabled={saving || index + 1 >= group.length} onclick={() => select(group[index + 1])}>{$_('garden.next_photo', { default: 'Next photo' })}</button>
-                        </div>
+                <div class="relative flex shrink-0 flex-col gap-3 bg-slate-950 px-5 pb-5 pt-4">
+                    <!-- On a phone the rail's title sits right under the picture, so this would say it twice. -->
+                    <div class="hidden sm:block">
+                        <h2 id="garden-capture-title" class="truncate text-xl font-bold leading-tight text-white drop-shadow-lg">{title}</h2>
+                        <p class="mt-2 text-3xs font-semibold text-white/50">{formatDateTime(capture.observed_at)} &middot; {capture.camera}</p>
                     </div>
-                {/if}
-                <p class="mt-3 break-words text-sm text-slate-700 dark:text-slate-300">
-                    {capture.source_kind === 'motion'
-                        ? $_('garden.motion_source', { default: 'Candidate from retained motion footage' })
-                        : $_('garden.frigate_suggested', { default: 'Frigate suggested: {label}', values: { label: capture.frigate_label } })}
-                </p>
-                {#if outline?.kind === 'presence'}
-                    <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.presence_box', { default: 'Box: MegaDetector Cedar candidate. Check the photo before confirming.' })}</p>
-                {:else if outline?.kind === 'identification'}
-                    <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.explorer.identification_box', { default: 'Box: the crop the species model read.' })}</p>
-                {/if}
+                    {#if group.length > 1}
+                        <div class="space-y-2" data-garden-capture-group>
+                            <p class="text-sm font-semibold text-white">
+                                {groupKind === 'position'
+                                    ? $_('garden.group_count', { default: '{count} photos around the same position', values: { count: group.length } })
+                                    : $_('garden.explorer.visit_heading', { default: '{count} captures in this visit', values: { count: group.length } })}
+                            </p>
+                            <p class="text-xs text-white/70">
+                                {groupKind === 'position'
+                                    ? $_('garden.group_help', { default: 'Position does not identify an animal. This group can contain different visitors.' })
+                                    : $_('garden.explorer.visit_help', { default: 'Same camera and same animal, captures less than a minute apart, as bird visits are grouped. It can still be more than one animal.' })}
+                            </p>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <button type="button" class="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-black/55 px-4 text-2xs font-semibold text-white shadow-xl backdrop-blur-sm transition-colors hover:bg-black/70 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70" disabled={saving || index === 0} onclick={() => select(group[index - 1])}>{$_('garden.previous_photo', { default: 'Previous photo' })}</button>
+                                <span class="text-xs tabular-nums text-white/80" aria-live="polite">{$_('garden.photo_count', { default: 'Photo {index} of {count}', values: { index: index + 1, count: group.length } })}</span>
+                                <button type="button" class="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-black/55 px-4 text-2xs font-semibold text-white shadow-xl backdrop-blur-sm transition-colors hover:bg-black/70 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70" disabled={saving || index + 1 >= group.length} onclick={() => select(group[index + 1])}>{$_('garden.next_photo', { default: 'Next photo' })}</button>
+                            </div>
+                        </div>
+                    {/if}
+                </div>
             </div>
 
-            <div class="min-w-0 space-y-4 p-4" data-garden-capture-rail>
+            <div class="min-w-0 space-y-4 p-5 sm:p-6 lg:overflow-y-auto" data-garden-capture-rail>
+                <div class="pr-12">
+                    <p class="text-3xs font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                        {view.nameState === 'confirmed'
+                            ? $_('detection.identified_by_you', { default: 'Identified by you' })
+                            : view.nameState === 'automatic'
+                              ? $_('detection.identified_as', { default: 'Identified as' })
+                              : view.nameState === 'suggested'
+                                ? $_('garden.explorer.suggested_as', { default: 'Suggested as' })
+                                : $_('garden.explorer.eyebrow_capture', { default: 'Garden capture' })}
+                    </p>
+                    <h3 class="font-display text-2xl font-bold text-slate-900 dark:text-white">{title}</h3>
+                    {#if view.score !== null}
+                        <div class="mt-2 flex flex-wrap items-center gap-2.5" data-garden-capture-score>
+                            <span class="text-sm font-bold tabular-nums text-slate-900 dark:text-white">{Math.round(view.score * 100)}%</span>
+                            <span class="text-xs text-slate-500 dark:text-slate-400">
+                                {$_('detection.fact_species_match', { default: 'Species match' })} &middot;
+                                {view.score >= 0.85
+                                    ? $_('detection.confidence_high', { default: 'confident' })
+                                    : view.score >= 0.6
+                                      ? $_('detection.confidence_mid', { default: 'likely' })
+                                      : $_('detection.confidence_low', { default: 'uncertain' })}
+                            </span>
+                            <span class="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                                <span class="block h-full rounded-full {view.score >= 0.85 ? 'bg-success-500' : view.score >= 0.6 ? 'bg-brand-500' : 'bg-amber-500'}" style="width: {view.score * 100}%"></span>
+                            </span>
+                        </div>
+                    {/if}
+                </div>
+
                 {#if view.review === 'presence'}
                     <p class="flex items-start gap-2 rounded-xl border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-sm font-semibold text-amber-800 dark:text-amber-200" role="status">
                         <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-500" aria-hidden="true"></span>
@@ -343,9 +374,37 @@
                     </p>
                 {/if}
 
+                <!-- The bird record's facts, in its rows: when and where, then what proposed it. -->
+                <dl class="divide-y divide-slate-200/70 border-y border-slate-200/70 text-xs dark:divide-slate-700/50 dark:border-slate-700/50" data-garden-capture-facts>
+                    <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2">
+                        <dt class="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+                            <svg class="h-3.5 w-3.5 shrink-0 text-slate-400 dark:text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8h11v8H4z" /><path stroke-linecap="round" stroke-linejoin="round" d="m15 12 5-3v6l-5-3z" /></svg>
+                            {$_('detection.fact_seen', { default: 'Seen' })}
+                        </dt>
+                        <dd class="min-w-0 max-w-full text-right font-medium text-slate-800 dark:text-slate-100">
+                            <time datetime={capture.observed_at}>{formatDateTime(capture.observed_at)}</time> &middot; {capture.camera}
+                        </dd>
+                    </div>
+                    <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2">
+                        <dt class="text-slate-500 dark:text-slate-400">{$_('garden.explorer.fact_source', { default: 'Proposed by' })}</dt>
+                        <dd class="min-w-0 max-w-full break-words text-right font-medium text-slate-800 dark:text-slate-100">
+                            {capture.source_kind === 'motion'
+                                ? $_('garden.motion_source', { default: 'Candidate from retained motion footage' })
+                                : $_('garden.frigate_suggested', { default: 'Frigate suggested: {label}', values: { label: capture.frigate_label } })}
+                        </dd>
+                    </div>
+                    {#if outline}
+                        <div class="py-2 text-slate-600 dark:text-slate-400">
+                            {outline.kind === 'presence'
+                                ? $_('garden.presence_box', { default: 'Box: MegaDetector Cedar candidate. Check the photo before confirming.' })
+                                : $_('garden.explorer.identification_box', { default: 'Box: the crop the species model read.' })}
+                        </div>
+                    {/if}
+                </dl>
+
                 {#if capture.identification && capture.identification.review !== 'dismissed'}
-                    <section class="space-y-1 border-t border-line-soft pt-3 text-sm" data-garden-capture-identification>
-                        <p class="font-semibold">{$_('garden.explorer.species_heading', { default: 'Species' })}</p>
+                    <section class="space-y-1 text-sm" data-garden-capture-identification>
+                        <p class="text-3xs font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('garden.explorer.species_heading', { default: 'Species' })}</p>
                         {#if capture.identification.outcome === 'suggestion'}
                             <p class="text-xs text-slate-600 dark:text-slate-400">
                                 {capture.identification.review === 'accepted'
@@ -355,7 +414,6 @@
                                     : $_('garden.identification_needs_review', { default: 'Suggested identification · Needs your review' })}
                             </p>
                             {#if capture.identification.rank !== 'species'}<p class="text-xs">{$_('garden.group_only', { default: 'Animal group only; species is unresolved.' })}</p>{/if}
-                            <p class="text-xs">{$_('garden.model_score', { default: 'Model score: {score}%', values: { score: ((capture.identification.score ?? 0) * 100).toFixed(1) } })}</p>
                         {:else}
                             <p>{$_('garden.identification_unknown', { default: 'No reliable identification. Leave this animal unidentified or try another model.' })}</p>
                         {/if}

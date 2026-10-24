@@ -137,7 +137,7 @@ test('an automatically named animal says so, and its name and presence can each 
     await openReview(page, 'confirmed');
     await expect(page.locator('[data-garden-card]')).toContainText('Named automatically');
     await openFirst(page);
-    await expect(record(page).getByText('domestic cat', { exact: true })).toBeVisible();
+    await expect(record(page).getByRole('heading', { name: 'domestic cat', level: 3 })).toBeVisible();
     await expect(record(page).getByText('Named automatically. Discard the name if it is wrong.')).toBeVisible();
     await expect(record(page).getByText('Identification confirmed by you')).toHaveCount(0);
     await expect(record(page).locator('[data-garden-automatic-check]')).toContainText('Confident animal. Confirmed and named automatically');
@@ -162,7 +162,7 @@ for (const size of [[640, 1000], [1280, 720], [1600, 400]]) {
             await expect(record(page).locator('[data-garden-capture-box] rect').last()).toBeVisible();
             // Measured together: a late font load can move the record between two browser calls.
             const { image, outline } = await record(page).evaluate(node => {
-                const picture = node.querySelector('img');
+                const picture = node.querySelector('[data-garden-capture-photo]');
                 const box = node.querySelector('[data-garden-capture-box] rect:last-child');
                 if (!picture || !box) throw new Error('Expected a decoded photo and detector proposal');
                 return { image: picture.getBoundingClientRect().toJSON(), outline: box.getBoundingClientRect().toJSON() };
@@ -360,7 +360,7 @@ test('tracked crop outline stays on the photographed pixels with letterboxing', 
     for (const width of [320, 1280]) {
         await page.setViewportSize({ width, height: 900 });
         await expect(record(page).locator('[data-garden-capture-box] rect').last()).toBeVisible();
-        const image = await record(page).locator('img').boundingBox();
+        const image = await record(page).locator('[data-garden-capture-photo]').boundingBox();
         const outline = await record(page).locator('[data-garden-capture-box] rect').last().boundingBox();
         if (!image || !outline) throw new Error('Expected the photo and its input outline');
         const scale = Math.min(image.width / 640, image.height / 1000);
@@ -400,7 +400,7 @@ test('feeder box extent changes keep photos together with their original boxes',
     await expect(page.locator('[data-garden-card-group]')).toHaveText('4 photos, same position');
     await openFirst(page);
     for (let index = 0; index < captures.length; index++) {
-        await expect(record(page).locator('img')).toHaveAttribute('src', new RegExp(`${captures[index].id}/snapshot`));
+        await expect(record(page).locator('[data-garden-capture-photo]')).toHaveAttribute('src', new RegExp(`${captures[index].id}/snapshot`));
         await expect(record(page).locator('[data-garden-capture-box] rect').last()).toHaveAttribute('width', String(boxes[index][2] * 1280));
         await expect(record(page).getByText(`Photo ${index + 1} of 4`, { exact: true })).toBeVisible();
         if (index + 1 < captures.length) await record(page).getByRole('button', { name: 'Next photo', exact: true }).click();
@@ -430,7 +430,7 @@ test('109 repeated proposals become two position groups with exact photo review 
     await expect(record(page).getByText('108 photos around the same position')).toBeVisible();
     await expect(record(page).getByText('Position does not identify an animal. This group can contain different visitors.')).toBeVisible();
     await record(page).getByRole('button', { name: 'Next photo', exact: true }).click();
-    await expect(record(page).locator('img')).toHaveAttribute('src', /00000000000000000000000000000001\/snapshot/);
+    await expect(record(page).locator('[data-garden-capture-photo]')).toHaveAttribute('src', /00000000000000000000000000000001\/snapshot/);
     await expect(record(page).getByRole('button', { name: 'Confirm animal present' })).toBeEnabled();
     await fitsNarrowScreen(page);
     await record(page).getByRole('button', { name: 'Dismiss remaining 108 photos', exact: true }).click();
@@ -478,9 +478,9 @@ for (const concurrentReview of [false, true]) {
             await openFirst(page);
             await expect(record(page).getByRole('button', { name: 'Dismiss remaining 80 photos', exact: true })).toBeVisible();
             if (keptIndex > 0) await record(page).getByRole('button', { name: 'Next photo', exact: true }).click();
-            await expect(record(page).locator('img')).toHaveAttribute('src', new RegExp(`${animalId}/snapshot`));
+            await expect(record(page).locator('[data-garden-capture-photo]')).toHaveAttribute('src', new RegExp(`${animalId}/snapshot`));
             await record(page).getByRole('button', { name: 'Confirm animal present', exact: true }).click();
-            await expect(record(page).locator('img')).toHaveAttribute('src', new RegExp(`${captures[keptIndex + 1].id}/snapshot`));
+            await expect(record(page).locator('[data-garden-capture-photo]')).toHaveAttribute('src', new RegExp(`${captures[keptIndex + 1].id}/snapshot`));
             await expect(record(page).getByText(`Photo ${keptIndex + 1} of 79`, { exact: true })).toBeVisible();
             await record(page).getByRole('button', { name: 'Dismiss remaining 79 photos', exact: true }).click();
             await expect(toasts(page)).toContainText(`${concurrentReview ? 78 : 79} photos dismissed.`);
@@ -498,8 +498,15 @@ for (const concurrentReview of [false, true]) {
             if (concurrentReview) expect(writes[1].ids).not.toContain(concurrentId);
             expect(states.get(animalId)).toBe('confirmed');
             await chooseReview(page, 'confirmed');
-            await expect(page.locator('[data-garden-card]')).toHaveCount(concurrentReview ? 2 : 1);
-            await expect(page.locator(`[data-garden-card] img[src*="/${animalId}/snapshot"]`)).toBeVisible();
+            // Two confirmed animals on one camera at the same moment are one visit, as birds are.
+            await expect(page.locator('[data-garden-card]')).toHaveCount(1);
+            if (concurrentReview) await expect(page.locator('[data-garden-card-group]')).toHaveText('2 captures in this visit');
+            await openFirst(page);
+            const photos = record(page).locator('[data-garden-capture-photo]');
+            if (concurrentReview && !(await photos.getAttribute('src'))?.includes(animalId)) {
+                await record(page).getByRole('button', { name: 'Next photo', exact: true }).click();
+            }
+            await expect(photos).toHaveAttribute('src', new RegExp(`${animalId}/snapshot`));
         });
     }
 }
@@ -535,7 +542,7 @@ for (const action of ['confirm', 'dismiss'] as const) {
         await record(page).getByRole('button', { name: action === 'confirm' ? 'Confirm animal present' : 'Dismiss capture', exact: true }).click();
         await expect(toasts(page)).toContainText(action === 'confirm' ? 'Photo confirmed.' : 'Capture dismissed.');
         await expect(toasts(page)).toContainText('Other photos in this group still need review.');
-        await expect(record(page).locator('img')).toHaveAttribute('src', new RegExp(`${row.id}/snapshot`));
+        await expect(record(page).locator('[data-garden-capture-photo]')).toHaveAttribute('src', new RegExp(`${row.id}/snapshot`));
         await expect(page.locator('[data-explorer-count]')).toContainText('1 Garden capture');
         expect(writes).toEqual([second]);
         await fitsNarrowScreen(page);
@@ -576,4 +583,25 @@ test('an old Garden page link with the beta off says so instead of silently show
     await page.goto('/browser-tests/owner-history.html?surface=explorer&garden=0&visitors=garden&review=pending');
     await expect(page.locator('[data-garden-beta-off]')).toBeVisible();
     await expect(page.locator('[data-explorer-visitors-facet]')).toHaveCount(0);
+});
+
+test("one animal's repeated captures are one Explorer entry, as a bird's visit is", async ({ page }) => {
+    const named = { outcome: 'suggestion', reason: 'garden', review: 'accepted', automatic: true, name: 'Red fox', rank: 'species', score: 0.93, country: 'GBR', variant: '4.0.3a', provider: 'cpu', devices: ['CPU'], output_index: 1, input_kind: 'whole_image', frame_size: [1280, 720], identified_at: '2026-10-24T07:00:00Z' };
+    // Twenty captures ten seconds apart, then the fox returns after five quiet minutes.
+    const stay = Array.from({ length: 20 }, (_, index) => ({ ...row, id: `f${index}`.padEnd(32, '0'), status: 'confirmed', identification: named,
+        observed_at: new Date(Date.UTC(2026, 9, 24, 7, 10, 0) - index * 10_000).toISOString(), snapshot_url: `/api/garden/f${index}/snapshot` }));
+    const later = { ...stay[0], id: 'g'.repeat(32), observed_at: '2026-10-24T07:15:30.000Z', snapshot_url: '/api/garden/g/snapshot' };
+    await mockGarden(page, { items: requested => (requested === 'confirmed' ? [later, ...stay] : []) });
+    await openReview(page, 'confirmed');
+    await expect(page.locator('[data-garden-card]')).toHaveCount(2);
+    await expect(page.locator('[data-explorer-count]')).toContainText('21 Garden captures');
+    const visit = page.locator('[data-garden-card]').filter({ has: page.locator('[data-garden-card-group]') });
+    await expect(visit.locator('[data-garden-card-group]')).toHaveText('20 captures in this visit');
+    await visit.getByRole('button', { name: /^Open Garden capture/ }).click();
+    await expect(record(page).getByText('20 captures in this visit')).toBeVisible();
+    await expect(record(page).getByText('Photo 1 of 20', { exact: true })).toBeVisible();
+    await record(page).getByRole('button', { name: 'Next photo', exact: true }).click();
+    await expect(record(page).getByText('Photo 2 of 20', { exact: true })).toBeVisible();
+    // Confirmed animals have nothing left to dismiss as a stack.
+    await expect(record(page).getByRole('button', { name: /^Dismiss remaining/ })).toHaveCount(0);
 });
