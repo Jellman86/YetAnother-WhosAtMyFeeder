@@ -9,11 +9,16 @@
     import GardenExplorerMarker from './GardenExplorerMarker.svelte';
     import type { GardenCapture } from '../api/garden';
     import { withAuthParams } from '../api/core';
-    import { gardenEntryText, gardenEntryView } from '../utils/garden-explorer';
+    import { gardenEntryText, gardenEntryView, gardenVisitLabel, type GardenVisit } from '../utils/garden-explorer';
     import { formatDate, formatTime } from '../utils/datetime';
     import { relativeDayLabel } from '../utils/day-label';
 
-    let { capture, onopen }: { capture: GardenCapture; onopen: (capture: GardenCapture) => void } = $props();
+    let { capture, visit, onopen }: {
+        capture: GardenCapture;
+        /** The stay or position stack this capture leads, opened together. */
+        visit?: GardenVisit;
+        onopen: (capture: GardenCapture) => void;
+    } = $props();
 
     let failedUrl = $state<string | null>(null);
     let loadedUrl = $state<string | null>(null);
@@ -22,10 +27,13 @@
     const photo = $derived(capture.snapshot_url ? withAuthParams(capture.snapshot_url) : null);
     const score = $derived(view.score === null ? null : Math.round(view.score * 100));
     const day = $derived(relativeDayLabel(capture.observed_at, $_) || formatDate(capture.observed_at));
+    const grouped = $derived(gardenVisitLabel(visit, (key, fallback, values) => get(_)(key, { values, default: fallback })));
+    // The bird card's score dot bands, with confirmed in the success scale (layout-patterns 1.3).
+    const scoreDot = $derived((view.score ?? 0) >= 0.9 ? 'bg-success-500' : (view.score ?? 0) >= 0.7 ? 'bg-amber-500' : 'bg-red-500');
 </script>
 
 <article
-    class="group relative flex h-full flex-col overflow-hidden rounded-2xl border bg-white/90 shadow-sm transition-[border-color,box-shadow] duration-200 hover:border-brand-500/40 hover:shadow-md dark:bg-slate-800/75
+    class="group relative flex h-full flex-col overflow-hidden rounded-2xl border bg-white/90 shadow-sm transition-[border-color,box-shadow] duration-200 ease-out animate-entrance hover:border-brand-500/40 hover:shadow-md dark:bg-slate-800/75
            {view.review ? 'border-amber-500/60' : 'border-slate-200/80 dark:border-slate-700/60'}"
     data-garden-card={capture.status}
 >
@@ -41,7 +49,7 @@
                 src={photo}
                 alt={$_('garden.photo_alt', { default: 'Animal capture from {camera}', values: { camera: capture.camera } })}
                 loading="lazy"
-                class="h-full w-full object-cover transition-opacity duration-300 motion-reduce:transition-none {loadedUrl === photo ? 'opacity-100' : 'opacity-0'}"
+                class="h-full w-full object-cover transition-[opacity,transform] duration-300 ease-out group-hover:scale-[1.025] motion-reduce:transition-none motion-reduce:group-hover:scale-100 {loadedUrl === photo ? 'opacity-100' : 'opacity-0'}"
                 onload={() => (loadedUrl = photo)}
                 onerror={() => (failedUrl = photo)}
             />
@@ -53,13 +61,23 @@
                     : $_('garden.snapshot_unavailable', { default: 'Snapshot unavailable' })}
             </p>
         {/if}
-        <div class="absolute left-3 top-3"><GardenExplorerMarker overlay /></div>
+        <div class="absolute left-3 top-3 flex flex-wrap items-center gap-1.5">
+            <GardenExplorerMarker overlay />
+            {#if grouped}
+                <!-- Several photos open from this one card, as a bird visit's captures do. -->
+                <span class="inline-flex items-center rounded-full border border-white/10 bg-black/60 px-2 py-0.5 text-2xs font-bold text-white backdrop-blur-md" data-garden-card-group>
+                    {grouped}
+                </span>
+            {/if}
+        </div>
         <div class="absolute bottom-3 left-3 flex flex-nowrap items-center gap-2">
-            <time class="flex min-h-11 items-center rounded-full border border-white/10 bg-black/60 px-3 py-2 text-xs font-bold text-white backdrop-blur-md" datetime={capture.observed_at}>
+            <time class="flex min-h-11 items-center gap-1.5 rounded-full border border-white/10 bg-black/60 px-3 py-2 text-xs font-bold text-white backdrop-blur-md" datetime={capture.observed_at}>
+                <svg class="h-3 w-3 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 {formatTime(capture.observed_at)}
             </time>
             {#if score !== null}
-                <span class="flex min-h-11 items-center rounded-full border border-white/10 bg-black/60 px-3 py-2 text-xs font-bold text-white backdrop-blur-md">
+                <span class="flex min-h-11 items-center gap-1.5 rounded-full border border-white/10 bg-black/60 px-3 py-2 text-xs font-bold text-white backdrop-blur-md">
+                    <span class="h-2 w-2 rounded-full {scoreDot}" aria-hidden="true"></span>
                     {score}%<span class="sr-only">{$_('garden.explorer.score_hint', { values: { score }, default: 'Species model score {score}%' })}</span>
                 </span>
             {/if}

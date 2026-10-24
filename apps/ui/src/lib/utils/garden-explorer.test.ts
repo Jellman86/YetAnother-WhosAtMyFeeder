@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { GardenCapture } from '../api/garden';
 import type { DetectionVisit } from '../api/visits';
-import { gardenBlocker, gardenEntryText, gardenEntryView, gardenWindow, placeGardenCaptures, type GardenFilterState } from './garden-explorer';
+import { gardenBelongs, gardenBlocker, gardenEntryText, groupGardenVisits, gardenEntryView, gardenWindow, placeGardenCaptures, type GardenFilterState } from './garden-explorer';
 
 function capture(overrides: Partial<GardenCapture> = {}): GardenCapture {
     return {
@@ -168,5 +168,67 @@ describe('gardenEntryText', () => {
         expect(gardenEntryText(suggested, gardenEntryView(suggested), t)).toEqual({ title: 'Red fox', state: 'Needs review: suggested species' });
         const unnamed = capture({ status: 'confirmed' });
         expect(gardenEntryText(unnamed, gardenEntryView(unnamed), t)).toEqual({ title: 'Animal, not named', state: 'Animal confirmed, species not named' });
+    });
+});
+
+describe('dismissed captures', () => {
+    const t = (_key: string, fallback: string) => fallback;
+
+    it('read as dismissed, never as a confirmed or unnamed animal, and ask nothing of a person', () => {
+        const dismissed = capture({ status: 'dismissed' });
+        expect(gardenEntryView(dismissed).review).toBeNull();
+        expect(gardenEntryText(dismissed, gardenEntryView(dismissed), t))
+            .toEqual({ title: 'Dismissed capture', state: 'Dismissed, not counted as an animal' });
+    });
+});
+
+describe('gardenBelongs', () => {
+    it('keeps a reviewed capture only in the views that still describe it', () => {
+        const confirmed = capture({ status: 'confirmed' });
+        const dismissed = capture({ status: 'dismissed' });
+        expect(gardenBelongs(confirmed, 'reviewable')).toBe(true);
+        expect(gardenBelongs(dismissed, 'reviewable')).toBe(false);
+        expect(gardenBelongs(confirmed, 'pending')).toBe(false);
+        expect(gardenBelongs(dismissed, 'dismissed')).toBe(true);
+        expect(gardenBelongs(capture(), 'dismissed')).toBe(false);
+    });
+});
+
+describe('groupGardenVisits', () => {
+    const at = (seconds: number) => new Date(Date.UTC(2026, 9, 24, 7, 0, seconds)).toISOString();
+    const fox = (id: string, seconds: number, extra: Partial<GardenCapture> = {}) =>
+        capture({ id, observed_at: at(seconds), status: 'confirmed', identification: named('accepted', true), ...extra });
+    const ids = (visits: ReturnType<typeof groupGardenVisits>) => visits.map((visit) => visit.items.map((item) => item.id));
+
+    it("folds one animal's captures on one camera less than a minute apart into one visit, as birds are", () => {
+        const visits = groupGardenVisits([fox('c', 100), fox('b', 50), fox('a', 0)]);
+        expect(ids(visits)).toEqual([['c', 'b', 'a']]);
+        expect(visits[0].kind).toBe('visit');
+    });
+
+    it('starts a new visit after a minute without a capture, on another camera, or for another animal', () => {
+        const badger = { ...named('accepted', true), name: 'Badger' } as Identification;
+        const visits = groupGardenVisits([
+            fox('late', 200),
+            fox('lawn', 15, { camera: 'lawn' }),
+            fox('badger', 12, { identification: badger }),
+            fox('b', 10),
+            fox('a', 0)
+        ]);
+        expect(ids(visits)).toEqual([['late'], ['lawn'], ['badger'], ['b', 'a']]);
+    });
+
+    it('never merges unconfirmed motion proposals by time, so an animal is not buried in a feeder stack', () => {
+        const box = { camera: 'patio', clip_start: 1, clip_end: 9, frame_index: 1, frame_offset: 1, clip_sha256: 'a'.repeat(64), image_sha256: 'b'.repeat(64), detector_sha256: 'c'.repeat(64), detector_score: 0.8 };
+        const feeder = (id: string, seconds: number) => capture({ id, observed_at: at(seconds), source_kind: 'motion', motion_source: { ...box, box_xywh: [0.1, 0.1, 0.1, 0.1] } } as Partial<GardenCapture>);
+        const animal = capture({ id: 'cat', observed_at: at(5), source_kind: 'motion', motion_source: { ...box, box_xywh: [0.6, 0.5, 0.2, 0.2] } } as Partial<GardenCapture>);
+        const visits = groupGardenVisits([feeder('f2', 10), animal, feeder('f1', 0)]);
+        expect(ids(visits)).toEqual([['f2', 'f1'], ['cat']]);
+        expect(visits[0].kind).toBe('position');
+    });
+
+    it('keeps unconfirmed Frigate events and confirmed animals apart, and keeps the order it was given', () => {
+        const visits = groupGardenVisits([capture({ id: 'p', observed_at: at(20) }), fox('f', 10), capture({ id: 'q', observed_at: at(0) })]);
+        expect(ids(visits)).toEqual([['p', 'q'], ['f']]);
     });
 });

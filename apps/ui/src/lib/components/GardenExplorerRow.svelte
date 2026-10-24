@@ -9,17 +9,23 @@
     import GardenExplorerMarker from './GardenExplorerMarker.svelte';
     import type { GardenCapture } from '../api/garden';
     import { withAuthParams } from '../api/core';
-    import { gardenEntryText, gardenEntryView } from '../utils/garden-explorer';
+    import { gardenEntryText, gardenEntryView, gardenVisitLabel, type GardenVisit } from '../utils/garden-explorer';
     import { formatTime } from '../utils/datetime';
     import { relativeDayLabel } from '../utils/day-label';
 
-    let { capture, onopen }: { capture: GardenCapture; onopen: (capture: GardenCapture) => void } = $props();
+    let { capture, visit, onopen }: {
+        capture: GardenCapture;
+        /** The stay or position stack this capture leads, opened together. */
+        visit?: GardenVisit;
+        onopen: (capture: GardenCapture) => void;
+    } = $props();
 
     let failedUrl = $state<string | null>(null);
     const view = $derived(gardenEntryView(capture));
     const text = $derived(gardenEntryText(capture, view, (key, fallback, values) => get(_)(key, { values, default: fallback })));
     const photo = $derived(capture.snapshot_url ? withAuthParams(capture.snapshot_url) : null);
     const day = $derived(relativeDayLabel(capture.observed_at, $_));
+    const grouped = $derived(gardenVisitLabel(visit, (key, fallback, values) => get(_)(key, { values, default: fallback })));
     const score = $derived(view.score === null ? null : Math.round(view.score * 100));
     const scoreTone = $derived(
         (view.score ?? 0) < 0.6
@@ -63,12 +69,14 @@
     </div>
 
     <div class="pointer-events-none relative z-10 min-w-0 py-2">
+        <!-- The name starts where a bird's does, so the column scans as one; the marker leads the line beneath. -->
         <div class="flex min-w-0 items-center gap-1.5">
-            <GardenExplorerMarker />
             <span class="truncate text-sm font-bold text-slate-900 dark:text-white">{text.title}</span>
         </div>
         <div class="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap text-2xs font-semibold text-slate-500 dark:text-slate-400">
+            <GardenExplorerMarker compact />
             <span class="shrink-0 {view.review ? 'text-amber-800 dark:text-amber-300' : ''}">{text.state}</span>
+            {#if grouped}<span class="shrink-0">{grouped}</span>{/if}
             <span class="min-w-0 truncate">{capture.camera}</span>
         </div>
     </div>

@@ -26714,7 +26714,7 @@
     },
     "/api/garden/timeline": {
       "get": {
-        "description": "Confirmed animals and captures awaiting review, by time, for the Explorer to place beside visits.",
+        "description": "Captures by time for the Explorer: confirmed and awaiting review unless one review state is asked for.",
         "operationId": "capture_timeline_api_garden_timeline_get",
         "parameters": [
           {
@@ -26779,6 +26779,22 @@
                 "oldest"
               ],
               "title": "Order",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "default": "reviewable",
+              "enum": [
+                "reviewable",
+                "pending",
+                "confirmed",
+                "dismissed"
+              ],
+              "title": "Status",
               "type": "string"
             }
           },

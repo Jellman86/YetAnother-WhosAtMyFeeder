@@ -21,6 +21,8 @@ MOTION_PHOTO_BYTES = 512 * 1024
 
 
 GardenStatus = Literal["pending", "confirmed", "dismissed"]
+# What the Explorer can ask for: its default view of animals, or one review state.
+GardenTimelineStatus = Literal["reviewable", "pending", "confirmed", "dismissed"]
 
 
 class GardenPhotoUnavailable(ValueError):
@@ -134,10 +136,18 @@ class GardenRepository:
         return int(row[0]) if row else 0
 
     def _timeline_filter(
-        self, start: datetime | None, end: datetime | None, camera: str | None
+        self, start: datetime | None, end: datetime | None, camera: str | None, status: GardenTimelineStatus
     ) -> tuple[str, list[str]]:
-        # A dismissed capture is not an animal, and a pending one without a photo cannot be reviewed.
-        clauses = [f"(status = 'confirmed' OR (status = 'pending' AND ({self._PHOTO_AVAILABLE})))"]
+        # A pending capture without a photo cannot be reviewed, as on the review list.
+        reviewable_pending = f"(status = 'pending' AND ({self._PHOTO_AVAILABLE}))"
+        clauses = [
+            {
+                "reviewable": f"(status = 'confirmed' OR {reviewable_pending})",
+                "pending": reviewable_pending,
+                "confirmed": "status = 'confirmed'",
+                "dismissed": "status = 'dismissed'",
+            }[status]
+        ]
         values: list[str] = []
         if start is not None:
             clauses.append("observed_at >= ?")
@@ -159,9 +169,10 @@ class GardenRepository:
         newest_first: bool,
         limit: int,
         offset: int,
+        status: GardenTimelineStatus = "reviewable",
     ) -> list[GardenCapture]:
-        """Captures the Explorer shows beside birds: confirmed animals and those awaiting review."""
-        where, values = self._timeline_filter(start, end, camera)
+        """Captures the Explorer shows: by default confirmed animals and those awaiting review."""
+        where, values = self._timeline_filter(start, end, camera, status)
         direction = "DESC" if newest_first else "ASC"
         async with self.db.execute(
             f"SELECT {self._COLUMNS} FROM garden_captures WHERE {where} "
@@ -170,8 +181,15 @@ class GardenRepository:
         ) as cursor:
             return [self._capture(row) for row in await cursor.fetchall()]
 
-    async def timeline_count(self, *, start: datetime | None, end: datetime | None, camera: str | None) -> int:
-        where, values = self._timeline_filter(start, end, camera)
+    async def timeline_count(
+        self,
+        *,
+        start: datetime | None,
+        end: datetime | None,
+        camera: str | None,
+        status: GardenTimelineStatus = "reviewable",
+    ) -> int:
+        where, values = self._timeline_filter(start, end, camera, status)
         async with self.db.execute(f"SELECT COUNT(*) FROM garden_captures WHERE {where}", values) as cursor:
             row = await cursor.fetchone()
         return int(row[0]) if row else 0

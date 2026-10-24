@@ -5,8 +5,8 @@
     let { assessment, overridden = false, named = false }: { assessment: NonNullable<GardenCapture['automatic_check']>; overridden?: boolean; named?: boolean } = $props();
 </script>
 
-<div class="space-y-1 border-t border-line-soft pt-3 text-sm" data-garden-automatic-check>
-    <p class="font-semibold">{$_('garden.automatic_check', { default: 'Automatic SpeciesNet check' })}</p>
+<div class="space-y-1 text-sm" data-garden-automatic-check>
+    <p class="text-3xs font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('garden.automatic_check', { default: 'Automatic SpeciesNet check' })}</p>
     {#if overridden}
         <p>{$_('garden.automatic_overridden', { default: 'Your review overrides this automatic result. This capture will not be checked again automatically.' })}</p>
     {:else if assessment.outcome === 'bird'}

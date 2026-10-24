@@ -88,7 +88,10 @@ test('Garden captures sit between the visits they fell between, marked Garden in
 
 test('Garden on its own lists only captures, and its record confirms an animal without bird actions', async ({ page }) => {
     const { errors, confirmed } = await openExplorer(page, '&garden=1');
-    await page.locator('[data-explorer-subjects-option="garden"]').click();
+    const option = page.locator('[data-explorer-subjects-option="garden"]');
+    // On a phone the filter rail opens from the Filters button.
+    if (!(await option.isVisible())) await page.locator('[data-explorer-filter-toggle]').click();
+    await option.click();
     await expect(page.locator('[data-explorer-visit]')).toHaveCount(0);
     await expect(page.locator('[data-explorer-count]')).toContainText('2 Garden captures');
 
@@ -109,7 +112,7 @@ test('Garden on its own lists only captures, and its record confirms an animal w
 
 test('without the Garden beta the Explorer shows birds and asks for nothing about Garden', async ({ page }) => {
     const { timelineQueries } = await openExplorer(page);
-    await expect(page.locator('[data-explorer-subjects]')).toHaveCount(0);
+    await expect(page.locator('[data-explorer-visitors-facet]')).toHaveCount(0);
     await expect(page.locator('[data-garden-card]')).toHaveCount(0);
     expect(timelineQueries).toEqual([]);
 });

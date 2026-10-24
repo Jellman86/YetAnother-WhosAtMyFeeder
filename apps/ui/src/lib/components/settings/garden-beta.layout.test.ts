@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import appSource from '../../../App.svelte?raw';
 import sidebarSource from '../Sidebar.svelte?raw';
 import settingsSource from '../../pages/Settings.svelte?raw';
+import eventsSource from '../../pages/Events.svelte?raw';
 import tabsSource from './SettingsTabs.svelte?raw';
 import connectionSource from './ConnectionSettings.svelte?raw';
 import gardenBetaSource from './GardenBetaSettings.svelte?raw';
@@ -19,14 +20,16 @@ describe('Garden animals is a beta feature', () => {
         expect(settingsSource).toContain("store: s.beta_garden_animals ?? false");
     });
 
-    it('hides the Garden navigation item until the beta is on', () => {
-        expect(sidebarSource).toContain("settingsStore.settings?.beta_garden_animals === true");
-        expect(sidebarSource).toContain("item.path !== '/garden' || gardenEnabled");
+    it('has no separate Garden page: old links open Garden review in the Explorer', () => {
+        expect(sidebarSource).not.toContain("'/garden'");
+        expect(appSource).not.toContain('pages/Garden.svelte');
+        expect(appSource).toContain("const GARDEN_REVIEW_ROUTE = '/events?visitors=garden&review=pending';");
+        expect(appSource).toContain("if (path === '/garden' || path.startsWith('/garden/'))");
     });
 
-    it('explains a switched-off Garden instead of loading a page that cannot load', () => {
-        expect(appSource).toContain('data-garden-beta-off');
-        expect(appSource).toContain("navigate('/settings/beta')");
+    it('explains a switched-off Garden in the Explorer instead of silently showing birds', () => {
+        expect(eventsSource).toContain('data-garden-beta-off');
+        expect(eventsSource).toContain("toAppPath('/settings/beta')");
     });
 
     it('keeps every Garden setting with its switch, hidden until the beta is on', () => {
@@ -48,7 +51,7 @@ describe('Garden animals is a beta feature', () => {
     it('leaves Garden controls out of Detection and links daily review instead of duplicating it', () => {
         expect(detectionSource).not.toMatch(/garden/i);
         expect(gardenBetaSource).not.toContain('fetchGarden(');
-        expect(gardenBetaSource).toContain("onNavigate?.('/garden')");
+        expect(gardenBetaSource).toContain("onNavigate?.('/events?visitors=garden&review=pending')");
     });
 
     it('says what turning it off does to saved captures', () => {

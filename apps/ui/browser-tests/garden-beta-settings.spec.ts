@@ -322,14 +322,15 @@ test('without a country, the view says naming and suggestions wait for one', asy
     await expect(page.locator('[data-garden-country]')).toContainText('Set a country in Settings → Location.');
 });
 
-test('the view explains each capture outcome and links daily review to the Garden page', async ({ page }) => {
+test('the view explains each capture outcome and links daily review to the Explorer', async ({ page }) => {
     await openSettings(page);
     await openBeta(page);
     const outcomes = page.locator('[data-garden-outcomes]');
     await expect(outcomes.getByRole('term')).toHaveText(['Needs review', 'Confirmed animals', 'Dismissed']);
     await expect(outcomes).toContainText('only a bird, nothing or a vehicle');
     await expect(outcomes).toContainText('person evidence is removed');
-    await expect(page.getByRole('button', { name: 'Open Garden animals' })).toBeVisible();
+    await page.getByRole('button', { name: 'Review Garden visitors' }).click();
+    await expect(page.locator('main[data-fixture-route]')).toHaveAttribute('data-fixture-route', '/events?visitors=garden&review=pending');
 });
 
 test('a model downloads from the keyboard', async ({ page }) => {
@@ -365,3 +366,43 @@ for (const width of [320, 393]) {
         expect(download && download.x >= 0 && download.x + download.width <= width).toBe(true);
     });
 }
+
+// Collection status moved here from the retired Garden page: what Garden is doing, as measured.
+test('collection status shows the collector state, its limits and bounded catch-up on a narrow screen', async ({ page }) => {
+    await openSettings(page, {}, ['patio', 'front'], (route, path) => path === '/api/garden/motion'
+        ? route.fulfill({ json: {
+            ...motionStatus, cameras: ['patio'], installed: true, state: 'waiting', message: 'Waiting for bird inference to become idle.',
+            interval_seconds: 10, catchup_seconds: 1800, queue_limit: 24, photo_limit: 128, photo_retention_days: 3,
+            queued_windows: 24, queue_camera: 'patio', queue_checked_at: '2026-10-13T18:00:00Z', last_scan_at: '2026-10-13T18:01:00Z'
+        } })
+        : undefined);
+    await openBeta(page);
+    const status = page.locator('[data-garden-collection-status]');
+    await expect(status.locator('[data-garden-motion-status]')).toHaveText('Waiting for bird inference to become idle.');
+    await expect(status).toContainText('No automatic check is due.');
+    await expect(status.getByText('CPU only · At least 10s between scans · Up to 128 photos · 3-day photo retention')).toBeVisible();
+    await expect(status.getByText('Up to 24 short windows queued per camera from the last 30 minutes. Birds and camera pressure pause collection; brief visits can be missed.')).toBeVisible();
+    await expect(status.getByText(/patio: 24 windows waiting when checked at/)).toBeVisible();
+    await expect(status.getByText(/Last scan:/)).toBeVisible();
+    await page.setViewportSize({ width: 320, height: 900 });
+    await page.evaluate(() => document.documentElement.style.fontSize = '200%');
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+for (const seconds of [5, 10]) {
+    test(`collection status shows the selected ${seconds}-second scan interval`, async ({ page }) => {
+        await openSettings(page, {}, ['patio', 'front'], (route, path) => path === '/api/garden/motion'
+            ? route.fulfill({ json: { ...motionStatus, cameras: ['patio'], installed: true, state: 'waiting', interval_seconds: seconds, photo_limit: 128, photo_retention_days: 3, message: 'Recording scanned; no review photo retained.' } })
+            : undefined);
+        await openBeta(page);
+        await expect(page.locator('[data-garden-collection-status]').getByText(`CPU only · At least ${seconds}s between scans · Up to 128 photos · 3-day photo retention`)).toBeVisible();
+    });
+}
+
+test('collection status says so when the Garden service cannot report it', async ({ page }) => {
+    await openSettings(page, {}, ['patio', 'front'], (route, path) => path === '/api/garden/motion'
+        ? route.fulfill({ status: 503, json: { detail: 'Garden status unavailable.' } })
+        : undefined);
+    await openBeta(page);
+    await expect(page.locator('[data-garden-collection-status]')).toContainText('Model status unavailable. Refresh to try again.');
+});

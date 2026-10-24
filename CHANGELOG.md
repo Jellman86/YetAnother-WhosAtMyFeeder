@@ -6,10 +6,26 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Garden review moved into the Explorer; the Garden animals page is retired.** A
+  **Visitors** filter at the top of the Explorer's filter rail chooses birds, Garden
+  visitors or both, and under Garden visitors a **Review** filter chooses Needs review,
+  Confirmed animals or Dismissed. Motion proposals around one position open as a single
+  card. Its record steps through the photos one at a time, keeps confirmation per photo,
+  and offers **Dismiss remaining … photos** with Undo. **Return to review**, **Check
+  photo** and a model and device choice for suggestions are in the Garden record.
+  Collection status moved to **Settings → Beta features → Garden models**. Old `/garden`
+  links open the Explorer's Garden review, and say so when Garden is switched off. The
+  timeline endpoint gains `status`. The Explorer's Cards/List switch now wraps instead
+  of running off a 320px screen at the largest text size.
+- Garden captures are grouped into visits in the Explorer, as birds are: one camera, one
+  animal, captures less than a minute apart. Unconfirmed motion proposals keep their
+  position stacks. Garden cards, list rows and the Garden record now follow the bird
+  card, row and record layouts, and a row's name lines up with bird names.
+
 - **Garden animals in the Explorer** (beta, owner only). Confirmed animals and captures
   waiting for review now appear between the bird visits they fell between, in cards and
   in the list, each marked **Garden** in words. A capture that needs you is flagged in
-  amber with its reason. A **Show** control chooses Birds, Garden or All. Opening a
+  amber with its reason. The **Visitors** filter chooses birds, Garden visitors or both. Opening a
   capture shows a Garden record with its photograph and detector box, the automatic
   check, and the presence and species decisions, with no bird-only actions. Garden
   captures stay stored apart, so no bird total, export or notification counts them. New
