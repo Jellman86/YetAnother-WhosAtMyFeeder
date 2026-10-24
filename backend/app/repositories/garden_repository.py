@@ -133,6 +133,49 @@ class GardenRepository:
             row = await cursor.fetchone()
         return int(row[0]) if row else 0
 
+    def _timeline_filter(
+        self, start: datetime | None, end: datetime | None, camera: str | None
+    ) -> tuple[str, list[str]]:
+        # A dismissed capture is not an animal, and a pending one without a photo cannot be reviewed.
+        clauses = [f"(status = 'confirmed' OR (status = 'pending' AND ({self._PHOTO_AVAILABLE})))"]
+        values: list[str] = []
+        if start is not None:
+            clauses.append("observed_at >= ?")
+            values.append(start.astimezone(timezone.utc).replace(tzinfo=None).isoformat())
+        if end is not None:
+            clauses.append("observed_at <= ?")
+            values.append(end.astimezone(timezone.utc).replace(tzinfo=None).isoformat())
+        if camera:
+            clauses.append("camera = ?")
+            values.append(camera)
+        return " AND ".join(clauses), values
+
+    async def timeline(
+        self,
+        *,
+        start: datetime | None,
+        end: datetime | None,
+        camera: str | None,
+        newest_first: bool,
+        limit: int,
+        offset: int,
+    ) -> list[GardenCapture]:
+        """Captures the Explorer shows beside birds: confirmed animals and those awaiting review."""
+        where, values = self._timeline_filter(start, end, camera)
+        direction = "DESC" if newest_first else "ASC"
+        async with self.db.execute(
+            f"SELECT {self._COLUMNS} FROM garden_captures WHERE {where} "
+            f"ORDER BY observed_at {direction}, id {direction} LIMIT ? OFFSET ?",
+            (*values, limit, offset),
+        ) as cursor:
+            return [self._capture(row) for row in await cursor.fetchall()]
+
+    async def timeline_count(self, *, start: datetime | None, end: datetime | None, camera: str | None) -> int:
+        where, values = self._timeline_filter(start, end, camera)
+        async with self.db.execute(f"SELECT COUNT(*) FROM garden_captures WHERE {where}", values) as cursor:
+            row = await cursor.fetchone()
+        return int(row[0]) if row else 0
+
     async def review(self, capture_id: str, status: GardenStatus) -> GardenCapture | None:
         # The write lock checks photo availability against concurrent reclamation.
         updated = await self.db.execute(

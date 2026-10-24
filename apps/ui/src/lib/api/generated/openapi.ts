@@ -3939,6 +3939,22 @@ export interface paths {
       response: components['schemas']['GardenBatchReviewResponse'];
     };
   };
+  "/api/garden/timeline": {
+    get: {
+      operationId: "capture_timeline_api_garden_timeline_get";
+      path: never;
+      query: {
+    camera?: string | null;
+    end?: string | null;
+    limit?: number;
+    offset?: number;
+    order?: "newest" | "oldest";
+    start?: string | null;
+};
+      requestBody: unknown;
+      response: components['schemas']['GardenCapturePage'];
+    };
+  };
   "/api/garden/{capture_id}/check-photo": {
     post: {
       operationId: "check_photo_api_garden__capture_id__check_photo_post";

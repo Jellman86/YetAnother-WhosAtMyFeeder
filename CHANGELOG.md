@@ -6,6 +6,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Garden animals in the Explorer** (beta, owner only). Confirmed animals and captures
+  waiting for review now appear between the bird visits they fell between, in cards and
+  in the list, each marked **Garden** in words. A capture that needs you is flagged in
+  amber with its reason. A **Show** control chooses Birds, Garden or All. Opening a
+  capture shows a Garden record with its photograph and detector box, the automatic
+  check, and the presence and species decisions, with no bird-only actions. Garden
+  captures stay stored apart, so no bird total, export or notification counts them. New
+  owner-only read endpoint: `GET /api/garden/timeline`.
+
 - Automatic Garden checks can use the Detection device preference after a host-bound CPU comparison, with safe CPU fallback and persistent blocking of failed provider profiles.
 
 
