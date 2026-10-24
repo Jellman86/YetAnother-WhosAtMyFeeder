@@ -1239,6 +1239,9 @@ class BirdCropService:
         status["classification_candidate_policy"] = self.get_classification_candidate_crop_policy()
         status["active_providers"] = dict(self._active_providers)
         status["provider_fallbacks"] = dict(self._provider_fallbacks)
+        from app.services.bird_finder_revalidation import bird_finder_revalidation
+
+        status["device_check"] = bird_finder_revalidation.status()
         return status
 
     def run_detector_outputs(self, model: Any, image: Image.Image) -> tuple[list[Any], dict[str, float]]:

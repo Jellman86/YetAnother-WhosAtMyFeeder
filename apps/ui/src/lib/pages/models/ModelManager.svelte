@@ -1,6 +1,6 @@
 <script lang="ts">
     import { get } from 'svelte/store';
-    import { _ } from 'svelte-i18n';
+    import { _, locale } from 'svelte-i18n';
     import { onMount, onDestroy } from 'svelte';
     import { fetchAvailableModels, fetchInstalledModels, downloadModel, fetchDownloadStatus, activateModel, deleteModel, validateModel, checkHealth, getVisibleTieredModelLineup, groupTieredModelLineup, categorizeModel, MODEL_CATEGORY_INFO, type ModelMetadata, type InstalledModel, type DownloadProgress, type ClassifierStatus, type HealthStatus } from '../../api';
     import { jobProgressStore } from '../../stores/job_progress.svelte';
@@ -9,20 +9,24 @@
     import { startModelDownloadProgress, syncModelDownloadProgress } from './model_download_progress';
     import { usesSavedFeederLocation } from './model_location_input';
     import { getRuntimeProviderOrder } from '../../settings/inference-providers';
-    import { BIRD_FINDER_MODEL_IDS, birdFinderDevice, type BirdFinder } from '../../settings/bird-finder';
+    import { BIRD_FINDER_MODEL_IDS, birdFinderDevice, birdFinderDeviceNote, type BirdFinder } from '../../settings/bird-finder';
     import { toAppPath } from '../../app/url-base';
     import DiagnosticDialog from '../../components/DiagnosticDialog.svelte';
     import type { DiagnosticStage, DiagnosticResult } from '../../utils/diagnostic-runner';
     // The live runtime is owned by the Settings page, so the band, the runtime
     // report and this card always show the same, freshest provider.
-    let { executionMode = 'subprocess', autoVideoEnabled = false, birdFinder = $bindable<BirdFinder>('yolox_tiny'), classifierStatus, onruntimechange, onopenlocationsettings }: {
+    let { executionMode = 'subprocess', autoVideoEnabled = false, birdFinder = $bindable<BirdFinder>('yolox_tiny'), classifierStatus, deviceCheckRunning = false, onruntimechange, onopenlocationsettings, oncheckfinderdevices }: {
         executionMode?: string;
         autoVideoEnabled?: boolean;
         /** The finder staged in the settings form; it is saved by Apply Settings with everything else. */
         birdFinder?: BirdFinder;
         classifierStatus: ClassifierStatus | null;
+        /** A device check owned by the Settings page is running, so another cannot start. */
+        deviceCheckRunning?: boolean;
         onruntimechange?: () => Promise<unknown>;
         onopenlocationsettings?: () => void;
+        /** Runs the shared device check for one finder and settles when it finishes. */
+        oncheckfinderdevices?: (modelId: string) => Promise<void>;
     } = $props();
 
     // Switching tabs in place keeps unsaved settings edits; a full page load
@@ -67,6 +71,28 @@
             ? (cropDetectorStatus.chosen_model_id === BIRD_FINDER_MODEL_IDS.rfdetr_nano ? 'rfdetr_nano' : 'yolox_tiny')
             : null
     );
+    const hostProviders = $derived(classifierStatus?.host_available_providers ?? classifierStatus?.available_providers ?? []);
+
+    function deviceList(providers: string[]): string {
+        const names = providers.map(providerLabel);
+        try {
+            return new Intl.ListFormat(get(locale) ?? 'en', { style: 'long', type: 'conjunction' }).format(names);
+        } catch {
+            return names.join(', ');
+        }
+    }
+
+    // The check writes new device evidence, so the finder cards must re-read it.
+    async function checkFinderDevices(modelId: string): Promise<void> {
+        if (!oncheckfinderdevices) return;
+        await oncheckfinderdevices(modelId);
+        try {
+            installedModels = await fetchInstalledModels();
+        } catch {
+            /* the next load shows the result */
+        }
+    }
+
     // Until a worker reports what it loaded, the provider is the plan, not a fact.
     const runtimePlanned = $derived(classifierStatus?.runtime_source === 'planned');
 
@@ -1053,7 +1079,9 @@
                         <div class="grid grid-cols-1 gap-3 *:min-w-0 sm:grid-cols-2">
                             {#each birdFinderOptions as option (option.choice)}
                                 {@const optionInstalled = isCropDetectorInstalled(option.model.id)}
-                                {@const device = birdFinderDevice(getInstalledModel(option.model.id))}
+                                {@const device = birdFinderDevice(getInstalledModel(option.model.id), hostProviders)}
+                                {@const deviceNote = birdFinderDeviceNote(device, cropDetectorStatus?.device_check, option.model.id)}
+                                {@const devices = deviceList(device.accelerators)}
                                 {@const optionChosen = birdFinder === option.choice}
                                 <label class="flex min-h-11 cursor-pointer gap-3 rounded-2xl border p-3 text-sm sm:p-4 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand-500 {optionChosen ? 'model-card-selected border-brand-500 dark:border-brand-400/70' : 'border-slate-200 bg-white/70 hover:border-brand-300 dark:border-slate-700 dark:bg-slate-900/40'}">
                                     <input
@@ -1088,10 +1116,18 @@
                                         <span class="block text-xs font-semibold text-slate-600 dark:text-slate-300">
                                             {#if !optionInstalled}
                                                 {$_('settings.detection.model_manager_detector_missing', { default: 'Download required' })}
-                                            {:else if device.checked}
+                                            {:else if deviceNote === 'checked'}
                                                 {t('settings.detection.bird_finder_device_checked', 'Runs on {provider}, passed the device check on this host', { provider: providerLabel(device.provider) })}
+                                            {:else if deviceNote === 'cpu_only'}
+                                                {$_('settings.detection.bird_finder_device_cpu_only', { default: 'Runs on the CPU. This host has no graphics or NPU device this finder can use.' })}
+                                            {:else if deviceNote === 'check_running'}
+                                                {t('settings.detection.bird_finder_device_check_running', 'Runs on the CPU while YA-WAMF re-checks {devices} on recent bird photos.', { devices })}
+                                            {:else if deviceNote === 'check_failed'}
+                                                {t('settings.detection.bird_finder_device_check_failed', 'Runs on the CPU. {devices} did not match the CPU on recent bird photos.', { devices })}
+                                            {:else if deviceNote === 'check_waiting'}
+                                                {t('settings.detection.bird_finder_device_check_waiting', 'Runs on the CPU. {devices} will be re-checked after a restart once YA-WAMF has saved bird photos.', { devices })}
                                             {:else}
-                                                {$_('settings.detection.bird_finder_device_cpu_unchecked', { default: 'Runs on the CPU. No current device check on this host for this finder.' })}
+                                                {t('settings.detection.bird_finder_device_until_checked', 'Runs on the CPU until {devices} pass a device check on this host.', { devices })}
                                             {/if}
                                         </span>
                                     </span>
@@ -1110,7 +1146,23 @@
                         {#if chosenFinder}
                             {@const chosenInstalled = isCropDetectorInstalled(chosenFinder.model.id)}
                             {@const chosenShortName = chosenFinder.choice === 'rfdetr_nano' ? 'RF-DETR Nano' : 'YOLOX-Tiny'}
+                            {@const chosenDevice = birdFinderDevice(getInstalledModel(chosenFinder.model.id), hostProviders)}
+                            {@const chosenDeviceNote = birdFinderDeviceNote(chosenDevice, cropDetectorStatus?.device_check, chosenFinder.model.id)}
+                            {@const canCheckChosen = chosenInstalled && oncheckfinderdevices !== undefined && ['until_checked', 'check_failed', 'check_waiting'].includes(chosenDeviceNote)}
                             <div class="flex flex-wrap items-center gap-3">
+                                {#if canCheckChosen}
+                                    <button
+                                        type="button"
+                                        onclick={() => checkFinderDevices(chosenFinder.model.id)}
+                                        disabled={deviceCheckRunning}
+                                        aria-describedby="bird-finder-check-hint"
+                                        class="btn btn-secondary min-h-11 px-4"
+                                    >
+                                        {deviceCheckRunning
+                                            ? $_('settings.detection.compat_running', { default: 'Running…' })
+                                            : t('settings.detection.bird_finder_check_devices', 'Check {devices} for {name}', { devices: deviceList(chosenDevice.accelerators), name: chosenShortName })}
+                                    </button>
+                                {/if}
                                 <button
                                     type="button"
                                     onclick={() => handleDownload(chosenFinder.model)}
@@ -1134,6 +1186,11 @@
                                 </div>
                             {:else if chosenFinderDownload?.status === 'error' && chosenFinderDownload.error}
                                 <p class="text-sm font-semibold text-red-700 dark:text-red-300" role="alert">{chosenFinderDownload.error}</p>
+                            {/if}
+                            {#if canCheckChosen}
+                                <p id="bird-finder-check-hint" class="max-w-3xl text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                                    {$_('settings.detection.bird_finder_check_devices_hint', { default: 'Compares this finder on each device with the CPU on bird photos, then uses the fastest one that matches. The identification model is not changed.' })}
+                                </p>
                             {/if}
                         {/if}
                         <p class="max-w-3xl text-xs leading-relaxed text-slate-500 dark:text-slate-400">

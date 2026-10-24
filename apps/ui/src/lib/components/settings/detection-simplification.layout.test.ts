@@ -63,7 +63,7 @@ describe('Detection settings, status first', () => {
             'id="min-confidence-slider"',
             'id="inference-provider"',
             'id="bird-model-region-override"',
-            'onclick={runCompatCheck}',
+            'onclick={() => runCompatCheck()}',
         ]) {
             const at = detectionSettingsSource.indexOf(id);
             expect(at, id).toBeGreaterThan(-1);

@@ -1109,6 +1109,7 @@ async def sweep_crop_model_devices(
     *,
     image_paths: list[str] | None = None,
     discover_providers: bool = False,
+    only_providers: set[str] | None = None,
 ) -> dict[str, Any]:
     """Validate an exact crop detector across CPU/GPU/NPU providers.
 
@@ -1135,6 +1136,8 @@ async def sweep_crop_model_devices(
         model_runtime=str(metadata.get("runtime") or "onnx"),
         discover_providers=discover_providers,
     )
+    if only_providers is not None:
+        candidates = [candidate for candidate in candidates if candidate.provider in only_providers]
     declared_providers = {
         str(provider or "").strip().lower()
         for provider in (
