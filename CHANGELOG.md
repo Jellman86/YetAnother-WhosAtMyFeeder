@@ -6,6 +6,18 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Garden review moved into the Explorer; the Garden animals page is retired.** A
+  **Visitors** filter at the top of the Explorer's filter rail chooses birds, Garden
+  visitors or both, and under Garden visitors a **Review** filter chooses Needs review,
+  Confirmed animals or Dismissed. Motion proposals around one position open as a single
+  card. Its record steps through the photos one at a time, keeps confirmation per photo,
+  and offers **Dismiss remaining … photos** with Undo. **Return to review**, **Check
+  photo** and a model and device choice for suggestions are in the Garden record.
+  Collection status moved to **Settings → Beta features → Garden models**. Old `/garden`
+  links open the Explorer's Garden review, and say so when Garden is switched off. The
+  timeline endpoint gains `status`. The Explorer's Cards/List switch now wraps instead
+  of running off a 320px screen at the largest text size.
+
 - **Garden animals in the Explorer** (beta, owner only). Confirmed animals and captures
   waiting for review now appear between the bird visits they fell between, in cards and
   in the list, each marked **Garden** in words. A capture that needs you is flagged in

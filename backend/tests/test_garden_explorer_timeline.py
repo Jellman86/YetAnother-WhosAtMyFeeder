@@ -108,3 +108,16 @@ async def test_reading_the_timeline_writes_nothing():
     async with get_db() as db:
         assert await (await db.execute("SELECT * FROM garden_captures ORDER BY id")).fetchall() == before
         assert await (await db.execute("SELECT count(*) FROM detections")).fetchone() == birds
+
+
+@pytest.mark.asyncio
+async def test_timeline_status_filter_serves_each_review_view():
+    ids = await seed()
+    pending = (await timeline(status="pending")).json()
+    assert [item["id"] for item in pending["items"]] == [ids["badger"], ids["cat"]] and pending["total"] == 2
+    confirmed = (await timeline(status="confirmed")).json()
+    assert [item["id"] for item in confirmed["items"]] == [ids["hedgehog"], ids["fox"]]
+    dismissed = (await timeline(status="dismissed")).json()
+    assert [item["id"] for item in dismissed["items"]] == [ids["rain"]]
+    # Blocked captures are never listed, whatever the filter.
+    assert (await timeline(status="blocked")).status_code == 422

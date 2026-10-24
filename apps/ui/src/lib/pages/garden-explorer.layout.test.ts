@@ -4,23 +4,31 @@ import rowSource from '../components/GardenExplorerRow.svelte?raw';
 import cardSource from '../components/GardenExplorerCard.svelte?raw';
 import modalSource from '../components/GardenCaptureModal.svelte?raw';
 import markerSource from '../components/GardenExplorerMarker.svelte?raw';
+import filtersSource from '../components/ExplorerFilters.svelte?raw';
 import en from '../i18n/locales/en.json';
 
 describe('Garden captures in the Explorer', () => {
     it('shows them only to an owner with the Garden beta on, and lets that owner choose birds, Garden or both', () => {
         expect(eventsSource).toContain("authStore.hasOwnerAccess && settingsStore.settings?.beta_garden_animals === true");
         expect(eventsSource).toContain("gardenAvailable ? explorerSubjectsStore.value : 'birds'");
-        expect(eventsSource).toContain('data-explorer-subjects');
-        expect(eventsSource).toContain('aria-pressed={subjects === option.value}');
+        // A filter in the rail, with its own token, like every other filter.
+        expect(eventsSource).toContain('{gardenAvailable}');
+        expect(filtersSource).toContain('data-explorer-visitors-facet');
+        expect(filtersSource).toContain('aria-pressed={chosen}');
+        expect(filtersSource).toContain("key: 'subjects'");
+        expect(filtersSource).toContain('data-explorer-garden-review-facet');
+        expect(en.garden.explorer.subjects_garden_visitors).toBe('Garden visitors');
         expect(en.garden.explorer.subjects_birds).toBe('Birds');
-        expect(en.garden.explorer.subjects_all).toBe('All');
     });
 
     it('places captures between visits in both layouts and opens the Garden record, not the bird one', () => {
-        expect(eventsSource).toContain('placeGardenCaptures(birdEntries, entryTime, shownGarden');
+        expect(eventsSource).toContain('placeGardenCaptures(birdEntries, entryTime, leads');
+        // Repeated motion proposals open as one entry, as the Garden review grouped them.
+        expect(eventsSource).toContain('groupGardenReview(shownGarden)');
         expect(eventsSource).toContain('<GardenExplorerRow capture={entry.capture}');
         expect(eventsSource).toContain('<GardenExplorerCard capture={entry.capture}');
-        expect(eventsSource).toContain('<GardenCaptureModal capture={selectedGarden}');
+        expect(eventsSource).toContain('<GardenCaptureModal\n        capture={selectedGarden}');
+        expect(eventsSource).toContain('group={selectedGardenGroup}');
     });
 
     it('says in words why captures are hidden, instead of mixing filtered visits with unfiltered animals', () => {
@@ -52,7 +60,7 @@ describe('Garden captures in the Explorer', () => {
         expect(modalSource).toContain('lockDocumentScroll()');
         expect(modalSource).toContain("event.key === 'Escape'");
         expect(en.garden.explorer.confirm_name).toBe('Confirm {name}');
-        expect(en.garden.explorer.dismiss_effect).toMatch(/removes it from the Explorer/);
+        expect(en.garden.explorer.dismiss_effect).toMatch(/removes it from the animals/);
     });
 
     it('writes its copy without em dashes', () => {

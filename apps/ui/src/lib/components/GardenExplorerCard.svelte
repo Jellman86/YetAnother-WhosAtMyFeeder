@@ -13,7 +13,12 @@
     import { formatDate, formatTime } from '../utils/datetime';
     import { relativeDayLabel } from '../utils/day-label';
 
-    let { capture, onopen }: { capture: GardenCapture; onopen: (capture: GardenCapture) => void } = $props();
+    let { capture, groupSize = 1, onopen }: {
+        capture: GardenCapture;
+        /** Photos proposed around the same position, opened together. */
+        groupSize?: number;
+        onopen: (capture: GardenCapture) => void;
+    } = $props();
 
     let failedUrl = $state<string | null>(null);
     let loadedUrl = $state<string | null>(null);
@@ -53,7 +58,15 @@
                     : $_('garden.snapshot_unavailable', { default: 'Snapshot unavailable' })}
             </p>
         {/if}
-        <div class="absolute left-3 top-3"><GardenExplorerMarker overlay /></div>
+        <div class="absolute left-3 top-3 flex flex-wrap items-center gap-1.5">
+            <GardenExplorerMarker overlay />
+            {#if groupSize > 1}
+                <!-- Stacked like a layered thumbnail: several photos open from this one card. -->
+                <span class="inline-flex items-center rounded-full border border-white/10 bg-black/60 px-2 py-0.5 text-2xs font-bold text-white backdrop-blur-md" data-garden-card-group>
+                    {$_('garden.explorer.group_photos', { default: '{count} photos, same position', values: { count: groupSize } })}
+                </span>
+            {/if}
+        </div>
         <div class="absolute bottom-3 left-3 flex flex-nowrap items-center gap-2">
             <time class="flex min-h-11 items-center rounded-full border border-white/10 bg-black/60 px-3 py-2 text-xs font-bold text-white backdrop-blur-md" datetime={capture.observed_at}>
                 {formatTime(capture.observed_at)}

@@ -125,6 +125,12 @@ type Translate = (key: string, fallback: string, values?: Record<string, string>
 
 /** The title and one state line an Explorer entry shows, so a row, a card and a record agree. */
 export function gardenEntryText(capture: GardenCapture, view: GardenEntryView, t: Translate): { title: string; state: string } {
+    if (capture.status === 'dismissed') {
+        return {
+            title: t('garden.explorer.dismissed_title', 'Dismissed capture'),
+            state: t('garden.explorer.state_dismissed', 'Dismissed, not counted as an animal')
+        };
+    }
     const title = view.name
         ?? (capture.status === 'pending'
             ? t('garden.explorer.possible_animal', 'Possible animal')
@@ -134,4 +140,12 @@ export function gardenEntryText(capture: GardenCapture, view: GardenEntryView, t
     if (view.nameState === 'automatic') return { title, state: t('garden.explorer.state_automatic', 'Named automatically') };
     if (view.nameState === 'confirmed') return { title, state: t('garden.explorer.state_confirmed', 'Species confirmed by you') };
     return { title, state: t('garden.explorer.state_unnamed', 'Animal confirmed, species not named') };
+}
+
+/** Which Garden captures the Garden view lists: animals (confirmed and waiting), or one review state. */
+export type GardenReview = 'reviewable' | 'pending' | 'confirmed' | 'dismissed';
+
+/** Whether a capture, after a review, still belongs to the Garden view it was opened from. */
+export function gardenBelongs(capture: GardenCapture, review: GardenReview): boolean {
+    return review === 'reviewable' ? capture.status === 'pending' || capture.status === 'confirmed' : capture.status === review;
 }

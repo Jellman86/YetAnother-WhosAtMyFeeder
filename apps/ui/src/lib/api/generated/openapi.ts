@@ -3950,6 +3950,7 @@ export interface paths {
     offset?: number;
     order?: "newest" | "oldest";
     start?: string | null;
+    status?: "reviewable" | "pending" | "confirmed" | "dismissed";
 };
       requestBody: unknown;
       response: components['schemas']['GardenCapturePage'];

@@ -357,9 +357,10 @@ species identification have separate reviews; `frigate_label` remains an upstrea
   `animal` check whose top crop prediction reaches `garden_naming_threshold` also
   confirms the capture and saves an accepted `identification` with `automatic=true`,
   in one transaction. `reviewed_at` stays `null` because no owner reviewed it.
-- `GET /api/garden/timeline` — the Explorer's view: confirmed captures and pending captures
-  with available photos, never dismissed or blocked ones. Optional `start` and `end` (ISO 8601;
+- `GET /api/garden/timeline` — the Explorer's Garden view and review states. Optional `start` and `end` (ISO 8601;
   a time without an offset is UTC; `422` when `start` is after `end`), `camera`,
+  `status=reviewable|pending|confirmed|dismissed` (default `reviewable`, meaning confirmed plus
+  pending with an available photo; blocked captures are never listed),
   `order=newest|oldest` (default newest), `limit=1..200` (default 48) and `offset>=0`. Returns
   the same `items`, `total`, `limit`, `offset` page as `GET /api/garden`. Read-only.
 - `POST /api/garden/review-batch` — explicit `ids` (1..128 hexadecimal capture IDs)

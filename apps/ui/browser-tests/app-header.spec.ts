@@ -9,7 +9,8 @@ test('app headers fit 320px with 200% text after desktop resize', async ({ page 
         const responses: Record<string, unknown> = {
             '/api/auth/status': { auth_required: false, is_authenticated: true, needs_initial_setup: false },
             '/api/settings': { cameras: ['patio'], garden_cameras: ['patio'], beta_garden_animals: true },
-            '/api/garden': { items: [], total: 0, limit: 8, offset: 0 },
+            '/api/garden/timeline': { items: [], total: 0, limit: 128, offset: 0 },
+            '/api/visits': { total: 0, gap_seconds: 60, visits: [] },
             '/api/garden/identification': { models: [], busy: false, catalogue_ready: false },
             '/api/garden/motion': { cameras: [], installed: false, state: 'disabled', message: 'Off' },
             '/api/events/filters': { cameras: ['patio'], species: [] },
@@ -22,8 +23,11 @@ test('app headers fit 320px with 200% text after desktop resize', async ({ page 
     await page.route('**/health', route => route.fulfill({ json: { status: 'healthy' } }));
     const refresh = page.locator('main header').getByRole('button', { name: 'Refresh', exact: true });
     await page.setViewportSize({ width: 1280, height: 900 });
+    // The retired Garden page address opens Garden review in the Explorer.
     await page.goto('/garden');
-    await expect(page.getByRole('heading', { name: 'Garden animals', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Events', exact: true })).toBeVisible();
+    await expect.poll(() => new URL(page.url()).pathname + new URL(page.url()).search).toBe('/events?visitors=garden&review=pending');
+    await expect(page.locator('[data-explorer-garden-review="pending"]')).toHaveAttribute('aria-pressed', 'true');
     await expect(refresh).toBeVisible();
     await page.setViewportSize({ width: 320, height: 900 });
     await page.evaluate(() => document.documentElement.style.fontSize = '200%');
@@ -47,13 +51,14 @@ test('app headers fit 320px with 200% text after desktop resize', async ({ page 
         expect(bound.x + bound.width, `${bound.label} right`).toBeLessThanOrEqual(320);
     }
     await menu.click();
-    await expect(page.locator('aside').getByRole('button', { name: 'Garden animals', exact: true })).toBeVisible();
+    await expect(page.locator('aside').getByRole('button', { name: 'Explorer', exact: true })).toBeVisible();
+    await expect(page.locator('aside').getByRole('button', { name: 'Garden animals', exact: true })).toHaveCount(0);
     await expect.poll(() => page.locator('aside').evaluate(node => node.getBoundingClientRect().right <= innerWidth)).toBe(true);
-    await page.locator('aside').getByRole('button', { name: 'Garden animals', exact: true }).click();
+    await page.locator('aside').getByRole('button', { name: 'Explorer', exact: true }).click();
     await expect.poll(() => page.locator('aside').evaluate(node => node.getBoundingClientRect().right <= 0)).toBe(true);
     await refresh.focus();
     await expect(refresh).toBeFocused();
-    const reloaded = page.waitForResponse(response => new URL(response.url()).pathname === '/api/garden');
+    const reloaded = page.waitForResponse(response => new URL(response.url()).pathname === '/api/garden/timeline');
     await page.keyboard.press('Enter');
     await reloaded;
     await expect(refresh).toBeEnabled();

@@ -9,7 +9,13 @@ from typing import Annotated, Literal
 
 from app.auth import AuthContext, require_owner
 from app.database import get_db
-from app.repositories.garden_repository import GardenCapture, GardenRepository, GardenStatus, GardenPhotoUnavailable
+from app.repositories.garden_repository import (
+    GardenCapture,
+    GardenPhotoUnavailable,
+    GardenRepository,
+    GardenStatus,
+    GardenTimelineStatus,
+)
 from app.services.garden_capture_service import garden_capture_service
 from app.services import garden_motion_privacy
 from app.models.garden import (
@@ -142,19 +148,26 @@ async def capture_timeline(
     end: datetime | None = None,
     camera: str | None = Query(None, max_length=128),
     order: Literal["newest", "oldest"] = "newest",
+    status: GardenTimelineStatus = "reviewable",
     limit: int = Query(48, ge=1, le=200),
     offset: int = Query(0, ge=0),
 ) -> GardenCapturePage:
-    """Confirmed animals and captures awaiting review, by time, for the Explorer to place beside visits."""
+    """Captures by time for the Explorer: confirmed and awaiting review unless one review state is asked for."""
     start, end = _as_utc(start), _as_utc(end)
     if start is not None and end is not None and start > end:
         raise HTTPException(422, "The window starts after it ends.")
     async with get_db() as db:
         repository = GardenRepository(db)
         items = await repository.timeline(
-            start=start, end=end, camera=camera, newest_first=order == "newest", limit=limit, offset=offset
+            start=start,
+            end=end,
+            camera=camera,
+            newest_first=order == "newest",
+            limit=limit,
+            offset=offset,
+            status=status,
         )
-        total = await repository.timeline_count(start=start, end=end, camera=camera)
+        total = await repository.timeline_count(start=start, end=end, camera=camera, status=status)
     return await _page(items, total, limit, offset)
 
 

@@ -13,7 +13,12 @@
     import { formatTime } from '../utils/datetime';
     import { relativeDayLabel } from '../utils/day-label';
 
-    let { capture, onopen }: { capture: GardenCapture; onopen: (capture: GardenCapture) => void } = $props();
+    let { capture, groupSize = 1, onopen }: {
+        capture: GardenCapture;
+        /** Photos proposed around the same position, opened together. */
+        groupSize?: number;
+        onopen: (capture: GardenCapture) => void;
+    } = $props();
 
     let failedUrl = $state<string | null>(null);
     const view = $derived(gardenEntryView(capture));
@@ -69,6 +74,7 @@
         </div>
         <div class="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap text-2xs font-semibold text-slate-500 dark:text-slate-400">
             <span class="shrink-0 {view.review ? 'text-amber-800 dark:text-amber-300' : ''}">{text.state}</span>
+            {#if groupSize > 1}<span class="shrink-0">{$_('garden.explorer.group_photos', { default: '{count} photos, same position', values: { count: groupSize } })}</span>{/if}
             <span class="min-w-0 truncate">{capture.camera}</span>
         </div>
     </div>

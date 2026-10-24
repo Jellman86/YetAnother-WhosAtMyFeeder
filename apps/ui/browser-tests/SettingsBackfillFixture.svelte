@@ -4,7 +4,7 @@
     let visible = $state(true);
     let route = $state('/settings/connection');
 </script>
-<main class="p-4">
+<main class="p-4" data-fixture-route={route}>
     <button type="button" onclick={() => (visible = !visible)}>{visible ? 'Leave Settings' : 'Open Settings'}</button>
     {#if visible}
         <Settings currentRoute={route} onNavigate={(path) => (route = path)} />

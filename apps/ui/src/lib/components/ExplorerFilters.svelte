@@ -2,6 +2,7 @@
     import type { EventFilterSpecies, EventFilters } from '../api';
     import { _ } from 'svelte-i18n';
     import { filterExplorerSpecies } from '../utils/explorer-species';
+    import type { ExplorerSubjects, GardenReview } from '../utils/garden-explorer';
 
     type DatePreset = 'all' | 'today' | 'week' | 'month' | 'custom';
 
@@ -29,7 +30,13 @@
         customStartDate: string;
         customEndDate: string;
         refreshing?: boolean;
+        /** Owner with the Garden beta on: the rail can show Garden visitors instead of, or beside, birds. */
+        gardenAvailable?: boolean;
+        subjects?: ExplorerSubjects;
+        gardenReview?: GardenReview;
         onchange: (next: {
+            subjects?: ExplorerSubjects;
+            gardenReview?: GardenReview;
             datePreset?: DatePreset;
             speciesFilter?: string;
             cameraFilter?: string;
@@ -65,6 +72,9 @@
         customStartDate,
         customEndDate,
         refreshing = false,
+        gardenAvailable = false,
+        subjects = 'birds',
+        gardenReview = 'reviewable',
         onchange,
         onclear,
         onrefresh
@@ -96,9 +106,36 @@
         species.find((item) => item.value === speciesFilter)?.display_name ?? speciesFilter
     );
 
+    const gardenOnly = $derived(gardenAvailable && subjects === 'garden');
+    const subjectOptions = $derived<{ value: ExplorerSubjects; label: string; hint: string }[]>([
+        { value: 'all', label: $_('garden.explorer.subjects_all_visitors', { default: 'Birds and Garden' }), hint: $_('garden.explorer.subjects_all_hint', { default: 'Garden animals between the bird visits.' }) },
+        { value: 'birds', label: $_('garden.explorer.subjects_birds', { default: 'Birds' }), hint: $_('garden.explorer.subjects_birds_hint', { default: 'Bird visits only.' }) },
+        { value: 'garden', label: $_('garden.explorer.subjects_garden_visitors', { default: 'Garden visitors' }), hint: $_('garden.explorer.subjects_garden_hint', { default: 'Animals from Garden cameras only.' }) }
+    ]);
+    const reviewOptions = $derived<{ value: GardenReview; label: string }[]>([
+        { value: 'reviewable', label: $_('garden.explorer.review_animals', { default: 'Animals and waiting for review' }) },
+        { value: 'pending', label: $_('garden.pending', { default: 'Needs review' }) },
+        { value: 'confirmed', label: $_('garden.confirmed', { default: 'Confirmed animals' }) },
+        { value: 'dismissed', label: $_('garden.dismissed', { default: 'Dismissed' }) }
+    ]);
+
     // Every applied filter is a token: visible, and removable where it stands.
     const tokens = $derived.by(() => {
         const applied: { key: string; label: string; clear: () => void }[] = [];
+        if (gardenAvailable && subjects !== 'all') {
+            applied.push({
+                key: 'subjects',
+                label: subjectOptions.find((option) => option.value === subjects)?.label ?? subjects,
+                clear: () => onchange({ subjects: 'all', gardenReview: 'reviewable' })
+            });
+        }
+        if (gardenOnly && gardenReview !== 'reviewable') {
+            applied.push({
+                key: 'garden-review',
+                label: reviewOptions.find((option) => option.value === gardenReview)?.label ?? gardenReview,
+                clear: () => onchange({ gardenReview: 'reviewable' })
+            });
+        }
         if (datePreset !== 'all') {
             applied.push({
                 key: 'date',
@@ -202,6 +239,48 @@
             : 'lg:!flex lg:mt-2 lg:min-h-0 lg:flex-1 lg:flex-col lg:gap-3 lg:overflow-y-auto lg:overscroll-contain lg:border-t-0 lg:pt-0'}"
         data-explorer-facets
     >
+            {#if gardenAvailable}
+                <!-- Garden animals are stored apart from birds; this chooses which the results hold. -->
+                <div class="min-w-0 shrink-0" role="group" aria-labelledby="explorer-visitors-heading" data-explorer-visitors-facet>
+                    <p id="explorer-visitors-heading" class="eyebrow">{$_('garden.explorer.visitors', { default: 'Visitors' })}</p>
+                    <div class="mt-2 space-y-0.5">
+                        {#each subjectOptions as option (option.value)}
+                            {@const chosen = subjects === option.value}
+                            <button
+                                type="button"
+                                class="flex min-h-11 w-full flex-col items-start justify-center rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:bg-slate-800/60 {chosen ? 'bg-brand-50 dark:bg-brand-950/40' : ''}"
+                                aria-pressed={chosen}
+                                onclick={() => onchange({ subjects: option.value, gardenReview: 'reviewable' })}
+                                data-explorer-subjects-option={option.value}
+                            >
+                                <span class="text-xs {chosen ? 'font-semibold text-brand-800 dark:text-brand-200' : 'text-slate-700 dark:text-slate-300'}">{option.label}</span>
+                                <span class="text-2xs leading-4 text-slate-500 dark:text-slate-400">{option.hint}</span>
+                            </button>
+                        {/each}
+                    </div>
+                </div>
+                {#if gardenOnly}
+                    <div class="min-w-0 shrink-0" role="group" aria-labelledby="explorer-garden-review-heading" data-explorer-garden-review-facet>
+                        <p id="explorer-garden-review-heading" class="eyebrow">{$_('garden.explorer.review_heading', { default: 'Review' })}</p>
+                        <div class="mt-2 space-y-0.5">
+                            {#each reviewOptions as option (option.value)}
+                                {@const chosen = gardenReview === option.value}
+                                <button
+                                    type="button"
+                                    class="flex min-h-11 w-full items-center rounded-lg px-2 py-1.5 text-left text-xs transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:bg-slate-800/60 {chosen ? 'bg-brand-50 font-semibold text-brand-800 dark:bg-brand-950/40 dark:text-brand-200' : 'text-slate-700 dark:text-slate-300'}"
+                                    aria-pressed={chosen}
+                                    onclick={() => onchange({ gardenReview: option.value })}
+                                    data-explorer-garden-review={option.value}
+                                >
+                                    {option.label}
+                                </button>
+                            {/each}
+                        </div>
+                    </div>
+                {/if}
+            {/if}
+
+            {#if !gardenOnly}
             <!-- How results are shown, not what they are: Clear all leaves it as it is. -->
             <div class="min-w-0 shrink-0" role="group" aria-labelledby="explorer-show-heading" data-explorer-show-facet>
                 <p id="explorer-show-heading" class="eyebrow">
@@ -266,6 +345,8 @@
                 </div>
             </div>
 
+            {/if}
+
             <details class="group shrink-0 border-t border-line-soft pt-1" data-explorer-date-facet>
                 <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 eyebrow rounded-lg hover:bg-surface-raised hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:text-slate-200 [&::-webkit-details-marker]:hidden">
                     <span>{$_('events.filters.when', { default: 'When' })}</span>
@@ -313,6 +394,7 @@
 
             </details>
 
+            {#if !gardenOnly}
             <details class="group shrink-0 border-t border-line-soft pt-1" data-explorer-only-facet>
                 <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 eyebrow rounded-lg hover:bg-surface-raised hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:text-slate-200 [&::-webkit-details-marker]:hidden">
                     <span>{$_('events.filters.only', { default: 'Only' })}</span>
@@ -376,6 +458,8 @@
 
                 </div>
             </details>
+
+            {/if}
 
             <details class="group shrink-0 border-t border-line-soft pt-1" data-explorer-camera-facet>
                 <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 eyebrow rounded-lg hover:bg-surface-raised hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:text-slate-200 [&::-webkit-details-marker]:hidden">

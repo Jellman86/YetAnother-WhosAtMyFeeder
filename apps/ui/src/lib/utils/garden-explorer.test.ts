@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { GardenCapture } from '../api/garden';
 import type { DetectionVisit } from '../api/visits';
-import { gardenBlocker, gardenEntryText, gardenEntryView, gardenWindow, placeGardenCaptures, type GardenFilterState } from './garden-explorer';
+import { gardenBelongs, gardenBlocker, gardenEntryText, gardenEntryView, gardenWindow, placeGardenCaptures, type GardenFilterState } from './garden-explorer';
 
 function capture(overrides: Partial<GardenCapture> = {}): GardenCapture {
     return {
@@ -168,5 +168,28 @@ describe('gardenEntryText', () => {
         expect(gardenEntryText(suggested, gardenEntryView(suggested), t)).toEqual({ title: 'Red fox', state: 'Needs review: suggested species' });
         const unnamed = capture({ status: 'confirmed' });
         expect(gardenEntryText(unnamed, gardenEntryView(unnamed), t)).toEqual({ title: 'Animal, not named', state: 'Animal confirmed, species not named' });
+    });
+});
+
+describe('dismissed captures', () => {
+    const t = (_key: string, fallback: string) => fallback;
+
+    it('read as dismissed, never as a confirmed or unnamed animal, and ask nothing of a person', () => {
+        const dismissed = capture({ status: 'dismissed' });
+        expect(gardenEntryView(dismissed).review).toBeNull();
+        expect(gardenEntryText(dismissed, gardenEntryView(dismissed), t))
+            .toEqual({ title: 'Dismissed capture', state: 'Dismissed, not counted as an animal' });
+    });
+});
+
+describe('gardenBelongs', () => {
+    it('keeps a reviewed capture only in the views that still describe it', () => {
+        const confirmed = capture({ status: 'confirmed' });
+        const dismissed = capture({ status: 'dismissed' });
+        expect(gardenBelongs(confirmed, 'reviewable')).toBe(true);
+        expect(gardenBelongs(dismissed, 'reviewable')).toBe(false);
+        expect(gardenBelongs(confirmed, 'pending')).toBe(false);
+        expect(gardenBelongs(dismissed, 'dismissed')).toBe(true);
+        expect(gardenBelongs(capture(), 'dismissed')).toBe(false);
     });
 });

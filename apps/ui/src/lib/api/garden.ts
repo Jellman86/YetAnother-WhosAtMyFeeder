@@ -3,7 +3,6 @@ import type { components } from './generated/openapi';
 
 export type GardenCapture = components['schemas']['GardenCaptureResponse'];
 type GardenPage = components['schemas']['GardenCapturePage'];
-type GardenStatus = GardenCapture['status'];
 export type GardenIdentificationStatus = components['schemas']['GardenIdentificationStatus'];
 export type GardenIdentifyRequest = components['schemas']['GardenIdentifyRequest'];
 export type GardenMotionStatus = components['schemas']['GardenMotionStatus'];
@@ -16,17 +15,12 @@ export async function installGardenMotion(): Promise<GardenMotionStatus> {
     return handleResponse<GardenMotionStatus>(await apiFetch(`${API_BASE}/garden/motion/install`, { method: 'POST', timeoutMs: 240000 }));
 }
 
-export async function fetchGarden(status: GardenStatus, offset: number, signal: AbortSignal): Promise<GardenPage> {
-    const limit = status === 'pending' ? 128 : 8;
-    const response = await apiFetch(`${API_BASE}/garden?status=${status}&offset=${offset}&limit=${limit}`, { signal, timeoutMs: 15000 });
-    return handleResponse<GardenPage>(response);
-}
-
 export interface GardenTimelineQuery {
     start?: string | null;
     end?: string;
     camera?: string;
     order: 'newest' | 'oldest';
+    status?: 'reviewable' | 'pending' | 'confirmed' | 'dismissed';
     limit: number;
     offset?: number;
 }
@@ -37,6 +31,7 @@ export async function fetchGardenTimeline(query: GardenTimelineQuery, signal?: A
     if (query.start) params.set('start', query.start);
     if (query.end) params.set('end', query.end);
     if (query.camera) params.set('camera', query.camera);
+    if (query.status && query.status !== 'reviewable') params.set('status', query.status);
     return handleResponse<GardenPage>(await apiFetch(`${API_BASE}/garden/timeline?${params}`, { signal, timeoutMs: 15000 }));
 }
 

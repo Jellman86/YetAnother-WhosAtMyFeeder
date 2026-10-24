@@ -11,7 +11,9 @@
     import GardenCaptureModal from '../components/GardenCaptureModal.svelte';
     import { fetchGardenTimeline, type GardenCapture } from '../api/garden';
     import { explorerSubjectsStore } from '../stores/explorer_subjects.svelte';
-    import { gardenBlocker, gardenWindow, placeGardenCaptures, type ExplorerSubjects, type GardenBlocker } from '../utils/garden-explorer';
+    import { gardenBelongs, gardenBlocker, gardenWindow, placeGardenCaptures, type ExplorerSubjects, type GardenBlocker, type GardenReview } from '../utils/garden-explorer';
+    import { groupGardenReview } from '../utils/garden-review-groups';
+    import { reviewGardenBatch } from '../api/garden';
     import type { DetectionVisit } from '../api/visits';
     import { onDestroy, onMount, untrack } from 'svelte';
     import {
@@ -77,7 +79,6 @@
     let currentPage = $state(1);
     let pageSize = $state(24);
     let totalCount = $state(0);
-    let totalPages = $derived(Math.ceil(totalCount / pageSize));
     let availableSpecies: EventFilterSpecies[] = $state([]);
     let availableCameras: string[] = $state([]);
     let eventFilters = $state<EventFilters | null>(null);
@@ -117,6 +118,12 @@
     let gardenFailed = $state(false);
     let gardenLoadGeneration = 0;
     let selectedGarden = $state.raw<GardenCapture | null>(null);
+    /** Which Garden captures the Garden view lists; the default is the animals. */
+    let gardenReview = $state<GardenReview>('reviewable');
+    /** A group just dismissed together, offered back while its photos remain. */
+    let gardenUndo = $state.raw<{ ids: string[]; skipped: number } | null>(null);
+    /** The address asked for Garden visitors, as an old Garden page link does. */
+    let gardenRequested = $state(false);
     let selectedEventIds = $state<string[]>([]);
     let showBulkTagModal = $state(false);
     let bulkTagSearchQuery = $state('');
@@ -240,8 +247,9 @@
                     end: localDayBound(range.end, true)?.toISOString(),
                     camera: cameraFilter || undefined,
                     order: sortOrder === 'oldest' ? 'oldest' : 'newest',
-                    limit: pageSize,
-                    offset: (currentPage - 1) * pageSize
+                    status: gardenReview,
+                    limit: effectivePageSize,
+                    offset: (currentPage - 1) * effectivePageSize
                 });
                 if (loadGeneration !== eventsLoadGeneration || gardenGeneration !== gardenLoadGeneration) return;
                 events = [];
@@ -464,6 +472,11 @@
         ) datePreset = requestedDatePreset;
         if (params.get('favorites') === '1' || params.get('favorites') === 'true') favoritesOnly = true;
         if (params.get('audio') === '1' || params.get('audio') === 'true') audioConfirmedOnly = true;
+        const visitors = params.get('visitors');
+        if (visitors === 'garden' || visitors === 'birds' || visitors === 'all') explorerSubjectsStore.set(visitors);
+        gardenRequested = visitors === 'garden';
+        const review = params.get('review');
+        if (review === 'pending' || review === 'confirmed' || review === 'dismissed') gardenReview = review;
         const deepLinkedEvent = params.get('event');
         const deepLinkedShare = params.get('share');
         const videoParam = params.get('video');
@@ -1222,6 +1235,10 @@
     const gardenAvailable = $derived(authStore.hasOwnerAccess && settingsStore.settings?.beta_garden_animals === true);
     const subjects = $derived<ExplorerSubjects>(gardenAvailable ? explorerSubjectsStore.value : 'birds');
     const gardenOnly = $derived(subjects === 'garden');
+    // Review groups photos by position, so it reads a larger page, as the Garden review always did.
+    const GARDEN_REVIEW_PAGE = 128;
+    const effectivePageSize = $derived(gardenOnly && gardenReview === 'pending' ? GARDEN_REVIEW_PAGE : pageSize);
+    let totalPages = $derived(Math.ceil(totalCount / effectivePageSize));
 
     // Heard calls between visits (off until this device turns them on).
     const heardWanted = $derived(audioHistoryAvailable && explorerHeardStore.enabled && groupVisits && !selectionMode && subjects !== 'garden');
@@ -1367,24 +1384,51 @@
 
     function setSubjects(next: ExplorerSubjects): void {
         explorerSubjectsStore.set(next);
-        currentPage = 1;
-        selectedTimelineBucket = 'all';
-        void loadEvents();
     }
 
-    function gardenChanged(next: GardenCapture | null): void {
-        const current = selectedGarden;
-        if (!current) return;
-        if (next) {
+    /** A capture after a review: kept where it still belongs, otherwise the next photo of its group opens. */
+    function gardenChanged(next: GardenCapture): void {
+        const view: GardenReview = gardenOnly ? gardenReview : 'reviewable';
+        if (gardenBelongs(next, view)) {
             gardenItems = (gardenItems ?? []).map((item) => (item.id === next.id ? next : item));
             selectedGarden = next;
             return;
         }
-        // A dismissed capture is no longer an animal, so it leaves the Explorer.
-        gardenItems = (gardenItems ?? []).filter((item) => item.id !== current.id);
+        const group = gardenGroups.find((candidate) => candidate.items.some((item) => item.id === next.id))?.items ?? [];
+        const at = group.findIndex((item) => item.id === next.id);
+        const neighbour = group[at + 1] ?? group[at - 1] ?? null;
+        gardenItems = (gardenItems ?? []).filter((item) => item.id !== next.id);
         gardenTotal = Math.max(0, gardenTotal - 1);
         if (gardenOnly) totalCount = Math.max(0, totalCount - 1);
+        selectedGarden = neighbour;
+    }
+
+    function gardenGroupDismissed(ids: string[], skipped: number): void {
+        const removed = new Set(ids);
+        gardenItems = (gardenItems ?? []).filter((item) => !removed.has(item.id));
+        gardenTotal = Math.max(0, gardenTotal - ids.length);
+        if (gardenOnly) totalCount = Math.max(0, totalCount - ids.length);
+        gardenUndo = { ids, skipped };
         selectedGarden = null;
+        const message = $_('garden.batch_dismissed', { default: '{count} photos dismissed.', values: { count: ids.length } });
+        if (skipped > 0) {
+            toastStore.warning(`${message} ${$_('garden.batch_skipped', { default: '{count} photos were unchanged because their review or availability changed.', values: { count: skipped } })}`);
+        } else {
+            toastStore.success(message);
+        }
+    }
+
+    async function undoGardenGroup(): Promise<void> {
+        const undo = gardenUndo;
+        if (!undo) return;
+        try {
+            const result = await reviewGardenBatch(undo.ids, 'restore');
+            gardenUndo = null;
+            toastStore.success($_('garden.batch_restored', { default: '{count} photos returned to review.', values: { count: result.updated_ids.length } }));
+            await loadEvents();
+        } catch (failure) {
+            toastStore.error(failure instanceof Error ? failure.message : $_('garden.save_error', { default: 'Could not save your review. Try again.' }));
+        }
     }
 
     const gardenNoticeText = $derived.by((): string | null => {
@@ -1411,10 +1455,13 @@
             : []
     );
 
+    /** Motion proposals around one position open as one entry, as the Garden review grouped them. */
+    const gardenGroups = $derived(groupGardenReview(shownGarden));
+
     type ExplorerEntry =
         | { kind: 'visit'; event: Detection; visit: DetectionVisit | undefined; matchedCalls: number }
         | { kind: 'band'; band: HeardBand }
-        | { kind: 'garden'; capture: GardenCapture };
+        | { kind: 'garden'; capture: GardenCapture; group?: GardenCapture[] };
 
     const eventsByKey = $derived(new Map(events.map((event) => [event.frigate_event, event])));
 
@@ -1449,6 +1496,10 @@
         return shown;
     });
 
+    const selectedGardenGroup = $derived(
+        selectedGarden ? (gardenGroups.find((group) => group.items.some((item) => item.id === selectedGarden?.id))?.items ?? [selectedGarden]) : []
+    );
+
     function entryTime(entry: ExplorerEntry): number {
         if (entry.kind === 'band') return Date.parse(entry.band.firstHeard);
         if (entry.kind === 'garden') return Date.parse(entry.capture.observed_at);
@@ -1456,9 +1507,13 @@
     }
 
     const entries = $derived.by((): ExplorerEntry[] => {
-        if (gardenOnly) return shownGarden.map((capture) => ({ kind: 'garden', capture }));
-        if (!shownGarden.length) return birdEntries;
-        return placeGardenCaptures(birdEntries, entryTime, shownGarden, sortOrder === 'oldest' ? 'oldest' : 'newest');
+        const groups = new Map(gardenGroups.map((group) => [group.items[0].id, group.items]));
+        const withGroup = (entry: ExplorerEntry): ExplorerEntry =>
+            entry.kind === 'garden' ? { ...entry, group: groups.get(entry.capture.id) ?? [entry.capture] } : entry;
+        const leads = gardenGroups.map((group) => group.items[0]);
+        if (gardenOnly) return leads.map((capture) => withGroup({ kind: 'garden', capture }));
+        if (!leads.length) return birdEntries;
+        return placeGardenCaptures(birdEntries, entryTime, leads, sortOrder === 'oldest' ? 'oldest' : 'newest').map(withGroup);
     });
 
     /** Every call the page shows: those in bands and those counted on their visits. */
@@ -1500,34 +1555,6 @@
                     {$_('events.heard.count_on_page', { values: { count: heardShownCalls }, default: '{count} calls heard on this page' })}
                 {/if}
             </div>
-            {#if gardenAvailable}
-                <!-- Garden animals are stored apart from birds; this chooses which the page shows. -->
-                <div
-                    class="inline-flex min-h-11 items-stretch rounded-xl border border-slate-200/80 bg-white/90 p-0.5 shadow-sm dark:border-slate-700/60 dark:bg-slate-800/80"
-                    role="group"
-                    aria-label={$_('garden.explorer.subjects_label', { default: 'Show' })}
-                    data-explorer-subjects
-                >
-                    {#each [
-                        { value: 'birds', label: $_('garden.explorer.subjects_birds', { default: 'Birds' }) },
-                        { value: 'garden', label: $_('garden.explorer.subjects_garden', { default: 'Garden' }) },
-                        { value: 'all', label: $_('garden.explorer.subjects_all', { default: 'All' }) }
-                    ] as option (option.value)}
-                        <button
-                            type="button"
-                            aria-pressed={subjects === option.value}
-                            onclick={() => setSubjects(option.value as ExplorerSubjects)}
-                            data-explorer-subjects-option={option.value}
-                            class="inline-flex items-center rounded-lg px-3 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500
-                                   {subjects === option.value
-                                ? 'bg-brand-500 text-white'
-                                : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}"
-                        >
-                            {option.label}
-                        </button>
-                    {/each}
-                </div>
-            {/if}
             <!-- With heard calls mixed into the list, the listening history is already here. -->
             {#if audioHistoryAvailable && !heardWanted}
                 <a
@@ -1579,8 +1606,9 @@
                     ? $_('events.filters.show_rail', { default: 'Show filters' })
                     : $_('events.filters.hide_rail', { default: 'Hide filters' })}
             </button>
+            <!-- At the largest text size on a phone the two choices wrap inside the frame rather than off the screen. -->
             <div
-                class="inline-flex min-h-11 items-stretch rounded-xl border border-slate-200/80 bg-white/90 p-0.5 shadow-sm dark:border-slate-700/60 dark:bg-slate-800/80"
+                class="inline-flex min-h-11 items-stretch max-w-full flex-wrap rounded-xl border border-slate-200/80 bg-white/90 p-0.5 shadow-sm dark:border-slate-700/60 dark:bg-slate-800/80"
                 role="group"
                 aria-label={$_('settings.explorer_view.label')}
             >
@@ -1694,7 +1722,13 @@
             {customEndDate}
             canSeeHidden={authStore.hasOwnerAccess}
             refreshing={refreshingFilterOptions}
+            {gardenAvailable}
+            {subjects}
+            {gardenReview}
             onchange={(next) => {
+                if (next.subjects !== undefined) setSubjects(next.subjects);
+                if (next.gardenReview !== undefined) gardenReview = next.gardenReview;
+                gardenUndo = null;
                 if (next.datePreset !== undefined) datePreset = next.datePreset;
                 if (next.speciesFilter !== undefined) speciesFilter = next.speciesFilter;
                 if (next.cameraFilter !== undefined) cameraFilter = next.cameraFilter;
@@ -1709,6 +1743,9 @@
                 loadEvents();
             }}
             onclear={() => {
+                if (gardenAvailable) setSubjects('all');
+                gardenReview = 'reviewable';
+                gardenUndo = null;
                 datePreset = 'all';
                 speciesFilter = '';
                 cameraFilter = '';
@@ -1845,6 +1882,22 @@
                 <span>{gardenNoticeText}</span>
             </p>
         {/if}
+        {#if gardenRequested && authStore.hasOwnerAccess && settingsStore.settings?.beta_garden_animals === false}
+            <div class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-line-soft bg-surface px-3 py-2.5 text-sm text-slate-600 dark:text-slate-300" role="status" data-garden-beta-off>
+                <span class="min-w-0 flex-1">{$_('garden.beta_off_desc', { default: 'Garden animals is a beta feature. Turn it on in Settings, Beta features, to collect and review non-bird visitors. Saved captures are kept while it is off.' })}</span>
+                <a href={toAppPath('/settings/beta')} class="btn btn-secondary inline-flex min-h-11 items-center px-3 text-xs">{$_('garden.beta_off_action', { default: 'Open Beta features' })}</a>
+            </div>
+        {/if}
+        {#if gardenUndo}
+            <div class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-line-soft bg-surface px-3 py-2 text-sm text-slate-600 dark:text-slate-300" role="status" data-explorer-garden-undo>
+                <span class="min-w-0 flex-1">
+                    {$_('garden.batch_dismissed', { default: '{count} photos dismissed.', values: { count: gardenUndo.ids.length } })}
+                    {#if gardenUndo.skipped > 0}{' '}{$_('garden.batch_skipped', { default: '{count} photos were unchanged because their review or availability changed.', values: { count: gardenUndo.skipped } })}{/if}
+                    {' '}{$_('garden.batch_undo_help', { default: 'Undo is available while photos remain. Dismissed photos may make room for new captures.' })}
+                </span>
+                <button type="button" class="btn btn-secondary min-h-11 whitespace-normal px-3 text-xs" onclick={undoGardenGroup}>{$_('garden.batch_undo', { default: 'Undo group dismissal' })}</button>
+            </div>
+        {/if}
         {#if gardenInTimeline && gardenFailed}
             <p class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-line-soft bg-surface px-3 py-2 text-sm text-slate-600 dark:text-slate-300" role="alert" data-explorer-garden-notice>
                 {$_('garden.explorer.load_failed', { default: 'Could not load the Garden captures. The visits are unaffected.' })}
@@ -1864,7 +1917,15 @@
             </div>
         {:else if !loading && entries.length === 0 && gardenOnly && !hasActiveExplorerFilters}
             <div class="border-y border-dashed border-slate-200 py-12 text-center dark:border-slate-700" data-explorer-garden-empty>
-                <h3 class="text-lg font-semibold text-slate-900 dark:text-white">{$_('garden.explorer.empty_title', { default: 'No Garden captures yet' })}</h3>
+                <h3 class="text-lg font-semibold text-slate-900 dark:text-white">
+                    {gardenReview === 'pending'
+                        ? $_('garden.explorer.empty_pending', { default: 'No Garden captures need review' })
+                        : gardenReview === 'confirmed'
+                          ? $_('garden.explorer.empty_confirmed', { default: 'No confirmed animals yet' })
+                          : gardenReview === 'dismissed'
+                            ? $_('garden.explorer.empty_dismissed', { default: 'No dismissed Garden captures' })
+                            : $_('garden.explorer.empty_title', { default: 'No Garden captures yet' })}
+                </h3>
                 <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">{$_('garden.explorer.empty_desc', { default: 'Confirmed animals and captures waiting for review appear here. Dismissed captures stay on the Garden page.' })}</p>
             </div>
         {:else if !loading && entries.length === 0}
@@ -1913,7 +1974,7 @@
                     {#if entry.kind === 'band'}
                         <HeardBandRow band={entry.band} />
                     {:else if entry.kind === 'garden'}
-                        <GardenExplorerRow capture={entry.capture} onopen={(capture) => (selectedGarden = capture)} />
+                        <GardenExplorerRow capture={entry.capture} groupSize={entry.group?.length ?? 1} onopen={(capture) => (selectedGarden = capture)} />
                     {:else}
                         {@const event = entry.event}
                         {@const visit = entry.visit}
@@ -1944,7 +2005,7 @@
                     {#if entry.kind === 'band'}
                         <div class="min-w-0"><HeardBandCard band={entry.band} /></div>
                     {:else if entry.kind === 'garden'}
-                        <div class="min-w-0"><GardenExplorerCard capture={entry.capture} onopen={(capture) => (selectedGarden = capture)} /></div>
+                        <div class="min-w-0"><GardenExplorerCard capture={entry.capture} groupSize={entry.group?.length ?? 1} onopen={(capture) => (selectedGarden = capture)} /></div>
                     {:else}
                     {@const event = entry.event}
                     {@const visit = entry.visit}
@@ -1979,7 +2040,8 @@
             {currentPage}
             {totalPages}
             totalItems={totalCount}
-            itemsPerPage={pageSize}
+            itemsPerPage={effectivePageSize}
+            showPageSize={effectivePageSize === pageSize}
             onPageChange={handlePageChange}
             onPageSizeChange={handlePageSizeChange}
         />
@@ -2037,7 +2099,14 @@
     />
 {/if}
 {#if selectedGarden && gardenAvailable}
-    <GardenCaptureModal capture={selectedGarden} onclose={() => (selectedGarden = null)} onchanged={gardenChanged} />
+    <GardenCaptureModal
+        capture={selectedGarden}
+        group={selectedGardenGroup}
+        onclose={() => (selectedGarden = null)}
+        onchanged={gardenChanged}
+        onselect={(capture) => (selectedGarden = capture)}
+        ongroupdismissed={gardenGroupDismissed}
+    />
 {/if}
 {#if selectedSpecies}<SpeciesDetailModal speciesName={selectedSpecies} onclose={() => selectedSpecies = null} />{/if}
 {#if authStore.hasOwnerAccess && showBulkTagModal}

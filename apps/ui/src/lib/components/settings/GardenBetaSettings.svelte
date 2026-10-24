@@ -202,10 +202,10 @@
         </section>
 
         <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line-soft p-3">
-            <p class="min-w-0 flex-1 text-xs text-slate-600 dark:text-slate-400">{$_('settings.beta.garden_page_help', { default: 'Review captures, ask for species suggestions and see collection status on the Garden animals page.' })}</p>
+            <p class="min-w-0 flex-1 text-xs text-slate-600 dark:text-slate-400">{$_('settings.beta.garden_explorer_help', { default: 'Garden visitors appear in the Explorer beside your birds. Choose Garden visitors there, then Needs review, to work through new captures.' })}</p>
             {#if onNavigate}
-                <button type="button" class="btn btn-secondary min-h-11 max-w-full px-3 py-2 whitespace-normal" onclick={() => onNavigate?.('/garden')}>
-                    {$_('settings.beta.garden_page_open', { default: 'Open Garden animals' })}
+                <button type="button" class="btn btn-secondary min-h-11 max-w-full px-3 py-2 whitespace-normal" onclick={() => onNavigate?.('/events?visitors=garden&review=pending')}>
+                    {$_('settings.beta.garden_explorer_open', { default: 'Review Garden visitors' })}
                 </button>
             {/if}
         </div>
