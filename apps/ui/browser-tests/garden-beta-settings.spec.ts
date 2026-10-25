@@ -327,7 +327,7 @@ test('the view explains each capture outcome and links daily review to the Explo
     await openBeta(page);
     const outcomes = page.locator('[data-garden-outcomes]');
     await expect(outcomes.getByRole('term')).toHaveText(['Needs review', 'Confirmed animals', 'Dismissed']);
-    await expect(outcomes).toContainText('only a bird, nothing or a vehicle');
+    await expect(outcomes).toContainText('Low-confidence automatic results');
     await expect(outcomes).toContainText('person evidence is removed');
     await page.getByRole('button', { name: 'Review Garden visitors' }).click();
     await expect(page.locator('main[data-fixture-route]')).toHaveAttribute('data-fixture-route', '/events?visitors=garden&review=pending');
@@ -380,7 +380,7 @@ test('collection status shows the collector state, its limits and bounded catch-
     const status = page.locator('[data-garden-collection-status]');
     await expect(status.locator('[data-garden-motion-status]')).toHaveText('Waiting for bird inference to become idle.');
     await expect(status).toContainText('No automatic check is due.');
-    await expect(status.getByText('CPU only · At least 10s between scans · Up to 128 photos · 3-day photo retention')).toBeVisible();
+    await expect(status.getByText('Motion detector only: CPU · At least 10s between scans · Up to 128 photos · 3-day photo retention')).toBeVisible();
     await expect(status.getByText('Up to 24 short windows queued per camera from the last 30 minutes. Birds and camera pressure pause collection; brief visits can be missed.')).toBeVisible();
     await expect(status.getByText(/patio: 24 windows waiting when checked at/)).toBeVisible();
     await expect(status.getByText(/Last scan:/)).toBeVisible();
@@ -395,7 +395,7 @@ for (const seconds of [5, 10]) {
             ? route.fulfill({ json: { ...motionStatus, cameras: ['patio'], installed: true, state: 'waiting', interval_seconds: seconds, photo_limit: 128, photo_retention_days: 3, message: 'Recording scanned; no review photo retained.' } })
             : undefined);
         await openBeta(page);
-        await expect(page.locator('[data-garden-collection-status]').getByText(`CPU only · At least ${seconds}s between scans · Up to 128 photos · 3-day photo retention`)).toBeVisible();
+        await expect(page.locator('[data-garden-collection-status]').getByText(`Motion detector only: CPU · At least ${seconds}s between scans · Up to 128 photos · 3-day photo retention`)).toBeVisible();
     });
 }
 
@@ -405,4 +405,17 @@ test('collection status says so when the Garden service cannot report it', async
         : undefined);
     await openBeta(page);
     await expect(page.locator('[data-garden-collection-status]')).toContainText('Model status unavailable. Refresh to try again.');
+});
+
+
+test('Garden shows the actual last NPU execution separately from CPU-only motion scans', async ({ page }) => {
+    await openSettings(page, {}, ['patio'], (route, path) => path === '/api/garden/identification'
+        ? route.fulfill({ json: { ...identificationStatus, preferred_provider: 'intel_npu', last_execution: {
+            model_id: 'garden-speciesnet-4.0.3a', provider: 'intel_npu', requested_provider: 'intel_npu',
+            devices: ['NPU'], checked_at: '2026-10-25T06:34:22Z', fallback_reason: null
+        } } }) : undefined);
+    await openBeta(page);
+    const status = page.locator('[data-garden-collection-status]');
+    await expect(status).toContainText('Automatic check device preference: NPU');
+    await expect(status).toContainText('Last completed run: NPU');
 });

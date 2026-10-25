@@ -1812,7 +1812,13 @@
       "compat_panel_desc": "Ejecuta los modelos instalados en cada dispositivo que esta imagen puede usar y compara los resultados con la CPU. Las GPU y NPU solo se usan después de superar esta comprobación.",
       "memory_title": "Memoria y aislamiento",
       "frigate_video_title": "Frigate y vídeo",
-      "frigate_video_desc": "Si se usan las etiquetas que ya tiene Frigate, se escriben las especies de YA-WAMF en Frigate y se revisan los clips grabados después de la instantánea."
+      "frigate_video_desc": "Si se usan las etiquetas que ya tiene Frigate, se escriben las especies de YA-WAMF en Frigate y se revisan los clips grabados después de la instantánea.",
+      "bird_finder_recommended_checked": "Recomendado: {provider}. Comprobación de dispositivo superada en este servidor.",
+      "bird_finder_recommended_cpu_only": "La CPU es la recomendación disponible. Este servidor no ofrece aceleradores compatibles.",
+      "bird_finder_recommended_failed": "{devices} no coincidieron con la CPU en fotos recientes de aves. La CPU sigue disponible.",
+      "bird_finder_recommended_running": "Comprobando {devices}. La CPU sigue disponible durante la comprobación.",
+      "bird_finder_recommended_unchecked": "CPU hasta que {devices} superen una comprobación aquí. Todavía no hay recomendación de acelerador.",
+      "bird_finder_recommended_waiting": "Esperando fotos de aves guardadas para comprobar de nuevo {devices}. La CPU sigue disponible."
     },
     "llm": {
       "title": "Análisis de IA",
@@ -1918,9 +1924,9 @@
       "garden_motion_confidence_invalid": "Introduce un umbral de propuestas de animales entre 0,5 y 0,95.",
       "garden_naming_threshold_invalid": "Introduce un umbral de nombre entre 0,7 y 0,99.",
       "garden_naming_off": "Cada animal espera en Por revisar hasta que lo confirmes y lo nombres.",
-      "garden_naming_threshold_help": "De 0,7 a 0,99. Los valores más altos nombran menos animales y te dejan más por revisar. Las comprobaciones de personas y aves no cambian.",
+      "garden_naming_threshold_help": "0.7–0.99. Por debajo del umbral automático. Movido a Descartados; puedes restaurar la foto para revisarla.",
       "garden_naming_threshold": "Umbral de nombre",
-      "garden_naming_help": "Cuando la comprobación automática está al menos así de segura de un animal, se confirma y se nombra por ti, marcado como automático. Puedes descartar el nombre o descartar la captura. Por debajo del umbral espera en Por revisar.",
+      "garden_naming_help": "Animal seguro. Confirmado y nombrado automáticamente; descarta la captura o el nombre si alguno es incorrecto. Por debajo del umbral automático. Movido a Descartados; puedes restaurar la foto para revisarla.",
       "garden_naming": "Nombrar animales automáticamente",
       "garden_requirements": "Necesita cámaras de Frigate que sigan animales o guarden grabaciones de movimiento. Animales del jardín descarga sus propios modelos solo cuando lo pides: 224 MB para las comprobaciones automáticas, más un modelo opcional de 224 MB para sugerencias de especies y un detector de movimiento opcional de 101 MB. Tu modelo de aves no cambia.",
       "garden_setup": "Configurar Animales del jardín",
@@ -1957,9 +1963,9 @@
       "garden_country_missing": "Indica un país en Ajustes → Ubicación. Sin país, los animales no se nombran automáticamente y las sugerencias de especies no están disponibles.",
       "garden_models_refresh": "Actualizar estado de los modelos",
       "garden_outcomes": "Adónde van las capturas",
-      "garden_outcome_pending": "Animales que no se nombraron automáticamente, resultados inciertos o mixtos y comprobaciones que no pudieron ejecutarse. Las comprobaciones fallidas se reintentan a los cinco minutos.",
+      "garden_outcome_pending": "Animal detectado. Define un país en Ajustes → Ubicación para nombrarlo automáticamente. Animal detectado, pero no se pudo vincular su nombre al catálogo local. No se guardó un nombre automático. La comprobación automática no estaba disponible. La foto sigue pendiente de revisión; se reintentará pasados cinco minutos mientras Jardín esté activado.",
       "garden_outcome_confirmed": "Animales que confirmas y animales seguros nombrados automáticamente. Un nombre automático se marca como automático y se puede descartar.",
-      "garden_outcome_dismissed": "Capturas que descartas y fotos en las que la comprobación está segura de que solo hay un ave, nada o un vehículo. Volver a revisión recupera una mientras su foto exista.",
+      "garden_outcome_dismissed": "Por debajo del umbral automático. Movido a Descartados; puedes restaurar la foto para revisarla. Se sugiere un ave. Las capturas solo de aves pasan a Descartadas; restaura la foto para revisión si es incorrecto. Se sugiere una escena vacía o un vehículo. Estas capturas pasan a Descartadas; restaura la foto para revisión si es incorrecto.",
       "garden_outcome_person": "Una captura con indicios de personas se elimina junto con su foto. Las visitas al jardín nunca cuentan como aves ni llegan a las notificaciones o exportaciones de aves.",
       "garden_model_motion_source": "MegaDetector v1000 Cedar",
       "garden_status_title": "Estado de la recogida",
@@ -3823,7 +3829,25 @@
       "visit_help": "Misma cámara y mismo animal, capturas a menos de un minuto entre sí, como se agrupan las visitas de aves. Aun así puede ser más de un animal.",
       "suggested_as": "Sugerido como",
       "eyebrow_capture": "Captura del jardín",
-      "fact_source": "Propuesto por"
-    }
+      "fact_source": "Propuesto por",
+      "manual_device_note": "Solo comprobaciones manuales. La CPU predeterminada no describe las automáticas. Estas siguen los ajustes de Detección; el dispositivo usado aparece en el resultado. Un dispositivo manual no disponible produce un error sin cambiar de dispositivo.",
+      "state_manual": "Revisión manual: nombrado automático desactivado o intervención del propietario activa",
+      "state_waiting_automatic": "Esperando identificación automática"
+    },
+    "automatic_animal_manual": "Animal detectado. El nombrado automático está desactivado o este resultado anterior espera una nueva comprobación.",
+    "automatic_below_threshold": "Por debajo del umbral automático. Movido a Descartados; puedes restaurar la foto para revisarla.",
+    "automatic_identity_unavailable": "Animal detectado, pero no se pudo vincular su nombre al catálogo local. No se guardó un nombre automático.",
+    "automatic_location_required": "Animal detectado. Define un país en Ajustes → Ubicación para nombrarlo automáticamente.",
+    "automatic_score": "Puntuación de especie {score}%; umbral de nombre {threshold}%.",
+    "automatic_uncertain_pending": "Este resultado incierto anterior espera la comprobación automática actualizada.",
+    "confirm_manually": "Confirmar animal manualmente",
+    "motion_limits_scoped": "Solo detector de movimiento: CPU · Al menos {seconds}s entre análisis · Hasta {limit} fotos · Conservación de {days} días",
+    "manual_override": "Intervención manual"
+  },
+  "model_execution": {
+    "completed": "Última ejecución completada: {device} · {time}",
+    "fallback": "Alternativa CPU: el acelerador solicitado no completó correctamente su comprobación o inferencia actual.",
+    "garden_preference": "Preferencia para comprobaciones automáticas: {device}. Un acelerador nuevo debe coincidir primero con la CPU.",
+    "unreported": "Ninguna ejecución completada ha indicado su dispositivo. Una recomendación no demuestra una ejecución."
   }
 }

@@ -56,6 +56,7 @@
     let size = $state<readonly [number, number] | undefined>(undefined);
     let failedPhoto = $state<string | null>(null);
     let saving = $state(false);
+    let manualOverride = $state(false);
     let error = $state<string | null>(null);
     let identification = $state.raw<GardenIdentificationStatus | null>(null);
     let chosenVariant = $state<Variant | null>(null);
@@ -353,10 +354,13 @@
                     {/if}
                 </div>
 
+                {#if capture.status === 'pending' && !view.review}
+                    <p class="text-sm" role="status">{gardenEntryText(capture, view, (key, fallback, values) => get(_)(key, { values, default: fallback })).state}</p>
+                {/if}
                 {#if view.review === 'presence'}
                     <p class="flex items-start gap-2 rounded-xl border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-sm font-semibold text-amber-800 dark:text-amber-200" role="status">
                         <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-500" aria-hidden="true"></span>
-                        {$_('garden.explorer.review_presence', { default: 'Needs review: check that an animal is in the photo.' })}
+                        {gardenEntryText(capture, view, (key, fallback, values) => get(_)(key, { values, default: fallback })).state}
                     </p>
                 {:else if view.review === 'species'}
                     <p class="flex items-start gap-2 rounded-xl border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-sm font-semibold text-amber-800 dark:text-amber-200" role="status">
@@ -437,8 +441,13 @@
 
                 <div class="flex flex-col gap-2 border-t border-line-soft pt-3" data-garden-capture-actions>
                     {#if capture.status === 'pending'}
+                        <details open={manualOverride} ontoggle={(event) => manualOverride = event.currentTarget.open} class="group/manual space-y-2" data-garden-manual-override>
+                            <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 py-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 [&::-webkit-details-marker]:hidden">
+                                <span>{$_('garden.manual_override', { default: 'Manual override' })}</span>
+                                <svg class="h-4 w-4 shrink-0 transition-transform group-open/manual:rotate-180 motion-reduce:transition-none" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 7.5 5 5 5-5" /></svg>
+                            </summary>
                         <button type="button" class="btn btn-primary min-h-11 whitespace-normal px-4 py-2" disabled={saving || !photoReady} onclick={() => review('confirm')}>
-                            {$_('garden.confirm', { default: 'Confirm animal present' })}
+                            {$_('garden.confirm_manually', { default: 'Confirm animal manually' })}
                         </button>
                         {#if !photoReady}
                             <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.explorer.confirm_needs_photo', { default: 'An animal can be confirmed only while its photo is shown.' })}</p>
@@ -453,6 +462,7 @@
                                     : $_('garden.explorer.check_needs_model', { default: 'Photo checks need the automatic check model. Download it under Garden models in Settings → Beta features.' })}
                             </p>
                         {/if}
+                        </details>
                     {:else if capture.status === 'confirmed'}
                         {#if view.nameState === 'suggested' && view.name}
                             <button type="button" class="btn btn-primary min-h-11 whitespace-normal px-4 py-2" disabled={saving || !photoReady} onclick={() => reviewName('accept')}>
@@ -489,7 +499,7 @@
                         <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.explorer.dismiss_effect', { default: 'Dismissing removes it from the animals. It stays under Garden visitors, Dismissed while its photo lasts.' })}</p>
                     {/if}
 
-                    {#if group.length > 1 && capture.status === 'pending'}
+                    {#if group.length > 1 && capture.status === 'pending' && (view.review || manualOverride)}
                         <div class="space-y-2 border-t border-line-soft pt-3" data-garden-capture-group-review>
                             <p class="text-sm font-semibold">{$_('garden.group_review', { default: 'Review this stack' })}</p>
                             <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.group_dismiss_help', { default: 'Confirm any animal photos first, then dismiss the remaining photos in this stack. Confirmed photos are kept; future captures are unaffected.' })}</p>
@@ -520,7 +530,7 @@
                                 </select>
                             </label>
                         </div>
-                        <p class="pb-2 text-xs text-slate-600 dark:text-slate-400">{$_('garden.explorer.device_note', { default: 'Used for species suggestions and photo checks. A device that is not available here fails instead of falling back to the CPU.' })}</p>
+                        <p class="pb-2 text-xs text-slate-600 dark:text-slate-400">{$_('garden.explorer.manual_device_note', { default: 'Manual checks only. This CPU default does not describe automatic checks. Automatic checks follow Detection settings; their last execution device is shown with the result. An unavailable manual device fails rather than switching devices.' })}</p>
                     </details>
                 {/if}
             </div>

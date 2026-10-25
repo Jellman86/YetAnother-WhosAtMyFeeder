@@ -60,9 +60,9 @@ test('each finder states its device on this host without claiming an unchecked a
     await openDetectionSettings(page);
     const standard = page.locator('label').filter({ has: page.getByRole('radio', { name: /Standard/ }) });
     const wide = page.locator('label').filter({ has: page.getByRole('radio', { name: /Wide frame/ }) });
-    await expect(wide).toContainText('Runs on Intel GPU (OpenVINO), passed the device check on this host');
+    await expect(wide).toContainText('Recommended: Intel GPU (OpenVINO). Passed the device check on this host.');
     // Unchecked here, so it says which devices it could use and that they need a check first.
-    await expect(standard).toContainText('Runs on the CPU until Intel GPU (OpenVINO) and Intel NPU (OpenVINO) pass a device check on this host.');
+    await expect(standard).toContainText('CPU until Intel GPU (OpenVINO) and Intel NPU (OpenVINO) pass a device check on this host.');
     await expect(standard).not.toContainText('passed the device check');
     await expect(finder(page)).toContainText('19.3 MB download · ~512 MB RAM');
     await expect(finder(page)).toContainText('102.8 MB download');
@@ -133,3 +133,15 @@ for (const width of [320, 393]) {
         await expect(unsaved(page)).toBeVisible();
     });
 }
+
+
+test('a checked finder keeps its scoped check and shows actual CPU fallback separately from its GPU recommendation', async ({ page }) => {
+    await openDetectionSettings(page, { savedFinder: 'rfdetr_nano', finderExecution: {
+        model_id: 'bird_crop_detector_accurate_rfdetr_nano', provider: 'cpu', requested_provider: 'intel_gpu',
+        devices: ['CPUExecutionProvider'], checked_at: '2026-10-25T08:00:00Z', fallback_reason: 'runtime_failed'
+    } });
+    await expect(finder(page)).toContainText('Recommended: Intel GPU (OpenVINO)');
+    await expect(finder(page)).toContainText('Last completed run: CPU');
+    await expect(finder(page)).toContainText('CPU fallback:');
+    await expect(finder(page).getByRole('button', { name: /Check .* for RF-DETR Nano/ })).toBeVisible();
+});

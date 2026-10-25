@@ -1812,7 +1812,13 @@
       "compat_panel_desc": "在此镜像可用的每个设备上运行已安装的模型，并与 CPU 的结果比较。GPU 和 NPU 只有在这里通过检查后才会被使用。",
       "memory_title": "内存与隔离",
       "frigate_video_title": "Frigate 与视频",
-      "frigate_video_desc": "是否使用 Frigate 已有的标签、把 YA-WAMF 的物种写回 Frigate，以及在快照之后检查录制片段。"
+      "frigate_video_desc": "是否使用 Frigate 已有的标签、把 YA-WAMF 的物种写回 Frigate，以及在快照之后检查录制片段。",
+      "bird_finder_recommended_checked": "推荐：{provider}。已通过此主机的设备检查。",
+      "bird_finder_recommended_cpu_only": "当前可用的推荐设备为CPU。此主机没有兼容的加速器。",
+      "bird_finder_recommended_failed": "{devices}在近期鸟类照片上的结果与CPU不一致。CPU仍然可用。",
+      "bird_finder_recommended_running": "正在检查{devices}。检查期间CPU仍然可用。",
+      "bird_finder_recommended_unchecked": "在{devices}通过此主机的检查之前使用CPU。尚无加速器推荐。",
+      "bird_finder_recommended_waiting": "正在等待已保存的鸟类照片，以重新检查{devices}。CPU仍然可用。"
     },
     "llm": {
       "title": "AI 洞察",
@@ -1918,9 +1924,9 @@
       "garden_motion_confidence_invalid": "请输入 0.5 到 0.95 之间的动物候选阈值。",
       "garden_naming_threshold_invalid": "请输入 0.7 到 0.99 之间的命名阈值。",
       "garden_naming_off": "每个动物都会留在“待审核”中，等你确认并命名。",
-      "garden_naming_threshold_help": "范围 0.7 到 0.99。数值越高，自动命名的动物越少，留给你审核的越多。人物和鸟类检查不变。",
+      "garden_naming_threshold_help": "0.7–0.99. 低于自动判定阈值。已移至“已忽略”；如需复核，可恢复照片。",
       "garden_naming_threshold": "命名阈值",
-      "garden_naming_help": "当自动检查对某个动物的把握不低于此值时，会为你确认并命名，并标记为自动。你可以舍弃名称或驳回该捕获。低于阈值时会留在“待审核”中。",
+      "garden_naming_help": "动物结果可信。已自动确认并命名；如有错误，请驳回该捕获或舍弃名称。 低于自动判定阈值。已移至“已忽略”；如需复核，可恢复照片。",
       "garden_naming": "自动为动物命名",
       "garden_requirements": "需要能跟踪动物或保留运动录像的 Frigate 摄像头。花园动物只在你要求时下载专用模型：自动检查需要 224 MB，另有可选的 224 MB 物种建议模型和可选的 101 MB 运动检测器。你的鸟类模型不会改变。",
       "garden_setup": "设置花园动物",
@@ -1957,9 +1963,9 @@
       "garden_country_missing": "请在设置 → 位置中设置国家。没有国家时，动物不会被自动命名，物种建议也不可用。",
       "garden_models_refresh": "刷新模型状态",
       "garden_outcomes": "捕获的去向",
-      "garden_outcome_pending": "未被自动命名的动物、不确定或混合的结果，以及无法运行的检查。失败的检查会在五分钟后重试。",
+      "garden_outcome_pending": "已检测到动物。请在“设置 → 位置”中指定国家，以便自动命名。 已检测到动物，但无法将名称关联到本地目录。未保存自动名称。 自动检查暂不可用。照片保持待审核；花园功能开启时，将在五分钟后重试。",
       "garden_outcome_confirmed": "你确认的动物，以及被自动命名的有把握的动物。自动名称会标记为自动，并且可以丢弃。",
-      "garden_outcome_dismissed": "你忽略的捕获，以及检查有把握只显示鸟、空无一物或车辆的照片。只要照片仍在，返回审核即可恢复。",
+      "garden_outcome_dismissed": "低于自动判定阈值。已移至“已忽略”；如需复核，可恢复照片。 结果提示为鸟类。仅含鸟类的照片会移至已忽略；如果有误，请将照片恢复为待审核。 结果提示为空场景或车辆。这些照片会移至已忽略；如果有误，请将照片恢复为待审核。",
       "garden_outcome_person": "带有人物迹象的捕获会连同照片一起删除。花园访问永远不会计为鸟类，也不会进入鸟类通知或导出。",
       "garden_model_motion_source": "MegaDetector v1000 Cedar",
       "garden_status_title": "收集状态",
@@ -3823,7 +3829,25 @@
       "visit_help": "同一摄像头、同一动物、间隔不到一分钟的拍摄，按鸟类到访的方式归组。仍可能不止一只动物。",
       "suggested_as": "建议为",
       "eyebrow_capture": "花园拍摄",
-      "fact_source": "提出者"
-    }
+      "fact_source": "提出者",
+      "manual_device_note": "仅用于手动检查。默认CPU不代表自动检查的设备。自动检查遵循“检测”设置，实际设备显示在结果中。手动设备不可用时会失败，而不会切换设备。",
+      "state_manual": "手动复核：自动命名已关闭，或所有者的更改正在生效",
+      "state_waiting_automatic": "正在等待自动识别"
+    },
+    "automatic_animal_manual": "已检测到动物。自动命名已关闭，或此旧结果正在等待更新后的自动检查。",
+    "automatic_below_threshold": "低于自动判定阈值。已移至“已忽略”；如需复核，可恢复照片。",
+    "automatic_identity_unavailable": "已检测到动物，但无法将名称关联到本地目录。未保存自动名称。",
+    "automatic_location_required": "已检测到动物。请在“设置 → 位置”中指定国家，以便自动命名。",
+    "automatic_score": "物种得分 {score}%；命名阈值 {threshold}%。",
+    "automatic_uncertain_pending": "此旧的不确定结果正在等待更新后的自动检查。",
+    "confirm_manually": "手动确认动物",
+    "motion_limits_scoped": "仅运动检测器：CPU · 扫描间隔至少{seconds}秒 · 最多{limit}张照片 · 保留{days}天",
+    "manual_override": "手动更改"
+  },
+  "model_execution": {
+    "completed": "上次完成的运行：{device} · {time}",
+    "fallback": "已回退至CPU：所选加速器未能成功完成当前检查或推理。",
+    "garden_preference": "自动检查的首选设备：{device}。新加速器必须先通过与CPU的一致性检查。",
+    "unreported": "尚无已完成运行报告其设备。推荐设备不等于执行记录。"
   }
 }

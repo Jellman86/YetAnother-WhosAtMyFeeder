@@ -1010,12 +1010,17 @@ export interface components {
     GardenAutomaticCheck: {
     box_xywh?: [number, number, number, number] | null;
     checked_at: string;
+    decision_reason?: "below_threshold" | "naming_disabled" | "location_required" | "identity_unavailable" | null;
     devices?: Array<string>;
+    execution?: components['schemas']['InferenceExecution'] | null;
     image_sha256?: string | null;
     mass?: components['schemas']['GardenPresenceMass'] | null;
     model_sha256?: string | null;
+    naming_score?: number | null;
+    naming_threshold?: number | null;
     outcome: "animal" | "bird" | "non_animal" | "uncertain" | "unavailable";
     package_sha256?: string | null;
+    policy_version?: number;
     variant?: "4.0.3a" | "4.0.3b" | null;
 };
     GardenBatchReviewRequest: {
@@ -1076,7 +1081,9 @@ export interface components {
     catalogue_ready: boolean;
     country: string | null;
     error?: string | null;
+    last_execution?: components['schemas']['InferenceExecution'] | null;
     models: Array<components['schemas']['GardenModelStatus']>;
+    preferred_provider?: "cpu" | "intel_cpu" | "intel_gpu" | "intel_npu" | "cuda";
 };
     GardenIdentifyRequest: {
     provider?: "cpu" | "intel_cpu" | "intel_gpu" | "intel_npu" | "cuda";
@@ -1229,6 +1236,14 @@ export interface components {
     InaturalistSubmitResponse: {
     observation_id?: number | null;
     status: string;
+};
+    InferenceExecution: {
+    checked_at: string;
+    devices: Array<string>;
+    fallback_reason?: "runtime_failed" | "accelerator_unavailable" | null;
+    model_id: string;
+    provider: "cpu" | "intel_cpu" | "intel_gpu" | "intel_npu" | "cuda";
+    requested_provider?: "cpu" | "intel_cpu" | "intel_gpu" | "intel_npu" | "cuda" | null;
 };
     InitialPasswordRequest: {
     enable_auth?: boolean;

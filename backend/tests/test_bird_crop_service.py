@@ -888,3 +888,53 @@ def test_absent_crop_models_are_not_runtime_failures(monkeypatch):
     result = service.generate_crop(_make_image(640, 480), detector_tier="accurate")
     assert result["crop_image"] is None
     assert not result.get("runtime_error")
+
+
+def test_successful_finder_inference_records_actual_device_and_fallback(monkeypatch):
+    service = BirdCropService()
+    model = {"provider": "cpu", "detector_tier": "accurate"}
+    monkeypatch.setattr(service, "_infer_candidates_on_model", lambda *_: [])
+    monkeypatch.setattr(service, "_registry_model_id_for_tier", lambda _: "bird_crop_detector_accurate_rfdetr_nano")
+    service._provider_fallbacks["accurate"] = "intel_npu"
+    assert service._infer_candidates(model, Image.new("RGB", (64, 64))) == []
+    evidence = service.last_execution()
+    assert evidence["provider"] == "cpu"
+    assert evidence["requested_provider"] == "intel_npu"
+    assert evidence["fallback_reason"] == "runtime_failed"
+    assert evidence["model_id"] == "bird_crop_detector_accurate_rfdetr_nano"
+    assert evidence["checked_at"].endswith("Z")
+
+    def failed(*_):
+        raise RuntimeError("failed")
+
+    monkeypatch.setattr(service, "_infer_candidates_on_model", failed)
+    with pytest.raises(RuntimeError):
+        service._infer_candidates(model, Image.new("RGB", (64, 64)))
+    assert service.last_execution() == evidence
+
+
+def test_fast_fallback_does_not_overwrite_the_selected_finders_last_execution(monkeypatch):
+    service = BirdCropService()
+    monkeypatch.setattr(service, "_infer_candidates_on_model", lambda *_: [])
+    monkeypatch.setattr(
+        service, "_registry_model_id_for_tier", lambda tier: "finder" if tier == "accurate" else "fallback"
+    )
+    image = Image.new("RGB", (64, 64))
+    service._infer_candidates({"provider": "intel_npu", "detector_tier": "accurate"}, image)
+    service._infer_candidates({"provider": "cpu", "detector_tier": "fast"}, image)
+    assert service.last_execution()["model_id"] == "finder"
+    assert service.last_execution()["devices"] == ["NPU"]
+
+
+def test_missing_execution_metadata_never_changes_a_successful_finder_result(monkeypatch):
+    service = BirdCropService()
+    monkeypatch.setattr(service, "_infer_candidates_on_model", lambda *_: [{"confidence": 0.9}])
+
+    def missing(*_):
+        raise RuntimeError("metadata unavailable")
+
+    monkeypatch.setattr(service, "_registry_model_id_for_tier", missing)
+    assert service._infer_candidates(
+        {"provider": "intel_npu", "detector_tier": "accurate"}, Image.new("RGB", (64, 64))
+    ) == [{"confidence": 0.9}]
+    assert service.last_execution() is None

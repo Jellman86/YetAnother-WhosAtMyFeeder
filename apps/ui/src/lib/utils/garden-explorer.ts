@@ -40,7 +40,9 @@ export function gardenEntryView(capture: GardenCapture): GardenEntryView {
         name: standing?.name ?? null,
         nameState,
         score: standing?.score ?? null,
-        review: capture.status === 'pending' ? 'presence' : nameState === 'suggested' ? 'species' : null
+        review: capture.status === 'pending'
+            ? capture.automatic_check_overridden || ['naming_disabled', 'location_required', 'identity_unavailable'].includes(capture.automatic_check?.decision_reason ?? '') ? 'presence' : null
+            : nameState === 'suggested' ? 'species' : null
     };
 }
 
@@ -136,7 +138,13 @@ export function gardenEntryText(capture: GardenCapture, view: GardenEntryView, t
         ?? (capture.status === 'pending'
             ? t('garden.explorer.possible_animal', 'Possible animal')
             : t('garden.explorer.unnamed_animal', 'Animal, not named'));
-    if (view.review === 'presence') return { title, state: t('garden.explorer.state_presence', 'Needs review: is an animal there?') };
+    if (capture.status === 'pending' && !view.review) return { title, state: t('garden.explorer.state_waiting_automatic', 'Waiting for automatic identification') };
+    if (view.review === 'presence') {
+        const reason = capture.automatic_check?.decision_reason;
+        if (reason === 'location_required') return { title, state: t('garden.automatic_location_required', 'Animal detected. Set a country in Settings → Location so the model can name it automatically.') };
+        if (reason === 'identity_unavailable') return { title, state: t('garden.automatic_identity_unavailable', 'Animal detected, but its name could not be bound to the local catalogue. No automatic name was saved.') };
+        return { title, state: t('garden.explorer.state_manual', 'Manual review: automatic naming is off or an owner override is active') };
+    }
     if (view.review === 'species') return { title, state: t('garden.explorer.state_species', 'Needs review: suggested species') };
     if (view.nameState === 'automatic') return { title, state: t('garden.explorer.state_automatic', 'Named automatically') };
     if (view.nameState === 'confirmed') return { title, state: t('garden.explorer.state_confirmed', 'Species confirmed by you') };

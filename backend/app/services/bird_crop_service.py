@@ -14,6 +14,8 @@ import numpy as np
 import structlog
 from PIL import Image
 
+from app.models.inference_execution import InferenceExecution
+from app.utils.api_datetime import utc_naive_now
 from app.config import settings
 from app.services.openvino_cache import resolve_openvino_cache_dir
 from app.utils.cuda_runtime import (
@@ -212,6 +214,7 @@ class BirdCropService:
         self._models_loaded: dict[str, bool] = {}
         self._model_error: str | None = None
         self._model_errors: dict[str, str | None] = {}
+        self._last_executions: dict[str, dict[str, Any]] = {}
         self._active_providers: dict[str, str] = {}
         self._provider_fallbacks: dict[str, str | None] = {}
         self._loaded_model_ids: dict[str, str] = {}
@@ -1237,6 +1240,7 @@ class BirdCropService:
         status["load_error"] = self._model_error
         status["policy"] = "accurate_then_fast"
         status["classification_candidate_policy"] = self.get_classification_candidate_crop_policy()
+        status["last_execution"] = self.last_execution()
         status["active_providers"] = dict(self._active_providers)
         status["provider_fallbacks"] = dict(self._provider_fallbacks)
         from app.services.bird_finder_revalidation import bird_finder_revalidation
@@ -1267,7 +1271,38 @@ class BirdCropService:
             verify_cuda_session_provider(session)
         return list(outputs or []), transform
 
+    def last_execution(self) -> dict[str, Any] | None:
+        evidence = self._last_executions.get("accurate")
+        return dict(evidence) if evidence else None
+
     def _infer_candidates(self, model: Any, image: Image.Image) -> list[dict[str, Any]]:
+        candidates = self._infer_candidates_on_model(model, image)
+        if isinstance(model, dict) and model.get("provider") in {"cpu", "intel_cpu", "intel_gpu", "intel_npu", "cuda"}:
+            try:
+                tier = str(model.get("detector_tier") or "fast")
+                provider = model["provider"]
+                fallback = self._provider_fallbacks.get(tier)
+                self._last_executions[tier] = InferenceExecution(
+                    model_id=self._registry_model_id_for_tier(tier),
+                    provider=provider,
+                    requested_provider=fallback or provider,
+                    devices=[
+                        {
+                            "cpu": "CPUExecutionProvider",
+                            "intel_cpu": "CPU",
+                            "intel_gpu": "GPU",
+                            "intel_npu": "NPU",
+                            "cuda": "CUDAExecutionProvider",
+                        }[provider]
+                    ],
+                    checked_at=utc_naive_now().isoformat() + "Z",
+                    fallback_reason="runtime_failed" if fallback else None,
+                ).model_dump(mode="json")
+            except Exception as error:  # noqa: BLE001 - optional evidence must not change inference results
+                log.debug("finder_execution_evidence_unavailable", error_type=type(error).__name__)
+        return candidates
+
+    def _infer_candidates_on_model(self, model: Any, image: Image.Image) -> list[dict[str, Any]]:
         infer_fn = getattr(model, "infer", None)
         if callable(infer_fn):
             results = infer_fn(image)

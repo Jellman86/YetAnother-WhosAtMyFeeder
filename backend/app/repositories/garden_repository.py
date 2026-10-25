@@ -392,7 +392,18 @@ class GardenRepository:
         )
         await self.db.commit()
 
-    async def next_automatic_check(self, cameras: list[str], retry_before: str) -> GardenCapture | None:
+    async def latest_automatic_check(self) -> GardenAutomaticCheck | None:
+        async with self.db.execute(
+            """SELECT result_json FROM garden_automatic_checks
+               WHERE json_extract(result_json,'$.outcome') != 'unavailable'
+               ORDER BY json_extract(result_json,'$.checked_at') DESC LIMIT 1"""
+        ) as cursor:
+            row = await cursor.fetchone()
+        return GardenAutomaticCheck.model_validate_json(row[0]) if row else None
+
+    async def next_automatic_check(
+        self, cameras: list[str], retry_before: str, *, policy_version: int | None = None, country: str | None = None
+    ) -> GardenCapture | None:
         if not cameras:
             return None
         placeholders = ",".join("?" for _ in cameras)
@@ -403,9 +414,14 @@ class GardenRepository:
                   NOT EXISTS (SELECT 1 FROM garden_automatic_checks WHERE capture_id=id)
                   OR EXISTS (SELECT 1 FROM garden_automatic_checks WHERE capture_id=id
                     AND json_extract(result_json,'$.outcome')='unavailable'
-                    AND json_extract(result_json,'$.checked_at') < ?))
+                    AND json_extract(result_json,'$.checked_at') < ?)
+                  OR EXISTS (SELECT 1 FROM garden_automatic_checks WHERE capture_id=id
+                    AND json_extract(result_json,'$.outcome') != 'unavailable'
+                    AND ? IS NOT NULL AND COALESCE(json_extract(result_json,'$.policy_version'),0) < ?)
+                  OR EXISTS (SELECT 1 FROM garden_automatic_checks WHERE capture_id=id
+                    AND json_extract(result_json,'$.decision_reason')='location_required' AND ? IS NOT NULL))
                 ORDER BY EXISTS (SELECT 1 FROM garden_automatic_checks WHERE capture_id=id), observed_at, id LIMIT 1""",
-            (*cameras, retry_before),
+            (*cameras, retry_before, policy_version, policy_version, country),
         ) as cursor:
             row = await cursor.fetchone()
         return self._capture(row) if row else None
@@ -422,7 +438,7 @@ class GardenRepository:
             (
                 result.model_dump_json(),
                 original.id,
-                original.automatic_check.model_dump_json() if original.automatic_check else None,
+                original.automatic_check.model_dump_json(exclude_unset=True) if original.automatic_check else None,
             ),
         )
         return cursor.rowcount > 0
@@ -456,7 +472,7 @@ class GardenRepository:
 
     async def save_automatic_check(self, original: GardenCapture, result: GardenAutomaticCheck) -> bool:
         changed = await self._write_automatic_check(original, result)
-        if changed and result.outcome in {"bird", "non_animal"}:
+        if changed and (result.outcome in {"bird", "non_animal"} or result.decision_reason == "below_threshold"):
             await self.db.execute(
                 "UPDATE garden_captures SET status='dismissed' WHERE id=? AND status='pending' AND automation_overridden=0",
                 (original.id,),

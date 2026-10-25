@@ -4824,7 +4824,15 @@ class ClassifierService:
             model_id = None
         bird = self._models.get("bird")
         model_path = str(getattr(bird, "model_path", "") or "")
+        crop_execution = None
+        getter = getattr(self._bird_crop_service, "last_execution", None)
+        if callable(getter):
+            try:
+                crop_execution = getter()
+            except Exception:  # noqa: BLE001 - absent diagnostics must not fail classification
+                pass
         return {
+            "crop_execution": crop_execution if isinstance(crop_execution, dict) else None,
             "inference_backend": self._inference_backend,
             "active_provider": self._active_inference_provider,
             "model_id": model_id,
@@ -5223,6 +5231,17 @@ class ClassifierService:
                 crop_detector_status.update(dict(self._bird_crop_service.get_status() or {}))
             except Exception:
                 pass
+
+        from app.services.inference_execution import latest_model_execution
+
+        executions = [crop_detector_status.get("last_execution")]
+        for pool in (supervisor_metrics or {}).values():
+            if isinstance(pool, dict):
+                executions.append(pool.get("crop_execution"))
+                if isinstance(pool.get("runtime"), dict):
+                    executions.append(pool["runtime"].get("crop_execution"))
+        latest_execution = latest_model_execution(crop_detector_status.get("model_id"), executions)
+        crop_detector_status["last_execution"] = latest_execution.model_dump(mode="json") if latest_execution else None
 
         selected_provider = _normalize_inference_provider(
             getattr(settings.classification, "inference_provider", "auto")

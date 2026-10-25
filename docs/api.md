@@ -396,7 +396,8 @@ species identification have separate reviews; `frigate_label` remains an upstrea
 - `GET /api/garden/identification` — catalogue availability, normalised ISO-3 country,
   per-variant model download status, busy state, `automatic_message` and any worker cleanup error.
   Automatic checks download/verify the tracked-crop model when needed and run
-  on CPU with bird/camera priority. Missing boxes never use whole-image inference
+  on the Detection device preference after a host-bound CPU agreement check, with
+  CPU fallback and bird/camera priority. Missing boxes never use whole-image inference
   to reject a capture. Unavailable checks retry no sooner than five minutes later.
 - `POST /api/garden/models/{variant}/install` — atomically download and verify
   `4.0.3a` or `4.0.3b`; no body. Both files are about 224 MB.
@@ -423,8 +424,22 @@ species identification have separate reviews; `frigate_label` remains an upstrea
 Identification metadata includes the canonical `species_id`, model/package/photo
 checksums, raw winning `output_index`, country, requested provider, actual devices,
 input kind, optional normalized XYWH box, frame size and review state. This belongs
-only to garden history. Species suggestions and their acceptance remain explicit;
-automatic presence checks do not confirm a species or change the owner's provider.
+only to garden history. Manual suggestions require acceptance; automatic naming
+confirms a bound animal identity at the configured threshold without an owner click.
+It does not change the owner's provider preference.
+
+
+Completed model execution evidence uses `model_id`, `provider`, optional
+`requested_provider`, `devices`, `checked_at` and optional `fallback_reason`.
+Finder evidence is exposed as `crop_detector.last_execution` in classifier status
+and comes from successful in-process inference or an accepted worker result bound
+to its current lease. Records for another selected finder are withheld. Garden
+checks include optional `execution`, `policy_version`, `decision_reason`,
+`naming_score` and `naming_threshold`; old stored JSON remains readable. A
+`below_threshold` decision soft-dismisses the capture without marking it as an
+owner review. Owner overrides, person vetoes and atomic result comparisons remain
+in force.
+
 
 Captures include `source_kind=frigate_event|motion`. Motion captures have no Frigate
 event ID. Their `motion_source` binds the requested recording window, returned frame
@@ -446,7 +461,10 @@ days and unconfirmed motion captures are removed. Confirmed history survives pho
 The equivalent environment override is `FRIGATE__GARDEN_MOTION_CONFIDENCE`.
 `garden_automatic_naming` (default `true`, `FRIGATE__GARDEN_AUTOMATIC_NAMING`) and
 `garden_naming_threshold` (0.7 to 0.99, default 0.8, `FRIGATE__GARDEN_NAMING_THRESHOLD`)
-control automatic naming. They do not change bird or person thresholds.
+control automatic naming. Successful results below the species threshold are soft
+dismissed and restorable; failures remain pending for retry. Older pending results
+without owner overrides are reconsidered once under this policy. Bird and person
+thresholds remain separate.
 It affects new Cedar animal proposals only, leaving bird and person thresholds intact.
 `motion_source.animal_confidence` records the threshold used; legacy photos default
 this provenance value to the previous fixed 0.5. A changed threshold interrupts a

@@ -11,14 +11,16 @@ Confident bird-only, blank-scene or vehicle results move to **Dismissed** with
 the automatic result shown on the capture. Open that view and choose **Return to
 review** if the check is wrong. Restoring, confirming or dismissing a capture
 overrides automatic checks for that capture, including after restart.
-Existing captures from before this update keep their reviews and are not rechecked.
+Owner-reviewed, confirmed and dismissed captures keep their reviews. Older pending automatic
+results without an owner override are reconsidered once under the updated policy.
 
 The required 224 MB tracked-crop model is the **Automatic check model** under
 **Settings → Beta features → Garden models**. Download it there before your first
 captures arrive; if you have not, it downloads and verifies automatically when an
-enabled Garden camera has a new photo to check. Checks use CPU, one photo at a
-time, while birds and Frigate cameras are idle. They use the detector's exact box;
-missing boxes, mixed evidence and uncertain results stay in **Needs review**.
+enabled Garden camera has a new photo to check. Checks use the Detection device
+preference, one photo at a time, while birds and Frigate cameras are idle. They use the detector's exact box;
+missing boxes or unavailable checks stay in **Needs review** for retry. Completed
+low-confidence results move to restorable **Dismissed** when automatic naming is enabled.
 Model, download or runtime failures also stay there and retry no sooner than five
 minutes later. **Collection status** under **Settings → Beta features → Garden models** describes
 automatic work; refresh it to read updated results. No **Check photo** click is needed.
@@ -130,11 +132,11 @@ country in **Settings → Location**; the view says when it is missing.
 
 **Where captures go** in the same view summarises the outcomes:
 
-- **Needs review**: animals that were not named automatically, uncertain or mixed
-  results, and checks that could not run.
+- **Needs review**: checks waiting to run or retry, missing country/catalogue identity,
+  and owner overrides. Automatic work says it is waiting, rather than asking for presence verification.
 - **Confirmed animals**: animals you confirm, and confident animals named automatically.
-- **Dismissed**: captures you dismiss, and photos the check is confident show only a
-  bird, nothing or a vehicle.
+- **Dismissed**: successful below-threshold automatic checks, captures you dismiss,
+  and photos the check is confident show only a bird, nothing or a vehicle.
 
 Recognised person evidence removes a capture and its photo instead.
 
@@ -327,8 +329,12 @@ same country filtering and person rules as a suggestion, the capture moves to **
 animals** with the name **Named automatically**. A result filtered by country is named by
 its plausible group, for example *cat family*.
 
-Below the threshold, or without a recognised country in **Settings → Location**, the
-capture stays in **Needs review** unnamed. Person evidence anywhere in the top results
+Successful checks below the species threshold move to **Dismissed**, retaining their
+photo and **Return to review** action. The configured species threshold is authoritative;
+a separate coarse presence floor does not prevent an otherwise qualifying animal name.
+Without a recognised country in **Settings → Location**, or a catalogue identity, the
+capture stays pending with the missing requirement explained. Failed checks stay pending
+and retry after five minutes; failures are never treated as low confidence. Person evidence anywhere in the top results
 removes the capture. Turn automatic naming off to review and name every animal yourself.
 
 An automatic name is not an owner review. **Discard identification** removes the name
@@ -356,3 +362,27 @@ If worker cleanup fails, Garden stops rather than starting a CPU fallback beside
 preserves the same thresholds, person veto, naming policy and owner-review protections.
 
 The [accelerator validation and hedgehog follow-up](../reviews/2026-10-24-garden-automatic-accelerators.md) records the tested hardware, numerical limits and remaining accuracy gaps.
+
+
+## Verify which device ran a model
+
+In **Settings → Detection**, each bird finder shows its recommended device from the
+host comparison. The chosen finder also shows its **Last completed run**, device,
+time and CPU fallback, or explicitly says there is no execution report yet. The
+recommendation can differ from the Detection preference because it selects the fastest
+CPU-agreeing device for that finder. The scoped **Check devices** action remains
+available after a successful check and does not change the identification model.
+
+**Settings → Beta features → Garden models** separately shows the automatic check's
+device preference and last completed execution. Open a capture to see the device and
+time of its own automatic result. These are completed records, not a promise that a
+model is currently loaded. Garden releases its worker after each operation. The
+**Model and device** selector on a capture controls manual checks only; its CPU default
+does not describe automatic execution. **Motion detector only: CPU** refers to Cedar
+motion collection, not SpeciesNet animal identification.
+
+When automatic naming is enabled, existing pending automatic checks from the older
+policy are reconsidered once while hardware is idle. Confirmed, dismissed, blocked
+and owner-overridden captures are excluded. No bird records are renamed. Pending
+automatic work says **Waiting for automatic identification** rather than asking a
+person to confirm presence. Manual confirmation remains available as an override.

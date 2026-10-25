@@ -1,4 +1,5 @@
 <script lang="ts">
+    import ModelExecutionEvidence from '../../components/ModelExecutionEvidence.svelte';
     import { get } from 'svelte/store';
     import { _, locale } from 'svelte-i18n';
     import { onMount, onDestroy } from 'svelte';
@@ -1117,17 +1118,17 @@
                                             {#if !optionInstalled}
                                                 {$_('settings.detection.model_manager_detector_missing', { default: 'Download required' })}
                                             {:else if deviceNote === 'checked'}
-                                                {t('settings.detection.bird_finder_device_checked', 'Runs on {provider}, passed the device check on this host', { provider: providerLabel(device.provider) })}
+                                                {t('settings.detection.bird_finder_recommended_checked', 'Recommended: {provider}. Passed the device check on this host.', { provider: providerLabel(device.provider) })}
                                             {:else if deviceNote === 'cpu_only'}
-                                                {$_('settings.detection.bird_finder_device_cpu_only', { default: 'Runs on the CPU. This host has no graphics or NPU device this finder can use.' })}
+                                                {$_('settings.detection.bird_finder_recommended_cpu_only', { default: 'CPU is the available recommendation. This host offers no compatible accelerator.' })}
                                             {:else if deviceNote === 'check_running'}
-                                                {t('settings.detection.bird_finder_device_check_running', 'Runs on the CPU while YA-WAMF re-checks {devices} on recent bird photos.', { devices })}
+                                                {t('settings.detection.bird_finder_recommended_running', 'Device check running for {devices}. CPU remains available while the check runs.', { devices })}
                                             {:else if deviceNote === 'check_failed'}
-                                                {t('settings.detection.bird_finder_device_check_failed', 'Runs on the CPU. {devices} did not match the CPU on recent bird photos.', { devices })}
+                                                {t('settings.detection.bird_finder_recommended_failed', '{devices} did not match the CPU on recent bird photos. CPU remains available.', { devices })}
                                             {:else if deviceNote === 'check_waiting'}
-                                                {t('settings.detection.bird_finder_device_check_waiting', 'Runs on the CPU. {devices} will be re-checked after a restart once YA-WAMF has saved bird photos.', { devices })}
+                                                {t('settings.detection.bird_finder_recommended_waiting', 'Waiting for saved bird photos to re-check {devices}. CPU remains available.', { devices })}
                                             {:else}
-                                                {t('settings.detection.bird_finder_device_until_checked', 'Runs on the CPU until {devices} pass a device check on this host.', { devices })}
+                                                {t('settings.detection.bird_finder_recommended_unchecked', 'CPU until {devices} pass a device check on this host. No accelerator recommendation yet.', { devices })}
                                             {/if}
                                         </span>
                                     </span>
@@ -1148,7 +1149,8 @@
                             {@const chosenShortName = chosenFinder.choice === 'rfdetr_nano' ? 'RF-DETR Nano' : 'YOLOX-Tiny'}
                             {@const chosenDevice = birdFinderDevice(getInstalledModel(chosenFinder.model.id), hostProviders, chosenFinder.model)}
                             {@const chosenDeviceNote = birdFinderDeviceNote(chosenDevice, cropDetectorStatus?.device_check, chosenFinder.model.id)}
-                            {@const canCheckChosen = chosenInstalled && oncheckfinderdevices !== undefined && ['until_checked', 'check_failed', 'check_waiting'].includes(chosenDeviceNote)}
+                            {@const canCheckChosen = chosenInstalled && oncheckfinderdevices !== undefined && chosenDeviceNote !== 'check_running'}
+                            <ModelExecutionEvidence execution={cropDetectorStatus?.last_execution?.model_id === chosenFinder.model.id ? cropDetectorStatus.last_execution : null} />
                             <div class="flex flex-wrap items-center gap-3">
                                 {#if canCheckChosen}
                                     <button

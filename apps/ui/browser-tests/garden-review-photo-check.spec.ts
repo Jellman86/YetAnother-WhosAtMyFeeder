@@ -44,7 +44,8 @@ test.beforeEach(async ({ page }) => {
 async function openStack(page: Page) {
     await page.goto('/browser-tests/owner-history.html?surface=explorer&garden=1&visitors=garden&review=pending');
     await page.locator('[data-garden-card]').first().getByRole('button', { name: /^Open Garden capture/ }).click();
-    await expect(record(page).getByRole('button', { name: 'Confirm animal present' })).toBeEnabled();
+    await record(page).locator('[data-garden-manual-override] summary').click();
+    await expect(record(page).getByRole('button', { name: 'Confirm animal manually' })).toBeEnabled();
 }
 
 test('photo check is explicit, country independent and makes no review decision', async ({ page }) => {
@@ -88,7 +89,7 @@ test('closed late check cannot attach its result to the next stack photo', async
     release?.();
     await expect(check(page)).toHaveCount(0);
     await expect(page.getByText('Model suggests a bird')).toHaveCount(0);
-    await expect(record(page).getByRole('button', { name: 'Confirm animal present' })).toBeEnabled();
+    await expect(record(page).getByRole('button', { name: 'Confirm animal manually' })).toBeEnabled();
 });
 
 test('unavailable assessment preserves review controls and fits narrow dark screens', async ({ page }) => {
@@ -105,7 +106,7 @@ test('unavailable assessment preserves review controls and fits narrow dark scre
         await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     }
     await page.keyboard.press('Escape');
-    await expect(record(page).getByRole('button', { name: 'Confirm animal present' })).toBeEnabled();
+    await expect(record(page).getByRole('button', { name: 'Confirm animal manually' })).toBeEnabled();
     await expect(record(page).getByRole('button', { name: 'Dismiss capture', exact: true })).toBeEnabled();
 });
 
