@@ -98,12 +98,13 @@ test('Garden on its own lists only captures, and its record confirms an animal w
     await page.getByRole('button', { name: /Open Garden capture: Possible animal/ }).click();
     const dialog = page.getByRole('dialog');
     await expect(dialog).toContainText('Waiting for automatic identification');
+    await expect(dialog.getByText('Animal confirmed', { exact: true })).toHaveCount(0);
     await expect(dialog.getByRole('button', { name: /Reclassify|Play/i })).toHaveCount(0);
     if (shots) await page.screenshot({ path: `${shots}/garden-explorer-record.png` });
     await expect(dialog.getByRole('button', { name: 'Confirm animal manually' })).not.toBeVisible();
     await dialog.getByText('Manual override', { exact: true }).click();
     await dialog.getByRole('button', { name: 'Confirm animal manually' }).click();
-    await expect(dialog).toContainText('Animal confirmed');
+    await expect(dialog.getByText('Animal confirmed', { exact: true })).toBeVisible();
     expect(confirmed).toEqual(['cat'.padEnd(32, '0')]);
 
     await page.keyboard.press('Escape');
