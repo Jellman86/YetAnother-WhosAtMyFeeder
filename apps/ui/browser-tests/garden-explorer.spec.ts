@@ -75,7 +75,7 @@ test('Garden captures sit between the visits they fell between, marked Garden in
     const kinds = await order.evaluateAll(nodes => nodes.map(node => node.getAttribute('data-explorer-visit') ?? `garden:${node.getAttribute('data-garden-card')}`));
     expect(kinds).toEqual(['garden:pending', 'morning', 'garden:confirmed', 'night']);
     await expect(page.locator('[data-garden-card="confirmed"]')).toContainText('Red fox');
-    await expect(page.locator('[data-garden-card="pending"]')).toContainText('Needs review: is an animal there?');
+    await expect(page.locator('[data-garden-card="pending"]')).toContainText('Waiting for automatic identification');
     await expect(page.locator('[data-garden-card] [data-garden-marker]').first()).toHaveText(/Garden/);
     expect(timelineQueries[0]?.get('order')).toBe('newest');
     if (shots) await page.screenshot({ path: `${shots}/garden-explorer-cards.png`, fullPage: true });
@@ -97,10 +97,12 @@ test('Garden on its own lists only captures, and its record confirms an animal w
 
     await page.getByRole('button', { name: /Open Garden capture: Possible animal/ }).click();
     const dialog = page.getByRole('dialog');
-    await expect(dialog).toContainText('Needs review: check that an animal is in the photo.');
+    await expect(dialog).toContainText('Waiting for automatic identification');
     await expect(dialog.getByRole('button', { name: /Reclassify|Play/i })).toHaveCount(0);
     if (shots) await page.screenshot({ path: `${shots}/garden-explorer-record.png` });
-    await dialog.getByRole('button', { name: 'Confirm animal present' }).click();
+    await expect(dialog.getByRole('button', { name: 'Confirm animal manually' })).not.toBeVisible();
+    await dialog.getByText('Manual override', { exact: true }).click();
+    await dialog.getByRole('button', { name: 'Confirm animal manually' }).click();
     await expect(dialog).toContainText('Animal confirmed');
     expect(confirmed).toEqual(['cat'.padEnd(32, '0')]);
 

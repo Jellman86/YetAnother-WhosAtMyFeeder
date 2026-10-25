@@ -44,8 +44,8 @@ function named(review: Identification['review'], automatic = false): Identificat
 }
 
 describe('gardenEntryView', () => {
-    it('asks for a presence review on a capture nobody has confirmed', () => {
-        expect(gardenEntryView(capture())).toEqual({ name: null, nameState: 'none', score: null, review: 'presence' });
+    it('waits for automatic identification without asking for presence verification', () => {
+        expect(gardenEntryView(capture())).toEqual({ name: null, nameState: 'none', score: null, review: null });
     });
 
     it('names a confirmed animal only from an identification that still stands', () => {
@@ -163,7 +163,7 @@ describe('gardenEntryText', () => {
 
     it('names nothing a model has not named, and says what still needs a person', () => {
         const pending = capture();
-        expect(gardenEntryText(pending, gardenEntryView(pending), t)).toEqual({ title: 'Possible animal', state: 'Needs review: is an animal there?' });
+        expect(gardenEntryText(pending, gardenEntryView(pending), t)).toEqual({ title: 'Possible animal', state: 'Waiting for automatic identification' });
         const suggested = capture({ status: 'confirmed', identification: named('unreviewed') });
         expect(gardenEntryText(suggested, gardenEntryView(suggested), t)).toEqual({ title: 'Red fox', state: 'Needs review: suggested species' });
         const unnamed = capture({ status: 'confirmed' });

@@ -1,5 +1,6 @@
 """Private garden model contracts, distinct from bird classification DTOs."""
 
+from app.models.inference_execution import InferenceExecution, InferenceProvider
 from typing import Literal
 import math
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -27,6 +28,13 @@ class GardenAutomaticCheck(BaseModel):
     model_config = ConfigDict(extra="forbid")
     outcome: Literal["animal", "bird", "non_animal", "uncertain", "unavailable"]
     checked_at: str
+    policy_version: int = Field(0, ge=0)
+    decision_reason: (
+        Literal["below_threshold", "naming_disabled", "location_required", "identity_unavailable"] | None
+    ) = None
+    naming_score: float | None = Field(None, ge=0, le=1)
+    naming_threshold: float | None = Field(None, ge=0.7, le=0.99)
+    execution: InferenceExecution | None = None
     image_sha256: str | None = Field(None, pattern=r"^[a-f0-9]{64}$")
     variant: GardenVariant | None = None
     model_sha256: str | None = Field(None, pattern=r"^[a-f0-9]{64}$")
@@ -130,4 +138,6 @@ class GardenIdentificationStatus(BaseModel):
     busy: bool
     error: str | None = None
     models: list[GardenModelStatus]
+    preferred_provider: InferenceProvider = "cpu"
+    last_execution: InferenceExecution | None = None
     automatic_message: str = "Automatic checks wait for an enabled Garden camera and idle bird inference."

@@ -69,6 +69,10 @@ const toasts = (page: Page) => page.locator('[data-toast-container]');
 async function openFirst(page: Page) {
     await page.locator('[data-garden-card]').first().getByRole('button', { name: /^Open Garden capture/ }).click();
     await expect(record(page)).toBeVisible();
+    const override = record(page).locator('[data-garden-manual-override]');
+    if (await override.count() && !(await override.evaluate(node => (node as HTMLDetailsElement).open))) {
+        await override.locator('summary').click();
+    }
 }
 
 async function chooseReview(page: Page, review: 'pending' | 'confirmed' | 'dismissed') {
@@ -109,7 +113,7 @@ test('automatic rejections explain the result and can return to review without a
     await chooseReview(page, 'pending');
     await openFirst(page);
     await expect(record(page).locator('[data-garden-automatic-check]')).toContainText('Your review overrides this automatic result.');
-    await expect(record(page).getByRole('button', { name: 'Confirm animal present' })).toBeEnabled();
+    await expect(record(page).getByRole('button', { name: 'Confirm animal manually' })).toBeEnabled();
     expect(photoChecks).toBe(0);
 });
 
@@ -154,7 +158,7 @@ for (const size of [[640, 1000], [1280, 720], [1600, 400]]) {
         });
         await openReview(page);
         await openFirst(page);
-        await expect(record(page).getByRole('button', { name: 'Confirm animal present' })).toBeEnabled();
+        await expect(record(page).getByRole('button', { name: 'Confirm animal manually' })).toBeEnabled();
         await expect(record(page).getByText('Box: MegaDetector Cedar candidate. Check the photo before confirming.')).toBeVisible();
         for (const width of [1280, 320]) {
             await page.setViewportSize({ width, height: 900 });
@@ -188,7 +192,7 @@ test('failed motion photo hides its box and blocks presence confirmation', async
     await expect(record(page).getByText('Snapshot unavailable')).toBeVisible();
     await expect(record(page).locator('[data-garden-capture-box]')).toHaveCount(0);
     await expect(record(page).getByText('Box: MegaDetector Cedar candidate. Check the photo before confirming.')).toHaveCount(0);
-    await expect(record(page).getByRole('button', { name: 'Confirm animal present' })).toBeDisabled();
+    await expect(record(page).getByRole('button', { name: 'Confirm animal manually' })).toBeDisabled();
 });
 
 for (const sourceKind of ['motion', 'frigate_event']) {
@@ -236,7 +240,7 @@ test('owner can dismiss a false capture, restore it and review at narrow widths'
     await openFirst(page);
     await expect(record(page).getByText('Frigate suggested: cat')).toBeVisible();
     await expect(record(page).getByText('Snapshot unavailable')).toBeVisible();
-    await expect(record(page).getByRole('button', { name: 'Confirm animal present' })).toBeDisabled();
+    await expect(record(page).getByRole('button', { name: 'Confirm animal manually' })).toBeDisabled();
     await record(page).getByRole('button', { name: 'Dismiss capture' }).click();
     await expect(record(page)).toHaveCount(0);
     await expect(page.getByText('No Garden captures need review')).toBeVisible();
@@ -258,8 +262,8 @@ test('owner confirms presence only after the photo loads', async ({ page }) => {
     await page.route('**/api/garden/*/confirm', route => { confirmed = true; return route.fulfill({ json: { ...row, status: 'confirmed' } }); });
     await openReview(page);
     await openFirst(page);
-    await expect(record(page).getByRole('button', { name: 'Confirm animal present' })).toBeEnabled();
-    await record(page).getByRole('button', { name: 'Confirm animal present' }).click();
+    await expect(record(page).getByRole('button', { name: 'Confirm animal manually' })).toBeEnabled();
+    await record(page).getByRole('button', { name: 'Confirm animal manually' }).click();
     await expect(record(page)).toHaveCount(0);
     await expect(page.getByText('No Garden captures need review')).toBeVisible();
     await chooseReview(page, 'confirmed');
@@ -431,7 +435,7 @@ test('109 repeated proposals become two position groups with exact photo review 
     await expect(record(page).getByText('Position does not identify an animal. This group can contain different visitors.')).toBeVisible();
     await record(page).getByRole('button', { name: 'Next photo', exact: true }).click();
     await expect(record(page).locator('[data-garden-capture-photo]')).toHaveAttribute('src', /00000000000000000000000000000001\/snapshot/);
-    await expect(record(page).getByRole('button', { name: 'Confirm animal present' })).toBeEnabled();
+    await expect(record(page).getByRole('button', { name: 'Confirm animal manually' })).toBeEnabled();
     await fitsNarrowScreen(page);
     await record(page).getByRole('button', { name: 'Dismiss remaining 108 photos', exact: true }).click();
     expect(writes[0]).toEqual({ action: 'dismiss', ids: originals.slice(0, 108).map(item => item.id) });
@@ -479,7 +483,7 @@ for (const concurrentReview of [false, true]) {
             await expect(record(page).getByRole('button', { name: 'Dismiss remaining 80 photos', exact: true })).toBeVisible();
             if (keptIndex > 0) await record(page).getByRole('button', { name: 'Next photo', exact: true }).click();
             await expect(record(page).locator('[data-garden-capture-photo]')).toHaveAttribute('src', new RegExp(`${animalId}/snapshot`));
-            await record(page).getByRole('button', { name: 'Confirm animal present', exact: true }).click();
+            await record(page).getByRole('button', { name: 'Confirm animal manually', exact: true }).click();
             await expect(record(page).locator('[data-garden-capture-photo]')).toHaveAttribute('src', new RegExp(`${captures[keptIndex + 1].id}/snapshot`));
             await expect(record(page).getByText(`Photo ${keptIndex + 1} of 79`, { exact: true })).toBeVisible();
             await record(page).getByRole('button', { name: 'Dismiss remaining 79 photos', exact: true }).click();
@@ -539,7 +543,7 @@ for (const action of ['confirm', 'dismiss'] as const) {
         await openReview(page);
         await openFirst(page);
         await record(page).getByRole('button', { name: 'Next photo', exact: true }).click();
-        await record(page).getByRole('button', { name: action === 'confirm' ? 'Confirm animal present' : 'Dismiss capture', exact: true }).click();
+        await record(page).getByRole('button', { name: action === 'confirm' ? 'Confirm animal manually' : 'Dismiss capture', exact: true }).click();
         await expect(toasts(page)).toContainText(action === 'confirm' ? 'Photo confirmed.' : 'Capture dismissed.');
         await expect(toasts(page)).toContainText('Other photos in this group still need review.');
         await expect(record(page).locator('[data-garden-capture-photo]')).toHaveAttribute('src', new RegExp(`${row.id}/snapshot`));
@@ -574,7 +578,7 @@ test('confirmation in a position group applies only to the displayed original ph
     await openReview(page);
     await openFirst(page);
     await record(page).getByRole('button', { name: 'Next photo', exact: true }).click();
-    await record(page).getByRole('button', { name: 'Confirm animal present', exact: true }).click();
+    await record(page).getByRole('button', { name: 'Confirm animal manually', exact: true }).click();
     expect(confirmed).toEqual([second]);
 });
 

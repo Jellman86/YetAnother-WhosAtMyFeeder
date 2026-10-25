@@ -11,6 +11,7 @@ from fastapi import HTTPException
 import httpx
 import structlog
 
+from app.models.inference_execution import InferenceExecution
 from app.config import settings
 from app.database import get_db
 from app.models.garden import GardenAutomaticCheck, GardenIdentification, GardenPresenceMass
@@ -92,7 +93,14 @@ class GardenAutomaticReviewService:
             return
         retry_before = (utc_naive_now() - timedelta(minutes=5)).isoformat()
         async with get_db() as db:
-            original = await GardenRepository(db).next_automatic_check(cameras, retry_before)
+            original = await GardenRepository(db).next_automatic_check(
+                cameras,
+                retry_before,
+                policy_version=1 if settings.frigate.garden_automatic_naming else None,
+                country=normalize_country(settings.location.country)
+                if settings.frigate.garden_automatic_naming
+                else None,
+            )
         if original is None:
             service.automatic_message = (
                 "No automatic check is due. Unavailable checks remain in Needs review until their retry."
@@ -151,6 +159,10 @@ class GardenAutomaticReviewService:
                 "package_sha256": bundle["package_sha256"],
                 "box": list(box) if box else None,
             }
+            requested_provider = candidate_providers()[0]
+            automatic_naming = settings.frigate.garden_automatic_naming
+            naming_threshold = settings.frigate.garden_naming_threshold
+            country = normalize_country(settings.location.country)
             native, provider = await self.runtime.run(image, payload, blocked, service._run_photo_worker)
             mass = GardenPresenceMass.model_validate(native["assessment"]["mass"])
             human_winner = native["assessment"]["human_winner"]
@@ -160,14 +172,21 @@ class GardenAutomaticReviewService:
                 raise ValueError("Automatic check mapping changed")
             outcome = presence_outcome(mass.model_dump(), human_winner)
             named: GardenIdentification | None = None
-            country = normalize_country(settings.location.country)
-            if outcome == "animal" and settings.frigate.garden_automatic_naming and country:
-                # The owner's threshold is the suggestion floor here, so anything below it stays
-                # unnamed and in Needs review, as a bird below the naming threshold does.
+            naming_score: float | None = None
+            decision_reason = None
+            if automatic_naming and outcome == "uncertain":
+                decision_reason = "below_threshold" if country else "location_required"
+            elif outcome == "animal":
+                if not automatic_naming:
+                    decision_reason = "naming_disabled"
+                elif not country:
+                    decision_reason = "location_required"
+            if outcome in {"animal", "uncertain"} and automatic_naming and country:
+                # The species threshold is authoritative even below the coarse animal-presence floor.
                 suggestion = identification_from_predictions(
                     native.get("predictions"),
                     bundle,
-                    policy=GardenPolicy(min_confidence=settings.frigate.garden_naming_threshold),
+                    policy=GardenPolicy(min_confidence=naming_threshold),
                     country=country,
                     variant=variant,
                     provider=provider,
@@ -182,7 +201,20 @@ class GardenAutomaticReviewService:
                 if suggestion is None:
                     outcome = "human_rejected"
                 elif suggestion.automatic:
+                    outcome = "animal"
+                    decision_reason = None
                     named = suggestion
+                elif suggestion.reason == "low_confidence":
+                    decision_reason = "below_threshold"
+                elif outcome != "uncertain":
+                    decision_reason = "identity_unavailable"
+                naming_score = suggestion.score if suggestion else None
+            if (automatic_naming, naming_threshold, country) != (
+                settings.frigate.garden_automatic_naming,
+                settings.frigate.garden_naming_threshold,
+                normalize_country(settings.location.country),
+            ):
+                raise GardenBusy("Automatic naming settings changed during inference")
             if await self._input_box(original) != box:
                 raise GardenBusy("The detector crop changed during the check")
             current_image = await garden_capture_service.snapshot(original.id)
@@ -204,6 +236,20 @@ class GardenAutomaticReviewService:
                         result = GardenAutomaticCheck(
                             outcome=outcome,
                             checked_at=utc_naive_now().isoformat(),
+                            policy_version=1 if automatic_naming else 0,
+                            decision_reason=decision_reason,
+                            naming_score=naming_score,
+                            naming_threshold=naming_threshold,
+                            execution=InferenceExecution(
+                                model_id="garden-speciesnet-" + variant,
+                                provider=provider,
+                                requested_provider=requested_provider,
+                                devices=native["devices"],
+                                checked_at=utc_naive_now().isoformat() + "Z",
+                                fallback_reason="accelerator_unavailable"
+                                if provider == "cpu" and requested_provider != "cpu"
+                                else None,
+                            ),
                             image_sha256=image_sha,
                             variant=variant,
                             model_sha256=payload["model_sha256"],
@@ -220,8 +266,8 @@ class GardenAutomaticReviewService:
                         else:
                             await repo.save_automatic_check(original, result)
                             service.automatic_message = (
-                                "Automatic check suggested a bird or non-animal; the capture is in Dismissed for review."
-                                if outcome in {"bird", "non_animal"}
+                                "Automatic check finished below the animal naming threshold or excluded this capture; it is in Dismissed and can be restored."
+                                if outcome in {"bird", "non_animal"} or decision_reason == "below_threshold"
                                 else "Automatic check finished. The capture remains in Needs review."
                             )
             if provider == "cpu" and candidate_providers()[0] != "cpu":

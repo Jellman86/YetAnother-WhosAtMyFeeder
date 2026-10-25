@@ -77,6 +77,7 @@ export interface ClassifierStatus {
     personalization_feedback_rows?: number;
     personalization_active_camera_models?: number;
     crop_detector?: {
+        last_execution?: components['schemas']['InferenceExecution'] | null;
         model_id: string;
         chosen_model_id?: string;
         selected_tier?: string;

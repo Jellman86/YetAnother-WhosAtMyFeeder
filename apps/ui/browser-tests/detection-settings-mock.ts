@@ -73,6 +73,7 @@ function installed(id: string, extra: Record<string, unknown> = {}) {
 }
 
 export type DetectionMockOptions = {
+    finderExecution?: Record<string, unknown>;
     savedFinder?: 'yolox_tiny' | 'rfdetr_nano';
     rfdetrInstalled?: boolean;
     saveFails?: boolean;
@@ -86,7 +87,7 @@ export type DetectionMockState = {
     savedProvider: string;
 };
 
-function classifierStatus(state: DetectionMockState, rfdetrInstalled: boolean) {
+function classifierStatus(state: DetectionMockState, rfdetrInstalled: boolean, execution?: Record<string, unknown>) {
     const rfdetrChosen = state.savedFinder === 'rfdetr_nano';
     const finderInUse = rfdetrChosen && rfdetrInstalled ? RFDETR : YOLOX;
     return {
@@ -103,6 +104,7 @@ function classifierStatus(state: DetectionMockState, rfdetrInstalled: boolean) {
         host_device_eligibility: { verified_providers: ['cpu', 'intel_cpu', 'intel_npu'], generated_at: '2026-10-20T09:12:00Z' },
         personalized_rerank_enabled: false, personalization_feedback_rows: 4, personalization_min_feedback_tags: 20,
         crop_detector: {
+            last_execution: execution,
             model_id: finderInUse, chosen_model_id: rfdetrChosen ? RFDETR : YOLOX, selected_tier: 'accurate',
             resolved_tier: 'accurate', installed: true, healthy: true, enabled_for_runtime: true,
             reason: rfdetrChosen && !rfdetrInstalled ? 'fallback_default_accurate' : 'ready'
@@ -143,7 +145,7 @@ export async function openDetectionSettings(page: Page, options: DetectionMockOp
                 bird_crop_accurate_detector: state.savedFinder
             } });
         }
-        if (path === '/api/classifier/status') return route.fulfill({ json: classifierStatus(state, rfdetrInstalled) });
+        if (path === '/api/classifier/status') return route.fulfill({ json: classifierStatus(state, rfdetrInstalled, options.finderExecution) });
         if (path === '/api/models/available') return route.fulfill({ json: availableModels });
         if (path === '/api/models/installed') {
             return route.fulfill({ json: [

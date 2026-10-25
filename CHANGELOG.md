@@ -6,6 +6,17 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Bird finder settings distinguish the host recommendation from the last completed
+  run and its CPU fallback, and keep the scoped device check available to repeat.
+  Garden settings and automatic results show completed device/time evidence;
+  CPU-only wording now explicitly refers to the motion detector.
+- With automatic Garden naming enabled, confident animals are confirmed and named
+  at the configured species threshold. Successful low-confidence checks move to
+  restorable Dismissed instead of asking for presence verification. Older pending
+  automatic results without owner overrides are reconsidered once. Failed checks
+  retain their retry delay, and missing country or catalogue identity is explained.
+
+
 - **Garden review moved into the Explorer; the Garden animals page is retired.** A
   **Visitors** filter at the top of the Explorer's filter rail chooses birds, Garden
   visitors or both, and under Garden visitors a **Review** filter chooses Needs review,

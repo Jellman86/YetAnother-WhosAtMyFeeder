@@ -1812,7 +1812,13 @@
       "compat_panel_desc": "このイメージで使える各デバイスでインストール済みモデルを実行し、結果をCPUと比較します。GPUとNPUはここで合格した後にのみ使用されます。",
       "memory_title": "メモリと分離",
       "frigate_video_title": "Frigateと動画",
-      "frigate_video_desc": "Frigateの既存ラベルを使うか、YA-WAMFの種名をFrigateに書き戻すか、スナップショット後に録画クリップを確認するかを設定します。"
+      "frigate_video_desc": "Frigateの既存ラベルを使うか、YA-WAMFの種名をFrigateに書き戻すか、スナップショット後に録画クリップを確認するかを設定します。",
+      "bird_finder_recommended_checked": "推奨：{provider}。このホストでデバイスチェックに合格しました。",
+      "bird_finder_recommended_cpu_only": "現在の推奨はCPUです。このホストには対応するアクセラレーターがありません。",
+      "bird_finder_recommended_failed": "最近の鳥の写真で{devices}の結果がCPUと一致しませんでした。CPUは利用可能です。",
+      "bird_finder_recommended_running": "{devices}のデバイスチェック中です。チェック中もCPUは利用可能です。",
+      "bird_finder_recommended_unchecked": "{devices}がこのホストでチェックに合格するまではCPUです。アクセラレーターの推奨はまだありません。",
+      "bird_finder_recommended_waiting": "{devices}の再チェック用に保存された鳥の写真を待っています。CPUは利用可能です。"
     },
     "llm": {
       "title": "AI インサイト",
@@ -1918,9 +1924,9 @@
       "garden_motion_confidence_invalid": "動物候補のしきい値は 0.5 から 0.95 の範囲で入力してください。",
       "garden_naming_threshold_invalid": "名前付けのしきい値は 0.7 から 0.99 の範囲で入力してください。",
       "garden_naming_off": "すべての動物は、確定して名前を付けるまで「要確認」で待機します。",
-      "garden_naming_threshold_help": "0.7 から 0.99。値を高くすると自動で名前が付く動物が減り、確認が必要なものが増えます。人物と鳥のチェックは変わりません。",
+      "garden_naming_threshold_help": "0.7–0.99. 自動判定のしきい値未満です。「除外済み」に移動しました。確認したい場合は写真を復元できます。",
       "garden_naming_threshold": "名前付けのしきい値",
-      "garden_naming_help": "自動チェックが動物についてこの値以上の確信を持つと、自動として記録したうえで確定と名前付けを行います。名前やキャプチャはあとから取り消せます。しきい値未満のものは「要確認」で待機します。",
+      "garden_naming_help": "確信度の高い動物です。自動で確定し名前を付けました。誤っている場合はキャプチャを却下するか、名前を取り消してください。 自動判定のしきい値未満です。「除外済み」に移動しました。確認したい場合は写真を復元できます。",
       "garden_naming": "動物に自動で名前を付ける",
       "garden_requirements": "動物を追跡するか、動きの録画を保存する Frigate カメラが必要です。庭の動物は、依頼したときだけ専用モデルをダウンロードします。自動チェック用に 224 MB、任意で種の候補用モデル 224 MB と動き検出器 101 MB です。鳥のモデルは変更されません。",
       "garden_setup": "庭の動物を設定",
@@ -1957,9 +1963,9 @@
       "garden_country_missing": "設定 → 位置情報で国を設定してください。国がないと、動物に自動で名前が付かず、種の候補も使えません。",
       "garden_models_refresh": "モデルの状態を更新",
       "garden_outcomes": "キャプチャの行き先",
-      "garden_outcome_pending": "自動で名前が付かなかった動物、不確かまたは混在した結果、実行できなかったチェック。失敗したチェックは 5 分後に再試行されます。",
+      "garden_outcome_pending": "動物を検出しました。自動命名のため、設定 → 位置情報で国を指定してください。 動物を検出しましたが、名前をローカルカタログに関連付けられませんでした。自動名は保存されていません。 自動確認を利用できませんでした。写真は確認待ちのままです。庭機能が有効なら5分後に再試行します。",
       "garden_outcome_confirmed": "確認した動物と、自動で名前が付いた確実な動物。自動の名前には自動と表示され、取り消せます。",
-      "garden_outcome_dismissed": "除外したキャプチャと、鳥だけ、何もない、または車両だけと確実に判定された写真。写真が残っている間は確認に戻すで戻せます。",
+      "garden_outcome_dismissed": "自動判定のしきい値未満です。「除外済み」に移動しました。確認したい場合は写真を復元できます。 鳥と推定されました。鳥のみの画像は却下済みに移動します。誤りなら確認待ちに戻してください。 空の場面または車両と推定されました。却下済みに移動します。誤りなら確認待ちに戻してください。",
       "garden_outcome_person": "人物の痕跡があるキャプチャは写真ごと削除されます。庭の訪問は鳥として数えられず、鳥の通知やエクスポートにも含まれません。",
       "garden_model_motion_source": "MegaDetector v1000 Cedar",
       "garden_status_title": "収集の状況",
@@ -3823,7 +3829,25 @@
       "visit_help": "同じカメラ・同じ動物で、1分未満の間隔の撮影を、鳥の訪問と同じようにまとめています。複数の動物である可能性もあります。",
       "suggested_as": "提案された種",
       "eyebrow_capture": "庭の撮影",
-      "fact_source": "検出元"
-    }
+      "fact_source": "検出元",
+      "manual_device_note": "手動チェック専用です。既定のCPUは自動チェックの実行先を示しません。自動チェックは検出設定に従い、実行デバイスは結果に表示されます。利用できない手動デバイスは切り替えずに失敗します。",
+      "state_manual": "手動確認：自動命名が無効、または所有者の変更が有効です",
+      "state_waiting_automatic": "自動識別を待っています"
+    },
+    "automatic_animal_manual": "動物を検出しました。自動命名が無効か、この古い結果は更新された自動チェックを待っています。",
+    "automatic_below_threshold": "自動判定のしきい値未満です。「除外済み」に移動しました。確認したい場合は写真を復元できます。",
+    "automatic_identity_unavailable": "動物を検出しましたが、名前をローカルカタログに関連付けられませんでした。自動名は保存されていません。",
+    "automatic_location_required": "動物を検出しました。自動命名のため、設定 → 位置情報で国を指定してください。",
+    "automatic_score": "種のスコア {score}％、命名しきい値 {threshold}％。",
+    "automatic_uncertain_pending": "この古い不確実な結果は、更新された自動チェックを待っています。",
+    "confirm_manually": "動物を手動で確認",
+    "motion_limits_scoped": "動体検出器のみ：CPU · スキャン間隔は最低{seconds}秒 · 写真は最大{limit}枚 · {days}日間保存",
+    "manual_override": "手動で変更"
+  },
+  "model_execution": {
+    "completed": "最後に完了した実行：{device} · {time}",
+    "fallback": "CPUへフォールバック：要求されたアクセラレーターで現在のチェックまたは推論を正常に完了できませんでした。",
+    "garden_preference": "自動チェックの優先デバイス：{device}。新しいアクセラレーターはまずCPUとの一致確認が必要です。",
+    "unreported": "完了した実行からのデバイス報告はまだありません。推奨は実行記録ではありません。"
   }
 }

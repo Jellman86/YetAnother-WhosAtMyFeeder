@@ -1,4 +1,5 @@
 <script lang="ts">
+    import ModelExecutionEvidence from '../ModelExecutionEvidence.svelte';
     /**
      * Garden's own models, downloaded only when the owner asks. The Garden API answers only while
      * the saved beta switch is on, so status waits for Apply rather than guessing. A download
@@ -211,13 +212,17 @@
             <!-- What Garden is doing now, as measured by the service; nothing here is a setting. -->
             <div class="space-y-1 rounded-xl border border-line-soft p-3" role="group" aria-labelledby="garden-collection-status" data-garden-collection-status>
                 <h5 id="garden-collection-status" class="text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.beta.garden_status_title', { default: 'Collection status' })}</h5>
+                {#if identification}
+                    {#if identification.preferred_provider}<p class="text-xs">{$_('model_execution.garden_preference', { default: 'Automatic check device preference: {device}. A new accelerator must agree with CPU first.', values: { device: ({ intel_npu: 'NPU', intel_gpu: 'Intel GPU', intel_cpu: 'Intel CPU', cuda: 'NVIDIA GPU', cpu: 'CPU' })[identification.preferred_provider] } })}</p>{/if}
+                    <ModelExecutionEvidence execution={identification.last_execution} />
+                {/if}
                 {#if identification?.automatic_message}<p class="text-xs" data-garden-automatic-status>{identification.automatic_message}</p>{/if}
                 {#if !motion}
                     <p class="text-xs" role="status">{$_('garden.model_status_unavailable', { default: 'Model status unavailable. Refresh to try again.' })}</p>
                 {:else}
                     <p class="text-xs" role="status" data-garden-motion-status>{motion.message}</p>
                     {#if motion.interval_seconds !== undefined && motion.photo_limit !== undefined && motion.photo_retention_days !== undefined}
-                        <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.motion_limits', { default: 'CPU only · At least {seconds}s between scans · Up to {limit} photos · {days}-day photo retention', values: { seconds: motion.interval_seconds, limit: motion.photo_limit, days: motion.photo_retention_days } })}</p>
+                        <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.motion_limits_scoped', { default: 'Motion detector only: CPU · At least {seconds}s between scans · Up to {limit} photos · {days}-day photo retention', values: { seconds: motion.interval_seconds, limit: motion.photo_limit, days: motion.photo_retention_days } })}</p>
                     {/if}
                     {#if motion.queue_limit !== undefined && motion.catchup_seconds !== undefined}
                         <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.motion_coverage', { default: 'Up to {limit} short windows queued per camera from the last {minutes} minutes. Birds and camera pressure pause collection; brief visits can be missed.', values: { limit: motion.queue_limit, minutes: motion.catchup_seconds / 60 } })}</p>

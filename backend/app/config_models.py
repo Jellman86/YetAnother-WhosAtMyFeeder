@@ -291,7 +291,7 @@ class FrigateSettings(BaseModel):
         le=0.99,
         allow_inf_nan=False,
         strict=True,
-        description="Minimum SpeciesNet score to name a Garden animal automatically; below it the capture needs review",
+        description="Minimum SpeciesNet score to name a Garden animal automatically; successful checks below it are dismissed and remain restorable",
     )
 
     @field_validator("garden_motion_cameras", mode="before")
