@@ -3802,7 +3802,7 @@
       "blocked_selection": "选择鸟类到访时，花园拍摄会被隐藏。",
       "bird_filters_ignored": "物种、收藏、已隐藏、多个物种、匹配叫声和按置信度排序都描述鸟类到访，因此不适用于花园拍摄。",
       "load_failed": "无法加载花园拍摄。到访不受影响。",
-      "truncated": "本页涵盖 {total} 条花园拍摄；其到访旁显示了 {shown} 条。选择 花园 可逐页查看全部。",
+      "truncated": "本页涵盖 {total} 条花园记录，显示其中 {shown} 条。选择“花园”可翻阅全部记录。",
       "no_cameras_title": "没有摄像头开启花园动物",
       "no_cameras_desc": "为摄像头开启花园动物后，其已确认的动物和待审核的拍摄会显示在这里。",
       "empty_title": "还没有花园拍摄",
@@ -3834,7 +3834,8 @@
       "fact_source": "提出者",
       "manual_device_note": "仅用于手动检查。默认CPU不代表自动检查的设备。自动检查遵循“检测”设置，实际设备显示在结果中。手动设备不可用时会失败，而不会切换设备。",
       "state_manual": "手动复核：自动命名已关闭，或所有者的更改正在生效",
-      "state_waiting_automatic": "正在等待自动识别"
+      "state_waiting_automatic": "正在等待自动识别",
+      "entry_total": "花园记录：{count} 条 · 照片：{captures} 张"
     },
     "automatic_animal_manual": "已检测到动物。自动命名已关闭，或此旧结果正在等待更新后的自动检查。",
     "automatic_below_threshold": "低于自动判定阈值。已移至“已忽略”；如需复核，可恢复照片。",

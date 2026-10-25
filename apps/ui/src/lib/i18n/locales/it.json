@@ -3802,7 +3802,7 @@
       "blocked_selection": "Le catture del giardino sono nascoste mentre selezioni visite di uccelli.",
       "bird_filters_ignored": "Specie, Preferiti, Nascoste, Più specie, Canto corrispondente e l'ordine per affidabilità descrivono le visite degli uccelli, quindi non si applicano alle catture del giardino.",
       "load_failed": "Impossibile caricare le catture del giardino. Le visite non sono interessate.",
-      "truncated": "Questa pagina copre {total} catture del giardino; {shown} sono mostrate accanto alle sue visite. Scegli Giardino per sfogliarle tutte.",
+      "truncated": "Questa pagina comprende {total} voci del giardino; ne sono mostrate {shown}. Scegli Giardino per sfogliarle tutte.",
       "no_cameras_title": "Nessuna telecamera ha gli animali del giardino attivi",
       "no_cameras_desc": "Attiva gli animali del giardino per una telecamera e i suoi animali confermati e le catture da verificare compariranno qui.",
       "empty_title": "Ancora nessuna cattura del giardino",
@@ -3834,7 +3834,8 @@
       "fact_source": "Proposto da",
       "manual_device_note": "Solo verifiche manuali. La CPU predefinita non descrive quelle automatiche. Queste seguono le impostazioni di Rilevamento; il dispositivo usato compare nel risultato. Un dispositivo manuale non disponibile causa un errore senza passaggio ad altri dispositivi.",
       "state_manual": "Revisione manuale: denominazione automatica disattivata o intervento del proprietario attivo",
-      "state_waiting_automatic": "In attesa di identificazione automatica"
+      "state_waiting_automatic": "In attesa di identificazione automatica",
+      "entry_total": "Voci del giardino: {count} · acquisizioni: {captures}"
     },
     "automatic_animal_manual": "Animale rilevato. La denominazione automatica è disattivata o questo risultato precedente attende una nuova verifica.",
     "automatic_below_threshold": "Sotto la soglia automatica. Spostato in Scartati; ripristina la foto per esaminarla.",

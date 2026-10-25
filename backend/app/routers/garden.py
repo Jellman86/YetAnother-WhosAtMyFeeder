@@ -9,6 +9,7 @@ from typing import Annotated, Literal
 
 from app.auth import AuthContext, require_owner
 from app.database import get_db
+from app.repositories.garden_visit_repository import GardenVisitRepository
 from app.repositories.garden_repository import (
     GardenCapture,
     GardenPhotoUnavailable,
@@ -168,6 +169,91 @@ async def capture_timeline(
             status=status,
         )
         total = await repository.timeline_count(start=start, end=end, camera=camera, status=status)
+    return await _page(items, total, limit, offset)
+
+
+class GardenVisitResponse(BaseModel):
+    id: str
+    kind: Literal["position", "visit"]
+    start_time: str
+    end_time: str
+    capture_count: int
+    representative: GardenCaptureResponse
+
+
+class GardenVisitPage(BaseModel):
+    visits: list[GardenVisitResponse]
+    total: int
+    capture_total: int
+    limit: int
+    offset: int
+
+
+@router.get("/visits", response_model=GardenVisitPage)
+async def garden_visits(
+    start: datetime | None = None,
+    end: datetime | None = None,
+    camera: str | None = Query(None, max_length=128),
+    order: Literal["newest", "oldest"] = "newest",
+    status: GardenTimelineStatus = "reviewable",
+    limit: int = Query(48, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    page_start: datetime | None = None,
+    page_end: datetime | None = None,
+) -> GardenVisitPage:
+    start, end = _as_utc(start), _as_utc(end)
+    if start is not None and end is not None and start > end:
+        raise HTTPException(422, "The window starts after it ends.")
+    async with get_db() as db:
+        repo = GardenVisitRepository(db)
+        rows, total, captures = await repo.visits(
+            start=start,
+            end=end,
+            camera=camera,
+            newest_first=order == "newest",
+            status=status,
+            limit=limit,
+            offset=offset,
+            page_start=_as_utc(page_start),
+            page_end=_as_utc(page_end),
+        )
+        records = await repo.get_many([row["representative"] for row in rows])
+        presented = await _page(records, len(records), limit, offset)
+        by_id = {item.id: item for item in presented.items}
+        visits = [
+            GardenVisitResponse(
+                id=row["id"],
+                kind="position" if row["position"] else "visit",
+                start_time=row["start_time"] + "Z",
+                end_time=row["end_time"] + "Z",
+                capture_count=row["capture_count"],
+                representative=by_id[row["representative"]],
+            )
+            for row in rows
+            if row["representative"] in by_id
+        ]
+    return GardenVisitPage(visits=visits, total=total, capture_total=captures, limit=limit, offset=offset)
+
+
+@router.get("/visits/{visit_id}/captures", response_model=GardenCapturePage)
+async def garden_visit_captures(
+    visit_id: str,
+    start: datetime | None = None,
+    end: datetime | None = None,
+    camera: str | None = Query(None, max_length=128),
+    status: GardenTimelineStatus = "reviewable",
+    limit: int = Query(128, ge=1, le=128),
+    offset: int = Query(0, ge=0),
+) -> GardenCapturePage:
+    start, end = _as_utc(start), _as_utc(end)
+    if start is not None and end is not None and start > end:
+        raise HTTPException(422, "The window starts after it ends.")
+    async with get_db() as db:
+        items, total = await GardenVisitRepository(db).visit_captures(
+            visit_id, start=start, end=end, camera=camera, status=status, limit=limit, offset=offset
+        )
+    if not total:
+        raise HTTPException(404, "Garden visit is no longer available. Refresh the history.")
     return await _page(items, total, limit, offset)
 
 

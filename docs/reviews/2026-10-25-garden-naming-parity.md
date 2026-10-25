@@ -32,9 +32,9 @@ into one refresh; the mixed view need not reread bird history.
 - Garden history has its own capture/retention rules. Frigate photographs can
   expire, and motion-photo retention is bounded; bird media archival is not
   automatically available to Garden.
-- Garden visit grouping is a browser presentation over captures. Mixed Explorer
-  pages have a 200-capture limit, unlike server-paged bird visit summaries. The
-  Garden-only view pages through all captures.
+- Garden visit summaries are now formed and paged on the server, with bounded
+  capture navigation. Mixed Explorer pages still show at most 200 Garden entries
+  and direct larger windows to the Garden-only view.
 - Cedar motion collection remains CPU-only. SpeciesNet accelerator validation
   does not establish motion-detector accelerator support.
 - Broad mammal accuracy and privacy qualification remain incomplete. Detector

@@ -24,7 +24,8 @@ describe('Garden captures in the Explorer', () => {
     it('places captures between visits in both layouts and opens the Garden record, not the bird one', () => {
         expect(eventsSource).toContain('placeGardenCaptures(birdEntries, entryTime, leads');
         // One animal's stay is one entry, as a bird's is; unconfirmed motion proposals stack by position.
-        expect(eventsSource).toContain('groupGardenVisits(shownGarden)');
+        expect(eventsSource).toContain('fetchGardenVisits({');
+        expect(eventsSource).not.toContain('groupGardenVisits(shownGarden)');
         expect(eventsSource).toContain('<GardenExplorerRow capture={entry.capture}');
         expect(eventsSource).toContain('<GardenExplorerCard capture={entry.capture}');
         expect(eventsSource).toContain('<GardenCaptureModal\n        capture={selectedGarden}');

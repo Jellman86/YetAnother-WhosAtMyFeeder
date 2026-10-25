@@ -80,7 +80,8 @@ removable filters, and bird-only filters step aside while Garden visitors is cho
   capture that needs you is flagged in amber with its reason: whether an animal is there, or a
   suggested species that nobody has confirmed. The score is the species model's, and only appears
   once a species is named.
-- An animal's stay is one entry, as a bird's visit is: captures on the same camera, of the same
+- Garden pages count complete entries, with the capture total shown separately.
+  Grouping happens on the server before pagination. An animal's stay is one entry, as a bird's visit is: captures on the same camera, of the same
   animal (the same name, or both unnamed in the same review state), less than a minute apart, open
   together as **N captures in this visit**. Unconfirmed motion proposals instead stack by position
   and never merge by time, so a real animal is not hidden inside a stack of repeated feeder
@@ -96,9 +97,17 @@ removable filters, and bird-only filters step aside while Garden visitors is cho
   **Multiple species**, **Matching call**, confidence order, individual captures or multi-select)
   hide the Garden captures and the page says why. The date range, days on the page and camera
   filters apply to both. Under **Garden visitors**, the bird filters are left out and the page says so.
-- Like heard calls, each Explorer page owns the time between its visits, so no capture shows on
-  two pages. When one page spans more than 200 captures, the page says so; choose **Garden visitors**
-  to page through them all.
+- In the mixed Explorer, a Garden entry belongs to the page containing its latest
+  capture time. Its full membership stays together even if its first capture fell
+  in the previous bird page's time span. Up to 200 Garden entries are shown beside
+  a bird page; if there are more, the page says so. Choose **Garden visitors** to
+  page through every entry using the page-size control.
+- Records load at most 128 captures at a time. **Next photo** and **Previous photo**
+  cross these boundaries without splitting the visit or resetting the photo number.
+  A failed read offers **Retry**. Each opening rechecks the current history filters,
+  photo availability and review state; removed or regrouped visits can become unavailable.
+  Reviewing a photo changes only that original, and position-stack dismissal remains
+  an explicit action on the complete loaded stack.
 - Garden photos stay owner-only, because Frigate can miss a person in an animal photograph. Guests
   see birds only.
 

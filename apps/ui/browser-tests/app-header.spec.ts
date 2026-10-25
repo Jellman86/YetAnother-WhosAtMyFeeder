@@ -9,7 +9,7 @@ test('app headers fit 320px with 200% text after desktop resize', async ({ page 
         const responses: Record<string, unknown> = {
             '/api/auth/status': { auth_required: false, is_authenticated: true, needs_initial_setup: false },
             '/api/settings': { cameras: ['patio'], garden_cameras: ['patio'], beta_garden_animals: true },
-            '/api/garden/timeline': { items: [], total: 0, limit: 128, offset: 0 },
+            '/api/garden/visits': { visits: [], total: 0, capture_total: 0, limit: 24, offset: 0 },
             '/api/visits': { total: 0, gap_seconds: 60, visits: [] },
             '/api/garden/identification': { models: [], busy: false, catalogue_ready: false },
             '/api/garden/motion': { cameras: [], installed: false, state: 'disabled', message: 'Off' },
@@ -58,7 +58,7 @@ test('app headers fit 320px with 200% text after desktop resize', async ({ page 
     await expect.poll(() => page.locator('aside').evaluate(node => node.getBoundingClientRect().right <= 0)).toBe(true);
     await refresh.focus();
     await expect(refresh).toBeFocused();
-    const reloaded = page.waitForResponse(response => new URL(response.url()).pathname === '/api/garden/timeline');
+    const reloaded = page.waitForResponse(response => new URL(response.url()).pathname === '/api/garden/visits');
     await page.keyboard.press('Enter');
     await reloaded;
     await expect(refresh).toBeEnabled();

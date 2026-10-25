@@ -1176,6 +1176,21 @@ export interface components {
     non_animal: number;
     other: number;
 };
+    GardenVisitPage: {
+    capture_total: number;
+    limit: number;
+    offset: number;
+    total: number;
+    visits: Array<components['schemas']['GardenVisitResponse']>;
+};
+    GardenVisitResponse: {
+    capture_count: number;
+    end_time: string;
+    id: string;
+    kind: "position" | "visit";
+    representative: components['schemas']['GardenCaptureResponse'];
+    start_time: string;
+};
     HTTPValidationError: {
     detail?: Array<components['schemas']['ValidationError']>;
 };
@@ -3996,6 +4011,43 @@ export interface paths {
     limit?: number;
     offset?: number;
     order?: "newest" | "oldest";
+    start?: string | null;
+    status?: "reviewable" | "pending" | "confirmed" | "dismissed";
+};
+      requestBody: unknown;
+      response: components['schemas']['GardenCapturePage'];
+    };
+  };
+  "/api/garden/visits": {
+    get: {
+      operationId: "garden_visits_api_garden_visits_get";
+      path: never;
+      query: {
+    camera?: string | null;
+    end?: string | null;
+    limit?: number;
+    offset?: number;
+    order?: "newest" | "oldest";
+    page_end?: string | null;
+    page_start?: string | null;
+    start?: string | null;
+    status?: "reviewable" | "pending" | "confirmed" | "dismissed";
+};
+      requestBody: unknown;
+      response: components['schemas']['GardenVisitPage'];
+    };
+  };
+  "/api/garden/visits/{visit_id}/captures": {
+    get: {
+      operationId: "garden_visit_captures_api_garden_visits__visit_id__captures_get";
+      path: {
+    visit_id: string;
+};
+      query: {
+    camera?: string | null;
+    end?: string | null;
+    limit?: number;
+    offset?: number;
     start?: string | null;
     status?: "reviewable" | "pending" | "confirmed" | "dismissed";
 };

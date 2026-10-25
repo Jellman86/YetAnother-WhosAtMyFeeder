@@ -65,3 +65,19 @@ describe('garden Explorer timeline requests', () => {
         expect(Object.fromEntries(open.searchParams)).toEqual({ order: 'newest', limit: '24', offset: '48' });
     });
 });
+
+it('pages groups separately from their members, retaining the history scope', async () => {
+    const { fetchGardenVisits, fetchGardenVisitCaptures } = await import('./garden');
+    const urls: URL[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+        urls.push(new URL(url, 'http://localhost'));
+        return new Response('{}', { headers: { 'Content-Type': 'application/json' } });
+    }));
+    const scope = { start: '2026-10-24T00:00:00Z', camera: 'patio', status: 'confirmed' as const, order: 'newest' as const, limit: 24, offset: 24 };
+    await fetchGardenVisits({ ...scope, pageStart: '2026-10-24T12:00:00Z' });
+    await fetchGardenVisitCaptures('visit 1', scope, 128);
+    expect(urls[0].pathname).toBe('/api/garden/visits');
+    expect(urls[0].searchParams.get('page_start')).toBe('2026-10-24T12:00:00Z');
+    expect(urls[1].pathname).toBe('/api/garden/visits/visit%201/captures');
+    expect(Object.fromEntries(urls[1].searchParams)).toEqual({ start: scope.start, camera: 'patio', status: 'confirmed', limit: '128', offset: '128' });
+});

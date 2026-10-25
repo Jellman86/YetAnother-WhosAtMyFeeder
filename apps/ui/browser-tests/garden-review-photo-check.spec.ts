@@ -1,3 +1,4 @@
+import { gardenVisitResponse } from './garden-visits-fixture';
 import { expect, test, type Page } from '@playwright/test';
 
 // The advisory photo check, from a Garden record in the Explorer. It answers for the photo on
@@ -29,9 +30,9 @@ test.beforeEach(async ({ page }) => {
     await page.route(url => url.pathname.startsWith('/api/'), route => {
         const url = new URL(route.request().url());
         const path = url.pathname;
-        if (path === '/api/garden/timeline') {
+        if (path === '/api/garden/visits' || (path.startsWith('/api/garden/visits/') && path.endsWith('/captures'))) {
             const items = url.searchParams.get('status') === 'pending' ? captures : [];
-            return route.fulfill({ json: { items, total: items.length, limit: 128, offset: 0 } });
+            return route.fulfill({ json: gardenVisitResponse(items, url) });
         }
         if (path === '/api/garden/identification') return route.fulfill({ json: status });
         if (path.endsWith('/snapshot')) return route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"/>' });
