@@ -43,6 +43,7 @@
     import { explorerFiltersStore } from '../stores/explorer_filters.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { publicSettingsStore } from '../stores/public_settings.svelte';
+    import { gardenHistory } from '../stores/garden_history.svelte';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { fullVisitStore } from '../stores/full-visit.svelte';
     import { authStore } from '../stores/auth.svelte';
@@ -653,6 +654,25 @@
             void loadEvents();
         }, 700);
     }
+
+    let handledGardenHistoryVersion = gardenHistory.version;
+    $effect(() => {
+        const version = gardenHistory.version;
+        if (version === handledGardenHistoryVersion) return;
+        handledGardenHistoryVersion = version;
+        return untrack(() => {
+            if (!gardenAvailable || (!gardenOnly && !gardenInTimeline)) return;
+            // Coalesce bursts, and cancel a queued refresh when this page unmounts.
+            const timer = setTimeout(async () => {
+                if (gardenOnly) await loadEvents();
+                else await loadGarden();
+                if (selectedGarden && !gardenFailed) {
+                    selectedGarden = gardenItems?.find((capture) => capture.id === selectedGarden?.id) ?? null;
+                }
+            }, 350);
+            return () => clearTimeout(timer);
+        });
+    });
 
     let handledVisitMutationVersion = detectionsStore.mutationVersion;
     $effect(() => {

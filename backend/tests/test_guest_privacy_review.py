@@ -222,6 +222,7 @@ async def test_guest_sse_never_carries_raw_object_or_owner_payload(private_histo
     try:
         await response.body_iterator.__anext__()
         await broadcaster.broadcast({"type": "unknown_future_owner_message", "data": {"secret": "private"}})
+        await broadcaster.broadcast({"type": "garden_history_changed"})
         await broadcaster.broadcast(
             {"type": "detection_updated", "data": {"frigate_event": "hidden", "secret": "private"}}
         )

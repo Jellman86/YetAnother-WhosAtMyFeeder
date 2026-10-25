@@ -701,3 +701,29 @@ async def test_disabling_automatic_naming_during_inference_prevents_a_late_decis
     result = await capture(c.capture_id)
     assert result.status == "pending"
     assert result.automatic_check is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("outcome", ["named", "dismissed", "unavailable", "person", "stale"])
+async def test_automatic_results_invalidate_owner_history_only_after_committed_change(naming, monkeypatch, outcome):
+    from app.services.broadcaster import broadcaster
+
+    c = naming
+    if outcome == "dismissed":
+        c.native.return_value["predictions"][0][1] = 0.6
+    elif outcome == "unavailable":
+        c.native.side_effect = TimeoutError()
+    elif outcome == "person":
+        c.native.return_value["assessment"]["human_winner"] = True
+    elif outcome == "stale":
+        monkeypatch.setattr(GardenRepository, "save_automatic_naming", AsyncMock(return_value=False))
+    delivered = []
+
+    async def notify(message):
+        saved = await capture(c.capture_id)
+        delivered.append((message, saved.status if saved else None))
+
+    monkeypatch.setattr(broadcaster, "broadcast", notify)
+    await c.service.process_once()
+    expected = {"named": "confirmed", "dismissed": "dismissed", "unavailable": "pending", "person": None}
+    assert delivered == ([] if outcome == "stale" else [({"type": "garden_history_changed"}, expected[outcome])])

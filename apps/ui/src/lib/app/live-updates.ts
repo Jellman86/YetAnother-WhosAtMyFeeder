@@ -209,6 +209,7 @@ interface LiveUpdateDeps {
     syncDiagnosticsWorkspace?: () => Promise<void>;
     onConnected?: () => void;
     onPublicHistoryChanged?: () => void;
+    onGardenHistoryChanged?: () => void;
     onPublicAccessChanged?: () => void;
 }
 
@@ -450,6 +451,11 @@ export class LiveUpdateCoordinator {
             }
 
             if (payload.type === 'heartbeat') {
+                return;
+            }
+
+            if (payload.type === 'garden_history_changed') {
+                if (this.deps.hasOwnerAccess?.()) this.deps.onGardenHistoryChanged?.();
                 return;
             }
 
