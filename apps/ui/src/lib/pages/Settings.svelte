@@ -71,6 +71,7 @@
     import { jobProgressStore } from '../stores/job_progress.svelte';
     import { jobDiagnosticsStore } from '../stores/job_diagnostics.svelte';
     import { notificationCenter } from '../stores/notification_center.svelte';
+    import type { GardenNotificationChannel } from '../api/garden';
     import { notificationPolicy } from '../notifications/policy';
     import {
         formatBackfillProgressSummary,
@@ -225,6 +226,8 @@
     let gardenLabels = $state('cat, dog');
     let gardenMotionCameras = $state<string[]>([]);
     let gardenMotionConfidence = $state(0.5);
+    let gardenNotificationsEnabled = $state(false);
+    let gardenNotificationChannels = $state<GardenNotificationChannel[]>([]);
     let gardenAutomaticNaming = $state(true);
     let gardenNamingThreshold = $state(0.8);
     let nestDedupeMinutes = $state(30);
@@ -1870,6 +1873,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'gardenMotionCameras', val: JSON.stringify(gardenMotionCameras), store: JSON.stringify(s.garden_motion_cameras || []) },
             { key: 'gardenCameras', val: JSON.stringify(gardenCameras), store: JSON.stringify(s.garden_cameras || []) },
             { key: 'gardenMotionConfidence', val: gardenMotionConfidence, store: s.garden_motion_confidence ?? 0.5 },
+            { key: 'gardenNotificationsEnabled', val: gardenNotificationsEnabled, store: s.garden_notifications_enabled ?? false },
+            { key: 'gardenNotificationChannels', val: JSON.stringify(gardenNotificationChannels), store: JSON.stringify(s.garden_notification_channels ?? []) },
             { key: 'gardenAutomaticNaming', val: gardenAutomaticNaming, store: s.garden_automatic_naming ?? true },
             { key: 'gardenNamingThreshold', val: gardenNamingThreshold, store: s.garden_naming_threshold ?? 0.8 },
             { key: 'gardenLabels', val: JSON.stringify(gardenLabels.split(/[,;\n]+/).map(label => label.trim().toLowerCase()).filter(Boolean)), store: JSON.stringify(s.garden_labels || ['cat', 'dog']) },
@@ -2966,6 +2971,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             gardenMotionCameras = settings.garden_motion_cameras || [];
             gardenLabels = (settings.garden_labels || ['cat', 'dog']).join(', ');
             gardenMotionConfidence = settings.garden_motion_confidence ?? 0.5;
+            gardenNotificationsEnabled = settings.garden_notifications_enabled ?? false;
+            gardenNotificationChannels = settings.garden_notification_channels ?? [];
             gardenAutomaticNaming = settings.garden_automatic_naming ?? true;
             gardenNamingThreshold = settings.garden_naming_threshold ?? 0.8;
             nestDedupeMinutes = typeof settings.nest_dedupe_minutes === 'number' && settings.nest_dedupe_minutes > 0
@@ -3363,6 +3370,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 garden_motion_cameras: gardenMotionCameras,
                 garden_labels: gardenLabels.split(/[,;\n]+/).map(label => label.trim().toLowerCase()).filter(Boolean),
                 garden_motion_confidence: gardenMotionConfidence,
+                garden_notifications_enabled: gardenNotificationsEnabled,
+                garden_notification_channels: gardenNotificationChannels,
                 garden_automatic_naming: gardenAutomaticNaming,
                 garden_naming_threshold: gardenNamingThreshold,
                 nest_dedupe_minutes: nestDedupeMinutes,
@@ -4013,6 +4022,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                         bind:motionCameras={gardenMotionCameras}
                         bind:labels={gardenLabels}
                         bind:motionConfidence={gardenMotionConfidence}
+                        bind:notificationsEnabled={gardenNotificationsEnabled}
+                        bind:notificationChannels={gardenNotificationChannels}
                         bind:automaticNaming={gardenAutomaticNaming}
                         bind:namingThreshold={gardenNamingThreshold}
                         savedMotionConfidence={settingsStore.settings?.garden_motion_confidence}

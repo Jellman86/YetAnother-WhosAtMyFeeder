@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Garden can send separate, opt-in text notifications for recent named animals.
+  Choose channels independently of bird alerts and inspect saved delivery attempts
+  in Beta features. No photographs or media links are sent.
+
 - Garden history pages complete visits and position stacks on the server. Long stays
   no longer split at capture-page boundaries; records load photos in bounded pages
   while preserving each original review. Counts distinguish entries from captures.

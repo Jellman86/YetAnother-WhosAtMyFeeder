@@ -3,7 +3,11 @@
     "new_detection": "新しい鳥が検出されました：{species}",
     "detection_body": "{camera}で{confidence}%の信頼度で{species}が検出されました",
     "audio_confirmed": "🎤 BirdNET-Goによる音声確認済み",
-    "view_detection": "検出を見る"
+    "view_detection": "検出を見る",
+    "garden_title": "庭の動物: {name}",
+    "garden_body": "{camera} · {timestamp}\n{source}",
+    "garden_automatic": "自動で名前を付与",
+    "garden_owner": "所有者が種を確認"
   },
   "errors": {
     "detection_not_found": "検出が見つかりません",

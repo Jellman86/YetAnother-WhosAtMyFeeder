@@ -3,7 +3,11 @@
     "new_detection": "Neuer Vogel erkannt: {species}",
     "detection_body": "{species} auf {camera} mit {confidence}% Wahrscheinlichkeit erkannt",
     "audio_confirmed": "🎤 Audio bestätigt durch BirdNET-Go",
-    "view_detection": "Erkennung ansehen"
+    "view_detection": "Erkennung ansehen",
+    "garden_title": "Gartentier: {name}",
+    "garden_body": "{camera} · {timestamp}\n{source}",
+    "garden_automatic": "Automatisch benannt",
+    "garden_owner": "Art vom Besitzer bestätigt"
   },
   "errors": {
     "detection_not_found": "Erkennung nicht gefunden",

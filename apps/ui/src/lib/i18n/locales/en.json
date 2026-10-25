@@ -1981,7 +1981,17 @@
       "garden_status_title": "Collection status",
       "garden_models_limits_explorer": "Automatic checks follow your Detection device preference after a local CPU comparison, with CPU fallback if the device check fails. Motion scans still use CPU. Garden work runs one at a time while birds and cameras are idle; each worker releases its model memory when it stops. Checks you start from a Garden capture in the Explorer use the device you choose there and fail rather than silently switch devices.",
       "garden_explorer_help": "Garden visitors appear in the Explorer beside your birds. Choose Garden visitors there, then Needs review, to work through new captures.",
-      "garden_explorer_open": "Review Garden visitors"
+      "garden_explorer_open": "Review Garden visitors",
+      "garden_notifications": "Garden notifications",
+      "garden_notifications_help": "Text alerts for newly named animals, separate from bird alerts. Apply Settings to save.",
+      "garden_notifications_privacy": "Sends the animal name, camera and time to selected services. No photos or media links. History links still require owner access.",
+      "garden_notification_channels": "Garden delivery channels",
+      "garden_notification_channel": "Garden alerts via {channel}",
+      "garden_notifications_choose": "Choose at least one channel to deliver Garden alerts.",
+      "garden_notifications_credentials": "A selected channel is missing credentials. Configure it under Notifications; its bird-alert switch can stay off.",
+      "garden_notifications_attempts_help": "Only named captures from the last five minutes are eligible. One attempt per channel per known visit; failed or uncertain sends are not retried automatically.",
+      "garden_notifications_status": "Saved delivery attempts. Accepted by channel: {sent}. Failed: {failed}. Unconfirmed: {unknown}. Skipped: {skipped}.",
+      "garden_notifications_refresh": "Refresh delivery status"
     },
     "native_revalidation": {
       "title": "Check quarantined profile",

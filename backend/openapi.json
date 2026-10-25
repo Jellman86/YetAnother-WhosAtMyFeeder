@@ -8034,6 +8034,49 @@
         "title": "GardenMotionStatus",
         "type": "object"
       },
+      "GardenNotificationStatus": {
+        "properties": {
+          "attempts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Attempts",
+            "type": "object"
+          },
+          "channels": {
+            "items": {
+              "enum": [
+                "discord",
+                "telegram",
+                "pushover",
+                "email"
+              ],
+              "type": "string"
+            },
+            "title": "Channels",
+            "type": "array"
+          },
+          "configured": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "title": "Configured",
+            "type": "object"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled",
+          "channels",
+          "configured",
+          "attempts"
+        ],
+        "title": "GardenNotificationStatus",
+        "type": "object"
+      },
       "GardenPhotoCheck": {
         "additionalProperties": false,
         "properties": {
@@ -13103,6 +13146,24 @@
             "title": "Garden Naming Threshold",
             "type": "number"
           },
+          "garden_notification_channels": {
+            "items": {
+              "enum": [
+                "discord",
+                "telegram",
+                "pushover",
+                "email"
+              ],
+              "type": "string"
+            },
+            "title": "Garden Notification Channels",
+            "type": "array"
+          },
+          "garden_notifications_enabled": {
+            "default": false,
+            "title": "Garden Notifications Enabled",
+            "type": "boolean"
+          },
           "ha_weather_access_token": {
             "anyOf": [
               {
@@ -14558,6 +14619,7 @@
           "garden_cameras",
           "garden_labels",
           "garden_motion_cameras",
+          "garden_notification_channels",
           "cameras",
           "blocked_labels",
           "blocked_species",
@@ -15343,6 +15405,27 @@
             "minimum": 0.7,
             "title": "Garden Naming Threshold",
             "type": "number"
+          },
+          "garden_notification_channels": {
+            "description": "Explicit Garden delivery channels using saved notification credentials",
+            "items": {
+              "enum": [
+                "discord",
+                "telegram",
+                "pushover",
+                "email"
+              ],
+              "type": "string"
+            },
+            "maxItems": 4,
+            "title": "Garden Notification Channels",
+            "type": "array"
+          },
+          "garden_notifications_enabled": {
+            "default": false,
+            "description": "Opt in to text-only Garden alerts independently of bird notifications",
+            "title": "Garden Notifications Enabled",
+            "type": "boolean"
           },
           "ha_weather_access_token": {
             "anyOf": [
@@ -27087,6 +27170,38 @@
           }
         ],
         "summary": "Install Motion Detector",
+        "tags": [
+          "garden"
+        ]
+      }
+    },
+    "/api/garden/notifications": {
+      "get": {
+        "operationId": "garden_notification_status_api_garden_notifications_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GardenNotificationStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Garden Notification Status",
         "tags": [
           "garden"
         ]

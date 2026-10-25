@@ -286,6 +286,8 @@ Discord / Pushover / Telegram / Email:
 | --- | --- | --- |
 | `SYSTEM__DEBUG_UI_ENABLED` | `false` | Show the Debug settings tab. |
 | `SYSTEM__BETA_GARDEN_ANIMALS` | `false` | Turn on the Garden animals beta feature. |
+| `FRIGATE__GARDEN_NOTIFICATIONS_ENABLED` | `false` | Opt in to separate text-only Garden alerts while the beta is enabled. |
+| `FRIGATE__GARDEN_NOTIFICATION_CHANNELS` | `[]` | Explicit JSON channel array, for example `["telegram"]`; supports `discord`, `telegram`, `pushover`, `email`. Reuses saved credentials independently of bird switches. |
 | `SYSTEM__UPDATE_CHECK_ENABLED` | `true` | Check for new releases. |
 | `SYSTEM__TRUSTED_PROXY_HOSTS` | _(built-in list)_ | Comma-separated trusted reverse-proxy hosts. |
 | `SYSTEM__BROADCASTER_MAX_QUEUE_SIZE` | `100` | SSE broadcaster queue size. |

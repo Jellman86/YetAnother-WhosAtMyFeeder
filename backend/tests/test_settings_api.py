@@ -1851,3 +1851,23 @@ async def test_settings_roundtrip_automatic_multi_bird_scan_preserves_partial_up
             "/api/settings",
             json={"media_cache_automatic_multi_bird_scan": original, "media_cache_bird_scan_mode": original_effort},
         )
+
+
+@pytest.mark.asyncio
+async def test_garden_notification_settings_round_trip_without_enabling_bird_channels(client, monkeypatch):
+    monkeypatch.setattr(settings.frigate, "garden_notifications_enabled", False)
+    monkeypatch.setattr(settings.frigate, "garden_notification_channels", [])
+    monkeypatch.setattr(settings.notifications.telegram, "enabled", False)
+    monkeypatch.setattr(settings.auth, "enabled", False)
+    monkeypatch.setattr(settings.public_access, "enabled", False)
+    monkeypatch.setattr(Settings, "save", AsyncMock())
+    response = await client.post(
+        "/api/settings",
+        json={"garden_notifications_enabled": True, "garden_notification_channels": ["telegram", "telegram"]},
+    )
+    assert response.status_code == 200, response.text
+    after = (await client.get("/api/settings")).json()
+    assert after["garden_notifications_enabled"] is True
+    assert after["garden_notification_channels"] == ["telegram"]
+    assert after["notifications_telegram_enabled"] is False
+    assert (await client.post("/api/settings", json={"garden_notification_channels": ["unknown"]})).status_code == 422

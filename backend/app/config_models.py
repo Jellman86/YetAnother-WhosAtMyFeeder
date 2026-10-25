@@ -281,6 +281,15 @@ class FrigateSettings(BaseModel):
         strict=True,
         description="Minimum Cedar animal score for new motion proposals; person privacy threshold is unchanged",
     )
+    garden_notifications_enabled: bool = Field(
+        False, description="Opt in to text-only Garden alerts independently of bird notifications"
+    )
+    garden_notification_channels: list[Literal["discord", "telegram", "pushover", "email"]] = Field(
+        default_factory=list,
+        max_length=4,
+        description="Explicit Garden delivery channels using saved notification credentials",
+    )
+
     garden_automatic_naming: bool = Field(
         True,
         description="Confirm and name a Garden animal automatically when its species score reaches the naming threshold",

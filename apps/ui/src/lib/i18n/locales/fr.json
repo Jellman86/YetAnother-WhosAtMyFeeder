@@ -1971,7 +1971,17 @@
       "garden_status_title": "État de la collecte",
       "garden_models_limits_explorer": "Les vérifications automatiques suivent votre choix d'appareil de Détection après une comparaison locale avec le CPU, et repassent sur le CPU si la vérification de l'appareil échoue. Les analyses de mouvement utilisent toujours le CPU. Le travail du jardin se fait une tâche à la fois, quand les oiseaux et les caméras sont au repos ; chaque processus libère la mémoire de son modèle en s'arrêtant. Les vérifications lancées depuis une capture du jardin dans l'Explorateur utilisent l'appareil choisi et échouent au lieu de changer d'appareil sans le dire.",
       "garden_explorer_help": "Les visiteurs du jardin apparaissent dans l'Explorateur à côté de vos oiseaux. Choisissez-y Visiteurs du jardin, puis À vérifier, pour traiter les nouvelles captures.",
-      "garden_explorer_open": "Vérifier les visiteurs du jardin"
+      "garden_explorer_open": "Vérifier les visiteurs du jardin",
+      "garden_notifications": "Notifications du jardin",
+      "garden_notifications_help": "Alertes texte pour les animaux nouvellement nommés, séparées de celles des oiseaux. Enregistrez avec Appliquer les paramètres.",
+      "garden_notifications_privacy": "Envoie le nom, la caméra et l’heure aux services choisis. Aucune photo ni lien multimédia. Les liens vers l’historique exigent toujours l’accès propriétaire.",
+      "garden_notification_channels": "Canaux du jardin",
+      "garden_notification_channel": "Alertes du jardin via {channel}",
+      "garden_notifications_choose": "Choisissez au moins un canal pour les alertes du jardin.",
+      "garden_notifications_credentials": "Il manque les identifiants d’un canal choisi. Configurez-le dans Notifications ; les alertes oiseaux peuvent rester désactivées.",
+      "garden_notifications_attempts_help": "Seules les captures nommées des cinq dernières minutes sont admissibles. Un essai par canal et visite connue ; les envois échoués ou incertains ne sont pas relancés automatiquement.",
+      "garden_notifications_status": "Essais enregistrés. Acceptés par le canal : {sent}. Échecs : {failed}. Non confirmés : {unknown}. Ignorés : {skipped}.",
+      "garden_notifications_refresh": "Actualiser l’état de livraison"
     },
     "native_revalidation": {
       "title": "Vérifier le profil en quarantaine",

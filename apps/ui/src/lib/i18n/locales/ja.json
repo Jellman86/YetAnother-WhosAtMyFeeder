@@ -1971,7 +1971,17 @@
       "garden_status_title": "収集の状況",
       "garden_models_limits_explorer": "自動チェックは、ローカルで CPU と比較した後に「検出」のデバイス設定に従い、デバイスチェックに失敗した場合は CPU に戻ります。動きのスキャンは引き続き CPU を使います。庭の処理は鳥とカメラが空いているときに一つずつ行い、各プロセスは停止時にモデルのメモリを解放します。エクスプローラーで庭の撮影から開始したチェックは、そこで選んだデバイスを使い、黙ってデバイスを切り替えずに失敗します。",
       "garden_explorer_help": "庭の訪問者はエクスプローラーで鳥と並んで表示されます。そこで「庭の訪問者」、続いて「確認が必要」を選ぶと新しい撮影を確認できます。",
-      "garden_explorer_open": "庭の訪問者を確認"
+      "garden_explorer_open": "庭の訪問者を確認",
+      "garden_notifications": "庭の通知",
+      "garden_notifications_help": "新たに名前が付いた動物のテキスト通知です。鳥の通知とは別です。「設定を適用」で保存します。",
+      "garden_notifications_privacy": "動物名、カメラ、時刻を選択したサービスへ送信します。写真やメディアリンクは送りません。履歴リンクには引き続き所有者のアクセスが必要です。",
+      "garden_notification_channels": "庭の通知先",
+      "garden_notification_channel": "{channel} で庭の通知",
+      "garden_notifications_choose": "庭の通知先を少なくとも1つ選んでください。",
+      "garden_notifications_credentials": "選択した通知先の認証情報が不足しています。「通知」で設定してください。鳥の通知は無効のままでも使えます。",
+      "garden_notifications_attempts_help": "対象は過去5分以内に名前が付いた撮影です。既知の訪問ごとに各通知先へ1回試行します。失敗や不明な送信は自動再試行しません。",
+      "garden_notifications_status": "保存された送信試行。通知先が受理: {sent}。失敗: {failed}。未確認: {unknown}。スキップ: {skipped}。",
+      "garden_notifications_refresh": "送信状況を更新"
     },
     "native_revalidation": {
       "title": "隔離されたプロファイルを確認",

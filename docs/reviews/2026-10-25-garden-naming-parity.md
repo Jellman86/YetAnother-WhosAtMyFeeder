@@ -27,8 +27,10 @@ into one refresh; the mixed view need not reread bird history.
 
 ## Remaining differences
 
-- Garden notifications are not implemented. Any future notifications must have
-  their own opt-in and must not enter bird notification/reporting paths.
+- Garden notifications now have a separate opt-in and explicit channels, with
+  text-only recent named visits and durable attempt counts. They share saved
+  credentials but do not enter bird notification/reporting paths. Failed or
+  interrupted attempts are not automatically retried.
 - Garden history has its own capture/retention rules. Frigate photographs can
   expire, and motion-photo retention is bounded; bird media archival is not
   automatically available to Garden.

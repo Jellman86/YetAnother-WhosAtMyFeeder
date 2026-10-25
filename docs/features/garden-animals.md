@@ -331,7 +331,7 @@ application to restore garden suggestions.
 Confirmation checks that Frigate still supplies the exact photo used by the model.
 An expired or changed photograph cannot be used to confirm an old suggestion.
 **Discard identification** revokes your identification confirmation without changing
-animal presence. Dismissing animal presence also revokes its identification confirmation. No garden suggestions enable notifications or bird exports.
+animal presence. Dismissing animal presence also revokes its identification confirmation. Garden suggestions never enable bird notifications or bird exports. Separate Garden alerts require an explicit opt-in.
 
 ## Automatic naming
 
@@ -354,7 +354,7 @@ removes the capture. Turn automatic naming off to review and name every animal y
 An automatic name is not an owner review. **Discard identification** removes the name
 and keeps presence; **Dismiss capture** removes both. Either is final for that capture:
 automatic checks never run on it again. Changing the threshold does not rename existing
-captures. Automatic names never reach bird totals, notifications or bird exports.
+captures. Automatic names never reach bird totals, bird notifications or bird exports.
 
 A model score is not measured accuracy. The first night of automatic checks on one
 camera was correct for all eight captures, but recall at night, on other cameras and
@@ -400,3 +400,40 @@ policy are reconsidered once while hardware is idle. Confirmed, dismissed, block
 and owner-overridden captures are excluded. No bird records are renamed. Pending
 automatic work says **Waiting for automatic identification** rather than asking a
 person to confirm presence. Manual confirmation remains available as an override.
+
+
+## Send Garden notifications
+
+Garden notifications are off by default and separate from bird alerts.
+
+1. Save credentials and recipients under **Settings → Notifications**. Bird channel
+   switches can remain off.
+2. Under **Settings → Beta features**, enable Garden animals, then enable
+   **Garden notifications** and select Discord, Telegram, Pushover or Email.
+3. Select **Apply settings**. Configure an instance URL under Notifications if you
+   want messages to link to your owner-only Garden history.
+
+Only confirmed animals with an accepted species name qualify: either automatic
+naming above your threshold or an owner accepting a species suggestion. Confirming
+animal presence alone does not send an alert. The camera must still be enabled,
+Garden and its notification switch must remain enabled, and the capture must be
+no more than five minutes old when delivery starts. Enabling alerts does not replay
+old history. Pending and dismissed captures do not qualify.
+
+Messages share the animal name, camera, observation time and whether the name was
+assigned automatically or confirmed by the owner with your selected providers.
+They contain no photographs, snapshot URLs or session tokens. Links open private
+Garden history and still require owner access. Garden uses saved channel credentials
+and recipients, but has its own opt-in; bird filters, silent mode, cooldowns,
+image choices and Frigate link targets do not apply. Pushover uses normal priority.
+
+YA-WAMF saves at most one delivery attempt per channel for each currently grouped
+visit. Repeated photos and restarts do not resend it. A later visit can send a new
+alert. Failed or interrupted attempts are not retried automatically, because a
+provider might have accepted a message before its response was lost.
+
+The saved attempt counts under Garden notifications distinguish provider acceptance,
+failure, unconfirmed attempts and skipped sends. Acceptance means the channel
+accepted the message, not that its recipient read it. The delivery status refresh
+only reads those counts; it sends no message. Turning off alerts stops subsequent
+sends, but cannot recall messages already dispatched.
