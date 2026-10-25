@@ -19,6 +19,7 @@ import httpx
 import pycountry
 import structlog
 
+from app.models.inference_execution import InferenceExecution
 from app.config import settings
 from app.database import get_db
 from app.models.garden import (
@@ -191,7 +192,32 @@ class GardenIdentificationService:
                 GardenModelStatus(variant=v, installed=installed(v), size_bytes=size) for v, size in MODEL_SIZES.items()
             ]
         )
+        from app.services.garden_automatic_runtime import candidate_providers
+
+        async with get_db() as db:
+            latest = await GardenRepository(db).latest_automatic_check()
+        execution = latest.execution if latest else None
+        if latest and execution is None and latest.variant and latest.devices:
+            device = latest.devices[0].split(".")[0]
+            provider = {
+                "NPU": "intel_npu",
+                "GPU": "intel_gpu",
+                "CPU": "intel_cpu",
+                "CPUExecutionProvider": "cpu",
+                "CUDAExecutionProvider": "cuda",
+            }.get(device)
+            if provider:
+                execution = InferenceExecution(
+                    model_id="garden-speciesnet-" + latest.variant,
+                    provider=provider,
+                    devices=latest.devices[:8],
+                    checked_at=latest.checked_at
+                    if latest.checked_at.endswith("Z") or "+" in latest.checked_at
+                    else latest.checked_at + "Z",
+                )
         return GardenIdentificationStatus(
+            preferred_provider=candidate_providers()[0],
+            last_execution=execution,
             country=normalize_country(settings.location.country),
             catalogue_ready=ready,
             busy=self.busy,

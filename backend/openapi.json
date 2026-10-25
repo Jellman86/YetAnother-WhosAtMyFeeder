@@ -7222,12 +7222,39 @@
             "title": "Checked At",
             "type": "string"
           },
+          "decision_reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "below_threshold",
+                  "naming_disabled",
+                  "location_required",
+                  "identity_unavailable"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Reason"
+          },
           "devices": {
             "items": {
               "type": "string"
             },
             "title": "Devices",
             "type": "array"
+          },
+          "execution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InferenceExecution"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "image_sha256": {
             "anyOf": [
@@ -7263,6 +7290,32 @@
             ],
             "title": "Model Sha256"
           },
+          "naming_score": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Naming Score"
+          },
+          "naming_threshold": {
+            "anyOf": [
+              {
+                "maximum": 0.99,
+                "minimum": 0.7,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Naming Threshold"
+          },
           "outcome": {
             "enum": [
               "animal",
@@ -7285,6 +7338,12 @@
               }
             ],
             "title": "Package Sha256"
+          },
+          "policy_version": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Policy Version",
+            "type": "integer"
           },
           "variant": {
             "anyOf": [
@@ -7742,12 +7801,34 @@
             ],
             "title": "Error"
           },
+          "last_execution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InferenceExecution"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "models": {
             "items": {
               "$ref": "#/components/schemas/GardenModelStatus"
             },
             "title": "Models",
             "type": "array"
+          },
+          "preferred_provider": {
+            "default": "cpu",
+            "enum": [
+              "cpu",
+              "intel_cpu",
+              "intel_gpu",
+              "intel_npu",
+              "cuda"
+            ],
+            "title": "Preferred Provider",
+            "type": "string"
           }
         },
         "required": [
@@ -8781,6 +8862,80 @@
           "status"
         ],
         "title": "InaturalistSubmitResponse",
+        "type": "object"
+      },
+      "InferenceExecution": {
+        "properties": {
+          "checked_at": {
+            "title": "Checked At",
+            "type": "string"
+          },
+          "devices": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 8,
+            "minItems": 1,
+            "title": "Devices",
+            "type": "array"
+          },
+          "fallback_reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "runtime_failed",
+                  "accelerator_unavailable"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fallback Reason"
+          },
+          "model_id": {
+            "maxLength": 128,
+            "title": "Model Id",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "cpu",
+              "intel_cpu",
+              "intel_gpu",
+              "intel_npu",
+              "cuda"
+            ],
+            "title": "Provider",
+            "type": "string"
+          },
+          "requested_provider": {
+            "anyOf": [
+              {
+                "enum": [
+                  "cpu",
+                  "intel_cpu",
+                  "intel_gpu",
+                  "intel_npu",
+                  "cuda"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested Provider"
+          }
+        },
+        "required": [
+          "model_id",
+          "provider",
+          "devices",
+          "checked_at"
+        ],
+        "title": "InferenceExecution",
         "type": "object"
       },
       "InitialPasswordRequest": {
@@ -26902,6 +27057,155 @@
           }
         ],
         "summary": "Review Batch",
+        "tags": [
+          "garden"
+        ]
+      }
+    },
+    "/api/garden/timeline": {
+      "get": {
+        "description": "Captures by time for the Explorer: confirmed and awaiting review unless one review state is asked for.",
+        "operationId": "capture_timeline_api_garden_timeline_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "start",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start"
+            }
+          },
+          {
+            "in": "query",
+            "name": "end",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "End"
+            }
+          },
+          {
+            "in": "query",
+            "name": "camera",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Camera"
+            }
+          },
+          {
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "newest",
+              "enum": [
+                "newest",
+                "oldest"
+              ],
+              "title": "Order",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "default": "reviewable",
+              "enum": [
+                "reviewable",
+                "pending",
+                "confirmed",
+                "dismissed"
+              ],
+              "title": "Status",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 48,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GardenCapturePage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Capture Timeline",
         "tags": [
           "garden"
         ]

@@ -839,6 +839,16 @@ class ClassifierSupervisor:
 
             self._assignments.pop(worker_name, None)
             if message["type"] == "result":
+                if isinstance(message.get("runtime"), dict) and message["runtime"]:
+                    self._metrics[current_slot.priority]["runtime"] = dict(message["runtime"])
+                    evidence = message["runtime"].get("crop_execution")
+                    if isinstance(evidence, dict):
+                        from app.services.inference_execution import latest_model_execution
+
+                        previous = self._metrics[current_slot.priority].get("crop_execution")
+                        latest = latest_model_execution(evidence.get("model_id"), [previous, evidence])
+                        if latest is not None:
+                            self._metrics[current_slot.priority]["crop_execution"] = latest.model_dump(mode="json")
                 self._completed_once.add((worker_name, generation))
                 if not assignment.future.done():
                     assignment.future.set_result(list(message["results"]))

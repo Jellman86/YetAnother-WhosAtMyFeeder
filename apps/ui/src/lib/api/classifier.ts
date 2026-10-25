@@ -77,6 +77,7 @@ export interface ClassifierStatus {
     personalization_feedback_rows?: number;
     personalization_active_camera_models?: number;
     crop_detector?: {
+        last_execution?: components['schemas']['InferenceExecution'] | null;
         model_id: string;
         chosen_model_id?: string;
         selected_tier?: string;
@@ -87,6 +88,14 @@ export interface ClassifierStatus {
         reason: string;
         model_path?: string | null;
         load_error?: string | null;
+        /** The once-per-runtime re-check of accelerators this finder passed before. */
+        device_check?: {
+            state: 'idle' | 'waiting' | 'running' | 'succeeded' | 'failed' | 'superseded' | 'interrupted';
+            model_id: string | null;
+            providers: string[];
+            reason: string | null;
+            checked_at: string | null;
+        };
     };
 }
 

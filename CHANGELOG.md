@@ -7,6 +7,50 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ## [Unreleased]
 
 - Support bundles include the last two bounded DRM counter diagnostics, distinguishing unreadable counters, missing or frozen cycle totals, and GPU client turnover without exporting raw process files.
+- Bird finder settings distinguish the host recommendation from the last completed
+  run and its CPU fallback, and keep the scoped device check available to repeat.
+  Garden settings and automatic results show completed device/time evidence;
+  CPU-only wording now explicitly refers to the motion detector.
+- With automatic Garden naming enabled, confident animals are confirmed and named
+  at the configured species threshold. Successful low-confidence checks move to
+  restorable Dismissed instead of asking for presence verification. Older pending
+  automatic results without owner overrides are reconsidered once. Failed checks
+  retain their retry delay, and missing country or catalogue identity is explained.
+
+
+- **Garden review moved into the Explorer; the Garden animals page is retired.** A
+  **Visitors** filter at the top of the Explorer's filter rail chooses birds, Garden
+  visitors or both, and under Garden visitors a **Review** filter chooses Needs review,
+  Confirmed animals or Dismissed. Motion proposals around one position open as a single
+  card. Its record steps through the photos one at a time, keeps confirmation per photo,
+  and offers **Dismiss remaining … photos** with Undo. **Return to review**, **Check
+  photo** and a model and device choice for suggestions are in the Garden record.
+  Collection status moved to **Settings → Beta features → Garden models**. Old `/garden`
+  links open the Explorer's Garden review, and say so when Garden is switched off. The
+  timeline endpoint gains `status`. The Explorer's Cards/List switch now wraps instead
+  of running off a 320px screen at the largest text size.
+- Garden captures are grouped into visits in the Explorer, as birds are: one camera, one
+  animal, captures less than a minute apart. Unconfirmed motion proposals keep their
+  position stacks. Garden cards, list rows and the Garden record now follow the bird
+  card, row and record layouts, and a row's name lines up with bird names.
+
+- **Garden animals in the Explorer** (beta, owner only). Confirmed animals and captures
+  waiting for review now appear between the bird visits they fell between, in cards and
+  in the list, each marked **Garden** in words. A capture that needs you is flagged in
+  amber with its reason. The **Visitors** filter chooses birds, Garden visitors or both. Opening a
+  capture shows a Garden record with its photograph and detector box, the automatic
+  check, and the presence and species decisions, with no bird-only actions. Garden
+  captures stay stored apart, so no bird total, export or notification counts them. New
+  owner-only read endpoint: `GET /api/garden/timeline`.
+
+- The bird finder no longer drops to the CPU for good after a host kernel, driver or
+  image update. After startup, YA-WAMF re-checks the chosen finder once on the graphics
+  or NPU devices it passed before, using this host's newest saved bird snapshots, and
+  workers move back to the fastest matching device on their next crop. A finder that
+  never passed an accelerator here is not checked automatically. Each finder card now
+  names the devices it could use on this host and the state of that re-check, and the
+  chosen finder offers a device check scoped to it, which leaves the identification
+  model untouched.
 
 - Automatic Garden checks can use the Detection device preference after a host-bound CPU comparison, with safe CPU fallback and persistent blocking of failed provider profiles.
 

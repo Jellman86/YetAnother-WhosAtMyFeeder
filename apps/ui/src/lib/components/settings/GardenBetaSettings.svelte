@@ -153,7 +153,7 @@
             <div class="flex flex-wrap items-start justify-between gap-4">
                 <div class="min-w-0">
                     <h4 id="garden-beta-naming" class="text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.beta.garden_naming', { default: 'Name animals automatically' })}</h4>
-                    <p class="text-xs text-slate-600 dark:text-slate-400">{$_('settings.beta.garden_naming_help', { default: 'When the automatic check is at least this sure of an animal, it is confirmed and named for you, marked as automatic. You can discard the name or dismiss the capture. Below the threshold it waits in Needs review.' })}</p>
+                    <p class="text-xs text-slate-600 dark:text-slate-400">{$_('settings.beta.garden_naming_help', { default: 'When the automatic check is at least this sure of an animal, it is confirmed and named for you, marked as automatic. You can discard the name or dismiss the capture. Below the threshold it moves to Dismissed and can be restored.' })}</p>
                 </div>
                 <SettingsToggle
                     checked={automaticNaming}
@@ -175,7 +175,7 @@
                         bind:value={namingThreshold}
                         aria-describedby="garden-naming-threshold-help"
                     />
-                    <p id="garden-naming-threshold-help" class="text-xs text-slate-600 dark:text-slate-400">{$_('settings.beta.garden_naming_threshold_help', { default: 'From 0.7 to 0.99. Higher values name fewer animals and leave more for you. Person and bird checks are unchanged.' })}</p>
+                    <p id="garden-naming-threshold-help" class="text-xs text-slate-600 dark:text-slate-400">{$_('settings.beta.garden_naming_threshold_help', { default: 'From 0.7 to 0.99. Higher values name fewer animals and dismiss more low-confidence photos. Person and bird checks are unchanged.' })}</p>
                 </div>
             {:else}
                 <p class="text-xs text-slate-600 dark:text-slate-400">{$_('settings.beta.garden_naming_off', { default: 'Every animal waits in Needs review for you to confirm and name it.' })}</p>
@@ -187,7 +187,7 @@
             <dl class="space-y-2 text-xs text-slate-600 dark:text-slate-400">
                 <div>
                     <dt class="font-semibold text-slate-800 dark:text-slate-100">{$_('garden.pending', { default: 'Needs review' })}</dt>
-                    <dd>{$_('settings.beta.garden_outcome_pending', { default: 'Animals that were not named automatically, uncertain or mixed results, and checks that could not run. Failed checks retry after five minutes.' })}</dd>
+                    <dd>{$_('settings.beta.garden_outcome_pending', { default: 'Checks waiting to run, failed checks waiting for retry, missing setup or catalogue identity, and owner overrides. Low-confidence completed checks move to Dismissed.' })}</dd>
                 </div>
                 <div>
                     <dt class="font-semibold text-slate-800 dark:text-slate-100">{$_('garden.confirmed', { default: 'Confirmed animals' })}</dt>
@@ -202,10 +202,10 @@
         </section>
 
         <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line-soft p-3">
-            <p class="min-w-0 flex-1 text-xs text-slate-600 dark:text-slate-400">{$_('settings.beta.garden_page_help', { default: 'Review captures, ask for species suggestions and see collection status on the Garden animals page.' })}</p>
+            <p class="min-w-0 flex-1 text-xs text-slate-600 dark:text-slate-400">{$_('settings.beta.garden_explorer_help', { default: 'Garden visitors appear in the Explorer beside your birds. Choose Garden visitors there, then Needs review, to work through new captures.' })}</p>
             {#if onNavigate}
-                <button type="button" class="btn btn-secondary min-h-11 max-w-full px-3 py-2 whitespace-normal" onclick={() => onNavigate?.('/garden')}>
-                    {$_('settings.beta.garden_page_open', { default: 'Open Garden animals' })}
+                <button type="button" class="btn btn-secondary min-h-11 max-w-full px-3 py-2 whitespace-normal" onclick={() => onNavigate?.('/events?visitors=garden&review=pending')}>
+                    {$_('settings.beta.garden_explorer_open', { default: 'Review Garden visitors' })}
                 </button>
             {/if}
         </div>

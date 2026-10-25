@@ -2013,3 +2013,81 @@ async def test_a_request_cancelled_while_a_lost_worker_is_restored_leaves_the_re
         await _cancelled(second)
     finally:
         await supervisor.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_supervisor_records_completed_finder_execution_from_the_current_lease():
+    created = []
+
+    async def factory(*, worker_name, worker_generation, **kwargs):
+        worker = _FakeWorker(worker_name, worker_generation)
+        created.append(worker)
+        return worker
+
+    supervisor = ClassifierSupervisor(
+        live_worker_count=1,
+        background_worker_count=1,
+        heartbeat_timeout_seconds=5,
+        hard_deadline_seconds=5,
+        worker_factory=factory,
+    )
+    try:
+        task = asyncio.create_task(
+            supervisor.classify(
+                priority="live", work_id="fixture", lease_token=1, image_b64="", camera_name=None, model_id=None
+            )
+        )
+        await _wait_for_sent(created)
+        request = created[0].sent_messages[0]
+        evidence = {
+            "model_id": "finder",
+            "provider": "intel_npu",
+            "devices": ["NPU"],
+            "checked_at": "2026-10-25T08:00:00Z",
+        }
+        runtime = {"active_provider": "intel_npu", "crop_execution": evidence}
+        await created[0].events.put(
+            {
+                "type": "result",
+                "worker_generation": created[0].worker_generation,
+                "request_id": request["request_id"],
+                "work_id": request["work_id"],
+                "lease_token": request["lease_token"],
+                "results": [],
+                "runtime": runtime,
+            }
+        )
+        await task
+        assert supervisor.get_metrics()["live"]["runtime"]["crop_execution"] == evidence
+        assert supervisor.get_metrics()["live"]["crop_execution"]["devices"] == ["NPU"]
+        # No assignment owns this late result, so it cannot replace accepted evidence.
+        await created[0].events.put({"type": "result", "runtime": {"crop_execution": {"provider": "cpu"}}})
+        await asyncio.sleep(0.01)
+        assert supervisor.get_metrics()["live"]["runtime"]["crop_execution"] == evidence
+        task = asyncio.create_task(
+            supervisor.classify(
+                priority="live", work_id="no-crop", lease_token=2, image_b64="", camera_name=None, model_id=None
+            )
+        )
+
+        async def sent_again():
+            while len(created[0].sent_messages) < 2:
+                await asyncio.sleep(0)
+
+        await asyncio.wait_for(sent_again(), 2)
+        request = created[0].sent_messages[-1]
+        await created[0].events.put(
+            {
+                "type": "result",
+                "worker_generation": created[0].worker_generation,
+                "request_id": request["request_id"],
+                "work_id": request["work_id"],
+                "lease_token": request["lease_token"],
+                "results": [],
+                "runtime": {"active_provider": "intel_npu", "crop_execution": None},
+            }
+        )
+        await task
+        assert supervisor.get_metrics()["live"]["crop_execution"]["devices"] == ["NPU"]
+    finally:
+        await supervisor.shutdown()

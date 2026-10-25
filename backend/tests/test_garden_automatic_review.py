@@ -492,7 +492,8 @@ async def test_animal_stays_in_review_when_it_cannot_be_named_honestly(naming, m
         c.bundle["bindings"][c.bundle["outputs"][DOMESTIC_CAT]["id"]] = None
     await c.service.process_once()
     result = await capture(c.capture_id)
-    assert result.status == "pending" and result.identification is None
+    assert result.status == ("dismissed" if reason == "below_threshold" else "pending")
+    assert result.identification is None
     assert result.automatic_check.outcome == "animal"
 
 
@@ -585,3 +586,118 @@ async def test_automatic_check_explains_actual_cpu_fallback(context, monkeypatch
     monkeypatch.setattr(c.module, "candidate_providers", lambda: ("intel_npu", "cpu"), raising=False)
     await c.service.process_once()
     assert "CPU fallback" in c.identification.automatic_message
+
+
+@pytest.mark.asyncio
+async def test_low_confidence_is_soft_dismissed_with_score_and_device_evidence(naming):
+    c = naming
+    c.native.return_value["predictions"][0][1] = 0.79
+    await c.service.process_once()
+    result = await capture(c.capture_id)
+    assert result.status == "dismissed"
+    assert not result.automation_overridden
+    assert result.automatic_check.decision_reason == "below_threshold"
+    assert result.automatic_check.naming_score == pytest.approx(0.79)
+    assert result.automatic_check.naming_threshold == 0.8
+    assert result.automatic_check.execution.provider == "cpu"
+    async with get_db() as db:
+        repo = GardenRepository(db)
+        assert await repo.motion_photo(c.capture_id) == b"photo"
+        await repo.review(c.capture_id, "pending")
+    await c.service.process_once()
+    assert (await capture(c.capture_id)).status == "pending"
+    assert c.native.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_old_unreviewed_uncertain_checks_are_reconsidered_once(naming):
+    c = naming
+    c.native.return_value["predictions"][0][1] = 0.3
+    c.native.return_value["assessment"]["mass"] = {
+        "bird": 0.2,
+        "animal": 0.4,
+        "human": 0.0,
+        "non_animal": 0.3,
+        "other": 0.1,
+    }
+    await c.service.process_once()
+    result = await capture(c.capture_id)
+    assert result.status == "dismissed"
+    assert result.automatic_check.decision_reason == "below_threshold"
+    # Reproduce an old successful pending assessment, before the automatic policy existed.
+    async with get_db() as db:
+        await db.execute("UPDATE garden_captures SET status='pending' WHERE id=?", (c.capture_id,))
+        await db.execute(
+            "UPDATE garden_automatic_checks SET result_json=json_remove(result_json,'$.policy_version') WHERE capture_id=?",
+            (c.capture_id,),
+        )
+        await db.commit()
+    await c.service.process_once()
+    assert (await capture(c.capture_id)).status == "dismissed"
+    await c.service.process_once()
+    assert c.native.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_garden_status_reads_completed_execution_after_service_restart(naming):
+    c = naming
+    await c.service.process_once()
+    status = await c.identification.status()
+    assert status.last_execution.provider == "cpu"
+    assert status.last_execution.model_id == "garden-speciesnet-4.0.3a"
+    assert status.last_execution.checked_at.endswith("Z")
+    # Legacy records still expose their actual devices without inventing a fallback.
+    async with get_db() as db:
+        await db.execute(
+            "UPDATE garden_automatic_checks SET result_json=json_remove(result_json,'$.execution') WHERE capture_id=?",
+            (c.capture_id,),
+        )
+        await db.commit()
+    status = await c.identification.status()
+    assert status.last_execution.devices == ["CPUExecutionProvider"]
+    assert status.last_execution.fallback_reason is None
+
+
+@pytest.mark.asyncio
+async def test_owner_naming_threshold_is_not_overridden_by_the_coarse_presence_floor(naming, monkeypatch):
+    c = naming
+    monkeypatch.setattr(settings.frigate, "garden_naming_threshold", 0.7)
+    c.native.return_value["assessment"]["mass"] = {
+        "bird": 0.1,
+        "animal": 0.75,
+        "human": 0.0,
+        "non_animal": 0.1,
+        "other": 0.05,
+    }
+    c.native.return_value["predictions"][0][1] = 0.73
+    await c.service.process_once()
+    result = await capture(c.capture_id)
+    assert result.status == "confirmed"
+    assert result.identification.automatic
+    assert result.identification.score == pytest.approx(0.73)
+
+
+@pytest.mark.asyncio
+async def test_setting_country_resumes_automatic_naming_without_manual_confirmation(naming, monkeypatch):
+    c = naming
+    monkeypatch.setattr(settings.location, "country", None)
+    await c.service.process_once()
+    assert (await capture(c.capture_id)).automatic_check.decision_reason == "location_required"
+    monkeypatch.setattr(settings.location, "country", "GB")
+    await c.service.process_once()
+    assert (await capture(c.capture_id)).identification.automatic
+
+
+@pytest.mark.asyncio
+async def test_disabling_automatic_naming_during_inference_prevents_a_late_decision(naming, monkeypatch):
+    c = naming
+
+    async def changed(*args):
+        monkeypatch.setattr(settings.frigate, "garden_automatic_naming", False)
+        return c.native.return_value
+
+    c.native.side_effect = changed
+    await c.service.process_once()
+    result = await capture(c.capture_id)
+    assert result.status == "pending"
+    assert result.automatic_check is None

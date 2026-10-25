@@ -1,4 +1,5 @@
 <script lang="ts">
+    import ModelExecutionEvidence from '../ModelExecutionEvidence.svelte';
     /**
      * Garden's own models, downloaded only when the owner asks. The Garden API answers only while
      * the saved beta switch is on, so status waits for Apply rather than guessing. A download
@@ -207,9 +208,34 @@
                         : $_('settings.beta.garden_country_missing', { default: 'Set a country in Settings → Location. Without one, animals are not named automatically and species suggestions are unavailable.' })}
                 </p>
             {/if}
+
+            <!-- What Garden is doing now, as measured by the service; nothing here is a setting. -->
+            <div class="space-y-1 rounded-xl border border-line-soft p-3" role="group" aria-labelledby="garden-collection-status" data-garden-collection-status>
+                <h5 id="garden-collection-status" class="text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.beta.garden_status_title', { default: 'Collection status' })}</h5>
+                {#if identification}
+                    {#if identification.preferred_provider}<p class="text-xs">{$_('model_execution.garden_preference', { default: 'Automatic check device preference: {device}. A new accelerator must agree with CPU first.', values: { device: ({ intel_npu: 'NPU', intel_gpu: 'Intel GPU', intel_cpu: 'Intel CPU', cuda: 'NVIDIA GPU', cpu: 'CPU' })[identification.preferred_provider] } })}</p>{/if}
+                    <ModelExecutionEvidence execution={identification.last_execution} />
+                {/if}
+                {#if identification?.automatic_message}<p class="text-xs" data-garden-automatic-status>{identification.automatic_message}</p>{/if}
+                {#if !motion}
+                    <p class="text-xs" role="status">{$_('garden.model_status_unavailable', { default: 'Model status unavailable. Refresh to try again.' })}</p>
+                {:else}
+                    <p class="text-xs" role="status" data-garden-motion-status>{motion.message}</p>
+                    {#if motion.interval_seconds !== undefined && motion.photo_limit !== undefined && motion.photo_retention_days !== undefined}
+                        <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.motion_limits_scoped', { default: 'Motion detector only: CPU · At least {seconds}s between scans · Up to {limit} photos · {days}-day photo retention', values: { seconds: motion.interval_seconds, limit: motion.photo_limit, days: motion.photo_retention_days } })}</p>
+                    {/if}
+                    {#if motion.queue_limit !== undefined && motion.catchup_seconds !== undefined}
+                        <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.motion_coverage', { default: 'Up to {limit} short windows queued per camera from the last {minutes} minutes. Birds and camera pressure pause collection; brief visits can be missed.', values: { limit: motion.queue_limit, minutes: motion.catchup_seconds / 60 } })}</p>
+                    {/if}
+                    {#if motion.queue_camera && motion.queue_checked_at}
+                        <p class="break-words text-xs">{$_('garden.motion_queue', { default: '{camera}: {count} windows waiting when checked at {time}. More may be available at the queue limit.', values: { camera: motion.queue_camera, count: motion.queued_windows ?? 0, time: new Date(motion.queue_checked_at).toLocaleString() } })}</p>
+                    {/if}
+                    {#if motion.last_scan_at}<p class="text-xs">{$_('garden.motion_last_scan', { default: 'Last scan: {time}', values: { time: new Date(motion.last_scan_at).toLocaleString() } })}</p>{/if}
+                {/if}
+            </div>
         {/if}
 
-        <p class="text-xs text-slate-600 dark:text-slate-400">{$_('settings.beta.garden_models_limits', { default: 'Automatic checks follow your Detection device preference after a local CPU comparison, with CPU fallback if the device check fails. Motion scans still use CPU. Garden work runs one at a time while birds and cameras are idle; each worker releases its model memory when it stops. Checks you start on the Garden animals page use the processor you request and fail rather than silently switch devices.' })}</p>
+        <p class="text-xs text-slate-600 dark:text-slate-400">{$_('settings.beta.garden_models_limits_explorer', { default: 'Automatic checks follow your Detection device preference after a local CPU comparison, with CPU fallback if the device check fails. Motion scans still use CPU. Garden work runs one at a time while birds and cameras are idle; each worker releases its model memory when it stops. Checks you start from a Garden capture in the Explorer use the device you choose there and fail rather than silently switch devices.' })}</p>
 
         <button type="button" class="btn btn-ghost min-h-11 max-w-full px-3 py-2 whitespace-normal" disabled={loading || downloading !== null} onclick={() => refresh()}>
             {$_('settings.beta.garden_models_refresh', { default: 'Refresh model status' })}

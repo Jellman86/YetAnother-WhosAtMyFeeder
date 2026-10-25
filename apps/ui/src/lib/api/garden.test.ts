@@ -44,3 +44,24 @@ describe('advisory garden photo checks', () => {
         expect(await received?.json()).toEqual({ image_sha256: 'a'.repeat(64), provider: 'intel_npu' });
     });
 });
+
+describe('garden Explorer timeline requests', () => {
+    it('asks for one window, camera and order, and leaves out what was not chosen', async () => {
+        const { fetchGardenTimeline } = await import('./garden');
+        setAuthToken('owner-session');
+        const urls: string[] = [];
+        vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+            urls.push(url);
+            return new Response('{"items":[],"total":0,"limit":200,"offset":0}', { headers: { 'Content-Type': 'application/json' } });
+        }));
+        await fetchGardenTimeline({ start: '2026-10-13T00:00:00.000Z', end: '2026-10-14T00:00:00.000Z', camera: 'patio', order: 'oldest', limit: 200 });
+        await fetchGardenTimeline({ start: null, order: 'newest', limit: 24, offset: 48 });
+        const [windowed, open] = urls.map((url) => new URL(url, 'http://localhost'));
+        expect(windowed.pathname).toBe('/api/garden/timeline');
+        expect(Object.fromEntries(windowed.searchParams)).toEqual({
+            order: 'oldest', limit: '200', offset: '0',
+            start: '2026-10-13T00:00:00.000Z', end: '2026-10-14T00:00:00.000Z', camera: 'patio'
+        });
+        expect(Object.fromEntries(open.searchParams)).toEqual({ order: 'newest', limit: '24', offset: '48' });
+    });
+});

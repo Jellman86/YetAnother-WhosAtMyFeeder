@@ -24,9 +24,24 @@ describe('bird finder choice', () => {
     it("states each finder's costs and the device it will use on this host", () => {
         expect(modelManagerSource).toContain('ramShortLabel(option.model.estimated_ram_mb)');
         expect(modelManagerSource).toContain('option.model.file_size_mb');
-        expect(modelManagerSource).toContain('birdFinderDevice(getInstalledModel(option.model.id))');
-        expect(en.settings.detection.bird_finder_device_cpu_unchecked).toMatch(/CPU/);
+        expect(modelManagerSource).toContain('birdFinderDevice(getInstalledModel(option.model.id), hostProviders, option.model)');
+        expect(en.settings.detection.bird_finder_recommended_unchecked).toMatch(/CPU until \{devices\}/);
         expect(en.settings.detection.bird_finder_default_badge).toBe('Default');
+    });
+
+    it('names the devices a finder could use and offers a check scoped to the chosen finder', () => {
+        expect(modelManagerSource).not.toContain('bird_finder_device_cpu_unchecked');
+        expect(modelManagerSource).toContain("cropDetectorStatus?.device_check");
+        expect(modelManagerSource).toContain('oncheckfinderdevices');
+        expect(modelManagerSource).toContain('disabled={deviceCheckRunning}');
+        expect(en.settings.detection.bird_finder_check_devices).toBe('Check {devices} for {name}');
+        expect(en.settings.detection.bird_finder_check_devices_hint).toMatch(/identification model is not changed/);
+    });
+
+    it('keeps a repeat device check and distinguishes recommended from completed execution', () => {
+        expect(modelManagerSource).toContain("chosenDeviceNote !== 'check_running'");
+        expect(modelManagerSource).toContain('<ModelExecutionEvidence');
+        expect(en.settings.detection.bird_finder_recommended_checked).toMatch(/^Recommended:/);
     });
 
     it('says plainly when the chosen finder is not in use yet, and when a change waits for Apply', () => {
