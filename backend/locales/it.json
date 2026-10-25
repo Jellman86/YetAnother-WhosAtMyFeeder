@@ -3,7 +3,11 @@
     "new_detection": "Nuovo Uccello Rilevato: {species}",
     "detection_body": "{species} rilevato su {camera} con confidenza del {confidence}%",
     "audio_confirmed": "🎤 Audio Confermato da BirdNET-Go",
-    "view_detection": "Vedi il rilevamento"
+    "view_detection": "Vedi il rilevamento",
+    "garden_title": "Animale del giardino: {name}",
+    "garden_body": "{camera} · {timestamp}\n{source}",
+    "garden_automatic": "Identificato automaticamente",
+    "garden_owner": "Specie confermata dal proprietario"
   },
   "errors": {
     "detection_not_found": "Rilevamento non trovato",

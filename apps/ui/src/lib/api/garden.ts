@@ -104,3 +104,11 @@ export async function fetchGardenVisitCaptures(id: string, query: Pick<GardenTim
     params.set('offset', String(offset));
     return handleResponse<GardenPage>(await apiFetch(`${API_BASE}/garden/visits/${encodeURIComponent(id)}/captures?${params}`, { timeoutMs: 15000 }));
 }
+
+
+export type GardenNotificationStatus = components['schemas']['GardenNotificationStatus'];
+export type GardenNotificationChannel = GardenNotificationStatus['channels'][number];
+
+export async function fetchGardenNotifications(signal?: AbortSignal): Promise<GardenNotificationStatus> {
+    return handleResponse<GardenNotificationStatus>(await apiFetch(`${API_BASE}/garden/notifications`, { signal }));
+}

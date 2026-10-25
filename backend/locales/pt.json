@@ -3,7 +3,11 @@
     "new_detection": "Novo Pássaro Detectado: {species}",
     "detection_body": "{species} detectado na câmera {camera} com {confidence}% de confiança",
     "audio_confirmed": "🎤 Áudio Confirmado pelo BirdNET-Go",
-    "view_detection": "Ver deteção"
+    "view_detection": "Ver deteção",
+    "garden_title": "Animal do jardim: {name}",
+    "garden_body": "{camera} · {timestamp}\n{source}",
+    "garden_automatic": "Identificado automaticamente",
+    "garden_owner": "Espécie confirmada pelo proprietário"
   },
   "errors": {
     "detection_not_found": "Detecção não encontrada",

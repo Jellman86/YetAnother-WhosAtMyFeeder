@@ -419,3 +419,27 @@ test('Garden shows the actual last NPU execution separately from CPU-only motion
     await expect(status).toContainText('Automatic check device preference: NPU');
     await expect(status).toContainText('Last completed run: NPU');
 });
+
+test('Garden alerts opt in to their own channels and report saved attempts without enabling bird alerts', async ({ page }) => {
+    const harness = await openSettings(page, { garden_cameras: ['patio'], notifications_telegram_enabled: false }, ['patio'], (route, path) => {
+        if (path === '/api/garden/notifications') return route.fulfill({ json: {
+            enabled: false, channels: [], configured: { telegram: true, discord: false, pushover: false, email: false },
+            attempts: { sent: 2, failed: 1, attempted: 0, skipped: 0 }
+        } });
+    });
+    await openBeta(page);
+    const toggle = page.getByRole('switch', { name: /^Garden notifications/ });
+    await expect(toggle).toHaveAttribute('aria-checked', 'false');
+    await expect(page.getByRole('button', { name: 'Garden alerts via Telegram', exact: true })).toHaveCount(0);
+    await toggle.click();
+    await page.getByRole('button', { name: 'Garden alerts via Telegram', exact: true }).click();
+    await expect(page.locator('[data-garden-notification-status]')).toContainText('Accepted by channel: 2');
+    await page.getByRole('button', { name: /Apply Settings/i }).click();
+    await expect.poll(() => harness.writes.length).toBe(1);
+    expect(harness.writes[0]).toMatchObject({ garden_notifications_enabled: true,
+        garden_notification_channels: ['telegram'], notifications_telegram_enabled: false });
+    expect(harness.otherWrites).toEqual([]);
+    await page.setViewportSize({ width: 320, height: 800 });
+    await page.evaluate(() => document.documentElement.style.fontSize = '200%');
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});

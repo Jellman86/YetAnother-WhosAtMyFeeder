@@ -18,6 +18,7 @@ from app.models.garden import GardenAutomaticCheck, GardenIdentification, Garden
 from app.repositories.garden_repository import GardenCapture, GardenRepository
 from app.services import garden_motion_privacy
 from app.services.broadcaster import broadcaster
+from app.services.garden_notifications import garden_notification_service
 from app.services.classifier_service import garden_inference_pressure
 from app.services.frigate_client import frigate_client
 from app.services.garden_capture_policy import garden_collection_cameras
@@ -117,6 +118,8 @@ class GardenAutomaticReviewService:
         guard_time = time.monotonic()
         watcher: asyncio.Task | None = None
         changed = False
+        named_saved = False
+        named: GardenIdentification | None = None
 
         def blocked() -> bool:
             return (
@@ -264,6 +267,7 @@ class GardenAutomaticReviewService:
                         )
                         if named is not None:
                             changed = await repo.save_automatic_naming(original, result, named)
+                            named_saved = changed
                             service.automatic_message = (
                                 "Automatic check named an animal; it is in Confirmed animals, where you can correct it."
                             )
@@ -316,6 +320,8 @@ class GardenAutomaticReviewService:
             service.busy = False
         if changed:
             await broadcaster.broadcast({"type": "garden_history_changed"})
+            if named_saved:
+                await garden_notification_service.schedule(original.id)
 
 
 garden_automatic_review_service = GardenAutomaticReviewService()

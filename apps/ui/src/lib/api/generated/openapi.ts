@@ -1145,6 +1145,12 @@ export interface components {
     queued_windows?: number;
     state: "disabled" | "waiting" | "scanning" | "unavailable";
 };
+    GardenNotificationStatus: {
+    attempts: Record<string, number>;
+    channels: Array<"discord" | "telegram" | "pushover" | "email">;
+    configured: Record<string, boolean>;
+    enabled: boolean;
+};
     GardenPhotoCheck: {
     box_xywh: [number, number, number, number];
     capture_id: string;
@@ -1841,6 +1847,8 @@ export interface components {
     garden_motion_cameras: Array<string>;
     garden_motion_confidence?: number;
     garden_naming_threshold?: number;
+    garden_notification_channels: Array<"discord" | "telegram" | "pushover" | "email">;
+    garden_notifications_enabled?: boolean;
     ha_weather_access_token?: string | null;
     ha_weather_base_url?: string | null;
     ha_weather_cloud_cover_entity?: string | null;
@@ -2055,6 +2063,8 @@ export interface components {
     garden_motion_cameras?: Array<string>;
     garden_motion_confidence?: number;
     garden_naming_threshold?: number;
+    garden_notification_channels?: Array<"discord" | "telegram" | "pushover" | "email">;
+    garden_notifications_enabled?: boolean;
     ha_weather_access_token?: string | null;
     ha_weather_base_url?: string | null;
     ha_weather_cloud_cover_entity?: string | null;
@@ -3990,6 +4000,15 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: components['schemas']['GardenMotionStatus'];
+    };
+  };
+  "/api/garden/notifications": {
+    get: {
+      operationId: "garden_notification_status_api_garden_notifications_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['GardenNotificationStatus'];
     };
   };
   "/api/garden/review-batch": {

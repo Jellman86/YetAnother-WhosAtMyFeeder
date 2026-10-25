@@ -422,3 +422,20 @@ Optional developer tools, hidden unless you enable them:
 
 This reveals a **Debug** section in the Settings navigation, holding things like the
 iNaturalist preview toggle and the LLM prompt editors.
+
+
+## Garden notifications
+
+Under **Settings → Beta features**, Garden notifications are off by default.
+Select channels explicitly and save with **Apply settings**. Saved credentials
+and recipients come from Notifications; bird alert switches may remain off.
+See [Garden notifications](../features/garden-animals.md#send-garden-notifications)
+for eligibility, privacy and delivery status.
+
+| Environment override | Default | Meaning |
+|---|---|---|
+| `FRIGATE__GARDEN_NOTIFICATIONS_ENABLED` | `false` | Allow separate Garden alerts while the Garden beta is enabled. |
+| `FRIGATE__GARDEN_NOTIFICATION_CHANNELS` | `[]` | JSON array of `discord`, `telegram`, `pushover`, `email`, for example `["telegram"]`. |
+
+Environment overrides take precedence on restart. Without overrides, the Garden
+notification choices persist in `/config/config.json`.

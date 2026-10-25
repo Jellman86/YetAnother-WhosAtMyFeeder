@@ -3,7 +3,11 @@
     "new_detection": "Обнаружена птица: {species}",
     "detection_body": "{species} обнаружена на камере {camera} с уверенностью {confidence}%",
     "audio_confirmed": "🎤 Аудио подтверждено через BirdNET-Go",
-    "view_detection": "Открыть обнаружение"
+    "view_detection": "Открыть обнаружение",
+    "garden_title": "Животное в саду: {name}",
+    "garden_body": "{camera} · {timestamp}\n{source}",
+    "garden_automatic": "Определено автоматически",
+    "garden_owner": "Вид подтверждён владельцем"
   },
   "errors": {
     "detection_not_found": "Обнаружение не найдено",

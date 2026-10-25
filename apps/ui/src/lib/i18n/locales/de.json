@@ -1971,7 +1971,17 @@
       "garden_status_title": "Erfassungsstatus",
       "garden_models_limits_explorer": "Automatische Prüfungen folgen nach einem lokalen CPU-Vergleich deiner Geräteauswahl unter Erkennung und weichen auf die CPU aus, wenn die Geräteprüfung fehlschlägt. Bewegungsscans nutzen weiterhin die CPU. Gartenarbeit läuft einzeln, während Vögel und Kameras ruhen; jeder Prozess gibt beim Beenden seinen Modellspeicher frei. Prüfungen, die du an einer Gartenaufnahme im Explorer startest, nutzen das dort gewählte Gerät und schlagen fehl, statt still das Gerät zu wechseln.",
       "garden_explorer_help": "Gartenbesucher erscheinen im Explorer neben deinen Vögeln. Wähle dort Gartenbesucher und dann Prüfung nötig, um neue Aufnahmen durchzugehen.",
-      "garden_explorer_open": "Gartenbesucher prüfen"
+      "garden_explorer_open": "Gartenbesucher prüfen",
+      "garden_notifications": "Gartenbenachrichtigungen",
+      "garden_notifications_help": "Textmeldungen für neu benannte Tiere, getrennt von Vogelmeldungen. Mit Einstellungen anwenden speichern.",
+      "garden_notifications_privacy": "Sendet Tiername, Kamera und Zeit an ausgewählte Dienste. Keine Fotos oder Medienlinks. Verlaufslinks erfordern weiterhin Besitzerzugriff.",
+      "garden_notification_channels": "Zustellkanäle für den Garten",
+      "garden_notification_channel": "Gartenmeldungen über {channel}",
+      "garden_notifications_choose": "Wähle mindestens einen Kanal für Gartenmeldungen.",
+      "garden_notifications_credentials": "Bei einem ausgewählten Kanal fehlen Zugangsdaten. Richte ihn unter Benachrichtigungen ein; Vogelmeldungen können ausgeschaltet bleiben.",
+      "garden_notifications_attempts_help": "Nur benannte Aufnahmen der letzten fünf Minuten kommen infrage. Ein Versuch je Kanal und bekanntem Besuch; fehlgeschlagene oder unklare Sendungen werden nicht automatisch wiederholt.",
+      "garden_notifications_status": "Gespeicherte Zustellversuche. Vom Kanal angenommen: {sent}. Fehlgeschlagen: {failed}. Unbestätigt: {unknown}. Übersprungen: {skipped}.",
+      "garden_notifications_refresh": "Zustellstatus aktualisieren"
     },
     "native_revalidation": {
       "title": "Quarantänisiertes Profil prüfen",

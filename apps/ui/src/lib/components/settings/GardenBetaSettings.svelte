@@ -9,6 +9,8 @@
     import { _ } from 'svelte-i18n';
     import SettingsRow from './_primitives/SettingsRow.svelte';
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
+    import GardenNotificationSettings from './GardenNotificationSettings.svelte';
+    import type { GardenNotificationChannel } from '../../api/garden';
     import GardenModelSetup from './GardenModelSetup.svelte';
     import { gardenThresholdStep } from '../../utils/garden-threshold';
 
@@ -19,6 +21,8 @@
         labels: string;
         motionConfidence: number;
         automaticNaming: boolean;
+        notificationsEnabled?: boolean;
+        notificationChannels?: GardenNotificationChannel[];
         namingThreshold: number;
         /** The saved threshold, so a calibrated value keeps its own precision while edited. */
         savedMotionConfidence?: number;
@@ -33,6 +37,8 @@
         labels = $bindable('cat, dog'),
         motionConfidence = $bindable(0.5),
         automaticNaming = $bindable(true),
+        notificationsEnabled = $bindable(false),
+        notificationChannels = $bindable<GardenNotificationChannel[]>([]),
         namingThreshold = $bindable(0.8),
         savedMotionConfidence,
         availableCameras,
@@ -79,6 +85,8 @@
         </section>
 
         <GardenModelSetup {motionCameras} />
+
+        <GardenNotificationSettings bind:enabled={notificationsEnabled} bind:channels={notificationChannels} />
 
         <section class="space-y-2" aria-labelledby="garden-beta-cameras">
             <h4 id="garden-beta-cameras" class="text-sm font-semibold text-slate-900 dark:text-white">
